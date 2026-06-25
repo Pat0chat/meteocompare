@@ -1,0 +1,19 @@
+*.iml
+.gradle
+/local.properties
+/.idea/
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+/app/build
+/app/release
+*.apk
+*.aab
+
+# Signing — NE JAMAIS committer le keystore ni les credentials
+keystore.properties
+*.jks
+*.keystore

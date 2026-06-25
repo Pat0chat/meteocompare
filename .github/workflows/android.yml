@@ -1,0 +1,122 @@
+name: Android CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+# Annule les builds en cours sur une même PR/branche quand un nouveau commit arrive.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          # Cache des dépendances Gradle. Sans ça chaque build re-télécharge
+          # ~500 MB de jars Android.
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Lint
+        # Lint d'abord — feedback rapide sur les XML, codes obsolètes, etc.
+        # On utilise `lint` (sur toutes les variantes) avec un --no-daemon
+        # car CI = run unique, le daemon n'apporte rien.
+        run: ./gradlew lintDebug --no-daemon
+
+      - name: Unit tests
+        run: ./gradlew testDebugUnitTest --no-daemon
+
+      - name: Build debug APK
+        # On reste sur debug pour la CI publique. Le release nécessiterait un
+        # keystore secret — à ajouter quand on aura un compte Play Store.
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Upload test reports
+        # `if: always()` pour récupérer les reports même quand un test échoue.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            app/build/reports/tests/
+            app/build/reports/lint-results-*.html
+          retention-days: 7
+
+      - name: Upload debug APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
+
+  # Job séparé pour les tests d'instrumentation : ils nécessitent un émulateur
+  # ou un device, ce qui prend ~10 min de plus. On les exécute uniquement sur
+  # main et les PR pour ne pas saturer les minutes CI sur les pushes de dev.
+  instrumented-tests:
+    name: Instrumentation tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    # Reactor virtualization requise pour KVM dans l'émulateur Android.
+    # Le runner ubuntu-latest standard supporte ça depuis 2023.
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          cache-read-only: true
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run instrumented tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 33
+          target: google_apis
+          arch: x86_64
+          # Émulateur sans GPU pour la fiabilité CI.
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: ./gradlew :app:connectedDebugAndroidTest --no-daemon
+
+      - name: Upload instrumentation reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: instrumentation-reports
+          path: app/build/reports/androidTests/
+          retention-days: 7

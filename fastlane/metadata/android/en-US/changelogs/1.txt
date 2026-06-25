@@ -1,0 +1,9 @@
+First public release.
+
+• Comparison of 8 weather models (AROME HD, AROME, ARPEGE EU, ARPEGE, ICON-EU, ICON, GFS, ECMWF)
+• Resolution-weighted confidence index (temperature, wind, rain)
+• Hourly confidence band over 7 days — direct visualization of uncertainty
+• Local cache for instant launch and offline mode
+• Custom model selection
+• Zero data collection, zero ads, zero tracking
+• Full TalkBack accessibility

@@ -1,0 +1,515 @@
+package com.meteocompare.app.ui.citydetail
+
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LargeTopAppBar
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.meteocompare.app.domain.model.CityForecast
+import com.meteocompare.app.domain.model.ConfidenceScore
+import com.meteocompare.app.domain.model.DailyForecast
+import com.meteocompare.app.domain.model.DayConfidence
+import com.meteocompare.app.domain.model.PrecipitationConfidence
+import com.meteocompare.app.domain.model.WeatherModel
+import com.meteocompare.app.ui.theme.ConfidenceHigh
+import com.meteocompare.app.ui.theme.ConfidenceLow
+import com.meteocompare.app.ui.theme.ConfidenceMedium
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+import kotlin.math.roundToInt
+
+// ============================================================================
+//  Public screen entry
+// ============================================================================
+
+@Suppress("UNUSED_PARAMETER")
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CityDetailScreen(
+    cityId: String,
+    onBack: () -> Unit,
+    viewModel: CityDetailViewModel = hiltViewModel()
+) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
+    CityDetailContent(
+        state = state,
+        isRefreshing = isRefreshing,
+        onBack = onBack,
+        onRefresh = viewModel::refresh
+    )
+}
+
+// ============================================================================
+//  Stateless content
+// ============================================================================
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun CityDetailContent(
+    state: CityDetailUiState,
+    isRefreshing: Boolean,
+    onBack: () -> Unit,
+    onRefresh: () -> Unit
+) {
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+
+    Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        topBar = {
+            LargeTopAppBar(
+                title = {
+                    val title = (state as? CityDetailUiState.Loaded)?.forecast?.city?.name
+                        ?: "Détail"
+                    Text(title)
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onRefresh) {
+                        Icon(Icons.Default.Refresh, contentDescription = "Actualiser")
+                    }
+                },
+                scrollBehavior = scrollBehavior
+            )
+        }
+    ) { padding ->
+        AnimatedContent(
+            targetState = state,
+            transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(300)) },
+            label = "detail-state",
+            contentKey = {
+                when (it) {
+                    CityDetailUiState.Loading -> "loading"
+                    is CityDetailUiState.Loaded -> "loaded"
+                    is CityDetailUiState.Error -> "error"
+                }
+            }
+        ) { s ->
+            when (s) {
+                CityDetailUiState.Loading -> LoadingView(padding)
+                is CityDetailUiState.Error -> ErrorView(
+                    message = s.message,
+                    onRetry = onRefresh,
+                    padding = padding
+                )
+                is CityDetailUiState.Loaded -> PullToRefreshBox(
+                    isRefreshing = isRefreshing,
+                    onRefresh = onRefresh,
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    LoadedView(
+                        forecast = s.forecast,
+                        weekly = s.weeklyConfidence,
+                        hourlyBands = s.hourlyBands,
+                        padding = padding
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LoadingView(padding: PaddingValues) {
+    Box(
+        modifier = Modifier.fillMaxSize().padding(padding).testTag(TAG_DETAIL_LOADING),
+        contentAlignment = Alignment.Center
+    ) {
+        CircularProgressIndicator()
+    }
+}
+
+@Composable
+private fun ErrorView(message: String, onRetry: () -> Unit, padding: PaddingValues) {
+    Box(
+        modifier = Modifier.fillMaxSize().padding(padding).padding(24.dp).testTag(TAG_DETAIL_ERROR),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(message, color = MaterialTheme.colorScheme.error)
+            Spacer(Modifier.height(16.dp))
+            TextButton(onClick = onRetry) {
+                Icon(Icons.Default.Refresh, contentDescription = null)
+                Spacer(Modifier.width(4.dp))
+                Text("Réessayer")
+            }
+        }
+    }
+}
+
+@Composable
+private fun LoadedView(
+    forecast: CityForecast,
+    weekly: List<DayConfidence>,
+    hourlyBands: List<com.meteocompare.app.domain.model.HourlyConfidenceBand>,
+    padding: PaddingValues
+) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().testTag(TAG_DETAIL_LOADED),
+        contentPadding = PaddingValues(
+            top = padding.calculateTopPadding(),
+            bottom = padding.calculateBottomPadding() + 16.dp
+        ),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        item("today_summary") {
+            weekly.firstOrNull()?.let { today ->
+                TodaySummaryCard(today, forecast.availableModels.size)
+            }
+        }
+
+        // Chart "bande de confiance" — placé haut car c'est le différenciateur clé
+        if (hourlyBands.size >= 2) {
+            item("hourly_confidence") {
+                SectionTitle("Bande de confiance")
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                    ),
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                ) {
+                    HourlyConfidenceChart(
+                        bands = hourlyBands,
+                        timezone = forecast.city.timezone
+                    )
+                }
+            }
+        }
+
+        item("chart") {
+            SectionTitle("Températures max par modèle")
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                ),
+                modifier = Modifier.padding(horizontal = 16.dp)
+            ) {
+                TemperatureComparisonChart(forecast)
+            }
+        }
+
+        item("temp_max_table") {
+            ForecastSection(
+                title = "Températures max",
+                forecast = forecast,
+                extractor = { daily, idx -> daily.tempMax.getOrNull(idx) },
+                formatter = { "${it.roundToInt()}°" }
+            )
+        }
+
+        item("temp_min_table") {
+            ForecastSection(
+                title = "Températures min",
+                forecast = forecast,
+                extractor = { daily, idx -> daily.tempMin.getOrNull(idx) },
+                formatter = { "${it.roundToInt()}°" }
+            )
+        }
+
+        item("precip_table") {
+            ForecastSection(
+                title = "Précipitations",
+                forecast = forecast,
+                extractor = { daily, idx -> daily.precipitationSum.getOrNull(idx) },
+                formatter = { mm ->
+                    if (mm < 0.05) "0" else "${"%.1f".format(mm)} mm"
+                }
+            )
+        }
+
+        item("wind_table") {
+            ForecastSection(
+                title = "Vent max",
+                forecast = forecast,
+                extractor = { daily, idx -> daily.windSpeedMax.getOrNull(idx) },
+                formatter = { "${it.roundToInt()} km/h" }
+            )
+        }
+
+        if (forecast.errors.isNotEmpty()) {
+            item("errors") { PartialErrorsSection(forecast.errors) }
+        }
+    }
+}
+
+@Composable
+private fun SectionTitle(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .semantics { heading() }
+    )
+}
+
+@Composable
+private fun ForecastSection(
+    title: String,
+    forecast: CityForecast,
+    extractor: (DailyForecast, Int) -> Double?,
+    formatter: (Double) -> String
+) {
+    Column {
+        SectionTitle(title)
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            ),
+            modifier = Modifier.padding(horizontal = 16.dp)
+        ) {
+            ForecastTable(
+                forecast = forecast,
+                valueExtractor = extractor,
+                valueFormatter = formatter,
+                modifier = Modifier.padding(8.dp)
+            )
+        }
+    }
+}
+
+@Composable
+internal fun TodaySummaryCard(today: DayConfidence, modelCount: Int) {
+    // Description unifiée pour TalkBack qui résume toutes les valeurs.
+    val a11yDescription = com.meteocompare.app.ui.accessibility.A11yFormatter
+        .todaySummaryDescription(today, modelCount)
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .semantics(mergeDescendants = true) {
+                contentDescription = a11yDescription
+            }
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Column {
+                    Text(
+                        text = "Aujourd'hui",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                    Text(
+                        text = today.date.format(LONG_DATE_FMT)
+                            .replaceFirstChar { it.uppercase() },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                    )
+                }
+                today.overallPercent?.let { ConfidenceBadge(it) }
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "$modelCount modèle${if (modelCount > 1) "s" else ""} analysé${if (modelCount > 1) "s" else ""}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+            )
+            Spacer(Modifier.height(12.dp))
+
+            VariableRow("Température max", today.tempMax, "°")
+            today.tempMin?.let {
+                Spacer(Modifier.height(4.dp))
+                VariableRow("Température min", it, "°")
+            }
+            Spacer(Modifier.height(4.dp))
+            PrecipRow(today.precipitation)
+            today.windMax?.let {
+                Spacer(Modifier.height(4.dp))
+                VariableRow("Vent max", it, " km/h")
+            }
+        }
+    }
+}
+
+@Composable
+private fun VariableRow(label: String, score: ConfidenceScore?, unit: String) {
+    if (score == null) return
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onPrimaryContainer
+        )
+        val text = if (score.spread <= 1.0) {
+            "${score.meanValue.roundToInt()}$unit"
+        } else {
+            "${score.minValue.roundToInt()}-${score.maxValue.roundToInt()}$unit"
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+            Spacer(Modifier.width(8.dp))
+            ConfidencePill(score.percent)
+        }
+    }
+}
+
+@Composable
+private fun PrecipRow(precip: PrecipitationConfidence?) {
+    if (precip == null) return
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "Précipitations",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onPrimaryContainer
+        )
+        val text = when (precip) {
+            is PrecipitationConfidence.NoRain -> "Sec"
+            is PrecipitationConfidence.Rain ->
+                "${precip.minMm.roundToInt()}-${precip.maxMm.roundToInt()} mm"
+            is PrecipitationConfidence.Divided ->
+                "${precip.modelsForRain}/${precip.modelCount} modèles ⚠"
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+            Spacer(Modifier.width(8.dp))
+            ConfidencePill(precip.percent)
+        }
+    }
+}
+
+@Composable
+private fun ConfidencePill(percent: Int) {
+    val color = when {
+        percent >= 80 -> ConfidenceHigh
+        percent >= 50 -> ConfidenceMedium
+        else -> ConfidenceLow
+    }
+    Surface(
+        color = color.copy(alpha = 0.2f),
+        modifier = Modifier.clip(MaterialTheme.shapes.extraSmall)
+    ) {
+        Text(
+            text = "$percent%",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = color,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+        )
+    }
+}
+
+@Composable
+private fun ConfidenceBadge(percent: Int) {
+    val color = when {
+        percent >= 80 -> ConfidenceHigh
+        percent >= 50 -> ConfidenceMedium
+        else -> ConfidenceLow
+    }
+    Surface(
+        color = color,
+        modifier = Modifier.clip(MaterialTheme.shapes.small)
+    ) {
+        Text(
+            text = "$percent% de confiance",
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.surface,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+        )
+    }
+}
+
+@Composable
+private fun PartialErrorsSection(errors: Map<WeatherModel, String>) {
+    Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+        HorizontalDivider()
+        Spacer(Modifier.height(12.dp))
+        Text(
+            text = "Modèles indisponibles",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.error
+        )
+        Spacer(Modifier.height(4.dp))
+        errors.forEach { (model, message) ->
+            Text(
+                text = "• ${model.displayName} : $message",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+// ─── Constants ──────────────────────────────────────────────────────────────
+
+private val LONG_DATE_FMT: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.FRENCH)
+
+internal const val TAG_DETAIL_LOADING = "detail_loading"
+internal const val TAG_DETAIL_ERROR = "detail_error"
+internal const val TAG_DETAIL_LOADED = "detail_loaded"

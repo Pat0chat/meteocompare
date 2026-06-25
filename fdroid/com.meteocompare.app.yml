@@ -1,0 +1,61 @@
+# Template pour le metadata F-Droid.
+#
+# À copier dans le repo fdroiddata sous metadata/com.meteocompare.app.yml
+# au moment de la soumission. Voir fdroid/SUBMISSION.md pour la procédure
+# complète.
+
+Categories:
+  - Science & Education
+License: Apache-2.0
+WebSite: https://github.com/USERNAME/MeteoCompare
+SourceCode: https://github.com/USERNAME/MeteoCompare
+IssueTracker: https://github.com/USERNAME/MeteoCompare/issues
+Changelog: https://github.com/USERNAME/MeteoCompare/releases
+Donate: https://liberapay.com/USERNAME
+
+AutoName: MeteoCompare
+
+Description: |-
+    MeteoCompare interroge en parallèle 8 modèles météorologiques de référence
+    (AROME, ARPEGE, ICON, GFS, ECMWF...) et calcule un indice de confiance
+    basé sur leur convergence.
+
+    Plutôt que d'afficher une prévision opaque, l'application montre où les
+    modèles s'accordent et où ils divergent — la vraie information utile pour
+    planifier sereinement vos activités extérieures.
+
+    Fonctionnalités principales :
+
+    * Comparaison de 8 modèles météo en parallèle
+    * Indice de confiance pondéré par résolution
+    * Bande de confiance horaire sur 7 jours
+    * Cache local pour démarrage instantané et mode offline
+    * Sélection personnalisée des modèles activés
+    * Accessibilité TalkBack complète
+
+    Vie privée :
+
+    * Zéro collecte de données
+    * Aucun analytics, aucun tracking, aucune publicité
+    * Aucun identifiant publicitaire (AD_ID explicitement retiré)
+    * Toutes les données restent sur votre appareil
+    * Seul backend interrogé : Open-Meteo (FOSS, sans compte requis)
+
+    Données fournies par Open-Meteo. Modèles : AROME et ARPEGE par
+    Météo-France, ICON par DWD, GFS par NOAA, ECMWF par le Centre Européen.
+
+RepoType: git
+Repo: https://github.com/USERNAME/MeteoCompare.git
+
+Builds:
+  - versionName: 0.1.0
+    versionCode: 1
+    commit: v0.1.0
+    subdir: app
+    gradle:
+      - yes
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags
+CurrentVersion: 0.1.0
+CurrentVersionCode: 1

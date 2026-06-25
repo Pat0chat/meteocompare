@@ -1,0 +1,72 @@
+MeteoCompare est l'application météo pensée pour les utilisateurs qui veulent comprendre la fiabilité d'une prévision, pas juste la consulter.
+
+Plutôt que d'afficher une seule prévision opaque, MeteoCompare interroge en parallèle 8 modèles météorologiques de référence et vous montre où ils s'accordent — et où ils divergent.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🌍 LES MODÈLES SUPPORTÉS
+
+• AROME France HD (Météo-France, 1.5 km, très haute résolution)
+• AROME France (Météo-France, 2.5 km)
+• ARPEGE Europe (Météo-France, 11 km)
+• ARPEGE World (Météo-France, 25 km)
+• ICON-EU (DWD, 7 km)
+• ICON (DWD, 13 km, global)
+• GFS (NOAA, 13 km, jusqu'à 16 jours)
+• ECMWF (Centre Européen, 25 km)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 INDICE DE CONFIANCE — LA FONCTIONNALITÉ CLÉ
+
+Un score 0-100 % vous indique à quel point les modèles s'accordent :
+• Convergence parfaite → 95 % (vous pouvez planifier sereinement)
+• Forte divergence → 30 % (incertitude réelle, gardez un plan B)
+
+La pondération privilégie les modèles haute-résolution sur leur zone de couverture (AROME en France, ARPEGE en Europe).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎨 VISUALISATIONS
+
+• Bande de confiance horaire sur 7 jours — voyez littéralement où et quand l'incertitude grandit
+• Comparaison superposée des courbes par modèle
+• Tableaux jour × modèle pour température, précipitations, vent
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔒 VIE PRIVÉE PAR CONCEPTION
+
+• Zéro collecte de données
+• Aucun analytics, aucun tracking, aucune publicité
+• Toutes les données restent sur votre appareil
+• Stockage local uniquement (favoris, cache, préférences)
+• Seules requêtes externes : Open-Meteo (gratuit, sans compte)
+
+L'application demande exactement deux permissions : INTERNET (pour interroger Open-Meteo) et ACCESS_NETWORK_STATE (pour détecter le mode hors-ligne).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✨ AUTRES FONCTIONNALITÉS
+
+• Villes favorites avec aperçu rapide du jour
+• Recherche de ville par nom
+• Cache offline (consultez les dernières prévisions sans réseau)
+• Pull-to-refresh
+• Sélection personnalisée des modèles activés
+• Thème clair/sombre automatique (Material You)
+• Accessibilité TalkBack complète
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ℹ️ DONNÉES MÉTÉO
+
+Fournies par Open-Meteo (https://open-meteo.com), service gratuit pour usage non commercial. MeteoCompare est indépendant et non affilié à Open-Meteo, Météo-France, NOAA, DWD ou ECMWF.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🛠️ POUR QUI ?
+
+• Randonneurs, voileux, agriculteurs, planificateurs d'événements en extérieur
+• Curieux des sciences atmosphériques
+• Toute personne fatiguée des apps météo qui prétendent à une certitude qu'elles n'ont pas

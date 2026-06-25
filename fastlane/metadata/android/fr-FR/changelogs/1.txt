@@ -1,0 +1,9 @@
+Première version publique.
+
+• Comparaison de 8 modèles météo (AROME HD, AROME, ARPEGE EU, ARPEGE, ICON-EU, ICON, GFS, ECMWF)
+• Indice de confiance pondéré par résolution (température, vent, pluie)
+• Bande de confiance horaire sur 7 jours — visualisation directe de l'incertitude
+• Cache local pour démarrage instantané et mode offline
+• Sélection personnalisée des modèles activés
+• Zéro collecte de données, zéro publicité, zéro tracking
+• Accessibilité TalkBack complète
