@@ -30,6 +30,20 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /**
+ * Style optionnel pour une cellule de valeur. Quand fourni via [ForecastTable.valueStyler],
+ * permet de moduler couleur et graisse du texte en fonction de la valeur — par exemple
+ * pour rendre les fortes précipitations en bleu foncé gras, ou les vents violents en orange.
+ *
+ * Si `null` est retourné par le styler pour une valeur donnée, on retombe sur le style
+ * neutre (onSurface, FontWeight.Normal). Utile pour ne styliser que les valeurs
+ * "remarquables" au-dessus d'un seuil.
+ */
+data class ValueStyle(
+    val color: Color,
+    val fontWeight: FontWeight
+)
+
+/**
  * Tableau Jour × Modèle pour une variable donnée.
  *
  * Layout :
@@ -43,13 +57,17 @@ import java.util.Locale
  * @param valueExtractor Fonction qui renvoie la valeur (Double?) pour un
  *   modèle et un index de jour donnés. Retourner null laisse une cellule "—".
  * @param valueFormatter Fonction de formatage (ex: `{ "${it.roundToInt()}°" }`).
+ * @param valueStyler Optionnel — applique une couleur et graisse selon la valeur,
+ *   pour mettre en évidence visuellement les valeurs élevées (pluie forte, vent fort).
+ *   `null` (défaut) → style neutre uniforme.
  */
 @Composable
 fun ForecastTable(
     forecast: CityForecast,
     valueExtractor: (DailyForecast, Int) -> Double?,
     valueFormatter: (Double) -> String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    valueStyler: ((Double) -> ValueStyle?)? = null
 ) {
     // Toutes les dates couvertes par au moins un modèle, triées
     val dates = remember(forecast) {
@@ -106,6 +124,7 @@ fun ForecastTable(
                         val value = valueAt(forecast, model, date, valueExtractor)
                         ValueCell(
                             text = value?.let(valueFormatter) ?: "—",
+                            style = value?.let { v -> valueStyler?.invoke(v) },
                             background = if (idx % 2 == 1) rowAltBg else Color.Transparent
                         )
                     }
@@ -152,7 +171,7 @@ private fun DayLabelCell(date: LocalDate, background: Color) {
 }
 
 @Composable
-private fun ValueCell(text: String, background: Color) {
+private fun ValueCell(text: String, style: ValueStyle?, background: Color) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -162,7 +181,12 @@ private fun ValueCell(text: String, background: Color) {
     ) {
         Text(
             text = text,
-            style = MaterialTheme.typography.bodyMedium
+            style = MaterialTheme.typography.bodyMedium,
+            // Si pas de style fourni → couleur par défaut (onSurface via MaterialTheme).
+            // L'utilisation de `Color.Unspecified` indique à Text de prendre la couleur
+            // depuis le LocalContentColor courant, ce qui respecte le thème.
+            color = style?.color ?: Color.Unspecified,
+            fontWeight = style?.fontWeight
         )
     }
 }

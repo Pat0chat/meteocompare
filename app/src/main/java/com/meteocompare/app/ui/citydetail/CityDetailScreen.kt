@@ -51,6 +51,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -298,7 +299,8 @@ private fun LoadedView(
                 extractor = { daily, idx -> daily.precipitationSum.getOrNull(idx) },
                 formatter = { mm ->
                     if (mm < 0.05) "0" else "${"%.1f".format(mm)} mm"
-                }
+                },
+                valueStyler = ::precipitationStyle
             )
         }
 
@@ -307,7 +309,8 @@ private fun LoadedView(
                 title = "Vent max",
                 forecast = forecast,
                 extractor = { daily, idx -> daily.windSpeedMax.getOrNull(idx) },
-                formatter = { "${it.roundToInt()} km/h" }
+                formatter = { "${it.roundToInt()} km/h" },
+                valueStyler = ::windStyle
             )
         }
 
@@ -334,7 +337,8 @@ private fun ForecastSection(
     title: String,
     forecast: CityForecast,
     extractor: (DailyForecast, Int) -> Double?,
-    formatter: (Double) -> String
+    formatter: (Double) -> String,
+    valueStyler: ((Double) -> ValueStyle?)? = null
 ) {
     Column {
         SectionTitle(title)
@@ -348,6 +352,7 @@ private fun ForecastSection(
                 forecast = forecast,
                 valueExtractor = extractor,
                 valueFormatter = formatter,
+                valueStyler = valueStyler,
                 modifier = Modifier.padding(8.dp)
             )
         }
@@ -580,3 +585,63 @@ private val LONG_DATE_FMT: DateTimeFormatter =
 internal const val TAG_DETAIL_LOADING = "detail_loading"
 internal const val TAG_DETAIL_ERROR = "detail_error"
 internal const val TAG_DETAIL_LOADED = "detail_loaded"
+
+// ============================================================================
+//  Stylers d'intensité — couleur + graisse modulées selon la valeur
+// ============================================================================
+//
+//  Pourquoi des bins discrets et pas une interpolation continue :
+//
+//  Une interpolation HSL color de "neutral → dark blue" sur [0, 30mm] donne
+//  une couleur visuellement légèrement différente à chaque pas, ce qui rend
+//  les cellules adjacentes "pas-tout-à-fait-pareil" — pénible à lire, donne
+//  une fausse impression de granularité. Des bins de 4-5 paliers calés sur
+//  des seuils meteorologiques réels (drizzle, pluie modérée, forte, etc.)
+//  rendent les sauts de couleur LISIBLES comme du signal — l'œil identifie
+//  immédiatement les jours "remarquables" par rapport au reste.
+//
+//  Les seuils correspondent grossièrement aux catégories de Météo-France et
+//  à l'échelle de Beaufort respectivement, mais simplifiées pour 5 paliers.
+
+/**
+ * Style de la cellule en fonction des précipitations en mm/jour.
+ *
+ *   - < 0.05 mm  : null (neutre)
+ *   - 0.05–1    : bleu clair, Normal
+ *   - 1–5       : bleu, Medium
+ *   - 5–15      : bleu foncé, SemiBold
+ *   - > 15      : bleu très foncé, Bold
+ *
+ *  Au-delà de 15 mm/jour on est dans la pluie forte (avertissement orange en
+ *  général). Le maximum visuel est calé là pour que les fortes pluies hivernales
+ *  ou orages d'été ressortent clairement.
+ */
+private fun precipitationStyle(mm: Double): ValueStyle? = when {
+    mm < 0.05 -> null
+    mm < 1.0  -> ValueStyle(color = Color(0xFF4FC3F7), fontWeight = FontWeight.Normal)
+    mm < 5.0  -> ValueStyle(color = Color(0xFF1E88E5), fontWeight = FontWeight.Medium)
+    mm < 15.0 -> ValueStyle(color = Color(0xFF1565C0), fontWeight = FontWeight.SemiBold)
+    else      -> ValueStyle(color = Color(0xFF0D47A1), fontWeight = FontWeight.Bold)
+}
+
+/**
+ * Style de la cellule en fonction du vent max en km/h.
+ *
+ *   - < 20 km/h : null (calme, neutre)
+ *   - 20–40     : orange clair, Normal           (brise)
+ *   - 40–60     : orange, Medium                 (vent modéré)
+ *   - 60–80     : orange foncé, SemiBold         (vent fort, vigilance jaune)
+ *   - > 80      : rouge, Bold                    (tempête, vigilance orange/rouge)
+ *
+ *  Progression orange→rouge plutôt que bleu/vert : cohérent avec les codes de
+ *  vigilance Météo-France et l'intuition générale "rouge = attention".
+ *  Distinct des températures (bleu/rouge) ET des précipitations (bleu) pour
+ *  éviter toute confusion visuelle entre tableaux adjacents.
+ */
+private fun windStyle(kmh: Double): ValueStyle? = when {
+    kmh < 20.0 -> null
+    kmh < 40.0 -> ValueStyle(color = Color(0xFFFFB74D), fontWeight = FontWeight.Normal)
+    kmh < 60.0 -> ValueStyle(color = Color(0xFFFB8C00), fontWeight = FontWeight.Medium)
+    kmh < 80.0 -> ValueStyle(color = Color(0xFFE64A19), fontWeight = FontWeight.SemiBold)
+    else       -> ValueStyle(color = Color(0xFFC62828), fontWeight = FontWeight.Bold)
+}
