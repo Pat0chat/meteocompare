@@ -363,8 +363,17 @@ private fun TemperatureSummary(currentTemp: Double?, tempMax: ConfidenceScore?) 
                     fontWeight = FontWeight.SemiBold
                 )
                 if (tempMax != null) {
+                    // Format intervalle si les modèles divergent significativement,
+                    // sinon valeur unique. Le seuil 1°C correspond à du bruit
+                    // d'arrondi — au-delà, c'est de la vraie incertitude qu'on
+                    // veut surfacer (c'est le différenciateur de l'app).
+                    val maxText = if (tempMax.spread <= 1.0) {
+                        "${tempMax.meanValue.roundToInt()}°"
+                    } else {
+                        "${tempMax.minValue.roundToInt()}-${tempMax.maxValue.roundToInt()}°"
+                    }
                     Text(
-                        text = "↑ ${tempMax.meanValue.roundToInt()}°",
+                        text = "↑ $maxText",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

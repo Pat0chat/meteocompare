@@ -10,7 +10,6 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
@@ -66,9 +65,17 @@ fun MeteoCompareTheme(
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
+            // `statusBarColor` est déprécié depuis API 35 — Google attend qu'on
+            // laisse la barre transparente et que le contenu (TopAppBar) la
+            // remplisse en scrollant dessous. C'est le comportement par défaut
+            // une fois `enableEdgeToEdge()` appelé dans MainActivity.
+            //
+            // On garde ici uniquement le contrôle de la teinte des icônes
+            // système (heure, batterie, signal) : ces icônes doivent être
+            // foncées quand l'arrière-plan est clair et inversement.
             val window = (view.context as Activity).window
-            window.statusBarColor = colorScheme.primary.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+            WindowCompat.getInsetsController(window, view)
+                .isAppearanceLightStatusBars = !darkTheme
         }
     }
 
