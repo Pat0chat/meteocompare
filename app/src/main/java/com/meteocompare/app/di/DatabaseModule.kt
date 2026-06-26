@@ -2,6 +2,7 @@ package com.meteocompare.app.di
 
 import android.content.Context
 import androidx.room.Room
+import com.meteocompare.app.data.local.ClimateNormalDao
 import com.meteocompare.app.data.local.ForecastCacheDao
 import com.meteocompare.app.data.local.MeteoCompareDatabase
 import dagger.Module
@@ -31,4 +32,8 @@ object DatabaseModule {
     @Provides
     fun provideForecastCacheDao(database: MeteoCompareDatabase): ForecastCacheDao =
         database.forecastCacheDao()
+
+    @Provides
+    fun provideClimateNormalDao(database: MeteoCompareDatabase): ClimateNormalDao =
+        database.climateNormalDao()
 }

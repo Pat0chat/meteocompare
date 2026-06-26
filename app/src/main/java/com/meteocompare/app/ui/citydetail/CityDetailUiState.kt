@@ -2,6 +2,7 @@ package com.meteocompare.app.ui.citydetail
 
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DayConfidence
+import com.meteocompare.app.domain.model.DayNormals
 import com.meteocompare.app.domain.model.HourlyConfidenceBand
 
 /**
@@ -15,10 +16,18 @@ sealed interface CityDetailUiState {
 
     data object Loading : CityDetailUiState
 
+    /**
+     * État succès. Les `normals` peuvent être null si la requête réseau est
+     * encore en cours (les normales se chargent en background, séparément
+     * du forecast principal pour éviter de bloquer l'affichage).
+     *
+     * Map indexée par `DayNormals.key()` pour lookup O(1) depuis l'UI.
+     */
     data class Loaded(
         val forecast: CityForecast,
         val weeklyConfidence: List<DayConfidence>,
-        val hourlyBands: List<HourlyConfidenceBand>
+        val hourlyBands: List<HourlyConfidenceBand>,
+        val normals: Map<Int, DayNormals>? = null
     ) : CityDetailUiState
 
     data class Error(val message: String) : CityDetailUiState

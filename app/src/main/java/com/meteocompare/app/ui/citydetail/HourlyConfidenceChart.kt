@@ -78,7 +78,6 @@ fun HourlyConfidenceChart(
     val onSurface = MaterialTheme.colorScheme.onSurfaceVariant
     val gridColor = MaterialTheme.colorScheme.outlineVariant
     val primary = MaterialTheme.colorScheme.primary
-    val bandColor = primary.copy(alpha = 0.18f)
     val textMeasurer = rememberTextMeasurer()
     val labelStyle = TextStyle(color = onSurface, fontSize = 10.sp)
 
@@ -103,6 +102,27 @@ fun HourlyConfidenceChart(
             contentDescription = a11yDescription
         }
     ) {
+        // ─── Header explicatif ─────────────────────────────────────────
+        // Sans cette intro, le chart est cryptique pour un nouvel utilisateur.
+        // 2 lignes max pour rester compact tout en donnant la clé de lecture.
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 6.dp)
+        ) {
+            Text(
+                text = "Plage des prévisions inter-modèles",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = "Plus la bande s'élargit, plus les modèles divergent. La couleur indique le niveau de confiance.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
         Canvas(
             modifier = Modifier
                 .fillMaxWidth()
@@ -157,7 +177,6 @@ fun HourlyConfidenceChart(
                 val localDate = band.timestamp.atZone(zone).toLocalDate()
                 if (localDate != currentDate) {
                     val x = xFor(band.timestamp)
-                    // Ligne verticale subtile à minuit
                     if (currentDate != null) {
                         drawLine(
                             color = gridColor.copy(alpha = 0.6f),
@@ -166,7 +185,6 @@ fun HourlyConfidenceChart(
                             strokeWidth = 1f
                         )
                     }
-                    // Label du jour
                     val label = localDate.dayOfWeek
                         .getDisplayName(JavaTextStyle.SHORT, Locale.FRENCH)
                         .replace(".", "")
@@ -182,21 +200,37 @@ fun HourlyConfidenceChart(
                 }
             }
 
-            // ─── Bande min-max (Path fermé) ──────────────────────────────
-            val bandPath = Path().apply {
-                // Bord supérieur, gauche → droite (max values)
-                bands.forEachIndexed { i, b ->
-                    val x = xFor(b.timestamp)
-                    val y = yFor(b.maxValue)
-                    if (i == 0) moveTo(x, y) else lineTo(x, y)
+            // ─── Bande SEGMENTÉE colorée par confiance locale ────────────
+            // Au lieu d'un seul Path uniformément teinté, on découpe la bande
+            // en quadrilatères entre points consécutifs. Chaque segment prend
+            // sa couleur de la moyenne des deux endpoints — résultat : la
+            // bande "rougit" naturellement là où les modèles divergent, donne
+            // visuellement la même information que le timeline strip mais
+            // SUR le chart lui-même, pas en dessous.
+            bands.zipWithNext().forEach { (a, b) ->
+                val xa = xFor(a.timestamp)
+                val xb = xFor(b.timestamp)
+                val maxYa = yFor(a.maxValue)
+                val maxYb = yFor(b.maxValue)
+                val minYa = yFor(a.minValue)
+                val minYb = yFor(b.minValue)
+
+                val avgPercent = (a.percent + b.percent) / 2
+                val segmentColor = when {
+                    avgPercent >= 80 -> ConfidenceHigh
+                    avgPercent >= 50 -> ConfidenceMedium
+                    else -> ConfidenceLow
+                }.copy(alpha = 0.28f)
+
+                val segmentPath = Path().apply {
+                    moveTo(xa, maxYa)
+                    lineTo(xb, maxYb)
+                    lineTo(xb, minYb)
+                    lineTo(xa, minYa)
+                    close()
                 }
-                // Bord inférieur, droite → gauche (min values)
-                bands.reversed().forEach { b ->
-                    lineTo(xFor(b.timestamp), yFor(b.minValue))
-                }
-                close()
+                drawPath(path = segmentPath, color = segmentColor)
             }
-            drawPath(path = bandPath, color = bandColor)
 
             // ─── Ligne moyenne pondérée ──────────────────────────────────
             val meanPath = Path().apply {

@@ -6,8 +6,10 @@ import androidx.lifecycle.viewModelScope
 import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityForecast
+import com.meteocompare.app.domain.model.DayNormals
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.repository.CityRepository
+import com.meteocompare.app.domain.repository.ClimateNormalsRepository
 import com.meteocompare.app.domain.repository.ForecastRepository
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
 import com.meteocompare.app.domain.usecase.ConfidenceCalculator
@@ -17,6 +19,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -25,6 +28,7 @@ class CityDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val cityRepository: CityRepository,
     private val forecastRepository: ForecastRepository,
+    private val climateNormalsRepository: ClimateNormalsRepository,
     private val confidenceCalculator: ConfidenceCalculator,
     private val userPreferences: UserPreferencesRepository
 ) : ViewModel() {
@@ -38,6 +42,10 @@ class CityDetailViewModel @Inject constructor(
 
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
+    // Cache en mémoire des normales pour la ville courante. Évite de re-fetch
+    // à chaque applyResult() qui s'exécute pour cache + fresh forecasts.
+    private var loadedNormals: Map<Int, DayNormals>? = null
 
     init {
         loadInitial()
@@ -54,6 +62,11 @@ class CityDetailViewModel @Inject constructor(
                 return@launch
             }
             val models = userPreferences.observeEnabledModels().first()
+
+            // Lance le fetch des normales en parallèle — ne bloque pas l'affichage
+            // du forecast. Quand les normales arrivent, on met à jour le state
+            // existant via copy() pour ajouter le champ normals.
+            launchNormalsLoad(city)
 
             forecastRepository.getCityForecastStream(city, models = models, forecastDays = 7)
                 .collect { result -> applyResult(result) }
@@ -79,6 +92,25 @@ class CityDetailViewModel @Inject constructor(
         }
     }
 
+    private fun launchNormalsLoad(city: City) {
+        viewModelScope.launch {
+            val result = climateNormalsRepository.getNormalsForCity(city)
+            if (result is ApiResult.Success) {
+                val byKey = result.data.associateBy { it.key }
+                loadedNormals = byKey
+                // Patch le state existant : si on est déjà en Loaded, on
+                // remplace .normals. Sinon (Loading/Error), on n'altère pas
+                // — les normales seules sans forecast n'ont pas de sens.
+                _state.update { current ->
+                    if (current is CityDetailUiState.Loaded) current.copy(normals = byKey)
+                    else current
+                }
+            }
+            // En cas d'erreur, on ignore silencieusement : l'app reste fonctionnelle
+            // sans normales (pas de pointillés, pas de coloration). C'est du nice-to-have.
+        }
+    }
+
     private suspend fun findCity(): City? =
         cityRepository.observeFavorites().first().firstOrNull { it.id == cityId }
 
@@ -90,13 +122,11 @@ class CityDetailViewModel @Inject constructor(
                 CityDetailUiState.Loaded(
                     forecast = result.data,
                     weeklyConfidence = weekly,
-                    hourlyBands = hourly
+                    hourlyBands = hourly,
+                    normals = loadedNormals
                 )
             }
             is ApiResult.Error -> {
-                // Si on est déjà en Loaded (cache), on garde le cache et on ne
-                // dégrade pas en Error — le pull-to-refresh peut juste flash et
-                // se réinitialiser. Cohérent avec la sémantique du repository.
                 if (_state.value is CityDetailUiState.Loaded) _state.value
                 else CityDetailUiState.Error(result.message)
             }

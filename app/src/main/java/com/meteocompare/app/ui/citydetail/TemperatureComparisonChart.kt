@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -23,6 +24,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -32,6 +34,7 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.meteocompare.app.domain.model.CityForecast
+import com.meteocompare.app.domain.model.DayNormals
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.ui.theme.color
 import java.time.LocalDate
@@ -59,6 +62,7 @@ import kotlin.math.roundToInt
 @Composable
 fun TemperatureComparisonChart(
     forecast: CityForecast,
+    normals: Map<Int, DayNormals>? = null,
     modifier: Modifier = Modifier
 ) {
     // Extraction de la donnée chart : on prend tempMax, et on convertit les dates
@@ -73,6 +77,7 @@ fun TemperatureComparisonChart(
 
     val onSurface = MaterialTheme.colorScheme.onSurfaceVariant
     val gridColor = MaterialTheme.colorScheme.outlineVariant
+    val normalLineColor = MaterialTheme.colorScheme.onSurfaceVariant
     val textMeasurer = rememberTextMeasurer()
     val labelStyle = TextStyle(color = onSurface, fontSize = 10.sp)
 
@@ -80,13 +85,34 @@ fun TemperatureComparisonChart(
     val maxDay = series.flatMap { it.points }.maxOf {
         ChronoUnit.DAYS.between(today, it.date).toInt()
     }.coerceAtLeast(1)
-    val allTemps = series.flatMap { it.points }.map { it.temperature }
-    val yMin = floor(allTemps.min()).toFloat() - 1f
-    val yMax = ceil(allTemps.max()).toFloat() + 1f
 
-    val a11yDescription = remember(series) {
+    // Calcule la séquence des normales pour les jours couverts par le chart.
+    // Ces points seront tracés en pointillés. Le `mapNotNull` skip les jours
+    // sans donnée (cas rare : début d'année avec Feb 29).
+    val normalsForChart = remember(normals, today, maxDay) {
+        if (normals == null) emptyList<Triple<Int, Double, Double>>()
+        else (0..maxDay).mapNotNull { dayOffset ->
+            val date = today.plusDays(dayOffset.toLong())
+            val key = DayNormals.key(date.monthValue, date.dayOfMonth)
+            normals[key]?.let { Triple(dayOffset, it.tempMaxNormal, it.tempMinNormal) }
+        }
+    }
+
+    // Inclut les normales dans le calcul de l'échelle Y pour éviter qu'elles
+    // sortent du chart. yMin descend pour englober la min normale.
+    val allValues = buildList {
+        addAll(series.flatMap { it.points }.map { it.temperature })
+        normalsForChart.forEach { (_, max, min) -> add(max); add(min) }
+    }
+    val yMin = floor(allValues.min()).toFloat() - 1f
+    val yMax = ceil(allValues.max()).toFloat() + 1f
+
+    val a11yDescription = remember(series, normalsForChart) {
         com.meteocompare.app.ui.accessibility.A11yFormatter
-            .multiModelChartDescription(modelCount = series.size, daysCovered = maxDay + 1)
+            .multiModelChartDescription(
+                modelCount = series.size,
+                daysCovered = maxDay + 1
+            ) + if (normalsForChart.isNotEmpty()) " Normales climatiques 10 ans affichées en pointillés." else ""
     }
 
     Column(
@@ -150,6 +176,45 @@ fun TemperatureComparisonChart(
                 )
             }
 
+            // ─── Pointillés des normales (max et min) ───────────────────
+            // Dessinés AVANT les lignes des modèles pour qu'ils restent en
+            // arrière-plan. Pattern (8 ON, 6 OFF) en pixels pour un look
+            // distinctement "dashed" sans être trop fragmenté.
+            if (normalsForChart.isNotEmpty()) {
+                val dashPattern = floatArrayOf(8f, 6f)
+                val dashStroke = Stroke(
+                    width = 1.5.dp.toPx(),
+                    pathEffect = PathEffect.dashPathEffect(dashPattern, 0f)
+                )
+
+                // Max normales — légèrement plus foncé pour cohérence visuelle
+                // avec les températures max (plus "visibles" sur le chart).
+                val maxNormalPath = Path()
+                normalsForChart.forEachIndexed { i, (dayOffset, max, _) ->
+                    val x = chartLeft + (dayOffset.toFloat() / maxDay) * chartW
+                    val y = chartBottom - ((max.toFloat() - yMin) / (yMax - yMin)) * chartH
+                    if (i == 0) maxNormalPath.moveTo(x, y) else maxNormalPath.lineTo(x, y)
+                }
+                drawPath(
+                    path = maxNormalPath,
+                    color = normalLineColor.copy(alpha = 0.75f),
+                    style = dashStroke
+                )
+
+                // Min normales
+                val minNormalPath = Path()
+                normalsForChart.forEachIndexed { i, (dayOffset, _, min) ->
+                    val x = chartLeft + (dayOffset.toFloat() / maxDay) * chartW
+                    val y = chartBottom - ((min.toFloat() - yMin) / (yMax - yMin)) * chartH
+                    if (i == 0) minNormalPath.moveTo(x, y) else minNormalPath.lineTo(x, y)
+                }
+                drawPath(
+                    path = minNormalPath,
+                    color = normalLineColor.copy(alpha = 0.5f),
+                    style = dashStroke
+                )
+            }
+
             // ─── Lignes (une par modèle) ────────────────────────────────
             series.forEach { modelSeries ->
                 val path = Path()
@@ -182,8 +247,39 @@ fun TemperatureComparisonChart(
             }
         }
 
-        // Légende
+        // Légende des modèles
         ModelLegend(series.map { it.model to it.color })
+
+        // Indicateur "Normales 10 ans" — n'apparaît que si les normales sont
+        // chargées et affichées sur le chart. Conservé en dehors de ModelLegend
+        // pour ne pas dépendre du wrapping FlowRow des modèles.
+        if (normalsForChart.isNotEmpty()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Canvas(
+                    modifier = Modifier
+                        .height(2.dp)
+                        .width(20.dp)
+                ) {
+                    drawLine(
+                        color = normalLineColor.copy(alpha = 0.75f),
+                        start = Offset(0f, size.height / 2f),
+                        end = Offset(size.width, size.height / 2f),
+                        strokeWidth = 1.5.dp.toPx(),
+                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 4f), 0f)
+                    )
+                }
+                Text(
+                    text = "  Normales 10 ans (max / min)",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
     }
 }
 

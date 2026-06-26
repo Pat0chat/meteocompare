@@ -149,6 +149,7 @@ internal fun CityDetailContent(
                         forecast = s.forecast,
                         weekly = s.weeklyConfidence,
                         hourlyBands = s.hourlyBands,
+                        normals = s.normals,
                         padding = padding
                     )
                 }
@@ -190,6 +191,7 @@ private fun LoadedView(
     forecast: CityForecast,
     weekly: List<DayConfidence>,
     hourlyBands: List<com.meteocompare.app.domain.model.HourlyConfidenceBand>,
+    normals: Map<Int, com.meteocompare.app.domain.model.DayNormals>?,
     padding: PaddingValues
 ) {
     LazyColumn(
@@ -232,26 +234,18 @@ private fun LoadedView(
                 ),
                 modifier = Modifier.padding(horizontal = 16.dp)
             ) {
-                TemperatureComparisonChart(forecast)
+                // Les normales se chargent en background — quand elles arrivent,
+                // les pointillés apparaissent automatiquement via recomposition.
+                TemperatureComparisonChart(forecast = forecast, normals = normals)
             }
         }
 
-        item("temp_max_table") {
-            ForecastSection(
-                title = "Températures max",
-                forecast = forecast,
-                extractor = { daily, idx -> daily.tempMax.getOrNull(idx) },
-                formatter = { "${it.roundToInt()}°" }
-            )
-        }
-
-        item("temp_min_table") {
-            ForecastSection(
-                title = "Températures min",
-                forecast = forecast,
-                extractor = { daily, idx -> daily.tempMin.getOrNull(idx) },
-                formatter = { "${it.roundToInt()}°" }
-            )
+        // Tableau fusionné max/min — remplace les deux tableaux séparés.
+        // Coloration relative aux normales climatiques (rouge si > normale + 2°,
+        // bleu si < normale - 2°). Si normals == null encore, affichage neutre.
+        item("temp_table") {
+            SectionTitle("Températures max / min")
+            MinMaxForecastTable(forecast = forecast, normals = normals)
         }
 
         item("precip_table") {

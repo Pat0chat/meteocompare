@@ -2,8 +2,10 @@ package com.meteocompare.app.di
 
 import com.meteocompare.app.data.preferences.UserPreferencesRepositoryImpl
 import com.meteocompare.app.data.repository.CityRepositoryImpl
+import com.meteocompare.app.data.repository.ClimateNormalsRepositoryImpl
 import com.meteocompare.app.data.repository.ForecastRepositoryImpl
 import com.meteocompare.app.domain.repository.CityRepository
+import com.meteocompare.app.domain.repository.ClimateNormalsRepository
 import com.meteocompare.app.domain.repository.ForecastRepository
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
 import com.meteocompare.app.domain.usecase.InverseSqrtResolutionWeighting
@@ -31,6 +33,12 @@ abstract class RepositoryModule {
     abstract fun bindUserPreferencesRepository(
         impl: UserPreferencesRepositoryImpl
     ): UserPreferencesRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindClimateNormalsRepository(
+        impl: ClimateNormalsRepositoryImpl
+    ): ClimateNormalsRepository
 
     @Binds
     @Singleton
