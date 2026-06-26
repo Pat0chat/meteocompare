@@ -7,7 +7,6 @@ import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DayNormals
-import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.repository.CityRepository
 import com.meteocompare.app.domain.repository.ClimateNormalsRepository
 import com.meteocompare.app.domain.repository.ForecastRepository
@@ -15,13 +14,30 @@ import com.meteocompare.app.domain.repository.UserPreferencesRepository
 import com.meteocompare.app.domain.usecase.ConfidenceCalculator
 import com.meteocompare.app.ui.navigation.Destinations
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+/**
+ * Événement one-shot du résultat d'un refresh manuel.
+ *
+ * Différent du state (`isRefreshing`, `state`) : on veut afficher une snackbar
+ * UNE seule fois par refresh et qu'elle disparaisse. Si on stockait ça dans
+ * un StateFlow, un changement de configuration (rotation, dark mode toggle)
+ * relancerait la snackbar — pas voulu.
+ */
+sealed interface RefreshFeedback {
+    data object Success : RefreshFeedback
+    data class Error(val message: String) : RefreshFeedback
+}
 
 @HiltViewModel
 class CityDetailViewModel @Inject constructor(
@@ -42,6 +58,15 @@ class CityDetailViewModel @Inject constructor(
 
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
+    // Channel des feedbacks refresh — capacity 1 + DROP_OLDEST : si l'utilisateur
+    // spam le bouton refresh, on ne fait que montrer le dernier résultat plutôt
+    // que d'empiler 5 snackbars.
+    private val _refreshFeedback = Channel<RefreshFeedback>(
+        capacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+    val refreshFeedback: Flow<RefreshFeedback> = _refreshFeedback.receiveAsFlow()
 
     // Cache en mémoire des normales pour la ville courante. Évite de re-fetch
     // à chaque applyResult() qui s'exécute pour cache + fresh forecasts.
@@ -73,12 +98,21 @@ class CityDetailViewModel @Inject constructor(
         }
     }
 
-    /** Pull-to-refresh OU bouton refresh : force le réseau. */
+    /**
+     * Pull-to-refresh OU bouton refresh : force le réseau.
+     *
+     * Envoie un [RefreshFeedback] à la fin pour que l'UI affiche un retour
+     * visuel (snackbar). Sans ce signal, un succès ou un échec sont muets —
+     * l'utilisateur doute que son tap ait été reçu.
+     */
     fun refresh() {
         viewModelScope.launch {
             _isRefreshing.value = true
             try {
-                val city = findCity() ?: return@launch
+                val city = findCity() ?: run {
+                    _refreshFeedback.trySend(RefreshFeedback.Error("Ville introuvable"))
+                    return@launch
+                }
                 val models = userPreferences.observeEnabledModels().first()
                 val result = forecastRepository.refreshCityForecast(
                     city = city,
@@ -86,6 +120,13 @@ class CityDetailViewModel @Inject constructor(
                     forecastDays = 7
                 )
                 applyResult(result)
+                // Feedback explicite : succès si la requête a abouti, erreur sinon.
+                // Le repo retourne déjà Success même avec des erreurs partielles
+                // (philosophie tolerant aggregation) — on lit le résultat brut.
+                when (result) {
+                    is ApiResult.Success -> _refreshFeedback.trySend(RefreshFeedback.Success)
+                    is ApiResult.Error -> _refreshFeedback.trySend(RefreshFeedback.Error(result.message))
+                }
             } finally {
                 _isRefreshing.value = false
             }

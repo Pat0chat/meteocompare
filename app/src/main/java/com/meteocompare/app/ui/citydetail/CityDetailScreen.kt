@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
@@ -30,13 +31,18 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -76,9 +82,32 @@ fun CityDetailScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Collecte les événements one-shot de refresh — succès ou erreur.
+    // LaunchedEffect avec viewModel comme key : si la VM change (changement
+    // de cityId via nav), on relance la collecte. flowWithLifecycle évite de
+    // collecter quand l'écran est en background — pas indispensable ici car
+    // les events sont rares, mais c'est l'habitude.
+    LaunchedEffect(viewModel) {
+        viewModel.refreshFeedback.collect { feedback ->
+            when (feedback) {
+                RefreshFeedback.Success -> snackbarHostState.showSnackbar(
+                    message = "Prévisions mises à jour",
+                    duration = SnackbarDuration.Short
+                )
+                is RefreshFeedback.Error -> snackbarHostState.showSnackbar(
+                    message = "Échec de la mise à jour : ${feedback.message}",
+                    duration = SnackbarDuration.Long
+                )
+            }
+        }
+    }
+
     CityDetailContent(
         state = state,
         isRefreshing = isRefreshing,
+        snackbarHostState = snackbarHostState,
         onBack = onBack,
         onRefresh = viewModel::refresh
     )
@@ -93,6 +122,7 @@ fun CityDetailScreen(
 internal fun CityDetailContent(
     state: CityDetailUiState,
     isRefreshing: Boolean,
+    snackbarHostState: SnackbarHostState,
     onBack: () -> Unit,
     onRefresh: () -> Unit
 ) {
@@ -113,13 +143,24 @@ internal fun CityDetailContent(
                     }
                 },
                 actions = {
-                    IconButton(onClick = onRefresh) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Actualiser")
+                    // Pendant le refresh : on désactive le bouton (évite double-tap
+                    // qui spammerait le réseau) ET on remplace l'icône par un
+                    // spinner. C'est le feedback visuel immédiat "ton tap a été pris".
+                    IconButton(onClick = onRefresh, enabled = !isRefreshing) {
+                        if (isRefreshing) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(Icons.Default.Refresh, contentDescription = "Actualiser")
+                        }
                     }
                 },
                 scrollBehavior = scrollBehavior
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
         AnimatedContent(
             targetState = state,
