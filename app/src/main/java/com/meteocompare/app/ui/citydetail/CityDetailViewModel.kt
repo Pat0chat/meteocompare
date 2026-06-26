@@ -119,10 +119,12 @@ class CityDetailViewModel @Inject constructor(
             is ApiResult.Success -> {
                 val weekly = confidenceCalculator.weeklyConfidence(result.data)
                 val hourly = confidenceCalculator.hourlyTemperatureConfidence(result.data)
+                val currentTemp = confidenceCalculator.currentTemperature(result.data)
                 CityDetailUiState.Loaded(
                     forecast = result.data,
                     weeklyConfidence = weekly,
                     hourlyBands = hourly,
+                    currentTemp = currentTemp,
                     normals = loadedNormals
                 )
             }

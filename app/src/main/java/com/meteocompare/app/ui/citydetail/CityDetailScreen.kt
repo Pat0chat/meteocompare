@@ -149,6 +149,7 @@ internal fun CityDetailContent(
                         forecast = s.forecast,
                         weekly = s.weeklyConfidence,
                         hourlyBands = s.hourlyBands,
+                        currentTemp = s.currentTemp,
                         normals = s.normals,
                         padding = padding
                     )
@@ -191,6 +192,7 @@ private fun LoadedView(
     forecast: CityForecast,
     weekly: List<DayConfidence>,
     hourlyBands: List<com.meteocompare.app.domain.model.HourlyConfidenceBand>,
+    currentTemp: Double?,
     normals: Map<Int, com.meteocompare.app.domain.model.DayNormals>?,
     padding: PaddingValues
 ) {
@@ -204,7 +206,7 @@ private fun LoadedView(
     ) {
         item("today_summary") {
             weekly.firstOrNull()?.let { today ->
-                TodaySummaryCard(today, forecast.availableModels.size)
+                TodaySummaryCard(today, forecast.availableModels.size, currentTemp)
             }
         }
 
@@ -312,10 +314,16 @@ private fun ForecastSection(
 }
 
 @Composable
-internal fun TodaySummaryCard(today: DayConfidence, modelCount: Int) {
+internal fun TodaySummaryCard(today: DayConfidence, modelCount: Int, currentTemp: Double?) {
     // Description unifiée pour TalkBack qui résume toutes les valeurs.
-    val a11yDescription = com.meteocompare.app.ui.accessibility.A11yFormatter
+    // On préfixe par "Maintenant X°" si dispo — c'est l'info la plus utile
+    // au premier abord pour quelqu'un qui ouvre l'app.
+    val baseDescription = com.meteocompare.app.ui.accessibility.A11yFormatter
         .todaySummaryDescription(today, modelCount)
+    val a11yDescription = if (currentTemp != null) {
+        "Maintenant ${currentTemp.roundToInt()} degrés. $baseDescription"
+    } else baseDescription
+
     Card(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.primaryContainer
@@ -349,6 +357,30 @@ internal fun TodaySummaryCard(today: DayConfidence, modelCount: Int) {
                 }
                 today.overallPercent?.let { ConfidenceBadge(it) }
             }
+
+            // Température "maintenant" — bloc principal en grand. Placé entre
+            // le titre et les détails parce que c'est l'info de premier plan
+            // que les utilisateurs cherchent en ouvrant l'app. Si pas dispo,
+            // on saute simplement ce bloc (le layout reste cohérent).
+            if (currentTemp != null) {
+                Spacer(Modifier.height(12.dp))
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        text = "${currentTemp.roundToInt()}°",
+                        style = MaterialTheme.typography.displayMedium,
+                        fontWeight = FontWeight.Light,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = "maintenant",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                }
+            }
+
             Spacer(Modifier.height(8.dp))
             Text(
                 text = "$modelCount modèle${if (modelCount > 1) "s" else ""} analysé${if (modelCount > 1) "s" else ""}",

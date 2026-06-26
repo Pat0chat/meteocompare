@@ -287,7 +287,7 @@ internal fun CityCard(
             ) { forecast ->
                 when (forecast) {
                     ForecastState.Loading -> CityCardLoading()
-                    is ForecastState.Loaded -> CityCardLoaded(forecast.today)
+                    is ForecastState.Loaded -> CityCardLoaded(forecast.today, forecast.currentTemp)
                     is ForecastState.Error -> CityCardError(forecast.message, onRetry)
                 }
             }
@@ -330,20 +330,23 @@ private fun CityCardError(message: String, onRetry: () -> Unit) {
 }
 
 @Composable
-private fun CityCardLoaded(today: DayConfidence) {
+private fun CityCardLoaded(today: DayConfidence, currentTemp: Double?) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        TemperatureSummary(tempMax = today.tempMax)
+        TemperatureSummary(currentTemp = currentTemp, tempMax = today.tempMax)
         PrecipitationSummary(precip = today.precipitation)
         ConfidenceBadge(percent = today.overallPercent)
     }
 }
 
 @Composable
-private fun TemperatureSummary(tempMax: ConfidenceScore?) {
+private fun TemperatureSummary(currentTemp: Double?, tempMax: ConfidenceScore?) {
+    // Affichage : grosse temp actuelle + petite "↑ max" en dessous.
+    // Si pas de current dispo (cas dégénéré), on retombe sur l'ancien affichage
+    // de la max seule pour rester utile.
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(
             Icons.Outlined.Thermostat,
@@ -352,15 +355,30 @@ private fun TemperatureSummary(tempMax: ConfidenceScore?) {
             tint = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(Modifier.width(4.dp))
-        if (tempMax == null) {
-            Text("—", style = MaterialTheme.typography.titleMedium)
-        } else {
+        if (currentTemp != null) {
+            Column {
+                Text(
+                    text = "${currentTemp.roundToInt()}°",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold
+                )
+                if (tempMax != null) {
+                    Text(
+                        text = "↑ ${tempMax.meanValue.roundToInt()}°",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        } else if (tempMax != null) {
             val text = if (tempMax.spread <= 1.0) {
                 "${tempMax.meanValue.roundToInt()}°"
             } else {
                 "${tempMax.minValue.roundToInt()}-${tempMax.maxValue.roundToInt()}°"
             }
             Text(text, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
+        } else {
+            Text("—", style = MaterialTheme.typography.titleMedium)
         }
     }
 }
@@ -492,7 +510,8 @@ private fun CityCardLoadedPreview() {
                     tempMin = ConfidenceScore(78, 14.0, 17.0, 15.5, 1.0, 5),
                     precipitation = PrecipitationConfidence.NoRain(100, 5, 0.0),
                     windMax = ConfidenceScore(72, 12.0, 18.0, 15.0, 2.5, 5)
-                )
+                ),
+                currentTemp = 19.0
             )
         )
         Surface { CityCard(state = sample, onClick = {}, onRemove = {}, onRetry = {}) }

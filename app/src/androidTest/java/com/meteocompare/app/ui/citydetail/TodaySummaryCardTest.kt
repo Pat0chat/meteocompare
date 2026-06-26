@@ -30,7 +30,7 @@ class TodaySummaryCardTest {
         composeRule.setContent {
             MeteoCompareTheme {
                 Surface {
-                    TodaySummaryCard(today = today, modelCount = 5)
+                    TodaySummaryCard(today = today, modelCount = 5, currentTemp = null)
                 }
             }
         }
@@ -57,7 +57,7 @@ class TodaySummaryCardTest {
         composeRule.setContent {
             MeteoCompareTheme {
                 Surface {
-                    TodaySummaryCard(today = today, modelCount = 3)
+                    TodaySummaryCard(today = today, modelCount = 3, currentTemp = null)
                 }
             }
         }
@@ -87,7 +87,7 @@ class TodaySummaryCardTest {
         composeRule.setContent {
             MeteoCompareTheme {
                 Surface {
-                    TodaySummaryCard(today = today, modelCount = 5)
+                    TodaySummaryCard(today = today, modelCount = 5, currentTemp = null)
                 }
             }
         }
@@ -107,7 +107,7 @@ class TodaySummaryCardTest {
         composeRule.setContent {
             MeteoCompareTheme {
                 Surface {
-                    TodaySummaryCard(today = today, modelCount = 5)
+                    TodaySummaryCard(today = today, modelCount = 5, currentTemp = null)
                 }
             }
         }

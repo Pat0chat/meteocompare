@@ -55,6 +55,7 @@ object A11yFormatter {
             is ForecastState.Error -> "$base. Erreur : ${f.message}."
             is ForecastState.Loaded -> {
                 val parts = mutableListOf<String>()
+                f.currentTemp?.let { parts += "Maintenant ${it.roundToInt()} degrés" }
                 f.today.tempMax?.let { parts += "Température " + temperatureDescription(it) }
                 f.today.precipitation?.let { parts += precipitationDescription(it) }
                 f.today.overallPercent?.let { parts += "Confiance globale $it pourcent" }

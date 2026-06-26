@@ -25,7 +25,14 @@ data class CityCardState(
 
 sealed interface ForecastState {
     data object Loading : ForecastState
-    data class Loaded(val today: DayConfidence) : ForecastState
+    /**
+     * @param currentTemp moyenne pondérée des modèles à l'heure la plus proche
+     *   de maintenant. Null si aucune donnée horaire dispo.
+     */
+    data class Loaded(
+        val today: DayConfidence,
+        val currentTemp: Double?
+    ) : ForecastState
     data class Error(val message: String) : ForecastState
 }
 

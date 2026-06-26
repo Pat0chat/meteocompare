@@ -22,11 +22,15 @@ sealed interface CityDetailUiState {
      * du forecast principal pour éviter de bloquer l'affichage).
      *
      * Map indexée par `DayNormals.key()` pour lookup O(1) depuis l'UI.
+     *
+     * `currentTemp` est la moyenne pondérée des modèles à l'instant le plus
+     * proche de maintenant. Null si aucune donnée horaire disponible.
      */
     data class Loaded(
         val forecast: CityForecast,
         val weeklyConfidence: List<DayConfidence>,
         val hourlyBands: List<HourlyConfidenceBand>,
+        val currentTemp: Double?,
         val normals: Map<Int, DayNormals>? = null
     ) : CityDetailUiState
 

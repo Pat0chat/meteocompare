@@ -48,13 +48,14 @@ class CityListContentTest {
                 city = City(id = "2", name = "Lyon", country = "France",
                     latitude = 45.75, longitude = 4.85),
                 forecast = ForecastState.Loaded(
-                    DayConfidence(
+                    today = DayConfidence(
                         date = LocalDate.now(),
                         tempMax = ConfidenceScore(85, 25.0, 27.0, 26.0, 0.7, 5),
                         tempMin = null,
                         precipitation = PrecipitationConfidence.NoRain(100, 5, 0.0),
                         windMax = null
-                    )
+                    ),
+                    currentTemp = null
                 )
             )
         )

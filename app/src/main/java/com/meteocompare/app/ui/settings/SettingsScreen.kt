@@ -27,6 +27,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -43,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.meteocompare.app.domain.model.Coverage
+import com.meteocompare.app.domain.model.ThemePreference
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.ui.theme.color
 
@@ -53,6 +57,7 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val enabled by viewModel.enabledModels.collectAsStateWithLifecycle()
+    val theme by viewModel.themePreference.collectAsStateWithLifecycle()
     var showDonationDialog by rememberSaveable { mutableStateOf(false) }
 
     Scaffold(
@@ -70,6 +75,8 @@ fun SettingsScreen(
         SettingsContent(
             enabledModels = enabled,
             onToggle = viewModel::onModelToggled,
+            theme = theme,
+            onThemeSelected = viewModel::onThemeSelected,
             onDonateClick = { showDonationDialog = true },
             padding = padding
         )
@@ -84,6 +91,8 @@ fun SettingsScreen(
 private fun SettingsContent(
     enabledModels: Set<WeatherModel>,
     onToggle: (WeatherModel, Boolean) -> Unit,
+    theme: ThemePreference,
+    onThemeSelected: (ThemePreference) -> Unit,
     onDonateClick: () -> Unit,
     padding: PaddingValues
 ) {
@@ -94,6 +103,21 @@ private fun SettingsContent(
             bottom = padding.calculateBottomPadding() + 16.dp
         )
     ) {
+        // Section "Apparence" en premier — c'est le réglage le plus universel,
+        // ceux qui rentrent dans les settings le cherchent souvent en premier.
+        item {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Apparence",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(Modifier.height(8.dp))
+                ThemeSelector(selected = theme, onSelect = onThemeSelected)
+            }
+        }
+        item { HorizontalDivider() }
+
         item {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
@@ -236,4 +260,41 @@ private fun coverageLabel(coverage: Coverage): String = when (coverage) {
     Coverage.FRANCE -> "France"
     Coverage.EUROPE -> "Europe"
     Coverage.GLOBAL -> "Monde"
+}
+
+/**
+ * Sélecteur de thème en SingleChoiceSegmentedButtonRow Material 3.
+ *
+ * Sémantique : RadioGroup-équivalent avec rendu segmenté. Plus compact
+ * qu'une liste de RadioButton (3 lignes), plus accessible que des chips,
+ * et l'état "sélectionné" est très visible.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ThemeSelector(
+    selected: ThemePreference,
+    onSelect: (ThemePreference) -> Unit
+) {
+    val options = listOf(
+        ThemePreference.SYSTEM to "Système",
+        ThemePreference.LIGHT to "Clair",
+        ThemePreference.DARK to "Sombre"
+    )
+
+    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+        options.forEachIndexed { idx, (pref, label) ->
+            SegmentedButton(
+                selected = selected == pref,
+                onClick = { onSelect(pref) },
+                shape = SegmentedButtonDefaults.itemShape(index = idx, count = options.size),
+                icon = {
+                    // Override de l'icône check par défaut : on n'en met aucune
+                    // pour rester compact. L'état sélectionné est déjà clair
+                    // grâce au remplissage de couleur.
+                }
+            ) {
+                Text(label)
+            }
+        }
+    }
 }

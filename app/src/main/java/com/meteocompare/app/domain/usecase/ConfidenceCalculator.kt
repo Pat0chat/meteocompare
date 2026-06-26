@@ -81,6 +81,37 @@ class ConfidenceCalculator @Inject constructor(
     }
 
     /**
+     * Température "maintenant" — moyenne pondérée entre modèles de la valeur
+     * horaire la plus proche de l'instant courant.
+     *
+     * Open-Meteo retourne typiquement les heures depuis 00:00 du jour. À 14:30,
+     * l'heure 14:00 est dans le passé (1h) et 15:00 dans le futur (30min) — on
+     * prend la plus proche en valeur absolue.
+     *
+     * Pondération identique aux autres calculs (1/√résolution par défaut) :
+     * AROME HD pèse plus que GFS pour les localisations en France.
+     *
+     * Retourne null si aucun modèle n'a de donnée horaire disponible
+     * (ne devrait jamais arriver en pratique sauf bug Open-Meteo).
+     */
+    fun currentTemperature(forecast: CityForecast): Double? {
+        val now = Instant.now()
+        val samples = forecast.seriesByModel.mapNotNull { (model, series) ->
+            if (series.hourly.timestamps.isEmpty()) return@mapNotNull null
+            val idx = series.hourly.timestamps.indices.minBy { i ->
+                kotlin.math.abs(series.hourly.timestamps[i].epochSecond - now.epochSecond)
+            }
+            val temp = series.hourly.temperature2m.getOrNull(idx) ?: return@mapNotNull null
+            model to temp
+        }
+        if (samples.isEmpty()) return null
+        val totalWeight = samples.sumOf { (model, _) -> weighting.weight(model) }
+        if (totalWeight == 0.0) return null
+        val weightedSum = samples.sumOf { (model, temp) -> temp * weighting.weight(model) }
+        return weightedSum / totalWeight
+    }
+
+    /**
      * Bandes de confiance horaires sur la température.
      *
      * Pour chaque heure couverte par au moins 2 modèles, calcule la moyenne pondérée,

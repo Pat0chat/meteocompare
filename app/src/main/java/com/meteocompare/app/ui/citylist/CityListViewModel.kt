@@ -216,7 +216,10 @@ class CityListViewModel @Inject constructor(
             val today = result.data.seriesByModel.values
                 .firstOrNull()?.daily?.dates?.firstOrNull()
             if (today != null) {
-                ForecastState.Loaded(confidenceCalculator.dayConfidence(result.data, today))
+                ForecastState.Loaded(
+                    today = confidenceCalculator.dayConfidence(result.data, today),
+                    currentTemp = confidenceCalculator.currentTemperature(result.data)
+                )
             } else {
                 ForecastState.Error("Aucune donnée journalière reçue")
             }

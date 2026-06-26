@@ -2,6 +2,7 @@ package com.meteocompare.app.ui.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.meteocompare.app.domain.model.ThemePreference
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -25,6 +26,13 @@ class SettingsViewModel @Inject constructor(
             initialValue = WeatherModel.MVP_SELECTION.toSet()
         )
 
+    val themePreference: StateFlow<ThemePreference> = prefs.observeThemePreference()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = ThemePreference.SYSTEM
+        )
+
     fun onModelToggled(model: WeatherModel, enabled: Boolean) {
         viewModelScope.launch {
             val current = enabledModels.value
@@ -34,6 +42,12 @@ class SettingsViewModel @Inject constructor(
             if (next.isNotEmpty()) {
                 prefs.setEnabledModels(next.toList())
             }
+        }
+    }
+
+    fun onThemeSelected(preference: ThemePreference) {
+        viewModelScope.launch {
+            prefs.setThemePreference(preference)
         }
     }
 }

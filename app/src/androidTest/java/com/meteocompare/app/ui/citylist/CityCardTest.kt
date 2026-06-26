@@ -54,7 +54,7 @@ class CityCardTest {
             MeteoCompareTheme {
                 Surface {
                     CityCard(
-                        state = CityCardState(paris, ForecastState.Loaded(today)),
+                        state = CityCardState(paris, ForecastState.Loaded(today, currentTemp = null)),
                         onClick = {}, onRemove = {}, onRetry = {}
                     )
                 }
@@ -85,7 +85,7 @@ class CityCardTest {
             MeteoCompareTheme {
                 Surface {
                     CityCard(
-                        state = CityCardState(paris, ForecastState.Loaded(today)),
+                        state = CityCardState(paris, ForecastState.Loaded(today, currentTemp = null)),
                         onClick = {}, onRemove = {}, onRetry = {}
                     )
                 }
@@ -140,7 +140,7 @@ class CityCardTest {
             MeteoCompareTheme {
                 Surface {
                     CityCard(
-                        state = CityCardState(paris, ForecastState.Loaded(today)),
+                        state = CityCardState(paris, ForecastState.Loaded(today, currentTemp = null)),
                         onClick = {}, onRemove = {}, onRetry = {}
                     )
                 }

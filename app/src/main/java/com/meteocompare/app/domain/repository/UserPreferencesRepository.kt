@@ -1,11 +1,11 @@
 package com.meteocompare.app.domain.repository
 
+import com.meteocompare.app.domain.model.ThemePreference
 import com.meteocompare.app.domain.model.WeatherModel
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Préférences utilisateur persistantes — sélection de modèles uniquement
- * pour le MVP. À étendre avec unités (°F), thème, etc.
+ * Préférences utilisateur persistantes — modèles sélectionnés + thème.
  */
 interface UserPreferencesRepository {
 
@@ -16,4 +16,12 @@ interface UserPreferencesRepository {
     fun observeEnabledModels(): Flow<List<WeatherModel>>
 
     suspend fun setEnabledModels(models: List<WeatherModel>)
+
+    /**
+     * Préférence de thème (SYSTEM/LIGHT/DARK). SYSTEM par défaut.
+     * Émis tôt dans le splash pour éviter le flash clair → sombre.
+     */
+    fun observeThemePreference(): Flow<ThemePreference>
+
+    suspend fun setThemePreference(preference: ThemePreference)
 }
