@@ -65,7 +65,7 @@ fun HourlyConfidenceChart(
     modifier: Modifier = Modifier
 ) {
     if (bands.size < 2) {
-        Box(modifier = modifier.height(220.dp), contentAlignment = Alignment.Center) {
+        Box(modifier = modifier.height(260.dp), contentAlignment = Alignment.Center) {
             Text(
                 "Pas assez de données pour calculer une bande",
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -98,9 +98,13 @@ fun HourlyConfidenceChart(
     }
 
     Column(
-        modifier = modifier.semantics(mergeDescendants = true) {
-            contentDescription = a11yDescription
-        }
+        modifier = modifier
+            .semantics(mergeDescendants = true) {
+                contentDescription = a11yDescription
+            }
+            // Padding bottom : éviter que les éléments du bas (timeline +
+            // caption) soient collés au bord inférieur de la Card englobante.
+            .padding(bottom = 12.dp)
     ) {
         // ─── Header explicatif ─────────────────────────────────────────
         // Sans cette intro, le chart est cryptique pour un nouvel utilisateur.
@@ -126,7 +130,7 @@ fun HourlyConfidenceChart(
         Canvas(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(220.dp)
+                .height(260.dp)
                 .padding(8.dp)
         ) {
             val leftPad = 36.dp.toPx()

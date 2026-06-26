@@ -32,6 +32,13 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.roundToInt
 
+// Couleurs chaud / froid. Choisies pour rester lisibles en thèmes clair ET
+// sombre. Top-level pour être partagées entre [MinMaxForecastTable] (utilisées
+// dans les cellules) et [MinMaxForecastLegend] (chips de légende), sans avoir
+// à les ré-instancier dans chaque composable.
+private val WarmTempColor = Color(0xFFE53935)  // red 600
+private val CoolTempColor = Color(0xFF1E88E5)  // blue 600
+
 /**
  * Tableau fusionné des températures max/min, avec coloration en fonction
  * des normales climatiques.
@@ -44,6 +51,11 @@ import kotlin.math.roundToInt
  * Si les normales ne sont pas encore chargées (null), affichage neutre uniquement
  * — l'app reste fonctionnelle, la coloration apparaît dès que les données
  * historiques sont fetchées en background.
+ *
+ * **Note d'architecture** : la légende N'EST PAS dans ce composable. Pour matcher
+ * le pattern des autres tableaux (cf. ForecastSection dans CityDetailScreen),
+ * le table-only ici se rend dans une Card, et la légende [MinMaxForecastLegend]
+ * se rend SÉPARÉMENT en dessous de la Card.
  */
 @Composable
 fun MinMaxForecastTable(
@@ -75,12 +87,6 @@ fun MinMaxForecastTable(
     val rowAltBg = MaterialTheme.colorScheme.surfaceContainerLow
     val onSurface = MaterialTheme.colorScheme.onSurface
     val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
-
-    // Couleurs chaud / froid. Choisies pour rester lisibles en thèmes clair
-    // ET sombre. Si plus tard on veut des nuances par thème, déplacer dans
-    // MaterialTheme.colorScheme extensions.
-    val warmColor = Color(0xFFE53935)  // red 600
-    val coolColor = Color(0xFF1E88E5)  // blue 600
 
     Column(modifier = modifier.fillMaxWidth()) {
         Row(modifier = Modifier.fillMaxWidth()) {
@@ -119,8 +125,8 @@ fun MinMaxForecastTable(
                                 normal = normalForDay,
                                 neutralColor = onSurface,
                                 separatorColor = onSurfaceVariant,
-                                warmColor = warmColor,
-                                coolColor = coolColor,
+                                warmColor = WarmTempColor,
+                                coolColor = CoolTempColor,
                                 background = if (idx % 2 == 1) rowAltBg else Color.Transparent
                             )
                         }
@@ -128,31 +134,40 @@ fun MinMaxForecastTable(
                 }
             }
         }
+    }
+}
 
-        // Légende sous le tableau — explique la coloration. N'apparaît que si
-        // les normales sont disponibles, sinon le message serait trompeur.
-        if (normals != null) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                LegendDot(color = warmColor)
-                Text(
-                    text = " > normale 10 ans + 2°",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = onSurfaceVariant,
-                    modifier = Modifier.padding(end = 16.dp)
-                )
-                LegendDot(color = coolColor)
-                Text(
-                    text = " < normale 10 ans − 2°",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = onSurfaceVariant
-                )
-            }
-        }
+/**
+ * Légende du tableau min/max — chips colorées expliquant la coloration des
+ * cellules. Composable séparé (et non inclus dans [MinMaxForecastTable]) pour
+ * matcher le pattern des autres tableaux : la Card englobe juste le tableau,
+ * la légende est rendue en dessous.
+ *
+ * Conditionnelle dans son rendu : ne rend rien si normales == null (pas de
+ * coloration à expliquer si les données historiques ne sont pas chargées).
+ */
+@Composable
+fun MinMaxForecastLegend(normalsAvailable: Boolean) {
+    if (!normalsAvailable) return
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        LegendDot(color = WarmTempColor)
+        Text(
+            text = " > normale 10 ans + 2°",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(end = 16.dp)
+        )
+        LegendDot(color = CoolTempColor)
+        Text(
+            text = " < normale 10 ans − 2°",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 

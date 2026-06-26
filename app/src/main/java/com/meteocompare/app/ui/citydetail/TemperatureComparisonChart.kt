@@ -128,14 +128,19 @@ fun TemperatureComparisonChart(
     val coolNormalColor = androidx.compose.ui.graphics.Color(0xFF0277BD) // light blue 800
 
     Column(
-        modifier = modifier.semantics(mergeDescendants = true) {
-            contentDescription = a11yDescription
-        }
+        modifier = modifier
+            .semantics(mergeDescendants = true) {
+                contentDescription = a11yDescription
+            }
+            // Padding bottom : sans ça, le dernier élément de la légende est
+            // collé au bord inférieur de la Card englobante — pas esthétique.
+            // 12dp donne une respiration suffisante sans trop décaler le contenu.
+            .padding(bottom = 12.dp)
     ) {
         Canvas(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(220.dp)
+                .height(270.dp)
                 .padding(8.dp)
         ) {
             val leftPad = 36.dp.toPx()
@@ -225,14 +230,49 @@ fun TemperatureComparisonChart(
                 )
             }
 
-            // ─── Lignes par modèle : max (plein, opaque) + min (plein, atténué) ──
-            // Hiérarchie visuelle : max = ligne pleine 2dp alpha 1.0 + cercles ;
-            // min = ligne pleine 1.5dp alpha 0.45 sans cercles. La couleur de
-            // base reste celle du modèle pour qu'on lise "AROME = bleu" en max
-            // ET en min — l'œil regroupe naturellement les deux lignes comme
-            // l'enveloppe d'un même modèle.
+            // ─── Par modèle : enveloppe translucide (min→max) + ligne max ─
+            //
+            // Pourquoi enveloppe plutôt qu'une 2e ligne (min) :
+            //   - 2 lignes × 5 modèles + 2 normales = 12 traits qui se croisent.
+            //     L'œil n'arrive plus à suivre un modèle individuel.
+            //   - Enveloppe = zone fillée à 13% alpha. Recule visuellement (par
+            //     opposition aux lignes vives), donc les 5 max restent les
+            //     éléments saillants. Là où les modèles s'accordent sur la plage
+            //     diurne, les enveloppes se superposent en un nuage homogène
+            //     (signal correct). Là où ils divergent, on voit l'écart latéral.
+            //   - Pas de perte d'info : pour lire un min précis, le tableau
+            //     min/max plus bas est plus efficace. Le chart sert à comparer
+            //     les modèles visuellement, l'enveloppe fait ça mieux que 2 lignes.
+            //
+            // Pour chaque modèle on construit un polygone fermé :
+            //   forward le long du max → backward le long du min → close()
             series.forEach { modelSeries ->
-                // Max line
+                // ─── Enveloppe min/max (filled polygon) ──────────────────
+                val pointsWithMin = modelSeries.points.filter { it.min != null }
+                if (pointsWithMin.size >= 2) {
+                    val envelope = Path()
+                    // Forward le long du max
+                    pointsWithMin.forEachIndexed { i, point ->
+                        val dayOffset = ChronoUnit.DAYS.between(today, point.date).toFloat()
+                        val x = chartLeft + (dayOffset / maxDay) * chartW
+                        val y = chartBottom - ((point.max.toFloat() - yMin) / (yMax - yMin)) * chartH
+                        if (i == 0) envelope.moveTo(x, y) else envelope.lineTo(x, y)
+                    }
+                    // Backward le long du min pour fermer la zone
+                    pointsWithMin.asReversed().forEach { point ->
+                        val dayOffset = ChronoUnit.DAYS.between(today, point.date).toFloat()
+                        val x = chartLeft + (dayOffset / maxDay) * chartW
+                        val y = chartBottom - ((point.min!!.toFloat() - yMin) / (yMax - yMin)) * chartH
+                        envelope.lineTo(x, y)
+                    }
+                    envelope.close()
+                    drawPath(
+                        path = envelope,
+                        color = modelSeries.color.copy(alpha = 0.13f)
+                    )
+                }
+
+                // ─── Ligne max (élément focal) ───────────────────────────
                 val maxPath = Path()
                 modelSeries.points.forEachIndexed { i, point ->
                     val dayOffset = ChronoUnit.DAYS.between(today, point.date).toFloat()
@@ -255,24 +295,6 @@ fun TemperatureComparisonChart(
                         color = modelSeries.color,
                         radius = 3.dp.toPx(),
                         center = Offset(x, y)
-                    )
-                }
-
-                // Min line — points avec donnée min uniquement. On skip les
-                // points où min est null (très rare mais possible).
-                val minPoints = modelSeries.points.filter { it.min != null }
-                if (minPoints.size >= 2) {
-                    val minPath = Path()
-                    minPoints.forEachIndexed { i, point ->
-                        val dayOffset = ChronoUnit.DAYS.between(today, point.date).toFloat()
-                        val x = chartLeft + (dayOffset / maxDay) * chartW
-                        val y = chartBottom - ((point.min!!.toFloat() - yMin) / (yMax - yMin)) * chartH
-                        if (i == 0) minPath.moveTo(x, y) else minPath.lineTo(x, y)
-                    }
-                    drawPath(
-                        path = minPath,
-                        color = modelSeries.color.copy(alpha = 0.45f),
-                        style = Stroke(width = 1.5.dp.toPx())
                     )
                 }
             }
@@ -305,7 +327,7 @@ fun TemperatureComparisonChart(
                 }
                 if (series.any { it.points.any { p -> p.min != null } }) {
                     Text(
-                        text = "Trait plein épais = max du modèle · trait fin = min",
+                        text = "Ligne pleine = max du modèle · zone teintée = plage min–max",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 2.dp)

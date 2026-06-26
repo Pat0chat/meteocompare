@@ -289,9 +289,23 @@ private fun LoadedView(
         // Tableau fusionné max/min — remplace les deux tableaux séparés.
         // Coloration relative aux normales climatiques (rouge si > normale + 2°,
         // bleu si < normale - 2°). Si normals == null encore, affichage neutre.
+        // Structure identique aux autres tableaux : Card pour la table, légende
+        // en dessous (pas dans la Card).
         item("temp_table") {
             SectionTitle("Températures max / min")
-            MinMaxForecastTable(forecast = forecast, normals = normals)
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                ),
+                modifier = Modifier.padding(horizontal = 16.dp)
+            ) {
+                MinMaxForecastTable(
+                    forecast = forecast,
+                    normals = normals,
+                    modifier = Modifier.padding(8.dp)
+                )
+            }
+            MinMaxForecastLegend(normalsAvailable = normals != null)
         }
 
         item("precip_table") {
