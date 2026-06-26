@@ -1,4 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Theme appliqué après dismiss du splash. -->
     <style name="Theme.MeteoCompare" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <!-- Theme splash Android 12+. La SplashScreen API peut servir ce theme
+         sur toutes les versions Android (le compat lib backporte le rendu sur
+         API 23+ avec un layout-based fallback).
+
+         windowSplashScreenAnimatedIcon : drawable montré en center, masqué en
+         cercle par le système. Doit avoir son contenu dans les 67% centraux.
+
+         windowSplashScreenBackground : fond plein écran derrière l'icône.
+         Couleur d'identité de l'app — pas blanc — pour éviter le flash
+         blanc-vers-app au lancement.
+
+         postSplashScreenTheme : theme appliqué après dismiss. Bascule vers le
+         theme normal de l'app. La transition est gérée par le système. -->
+    <style name="Theme.MeteoCompare.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/ic_launcher_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_logo</item>
+        <item name="postSplashScreenTheme">@style/Theme.MeteoCompare</item>
+    </style>
 </resources>

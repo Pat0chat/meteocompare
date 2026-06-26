@@ -82,7 +82,9 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions { jvmTarget = "17" }
+    // `kotlinOptions { jvmTarget = "17" }` est déprécié depuis KGP 2.0 ;
+    // le bloc `kotlin { compilerOptions { ... } }` au niveau projet (en
+    // dehors d'`android { }`) le remplace — voir plus bas.
 
     buildFeatures {
         compose = true
@@ -103,8 +105,19 @@ android {
     }
 }
 
+// Configuration Kotlin niveau projet — remplace `kotlinOptions { }`
+// (déprécié depuis KGP 2.0). Le type sûr `JvmTarget.JVM_17` est préféré à la
+// chaîne `"17"` parce qu'il échoue à la compilation Gradle si la valeur est
+// invalide, plutôt qu'à l'exécution.
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+    }
+}
+
 dependencies {
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
