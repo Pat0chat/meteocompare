@@ -5,9 +5,11 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -271,7 +273,7 @@ private fun LoadedView(
         }
 
         item("chart") {
-            SectionTitle("Températures max par modèle")
+            SectionTitle("Températures min/max par modèle")
             Card(
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainerLow
@@ -300,7 +302,8 @@ private fun LoadedView(
                 formatter = { mm ->
                     if (mm < 0.05) "0" else "${"%.1f".format(mm)} mm"
                 },
-                valueStyler = ::precipitationStyle
+                valueStyler = ::precipitationStyle,
+                legend = { PrecipitationLegend() }
             )
         }
 
@@ -310,7 +313,8 @@ private fun LoadedView(
                 forecast = forecast,
                 extractor = { daily, idx -> daily.windSpeedMax.getOrNull(idx) },
                 formatter = { "${it.roundToInt()} km/h" },
-                valueStyler = ::windStyle
+                valueStyler = ::windStyle,
+                legend = { WindLegend() }
             )
         }
 
@@ -338,7 +342,8 @@ private fun ForecastSection(
     forecast: CityForecast,
     extractor: (DailyForecast, Int) -> Double?,
     formatter: (Double) -> String,
-    valueStyler: ((Double) -> ValueStyle?)? = null
+    valueStyler: ((Double) -> ValueStyle?)? = null,
+    legend: @Composable (() -> Unit)? = null
 ) {
     Column {
         SectionTitle(title)
@@ -356,6 +361,7 @@ private fun ForecastSection(
                 modifier = Modifier.padding(8.dp)
             )
         }
+        legend?.invoke()
     }
 }
 
@@ -585,6 +591,72 @@ private val LONG_DATE_FMT: DateTimeFormatter =
 internal const val TAG_DETAIL_LOADING = "detail_loading"
 internal const val TAG_DETAIL_ERROR = "detail_error"
 internal const val TAG_DETAIL_LOADED = "detail_loaded"
+
+// ============================================================================
+//  Légendes des tableaux précipitations et vent
+// ============================================================================
+//
+//  Pourquoi 4 chips et non 5 (correspondant aux 5 paliers du styler) :
+//  le premier palier "neutre" (≈ 0 dans le tableau) n'a pas de couleur dédiée
+//  — c'est juste l'absence de styling, donc rien à expliquer en légende.
+//  Les 4 chips restants couvrent les 4 paliers visibles.
+//
+//  Layout en FlowRow : compact sur 1 ligne sur la plupart des téléphones,
+//  bascule sur 2 lignes sur les écrans très étroits sans perte d'info.
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PrecipitationLegend() {
+    LegendChipsRow(
+        chips = listOf(
+            Color(0xFF4FC3F7) to "léger",
+            Color(0xFF1E88E5) to "modéré",
+            Color(0xFF1565C0) to "fort",
+            Color(0xFF0D47A1) to "très fort"
+        )
+    )
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun WindLegend() {
+    LegendChipsRow(
+        chips = listOf(
+            Color(0xFFFFB74D) to "léger",
+            Color(0xFFFB8C00) to "modéré",
+            Color(0xFFE64A19) to "fort",
+            Color(0xFFC62828) to "tempête"
+        )
+    )
+}
+
+/** Rangée de chips colorées (dot + label), utilisée par les deux légendes. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun LegendChipsRow(chips: List<Pair<Color, String>>) {
+    androidx.compose.foundation.layout.FlowRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        chips.forEach { (color, label) ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .padding(end = 4.dp)
+                        .size(10.dp)
+                        .background(color, shape = androidx.compose.foundation.shape.CircleShape)
+                )
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
 
 // ============================================================================
 //  Stylers d'intensité — couleur + graisse modulées selon la valeur

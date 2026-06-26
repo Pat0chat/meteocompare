@@ -99,9 +99,13 @@ fun TemperatureComparisonChart(
     }
 
     // Inclut les normales dans le calcul de l'échelle Y pour éviter qu'elles
-    // sortent du chart. yMin descend pour englober la min normale.
+    // sortent du chart. yMin descend pour englober la min normale ET les min
+    // des modèles, yMax monte pour englober les max.
     val allValues = buildList {
-        addAll(series.flatMap { it.points }.map { it.temperature })
+        series.flatMap { it.points }.forEach { p ->
+            add(p.max)
+            p.min?.let { add(it) }
+        }
         normalsForChart.forEach { (_, max, min) -> add(max); add(min) }
     }
     val yMin = floor(allValues.min()).toFloat() - 1f
@@ -114,6 +118,14 @@ fun TemperatureComparisonChart(
                 daysCovered = maxDay + 1
             ) + if (normalsForChart.isNotEmpty()) " Normales climatiques 10 ans affichées en pointillés." else ""
     }
+
+    // Couleurs des normales : max en orange foncé (chaud), min en bleu foncé
+    // (froid). Permet de distinguer instantanément les deux sans regarder la
+    // légende — l'œil associe naturellement les valeurs hautes au chaud et les
+    // basses au froid. Déclarées ici (hors Canvas DrawScope) pour être également
+    // utilisables dans la légende plus bas.
+    val warmNormalColor = androidx.compose.ui.graphics.Color(0xFFD84315) // deep orange 800
+    val coolNormalColor = androidx.compose.ui.graphics.Color(0xFF0277BD) // light blue 800
 
     Column(
         modifier = modifier.semantics(mergeDescendants = true) {
@@ -180,15 +192,14 @@ fun TemperatureComparisonChart(
             // Dessinés AVANT les lignes des modèles pour qu'ils restent en
             // arrière-plan. Pattern (8 ON, 6 OFF) en pixels pour un look
             // distinctement "dashed" sans être trop fragmenté.
+
             if (normalsForChart.isNotEmpty()) {
                 val dashPattern = floatArrayOf(8f, 6f)
                 val dashStroke = Stroke(
-                    width = 1.5.dp.toPx(),
+                    width = 1.8.dp.toPx(),
                     pathEffect = PathEffect.dashPathEffect(dashPattern, 0f)
                 )
 
-                // Max normales — légèrement plus foncé pour cohérence visuelle
-                // avec les températures max (plus "visibles" sur le chart).
                 val maxNormalPath = Path()
                 normalsForChart.forEachIndexed { i, (dayOffset, max, _) ->
                     val x = chartLeft + (dayOffset.toFloat() / maxDay) * chartW
@@ -197,11 +208,10 @@ fun TemperatureComparisonChart(
                 }
                 drawPath(
                     path = maxNormalPath,
-                    color = normalLineColor.copy(alpha = 0.75f),
+                    color = warmNormalColor,
                     style = dashStroke
                 )
 
-                // Min normales
                 val minNormalPath = Path()
                 normalsForChart.forEachIndexed { i, (dayOffset, _, min) ->
                     val x = chartLeft + (dayOffset.toFloat() / maxDay) * chartW
@@ -210,38 +220,59 @@ fun TemperatureComparisonChart(
                 }
                 drawPath(
                     path = minNormalPath,
-                    color = normalLineColor.copy(alpha = 0.5f),
+                    color = coolNormalColor,
                     style = dashStroke
                 )
             }
 
-            // ─── Lignes (une par modèle) ────────────────────────────────
+            // ─── Lignes par modèle : max (plein, opaque) + min (plein, atténué) ──
+            // Hiérarchie visuelle : max = ligne pleine 2dp alpha 1.0 + cercles ;
+            // min = ligne pleine 1.5dp alpha 0.45 sans cercles. La couleur de
+            // base reste celle du modèle pour qu'on lise "AROME = bleu" en max
+            // ET en min — l'œil regroupe naturellement les deux lignes comme
+            // l'enveloppe d'un même modèle.
             series.forEach { modelSeries ->
-                val path = Path()
+                // Max line
+                val maxPath = Path()
                 modelSeries.points.forEachIndexed { i, point ->
                     val dayOffset = ChronoUnit.DAYS.between(today, point.date).toFloat()
                     val x = chartLeft + (dayOffset / maxDay) * chartW
-                    // point.temperature est un Double (domain). Compose Canvas
-                    // travaille en Float — conversion explicite pour éviter le
-                    // mismatch sur Path.moveTo/lineTo et Offset.
-                    val y = chartBottom - ((point.temperature.toFloat() - yMin) / (yMax - yMin)) * chartH
-                    if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                    val y = chartBottom - ((point.max.toFloat() - yMin) / (yMax - yMin)) * chartH
+                    if (i == 0) maxPath.moveTo(x, y) else maxPath.lineTo(x, y)
                 }
                 drawPath(
-                    path = path,
+                    path = maxPath,
                     color = modelSeries.color,
                     style = Stroke(width = 2.dp.toPx())
                 )
 
-                // Points
+                // Cercles sur les points max (focal points)
                 modelSeries.points.forEach { point ->
                     val dayOffset = ChronoUnit.DAYS.between(today, point.date).toFloat()
                     val x = chartLeft + (dayOffset / maxDay) * chartW
-                    val y = chartBottom - ((point.temperature.toFloat() - yMin) / (yMax - yMin)) * chartH
+                    val y = chartBottom - ((point.max.toFloat() - yMin) / (yMax - yMin)) * chartH
                     drawCircle(
                         color = modelSeries.color,
                         radius = 3.dp.toPx(),
                         center = Offset(x, y)
+                    )
+                }
+
+                // Min line — points avec donnée min uniquement. On skip les
+                // points où min est null (très rare mais possible).
+                val minPoints = modelSeries.points.filter { it.min != null }
+                if (minPoints.size >= 2) {
+                    val minPath = Path()
+                    minPoints.forEachIndexed { i, point ->
+                        val dayOffset = ChronoUnit.DAYS.between(today, point.date).toFloat()
+                        val x = chartLeft + (dayOffset / maxDay) * chartW
+                        val y = chartBottom - ((point.min!!.toFloat() - yMin) / (yMax - yMin)) * chartH
+                        if (i == 0) minPath.moveTo(x, y) else minPath.lineTo(x, y)
+                    }
+                    drawPath(
+                        path = minPath,
+                        color = modelSeries.color.copy(alpha = 0.45f),
+                        style = Stroke(width = 1.5.dp.toPx())
                     )
                 }
             }
@@ -250,36 +281,72 @@ fun TemperatureComparisonChart(
         // Légende des modèles
         ModelLegend(series.map { it.model to it.color })
 
-        // Indicateur "Normales 10 ans" — n'apparaît que si les normales sont
-        // chargées et affichées sur le chart. Conservé en dehors de ModelLegend
-        // pour ne pas dépendre du wrapping FlowRow des modèles.
-        if (normalsForChart.isNotEmpty()) {
-            Row(
+        // Légende des éléments additionnels : 2 lignes pour les normales (colorées)
+        // + 1 ligne pour expliquer le code max/min des modèles.
+        // Ces 3 indicateurs sont en dehors du ModelLegend pour ne pas être pris
+        // dans son FlowRow (qui distribue par modèle).
+        if (normalsForChart.isNotEmpty() || series.any { it.points.any { p -> p.min != null } }) {
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 2.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(horizontal = 12.dp, vertical = 2.dp)
             ) {
-                Canvas(
-                    modifier = Modifier
-                        .height(2.dp)
-                        .width(20.dp)
-                ) {
-                    drawLine(
-                        color = normalLineColor.copy(alpha = 0.75f),
-                        start = Offset(0f, size.height / 2f),
-                        end = Offset(size.width, size.height / 2f),
-                        strokeWidth = 1.5.dp.toPx(),
-                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 4f), 0f)
+                if (normalsForChart.isNotEmpty()) {
+                    // Normales max (orange dashed)
+                    LegendDashedRow(
+                        color = warmNormalColor,
+                        label = "Normale max 10 ans"
+                    )
+                    // Normales min (bleu dashed)
+                    LegendDashedRow(
+                        color = coolNormalColor,
+                        label = "Normale min 10 ans"
                     )
                 }
-                Text(
-                    text = "  Normales 10 ans (max / min)",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                if (series.any { it.points.any { p -> p.min != null } }) {
+                    Text(
+                        text = "Trait plein épais = max du modèle · trait fin = min",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
             }
         }
+    }
+}
+
+/**
+ * Petite ligne pointillée + label, utilisée dans la légende du chart pour les
+ * normales. Centralisée pour éviter de dupliquer le bloc Canvas+Text.
+ */
+@Composable
+private fun LegendDashedRow(
+    color: androidx.compose.ui.graphics.Color,
+    label: String
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(vertical = 1.dp)
+    ) {
+        Canvas(
+            modifier = Modifier
+                .height(2.dp)
+                .width(20.dp)
+        ) {
+            drawLine(
+                color = color,
+                start = Offset(0f, size.height / 2f),
+                end = Offset(size.width, size.height / 2f),
+                strokeWidth = 1.8.dp.toPx(),
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 4f), 0f)
+            )
+        }
+        Text(
+            text = "  $label",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
@@ -319,14 +386,24 @@ private data class TemperatureSeries(
     val points: List<TempPoint>
 )
 
-private data class TempPoint(val date: LocalDate, val temperature: Double)
+private data class TempPoint(
+    val date: LocalDate,
+    val max: Double,
+    val min: Double?
+)
 
 private fun extractTemperatureSeries(forecast: CityForecast): List<TemperatureSeries> {
     return forecast.seriesByModel.toList()
         .sortedBy { it.first.ordinal }
         .mapNotNull { (model, series) ->
-            val points = series.daily.dates.zip(series.daily.tempMax)
-                .mapNotNull { (date, temp) -> temp?.let { TempPoint(date, it) } }
+            val dates = series.daily.dates
+            val maxes = series.daily.tempMax
+            val mins = series.daily.tempMin
+            val points = dates.indices.mapNotNull { i ->
+                val max = maxes.getOrNull(i) ?: return@mapNotNull null
+                val min = mins.getOrNull(i)  // peut être null sans bloquer la série
+                TempPoint(date = dates[i], max = max, min = min)
+            }
             if (points.isEmpty()) null
             else TemperatureSeries(model, model.color(), points)
         }
