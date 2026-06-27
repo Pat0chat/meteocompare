@@ -1,10 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Couleur de fond de l'icône adaptive.
-         Échantillonnée par médiane sur le bord intérieur du source pour matcher
-         exactement la couleur du rounded-square du design. Avec cette
-         correspondance, la frontière entre le foreground (rounded-square) et
-         le background launcher devient invisible — l'œil ne voit plus de
-         "carré" dans la zone visible du mask. -->
-    <color name="ic_launcher_background">#002B7B</color>
+         Échantillonnée sur le fond bleu du source (image ChatGPT du 27 juin 2026).
+         Le foreground étant maintenant un PNG transparent avec fond enlevé, le
+         launcher background remplit toute la zone du mask et reste cohérent
+         avec l'identité visuelle (bleu profond, type fond de ciel nuit). -->
+    <color name="ic_launcher_background">#002792</color>
 </resources>

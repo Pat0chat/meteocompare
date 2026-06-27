@@ -7,11 +7,11 @@
 Categories:
   - Science & Education
 License: Apache-2.0
-WebSite: https://github.com/USERNAME/MeteoCompare
-SourceCode: https://github.com/USERNAME/MeteoCompare
-IssueTracker: https://github.com/USERNAME/MeteoCompare/issues
-Changelog: https://github.com/USERNAME/MeteoCompare/releases
-Donate: https://liberapay.com/USERNAME
+WebSite: https://github.com/Pat0chat/MeteoCompare
+SourceCode: https://github.com/Pat0chat/MeteoCompare
+IssueTracker: https://github.com/Pat0chat/MeteoCompare/issues
+Changelog: https://github.com/Pat0chat/MeteoCompare/releases
+Donate: https://liberapay.com/Pat0chat
 
 AutoName: MeteoCompare
 
@@ -45,7 +45,7 @@ Description: |-
     Météo-France, ICON par DWD, GFS par NOAA, ECMWF par le Centre Européen.
 
 RepoType: git
-Repo: https://github.com/USERNAME/MeteoCompare.git
+Repo: https://github.com/Pat0chat/MeteoCompare.git
 
 Builds:
   - versionName: 0.1.0

@@ -1,9 +1,9 @@
 # MeteoCompare
 
-[![Android CI](https://github.com/USERNAME/MeteoCompare/actions/workflows/android.yml/badge.svg)](https://github.com/USERNAME/MeteoCompare/actions/workflows/android.yml)
+[![Android CI](https://github.com/Pat0chat/MeteoCompare/actions/workflows/android.yml/badge.svg)](https://github.com/Pat0chat/MeteoCompare/actions/workflows/android.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![F-Droid](https://img.shields.io/f-droid/v/com.meteocompare.app)](https://f-droid.org/packages/com.meteocompare.app/)
-[![Liberapay patrons](https://img.shields.io/liberapay/patrons/USERNAME.svg?logo=liberapay)](https://liberapay.com/USERNAME)
+[![Liberapay patrons](https://img.shields.io/liberapay/patrons/Pat0chat.svg?logo=liberapay)](https://liberapay.com/Pat0chat)
 
 Application Android de comparaison multi-modèles météorologiques (AROME, ARPEGE, ICON, GFS, ECMWF…) basée sur l'API [Open-Meteo](https://open-meteo.com).
 
@@ -62,7 +62,7 @@ WRF n'est pas inclus dans cette V1 (il n'existe pas d'instance "WRF universelle"
 
 ## Indice de confiance
 
-Le différentiateur clé : `ConfidenceCalculator` agrège les prédictions multi-modèles
+`ConfidenceCalculator` agrège les prédictions multi-modèles
 en un score 0-100 par variable (température, vent, pluie) pour chaque jour ET pour
 chaque heure.
 
@@ -90,7 +90,7 @@ quand on aura des données de skill verification.
 
 ## Premier lancement
 
-1. Ouvrir le projet dans Android Studio Ladybug ou plus récent.
+1. Ouvrir le projet dans Android Studio.
 2. Sync Gradle (le wrapper sera téléchargé automatiquement la première fois).
 3. Lancer sur émulateur API 26+ ou device.
 
@@ -126,92 +126,21 @@ GitHub Actions configuré (`.github/workflows/android.yml`) :
 
 Le cache Gradle est en lecture seule pour les branches non-`main` afin d'éviter la pollution croisée.
 
-## Publication Play Store
+## Politique de confidentialité
 
-### 1. Génère ton keystore de release (une seule fois)
-
-```bash
-keytool -genkey -v \
-  -keystore meteocompare-release.jks \
-  -keyalg RSA -keysize 2048 -validity 25000 \
-  -alias meteocompare
-```
-
-⚠️ Range le `.jks` **hors du repo** et garde-le précieusement. Si tu le perds,
-Play Store ne te laissera jamais publier de mise à jour de l'app sous le même
-package name.
-
-### 2. Configure en local
-
-Copie `keystore.properties.example` en `keystore.properties` (gitignored) et
-remplis les chemins. Puis :
-
-```bash
-./gradlew :app:bundleRelease      # produit l'AAB pour Play Console
-./gradlew :app:assembleRelease    # produit l'APK pour distribution directe
-```
-
-### 3. Configure en CI
-
-Dans Settings → Secrets du repo GitHub, ajoute :
-
-| Secret              | Contenu                                                      |
-|---------------------|--------------------------------------------------------------|
-| `KEYSTORE_BASE64`   | `base64 -i meteocompare-release.jks` copié intégralement     |
-| `KEYSTORE_PASSWORD` | Mot de passe du keystore                                     |
-| `KEY_ALIAS`         | `meteocompare`                                               |
-| `KEY_PASSWORD`      | Mot de passe de la clé                                       |
-
-Puis crée un tag de version :
-
-```bash
-git tag v0.1.0 && git push origin v0.1.0
-```
-
-Le workflow `.github/workflows/release.yml` se déclenche, build l'AAB + APK
-signés et crée une GitHub Release attachée au tag.
-
-### 4. Assets Play Console
-
-Tout est dans `play-store/` :
-
-- `assets/icon-512.png` — icône hi-res (obligatoire)
-- `assets/feature-graphic.png` — bandeau 1024×500 (obligatoire)
-- `descriptions/` — descriptions courte et complète, FR + EN
-- `play-store/README.md` — checklist complète de soumission
-
-Les screenshots sont à capturer manuellement depuis l'app installée. Le README
-du dossier explique quoi capturer et comment.
-
-### 5. Politique de confidentialité
-
-Le fichier `PRIVACY.md` à la racine est conforme aux exigences Play Store :
+Le fichier [PRIVACY.md](PRIVACY.md) à la racine est conforme aux exigences Play Store :
 zéro collecte de données, déclaration explicite des permissions, des services
 tiers (Open-Meteo) et du stockage local.
 
 À héberger sur GitHub Pages ou un Gist public, puis fournir l'URL dans Play
 Console.
 
-## Distribution F-Droid
-
-L'app est conçue pour respecter les critères stricts de F-Droid (FOSS, no
-tracking, build reproductible). Tout est documenté dans `fdroid/SUBMISSION.md` :
-
-- Le metadata YAML pré-rempli (`fdroid/com.meteocompare.app.yml`)
-- La procédure de PR sur `fdroiddata`
-- Le test local avec `fdroidserver`
-- Les anti-features (aucune ne s'applique)
-
-Avec `AutoUpdateMode: Version` + `UpdateCheckMode: Tags`, les nouveaux tags
-GitHub déclenchent automatiquement des builds F-Droid sans nouvelle PR.
-
 ## Soutenir le développement
 
 L'app est gratuite et open-source. Plusieurs options pour soutenir :
 
-- [Liberapay](https://liberapay.com/USERNAME) (contributions hebdomadaires)
-- [GitHub Sponsors](https://github.com/sponsors/USERNAME) (mensuel)
-- [Ko-fi](https://ko-fi.com/USERNAME) (don ponctuel)
+- [Liberapay](https://liberapay.com/Pat0chat) (contributions hebdomadaires)
+- [GitHub Sponsors](https://github.com/sponsors/Pat0chat) (mensuel)
 
 Aucun privilège n'est accordé aux donateurs — l'app et le code source
 restent identiques pour tous. Voir [DONATIONS.md](DONATIONS.md) pour plus

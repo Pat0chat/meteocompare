@@ -75,7 +75,7 @@ Au moment du soumission :
 Play Console exige une URL publique. Options :
 
 1. **GitHub Pages** (gratuit) — activer Pages sur le repo, la PRIVACY.md
-   apparaît à `https://USERNAME.github.io/MeteoCompare/PRIVACY.html` après
+   apparaît à `https://pat0chat.github.io/meteocompare/PRIVACY.html` après
    conversion automatique.
 2. **Gist** : créer un gist public avec le contenu de PRIVACY.md → URL "raw".
 

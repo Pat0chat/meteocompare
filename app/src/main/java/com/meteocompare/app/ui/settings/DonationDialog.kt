@@ -67,19 +67,13 @@ fun DonationDialog(onDismiss: () -> Unit) {
                 DonationPlatformRow(
                     name = "Liberapay",
                     description = stringResource(R.string.donations_liberapay_desc),
-                    onClick = { openUrl("https://liberapay.com/USERNAME") }
+                    onClick = { openUrl("https://liberapay.com/Pat0chat") }
                 )
                 HorizontalDivider()
                 DonationPlatformRow(
                     name = "GitHub Sponsors",
                     description = stringResource(R.string.donations_github_sponsors_desc),
-                    onClick = { openUrl("https://github.com/sponsors/USERNAME") }
-                )
-                HorizontalDivider()
-                DonationPlatformRow(
-                    name = "Ko-fi",
-                    description = stringResource(R.string.donations_kofi_desc),
-                    onClick = { openUrl("https://ko-fi.com/USERNAME") }
+                    onClick = { openUrl("https://github.com/sponsors/Pat0chat") }
                 )
 
                 Spacer(Modifier.height(16.dp))

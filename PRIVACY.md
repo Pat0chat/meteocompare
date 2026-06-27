@@ -58,11 +58,13 @@ qui spécifie l'absence de stockage à long terme des requêtes individuelles.
 
 L'application stocke les données suivantes **uniquement** sur votre appareil :
 
-| Donnée                 | Stockage             | Pourquoi                                      |
-|------------------------|----------------------|-----------------------------------------------|
-| Villes favorites       | DataStore (interne)  | Pour vous afficher votre sélection            |
-| Modèles activés        | DataStore (interne)  | Pour respecter votre configuration            |
-| Cache des prévisions   | Room SQLite (interne) | Pour démarrage instantané et mode offline    |
+| Donnée               | Stockage             | Pourquoi                                  |
+|----------------------|----------------------|-------------------------------------------|
+| Villes favorites     | DataStore (interne)  | Pour vous afficher votre sélection        |
+| Modèles activés      | DataStore (interne)  | Pour respecter votre configuration        |
+| Cache des prévisions | Room SQLite (interne) | Pour démarrage instantané et mode offline |
+| Préférence langage   | Room SQLite (interne) | Langue de l'application                   |
+| Préférence thème     | Room SQLite (interne) | Thème de l'application                    |
 
 Ces données :
 - Ne quittent **jamais** votre appareil
@@ -98,9 +100,9 @@ Si une mise à jour de l'application change fondamentalement ce comportement
 cette politique sera mise à jour avant la publication de la version concernée,
 et l'utilisateur sera explicitement informé dans les notes de version.
 
-Tant que la version reste 0.x, l'engagement "zéro collecte" est maintenu.
+Tant que la version reste 1.x, l'engagement "zéro collecte" est maintenu.
 
 ## 8. Contact
 
 Pour toute question sur cette politique :
-[github.com/USERNAME/MeteoCompare/issues](https://github.com/USERNAME/MeteoCompare/issues)
+[github.com/Pat0chat/MeteoCompare/issues](https://github.com/Pat0chat/MeteoCompare/issues)
