@@ -623,10 +623,10 @@ internal const val TAG_DETAIL_LOADED = "detail_loaded"
 private fun PrecipitationLegend() {
     LegendChipsRow(
         chips = listOf(
-            Color(0xFF4FC3F7) to "léger",
-            Color(0xFF1E88E5) to "modéré",
-            Color(0xFF1565C0) to "fort",
-            Color(0xFF0D47A1) to "très fort"
+            Color(0xFF4FC3F7) to "légère",
+            Color(0xFF1E88E5) to "modérée",
+            Color(0xFF1565C0) to "forte",
+            Color(0xFF0D47A1) to "très forte"
         )
     )
 }

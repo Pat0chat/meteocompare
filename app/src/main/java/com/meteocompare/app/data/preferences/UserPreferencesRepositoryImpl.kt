@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.meteocompare.app.di.IoDispatcher
+import com.meteocompare.app.domain.model.LanguagePreference
 import com.meteocompare.app.domain.model.ThemePreference
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
@@ -17,11 +18,11 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
-// DataStore séparé du favoritesDataStore — préférences vs données.
 private val Context.preferencesDataStore by preferencesDataStore(name = "user_prefs")
 
 private val ENABLED_MODELS_KEY = stringSetPreferencesKey("enabled_models")
 private val THEME_PREFERENCE_KEY = stringPreferencesKey("theme_preference")
+private val LANGUAGE_PREFERENCE_KEY = stringPreferencesKey("language_preference")
 
 @Singleton
 class UserPreferencesRepositoryImpl @Inject constructor(
@@ -33,11 +34,8 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         context.preferencesDataStore.data.map { prefs ->
             val apiKeys = prefs[ENABLED_MODELS_KEY]
             if (apiKeys == null) {
-                // Première utilisation → valeurs par défaut
                 WeatherModel.MVP_SELECTION
             } else {
-                // On filtre sur les WeatherModel qui existent encore
-                // (utile si on a retiré un modèle entre deux versions de l'app)
                 WeatherModel.entries
                     .filter { it.apiKey in apiKeys }
                     .ifEmpty { WeatherModel.MVP_SELECTION }
@@ -61,6 +59,19 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         withContext(ioDispatcher) {
             context.preferencesDataStore.edit { prefs ->
                 prefs[THEME_PREFERENCE_KEY] = preference.name
+            }
+            Unit
+        }
+
+    override fun observeLanguagePreference(): Flow<LanguagePreference> =
+        context.preferencesDataStore.data.map { prefs ->
+            LanguagePreference.fromString(prefs[LANGUAGE_PREFERENCE_KEY])
+        }
+
+    override suspend fun setLanguagePreference(preference: LanguagePreference) =
+        withContext(ioDispatcher) {
+            context.preferencesDataStore.edit { prefs ->
+                prefs[LANGUAGE_PREFERENCE_KEY] = preference.name
             }
             Unit
         }

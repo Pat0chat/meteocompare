@@ -1,6 +1,7 @@
 package com.meteocompare.app.ui.citydetail
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,7 +18,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -29,6 +33,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
@@ -65,15 +70,31 @@ fun TemperatureComparisonChart(
     normals: Map<Int, DayNormals>? = null,
     modifier: Modifier = Modifier
 ) {
-    // Extraction de la donnée chart : on prend tempMax, et on convertit les dates
-    // en day-offset par rapport à la première date trouvée (today).
-    val series = remember(forecast) { extractTemperatureSeries(forecast) }
-    if (series.isEmpty()) {
+    // Extraction de la donnée chart : tempMax + tempMin, convertis les dates en
+    // day-offset par rapport à la première date trouvée (today).
+    val allSeries = remember(forecast) { extractTemperatureSeries(forecast) }
+    if (allSeries.isEmpty()) {
         Box(modifier = modifier.height(220.dp), contentAlignment = Alignment.Center) {
             Text("Aucune donnée à afficher", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         return
     }
+
+    // Set des modèles actuellement MASQUÉS (vide par défaut = tous visibles).
+    // Utiliser "masqué" plutôt que "visible" simplifie le défaut : on commence
+    // toujours par tout afficher, et le state ne contient que les exceptions.
+    // `remember` plutôt que `rememberSaveable` car la sélection est purement
+    // visuelle / éphémère — pas critique de survivre au process death, le user
+    // peut re-toggler en 2 secondes.
+    var hiddenModels by remember(forecast) {
+        mutableStateOf(emptySet<WeatherModel>())
+    }
+
+    // Modèles actuellement visibles (filtered). Si vide, l'utilisateur a tout
+    // désactivé dans la légende — on affichera un état vide au lieu d'essayer
+    // de dessiner un chart sans données. La ModelLegend reste affichée pour
+    // qu'il puisse re-cliquer un modèle et revenir à un état avec données.
+    val visibleSeries = allSeries.filter { it.model !in hiddenModels }
 
     val onSurface = MaterialTheme.colorScheme.onSurfaceVariant
     val gridColor = MaterialTheme.colorScheme.outlineVariant
@@ -81,68 +102,80 @@ fun TemperatureComparisonChart(
     val textMeasurer = rememberTextMeasurer()
     val labelStyle = TextStyle(color = onSurface, fontSize = 10.sp)
 
-    val today = series.first().points.first().date
-    val maxDay = series.flatMap { it.points }.maxOf {
-        ChronoUnit.DAYS.between(today, it.date).toInt()
-    }.coerceAtLeast(1)
-
-    // Calcule la séquence des normales pour les jours couverts par le chart.
-    // Ces points seront tracés en pointillés. Le `mapNotNull` skip les jours
-    // sans donnée (cas rare : début d'année avec Feb 29).
-    val normalsForChart = remember(normals, today, maxDay) {
-        if (normals == null) emptyList<Triple<Int, Double, Double>>()
-        else (0..maxDay).mapNotNull { dayOffset ->
-            val date = today.plusDays(dayOffset.toLong())
-            val key = DayNormals.key(date.monthValue, date.dayOfMonth)
-            normals[key]?.let { Triple(dayOffset, it.tempMaxNormal, it.tempMinNormal) }
-        }
-    }
-
-    // Inclut les normales dans le calcul de l'échelle Y pour éviter qu'elles
-    // sortent du chart. yMin descend pour englober la min normale ET les min
-    // des modèles, yMax monte pour englober les max.
-    val allValues = buildList {
-        series.flatMap { it.points }.forEach { p ->
-            add(p.max)
-            p.min?.let { add(it) }
-        }
-        normalsForChart.forEach { (_, max, min) -> add(max); add(min) }
-    }
-    val yMin = floor(allValues.min()).toFloat() - 1f
-    val yMax = ceil(allValues.max()).toFloat() + 1f
-
-    val a11yDescription = remember(series, normalsForChart) {
-        com.meteocompare.app.ui.accessibility.A11yFormatter
-            .multiModelChartDescription(
-                modelCount = series.size,
-                daysCovered = maxDay + 1
-            ) + if (normalsForChart.isNotEmpty()) " Normales climatiques 10 ans affichées en pointillés." else ""
-    }
-
     // Couleurs des normales : max en orange foncé (chaud), min en bleu foncé
     // (froid). Permet de distinguer instantanément les deux sans regarder la
-    // légende — l'œil associe naturellement les valeurs hautes au chaud et les
-    // basses au froid. Déclarées ici (hors Canvas DrawScope) pour être également
-    // utilisables dans la légende plus bas.
+    // légende. Hors Canvas DrawScope pour être utilisables aussi dans la légende.
     val warmNormalColor = androidx.compose.ui.graphics.Color(0xFFD84315) // deep orange 800
     val coolNormalColor = androidx.compose.ui.graphics.Color(0xFF0277BD) // light blue 800
 
     Column(
         modifier = modifier
             .semantics(mergeDescendants = true) {
-                contentDescription = a11yDescription
+                contentDescription = if (visibleSeries.isEmpty())
+                    "Aucun modèle sélectionné."
+                else
+                    com.meteocompare.app.ui.accessibility.A11yFormatter
+                        .multiModelChartDescription(
+                            modelCount = visibleSeries.size,
+                            daysCovered = 7
+                        )
             }
-            // Padding bottom : sans ça, le dernier élément de la légende est
-            // collé au bord inférieur de la Card englobante — pas esthétique.
-            // 12dp donne une respiration suffisante sans trop décaler le contenu.
             .padding(bottom = 12.dp)
     ) {
-        Canvas(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(270.dp)
-                .padding(8.dp)
-        ) {
+        if (visibleSeries.isEmpty()) {
+            // État vide : tous les modèles ont été désactivés via la légende.
+            // On garde la même hauteur que le Canvas normal (270dp) pour que
+            // le layout ne saute pas brutalement quand l'utilisateur re-active
+            // un modèle. La ModelLegend juste en dessous reste cliquable.
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(270.dp)
+                    .padding(8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Aucun modèle sélectionné.\nTouchez un modèle dans la légende ci-dessous pour l'afficher.",
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        } else {
+            // Computations utilisées uniquement pour le rendu — déplacées ici
+            // pour ne pas tenter de calculer .first()/.maxOf() sur visibleSeries
+            // vide (cause du crash précédent).
+            val today = visibleSeries.first().points.first().date
+            val maxDay = visibleSeries.flatMap { it.points }.maxOf {
+                ChronoUnit.DAYS.between(today, it.date).toInt()
+            }.coerceAtLeast(1)
+
+            val normalsForChart = if (normals == null) emptyList<Triple<Int, Double, Double>>()
+            else (0..maxDay).mapNotNull { dayOffset ->
+                val date = today.plusDays(dayOffset.toLong())
+                val key = DayNormals.key(date.monthValue, date.dayOfMonth)
+                normals[key]?.let { Triple(dayOffset, it.tempMaxNormal, it.tempMinNormal) }
+            }
+
+            // Échelle Y : inclut min ET max des modèles visibles + normales.
+            // Si l'utilisateur cache un modèle aux valeurs extrêmes, l'axe se
+            // ré-ajuste, donnant plus de précision visuelle sur les modèles restants.
+            val allValues = buildList {
+                visibleSeries.flatMap { it.points }.forEach { p ->
+                    add(p.max)
+                    p.min?.let { add(it) }
+                }
+                normalsForChart.forEach { (_, max, min) -> add(max); add(min) }
+            }
+            val yMin = floor(allValues.min()).toFloat() - 1f
+            val yMax = ceil(allValues.max()).toFloat() + 1f
+
+            Canvas(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(270.dp)
+                    .padding(8.dp)
+            ) {
             val leftPad = 36.dp.toPx()
             val rightPad = 8.dp.toPx()
             val topPad = 8.dp.toPx()
@@ -246,7 +279,7 @@ fun TemperatureComparisonChart(
             //
             // Pour chaque modèle on construit un polygone fermé :
             //   forward le long du max → backward le long du min → close()
-            series.forEach { modelSeries ->
+            visibleSeries.forEach { modelSeries ->
                 // ─── Enveloppe min/max (filled polygon) ──────────────────
                 val pointsWithMin = modelSeries.points.filter { it.min != null }
                 if (pointsWithMin.size >= 2) {
@@ -300,41 +333,56 @@ fun TemperatureComparisonChart(
             }
         }
 
-        // Légende des modèles
-        ModelLegend(series.map { it.model to it.color })
-
-        // Légende des éléments additionnels : 2 lignes pour les normales (colorées)
-        // + 1 ligne pour expliquer le code max/min des modèles.
-        // Ces 3 indicateurs sont en dehors du ModelLegend pour ne pas être pris
-        // dans son FlowRow (qui distribue par modèle).
-        if (normalsForChart.isNotEmpty() || series.any { it.points.any { p -> p.min != null } }) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 2.dp)
-            ) {
-                if (normalsForChart.isNotEmpty()) {
-                    // Normales max (orange dashed)
-                    LegendDashedRow(
-                        color = warmNormalColor,
-                        label = "Normale max 10 ans"
-                    )
-                    // Normales min (bleu dashed)
-                    LegendDashedRow(
-                        color = coolNormalColor,
-                        label = "Normale min 10 ans"
-                    )
-                }
-                if (series.any { it.points.any { p -> p.min != null } }) {
+            // Légende des éléments additionnels — normales + min/max + hint.
+            // Reste DANS le else parce qu'elle utilise normalsForChart (scopé
+            // au else) et qu'elle n'aurait aucun sens en état vide.
+            if (normalsForChart.isNotEmpty() || visibleSeries.any { it.points.any { p -> p.min != null } }) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 2.dp)
+                ) {
+                    if (normalsForChart.isNotEmpty()) {
+                        LegendDashedRow(
+                            color = warmNormalColor,
+                            label = "Normale max 10 ans"
+                        )
+                        LegendDashedRow(
+                            color = coolNormalColor,
+                            label = "Normale min 10 ans"
+                        )
+                    }
+                    if (visibleSeries.any { it.points.any { p -> p.min != null } }) {
+                        Text(
+                            text = "Ligne pleine = max du modèle · zone teintée = plage min–max",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
+                    }
+                    // Hint discret pour expliquer le toggle
                     Text(
-                        text = "Ligne pleine = max du modèle · zone teintée = plage min–max",
+                        text = "Touchez un modèle dans la légende pour le masquer/réafficher",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 2.dp)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                        modifier = Modifier.padding(top = 4.dp)
                     )
                 }
             }
         }
+        // ─── Fin du if/else (vide vs Canvas) ─────────────────────────────
+
+        // ModelLegend toujours visible — c'est le seul moyen pour l'utilisateur
+        // de ré-activer un modèle quand il les a tous désactivés. Si elle était
+        // dans le else, l'état vide serait sans issue.
+        ModelLegend(
+            items = allSeries.map { Triple(it.model, it.color, it.model !in hiddenModels) },
+            onToggle = { model ->
+                hiddenModels = if (model in hiddenModels) hiddenModels - model
+                               else hiddenModels + model
+            }
+        )
     }
 }
 
@@ -374,7 +422,10 @@ private fun LegendDashedRow(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ModelLegend(items: List<Pair<WeatherModel, Color>>) {
+private fun ModelLegend(
+    items: List<Triple<WeatherModel, Color, Boolean>>,
+    onToggle: (WeatherModel) -> Unit
+) {
     FlowRow(
         modifier = Modifier
             .fillMaxWidth()
@@ -382,10 +433,20 @@ private fun ModelLegend(items: List<Pair<WeatherModel, Color>>) {
         horizontalArrangement = Arrangement.spacedBy(12.dp, alignment = Alignment.CenterHorizontally),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        items.forEach { (model, color) ->
-            Row(verticalAlignment = Alignment.CenterVertically) {
+        items.forEach { (model, color, visible) ->
+            // Chip cliquable. Quand masqué, on baisse l'alpha à 0.35 pour
+            // signaler visuellement l'état "hidden" tout en restant lisible
+            // pour que l'utilisateur sache où re-cliquer pour réactiver.
+            val alpha = if (visible) 1f else 0.35f
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(4.dp))
+                    .clickable { onToggle(model) }
+                    .padding(horizontal = 4.dp, vertical = 2.dp)
+            ) {
                 Surface(
-                    color = color,
+                    color = color.copy(alpha = alpha),
                     modifier = Modifier
                         .size(10.dp)
                         .clip(CircleShape)
@@ -393,6 +454,9 @@ private fun ModelLegend(items: List<Pair<WeatherModel, Color>>) {
                 Text(
                     text = model.displayName,
                     style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha),
+                    textDecoration = if (visible) null
+                                     else androidx.compose.ui.text.style.TextDecoration.LineThrough,
                     modifier = Modifier.padding(start = 4.dp)
                 )
             }

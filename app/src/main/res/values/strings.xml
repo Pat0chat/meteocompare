@@ -1,4 +1,45 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">MeteoCompare</string>
+
+    <!-- Navigation / Top bars -->
+    <string name="nav_back">Retour</string>
+    <string name="action_refresh">Actualiser</string>
+    <string name="action_settings">Réglages</string>
+    <string name="action_add_city">Ajouter une ville</string>
+    <string name="title_favorites">Mes villes</string>
+    <string name="title_detail_fallback">Détail</string>
+
+    <!-- Settings -->
+    <string name="settings_appearance">Apparence</string>
+    <string name="settings_language">Langue</string>
+    <string name="settings_models_title">Modèles météo</string>
+    <string name="settings_models_desc">Choisissez les modèles à comparer. Plus de modèles = plus de précision sur la confiance, mais plus de requêtes.</string>
+    <string name="theme_system">Système</string>
+    <string name="theme_light">Clair</string>
+    <string name="theme_dark">Sombre</string>
+    <string name="language_system">Système</string>
+    <string name="language_french">Français</string>
+    <string name="language_english">English</string>
+
+    <!-- Today summary -->
+    <string name="today_label">Aujourd\'hui</string>
+    <string name="now_label">maintenant</string>
+    <string name="models_analysed_one">%d modèle analysé</string>
+    <string name="models_analysed_many">%d modèles analysés</string>
+
+    <!-- Section titles in city detail -->
+    <string name="section_confidence_band">Bande de confiance</string>
+    <string name="section_temperatures">Températures min/max par modèle</string>
+    <string name="section_temp_table">Températures max / min</string>
+    <string name="section_precipitation">Précipitations</string>
+    <string name="section_wind">Vent max</string>
+
+    <!-- Refresh feedback -->
+    <string name="refresh_success">Prévisions mises à jour</string>
+    <string name="refresh_error">Échec de la mise à jour : %s</string>
+    <string name="refresh_city_not_found">Ville introuvable</string>
+
+    <!-- Donations -->
+    <string name="action_support_dev">Soutenir le développement</string>
 </resources>

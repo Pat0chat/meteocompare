@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MeteoCompare</string>
+
+    <!-- Navigation / Top bars -->
+    <string name="nav_back">Back</string>
+    <string name="action_refresh">Refresh</string>
+    <string name="action_settings">Settings</string>
+    <string name="action_add_city">Add a city</string>
+    <string name="title_favorites">My cities</string>
+    <string name="title_detail_fallback">Detail</string>
+
+    <!-- Settings -->
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_language">Language</string>
+    <string name="settings_models_title">Weather models</string>
+    <string name="settings_models_desc">Pick the models to compare. More models = more accurate confidence, but more network requests.</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="language_system">System</string>
+    <string name="language_french">Français</string>
+    <string name="language_english">English</string>
+
+    <!-- Today summary -->
+    <string name="today_label">Today</string>
+    <string name="now_label">now</string>
+    <string name="models_analysed_one">%d model analysed</string>
+    <string name="models_analysed_many">%d models analysed</string>
+
+    <!-- Section titles in city detail -->
+    <string name="section_confidence_band">Confidence band</string>
+    <string name="section_temperatures">Min/max temperatures per model</string>
+    <string name="section_temp_table">Max / min temperatures</string>
+    <string name="section_precipitation">Precipitation</string>
+    <string name="section_wind">Max wind</string>
+
+    <!-- Refresh feedback -->
+    <string name="refresh_success">Forecast updated</string>
+    <string name="refresh_error">Update failed: %s</string>
+    <string name="refresh_city_not_found">City not found</string>
+
+    <!-- Donations -->
+    <string name="action_support_dev">Support development</string>
+</resources>

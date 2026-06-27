@@ -41,11 +41,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.Coverage
+import com.meteocompare.app.domain.model.LanguagePreference
 import com.meteocompare.app.domain.model.ThemePreference
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.ui.theme.color
@@ -58,15 +61,19 @@ fun SettingsScreen(
 ) {
     val enabled by viewModel.enabledModels.collectAsStateWithLifecycle()
     val theme by viewModel.themePreference.collectAsStateWithLifecycle()
+    val language by viewModel.languagePreference.collectAsStateWithLifecycle()
     var showDonationDialog by rememberSaveable { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Réglages") },
+                title = { Text(stringResource(R.string.action_settings)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.nav_back)
+                        )
                     }
                 }
             )
@@ -77,6 +84,8 @@ fun SettingsScreen(
             onToggle = viewModel::onModelToggled,
             theme = theme,
             onThemeSelected = viewModel::onThemeSelected,
+            language = language,
+            onLanguageSelected = viewModel::onLanguageSelected,
             onDonateClick = { showDonationDialog = true },
             padding = padding
         )
@@ -93,6 +102,8 @@ private fun SettingsContent(
     onToggle: (WeatherModel, Boolean) -> Unit,
     theme: ThemePreference,
     onThemeSelected: (ThemePreference) -> Unit,
+    language: LanguagePreference,
+    onLanguageSelected: (LanguagePreference) -> Unit,
     onDonateClick: () -> Unit,
     padding: PaddingValues
 ) {
@@ -108,7 +119,7 @@ private fun SettingsContent(
         item {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = "Apparence",
+                    text = stringResource(R.string.settings_appearance),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -118,16 +129,33 @@ private fun SettingsContent(
         }
         item { HorizontalDivider() }
 
+        // Section "Langue" — placée juste après apparence car même nature
+        // (choix d'affichage personnel). Changer la langue déclenche une
+        // recréation de l'Activity (par AppCompatDelegate), donc le user verra
+        // l'écran clignoter brièvement — comportement standard Android.
         item {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = "Modèles météo",
+                    text = stringResource(R.string.settings_language),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(Modifier.height(8.dp))
+                LanguageSelector(selected = language, onSelect = onLanguageSelected)
+            }
+        }
+        item { HorizontalDivider() }
+
+        item {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = stringResource(R.string.settings_models_title),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = "Choisissez les modèles à comparer. Plus de modèles = plus de précision sur la confiance, mais plus de requêtes.",
+                    text = stringResource(R.string.settings_models_desc),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -276,9 +304,9 @@ private fun ThemeSelector(
     onSelect: (ThemePreference) -> Unit
 ) {
     val options = listOf(
-        ThemePreference.SYSTEM to "Système",
-        ThemePreference.LIGHT to "Clair",
-        ThemePreference.DARK to "Sombre"
+        ThemePreference.SYSTEM to stringResource(R.string.theme_system),
+        ThemePreference.LIGHT to stringResource(R.string.theme_light),
+        ThemePreference.DARK to stringResource(R.string.theme_dark)
     )
 
     SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
@@ -287,11 +315,42 @@ private fun ThemeSelector(
                 selected = selected == pref,
                 onClick = { onSelect(pref) },
                 shape = SegmentedButtonDefaults.itemShape(index = idx, count = options.size),
-                icon = {
-                    // Override de l'icône check par défaut : on n'en met aucune
-                    // pour rester compact. L'état sélectionné est déjà clair
-                    // grâce au remplissage de couleur.
-                }
+                icon = { /* pas d'icône — état rendu lisible par le fill */ }
+            ) {
+                Text(label)
+            }
+        }
+    }
+}
+
+/**
+ * Sélecteur de langue — même UX que [ThemeSelector] : SegmentedButton avec 3
+ * options (Système / Français / English).
+ *
+ * Le choix d'une langue déclenche un `AppCompatDelegate.setApplicationLocales`
+ * dans le ViewModel, ce qui recrée l'Activity. L'utilisateur verra un flash
+ * pendant cette recréation — c'est le comportement standard Android pour les
+ * per-app languages (Android 13+ ou via AppCompat sur versions antérieures).
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LanguageSelector(
+    selected: LanguagePreference,
+    onSelect: (LanguagePreference) -> Unit
+) {
+    val options = listOf(
+        LanguagePreference.SYSTEM to stringResource(R.string.language_system),
+        LanguagePreference.FRENCH to stringResource(R.string.language_french),
+        LanguagePreference.ENGLISH to stringResource(R.string.language_english)
+    )
+
+    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+        options.forEachIndexed { idx, (pref, label) ->
+            SegmentedButton(
+                selected = selected == pref,
+                onClick = { onSelect(pref) },
+                shape = SegmentedButtonDefaults.itemShape(index = idx, count = options.size),
+                icon = { /* idem, pas d'icône check */ }
             ) {
                 Text(label)
             }
