@@ -1,7 +1,5 @@
 package com.meteocompare.app.ui.settings
 
-import androidx.appcompat.app.AppCompatDelegate
-import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.meteocompare.app.domain.model.LanguagePreference
@@ -60,20 +58,25 @@ class SettingsViewModel @Inject constructor(
     }
 
     /**
-     * Applique la langue choisie. Double effet :
-     *   1. DataStore est mis à jour (source de vérité pour l'UI du toggle)
-     *   2. AppCompatDelegate.setApplicationLocales déclenche la recréation
-     *      de l'Activity avec la nouvelle locale, et la persiste pour les
-     *      prochains démarrages à froid (AppCompat gère sa propre persistance
-     *      indépendamment, mais on garde DataStore en synchro pour que le
-     *      bouton segmenté reflète l'état actuel).
+     * Persiste la préférence de langue dans DataStore.
+     *
+     * ⚠ L'application effective de la locale (AppCompatDelegate.setApplicationLocales
+     * + Activity.recreate) est faite côté Composable, SYNCHRONEMENT, AVANT que
+     * l'Activity ne soit recréée. Sinon on a un race condition :
+     *
+     *   - viewModelScope.launch { ... } est async (coroutine sur Dispatchers.Main)
+     *   - Si le Composable appelle recreate() juste après onLanguageSelected(),
+     *     la coroutine de la VM n'a pas encore exécuté setApplicationLocales()
+     *   - Donc attachBaseContext() lit l'ANCIENNE locale persistée par AppCompat
+     *   - Résultat : aucun changement visible
+     *
+     * Solution : on découple. DataStore est purement pour notre UI (état du
+     * SegmentedButton). AppCompat est la source de vérité pour la locale
+     * effective, et son appel doit être synchrone côté UI.
      */
     fun onLanguageSelected(preference: LanguagePreference) {
         viewModelScope.launch {
             prefs.setLanguagePreference(preference)
-            val locales = preference.bcp47Tag?.let { LocaleListCompat.forLanguageTags(it) }
-                ?: LocaleListCompat.getEmptyLocaleList()  // SYSTEM = laisser à l'OS
-            AppCompatDelegate.setApplicationLocales(locales)
         }
     }
 }

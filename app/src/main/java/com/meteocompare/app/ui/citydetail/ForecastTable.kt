@@ -22,12 +22,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DailyForecast
 import com.meteocompare.app.domain.model.WeatherModel
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.stringResource
 
 /**
  * Style optionnel pour une cellule de valeur. Quand fourni via [ForecastTable.valueStyler],
@@ -82,7 +84,7 @@ fun ForecastTable(
 
     if (dates.isEmpty() || models.isEmpty()) {
         Text(
-            "Pas de données journalières",
+            stringResource(R.string.no_daily_data),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = modifier.padding(16.dp)

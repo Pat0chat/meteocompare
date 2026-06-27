@@ -44,6 +44,9 @@
     <string name="confidence_medium">Medium</string>
     <string name="confidence_good">Good</string>
     <string name="confidence_high">High</string>
+    <string name="confidence_badge_percent">%d%% confidence</string>
+    <string name="models_unavailable">Models unavailable</string>
+    <string name="no_daily_data">No daily data</string>
 
     <!-- Section titles in city detail -->
     <string name="section_confidence_band">Hourly confidence band</string>

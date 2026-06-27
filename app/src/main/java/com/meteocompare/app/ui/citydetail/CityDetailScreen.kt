@@ -588,7 +588,7 @@ private fun ConfidenceBadge(percent: Int) {
         modifier = Modifier.clip(MaterialTheme.shapes.small)
     ) {
         Text(
-            text = "$percent% de confiance",
+            text = stringResource(R.string.confidence_badge_percent, percent),
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.surface,
@@ -603,7 +603,7 @@ private fun PartialErrorsSection(errors: Map<WeatherModel, String>) {
         HorizontalDivider()
         Spacer(Modifier.height(12.dp))
         Text(
-            text = "Modèles indisponibles",
+            text = stringResource(R.string.models_unavailable),
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.error
         )

@@ -9,13 +9,13 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.runtime.getValue
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.meteocompare.app.ui.navigation.AppNavHost
 import com.meteocompare.app.ui.theme.MeteoCompareTheme
 import dagger.hilt.android.AndroidEntryPoint
+import java.util.Locale
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -23,40 +23,45 @@ class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
 
     /**
-     * Applique la locale persistée par AppCompat AVANT que les ressources soient
-     * résolues. C'est le seul point d'entrée fiable pour ça sur API < 33.
+     * Applique la locale persistée AVANT que les ressources soient résolues.
      *
-     * AppCompatDelegate.setApplicationLocales() persiste le choix mais ne le
-     * propage pas automatiquement aux non-AppCompatActivity (notre cas — on
-     * étend ComponentActivity pour Compose). Sans cet override, le toggle de
-     * langue ne change RIEN à l'affichage : DataStore est mis à jour, AppCompat
-     * persiste, mais le Context utilisé par stringResource() reste sur la locale
-     * système.
+     * Pourquoi pas AppCompatDelegate.getApplicationLocales() ?
+     * - Ça ne fonctionnait pas fiablement sans AppCompatActivity comme parent.
+     *   Le timing entre setApplicationLocales() et le recreate() faisait que
+     *   attachBaseContext lisait parfois l'ancienne valeur — race condition
+     *   non-déterministe selon le device et la version Android.
+     * - AppCompatDelegate stocke en interne via le service
+     *   AppLocalesMetadataHolderService, mais l'API getApplicationLocales()
+     *   peut renvoyer une valeur en cache pas encore alignée avec ce qui vient
+     *   d'être set.
      *
-     * Cette méthode est appelée par le framework à chaque création d'Activity,
-     * y compris après un recreate(). Donc le flow est :
-     *   1. User tape "English" dans settings
-     *   2. setApplicationLocales(en) → AppCompat persiste
-     *   3. SettingsScreen call recreate()
-     *   4. Framework recrée MainActivity
-     *   5. attachBaseContext() lit la locale persistée et l'applique au Context
-     *   6. Toutes les R.string.xxx sont résolues en anglais ✓
+     * Solution : on stocke notre propre langue dans un SharedPreferences dédié
+     * (commit() synchrone), et on lit ICI synchronement. AppCompatDelegate est
+     * appelé en parallèle pour l'intégration système Android 13+ (per-app
+     * language dans Settings > Languages), mais ce n'est plus notre source de
+     * vérité.
      */
     override fun attachBaseContext(newBase: Context) {
-        val locales = AppCompatDelegate.getApplicationLocales()
-        val updatedBase = if (locales.isEmpty) {
+        val tag = newBase
+            .getSharedPreferences(LOCALE_PREFS, Context.MODE_PRIVATE)
+            .getString(LOCALE_KEY, null)
+        val updatedBase = if (tag.isNullOrEmpty()) {
+            // Pas de préférence → suit la locale système. C'est aussi le cas
+            // par défaut pour LanguagePreference.SYSTEM.
             newBase
         } else {
+            val locale = Locale.forLanguageTag(tag)
+            // Locale.setDefault est important : certaines APIs (DateTimeFormatter
+            // créés via Locale.getDefault, NumberFormat, etc.) lisent depuis
+            // le default JVM-wide, pas depuis Configuration. Sans ça, les dates
+            // resteraient sur la locale système même si les R.string changent.
+            Locale.setDefault(locale)
             val config = Configuration(newBase.resources.configuration)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                // API 24+ : on peut passer un LocaleList complet pour gérer
-                // les fallbacks. Mais on n'a qu'une locale dans notre prefs,
-                // donc c'est en pratique équivalent à setLocale(locales[0]).
-                val javaLocales = (0 until locales.size()).mapNotNull { locales[it] }.toTypedArray()
-                config.setLocales(LocaleList(*javaLocales))
+                config.setLocales(LocaleList(locale))
             } else {
                 @Suppress("DEPRECATION")
-                config.locale = locales[0]
+                config.locale = locale
             }
             newBase.createConfigurationContext(config)
         }
@@ -64,12 +69,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // installSplashScreen() DOIT être appelé AVANT super.onCreate() —
-        // c'est ce qui hook le SplashScreen API dans la fenêtre. Sans ce
-        // call, le theme Theme.MeteoCompare.Splash s'appliquerait mais ne
-        // transitionnerait jamais vers Theme.MeteoCompare → écran figé.
         installSplashScreen()
-
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         setContent {
@@ -78,5 +78,12 @@ class MainActivity : ComponentActivity() {
                 AppNavHost()
             }
         }
+    }
+
+    companion object {
+        /** Nom du fichier SharedPreferences dédié à la persistance de la locale. */
+        const val LOCALE_PREFS = "meteocompare_locale_prefs"
+        /** Clé : BCP47 tag (ex: "fr", "en"). Null/vide = suivre la locale système. */
+        const val LOCALE_KEY = "language_tag"
     }
 }

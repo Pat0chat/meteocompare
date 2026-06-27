@@ -88,13 +88,41 @@ fun SettingsScreen(
             onThemeSelected = viewModel::onThemeSelected,
             language = language,
             onLanguageSelected = { preference ->
-                // Persiste dans DataStore + déclenche AppCompatDelegate
+                // Source de vérité : SharedPreferences (sync, commit garanti).
+                // On écrit ICI, sur le UI thread, AVANT le recreate(). Comme ça
+                // attachBaseContext() lit la valeur fraîchement persistée et
+                // applique la locale immédiatement.
+                //
+                // Pourquoi commit() et pas apply() :
+                //   - apply() est async (écriture disque en background). Si on
+                //     recreate() avant que l'écriture soit committée, la nouvelle
+                //     Activity lit l'ANCIENNE valeur.
+                //   - commit() bloque le UI thread jusqu'à ce que l'écriture
+                //     soit faite — quelques millisecondes max pour un fichier
+                //     trivial comme celui-ci. Acceptable pour ce cas d'usage.
+                context.getSharedPreferences(
+                    com.meteocompare.app.MainActivity.LOCALE_PREFS,
+                    android.content.Context.MODE_PRIVATE
+                ).edit()
+                    .putString(
+                        com.meteocompare.app.MainActivity.LOCALE_KEY,
+                        preference.bcp47Tag
+                    )
+                    .commit()
+
+                // Notification système Android 13+ : permet à l'utilisateur de
+                // voir/changer la langue de l'app depuis Settings > Languages.
+                // Mais ce n'est PLUS notre source de vérité (cf. attachBaseContext).
+                val locales = preference.bcp47Tag?.let {
+                    androidx.core.os.LocaleListCompat.forLanguageTags(it)
+                } ?: androidx.core.os.LocaleListCompat.getEmptyLocaleList()
+                androidx.appcompat.app.AppCompatDelegate.setApplicationLocales(locales)
+
+                // DataStore async pour l'UI du toggle (état du SegmentedButton)
                 viewModel.onLanguageSelected(preference)
-                // Force la recréation de l'Activity. Sans ça, sur API < 33
-                // (et même sur 33+ selon le device), le Context reste sur
-                // l'ancienne locale et les R.string.xxx ne se réactualisent
-                // pas. attachBaseContext() dans MainActivity lira la nouvelle
-                // locale persistée par AppCompat au moment du re-create.
+
+                // Recreate — attachBaseContext sera ré-appelé avec un Context
+                // neuf qui lira le SharedPreferences fraîchement écrit.
                 (context as? android.app.Activity)?.recreate()
             },
             onDonateClick = { showDonationDialog = true },
