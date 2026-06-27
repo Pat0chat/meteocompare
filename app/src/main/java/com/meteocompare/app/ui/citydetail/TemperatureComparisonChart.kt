@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -49,7 +50,6 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle as JavaTextStyle
 import java.time.temporal.ChronoUnit
-import java.util.Locale
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.roundToInt
@@ -117,6 +117,9 @@ fun TemperatureComparisonChart(
     val emptyA11y = stringResource(R.string.chart_a11y_no_model)
     val emptyMessage = stringResource(R.string.chart_no_model_selected)
     val context = LocalContext.current
+    // Locale courante pour les labels d'axe (jours abbrev: "Mon"/"Lun" etc).
+    // Capturée ici hors DrawScope ; passée implicitement dans la lambda du Canvas.
+    val locale = LocalConfiguration.current.locales[0]
     // A11y description du chart non-vide : précalculée hors semantics (Context).
     val populatedA11y = if (visibleSeries.isNotEmpty()) {
         com.meteocompare.app.ui.accessibility.A11yFormatter
@@ -222,7 +225,7 @@ fun TemperatureComparisonChart(
             for (day in 0..maxDay) {
                 val x = chartLeft + (day.toFloat() / maxDay) * chartW
                 val date = today.plusDays(day.toLong())
-                val label = date.dayOfWeek.getDisplayName(JavaTextStyle.SHORT, Locale.FRENCH)
+                val label = date.dayOfWeek.getDisplayName(JavaTextStyle.SHORT, locale)
                     .replace(".", "")
                 val measured = textMeasurer.measure(label, labelStyle)
                 drawText(

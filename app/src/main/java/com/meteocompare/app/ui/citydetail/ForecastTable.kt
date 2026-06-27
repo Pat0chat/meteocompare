@@ -27,7 +27,7 @@ import com.meteocompare.app.domain.model.DailyForecast
 import com.meteocompare.app.domain.model.WeatherModel
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.util.Locale
+import androidx.compose.ui.platform.LocalConfiguration
 
 /**
  * Style optionnel pour une cellule de valeur. Quand fourni via [ForecastTable.valueStyler],
@@ -154,6 +154,13 @@ private fun HeaderCell(text: String, background: Color, modifier: Modifier = Mod
 
 @Composable
 private fun DayLabelCell(date: LocalDate, background: Color) {
+    // Locale courante (mise à jour par AppCompatDelegate.setApplicationLocales).
+    // Formatter recréé via `remember(locale)` quand la locale change — sinon
+    // on resterait sur le formatter French initial du process.
+    val locale = LocalConfiguration.current.locales[0]
+    val formatter = remember(locale) {
+        DateTimeFormatter.ofPattern("EEE d", locale)
+    }
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -162,7 +169,7 @@ private fun DayLabelCell(date: LocalDate, background: Color) {
             .padding(horizontal = 4.dp),
         contentAlignment = Alignment.CenterStart
     ) {
-        val text = date.format(DAY_LABEL_FMT).replaceFirstChar { it.uppercase() }
+        val text = date.format(formatter).replaceFirstChar { it.uppercase() }
         Text(
             text = text,
             style = MaterialTheme.typography.bodySmall
@@ -202,6 +209,3 @@ private fun valueAt(
     if (idx < 0) return null
     return extractor(series.daily, idx)
 }
-
-private val DAY_LABEL_FMT: DateTimeFormatter =
-    DateTimeFormatter.ofPattern("EEE d", Locale.FRENCH)

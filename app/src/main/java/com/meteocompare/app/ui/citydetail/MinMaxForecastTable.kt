@@ -31,7 +31,7 @@ import com.meteocompare.app.domain.model.DayNormals
 import com.meteocompare.app.domain.model.WeatherModel
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.util.Locale
+import androidx.compose.ui.platform.LocalConfiguration
 import kotlin.math.roundToInt
 
 // Couleurs chaud / froid. Choisies pour rester lisibles en thèmes clair ET
@@ -205,6 +205,10 @@ private fun HeaderCellMM(text: String, background: Color, width: androidx.compos
 
 @Composable
 private fun DayLabelCellMM(date: LocalDate, background: Color) {
+    val locale = LocalConfiguration.current.locales[0]
+    val formatter = remember(locale) {
+        DateTimeFormatter.ofPattern("EEE d", locale)
+    }
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -213,7 +217,7 @@ private fun DayLabelCellMM(date: LocalDate, background: Color) {
             .padding(horizontal = 6.dp),
         contentAlignment = Alignment.CenterStart
     ) {
-        val text = date.format(DAY_LABEL_FMT_MM).replaceFirstChar { it.uppercase() }
+        val text = date.format(formatter).replaceFirstChar { it.uppercase() }
         Text(text = text, style = MaterialTheme.typography.bodySmall)
     }
 }
@@ -293,6 +297,3 @@ private fun maxMinAt(
     if (idx < 0) return null to null
     return series.daily.tempMax.getOrNull(idx) to series.daily.tempMin.getOrNull(idx)
 }
-
-private val DAY_LABEL_FMT_MM: DateTimeFormatter =
-    DateTimeFormatter.ofPattern("EEE d", Locale.FRENCH)

@@ -55,6 +55,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -71,7 +72,6 @@ import com.meteocompare.app.ui.theme.ConfidenceHigh
 import com.meteocompare.app.ui.theme.ConfidenceLow
 import com.meteocompare.app.ui.theme.ConfidenceMedium
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 import kotlin.math.roundToInt
 
 // ============================================================================
@@ -421,8 +421,16 @@ internal fun TodaySummaryCard(today: DayConfidence, modelCount: Int, currentTemp
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
+                    // Formatter ré-créé via remember(locale) — sinon le top-level
+                    // val resterait sur la locale initiale du process pour toute
+                    // sa vie. Pattern "EEEE d MMMM" en FR donne "lundi 1 janvier",
+                    // en EN donne "Monday 1 January".
+                    val dateLocale = LocalConfiguration.current.locales[0]
+                    val longDateFmt = remember(dateLocale) {
+                        DateTimeFormatter.ofPattern("EEEE d MMMM", dateLocale)
+                    }
                     Text(
-                        text = today.date.format(LONG_DATE_FMT)
+                        text = today.date.format(longDateFmt)
                             .replaceFirstChar { it.uppercase() },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
@@ -611,9 +619,6 @@ private fun PartialErrorsSection(errors: Map<WeatherModel, String>) {
 }
 
 // ─── Constants ──────────────────────────────────────────────────────────────
-
-private val LONG_DATE_FMT: DateTimeFormatter =
-    DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.FRENCH)
 
 internal const val TAG_DETAIL_LOADING = "detail_loading"
 internal const val TAG_DETAIL_ERROR = "detail_error"

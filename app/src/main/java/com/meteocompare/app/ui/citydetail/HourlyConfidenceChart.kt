@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.meteocompare.app.R
@@ -39,7 +40,6 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.TextStyle as JavaTextStyle
-import java.util.Locale
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.roundToInt
@@ -96,6 +96,7 @@ fun HourlyConfidenceChart(
     // Description sémantique pour les lecteurs d'écran : TalkBack ne voit
     // pas le Canvas. On consolide les infos clés en une phrase lisible.
     val context = LocalContext.current
+    val locale = LocalConfiguration.current.locales[0]
     val a11yDescription = remember(bands, context) {
         com.meteocompare.app.ui.accessibility.A11yFormatter
             .hourlyChartDescription(context, bands)
@@ -194,7 +195,7 @@ fun HourlyConfidenceChart(
                         )
                     }
                     val label = localDate.dayOfWeek
-                        .getDisplayName(JavaTextStyle.SHORT, Locale.FRENCH)
+                        .getDisplayName(JavaTextStyle.SHORT, locale)
                         .replace(".", "")
                     val measured = textMeasurer.measure(label, labelStyle)
                     drawText(

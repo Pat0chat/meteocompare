@@ -17,6 +17,16 @@
     <string name="settings_language">Langue</string>
     <string name="settings_models_title">Modèles météo</string>
     <string name="settings_models_desc">Choisissez les modèles à comparer. Plus de modèles = plus de précision sur la confiance, mais plus de requêtes.</string>
+    <string name="settings_models_min_warning">Au moins un modèle doit rester activé.</string>
+    <string name="settings_about_title">À propos</string>
+    <string name="settings_about_data_source">Données météo fournies par Open-Meteo (open-meteo.com).</string>
+    <string name="settings_about_models_credit">Modèles : AROME et ARPEGE par Météo-France, ICON par DWD, GFS par NOAA, ECMWF par le Centre Européen.</string>
+    <string name="settings_privacy_title">Confidentialité</string>
+    <string name="settings_privacy_body">Cette application ne collecte aucune donnée personnelle. Aucun analytics, aucun tracking, aucune publicité. Vos favoris et préférences restent sur votre appareil.</string>
+    <string name="coverage_france">France</string>
+    <string name="coverage_europe">Europe</string>
+    <string name="coverage_global">Monde</string>
+    <string name="model_resolution">Résolution %1$s km · %2$d jours · %3$s</string>
     <string name="theme_system">Système</string>
     <string name="theme_light">Clair</string>
     <string name="theme_dark">Sombre</string>

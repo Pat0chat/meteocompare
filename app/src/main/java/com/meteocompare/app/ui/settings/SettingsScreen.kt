@@ -41,6 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -63,6 +64,7 @@ fun SettingsScreen(
     val theme by viewModel.themePreference.collectAsStateWithLifecycle()
     val language by viewModel.languagePreference.collectAsStateWithLifecycle()
     var showDonationDialog by rememberSaveable { mutableStateOf(false) }
+    val context = LocalContext.current
 
     Scaffold(
         topBar = {
@@ -85,7 +87,16 @@ fun SettingsScreen(
             theme = theme,
             onThemeSelected = viewModel::onThemeSelected,
             language = language,
-            onLanguageSelected = viewModel::onLanguageSelected,
+            onLanguageSelected = { preference ->
+                // Persiste dans DataStore + déclenche AppCompatDelegate
+                viewModel.onLanguageSelected(preference)
+                // Force la recréation de l'Activity. Sans ça, sur API < 33
+                // (et même sur 33+ selon le device), le Context reste sur
+                // l'ancienne locale et les R.string.xxx ne se réactualisent
+                // pas. attachBaseContext() dans MainActivity lira la nouvelle
+                // locale persistée par AppCompat au moment du re-create.
+                (context as? android.app.Activity)?.recreate()
+            },
             onDonateClick = { showDonationDialog = true },
             padding = padding
         )
@@ -175,7 +186,7 @@ private fun SettingsContent(
         item {
             Spacer(Modifier.height(16.dp))
             Text(
-                text = "Au moins un modèle doit rester activé.",
+                text = stringResource(R.string.settings_models_min_warning),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 16.dp)
@@ -190,31 +201,31 @@ private fun SettingsContent(
             HorizontalDivider()
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = "À propos",
+                    text = stringResource(R.string.settings_about_title),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    text = "Données météo fournies par Open-Meteo (open-meteo.com).",
+                    text = stringResource(R.string.settings_about_data_source),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = "Modèles : AROME et ARPEGE par Météo-France, ICON par DWD, GFS par NOAA, ECMWF par le Centre Européen.",
+                    text = stringResource(R.string.settings_about_models_credit),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.height(12.dp))
                 Text(
-                    text = "Confidentialité",
+                    text = stringResource(R.string.settings_privacy_title),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = "Cette application ne collecte aucune donnée personnelle. Aucun analytics, aucun tracking, aucune publicité. Vos favoris et préférences restent sur votre appareil.",
+                    text = stringResource(R.string.settings_privacy_body),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
