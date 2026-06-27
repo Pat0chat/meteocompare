@@ -26,7 +26,9 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.City
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -49,7 +51,7 @@ fun AddCitySheet(
                 .padding(bottom = 24.dp)
         ) {
             Text(
-                text = "Ajouter une ville",
+                text = stringResource(R.string.action_add_city),
                 style = MaterialTheme.typography.titleLarge
             )
             Spacer(Modifier.height(16.dp))
@@ -57,7 +59,7 @@ fun AddCitySheet(
             OutlinedTextField(
                 value = state.query,
                 onValueChange = onQueryChanged,
-                placeholder = { Text("Nom de ville (min. 2 caractères)") },
+                placeholder = { Text(stringResource(R.string.search_city_placeholder)) },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
@@ -89,7 +91,7 @@ fun AddCitySheet(
                 state.query.length >= 2 && state.results.isEmpty() -> {
                     Box(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            text = "Aucun résultat",
+                            text = stringResource(R.string.search_no_results),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }

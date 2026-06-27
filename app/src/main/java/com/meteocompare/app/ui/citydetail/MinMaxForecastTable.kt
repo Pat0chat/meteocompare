@@ -23,7 +23,9 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DayNormals
 import com.meteocompare.app.domain.model.WeatherModel
@@ -157,14 +159,14 @@ fun MinMaxForecastLegend(normalsAvailable: Boolean) {
     ) {
         LegendDot(color = WarmTempColor)
         Text(
-            text = " > normale 10 ans + 2°",
+            text = " " + stringResource(R.string.temp_legend_above_normal),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(end = 16.dp)
         )
         LegendDot(color = CoolTempColor)
         Text(
-            text = " < normale 10 ans − 2°",
+            text = " " + stringResource(R.string.temp_legend_below_normal),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

@@ -43,6 +43,25 @@
             </intent-filter>
         </activity>
 
+        <!--
+            Per-app language preferences via AppCompat.
+            On utilise AppCompatDelegate.setApplicationLocales() pour changer
+            la langue à l'exécution. AppCompat a besoin de connaître ce service
+            (qui ne tourne jamais — il sert juste de metadata holder) pour
+            persister automatiquement le choix de langue à travers les cold
+            starts. Sans ça, le toggle change la langue pour la session courante
+            mais l'app revient à la langue système au prochain démarrage.
+            Voir : https://developer.android.com/guide/topics/resources/app-languages
+        -->
+        <service
+            android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"
+            android:enabled="false"
+            android:exported="false">
+            <meta-data
+                android:name="autoStoreLocales"
+                android:value="true" />
+        </service>
+
     </application>
 
 </manifest>

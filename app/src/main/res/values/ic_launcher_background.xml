@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Couleur de fond de l'icône adaptive : bleu profond pour matcher
-         les bords du design source (sampled at #0044aa). -->
-    <color name="ic_launcher_background">#0044AA</color>
+    <!-- Couleur de fond de l'icône adaptive.
+         Échantillonnée par médiane sur le bord intérieur du source pour matcher
+         exactement la couleur du rounded-square du design. Avec cette
+         correspondance, la frontière entre le foreground (rounded-square) et
+         le background launcher devient invisible — l'œil ne voit plus de
+         "carré" dans la zone visible du mask. -->
+    <color name="ic_launcher_background">#002B7B</color>
 </resources>

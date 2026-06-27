@@ -235,7 +235,7 @@ private fun SettingsContent(
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(Modifier.width(8.dp))
-                    Text("Soutenir le développement")
+                    Text(stringResource(R.string.action_support_dev))
                 }
             }
         }

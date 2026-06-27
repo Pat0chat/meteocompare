@@ -1,8 +1,10 @@
 package com.meteocompare.app.ui.citydetail
 
+import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.meteocompare.app.R
 import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityForecast
@@ -14,6 +16,7 @@ import com.meteocompare.app.domain.repository.UserPreferencesRepository
 import com.meteocompare.app.domain.usecase.ConfidenceCalculator
 import com.meteocompare.app.ui.navigation.Destinations
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -41,6 +44,7 @@ sealed interface RefreshFeedback {
 
 @HiltViewModel
 class CityDetailViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     savedStateHandle: SavedStateHandle,
     private val cityRepository: CityRepository,
     private val forecastRepository: ForecastRepository,
@@ -83,7 +87,7 @@ class CityDetailViewModel @Inject constructor(
     private fun loadInitial() {
         viewModelScope.launch {
             val city = findCity() ?: run {
-                _state.value = CityDetailUiState.Error("Ville non trouvée dans les favoris")
+                _state.value = CityDetailUiState.Error(context.getString(R.string.city_not_found_in_favorites))
                 return@launch
             }
             val models = userPreferences.observeEnabledModels().first()
@@ -110,7 +114,7 @@ class CityDetailViewModel @Inject constructor(
             _isRefreshing.value = true
             try {
                 val city = findCity() ?: run {
-                    _refreshFeedback.trySend(RefreshFeedback.Error("Ville introuvable"))
+                    _refreshFeedback.trySend(RefreshFeedback.Error(context.getString(R.string.refresh_city_not_found)))
                     return@launch
                 }
                 val models = userPreferences.observeEnabledModels().first()

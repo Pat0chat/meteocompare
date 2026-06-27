@@ -20,9 +20,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
+import com.meteocompare.app.R
 
 /**
  * Dialog des plateformes de don.
@@ -53,36 +55,36 @@ fun DonationDialog(onDismiss: () -> Unit) {
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Soutenir le développement") },
+        title = { Text(stringResource(R.string.donations_dialog_title)) },
         text = {
             Column {
                 Text(
-                    text = "MeteoCompare est gratuit, open-source et sans publicité. Si vous souhaitez soutenir le développement :",
+                    text = stringResource(R.string.donations_dialog_body),
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Spacer(Modifier.height(16.dp))
 
                 DonationPlatformRow(
                     name = "Liberapay",
-                    description = "Contributions hebdomadaires, friendly FOSS",
+                    description = stringResource(R.string.donations_liberapay_desc),
                     onClick = { openUrl("https://liberapay.com/USERNAME") }
                 )
                 HorizontalDivider()
                 DonationPlatformRow(
                     name = "GitHub Sponsors",
-                    description = "Contributions mensuelles via GitHub",
+                    description = stringResource(R.string.donations_github_sponsors_desc),
                     onClick = { openUrl("https://github.com/sponsors/USERNAME") }
                 )
                 HorizontalDivider()
                 DonationPlatformRow(
                     name = "Ko-fi",
-                    description = "Don ponctuel \"offre-moi un café\"",
+                    description = stringResource(R.string.donations_kofi_desc),
                     onClick = { openUrl("https://ko-fi.com/USERNAME") }
                 )
 
                 Spacer(Modifier.height(16.dp))
                 Text(
-                    text = "Aucun privilège n'est accordé aux donateurs. Le code source et l'app restent identiques pour tout le monde.",
+                    text = stringResource(R.string.donations_dialog_disclaimer),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -90,7 +92,7 @@ fun DonationDialog(onDismiss: () -> Unit) {
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text("Fermer")
+                Text(stringResource(R.string.donations_dialog_close))
             }
         }
     )

@@ -55,9 +55,12 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.ConfidenceScore
 import com.meteocompare.app.domain.model.DailyForecast
@@ -86,6 +89,9 @@ fun CityDetailScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    // Context capturé hors de LaunchedEffect pour résoudre les strings depuis
+    // une coroutine (où stringResource n'est pas accessible — c'est un @Composable).
+    val context = LocalContext.current
 
     // Collecte les événements one-shot de refresh — succès ou erreur.
     // LaunchedEffect avec viewModel comme key : si la VM change (changement
@@ -96,11 +102,11 @@ fun CityDetailScreen(
         viewModel.refreshFeedback.collect { feedback ->
             when (feedback) {
                 RefreshFeedback.Success -> snackbarHostState.showSnackbar(
-                    message = "Prévisions mises à jour",
+                    message = context.getString(R.string.refresh_success),
                     duration = SnackbarDuration.Short
                 )
                 is RefreshFeedback.Error -> snackbarHostState.showSnackbar(
-                    message = "Échec de la mise à jour : ${feedback.message}",
+                    message = context.getString(R.string.refresh_error, feedback.message),
                     duration = SnackbarDuration.Long
                 )
             }
@@ -137,12 +143,12 @@ internal fun CityDetailContent(
             LargeTopAppBar(
                 title = {
                     val title = (state as? CityDetailUiState.Loaded)?.forecast?.city?.name
-                        ?: "Détail"
+                        ?: stringResource(R.string.title_detail_fallback)
                     Text(title)
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.nav_back))
                     }
                 },
                 actions = {
@@ -156,7 +162,7 @@ internal fun CityDetailContent(
                                 strokeWidth = 2.dp
                             )
                         } else {
-                            Icon(Icons.Default.Refresh, contentDescription = "Actualiser")
+                            Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.action_refresh))
                         }
                     }
                 },
@@ -225,7 +231,7 @@ private fun ErrorView(message: String, onRetry: () -> Unit, padding: PaddingValu
             TextButton(onClick = onRetry) {
                 Icon(Icons.Default.Refresh, contentDescription = null)
                 Spacer(Modifier.width(4.dp))
-                Text("Réessayer")
+                Text(stringResource(R.string.action_retry))
             }
         }
     }
@@ -257,7 +263,7 @@ private fun LoadedView(
         // Chart "bande de confiance" — placé haut car c'est le différenciateur clé
         if (hourlyBands.size >= 2) {
             item("hourly_confidence") {
-                SectionTitle("Bande de confiance")
+                SectionTitle(stringResource(R.string.section_confidence_band))
                 Card(
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.surfaceContainerLow
@@ -273,7 +279,7 @@ private fun LoadedView(
         }
 
         item("chart") {
-            SectionTitle("Températures min/max par modèle")
+            SectionTitle(stringResource(R.string.section_temperatures))
             Card(
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainerLow
@@ -292,7 +298,7 @@ private fun LoadedView(
         // Structure identique aux autres tableaux : Card pour la table, légende
         // en dessous (pas dans la Card).
         item("temp_table") {
-            SectionTitle("Températures max / min")
+            SectionTitle(stringResource(R.string.section_temp_table))
             Card(
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainerLow
@@ -310,7 +316,7 @@ private fun LoadedView(
 
         item("precip_table") {
             ForecastSection(
-                title = "Précipitations",
+                title = stringResource(R.string.section_precipitation),
                 forecast = forecast,
                 extractor = { daily, idx -> daily.precipitationSum.getOrNull(idx) },
                 formatter = { mm ->
@@ -323,7 +329,7 @@ private fun LoadedView(
 
         item("wind_table") {
             ForecastSection(
-                title = "Vent max",
+                title = stringResource(R.string.section_wind),
                 forecast = forecast,
                 extractor = { daily, idx -> daily.windSpeedMax.getOrNull(idx) },
                 formatter = { "${it.roundToInt()} km/h" },
@@ -384,10 +390,11 @@ internal fun TodaySummaryCard(today: DayConfidence, modelCount: Int, currentTemp
     // Description unifiée pour TalkBack qui résume toutes les valeurs.
     // On préfixe par "Maintenant X°" si dispo — c'est l'info la plus utile
     // au premier abord pour quelqu'un qui ouvre l'app.
+    val context = LocalContext.current
     val baseDescription = com.meteocompare.app.ui.accessibility.A11yFormatter
-        .todaySummaryDescription(today, modelCount)
+        .todaySummaryDescription(context, today, modelCount)
     val a11yDescription = if (currentTemp != null) {
-        "Maintenant ${currentTemp.roundToInt()} degrés. $baseDescription"
+        context.getString(R.string.a11y_now_temp, currentTemp.roundToInt()) + ". $baseDescription"
     } else baseDescription
 
     Card(
@@ -409,7 +416,7 @@ internal fun TodaySummaryCard(today: DayConfidence, modelCount: Int, currentTemp
             ) {
                 Column {
                     Text(
-                        text = "Aujourd'hui",
+                        text = stringResource(R.string.today_label),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -439,7 +446,7 @@ internal fun TodaySummaryCard(today: DayConfidence, modelCount: Int, currentTemp
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text = "maintenant",
+                        text = stringResource(R.string.now_label),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
                         modifier = Modifier.padding(bottom = 12.dp)
@@ -448,23 +455,29 @@ internal fun TodaySummaryCard(today: DayConfidence, modelCount: Int, currentTemp
             }
 
             Spacer(Modifier.height(8.dp))
+            // Pluriels gérés via 2 string resources distinctes — la grammaire FR/EN
+            // ne suit pas la même règle (FR: 1=singulier, 2+=pluriel ; EN: 1=singulier,
+            // 0+2+=pluriel). On simplifie en "1 = singulier, sinon pluriel".
             Text(
-                text = "$modelCount modèle${if (modelCount > 1) "s" else ""} analysé${if (modelCount > 1) "s" else ""}",
+                text = if (modelCount > 1)
+                    stringResource(R.string.models_analysed_many, modelCount)
+                else
+                    stringResource(R.string.models_analysed_one, modelCount),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
             )
             Spacer(Modifier.height(12.dp))
 
-            VariableRow("Température max", today.tempMax, "°")
+            VariableRow(stringResource(R.string.var_temp_max), today.tempMax, "°")
             today.tempMin?.let {
                 Spacer(Modifier.height(4.dp))
-                VariableRow("Température min", it, "°")
+                VariableRow(stringResource(R.string.var_temp_min), it, "°")
             }
             Spacer(Modifier.height(4.dp))
             PrecipRow(today.precipitation)
             today.windMax?.let {
                 Spacer(Modifier.height(4.dp))
-                VariableRow("Vent max", it, " km/h")
+                VariableRow(stringResource(R.string.var_wind_max), it, " km/h")
             }
         }
     }
@@ -510,16 +523,16 @@ private fun PrecipRow(precip: PrecipitationConfidence?) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = "Précipitations",
+            text = stringResource(R.string.var_precipitation),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onPrimaryContainer
         )
         val text = when (precip) {
-            is PrecipitationConfidence.NoRain -> "Sec"
+            is PrecipitationConfidence.NoRain -> stringResource(R.string.precip_dry)
             is PrecipitationConfidence.Rain ->
                 "${precip.minMm.roundToInt()}-${precip.maxMm.roundToInt()} mm"
             is PrecipitationConfidence.Divided ->
-                "${precip.modelsForRain}/${precip.modelCount} modèles ⚠"
+                stringResource(R.string.precip_divided, precip.modelsForRain, precip.modelCount)
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -623,10 +636,10 @@ internal const val TAG_DETAIL_LOADED = "detail_loaded"
 private fun PrecipitationLegend() {
     LegendChipsRow(
         chips = listOf(
-            Color(0xFF4FC3F7) to "légère",
-            Color(0xFF1E88E5) to "modérée",
-            Color(0xFF1565C0) to "forte",
-            Color(0xFF0D47A1) to "très forte"
+            Color(0xFF4FC3F7) to stringResource(R.string.precip_legend_light),
+            Color(0xFF1E88E5) to stringResource(R.string.precip_legend_moderate),
+            Color(0xFF1565C0) to stringResource(R.string.precip_legend_strong),
+            Color(0xFF0D47A1) to stringResource(R.string.precip_legend_very_strong)
         )
     )
 }
@@ -636,10 +649,10 @@ private fun PrecipitationLegend() {
 private fun WindLegend() {
     LegendChipsRow(
         chips = listOf(
-            Color(0xFFFFB74D) to "léger",
-            Color(0xFFFB8C00) to "modéré",
-            Color(0xFFE64A19) to "fort",
-            Color(0xFFC62828) to "tempête"
+            Color(0xFFFFB74D) to stringResource(R.string.wind_legend_light),
+            Color(0xFFFB8C00) to stringResource(R.string.wind_legend_moderate),
+            Color(0xFFE64A19) to stringResource(R.string.wind_legend_strong),
+            Color(0xFFC62828) to stringResource(R.string.wind_legend_storm)
         )
     )
 }

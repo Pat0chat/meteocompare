@@ -7,6 +7,8 @@
     <string name="action_refresh">Refresh</string>
     <string name="action_settings">Settings</string>
     <string name="action_add_city">Add a city</string>
+    <string name="action_open_settings">Open settings</string>
+    <string name="action_delete">Delete</string>
     <string name="title_favorites">My cities</string>
     <string name="title_detail_fallback">Detail</string>
 
@@ -27,19 +29,111 @@
     <string name="now_label">now</string>
     <string name="models_analysed_one">%d model analysed</string>
     <string name="models_analysed_many">%d models analysed</string>
+    <string name="confidence_label">Confidence</string>
+    <string name="confidence_low">Low</string>
+    <string name="confidence_medium">Medium</string>
+    <string name="confidence_good">Good</string>
+    <string name="confidence_high">High</string>
 
     <!-- Section titles in city detail -->
-    <string name="section_confidence_band">Confidence band</string>
+    <string name="section_confidence_band">Hourly confidence band</string>
     <string name="section_temperatures">Min/max temperatures per model</string>
     <string name="section_temp_table">Max / min temperatures</string>
     <string name="section_precipitation">Precipitation</string>
     <string name="section_wind">Max wind</string>
 
+    <!-- Chart messages -->
+    <string name="chart_no_data">No data to display</string>
+    <string name="chart_not_enough_data">Not enough data to compute a band</string>
+    <string name="chart_no_model_selected">No model selected.\nTap a model in the legend below to display it.</string>
+    <string name="chart_a11y_no_model">No model selected.</string>
+    <string name="chart_legend_normal_max">10-year max normal</string>
+    <string name="chart_legend_normal_min">10-year min normal</string>
+    <string name="chart_legend_envelope">Solid line = model max · shaded area = min–max range</string>
+    <string name="chart_legend_toggle_hint">Tap a model in the legend to hide/show it</string>
+    <string name="chart_confidence_band_title">Inter-model forecast range</string>
+    <string name="chart_confidence_band_desc">The wider the band, the more models disagree. Color shows the confidence level.</string>
+    <string name="chart_confidence_now">Confidence now: %d%%</string>
+    <string name="chart_confidence_ahead">at D+%1$d: %2$d%%</string>
+
+    <!-- Precipitation legend -->
+    <string name="precip_legend_light">light</string>
+    <string name="precip_legend_moderate">moderate</string>
+    <string name="precip_legend_strong">heavy</string>
+    <string name="precip_legend_very_strong">very heavy</string>
+
+    <!-- Wind legend -->
+    <string name="wind_legend_light">light</string>
+    <string name="wind_legend_moderate">moderate</string>
+    <string name="wind_legend_strong">strong</string>
+    <string name="wind_legend_storm">storm</string>
+
+    <!-- Min/max table legend -->
+    <string name="temp_legend_above_normal">&gt; 10-year normal + 2°</string>
+    <string name="temp_legend_below_normal">&lt; 10-year normal − 2°</string>
+
+    <!-- Variable labels (today summary) -->
+    <string name="var_temp_max">Max temperature</string>
+    <string name="var_temp_min">Min temperature</string>
+    <string name="var_wind_max">Max wind</string>
+    <string name="var_precipitation">Precipitation</string>
+
     <!-- Refresh feedback -->
     <string name="refresh_success">Forecast updated</string>
     <string name="refresh_error">Update failed: %s</string>
     <string name="refresh_city_not_found">City not found</string>
+    <string name="city_not_found_in_favorites">City not found in favorites</string>
+
+    <!-- Empty / loading states -->
+    <string name="empty_favorites_title">No cities yet</string>
+    <string name="empty_favorites_subtitle">Tap + to add one and compare forecasts from several models.</string>
+    <string name="action_retry">Retry</string>
+    <string name="action_remove_from_favorites">Remove from favorites</string>
+    <string name="action_more_options">Options</string>
+    <string name="precip_dry">Dry</string>
+    <string name="precip_divided">%1$d/%2$d models ⚠</string>
+
+    <!-- Add city sheet -->
+    <string name="search_city_placeholder">Search for a city…</string>
+    <string name="search_no_results">No city found</string>
+    <string name="search_hint">Type a city name to start</string>
 
     <!-- Donations -->
     <string name="action_support_dev">Support development</string>
+    <string name="donations_dialog_title">Support development</string>
+    <string name="donations_dialog_body">MeteoCompare is free, open-source and ad-free. If you\'d like to support development:</string>
+    <string name="donations_dialog_disclaimer">No privileges are granted to donors. The source code and the app stay identical for everyone.</string>
+    <string name="donations_liberapay_desc">Weekly contributions, friendly FOSS</string>
+    <string name="donations_github_sponsors_desc">Monthly contributions via GitHub</string>
+    <string name="donations_kofi_desc">One-off donation, "buy me a coffee"</string>
+    <string name="donations_dialog_close">Close</string>
+
+    <!-- Accessibility descriptions (read aloud by TalkBack) -->
+    <string name="a11y_confidence_high">High confidence</string>
+    <string name="a11y_confidence_medium">Medium confidence</string>
+    <string name="a11y_confidence_low">Low confidence</string>
+    <string name="a11y_temp_single">%d degrees</string>
+    <string name="a11y_temp_range">between %1$d and %2$d degrees</string>
+    <string name="a11y_temp_with_confidence">%1$s, %2$s, %3$d percent</string>
+    <string name="a11y_no_rain">No rain expected, confidence %d percent</string>
+    <string name="a11y_rain">Rain expected, between %1$d and %2$d millimeters, confidence %3$d percent</string>
+    <string name="a11y_models_divided">Models divided on rain, %1$d out of %2$d predict rain</string>
+    <string name="a11y_city_loading">Loading forecasts.</string>
+    <string name="a11y_city_error">Error: %1$s.</string>
+    <string name="a11y_now_temp">Now %d degrees</string>
+    <string name="a11y_temperature_prefix">Temperature</string>
+    <string name="a11y_overall_confidence">Overall confidence %d percent</string>
+    <string name="a11y_hourly_empty">Empty chart, insufficient data</string>
+    <string name="a11y_hourly_template">Hourly confidence band over %1$d days. Mean temperature %2$d degrees right now, %3$d degrees at horizon\'s end. Inter-model divergence %4$s. Confidence %5$d percent now, %6$d percent at D plus %1$d.</string>
+    <string name="a11y_divergence_strong">strongly increasing</string>
+    <string name="a11y_divergence_increasing">increasing</string>
+    <string name="a11y_divergence_stable">overall stable</string>
+    <string name="a11y_multi_model_chart_one">Temperature comparison chart over %1$d days, %2$d model shown.</string>
+    <string name="a11y_multi_model_chart_many">Temperature comparison chart over %1$d days, %2$d models shown.</string>
+    <string name="a11y_today_summary_one">Today\'s summary, %d model analysed</string>
+    <string name="a11y_today_summary_many">Today\'s summary, %d models analysed</string>
+    <string name="a11y_temp_max_label">Max temperature</string>
+    <string name="a11y_temp_min_label">Min temperature</string>
+    <string name="a11y_wind_max_label">Max wind</string>
+    <string name="a11y_kmh_unit">kilometers per hour</string>
 </resources>

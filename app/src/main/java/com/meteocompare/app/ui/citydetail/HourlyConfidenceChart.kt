@@ -10,6 +10,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import com.meteocompare.app.R
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -67,7 +70,7 @@ fun HourlyConfidenceChart(
     if (bands.size < 2) {
         Box(modifier = modifier.height(260.dp), contentAlignment = Alignment.Center) {
             Text(
-                "Pas assez de données pour calculer une bande",
+                stringResource(R.string.chart_not_enough_data),
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
@@ -92,9 +95,10 @@ fun HourlyConfidenceChart(
 
     // Description sémantique pour les lecteurs d'écran : TalkBack ne voit
     // pas le Canvas. On consolide les infos clés en une phrase lisible.
-    val a11yDescription = remember(bands) {
+    val context = LocalContext.current
+    val a11yDescription = remember(bands, context) {
         com.meteocompare.app.ui.accessibility.A11yFormatter
-            .hourlyChartDescription(bands)
+            .hourlyChartDescription(context, bands)
     }
 
     Column(
@@ -115,13 +119,13 @@ fun HourlyConfidenceChart(
                 .padding(horizontal = 16.dp, vertical = 6.dp)
         ) {
             Text(
-                text = "Plage des prévisions inter-modèles",
+                text = stringResource(R.string.chart_confidence_band_title),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-                text = "Plus la bande s'élargit, plus les modèles divergent. La couleur indique le niveau de confiance.",
+                text = stringResource(R.string.chart_confidence_band_desc),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -308,12 +312,12 @@ private fun ConfidenceTimeline(bands: List<HourlyConfidenceBand>) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = "Confiance maintenant : $firstPercent%",
+            text = stringResource(R.string.chart_confidence_now, firstPercent),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Text(
-            text = "à J+$daysAhead : $lastPercent%",
+            text = stringResource(R.string.chart_confidence_ahead, daysAhead, lastPercent),
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.SemiBold,
             color = when {

@@ -33,11 +33,14 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DayNormals
 import com.meteocompare.app.domain.model.WeatherModel
@@ -75,7 +78,7 @@ fun TemperatureComparisonChart(
     val allSeries = remember(forecast) { extractTemperatureSeries(forecast) }
     if (allSeries.isEmpty()) {
         Box(modifier = modifier.height(220.dp), contentAlignment = Alignment.Center) {
-            Text("Aucune donnée à afficher", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.chart_no_data), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         return
     }
@@ -108,17 +111,22 @@ fun TemperatureComparisonChart(
     val warmNormalColor = androidx.compose.ui.graphics.Color(0xFFD84315) // deep orange 800
     val coolNormalColor = androidx.compose.ui.graphics.Color(0xFF0277BD) // light blue 800
 
+    // Strings extraits via stringResource AVANT le Modifier.semantics car
+    // semantics est une lambda Modifier (pas @Composable), elle ne peut pas
+    // appeler stringResource directement.
+    val emptyA11y = stringResource(R.string.chart_a11y_no_model)
+    val emptyMessage = stringResource(R.string.chart_no_model_selected)
+    val context = LocalContext.current
+    // A11y description du chart non-vide : précalculée hors semantics (Context).
+    val populatedA11y = if (visibleSeries.isNotEmpty()) {
+        com.meteocompare.app.ui.accessibility.A11yFormatter
+            .multiModelChartDescription(context, modelCount = visibleSeries.size, daysCovered = 7)
+    } else ""
+
     Column(
         modifier = modifier
             .semantics(mergeDescendants = true) {
-                contentDescription = if (visibleSeries.isEmpty())
-                    "Aucun modèle sélectionné."
-                else
-                    com.meteocompare.app.ui.accessibility.A11yFormatter
-                        .multiModelChartDescription(
-                            modelCount = visibleSeries.size,
-                            daysCovered = 7
-                        )
+                contentDescription = if (visibleSeries.isEmpty()) emptyA11y else populatedA11y
             }
             .padding(bottom = 12.dp)
     ) {
@@ -135,7 +143,7 @@ fun TemperatureComparisonChart(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "Aucun modèle sélectionné.\nTouchez un modèle dans la légende ci-dessous pour l'afficher.",
+                    text = emptyMessage,
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -345,16 +353,16 @@ fun TemperatureComparisonChart(
                     if (normalsForChart.isNotEmpty()) {
                         LegendDashedRow(
                             color = warmNormalColor,
-                            label = "Normale max 10 ans"
+                            label = stringResource(R.string.chart_legend_normal_max)
                         )
                         LegendDashedRow(
                             color = coolNormalColor,
-                            label = "Normale min 10 ans"
+                            label = stringResource(R.string.chart_legend_normal_min)
                         )
                     }
                     if (visibleSeries.any { it.points.any { p -> p.min != null } }) {
                         Text(
-                            text = "Ligne pleine = max du modèle · zone teintée = plage min–max",
+                            text = stringResource(R.string.chart_legend_envelope),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 2.dp)
@@ -362,7 +370,7 @@ fun TemperatureComparisonChart(
                     }
                     // Hint discret pour expliquer le toggle
                     Text(
-                        text = "Touchez un modèle dans la légende pour le masquer/réafficher",
+                        text = stringResource(R.string.chart_legend_toggle_hint),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                         fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,

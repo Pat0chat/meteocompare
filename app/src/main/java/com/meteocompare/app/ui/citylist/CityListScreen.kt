@@ -61,9 +61,12 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.ConfidenceScore
 import com.meteocompare.app.domain.model.DayConfidence
@@ -135,13 +138,13 @@ internal fun CityListContent(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("MeteoCompare") },
+                title = { Text(stringResource(R.string.app_name)) },
                 actions = {
                     IconButton(
                         onClick = onSettingsClick,
                         modifier = Modifier.testTag(TAG_SETTINGS_BUTTON)
                     ) {
-                        Icon(Icons.Default.Settings, contentDescription = "Réglages")
+                        Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.action_settings))
                     }
                 }
             )
@@ -151,7 +154,7 @@ internal fun CityListContent(
                 onClick = onAddClick,
                 modifier = Modifier.testTag(TAG_ADD_FAB)
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Ajouter une ville")
+                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.action_add_city))
             }
         }
     ) { padding ->
@@ -229,8 +232,9 @@ internal fun CityCard(
     // Description sémantique consolidée pour TalkBack : on remplace l'annonce
     // fragmentée (chaque texte/icône à part) par un résumé fluide qui inclut
     // la ville, les valeurs et le niveau de confiance.
+    val context = LocalContext.current
     val a11yDescription = com.meteocompare.app.ui.accessibility.A11yFormatter
-        .cityCardDescription(state)
+        .cityCardDescription(context, state)
     Card(
         onClick = onClick,
         modifier = modifier
@@ -324,7 +328,7 @@ private fun CityCardError(message: String, onRetry: () -> Unit) {
         TextButton(onClick = onRetry) {
             Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(4.dp))
-            Text("Réessayer")
+            Text(stringResource(R.string.action_retry))
         }
     }
 }
@@ -404,7 +408,7 @@ private fun PrecipitationSummary(precip: PrecipitationConfidence?) {
         Spacer(Modifier.width(4.dp))
         val text = when (precip) {
             null -> "—"
-            is PrecipitationConfidence.NoRain -> "Sec"
+            is PrecipitationConfidence.NoRain -> stringResource(R.string.precip_dry)
             is PrecipitationConfidence.Rain ->
                 "${precip.minMm.roundToInt()}-${precip.maxMm.roundToInt()} mm"
             is PrecipitationConfidence.Divided ->
@@ -441,14 +445,14 @@ private fun CityCardMenu(onRemove: () -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { expanded = true }) {
-            Icon(Icons.Default.MoreVert, contentDescription = "Options")
+            Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.action_more_options))
         }
         DropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false }
         ) {
             DropdownMenuItem(
-                text = { Text("Retirer des favoris") },
+                text = { Text(stringResource(R.string.action_remove_from_favorites)) },
                 onClick = {
                     expanded = false
                     onRemove()
@@ -477,10 +481,10 @@ internal fun EmptyState(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(Modifier.height(16.dp))
-            Text("Aucune ville en favoris", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.empty_favorites_title), style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(4.dp))
             Text(
-                "Ajoutez une ville pour comparer les modèles météo",
+                stringResource(R.string.empty_favorites_subtitle),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -488,7 +492,7 @@ internal fun EmptyState(
             TextButton(onClick = onAddClick) {
                 Icon(Icons.Default.Add, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
-                Text("Ajouter une ville")
+                Text(stringResource(R.string.action_add_city))
             }
         }
     }
