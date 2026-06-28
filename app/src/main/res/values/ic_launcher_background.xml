@@ -1,9 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Couleur de fond de l'icône adaptive.
-         Échantillonnée sur le fond bleu du source (image ChatGPT du 27 juin 2026).
-         Le foreground étant maintenant un PNG transparent avec fond enlevé, le
-         launcher background remplit toute la zone du mask et reste cohérent
-         avec l'identité visuelle (bleu profond, type fond de ciel nuit). -->
-    <color name="ic_launcher_background">#002792</color>
+         Échantillonnée sur le fond bleu du source v3 (image ChatGPT 27/06/2026 16:53).
+         Le foreground étant un PNG transparent (fond enlevé par color-key luminance),
+         le launcher background remplit toute la zone du mask sans transition visible. -->
+    <color name="ic_launcher_background">#012CA3</color>
 </resources>
