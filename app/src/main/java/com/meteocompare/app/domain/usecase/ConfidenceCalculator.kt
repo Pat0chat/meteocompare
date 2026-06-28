@@ -10,6 +10,7 @@ import java.time.Instant
 import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
 /**
@@ -258,7 +259,10 @@ class ConfidenceCalculator @Inject constructor(
                 // On le ramène sur l'échelle [0..100] : un 60/40 split est faiblement informatif.
                 val agreement = maxOf(rainModels.size, dryModels.size).toDouble() / total
                 // 50/50 → 0% confiance, 100/0 → 100% confiance.
-                val percent = ((agreement - 0.5) * 200).toInt().coerceIn(0, 100)
+                // roundToInt (pas toInt) : (3/5 - 0.5) * 200 vaut 19.999...
+                // en double à cause de l'imprécision flottante, et un toInt
+                // tronquerait à 19 au lieu du 20 mathématiquement correct.
+                val percent = ((agreement - 0.5) * 200).roundToInt().coerceIn(0, 100)
                 PrecipitationConfidence.Divided(
                     percent = percent,
                     modelCount = total,
