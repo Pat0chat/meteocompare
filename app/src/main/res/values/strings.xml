@@ -7,9 +7,6 @@
     <string name="action_refresh">Actualiser</string>
     <string name="action_settings">Réglages</string>
     <string name="action_add_city">Ajouter une ville</string>
-    <string name="action_open_settings">Ouvrir les réglages</string>
-    <string name="action_delete">Supprimer</string>
-    <string name="title_favorites">Mes villes</string>
     <string name="title_detail_fallback">Détail</string>
 
     <!-- Settings -->
@@ -23,10 +20,6 @@
     <string name="settings_about_models_credit">Modèles : AROME et ARPEGE par Météo-France, ICON par DWD, GFS par NOAA, ECMWF par le Centre Européen.</string>
     <string name="settings_privacy_title">Confidentialité</string>
     <string name="settings_privacy_body">Cette application ne collecte aucune donnée personnelle. Aucun analytics, aucun tracking, aucune publicité. Vos favoris et préférences restent sur votre appareil.</string>
-    <string name="coverage_france">France</string>
-    <string name="coverage_europe">Europe</string>
-    <string name="coverage_global">Monde</string>
-    <string name="model_resolution">Résolution %1$s km · %2$d jours · %3$s</string>
     <string name="theme_system">Système</string>
     <string name="theme_light">Clair</string>
     <string name="theme_dark">Sombre</string>
@@ -39,11 +32,6 @@
     <string name="now_label">maintenant</string>
     <string name="models_analysed_one">%d modèle analysé</string>
     <string name="models_analysed_many">%d modèles analysés</string>
-    <string name="confidence_label">Confiance</string>
-    <string name="confidence_low">Faible</string>
-    <string name="confidence_medium">Moyenne</string>
-    <string name="confidence_good">Bonne</string>
-    <string name="confidence_high">Élevée</string>
     <string name="confidence_badge_percent">%d %% de confiance</string>
     <string name="models_unavailable">Modèles indisponibles</string>
     <string name="no_daily_data">Pas de données journalières</string>
@@ -109,7 +97,6 @@
     <!-- Add city sheet -->
     <string name="search_city_placeholder">Rechercher une ville…</string>
     <string name="search_no_results">Aucune ville trouvée</string>
-    <string name="search_hint">Tapez le nom d\'une ville pour commencer</string>
 
     <!-- Donations -->
     <string name="action_support_dev">Soutenir le développement</string>

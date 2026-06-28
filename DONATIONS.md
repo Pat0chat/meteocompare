@@ -6,7 +6,7 @@ son développement, voici les options disponibles.
 
 ## Plateformes
 
-### Liberapay
+### 💝 Liberapay
 
 [liberapay.com/Pat0chat](https://liberapay.com/Pat0chat)
 
@@ -14,18 +14,19 @@ Plateforme FOSS-friendly avec contributions hebdomadaires récurrentes.
 Aucun frais de plateforme (juste les frais du processeur de paiement,
 typiquement < 5 %).
 
-### GitHub Sponsors
+### ❤️ GitHub Sponsors
 
 [github.com/sponsors/Pat0chat](https://github.com/sponsors/Pat0chat)
 
 Contributions mensuelles via GitHub. GitHub ne prend pas de commission
 (jusqu'au 1 000 $/mois). Intégré aux notifications de release.
 
-### Ko-Fi
+### ☕ Ko-Fi
 
 [ko-fi.com/pat0chat](https://ko-fi.com/pat0chat)
 
-Contributions ponctuelles via Ko-Fi.
+Don ponctuel "offre-moi un café" ou abonnement mensuel. 0 % de frais sur
+les dons ponctuels.
 
 ---
 

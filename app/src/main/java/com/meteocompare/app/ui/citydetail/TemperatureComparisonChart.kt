@@ -47,7 +47,6 @@ import com.meteocompare.app.domain.model.DayNormals
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.ui.theme.color
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle as JavaTextStyle
 import java.time.temporal.ChronoUnit
 import kotlin.math.ceil
