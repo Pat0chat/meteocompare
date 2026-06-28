@@ -140,11 +140,21 @@ Console.
 L'app est gratuite et open-source. Plusieurs options pour soutenir :
 
 - [Liberapay](https://liberapay.com/Pat0chat) (contributions hebdomadaires)
-- [GitHub Sponsors](https://github.com/sponsors/Pat0chat) (mensuel)
+- [GitHub Sponsors](https://github.com/sponsors/Pat0chat) (contributions mensuelles)
+- [Ko-Fi](https://ko-fi.com/pat0chat) (contributions ponctuelles)
 
 Aucun privilège n'est accordé aux donateurs — l'app et le code source
 restent identiques pour tous. Voir [DONATIONS.md](DONATIONS.md) pour plus
 de détails.
+
+## Roadmap
+
+Améliorations à venir :
+- Amélioration de l'interface (en fonction des retours) ;
+- Ajout de nouvelles données ;
+- Ajout de nouveaux modèles ;
+- Ajout de widgets ;
+- ...
 
 ## Licence
 

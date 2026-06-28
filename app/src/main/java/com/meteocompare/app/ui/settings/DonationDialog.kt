@@ -72,6 +72,12 @@ fun DonationDialog(onDismiss: () -> Unit) {
                     description = stringResource(R.string.donations_github_sponsors_desc),
                     onClick = { openUrl("https://github.com/sponsors/Pat0chat") }
                 )
+                HorizontalDivider()
+                DonationPlatformRow(
+                    name = "Ko-Fi",
+                    description = stringResource(R.string.donations_kofi_desc),
+                    onClick = { openUrl("https://ko-fi.com/pat0chat") }
+                )
 
                 Spacer(Modifier.height(16.dp))
                 Text(
