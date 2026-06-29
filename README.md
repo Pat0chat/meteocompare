@@ -150,11 +150,10 @@ de détails.
 ## Roadmap
 
 Améliorations à venir :
-- Amélioration de l'interface (en fonction des retours) ;
-- Ajout de nouvelles données ;
-- Ajout de nouveaux modèles ;
-- Ajout de widgets ;
-- ...
+- v1.1 : Page "Pourquoi cette confiance ?" ;
+- v1.2 : Widget homescreen ;
+- v1.3 : Swipe entre villes ;
+- Ajout de nouveaux modèles / nouvelles données...
 
 ## Licence
 
