@@ -74,7 +74,7 @@ fun DonationDialog(onDismiss: () -> Unit) {
                 )
                 HorizontalDivider()
                 DonationPlatformRow(
-                    name = "Ko-Fi",
+                    name = "Ko-fi",
                     description = stringResource(R.string.donations_kofi_desc),
                     onClick = { openUrl("https://ko-fi.com/USERNAME") }
                 )

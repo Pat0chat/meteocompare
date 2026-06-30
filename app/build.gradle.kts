@@ -93,6 +93,16 @@ android {
 
     packaging {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        // Évite le warning "Unable to strip the following libraries" lors du
+        // build sans NDK installé. Ces .so prébuilts viennent de dépendances
+        // androidx (graphics.path, datastore.shared_counter) qui sont déjà
+        // strippées à la source — la tentative d'AGP de re-stripper échoue
+        // silencieusement et émet un warning. On dit explicitement "garde-les
+        // tels quels" pour silencier le warning sans changer le comportement.
+        jniLibs.keepDebugSymbols += setOf(
+            "**/libandroidx.graphics.path.so",
+            "**/libdatastore_shared_counter.so"
+        )
     }
 
     // Pour Play Store : bundle obligatoire depuis 2021.

@@ -1,6 +1,9 @@
 package com.meteocompare.app.data.repository
 
+import android.content.Context
+import com.meteocompare.app.R
 import com.meteocompare.app.core.network.ApiResult
+import com.meteocompare.app.core.network.NetworkMonitor
 import com.meteocompare.app.core.network.apiCall
 import com.meteocompare.app.data.local.ClimateNormalDao
 import com.meteocompare.app.data.local.ClimateNormalEntity
@@ -10,8 +13,10 @@ import com.meteocompare.app.di.IoDispatcher
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.DayNormals
 import com.meteocompare.app.domain.repository.ClimateNormalsRepository
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
+import java.io.IOException
 import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -43,6 +48,8 @@ import javax.inject.Singleton
 class ClimateNormalsRepositoryImpl @Inject constructor(
     private val api: ClimateArchiveApi,
     private val dao: ClimateNormalDao,
+    private val networkMonitor: NetworkMonitor,
+    @ApplicationContext private val context: Context,
     @IoDispatcher private val io: CoroutineDispatcher
 ) : ClimateNormalsRepository {
 
@@ -102,6 +109,19 @@ class ClimateNormalsRepositoryImpl @Inject constructor(
             }
 
             // 2. Cache absent ou stale → fetch + agrégation
+            // Court-circuit hors-ligne. Si on a un cache stale, on le retourne
+            // (les normales bougent lentement, un cache de 7 mois reste utile).
+            if (!networkMonitor.isOnline()) {
+                return@withContext if (cached.isNotEmpty()) {
+                    ApiResult.Success(cached.map { it.toDomain() })
+                } else {
+                    ApiResult.Error(
+                        IOException("No network"),
+                        context.getString(R.string.error_no_network)
+                    )
+                }
+            }
+
             val today = LocalDate.now()
             // On exclut l'année en cours (incomplète) en partant de l'année
             // précédente, ce qui donne YEARS_OF_HISTORY années PLEINES.
@@ -109,7 +129,7 @@ class ClimateNormalsRepositoryImpl @Inject constructor(
             val startDate = endDate.minusYears(YEARS_OF_HISTORY.toLong() - 1)
                 .withDayOfYear(1)                              // 1 jan N-10
 
-            val result = apiCall {
+            val result = apiCall(context) {
                 api.archive(
                     latitude = city.latitude,
                     longitude = city.longitude,

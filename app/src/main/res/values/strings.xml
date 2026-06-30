@@ -16,6 +16,7 @@
     <string name="settings_models_desc">Choisissez les modèles à comparer. Plus de modèles = plus de précision sur la confiance, mais plus de requêtes.</string>
     <string name="settings_models_min_warning">Au moins un modèle doit rester activé.</string>
     <string name="settings_about_title">À propos</string>
+    <string name="settings_about_version">Version %s</string>
     <string name="settings_about_data_source">Données météo fournies par Open-Meteo (open-meteo.com).</string>
     <string name="settings_about_models_credit">Modèles : AROME et ARPEGE par Météo-France, ICON par DWD, GFS par NOAA, ECMWF par le Centre Européen.</string>
     <string name="settings_privacy_title">Confidentialité</string>
@@ -83,6 +84,10 @@
     <string name="refresh_success">Prévisions mises à jour</string>
     <string name="refresh_error">Échec de la mise à jour : %s</string>
     <string name="refresh_city_not_found">Ville introuvable</string>
+    <string name="error_no_network">Pas de connexion Internet</string>
+    <string name="error_timeout">Délai d\'attente dépassé</string>
+    <string name="error_server">Erreur serveur (HTTP %d)</string>
+    <string name="error_unknown">Erreur inconnue</string>
     <string name="city_not_found_in_favorites">Ville non trouvée dans les favoris</string>
 
     <!-- Empty / loading states -->

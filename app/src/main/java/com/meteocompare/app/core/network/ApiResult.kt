@@ -1,5 +1,8 @@
 package com.meteocompare.app.core.network
 
+import android.content.Context
+import com.meteocompare.app.R
+
 /**
  * Résultat d'une opération réseau / repository.
  *
@@ -27,20 +30,33 @@ sealed class ApiResult<out T> {
 }
 
 /**
- * Wrappe un bloc suspendu dans un [ApiResult].
+ * Wrappe un bloc suspendu dans un [ApiResult] avec message d'erreur localisé.
  * Les [CancellationException] ne sont PAS capturées (essentiel pour les coroutines).
+ *
+ * On prend Context en paramètre pour résoudre les R.string.* dans la locale
+ * courante. Sans ça, les messages d'erreur restaient en français même quand
+ * l'utilisateur avait sélectionné l'anglais.
  */
-suspend inline fun <T> apiCall(crossinline block: suspend () -> T): ApiResult<T> = try {
+suspend inline fun <T> apiCall(
+    context: Context,
+    crossinline block: suspend () -> T
+): ApiResult<T> = try {
     ApiResult.Success(block())
 } catch (e: kotlinx.coroutines.CancellationException) {
     throw e
 } catch (e: Throwable) {
-    ApiResult.Error(e, e.toUserMessage())
+    ApiResult.Error(e, e.toUserMessage(context))
 }
 
-fun Throwable.toUserMessage(): String = when (this) {
-    is java.net.UnknownHostException -> "Pas de connexion internet"
-    is java.net.SocketTimeoutException -> "Délai d'attente dépassé"
-    is retrofit2.HttpException -> "Erreur serveur (HTTP ${code()})"
-    else -> message ?: "Erreur inconnue"
+/**
+ * Convertit une exception réseau en message utilisateur localisé.
+ *
+ * Avant on hardcodait du français ; maintenant on lit les string resources
+ * pour matcher la langue courante (FR/EN selon la sélection user).
+ */
+fun Throwable.toUserMessage(context: Context): String = when (this) {
+    is java.net.UnknownHostException -> context.getString(R.string.error_no_network)
+    is java.net.SocketTimeoutException -> context.getString(R.string.error_timeout)
+    is retrofit2.HttpException -> context.getString(R.string.error_server, code())
+    else -> message ?: context.getString(R.string.error_unknown)
 }
