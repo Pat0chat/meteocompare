@@ -4,7 +4,9 @@ import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.meteocompare.app.R
 import com.meteocompare.app.core.network.ApiResult
+import com.meteocompare.app.core.network.NetworkMonitor
 import com.meteocompare.app.core.network.apiCall
 import com.meteocompare.app.data.mapper.toDomain
 import com.meteocompare.app.data.remote.GeocodingApi
@@ -18,6 +20,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
+import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -36,6 +39,7 @@ class CityRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val geocodingApi: GeocodingApi,
     private val json: Json,
+    private val networkMonitor: NetworkMonitor,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : CityRepository {
 
@@ -46,7 +50,15 @@ class CityRepositoryImpl @Inject constructor(
             if (query.length < 2) {
                 return@withContext ApiResult.Success(emptyList())
             }
-            apiCall {
+            // Court-circuit hors-ligne — évite un timeout 30s sur chaque keystroke
+            // déclenchant la recherche debounced.
+            if (!networkMonitor.isOnline()) {
+                return@withContext ApiResult.Error(
+                    IOException("No network"),
+                    context.getString(R.string.error_no_network)
+                )
+            }
+            apiCall(context) {
                 geocodingApi.search(name = query)
                     .results
                     .orEmpty()

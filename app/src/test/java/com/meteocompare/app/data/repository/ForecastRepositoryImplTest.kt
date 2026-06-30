@@ -1,6 +1,7 @@
 package com.meteocompare.app.data.repository
 
 import com.meteocompare.app.core.network.ApiResult
+import com.meteocompare.app.core.network.NetworkMonitor
 import com.meteocompare.app.data.local.ForecastCacheDao
 import com.meteocompare.app.data.local.ForecastCacheEntity
 import com.meteocompare.app.data.mapper.ForecastMapper
@@ -11,6 +12,7 @@ import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.WeatherModel
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import kotlinx.coroutines.flow.first
@@ -49,11 +51,24 @@ class ForecastRepositoryImplTest {
     fun setUp() {
         api = mockk()
         cacheDao = mockk(relaxed = true) // relaxed → no-op pour les méthodes void/suspend
+        // NetworkMonitor : par défaut on simule "en ligne" pour que les tests
+        // existants (qui ne testent PAS l'offline) continuent à passer.
+        val networkMonitor: NetworkMonitor = mockk {
+            every { isOnline() } returns true
+        }
+        // Context : on stub getString(any<Int>()) pour que les messages d'erreur
+        // localisés ne dépendent pas de la génération de R en test JVM pur.
+        val context: android.content.Context = mockk(relaxed = true) {
+            every { getString(any<Int>()) } returns "stubbed-error"
+            every { getString(any<Int>(), *anyVararg()) } returns "stubbed-error"
+        }
         repository = ForecastRepositoryImpl(
             api = api,
             mapper = ForecastMapper(),
             cacheDao = cacheDao,
             json = json,
+            networkMonitor = networkMonitor,
+            context = context,
             ioDispatcher = kotlinx.coroutines.Dispatchers.Unconfined
         )
     }
@@ -99,12 +114,18 @@ class ForecastRepositoryImplTest {
     }
 
     @Test
-    fun `refresh falls back to cache when network completely fails`() = runTest {
+    fun `refresh returns Error when network fails (no cache fallback)`() = runTest {
+        // Cette nouvelle sémantique fixe le faux positif "Prévisions mises à
+        // jour" qui apparaissait en mode avion : avant, le repo retombait
+        // sur le cache et l'UI affichait un succès trompeur. Maintenant on
+        // remonte l'erreur honnêtement et l'UI affiche "Pas de connexion".
+        // Le contenu déjà affiché côté UI n'est pas effacé (philosophie
+        // tolerant côté CityDetailViewModel).
         coEvery {
             api.getForecast(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
         } throws IOException("offline")
 
-        // Le cache contient un résultat pour ICON_EU
+        // Même avec un cache présent, refresh doit retourner Error
         val cachedEntity = ForecastCacheEntity(
             cityId = paris.id,
             modelKey = WeatherModel.ICON_EU.apiKey,
@@ -118,9 +139,8 @@ class ForecastRepositoryImplTest {
             models = listOf(WeatherModel.ICON_EU)
         )
 
-        assertTrue("Should fallback to cache", result is ApiResult.Success)
-        result as ApiResult.Success
-        assertTrue(WeatherModel.ICON_EU in result.data.seriesByModel)
+        assertTrue("Should NOT fallback to cache, error must surface to UI",
+            result is ApiResult.Error)
     }
 
     @Test

@@ -231,6 +231,18 @@ private fun SettingsContent(
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )
+                Spacer(Modifier.height(4.dp))
+                // Version de l'app, lue depuis BuildConfig.VERSION_NAME (généré
+                // à partir de versionName dans build.gradle.kts). Utile aux
+                // utilisateurs pour reporter des bugs avec la bonne version.
+                Text(
+                    text = stringResource(
+                        R.string.settings_about_version,
+                        com.meteocompare.app.BuildConfig.VERSION_NAME
+                    ),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 Spacer(Modifier.height(8.dp))
                 Text(
                     text = stringResource(R.string.settings_about_data_source),

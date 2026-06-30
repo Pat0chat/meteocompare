@@ -1,6 +1,9 @@
 package com.meteocompare.app.data.repository
 
+import android.content.Context
+import com.meteocompare.app.R
 import com.meteocompare.app.core.network.ApiResult
+import com.meteocompare.app.core.network.NetworkMonitor
 import com.meteocompare.app.core.network.toUserMessage
 import com.meteocompare.app.data.local.ForecastCacheDao
 import com.meteocompare.app.data.local.ForecastCacheEntity
@@ -13,6 +16,7 @@ import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.repository.ForecastRepository
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -21,6 +25,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -55,6 +60,8 @@ class ForecastRepositoryImpl @Inject constructor(
     private val mapper: ForecastMapper,
     private val cacheDao: ForecastCacheDao,
     private val json: Json,
+    private val networkMonitor: NetworkMonitor,
+    @ApplicationContext private val context: Context,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : ForecastRepository {
 
@@ -100,14 +107,17 @@ class ForecastRepositoryImpl @Inject constructor(
         models: List<WeatherModel>,
         forecastDays: Int
     ): ApiResult<CityForecast> = withContext(ioDispatcher) {
-        when (val result = fetchAndCache(city, models, forecastDays)) {
-            is ApiResult.Success -> result
-            is ApiResult.Error -> {
-                // Fallback sur cache si réseau KO
-                val cached = readCache(city, models)
-                if (cached != null) ApiResult.Success(cached) else result
-            }
-        }
+        // Fix faux positif "Prévisions mises à jour" en mode avion :
+        //   AVANT : si réseau KO mais cache existe → on retournait Success(cached)
+        //           → l'UI affichait "Prévisions mises à jour" alors qu'aucune
+        //              donnée fraîche n'avait été obtenue. Mensonger.
+        //   APRÈS : on retourne directement le résultat de fetchAndCache.
+        //           - Réseau OK → Success(fresh)
+        //           - Réseau KO → Error("Pas de connexion") → snackbar honnête.
+        //
+        // Les données déjà affichées dans l'UI ne sont pas effacées : la VM
+        // garde son state Loaded (philosophie tolerant côté CityDetailViewModel).
+        fetchAndCache(city, models, forecastDays)
     }
 
     override suspend fun clearCacheForCity(cityId: String) = withContext(ioDispatcher) {
@@ -162,6 +172,16 @@ class ForecastRepositoryImpl @Inject constructor(
     ): ApiResult<CityForecast> = withContext(ioDispatcher) {
         require(models.isNotEmpty()) { "models must not be empty" }
 
+        // Court-circuit hors-ligne : on évite N requêtes parallèles qui vont
+        // chacune timeout après 30s. Vérification instantanée via
+        // ConnectivityManager. Message localisé pour la locale courante.
+        if (!networkMonitor.isOnline()) {
+            return@withContext ApiResult.Error(
+                IOException("No network"),
+                context.getString(R.string.error_no_network)
+            )
+        }
+
         val now = System.currentTimeMillis()
 
         val results: List<Triple<WeatherModel, ForecastSeries?, Throwable?>> = coroutineScope {
@@ -204,13 +224,13 @@ class ForecastRepositoryImpl @Inject constructor(
 
         results.forEach { (model, series, error) ->
             if (series != null) successes[model] = series
-            if (error != null) errors[model] = error.toUserMessage()
+            if (error != null) errors[model] = error.toUserMessage(context)
         }
 
         if (successes.isEmpty()) {
             val firstFailure = results.firstNotNullOfOrNull { it.third }
                 ?: IllegalStateException("All models failed without exception")
-            ApiResult.Error(firstFailure, firstFailure.toUserMessage())
+            ApiResult.Error(firstFailure, firstFailure.toUserMessage(context))
         } else {
             ApiResult.Success(
                 CityForecast(
