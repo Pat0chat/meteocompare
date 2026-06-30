@@ -50,6 +50,7 @@ import com.meteocompare.app.domain.model.PrecipitationConfidence
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.ui.theme.color
 import com.meteocompare.app.ui.theme.confidenceColor
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
 

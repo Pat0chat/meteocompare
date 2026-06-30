@@ -500,18 +500,23 @@ internal fun TodaySummaryCard(
                         fontWeight = FontWeight.Light,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
-                    // Icône temps à droite de la grosse température. Taille 40dp
-                    // pour rivaliser visuellement avec displayMedium sans la
-                    // dominer. Tinte sémantique pour que la couleur véhicule
-                    // l'info même avant que l'utilisateur identifie l'icône.
-                    // Padding-bottom 8dp pour aligner sur la baseline du chiffre.
+                    // Icône temps à droite de la grosse température. Taille
+                    // 52dp : assez grande pour rivaliser avec le displayMedium
+                    // ~57sp et donner du poids visuel à l'info "il fait beau /
+                    // il pleut", qui est l'info qu'on veut surfacer.
+                    // Spacer 24dp (au lieu de 12) pour que l'icône respire
+                    // après la grosse température — collée à 12dp elle donnait
+                    // l'impression de "déborder" sur le chiffre.
+                    // Padding-bottom 6dp pour caler l'icône sur la baseline
+                    // visuelle du chiffre (avec une icône plus grande, 8dp
+                    // remontait trop l'icône au-dessus du chiffre).
                     if (currentCondition != null) {
-                        Spacer(Modifier.width(12.dp))
+                        Spacer(Modifier.width(24.dp))
                         WeatherIconDecorative(
                             condition = currentCondition,
-                            size = 40.dp,
+                            size = 52.dp,
                             tint = currentCondition.semanticTint(),
-                            modifier = Modifier.padding(bottom = 8.dp)
+                            modifier = Modifier.padding(bottom = 2.dp)
                         )
                     }
                     Spacer(Modifier.width(8.dp))
@@ -619,16 +624,24 @@ private fun PrecipRow(precip: PrecipitationConfidence?) {
 
 @Composable
 private fun ConfidencePill(percent: Int) {
+    // Pattern badge plein (couleur de confiance solide + texte `surface`)
+    // identique au gros badge en haut à droite de la carte. La version
+    // précédente utilisait un fond tinté à 20% : sur un `primaryContainer`
+    // (lui-même coloré), ça donnait un wash très subtil qui se confondait
+    // visuellement avec le fond, surtout en thème sombre. Le solide garantit
+    // un contraste minimum AAA quel que soit le container de la carte parente
+    // (primaryContainer, surfaceContainer, etc.) — la confiance fait partie
+    // des infos qu'on veut LIRE d'un coup d'œil, pas deviner.
     val color = confidenceColor(percent)
     Surface(
-        color = color.copy(alpha = 0.2f),
+        color = color,
         modifier = Modifier.clip(MaterialTheme.shapes.extraSmall)
     ) {
         Text(
             text = "$percent%",
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.SemiBold,
-            color = color,
+            color = MaterialTheme.colorScheme.surface,
             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
         )
     }

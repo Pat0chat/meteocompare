@@ -371,9 +371,12 @@ private fun TemperatureSummary(
             // Tinted via la couleur sémantique — sur la liste on a 4-6 cards
             // visibles, des icônes colorées font ressortir d'un coup les
             // villes "où il pleut" sans avoir à lire chaque ligne.
+            // Taille 42dp (vs 24dp avant) : avec 24dp l'icône faisait pâle
+            // face au titre de la ville en titleLarge à côté ; 32dp lui donne
+            // assez de présence pour qu'on la repère d'un balayage du pouce.
             WeatherIconDecorative(
                 condition = currentCondition,
-                size = 24.dp,
+                size = 42.dp,
                 tint = currentCondition.semanticTint()
             )
             Spacer(Modifier.width(8.dp))
@@ -393,7 +396,16 @@ private fun TemperatureSummary(
                 Text(
                     text = "${currentTemp.roundToInt()}°",
                     style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
+                    // start padding = largeur visuelle approximative de "↑ "
+                    // en labelSmall — sans, le digit "2" de "20°" était à x=0
+                    // tandis que le digit "2" de "↑ 22-24°" était décalé à
+                    // droite, donc les chiffres ne s'alignaient pas
+                    // verticalement. 10dp recale visuellement les deux lignes
+                    // sur leur PREMIER CHIFFRE plutôt que sur leur début de
+                    // texte. Le 10dp est calibré empiriquement (Roboto / sp
+                    // par défaut) — c'est typographique, pas paramétré.
+                    modifier = Modifier.padding(start = 10.dp)
                 )
                 if (tempMax != null) {
                     // Format intervalle si les modèles divergent significativement,
