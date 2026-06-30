@@ -309,7 +309,6 @@ private fun LoadedView(
         // Structure identique aux autres tableaux : Card pour la table, légende
         // en dessous (pas dans la Card).
         item("temp_table") {
-            SectionTitle(stringResource(R.string.section_temp_table))
             Card(
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainerLow
