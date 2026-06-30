@@ -5,6 +5,7 @@ import com.meteocompare.app.domain.model.ConfidenceScore
 import com.meteocompare.app.domain.model.DayConfidence
 import com.meteocompare.app.domain.model.HourlyConfidenceBand
 import com.meteocompare.app.domain.model.PrecipitationConfidence
+import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
 import java.time.Instant
 import java.time.LocalDate
@@ -110,6 +111,79 @@ class ConfidenceCalculator @Inject constructor(
         if (totalWeight == 0.0) return null
         val weightedSum = samples.sumOf { (model, temp) -> temp * weighting.weight(model) }
         return weightedSum / totalWeight
+    }
+
+    /**
+     * Condition météo "maintenant" — vote pondéré par résolution sur la famille
+     * de code WMO la plus voisine de l'instant courant.
+     *
+     * Pourquoi un vote majoritaire et non une "moyenne" comme la température :
+     * les codes WMO sont catégoriels (pluie ≠ neige ≠ ciel clair). Faire la
+     * moyenne de "61" (pluie) et "71" (neige) donnerait "66" (pluie verglaçante),
+     * ce qui est une condition meteorologique sans rapport avec ce que prédit
+     * la moitié des modèles. On agrège donc en famille (CLEAR/RAIN/SNOW/…) et
+     * on prend la famille majoritaire pondérée — c'est l'équivalent du "mode"
+     * statistique pour des données catégorielles.
+     *
+     * En cas d'égalité de poids, on prend la famille la plus "sévère" — un modèle
+     * dit clair, un autre dit pluie, on garde pluie. C'est le côté tolérant aux
+     * erreurs de prudence : mieux vaut afficher la pluie à tort que la cacher.
+     */
+    fun currentWeatherCondition(forecast: CityForecast): WeatherCondition? {
+        val now = Instant.now()
+        val votes = mutableMapOf<WeatherCondition, Double>()
+        forecast.seriesByModel.forEach { (model, series) ->
+            if (series.hourly.timestamps.isEmpty()) return@forEach
+            if (series.hourly.weatherCode.isEmpty()) return@forEach
+            val idx = series.hourly.timestamps.indices.minBy { i ->
+                kotlin.math.abs(series.hourly.timestamps[i].epochSecond - now.epochSecond)
+            }
+            val code = series.hourly.weatherCode.getOrNull(idx)
+            val condition = WeatherCondition.fromWmoCode(code) ?: return@forEach
+            votes.merge(condition, weighting.weight(model), Double::plus)
+        }
+        if (votes.isEmpty()) return null
+        val maxVote = votes.maxOf { it.value }
+        // Tie-breaker : on prend la condition la plus haute en ordinal — qui
+        // correspond à peu près au "plus sévère" dans l'ordre déclaré de l'enum
+        // (CLEAR=0 … THUNDERSTORM=11). Pas parfait mais raisonnable et
+        // déterministe vs un random sur les égalités.
+        return votes.filterValues { it == maxVote }
+            .keys
+            .maxByOrNull { it.ordinal }
+    }
+
+    /**
+     * Tableau Jour × Modèle des conditions météo journalières.
+     *
+     * Utilisé par l'écran détail pour afficher une matrice d'icônes — utile
+     * pour comparer d'un coup d'œil "tous les modèles disent soleil jeudi
+     * mais ICON prévoit de la pluie" : ce désaccord est le genre de signal
+     * éditorial qu'on veut surfacer.
+     *
+     * Pour chaque jour, on conserve les valeurs par modèle (pas d'agrégation
+     * type "condition majoritaire") parce que l'intérêt est justement de
+     * laisser l'utilisateur voir le désaccord — l'agrégation l'occulterait.
+     */
+    fun dailyConditionsByModel(forecast: CityForecast): List<DayConditionsRow> {
+        val allDates = forecast.seriesByModel.values
+            .flatMap { it.daily.dates }
+            .distinct()
+            .sorted()
+        return allDates.map { date ->
+            val byModel = forecast.seriesByModel.mapNotNull { (model, series) ->
+                val idx = series.daily.dates.indexOf(date)
+                if (idx < 0) return@mapNotNull null
+                val code = series.daily.weatherCode.getOrNull(idx)
+                val condition = WeatherCondition.fromWmoCode(code) ?: return@mapNotNull null
+                model to condition
+            }.toMap()
+            DayConditionsRow(date = date, byModel = byModel)
+        }.filter { it.byModel.isNotEmpty() }
+        // Skip les jours sans aucun code disponible — ça arrive avec un cache
+        // antérieur à la feature (weather_code = empty list). Plutôt que
+        // d'afficher une ligne entière de "—", on masque la ligne et l'UI
+        // n'affiche pas le tableau si la liste finale est vide.
     }
 
     /**
@@ -346,3 +420,16 @@ class ConfidenceCalculator @Inject constructor(
         }
     }
 }
+
+/**
+ * Une ligne du tableau Jour × Modèle des conditions météo.
+ *
+ * Au niveau fichier (pas imbriquée dans `ConfidenceCalculator`) pour pouvoir
+ * être référencée depuis le ViewModel et l'UI sans avoir à importer la classe
+ * englobante. `byModel` peut contenir < N entrées si certains modèles n'ont
+ * pas fourni de code pour ce jour (cas d'un horizon dépassé pour AROME HD).
+ */
+data class DayConditionsRow(
+    val date: LocalDate,
+    val byModel: Map<WeatherModel, WeatherCondition>
+)

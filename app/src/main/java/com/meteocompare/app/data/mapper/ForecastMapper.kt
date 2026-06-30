@@ -36,9 +36,10 @@ class ForecastMapper @Inject constructor() {
                 timestamps = times.filterNotNull(),
                 temperature2m = alignNonNullTimes(times, h.temperature2m),
                 precipitation = alignNonNullTimes(times, h.precipitation),
-                windSpeed10m = alignNonNullTimes(times, h.windSpeed10m)
+                windSpeed10m = alignNonNullTimes(times, h.windSpeed10m),
+                weatherCode = alignNonNullTimesInt(times, h.weatherCode)
             )
-        } ?: HourlyForecast(emptyList(), emptyList(), emptyList(), emptyList())
+        } ?: HourlyForecast(emptyList(), emptyList(), emptyList(), emptyList(), emptyList())
 
         val daily = dto.daily?.let { d ->
             val dates = d.time.map { parseOpenMeteoDate(it) }
@@ -47,9 +48,10 @@ class ForecastMapper @Inject constructor() {
                 tempMax = alignNonNullDates(dates, d.temperature2mMax),
                 tempMin = alignNonNullDates(dates, d.temperature2mMin),
                 precipitationSum = alignNonNullDates(dates, d.precipitationSum),
-                windSpeedMax = alignNonNullDates(dates, d.windSpeed10mMax)
+                windSpeedMax = alignNonNullDates(dates, d.windSpeed10mMax),
+                weatherCode = alignNonNullDatesInt(dates, d.weatherCode)
             )
-        } ?: DailyForecast(emptyList(), emptyList(), emptyList(), emptyList(), emptyList())
+        } ?: DailyForecast(emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), emptyList())
 
         return ForecastSeries(model = model, hourly = hourly, daily = daily)
     }
@@ -75,6 +77,34 @@ class ForecastMapper @Inject constructor() {
         dates: List<LocalDate?>,
         values: List<Double?>?
     ): List<Double?> {
+        if (values == null) {
+            return List(dates.count { it != null }) { null }
+        }
+        return dates.mapIndexedNotNull { index, date ->
+            if (date != null) values.getOrNull(index) else null
+        }
+    }
+
+    // Variantes Int? : les codes WMO sont des entiers, pas des doubles. On
+    // duplique le squelette plutôt que d'introduire un generic <T> sur les
+    // helpers — la sur-abstraction génère plus de bruit que les 2 lignes
+    // qu'elle économise, et brouille l'intent à la lecture.
+    private fun alignNonNullTimesInt(
+        times: List<Instant?>,
+        values: List<Int?>?
+    ): List<Int?> {
+        if (values == null) {
+            return List(times.count { it != null }) { null }
+        }
+        return times.mapIndexedNotNull { index, instant ->
+            if (instant != null) values.getOrNull(index) else null
+        }
+    }
+
+    private fun alignNonNullDatesInt(
+        dates: List<LocalDate?>,
+        values: List<Int?>?
+    ): List<Int?> {
         if (values == null) {
             return List(dates.count { it != null }) { null }
         }

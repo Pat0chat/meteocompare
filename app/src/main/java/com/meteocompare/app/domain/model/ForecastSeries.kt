@@ -23,7 +23,14 @@ data class HourlyForecast(
     /** Précipitations en mm (somme sur l'heure écoulée). */
     val precipitation: List<Double?>,
     /** Vitesse du vent à 10m en km/h. */
-    val windSpeed10m: List<Double?>
+    val windSpeed10m: List<Double?>,
+    /**
+     * Code météo WMO 4677 (0=clair, 3=couvert, 61=pluie, 95=orage, etc.).
+     * Vide si le modèle ne fournit pas la variable ou si le cache provient
+     * d'une version antérieure de l'app — l'UI traite ce cas en n'affichant
+     * simplement pas d'icône, sans erreur.
+     */
+    val weatherCode: List<Int?> = emptyList()
 ) {
     val size: Int get() = timestamps.size
 }
@@ -37,7 +44,9 @@ data class DailyForecast(
     /** Cumul de précipitations journalier en mm. */
     val precipitationSum: List<Double?>,
     /** Vitesse de vent maximale du jour en km/h. */
-    val windSpeedMax: List<Double?>
+    val windSpeedMax: List<Double?>,
+    /** Code météo WMO 4677 — défaut empty pour les caches antérieurs. */
+    val weatherCode: List<Int?> = emptyList()
 ) {
     val size: Int get() = dates.size
 }

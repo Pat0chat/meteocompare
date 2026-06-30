@@ -218,7 +218,8 @@ class CityListViewModel @Inject constructor(
             if (today != null) {
                 ForecastState.Loaded(
                     today = confidenceCalculator.dayConfidence(result.data, today),
-                    currentTemp = confidenceCalculator.currentTemperature(result.data)
+                    currentTemp = confidenceCalculator.currentTemperature(result.data),
+                    currentCondition = confidenceCalculator.currentWeatherCondition(result.data)
                 )
             } else {
                 ForecastState.Error("Aucune donnée journalière reçue")

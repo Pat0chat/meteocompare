@@ -70,7 +70,10 @@ import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.ConfidenceScore
 import com.meteocompare.app.domain.model.DayConfidence
 import com.meteocompare.app.domain.model.PrecipitationConfidence
+import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.ui.components.ShimmerBox
+import com.meteocompare.app.ui.components.WeatherIconDecorative
+import com.meteocompare.app.ui.components.semanticTint
 import com.meteocompare.app.ui.theme.confidenceColor
 import com.meteocompare.app.ui.theme.MeteoCompareTheme
 import java.time.LocalDate
@@ -288,7 +291,11 @@ internal fun CityCard(
             ) { forecast ->
                 when (forecast) {
                     ForecastState.Loading -> CityCardLoading()
-                    is ForecastState.Loaded -> CityCardLoaded(forecast.today, forecast.currentTemp)
+                    is ForecastState.Loaded -> CityCardLoaded(
+                        today = forecast.today,
+                        currentTemp = forecast.currentTemp,
+                        currentCondition = forecast.currentCondition
+                    )
                     is ForecastState.Error -> CityCardError(forecast.message, onRetry)
                 }
             }
@@ -331,31 +338,56 @@ private fun CityCardError(message: String, onRetry: () -> Unit) {
 }
 
 @Composable
-private fun CityCardLoaded(today: DayConfidence, currentTemp: Double?) {
+private fun CityCardLoaded(today: DayConfidence, currentTemp: Double?, currentCondition: WeatherCondition?) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        TemperatureSummary(currentTemp = currentTemp, tempMax = today.tempMax)
+        TemperatureSummary(
+            currentTemp = currentTemp,
+            tempMax = today.tempMax,
+            currentCondition = currentCondition
+        )
         PrecipitationSummary(precip = today.precipitation)
         ConfidenceBadge(percent = today.overallPercent)
     }
 }
 
 @Composable
-private fun TemperatureSummary(currentTemp: Double?, tempMax: ConfidenceScore?) {
-    // Affichage : grosse temp actuelle + petite "↑ max" en dessous.
+private fun TemperatureSummary(
+    currentTemp: Double?,
+    tempMax: ConfidenceScore?,
+    currentCondition: WeatherCondition?
+) {
+    // Affichage : icône temps + grosse temp actuelle + petite "↑ max" en dessous.
+    // L'icône précède la température parce que le temps qu'il fait (soleil/
+    // pluie/orage) est l'info la plus immédiate pour un utilisateur qui scrolle
+    // sa liste de villes — il identifie en 100ms s'il faut prendre un parapluie.
     // Si pas de current dispo (cas dégénéré), on retombe sur l'ancien affichage
     // de la max seule pour rester utile.
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(
-            Icons.Outlined.Thermostat,
-            contentDescription = null,
-            modifier = Modifier.size(20.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(Modifier.width(4.dp))
+        if (currentCondition != null) {
+            // Tinted via la couleur sémantique — sur la liste on a 4-6 cards
+            // visibles, des icônes colorées font ressortir d'un coup les
+            // villes "où il pleut" sans avoir à lire chaque ligne.
+            WeatherIconDecorative(
+                condition = currentCondition,
+                size = 24.dp,
+                tint = currentCondition.semanticTint()
+            )
+            Spacer(Modifier.width(8.dp))
+        } else {
+            // Fallback : si on n'a pas de code météo (cache pré-feature), on
+            // garde le thermomètre pour ne pas casser la composition Row.
+            Icon(
+                Icons.Outlined.Thermostat,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.width(4.dp))
+        }
         if (currentTemp != null) {
             Column {
                 Text(
@@ -531,7 +563,8 @@ private fun CityCardLoadedPreview() {
                     precipitation = PrecipitationConfidence.NoRain(100, 5, 0.0),
                     windMax = ConfidenceScore(72, 12.0, 18.0, 15.0, 2.5, 5)
                 ),
-                currentTemp = 19.0
+                currentTemp = 19.0,
+                currentCondition = WeatherCondition.PARTLY_CLOUDY
             )
         )
         Surface { CityCard(state = sample, onClick = {}, onRemove = {}, onRetry = {}) }

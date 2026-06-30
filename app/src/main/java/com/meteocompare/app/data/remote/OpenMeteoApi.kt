@@ -20,10 +20,14 @@ interface OpenMeteoApi {
         @Query("latitude") latitude: Double,
         @Query("longitude") longitude: Double,
         @Query("models") models: String,
+        // weather_code (WMO 4677) ajouté pour permettre l'affichage iconique
+        // du temps (soleil, nuages, pluie, etc.) en plus des chiffres.
+        // Disponible sur tous les modèles utilisés par l'app (AROME, ARPEGE,
+        // ICON, GFS, ECMWF) — donc pas de risque d'erreur 400 sélective.
         @Query("hourly") hourly: String =
-            "temperature_2m,precipitation,wind_speed_10m",
+            "temperature_2m,precipitation,wind_speed_10m,weather_code",
         @Query("daily") daily: String =
-            "temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max",
+            "temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max,weather_code",
         @Query("timezone") timezone: String = "auto",
         @Query("forecast_days") forecastDays: Int = 7,
         @Query("wind_speed_unit") windSpeedUnit: String = "kmh",

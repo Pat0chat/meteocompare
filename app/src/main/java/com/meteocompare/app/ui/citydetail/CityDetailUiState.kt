@@ -4,6 +4,8 @@ import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DayConfidence
 import com.meteocompare.app.domain.model.DayNormals
 import com.meteocompare.app.domain.model.HourlyConfidenceBand
+import com.meteocompare.app.domain.model.WeatherCondition
+import com.meteocompare.app.domain.usecase.DayConditionsRow
 
 /**
  * État de l'écran détail.
@@ -25,12 +27,21 @@ sealed interface CityDetailUiState {
      *
      * `currentTemp` est la moyenne pondérée des modèles à l'instant le plus
      * proche de maintenant. Null si aucune donnée horaire disponible.
+     *
+     * `currentCondition` est la famille de temps "maintenant" (mode pondéré).
+     * Null si aucun modèle ne fournit weather_code (cache pré-feature) — l'UI
+     * retombe alors sur l'ancien thermomètre.
+     *
+     * `dailyConditions` alimente le tableau Jour × Modèle. Vide si aucun code
+     * weather_code n'a été reçu — l'UI ne rend pas le bloc dans ce cas.
      */
     data class Loaded(
         val forecast: CityForecast,
         val weeklyConfidence: List<DayConfidence>,
         val hourlyBands: List<HourlyConfidenceBand>,
         val currentTemp: Double?,
+        val currentCondition: WeatherCondition? = null,
+        val dailyConditions: List<DayConditionsRow> = emptyList(),
         val normals: Map<Int, DayNormals>? = null
     ) : CityDetailUiState
 

@@ -76,6 +76,12 @@ object A11yFormatter {
             is ForecastState.Error -> "$base. ${context.getString(R.string.a11y_city_error, f.message)}"
             is ForecastState.Loaded -> {
                 val parts = mutableListOf<String>()
+                // Condition actuelle en premier : "ensoleillé" + "20°" se
+                // suivent dans la lecture TalkBack, ce qui mime la perception
+                // visuelle de l'icône + température côte à côte.
+                f.currentCondition?.let {
+                    parts += context.getString(weatherConditionStringRes(it))
+                }
                 f.currentTemp?.let { parts += context.getString(R.string.a11y_now_temp, it.roundToInt()) }
                 f.today.tempMax?.let {
                     parts += context.getString(R.string.a11y_temperature_prefix) + " " +
@@ -86,6 +92,29 @@ object A11yFormatter {
                 "$base. " + parts.joinToString(". ") + "."
             }
         }
+    }
+
+    /**
+     * Mapping famille WeatherCondition → string res. Volontairement dupliqué
+     * du composant `WeatherIcon` parce que l'A11yFormatter est dans une couche
+     * différente (a11y/) qui ne devrait pas dépendre de l'UI components, et
+     * inversement. Coût de la duplication = 13 lignes, gain = aucun couplage
+     * entre les deux.
+     */
+    private fun weatherConditionStringRes(c: com.meteocompare.app.domain.model.WeatherCondition): Int = when (c) {
+        com.meteocompare.app.domain.model.WeatherCondition.CLEAR -> R.string.weather_clear
+        com.meteocompare.app.domain.model.WeatherCondition.MAINLY_CLEAR -> R.string.weather_mainly_clear
+        com.meteocompare.app.domain.model.WeatherCondition.PARTLY_CLOUDY -> R.string.weather_partly_cloudy
+        com.meteocompare.app.domain.model.WeatherCondition.OVERCAST -> R.string.weather_overcast
+        com.meteocompare.app.domain.model.WeatherCondition.FOG -> R.string.weather_fog
+        com.meteocompare.app.domain.model.WeatherCondition.DRIZZLE -> R.string.weather_drizzle
+        com.meteocompare.app.domain.model.WeatherCondition.RAIN -> R.string.weather_rain
+        com.meteocompare.app.domain.model.WeatherCondition.FREEZING_RAIN -> R.string.weather_freezing_rain
+        com.meteocompare.app.domain.model.WeatherCondition.SNOW -> R.string.weather_snow
+        com.meteocompare.app.domain.model.WeatherCondition.RAIN_SHOWERS -> R.string.weather_rain_showers
+        com.meteocompare.app.domain.model.WeatherCondition.SNOW_SHOWERS -> R.string.weather_snow_showers
+        com.meteocompare.app.domain.model.WeatherCondition.THUNDERSTORM -> R.string.weather_thunderstorm
+        com.meteocompare.app.domain.model.WeatherCondition.UNKNOWN -> R.string.weather_unknown
     }
 
     fun hourlyChartDescription(context: Context, bands: List<HourlyConfidenceBand>): String {

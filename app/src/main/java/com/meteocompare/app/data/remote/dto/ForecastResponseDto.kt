@@ -29,7 +29,14 @@ data class HourlyDto(
     val temperature2m: List<Double?>? = null,
     val precipitation: List<Double?>? = null,
     @SerialName("wind_speed_10m")
-    val windSpeed10m: List<Double?>? = null
+    val windSpeed10m: List<Double?>? = null,
+    // WMO weather codes (0=clear, 3=overcast, 61=rain, 95=thunderstorm…)
+    // Nullable + `= null` default : si une vieille entrée de cache JSON ne
+    // contient pas ce champ (cache écrit avant l'ajout de la feature), kotlinx
+    // remet null sans crasher, et le mapper renvoie une liste vide → l'UI ne
+    // tente pas d'afficher d'icône. Pas besoin d'invalider le cache existant.
+    @SerialName("weather_code")
+    val weatherCode: List<Int?>? = null
 )
 
 @Serializable
@@ -42,5 +49,7 @@ data class DailyDto(
     @SerialName("precipitation_sum")
     val precipitationSum: List<Double?>? = null,
     @SerialName("wind_speed_10m_max")
-    val windSpeed10mMax: List<Double?>? = null
+    val windSpeed10mMax: List<Double?>? = null,
+    @SerialName("weather_code")
+    val weatherCode: List<Int?>? = null
 )

@@ -70,7 +70,10 @@ import com.meteocompare.app.domain.model.ConfidenceScore
 import com.meteocompare.app.domain.model.DailyForecast
 import com.meteocompare.app.domain.model.DayConfidence
 import com.meteocompare.app.domain.model.PrecipitationConfidence
+import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
+import com.meteocompare.app.ui.components.WeatherIconDecorative
+import com.meteocompare.app.ui.components.semanticTint
 import com.meteocompare.app.ui.theme.confidenceColor
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
@@ -204,6 +207,8 @@ internal fun CityDetailContent(
                         weekly = s.weeklyConfidence,
                         hourlyBands = s.hourlyBands,
                         currentTemp = s.currentTemp,
+                        currentCondition = s.currentCondition,
+                        dailyConditions = s.dailyConditions,
                         normals = s.normals,
                         padding = padding,
                         onConfidenceClick = onConfidenceClick
@@ -248,6 +253,8 @@ private fun LoadedView(
     weekly: List<DayConfidence>,
     hourlyBands: List<com.meteocompare.app.domain.model.HourlyConfidenceBand>,
     currentTemp: Double?,
+    currentCondition: WeatherCondition?,
+    dailyConditions: List<com.meteocompare.app.domain.usecase.DayConditionsRow>,
     normals: Map<Int, com.meteocompare.app.domain.model.DayNormals>?,
     padding: PaddingValues,
     onConfidenceClick: (isoDate: String) -> Unit = {}
@@ -266,6 +273,7 @@ private fun LoadedView(
                     today = today,
                     modelCount = forecast.availableModels.size,
                     currentTemp = currentTemp,
+                    currentCondition = currentCondition,
                     onConfidenceClick = { onConfidenceClick(today.date.toString()) }
                 )
             }
@@ -286,6 +294,30 @@ private fun LoadedView(
                         timezone = forecast.city.timezone
                     )
                 }
+            }
+        }
+
+        // Tableau matrice Jour × Modèle des conditions météo. Placé juste après
+        // le résumé du jour parce que c'est l'info la plus immédiate après "il
+        // fait combien" : "qu'est-ce que chaque modèle prédit comme temps ?".
+        // On ne rend pas le bloc si aucune donnée — typiquement un cache
+        // pré-feature dont la réponse JSON ne contient pas weather_code.
+        if (dailyConditions.isNotEmpty()) {
+            item("weather_by_model") {
+                SectionTitle(stringResource(R.string.section_weather_by_model))
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                    ),
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                ) {
+                    WeatherByModelTable(
+                        rows = dailyConditions,
+                        modelOrder = forecast.availableModels,
+                        modifier = Modifier.padding(8.dp)
+                    )
+                }
+                WeatherLegend()
             }
         }
 
@@ -400,6 +432,7 @@ internal fun TodaySummaryCard(
     today: DayConfidence,
     modelCount: Int,
     currentTemp: Double?,
+    currentCondition: WeatherCondition? = null,
     onConfidenceClick: () -> Unit = {}
 ) {
     // Description unifiée pour TalkBack qui résume toutes les valeurs.
@@ -467,6 +500,20 @@ internal fun TodaySummaryCard(
                         fontWeight = FontWeight.Light,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
+                    // Icône temps à droite de la grosse température. Taille 40dp
+                    // pour rivaliser visuellement avec displayMedium sans la
+                    // dominer. Tinte sémantique pour que la couleur véhicule
+                    // l'info même avant que l'utilisateur identifie l'icône.
+                    // Padding-bottom 8dp pour aligner sur la baseline du chiffre.
+                    if (currentCondition != null) {
+                        Spacer(Modifier.width(12.dp))
+                        WeatherIconDecorative(
+                            condition = currentCondition,
+                            size = 40.dp,
+                            tint = currentCondition.semanticTint(),
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                    }
                     Spacer(Modifier.width(8.dp))
                     Text(
                         text = stringResource(R.string.now_label),
