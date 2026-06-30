@@ -6,6 +6,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +23,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -52,6 +54,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -84,6 +87,7 @@ import kotlin.math.roundToInt
 fun CityDetailScreen(
     cityId: String,
     onBack: () -> Unit,
+    onConfidenceClick: (isoDate: String) -> Unit = {},
     viewModel: CityDetailViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -118,7 +122,8 @@ fun CityDetailScreen(
         isRefreshing = isRefreshing,
         snackbarHostState = snackbarHostState,
         onBack = onBack,
-        onRefresh = viewModel::refresh
+        onRefresh = viewModel::refresh,
+        onConfidenceClick = onConfidenceClick
     )
 }
 
@@ -133,7 +138,8 @@ internal fun CityDetailContent(
     isRefreshing: Boolean,
     snackbarHostState: SnackbarHostState,
     onBack: () -> Unit,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    onConfidenceClick: (isoDate: String) -> Unit = {}
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
@@ -201,7 +207,8 @@ internal fun CityDetailContent(
                         hourlyBands = s.hourlyBands,
                         currentTemp = s.currentTemp,
                         normals = s.normals,
-                        padding = padding
+                        padding = padding,
+                        onConfidenceClick = onConfidenceClick
                     )
                 }
             }
@@ -244,7 +251,8 @@ private fun LoadedView(
     hourlyBands: List<com.meteocompare.app.domain.model.HourlyConfidenceBand>,
     currentTemp: Double?,
     normals: Map<Int, com.meteocompare.app.domain.model.DayNormals>?,
-    padding: PaddingValues
+    padding: PaddingValues,
+    onConfidenceClick: (isoDate: String) -> Unit = {}
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().testTag(TAG_DETAIL_LOADED),
@@ -256,7 +264,12 @@ private fun LoadedView(
     ) {
         item("today_summary") {
             weekly.firstOrNull()?.let { today ->
-                TodaySummaryCard(today, forecast.availableModels.size, currentTemp)
+                TodaySummaryCard(
+                    today = today,
+                    modelCount = forecast.availableModels.size,
+                    currentTemp = currentTemp,
+                    onConfidenceClick = { onConfidenceClick(today.date.toString()) }
+                )
             }
         }
 
@@ -386,7 +399,12 @@ private fun ForecastSection(
 }
 
 @Composable
-internal fun TodaySummaryCard(today: DayConfidence, modelCount: Int, currentTemp: Double?) {
+internal fun TodaySummaryCard(
+    today: DayConfidence,
+    modelCount: Int,
+    currentTemp: Double?,
+    onConfidenceClick: () -> Unit = {}
+) {
     // Description unifiée pour TalkBack qui résume toutes les valeurs.
     // On préfixe par "Maintenant X°" si dispo — c'est l'info la plus utile
     // au premier abord pour quelqu'un qui ouvre l'app.
@@ -436,7 +454,7 @@ internal fun TodaySummaryCard(today: DayConfidence, modelCount: Int, currentTemp
                         color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                     )
                 }
-                today.overallPercent?.let { ConfidenceBadge(it) }
+                today.overallPercent?.let { ConfidenceBadge(it, onClick = onConfidenceClick) }
             }
 
             // Température "maintenant" — bloc principal en grand. Placé entre
@@ -577,23 +595,43 @@ private fun ConfidencePill(percent: Int) {
 }
 
 @Composable
-private fun ConfidenceBadge(percent: Int) {
+private fun ConfidenceBadge(percent: Int, onClick: () -> Unit = {}) {
     val color = when {
         percent >= 80 -> ConfidenceHigh
         percent >= 50 -> ConfidenceMedium
         else -> ConfidenceLow
     }
+    // Modifier.clickable plutôt que Surface(onClick=) : la surcharge onClick
+    // de Surface est marquée @ExperimentalMaterial3Api dans certaines
+    // versions du BOM, et on évite de propager l'opt-in pour si peu. On
+    // garde le ripple natif via clickable(role=Button) qui le configure
+    // automatiquement. La chevron Arrow signale visuellement le tap.
+    val a11yLabel = stringResource(R.string.a11y_open_confidence_explanation, percent)
     Surface(
         color = color,
-        modifier = Modifier.clip(MaterialTheme.shapes.small)
+        modifier = Modifier
+            .clip(MaterialTheme.shapes.small)
+            .clickable(role = Role.Button, onClick = onClick)
+            .semantics { contentDescription = a11yLabel }
     ) {
-        Text(
-            text = stringResource(R.string.confidence_badge_percent, percent),
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.surface,
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-        )
+        ) {
+            Text(
+                text = stringResource(R.string.confidence_badge_percent, percent),
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.surface
+            )
+            Spacer(Modifier.width(4.dp))
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                contentDescription = null, // décoratif — la sémantique est sur Surface
+                tint = MaterialTheme.colorScheme.surface,
+                modifier = Modifier.size(14.dp)
+            )
+        }
     }
 }
 

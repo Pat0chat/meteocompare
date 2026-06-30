@@ -72,6 +72,22 @@ android {
             if (releaseSigningConfig.storeFile != null) {
                 signingConfig = releaseSigningConfig
             }
+            // Symboles de débogage natifs.
+            //
+            // L'app n'embarque pas de code natif propre, mais ses dépendances
+            // androidx (graphics.path, datastore.shared_counter) embarquent des
+            // .so prébuilts. Sans cette config, le Play Console affiche le
+            // warning "App Bundle contient du code natif, vous n'avez pas
+            // importé de symboles de débogage" à chaque upload.
+            //
+            // `FULL` (vs `SYMBOL_TABLE`) : on prend tout ce qu'AGP peut
+            // extraire — les prébuilts ayant été strippés à la source, le ZIP
+            // produit est petit, donc autant être complet pour le peu qu'il y a.
+            // Le fichier `native-debug-symbols.zip` se retrouve à côté de l'AAB
+            // dans `app/build/outputs/bundle/release/` et s'uploade au Play.
+            ndk {
+                debugSymbolLevel = "FULL"
+            }
         }
         debug {
             applicationIdSuffix = ".debug"

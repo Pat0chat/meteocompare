@@ -117,6 +117,7 @@
     <string name="a11y_confidence_high">Confiance haute</string>
     <string name="a11y_confidence_medium">Confiance moyenne</string>
     <string name="a11y_confidence_low">Confiance faible</string>
+    <string name="a11y_open_confidence_explanation">Confiance %d %%, ouvrir l\'explication détaillée</string>
     <string name="a11y_temp_single">%d degrés</string>
     <string name="a11y_temp_range">entre %1$d et %2$d degrés</string>
     <string name="a11y_temp_with_confidence">%1$s, %2$s, %3$d pourcent</string>
@@ -141,4 +142,39 @@
     <string name="a11y_temp_min_label">Température min</string>
     <string name="a11y_wind_max_label">Vent max</string>
     <string name="a11y_kmh_unit">kilomètres par heure</string>
+
+    <!-- ─── "Pourquoi cette confiance ?" ─────────────────────────────────── -->
+    <string name="confidence_explanation_title">Pourquoi cette confiance ?</string>
+    <string name="confidence_explanation_invalid_date">Date invalide</string>
+    <string name="confidence_overall_label">Confiance globale</string>
+    <string name="confidence_verdict_high">Les modèles convergent fortement. Les valeurs affichées dans le résumé sont très probablement les bonnes.</string>
+    <string name="confidence_verdict_medium">Les modèles ne sont qu\'en partie d\'accord. Garder un œil sur l\'évolution dans les prochaines heures.</string>
+    <string name="confidence_verdict_low">Les modèles divergent fortement. Les valeurs précises sont à prendre avec précaution.</string>
+
+    <!-- Bandeau récapitulatif (en haut de chaque carte variable) -->
+    <!-- %1$d : valeur entière (moyenne), %2$s : unité (\u00b0 ou \u00a0km/h) -->
+    <string name="confidence_summary_converged">Tous les modèles s\'alignent autour de %1$d%2$s</string>
+    <!-- %1$d : min, %2$d : max, %3$s : unité, %4$d : amplitude -->
+    <string name="confidence_summary_spread">Entre %1$d et %2$d%3$s (écart de %4$d%3$s)</string>
+    <string name="confidence_precip_all_dry">Tous les modèles annoncent un temps sec</string>
+    <!-- %1$d : min mm, %2$d : max mm -->
+    <string name="confidence_precip_all_rain">Tous prédisent de la pluie : entre %1$d et %2$d mm</string>
+    <!-- %1$d : modèles pour pluie, %2$d : total -->
+    <string name="confidence_precip_divided">%1$d/%2$d modèles annoncent de la pluie</string>
+
+    <!-- Ligne par modèle : résolution -->
+    <string name="confidence_model_resolution">résolution %s</string>
+
+    <!-- Phrases d\'interprétation finales (par carte) -->
+    <string name="confidence_interp_high">Excellent accord entre modèles : l\'écart est dans la marge de bruit numérique attendue à cette échéance.</string>
+    <string name="confidence_interp_medium">Accord modéré. L\'écart reflète des choix de paramétrisation différents entre modèles ; la valeur réelle se situera probablement vers la moyenne.</string>
+    <string name="confidence_interp_low">Désaccord significatif. À cette échéance, les modèles haute-résolution ne fournissent plus de données et ceux qui restent ont des biais différents.</string>
+    <string name="confidence_interp_precip_dry">Aucun modèle ne détecte de système précipitant. C\'est l\'un des verdicts les plus fiables que l\'ensemble puisse rendre.</string>
+    <string name="confidence_interp_precip_rain">Tous voient de la pluie, mais l\'intensité dépend du modèle. Les modèles fine-résolution captent mieux les noyaux convectifs.</string>
+    <string name="confidence_interp_precip_divided">Désaccord typique des situations de transition (front, averses isolées). À surveiller au prochain run.</string>
+
+    <!-- Section éducative -->
+    <string name="confidence_section_why">Pourquoi les modèles diffèrent ?</string>
+    <string name="confidence_why_resolution_body">La résolution d\'un modèle est la taille de chaque maille de calcul. Plus elle est fine, mieux le modèle capte les phénomènes locaux comme les averses convectives, les effets de relief ou les brises côtières. Mais cela a un coût : les modèles très haute-résolution sont coûteux à faire tourner et leur horizon de prévision est court.</string>
+    <string name="confidence_why_resolution_tip">Repère utile : à 24-48 h en France, AROME HD (1,5 km) capte des détails que GFS (13 km) ou ECMWF (25 km) ne voient pas. Au-delà de 2-3 jours, les modèles globaux reprennent le dessus parce qu\'ils représentent mieux la circulation atmosphérique de grande échelle.</string>
 </resources>

@@ -43,6 +43,29 @@ import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.roundToInt
 
+// ─── Constantes de layout du chart ─────────────────────────────────────────
+//
+// Extraites au niveau fichier pour garantir que la timeline en dessous (et
+// toute future décoration alignée sur l'axe X) reste synchronisée avec
+// l'intérieur du Canvas. Si on les changeait en local sans toucher la
+// timeline, on retomberait sur le bug "les couleurs ne sont pas raccord
+// avec les données du graphique au dessus".
+//
+//   ChartCanvasPadding : padding extérieur appliqué via Modifier.padding
+//                        sur le Canvas — réserve de la marge autour de tout.
+//   ChartLeftAxisPad   : marge intérieure à gauche dans le Canvas pour
+//                        accueillir les labels Y (températures).
+//   ChartRightAxisPad  : marge intérieure à droite, juste un peu d'air.
+//
+// Décalage total mesuré depuis le bord de la Column parente :
+//   left  = ChartCanvasPadding + ChartLeftAxisPad   (= 8 + 36 = 44.dp)
+//   right = ChartCanvasPadding + ChartRightAxisPad  (= 8 + 8  = 16.dp)
+private val ChartCanvasPadding = 8.dp
+private val ChartLeftAxisPad = 36.dp
+private val ChartRightAxisPad = 8.dp
+private val ChartContentStart = ChartCanvasPadding + ChartLeftAxisPad
+private val ChartContentEnd = ChartCanvasPadding + ChartRightAxisPad
+
 /**
  * Graphique de bande de confiance horaire.
  *
@@ -135,10 +158,10 @@ fun HourlyConfidenceChart(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(260.dp)
-                .padding(8.dp)
+                .padding(ChartCanvasPadding)
         ) {
-            val leftPad = 36.dp.toPx()
-            val rightPad = 8.dp.toPx()
+            val leftPad = ChartLeftAxisPad.toPx()
+            val rightPad = ChartRightAxisPad.toPx()
             val topPad = 8.dp.toPx()
             val bottomPad = 28.dp.toPx()
             val chartLeft = leftPad
@@ -280,7 +303,17 @@ private fun ConfidenceTimeline(bands: List<HourlyConfidenceBand>) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 4.dp),
+            // Aligné EXACTEMENT sur l'axe X du Canvas au-dessus — sinon, la
+            // case "maintenant" (à gauche du strip) ne se retrouvait pas sous
+            // la valeur "maintenant" de la bande, et l'œil voyait des couleurs
+            // qui ne collaient pas aux données. Les constantes en haut du
+            // fichier garantissent que les deux restent synchronisées.
+            .padding(
+                start = ChartContentStart,
+                end = ChartContentEnd,
+                top = 4.dp,
+                bottom = 4.dp
+            ),
         horizontalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         timeline.forEach { band ->

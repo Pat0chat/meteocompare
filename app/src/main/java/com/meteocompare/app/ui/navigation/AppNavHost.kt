@@ -7,6 +7,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.meteocompare.app.ui.citydetail.CityDetailScreen
+import com.meteocompare.app.ui.citydetail.confidence.ConfidenceExplanationScreen
 import com.meteocompare.app.ui.citylist.CityListScreen
 import com.meteocompare.app.ui.settings.SettingsScreen
 
@@ -43,8 +44,26 @@ fun AppNavHost() {
                 ?: return@composable
             CityDetailScreen(
                 cityId = cityId,
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onConfidenceClick = { isoDate ->
+                    navController.navigate(Destinations.confidence(cityId, isoDate))
+                }
             )
+        }
+
+        // ─── "Pourquoi cette confiance ?" ──────────────────────────────────
+        // Sa propre route plutôt qu'un BottomSheet : c'est un contenu long
+        // (header + 4 variables × 5-8 modèles + section éducative). Un sheet
+        // mangerait l'écran et obligerait à scroller dans un demi-écran. Une
+        // page navigable laisse aussi la possibilité d'un deep link futur.
+        composable(
+            route = Destinations.CONFIDENCE,
+            arguments = listOf(
+                navArgument(Destinations.CITY_DETAIL_ARG) { type = NavType.StringType },
+                navArgument(Destinations.CONFIDENCE_DATE_ARG) { type = NavType.StringType }
+            )
+        ) {
+            ConfidenceExplanationScreen(onBack = { navController.popBackStack() })
         }
     }
 }

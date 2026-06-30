@@ -117,6 +117,7 @@
     <string name="a11y_confidence_high">High confidence</string>
     <string name="a11y_confidence_medium">Medium confidence</string>
     <string name="a11y_confidence_low">Low confidence</string>
+    <string name="a11y_open_confidence_explanation">%d%% confidence, open detailed explanation</string>
     <string name="a11y_temp_single">%d degrees</string>
     <string name="a11y_temp_range">between %1$d and %2$d degrees</string>
     <string name="a11y_temp_with_confidence">%1$s, %2$s, %3$d percent</string>
@@ -141,4 +142,39 @@
     <string name="a11y_temp_min_label">Min temperature</string>
     <string name="a11y_wind_max_label">Max wind</string>
     <string name="a11y_kmh_unit">kilometers per hour</string>
+
+    <!-- ─── "Why this confidence?" ───────────────────────────────────────── -->
+    <string name="confidence_explanation_title">Why this confidence?</string>
+    <string name="confidence_explanation_invalid_date">Invalid date</string>
+    <string name="confidence_overall_label">Overall confidence</string>
+    <string name="confidence_verdict_high">The models converge strongly. The figures in the summary are very likely the right ones.</string>
+    <string name="confidence_verdict_medium">The models only partially agree. Keep an eye on the next runs.</string>
+    <string name="confidence_verdict_low">The models diverge strongly. Treat exact values with caution.</string>
+
+    <!-- Per-variable summary line (top of each card) -->
+    <!-- %1$d : rounded value, %2$s : unit (\u00b0 or \u00a0km/h) -->
+    <string name="confidence_summary_converged">All models cluster around %1$d%2$s</string>
+    <!-- %1$d : min, %2$d : max, %3$s : unit, %4$d : spread -->
+    <string name="confidence_summary_spread">Between %1$d and %2$d%3$s (%4$d%3$s spread)</string>
+    <string name="confidence_precip_all_dry">All models forecast dry weather</string>
+    <!-- %1$d : min mm, %2$d : max mm -->
+    <string name="confidence_precip_all_rain">All predict rain: between %1$d and %2$d mm</string>
+    <!-- %1$d : models predicting rain, %2$d : total -->
+    <string name="confidence_precip_divided">%1$d/%2$d models predict rain</string>
+
+    <!-- Per-model row: resolution -->
+    <string name="confidence_model_resolution">resolution %s</string>
+
+    <!-- Final interpretation sentences per card -->
+    <string name="confidence_interp_high">Excellent inter-model agreement: the spread is within the numerical noise expected at this lead time.</string>
+    <string name="confidence_interp_medium">Moderate agreement. The spread reflects parameterization differences between models; the actual value will most likely sit near the mean.</string>
+    <string name="confidence_interp_low">Significant disagreement. At this lead time, the high-resolution models no longer provide data and those that remain carry different biases.</string>
+    <string name="confidence_interp_precip_dry">No model picks up a precipitating system. This is one of the most reliable verdicts the ensemble can deliver.</string>
+    <string name="confidence_interp_precip_rain">All see rain, but intensity depends on the model. Fine-resolution models capture convective cores better.</string>
+    <string name="confidence_interp_precip_divided">Typical disagreement for transitional situations (fronts, scattered showers). Watch the next run.</string>
+
+    <!-- Educational section -->
+    <string name="confidence_section_why">Why models differ</string>
+    <string name="confidence_why_resolution_body">A model\'s resolution is the size of each computational grid cell. The finer it is, the better the model captures local phenomena like convective showers, terrain effects or sea breezes. But this comes at a cost: very high-resolution models are expensive to run and their forecast horizon is short.</string>
+    <string name="confidence_why_resolution_tip">Useful rule of thumb: at 24-48 h over France, AROME HD (1.5 km) catches details that GFS (13 km) or ECMWF (25 km) miss. Beyond 2-3 days, global models take the lead because they capture the large-scale circulation better.</string>
 </resources>
