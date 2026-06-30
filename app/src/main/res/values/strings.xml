@@ -18,7 +18,7 @@
     <string name="settings_about_title">À propos</string>
     <string name="settings_about_version">Version %s</string>
     <string name="settings_about_data_source">Données météo fournies par Open-Meteo (open-meteo.com).</string>
-    <string name="settings_about_models_credit">Modèles : AROME et ARPEGE par Météo-France, ICON par DWD, GFS par NOAA, ECMWF par le Centre Européen.</string>
+    <string name="settings_about_models_credit">Modèles : AROME et ARPEGE par Météo-France, ICON par DWD, GFS par NOAA, ECMWF et AIFS par le Centre Européen, UKMO par le UK Met Office, GEM par Environnement Canada.</string>
     <string name="settings_privacy_title">Confidentialité</string>
     <string name="settings_privacy_body">Cette application ne collecte aucune donnée personnelle. Aucun analytics, aucun tracking, aucune publicité. Vos favoris et préférences restent sur votre appareil.</string>
     <string name="theme_system">Système</string>

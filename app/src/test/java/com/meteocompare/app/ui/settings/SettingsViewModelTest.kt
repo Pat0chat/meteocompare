@@ -31,9 +31,9 @@ import org.junit.Test
  * réelle du flow source doivent maintenir une souscription active —
  * via `backgroundScope.launch` (auto-cancellé par runTest) ou via `.test {}`.
  *
- * Sans ça, `enabledModels.value` retourne `MVP_SELECTION` (5 modèles) même
- * si on a changé `modelsFlow.value`, ce qui fait passer le test pour de mauvaises
- * raisons.
+ * Sans ça, `enabledModels.value` retourne `MVP_SELECTION` (la sélection
+ * par défaut) même si on a changé `modelsFlow.value`, ce qui fait passer
+ * le test pour de mauvaises raisons.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class SettingsViewModelTest {
