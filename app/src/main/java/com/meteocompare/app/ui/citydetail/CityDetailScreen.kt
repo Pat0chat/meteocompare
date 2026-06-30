@@ -71,9 +71,7 @@ import com.meteocompare.app.domain.model.DailyForecast
 import com.meteocompare.app.domain.model.DayConfidence
 import com.meteocompare.app.domain.model.PrecipitationConfidence
 import com.meteocompare.app.domain.model.WeatherModel
-import com.meteocompare.app.ui.theme.ConfidenceHigh
-import com.meteocompare.app.ui.theme.ConfidenceLow
-import com.meteocompare.app.ui.theme.ConfidenceMedium
+import com.meteocompare.app.ui.theme.confidenceColor
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
 
@@ -575,11 +573,7 @@ private fun PrecipRow(precip: PrecipitationConfidence?) {
 
 @Composable
 private fun ConfidencePill(percent: Int) {
-    val color = when {
-        percent >= 80 -> ConfidenceHigh
-        percent >= 50 -> ConfidenceMedium
-        else -> ConfidenceLow
-    }
+    val color = confidenceColor(percent)
     Surface(
         color = color.copy(alpha = 0.2f),
         modifier = Modifier.clip(MaterialTheme.shapes.extraSmall)
@@ -596,11 +590,12 @@ private fun ConfidencePill(percent: Int) {
 
 @Composable
 private fun ConfidenceBadge(percent: Int, onClick: () -> Unit = {}) {
-    val color = when {
-        percent >= 80 -> ConfidenceHigh
-        percent >= 50 -> ConfidenceMedium
-        else -> ConfidenceLow
-    }
+    // confidenceColor() renvoie une couleur calibrée pour le thème :
+    //   - clair : foncée → bon contraste avec le texte `surface` (clair)
+    //   - sombre : pastel claire → bon contraste avec le texte `surface` (foncé)
+    // En gardant le texte sur `surface`, on a un duo couleur/texte qui
+    // s'inverse correctement entre les deux thèmes.
+    val color = confidenceColor(percent)
     // Modifier.clickable plutôt que Surface(onClick=) : la surcharge onClick
     // de Surface est marquée @ExperimentalMaterial3Api dans certaines
     // versions du BOM, et on évite de propager l'opt-in pour si peu. On

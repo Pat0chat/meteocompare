@@ -48,11 +48,8 @@ import com.meteocompare.app.domain.model.ConfidenceScore
 import com.meteocompare.app.domain.model.DayConfidence
 import com.meteocompare.app.domain.model.PrecipitationConfidence
 import com.meteocompare.app.domain.model.WeatherModel
-import com.meteocompare.app.ui.theme.ConfidenceHigh
-import com.meteocompare.app.ui.theme.ConfidenceLow
-import com.meteocompare.app.ui.theme.ConfidenceMedium
 import com.meteocompare.app.ui.theme.color
-import java.time.LocalDate
+import com.meteocompare.app.ui.theme.confidenceColor
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
 
@@ -550,11 +547,7 @@ private fun SectionTitle(text: String) {
  */
 @Composable
 private fun ConfidenceBadgeReadOnly(percent: Int) {
-    val color = when {
-        percent >= 80 -> ConfidenceHigh
-        percent >= 50 -> ConfidenceMedium
-        else -> ConfidenceLow
-    }
+    val color = confidenceColor(percent)
     Surface(
         color = color,
         modifier = Modifier.clip(MaterialTheme.shapes.small)
@@ -571,11 +564,7 @@ private fun ConfidenceBadgeReadOnly(percent: Int) {
 
 @Composable
 private fun ConfidencePillReadOnly(percent: Int) {
-    val color = when {
-        percent >= 80 -> ConfidenceHigh
-        percent >= 50 -> ConfidenceMedium
-        else -> ConfidenceLow
-    }
+    val color = confidenceColor(percent)
     Surface(
         color = color.copy(alpha = 0.2f),
         modifier = Modifier.clip(MaterialTheme.shapes.extraSmall)

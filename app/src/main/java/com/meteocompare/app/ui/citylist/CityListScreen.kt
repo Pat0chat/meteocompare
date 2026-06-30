@@ -58,6 +58,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -70,9 +71,7 @@ import com.meteocompare.app.domain.model.ConfidenceScore
 import com.meteocompare.app.domain.model.DayConfidence
 import com.meteocompare.app.domain.model.PrecipitationConfidence
 import com.meteocompare.app.ui.components.ShimmerBox
-import com.meteocompare.app.ui.theme.ConfidenceHigh
-import com.meteocompare.app.ui.theme.ConfidenceLow
-import com.meteocompare.app.ui.theme.ConfidenceMedium
+import com.meteocompare.app.ui.theme.confidenceColor
 import com.meteocompare.app.ui.theme.MeteoCompareTheme
 import java.time.LocalDate
 import kotlin.math.roundToInt
@@ -419,11 +418,7 @@ private fun PrecipitationSummary(precip: PrecipitationConfidence?) {
 @Composable
 private fun ConfidenceBadge(percent: Int?) {
     if (percent == null) return
-    val color = when {
-        percent >= 80 -> ConfidenceHigh
-        percent >= 50 -> ConfidenceMedium
-        else -> ConfidenceLow
-    }
+    val color = confidenceColor(percent)
     Surface(
         color = color.copy(alpha = 0.15f),
         modifier = Modifier.clip(MaterialTheme.shapes.small)
@@ -468,7 +463,13 @@ internal fun EmptyState(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .testTag(TAG_EMPTY_STATE),
+            .testTag(TAG_EMPTY_STATE)
+            // Padding horizontal porté par le Box (et hérité par la Column
+            // centrée), pour que le sous-titre — qui est long — ne vienne
+            // pas coller au bord de l'écran sur les petits téléphones. Le
+            // padding extérieur du Scaffold ne s'occupe pas des bords
+            // latéraux, donc il faut bien le mettre ici.
+            .padding(horizontal = 24.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -479,12 +480,20 @@ internal fun EmptyState(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(Modifier.height(16.dp))
-            Text(stringResource(R.string.empty_favorites_title), style = MaterialTheme.typography.titleMedium)
+            Text(
+                stringResource(R.string.empty_favorites_title),
+                style = MaterialTheme.typography.titleMedium,
+                textAlign = TextAlign.Center
+            )
             Spacer(Modifier.height(4.dp))
             Text(
                 stringResource(R.string.empty_favorites_subtitle),
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                // textAlign=Center pour la lisibilité d'une description
+                // centrée sous un titre — un texte aligné à gauche dans
+                // une Column centrée donne un look brouillon.
+                textAlign = TextAlign.Center
             )
             Spacer(Modifier.height(24.dp))
             TextButton(onClick = onAddClick) {

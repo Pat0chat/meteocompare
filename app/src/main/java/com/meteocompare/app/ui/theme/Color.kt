@@ -19,6 +19,21 @@ val ModelGfs = Color(0xFF7B1FA2)
 val ModelEcmwf = Color(0xFFFBC02D)
 
 // Couleurs sémantiques pour les niveaux de confiance.
-val ConfidenceHigh = Color(0xFF2E7D32)   // vert
+//
+// Deux palettes : SATURÉES pour le thème clair (utilisées comme texte
+// foncé sur fond clair), PASTEL pour le thème sombre (utilisées comme
+// texte clair sur fond sombre). La palette pastel garde la même teinte
+// mais une luminosité bien plus élevée — sans ça, un vert foncé sur un
+// surfaceContainerLow sombre est quasi invisible (la teinte verte se
+// confond avec la luminance proche du fond).
+//
+// Les noms sans suffixe restent la palette clair, pour ne pas casser les
+// previews/tests qui les référencent directement. Le code applicatif
+// passe par [confidenceColor] qui dispatch automatiquement.
+val ConfidenceHigh = Color(0xFF2E7D32)   // vert foncé
 val ConfidenceMedium = Color(0xFFEF6C00) // orange
-val ConfidenceLow = Color(0xFFC62828)    // rouge
+val ConfidenceLow = Color(0xFFC62828)    // rouge foncé
+
+val ConfidenceHighDark = Color(0xFF81C784)   // vert pastel
+val ConfidenceMediumDark = Color(0xFFFFB74D) // orange pastel
+val ConfidenceLowDark = Color(0xFFE57373)    // rouge pastel

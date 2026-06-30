@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
@@ -31,9 +32,7 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.meteocompare.app.domain.model.HourlyConfidenceBand
-import com.meteocompare.app.ui.theme.ConfidenceHigh
-import com.meteocompare.app.ui.theme.ConfidenceLow
-import com.meteocompare.app.ui.theme.ConfidenceMedium
+import com.meteocompare.app.ui.theme.confidenceColor
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
@@ -105,6 +104,19 @@ fun HourlyConfidenceChart(
     val primary = MaterialTheme.colorScheme.primary
     val textMeasurer = rememberTextMeasurer()
     val labelStyle = TextStyle(color = onSurface, fontSize = 10.sp)
+
+    // Trois teintes de confiance pré-résolues pour le thème courant. Le Canvas
+    // étant un DrawScope (non @Composable), il ne peut pas appeler
+    // confidenceColor() lui-même — on les capture par closure ici. On bump
+    // aussi l'alpha en thème sombre : avec les couleurs pastel, 28% reste
+    // trop discret sur surfaceContainerLow sombre — l'œil ne distingue plus
+    // bien les zones colorées. 40% donne du punch sans saturer.
+    val confidenceHighColor = confidenceColor(80)
+    val confidenceMediumColor = confidenceColor(50)
+    val confidenceLowColor = confidenceColor(0)
+    val isDarkTheme = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val bandFillAlpha = if (isDarkTheme) 0.40f else 0.28f
+    val timelineStripAlpha = if (isDarkTheme) 0.85f else 0.7f
 
     // Bornes calculées
     val firstTs = bands.first().timestamp
@@ -248,10 +260,10 @@ fun HourlyConfidenceChart(
 
                 val avgPercent = (a.percent + b.percent) / 2
                 val segmentColor = when {
-                    avgPercent >= 80 -> ConfidenceHigh
-                    avgPercent >= 50 -> ConfidenceMedium
-                    else -> ConfidenceLow
-                }.copy(alpha = 0.28f)
+                    avgPercent >= 80 -> confidenceHighColor
+                    avgPercent >= 50 -> confidenceMediumColor
+                    else -> confidenceLowColor
+                }.copy(alpha = bandFillAlpha)
 
                 val segmentPath = Path().apply {
                     moveTo(xa, maxYa)
@@ -278,7 +290,7 @@ fun HourlyConfidenceChart(
             )
         }
 
-        ConfidenceTimeline(bands = bands)
+        ConfidenceTimeline(bands = bands, stripAlpha = timelineStripAlpha)
     }
 }
 
@@ -288,9 +300,13 @@ fun HourlyConfidenceChart(
  * On échantillonne 24 points (un par heure de la journée en moyenne pour 7j)
  * et on les colore selon le niveau de confiance. Donne un aperçu instantané
  * de "ça se gâte à partir de quand".
+ *
+ * `stripAlpha` est passé par le caller : en thème sombre on pousse un peu
+ * plus la saturation parce que les couleurs pastel à 70% d'alpha étaient
+ * trop ténues — l'utilisateur ne voyait plus le dégradé de confiance.
  */
 @Composable
-private fun ConfidenceTimeline(bands: List<HourlyConfidenceBand>) {
+private fun ConfidenceTimeline(bands: List<HourlyConfidenceBand>, stripAlpha: Float) {
     val timeline = remember(bands) {
         if (bands.size <= 24) bands
         else {
@@ -317,16 +333,12 @@ private fun ConfidenceTimeline(bands: List<HourlyConfidenceBand>) {
         horizontalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         timeline.forEach { band ->
-            val color = when {
-                band.percent >= 80 -> ConfidenceHigh
-                band.percent >= 50 -> ConfidenceMedium
-                else -> ConfidenceLow
-            }
+            val color = confidenceColor(band.percent)
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .height(6.dp)
-                    .background(color.copy(alpha = 0.7f))
+                    .background(color.copy(alpha = stripAlpha))
             )
         }
     }
@@ -353,11 +365,7 @@ private fun ConfidenceTimeline(bands: List<HourlyConfidenceBand>) {
             text = stringResource(R.string.chart_confidence_ahead, daysAhead, lastPercent),
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.SemiBold,
-            color = when {
-                lastPercent >= 80 -> ConfidenceHigh
-                lastPercent >= 50 -> ConfidenceMedium
-                else -> ConfidenceLow
-            }
+            color = confidenceColor(lastPercent)
         )
     }
 }
