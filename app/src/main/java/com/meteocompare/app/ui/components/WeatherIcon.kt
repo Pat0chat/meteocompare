@@ -90,22 +90,28 @@ fun WeatherIconDecorative(
  *   - jaune (ambre Material) pour soleil, comme `ModelEcmwf`
  *   - bleus pour pluie/bruine, comme la légende des précipitations
  *   - violets/grays pour orage et neige
- *   - gris pour nuages/brouillard, pour ne pas voler la vedette aux conditions
- *     "à signaler"
+ *   - **familles nuageuses neutres** (PARTLY_CLOUDY, OVERCAST, FOG) →
+ *     `Color.Unspecified`, ce qui laisse `Icon` récupérer `LocalContentColor`
+ *     du contexte. Rationale : Material You peut produire un `primaryContainer`
+ *     grisâtre selon le fond d'écran ; des icônes teintées en gris pur
+ *     (0xFF9E9E9E, 0xFF757575) devenaient alors quasi invisibles sur ce fond.
+ *     En s'appuyant sur `onPrimaryContainer` (fourni via `LocalContentColor`
+ *     par les composants Material 3 comme Card), la lisibilité est garantie
+ *     par le contrat M3 quel que soit le thème dynamique.
  *
- * Toutes restent assez saturées pour être lisibles dans les deux thèmes
- * (testé visuellement sur surfaceContainerHigh et primaryContainer).
+ * Toutes les couleurs restent assez saturées pour être lisibles dans les deux
+ * thèmes (testé visuellement sur surfaceContainerHigh et primaryContainer).
  */
 fun WeatherCondition.semanticTint(): Color = when (this) {
     WeatherCondition.CLEAR, WeatherCondition.MAINLY_CLEAR -> Color(0xFFFFA726) // ambre
-    WeatherCondition.PARTLY_CLOUDY -> Color(0xFF9E9E9E)                         // gris moyen
-    WeatherCondition.OVERCAST -> Color(0xFF757575)                              // gris foncé
-    WeatherCondition.FOG -> Color(0xFFB0BEC5)                                   // gris bleuté
-    WeatherCondition.DRIZZLE -> Color(0xFF4FC3F7)                               // bleu clair
-    WeatherCondition.RAIN, WeatherCondition.RAIN_SHOWERS -> Color(0xFF1E88E5)   // bleu
-    WeatherCondition.FREEZING_RAIN -> Color(0xFF5E35B1)                         // violet/bleu
-    WeatherCondition.SNOW, WeatherCondition.SNOW_SHOWERS -> Color(0xFF90A4AE)   // gris-bleu pâle
-    WeatherCondition.THUNDERSTORM -> Color(0xFF6A1B9A)                          // violet
+    WeatherCondition.PARTLY_CLOUDY -> Color.Unspecified                        // hérite du contexte
+    WeatherCondition.OVERCAST -> Color.Unspecified                             // hérite du contexte
+    WeatherCondition.FOG -> Color.Unspecified                                  // hérite du contexte
+    WeatherCondition.DRIZZLE -> Color(0xFF4FC3F7)                              // bleu clair
+    WeatherCondition.RAIN, WeatherCondition.RAIN_SHOWERS -> Color(0xFF1E88E5)  // bleu
+    WeatherCondition.FREEZING_RAIN -> Color(0xFF5E35B1)                        // violet/bleu
+    WeatherCondition.SNOW, WeatherCondition.SNOW_SHOWERS -> Color(0xFF90A4AE)  // gris-bleu pâle
+    WeatherCondition.THUNDERSTORM -> Color(0xFF6A1B9A)                         // violet
     WeatherCondition.UNKNOWN -> Color.Unspecified
 }
 

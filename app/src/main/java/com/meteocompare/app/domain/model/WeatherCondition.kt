@@ -53,5 +53,45 @@ enum class WeatherCondition {
             95, 96, 99 -> THUNDERSTORM
             else -> UNKNOWN
         }
+
+        /**
+         * Fallback empirique quand un modèle ne fournit pas `weather_code`.
+         *
+         * Cas d'usage principal : **AROME HD**. La documentation Open-Meteo
+         * explique noir sur blanc que "AROME France HD has the same model area,
+         * but at higher resolution with a smaller selection of weather variables"
+         * — `weather_code` fait partie des variables non exposées, sacrifiées
+         * au profit de la résolution 1.5 km. Sans ce fallback, la colonne AROME
+         * HD dans le tableau Jour × Modèle est entièrement vide, ce que les
+         * utilisateurs interprètent (à raison) comme un bug.
+         *
+         * Règles :
+         *   - Précip >= 5 mm → RAIN (SNOW si temp min <= 0°C)
+         *   - Précip >= 1 mm → RAIN_SHOWERS (ou SNOW_SHOWERS)
+         *   - Précip >= 0.1 mm → DRIZZLE (ou SNOW_SHOWERS si gel)
+         *   - Précip == 0 → null (impossible de distinguer clair vs couvert
+         *     sans donnée de couverture nuageuse, qu'AROME HD n'expose pas non
+         *     plus). Le tableau affiche "—" dans ce cas.
+         *
+         * Trade-off assumé : on privilégie l'HONNÊTETÉ sur la complétude —
+         * mieux vaut ne rien afficher qu'inventer "il fait beau" faute de
+         * donnée. Sur les jours secs, les autres modèles fournissent l'info.
+         * Sur les jours pluvieux (les plus importants à surfacer), le fallback
+         * fait le boulot.
+         *
+         * @param precipMm cumul de précipitations sur la fenêtre (mm)
+         * @param tempMinC température minimale sur la fenêtre (°C), pour
+         *   distinguer pluie/neige. Si null, on suppose > 0°C.
+         */
+        fun inferFromPrecipAndTemp(precipMm: Double?, tempMinC: Double?): WeatherCondition? {
+            if (precipMm == null) return null
+            val freezing = (tempMinC ?: 10.0) <= 0.0
+            return when {
+                precipMm >= 5.0 -> if (freezing) SNOW else RAIN
+                precipMm >= 1.0 -> if (freezing) SNOW_SHOWERS else RAIN_SHOWERS
+                precipMm >= 0.1 -> if (freezing) SNOW_SHOWERS else DRIZZLE
+                else -> null
+            }
+        }
     }
 }

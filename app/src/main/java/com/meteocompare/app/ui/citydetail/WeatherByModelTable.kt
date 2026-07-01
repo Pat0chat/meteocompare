@@ -32,6 +32,7 @@ import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.usecase.DayConditionsRow
 import com.meteocompare.app.ui.components.WeatherIconDecorative
 import com.meteocompare.app.ui.components.semanticTint
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 /**
@@ -75,6 +76,17 @@ fun WeatherByModelTable(
 
     val headerBg = MaterialTheme.colorScheme.surfaceContainerHigh
     val rowAltBg = MaterialTheme.colorScheme.surfaceContainerLow
+    // Highlight du jour courant — cohérent avec ForecastTable et
+    // MinMaxForecastTable. Alpha 0.55 sur primaryContainer donne un ton
+    // distinct de l'alternance neutre sans écraser l'icône colorée à
+    // l'intérieur.
+    val todayBg = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
+    val today = remember { LocalDate.now() }
+    fun bgFor(idx: Int, date: LocalDate): Color = when {
+        date == today -> todayBg
+        idx % 2 == 1 -> rowAltBg
+        else -> Color.Transparent
+    }
 
     Row(modifier = modifier.fillMaxWidth()) {
         // Colonne figée : dates
@@ -83,7 +95,8 @@ fun WeatherByModelTable(
             rows.forEachIndexed { idx, row ->
                 DayLabelCell(
                     text = formatDayLabel(row),
-                    background = if (idx % 2 == 1) rowAltBg else Color.Transparent
+                    background = bgFor(idx, row.date),
+                    isToday = row.date == today
                 )
             }
         }
@@ -104,7 +117,7 @@ fun WeatherByModelTable(
                     rows.forEachIndexed { idx, row ->
                         IconCell(
                             condition = row.byModel[model],
-                            background = if (idx % 2 == 1) rowAltBg else Color.Transparent
+                            background = bgFor(idx, row.date)
                         )
                     }
                 }
@@ -143,7 +156,7 @@ private fun HeaderCell(text: String, background: Color, modifier: Modifier = Mod
 }
 
 @Composable
-private fun DayLabelCell(text: String, background: Color) {
+private fun DayLabelCell(text: String, background: Color, isToday: Boolean = false) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -152,7 +165,14 @@ private fun DayLabelCell(text: String, background: Color) {
             .padding(horizontal = 4.dp),
         contentAlignment = Alignment.CenterStart
     ) {
-        Text(text = text, style = MaterialTheme.typography.bodySmall)
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
+            color = if (isToday)
+                MaterialTheme.colorScheme.onPrimaryContainer
+            else MaterialTheme.colorScheme.onSurface
+        )
     }
 }
 

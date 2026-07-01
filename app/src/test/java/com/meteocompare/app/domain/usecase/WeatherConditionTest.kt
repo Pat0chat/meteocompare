@@ -74,10 +74,68 @@ class WeatherConditionTest {
         assertEquals(WeatherCondition.UNKNOWN, WeatherCondition.fromWmoCode(100))
     }
 
+    // ─── Fallback inférence depuis précip + temp ────────────────────────────
+
+    @Test
+    fun `inferFromPrecipAndTemp returns null when precip is null`() {
+        assertNull(WeatherCondition.inferFromPrecipAndTemp(null, 15.0))
+    }
+
+    @Test
+    fun `inferFromPrecipAndTemp returns null on dry days`() {
+        // Choix éditorial : on ne peut pas distinguer clair vs couvert sans
+        // donnée de nébulosité — mieux vaut afficher "—" que d'inventer.
+        assertNull(WeatherCondition.inferFromPrecipAndTemp(0.0, 15.0))
+    }
+
+    @Test
+    fun `inferFromPrecipAndTemp yields RAIN for heavy precip when warm`() {
+        assertEquals(
+            WeatherCondition.RAIN,
+            WeatherCondition.inferFromPrecipAndTemp(precipMm = 10.0, tempMinC = 10.0)
+        )
+    }
+
+    @Test
+    fun `inferFromPrecipAndTemp yields SNOW for heavy precip when freezing`() {
+        assertEquals(
+            WeatherCondition.SNOW,
+            WeatherCondition.inferFromPrecipAndTemp(precipMm = 10.0, tempMinC = -2.0)
+        )
+    }
+
+    @Test
+    fun `inferFromPrecipAndTemp yields DRIZZLE for light precip when warm`() {
+        assertEquals(
+            WeatherCondition.DRIZZLE,
+            WeatherCondition.inferFromPrecipAndTemp(precipMm = 0.3, tempMinC = 12.0)
+        )
+    }
+
+    @Test
+    fun `inferFromPrecipAndTemp yields RAIN_SHOWERS for moderate precip`() {
+        assertEquals(
+            WeatherCondition.RAIN_SHOWERS,
+            WeatherCondition.inferFromPrecipAndTemp(precipMm = 2.0, tempMinC = 8.0)
+        )
+    }
+
+    @Test
+    fun `inferFromPrecipAndTemp treats missing temp as warm`() {
+        // Défaut = pas de gel — évite de basculer par erreur en SNOW
+        // pour des jours d'été où tempMin serait absent des données.
+        assertEquals(
+            WeatherCondition.RAIN,
+            WeatherCondition.inferFromPrecipAndTemp(precipMm = 8.0, tempMinC = null)
+        )
+    }
+
     // ─── currentWeatherCondition ─────────────────────────────────────────────
 
     @Test
-    fun `currentWeatherCondition is null when no model provides weather code`() {
+    fun `currentWeatherCondition is null when no data allows any conclusion`() {
+        // No weather_code AND no precip → ni le code natif ni le fallback
+        // ne peuvent conclure. On veut null plutôt que d'inventer.
         val now = Instant.now()
         val forecast = CityForecast(
             city = paris,
@@ -87,7 +145,7 @@ class WeatherConditionTest {
                     hourly = HourlyForecast(
                         timestamps = listOf(now),
                         temperature2m = listOf(15.0),
-                        precipitation = listOf(0.0),
+                        precipitation = listOf(0.0), // sec + pas de code = pas d'info
                         windSpeed10m = listOf(5.0),
                         weatherCode = emptyList() // pré-feature cache
                     ),
@@ -212,6 +270,49 @@ class WeatherConditionTest {
 
         val rows = calculator.dailyConditionsByModel(forecast)
         assertTrue("Aucune ligne ne doit ressortir d'un forecast sans weather_code", rows.isEmpty())
+    }
+
+    @Test
+    fun `dailyConditionsByModel infers condition from precipitation when weather_code missing`() {
+        // Scénario réel : AROME HD n'expose pas weather_code, seulement les
+        // variables physiques. Sur un jour pluvieux, le fallback doit fournir
+        // RAIN pour qu'AROME HD apparaisse dans la matrice avec les autres.
+        val today = LocalDate.of(2026, 6, 30)
+        val aromeHd = ForecastSeries(
+            model = WeatherModel.AROME_FRANCE_HD,
+            hourly = emptyHourly(),
+            daily = DailyForecast(
+                dates = listOf(today),
+                tempMax = listOf(20.0),
+                tempMin = listOf(12.0),
+                precipitationSum = listOf(8.0), // pluvieux
+                windSpeedMax = listOf(15.0),
+                weatherCode = emptyList() // AROME HD n'expose pas
+            )
+        )
+        val gfs = ForecastSeries(
+            model = WeatherModel.GFS,
+            hourly = emptyHourly(),
+            daily = DailyForecast(
+                dates = listOf(today),
+                tempMax = listOf(21.0),
+                tempMin = listOf(13.0),
+                precipitationSum = listOf(5.0),
+                windSpeedMax = listOf(14.0),
+                weatherCode = listOf(63) // pluie modérée — code authoritatif
+            )
+        )
+        val forecast = CityForecast(
+            paris,
+            mapOf(WeatherModel.AROME_FRANCE_HD to aromeHd, WeatherModel.GFS to gfs)
+        )
+
+        val rows = calculator.dailyConditionsByModel(forecast)
+        assertEquals(1, rows.size)
+        // AROME HD inféré depuis précip 8mm + temp min > 0 → RAIN
+        assertEquals(WeatherCondition.RAIN, rows[0].byModel[WeatherModel.AROME_FRANCE_HD])
+        // GFS depuis son code WMO 63 → RAIN
+        assertEquals(WeatherCondition.RAIN, rows[0].byModel[WeatherModel.GFS])
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────────

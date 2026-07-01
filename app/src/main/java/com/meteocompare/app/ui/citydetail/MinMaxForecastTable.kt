@@ -89,6 +89,15 @@ fun MinMaxForecastTable(
     val rowAltBg = MaterialTheme.colorScheme.surfaceContainerLow
     val onSurface = MaterialTheme.colorScheme.onSurface
     val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
+    // Highlight du jour courant — cohérent avec ForecastTable et
+    // WeatherByModelTable. Voir ForecastTable pour la rationale de l'alpha.
+    val todayBg = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
+    val today = remember { LocalDate.now() }
+    fun bgFor(idx: Int, date: LocalDate): Color = when {
+        date == today -> todayBg
+        idx % 2 == 1 -> rowAltBg
+        else -> Color.Transparent
+    }
 
     Column(modifier = modifier.fillMaxWidth()) {
         Row(modifier = Modifier.fillMaxWidth()) {
@@ -99,7 +108,8 @@ fun MinMaxForecastTable(
                 dates.forEachIndexed { idx, date ->
                     DayLabelCellMM(
                         date = date,
-                        background = if (idx % 2 == 1) rowAltBg else Color.Transparent
+                        background = bgFor(idx, date),
+                        isToday = date == today
                     )
                 }
             }
@@ -129,7 +139,7 @@ fun MinMaxForecastTable(
                                 separatorColor = onSurfaceVariant,
                                 warmColor = WarmTempColor,
                                 coolColor = CoolTempColor,
-                                background = if (idx % 2 == 1) rowAltBg else Color.Transparent
+                                background = bgFor(idx, date)
                             )
                         }
                     }
@@ -204,7 +214,7 @@ private fun HeaderCellMM(text: String, background: Color, width: androidx.compos
 }
 
 @Composable
-private fun DayLabelCellMM(date: LocalDate, background: Color) {
+private fun DayLabelCellMM(date: LocalDate, background: Color, isToday: Boolean = false) {
     val locale = LocalConfiguration.current.locales[0]
     val formatter = remember(locale) {
         DateTimeFormatter.ofPattern("EEE d", locale)
@@ -218,7 +228,14 @@ private fun DayLabelCellMM(date: LocalDate, background: Color) {
         contentAlignment = Alignment.CenterStart
     ) {
         val text = date.format(formatter).replaceFirstChar { it.uppercase() }
-        Text(text = text, style = MaterialTheme.typography.bodySmall)
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
+            color = if (isToday)
+                MaterialTheme.colorScheme.onPrimaryContainer
+            else MaterialTheme.colorScheme.onSurface
+        )
     }
 }
 

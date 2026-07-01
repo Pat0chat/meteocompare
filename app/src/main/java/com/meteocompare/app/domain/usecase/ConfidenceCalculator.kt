@@ -134,12 +134,21 @@ class ConfidenceCalculator @Inject constructor(
         val votes = mutableMapOf<WeatherCondition, Double>()
         forecast.seriesByModel.forEach { (model, series) ->
             if (series.hourly.timestamps.isEmpty()) return@forEach
-            if (series.hourly.weatherCode.isEmpty()) return@forEach
             val idx = series.hourly.timestamps.indices.minBy { i ->
                 kotlin.math.abs(series.hourly.timestamps[i].epochSecond - now.epochSecond)
             }
+            // 1) Priorité au weather_code natif du modèle si dispo.
+            // 2) Sinon, fallback empirique depuis les précipitations horaires —
+            //    permet à AROME HD (qui n'expose pas weather_code) de contribuer
+            //    au vote quand il pleut. Sans ce fallback, AROME HD ne vote
+            //    jamais et son poids fort n'est pas utilisé.
             val code = series.hourly.weatherCode.getOrNull(idx)
-            val condition = WeatherCondition.fromWmoCode(code) ?: return@forEach
+            val condition = WeatherCondition.fromWmoCode(code)
+                ?: WeatherCondition.inferFromPrecipAndTemp(
+                    precipMm = series.hourly.precipitation.getOrNull(idx),
+                    tempMinC = series.hourly.temperature2m.getOrNull(idx)
+                )
+                ?: return@forEach
             votes.merge(condition, weighting.weight(model), Double::plus)
         }
         if (votes.isEmpty()) return null
@@ -174,8 +183,18 @@ class ConfidenceCalculator @Inject constructor(
             val byModel = forecast.seriesByModel.mapNotNull { (model, series) ->
                 val idx = series.daily.dates.indexOf(date)
                 if (idx < 0) return@mapNotNull null
+                // Priorité au weather_code — sémantique la plus précise.
+                // Fallback précipitation-based pour les modèles sans code
+                // (AROME HD notamment) : mieux vaut une famille inférée pour
+                // les jours pluvieux que rien du tout — les jours secs restent
+                // en "—" plutôt que d'inventer clair vs couvert sans donnée.
                 val code = series.daily.weatherCode.getOrNull(idx)
-                val condition = WeatherCondition.fromWmoCode(code) ?: return@mapNotNull null
+                val condition = WeatherCondition.fromWmoCode(code)
+                    ?: WeatherCondition.inferFromPrecipAndTemp(
+                        precipMm = series.daily.precipitationSum.getOrNull(idx),
+                        tempMinC = series.daily.tempMin.getOrNull(idx)
+                    )
+                    ?: return@mapNotNull null
                 model to condition
             }.toMap()
             DayConditionsRow(date = date, byModel = byModel)

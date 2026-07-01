@@ -93,6 +93,22 @@ fun ForecastTable(
 
     val headerBg = MaterialTheme.colorScheme.surfaceContainerHigh
     val rowAltBg = MaterialTheme.colorScheme.surfaceContainerLow
+    // Fond du jour courant. On prend `primaryContainer` avec un alpha
+    // modéré : c'est la couleur de la TodaySummaryCard, donc "aujourd'hui"
+    // est visuellement cohérent entre les deux vues. Alpha 0.55 :
+    //   - assez soutenu pour être perçu comme un highlight distinct de
+    //     l'alternance neutre `surfaceContainerLow` des lignes paires
+    //   - pas trop opaque pour ne pas écraser le texte au-dessus
+    val todayBg = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
+    // remember(dates) plutôt qu'un fetch par ligne — LocalDate.now() coûte
+    // peu, mais on économise 7 appels + le comparaison LocalDate est claire.
+    val today = remember { LocalDate.now() }
+
+    fun bgFor(idx: Int, date: LocalDate): Color = when {
+        date == today -> todayBg
+        idx % 2 == 1 -> rowAltBg
+        else -> Color.Transparent
+    }
 
     Row(modifier = modifier.fillMaxWidth()) {
         // Colonne figée des dates
@@ -101,7 +117,8 @@ fun ForecastTable(
             dates.forEachIndexed { idx, date ->
                 DayLabelCell(
                     date = date,
-                    background = if (idx % 2 == 1) rowAltBg else Color.Transparent
+                    background = bgFor(idx, date),
+                    isToday = date == today
                 )
             }
         }
@@ -126,7 +143,7 @@ fun ForecastTable(
                         ValueCell(
                             text = value?.let(valueFormatter) ?: "—",
                             style = value?.let { v -> valueStyler?.invoke(v) },
-                            background = if (idx % 2 == 1) rowAltBg else Color.Transparent
+                            background = bgFor(idx, date)
                         )
                     }
                 }
@@ -154,7 +171,7 @@ private fun HeaderCell(text: String, background: Color, modifier: Modifier = Mod
 }
 
 @Composable
-private fun DayLabelCell(date: LocalDate, background: Color) {
+private fun DayLabelCell(date: LocalDate, background: Color, isToday: Boolean = false) {
     // Locale courante (mise à jour par AppCompatDelegate.setApplicationLocales).
     // Formatter recréé via `remember(locale)` quand la locale change — sinon
     // on resterait sur le formatter French initial du process.
@@ -173,7 +190,14 @@ private fun DayLabelCell(date: LocalDate, background: Color) {
         val text = date.format(formatter).replaceFirstChar { it.uppercase() }
         Text(
             text = text,
-            style = MaterialTheme.typography.bodySmall
+            style = MaterialTheme.typography.bodySmall,
+            // Bold + couleur primaire pour que le jour courant se repère au
+            // scan visuel même quand la teinte de fond est subtile (surtout
+            // en thème sombre où primaryContainer.copy(0.55) peut être ténu).
+            fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
+            color = if (isToday)
+                MaterialTheme.colorScheme.onPrimaryContainer
+            else MaterialTheme.colorScheme.onSurface
         )
     }
 }
