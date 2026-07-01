@@ -204,7 +204,7 @@ Fait :
 - ✅ v0.2 — tableau Jour × Modèle des conditions, ajout UKMO / AIFS / GEM / ICON-D2,
 
 À venir :
-- v0.3 : highlight du jour courant dans les tableaux
+- v0.3 : highlight du jour courant dans les tableaux, hourly / daily 
 - v0.4 : Widget homescreen
 - v0.5 : Swipe entre villes favorites
 - v0.6 : Historique de fiabilité des modèles (skill verification à partir des observations)

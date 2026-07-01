@@ -11,7 +11,7 @@ import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.material.icons.outlined.WbCloudy
 import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -34,8 +34,18 @@ import com.meteocompare.app.domain.model.WeatherCondition
  * @param size Taille de l'icône. Standard Material : 24dp en ligne, 40-48dp
  *        en hero. Pas de fillSize() automatique pour que les tableaux/cartes
  *        compactes gardent la maîtrise.
- * @param tint Couleur. `Color.Unspecified` laisse l'icône hériter du
- *        `LocalContentColor` (donc s'adapte au thème via M3 sans réglage).
+ * @param tint Couleur. `Color.Unspecified` déclenche l'utilisation de
+ *        `LocalContentColor.current` — le contrat "hérite du thème" qu'on
+ *        veut pour les familles neutres (nuageux, couvert, brouillard).
+ *
+ * ⚠ Piège Compose contourné ici : `Icon(tint = Color.Unspecified)` NE fait
+ * PAS hériter de LocalContentColor. Ça signifie "aucun ColorFilter appliqué",
+ * donc l'icône est rendue dans sa couleur native — noir pur pour les vecteurs
+ * outlined. En thème sombre, ça donnait des nuages noirs sur fond noir dans
+ * les tableaux. Le default value `LocalContentColor.current` du paramètre
+ * `tint` d'Icon ne se déclenche QUE quand l'argument est OMIS. Passer
+ * explicitement Unspecified court-circuite ce défaut. On résout donc à la
+ * main ici avant de déléguer.
  */
 @Composable
 fun WeatherIcon(
@@ -50,10 +60,11 @@ fun WeatherIcon(
         // ou un Spacer s'il a besoin d'occuper la place.
         return
     }
+    val resolvedTint = if (tint == Color.Unspecified) LocalContentColor.current else tint
     Icon(
         imageVector = condition.toIcon(),
         contentDescription = stringResource(condition.descriptionRes()),
-        tint = tint,
+        tint = resolvedTint,
         modifier = modifier.size(size)
     )
 }
@@ -62,6 +73,9 @@ fun WeatherIcon(
  * Variante avec `contentDescription = null` — pour quand l'a11y est déjà
  * porté ailleurs (cellule de tableau dont la sémantique entière est sur la
  * Row parente, par exemple).
+ *
+ * Applique la même résolution `Unspecified → LocalContentColor` que
+ * [WeatherIcon] pour la même raison — voir sa doc pour le détail.
  */
 @Composable
 fun WeatherIconDecorative(
@@ -71,10 +85,11 @@ fun WeatherIconDecorative(
     tint: Color = Color.Unspecified
 ) {
     if (condition == null) return
+    val resolvedTint = if (tint == Color.Unspecified) LocalContentColor.current else tint
     Icon(
         imageVector = condition.toIcon(),
         contentDescription = null,
-        tint = tint,
+        tint = resolvedTint,
         modifier = modifier.size(size)
     )
 }
