@@ -200,12 +200,12 @@ Aucun privilège n'est accordé aux donateurs — l'app et le code source resten
 Fait :
 
 - ✅ v0.0 — Comparaison multi-modèles, indice de confiance, bande horaire
-- ✅ v0.1 — Page "Pourquoi cette confiance ?", icônes de temps
-- ✅ v0.2 — tableau Jour × Modèle des conditions, ajout UKMO / AIFS / GEM / ICON-D2,
+- ✅ v0.1 — Page "Pourquoi cette confiance ?", correction de bugs
+- ✅ v0.2 — Icônes de temps, tableau Jour × Modèle des conditions, ajout UKMO / AIFS / GEM / ICON-D2,
 
 À venir :
-- v0.3 : highlight du jour courant dans les tableaux, hourly / daily 
-- v0.4 : Widget homescreen
+- v0.3 : highlight du jour courant dans les tableaux, correction de bugs
+- v0.4 : Option hourly / daily, Widget homescreen 
 - v0.5 : Swipe entre villes favorites
 - v0.6 : Historique de fiabilité des modèles (skill verification à partir des observations)
 
