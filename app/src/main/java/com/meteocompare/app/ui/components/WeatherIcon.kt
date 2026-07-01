@@ -6,7 +6,6 @@ import androidx.compose.material.icons.outlined.AcUnit
 import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.FilterDrama
 import androidx.compose.material.icons.outlined.Thunderstorm
-import androidx.compose.material.icons.outlined.Umbrella
 import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.material.icons.outlined.WbCloudy
 import androidx.compose.material.icons.outlined.WbSunny
@@ -135,17 +134,14 @@ fun WeatherCondition.semanticTint(): Color = when (this) {
 private fun WeatherCondition.toIcon(): ImageVector = when (this) {
     WeatherCondition.CLEAR -> Icons.Outlined.WbSunny
     WeatherCondition.MAINLY_CLEAR -> Icons.Outlined.WbSunny
-    // FilterDrama = soleil derrière un nuage. La meilleure correspondance
-    // Material disponible pour "partiellement nuageux". WbCloudy serait
-    // "complètement nuageux", confusion garantie.
     WeatherCondition.PARTLY_CLOUDY -> Icons.Outlined.FilterDrama
     WeatherCondition.OVERCAST -> Icons.Outlined.WbCloudy
     WeatherCondition.FOG -> Icons.Outlined.Cloud
     WeatherCondition.DRIZZLE -> Icons.Outlined.WaterDrop
-    WeatherCondition.RAIN -> Icons.Outlined.Umbrella
+    WeatherCondition.RAIN -> Icons.Outlined.WaterDrop
     WeatherCondition.FREEZING_RAIN -> Icons.Outlined.AcUnit
     WeatherCondition.SNOW -> Icons.Outlined.AcUnit
-    WeatherCondition.RAIN_SHOWERS -> Icons.Outlined.Umbrella
+    WeatherCondition.RAIN_SHOWERS -> Icons.Outlined.WaterDrop
     WeatherCondition.SNOW_SHOWERS -> Icons.Outlined.AcUnit
     WeatherCondition.THUNDERSTORM -> Icons.Outlined.Thunderstorm
     WeatherCondition.UNKNOWN -> Icons.Outlined.Cloud
