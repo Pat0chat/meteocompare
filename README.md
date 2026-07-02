@@ -205,9 +205,9 @@ Fait :
 - ✅ v0.3 — highlight du jour courant dans les tableaux, correction de bugs
 
 À venir :
-- v0.4 : Widget homescreen, optimisation batterie et CPU 
-- v0.5 : Option hourly / daily, zoom dans le graphe "confidence/confiance", trie dans les modèles
-- v0.6 : Swipe entre villes favorites
+- v0.4 : Option hourly / daily, zoom dans le graphe "confidence/confiance", dernière mise à jour
+- v0.5 : Widget homescreen, optimisation batterie et CPU
+- v0.6 : Swipe entre villes favorites, trie dans les modèles
 - v0.7 : Historique de fiabilité des modèles (skill verification à partir des observations)
 
 ## Licence

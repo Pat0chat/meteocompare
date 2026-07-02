@@ -294,10 +294,32 @@ private fun LoadedView(
             }
         }
 
-        // Toggle "Par heure / Par jour" — placé juste sous la TodaySummaryCard
-        // conformément à la maquette. Le reste du contenu (tableaux + graphe
-        // de température) réagit à ce toggle. La bande de confiance horaire
-        // est aussi mode-dépendante (elle est intrinsèquement horaire).
+        // Bande de confiance horaire — TOUJOURS visible, au-dessus du toggle,
+        // parce que c'est le différenciateur clé de l'app (visualisation de
+        // l'incertitude inter-modèles sur 7 jours d'horizon). Elle vit hors du
+        // toggle : indépendante de la granularité daily/hourly des tableaux
+        // en dessous, elle sert de "vue d'ensemble temporelle" pour les deux
+        // modes.
+        if (hourlyBands.size >= 2) {
+            item("hourly_confidence") {
+                SectionTitle(stringResource(R.string.section_confidence_band))
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                    ),
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                ) {
+                    HourlyConfidenceChart(
+                        bands = hourlyBands,
+                        timezone = forecast.city.timezone
+                    )
+                }
+            }
+        }
+
+        // Toggle "Par heure / Par jour" — placé juste sous la bande de confiance
+        // (elle-même sous la TodaySummaryCard). Le reste du contenu (tableaux
+        // + graphe TemperatureComparisonChart en mode daily) réagit à ce toggle.
         item("display_mode_toggle") {
             DisplayModeToggle(
                 mode = displayMode,
@@ -306,10 +328,7 @@ private fun LoadedView(
         }
 
         when (displayMode) {
-            DisplayMode.HOURLY -> hourlyItems(
-                forecast = forecast,
-                hourlyBands = hourlyBands
-            )
+            DisplayMode.HOURLY -> hourlyItems(forecast = forecast)
             DisplayMode.DAILY -> dailyItems(
                 forecast = forecast,
                 dailyConditions = dailyConditions,
@@ -340,11 +359,10 @@ private fun LoadedView(
 /**
  * Contenu du mode "par jour" — comportement historique de l'app avant le toggle.
  *
- * Ordre : chart températures → matrice Temps → tableau min/max → précip → vent.
- * La bande de confiance horaire est absente ici : elle a été déplacée dans le
- * mode "par heure" où sa granularité colle. Le pendant en daily est la
- * TodaySummaryCard (badge de confiance globale du jour, resté au-dessus du
- * toggle).
+ * Ordre : matrice Temps → chart températures per-modèle → tableau min/max →
+ * précip → vent. Rien de global ici : la bande de confiance horaire (rendue
+ * au-dessus du toggle, indépendamment du mode) sert de vue d'ensemble à travers
+ * les deux modes.
  */
 private fun androidx.compose.foundation.lazy.LazyListScope.dailyItems(
     forecast: CityForecast,
@@ -431,44 +449,21 @@ private fun androidx.compose.foundation.lazy.LazyListScope.dailyItems(
 }
 
 /**
- * Contenu du mode "par heure" — détail horaire sur ~24-48h.
+ * Contenu du mode "par heure" — détail horaire sur la fin de la journée en cours.
  *
- * Ordre miroir du mode daily pour minimiser le "layout shift" perçu à la bascule :
- *   1. graphe de température (bande de confiance)
- *   2. matrice Heure × Modèle du temps
- *   3. table température horaire
- *   4. table précipitations horaires
- *   5. table vent horaire
+ * Ordre :
+ *   1. matrice Heure × Modèle du temps
+ *   2. table température horaire
+ *   3. table précipitations horaires
+ *   4. table vent horaire
  *
- * La bande de confiance horaire remplace ici TemperatureComparisonChart daily —
- * les deux visualisent "quelle température prévoient les modèles ?", chacun à
- * son horizon. Pas de per-model overlay en horaire pour ne pas dédoubler
- * l'info visuelle avec la bande + les tables juste en dessous.
+ * Pas de graphe de température ici — la bande de confiance horaire, rendue
+ * hors du toggle au-dessus, joue déjà ce rôle et son horizon 7 jours donne
+ * plus de contexte que ne le ferait un chart limité à la journée courante.
  */
 private fun androidx.compose.foundation.lazy.LazyListScope.hourlyItems(
-    forecast: CityForecast,
-    hourlyBands: List<com.meteocompare.app.domain.model.HourlyConfidenceBand>
+    forecast: CityForecast
 ) {
-    // Bande de confiance horaire — le graphe de température en mode horaire.
-    // On ne rend que si au moins 2 bandes (le chart lui-même le vérifie mais on
-    // évite un titre de section suivi d'un placeholder "pas assez de données").
-    if (hourlyBands.size >= 2) {
-        item("chart_hourly") {
-            SectionTitle(stringResource(R.string.section_confidence_band))
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                ),
-                modifier = Modifier.padding(horizontal = 16.dp)
-            ) {
-                HourlyConfidenceChart(
-                    bands = hourlyBands,
-                    timezone = forecast.city.timezone
-                )
-            }
-        }
-    }
-
     // Matrice Heure × Modèle des conditions météo. Conditions calculées inline
     // dans le composant (via weather_code ou fallback précipitation). Aucun
     // early-return côté LazyColumn : c'est le composant qui affichera "no data"
@@ -528,7 +523,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hourlyItems(
                 },
                 // Format compact "0.5" (pas "0.5 mm") pour tenir en 60dp — l'en-
                 // tête de section + la légende clarifient l'unité, et l'affichage
-                // par heure a 48 lignes qui gagnent à rester lisibles.
+                // par heure gagne à rester lisible.
                 valueFormatter = { mm ->
                     if (mm < 0.05) "0" else "%.1f".format(mm)
                 },

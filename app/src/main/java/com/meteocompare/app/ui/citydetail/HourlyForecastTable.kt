@@ -40,7 +40,7 @@ import java.time.format.TextStyle as JavaTextStyle
  *   - Row scrollable horizontalement avec une Column par modèle
  *
  * Différences vs [ForecastTable] :
- *   - ~24-48 lignes au lieu de 7 → la colonne label est plus large pour
+ *   - Jusqu'à 24 lignes au lieu de 7 → la colonne label est plus large pour
  *     accueillir le préfixe du jour (visible seulement aux changements de jour
  *     pour économiser la place et clarifier les transitions)
  *   - Highlight de l'heure courante (au lieu de "aujourd'hui")

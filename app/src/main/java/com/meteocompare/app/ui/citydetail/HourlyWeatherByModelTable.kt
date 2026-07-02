@@ -44,7 +44,7 @@ import java.time.format.TextStyle as JavaTextStyle
  * — un alignement des icônes signale accord, une divergence saute aux yeux.
  *
  * Différences vs [WeatherByModelTable] :
- *   - ~24-48 lignes au lieu de 7 (une par heure sur le lendemain)
+ *   - Jusqu'à 24 lignes au lieu de 7 (une par heure sur la fin du jour)
  *   - Colonne label plus large pour préfixe jour aux transitions
  *   - Conditions calculées ici depuis la série hourly de chaque modèle
  *     (via weather_code ou fallback précipitation) — pas de use case dédié
@@ -159,7 +159,8 @@ fun HourlyWeatherByModelTable(
         // Partie scrollable : une colonne par modèle. Cellule 36dp (un peu plus
         // haute que HourlyForecastTable) pour accommoder l'icône 20dp + padding
         // sans que l'icône colle aux bordures — c'est aussi ~10% plus dense
-        // que la table daily (44dp), ce qui compense les 48 lignes.
+        // que la table daily (44dp), ce qui compense la longueur variable
+        // (jusqu'à 24 lignes à minuit, moins en cours de journée).
         Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
             models.forEach { model ->
                 Column(modifier = Modifier.width(60.dp)) {
