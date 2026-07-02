@@ -1,5 +1,6 @@
 *.iml
 .gradle
+.kotlin
 /local.properties
 /.idea/
 .DS_Store
@@ -12,6 +13,7 @@ local.properties
 /app/release
 *.apk
 *.aab
+gradle/
 
 # Signing — NE JAMAIS committer le keystore ni les credentials
 keystore.properties

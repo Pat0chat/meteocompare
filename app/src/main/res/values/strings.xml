@@ -41,9 +41,23 @@
     <string name="section_confidence_band">Bande de confiance horaire</string>
     <string name="section_temperatures">Températures min/max par modèle</string>
     <string name="section_temp_table">Températures max / min</string>
+    <string name="section_temp_hourly">Températures par heure</string>
     <string name="section_precipitation">Précipitations</string>
     <string name="section_wind">Vent max</string>
     <string name="section_weather_by_model">Temps par modèle et par jour</string>
+
+    <!-- Toggle mode d\'affichage (sous la TodaySummaryCard) -->
+    <string name="display_mode_hourly">Par heure</string>
+    <string name="display_mode_daily">Par jour</string>
+
+    <!-- Absence de données horaires (mode "par heure") -->
+    <string name="no_hourly_data">Pas de données horaires</string>
+
+    <!-- Légende du tableau température horaire — seuils absolus -->
+    <string name="temp_hourly_legend_freezing">gel (&lt; 0°)</string>
+    <string name="temp_hourly_legend_cold">frais (0-5°)</string>
+    <string name="temp_hourly_legend_warm">chaud (20-30°)</string>
+    <string name="temp_hourly_legend_hot">très chaud (≥ 30°)</string>
 
     <!-- Chart messages -->
     <string name="chart_no_data">Aucune donnée à afficher</string>

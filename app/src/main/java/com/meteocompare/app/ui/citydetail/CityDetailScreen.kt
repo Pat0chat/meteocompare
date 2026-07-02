@@ -35,6 +35,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -46,7 +49,10 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -69,6 +75,7 @@ import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.ConfidenceScore
 import com.meteocompare.app.domain.model.DailyForecast
 import com.meteocompare.app.domain.model.DayConfidence
+import com.meteocompare.app.domain.model.HourlyForecast
 import com.meteocompare.app.domain.model.PrecipitationConfidence
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
@@ -259,6 +266,14 @@ private fun LoadedView(
     padding: PaddingValues,
     onConfidenceClick: (isoDate: String) -> Unit = {}
 ) {
+    // Mode d'affichage piloté par le toggle sous la TodaySummaryCard.
+    // rememberSaveable (via le Saver de DisplayMode) pour survivre à la rotation
+    // et au dark-mode toggle. Défaut = DAILY — c'est le comportement historique
+    // de l'app, la vue la plus rapide à scanner sur 7 jours.
+    var displayMode by rememberSaveable(stateSaver = DisplayMode.Saver) {
+        mutableStateOf(DisplayMode.DAILY)
+    }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize().testTag(TAG_DETAIL_LOADED),
         contentPadding = PaddingValues(
@@ -279,104 +294,26 @@ private fun LoadedView(
             }
         }
 
-        // Chart "bande de confiance" — placé haut car c'est le différenciateur clé
-        if (hourlyBands.size >= 2) {
-            item("hourly_confidence") {
-                SectionTitle(stringResource(R.string.section_confidence_band))
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                    ),
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                ) {
-                    HourlyConfidenceChart(
-                        bands = hourlyBands,
-                        timezone = forecast.city.timezone
-                    )
-                }
-            }
-        }
-
-        // Tableau matrice Jour × Modèle des conditions météo. Placé juste après
-        // le résumé du jour parce que c'est l'info la plus immédiate après "il
-        // fait combien" : "qu'est-ce que chaque modèle prédit comme temps ?".
-        // On ne rend pas le bloc si aucune donnée — typiquement un cache
-        // pré-feature dont la réponse JSON ne contient pas weather_code.
-        if (dailyConditions.isNotEmpty()) {
-            item("weather_by_model") {
-                SectionTitle(stringResource(R.string.section_weather_by_model))
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                    ),
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                ) {
-                    WeatherByModelTable(
-                        rows = dailyConditions,
-                        modelOrder = forecast.availableModels,
-                        modifier = Modifier.padding(8.dp)
-                    )
-                }
-                WeatherLegend()
-            }
-        }
-
-        item("chart") {
-            SectionTitle(stringResource(R.string.section_temperatures))
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                ),
-                modifier = Modifier.padding(horizontal = 16.dp)
-            ) {
-                // Les normales se chargent en background — quand elles arrivent,
-                // les pointillés apparaissent automatiquement via recomposition.
-                TemperatureComparisonChart(forecast = forecast, normals = normals)
-            }
-        }
-
-        // Tableau fusionné max/min — remplace les deux tableaux séparés.
-        // Coloration relative aux normales climatiques (rouge si > normale + 2°,
-        // bleu si < normale - 2°). Si normals == null encore, affichage neutre.
-        // Structure identique aux autres tableaux : Card pour la table, légende
-        // en dessous (pas dans la Card).
-        item("temp_table") {
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                ),
-                modifier = Modifier.padding(horizontal = 16.dp)
-            ) {
-                MinMaxForecastTable(
-                    forecast = forecast,
-                    normals = normals,
-                    modifier = Modifier.padding(8.dp)
-                )
-            }
-            MinMaxForecastLegend(normalsAvailable = normals != null)
-        }
-
-        item("precip_table") {
-            ForecastSection(
-                title = stringResource(R.string.section_precipitation),
-                forecast = forecast,
-                extractor = { daily, idx -> daily.precipitationSum.getOrNull(idx) },
-                formatter = { mm ->
-                    if (mm < 0.05) "0" else "${"%.1f".format(mm)} mm"
-                },
-                valueStyler = ::precipitationStyle,
-                legend = { PrecipitationLegend() }
+        // Toggle "Par heure / Par jour" — placé juste sous la TodaySummaryCard
+        // conformément à la maquette. Le reste du contenu (tableaux + graphe
+        // de température) réagit à ce toggle. La bande de confiance horaire
+        // est aussi mode-dépendante (elle est intrinsèquement horaire).
+        item("display_mode_toggle") {
+            DisplayModeToggle(
+                mode = displayMode,
+                onModeChange = { displayMode = it }
             )
         }
 
-        item("wind_table") {
-            ForecastSection(
-                title = stringResource(R.string.section_wind),
+        when (displayMode) {
+            DisplayMode.HOURLY -> hourlyItems(
                 forecast = forecast,
-                extractor = { daily, idx -> daily.windSpeedMax.getOrNull(idx) },
-                formatter = { "${it.roundToInt()} km/h" },
-                valueStyler = ::windStyle,
-                legend = { WindLegend() }
+                hourlyBands = hourlyBands
+            )
+            DisplayMode.DAILY -> dailyItems(
+                forecast = forecast,
+                dailyConditions = dailyConditions,
+                normals = normals
             )
         }
 
@@ -384,6 +321,304 @@ private fun LoadedView(
             item("errors") { PartialErrorsSection(forecast.errors) }
         }
     }
+}
+
+// ============================================================================
+//  Contenus par mode (extensions LazyListScope pour rester dans le LazyColumn)
+// ============================================================================
+//
+//  Extraire les items dans des extensions LazyListScope garde LoadedView compact
+//  et lisible — sans le `when` on aurait 200 lignes d'imbrication. Chaque
+//  extension représente un mode complet (graphe + tableaux) et est autonome.
+//
+//  Les keys utilisent un suffixe _daily / _hourly pour que LazyColumn traite
+//  les items comme distincts entre les deux modes — cela dispose proprement
+//  l'état interne (scroll horizontal des tableaux, sélection légende du chart)
+//  quand on switche, plutôt que d'essayer de le préserver entre des composants
+//  aux données incompatibles.
+
+/**
+ * Contenu du mode "par jour" — comportement historique de l'app avant le toggle.
+ *
+ * Ordre : chart températures → matrice Temps → tableau min/max → précip → vent.
+ * La bande de confiance horaire est absente ici : elle a été déplacée dans le
+ * mode "par heure" où sa granularité colle. Le pendant en daily est la
+ * TodaySummaryCard (badge de confiance globale du jour, resté au-dessus du
+ * toggle).
+ */
+private fun androidx.compose.foundation.lazy.LazyListScope.dailyItems(
+    forecast: CityForecast,
+    dailyConditions: List<com.meteocompare.app.domain.usecase.DayConditionsRow>,
+    normals: Map<Int, com.meteocompare.app.domain.model.DayNormals>?
+) {
+    // Matrice Jour × Modèle des conditions météo. On ne rend pas le bloc si
+    // aucune donnée — typiquement un cache pré-feature sans weather_code.
+    if (dailyConditions.isNotEmpty()) {
+        item("weather_by_model_daily") {
+            SectionTitle(stringResource(R.string.section_weather_by_model))
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                ),
+                modifier = Modifier.padding(horizontal = 16.dp)
+            ) {
+                WeatherByModelTable(
+                    rows = dailyConditions,
+                    modelOrder = forecast.availableModels,
+                    modifier = Modifier.padding(8.dp)
+                )
+            }
+            WeatherLegend()
+        }
+    }
+
+    item("chart_daily") {
+        SectionTitle(stringResource(R.string.section_temperatures))
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            ),
+            modifier = Modifier.padding(horizontal = 16.dp)
+        ) {
+            // Les normales se chargent en background — quand elles arrivent,
+            // les pointillés apparaissent automatiquement via recomposition.
+            TemperatureComparisonChart(forecast = forecast, normals = normals)
+        }
+    }
+
+    // Tableau fusionné max/min — coloration relative aux normales climatiques
+    // (rouge si > normale + 2°, bleu si < normale − 2°). Si normals == null,
+    // affichage neutre en attendant que les données historiques arrivent.
+    item("temp_table_daily") {
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            ),
+            modifier = Modifier.padding(horizontal = 16.dp)
+        ) {
+            MinMaxForecastTable(
+                forecast = forecast,
+                normals = normals,
+                modifier = Modifier.padding(8.dp)
+            )
+        }
+        MinMaxForecastLegend(normalsAvailable = normals != null)
+    }
+
+    item("precip_table_daily") {
+        ForecastSection(
+            title = stringResource(R.string.section_precipitation),
+            forecast = forecast,
+            extractor = { daily, idx -> daily.precipitationSum.getOrNull(idx) },
+            formatter = { mm ->
+                if (mm < 0.05) "0" else "${"%.1f".format(mm)} mm"
+            },
+            valueStyler = ::precipitationStyle,
+            legend = { PrecipitationLegend() }
+        )
+    }
+
+    item("wind_table_daily") {
+        ForecastSection(
+            title = stringResource(R.string.section_wind),
+            forecast = forecast,
+            extractor = { daily, idx -> daily.windSpeedMax.getOrNull(idx) },
+            formatter = { "${it.roundToInt()} km/h" },
+            valueStyler = ::windStyle,
+            legend = { WindLegend() }
+        )
+    }
+}
+
+/**
+ * Contenu du mode "par heure" — détail horaire sur ~24-48h.
+ *
+ * Ordre miroir du mode daily pour minimiser le "layout shift" perçu à la bascule :
+ *   1. graphe de température (bande de confiance)
+ *   2. matrice Heure × Modèle du temps
+ *   3. table température horaire
+ *   4. table précipitations horaires
+ *   5. table vent horaire
+ *
+ * La bande de confiance horaire remplace ici TemperatureComparisonChart daily —
+ * les deux visualisent "quelle température prévoient les modèles ?", chacun à
+ * son horizon. Pas de per-model overlay en horaire pour ne pas dédoubler
+ * l'info visuelle avec la bande + les tables juste en dessous.
+ */
+private fun androidx.compose.foundation.lazy.LazyListScope.hourlyItems(
+    forecast: CityForecast,
+    hourlyBands: List<com.meteocompare.app.domain.model.HourlyConfidenceBand>
+) {
+    // Bande de confiance horaire — le graphe de température en mode horaire.
+    // On ne rend que si au moins 2 bandes (le chart lui-même le vérifie mais on
+    // évite un titre de section suivi d'un placeholder "pas assez de données").
+    if (hourlyBands.size >= 2) {
+        item("chart_hourly") {
+            SectionTitle(stringResource(R.string.section_confidence_band))
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                ),
+                modifier = Modifier.padding(horizontal = 16.dp)
+            ) {
+                HourlyConfidenceChart(
+                    bands = hourlyBands,
+                    timezone = forecast.city.timezone
+                )
+            }
+        }
+    }
+
+    // Matrice Heure × Modèle des conditions météo. Conditions calculées inline
+    // dans le composant (via weather_code ou fallback précipitation). Aucun
+    // early-return côté LazyColumn : c'est le composant qui affichera "no data"
+    // si la fenêtre horaire est vide (rare — nécessiterait cache pré-feature).
+    item("weather_by_model_hourly") {
+        SectionTitle(stringResource(R.string.section_weather_by_model))
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            ),
+            modifier = Modifier.padding(horizontal = 16.dp)
+        ) {
+            HourlyWeatherByModelTable(
+                forecast = forecast,
+                modifier = Modifier.padding(8.dp)
+            )
+        }
+        WeatherLegend()
+    }
+
+    // Table température horaire — pas de min/max ici (une seule valeur par
+    // heure), donc une simple table Heure × Modèle avec coloration absolue
+    // (canicule/gel), indépendante des normales climatiques journalières.
+    item("temp_table_hourly") {
+        SectionTitle(stringResource(R.string.section_temp_hourly))
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            ),
+            modifier = Modifier.padding(horizontal = 16.dp)
+        ) {
+            HourlyForecastTable(
+                forecast = forecast,
+                valueExtractor = { hourly: HourlyForecast, idx ->
+                    hourly.temperature2m.getOrNull(idx)
+                },
+                valueFormatter = { "${it.roundToInt()}°" },
+                valueStyler = ::hourlyTemperatureStyle,
+                modifier = Modifier.padding(8.dp)
+            )
+        }
+        HourlyTemperatureLegend()
+    }
+
+    item("precip_table_hourly") {
+        SectionTitle(stringResource(R.string.section_precipitation))
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            ),
+            modifier = Modifier.padding(horizontal = 16.dp)
+        ) {
+            HourlyForecastTable(
+                forecast = forecast,
+                valueExtractor = { hourly: HourlyForecast, idx ->
+                    hourly.precipitation.getOrNull(idx)
+                },
+                // Format compact "0.5" (pas "0.5 mm") pour tenir en 60dp — l'en-
+                // tête de section + la légende clarifient l'unité, et l'affichage
+                // par heure a 48 lignes qui gagnent à rester lisibles.
+                valueFormatter = { mm ->
+                    if (mm < 0.05) "0" else "%.1f".format(mm)
+                },
+                valueStyler = ::hourlyPrecipitationStyle,
+                modifier = Modifier.padding(8.dp)
+            )
+        }
+        PrecipitationLegend()
+    }
+
+    item("wind_table_hourly") {
+        SectionTitle(stringResource(R.string.section_wind))
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            ),
+            modifier = Modifier.padding(horizontal = 16.dp)
+        ) {
+            HourlyForecastTable(
+                forecast = forecast,
+                valueExtractor = { hourly: HourlyForecast, idx ->
+                    hourly.windSpeed10m.getOrNull(idx)
+                },
+                valueFormatter = { "${it.roundToInt()}" },
+                valueStyler = ::hourlyWindStyle,
+                modifier = Modifier.padding(8.dp)
+            )
+        }
+        WindLegend()
+    }
+}
+
+// ============================================================================
+//  Toggle segmenté
+// ============================================================================
+
+/**
+ * Toggle segmenté "Par heure / Par jour" — style Material 3.
+ *
+ * Ordre HOURLY-first plutôt que DAILY-first parce que dans l'app finale, la
+ * lecture gauche→droite fait naturellement lire "par heure" comme la vue
+ * détaillée qu'on active PLUS explicitement. Le sélectionné par défaut reste
+ * DAILY (voir LoadedView), donc l'utilisateur voit initialement le curseur sur
+ * la moitié droite — configuration cohérente avec "j'ai la vue synthétique par
+ * défaut, un tap à gauche pour zoomer sur l'heure".
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DisplayModeToggle(
+    mode: DisplayMode,
+    onModeChange: (DisplayMode) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val options = listOf(
+        DisplayMode.HOURLY to stringResource(R.string.display_mode_hourly),
+        DisplayMode.DAILY to stringResource(R.string.display_mode_daily)
+    )
+    SingleChoiceSegmentedButtonRow(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+    ) {
+        options.forEachIndexed { idx, (m, label) ->
+            SegmentedButton(
+                selected = mode == m,
+                onClick = { onModeChange(m) },
+                shape = SegmentedButtonDefaults.itemShape(index = idx, count = options.size)
+            ) {
+                Text(label)
+            }
+        }
+    }
+}
+
+/**
+ * Légende du tableau température horaire — chips explicatifs des seuils
+ * absolus utilisés dans [hourlyTemperatureStyle]. Structure identique à
+ * [PrecipitationLegend] pour cohérence visuelle entre légendes.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun HourlyTemperatureLegend() {
+    LegendChipsRow(
+        chips = listOf(
+            Color(0xFF1E88E5) to stringResource(R.string.temp_hourly_legend_freezing),
+            Color(0xFF4FC3F7) to stringResource(R.string.temp_hourly_legend_cold),
+            Color(0xFFFF7043) to stringResource(R.string.temp_hourly_legend_warm),
+            Color(0xFFE53935) to stringResource(R.string.temp_hourly_legend_hot)
+        )
+    )
 }
 
 @Composable

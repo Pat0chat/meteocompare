@@ -41,9 +41,23 @@
     <string name="section_confidence_band">Hourly confidence band</string>
     <string name="section_temperatures">Min/max temperatures per model</string>
     <string name="section_temp_table">Max / min temperatures</string>
+    <string name="section_temp_hourly">Hourly temperatures</string>
     <string name="section_precipitation">Precipitation</string>
     <string name="section_wind">Max wind</string>
     <string name="section_weather_by_model">Weather by model and day</string>
+
+    <!-- Display-mode toggle (below the TodaySummaryCard) -->
+    <string name="display_mode_hourly">Hourly</string>
+    <string name="display_mode_daily">Daily</string>
+
+    <!-- Missing hourly data (hourly mode) -->
+    <string name="no_hourly_data">No hourly data</string>
+
+    <!-- Hourly temperature table legend — absolute thresholds -->
+    <string name="temp_hourly_legend_freezing">freezing (&lt; 0°)</string>
+    <string name="temp_hourly_legend_cold">cold (0-5°)</string>
+    <string name="temp_hourly_legend_warm">warm (20-30°)</string>
+    <string name="temp_hourly_legend_hot">hot (≥ 30°)</string>
 
     <!-- Chart messages -->
     <string name="chart_no_data">No data to display</string>
