@@ -6,6 +6,7 @@ import com.meteocompare.app.domain.model.DayNormals
 import com.meteocompare.app.domain.model.HourlyConfidenceBand
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.usecase.DayConditionsRow
+import java.time.Instant
 
 /**
  * État de l'écran détail.
@@ -34,6 +35,11 @@ sealed interface CityDetailUiState {
      *
      * `dailyConditions` alimente le tableau Jour × Modèle. Vide si aucun code
      * weather_code n'a été reçu — l'UI ne rend pas le bloc dans ce cas.
+     *
+     * `fetchedAt` est l'horodatage de la dernière écriture cache (ou
+     * fetch réseau). Propagé depuis [CityForecast.fetchedAt]. Null si la
+     * donnée provient d'un cache antérieur à cette feature — l'UI omet alors
+     * le caption "mis à jour il y a X".
      */
     data class Loaded(
         val forecast: CityForecast,
@@ -42,7 +48,8 @@ sealed interface CityDetailUiState {
         val currentTemp: Double?,
         val currentCondition: WeatherCondition? = null,
         val dailyConditions: List<DayConditionsRow> = emptyList(),
-        val normals: Map<Int, DayNormals>? = null
+        val normals: Map<Int, DayNormals>? = null,
+        val fetchedAt: Instant? = null
     ) : CityDetailUiState
 
     data class Error(val message: String) : CityDetailUiState

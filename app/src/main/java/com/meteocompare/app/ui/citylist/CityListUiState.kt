@@ -3,6 +3,7 @@ package com.meteocompare.app.ui.citylist
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.DayConfidence
 import com.meteocompare.app.domain.model.WeatherCondition
+import java.time.Instant
 
 /**
  * État affichable de la liste des villes favorites.
@@ -32,11 +33,15 @@ sealed interface ForecastState {
      * @param currentCondition famille de temps actuelle (mode pondéré par
      *   résolution). Null si aucun modèle ne fournit weather_code — typique-
      *   ment un cache antérieur à la feature.
+     * @param fetchedAt horodatage de la dernière écriture cache ou fetch
+     *   réseau. Null quand la donnée provient d'un cache pré-feature — la
+     *   CityCard omet alors le caption "il y a X".
      */
     data class Loaded(
         val today: DayConfidence,
         val currentTemp: Double?,
-        val currentCondition: WeatherCondition? = null
+        val currentCondition: WeatherCondition? = null,
+        val fetchedAt: Instant? = null
     ) : ForecastState
     data class Error(val message: String) : ForecastState
 }

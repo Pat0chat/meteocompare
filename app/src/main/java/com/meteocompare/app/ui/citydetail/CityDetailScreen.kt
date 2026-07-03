@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -217,6 +218,7 @@ internal fun CityDetailContent(
                         currentCondition = s.currentCondition,
                         dailyConditions = s.dailyConditions,
                         normals = s.normals,
+                        fetchedAt = s.fetchedAt,
                         padding = padding,
                         onConfidenceClick = onConfidenceClick
                     )
@@ -263,6 +265,7 @@ private fun LoadedView(
     currentCondition: WeatherCondition?,
     dailyConditions: List<com.meteocompare.app.domain.usecase.DayConditionsRow>,
     normals: Map<Int, com.meteocompare.app.domain.model.DayNormals>?,
+    fetchedAt: java.time.Instant?,
     padding: PaddingValues,
     onConfidenceClick: (isoDate: String) -> Unit = {}
 ) {
@@ -289,6 +292,7 @@ private fun LoadedView(
                     modelCount = forecast.availableModels.size,
                     currentTemp = currentTemp,
                     currentCondition = currentCondition,
+                    fetchedAt = fetchedAt,
                     onConfidenceClick = { onConfidenceClick(today.date.toString()) }
                 )
             }
@@ -663,6 +667,7 @@ internal fun TodaySummaryCard(
     modelCount: Int,
     currentTemp: Double?,
     currentCondition: WeatherCondition? = null,
+    fetchedAt: java.time.Instant? = null,
     onConfidenceClick: () -> Unit = {}
 ) {
     // Description unifiée pour TalkBack qui résume toutes les valeurs.
@@ -783,6 +788,26 @@ internal fun TodaySummaryCard(
             today.windMax?.let {
                 Spacer(Modifier.height(4.dp))
                 VariableRow(stringResource(R.string.var_wind_max), it, " km/h")
+            }
+
+            // Caption "mis à jour il y a X" — placé tout en bas du bloc parce
+            // que c'est une métadonnée (fraîcheur des données), pas un signal
+            // primaire. Aligné à droite pour ne pas concurrencer visuellement
+            // les valeurs à gauche. Rafraîchit son texte tout seul via
+            // rememberFormattedLastUpdated (LaunchedEffect qui re-tick au fil
+            // du temps) — sans ça, un écran laissé ouvert 30 min afficherait
+            // toujours "à l'instant".
+            if (fetchedAt != null) {
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    text = com.meteocompare.app.ui.components
+                        .rememberFormattedLastUpdated(fetchedAt),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .wrapContentWidth(Alignment.End)
+                )
             }
         }
     }

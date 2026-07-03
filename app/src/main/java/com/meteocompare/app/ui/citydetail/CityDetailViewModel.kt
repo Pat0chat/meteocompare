@@ -174,7 +174,8 @@ class CityDetailViewModel @Inject constructor(
                     currentTemp = currentTemp,
                     currentCondition = currentCondition,
                     dailyConditions = dailyConditions,
-                    normals = loadedNormals
+                    normals = loadedNormals,
+                    fetchedAt = result.data.fetchedAt
                 )
             }
             is ApiResult.Error -> {

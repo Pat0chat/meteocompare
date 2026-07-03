@@ -59,6 +59,17 @@
     <string name="temp_hourly_legend_warm">chaud (20-30°)</string>
     <string name="temp_hourly_legend_hot">très chaud (≥ 30°)</string>
 
+    <!-- Caption "dernière mise à jour" (CityCard home + TodaySummaryCard détail) -->
+    <string name="updated_just_now">Mis à jour à l\'instant</string>
+    <string name="updated_min_ago">Mis à jour il y a %d min</string>
+    <string name="updated_hour_ago">Mis à jour il y a %dh</string>
+    <string name="updated_day_ago">Mis à jour il y a %dj</string>
+
+    <!-- Zoom sur la bande de confiance horaire -->
+    <string name="chart_zoom_hint">Pincez pour zoomer • Double-tap pour réinitialiser</string>
+    <string name="chart_zoom_reset">Réinitialiser le zoom</string>
+    <string name="chart_zoom_a11y_zoomed">Graphique zoomé, double-tap pour réinitialiser</string>
+
     <!-- Chart messages -->
     <string name="chart_no_data">Aucune donnée à afficher</string>
     <string name="chart_not_enough_data">Pas assez de données pour calculer une bande</string>

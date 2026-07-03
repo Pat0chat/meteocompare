@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -294,7 +295,8 @@ internal fun CityCard(
                     is ForecastState.Loaded -> CityCardLoaded(
                         today = forecast.today,
                         currentTemp = forecast.currentTemp,
-                        currentCondition = forecast.currentCondition
+                        currentCondition = forecast.currentCondition,
+                        fetchedAt = forecast.fetchedAt
                     )
                     is ForecastState.Error -> CityCardError(forecast.message, onRetry)
                 }
@@ -338,19 +340,47 @@ private fun CityCardError(message: String, onRetry: () -> Unit) {
 }
 
 @Composable
-private fun CityCardLoaded(today: DayConfidence, currentTemp: Double?, currentCondition: WeatherCondition?) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        TemperatureSummary(
-            currentTemp = currentTemp,
-            tempMax = today.tempMax,
-            currentCondition = currentCondition
-        )
-        PrecipitationSummary(precip = today.precipitation)
-        ConfidenceBadge(percent = today.overallPercent)
+private fun CityCardLoaded(
+    today: DayConfidence,
+    currentTemp: Double?,
+    currentCondition: WeatherCondition?,
+    fetchedAt: java.time.Instant?
+) {
+    // Column pour empiler la Row de valeurs + le petit caption de fraîcheur
+    // en dessous. Sans ce Column, la caption viendrait s'aligner dans la Row
+    // et casserait l'alignement des trois blocs (temp | precip | confidence).
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            TemperatureSummary(
+                currentTemp = currentTemp,
+                tempMax = today.tempMax,
+                currentCondition = currentCondition
+            )
+            PrecipitationSummary(precip = today.precipitation)
+            ConfidenceBadge(percent = today.overallPercent)
+        }
+
+        // Caption "mis à jour il y a X" — placé en bas à droite de la card,
+        // discret pour ne pas rivaliser avec les valeurs primaires. Le texte
+        // se recalcule tout seul au fil du temps via rememberFormattedLastUpdated
+        // (LaunchedEffect qui re-tick), donc laisser la home ouverte 5 minutes
+        // ne laisse pas apparaître un "à l'instant" mensonger.
+        if (fetchedAt != null) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = com.meteocompare.app.ui.components
+                    .rememberFormattedLastUpdated(fetchedAt),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .wrapContentWidth(Alignment.End)
+            )
+        }
     }
 }
 

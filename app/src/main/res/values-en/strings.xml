@@ -59,6 +59,17 @@
     <string name="temp_hourly_legend_warm">warm (20-30°)</string>
     <string name="temp_hourly_legend_hot">hot (≥ 30°)</string>
 
+    <!-- "Last updated" caption (CityCard home + TodaySummaryCard details) -->
+    <string name="updated_just_now">Updated just now</string>
+    <string name="updated_min_ago">Updated %d min ago</string>
+    <string name="updated_hour_ago">Updated %dh ago</string>
+    <string name="updated_day_ago">Updated %dd ago</string>
+
+    <!-- Confidence band chart zoom -->
+    <string name="chart_zoom_hint">Pinch to zoom • Double-tap to reset</string>
+    <string name="chart_zoom_reset">Reset zoom</string>
+    <string name="chart_zoom_a11y_zoomed">Chart zoomed, double-tap to reset</string>
+
     <!-- Chart messages -->
     <string name="chart_no_data">No data to display</string>
     <string name="chart_not_enough_data">Not enough data to compute a band</string>

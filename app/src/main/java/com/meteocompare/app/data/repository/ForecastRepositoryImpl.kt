@@ -154,10 +154,19 @@ class ForecastRepositoryImpl @Inject constructor(
         }
         if (series.isEmpty()) return@withContext null
 
+        // Fraîcheur du CityForecast = plus récent des fetchedAt de tous les
+        // modèles présents en cache. En pratique tous les modèles d'une même
+        // ville sont écrits ensemble (même `now` dans fetchAndCache), donc les
+        // valeurs sont très proches ; on prend le max pour être robuste au cas
+        // où un modèle isolé aurait été rafraîchi séparément par une future
+        // évolution du code.
+        val newestFetchedAtMs = entries.maxOf { it.fetchedAtEpochMs }
+
         CityForecast(
             city = city,
             seriesByModel = series.associateBy { it.model },
-            errors = emptyMap() // on n'a pas mémorisé les erreurs en cache
+            errors = emptyMap(), // on n'a pas mémorisé les erreurs en cache
+            fetchedAt = java.time.Instant.ofEpochMilli(newestFetchedAtMs)
         )
     }
 
@@ -236,7 +245,12 @@ class ForecastRepositoryImpl @Inject constructor(
                 CityForecast(
                     city = city,
                     seriesByModel = successes,
-                    errors = errors
+                    errors = errors,
+                    // Tous les modèles ont été fetchés dans le même `coroutineScope`
+                    // avec le même `now` — cohérent d'utiliser cette valeur pour
+                    // l'horodatage global du CityForecast. Ce timestamp est ce que
+                    // l'UI affichera en "mis à jour il y a X".
+                    fetchedAt = java.time.Instant.ofEpochMilli(now)
                 )
             )
         }

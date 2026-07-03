@@ -2,6 +2,9 @@ package com.meteocompare.app.ui.citydetail
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,19 +13,23 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
-import com.meteocompare.app.R
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
@@ -31,6 +38,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.HourlyConfidenceBand
 import com.meteocompare.app.ui.theme.confidenceColor
 import java.time.Duration
@@ -49,24 +57,24 @@ import kotlin.math.roundToInt
 // l'intérieur du Canvas. Si on les changeait en local sans toucher la
 // timeline, on retomberait sur le bug "les couleurs ne sont pas raccord
 // avec les données du graphique au dessus".
-//
-//   ChartCanvasPadding : padding extérieur appliqué via Modifier.padding
-//                        sur le Canvas — réserve de la marge autour de tout.
-//   ChartLeftAxisPad   : marge intérieure à gauche dans le Canvas pour
-//                        accueillir les labels Y (températures).
-//   ChartRightAxisPad  : marge intérieure à droite, juste un peu d'air.
-//
-// Décalage total mesuré depuis le bord de la Column parente :
-//   left  = ChartCanvasPadding + ChartLeftAxisPad   (= 8 + 36 = 44.dp)
-//   right = ChartCanvasPadding + ChartRightAxisPad  (= 8 + 8  = 16.dp)
 private val ChartCanvasPadding = 8.dp
 private val ChartLeftAxisPad = 36.dp
 private val ChartRightAxisPad = 8.dp
 private val ChartContentStart = ChartCanvasPadding + ChartLeftAxisPad
 private val ChartContentEnd = ChartCanvasPadding + ChartRightAxisPad
 
+// ─── Bornes du zoom ────────────────────────────────────────────────────────
+//
+// Le zoom est piloté par une "view window" (viewStart, viewEnd) exprimée en
+// fraction du dataset total ([0, 1]). Au max zoom, la fenêtre visible fait
+// MIN_VIEW_SPAN de la donnée totale — soit ~50x sur un dataset de 7 jours =
+// environ 3 heures visibles. Assez pour scruter le passage d'un front sans
+// perdre le sens de l'échelle globale.
+private const val MIN_VIEW_SPAN = 0.02f
+private const val MAX_VIEW_SPAN = 1.0f
+
 /**
- * Graphique de bande de confiance horaire.
+ * Graphique de bande de confiance horaire — avec pinch-to-zoom sur l'axe X.
  *
  * Visualise les prévisions de température comme une enveloppe min-max
  * autour d'une moyenne. La largeur de la bande à un instant `t` représente
@@ -77,10 +85,14 @@ private val ChartContentEnd = ChartCanvasPadding + ChartRightAxisPad
  *   - Bande qui s'élargit en avançant dans le temps → divergence croissante
  *   - Ligne de mean = la "meilleure estimation" pondérée par résolution
  *
- * Implémentation Canvas :
- *   - Path fermé `(upper-edge L→R, lower-edge R→L)` pour la bande
- *   - Path simple pour la ligne mean
- *   - Repères verticaux aux changements de date locale
+ * Interactions gestuelles :
+ *   - **Pinch à 2 doigts** : zoom in/out autour du centroïde du pinch, avec
+ *     pan horizontal simultané. Le geste à 1 doigt N'EST PAS intercepté →
+ *     laisse la LazyColumn parente scroller normalement en vertical.
+ *   - **Double-tap** : reset zoom (fenêtre = tout le dataset).
+ *
+ * Le hint textuel disparaît dès que l'utilisateur a zoomé au moins une fois
+ * (il a découvert le geste, plus besoin d'expliquer).
  */
 @Composable
 fun HourlyConfidenceChart(
@@ -107,10 +119,7 @@ fun HourlyConfidenceChart(
 
     // Trois teintes de confiance pré-résolues pour le thème courant. Le Canvas
     // étant un DrawScope (non @Composable), il ne peut pas appeler
-    // confidenceColor() lui-même — on les capture par closure ici. On bump
-    // aussi l'alpha en thème sombre : avec les couleurs pastel, 28% reste
-    // trop discret sur surfaceContainerLow sombre — l'œil ne distingue plus
-    // bien les zones colorées. 40% donne du punch sans saturer.
+    // confidenceColor() lui-même — on les capture par closure ici.
     val confidenceHighColor = confidenceColor(80)
     val confidenceMediumColor = confidenceColor(50)
     val confidenceLowColor = confidenceColor(0)
@@ -127,27 +136,39 @@ fun HourlyConfidenceChart(
     val yMin = floor(allValues.min()).toFloat() - 1f
     val yMax = ceil(allValues.max()).toFloat() + 1f
 
-    // Description sémantique pour les lecteurs d'écran : TalkBack ne voit
-    // pas le Canvas. On consolide les infos clés en une phrase lisible.
+    // ─── État de zoom ──────────────────────────────────────────────────────
+    // viewStart / viewEnd expriment la fenêtre visible en FRACTION du dataset
+    // (0..1). Défaut = (0, 1) = tout visible. On utilise rememberSaveable pour
+    // survivre à la rotation — le user aime rarement voir son zoom reset après
+    // avoir tourné son téléphone.
+    //
+    // remember(bands) — recalcul si la référence bands change (nouveau fetch).
+    // On ne saveable/remember pas sur bands.size ou hash : on veut juste que
+    // ça se remette à jour quand la donnée change, pas nécessairement reset le
+    // zoom (qui reste défini sur la fenêtre proportionnelle).
+    var viewStart by rememberSaveable { mutableFloatStateOf(0f) }
+    var viewEnd by rememberSaveable { mutableFloatStateOf(1f) }
+    val isZoomed = (viewEnd - viewStart) < 0.999f
+
+    // Description sémantique pour les lecteurs d'écran. Quand on est zoomé,
+    // on préfixe pour signaler l'état et rappeler comment reset (accessibilité).
     val context = LocalContext.current
     val locale = LocalConfiguration.current.locales[0]
-    val a11yDescription = remember(bands, context) {
+    val a11yBase = remember(bands, context) {
         com.meteocompare.app.ui.accessibility.A11yFormatter
             .hourlyChartDescription(context, bands)
     }
+    val a11yZoomedPrefix = stringResource(R.string.chart_zoom_a11y_zoomed)
+    val a11yDescription = if (isZoomed) "$a11yZoomedPrefix. $a11yBase" else a11yBase
 
     Column(
         modifier = modifier
             .semantics(mergeDescendants = true) {
                 contentDescription = a11yDescription
             }
-            // Padding bottom : éviter que les éléments du bas (timeline +
-            // caption) soient collés au bord inférieur de la Card englobante.
             .padding(bottom = 12.dp)
     ) {
         // ─── Header explicatif ─────────────────────────────────────────
-        // Sans cette intro, le chart est cryptique pour un nouvel utilisateur.
-        // 2 lignes max pour rester compact tout en donnant la clé de lecture.
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -164,6 +185,18 @@ fun HourlyConfidenceChart(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            // Hint gestuel — affiché tant que l'utilisateur n'a pas zoomé.
+            // Une fois qu'il a fait le geste, il connaît, on masque le hint
+            // pour rendre l'UI au calme. S'il reset au double-tap, il re-devient
+            // "unzoomed" et le hint réapparaît — c'est OK, la deuxième fois
+            // c'est un rappel pas gênant.
+            if (!isZoomed) {
+                Text(
+                    text = stringResource(R.string.chart_zoom_hint),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                )
+            }
         }
 
         Canvas(
@@ -171,6 +204,97 @@ fun HourlyConfidenceChart(
                 .fillMaxWidth()
                 .height(260.dp)
                 .padding(ChartCanvasPadding)
+                // ─── Pinch/pan à 2 doigts ────────────────────────────────
+                // On gère les événements manuellement pour ne CONSOMMER que
+                // sur multi-touch. detectTransformGestures{} de Compose
+                // consommerait aussi les drags à 1 doigt et bloquerait le
+                // scroll vertical de la LazyColumn parente. Ici, si 1 seul
+                // doigt est down, on ne consomme rien → la LazyColumn scroll.
+                //
+                // Reclé sur (bands, totalSeconds) pour que le handler retrouve
+                // les bonnes constantes quand la donnée change.
+                .pointerInput(bands, totalSeconds) {
+                    val leftPadPx = ChartLeftAxisPad.toPx()
+                    val rightPadPx = ChartRightAxisPad.toPx()
+                    val chartLeftPx = leftPadPx
+                    val chartWPx = (size.width - leftPadPx - rightPadPx)
+                        .coerceAtLeast(1f)
+
+                    awaitEachGesture {
+                        // requireUnconsumed=false → on ne demande PAS un down
+                        // vierge, sinon un tap-and-hold qui viendrait juste
+                        // après un double-tap serait raté. On veut voir tout
+                        // ce qui arrive et décider nous-mêmes.
+                        awaitFirstDown(requireUnconsumed = false)
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val pressed = event.changes.filter { it.pressed }
+                            if (pressed.isEmpty()) break
+                            if (pressed.size < 2) continue  // 1 doigt : passthrough
+
+                            // ─── Multi-touch : zoom + pan ────────────────
+                            val curCentroid = pressed
+                                .fold(Offset.Zero) { acc, c -> acc + c.position } /
+                                pressed.size.toFloat()
+                            val prevCentroid = pressed
+                                .fold(Offset.Zero) { acc, c -> acc + c.previousPosition } /
+                                pressed.size.toFloat()
+                            val pan = curCentroid - prevCentroid
+
+                            // Distance moyenne au centroïde — proxy pour la
+                            // "taille" du pinch. Utiliser la MOYENNE plutôt
+                            // que le MAX rend le zoom plus stable avec 3+ doigts.
+                            val curSpread = pressed
+                                .map { (it.position - curCentroid).getDistance() }
+                                .average().toFloat().coerceAtLeast(1f)
+                            val prevSpread = pressed
+                                .map { (it.previousPosition - prevCentroid).getDistance() }
+                                .average().toFloat().coerceAtLeast(1f)
+                            val zoomFactor = curSpread / prevSpread
+
+                            val curSpan = viewEnd - viewStart
+                            val newSpan = (curSpan / zoomFactor)
+                                .coerceIn(MIN_VIEW_SPAN, MAX_VIEW_SPAN)
+
+                            // Zoom AUTOUR du centroïde : le point sous le doigt
+                            // reste fixe dans l'espace données. C'est le geste
+                            // attendu (comme sur Google Maps).
+                            val centroidXInChart = curCentroid.x - chartLeftPx
+                            val centroidFracInView = (centroidXInChart / chartWPx)
+                                .coerceIn(0f, 1f)
+                            val worldCentroid = viewStart + centroidFracInView * curSpan
+                            var newStart = worldCentroid - centroidFracInView * newSpan
+
+                            // Pan horizontal — ajouté APRÈS le zoom (l'utilisateur
+                            // peut pincer et faire glisser en un seul geste).
+                            val panFrac = -pan.x / chartWPx * newSpan
+                            newStart += panFrac
+
+                            // Clamp aux bornes du dataset
+                            newStart = newStart.coerceIn(0f, 1f - newSpan)
+
+                            viewStart = newStart
+                            viewEnd = newStart + newSpan
+
+                            // Consommer sinon la LazyColumn essaierait aussi
+                            // d'attraper le pan et on aurait un scroll parasite.
+                            pressed.forEach { it.consume() }
+                        }
+                    }
+                }
+                // ─── Double-tap pour reset ───────────────────────────────
+                // Dans son propre pointerInput block, séparé du pinch. Compose
+                // route les events aux DEUX blocks en parallèle — pas de conflit :
+                // le double-tap requiert 1 doigt down+up rapide, le pinch requiert
+                // 2 doigts down. Ils s'excluent naturellement.
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onDoubleTap = {
+                            viewStart = 0f
+                            viewEnd = 1f
+                        }
+                    )
+                }
         ) {
             val leftPad = ChartLeftAxisPad.toPx()
             val rightPad = ChartRightAxisPad.toPx()
@@ -183,9 +307,17 @@ fun HourlyConfidenceChart(
             val chartW = chartRight - chartLeft
             val chartH = chartBottom - chartTop
 
+            // Fenêtre visible en secondes. C'est cette fenêtre qu'on mappe sur
+            // la largeur du chart — les bandes hors fenêtre finiront en dehors
+            // du rectangle du Canvas (clip automatique par Compose).
+            val visibleStartSec = viewStart * totalSeconds
+            val visibleEndSec = viewEnd * totalSeconds
+            val visibleSpanSec = (visibleEndSec - visibleStartSec).coerceAtLeast(1f)
+
             fun xFor(ts: Instant): Float {
-                val frac = Duration.between(firstTs, ts).seconds.toFloat() / totalSeconds
-                return chartLeft + frac * chartW
+                val tsSec = Duration.between(firstTs, ts).seconds.toFloat()
+                val fracInView = (tsSec - visibleStartSec) / visibleSpanSec
+                return chartLeft + fracInView * chartW
             }
 
             fun yFor(value: Double): Float {
@@ -215,12 +347,16 @@ fun HourlyConfidenceChart(
             }
 
             // ─── Repères verticaux + labels aux changements de jour ──────
+            // On skippe les labels dont le x est hors [chartLeft, chartRight] —
+            // sinon en zoomant sur un seul jour, on aurait des labels de jours
+            // adjacents dépassant à gauche/droite du chart, chevauchant les
+            // labels de température.
             var currentDate: LocalDate? = null
             bands.forEach { band ->
                 val localDate = band.timestamp.atZone(zone).toLocalDate()
                 if (localDate != currentDate) {
                     val x = xFor(band.timestamp)
-                    if (currentDate != null) {
+                    if (currentDate != null && x in chartLeft..chartRight) {
                         drawLine(
                             color = gridColor.copy(alpha = 0.6f),
                             start = Offset(x, chartTop),
@@ -232,13 +368,19 @@ fun HourlyConfidenceChart(
                         .getDisplayName(JavaTextStyle.SHORT, locale)
                         .replace(".", "")
                     val measured = textMeasurer.measure(label, labelStyle)
-                    drawText(
-                        textLayoutResult = measured,
-                        topLeft = Offset(
-                            x = x + 4.dp.toPx(),
-                            y = chartBottom + 6.dp.toPx()
+                    val labelX = x + 4.dp.toPx()
+                    // Ne dessine le texte du jour que s'il est visible ET s'il
+                    // tient dans la zone chart (on lui donne son largeur pour
+                    // qu'un label proche de chartRight ne dépasse pas non plus).
+                    if (labelX in chartLeft..(chartRight - measured.size.width)) {
+                        drawText(
+                            textLayoutResult = measured,
+                            topLeft = Offset(
+                                x = labelX,
+                                y = chartBottom + 6.dp.toPx()
+                            )
                         )
-                    )
+                    }
                     currentDate = localDate
                 }
             }
@@ -247,9 +389,11 @@ fun HourlyConfidenceChart(
             // Au lieu d'un seul Path uniformément teinté, on découpe la bande
             // en quadrilatères entre points consécutifs. Chaque segment prend
             // sa couleur de la moyenne des deux endpoints — résultat : la
-            // bande "rougit" naturellement là où les modèles divergent, donne
-            // visuellement la même information que le timeline strip mais
-            // SUR le chart lui-même, pas en dessous.
+            // bande "rougit" naturellement là où les modèles divergent.
+            //
+            // Les segments hors visible-range sont dessinés quand même — le
+            // Canvas clippe automatiquement à ses bounds, coût = 0 en visuel,
+            // et éviter d'itérer conditionnellement garde le code simple.
             bands.zipWithNext().forEach { (a, b) ->
                 val xa = xFor(a.timestamp)
                 val xb = xFor(b.timestamp)
@@ -290,6 +434,11 @@ fun HourlyConfidenceChart(
             )
         }
 
+        // Strip et caption restent alignés sur la donnée FULL (pas zoomée) —
+        // ils servent de vue d'ensemble. Cela permet au user de garder la
+        // perception du "à quel horizon est-on" globalement, même quand le
+        // chart est zoomé. Idem pour le caption "Confiance maintenant / à J+N"
+        // qui donne les bornes DU DATASET, pas de la fenêtre visible.
         ConfidenceTimeline(bands = bands, stripAlpha = timelineStripAlpha)
     }
 }
@@ -319,11 +468,6 @@ private fun ConfidenceTimeline(bands: List<HourlyConfidenceBand>, stripAlpha: Fl
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            // Aligné EXACTEMENT sur l'axe X du Canvas au-dessus — sinon, la
-            // case "maintenant" (à gauche du strip) ne se retrouvait pas sous
-            // la valeur "maintenant" de la bande, et l'œil voyait des couleurs
-            // qui ne collaient pas aux données. Les constantes en haut du
-            // fichier garantissent que les deux restent synchronisées.
             .padding(
                 start = ChartContentStart,
                 end = ChartContentEnd,
