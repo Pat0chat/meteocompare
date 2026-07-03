@@ -5,7 +5,6 @@ TODO
 - Trie des modèles par finesse ;
 
 -- to check
---> Clean code, remove dead code, improve code quality, add tests if necessary
 --> Mise à jour README + Fiche Play Store EN/FR
 
 -- done
@@ -15,6 +14,7 @@ v0.5
 - Dans le tableau du temps, dans les cards : si pluie ajouter la Precipitation Probability donnée par le modèle
 - Dans le tableau du temps et dans les cards (home et todaysummary) : si couvert ou nuageux, ajouter la "cloud cover total" du modèle
 - Vraie icone partly cloudy
+- Clean code, remove dead code, improve code quality, add tests if necessary
 
 v0.4
 - Last update bien traduit en FR et EN ?
