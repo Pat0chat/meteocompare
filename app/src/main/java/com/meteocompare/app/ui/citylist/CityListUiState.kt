@@ -41,6 +41,13 @@ sealed interface ForecastState {
         val today: DayConfidence,
         val currentTemp: Double?,
         val currentCondition: WeatherCondition? = null,
+        /**
+         * Couverture nuageuse "maintenant" (0-100), agrégée entre modèles.
+         * Alimente le badge "70% couvert" sur la CityCard quand la condition
+         * courante est cloudy/overcast. Null si non disponible (cache pré-
+         * feature ou modèles sans cloud_cover).
+         */
+        val currentCloudCover: Int? = null,
         val fetchedAt: Instant? = null
     ) : ForecastState
     data class Error(val message: String) : ForecastState

@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
+import com.meteocompare.app.domain.usecase.DayCellExtras
 import com.meteocompare.app.domain.usecase.DayConditionsRow
 import com.meteocompare.app.ui.components.WeatherIconDecorative
 import com.meteocompare.app.ui.components.semanticTint
@@ -102,7 +103,7 @@ fun WeatherByModelTable(
         }
 
         VerticalDivider(
-            modifier = Modifier.height((40 + rows.size * 44).dp)
+            modifier = Modifier.height((40 + rows.size * 52).dp)
         )
 
         // Partie scrollable : une colonne par modèle
@@ -117,6 +118,7 @@ fun WeatherByModelTable(
                     rows.forEachIndexed { idx, row ->
                         IconCell(
                             condition = row.byModel[model],
+                            extras = row.extrasByModel[model],
                             background = bgFor(idx, row.date)
                         )
                     }
@@ -160,7 +162,7 @@ private fun DayLabelCell(text: String, background: Color, isToday: Boolean = fal
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(44.dp)
+            .height(52.dp)
             .background(background)
             .padding(horizontal = 4.dp),
         contentAlignment = Alignment.CenterStart
@@ -176,29 +178,98 @@ private fun DayLabelCell(text: String, background: Color, isToday: Boolean = fal
     }
 }
 
+/**
+ * Cellule Icône + badge extra pour la matrice Jour × Modèle.
+ *
+ * Layout vertical dans une hauteur de 52dp :
+ *   - Icône 22dp centrée (taille légèrement réduite vs les 24dp historiques
+ *     pour laisser de l'air au badge en dessous)
+ *   - Badge optionnel 2 lignes plus bas (labelSmall) — probabilité de pluie
+ *     ou couverture nuageuse selon la condition
+ *
+ * Règles de badge :
+ *   - Famille pluie/orage → probabilité de pluie max si dispo
+ *   - Famille PARTLY_CLOUDY / OVERCAST → couverture nuageuse moyenne si dispo
+ *   - Autres familles ou données manquantes → pas de badge (aligne le layout
+ *     visuellement sur les cellules avec badge, l'espace reste le même)
+ */
 @Composable
-private fun IconCell(condition: WeatherCondition?, background: Color) {
+private fun IconCell(
+    condition: WeatherCondition?,
+    extras: DayCellExtras?,
+    background: Color
+) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(44.dp)
+            .height(52.dp)
             .background(background),
         contentAlignment = Alignment.Center
     ) {
-        if (condition != null) {
-            WeatherIconDecorative(
-                condition = condition,
-                size = 24.dp,
-                tint = condition.semanticTint()
-            )
-        } else {
+        if (condition == null) {
             // Modèle sans donnée pour ce jour (typique : AROME HD ne couvre
             // que J+0 à J+2 — colonnes "vides" au-delà). On affiche un tiret
             // discret pour que la cellule reste reconnaissable comme une
             // cellule (pas comme un trou de layout).
             Text("—", style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                WeatherIconDecorative(
+                    condition = condition,
+                    size = 22.dp,
+                    tint = condition.semanticTint()
+                )
+                val badge = extraBadgeFor(condition, extras)
+                if (badge != null) {
+                    Text(
+                        text = badge,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
         }
+    }
+}
+
+/**
+ * Décide quel badge afficher sous une icône selon la famille météo et les extras
+ * disponibles.
+ *
+ * Rule set :
+ *   - Familles RAIN / DRIZZLE / SHOWERS / THUNDERSTORM / FREEZING_RAIN → prob de pluie
+ *   - Familles SNOW / SNOW_SHOWERS → prob de pluie aussi (l'API renvoie
+ *     precipitation_probability, indépendante du type — neige ou pluie)
+ *   - Familles PARTLY_CLOUDY / OVERCAST → cloud cover
+ *   - Autres (CLEAR, MAINLY_CLEAR, FOG, UNKNOWN) → null
+ *
+ * Renvoie null aussi si la valeur nécessaire n'est pas fournie par le modèle.
+ * On ne bricole pas de fallback ("~ 50%") — mieux vaut ne rien montrer qu'un
+ * chiffre inventé qui donnerait l'impression d'une donnée réelle.
+ */
+private fun extraBadgeFor(
+    condition: WeatherCondition,
+    extras: DayCellExtras?
+): String? {
+    if (extras == null) return null
+    return when (condition) {
+        WeatherCondition.RAIN,
+        WeatherCondition.DRIZZLE,
+        WeatherCondition.RAIN_SHOWERS,
+        WeatherCondition.THUNDERSTORM,
+        WeatherCondition.FREEZING_RAIN,
+        WeatherCondition.SNOW,
+        WeatherCondition.SNOW_SHOWERS ->
+            extras.precipProbabilityMax?.let { "$it%" }
+        WeatherCondition.PARTLY_CLOUDY,
+        WeatherCondition.OVERCAST ->
+            extras.cloudCoverMean?.let { "$it%" }
+        else -> null
     }
 }
 

@@ -47,6 +47,14 @@ sealed interface CityDetailUiState {
         val hourlyBands: List<HourlyConfidenceBand>,
         val currentTemp: Double?,
         val currentCondition: WeatherCondition? = null,
+        /**
+         * Couverture nuageuse "maintenant" (0-100), agrégée entre modèles.
+         * Utilisée par TodaySummaryCard pour afficher un badge "70% couvert"
+         * quand la condition affichée est de la famille cloudy/overcast.
+         * Null si aucun modèle ne fournit cloud_cover à l'instant courant
+         * (cache pré-feature) — l'UI omet alors le badge.
+         */
+        val currentCloudCover: Int? = null,
         val dailyConditions: List<DayConditionsRow> = emptyList(),
         val normals: Map<Int, DayNormals>? = null,
         val fetchedAt: Instant? = null

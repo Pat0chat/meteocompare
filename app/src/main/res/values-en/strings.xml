@@ -43,7 +43,8 @@
     <string name="section_temp_table">Max / min temperatures</string>
     <string name="section_temp_hourly">Hourly temperatures</string>
     <string name="section_precipitation">Precipitation</string>
-    <string name="section_wind">Max wind</string>
+    <string name="section_wind">10m mean wind</string>
+    <string name="section_wind_hourly">10m mean wind</string>
     <string name="section_weather_by_model">Weather by model and day</string>
 
     <!-- Display-mode toggle (below the TodaySummaryCard) -->
@@ -103,7 +104,7 @@
     <!-- Variable labels (today summary) -->
     <string name="var_temp_max">Max temperature</string>
     <string name="var_temp_min">Min temperature</string>
-    <string name="var_wind_max">Max wind</string>
+    <string name="var_wind_max">10m mean wind</string>
     <string name="var_precipitation">Precipitation</string>
 
     <!-- Refresh feedback -->
@@ -166,7 +167,7 @@
     <string name="a11y_today_summary_many">Today\'s summary, %d models analysed</string>
     <string name="a11y_temp_max_label">Max temperature</string>
     <string name="a11y_temp_min_label">Min temperature</string>
-    <string name="a11y_wind_max_label">Max wind</string>
+    <string name="a11y_wind_max_label">10m mean wind</string>
     <string name="a11y_kmh_unit">kilometers per hour</string>
 
     <!-- ─── "Why this confidence?" ───────────────────────────────────────── -->

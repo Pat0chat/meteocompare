@@ -37,9 +37,21 @@ class ForecastMapper @Inject constructor() {
                 temperature2m = alignNonNullTimes(times, h.temperature2m),
                 precipitation = alignNonNullTimes(times, h.precipitation),
                 windSpeed10m = alignNonNullTimes(times, h.windSpeed10m),
-                weatherCode = alignNonNullTimesInt(times, h.weatherCode)
+                weatherCode = alignNonNullTimesInt(times, h.weatherCode),
+                windDirection10m = alignNonNullTimesInt(times, h.windDirection10m),
+                precipitationProbability = alignNonNullTimesInt(times, h.precipitationProbability),
+                cloudCover = alignNonNullTimesInt(times, h.cloudCover)
             )
-        } ?: HourlyForecast(emptyList(), emptyList(), emptyList(), emptyList(), emptyList())
+        } ?: HourlyForecast(
+            timestamps = emptyList(),
+            temperature2m = emptyList(),
+            precipitation = emptyList(),
+            windSpeed10m = emptyList(),
+            weatherCode = emptyList(),
+            windDirection10m = emptyList(),
+            precipitationProbability = emptyList(),
+            cloudCover = emptyList()
+        )
 
         val daily = dto.daily?.let { d ->
             val dates = d.time.map { parseOpenMeteoDate(it) }
@@ -49,9 +61,20 @@ class ForecastMapper @Inject constructor() {
                 tempMin = alignNonNullDates(dates, d.temperature2mMin),
                 precipitationSum = alignNonNullDates(dates, d.precipitationSum),
                 windSpeedMax = alignNonNullDates(dates, d.windSpeed10mMax),
-                weatherCode = alignNonNullDatesInt(dates, d.weatherCode)
+                weatherCode = alignNonNullDatesInt(dates, d.weatherCode),
+                windDirection10mDominant = alignNonNullDatesInt(dates, d.windDirection10mDominant),
+                precipitationProbabilityMax = alignNonNullDatesInt(dates, d.precipitationProbabilityMax)
             )
-        } ?: DailyForecast(emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), emptyList())
+        } ?: DailyForecast(
+            dates = emptyList(),
+            tempMax = emptyList(),
+            tempMin = emptyList(),
+            precipitationSum = emptyList(),
+            windSpeedMax = emptyList(),
+            weatherCode = emptyList(),
+            windDirection10mDominant = emptyList(),
+            precipitationProbabilityMax = emptyList()
+        )
 
         return ForecastSeries(model = model, hourly = hourly, daily = daily)
     }

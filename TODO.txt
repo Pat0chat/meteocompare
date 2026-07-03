@@ -2,16 +2,22 @@ TODO
 ----
 
 -- in progress
+- Trie des modèles par finesse ;
+
+
+-- to check
 - Changer le titre pour le vent pour bien comprendre quelle valeur de vent est affichée (vent moyen à 10m ?) ;
 - Dans le tableau du vent, ajouter la direction du vent vie wind_derection_10m si du vent est prévu ;
 - Dans le tableau du temps, dans les cards : si pluie ajouter la Precipitation Probability donnée par le modèle
 - Dans le tableau du temps et dans les cards (home et todaysummary) : si couvert ou nuageux, ajouter la "cloud cover total" du modèle
-- Trie des modèles par finesse ;
-- Mise à jour README + Fiche Play Store EN/FR
+- Vraie icone partly cloudy
+--> Clean code, remove dead code, improve code quality, add tests
+--> Mise à jour README + Fiche Play Store EN/FR
 
--- to check
+-- done
+v0.5
+
+v0.4
 - Last update bien traduit en FR et EN ?
 - Zoom dans le graphe de confidence ;
 - Ajouter l'information de quand les données ont été mise à jour pour la dernière fois (dans la carte de la ville page home et dans la todaysummarycard dans la page details)
-
--- done

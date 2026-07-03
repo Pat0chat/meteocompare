@@ -36,7 +36,17 @@ data class HourlyDto(
     // remet null sans crasher, et le mapper renvoie une liste vide → l'UI ne
     // tente pas d'afficher d'icône. Pas besoin d'invalider le cache existant.
     @SerialName("weather_code")
-    val weatherCode: List<Int?>? = null
+    val weatherCode: List<Int?>? = null,
+    // ─── Champs ajoutés pour enrichir l'UI ──────────────────────────────────
+    // Tous nullables (défaut null) pour la SAME raison que weather_code : ne
+    // pas invalider les caches existants ni bloquer si un modèle ne fournit
+    // pas la variable (typiquement AROME HD sur precipitation_probability).
+    @SerialName("wind_direction_10m")
+    val windDirection10m: List<Int?>? = null,
+    @SerialName("precipitation_probability")
+    val precipitationProbability: List<Int?>? = null,
+    @SerialName("cloud_cover")
+    val cloudCover: List<Int?>? = null
 )
 
 @Serializable
@@ -51,5 +61,18 @@ data class DailyDto(
     @SerialName("wind_speed_10m_max")
     val windSpeed10mMax: List<Double?>? = null,
     @SerialName("weather_code")
-    val weatherCode: List<Int?>? = null
+    val weatherCode: List<Int?>? = null,
+    // Direction dominante du vent sur la journée (Open-Meteo agrège via une
+    // moyenne pondérée par la vitesse, ce qu'on veut : les directions des
+    // heures de vent fort comptent plus que celles des heures calmes).
+    @SerialName("wind_direction_10m_dominant")
+    val windDirection10mDominant: List<Int?>? = null,
+    // Probabilité de précipitation MAX de la journée. On prend le max plutôt
+    // que la moyenne parce que l'utilisateur veut savoir "y a-t-il UN moment
+    // du jour à haut risque de pluie", pas "quelle est la probabilité moyenne
+    // à toute heure".
+    @SerialName("precipitation_probability_max")
+    val precipitationProbabilityMax: List<Int?>? = null
+    // Note : pas de cloud_cover_mean en daily côté API — on l'agrège dans le
+    // domaine à partir des heures diurnes (voir ConfidenceCalculator).
 )

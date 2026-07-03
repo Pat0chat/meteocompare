@@ -2,6 +2,7 @@ package com.meteocompare.app.ui.citydetail
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -76,11 +77,10 @@ fun HourlyWeatherByModelTable(
         forecast.seriesByModel.keys.toList().sortedBy { it.ordinal }
     }
 
-    // Pré-calcul des conditions Heure × Modèle. Ici remember(forecast, timestamps)
-    // garantit qu'on ne recalcule pas la matrice à chaque recomposition liée à
-    // un scroll ou à un changement de thème — seulement quand le forecast lui-
-    // même change (donc en pratique après un refresh).
-    val conditionsByTimestamp: Map<Instant, Map<WeatherModel, WeatherCondition>> =
+    // Pré-calcul des conditions + extras Heure × Modèle. Un data holder local
+    // au fichier (HourCellData) pour ne pas multiplier les maps parallèles et
+    // garder l'accès dans les cellules trivial.
+    val cellsByTimestamp: Map<Instant, Map<WeatherModel, HourCellData>> =
         remember(forecast, timestamps) {
             timestamps.associateWith { ts ->
                 forecast.seriesByModel.mapNotNull { (model, series) ->
@@ -96,7 +96,13 @@ fun HourlyWeatherByModelTable(
                             tempMinC = series.hourly.temperature2m.getOrNull(idx)
                         )
                         ?: return@mapNotNull null
-                    model to condition
+                    val precipProb = series.hourly.precipitationProbability.getOrNull(idx)
+                    val cloudCover = series.hourly.cloudCover.getOrNull(idx)
+                    model to HourCellData(
+                        condition = condition,
+                        precipProbability = precipProb,
+                        cloudCover = cloudCover
+                    )
                 }.toMap()
             }
         }
@@ -104,7 +110,7 @@ fun HourlyWeatherByModelTable(
     // Si aucune donnée d'aucun modèle sur toute la fenêtre : message plutôt
     // qu'un tableau vide qui donnerait l'impression d'un bug de rendu.
     if (timestamps.isEmpty() || models.isEmpty() ||
-        conditionsByTimestamp.values.all { it.isEmpty() }) {
+        cellsByTimestamp.values.all { it.isEmpty() }) {
         Text(
             stringResource(R.string.no_hourly_data),
             style = MaterialTheme.typography.bodyMedium,
@@ -153,21 +159,21 @@ fun HourlyWeatherByModelTable(
         }
 
         VerticalDivider(
-            modifier = Modifier.height((40 + timestamps.size * 36).dp)
+            modifier = Modifier.height((40 + timestamps.size * 44).dp)
         )
 
-        // Partie scrollable : une colonne par modèle. Cellule 36dp (un peu plus
-        // haute que HourlyForecastTable) pour accommoder l'icône 20dp + padding
-        // sans que l'icône colle aux bordures — c'est aussi ~10% plus dense
-        // que la table daily (44dp), ce qui compense la longueur variable
-        // (jusqu'à 24 lignes à minuit, moins en cours de journée).
+        // Partie scrollable : une colonne par modèle. Cellule 44dp — plus haute
+        // que la précédente version (36dp) pour accommoder l'icône 20dp + un
+        // badge extra (probabilité de pluie ou couverture nuageuse) sur une
+        // ligne en dessous. Reste dense vs les tables daily (52dp) car ici on
+        // a beaucoup de lignes (jusqu'à 24) et il faut ménager le scroll.
         Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
             models.forEach { model ->
                 Column(modifier = Modifier.width(60.dp)) {
                     ModelHeaderCell(text = model.displayName, background = headerBg)
                     timestamps.forEachIndexed { idx, ts ->
                         HourIconCell(
-                            condition = conditionsByTimestamp[ts]?.get(model),
+                            cell = cellsByTimestamp[ts]?.get(model),
                             background = bgFor(idx, ts)
                         )
                     }
@@ -218,7 +224,7 @@ private fun HourLabelCellWeather(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(36.dp)
+            .height(44.dp)
             .background(background)
             .padding(horizontal = 6.dp),
         contentAlignment = Alignment.CenterStart
@@ -255,22 +261,28 @@ private fun HourLabelCellWeather(
     }
 }
 
+/**
+ * Données affichées dans une cellule Heure × Modèle du tableau du temps
+ * horaire. Analogue à [com.meteocompare.app.domain.usecase.DayCellExtras]
+ * mais tenues LOCALES au composant : ce type n'a pas d'utilité en dehors
+ * du rendu ; l'ajouter au domaine créerait un couplage inutile.
+ */
+private data class HourCellData(
+    val condition: WeatherCondition,
+    val precipProbability: Int?,
+    val cloudCover: Int?
+)
+
 @Composable
-private fun HourIconCell(condition: WeatherCondition?, background: Color) {
+private fun HourIconCell(cell: HourCellData?, background: Color) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(36.dp)
+            .height(44.dp)
             .background(background),
         contentAlignment = Alignment.Center
     ) {
-        if (condition != null) {
-            WeatherIconDecorative(
-                condition = condition,
-                size = 20.dp,
-                tint = condition.semanticTint()
-            )
-        } else {
+        if (cell == null) {
             // Modèle sans donnée pour cette heure (typique : AROME HD ne
             // couvre que J+0 à J+2, colonnes vides au-delà). Tiret discret
             // pour que la cellule reste reconnaissable comme cellule.
@@ -279,6 +291,50 @@ private fun HourIconCell(condition: WeatherCondition?, background: Color) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        } else {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                WeatherIconDecorative(
+                    condition = cell.condition,
+                    size = 20.dp,
+                    tint = cell.condition.semanticTint()
+                )
+                val badge = hourlyExtraBadgeFor(cell)
+                if (badge != null) {
+                    Text(
+                        text = badge,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
         }
+    }
+}
+
+/**
+ * Même logique que [extraBadgeFor] dans le tableau daily, adaptée à la
+ * granularité horaire :
+ *   - Famille pluie → probabilité de pluie à l'heure (0-100)
+ *   - Famille cloudy/overcast → couverture nuageuse à l'heure (0-100)
+ *   - Autres → null
+ */
+private fun hourlyExtraBadgeFor(cell: HourCellData): String? {
+    return when (cell.condition) {
+        WeatherCondition.RAIN,
+        WeatherCondition.DRIZZLE,
+        WeatherCondition.RAIN_SHOWERS,
+        WeatherCondition.THUNDERSTORM,
+        WeatherCondition.FREEZING_RAIN,
+        WeatherCondition.SNOW,
+        WeatherCondition.SNOW_SHOWERS ->
+            cell.precipProbability?.let { "$it%" }
+        WeatherCondition.PARTLY_CLOUDY,
+        WeatherCondition.OVERCAST ->
+            cell.cloudCover?.let { "$it%" }
+        else -> null
     }
 }

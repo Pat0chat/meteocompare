@@ -8,8 +8,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
@@ -17,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
@@ -51,6 +56,10 @@ import java.time.format.TextStyle as JavaTextStyle
  *   modèle et un index d'heure donnés.
  * @param valueFormatter Formatage (ex: `{ "${it.roundToInt()}°" }`).
  * @param valueStyler Optionnel — applique une couleur et graisse selon la valeur.
+ * @param directionExtractor Optionnel — pour les variables directionnelles.
+ *   Retourne les degrés météo (0=N, 90=E, 180=S, 270=O) ou null si non
+ *   applicable (variable absente, ou vent trop faible pour être informatif).
+ *   Symétrique du `directionExtractor` de [ForecastTable] (version daily).
  */
 @Composable
 fun HourlyForecastTable(
@@ -58,7 +67,8 @@ fun HourlyForecastTable(
     valueExtractor: (HourlyForecast, Int) -> Double?,
     valueFormatter: (Double) -> String,
     modifier: Modifier = Modifier,
-    valueStyler: ((Double) -> ValueStyle?)? = null
+    valueStyler: ((Double) -> ValueStyle?)? = null,
+    directionExtractor: ((HourlyForecast, Int) -> Int?)? = null
 ) {
     // Fuseau de la ville — sert au filtrage de l'horizon ET au formatage des
     // labels d'heure. Fallback UTC silencieux si timezone invalide, pour ne
@@ -170,10 +180,14 @@ fun HourlyForecastTable(
                     )
                     timestamps.forEachIndexed { idx, ts ->
                         val value = valueAt(forecast, model, ts, valueExtractor)
+                        val direction = directionExtractor?.let {
+                            directionAt(forecast, model, ts, it)
+                        }
                         HourValueCell(
                             text = value?.let(valueFormatter) ?: "—",
                             style = value?.let { v -> valueStyler?.invoke(v) },
-                            background = bgFor(idx, ts)
+                            background = bgFor(idx, ts),
+                            directionDegrees = direction
                         )
                     }
                 }
@@ -274,7 +288,12 @@ private fun HourLabelCell(
 }
 
 @Composable
-private fun HourValueCell(text: String, style: ValueStyle?, background: Color) {
+private fun HourValueCell(
+    text: String,
+    style: ValueStyle?,
+    background: Color,
+    directionDegrees: Int? = null
+) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -282,12 +301,35 @@ private fun HourValueCell(text: String, style: ValueStyle?, background: Color) {
             .background(background),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodySmall,
-            color = style?.color ?: Color.Unspecified,
-            fontWeight = style?.fontWeight
-        )
+        if (directionDegrees != null) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // Flèche minuscule (10dp, plus petit que la version daily 12dp)
+                // pour tenir dans la cellule 60dp × 32dp très dense de la table
+                // horaire. Le sens : downwind, cohérent avec le tableau daily.
+                Icon(
+                    imageVector = Icons.Filled.ArrowUpward,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .size(10.dp)
+                        .rotate(((directionDegrees + 180) % 360).toFloat())
+                )
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = style?.color ?: Color.Unspecified,
+                    fontWeight = style?.fontWeight,
+                    modifier = Modifier.padding(start = 2.dp)
+                )
+            }
+        } else {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodySmall,
+                color = style?.color ?: Color.Unspecified,
+                fontWeight = style?.fontWeight
+            )
+        }
     }
 }
 
@@ -309,6 +351,19 @@ private fun valueAt(
     timestamp: Instant,
     extractor: (HourlyForecast, Int) -> Double?
 ): Double? {
+    val series = forecast.seriesByModel[model] ?: return null
+    val idx = series.hourly.timestamps.indexOf(timestamp)
+    if (idx < 0) return null
+    return extractor(series.hourly, idx)
+}
+
+/** Version Int? de [valueAt] pour les champs directionnels (degrés météo). */
+private fun directionAt(
+    forecast: CityForecast,
+    model: com.meteocompare.app.domain.model.WeatherModel,
+    timestamp: Instant,
+    extractor: (HourlyForecast, Int) -> Int?
+): Int? {
     val series = forecast.seriesByModel[model] ?: return null
     val idx = series.hourly.timestamps.indexOf(timestamp)
     if (idx < 0) return null

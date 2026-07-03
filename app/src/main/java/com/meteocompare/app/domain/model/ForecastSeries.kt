@@ -22,7 +22,7 @@ data class HourlyForecast(
     val temperature2m: List<Double?>,
     /** Précipitations en mm (somme sur l'heure écoulée). */
     val precipitation: List<Double?>,
-    /** Vitesse du vent à 10m en km/h. */
+    /** Vitesse du vent MOYEN à 10m en km/h (à ne pas confondre avec les rafales). */
     val windSpeed10m: List<Double?>,
     /**
      * Code météo WMO 4677 (0=clair, 3=couvert, 61=pluie, 95=orage, etc.).
@@ -30,7 +30,24 @@ data class HourlyForecast(
      * d'une version antérieure de l'app — l'UI traite ce cas en n'affichant
      * simplement pas d'icône, sans erreur.
      */
-    val weatherCode: List<Int?> = emptyList()
+    val weatherCode: List<Int?> = emptyList(),
+    /**
+     * Direction d'origine du vent à 10m, en degrés météorologiques
+     * (0=Nord, 90=Est, 180=Sud, 270=Ouest — la direction D'OÙ souffle le vent).
+     * Vide si le modèle ne fournit pas la variable ou cache pré-feature.
+     */
+    val windDirection10m: List<Int?> = emptyList(),
+    /**
+     * Probabilité de précipitation sur l'heure, 0-100%. Non renseignée par
+     * tous les modèles (AROME HD notamment) — vide dans ce cas, l'UI omet
+     * alors la mention "60%" sur les icônes pluie.
+     */
+    val precipitationProbability: List<Int?> = emptyList(),
+    /**
+     * Couverture nuageuse totale, 0-100%. Vide si non fourni par le modèle
+     * ou cache antérieur à la feature.
+     */
+    val cloudCover: List<Int?> = emptyList()
 ) {
     val size: Int get() = timestamps.size
 }
@@ -43,10 +60,27 @@ data class DailyForecast(
     val tempMin: List<Double?>,
     /** Cumul de précipitations journalier en mm. */
     val precipitationSum: List<Double?>,
-    /** Vitesse de vent maximale du jour en km/h. */
+    /**
+     * Vitesse maximale du vent MOYEN sur la journée à 10m en km/h.
+     * IMPORTANT : c'est le max des vents horaires moyens, PAS les rafales
+     * (`wind_gusts_10m_max` côté API — non demandé actuellement).
+     */
     val windSpeedMax: List<Double?>,
     /** Code météo WMO 4677 — défaut empty pour les caches antérieurs. */
-    val weatherCode: List<Int?> = emptyList()
+    val weatherCode: List<Int?> = emptyList(),
+    /**
+     * Direction dominante du vent sur la journée, en degrés météorologiques.
+     * Agrégée par Open-Meteo via une moyenne pondérée par la vitesse.
+     */
+    val windDirection10mDominant: List<Int?> = emptyList(),
+    /**
+     * Probabilité MAX de précipitation sur la journée, 0-100%. On prend le
+     * max journalier plutôt que la moyenne — le signal utile est "y a-t-il
+     * un pic de risque de pluie", pas "quelle est la valeur moyenne".
+     */
+    val precipitationProbabilityMax: List<Int?> = emptyList()
+    // Note : cloud_cover_mean n'existe pas côté API en daily — on agrège
+    // depuis les heures diurnes dans ConfidenceCalculator quand nécessaire.
 ) {
     val size: Int get() = dates.size
 }
