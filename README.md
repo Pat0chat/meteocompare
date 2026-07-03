@@ -203,7 +203,7 @@ Fait :
 - ✅ v0.1 — Page "Pourquoi cette confiance ?", correction de bugs
 - ✅ v0.2 — Icônes de temps, tableau Jour × Modèle des conditions, ajout UKMO / AIFS / GEM / ICON-D2,
 - ✅ v0.3 — highlight du jour courant dans les tableaux, correction de bugs
-- v0.4 : Option hourly / daily, zoom dans le graphe "confidence/confiance", dernière mise à jour
+- ✅ v0.4 : Option hourly / daily, zoom dans le graphe "confidence/confiance", dernière mise à jour
 
 À venir :
 - v0.5 : Nouvelles données (vent, précipitation), correction de bugs
