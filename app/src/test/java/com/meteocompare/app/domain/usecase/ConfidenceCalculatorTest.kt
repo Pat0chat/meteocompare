@@ -413,6 +413,84 @@ class ConfidenceCalculatorTest {
         )
     }
 
+    // ──────────────────── Couverture nuageuse "maintenant" ────────────────────
+
+    @Test
+    fun `currentCloudCover - moyenne pondérée simple entre 2 modèles`() {
+        // 2 modèles, weights égaux (EqualWeighting) → moyenne arithmétique.
+        // 50% + 80% → 65%. Un timestamp calé pile sur "maintenant" pour que
+        // le closest-to-now lookup soit déterministe (pas de dépendance à
+        // Instant.now() qui bougerait pendant le test).
+        val now = java.time.Instant.now()
+
+        val forecast = CityForecast(
+            city = paris,
+            seriesByModel = mapOf(
+                WeatherModel.ARPEGE_EUROPE to hourlyOnly(now, cloudCover = 50),
+                WeatherModel.GFS to hourlyOnly(now, cloudCover = 80)
+            )
+        )
+
+        assertEquals(65, calculator.currentCloudCover(forecast))
+    }
+
+    @Test
+    fun `currentCloudCover - retourne null si aucun modèle ne fournit cloud_cover`() {
+        // Cache pré-feature ou modèles sans la variable → null, l'UI cachera
+        // le badge côté carte plutôt que d'afficher une valeur inventée.
+        val now = java.time.Instant.now()
+
+        val forecast = CityForecast(
+            city = paris,
+            seriesByModel = mapOf(
+                WeatherModel.ARPEGE_EUROPE to hourlyOnly(now, cloudCover = null),
+                WeatherModel.GFS to hourlyOnly(now, cloudCover = null)
+            )
+        )
+
+        assertNull(calculator.currentCloudCover(forecast))
+    }
+
+    @Test
+    fun `currentCloudCover - ignore les modèles sans cloud_cover et moyenne les autres`() {
+        // Un modèle sans donnée ne DOIT PAS tirer la moyenne vers 0 en étant
+        // compté avec cloud=0. Il doit être exclu du calcul — sinon un modèle
+        // manquant biaiserait vers un ciel trop dégagé (danger éditorial).
+        val now = java.time.Instant.now()
+
+        val forecast = CityForecast(
+            city = paris,
+            seriesByModel = mapOf(
+                WeatherModel.ARPEGE_EUROPE to hourlyOnly(now, cloudCover = 60),
+                WeatherModel.GFS to hourlyOnly(now, cloudCover = null), // ignoré
+                WeatherModel.ICON_EU to hourlyOnly(now, cloudCover = 80)
+            )
+        )
+
+        // (60 + 80) / 2 = 70, PAS (60 + 0 + 80) / 3 = 46.67
+        assertEquals(70, calculator.currentCloudCover(forecast))
+    }
+
+    /**
+     * Construit un ForecastSeries avec UNE heure de données à [timestamp].
+     * Les autres variables sont mises à des valeurs neutres — on ne teste ici
+     * que le pipeline cloudCover, pas les températures ou précipitations.
+     */
+    private fun hourlyOnly(
+        timestamp: java.time.Instant,
+        cloudCover: Int?
+    ): ForecastSeries = ForecastSeries(
+        model = WeatherModel.GFS, // ignoré, le model est fourni par la Map extérieure
+        hourly = HourlyForecast(
+            timestamps = listOf(timestamp),
+            temperature2m = listOf(20.0),
+            precipitation = listOf(0.0),
+            windSpeed10m = listOf(5.0),
+            cloudCover = listOf(cloudCover)
+        ),
+        daily = emptyDaily()
+    )
+
     // ──────────────────── Helpers ────────────────────
 
     private fun emptyHourly() = HourlyForecast(emptyList(), emptyList(), emptyList(), emptyList())

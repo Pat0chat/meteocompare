@@ -8,12 +8,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
@@ -21,7 +17,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
@@ -32,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.HourlyForecast
+import com.meteocompare.app.ui.components.WindArrow
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -312,17 +308,10 @@ private fun HourValueCell(
     ) {
         if (directionDegrees != null) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // Flèche minuscule (10dp, plus petit que la version daily 12dp)
-                // pour tenir dans la cellule 60dp × 32dp très dense de la table
+                // Flèche 10dp (plus petite que la version daily 12dp) pour
+                // tenir dans la cellule 60dp × 32dp très dense de la table
                 // horaire. Le sens : downwind, cohérent avec le tableau daily.
-                Icon(
-                    imageVector = Icons.Filled.ArrowUpward,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier
-                        .size(10.dp)
-                        .rotate(((directionDegrees + 180) % 360).toFloat())
-                )
+                WindArrow(directionDegrees = directionDegrees, size = 10.dp)
                 Text(
                     text = text,
                     style = MaterialTheme.typography.bodySmall,

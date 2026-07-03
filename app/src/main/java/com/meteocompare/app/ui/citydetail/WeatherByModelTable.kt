@@ -223,7 +223,11 @@ private fun IconCell(
                     size = 22.dp,
                     tint = condition.semanticTint()
                 )
-                val badge = extraBadgeFor(condition, extras)
+                val badge = weatherBadgeFor(
+                    condition = condition,
+                    precipProbability = extras?.precipProbabilityMax,
+                    cloudCover = extras?.cloudCoverMean
+                )
                 if (badge != null) {
                     Text(
                         text = badge,
@@ -234,42 +238,6 @@ private fun IconCell(
                 }
             }
         }
-    }
-}
-
-/**
- * Décide quel badge afficher sous une icône selon la famille météo et les extras
- * disponibles.
- *
- * Rule set :
- *   - Familles RAIN / DRIZZLE / SHOWERS / THUNDERSTORM / FREEZING_RAIN → prob de pluie
- *   - Familles SNOW / SNOW_SHOWERS → prob de pluie aussi (l'API renvoie
- *     precipitation_probability, indépendante du type — neige ou pluie)
- *   - Familles PARTLY_CLOUDY / OVERCAST → cloud cover
- *   - Autres (CLEAR, MAINLY_CLEAR, FOG, UNKNOWN) → null
- *
- * Renvoie null aussi si la valeur nécessaire n'est pas fournie par le modèle.
- * On ne bricole pas de fallback ("~ 50%") — mieux vaut ne rien montrer qu'un
- * chiffre inventé qui donnerait l'impression d'une donnée réelle.
- */
-private fun extraBadgeFor(
-    condition: WeatherCondition,
-    extras: DayCellExtras?
-): String? {
-    if (extras == null) return null
-    return when (condition) {
-        WeatherCondition.RAIN,
-        WeatherCondition.DRIZZLE,
-        WeatherCondition.RAIN_SHOWERS,
-        WeatherCondition.THUNDERSTORM,
-        WeatherCondition.FREEZING_RAIN,
-        WeatherCondition.SNOW,
-        WeatherCondition.SNOW_SHOWERS ->
-            extras.precipProbabilityMax?.let { "$it%" }
-        WeatherCondition.PARTLY_CLOUDY,
-        WeatherCondition.OVERCAST ->
-            extras.cloudCoverMean?.let { "$it%" }
-        else -> null
     }
 }
 

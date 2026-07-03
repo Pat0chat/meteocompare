@@ -301,7 +301,11 @@ private fun HourIconCell(cell: HourCellData?, background: Color) {
                     size = 20.dp,
                     tint = cell.condition.semanticTint()
                 )
-                val badge = hourlyExtraBadgeFor(cell)
+                val badge = weatherBadgeFor(
+                    condition = cell.condition,
+                    precipProbability = cell.precipProbability,
+                    cloudCover = cell.cloudCover
+                )
                 if (badge != null) {
                     Text(
                         text = badge,
@@ -312,29 +316,5 @@ private fun HourIconCell(cell: HourCellData?, background: Color) {
                 }
             }
         }
-    }
-}
-
-/**
- * Même logique que [extraBadgeFor] dans le tableau daily, adaptée à la
- * granularité horaire :
- *   - Famille pluie → probabilité de pluie à l'heure (0-100)
- *   - Famille cloudy/overcast → couverture nuageuse à l'heure (0-100)
- *   - Autres → null
- */
-private fun hourlyExtraBadgeFor(cell: HourCellData): String? {
-    return when (cell.condition) {
-        WeatherCondition.RAIN,
-        WeatherCondition.DRIZZLE,
-        WeatherCondition.RAIN_SHOWERS,
-        WeatherCondition.THUNDERSTORM,
-        WeatherCondition.FREEZING_RAIN,
-        WeatherCondition.SNOW,
-        WeatherCondition.SNOW_SHOWERS ->
-            cell.precipProbability?.let { "$it%" }
-        WeatherCondition.PARTLY_CLOUDY,
-        WeatherCondition.OVERCAST ->
-            cell.cloudCover?.let { "$it%" }
-        else -> null
     }
 }
