@@ -27,6 +27,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.CityForecast
@@ -60,6 +61,11 @@ import java.time.format.TextStyle as JavaTextStyle
  *   Retourne les degrés météo (0=N, 90=E, 180=S, 270=O) ou null si non
  *   applicable (variable absente, ou vent trop faible pour être informatif).
  *   Symétrique du `directionExtractor` de [ForecastTable] (version daily).
+ * @param cellWidth Largeur d'une cellule modèle. 60dp par défaut — assez large
+ *   pour "0.5" ou "22°" sans unité. Passer une valeur plus grande pour la
+ *   colonne vent qui affiche flèche + valeur + unité "km/h" (76dp donne
+ *   suffisamment de marge pour "↗ 120 km/h"). La colonne label figée à gauche
+ *   (84dp) reste dimensionnée séparément.
  */
 @Composable
 fun HourlyForecastTable(
@@ -68,7 +74,8 @@ fun HourlyForecastTable(
     valueFormatter: (Double) -> String,
     modifier: Modifier = Modifier,
     valueStyler: ((Double) -> ValueStyle?)? = null,
-    directionExtractor: ((HourlyForecast, Int) -> Int?)? = null
+    directionExtractor: ((HourlyForecast, Int) -> Int?)? = null,
+    cellWidth: Dp = 60.dp
 ) {
     // Fuseau de la ville — sert au filtrage de l'horizon ET au formatage des
     // labels d'heure. Fallback UTC silencieux si timezone invalide, pour ne
@@ -167,16 +174,18 @@ fun HourlyForecastTable(
             modifier = Modifier.height((40 + timestamps.size * 32).dp)
         )
 
-        // Partie scrollable : une colonne par modèle. Cellules à 60dp au lieu
-        // de 64 pour compenser la colonne label plus large — même largeur
-        // totale à l'écran, plus d'aération verticale (32 vs 36) pour compenser
-        // le nombre de lignes plus élevé.
+        // Partie scrollable : une colonne par modèle. Cellules à `cellWidth`
+        // (défaut 60dp) — plus étroit que le tableau daily (64dp) pour compenser
+        // la colonne label plus large. Aération verticale (32 vs 36) pour tenir
+        // compte du nombre de lignes plus élevé. Le caller peut passer une
+        // valeur plus grande pour les colonnes vent (unité "km/h" + flèche).
         Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
             models.forEach { model ->
-                Column(modifier = Modifier.width(60.dp)) {
+                Column(modifier = Modifier.width(cellWidth)) {
                     HourModelHeaderCell(
                         text = model.displayName,
-                        background = headerBg
+                        background = headerBg,
+                        width = cellWidth
                     )
                     timestamps.forEachIndexed { idx, ts ->
                         val value = valueAt(forecast, model, ts, valueExtractor)
@@ -211,10 +220,10 @@ private fun HourHeaderCell(background: Color) {
 }
 
 @Composable
-private fun HourModelHeaderCell(text: String, background: Color) {
+private fun HourModelHeaderCell(text: String, background: Color, width: Dp) {
     Box(
         modifier = Modifier
-            .width(60.dp)
+            .width(width)
             .height(40.dp)
             .background(background)
             .padding(4.dp),

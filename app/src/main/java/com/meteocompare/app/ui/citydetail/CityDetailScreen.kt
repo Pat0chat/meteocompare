@@ -569,7 +569,10 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hourlyItems(
                 valueExtractor = { hourly: HourlyForecast, idx ->
                     hourly.windSpeed10m.getOrNull(idx)
                 },
-                valueFormatter = { "${it.roundToInt()}" },
+                // Unité "km/h" explicite dans chaque cellule — cohérent avec
+                // le tableau daily et lève l'ambiguïté "24 = degrés ? nœuds ?
+                // km/h ?" quand on scrolle vite en oubliant le titre de section.
+                valueFormatter = { "${it.roundToInt()} km/h" },
                 valueStyler = ::hourlyWindStyle,
                 // Même règle qu'en daily : direction affichée uniquement au
                 // dessus de 5 km/h. Sous ce seuil la direction horaire est du
@@ -579,6 +582,12 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hourlyItems(
                     if (speed == null || speed < 5.0) null
                     else hourly.windDirection10m.getOrNull(idx)
                 },
+                // Cellules plus larges que le défaut 60dp pour accommoder
+                // "↗ 120 km/h" (10dp flèche + 2dp espace + valeur + " km/h"
+                // ≈ 62-64dp). 76dp donne assez de marge, un peu moins que
+                // les 80dp du daily parce que la flèche horaire est plus
+                // petite (10dp vs 12dp) — même densité perçue à l'écran.
+                cellWidth = 76.dp,
                 modifier = Modifier.padding(8.dp)
             )
         }

@@ -227,4 +227,6 @@
     <string name="weather_legend_rain">Rain</string>
     <string name="weather_legend_snow">Snow</string>
     <string name="weather_legend_thunderstorm">Thunderstorm</string>
+    <!-- Note explaining the % badges under icons in the weather-by-model table -->
+    <string name="weather_legend_percent_note">The % under an icon = cloud cover (cloudy/overcast) or precipitation probability (rain/snow/thunderstorm).</string>
 </resources>

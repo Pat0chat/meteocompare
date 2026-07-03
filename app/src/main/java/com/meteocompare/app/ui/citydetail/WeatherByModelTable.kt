@@ -293,27 +293,43 @@ internal fun WeatherLegend() {
         WeatherCondition.SNOW,
         WeatherCondition.THUNDERSTORM
     )
-    FlowRow(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        items.forEach { c ->
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                WeatherIconDecorative(
-                    condition = c,
-                    size = 16.dp,
-                    tint = c.semanticTint()
-                )
-                Text(
-                    text = stringResource(c.legendStringRes()),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(start = 4.dp)
-                )
+    Column {
+        FlowRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items.forEach { c ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    WeatherIconDecorative(
+                        condition = c,
+                        size = 16.dp,
+                        tint = c.semanticTint()
+                    )
+                    Text(
+                        text = stringResource(c.legendStringRes()),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 4.dp)
+                    )
+                }
             }
         }
+        // Caption expliquant les badges "60%" affichés sous les icônes.
+        // Sans cette note, l'utilisateur voit "60%" sous une icône soleil ou
+        // nuage et hésite : probabilité de pluie ? d'ensoleillement ? de tenir
+        // au sec ? Deux règles simples :
+        //   - Sous une icône nuageuse/couverte → couverture nuageuse
+        //   - Sous une icône pluie/neige/orage → probabilité de précipitation
+        // labelSmall + onSurfaceVariant : ton discret, ne concurrence pas
+        // les chips de légende juste au-dessus qui sont l'info primaire.
+        Text(
+            text = stringResource(R.string.weather_legend_percent_note),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+        )
     }
 }
 
