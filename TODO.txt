@@ -4,4 +4,9 @@ TODO
 -- in progress
 - Trie des modèles par finesse ;
 - Optimisation batterie et CPU pour l'application et widget (WorkManager pour le refresh widget, réduction des recomputes)
-- Widget 4x2 avec prévisions des 4 prochaines heures ou des 4 prochains jours (nouveau setting du widget)
+
+- Page setting du widget qui commence trop haut. Le texte "configure widget" est au niveau de l'heure et des icones de batterie / réseau, etc.
+- Widget qui reste toujours sur "configurer la ville"
+- Les données dans le widget 2x1 sont toujours mal adaptée à la taille du widget. Mettre la confiance sous la température par exemple
+- QUand je passe en 3x1 et 4x1 il n'y a pas plus de données qui s'affichent
+- Ajouter une option 4x2 pour le widget prévisions des 4 prochaines heures ou des 4 prochains jours (nouveau setting du widget)

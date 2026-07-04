@@ -25,6 +25,21 @@ internal data class WidgetData(
     val tempMin: Double?,
     val confidencePct: Int?,
     val precipMm: Double?,
+    /**
+     * Confiance (%) sur la prévision de précipitations quand les modèles
+     * s'accordent sur "il pleut". Null si NoRain (pas de pluie prévue, pas
+     * de badge à montrer) ou Divided (trop de désaccord — le badge de
+     * confiance globale suffit à signaler l'incertitude, ne pas ajouter
+     * du bruit).
+     */
+    val precipConfidencePct: Int?,
+    /**
+     * Couverture nuageuse "maintenant" (0-100), agrégée entre modèles.
+     * Utilisée par le layout 4×1 quand la condition est cloudy/overcast.
+     * Null si aucun modèle ne fournit cloud_cover à l'instant courant
+     * (cache pré-feature) — le layout omet alors le badge.
+     */
+    val currentCloudCover: Int?,
     val error: WidgetError?
 ) {
     companion object {
@@ -37,6 +52,8 @@ internal data class WidgetData(
             tempMin = null,
             confidencePct = null,
             precipMm = null,
+            precipConfidencePct = null,
+            currentCloudCover = null,
             error = WidgetError.NotConfigured
         )
     }
@@ -88,6 +105,7 @@ internal suspend fun loadWidgetData(context: Context, cityId: String?): WidgetDa
             currentTemp = null, currentCondition = null,
             tempMax = null, tempMin = null,
             confidencePct = null, precipMm = null,
+            precipConfidencePct = null, currentCloudCover = null,
             error = WidgetError.CityNoLongerInFavorites
         )
 
@@ -105,8 +123,8 @@ internal suspend fun loadWidgetData(context: Context, cityId: String?): WidgetDa
             // en mm). NoRain → pas de nombre à montrer (pas de pluie prévue),
             // Divided → trop de désaccord pour un chiffre unique — le badge
             // de confiance basse le signale déjà.
-            val precipMm = (dayConf?.precipitation as?
-                com.meteocompare.app.domain.model.PrecipitationConfidence.Rain)?.meanMm
+            val rainConfidence = dayConf?.precipitation as?
+                com.meteocompare.app.domain.model.PrecipitationConfidence.Rain
             WidgetData(
                 cityName = city.name,
                 currentTemp = calc.currentTemperature(forecast),
@@ -114,7 +132,9 @@ internal suspend fun loadWidgetData(context: Context, cityId: String?): WidgetDa
                 tempMax = dayConf?.tempMax?.meanValue,
                 tempMin = dayConf?.tempMin?.meanValue,
                 confidencePct = dayConf?.overallPercent,
-                precipMm = precipMm,
+                precipMm = rainConfidence?.meanMm,
+                precipConfidencePct = rainConfidence?.percent,
+                currentCloudCover = calc.currentCloudCover(forecast),
                 error = null
             )
         }
@@ -123,6 +143,7 @@ internal suspend fun loadWidgetData(context: Context, cityId: String?): WidgetDa
             currentTemp = null, currentCondition = null,
             tempMax = null, tempMin = null,
             confidencePct = null, precipMm = null,
+            precipConfidencePct = null, currentCloudCover = null,
             error = WidgetError.Fetch(result.message)
         )
         null -> WidgetData(
@@ -130,6 +151,7 @@ internal suspend fun loadWidgetData(context: Context, cityId: String?): WidgetDa
             currentTemp = null, currentCondition = null,
             tempMax = null, tempMin = null,
             confidencePct = null, precipMm = null,
+            precipConfidencePct = null, currentCloudCover = null,
             error = WidgetError.Fetch("no data")
         )
     }

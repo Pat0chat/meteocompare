@@ -118,41 +118,58 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
      *
      *   1. Écriture des prefs Glance pour ce widget spécifique — le rendu
      *      lira ces prefs au prochain provideGlance.
-     *   2. Update explicite du widget pour qu'il se recompose IMMÉDIATEMENT
-     *      avec la nouvelle config (sinon il attendrait le prochain tick
-     *      updatePeriodMillis = jusqu'à 30 min).
-     *   3. setResult + finish pour valider auprès du système.
+     *   2. Update explicite du widget pour qu'il se recompose immédiatement.
+     *   3. **Belt-and-suspenders** : broadcast APPWIDGET_UPDATE au receiver.
+     *      Sur certains appareils/launchers, [MeteoWidget.update] appelée AVANT
+     *      que le système ait fini d'enregistrer le widget (registration se
+     *      finalise sur RESULT_OK) ne se propage pas. Le broadcast, lui, reste
+     *      en file d'attente jusqu'à ce que le receiver soit joignable, et
+     *      re-déclenche `provideGlance` avec les prefs fraîches. Sans ce garde,
+     *      le user voit "Configurer une ville" persister plusieurs secondes
+     *      après validation — et doit parfois relancer l'app pour débloquer.
+     *   4. setResult + finish pour valider auprès du système.
      *
-     * `lifecycleScope.launch` : Job annulé si l'activité est détruite entre
-     * la validation et la fin d'écriture. Dans la pratique l'écriture est
-     * quasi-instantanée (DataStore local, KB de données) donc ça n'arrive
-     * jamais — mais on hérite du bon lifecycle plutôt que d'utiliser
-     * GlobalScope qui fuiterait sur une annulation d'activité tardive.
+     * Contexte utilisé : `applicationContext` plutôt que `this@ConfigActivity`
+     * — les opérations DataStore et le broadcast doivent survivre à finish()
+     * qui annule le CoroutineScope de l'activité. `applicationContext` reste
+     * valide pour toute la durée du process.
      */
     private fun persistAndFinish(widgetId: Int, cityId: String, opacityPct: Int) {
+        val appCtx = applicationContext
         lifecycleScope.launch {
-            val glanceId = GlanceAppWidgetManager(this@MeteoWidgetConfigActivity)
-                .getGlanceIdBy(widgetId)
+            val glanceId = GlanceAppWidgetManager(appCtx).getGlanceIdBy(widgetId)
+
+            // 1. Écriture des prefs — atomique via DataStore.
             updateAppWidgetState(
-                context = this@MeteoWidgetConfigActivity,
+                context = appCtx,
                 definition = PreferencesGlanceStateDefinition,
                 glanceId = glanceId
             ) { prefs ->
-                // updateAppWidgetState nous donne une copie mutable des prefs
-                // existantes — on met à jour uniquement nos deux clés et
-                // laisse le reste intact (pattern immutable-style avec builder
-                // pour ne rien perdre si Glance stocke des clés internes).
                 prefs.toMutablePreferences().apply {
                     this[WidgetPreferences.CityIdKey] = cityId
                     this[WidgetPreferences.OpacityPctKey] = opacityPct
                 }
             }
-            // Force un recompute du widget immédiatement, sans attendre le
-            // updatePeriodMillis. Sans ça, l'utilisateur validerait sa config
-            // et verrait un widget qui reste "non configuré" pendant plusieurs
-            // minutes — première impression désastreuse.
-            MeteoWidget().update(this@MeteoWidgetConfigActivity, glanceId)
 
+            // 2. Force le widget à re-render avec les nouvelles prefs.
+            //    Suspend jusqu'à ce que la composition et l'update AppWidgetManager
+            //    soient soumis — mais l'update ne s'applique que si le widget
+            //    est déjà enregistré côté système, ce qui n'est pas garanti tant
+            //    qu'on n'a pas RESULT_OK. D'où le broadcast belt-and-suspenders
+            //    à l'étape 3.
+            MeteoWidget().update(appCtx, glanceId)
+
+            // 3. Broadcast APPWIDGET_UPDATE ciblé sur notre widgetId. Traité
+            //    par [MeteoWidgetReceiver] après setResult+finish. Le receiver
+            //    délègue à Glance, qui appelle provideGlance() avec les prefs
+            //    fraîches (déjà persistées à l'étape 1).
+            val refreshIntent = Intent(appCtx, MeteoWidgetReceiver::class.java).apply {
+                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+                putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, intArrayOf(widgetId))
+            }
+            appCtx.sendBroadcast(refreshIntent)
+
+            // 4. Résultat final au système + fin d'activité.
             val resultIntent = Intent()
                 .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
             setResult(Activity.RESULT_OK, resultIntent)

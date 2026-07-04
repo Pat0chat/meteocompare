@@ -155,31 +155,45 @@ private fun WidgetContent(data: WidgetData, opacityPct: Int) {
     }
 }
 
-/** Layout 2×1 : icône + temp + ville en 2 lignes compactes. */
+/**
+ * Layout 2×1 : row horizontale icône | Column(temp, ville).
+ *
+ * Ancienne version (Column icon+temp puis ville en dessous) était écrasée
+ * quand les launchers donnaient moins de hauteur que la valeur nominale
+ * (Android 12+ permet aux launchers de rendre plus petit que targetCellHeight).
+ * La disposition horizontale utilise mieux la largeur disponible (110dp)
+ * et minimise la contrainte verticale — les 3 éléments coulissent sur une
+ * même ligne de baseline.
+ *
+ * Tailles réduites vs l'ancien design : icône 20sp (au lieu de 22), temp
+ * 17sp (au lieu de 22). Le prix esthétique est modéré, le gain en robustesse
+ * cross-launcher est significatif — un widget qui ne rentre pas est perçu
+ * comme un bug, un widget légèrement moins imposant qu'idéal reste utilisable.
+ */
 @Composable
 private fun SmallLayout(data: WidgetData) {
-    Column(
+    Row(
         modifier = GlanceModifier.fillMaxSize(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            WeatherGlyph(data.currentCondition, sizeSp = 22)
-            Spacer(GlanceModifier.width(4.dp))
+        WeatherGlyph(data.currentCondition, sizeSp = 20)
+        Spacer(GlanceModifier.width(6.dp))
+        Column {
             Text(
                 text = formatTemp(data.currentTemp),
                 style = TextStyle(
                     color = onContainerColor(),
-                    fontSize = 22.sp,
+                    fontSize = 17.sp,
                     fontWeight = FontWeight.Medium
                 )
             )
-        }
-        data.cityName?.let {
-            Text(
-                text = it,
-                style = TextStyle(color = onContainerColorMuted(), fontSize = 11.sp)
-            )
+            data.cityName?.let {
+                Text(
+                    text = it,
+                    style = TextStyle(color = onContainerColorMuted(), fontSize = 10.sp)
+                )
+            }
         }
     }
 }
@@ -231,7 +245,19 @@ private fun MediumLayout(data: WidgetData) {
     }
 }
 
-/** Layout 4×1 : identique au medium + précipitations. */
+/**
+ * Layout 4×1 : version enrichie avec 3 lignes centrales — ville, min/max,
+ * ligne d'extras contextuels.
+ *
+ * La ligne d'extras concatène ce qui est PERTINENT selon la météo courante :
+ *   - Si condition cloudy/overcast ET cloud_cover dispo → "☁ 60%"
+ *   - Si pluie prévue (Rain case) → "🌧 2,5 mm (75% conf)"
+ *   - Les deux peuvent coexister avec un séparateur " · "
+ *
+ * On limite à 3 lignes centrales pour tenir dans la hauteur nominale (~50dp
+ * après padding). Une 4e ligne (ex : vent) déborderait sur certains launchers.
+ * Le badge de confiance globale reste à droite comme dans le 3×1.
+ */
 @Composable
 private fun LargeLayout(data: WidgetData) {
     Row(
@@ -239,13 +265,13 @@ private fun LargeLayout(data: WidgetData) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            WeatherGlyph(data.currentCondition, sizeSp = 32)
+            WeatherGlyph(data.currentCondition, sizeSp = 30)
             Spacer(GlanceModifier.width(6.dp))
             Text(
                 text = formatTemp(data.currentTemp),
                 style = TextStyle(
                     color = onContainerColor(),
-                    fontSize = 28.sp,
+                    fontSize = 26.sp,
                     fontWeight = FontWeight.Medium
                 )
             )
@@ -258,18 +284,19 @@ private fun LargeLayout(data: WidgetData) {
                     text = it,
                     style = TextStyle(
                         color = onContainerColor(),
-                        fontSize = 14.sp,
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.Medium
                     )
                 )
             }
             Text(
                 text = formatMinMax(data.tempMin, data.tempMax),
-                style = TextStyle(color = onContainerColorMuted(), fontSize = 12.sp)
+                style = TextStyle(color = onContainerColorMuted(), fontSize = 11.sp)
             )
-            data.precipMm?.let {
+            val extras = buildExtrasLine(data)
+            if (extras.isNotEmpty()) {
                 Text(
-                    text = "☔ %.1f mm".format(it),
+                    text = extras,
                     style = TextStyle(color = onContainerColorMuted(), fontSize = 11.sp)
                 )
             }
@@ -278,6 +305,35 @@ private fun LargeLayout(data: WidgetData) {
         data.confidencePct?.let {
             ConfidencePill(percent = it)
         }
+    }
+}
+
+/**
+ * Construit la ligne d'extras contextuels pour le layout 4×1.
+ *
+ * Règles :
+ *   - Nuage inclus uniquement si condition = PARTLY_CLOUDY / OVERCAST ET
+ *     cloud_cover fourni. Sur un ciel clair, "☁ 5%" bruiterait pour rien.
+ *   - Pluie incluse uniquement si `precipMm != null` (variante Rain de
+ *     PrecipitationConfidence — modèles d'accord sur "il pleut"). Le %
+ *     de confiance suit s'il est dispo, pour signaler la fiabilité de LA
+ *     PRÉVISION DE PLUIE spécifiquement (distinct du badge globalPct qui
+ *     agrège les 4 variables).
+ *   - Format compact "1,2 mm (75%)" plutôt que "1.2 mm — 75% de confiance"
+ *     pour tenir dans la largeur — 4×1 ≈ 250dp mais amputés du bloc gauche
+ *     (icône + temp) et du badge à droite, il reste ~130dp pour ce texte.
+ */
+private fun buildExtrasLine(data: WidgetData): String = buildString {
+    val cond = data.currentCondition
+    val showCloud = data.currentCloudCover != null &&
+        (cond == WeatherCondition.PARTLY_CLOUDY || cond == WeatherCondition.OVERCAST)
+    if (showCloud) {
+        append("☁ ${data.currentCloudCover}%")
+    }
+    if (data.precipMm != null) {
+        if (isNotEmpty()) append(" · ")
+        append("🌧 %.1f mm".format(data.precipMm))
+        data.precipConfidencePct?.let { append(" ($it%)") }
     }
 }
 
