@@ -3,7 +3,13 @@ package com.meteocompare.app.widget
 import android.content.Context
 import android.content.res.Configuration
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.datastore.preferences.core.Preferences
@@ -18,14 +24,16 @@ import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
-import androidx.glance.appwidget.state.getAppWidgetState
 import androidx.glance.background
+import androidx.glance.currentState
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
 import androidx.glance.layout.fillMaxSize
+import androidx.glance.layout.fillMaxWidth
+import androidx.glance.layout.height
 import androidx.glance.layout.padding
 import androidx.glance.layout.width
 import androidx.glance.state.PreferencesGlanceStateDefinition
@@ -37,66 +45,90 @@ import com.meteocompare.app.MainActivity
 import com.meteocompare.app.domain.model.WeatherCondition
 import kotlin.math.roundToInt
 
+// ─── Buckets de tailles ─────────────────────────────────────────────────────
+//
+// SizeMode.Responsive prend un ensemble de tailles cibles. Glance sélectionne
+// la plus grande qui rentre dans les dimensions accordées par le launcher.
+// LocalSize.current renvoie ensuite la taille cible sélectionnée — PAS la
+// taille réelle du container — ce qui rend le branching de layout déterministe
+// et invariant vis-à-vis des variations de largeur cellule d'un launcher à
+// l'autre.
+//
+// Formule Android grid : dp = 70·n − 30 → 2×1 = 110, 3×1 = 180, 4×1 = 250,
+// hauteur 1 cellule ≈ 40dp, 2 cellules ≈ 110dp.
+private val SIZE_2x1 = DpSize(110.dp, 40.dp)
+private val SIZE_3x1 = DpSize(180.dp, 40.dp)
+private val SIZE_4x1 = DpSize(250.dp, 40.dp)
+private val SIZE_4x2 = DpSize(250.dp, 110.dp)
+
 /**
  * Widget MeteoCompare — reproduit un résumé compact de la [TodaySummaryCard]
  * sur l'écran d'accueil.
  *
- * Trois tailles supportées, sélectionnées via [LocalSize.current.width] :
+ * Quatre tailles supportées, via [SizeMode.Responsive] :
  *
- *   - **~2×1** (< 150dp) : icône + température actuelle + nom de ville.
- *     Mode "coup d'œil" — un pouce sait s'il fait beau et combien de degrés.
+ *   - **2×1** : icône + température actuelle | ville + confiance dessous.
+ *     Mode "coup d'œil" — un pouce sait s'il fait beau et si la prévision est
+ *     fiable.
  *
- *   - **~3×1** (150-220dp) : + min/max du jour + badge de confiance.
- *     Assez pour planifier la journée sans ouvrir l'app.
+ *   - **3×1** : + min/max du jour + badge de confiance à droite.
  *
- *   - **~4×1** (> 220dp) : + précipitations si prévues (mm/j).
+ *   - **4×1** : + couverture nuageuse ou pluie avec confiance associée.
  *     Résumé complet, quasi-parité avec la TodaySummaryCard.
  *
- * L'utilisateur configure au tap-and-drop :
- *   - Ville affichée (parmi ses favoris)
- *   - Opacité du fond (0-100%) — utile pour laisser passer le wallpaper
+ *   - **4×2** : ajoute au 4×1 un strip de 4 prévisions étendues (4 prochaines
+ *     heures OU 4 prochains jours selon le paramètre utilisateur).
  *
- * Tap sur le widget → ouvre MainActivity (retourne à l'écran d'accueil de l'app).
- * Pas d'intent extra pour naviguer directement vers la ville : trop de risque
- * de créer des Task stacks bizarres si l'app est déjà ouverte sur autre chose.
- * Le user tape "Paris" dans la liste après ouverture — un tap de plus, mais
- * comportement prévisible.
+ * L'utilisateur configure : ville affichée, opacité du fond (0-100%), mode
+ * de prévision étendue (Hourly/Daily) — tout accessible via l'activity de
+ * config au drop du widget ou via "Reconfigurer" (long-press, Android 12+).
+ *
+ * ─── Pattern reactive state ─────────────────────────────────────────────
+ * Les prefs sont lues via [currentState] INSIDE [provideContent], pas dans
+ * le corps de [provideGlance]. Raison : [provideGlance] est exécutée UNE
+ * fois par session Glance, mais son composable interne se recompose à chaque
+ * changement d'état. Lire les prefs dehors capture la valeur au moment de la
+ * session ; lire dedans avec [currentState] rend le read réactif — un
+ * `updateAppWidgetState` déclenche automatiquement la recomposition.
+ * Ce pattern règle "widget bloqué sur Configurer une ville" — auparavant le
+ * composable utilisait la valeur cityId capturée à la 1re render, jamais
+ * rafraîchie même après le save de la config.
  */
 internal class MeteoWidget : GlanceAppWidget() {
 
-    /**
-     * SizeMode.Exact : Glance appelle provideGlance à chaque changement de
-     * taille (resize par l'utilisateur) et expose la taille via LocalSize.
-     * On aurait pu utiliser SizeMode.Responsive avec des DpSizes prédéfinies,
-     * mais Exact + un `when` sur width nous donne plus de flexibilité pour
-     * ajuster les seuils sans multiplier les entrées de config.
-     */
-    override val sizeMode = SizeMode.Exact
+    override val sizeMode = SizeMode.Responsive(
+        setOf(SIZE_2x1, SIZE_3x1, SIZE_4x1, SIZE_4x2)
+    )
 
-    /**
-     * Persistence des paramètres par-widget via DataStore Preferences. Chaque
-     * widget a son propre fichier identifié par GlanceId, indépendamment des
-     * autres widgets ou du DataStore de l'app.
-     */
     override val stateDefinition = PreferencesGlanceStateDefinition
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val prefs = getAppWidgetState<Preferences>(
-            context = context,
-            definition = PreferencesGlanceStateDefinition,
-            glanceId = id
-        )
-        val cityId = prefs[WidgetPreferences.CityIdKey]
-        val opacityPct = (prefs[WidgetPreferences.OpacityPctKey]
-            ?: WidgetPreferences.DEFAULT_OPACITY_PCT).coerceIn(0, 100)
-
-        // Le fetch se fait AVANT provideContent — Glance appelle provideGlance
-        // sur un CoroutineScope et suspend patientement, donc l'utilisateur voit
-        // le widget se rafraîchir d'un coup une fois les données prêtes plutôt
-        // que d'un état placeholder-puis-content clignotant.
-        val data = loadWidgetData(context, cityId)
-
+        val appCtx = context.applicationContext
         provideContent {
+            // Lecture réactive des prefs. Chaque updateAppWidgetState() sur
+            // ce widget invalide cette lecture → recomposition automatique.
+            val prefs = currentState<Preferences>()
+            val cityId = prefs[WidgetPreferences.CityIdKey]
+            val opacityPct = (prefs[WidgetPreferences.OpacityPctKey]
+                ?: WidgetPreferences.DEFAULT_OPACITY_PCT).coerceIn(0, 100)
+            val forecastMode = prefs[WidgetPreferences.ForecastModeKey]
+                ?.let { runCatching { ForecastMode.valueOf(it) }.getOrNull() }
+                ?: WidgetPreferences.DEFAULT_FORECAST_MODE
+
+            // Chargement des données asynchrone. `remember` persiste la
+            // dernière donnée bonne à travers les recompositions ; LaunchedEffect
+            // re-fetch quand cityId/forecastMode change (nouveau save de config).
+            // L'état initial est Loading (pas NotConfigured) pour éviter le
+            // flash "Configurer" quand on recompose une ville déjà configurée.
+            var data by remember {
+                mutableStateOf<WidgetData>(
+                    if (cityId == null) WidgetData.NotConfigured else WidgetData.Loading
+                )
+            }
+            LaunchedEffect(cityId, forecastMode) {
+                data = loadWidgetData(appCtx, cityId, forecastMode)
+            }
+
             GlanceTheme {
                 WidgetContent(data = data, opacityPct = opacityPct)
             }
@@ -110,20 +142,6 @@ internal class MeteoWidget : GlanceAppWidget() {
 
 @Composable
 private fun WidgetContent(data: WidgetData, opacityPct: Int) {
-    // Alpha du fond piloté par la config utilisateur. On applique sur la
-    // primaryContainer du thème (jour/nuit) pour rester cohérent avec le style
-    // de la TodaySummaryCard qui a la même base. Sur wallpaper photo, alpha
-    // ~0.6 donne un effet "verre dépoli" agréable ; alpha 1.0 = opaque total,
-    // alpha 0.0 = fond entièrement transparent (texte lisible seulement sur
-    // wallpaper uni).
-    //
-    // Détection du mode nuit à COMPOSITION TIME plutôt qu'avec une factory
-    // day/night ColorProvider — Glance 1.1 a bien un ColorProvider(day, night)
-    // dans le package `androidx.glance.color`, mais son import entre en
-    // conflit avec le ColorProvider(color) single-arg du package `androidx.glance.unit`
-    // qu'on utilise partout ailleurs (badge de confiance, textes). Résoudre le
-    // Color manuellement puis wrapper une seule fois évite le conflit sans
-    // sacrifier le rendu day/night.
     val alpha = opacityPct / 100f
     val bg = ColorProvider(resolveContainerColor().copy(alpha = alpha))
 
@@ -133,22 +151,21 @@ private fun WidgetContent(data: WidgetData, opacityPct: Int) {
             .background(bg)
             .cornerRadius(16.dp)
             .clickable(actionStartActivity<MainActivity>())
-            .padding(12.dp)
+            .padding(10.dp)
     ) {
         when {
-            data.error != null -> ErrorLayout(data.error, opacityPct)
+            data.error != null -> ErrorLayout(data.error)
             else -> {
-                // Sélection du layout selon la largeur DP effective. Les seuils
-                // sont choisis pour correspondre grossièrement à 2×1 / 3×1 / 4×1
-                // sur une grille de 70dp par cellule (formule système Android :
-                // largeur = 70·n − 30 → 110 / 180 / 250 dp). On prend des seuils
-                // légèrement plus généreux pour être robuste aux launchers qui
-                // arrondissent différemment.
-                val widthDp = LocalSize.current.width.value
+                // Sélection du layout via la taille cible du bucket Responsive
+                // (pas la taille réelle du container). Comparer par height
+                // d'abord permet de distinguer 4×2 vs 4×1 même si la largeur
+                // est identique.
+                val size = LocalSize.current
                 when {
-                    widthDp < 150f -> SmallLayout(data)
-                    widthDp < 220f -> MediumLayout(data)
-                    else -> LargeLayout(data)
+                    size.height >= 100.dp -> ExtraLargeLayout(data)
+                    size.width >= 250.dp -> LargeLayout(data)
+                    size.width >= 180.dp -> MediumLayout(data)
+                    else -> SmallLayout(data)
                 }
             }
         }
@@ -156,19 +173,17 @@ private fun WidgetContent(data: WidgetData, opacityPct: Int) {
 }
 
 /**
- * Layout 2×1 : row horizontale icône | Column(temp, ville).
+ * Layout 2×1 — icône | Column(temp, confidence%).
  *
- * Ancienne version (Column icon+temp puis ville en dessous) était écrasée
- * quand les launchers donnaient moins de hauteur que la valeur nominale
- * (Android 12+ permet aux launchers de rendre plus petit que targetCellHeight).
- * La disposition horizontale utilise mieux la largeur disponible (110dp)
- * et minimise la contrainte verticale — les 3 éléments coulissent sur une
- * même ligne de baseline.
+ * Nouveau design : la CONFIANCE est affichée sous la température, remplaçant
+ * la ville. Sur un 2×1 la ville est identifiée par sa position sur l'écran
+ * (l'utilisateur SAIT quelle ville il a choisie), tandis que la confiance
+ * est le signal éditorial le plus précieux de l'app — sans elle le widget
+ * ressemble à n'importe quelle app météo.
  *
- * Tailles réduites vs l'ancien design : icône 20sp (au lieu de 22), temp
- * 17sp (au lieu de 22). Le prix esthétique est modéré, le gain en robustesse
- * cross-launcher est significatif — un widget qui ne rentre pas est perçu
- * comme un bug, un widget légèrement moins imposant qu'idéal reste utilisable.
+ * Le pourcentage est teinté vert/orange/rouge selon le niveau (helper
+ * [confidenceTextColor]) pour être lisible d'un coup d'œil, sans avoir à
+ * décoder le nombre.
  */
 @Composable
 private fun SmallLayout(data: WidgetData) {
@@ -177,21 +192,25 @@ private fun SmallLayout(data: WidgetData) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        WeatherGlyph(data.currentCondition, sizeSp = 20)
+        WeatherGlyph(data.currentCondition, sizeSp = 22)
         Spacer(GlanceModifier.width(6.dp))
         Column {
             Text(
                 text = formatTemp(data.currentTemp),
                 style = TextStyle(
                     color = onContainerColor(),
-                    fontSize = 17.sp,
+                    fontSize = 20.sp,
                     fontWeight = FontWeight.Medium
                 )
             )
-            data.cityName?.let {
+            data.confidencePct?.let {
                 Text(
-                    text = it,
-                    style = TextStyle(color = onContainerColorMuted(), fontSize = 10.sp)
+                    text = "$it%",
+                    style = TextStyle(
+                        color = confidenceTextColor(it),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium
+                    )
                 )
             }
         }
@@ -205,7 +224,6 @@ private fun MediumLayout(data: WidgetData) {
         modifier = GlanceModifier.fillMaxSize(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // ─── Bloc gauche : icône + big temp ───────────────────────
         Row(verticalAlignment = Alignment.CenterVertically) {
             WeatherGlyph(data.currentCondition, sizeSp = 28)
             Spacer(GlanceModifier.width(6.dp))
@@ -220,7 +238,6 @@ private fun MediumLayout(data: WidgetData) {
         }
         Spacer(GlanceModifier.width(10.dp))
 
-        // ─── Bloc milieu : ville + min/max ─────────────────────────
         Column(modifier = GlanceModifier.defaultWeight()) {
             data.cityName?.let {
                 Text(
@@ -238,7 +255,6 @@ private fun MediumLayout(data: WidgetData) {
             )
         }
 
-        // ─── Bloc droit : badge de confiance ─────────────────────
         data.confidencePct?.let {
             ConfidencePill(percent = it)
         }
@@ -247,16 +263,7 @@ private fun MediumLayout(data: WidgetData) {
 
 /**
  * Layout 4×1 : version enrichie avec 3 lignes centrales — ville, min/max,
- * ligne d'extras contextuels.
- *
- * La ligne d'extras concatène ce qui est PERTINENT selon la météo courante :
- *   - Si condition cloudy/overcast ET cloud_cover dispo → "☁ 60%"
- *   - Si pluie prévue (Rain case) → "🌧 2,5 mm (75% conf)"
- *   - Les deux peuvent coexister avec un séparateur " · "
- *
- * On limite à 3 lignes centrales pour tenir dans la hauteur nominale (~50dp
- * après padding). Une 4e ligne (ex : vent) déborderait sur certains launchers.
- * Le badge de confiance globale reste à droite comme dans le 3×1.
+ * ligne d'extras contextuels (cloud cover, pluie avec confiance).
  */
 @Composable
 private fun LargeLayout(data: WidgetData) {
@@ -309,39 +316,99 @@ private fun LargeLayout(data: WidgetData) {
 }
 
 /**
- * Construit la ligne d'extras contextuels pour le layout 4×1.
+ * Layout 4×2 : top strip identique au 4×1 + bas strip avec 4 items de prévision
+ * étendue (heures ou jours selon la config utilisateur).
  *
- * Règles :
- *   - Nuage inclus uniquement si condition = PARTLY_CLOUDY / OVERCAST ET
- *     cloud_cover fourni. Sur un ciel clair, "☁ 5%" bruiterait pour rien.
- *   - Pluie incluse uniquement si `precipMm != null` (variante Rain de
- *     PrecipitationConfidence — modèles d'accord sur "il pleut"). Le %
- *     de confiance suit s'il est dispo, pour signaler la fiabilité de LA
- *     PRÉVISION DE PLUIE spécifiquement (distinct du badge globalPct qui
- *     agrège les 4 variables).
- *   - Format compact "1,2 mm (75%)" plutôt que "1.2 mm — 75% de confiance"
- *     pour tenir dans la largeur — 4×1 ≈ 250dp mais amputés du bloc gauche
- *     (icône + temp) et du badge à droite, il reste ~130dp pour ce texte.
+ * Le top strip garde les mêmes tailles que le 4×1 pour cohérence visuelle
+ * entre les deux tailles voisines — l'utilisateur qui resize doit reconnaître
+ * "c'est le même widget en plus grand".
+ *
+ * Le bas strip est un Row de 4 Column équi-larges (defaultWeight), chacune
+ * avec label + icône + température. Compact — 40dp de haut environ. Textes
+ * en 10-12sp pour tenir sans crowd.
  */
-private fun buildExtrasLine(data: WidgetData): String = buildString {
-    val cond = data.currentCondition
-    val showCloud = data.currentCloudCover != null &&
-        (cond == WeatherCondition.PARTLY_CLOUDY || cond == WeatherCondition.OVERCAST)
-    if (showCloud) {
-        append("☁ ${data.currentCloudCover}%")
-    }
-    if (data.precipMm != null) {
-        if (isNotEmpty()) append(" · ")
-        append("🌧 %.1f mm".format(data.precipMm))
-        data.precipConfidencePct?.let { append(" ($it%)") }
+@Composable
+private fun ExtraLargeLayout(data: WidgetData) {
+    Column(modifier = GlanceModifier.fillMaxSize()) {
+        // ─── Top strip (comme 4×1 mais tailles légèrement réduites) ────
+        Row(
+            modifier = GlanceModifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            WeatherGlyph(data.currentCondition, sizeSp = 26)
+            Spacer(GlanceModifier.width(6.dp))
+            Text(
+                text = formatTemp(data.currentTemp),
+                style = TextStyle(
+                    color = onContainerColor(),
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            )
+            Spacer(GlanceModifier.width(10.dp))
+
+            Column(modifier = GlanceModifier.defaultWeight()) {
+                data.cityName?.let {
+                    Text(
+                        text = it,
+                        style = TextStyle(
+                            color = onContainerColor(),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    )
+                }
+                Text(
+                    text = formatMinMax(data.tempMin, data.tempMax),
+                    style = TextStyle(color = onContainerColorMuted(), fontSize = 10.sp)
+                )
+            }
+
+            data.confidencePct?.let {
+                ConfidencePill(percent = it)
+            }
+        }
+
+        Spacer(GlanceModifier.height(6.dp))
+
+        // ─── Bottom strip : 4 items de prévision étendue ──────────────
+        // Si aucune prévision (cache vide), on affiche le message discret ci-dessous
+        // — plutôt qu'un strip blanc qui laisserait penser à un bug de rendu.
+        if (data.forecasts.isEmpty()) {
+            Text(
+                text = "…",
+                style = TextStyle(color = onContainerColorMuted(), fontSize = 11.sp)
+            )
+        } else {
+            Row(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
+                data.forecasts.take(4).forEach { item ->
+                    Column(
+                        modifier = GlanceModifier.defaultWeight(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = item.label,
+                            style = TextStyle(color = onContainerColorMuted(), fontSize = 10.sp)
+                        )
+                        WeatherGlyph(item.condition, sizeSp = 18)
+                        Text(
+                            text = formatTemp(item.temp),
+                            style = TextStyle(color = onContainerColor(), fontSize = 13.sp)
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
-/** État "widget pas configuré" ou "erreur". */
+/** État "widget pas configuré" ou "erreur" ou "chargement". */
 @Composable
-private fun ErrorLayout(error: WidgetError, opacityPct: Int) {
+private fun ErrorLayout(error: WidgetError) {
     val message = when (error) {
         WidgetError.NotConfigured -> "Configurer\nla ville"
+        WidgetError.Loading -> "Chargement…"
         WidgetError.CityNoLongerInFavorites -> "Ville\nsupprimée"
         is WidgetError.Fetch -> "Pas de\ndonnées"
     }
@@ -362,16 +429,6 @@ private fun ErrorLayout(error: WidgetError, opacityPct: Int) {
 
 // ─── Sous-blocs réutilisables ─────────────────────────────────────────────
 
-/**
- * Icône météo — rendue comme glyphe Unicode dans un Text plutôt qu'une Image
- * pour rester DPI-invariant et ne pas embarquer 13 drawables.
- *
- * Trade-off : les emojis Unicode ont un rendu qui varie selon la version
- * d'Android (Noto vs system emoji font). Sur Android 12+ c'est cohérent ;
- * sur 26-30 le style peut différer. Acceptable pour un MVP — si on veut un
- * rendu strictement identique cross-version, il faudra passer par des
- * vector drawables au format Bitmap via ImageProvider.
- */
 @Composable
 private fun WeatherGlyph(condition: WeatherCondition?, sizeSp: Int) {
     val glyph = when (condition) {
@@ -392,26 +449,9 @@ private fun WeatherGlyph(condition: WeatherCondition?, sizeSp: Int) {
     )
 }
 
-/**
- * Petit pill de confidence — badge coloré avec le %.
- *
- * Trois seuils sémantiques alignés sur les couleurs `confidenceColor` de l'app :
- *   - ≥ 80 : vert
- *   - ≥ 50 : orange
- *   - < 50 : rouge
- *
- * On ne va pas chercher `confidenceColor()` dans le theme app parce qu'on est
- * dans un composable Glance (pas Compose Material), donc pas d'accès direct à
- * MaterialTheme. Les couleurs sont hardcodées ici — les mêmes hexa que dans
- * `ui/theme/ConfidenceColors.kt` pour rester visuellement cohérent.
- */
 @Composable
 private fun ConfidencePill(percent: Int) {
-    val color = when {
-        percent >= 80 -> Color(0xFF388E3C)  // green 700
-        percent >= 50 -> Color(0xFFF57C00)  // orange 700
-        else -> Color(0xFFC62828)           // red 700
-    }
+    val color = confidenceColor(percent)
     Box(
         modifier = GlanceModifier
             .background(ColorProvider(color.copy(alpha = 0.18f)))
@@ -430,6 +470,20 @@ private fun ConfidencePill(percent: Int) {
     }
 }
 
+private fun buildExtrasLine(data: WidgetData): String = buildString {
+    val cond = data.currentCondition
+    val showCloud = data.currentCloudCover != null &&
+        (cond == WeatherCondition.PARTLY_CLOUDY || cond == WeatherCondition.OVERCAST)
+    if (showCloud) {
+        append("☁ ${data.currentCloudCover}%")
+    }
+    if (data.precipMm != null) {
+        if (isNotEmpty()) append(" · ")
+        append("🌧 %.1f mm".format(data.precipMm))
+        data.precipConfidencePct?.let { append(" ($it%)") }
+    }
+}
+
 // ─── Formatage ──────────────────────────────────────────────────────────
 
 private fun formatTemp(value: Double?): String =
@@ -443,30 +497,12 @@ private fun formatMinMax(min: Double?, max: Double?): String = when {
 }
 
 // ─── Couleurs ───────────────────────────────────────────────────────────
-//
-// Base fixe non-liée au dynamic color système : un widget doit avoir une
-// identité visuelle stable entre les thèmes utilisateur, sinon il change
-// d'apparence à chaque wallpaper. On assume les valeurs de primaryContainer
-// et onPrimaryContainer du thème M3 statique de l'app.
 
-private val primaryContainerLight = Color(0xFFDBE2FF)  // bleu très clair
-private val primaryContainerDark = Color(0xFF283960)   // bleu sombre profond
+private val primaryContainerLight = Color(0xFFDBE2FF)
+private val primaryContainerDark = Color(0xFF283960)
 private val onPrimaryContainerLight = Color(0xFF001A41)
 private val onPrimaryContainerDark = Color(0xFFDBE2FF)
 
-/**
- * Détecte le mode nuit en lisant la configuration système via LocalContext.
- *
- * Alternative envisagée : `androidx.glance.color.ColorProvider(day, night)`
- * — factory day/night native à Glance qui aurait fait le boulot. Elle entre
- * malheureusement en conflit d'import avec `androidx.glance.unit.ColorProvider(color)`
- * single-arg utilisé ailleurs dans ce fichier (badge de confiance, textes),
- * et Kotlin ne peut pas résoudre deux fonctions homonymes de packages
- * différents dans le même fichier sans renommage.
- *
- * Résoudre manuellement puis wrapper une seule fois dans ColorProvider(color)
- * est plus simple et évite le rename `as` sur tous les call sites.
- */
 @Composable
 private fun isNightMode(): Boolean {
     val ctx = LocalContext.current
@@ -489,3 +525,19 @@ private fun onContainerColor(): ColorProvider =
 @Composable
 private fun onContainerColorMuted(): ColorProvider =
     ColorProvider(resolveOnContainerColor().copy(alpha = 0.7f))
+
+/**
+ * Couleur du texte de confiance selon le %. Alignées sur ConfidenceColors de
+ * l'app (vert/orange/rouge M3-ish), hardcodées ici parce que Glance n'a pas
+ * accès à MaterialTheme. Un même chiffre garde ainsi une teinte identique
+ * dans le widget et dans l'app.
+ */
+private fun confidenceColor(percent: Int): Color = when {
+    percent >= 80 -> Color(0xFF388E3C)  // green 700
+    percent >= 50 -> Color(0xFFF57C00)  // orange 700
+    else -> Color(0xFFC62828)           // red 700
+}
+
+@Composable
+private fun confidenceTextColor(percent: Int): ColorProvider =
+    ColorProvider(confidenceColor(percent))

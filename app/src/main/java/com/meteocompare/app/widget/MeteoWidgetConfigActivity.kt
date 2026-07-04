@@ -15,10 +15,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -104,8 +105,8 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
         setContent {
             MeteoCompareTheme {
                 WidgetConfigScreen(
-                    onSave = { cityId, opacityPct ->
-                        persistAndFinish(widgetId, cityId, opacityPct)
+                    onSave = { cityId, opacityPct, forecastMode ->
+                        persistAndFinish(widgetId, cityId, opacityPct, forecastMode)
                     },
                     onCancel = { finish() }
                 )
@@ -134,7 +135,12 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
      * qui annule le CoroutineScope de l'activité. `applicationContext` reste
      * valide pour toute la durée du process.
      */
-    private fun persistAndFinish(widgetId: Int, cityId: String, opacityPct: Int) {
+    private fun persistAndFinish(
+        widgetId: Int,
+        cityId: String,
+        opacityPct: Int,
+        forecastMode: ForecastMode
+    ) {
         val appCtx = applicationContext
         lifecycleScope.launch {
             val glanceId = GlanceAppWidgetManager(appCtx).getGlanceIdBy(widgetId)
@@ -148,21 +154,19 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
                 prefs.toMutablePreferences().apply {
                     this[WidgetPreferences.CityIdKey] = cityId
                     this[WidgetPreferences.OpacityPctKey] = opacityPct
+                    this[WidgetPreferences.ForecastModeKey] = forecastMode.name
                 }
             }
 
             // 2. Force le widget à re-render avec les nouvelles prefs.
-            //    Suspend jusqu'à ce que la composition et l'update AppWidgetManager
-            //    soient soumis — mais l'update ne s'applique que si le widget
-            //    est déjà enregistré côté système, ce qui n'est pas garanti tant
-            //    qu'on n'a pas RESULT_OK. D'où le broadcast belt-and-suspenders
-            //    à l'étape 3.
             MeteoWidget().update(appCtx, glanceId)
 
             // 3. Broadcast APPWIDGET_UPDATE ciblé sur notre widgetId. Traité
             //    par [MeteoWidgetReceiver] après setResult+finish. Le receiver
             //    délègue à Glance, qui appelle provideGlance() avec les prefs
-            //    fraîches (déjà persistées à l'étape 1).
+            //    fraîches (déjà persistées à l'étape 1). Le pattern reactive
+            //    state via currentState<Preferences>() dans MeteoWidget garantit
+            //    que la nouvelle valeur de cityId sera visible à la recomposition.
             val refreshIntent = Intent(appCtx, MeteoWidgetReceiver::class.java).apply {
                 action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
                 putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, intArrayOf(widgetId))
@@ -184,7 +188,7 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
 
 @Composable
 private fun WidgetConfigScreen(
-    onSave: (cityId: String, opacityPct: Int) -> Unit,
+    onSave: (cityId: String, opacityPct: Int, forecastMode: ForecastMode) -> Unit,
     onCancel: () -> Unit
 ) {
     val context = LocalContext.current
@@ -196,6 +200,9 @@ private fun WidgetConfigScreen(
     var selectedCityId by remember { mutableStateOf<String?>(null) }
     var opacityPct by remember {
         mutableFloatStateOf(WidgetPreferences.DEFAULT_OPACITY_PCT.toFloat())
+    }
+    var forecastMode by remember {
+        mutableStateOf(WidgetPreferences.DEFAULT_FORECAST_MODE)
     }
 
     LaunchedEffect(Unit) {
@@ -220,7 +227,19 @@ private fun WidgetConfigScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
+            // systemBarsPadding : décale le contenu SOUS la barre de statut
+            // (heure, batterie, notifications) et AU-DESSUS de la barre de
+            // navigation. Sans ce modifier, sur les activités qui ne
+            // configurent pas WindowCompat.setDecorFitsSystemWindows, le
+            // contenu passe sous les system bars — le titre "Configurer le
+            // widget" chevauche les icônes système.
+            .systemBarsPadding()
             .padding(16.dp)
+            // verticalScroll : sur petits écrans (téléphone en portrait avec
+            // clavier ouvert, ou écran compact), les 3 sections + boutons
+            // peuvent dépasser la hauteur disponible. Le scroll empêche que
+            // les boutons Save/Cancel deviennent inaccessibles.
+            .verticalScroll(rememberScrollState())
     ) {
         Text(
             text = stringResource(R.string.widget_config_title),
@@ -266,8 +285,13 @@ private fun WidgetConfigScreen(
                     containerColor = MaterialTheme.colorScheme.surfaceContainerLow
                 )
             ) {
-                LazyColumn {
-                    items(favorites, key = { it.id }) { city ->
+                // Column (pas LazyColumn) parce que le Column parent est
+                // verticalScroll — imbriquer un composable scrollable dans un
+                // scrollable parent lève une exception au layout. Une liste
+                // de favoris tient typiquement en < 10 items, pas besoin de
+                // lazy loading.
+                Column {
+                    favorites.forEach { city ->
                         CityRow(
                             city = city,
                             selected = city.id == selectedCityId,
@@ -313,9 +337,51 @@ private fun WidgetConfigScreen(
         Spacer(Modifier.height(8.dp))
         OpacityPreview(opacityPct = opacityPct.toInt())
 
-        Spacer(Modifier.weight(1f))
+        Spacer(Modifier.height(24.dp))
+
+        // ─── Section mode de prévision étendue ────────────────────
+        // Utilisé uniquement par le layout 4×2 (les tailles plus petites
+        // n'ont pas la place pour afficher un strip de 4 items). L'utilisateur
+        // pose typiquement la question "à quoi ressemblera la fin de la
+        // journée ?" (mode heures) ou "à quoi ressemblera la semaine ?" (mode
+        // jours). Deux presets radio > slider parce qu'il n'y a que 2 options
+        // discrètes — un slider créerait de faux positifs entre les deux.
+        Text(
+            text = stringResource(R.string.widget_config_forecast_mode),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Medium
+        )
+        Text(
+            text = stringResource(R.string.widget_config_forecast_mode_note),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(8.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            )
+        ) {
+            ForecastModeRow(
+                selected = forecastMode == ForecastMode.HOURLY,
+                labelRes = R.string.widget_config_forecast_mode_hourly,
+                onClick = { forecastMode = ForecastMode.HOURLY }
+            )
+            ForecastModeRow(
+                selected = forecastMode == ForecastMode.DAILY,
+                labelRes = R.string.widget_config_forecast_mode_daily,
+                onClick = { forecastMode = ForecastMode.DAILY }
+            )
+        }
+
+        Spacer(Modifier.height(24.dp))
 
         // ─── Boutons ─────────────────────────────────────────────
+        // Ancré en fin de Column plutôt qu'en bas d'écran (weight ne marche
+        // pas avec verticalScroll). Sur écran compact l'utilisateur scroll
+        // pour atteindre les boutons — comportement standard des formulaires
+        // longs, préférable à des boutons potentiellement cachés.
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.End
@@ -326,13 +392,37 @@ private fun WidgetConfigScreen(
             Spacer(Modifier.width(8.dp))
             Button(
                 onClick = {
-                    selectedCityId?.let { id -> onSave(id, opacityPct.toInt()) }
+                    selectedCityId?.let { id ->
+                        onSave(id, opacityPct.toInt(), forecastMode)
+                    }
                 },
                 enabled = selectedCityId != null
             ) {
                 Text(stringResource(R.string.widget_config_save))
             }
         }
+    }
+}
+
+@Composable
+private fun ForecastModeRow(
+    selected: Boolean,
+    labelRes: Int,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        RadioButton(selected = selected, onClick = onClick)
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = stringResource(labelRes),
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
+        )
     }
 }
 

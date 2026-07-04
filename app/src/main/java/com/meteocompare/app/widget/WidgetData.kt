@@ -40,6 +40,12 @@ internal data class WidgetData(
      * (cache pré-feature) — le layout omet alors le badge.
      */
     val currentCloudCover: Int?,
+    /**
+     * Prévision étendue affichée par le layout 4×2. Contient jusqu'à 4
+     * items (heures ou jours selon la config utilisateur). Vide si le mode
+     * 4×2 n'est pas utilisé ou si aucun modèle ne fournit assez de données.
+     */
+    val forecasts: List<WidgetForecastItem>,
     val error: WidgetError?
 ) {
     companion object {
@@ -54,10 +60,43 @@ internal data class WidgetData(
             precipMm = null,
             precipConfidencePct = null,
             currentCloudCover = null,
+            forecasts = emptyList(),
             error = WidgetError.NotConfigured
+        )
+
+        /** Placeholder "chargement en cours" — pas encore de données mais on est configuré. */
+        val Loading = WidgetData(
+            cityName = null,
+            currentTemp = null,
+            currentCondition = null,
+            tempMax = null,
+            tempMin = null,
+            confidencePct = null,
+            precipMm = null,
+            precipConfidencePct = null,
+            currentCloudCover = null,
+            forecasts = emptyList(),
+            error = WidgetError.Loading
         )
     }
 }
+
+/**
+ * Item du strip de prévision étendue affiché en 4×2.
+ *
+ * `label` : représentation du "quand" — heure ("14h") ou jour ("Lun") selon
+ * le mode utilisateur. Formaté côté producteur pour que la couche layout
+ * n'ait qu'à afficher.
+ *
+ * `condition`/`temp` : nullables — un modèle peut fournir la température
+ * mais pas le weather_code (AROME HD notamment). L'UI dégrade en cascade :
+ * icône si dispo, sinon rien.
+ */
+internal data class WidgetForecastItem(
+    val label: String,
+    val condition: WeatherCondition?,
+    val temp: Double?
+)
 
 /**
  * États d'erreur affichables. On distingue explicitement chaque cas pour
@@ -68,6 +107,8 @@ internal data class WidgetData(
 internal sealed class WidgetError {
     /** Aucune ville sélectionnée dans les prefs — user vient d'ajouter le widget. */
     data object NotConfigured : WidgetError()
+    /** Chargement en cours — état transient entre le change de config et l'arrivée des données. */
+    data object Loading : WidgetError()
     /** La ville configurée n'est plus dans les favoris (user l'a supprimée). */
     data object CityNoLongerInFavorites : WidgetError()
     /** Fetch réseau échoué ET pas de cache disponible pour cette ville. */
@@ -90,7 +131,11 @@ internal sealed class WidgetError {
  * cache-only bespoke pour le widget : le comportement "cache-first, réseau au
  * second plan" est déjà celui du repository, aucun besoin de dupliquer.
  */
-internal suspend fun loadWidgetData(context: Context, cityId: String?): WidgetData {
+internal suspend fun loadWidgetData(
+    context: Context,
+    cityId: String?,
+    forecastMode: ForecastMode
+): WidgetData {
     if (cityId == null) return WidgetData.NotConfigured
 
     val entry = EntryPointAccessors.fromApplication(
@@ -106,6 +151,7 @@ internal suspend fun loadWidgetData(context: Context, cityId: String?): WidgetDa
             tempMax = null, tempMin = null,
             confidencePct = null, precipMm = null,
             precipConfidencePct = null, currentCloudCover = null,
+            forecasts = emptyList(),
             error = WidgetError.CityNoLongerInFavorites
         )
 
@@ -118,11 +164,6 @@ internal suspend fun loadWidgetData(context: Context, cityId: String?): WidgetDa
             val today = forecast.seriesByModel.values
                 .firstOrNull()?.daily?.dates?.firstOrNull()
             val dayConf = today?.let { calc.dayConfidence(forecast, it) }
-            // PrecipitationConfidence est sealed — on ne récupère un montant
-            // que sur la variante Rain (modèles d'accord "il pleut", moyenne
-            // en mm). NoRain → pas de nombre à montrer (pas de pluie prévue),
-            // Divided → trop de désaccord pour un chiffre unique — le badge
-            // de confiance basse le signale déjà.
             val rainConfidence = dayConf?.precipitation as?
                 com.meteocompare.app.domain.model.PrecipitationConfidence.Rain
             WidgetData(
@@ -135,6 +176,7 @@ internal suspend fun loadWidgetData(context: Context, cityId: String?): WidgetDa
                 precipMm = rainConfidence?.meanMm,
                 precipConfidencePct = rainConfidence?.percent,
                 currentCloudCover = calc.currentCloudCover(forecast),
+                forecasts = buildForecasts(forecast, forecastMode, city.timezone),
                 error = null
             )
         }
@@ -144,6 +186,7 @@ internal suspend fun loadWidgetData(context: Context, cityId: String?): WidgetDa
             tempMax = null, tempMin = null,
             confidencePct = null, precipMm = null,
             precipConfidencePct = null, currentCloudCover = null,
+            forecasts = emptyList(),
             error = WidgetError.Fetch(result.message)
         )
         null -> WidgetData(
@@ -152,7 +195,80 @@ internal suspend fun loadWidgetData(context: Context, cityId: String?): WidgetDa
             tempMax = null, tempMin = null,
             confidencePct = null, precipMm = null,
             precipConfidencePct = null, currentCloudCover = null,
+            forecasts = emptyList(),
             error = WidgetError.Fetch("no data")
         )
+    }
+}
+
+/**
+ * Construit la liste des 4 items de prévision étendue pour le layout 4×2.
+ *
+ * On utilise **le modèle de plus haute résolution** disponible dans le forecast
+ * — pas la moyenne pondérée. Justification : sur un widget compact, montrer
+ * les valeurs d'UN modèle est plus lisible que d'agréger 12 modèles en un
+ * seul chiffre (perte d'info sans marqueur de confiance à cette granularité).
+ * Le badge de confiance globale en haut du widget suffit à signaler
+ * l'incertitude. AROME HD est privilégié en France, ICON-D2 en Europe centrale,
+ * etc.
+ *
+ * Fallback : si aucun modèle n'expose weather_code (typique AROME HD), l'icône
+ * sera null dans l'item et le layout affichera juste la température.
+ */
+private fun buildForecasts(
+    forecast: com.meteocompare.app.domain.model.CityForecast,
+    mode: ForecastMode,
+    timezone: String?
+): List<WidgetForecastItem> {
+    val bestSeries = forecast.seriesByModel.entries
+        .minByOrNull { it.key.resolutionKm }?.value
+        ?: return emptyList()
+
+    val zone = runCatching { java.time.ZoneId.of(timezone ?: "UTC") }
+        .getOrDefault(java.time.ZoneId.of("UTC"))
+
+    return when (mode) {
+        ForecastMode.HOURLY -> buildHourlyForecasts(bestSeries.hourly, zone)
+        ForecastMode.DAILY -> buildDailyForecasts(bestSeries.daily)
+    }
+}
+
+private fun buildHourlyForecasts(
+    hourly: com.meteocompare.app.domain.model.HourlyForecast,
+    zone: java.time.ZoneId
+): List<WidgetForecastItem> {
+    if (hourly.timestamps.isEmpty()) return emptyList()
+    // Prochaine heure = première timestamp >= maintenant. Si aucune (série
+    // ne couvre que le passé — cas dégénéré), on prend juste le début.
+    val now = java.time.Instant.now()
+    val startIdx = hourly.timestamps.indexOfFirst { it >= now }
+        .takeIf { it >= 0 } ?: 0
+    val formatter = java.time.format.DateTimeFormatter.ofPattern("H'h'", java.util.Locale.getDefault())
+    return (startIdx until minOf(startIdx + 4, hourly.timestamps.size)).map { i ->
+        val ts = hourly.timestamps[i]
+        val label = ts.atZone(zone).format(formatter)
+        val condition = hourly.weatherCode.getOrNull(i)
+            ?.let { com.meteocompare.app.domain.model.WeatherCondition.fromWmoCode(it) }
+        val temp = hourly.temperature2m.getOrNull(i)
+        WidgetForecastItem(label = label, condition = condition, temp = temp)
+    }
+}
+
+private fun buildDailyForecasts(
+    daily: com.meteocompare.app.domain.model.DailyForecast
+): List<WidgetForecastItem> {
+    if (daily.dates.isEmpty()) return emptyList()
+    val locale = java.util.Locale.getDefault()
+    return daily.dates.take(4).mapIndexed { i, date ->
+        val label = date.dayOfWeek
+            .getDisplayName(java.time.format.TextStyle.SHORT, locale)
+            .replaceFirstChar { it.uppercase() }
+            .replace(".", "") // "lun." → "Lun" — plus propre côté widget
+        val condition = daily.weatherCode.getOrNull(i)
+            ?.let { com.meteocompare.app.domain.model.WeatherCondition.fromWmoCode(it) }
+        // Température MAX plutôt que courante — sur un widget prévision, l'user
+        // veut le "à quoi ressemblera la journée" pas "il fait combien à minuit".
+        val temp = daily.tempMax.getOrNull(i)
+        WidgetForecastItem(label = label, condition = condition, temp = temp)
     }
 }

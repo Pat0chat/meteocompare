@@ -24,10 +24,41 @@ internal object WidgetPreferences {
     val OpacityPctKey = intPreferencesKey("widget_opacity_pct")
 
     /**
+     * Mode d'affichage des prévisions dans le layout 4×2 (colonne du bas).
+     * Persisté comme String (nom de l'enum) pour rester lisible en cas de
+     * migration ; int aurait été plus compact mais introduit un couplage
+     * fragile "1=HOURLY 2=DAILY" facile à casser en renommant.
+     */
+    val ForecastModeKey = stringPreferencesKey("widget_forecast_mode")
+
+    /**
      * Défaut = 80% : assez opaque pour rester lisible sur n'importe quel fond
      * d'écran (photo lumineuse ou sombre), mais laisse voir le wallpaper au
      * travers pour rappeler que c'est un widget. 100% (opaque) écrase tout,
      * 0% (transparent) rend le texte illisible sur un wallpaper contrasté.
      */
     const val DEFAULT_OPACITY_PCT = 80
+
+    /**
+     * Défaut = HOURLY : sur un widget de bureau consulté en cours de journée,
+     * "les 4 prochaines heures" est le signal le plus actionnable (dois-je
+     * prendre un parapluie en sortant ?). La vue journalière reste accessible
+     * via le paramètre.
+     */
+    val DEFAULT_FORECAST_MODE = ForecastMode.HOURLY
+}
+
+/**
+ * Deux modes d'affichage de la prévision étendue (4×2 uniquement).
+ *
+ * Sealed via enum plutôt que sealed class : pas de données associées, juste
+ * un discriminant simple. La persistance stocke `name` (String), la lecture
+ * fait `runCatching { valueOf(...) }` pour tolérer une clé inconnue en cache
+ * (retombe sur le défaut sans crash).
+ */
+internal enum class ForecastMode {
+    /** 4 prochaines heures — libellés type "14h", "15h"… */
+    HOURLY,
+    /** 4 prochains jours — libellés type "Lun", "Mar"… */
+    DAILY
 }

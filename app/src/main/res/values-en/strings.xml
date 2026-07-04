@@ -18,6 +18,10 @@
     <string name="widget_config_no_favorites">Add a city in MeteoCompare first, then reconfigure the widget.</string>
     <string name="widget_config_opacity">Background opacity</string>
     <string name="widget_config_opacity_preview">Background preview</string>
+    <string name="widget_config_forecast_mode">Extended forecast</string>
+    <string name="widget_config_forecast_mode_note">Only shown at 4×2 size. Bottom row of the widget.</string>
+    <string name="widget_config_forecast_mode_hourly">Next 4 hours</string>
+    <string name="widget_config_forecast_mode_daily">Next 4 days</string>
     <string name="widget_config_save">Add</string>
     <string name="title_detail_fallback">Detail</string>
 
@@ -55,7 +59,7 @@
     <string name="section_temp_table">Max / min temperatures</string>
     <string name="section_temp_hourly">Hourly temperatures</string>
     <string name="section_precipitation">Precipitation</string>
-    <string name="section_wind">10m mean wind — daily max</string>
+    <string name="section_wind">10m mean wind</string>
     <string name="section_wind_hourly">10m mean wind</string>
     <string name="section_weather_by_model">Weather by model and day</string>
 
@@ -116,7 +120,7 @@
     <!-- Variable labels (today summary) -->
     <string name="var_temp_max">Max temperature</string>
     <string name="var_temp_min">Min temperature</string>
-    <string name="var_wind_max">10m mean wind max</string>
+    <string name="var_wind_max">10m mean wind</string>
     <string name="var_precipitation">Precipitation</string>
 
     <!-- Refresh feedback -->
@@ -179,7 +183,7 @@
     <string name="a11y_today_summary_many">Today\'s summary, %d models analysed</string>
     <string name="a11y_temp_max_label">Max temperature</string>
     <string name="a11y_temp_min_label">Min temperature</string>
-    <string name="a11y_wind_max_label">10m mean wind max</string>
+    <string name="a11y_wind_max_label">10m mean wind</string>
     <string name="a11y_kmh_unit">kilometers per hour</string>
 
     <!-- ─── "Why this confidence?" ───────────────────────────────────────── -->
