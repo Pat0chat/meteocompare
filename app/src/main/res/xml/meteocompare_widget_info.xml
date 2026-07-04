@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Meta-données du widget MeteoCompare.
+
+    Dimensions :
+      - minWidth=110dp minHeight=40dp : taille MINIMALE (2×1 cellules approx).
+        Le système peut refuser d'afficher plus petit ; certains launchers vont
+        même bloquer si la cellule cible est plus petite.
+      - targetCellWidth/Height : taille NATURELLE au drop initial (Android 12+).
+        On vise 2×1 par défaut — l'utilisateur peut ensuite resize horizontalement
+        jusqu'au maxResize.
+      - maxResizeWidth=290dp : autorise jusqu'à 4 cellules horizontales (4×1).
+        Formule Android grid : width_dp = 70 · n − 30. 4×1 → 250dp, on prend
+        290 avec marge pour les launchers qui arrondissent.
+      - resizeMode="horizontal" : resize latéral uniquement — la hauteur reste
+        1 cellule. Le contenu ne bénéficierait pas d'un stack vertical (pas
+        de graphique à empiler ; l'app pour ça).
+
+    Rafraîchissement :
+      - updatePeriodMillis=1800000 (30 min) : minimum autorisé par le système.
+        En dessous, Android ignore et cale à 30 min pour économiser la batterie.
+        30 min est un bon compromis pour un widget météo : les prévisions
+        Open-Meteo sont republiées ~toutes les heures, refresh 2x/heure garantit
+        d'attraper la nouvelle version.
+
+    Configuration :
+      - configure="..MeteoWidgetConfigActivity" : au drop du widget, le système
+        ouvre cette activité pour permettre à l'utilisateur de choisir sa ville
+        et l'opacité. Sans cette ligne, le widget apparaîtrait avec l'état
+        "non configuré" (voir WidgetError.NotConfigured).
+      - widgetFeatures="reconfigurable" : ajoute un menu "Reconfigurer" sur
+        long-press du widget (Android 12+). Utile pour changer de ville sans
+        supprimer/re-ajouter le widget.
+
+    Preview :
+      - previewImage : miniature affichée dans le picker de widgets. On réutilise
+        l'icône launcher — plus propre serait un vrai preview layout mais on
+        garde ça pour une itération future.
+-->
+<appwidget-provider
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="110dp"
+    android:minHeight="40dp"
+    android:targetCellWidth="2"
+    android:targetCellHeight="1"
+    android:maxResizeWidth="290dp"
+    android:maxResizeHeight="40dp"
+    android:resizeMode="horizontal"
+    android:updatePeriodMillis="1800000"
+    android:widgetCategory="home_screen"
+    android:widgetFeatures="reconfigurable"
+    android:configure="com.meteocompare.app.widget.MeteoWidgetConfigActivity"
+    android:previewImage="@mipmap/ic_launcher"
+    android:description="@string/widget_description" />

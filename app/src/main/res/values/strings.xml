@@ -7,6 +7,18 @@
     <string name="action_refresh">Actualiser</string>
     <string name="action_settings">Réglages</string>
     <string name="action_add_city">Ajouter une ville</string>
+    <string name="action_cancel">Annuler</string>
+
+    <!-- ─── Widget homescreen ────────────────────────────────────────── -->
+    <string name="widget_label">MeteoCompare</string>
+    <string name="widget_description">Météo actuelle d\'une ville favorite avec indice de confiance multi-modèles.</string>
+    <string name="widget_config_title">Configurer le widget</string>
+    <string name="widget_config_subtitle">Choisissez la ville affichée et l\'opacité du fond.</string>
+    <string name="widget_config_pick_city">Ville affichée</string>
+    <string name="widget_config_no_favorites">Ajoutez d\'abord une ville dans MeteoCompare, puis reconfigurez le widget.</string>
+    <string name="widget_config_opacity">Opacité du fond</string>
+    <string name="widget_config_opacity_preview">Aperçu du fond</string>
+    <string name="widget_config_save">Ajouter</string>
     <string name="title_detail_fallback">Détail</string>
 
     <!-- Settings -->
@@ -46,7 +58,7 @@
     <!-- Vent : titres explicites pour clarifier "mean à 10m" (pas rafale). -->
     <!-- "Vent moyen à 10m — max journalière" est le max sur la journée du -->
     <!-- wind_speed_10m (moyenne horaire), et NON le max_wind_gusts (rafales). -->
-    <string name="section_wind">Vent moyen à 10m</string>
+    <string name="section_wind">Vent moyen à 10m — max journalière</string>
     <string name="section_wind_hourly">Vent moyen à 10m</string>
     <string name="section_weather_by_model">Temps par modèle et par jour</string>
 
@@ -107,7 +119,7 @@
     <!-- Variable labels (today summary) -->
     <string name="var_temp_max">Température max</string>
     <string name="var_temp_min">Température min</string>
-    <string name="var_wind_max">Vent moyen à 10m</string>
+    <string name="var_wind_max">Vent moyen max à 10m</string>
     <string name="var_precipitation">Précipitations</string>
 
     <!-- Refresh feedback -->
@@ -170,7 +182,7 @@
     <string name="a11y_today_summary_many">Résumé d\'aujourd\'hui, %d modèles analysés</string>
     <string name="a11y_temp_max_label">Température max</string>
     <string name="a11y_temp_min_label">Température min</string>
-    <string name="a11y_wind_max_label">Vent moyen à 10m</string>
+    <string name="a11y_wind_max_label">Vent moyen max à 10m</string>
     <string name="a11y_kmh_unit">kilomètres par heure</string>
 
     <!-- ─── "Pourquoi cette confiance ?" ─────────────────────────────────── -->

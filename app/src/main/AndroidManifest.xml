@@ -60,6 +60,51 @@
                 android:value="true" />
         </service>
 
+        <!--
+            ─── Widget MeteoCompare (Glance) ────────────────────────────────
+
+            Le widget expose la météo courante d'une ville favorite sur
+            l'écran d'accueil. Tailles supportées : 2×1, 3×1, 4×1 (redimen-
+            sionnable horizontalement). L'utilisateur configure la ville
+            affichée et l'opacité du fond via la config activity au moment
+            du drop du widget.
+
+            android:exported="true" est REQUIS pour les widget receivers
+            depuis Android 12 — le système doit pouvoir les invoquer même
+            depuis un autre process (le launcher). Sans exported=true, le
+            widget ne s'installerait tout simplement pas.
+        -->
+        <receiver
+            android:name=".widget.MeteoWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/meteocompare_widget_info" />
+        </receiver>
+
+        <!--
+            Activity de configuration ouverte par le système à l'ajout du
+            widget (et lors du reconfigure Android 12+). Elle attend
+            EXTRA_APPWIDGET_ID dans son Intent, sauvegarde la config via
+            l'API Glance, et retourne RESULT_OK.
+
+            android:exported="true" pour la même raison que le receiver — le
+            launcher démarre l'activité, donc un cross-process access.
+        -->
+        <activity
+            android:name=".widget.MeteoWidgetConfigActivity"
+            android:exported="true"
+            android:theme="@style/Theme.MeteoCompare"
+            android:label="@string/widget_config_title">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
     </application>
 
 </manifest>
