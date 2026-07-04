@@ -1,15 +1,16 @@
 package com.meteocompare.app.widget
 
 import android.content.Context
+import android.content.res.Configuration
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.datastore.preferences.core.Preferences
-import androidx.glance.ColorFilter
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
+import androidx.glance.LocalContext
 import androidx.glance.LocalSize
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
@@ -19,21 +20,19 @@ import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.appwidget.state.getAppWidgetState
 import androidx.glance.background
-import androidx.glance.color.ColorProvider
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
-import androidx.glance.layout.fillMaxHeight
 import androidx.glance.layout.fillMaxSize
-import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.padding
 import androidx.glance.layout.width
 import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
+import androidx.glance.unit.ColorProvider
 import com.meteocompare.app.MainActivity
 import com.meteocompare.app.domain.model.WeatherCondition
 import kotlin.math.roundToInt
@@ -117,11 +116,16 @@ private fun WidgetContent(data: WidgetData, opacityPct: Int) {
     // ~0.6 donne un effet "verre dépoli" agréable ; alpha 1.0 = opaque total,
     // alpha 0.0 = fond entièrement transparent (texte lisible seulement sur
     // wallpaper uni).
+    //
+    // Détection du mode nuit à COMPOSITION TIME plutôt qu'avec une factory
+    // day/night ColorProvider — Glance 1.1 a bien un ColorProvider(day, night)
+    // dans le package `androidx.glance.color`, mais son import entre en
+    // conflit avec le ColorProvider(color) single-arg du package `androidx.glance.unit`
+    // qu'on utilise partout ailleurs (badge de confiance, textes). Résoudre le
+    // Color manuellement puis wrapper une seule fois évite le conflit sans
+    // sacrifier le rendu day/night.
     val alpha = opacityPct / 100f
-    val bg = ColorProvider(
-        day = primaryContainerLight.copy(alpha = alpha),
-        night = primaryContainerDark.copy(alpha = alpha)
-    )
+    val bg = ColorProvider(resolveContainerColor().copy(alpha = alpha))
 
     Box(
         modifier = GlanceModifier
@@ -394,16 +398,38 @@ private val primaryContainerDark = Color(0xFF283960)   // bleu sombre profond
 private val onPrimaryContainerLight = Color(0xFF001A41)
 private val onPrimaryContainerDark = Color(0xFFDBE2FF)
 
+/**
+ * Détecte le mode nuit en lisant la configuration système via LocalContext.
+ *
+ * Alternative envisagée : `androidx.glance.color.ColorProvider(day, night)`
+ * — factory day/night native à Glance qui aurait fait le boulot. Elle entre
+ * malheureusement en conflit d'import avec `androidx.glance.unit.ColorProvider(color)`
+ * single-arg utilisé ailleurs dans ce fichier (badge de confiance, textes),
+ * et Kotlin ne peut pas résoudre deux fonctions homonymes de packages
+ * différents dans le même fichier sans renommage.
+ *
+ * Résoudre manuellement puis wrapper une seule fois dans ColorProvider(color)
+ * est plus simple et évite le rename `as` sur tous les call sites.
+ */
+@Composable
+private fun isNightMode(): Boolean {
+    val ctx = LocalContext.current
+    val uiMode = ctx.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+    return uiMode == Configuration.UI_MODE_NIGHT_YES
+}
+
+@Composable
+private fun resolveContainerColor(): Color =
+    if (isNightMode()) primaryContainerDark else primaryContainerLight
+
+@Composable
+private fun resolveOnContainerColor(): Color =
+    if (isNightMode()) onPrimaryContainerDark else onPrimaryContainerLight
+
 @Composable
 private fun onContainerColor(): ColorProvider =
-    ColorProvider(day = onPrimaryContainerLight, night = onPrimaryContainerDark)
+    ColorProvider(resolveOnContainerColor())
 
 @Composable
-private fun onContainerColorMuted(): ColorProvider = ColorProvider(
-    day = onPrimaryContainerLight.copy(alpha = 0.7f),
-    night = onPrimaryContainerDark.copy(alpha = 0.7f)
-)
-
-@Suppress("unused") // utile si on ajoute une icône tintée plus tard
-private fun ColorFilter.Companion.tintDayNight(day: Color, night: Color): ColorFilter =
-    tint(ColorProvider(day = day, night = night))
+private fun onContainerColorMuted(): ColorProvider =
+    ColorProvider(resolveOnContainerColor().copy(alpha = 0.7f))
