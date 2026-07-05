@@ -102,8 +102,8 @@ private data class WidgetPadding(val horizontal: Dp, val vertical: Dp)
 
 private val SmallPadding = WidgetPadding(8.dp, 8.dp)
 private val MediumPadding = WidgetPadding(14.dp, 10.dp)
-private val LargePadding = WidgetPadding(16.dp, 12.dp)
-private val ExtraLargePadding = WidgetPadding(16.dp, 14.dp)
+private val LargePadding = WidgetPadding(18.dp, 12.dp)
+private val ExtraLargePadding = WidgetPadding(20.dp, 20.dp)
 
 /**
  * Thème résolu (dark/light) — passé via [CompositionLocal] pour éviter que
@@ -418,20 +418,21 @@ private fun LargeLayout(
                     text = it,
                     style = TextStyle(
                         color = onContainer,
-                        fontSize = 13.sp,
+                        fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
                     )
                 )
             }
             Text(
                 text = formatMinMax(data.tempMin, data.tempMax),
-                style = TextStyle(color = onContainerMuted, fontSize = 11.sp)
+                style = TextStyle(color = onContainerMuted, fontSize = 14.sp)
             )
             val extras = buildExtrasLine(data)
             if (extras.isNotEmpty()) {
+                Spacer(GlanceModifier.height(2.dp))
                 Text(
                     text = extras,
-                    style = TextStyle(color = onContainerMuted, fontSize = 11.sp)
+                    style = TextStyle(color = onContainerMuted, fontSize = 14.sp)
                 )
             }
         }
@@ -482,20 +483,21 @@ private fun ExtraLargeLayout(
                         text = it,
                         style = TextStyle(
                             color = onContainer,
-                            fontSize = 14.sp,
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.Medium
                         )
                     )
                 }
                 Text(
                     text = formatMinMax(data.tempMin, data.tempMax),
-                    style = TextStyle(color = onContainerMuted, fontSize = 12.sp)
+                    style = TextStyle(color = onContainerMuted, fontSize = 14.sp)
                 )
                 val extras = buildExtrasLine(data)
                 if (extras.isNotEmpty()) {
+                    Spacer(GlanceModifier.height(2.dp))
                     Text(
                         text = extras,
-                        style = TextStyle(color = onContainerMuted, fontSize = 12.sp)
+                        style = TextStyle(color = onContainerMuted, fontSize = 14.sp)
                     )
                 }
             }
@@ -505,7 +507,7 @@ private fun ExtraLargeLayout(
             }
         }
 
-        Spacer(GlanceModifier.height(12.dp))
+        Spacer(GlanceModifier.height(18.dp))
 
         // ─── Bottom strip : 4 items de prévision étendue ──────────────
         if (data.forecasts.isEmpty()) {
@@ -523,7 +525,7 @@ private fun ExtraLargeLayout(
                     ) {
                         Text(
                             text = item.label,
-                            style = TextStyle(color = onContainerMuted, fontSize = 12.sp)
+                            style = TextStyle(color = onContainerMuted, fontSize = 14.sp)
                         )
                         WeatherGlyph(item.condition, sizeSp = 26, onContainer)
                         Text(
