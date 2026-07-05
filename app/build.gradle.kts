@@ -176,8 +176,8 @@ dependencies {
     // Le sur-ensemble de Compose disponible est documenté dans le package
     // `androidx.glance.*`. On garde `glance-material3` pour hériter du
     // thème Material 3 côté widget (couleurs primaires du système).
-    implementation("androidx.glance:glance-appwidget:1.1.1")
-    implementation("androidx.glance:glance-material3:1.1.1")
+    implementation(libs.androidx.glance.appwidget)
+    implementation(libs.androidx.glance.material3)
 
     // ─── WorkManager ──────────────────────────────────────────────────────
     // Remplace le refresh AlarmManager historique du widget (updatePeriodMillis)
@@ -190,7 +190,7 @@ dependencies {
     // léger qu'@HiltWorker + @AssistedInject qui demanderait un artefact
     // supplémentaire (androidx.hilt:hilt-work) et une config Application
     // custom implémentant Configuration.Provider.
-    implementation("androidx.work:work-runtime-ktx:2.9.1")
+    implementation(libs.androidx.work.runtime.ktx)
 
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
