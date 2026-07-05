@@ -179,6 +179,19 @@ dependencies {
     implementation("androidx.glance:glance-appwidget:1.1.1")
     implementation("androidx.glance:glance-material3:1.1.1")
 
+    // ─── WorkManager ──────────────────────────────────────────────────────
+    // Remplace le refresh AlarmManager historique du widget (updatePeriodMillis)
+    // par des jobs planifiés qui respectent Doze/App Standby/Battery Saver +
+    // supportent des contraintes réseau et batterie. Voir [WidgetRefreshScheduler]
+    // pour les détails de motivation et la configuration des contraintes.
+    //
+    // Pas de hilt-work : on utilise EntryPointAccessors pour injecter les
+    // dépendances dans le worker (même pattern que le widget lui-même). Plus
+    // léger qu'@HiltWorker + @AssistedInject qui demanderait un artefact
+    // supplémentaire (androidx.hilt:hilt-work) et une config Application
+    // custom implémentant Configuration.Provider.
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
+
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
     testImplementation(libs.turbine)

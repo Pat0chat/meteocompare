@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityForecast
+import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.repository.CityRepository
 import com.meteocompare.app.domain.repository.ForecastRepository
@@ -47,6 +48,11 @@ class CityListViewModel @Inject constructor(
     // quand une ville est retirée des favoris ou quand les modèles sélectionnés
     // changent (auquel cas on relance avec la nouvelle config).
     private val streamJobs = mutableMapOf<String, Job>()
+
+    // Snapshot de la dernière config utilisée pour lancer les streams.
+    // Sert à détecter si un update de source amont concerne effectivement
+    // ce qu'on écoute — évite les cancel/relaunch inutiles.
+    private var lastModelsSnapshot: List<WeatherModel>? = null
 
     val uiState: StateFlow<CityListUiState> = combine(
         cityRepository.observeFavorites(),
@@ -108,58 +114,119 @@ class CityListViewModel @Inject constructor(
     )
 
     init {
-        // Le cœur : on combine favoris + modèles sélectionnés.
-        // Quand l'une des deux sources change, on réajuste les streams.
+        // Le cœur : on combine favoris + modèles sélectionnés + intervalle.
+        // Quand l'une de ces sources change, on réajuste les streams.
+        //
+        // ─── distinctUntilChanged {} pour éviter les cancel-relaunch inutiles ──
+        // Les Flows amont sont maintenant distinctUntilChanged côté repository
+        // (voir UserPreferencesRepositoryImpl), mais le combine amalgame trois
+        // sources — chaque tick d'une source déclenche une combine emission,
+        // même si les autres sources n'ont pas changé. Le distinctUntilChanged
+        // ici compare le tuple entier — si (villes, modèles, intervalle) est
+        // identique, on ne fait pas de sync.
+        //
+        // Pourquoi ça matter : sans ce garde, un toggle dark/light (via
+        // ThemePreference) ne devrait rien changer aux streams, mais l'ancien
+        // code aurait tout de même cancel+relaunch tous les streams parce que
+        // la subscription DataStore réémettait — c'était le pic de CPU/network
+        // que la question cible.
         viewModelScope.launch {
             combine(
                 cityRepository.observeFavorites(),
-                userPreferences.observeEnabledModels()
-            ) { cities, models -> cities to models }
-                .collect { (cities, models) ->
-                    syncStreams(cities, models)
+                userPreferences.observeEnabledModels(),
+                userPreferences.observeRefreshInterval()
+            ) { cities, models, interval ->
+                Triple(cities, models, interval)
+            }
+                .distinctUntilChanged()
+                .collect { (cities, models, interval) ->
+                    syncStreams(cities, models, interval)
                 }
         }
     }
 
     /**
-     * Synchronise les streams en cours avec la liste actuelle (favoris × modèles).
+     * Synchronise les streams en cours avec la liste actuelle (favoris × modèles
+     * × intervalle).
      *
      * Quand on entre dans cette fonction, les streams peuvent être désync :
      *   - Ville X retirée des favoris → on cancel son job et on purge son cache.
      *   - Ville Y ajoutée aux favoris → on lance un nouveau stream pour elle.
-     *   - Les modèles sélectionnés ont changé → on relance TOUS les streams
+     *   - Les modèles ou l'intervalle ont changé → on relance TOUS les streams
      *     avec la nouvelle config.
      *
-     * Pour simplifier : à chaque appel, on cancel tout et on relance avec la
-     * config actuelle. Coût accepté : quand le user change un modèle dans les
-     * settings, tous les fetches en cours sont annulés et relancés. Pour un
-     * MVP c'est acceptable — les vrais use cases (ajouter une ville) ne touchent
-     * pas à la sélection de modèles.
+     * ─── Optimisation vs version précédente ────────────────────────────────
+     * L'ancien code faisait un cancel+relaunch de TOUS les streams à chaque
+     * appel, même si les modèles n'avaient pas bougé. Concrètement : ajouter
+     * une nouvelle ville à la liste des favoris relançait la fetch des N-1
+     * autres villes qui étaient déjà en cours de streaming — coût inutile
+     * en CPU/network.
+     *
+     * Maintenant :
+     *   - Si les modèles ET l'intervalle N'ONT PAS CHANGÉ depuis le dernier
+     *     appel, on ne cancel QUE les streams des villes retirées et on
+     *     lance UNIQUEMENT des streams pour les villes ajoutées. Les autres
+     *     continuent leur vie.
+     *   - Sinon, on refait le cancel-all comme avant : la nouvelle config
+     *     s'applique à tous les streams.
      */
-    private fun syncStreams(cities: List<City>, models: List<WeatherModel>) {
+    private fun syncStreams(
+        cities: List<City>,
+        models: List<WeatherModel>,
+        interval: RefreshInterval
+    ) {
         val currentIds = cities.map { it.id }.toSet()
 
-        // 1. Cancel les streams pour les villes retirées + purge cache
+        // 1. Cancel les streams pour les villes retirées + purge cache. On le
+        //    fait TOUJOURS, indépendamment du path d'optimisation ci-dessous.
         streamJobs.keys.filter { it !in currentIds }.forEach { id ->
             streamJobs.remove(id)?.cancel()
             forecastsById.update { it - id }
             viewModelScope.launch { forecastRepository.clearCacheForCity(id) }
         }
 
-        // 2. Cancel tous les streams restants (modèles ont peut-être changé)
-        streamJobs.values.forEach { it.cancel() }
-        streamJobs.clear()
+        val modelsChanged = lastModelsSnapshot?.let { it != models } ?: true
 
-        // 3. Relance pour chaque ville
+        // 2. Si les modèles ont changé (ou si c'est le premier appel), on
+        //    cancel TOUS les streams restants pour tout relancer avec la
+        //    nouvelle config. Sinon on garde les streams existants et on ne
+        //    lance que ceux des villes nouvellement ajoutées.
+        //
+        //    Note : l'intervalle affecte `maxCacheAgeMs` du repository, mais
+        //    ce paramètre n'est utilisé qu'à la subscription du stream. Un
+        //    stream déjà en collecte a déjà fait sa décision fetch/cache — le
+        //    changement d'intervalle affecte le PROCHAIN démarrage de stream.
+        //    Donc on N'annule PAS pour un pur changement d'intervalle.
+        if (modelsChanged) {
+            streamJobs.values.forEach { it.cancel() }
+            streamJobs.clear()
+        }
+
+        // 3. Lance les streams manquants (ceux qui n'ont pas de job actif).
+        //    Si modelsChanged=true, streamJobs est vide → on lance pour toutes
+        //    les villes. Si modelsChanged=false, on ne lance que pour les
+        //    nouvelles.
+        val maxCacheAgeMs = if (interval == RefreshInterval.MANUAL) Long.MAX_VALUE
+            else interval.millis
         cities.forEach { city ->
-            streamJobs[city.id] = viewModelScope.launch {
-                forecastRepository
-                    .getCityForecastStream(city, models = models)
-                    .collect { result ->
-                        forecastsById.update { it + (city.id to toForecastState(result)) }
-                    }
+            if (city.id !in streamJobs) {
+                streamJobs[city.id] = viewModelScope.launch {
+                    forecastRepository
+                        .getCityForecastStream(
+                            city = city,
+                            models = models,
+                            maxCacheAgeMs = maxCacheAgeMs
+                        )
+                        .collect { result ->
+                            forecastsById.update {
+                                it + (city.id to toForecastState(result))
+                            }
+                        }
+                }
             }
         }
+
+        lastModelsSnapshot = models
     }
 
     // ─── Actions utilisateur ────────────────────────────────────────────────

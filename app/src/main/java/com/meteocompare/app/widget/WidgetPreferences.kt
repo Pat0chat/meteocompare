@@ -32,6 +32,19 @@ internal object WidgetPreferences {
     val ForecastModeKey = stringPreferencesKey("widget_forecast_mode")
 
     /**
+     * "Refresh tick" : timestamp (ms epoch) de la dernière demande de refresh
+     * automatique par [WidgetRefreshWorker]. Alias de la clé définie dans
+     * [WidgetRefreshWorker.REFRESH_TICK_KEY] — exposée ici pour que
+     * [MeteoWidget] puisse la lire dans son composable sans dépendance directe.
+     *
+     * Sémantique : chaque incrément déclenche une recomposition Glance (via
+     * la lecture réactive `currentState<Preferences>()`) qui invalide le
+     * `LaunchedEffect(cityId, forecastMode, refreshTick)` et re-fetch les
+     * données via le repository (cache-first, réseau si assez périmé).
+     */
+    val RefreshTickKey = WidgetRefreshWorker.REFRESH_TICK_KEY
+
+    /**
      * Défaut = 80% : assez opaque pour rester lisible sur n'importe quel fond
      * d'écran (photo lumineuse ou sombre), mais laisse voir le wallpaper au
      * travers pour rappeler que c'est un widget. 100% (opaque) écrase tout,

@@ -7,6 +7,7 @@ import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DailyForecast
 import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.HourlyForecast
+import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.repository.CityRepository
 import com.meteocompare.app.domain.repository.ForecastRepository
@@ -68,6 +69,7 @@ class CityListViewModelTest {
 
     private val favoritesFlow = MutableStateFlow<List<City>>(emptyList())
     private val modelsFlow = MutableStateFlow(WeatherModel.MVP_SELECTION)
+    private val refreshIntervalFlow = MutableStateFlow(RefreshInterval.DEFAULT)
 
     private val cityRepo: CityRepository = mockk(relaxed = true) {
         coEvery { observeFavorites() } returns favoritesFlow
@@ -75,6 +77,14 @@ class CityListViewModelTest {
     private val forecastRepo: ForecastRepository = mockk(relaxed = true)
     private val prefs: UserPreferencesRepository = mockk(relaxed = true) {
         coEvery { observeEnabledModels() } returns modelsFlow
+        // observeRefreshInterval() est utilisé par le combine dans l'init du
+        // ViewModel. Sans ce stub, MockK relaxed retourne un flow VIDE et le
+        // combine à 3 sources ne s'active jamais → aucun stream forecast n'est
+        // lancé et les tests Turbine timeout à 3s. Un flow avec DEFAULT (HOUR_1)
+        // reproduit le comportement historique — les tests attendent que le
+        // stream soit lancé et émette, ce qui suppose que le combine amont ait
+        // reçu une valeur pour chaque source.
+        coEvery { observeRefreshInterval() } returns refreshIntervalFlow
     }
     private val calculator = ConfidenceCalculator(EqualWeighting())
 
@@ -86,7 +96,13 @@ class CityListViewModelTest {
         // Par défaut, getCityForecastStream renvoie un flow qui reste en cours.
         // Les tests qui veulent un résultat spécifique l'overrident AVANT
         // d'instancier la VM (sinon l'init de syncStreams capture l'ancien stub).
-        coEvery { forecastRepo.getCityForecastStream(any(), any(), any(), any()) } returns flow {
+        //
+        // NB : la signature a maintenant 5 paramètres (city, models, forecastDays,
+        // forceRefresh, maxCacheAgeMs). MockK match sur le nombre exact d'args,
+        // donc les 5 any() sont nécessaires — 4 renverrait "no answer found".
+        coEvery {
+            forecastRepo.getCityForecastStream(any(), any(), any(), any(), any())
+        } returns flow {
             /* ne rien émettre, ne pas terminer */
         }
         viewModel = CityListViewModel(cityRepo, forecastRepo, calculator, prefs)
@@ -129,7 +145,7 @@ class CityListViewModelTest {
         // capture l'ancien stub (hanging flow) au moment du combine initial.
         val forecast = buildForecast(paris, dailyMaxTemp = 22.0)
         coEvery {
-            forecastRepo.getCityForecastStream(eq(paris), any(), any(), any())
+            forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
         } returns flowOf(ApiResult.Success(forecast))
 
         // Nouvelle VM qui capturera le bon stub
@@ -153,7 +169,7 @@ class CityListViewModelTest {
     fun `uiState - error path conserve la ville dans la liste avec ForecastState Error`() =
         runTest(dispatcher) {
             coEvery {
-                forecastRepo.getCityForecastStream(eq(paris), any(), any(), any())
+                forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
             } returns flowOf(ApiResult.Error(RuntimeException("net"), "Pas de connexion"))
 
             val vm = CityListViewModel(cityRepo, forecastRepo, calculator, prefs)
@@ -203,7 +219,7 @@ class CityListViewModelTest {
     fun `onRetry - applique le résultat du refresh sur la ville`() = runTest(dispatcher) {
         // Initial : Error pour paris
         coEvery {
-            forecastRepo.getCityForecastStream(eq(paris), any(), any(), any())
+            forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
         } returns flowOf(ApiResult.Error(RuntimeException(), "boom"))
         // Retry : refreshCityForecast renvoie succès
         val freshForecast = buildForecast(paris, dailyMaxTemp = 25.0)

@@ -82,7 +82,18 @@ class CityDetailViewModel @Inject constructor(
 
     /**
      * Chargement initial : utilise le stream cache+fresh.
-     * Émet d'abord le cache si présent, puis le résultat réseau.
+     * Émet d'abord le cache si présent, puis le résultat réseau — SAUF si le
+     * cache est plus récent que l'intervalle de rafraîchissement utilisateur,
+     * auquel cas on n'émet QUE le cache (pas de requête réseau).
+     *
+     * ─── Économie batterie/data ─────────────────────────────────────────
+     * Sans ce garde, chaque navigation vers l'écran détail déclenche 5 requêtes
+     * réseau parallèles vers Open-Meteo — même si l'utilisateur vient d'ouvrir
+     * cette même ville 30 secondes plus tôt. Avec le seuil `maxCacheAgeMs`
+     * égal à l'intervalle utilisateur, on saute complètement le fetch quand
+     * le cache est encore frais. Pull-to-refresh continue de fonctionner
+     * normalement — c'est un chemin séparé via `refresh()` qui bypasse ce
+     * seuil (utilise `refreshCityForecast` sans seuil).
      */
     private fun loadInitial() {
         viewModelScope.launch {
@@ -91,13 +102,24 @@ class CityDetailViewModel @Inject constructor(
                 return@launch
             }
             val models = userPreferences.observeEnabledModels().first()
+            val interval = userPreferences.observeRefreshInterval().first()
+            // MANUAL : cache considéré toujours frais → aucun fetch auto.
+            // L'utilisateur doit pull-to-refresh pour rafraîchir.
+            val maxCacheAgeMs = if (
+                interval == com.meteocompare.app.domain.model.RefreshInterval.MANUAL
+            ) Long.MAX_VALUE else interval.millis
 
             // Lance le fetch des normales en parallèle — ne bloque pas l'affichage
             // du forecast. Quand les normales arrivent, on met à jour le state
             // existant via copy() pour ajouter le champ normals.
             launchNormalsLoad(city)
 
-            forecastRepository.getCityForecastStream(city, models = models, forecastDays = 7)
+            forecastRepository.getCityForecastStream(
+                city = city,
+                models = models,
+                forecastDays = 7,
+                maxCacheAgeMs = maxCacheAgeMs
+            )
                 .collect { result -> applyResult(result) }
         }
     }

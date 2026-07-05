@@ -3,12 +3,15 @@ package com.meteocompare.app.widget
 import android.content.Context
 import android.content.res.Configuration
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.datastore.preferences.core.Preferences
@@ -69,10 +72,60 @@ private const val EXTRA_LARGE_MIN_HEIGHT_DP = 130
 private const val EXTRA_LARGE_MIN_WIDTH_DP = 220
 
 /**
+ * Padding intérieur par taille de widget.
+ *
+ * ─── Pourquoi un padding différent selon la taille ? ─────────────────────
+ * L'ancien code utilisait un padding uniforme de 10.dp pour toutes les
+ * tailles. Sur 2×1, c'est OK — l'espace est déjà minuscule, tout serré
+ * est acceptable. Mais sur 3×1, 4×1 et 4×2 :
+ *
+ *   - Le contenu touche presque les bords → aspect "collé" peu premium.
+ *   - Sur les launchers qui appliquent un liseré léger autour du widget
+ *     (One UI, MIUI), le texte semble sortir du cadre.
+ *   - Le confidence pill à droite en 3×1/4×1 se retrouve pratiquement
+ *     contre le bord droit, sans respiration visuelle.
+ *
+ * Nouveau padding progressif :
+ *   - Small (2×1)      : 8.dp — inchangé, l'espace est trop précieux.
+ *   - Medium (3×1)     : 14.dp horizontal, 10.dp vertical — respiration à
+ *                        gauche/droite pour éloigner le pill du bord.
+ *   - Large (4×1)      : 16.dp horizontal, 12.dp vertical — un poil plus,
+ *                        la largeur autorise le confort.
+ *   - ExtraLarge (4×2) : 16.dp horizontal, 14.dp vertical — le vertical est
+ *                        doublé du 4×1 pour éviter que le strip du bas colle
+ *                        au bord bas quand les icônes météo sont hautes.
+ *
+ * Les valeurs restent SYMÉTRIQUES gauche/droite pour que le contenu reste
+ * centré au regard, et légèrement plus resserrées verticalement que
+ * horizontalement pour tirer parti de la forme 3-4:1 des layouts.
+ */
+private data class WidgetPadding(val horizontal: Dp, val vertical: Dp)
+
+private val SmallPadding = WidgetPadding(8.dp, 8.dp)
+private val MediumPadding = WidgetPadding(14.dp, 10.dp)
+private val LargePadding = WidgetPadding(16.dp, 12.dp)
+private val ExtraLargePadding = WidgetPadding(16.dp, 14.dp)
+
+/**
+ * Thème résolu (dark/light) — passé via [CompositionLocal] pour éviter que
+ * chaque helper couleur ne recalcule `ctx.resources.configuration.uiMode` à
+ * son tour. L'ancienne version appelait `isNightMode()` dans 6+ endroits par
+ * render (chaque `onContainerColor()`, `onContainerColorMuted()`,
+ * `resolveOnContainerColor()` faisait un accès Configuration + bit-and) — sur
+ * un widget avec strip 4×2 c'est ~30 lookups Configuration par recomposition.
+ *
+ * Avec ce local, on lit Configuration UNE fois au top du composable et on
+ * propage la valeur booléenne — un simple int en pratique. Le gain n'est pas
+ * critique (Configuration read est bon marché) mais rend le code plus propre
+ * et matche la façon dont GlanceTheme fonctionne en interne.
+ */
+private val LocalNightMode = staticCompositionLocalOf { false }
+
+/**
  * Widget MeteoCompare — reproduit un résumé compact de la [TodaySummaryCard]
  * sur l'écran d'accueil.
  *
- * Quatre tailles supportées, via [SizeMode.Responsive] :
+ * Quatre tailles supportées, via [SizeMode.Exact] :
  *
  *   - **2×1** : icône + température actuelle | ville + confiance dessous.
  *     Mode "coup d'œil" — un pouce sait s'il fait beau et si la prévision est
@@ -100,6 +153,13 @@ private const val EXTRA_LARGE_MIN_WIDTH_DP = 220
  * Ce pattern règle "widget bloqué sur Configurer une ville" — auparavant le
  * composable utilisait la valeur cityId capturée à la 1re render, jamais
  * rafraîchie même après le save de la config.
+ *
+ * ─── Refresh tick ────────────────────────────────────────────────────────
+ * [WidgetRefreshWorker] écrit un timestamp dans la clé [WidgetPreferences.RefreshTickKey]
+ * pour signaler "il faut re-fetch". Ce tick est inclus dans les clés du
+ * `LaunchedEffect` ci-dessous : chaque incrément invalide l'effet et
+ * re-déclenche `loadWidgetData`, qui à son tour respecte le seuil de
+ * fraîcheur cache défini dans les préférences utilisateur.
  */
 internal class MeteoWidget : GlanceAppWidget() {
 
@@ -119,10 +179,14 @@ internal class MeteoWidget : GlanceAppWidget() {
             val forecastMode = prefs[WidgetPreferences.ForecastModeKey]
                 ?.let { runCatching { ForecastMode.valueOf(it) }.getOrNull() }
                 ?: WidgetPreferences.DEFAULT_FORECAST_MODE
+            // Refresh tick écrit par le WidgetRefreshWorker. Utilisé comme clé
+            // du LaunchedEffect pour re-déclencher loadWidgetData quand le
+            // worker signale un besoin de refresh.
+            val refreshTick = prefs[WidgetPreferences.RefreshTickKey] ?: 0L
 
             // Chargement des données asynchrone. `remember` persiste la
             // dernière donnée bonne à travers les recompositions ; LaunchedEffect
-            // re-fetch quand cityId/forecastMode change (nouveau save de config).
+            // re-fetch quand cityId/forecastMode/refreshTick change.
             // L'état initial est Loading (pas NotConfigured) pour éviter le
             // flash "Configurer" quand on recompose une ville déjà configurée.
             var data by remember {
@@ -130,12 +194,18 @@ internal class MeteoWidget : GlanceAppWidget() {
                     if (cityId == null) WidgetData.NotConfigured else WidgetData.Loading
                 )
             }
-            LaunchedEffect(cityId, forecastMode) {
+            LaunchedEffect(cityId, forecastMode, refreshTick) {
                 data = loadWidgetData(appCtx, cityId, forecastMode)
             }
 
-            GlanceTheme {
-                WidgetContent(data = data, opacityPct = opacityPct)
+            // Résolution UNE fois du mode nuit et propagation via CompositionLocal.
+            // Voir docblock de LocalNightMode pour le pourquoi.
+            val night = LocalContext.current.resources.configuration
+                .let { (it.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES }
+            CompositionLocalProvider(LocalNightMode provides night) {
+                GlanceTheme {
+                    WidgetContent(data = data, opacityPct = opacityPct)
+                }
             }
         }
     }
@@ -147,34 +217,64 @@ internal class MeteoWidget : GlanceAppWidget() {
 
 @Composable
 private fun WidgetContent(data: WidgetData, opacityPct: Int) {
-    val alpha = opacityPct / 100f
-    val bg = ColorProvider(resolveContainerColor().copy(alpha = alpha))
+    // Mémoïsation des couleurs sur la clé "nightMode" : recompute UNIQUEMENT
+    // si le mode dark/light du système change. En pratique ces couleurs ne
+    // changent jamais pendant la durée d'affichage d'un widget — la mémoïsation
+    // évite quand même 5+ nouvelles allocations Color par recomposition
+    // (chaque `.copy(alpha = ...)` crée un nouvel objet immuable).
+    val night = LocalNightMode.current
+    val onContainer = remember(night) {
+        ColorProvider(if (night) onPrimaryContainerDark else onPrimaryContainerLight)
+    }
+    val onContainerMuted = remember(night) {
+        ColorProvider(
+            (if (night) onPrimaryContainerDark else onPrimaryContainerLight)
+                .copy(alpha = 0.7f)
+        )
+    }
+    val container = remember(night, opacityPct) {
+        val base = if (night) primaryContainerDark else primaryContainerLight
+        ColorProvider(base.copy(alpha = opacityPct / 100f))
+    }
+
+    // Padding calculé selon la taille du widget — voir docblock WidgetPadding
+    // pour la motivation des valeurs par taille.
+    val size = LocalSize.current
+    val widthDp = size.width.value
+    val heightDp = size.height.value
+    val padding = when {
+        heightDp >= EXTRA_LARGE_MIN_HEIGHT_DP &&
+            widthDp >= EXTRA_LARGE_MIN_WIDTH_DP -> ExtraLargePadding
+        widthDp >= MEDIUM_MAX_WIDTH_DP -> LargePadding
+        widthDp >= SMALL_MAX_WIDTH_DP -> MediumPadding
+        else -> SmallPadding
+    }
 
     Box(
         modifier = GlanceModifier
             .fillMaxSize()
-            .background(bg)
+            .background(container)
             .cornerRadius(16.dp)
             .clickable(actionStartActivity<MainActivity>())
-            .padding(10.dp)
+            .padding(horizontal = padding.horizontal, vertical = padding.vertical)
     ) {
         when {
-            data.error != null -> ErrorLayout(data.error)
+            data.error != null -> ErrorLayout(data.error, onContainerMuted)
             else -> {
                 // Sélection du layout via la taille exacte du container. Voir
                 // les constantes en tête de fichier pour les seuils et leurs
                 // motivations. La condition ExtraLarge combine width ET height
                 // pour distinguer un vrai 4×2 d'un 3×1 sur launcher à cellules
                 // hautes (le width seul suffit à choisir Small/Medium/Large).
-                val size = LocalSize.current
-                val widthDp = size.width.value
-                val heightDp = size.height.value
                 when {
                     heightDp >= EXTRA_LARGE_MIN_HEIGHT_DP &&
-                        widthDp >= EXTRA_LARGE_MIN_WIDTH_DP -> ExtraLargeLayout(data)
-                    widthDp >= MEDIUM_MAX_WIDTH_DP -> LargeLayout(data)
-                    widthDp >= SMALL_MAX_WIDTH_DP -> MediumLayout(data)
-                    else -> SmallLayout(data)
+                        widthDp >= EXTRA_LARGE_MIN_WIDTH_DP ->
+                        ExtraLargeLayout(data, onContainer, onContainerMuted)
+                    widthDp >= MEDIUM_MAX_WIDTH_DP ->
+                        LargeLayout(data, onContainer, onContainerMuted)
+                    widthDp >= SMALL_MAX_WIDTH_DP ->
+                        MediumLayout(data, onContainer, onContainerMuted)
+                    else -> SmallLayout(data, onContainer)
                 }
             }
         }
@@ -195,20 +295,20 @@ private fun WidgetContent(data: WidgetData, opacityPct: Int) {
  * décoder le nombre.
  */
 @Composable
-private fun SmallLayout(data: WidgetData) {
+private fun SmallLayout(data: WidgetData, onContainer: ColorProvider) {
     Row(
         modifier = GlanceModifier.fillMaxSize(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        WeatherGlyph(data.currentCondition, sizeSp = 24)
+        WeatherGlyph(data.currentCondition, sizeSp = 24, onContainer)
         Spacer(GlanceModifier.width(6.dp))
         Column {
             data.cityName?.let {
                 Text(
                     text = it,
                     style = TextStyle(
-                        color = onContainerColor(),
+                        color = onContainer,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -218,7 +318,7 @@ private fun SmallLayout(data: WidgetData) {
             Text(
                 text = formatTemp(data.currentTemp),
                 style = TextStyle(
-                    color = onContainerColor(),
+                    color = onContainer,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Medium
                 )
@@ -239,18 +339,22 @@ private fun SmallLayout(data: WidgetData) {
 
 /** Layout 3×1 : ligne icône+temp | ville sur min/max | badge de confiance. */
 @Composable
-private fun MediumLayout(data: WidgetData) {
+private fun MediumLayout(
+    data: WidgetData,
+    onContainer: ColorProvider,
+    onContainerMuted: ColorProvider
+) {
     Row(
         modifier = GlanceModifier.fillMaxSize(),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            WeatherGlyph(data.currentCondition, sizeSp = 28)
+            WeatherGlyph(data.currentCondition, sizeSp = 28, onContainer)
             Spacer(GlanceModifier.width(6.dp))
             Text(
                 text = formatTemp(data.currentTemp),
                 style = TextStyle(
-                    color = onContainerColor(),
+                    color = onContainer,
                     fontSize = 26.sp,
                     fontWeight = FontWeight.Medium
                 )
@@ -263,7 +367,7 @@ private fun MediumLayout(data: WidgetData) {
                 Text(
                     text = it,
                     style = TextStyle(
-                        color = onContainerColor(),
+                        color = onContainer,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -271,7 +375,7 @@ private fun MediumLayout(data: WidgetData) {
             }
             Text(
                 text = formatMinMax(data.tempMin, data.tempMax),
-                style = TextStyle(color = onContainerColorMuted(), fontSize = 12.sp)
+                style = TextStyle(color = onContainerMuted, fontSize = 12.sp)
             )
         }
 
@@ -286,18 +390,22 @@ private fun MediumLayout(data: WidgetData) {
  * ligne d'extras contextuels (cloud cover, pluie avec confiance).
  */
 @Composable
-private fun LargeLayout(data: WidgetData) {
+private fun LargeLayout(
+    data: WidgetData,
+    onContainer: ColorProvider,
+    onContainerMuted: ColorProvider
+) {
     Row(
         modifier = GlanceModifier.fillMaxSize(),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            WeatherGlyph(data.currentCondition, sizeSp = 30)
+            WeatherGlyph(data.currentCondition, sizeSp = 30, onContainer)
             Spacer(GlanceModifier.width(6.dp))
             Text(
                 text = formatTemp(data.currentTemp),
                 style = TextStyle(
-                    color = onContainerColor(),
+                    color = onContainer,
                     fontSize = 26.sp,
                     fontWeight = FontWeight.Medium
                 )
@@ -310,7 +418,7 @@ private fun LargeLayout(data: WidgetData) {
                 Text(
                     text = it,
                     style = TextStyle(
-                        color = onContainerColor(),
+                        color = onContainer,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -318,13 +426,13 @@ private fun LargeLayout(data: WidgetData) {
             }
             Text(
                 text = formatMinMax(data.tempMin, data.tempMax),
-                style = TextStyle(color = onContainerColorMuted(), fontSize = 11.sp)
+                style = TextStyle(color = onContainerMuted, fontSize = 11.sp)
             )
             val extras = buildExtrasLine(data)
             if (extras.isNotEmpty()) {
                 Text(
                     text = extras,
-                    style = TextStyle(color = onContainerColorMuted(), fontSize = 11.sp)
+                    style = TextStyle(color = onContainerMuted, fontSize = 11.sp)
                 )
             }
         }
@@ -346,19 +454,23 @@ private fun LargeLayout(data: WidgetData) {
  * temp 15sp pour occuper les 4 colonnes.
  */
 @Composable
-private fun ExtraLargeLayout(data: WidgetData) {
+private fun ExtraLargeLayout(
+    data: WidgetData,
+    onContainer: ColorProvider,
+    onContainerMuted: ColorProvider
+) {
     Column(modifier = GlanceModifier.fillMaxSize()) {
         // ─── Top strip (comme 4×1 mais TAILLES BUMPÉES pour remplir la hauteur)
         Row(
             modifier = GlanceModifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            WeatherGlyph(data.currentCondition, sizeSp = 32)
+            WeatherGlyph(data.currentCondition, sizeSp = 32, onContainer)
             Spacer(GlanceModifier.width(8.dp))
             Text(
                 text = formatTemp(data.currentTemp),
                 style = TextStyle(
-                    color = onContainerColor(),
+                    color = onContainer,
                     fontSize = 28.sp,
                     fontWeight = FontWeight.Medium
                 )
@@ -370,7 +482,7 @@ private fun ExtraLargeLayout(data: WidgetData) {
                     Text(
                         text = it,
                         style = TextStyle(
-                            color = onContainerColor(),
+                            color = onContainer,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium
                         )
@@ -378,13 +490,13 @@ private fun ExtraLargeLayout(data: WidgetData) {
                 }
                 Text(
                     text = formatMinMax(data.tempMin, data.tempMax),
-                    style = TextStyle(color = onContainerColorMuted(), fontSize = 12.sp)
+                    style = TextStyle(color = onContainerMuted, fontSize = 12.sp)
                 )
                 val extras = buildExtrasLine(data)
                 if (extras.isNotEmpty()) {
                     Text(
                         text = extras,
-                        style = TextStyle(color = onContainerColorMuted(), fontSize = 12.sp)
+                        style = TextStyle(color = onContainerMuted, fontSize = 12.sp)
                     )
                 }
             }
@@ -400,7 +512,7 @@ private fun ExtraLargeLayout(data: WidgetData) {
         if (data.forecasts.isEmpty()) {
             Text(
                 text = "…",
-                style = TextStyle(color = onContainerColorMuted(), fontSize = 12.sp)
+                style = TextStyle(color = onContainerMuted, fontSize = 12.sp)
             )
         } else {
             Row(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
@@ -412,12 +524,12 @@ private fun ExtraLargeLayout(data: WidgetData) {
                     ) {
                         Text(
                             text = item.label,
-                            style = TextStyle(color = onContainerColorMuted(), fontSize = 12.sp)
+                            style = TextStyle(color = onContainerMuted, fontSize = 12.sp)
                         )
-                        WeatherGlyph(item.condition, sizeSp = 26)
+                        WeatherGlyph(item.condition, sizeSp = 26, onContainer)
                         Text(
                             text = formatTemp(item.temp),
-                            style = TextStyle(color = onContainerColor(), fontSize = 15.sp)
+                            style = TextStyle(color = onContainer, fontSize = 15.sp)
                         )
                     }
                 }
@@ -428,7 +540,7 @@ private fun ExtraLargeLayout(data: WidgetData) {
 
 /** État "widget pas configuré" ou "erreur" ou "chargement". */
 @Composable
-private fun ErrorLayout(error: WidgetError) {
+private fun ErrorLayout(error: WidgetError, onContainerMuted: ColorProvider) {
     val message = when (error) {
         WidgetError.NotConfigured -> "Configurer\nla ville"
         WidgetError.Loading -> "Chargement…"
@@ -443,7 +555,7 @@ private fun ErrorLayout(error: WidgetError) {
         Text(
             text = message,
             style = TextStyle(
-                color = onContainerColorMuted(),
+                color = onContainerMuted,
                 fontSize = 12.sp
             )
         )
@@ -453,7 +565,11 @@ private fun ErrorLayout(error: WidgetError) {
 // ─── Sous-blocs réutilisables ─────────────────────────────────────────────
 
 @Composable
-private fun WeatherGlyph(condition: WeatherCondition?, sizeSp: Int) {
+private fun WeatherGlyph(
+    condition: WeatherCondition?,
+    sizeSp: Int,
+    onContainer: ColorProvider
+) {
     val glyph = when (condition) {
         WeatherCondition.CLEAR, WeatherCondition.MAINLY_CLEAR -> "☀"
         WeatherCondition.PARTLY_CLOUDY -> "⛅"
@@ -468,16 +584,22 @@ private fun WeatherGlyph(condition: WeatherCondition?, sizeSp: Int) {
     }
     Text(
         text = glyph,
-        style = TextStyle(color = onContainerColor(), fontSize = sizeSp.sp)
+        style = TextStyle(color = onContainer, fontSize = sizeSp.sp)
     )
 }
 
 @Composable
 private fun ConfidencePill(percent: Int) {
     val color = confidenceColor(percent)
+    // Mémoïsation des ColorProviders : sans ça, `.copy(alpha = 0.18f)` alloue
+    // un nouvel objet Color à chaque recomposition — pour un widget avec strip
+    // 4×2, ça peut être plusieurs allocations par render. Le remember(percent)
+    // n'invalide que si le % change, ce qui n'arrive qu'au fetch de données.
+    val bg = remember(percent) { ColorProvider(color.copy(alpha = 0.18f)) }
+    val fg = remember(percent) { ColorProvider(color) }
     Box(
         modifier = GlanceModifier
-            .background(ColorProvider(color.copy(alpha = 0.18f)))
+            .background(bg)
             .cornerRadius(8.dp)
             .padding(horizontal = 6.dp, vertical = 3.dp),
         contentAlignment = Alignment.Center
@@ -485,7 +607,7 @@ private fun ConfidencePill(percent: Int) {
         Text(
             text = "$percent%",
             style = TextStyle(
-                color = ColorProvider(color),
+                color = fg,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -526,29 +648,6 @@ private val primaryContainerDark = Color(0xFF283960)
 private val onPrimaryContainerLight = Color(0xFF001A41)
 private val onPrimaryContainerDark = Color(0xFFDBE2FF)
 
-@Composable
-private fun isNightMode(): Boolean {
-    val ctx = LocalContext.current
-    val uiMode = ctx.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
-    return uiMode == Configuration.UI_MODE_NIGHT_YES
-}
-
-@Composable
-private fun resolveContainerColor(): Color =
-    if (isNightMode()) primaryContainerDark else primaryContainerLight
-
-@Composable
-private fun resolveOnContainerColor(): Color =
-    if (isNightMode()) onPrimaryContainerDark else onPrimaryContainerLight
-
-@Composable
-private fun onContainerColor(): ColorProvider =
-    ColorProvider(resolveOnContainerColor())
-
-@Composable
-private fun onContainerColorMuted(): ColorProvider =
-    ColorProvider(resolveOnContainerColor().copy(alpha = 0.7f))
-
 /**
  * Couleur du texte de confiance selon le %. Alignées sur ConfidenceColors de
  * l'app (vert/orange/rouge M3-ish), hardcodées ici parce que Glance n'a pas
@@ -563,4 +662,5 @@ private fun confidenceColor(percent: Int): Color = when {
 
 @Composable
 private fun confidenceTextColor(percent: Int): ColorProvider =
-    ColorProvider(confidenceColor(percent))
+    // Mémoïsation identique à ConfidencePill — le percent change rarement.
+    remember(percent) { ColorProvider(confidenceColor(percent)) }

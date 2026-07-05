@@ -48,6 +48,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.Coverage
 import com.meteocompare.app.domain.model.LanguagePreference
+import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.ThemePreference
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.ui.theme.color
@@ -61,6 +62,7 @@ fun SettingsScreen(
     val enabled by viewModel.enabledModels.collectAsStateWithLifecycle()
     val theme by viewModel.themePreference.collectAsStateWithLifecycle()
     val language by viewModel.languagePreference.collectAsStateWithLifecycle()
+    val refreshInterval by viewModel.refreshInterval.collectAsStateWithLifecycle()
     var showDonationDialog by rememberSaveable { mutableStateOf(false) }
     val context = LocalContext.current
 
@@ -123,6 +125,8 @@ fun SettingsScreen(
                 // neuf qui lira le SharedPreferences fraîchement écrit.
                 (context as? android.app.Activity)?.recreate()
             },
+            refreshInterval = refreshInterval,
+            onRefreshIntervalSelected = viewModel::onRefreshIntervalSelected,
             onDonateClick = { showDonationDialog = true },
             padding = padding
         )
@@ -141,6 +145,8 @@ private fun SettingsContent(
     onThemeSelected: (ThemePreference) -> Unit,
     language: LanguagePreference,
     onLanguageSelected: (LanguagePreference) -> Unit,
+    refreshInterval: RefreshInterval,
+    onRefreshIntervalSelected: (RefreshInterval) -> Unit,
     onDonateClick: () -> Unit,
     padding: PaddingValues
 ) {
@@ -179,6 +185,35 @@ private fun SettingsContent(
                 )
                 Spacer(Modifier.height(8.dp))
                 LanguageSelector(selected = language, onSelect = onLanguageSelected)
+            }
+        }
+        item { HorizontalDivider() }
+
+        // ─── Section "Fréquence de rafraîchissement" ────────────────────
+        // Placée AVANT "Modèles" parce qu'elle a un impact direct sur la
+        // batterie/data — l'utilisateur qui rentre dans les settings pour
+        // "optimiser sa consommation" doit trouver ça vite. Un dropdown
+        // (ExposedDropdownMenuBox) plutôt qu'un SegmentedButton parce qu'il
+        // y a 6 options : trop pour rester lisibles dans une seule ligne
+        // segmentée.
+        item {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = stringResource(R.string.settings_refresh_interval_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = stringResource(R.string.settings_refresh_interval_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(12.dp))
+                RefreshIntervalSelector(
+                    selected = refreshInterval,
+                    onSelect = onRefreshIntervalSelected
+                )
             }
         }
         item { HorizontalDivider() }
@@ -403,6 +438,51 @@ private fun LanguageSelector(
             ) {
                 Text(label)
             }
+        }
+    }
+}
+
+/**
+ * Sélecteur d'intervalle de rafraîchissement, rendu comme une grille compacte
+ * de FilterChips.
+ *
+ * ─── Pourquoi FilterChip et pas SegmentedButton ? ────────────────────────
+ * SegmentedButton devient illisible au-delà de 4 items (le texte est
+ * ellipsé, les paliers "15 min" / "30 min" / "1 h" / "3 h" / "6 h" / "Manuel"
+ * ne rentrent pas dans une même ligne sur un téléphone). Les FilterChip
+ * en FlowRow s'auto-wrappent sur 2 lignes proprement.
+ *
+ * ─── Pourquoi pas un Dropdown ? ─────────────────────────────────────────
+ * Un Dropdown cache l'état actuel derrière un tap, ce qui rend le
+ * changement de préférence plus lent (2 taps au lieu d'1). Les chips
+ * exposent tous les paliers d'un coup — l'utilisateur voit sa position
+ * dans le spectre "économe ↔ frais" sans avoir à ouvrir de menu.
+ */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun RefreshIntervalSelector(
+    selected: RefreshInterval,
+    onSelect: (RefreshInterval) -> Unit
+) {
+    val options = listOf(
+        RefreshInterval.MINUTES_15 to stringResource(R.string.refresh_interval_15_min),
+        RefreshInterval.MINUTES_30 to stringResource(R.string.refresh_interval_30_min),
+        RefreshInterval.HOUR_1 to stringResource(R.string.refresh_interval_1_hour),
+        RefreshInterval.HOURS_3 to stringResource(R.string.refresh_interval_3_hours),
+        RefreshInterval.HOURS_6 to stringResource(R.string.refresh_interval_6_hours),
+        RefreshInterval.MANUAL to stringResource(R.string.refresh_interval_manual)
+    )
+
+    androidx.compose.foundation.layout.FlowRow(
+        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp)
+    ) {
+        options.forEach { (interval, label) ->
+            androidx.compose.material3.FilterChip(
+                selected = selected == interval,
+                onClick = { onSelect(interval) },
+                label = { Text(label) }
+            )
         }
     }
 }

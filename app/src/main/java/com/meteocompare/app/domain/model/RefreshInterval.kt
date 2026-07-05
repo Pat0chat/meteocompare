@@ -1,0 +1,75 @@
+package com.meteocompare.app.domain.model
+
+import java.time.Duration
+
+/**
+ * Intervalle entre deux rafraîchissements automatiques des données météo.
+ *
+ * S'applique à deux consommateurs :
+ *   - **Widget** : cadence de la [PeriodicWorkRequest] WorkManager qui met à
+ *     jour les widgets d'accueil. Si l'intervalle est MANUAL, on annule le
+ *     worker — le widget ne se rafraîchit alors que lorsque l'utilisateur
+ *     rouvre l'app (nouveau fetch en cache) ou reconfigure le widget.
+ *   - **App** : seuil de fraîcheur du cache. Si le dernier fetch est plus
+ *     récent que cet intervalle, on saute la requête réseau au chargement
+ *     d'un écran. L'utilisateur peut toujours forcer via pull-to-refresh.
+ *
+ * ─── Contraintes WorkManager ────────────────────────────────────────────
+ * `PeriodicWorkRequest` a un **minimum** de 15 minutes. On expose cette
+ * borne inférieure comme premier palier (au lieu d'un "5 min" trompeur qui
+ * serait silencieusement remonté à 15 min par le système).
+ *
+ * ─── Choix des paliers ──────────────────────────────────────────────────
+ * On limite à 5 valeurs discrètes (+ MANUAL) plutôt qu'un slider continu :
+ *  - Suffisant pour couvrir les cas d'usage (économie de batterie vs
+ *    fraîcheur perçue).
+ *  - Choix ergonomique : SegmentedButton ou Dropdown avec 6 items reste
+ *    lisible ; un slider "combien de minutes" oblige l'utilisateur à
+ *    réfléchir en unité arbitraire.
+ *  - Chaque palier a une motivation :
+ *      · MINUTES_15 : fréquence par défaut du système Android — assez frais
+ *        pour un widget de bureau consulté toutes les 30 min.
+ *      · MINUTES_30 : ancien défaut (avant WorkManager), les prévisions
+ *        Open-Meteo sont republiées ~toutes les heures donc 30 min garantit
+ *        d'attraper la nouvelle version rapidement.
+ *      · HOUR_1 : défaut retenu — matches la cadence de publication des
+ *        modèles Open-Meteo, sans gaspiller de requêtes entre deux runs.
+ *      · HOURS_3 / HOURS_6 : profil "économie de batterie", accepté quand
+ *        on regarde la météo une ou deux fois par jour.
+ *      · MANUAL : power user qui veut zéro requête automatique.
+ */
+enum class RefreshInterval(val duration: Duration) {
+    MINUTES_15(Duration.ofMinutes(15)),
+    MINUTES_30(Duration.ofMinutes(30)),
+    HOUR_1(Duration.ofHours(1)),
+    HOURS_3(Duration.ofHours(3)),
+    HOURS_6(Duration.ofHours(6)),
+    /**
+     * Aucun rafraîchissement automatique. Le worker widget est annulé, et
+     * les écrans de l'app affichent le cache sans tenter de fetch réseau.
+     * L'utilisateur doit pull-to-refresh ou appuyer sur le bouton refresh.
+     */
+    MANUAL(Duration.ZERO);
+
+    /** Millisecondes équivalentes — utile pour les comparaisons de fraîcheur cache. */
+    val millis: Long get() = duration.toMillis()
+
+    companion object {
+        /**
+         * Défaut : 1 heure. Cadence de publication des modèles météo Open-Meteo,
+         * bon compromis batterie/fraîcheur pour la majorité des utilisateurs.
+         */
+        val DEFAULT = HOUR_1
+
+        /** Conversion sûre depuis la chaîne DataStore. Inconnu → défaut. */
+        fun fromString(value: String?): RefreshInterval = when (value) {
+            MINUTES_15.name -> MINUTES_15
+            MINUTES_30.name -> MINUTES_30
+            HOUR_1.name -> HOUR_1
+            HOURS_3.name -> HOURS_3
+            HOURS_6.name -> HOURS_6
+            MANUAL.name -> MANUAL
+            else -> DEFAULT
+        }
+    }
+}

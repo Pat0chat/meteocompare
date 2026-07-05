@@ -28,6 +28,16 @@
     <!-- Settings -->
     <string name="settings_appearance">Apparence</string>
     <string name="settings_language">Langue</string>
+    <!-- Fréquence de rafraîchissement (widget + app) -->
+    <string name="settings_refresh_interval_title">Fréquence de rafraîchissement</string>
+    <string name="settings_refresh_interval_desc">Cadence à laquelle le widget et l\'app tentent de récupérer de nouvelles données. Un intervalle long économise batterie et data ; un intervalle court garde les prévisions plus fraîches. En mode \"Manuel\", le rafraîchissement ne se déclenche qu\'au pull-to-refresh.</string>
+    <string name="refresh_interval_15_min">15 min</string>
+    <string name="refresh_interval_30_min">30 min</string>
+    <string name="refresh_interval_1_hour">1 h</string>
+    <string name="refresh_interval_3_hours">3 h</string>
+    <string name="refresh_interval_6_hours">6 h</string>
+    <string name="refresh_interval_manual">Manuel</string>
+
     <string name="settings_models_title">Modèles météo</string>
     <string name="settings_models_desc">Choisissez les modèles à comparer. Plus de modèles = plus de précision sur la confiance, mais plus de requêtes.</string>
     <string name="settings_models_min_warning">Au moins un modèle doit rester activé.</string>
