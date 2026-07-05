@@ -4,3 +4,5 @@ TODO
 -- in progress
 - Trie des modèles par finesse ;
 - Optimisation batterie et CPU pour l'application et widget (WorkManager pour le refresh widget, réduction des recomputes)
+- Limiter le rechargement / la mise à jour des données ?
+- Changer la taille du widget ne fait pas changer le layout du widget (small, medium, large, ...) en fonction de la nouvelle taille

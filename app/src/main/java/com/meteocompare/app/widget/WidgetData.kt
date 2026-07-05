@@ -204,28 +204,63 @@ internal suspend fun loadWidgetData(
 /**
  * Construit la liste des 4 items de prévision étendue pour le layout 4×2.
  *
- * On utilise **le modèle de plus haute résolution** disponible dans le forecast
- * — pas la moyenne pondérée. Justification : sur un widget compact, montrer
- * les valeurs d'UN modèle est plus lisible que d'agréger 12 modèles en un
- * seul chiffre (perte d'info sans marqueur de confiance à cette granularité).
- * Le badge de confiance globale en haut du widget suffit à signaler
- * l'incertitude. AROME HD est privilégié en France, ICON-D2 en Europe centrale,
- * etc.
+ * ─── Choix du modèle "meilleur" ────────────────────────────────────────
+ * On veut le modèle le plus fin (résolution basse en km) qui ait :
+ *   1. Assez d'horizon pour couvrir 4 items (4h en HOURLY, 4j en DAILY)
+ *   2. Des `weather_code` non-vides pour afficher des icônes
  *
- * Fallback : si aucun modèle n'expose weather_code (typique AROME HD), l'icône
- * sera null dans l'item et le layout affichera juste la température.
+ * L'ancien code prenait le plus haut résolution sans filtre — AROME HD (1.5km)
+ * gagnait toujours. Or AROME HD n'expose PAS weather_code (voir Note dans le
+ * README) → aucune icône dans le widget 4×2. Idem AROME HD ne couvre que ~2j,
+ * ce qui laissait J+2 et J+3 vides en mode DAILY.
+ *
+ * Fallback en 3 niveaux :
+ *   a) Modèle fin AVEC weather_code et horizon suffisant (idéal : ICON-D2 en
+ *      Europe centrale, ARPEGE Europe partout, ECMWF/GFS en global)
+ *   b) Modèle avec horizon suffisant mais SANS weather_code — on utilisera
+ *      l'inférence précipitation-based (voir WeatherCondition.inferFromPrecipAndTemp)
+ *   c) N'importe quel modèle disponible, dernier recours pour ne pas retourner
+ *      une liste vide (préférable à afficher rien)
  */
 private fun buildForecasts(
     forecast: com.meteocompare.app.domain.model.CityForecast,
     mode: ForecastMode,
     timezone: String?
 ): List<WidgetForecastItem> {
-    val bestSeries = forecast.seriesByModel.entries
-        .minByOrNull { it.key.resolutionKm }?.value
-        ?: return emptyList()
-
     val zone = runCatching { java.time.ZoneId.of(timezone ?: "UTC") }
         .getOrDefault(java.time.ZoneId.of("UTC"))
+    val now = java.time.Instant.now()
+
+    // Combien d'items chaque modèle candidate peut-il fournir depuis "maintenant" ?
+    fun horizonSize(series: com.meteocompare.app.domain.model.ForecastSeries): Int =
+        when (mode) {
+            ForecastMode.HOURLY -> {
+                val startIdx = series.hourly.timestamps.indexOfFirst { it >= now }
+                if (startIdx < 0) 0
+                else series.hourly.timestamps.size - startIdx
+            }
+            ForecastMode.DAILY -> series.daily.dates.size
+        }
+
+    fun hasWeatherCodes(series: com.meteocompare.app.domain.model.ForecastSeries): Boolean =
+        when (mode) {
+            ForecastMode.HOURLY -> series.hourly.weatherCode.isNotEmpty()
+            ForecastMode.DAILY -> series.daily.weatherCode.isNotEmpty()
+        }
+
+    // Priorité (a) : couverture 4 items + weather_code présent
+    val ideal = forecast.seriesByModel.entries
+        .filter { horizonSize(it.value) >= 4 && hasWeatherCodes(it.value) }
+        .minByOrNull { it.key.resolutionKm }?.value
+    // Priorité (b) : couverture suffisante, weather_code peut manquer (inférence)
+    val fallback = forecast.seriesByModel.entries
+        .filter { horizonSize(it.value) >= 4 }
+        .minByOrNull { it.key.resolutionKm }?.value
+    // Priorité (c) : n'importe quel modèle avec au moins 1 item — dernière chance
+    val lastResort = forecast.seriesByModel.entries
+        .minByOrNull { it.key.resolutionKm }?.value
+
+    val bestSeries = ideal ?: fallback ?: lastResort ?: return emptyList()
 
     return when (mode) {
         ForecastMode.HOURLY -> buildHourlyForecasts(bestSeries.hourly, zone)
@@ -238,8 +273,6 @@ private fun buildHourlyForecasts(
     zone: java.time.ZoneId
 ): List<WidgetForecastItem> {
     if (hourly.timestamps.isEmpty()) return emptyList()
-    // Prochaine heure = première timestamp >= maintenant. Si aucune (série
-    // ne couvre que le passé — cas dégénéré), on prend juste le début.
     val now = java.time.Instant.now()
     val startIdx = hourly.timestamps.indexOfFirst { it >= now }
         .takeIf { it >= 0 } ?: 0
@@ -247,9 +280,19 @@ private fun buildHourlyForecasts(
     return (startIdx until minOf(startIdx + 4, hourly.timestamps.size)).map { i ->
         val ts = hourly.timestamps[i]
         val label = ts.atZone(zone).format(formatter)
-        val condition = hourly.weatherCode.getOrNull(i)
-            ?.let { com.meteocompare.app.domain.model.WeatherCondition.fromWmoCode(it) }
+        // Priorité au weather_code natif. Si absent (AROME HD notamment),
+        // fallback sur inférence précipitation-based : même règle que dans
+        // ConfidenceCalculator.dailyConditionsByModel. Sur AROME HD sans pluie
+        // ni gel, inferFromPrecipAndTemp renverra null et l'UI affichera "—"
+        // (pas d'icône) — accepté comme limitation d'AROME HD sans cloud_cover.
+        val code = hourly.weatherCode.getOrNull(i)
+        val precip = hourly.precipitation.getOrNull(i)
         val temp = hourly.temperature2m.getOrNull(i)
+        val condition = com.meteocompare.app.domain.model.WeatherCondition.fromWmoCode(code)
+            ?: com.meteocompare.app.domain.model.WeatherCondition.inferFromPrecipAndTemp(
+                precipMm = precip,
+                tempMinC = temp
+            )
         WidgetForecastItem(label = label, condition = condition, temp = temp)
     }
 }
@@ -263,12 +306,16 @@ private fun buildDailyForecasts(
         val label = date.dayOfWeek
             .getDisplayName(java.time.format.TextStyle.SHORT, locale)
             .replaceFirstChar { it.uppercase() }
-            .replace(".", "") // "lun." → "Lun" — plus propre côté widget
-        val condition = daily.weatherCode.getOrNull(i)
-            ?.let { com.meteocompare.app.domain.model.WeatherCondition.fromWmoCode(it) }
-        // Température MAX plutôt que courante — sur un widget prévision, l'user
-        // veut le "à quoi ressemblera la journée" pas "il fait combien à minuit".
+            .replace(".", "")
+        val code = daily.weatherCode.getOrNull(i)
+        val precip = daily.precipitationSum.getOrNull(i)
+        val tempMin = daily.tempMin.getOrNull(i)
         val temp = daily.tempMax.getOrNull(i)
+        val condition = com.meteocompare.app.domain.model.WeatherCondition.fromWmoCode(code)
+            ?: com.meteocompare.app.domain.model.WeatherCondition.inferFromPrecipAndTemp(
+                precipMm = precip,
+                tempMinC = tempMin
+            )
         WidgetForecastItem(label = label, condition = condition, temp = temp)
     }
 }

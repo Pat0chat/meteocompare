@@ -9,7 +9,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.datastore.preferences.core.Preferences
@@ -45,21 +44,29 @@ import com.meteocompare.app.MainActivity
 import com.meteocompare.app.domain.model.WeatherCondition
 import kotlin.math.roundToInt
 
-// ─── Buckets de tailles ─────────────────────────────────────────────────────
+// ─── Sélection de layout ────────────────────────────────────────────────────
 //
-// SizeMode.Responsive prend un ensemble de tailles cibles. Glance sélectionne
-// la plus grande qui rentre dans les dimensions accordées par le launcher.
-// LocalSize.current renvoie ensuite la taille cible sélectionnée — PAS la
-// taille réelle du container — ce qui rend le branching de layout déterministe
-// et invariant vis-à-vis des variations de largeur cellule d'un launcher à
-// l'autre.
+// SizeMode.Exact expose la taille RÉELLE du container via LocalSize (par
+// opposition à Responsive qui expose une taille "bucket" pré-configurée). On
+// prend Exact pour éviter le piège : sur un launcher à cellules de 90dp, un
+// widget physique 2×1 fait 180dp de large — pile la valeur d'un bucket
+// "3×1 = 180dp" qui aurait été choisi par Responsive et déclenché MediumLayout
+// (badge à droite) au lieu de SmallLayout (badge sous la temp). Exact permet
+// des seuils ajustés à la réalité des grilles Android (74-130dp par cellule
+// selon launcher).
 //
-// Formule Android grid : dp = 70·n − 30 → 2×1 = 110, 3×1 = 180, 4×1 = 250,
-// hauteur 1 cellule ≈ 40dp, 2 cellules ≈ 110dp.
-private val SIZE_2x1 = DpSize(110.dp, 40.dp)
-private val SIZE_3x1 = DpSize(180.dp, 40.dp)
-private val SIZE_4x1 = DpSize(250.dp, 40.dp)
-private val SIZE_4x2 = DpSize(250.dp, 110.dp)
+// Seuils choisis pour couvrir la variance cross-launcher :
+//   - Small : width < 210dp. Couvre 2×1 physique jusqu'à ~103dp/cellule (Samsung).
+//   - Medium : 210 ≤ width < 320dp. Couvre 3×1 physique typique.
+//   - Large : width ≥ 320dp. Couvre 4×1 physique.
+//   - ExtraLarge : width ≥ 220dp AND height ≥ 130dp. La double condition évite
+//     de mal classer un widget 1-cellule sur un launcher à cellules hautes
+//     (Pixel avec ~100-130dp de haut) — un vrai 4×2 fait au moins 145dp de
+//     haut sur tous les launchers testés.
+private const val SMALL_MAX_WIDTH_DP = 210
+private const val MEDIUM_MAX_WIDTH_DP = 320
+private const val EXTRA_LARGE_MIN_HEIGHT_DP = 130
+private const val EXTRA_LARGE_MIN_WIDTH_DP = 220
 
 /**
  * Widget MeteoCompare — reproduit un résumé compact de la [TodaySummaryCard]
@@ -96,9 +103,7 @@ private val SIZE_4x2 = DpSize(250.dp, 110.dp)
  */
 internal class MeteoWidget : GlanceAppWidget() {
 
-    override val sizeMode = SizeMode.Responsive(
-        setOf(SIZE_2x1, SIZE_3x1, SIZE_4x1, SIZE_4x2)
-    )
+    override val sizeMode = SizeMode.Exact
 
     override val stateDefinition = PreferencesGlanceStateDefinition
 
@@ -156,15 +161,19 @@ private fun WidgetContent(data: WidgetData, opacityPct: Int) {
         when {
             data.error != null -> ErrorLayout(data.error)
             else -> {
-                // Sélection du layout via la taille cible du bucket Responsive
-                // (pas la taille réelle du container). Comparer par height
-                // d'abord permet de distinguer 4×2 vs 4×1 même si la largeur
-                // est identique.
+                // Sélection du layout via la taille exacte du container. Voir
+                // les constantes en tête de fichier pour les seuils et leurs
+                // motivations. La condition ExtraLarge combine width ET height
+                // pour distinguer un vrai 4×2 d'un 3×1 sur launcher à cellules
+                // hautes (le width seul suffit à choisir Small/Medium/Large).
                 val size = LocalSize.current
+                val widthDp = size.width.value
+                val heightDp = size.height.value
                 when {
-                    size.height >= 100.dp -> ExtraLargeLayout(data)
-                    size.width >= 250.dp -> LargeLayout(data)
-                    size.width >= 180.dp -> MediumLayout(data)
+                    heightDp >= EXTRA_LARGE_MIN_HEIGHT_DP &&
+                        widthDp >= EXTRA_LARGE_MIN_WIDTH_DP -> ExtraLargeLayout(data)
+                    widthDp >= MEDIUM_MAX_WIDTH_DP -> LargeLayout(data)
+                    widthDp >= SMALL_MAX_WIDTH_DP -> MediumLayout(data)
                     else -> SmallLayout(data)
                 }
             }
@@ -192,9 +201,20 @@ private fun SmallLayout(data: WidgetData) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        WeatherGlyph(data.currentCondition, sizeSp = 22)
+        WeatherGlyph(data.currentCondition, sizeSp = 24)
         Spacer(GlanceModifier.width(6.dp))
         Column {
+            data.cityName?.let {
+                Text(
+                    text = it,
+                    style = TextStyle(
+                        color = onContainerColor(),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                )
+            }
+            Spacer(GlanceModifier.width(6.dp))
             Text(
                 text = formatTemp(data.currentTemp),
                 style = TextStyle(
@@ -319,33 +339,31 @@ private fun LargeLayout(data: WidgetData) {
  * Layout 4×2 : top strip identique au 4×1 + bas strip avec 4 items de prévision
  * étendue (heures ou jours selon la config utilisateur).
  *
- * Le top strip garde les mêmes tailles que le 4×1 pour cohérence visuelle
- * entre les deux tailles voisines — l'utilisateur qui resize doit reconnaître
- * "c'est le même widget en plus grand".
- *
- * Le bas strip est un Row de 4 Column équi-larges (defaultWeight), chacune
- * avec label + icône + température. Compact — 40dp de haut environ. Textes
- * en 10-12sp pour tenir sans crowd.
+ * Tailles délibérément plus grandes que 4×1 pour REMPLIR l'espace vertical
+ * doublé — sans ça le widget paraît vide, avec beaucoup de "coussin blanc"
+ * en haut et en bas de chaque bloc. Un icône 32sp et une temp 28sp
+ * consomment le top strip visuellement ; le bottom strip a icônes 26sp et
+ * temp 15sp pour occuper les 4 colonnes.
  */
 @Composable
 private fun ExtraLargeLayout(data: WidgetData) {
     Column(modifier = GlanceModifier.fillMaxSize()) {
-        // ─── Top strip (comme 4×1 mais tailles légèrement réduites) ────
+        // ─── Top strip (comme 4×1 mais TAILLES BUMPÉES pour remplir la hauteur)
         Row(
             modifier = GlanceModifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            WeatherGlyph(data.currentCondition, sizeSp = 26)
-            Spacer(GlanceModifier.width(6.dp))
+            WeatherGlyph(data.currentCondition, sizeSp = 32)
+            Spacer(GlanceModifier.width(8.dp))
             Text(
                 text = formatTemp(data.currentTemp),
                 style = TextStyle(
                     color = onContainerColor(),
-                    fontSize = 22.sp,
+                    fontSize = 28.sp,
                     fontWeight = FontWeight.Medium
                 )
             )
-            Spacer(GlanceModifier.width(10.dp))
+            Spacer(GlanceModifier.width(12.dp))
 
             Column(modifier = GlanceModifier.defaultWeight()) {
                 data.cityName?.let {
@@ -353,15 +371,22 @@ private fun ExtraLargeLayout(data: WidgetData) {
                         text = it,
                         style = TextStyle(
                             color = onContainerColor(),
-                            fontSize = 12.sp,
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.Medium
                         )
                     )
                 }
                 Text(
                     text = formatMinMax(data.tempMin, data.tempMax),
-                    style = TextStyle(color = onContainerColorMuted(), fontSize = 10.sp)
+                    style = TextStyle(color = onContainerColorMuted(), fontSize = 12.sp)
                 )
+                val extras = buildExtrasLine(data)
+                if (extras.isNotEmpty()) {
+                    Text(
+                        text = extras,
+                        style = TextStyle(color = onContainerColorMuted(), fontSize = 12.sp)
+                    )
+                }
             }
 
             data.confidencePct?.let {
@@ -369,15 +394,13 @@ private fun ExtraLargeLayout(data: WidgetData) {
             }
         }
 
-        Spacer(GlanceModifier.height(6.dp))
+        Spacer(GlanceModifier.height(12.dp))
 
         // ─── Bottom strip : 4 items de prévision étendue ──────────────
-        // Si aucune prévision (cache vide), on affiche le message discret ci-dessous
-        // — plutôt qu'un strip blanc qui laisserait penser à un bug de rendu.
         if (data.forecasts.isEmpty()) {
             Text(
                 text = "…",
-                style = TextStyle(color = onContainerColorMuted(), fontSize = 11.sp)
+                style = TextStyle(color = onContainerColorMuted(), fontSize = 12.sp)
             )
         } else {
             Row(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
@@ -389,12 +412,12 @@ private fun ExtraLargeLayout(data: WidgetData) {
                     ) {
                         Text(
                             text = item.label,
-                            style = TextStyle(color = onContainerColorMuted(), fontSize = 10.sp)
+                            style = TextStyle(color = onContainerColorMuted(), fontSize = 12.sp)
                         )
-                        WeatherGlyph(item.condition, sizeSp = 18)
+                        WeatherGlyph(item.condition, sizeSp = 26)
                         Text(
                             text = formatTemp(item.temp),
-                            style = TextStyle(color = onContainerColor(), fontSize = 13.sp)
+                            style = TextStyle(color = onContainerColor(), fontSize = 15.sp)
                         )
                     }
                 }
