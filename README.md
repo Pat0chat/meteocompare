@@ -41,7 +41,7 @@ L'app se concentre sur **les données brutes et l'incertitude** : au lieu d'agr�
 - **Hilt** pour l'injection de dépendances (via KSP)
 - **Retrofit + OkHttp + Kotlinx Serialization** pour la couche réseau
 - **DataStore Preferences** pour les favoris et paramètres
-- **Vico** pour les graphiques superposés (températures max/min par modèle)
+- **Glance** pour les widgets
 - Architecture **UI → ViewModel → Repository → API**, un-way data flow
 
 ## Structure
