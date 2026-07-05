@@ -183,4 +183,125 @@ class ForecastRepositoryImplTest {
 
         assertTrue(emission is ApiResult.Error)
     }
+
+    // ─── Court-circuit maxCacheAgeMs ─────────────────────────────────────
+    //
+    // Cette suite de tests vérifie la logique cache-frais du repository,
+    // qui est LA nouvelle logique d'économie batterie/data. Un bug ici
+    // (mauvais comparateur, mauvaise unité, off-by-one) ferait soit fetcher
+    // trop peu (données périmées à l'écran) soit trop souvent (batterie).
+
+    @Test
+    fun `stream avec maxCacheAgeMs null - refetch même si cache récent (comportement historique)`() =
+        runTest {
+            // Cache écrit il y a 100 ms — beaucoup plus récent que n'importe
+            // quel intervalle raisonnable, mais on ne passe PAS de seuil →
+            // le repo doit quand même fetch le réseau (backward-compat).
+            val cachedEntity = ForecastCacheEntity(
+                cityId = paris.id,
+                modelKey = WeatherModel.GFS.apiKey,
+                fetchedAtEpochMs = System.currentTimeMillis() - 100L,
+                responseJson = json.encodeToString(ForecastResponseDto.serializer(), sampleDto)
+            )
+            coEvery { cacheDao.getForCity(paris.id) } returns listOf(cachedEntity)
+            coEvery {
+                api.getForecast(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+            } returns sampleDto
+
+            val emissions = repository.getCityForecastStream(
+                city = paris,
+                models = listOf(WeatherModel.GFS),
+                maxCacheAgeMs = null // ⚠ explicitement null
+            ).toList()
+
+            // Cache + fresh, comme historiquement
+            assertEquals(2, emissions.size)
+            coVerify(exactly = 1) {
+                api.getForecast(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+            }
+        }
+
+    @Test
+    fun `stream avec maxCacheAgeMs court-circuit - émet cache seul quand assez frais`() = runTest {
+        // Cache écrit il y a 5 s, seuil = 1 h → cache est frais, PAS de fetch
+        // réseau. C'est l'économie batterie/data principale de la feature.
+        val cachedEntity = ForecastCacheEntity(
+            cityId = paris.id,
+            modelKey = WeatherModel.GFS.apiKey,
+            fetchedAtEpochMs = System.currentTimeMillis() - 5_000L,
+            responseJson = json.encodeToString(ForecastResponseDto.serializer(), sampleDto)
+        )
+        coEvery { cacheDao.getForCity(paris.id) } returns listOf(cachedEntity)
+        coEvery {
+            api.getForecast(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        } returns sampleDto
+
+        val emissions = repository.getCityForecastStream(
+            city = paris,
+            models = listOf(WeatherModel.GFS),
+            maxCacheAgeMs = 60 * 60 * 1000L // 1 heure
+        ).toList()
+
+        assertEquals("Seul le cache doit être émis, pas de fresh", 1, emissions.size)
+        assertTrue(emissions[0] is ApiResult.Success)
+        coVerify(exactly = 0) {
+            api.getForecast(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        }
+    }
+
+    @Test
+    fun `stream avec maxCacheAgeMs - refetch quand cache trop vieux`() = runTest {
+        // Cache d'il y a 2 h, seuil = 1 h → cache trop vieux, on DOIT fetch.
+        // Comportement classique cache + fresh.
+        val cachedEntity = ForecastCacheEntity(
+            cityId = paris.id,
+            modelKey = WeatherModel.GFS.apiKey,
+            fetchedAtEpochMs = System.currentTimeMillis() - 2 * 60 * 60 * 1000L,
+            responseJson = json.encodeToString(ForecastResponseDto.serializer(), sampleDto)
+        )
+        coEvery { cacheDao.getForCity(paris.id) } returns listOf(cachedEntity)
+        coEvery {
+            api.getForecast(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        } returns sampleDto
+
+        val emissions = repository.getCityForecastStream(
+            city = paris,
+            models = listOf(WeatherModel.GFS),
+            maxCacheAgeMs = 60 * 60 * 1000L
+        ).toList()
+
+        assertEquals("Cache + fresh doivent être émis", 2, emissions.size)
+        coVerify(exactly = 1) {
+            api.getForecast(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        }
+    }
+
+    @Test
+    fun `stream avec forceRefresh true - ignore maxCacheAgeMs (pull-to-refresh)`() = runTest {
+        // Pull-to-refresh doit TOUJOURS fetch, même si cache est fait il y a
+        // 1 seconde. Le seuil ne s'applique qu'au chargement automatique.
+        val cachedEntity = ForecastCacheEntity(
+            cityId = paris.id,
+            modelKey = WeatherModel.GFS.apiKey,
+            fetchedAtEpochMs = System.currentTimeMillis() - 1_000L,
+            responseJson = json.encodeToString(ForecastResponseDto.serializer(), sampleDto)
+        )
+        coEvery { cacheDao.getForCity(paris.id) } returns listOf(cachedEntity)
+        coEvery {
+            api.getForecast(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        } returns sampleDto
+
+        val emissions = repository.getCityForecastStream(
+            city = paris,
+            models = listOf(WeatherModel.GFS),
+            forceRefresh = true,
+            maxCacheAgeMs = 60 * 60 * 1000L // seuil confortable, ignoré grâce à forceRefresh
+        ).toList()
+
+        // forceRefresh=true saute l'émission cache initiale → seule fresh est émise
+        assertEquals(1, emissions.size)
+        coVerify(exactly = 1) {
+            api.getForecast(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        }
+    }
 }

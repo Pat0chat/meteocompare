@@ -3,8 +3,6 @@ TODO
 
 - Trie des modèles par finesse ;
 - ajouter une indication sur la page home à côté du titre de l'application si une nouvelle version est disponible ?
-- ajouter tous les tests unitaires nécessaires, clean du code, remove useless code and dead code
-- ajouter les données sur le vent dans le buildExtrasLine() des widgets pour les afficher dans les widgets
 
 --
 Il se peut que l'affichage de bord à bord ne soit pas disponible pour tous les utilisateurs

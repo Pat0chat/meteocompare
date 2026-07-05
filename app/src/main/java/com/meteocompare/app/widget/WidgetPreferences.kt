@@ -1,6 +1,7 @@
 package com.meteocompare.app.widget
 
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 
 /**
@@ -33,16 +34,14 @@ internal object WidgetPreferences {
 
     /**
      * "Refresh tick" : timestamp (ms epoch) de la dernière demande de refresh
-     * automatique par [WidgetRefreshWorker]. Alias de la clé définie dans
-     * [WidgetRefreshWorker.REFRESH_TICK_KEY] — exposée ici pour que
-     * [MeteoWidget] puisse la lire dans son composable sans dépendance directe.
+     * automatique par [WidgetRefreshWorker].
      *
      * Sémantique : chaque incrément déclenche une recomposition Glance (via
      * la lecture réactive `currentState<Preferences>()`) qui invalide le
      * `LaunchedEffect(cityId, forecastMode, refreshTick)` et re-fetch les
      * données via le repository (cache-first, réseau si assez périmé).
      */
-    val RefreshTickKey = WidgetRefreshWorker.REFRESH_TICK_KEY
+    val RefreshTickKey = longPreferencesKey("widget_refresh_tick")
 
     /**
      * Défaut = 80% : assez opaque pour rester lisible sur n'importe quel fond

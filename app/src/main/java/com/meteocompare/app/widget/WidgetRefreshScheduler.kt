@@ -1,7 +1,6 @@
 package com.meteocompare.app.widget
 
 import android.content.Context
-import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.state.PreferencesGlanceStateDefinition
@@ -160,7 +159,7 @@ internal class WidgetRefreshWorker(
                     glanceId = glanceId
                 ) { prefs ->
                     prefs.toMutablePreferences().apply {
-                        this[REFRESH_TICK_KEY] = now
+                        this[WidgetPreferences.RefreshTickKey] = now
                     }
                 }
                 // Update explicite : force Glance à rerender même dans le cas
@@ -176,18 +175,5 @@ internal class WidgetRefreshWorker(
         // fetch a échoué, c'est un serveur down, pas quelque chose que retry
         // dans les 30 secondes va résoudre.
         return Result.success()
-    }
-
-    companion object {
-        /**
-         * Clé "refresh tick" dans les prefs Glance. Timestamp du dernier
-         * déclenchement worker. Utilisée comme dépendance de [LaunchedEffect]
-         * dans MeteoWidget pour re-déclencher le fetch.
-         *
-         * Note : c'est la même clé que celle exposée par [WidgetPreferences]
-         * — dupliquée ici pour l'autonomie du fichier. Voir le commentaire
-         * dans WidgetPreferences.
-         */
-        internal val REFRESH_TICK_KEY = longPreferencesKey("widget_refresh_tick")
     }
 }

@@ -45,7 +45,6 @@ import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import com.meteocompare.app.MainActivity
 import com.meteocompare.app.domain.model.WeatherCondition
-import kotlin.math.roundToInt
 
 // ─── Sélection de layout ────────────────────────────────────────────────────
 //
@@ -613,32 +612,6 @@ private fun ConfidencePill(percent: Int) {
             )
         )
     }
-}
-
-private fun buildExtrasLine(data: WidgetData): String = buildString {
-    val cond = data.currentCondition
-    val showCloud = data.currentCloudCover != null &&
-        (cond == WeatherCondition.PARTLY_CLOUDY || cond == WeatherCondition.OVERCAST)
-    if (showCloud) {
-        append("☁ ${data.currentCloudCover}%")
-    }
-    if (data.precipMm != null) {
-        if (isNotEmpty()) append(" · ")
-        append("🌧 %.1f mm".format(data.precipMm))
-        data.precipConfidencePct?.let { append(" ($it%)") }
-    }
-}
-
-// ─── Formatage ──────────────────────────────────────────────────────────
-
-private fun formatTemp(value: Double?): String =
-    if (value == null) "—" else "${value.roundToInt()}°"
-
-private fun formatMinMax(min: Double?, max: Double?): String = when {
-    min != null && max != null -> "${min.roundToInt()}° / ${max.roundToInt()}°"
-    max != null -> "max ${max.roundToInt()}°"
-    min != null -> "min ${min.roundToInt()}°"
-    else -> ""
 }
 
 // ─── Couleurs ───────────────────────────────────────────────────────────

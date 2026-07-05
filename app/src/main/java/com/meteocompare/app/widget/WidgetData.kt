@@ -42,6 +42,15 @@ internal data class WidgetData(
      */
     val currentCloudCover: Int?,
     /**
+     * Vitesse du vent "maintenant" en km/h, agrégée entre modèles.
+     * Affichée par les layouts 4×1 et 4×2 dans la ligne extras. Toujours
+     * exposée quand disponible, sans seuil — un jour de vent nul est aussi
+     * un signal utile que 60 km/h. Null si aucun modèle ne fournit la
+     * variable à l'instant courant (rare : tous les modèles Open-Meteo
+     * l'exposent, mais robuste au cas d'un cache pré-feature).
+     */
+    val currentWindSpeedKmh: Double?,
+    /**
      * Prévision étendue affichée par le layout 4×2. Contient jusqu'à 4
      * items (heures ou jours selon la config utilisateur). Vide si le mode
      * 4×2 n'est pas utilisé ou si aucun modèle ne fournit assez de données.
@@ -50,9 +59,13 @@ internal data class WidgetData(
     val error: WidgetError?
 ) {
     companion object {
-        /** Placeholder "widget pas encore configuré". */
-        val NotConfigured = WidgetData(
-            cityName = null,
+        /**
+         * Constructeur d'états sans données (loading, erreur, non configuré) —
+         * seuls [cityName] et [error] varient, tout le reste est null.
+         * Évite la répétition de 8 champs `null` dans chaque cas d'erreur.
+         */
+        fun empty(cityName: String? = null, error: WidgetError): WidgetData = WidgetData(
+            cityName = cityName,
             currentTemp = null,
             currentCondition = null,
             tempMax = null,
@@ -61,24 +74,16 @@ internal data class WidgetData(
             precipMm = null,
             precipConfidencePct = null,
             currentCloudCover = null,
+            currentWindSpeedKmh = null,
             forecasts = emptyList(),
-            error = WidgetError.NotConfigured
+            error = error
         )
 
+        /** Placeholder "widget pas encore configuré". */
+        val NotConfigured = empty(error = WidgetError.NotConfigured)
+
         /** Placeholder "chargement en cours" — pas encore de données mais on est configuré. */
-        val Loading = WidgetData(
-            cityName = null,
-            currentTemp = null,
-            currentCondition = null,
-            tempMax = null,
-            tempMin = null,
-            confidencePct = null,
-            precipMm = null,
-            precipConfidencePct = null,
-            currentCloudCover = null,
-            forecasts = emptyList(),
-            error = WidgetError.Loading
-        )
+        val Loading = empty(error = WidgetError.Loading)
     }
 }
 
@@ -156,15 +161,7 @@ internal suspend fun loadWidgetData(
 
     val favorites = entry.cityRepository().observeFavorites().first()
     val city = favorites.firstOrNull { it.id == cityId }
-        ?: return WidgetData(
-            cityName = null,
-            currentTemp = null, currentCondition = null,
-            tempMax = null, tempMin = null,
-            confidencePct = null, precipMm = null,
-            precipConfidencePct = null, currentCloudCover = null,
-            forecasts = emptyList(),
-            error = WidgetError.CityNoLongerInFavorites
-        )
+        ?: return WidgetData.empty(error = WidgetError.CityNoLongerInFavorites)
 
     // Lecture de l'intervalle utilisateur pour respecter le seuil de fraîcheur
     // cache. Un widget rafraîchi par WorkManager toutes les 15 min mais avec
@@ -201,26 +198,17 @@ internal suspend fun loadWidgetData(
                 precipMm = rainConfidence?.meanMm,
                 precipConfidencePct = rainConfidence?.percent,
                 currentCloudCover = calc.currentCloudCover(forecast),
+                currentWindSpeedKmh = calc.currentWindSpeed(forecast),
                 forecasts = buildForecasts(forecast, forecastMode, city.timezone),
                 error = null
             )
         }
-        is ApiResult.Error -> WidgetData(
+        is ApiResult.Error -> WidgetData.empty(
             cityName = city.name,
-            currentTemp = null, currentCondition = null,
-            tempMax = null, tempMin = null,
-            confidencePct = null, precipMm = null,
-            precipConfidencePct = null, currentCloudCover = null,
-            forecasts = emptyList(),
             error = WidgetError.Fetch(result.message)
         )
-        null -> WidgetData(
+        null -> WidgetData.empty(
             cityName = city.name,
-            currentTemp = null, currentCondition = null,
-            tempMax = null, tempMin = null,
-            confidencePct = null, precipMm = null,
-            precipConfidencePct = null, currentCloudCover = null,
-            forecasts = emptyList(),
             error = WidgetError.Fetch("no data")
         )
     }

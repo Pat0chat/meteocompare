@@ -471,6 +471,79 @@ class ConfidenceCalculatorTest {
         assertEquals(70, calculator.currentCloudCover(forecast))
     }
 
+    // ──────────────────── Vitesse du vent "maintenant" ────────────────────
+
+    @Test
+    fun `currentWindSpeed - moyenne pondérée simple entre 2 modèles`() {
+        // 10 km/h + 20 km/h avec EqualWeighting → 15 km/h.
+        val now = java.time.Instant.now()
+
+        val forecast = CityForecast(
+            city = paris,
+            seriesByModel = mapOf(
+                WeatherModel.ARPEGE_EUROPE to hourlyOnlyWind(now, windKmh = 10.0),
+                WeatherModel.GFS to hourlyOnlyWind(now, windKmh = 20.0)
+            )
+        )
+
+        assertEquals(15.0, calculator.currentWindSpeed(forecast)!!, 0.001)
+    }
+
+    @Test
+    fun `currentWindSpeed - retourne null si aucun modèle ne fournit windSpeed10m`() {
+        // Cache pré-feature ou modèles sans la variable → null, l'UI cachera
+        // le badge côté widget plutôt que d'afficher "0 km/h" trompeur.
+        val now = java.time.Instant.now()
+
+        val forecast = CityForecast(
+            city = paris,
+            seriesByModel = mapOf(
+                WeatherModel.ARPEGE_EUROPE to hourlyOnlyWind(now, windKmh = null),
+                WeatherModel.GFS to hourlyOnlyWind(now, windKmh = null)
+            )
+        )
+
+        assertNull(calculator.currentWindSpeed(forecast))
+    }
+
+    @Test
+    fun `currentWindSpeed - ignore les modèles sans donnée et moyenne les autres`() {
+        // Symétrique du test cloud_cover : un modèle sans donnée ne DOIT PAS
+        // être compté comme 0 km/h — biaiserait vers un temps trop calme.
+        val now = java.time.Instant.now()
+
+        val forecast = CityForecast(
+            city = paris,
+            seriesByModel = mapOf(
+                WeatherModel.ARPEGE_EUROPE to hourlyOnlyWind(now, windKmh = 12.0),
+                WeatherModel.GFS to hourlyOnlyWind(now, windKmh = null), // ignoré
+                WeatherModel.ICON_EU to hourlyOnlyWind(now, windKmh = 18.0)
+            )
+        )
+
+        // (12 + 18) / 2 = 15.0, PAS (12 + 0 + 18) / 3 = 10.0
+        assertEquals(15.0, calculator.currentWindSpeed(forecast)!!, 0.001)
+    }
+
+    /**
+     * Variante de [hourlyOnly] paramétrée sur windSpeed10m. Les autres variables
+     * ont des valeurs neutres pour ne tester ici que le pipeline vent.
+     */
+    private fun hourlyOnlyWind(
+        timestamp: java.time.Instant,
+        windKmh: Double?
+    ): ForecastSeries = ForecastSeries(
+        model = WeatherModel.GFS, // ignoré
+        hourly = HourlyForecast(
+            timestamps = listOf(timestamp),
+            temperature2m = listOf(20.0),
+            precipitation = listOf(0.0),
+            windSpeed10m = listOf(windKmh),
+            cloudCover = listOf(50)
+        ),
+        daily = emptyDaily()
+    )
+
     /**
      * Construit un ForecastSeries avec UNE heure de données à [timestamp].
      * Les autres variables sont mises à des valeurs neutres — on ne teste ici
