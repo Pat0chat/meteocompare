@@ -18,17 +18,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DailyForecast
 import com.meteocompare.app.domain.model.WeatherModel
+import com.meteocompare.app.ui.components.WindArrow
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.res.stringResource
 
 /**
  * Style optionnel pour une cellule de valeur. Quand fourni via [ForecastTable.valueStyler],
@@ -61,6 +63,17 @@ data class ValueStyle(
  * @param valueStyler Optionnel — applique une couleur et graisse selon la valeur,
  *   pour mettre en évidence visuellement les valeurs élevées (pluie forte, vent fort).
  *   `null` (défaut) → style neutre uniforme.
+ * @param directionExtractor Optionnel — pour les variables directionnelles (vent).
+ *   Retourne les degrés météo (0=N, 90=E, 180=S, 270=O) ou null si la direction
+ *   n'a pas de sens pour cette cellule (variable non fournie, ou vent trop faible
+ *   pour que la direction soit informative). Quand fourni ET non-null, une flèche
+ *   pivotée est rendue avant la valeur. Le caller filtre les vents faibles en
+ *   retournant null — voir l'appel de la section wind_table.
+ * @param cellWidth Largeur d'une cellule modèle. 64dp par défaut — assez large
+ *   pour "0.5 mm" ou "25°". Passer une valeur plus grande (80dp) pour la
+ *   colonne vent qui affiche flèche + valeur + unité : "↗ 120 km/h" wrap à
+ *   64dp mais tient à 80dp. La colonne des dates figée à gauche (76dp) reste
+ *   dimensionnée séparément — pas de couplage.
  */
 @Composable
 fun ForecastTable(
@@ -68,7 +81,9 @@ fun ForecastTable(
     valueExtractor: (DailyForecast, Int) -> Double?,
     valueFormatter: (Double) -> String,
     modifier: Modifier = Modifier,
-    valueStyler: ((Double) -> ValueStyle?)? = null
+    valueStyler: ((Double) -> ValueStyle?)? = null,
+    directionExtractor: ((DailyForecast, Int) -> Int?)? = null,
+    cellWidth: Dp = 64.dp
 ) {
     // Toutes les dates couvertes par au moins un modèle, triées
     val dates = remember(forecast) {
@@ -132,18 +147,22 @@ fun ForecastTable(
         // Partie scrollable
         Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
             models.forEach { model ->
-                Column(modifier = Modifier.width(64.dp)) {
+                Column(modifier = Modifier.width(cellWidth)) {
                     HeaderCell(
                         text = model.displayName,
                         background = headerBg,
-                        modifier = Modifier.width(64.dp)
+                        modifier = Modifier.width(cellWidth)
                     )
                     dates.forEachIndexed { idx, date ->
                         val value = valueAt(forecast, model, date, valueExtractor)
+                        val direction = directionExtractor?.let {
+                            directionAt(forecast, model, date, it)
+                        }
                         ValueCell(
                             text = value?.let(valueFormatter) ?: "—",
                             style = value?.let { v -> valueStyler?.invoke(v) },
-                            background = bgFor(idx, date)
+                            background = bgFor(idx, date),
+                            directionDegrees = direction
                         )
                     }
                 }
@@ -203,7 +222,12 @@ private fun DayLabelCell(date: LocalDate, background: Color, isToday: Boolean = 
 }
 
 @Composable
-private fun ValueCell(text: String, style: ValueStyle?, background: Color) {
+private fun ValueCell(
+    text: String,
+    style: ValueStyle?,
+    background: Color,
+    directionDegrees: Int? = null
+) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -211,15 +235,31 @@ private fun ValueCell(text: String, style: ValueStyle?, background: Color) {
             .background(background),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodyMedium,
-            // Si pas de style fourni → couleur par défaut (onSurface via MaterialTheme).
-            // L'utilisation de `Color.Unspecified` indique à Text de prendre la couleur
-            // depuis le LocalContentColor courant, ce qui respecte le thème.
-            color = style?.color ?: Color.Unspecified,
-            fontWeight = style?.fontWeight
-        )
+        // Si direction fournie : flèche + valeur en Row côte à côte. Sinon :
+        // valeur seule centrée. Pas de padding horizontal explicite entre les
+        // deux — le Icon fait déjà 12dp et Row ajoute un mini gap naturel.
+        if (directionDegrees != null) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                WindArrow(directionDegrees = directionDegrees, size = 12.dp)
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = style?.color ?: Color.Unspecified,
+                    fontWeight = style?.fontWeight,
+                    modifier = Modifier.padding(start = 2.dp)
+                )
+            }
+        } else {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodyMedium,
+                // Si pas de style fourni → couleur par défaut (onSurface via MaterialTheme).
+                // L'utilisation de `Color.Unspecified` indique à Text de prendre la couleur
+                // depuis le LocalContentColor courant, ce qui respecte le thème.
+                color = style?.color ?: Color.Unspecified,
+                fontWeight = style?.fontWeight
+            )
+        }
     }
 }
 
@@ -229,6 +269,18 @@ private fun valueAt(
     date: LocalDate,
     extractor: (DailyForecast, Int) -> Double?
 ): Double? {
+    val series = forecast.seriesByModel[model] ?: return null
+    val idx = series.daily.dates.indexOf(date)
+    if (idx < 0) return null
+    return extractor(series.daily, idx)
+}
+
+private fun directionAt(
+    forecast: CityForecast,
+    model: WeatherModel,
+    date: LocalDate,
+    extractor: (DailyForecast, Int) -> Int?
+): Int? {
     val series = forecast.seriesByModel[model] ?: return null
     val idx = series.daily.dates.indexOf(date)
     if (idx < 0) return null

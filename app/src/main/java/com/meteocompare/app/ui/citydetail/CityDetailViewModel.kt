@@ -173,6 +173,7 @@ class CityDetailViewModel @Inject constructor(
                     hourlyBands = hourly,
                     currentTemp = currentTemp,
                     currentCondition = currentCondition,
+                    currentCloudCover = confidenceCalculator.currentCloudCover(result.data),
                     dailyConditions = dailyConditions,
                     normals = loadedNormals,
                     fetchedAt = result.data.fetchedAt
