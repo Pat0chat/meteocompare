@@ -22,10 +22,12 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.HourlyForecast
+import com.meteocompare.app.ui.components.WindArrow
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -51,6 +53,15 @@ import java.time.format.TextStyle as JavaTextStyle
  *   modèle et un index d'heure donnés.
  * @param valueFormatter Formatage (ex: `{ "${it.roundToInt()}°" }`).
  * @param valueStyler Optionnel — applique une couleur et graisse selon la valeur.
+ * @param directionExtractor Optionnel — pour les variables directionnelles.
+ *   Retourne les degrés météo (0=N, 90=E, 180=S, 270=O) ou null si non
+ *   applicable (variable absente, ou vent trop faible pour être informatif).
+ *   Symétrique du `directionExtractor` de [ForecastTable] (version daily).
+ * @param cellWidth Largeur d'une cellule modèle. 60dp par défaut — assez large
+ *   pour "0.5" ou "22°" sans unité. Passer une valeur plus grande pour la
+ *   colonne vent qui affiche flèche + valeur + unité "km/h" (76dp donne
+ *   suffisamment de marge pour "↗ 120 km/h"). La colonne label figée à gauche
+ *   (84dp) reste dimensionnée séparément.
  */
 @Composable
 fun HourlyForecastTable(
@@ -58,7 +69,9 @@ fun HourlyForecastTable(
     valueExtractor: (HourlyForecast, Int) -> Double?,
     valueFormatter: (Double) -> String,
     modifier: Modifier = Modifier,
-    valueStyler: ((Double) -> ValueStyle?)? = null
+    valueStyler: ((Double) -> ValueStyle?)? = null,
+    directionExtractor: ((HourlyForecast, Int) -> Int?)? = null,
+    cellWidth: Dp = 60.dp
 ) {
     // Fuseau de la ville — sert au filtrage de l'horizon ET au formatage des
     // labels d'heure. Fallback UTC silencieux si timezone invalide, pour ne
@@ -157,23 +170,29 @@ fun HourlyForecastTable(
             modifier = Modifier.height((40 + timestamps.size * 32).dp)
         )
 
-        // Partie scrollable : une colonne par modèle. Cellules à 60dp au lieu
-        // de 64 pour compenser la colonne label plus large — même largeur
-        // totale à l'écran, plus d'aération verticale (32 vs 36) pour compenser
-        // le nombre de lignes plus élevé.
+        // Partie scrollable : une colonne par modèle. Cellules à `cellWidth`
+        // (défaut 60dp) — plus étroit que le tableau daily (64dp) pour compenser
+        // la colonne label plus large. Aération verticale (32 vs 36) pour tenir
+        // compte du nombre de lignes plus élevé. Le caller peut passer une
+        // valeur plus grande pour les colonnes vent (unité "km/h" + flèche).
         Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
             models.forEach { model ->
-                Column(modifier = Modifier.width(60.dp)) {
+                Column(modifier = Modifier.width(cellWidth)) {
                     HourModelHeaderCell(
                         text = model.displayName,
-                        background = headerBg
+                        background = headerBg,
+                        width = cellWidth
                     )
                     timestamps.forEachIndexed { idx, ts ->
                         val value = valueAt(forecast, model, ts, valueExtractor)
+                        val direction = directionExtractor?.let {
+                            directionAt(forecast, model, ts, it)
+                        }
                         HourValueCell(
                             text = value?.let(valueFormatter) ?: "—",
                             style = value?.let { v -> valueStyler?.invoke(v) },
-                            background = bgFor(idx, ts)
+                            background = bgFor(idx, ts),
+                            directionDegrees = direction
                         )
                     }
                 }
@@ -197,10 +216,10 @@ private fun HourHeaderCell(background: Color) {
 }
 
 @Composable
-private fun HourModelHeaderCell(text: String, background: Color) {
+private fun HourModelHeaderCell(text: String, background: Color, width: Dp) {
     Box(
         modifier = Modifier
-            .width(60.dp)
+            .width(width)
             .height(40.dp)
             .background(background)
             .padding(4.dp),
@@ -274,7 +293,12 @@ private fun HourLabelCell(
 }
 
 @Composable
-private fun HourValueCell(text: String, style: ValueStyle?, background: Color) {
+private fun HourValueCell(
+    text: String,
+    style: ValueStyle?,
+    background: Color,
+    directionDegrees: Int? = null
+) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -282,12 +306,28 @@ private fun HourValueCell(text: String, style: ValueStyle?, background: Color) {
             .background(background),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodySmall,
-            color = style?.color ?: Color.Unspecified,
-            fontWeight = style?.fontWeight
-        )
+        if (directionDegrees != null) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // Flèche 10dp (plus petite que la version daily 12dp) pour
+                // tenir dans la cellule 60dp × 32dp très dense de la table
+                // horaire. Le sens : downwind, cohérent avec le tableau daily.
+                WindArrow(directionDegrees = directionDegrees, size = 10.dp)
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = style?.color ?: Color.Unspecified,
+                    fontWeight = style?.fontWeight,
+                    modifier = Modifier.padding(start = 2.dp)
+                )
+            }
+        } else {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodySmall,
+                color = style?.color ?: Color.Unspecified,
+                fontWeight = style?.fontWeight
+            )
+        }
     }
 }
 
@@ -309,6 +349,19 @@ private fun valueAt(
     timestamp: Instant,
     extractor: (HourlyForecast, Int) -> Double?
 ): Double? {
+    val series = forecast.seriesByModel[model] ?: return null
+    val idx = series.hourly.timestamps.indexOf(timestamp)
+    if (idx < 0) return null
+    return extractor(series.hourly, idx)
+}
+
+/** Version Int? de [valueAt] pour les champs directionnels (degrés météo). */
+private fun directionAt(
+    forecast: CityForecast,
+    model: com.meteocompare.app.domain.model.WeatherModel,
+    timestamp: Instant,
+    extractor: (HourlyForecast, Int) -> Int?
+): Int? {
     val series = forecast.seriesByModel[model] ?: return null
     val idx = series.hourly.timestamps.indexOf(timestamp)
     if (idx < 0) return null

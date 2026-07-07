@@ -9,7 +9,7 @@ Application Android de comparaison multi-modèles météorologiques (AROME, ARPE
 
 L'app se concentre sur **les données brutes et l'incertitude** : au lieu d'agréger silencieusement les modèles en une seule prévision, elle expose les désaccords entre modèles pour que l'utilisateur puisse juger lui-même du niveau de confiance à accorder à la prévision.
 
-<p align="left">
+<p>
   <a href="https://f-droid.org/packages/com.meteocompare.app/">
     <img src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png" alt="Get it on F-Droid" height="60">
   </a>
@@ -23,10 +23,13 @@ L'app se concentre sur **les données brutes et l'incertitude** : au lieu d'agr�
 - **Comparaison multi-modèles** : jusqu'à 12 modèles météo (Météo-France, DWD, NOAA, ECMWF, UK Met Office, ECCC, plus le modèle IA d'ECMWF)
 - **Indice de confiance** calculé par variable (température, vent, précipitations) et par heure
 - **Page "Pourquoi cette confiance ?"** — clic sur le badge de confiance ouvre une explication détaillée : qui a prédit quoi, quel écart, pourquoi la résolution du modèle compte
-- **Bande de confiance horaire** : graphique min-max autour de la moyenne pondérée qui s'élargit visuellement quand les modèles divergent
-- **Tableau Jour × Modèle** des conditions météo (icônes) et températures max/min
-- **Highlight du jour courant** dans tous les tableaux
-- **Icônes de temps** synthétisées à partir des codes WMO 4677
+- **Bande de confiance horaire** avec **zoom au pincement** sur l'axe temps : graphique min-max autour de la moyenne pondérée qui s'élargit visuellement quand les modèles divergent ; double-tap pour réinitialiser le zoom
+- **Toggle "par heure / par jour"** : bascule les tableaux et graphes entre la vue synthétique 7 jours et le détail horaire jusqu'à la fin de la journée courante
+- **Tableau Jour × Modèle** des conditions météo (icônes) et températures max/min, avec badges "%" indiquant la couverture nuageuse (cellules nuageuses/couvertes) ou la probabilité de pluie (cellules pluvieuses)
+- **Direction du vent** : flèches *downwind* dans les tableaux vent quand la vitesse dépasse 5 km/h (au-dessous, la direction est du bruit)
+- **Icônes de temps** synthétisées à partir des codes WMO 4677, dont un composite bi-color soleil + nuage pour "partiellement nuageux"
+- **Fraîcheur des données** affichée sur chaque carte : "Mis à jour à l'instant", "il y a 5 min", etc. — auto-rafraîchi au fil du temps
+- **Highlight du jour courant** (et de l'heure courante en mode hourly) dans tous les tableaux
 - **Modes clair/sombre**, thème dynamique Material You (Android 12+)
 - **Français + Anglais**
 - **Aucune publicité, aucun tracker, aucune connexion sortante** hors de l'API météo
@@ -61,7 +64,7 @@ app/src/main/java/com/meteocompare/app/
 │   ├── citydetail/  ← Détail d'une ville : cartes, chart, tableaux
 │   │   └── confidence/  ← Écran "Pourquoi cette confiance ?"
 │   ├── settings/    ← Paramètres (modèles, thème, langue)
-│   ├── components/  ← Composables réutilisables (WeatherIcon, ShimmerBox…)
+│   ├── components/  ← Composables réutilisables (WeatherIcon, WindArrow, ShimmerBox…)
 │   ├── accessibility/ ← Formatage des descriptions TalkBack
 │   ├── theme/       ← Couleurs, typographie, tokens M3
 │   └── navigation/  ← Routes et NavHost
@@ -91,16 +94,16 @@ Les modèles marqués "Par défaut" sont activés dès la première ouverture ; 
 
 ### Note sur AROME HD et les icônes de temps
 
-Open-Meteo documente que "AROME France HD has the same model area, but at higher resolution with a smaller selection of weather variables" — la variable `weather_code` (code météo synthétique) n'est **pas exposée** pour AROME HD, contrairement à AROME (2.5 km) qui la fournit. Le compromis est assumé côté modèle : la résolution 1.5 km au prix d'un jeu de sorties réduit.
+Open-Meteo documente que "AROME France HD has the same model area, but at higher resolution with a smaller selection of weather variables" — la variable `weather_code` (code météo synthétique) n'est **pas exposée** pour AROME HD, contrairement à AROME (2.5 km) qui la fournit. Le compromis est assumé côté modèle : la résolution 1.5 km au prix d'un jeu de sorties réduit. Idem pour `cloud_cover` et `precipitation_probability` — non exposées.
 
 Pour éviter des cellules vides dans le tableau Jour × Modèle, on **infère** la condition pour AROME HD depuis les précipitations et la température min :
 
 - Précip ≥ 5 mm → pluie (ou neige si min ≤ 0°C)
 - Précip ≥ 1 mm → averses
 - Précip ≥ 0.1 mm → bruine
-- Précip = 0 mm → **"—" affiché** (impossible de distinguer ciel clair vs couvert sans cloud_cover, non exposé non plus par AROME HD)
+- Précip = 0 mm → **"—" affiché** (impossible de distinguer ciel clair vs couvert sans cloud_cover)
 
-Ce compromis privilégie l'**honnêteté** sur la complétude : on ne présente PAS une condition inventée sur les jours secs. Les autres modèles couvrent l'info dans ces cas.
+Les badges "%" (couverture nuageuse / probabilité de pluie) sous les icônes ne s'affichent que pour les modèles qui exposent effectivement les variables — pas de fallback bidouillé côté client.
 
 ## Indice de confiance
 
@@ -111,16 +114,20 @@ Ce compromis privilégie l'**honnêteté** sur la complétude : on ne présente 
 - Pour les variables continues (T, vent) : moyenne et écart-type **pondérés** par `ModelWeightingStrategy`. L'écart-type est converti en % de confiance via des seuils calibrés (`tight`/`wide` par variable).
 - Pour la pluie : agreement binaire d'abord (les modèles s'accordent-ils sur *l'occurrence* ?), puis spread sur l'intensité si oui.
 - Pour la condition météo actuelle : vote pondéré par famille (CLEAR/OVERCAST/RAIN…) — moyenner des codes WMO catégoriels n'a aucun sens. Tie-break : la condition la plus sévère.
+- Pour la couverture nuageuse "maintenant" (utilisée par les cards home/détail) : moyenne pondérée horaire sur les modèles qui exposent `cloud_cover`.
 - Pondération par défaut : `1/√résolution` — privilégie les modèles haute-résolution sans écraser ECMWF qui reste excellent malgré sa résolution.
 
 ```kotlin
 val daily = calculator.dayConfidence(forecast, LocalDate.now())
 val hourly: List<HourlyConfidenceBand> = calculator.hourlyTemperatureConfidence(forecast)
 val currentCondition: WeatherCondition? = calculator.currentWeatherCondition(forecast)
+val currentCloudCover: Int? = calculator.currentCloudCover(forecast)
 val matrix: List<DayConditionsRow> = calculator.dailyConditionsByModel(forecast)
 ```
 
-**Visualisation `HourlyConfidenceBand`** : un graphique de bande min-max autour de la moyenne pondérée, sur 7 jours horaires. La bande s'élargit naturellement quand les modèles haute-résolution disparaissent de l'horizon — c'est la signature visuelle de l'incertitude. Une timeline en dessous colore chaque tranche horaire selon le niveau de confiance (vert/orange/rouge).
+`DayConditionsRow.extrasByModel` porte les métadonnées par cellule (probabilité de pluie max journalière, couverture nuageuse moyenne journalière) qui alimentent les badges "%" sous les icônes.
+
+**Visualisation `HourlyConfidenceBand`** : un graphique de bande min-max autour de la moyenne pondérée, sur 7 jours horaires. La bande s'élargit naturellement quand les modèles haute-résolution disparaissent de l'horizon — c'est la signature visuelle de l'incertitude. Une timeline en dessous colore chaque tranche horaire selon le niveau de confiance (vert/orange/rouge). Le graphique est **zoomable au pincement** sur l'axe temps (pinch à 2 doigts + pan) et **réinitialisable au double-tap** — le geste à 1 doigt reste dédié au scroll vertical de la page.
 
 Les seuils sont calibrés à partir d'observations empiriques sur l'Europe. À ajuster quand on aura des données de skill verification.
 
@@ -153,7 +160,7 @@ Aucune clé API n'est nécessaire — Open-Meteo est gratuit pour usage non comm
 
 Couverture :
 
-- **Unitaires** : `ForecastMapper`, `ForecastRepositoryImpl` (cache + réseau), `ConfidenceCalculator` (daily + hourly + condition + weighting strategies), `WeatherCondition` (mapping WMO + fallback précipitation), `ModelColors` (couleurs uniques + MVP_SELECTION intégrité).
+- **Unitaires** : `ForecastMapper`, `ForecastRepositoryImpl` (cache + réseau), `ConfidenceCalculator` (daily + hourly + condition + couverture nuageuse + weighting strategies), `WeatherCondition` (mapping WMO + fallback précipitation), `WeatherCellBadges` (règles d'affichage des % sous les icônes), `LastUpdatedFormatter` (paliers "à l'instant" / min / h / j), `DisplayMode` (Saver pour rememberSaveable), `ModelColors` (couleurs uniques + MVP_SELECTION intégrité).
 - **Compose UI** : `CityCardTest`, `CityListContentTest`, `TodaySummaryCardTest`, `ConfidenceBadgeClickTest` — tests isolés sans Hilt.
 - **Intégration Hilt** : `MainActivityNavigationTest` — lance la vraie app, vérifie la DI et la navigation. Démontre le pattern `@UninstallModules` + `@TestInstallIn` pour mocker certaines couches (ex: MockWebServer).
 
@@ -163,7 +170,7 @@ Toutes les zones interactives ont des `contentDescription` lisibles par TalkBack
 
 - Les **cartes de villes** annoncent un résumé fluide qui commence par la condition actuelle : "Ville Paris, Île-de-France. Ensoleillé. Actuellement 20 degrés. Température entre 22 et 24 degrés, confiance haute, 85 pourcent."
 - Le **badge de confiance** est annoncé comme bouton : "Confiance 85%, ouvrir l'explication détaillée"
-- Les **graphiques Canvas** (lignes par modèle, bande horaire) ont des descriptions générées par `A11yFormatter` qui résument les données clés.
+- Les **graphiques Canvas** (lignes par modèle, bande horaire) ont des descriptions générées par `A11yFormatter` qui résument les données clés. La bande de confiance annonce en plus son état de zoom ("Graphique zoomé, double-tap pour réinitialiser") pour rester compréhensible quand l'utilisateur zoome sans voir l'écran.
 - Les **titres de section** sont marqués `heading()` pour permettre la navigation par titre.
 
 Le module `ui/accessibility/A11yFormatter.kt` centralise les chaînes pour garder une terminologie cohérente.
@@ -201,15 +208,17 @@ Fait :
 
 - ✅ v0.0 — Comparaison multi-modèles, indice de confiance, bande horaire
 - ✅ v0.1 — Page "Pourquoi cette confiance ?", correction de bugs
-- ✅ v0.2 — Icônes de temps, tableau Jour × Modèle des conditions, ajout UKMO / AIFS / GEM / ICON-D2,
-- ✅ v0.3 — highlight du jour courant dans les tableaux, correction de bugs
-- ✅ v0.4 : Option hourly / daily, zoom dans le graphe "confidence/confiance", dernière mise à jour
+- ✅ v0.2 — Icônes de temps, tableau Jour × Modèle des conditions, ajout UKMO / AIFS / GEM / ICON-D2
+- ✅ v0.3 — Highlight du jour courant dans les tableaux, correction de bugs
+- ✅ v0.4 — Toggle "par heure / par jour", zoom pincé sur la bande de confiance, badges probabilité de pluie et couverture nuageuse sous les icônes, direction du vent avec flèches downwind, indicateur "mis à jour il y a X", icône composite "partiellement nuageux" (soleil + nuage bi-color), titres du vent clarifiés ("moyenne à 10m" au lieu de "max" ambigu)
+- ✅ v0.5 — Nouvelles données (probabilité de pluie, couverture nuageuse, vent) et correction de bugs
+- ✅ v0.6 — Widget homescreen (Glance) redimensionnable 2×1 / 3×1 / 4×1 avec opacité de fond configurable et sélection de ville favorite ; reproduit un résumé compact de la TodaySummaryCard
 
 À venir :
-- v0.5 : Nouvelles données (vent, précipitation), correction de bugs
-- v0.6 : Widget homescreen, optimisation batterie et CPU
-- v0.7 : Swipe entre villes favorites, trie dans les modèles
-- v0.8 : Historique de fiabilité des modèles (skill verification à partir des observations)
+
+- v0.7 : Optimisation batterie et CPU pour l'application et widget (WorkManager pour le refresh widget, réduction des recomputes)
+- v0.8 : Swipe entre villes favorites
+- v0.9 : Historique de fiabilité des modèles (skill verification à partir des observations)
 
 ## Licence
 

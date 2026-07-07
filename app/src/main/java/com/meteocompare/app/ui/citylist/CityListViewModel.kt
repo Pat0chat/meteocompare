@@ -220,6 +220,7 @@ class CityListViewModel @Inject constructor(
                     today = confidenceCalculator.dayConfidence(result.data, today),
                     currentTemp = confidenceCalculator.currentTemperature(result.data),
                     currentCondition = confidenceCalculator.currentWeatherCondition(result.data),
+                    currentCloudCover = confidenceCalculator.currentCloudCover(result.data),
                     fetchedAt = result.data.fetchedAt
                 )
             } else {

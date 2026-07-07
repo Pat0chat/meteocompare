@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
+import com.meteocompare.app.domain.usecase.DayCellExtras
 import com.meteocompare.app.domain.usecase.DayConditionsRow
 import com.meteocompare.app.ui.components.WeatherIconDecorative
 import com.meteocompare.app.ui.components.semanticTint
@@ -102,7 +103,7 @@ fun WeatherByModelTable(
         }
 
         VerticalDivider(
-            modifier = Modifier.height((40 + rows.size * 44).dp)
+            modifier = Modifier.height((40 + rows.size * 52).dp)
         )
 
         // Partie scrollable : une colonne par modèle
@@ -117,6 +118,7 @@ fun WeatherByModelTable(
                     rows.forEachIndexed { idx, row ->
                         IconCell(
                             condition = row.byModel[model],
+                            extras = row.extrasByModel[model],
                             background = bgFor(idx, row.date)
                         )
                     }
@@ -160,7 +162,7 @@ private fun DayLabelCell(text: String, background: Color, isToday: Boolean = fal
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(44.dp)
+            .height(52.dp)
             .background(background)
             .padding(horizontal = 4.dp),
         contentAlignment = Alignment.CenterStart
@@ -176,28 +178,65 @@ private fun DayLabelCell(text: String, background: Color, isToday: Boolean = fal
     }
 }
 
+/**
+ * Cellule Icône + badge extra pour la matrice Jour × Modèle.
+ *
+ * Layout vertical dans une hauteur de 52dp :
+ *   - Icône 22dp centrée (taille légèrement réduite vs les 24dp historiques
+ *     pour laisser de l'air au badge en dessous)
+ *   - Badge optionnel 2 lignes plus bas (labelSmall) — probabilité de pluie
+ *     ou couverture nuageuse selon la condition
+ *
+ * Règles de badge :
+ *   - Famille pluie/orage → probabilité de pluie max si dispo
+ *   - Famille PARTLY_CLOUDY / OVERCAST → couverture nuageuse moyenne si dispo
+ *   - Autres familles ou données manquantes → pas de badge (aligne le layout
+ *     visuellement sur les cellules avec badge, l'espace reste le même)
+ */
 @Composable
-private fun IconCell(condition: WeatherCondition?, background: Color) {
+private fun IconCell(
+    condition: WeatherCondition?,
+    extras: DayCellExtras?,
+    background: Color
+) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(44.dp)
+            .height(52.dp)
             .background(background),
         contentAlignment = Alignment.Center
     ) {
-        if (condition != null) {
-            WeatherIconDecorative(
-                condition = condition,
-                size = 24.dp,
-                tint = condition.semanticTint()
-            )
-        } else {
+        if (condition == null) {
             // Modèle sans donnée pour ce jour (typique : AROME HD ne couvre
             // que J+0 à J+2 — colonnes "vides" au-delà). On affiche un tiret
             // discret pour que la cellule reste reconnaissable comme une
             // cellule (pas comme un trou de layout).
             Text("—", style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                WeatherIconDecorative(
+                    condition = condition,
+                    size = 22.dp,
+                    tint = condition.semanticTint()
+                )
+                val badge = weatherBadgeFor(
+                    condition = condition,
+                    precipProbability = extras?.precipProbabilityMax,
+                    cloudCover = extras?.cloudCoverMean
+                )
+                if (badge != null) {
+                    Text(
+                        text = badge,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
         }
     }
 }
@@ -222,27 +261,43 @@ internal fun WeatherLegend() {
         WeatherCondition.SNOW,
         WeatherCondition.THUNDERSTORM
     )
-    FlowRow(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        items.forEach { c ->
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                WeatherIconDecorative(
-                    condition = c,
-                    size = 16.dp,
-                    tint = c.semanticTint()
-                )
-                Text(
-                    text = stringResource(c.legendStringRes()),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(start = 4.dp)
-                )
+    Column {
+        FlowRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items.forEach { c ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    WeatherIconDecorative(
+                        condition = c,
+                        size = 16.dp,
+                        tint = c.semanticTint()
+                    )
+                    Text(
+                        text = stringResource(c.legendStringRes()),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 4.dp)
+                    )
+                }
             }
         }
+        // Caption expliquant les badges "60%" affichés sous les icônes.
+        // Sans cette note, l'utilisateur voit "60%" sous une icône soleil ou
+        // nuage et hésite : probabilité de pluie ? d'ensoleillement ? de tenir
+        // au sec ? Deux règles simples :
+        //   - Sous une icône nuageuse/couverte → couverture nuageuse
+        //   - Sous une icône pluie/neige/orage → probabilité de précipitation
+        // labelSmall + onSurfaceVariant : ton discret, ne concurrence pas
+        // les chips de légende juste au-dessus qui sont l'info primaire.
+        Text(
+            text = stringResource(R.string.weather_legend_percent_note),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+        )
     }
 }
 

@@ -25,9 +25,12 @@ interface OpenMeteoApi {
         // Disponible sur tous les modèles utilisés par l'app (AROME, ARPEGE,
         // ICON, GFS, ECMWF) — donc pas de risque d'erreur 400 sélective.
         @Query("hourly") hourly: String =
-            "temperature_2m,precipitation,wind_speed_10m,weather_code",
+            "temperature_2m,precipitation,precipitation_probability,cloud_cover," +
+                "wind_speed_10m,wind_direction_10m,weather_code",
         @Query("daily") daily: String =
-            "temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max,weather_code",
+            "temperature_2m_max,temperature_2m_min,precipitation_sum," +
+                "precipitation_probability_max,wind_speed_10m_max," +
+                "wind_direction_10m_dominant,weather_code",
         @Query("timezone") timezone: String = "auto",
         @Query("forecast_days") forecastDays: Int = 7,
         @Query("wind_speed_unit") windSpeedUnit: String = "kmh",

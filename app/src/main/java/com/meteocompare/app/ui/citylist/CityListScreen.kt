@@ -296,6 +296,7 @@ internal fun CityCard(
                         today = forecast.today,
                         currentTemp = forecast.currentTemp,
                         currentCondition = forecast.currentCondition,
+                        currentCloudCover = forecast.currentCloudCover,
                         fetchedAt = forecast.fetchedAt
                     )
                     is ForecastState.Error -> CityCardError(forecast.message, onRetry)
@@ -344,6 +345,7 @@ private fun CityCardLoaded(
     today: DayConfidence,
     currentTemp: Double?,
     currentCondition: WeatherCondition?,
+    currentCloudCover: Int?,
     fetchedAt: java.time.Instant?
 ) {
     // Column pour empiler la Row de valeurs + le petit caption de fraîcheur
@@ -358,7 +360,8 @@ private fun CityCardLoaded(
             TemperatureSummary(
                 currentTemp = currentTemp,
                 tempMax = today.tempMax,
-                currentCondition = currentCondition
+                currentCondition = currentCondition,
+                currentCloudCover = currentCloudCover
             )
             PrecipitationSummary(precip = today.precipitation)
             ConfidenceBadge(percent = today.overallPercent)
@@ -388,7 +391,8 @@ private fun CityCardLoaded(
 private fun TemperatureSummary(
     currentTemp: Double?,
     tempMax: ConfidenceScore?,
-    currentCondition: WeatherCondition?
+    currentCondition: WeatherCondition?,
+    currentCloudCover: Int? = null
 ) {
     // Affichage : icône temps + grosse temp actuelle + petite "↑ max" en dessous.
     // L'icône précède la température parce que le temps qu'il fait (soleil/
@@ -404,11 +408,30 @@ private fun TemperatureSummary(
             // Taille 42dp (vs 24dp avant) : avec 24dp l'icône faisait pâle
             // face au titre de la ville en titleLarge à côté ; 32dp lui donne
             // assez de présence pour qu'on la repère d'un balayage du pouce.
-            WeatherIconDecorative(
-                condition = currentCondition,
-                size = 42.dp,
-                tint = currentCondition.semanticTint()
-            )
+            val showCloudBadge = currentCloudCover != null &&
+                (currentCondition == WeatherCondition.PARTLY_CLOUDY ||
+                    currentCondition == WeatherCondition.OVERCAST)
+            // Colonne icône + badge % nuage éventuel. Le badge n'apparaît que
+            // pour les conditions cloudy/overcast (il n'a pas de sens pour
+            // "clair" ou "pluie") ET si on a une valeur cloud_cover réelle
+            // (pas de bidouillage). Sans badge → l'icône reste seule et le
+            // layout Row à côté ne bouge pas (Column avec seul enfant = taille
+            // de l'icône, comme avant).
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                WeatherIconDecorative(
+                    condition = currentCondition,
+                    size = 42.dp,
+                    tint = currentCondition.semanticTint()
+                )
+                if (showCloudBadge) {
+                    Text(
+                        text = "${currentCloudCover}%",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
             Spacer(Modifier.width(8.dp))
         } else {
             // Fallback : si on n'a pas de code météo (cache pré-feature), on

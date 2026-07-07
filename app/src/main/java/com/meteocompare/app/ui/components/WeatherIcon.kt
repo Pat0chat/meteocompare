@@ -1,19 +1,23 @@
 package com.meteocompare.app.ui.components
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.outlined.AcUnit
 import androidx.compose.material.icons.outlined.Cloud
-import androidx.compose.material.icons.outlined.FilterDrama
 import androidx.compose.material.icons.outlined.Thunderstorm
 import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.material.icons.outlined.WbCloudy
 import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
@@ -60,6 +64,18 @@ fun WeatherIcon(
         return
     }
     val resolvedTint = if (tint == Color.Unspecified) LocalContentColor.current else tint
+    // Cas spécial : PARTLY_CLOUDY n'est pas une simple ImageVector, on ne peut
+    // pas la retourner dans toIcon(). On rend directement le composite ici
+    // (soleil + nuage superposés). Contract descriptif préservé — on ne perd
+    // pas d'accessibilité par rapport à un Icon(condition.toIcon()).
+    if (condition == WeatherCondition.PARTLY_CLOUDY) {
+        PartlyCloudyIcon(
+            size = size,
+            modifier = modifier,
+            contentDescription = stringResource(R.string.weather_partly_cloudy)
+        )
+        return
+    }
     Icon(
         imageVector = condition.toIcon(),
         contentDescription = stringResource(condition.descriptionRes()),
@@ -85,12 +101,84 @@ fun WeatherIconDecorative(
 ) {
     if (condition == null) return
     val resolvedTint = if (tint == Color.Unspecified) LocalContentColor.current else tint
+    if (condition == WeatherCondition.PARTLY_CLOUDY) {
+        PartlyCloudyIcon(size = size, modifier = modifier, contentDescription = null)
+        return
+    }
     Icon(
         imageVector = condition.toIcon(),
         contentDescription = null,
         tint = resolvedTint,
         modifier = modifier.size(size)
     )
+}
+
+/**
+ * Icône composite "partiellement nuageux" — un soleil dans le coin haut-gauche
+ * qui dépasse d'un nuage occupant le coin bas-droit.
+ *
+ * Pourquoi un composite et non une ImageVector : les vector drawables
+ * monochromes de Material (WbSunny, FilterDrama, WbCloudy) ne rendent pas
+ * bien l'idée de "soleil visible derrière un nuage". FilterDrama en particulier
+ * est un MASQUE de théâtre — pas du tout partly-cloudy. Un vrai partly-cloudy
+ * a besoin de DEUX teintes distinctes (soleil ambre chaud, nuage grisé neutre)
+ * pour être lisible en icône.
+ *
+ * Design :
+ *   - Soleil (WbSunny outlined) placé Alignment.TopStart, 60% de la taille,
+ *     teinte ambre chaude (0xFFFFA726) — sort visuellement même sur fond
+ *     coloré comme primaryContainer.
+ *   - Nuage (Cloud filled) placé Alignment.BottomEnd, 75% de la taille,
+ *     teinté en gris-bleu (blue-grey Material) SPÉCIFIQUE au thème — surtout
+ *     PAS `LocalContentColor.current` qui donnait un nuage NOIR en thème clair
+ *     (onSurface = quasi-noir), lu comme un nuage d'ORAGE alors qu'on veut
+ *     signifier "nuage bienveillant qui laisse le soleil percer".
+ *   - Détection thème via `surface.luminance() < 0.5f` — même pattern que
+ *     HourlyConfidenceChart pour cohérence.
+ *
+ * @param contentDescription null pour usage décoratif (a11y portée ailleurs),
+ *   ou une string à décrire pour usage stand-alone.
+ */
+@Composable
+private fun PartlyCloudyIcon(
+    size: Dp,
+    modifier: Modifier = Modifier,
+    contentDescription: String?
+) {
+    // Blue Grey 400 en clair (visible sur fond clair sans être quasi-noir),
+    // Blue Grey 200 en sombre (assez lumineux pour rester lisible sur fond
+    // sombre). Valeurs Material standard — pas de tuning fin nécessaire, ces
+    // deux teintes ont un contrast ratio ≥ 3:1 sur leurs backgrounds respectifs.
+    val isDarkTheme = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val cloudTint = if (isDarkTheme) Color(0xFFB0BEC5) else Color(0xFF90A4AE)
+
+    Box(modifier = modifier.size(size)) {
+        // Soleil au coin haut-gauche — 60% de la size finale, teinte ambre
+        // pour se distinguer du nuage neutre. C'est la SEULE icône météo à
+        // deux teintes de l'app ; on assume qu'elle n'obéit pas au param tint
+        // du parent (partly-cloudy est intrinsèquement bi-color).
+        Icon(
+            imageVector = Icons.Outlined.WbSunny,
+            contentDescription = contentDescription,
+            tint = Color(0xFFFFA726),
+            modifier = Modifier
+                .size(size * 0.60f)
+                .align(Alignment.TopStart)
+        )
+        // Nuage au coin bas-droit — variante FILLED (pas outlined) pour
+        // qu'il couvre visuellement le bas-droit du soleil, créant l'effet
+        // "soleil qui perce derrière un nuage" plutôt que 2 icônes qui se
+        // chevauchent proprement. Teinte gris-bleu clair : lit comme un
+        // nuage de beau temps, pas un nuage d'orage.
+        Icon(
+            imageVector = Icons.Filled.Cloud,
+            contentDescription = null, // description déjà portée par le soleil
+            tint = cloudTint,
+            modifier = Modifier
+                .size(size * 0.75f)
+                .align(Alignment.BottomEnd)
+        )
+    }
 }
 
 /**
@@ -134,7 +222,11 @@ fun WeatherCondition.semanticTint(): Color = when (this) {
 private fun WeatherCondition.toIcon(): ImageVector = when (this) {
     WeatherCondition.CLEAR -> Icons.Outlined.WbSunny
     WeatherCondition.MAINLY_CLEAR -> Icons.Outlined.WbSunny
-    WeatherCondition.PARTLY_CLOUDY -> Icons.Outlined.FilterDrama
+    // PARTLY_CLOUDY est routé vers PartlyCloudyIcon (composite bi-color) en
+    // amont — cette branche ne devrait jamais s'exécuter en pratique. On la
+    // garde totale avec WbCloudy comme filet de sécurité si quelqu'un appelle
+    // toIcon() directement (au lieu de passer par WeatherIcon composable).
+    WeatherCondition.PARTLY_CLOUDY -> Icons.Outlined.WbCloudy
     WeatherCondition.OVERCAST -> Icons.Outlined.WbCloudy
     WeatherCondition.FOG -> Icons.Outlined.Cloud
     WeatherCondition.DRIZZLE -> Icons.Outlined.WaterDrop

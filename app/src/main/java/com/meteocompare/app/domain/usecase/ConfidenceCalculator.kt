@@ -3,6 +3,7 @@ package com.meteocompare.app.domain.usecase
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.ConfidenceScore
 import com.meteocompare.app.domain.model.DayConfidence
+import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.HourlyConfidenceBand
 import com.meteocompare.app.domain.model.PrecipitationConfidence
 import com.meteocompare.app.domain.model.WeatherCondition
@@ -163,6 +164,56 @@ class ConfidenceCalculator @Inject constructor(
     }
 
     /**
+     * Couverture nuageuse "maintenant" — moyenne pondérée par résolution
+     * du cloud_cover horaire à l'instant courant.
+     *
+     * Utilisée pour afficher le "% nuageux" sur les cards home et
+     * TodaySummaryCard quand la condition affichée est de la famille
+     * PARTLY_CLOUDY ou OVERCAST. La moyenne pondérée reste le bon agrégat
+     * pour un pourcentage : le mode/vote catégoriel (comme les codes WMO)
+     * n'aurait pas de sens sur une échelle 0-100.
+     *
+     * Retourne null si aucun modèle n'a de donnée cloud_cover à l'instant
+     * courant — typique d'un cache pré-feature. L'UI omet alors le badge.
+     */
+    fun currentCloudCover(forecast: CityForecast): Int? =
+        weightedMeanCurrentHourly(forecast) { series, idx ->
+            series.hourly.cloudCover.getOrNull(idx)
+        }
+
+    /**
+     * Helper : moyenne pondérée d'une valeur horaire à l'instant courant.
+     *
+     * Factorise la logique commune à [currentTemperature] et [currentCloudCover] :
+     *   1. Trouver l'index horaire le plus proche de "maintenant" pour chaque modèle
+     *   2. Extraire la valeur via [extractor]
+     *   3. Pondérer par le poids du modèle et faire la moyenne
+     *
+     * Le résultat est arrondi à l'entier — approprié pour les pourcentages qu'on
+     * affiche à l'UI. Pour la température (Double), on utilise directement la
+     * version inline dans [currentTemperature] au lieu de ce helper.
+     */
+    private fun weightedMeanCurrentHourly(
+        forecast: CityForecast,
+        extractor: (ForecastSeries, Int) -> Int?
+    ): Int? {
+        val now = Instant.now()
+        val samples = forecast.seriesByModel.mapNotNull { (model, series) ->
+            if (series.hourly.timestamps.isEmpty()) return@mapNotNull null
+            val idx = series.hourly.timestamps.indices.minBy { i ->
+                kotlin.math.abs(series.hourly.timestamps[i].epochSecond - now.epochSecond)
+            }
+            val value = extractor(series, idx) ?: return@mapNotNull null
+            model to value.toDouble()
+        }
+        if (samples.isEmpty()) return null
+        val totalWeight = samples.sumOf { (model, _) -> weighting.weight(model) }
+        if (totalWeight == 0.0) return null
+        val weightedSum = samples.sumOf { (model, v) -> v * weighting.weight(model) }
+        return (weightedSum / totalWeight).roundToInt()
+    }
+
+    /**
      * Tableau Jour × Modèle des conditions météo journalières.
      *
      * Utilisé par l'écran détail pour afficher une matrice d'icônes — utile
@@ -175,14 +226,21 @@ class ConfidenceCalculator @Inject constructor(
      * laisser l'utilisateur voir le désaccord — l'agrégation l'occulterait.
      */
     fun dailyConditionsByModel(forecast: CityForecast): List<DayConditionsRow> {
+        val zone = runCatching {
+            java.time.ZoneId.of(forecast.city.timezone ?: "UTC")
+        }.getOrDefault(java.time.ZoneId.of("UTC"))
+
         val allDates = forecast.seriesByModel.values
             .flatMap { it.daily.dates }
             .distinct()
             .sorted()
         return allDates.map { date ->
-            val byModel = forecast.seriesByModel.mapNotNull { (model, series) ->
+            val byModel = mutableMapOf<WeatherModel, WeatherCondition>()
+            val extrasByModel = mutableMapOf<WeatherModel, DayCellExtras>()
+
+            forecast.seriesByModel.forEach { (model, series) ->
                 val idx = series.daily.dates.indexOf(date)
-                if (idx < 0) return@mapNotNull null
+                if (idx < 0) return@forEach
                 // Priorité au weather_code — sémantique la plus précise.
                 // Fallback précipitation-based pour les modèles sans code
                 // (AROME HD notamment) : mieux vaut une famille inférée pour
@@ -194,15 +252,67 @@ class ConfidenceCalculator @Inject constructor(
                         precipMm = series.daily.precipitationSum.getOrNull(idx),
                         tempMinC = series.daily.tempMin.getOrNull(idx)
                     )
-                    ?: return@mapNotNull null
-                model to condition
-            }.toMap()
-            DayConditionsRow(date = date, byModel = byModel)
+                    ?: return@forEach
+                byModel[model] = condition
+
+                // ─── Extras : probabilité de pluie max + couverture nuageuse ──
+                // Ces valeurs sont OPTIONNELLES (nullables) — un modèle sans
+                // la variable renverra simplement null, l'UI omettra le badge.
+                // La probabilité vient directement de l'API (précomputed max
+                // journalier), la couverture nuageuse est agrégée depuis
+                // l'horaire — Open-Meteo ne fournit pas de cloud_cover_mean
+                // en daily.
+                val precipProb = series.daily.precipitationProbabilityMax.getOrNull(idx)
+                val cloudMean = computeDailyCloudCoverMean(series, date, zone)
+                if (precipProb != null || cloudMean != null) {
+                    extrasByModel[model] = DayCellExtras(
+                        precipProbabilityMax = precipProb,
+                        cloudCoverMean = cloudMean
+                    )
+                }
+            }
+
+            DayConditionsRow(
+                date = date,
+                byModel = byModel,
+                extrasByModel = extrasByModel
+            )
         }.filter { it.byModel.isNotEmpty() }
         // Skip les jours sans aucun code disponible — ça arrive avec un cache
         // antérieur à la feature (weather_code = empty list). Plutôt que
         // d'afficher une ligne entière de "—", on masque la ligne et l'UI
         // n'affiche pas le tableau si la liste finale est vide.
+    }
+
+    /**
+     * Moyenne de la couverture nuageuse sur la journée [date] pour la série [series].
+     *
+     * Filtre les heures dont le timestamp — converti dans le fuseau [zone] —
+     * appartient à cette date, puis calcule la moyenne des cloud_cover non-nulles.
+     * Retourne null si aucune donnée exploitable (série sans cloud_cover, ou
+     * jour hors horizon du modèle).
+     *
+     * Choix de la MOYENNE plutôt que d'un cloud_cover_mean qui existerait à
+     * l'API : Open-Meteo n'expose pas cette agrégation en daily, on la calcule
+     * donc côté client. On considère TOUTES les heures (pas de filtre "diurne"
+     * 6h-20h) : afficher "70% couvert" pour un jour vraiment couvert 24/24
+     * doit rester représentatif ; filtrer les heures nocturnes complexifie sans
+     * ajouter de valeur perçue.
+     */
+    private fun computeDailyCloudCoverMean(
+        series: ForecastSeries,
+        date: java.time.LocalDate,
+        zone: java.time.ZoneId
+    ): Int? {
+        if (series.hourly.cloudCover.isEmpty()) return null
+        val values = mutableListOf<Int>()
+        series.hourly.timestamps.forEachIndexed { i, ts ->
+            val local = ts.atZone(zone).toLocalDate()
+            if (local == date) {
+                series.hourly.cloudCover.getOrNull(i)?.let { values += it }
+            }
+        }
+        return if (values.isEmpty()) null else values.average().roundToInt()
     }
 
     /**
@@ -450,5 +560,31 @@ class ConfidenceCalculator @Inject constructor(
  */
 data class DayConditionsRow(
     val date: LocalDate,
-    val byModel: Map<WeatherModel, WeatherCondition>
+    val byModel: Map<WeatherModel, WeatherCondition>,
+    /**
+     * Métadonnées supplémentaires par modèle : probabilité de pluie et
+     * couverture nuageuse moyenne. Séparé de `byModel` pour rester rétro-
+     * compatible (les tests et l'API publique n'ont pas à connaître ces
+     * extras). Un modèle peut être dans `byModel` sans être dans `extrasByModel`
+     * si ces variables ne sont pas fournies (cache pré-feature notamment).
+     */
+    val extrasByModel: Map<WeatherModel, DayCellExtras> = emptyMap()
+)
+
+/**
+ * Données affichées EN COMPLÉMENT de l'icône dans une cellule Jour × Modèle.
+ *
+ * Elles servent à surfacer 2 signaux quand la famille météo le justifie :
+ *   - **precipProbabilityMax** : probabilité de pluie max de la journée
+ *     (0-100). Utile quand la condition est de la famille pluie/orage —
+ *     l'utilisateur veut savoir si c'est un "peut-être" ou une "quasi-certitude".
+ *   - **cloudCoverMean** : couverture nuageuse moyenne (0-100). Utile quand la
+ *     condition est PARTLY_CLOUDY ou OVERCAST — permet de distinguer un ciel
+ *     à 60% de nuages (partly) d'un ciel à 95% de nuages (overcast marqué).
+ *
+ * Les deux sont nullables : un modèle peut fournir l'une sans l'autre.
+ */
+data class DayCellExtras(
+    val precipProbabilityMax: Int? = null,
+    val cloudCoverMean: Int? = null
 )

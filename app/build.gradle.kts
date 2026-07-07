@@ -39,8 +39,8 @@ android {
         applicationId = "com.meteocompare.app"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 4
-        versionName = "0.4.0"
+        versionCode = 6
+        versionName = "0.6.0"
         testInstrumentationRunner = "com.meteocompare.app.HiltTestRunner"
         vectorDrawables { useSupportLibrary = true }
     }
@@ -167,6 +167,17 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
+
+    // ─── Widget homescreen (Glance) ───────────────────────────────────────
+    // Glance permet d'écrire les widgets en Composable-like au lieu de
+    // RemoteViews XML brut. En interne, Glance recompile en RemoteViews —
+    // les mêmes contraintes s'appliquent : pas de Modifier générique, pas
+    // de callbacks arbitraires (uniquement Action), API très restreinte.
+    // Le sur-ensemble de Compose disponible est documenté dans le package
+    // `androidx.glance.*`. On garde `glance-material3` pour hériter du
+    // thème Material 3 côté widget (couleurs primaires du système).
+    implementation("androidx.glance:glance-appwidget:1.1.1")
+    implementation("androidx.glance:glance-material3:1.1.1")
 
     testImplementation(libs.junit)
     testImplementation(libs.mockk)

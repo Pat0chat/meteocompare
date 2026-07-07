@@ -216,6 +216,7 @@ internal fun CityDetailContent(
                         hourlyBands = s.hourlyBands,
                         currentTemp = s.currentTemp,
                         currentCondition = s.currentCondition,
+                        currentCloudCover = s.currentCloudCover,
                         dailyConditions = s.dailyConditions,
                         normals = s.normals,
                         fetchedAt = s.fetchedAt,
@@ -263,6 +264,7 @@ private fun LoadedView(
     hourlyBands: List<com.meteocompare.app.domain.model.HourlyConfidenceBand>,
     currentTemp: Double?,
     currentCondition: WeatherCondition?,
+    currentCloudCover: Int?,
     dailyConditions: List<com.meteocompare.app.domain.usecase.DayConditionsRow>,
     normals: Map<Int, com.meteocompare.app.domain.model.DayNormals>?,
     fetchedAt: java.time.Instant?,
@@ -292,6 +294,7 @@ private fun LoadedView(
                     modelCount = forecast.availableModels.size,
                     currentTemp = currentTemp,
                     currentCondition = currentCondition,
+                    currentCloudCover = currentCloudCover,
                     fetchedAt = fetchedAt,
                     onConfidenceClick = { onConfidenceClick(today.date.toString()) }
                 )
@@ -447,6 +450,21 @@ private fun androidx.compose.foundation.lazy.LazyListScope.dailyItems(
             extractor = { daily, idx -> daily.windSpeedMax.getOrNull(idx) },
             formatter = { "${it.roundToInt()} km/h" },
             valueStyler = ::windStyle,
+            // Flèche de direction affichée uniquement si le vent MAX dépasse
+            // 5 km/h — en dessous, la direction est du bruit statistique
+            // (vent trop faible pour avoir une direction bien définie).
+            // Retourner null skip la flèche pour cette cellule.
+            directionExtractor = { daily, idx ->
+                val speed = daily.windSpeedMax.getOrNull(idx)
+                if (speed == null || speed < 5.0) null
+                else daily.windDirection10mDominant.getOrNull(idx)
+            },
+            // Cellule plus large que le défaut 64dp pour accommoder
+            // "↗ 120 km/h" (flèche 12dp + espace 2dp + valeur 3 chiffres + " km/h" ≈
+            // 70-72dp) sans wrap. 80dp donne 8dp de marge visuelle et évite
+            // aussi le retour à la ligne des valeurs à 2 chiffres qui étaient
+            // trop proches du bord droit.
+            cellWidth = 80.dp,
             legend = { WindLegend() }
         )
     }
@@ -539,7 +557,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hourlyItems(
     }
 
     item("wind_table_hourly") {
-        SectionTitle(stringResource(R.string.section_wind))
+        SectionTitle(stringResource(R.string.section_wind_hourly))
         Card(
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainerLow
@@ -551,8 +569,25 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hourlyItems(
                 valueExtractor = { hourly: HourlyForecast, idx ->
                     hourly.windSpeed10m.getOrNull(idx)
                 },
-                valueFormatter = { "${it.roundToInt()}" },
+                // Unité "km/h" explicite dans chaque cellule — cohérent avec
+                // le tableau daily et lève l'ambiguïté "24 = degrés ? nœuds ?
+                // km/h ?" quand on scrolle vite en oubliant le titre de section.
+                valueFormatter = { "${it.roundToInt()} km/h" },
                 valueStyler = ::hourlyWindStyle,
+                // Même règle qu'en daily : direction affichée uniquement au
+                // dessus de 5 km/h. Sous ce seuil la direction horaire est du
+                // bruit (variabilité forte, pas d'info exploitable).
+                directionExtractor = { hourly, idx ->
+                    val speed = hourly.windSpeed10m.getOrNull(idx)
+                    if (speed == null || speed < 5.0) null
+                    else hourly.windDirection10m.getOrNull(idx)
+                },
+                // Cellules plus larges que le défaut 60dp pour accommoder
+                // "↗ 120 km/h" (10dp flèche + 2dp espace + valeur + " km/h"
+                // ≈ 62-64dp). 76dp donne assez de marge, un peu moins que
+                // les 80dp du daily parce que la flèche horaire est plus
+                // petite (10dp vs 12dp) — même densité perçue à l'écran.
+                cellWidth = 76.dp,
                 modifier = Modifier.padding(8.dp)
             )
         }
@@ -639,6 +674,8 @@ private fun ForecastSection(
     extractor: (DailyForecast, Int) -> Double?,
     formatter: (Double) -> String,
     valueStyler: ((Double) -> ValueStyle?)? = null,
+    directionExtractor: ((DailyForecast, Int) -> Int?)? = null,
+    cellWidth: androidx.compose.ui.unit.Dp = 64.dp,
     legend: @Composable (() -> Unit)? = null
 ) {
     Column {
@@ -654,6 +691,8 @@ private fun ForecastSection(
                 valueExtractor = extractor,
                 valueFormatter = formatter,
                 valueStyler = valueStyler,
+                directionExtractor = directionExtractor,
+                cellWidth = cellWidth,
                 modifier = Modifier.padding(8.dp)
             )
         }
@@ -667,6 +706,7 @@ internal fun TodaySummaryCard(
     modelCount: Int,
     currentTemp: Double?,
     currentCondition: WeatherCondition? = null,
+    currentCloudCover: Int? = null,
     fetchedAt: java.time.Instant? = null,
     onConfidenceClick: () -> Unit = {}
 ) {
@@ -747,12 +787,33 @@ internal fun TodaySummaryCard(
                     // remontait trop l'icône au-dessus du chiffre).
                     if (currentCondition != null) {
                         Spacer(Modifier.width(24.dp))
-                        WeatherIconDecorative(
-                            condition = currentCondition,
-                            size = 52.dp,
-                            tint = currentCondition.semanticTint(),
+                        // Colonne icône + badge nuage éventuel. Le badge apparaît
+                        // sous l'icône si la condition affichée est cloudy/overcast
+                        // ET qu'on a une valeur de cloud_cover (pas de fallback
+                        // bidon). Sur "clair" ou "pluie" le badge n'a aucun sens →
+                        // rien n'apparaît, l'icône reste centrée bas comme avant.
+                        val showCloudBadge = currentCloudCover != null &&
+                            (currentCondition == WeatherCondition.PARTLY_CLOUDY ||
+                                currentCondition == WeatherCondition.OVERCAST)
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
                             modifier = Modifier.padding(bottom = 2.dp)
-                        )
+                        ) {
+                            WeatherIconDecorative(
+                                condition = currentCondition,
+                                size = 52.dp,
+                                tint = currentCondition.semanticTint()
+                            )
+                            if (showCloudBadge) {
+                                Text(
+                                    text = "${currentCloudCover}%",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                        .copy(alpha = 0.75f)
+                                )
+                            }
+                        }
                     }
                     Spacer(Modifier.width(8.dp))
                     Text(
