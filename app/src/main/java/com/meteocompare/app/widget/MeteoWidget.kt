@@ -575,7 +575,11 @@ private fun ColumnScope.ConfidenceBandStrip(
     onContainerMuted: ColorProvider
 ) {
     Column(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
-        // Ligne 1 : "T° 22° · 87%" (couleur du % teintée par le niveau)
+        // ─── Ligne 1 : "T° · 87%" — libellé métrique + confiance actuelle ─
+        // Plus de valeur "maintenant" ici : elle est désormais reprise dans
+        // la première colonne de la ligne 3 (bucket "Auj."). Éviter la
+        // redondance libère de la place pour le "%" à droite qui a une
+        // valeur informative propre (couleur teintée par le niveau).
         Row(
             modifier = GlanceModifier.fillMaxWidth().padding(bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -583,22 +587,11 @@ private fun ColumnScope.ConfidenceBandStrip(
             Text(
                 text = strip.metricLabel,
                 style = TextStyle(
-                    color = onContainerMuted,
+                    color = onContainer,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium
                 )
             )
-            strip.nowValue?.let {
-                Spacer(GlanceModifier.width(6.dp))
-                Text(
-                    text = it,
-                    style = TextStyle(
-                        color = onContainer,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                )
-            }
             Spacer(GlanceModifier.defaultWeight())
             strip.currentPct?.let {
                 Text(
@@ -612,12 +605,20 @@ private fun ColumnScope.ConfidenceBandStrip(
             }
         }
 
-        // Ligne 2 : heatmap 24 cellules. Glance ne supporte pas Arrangement.spacedBy
-        // sur Row, on met un tout petit padding sur chaque Box pour la séparation.
-        // Chaque cellule prend defaultWeight() → largeur ~ egaleway.
-        Row(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
-            strip.bucketPercents.forEach { pct ->
-                val color = confidenceColor(pct)
+        // ─── Ligne 2 : bande de confiance colorée par jour ─────────────
+        // Hauteur FIXE réduite (8 dp) au lieu de defaultWeight → la strip
+        // devient un liseré de couleur discret, laissant la place aux
+        // valeurs numériques en dessous qui portent l'info actionnable.
+        // 8 dp est un compromis : assez épais pour rester visible sur un
+        // écran mobile depuis un bras tendu, assez fin pour ne pas
+        // dominer les valeurs numériques.
+        //
+        // Chaque cellule s'aligne verticalement avec sa colonne value+label
+        // en ligne 3 grâce au `defaultWeight()` partagé (même nombre de
+        // colonnes → même largeur individuelle).
+        Row(modifier = GlanceModifier.fillMaxWidth().height(8.dp)) {
+            strip.buckets.forEach { bucket ->
+                val color = confidenceColor(bucket.percent)
                 Box(
                     modifier = GlanceModifier
                         .defaultWeight()
@@ -630,44 +631,41 @@ private fun ColumnScope.ConfidenceBandStrip(
             }
         }
 
-        // Ligne 3 : ancres temporelles ("Auj." → "J+7 · 18°").
+        // ─── Ligne 3 : valeur + libellé par jour ───────────────────────
+        // Une colonne par bucket, alignée verticalement avec la cellule de
+        // couleur du dessus. C'est CETTE ligne qui donne du sens à la
+        // bande de couleur : sans les valeurs numériques, la confiance
+        // colorée n'est référencée à rien.
         //
-        // Sans cette ligne, la heatmap au-dessus est illisible : couleurs sans
-        // échelle temporelle ni valeur de fin d'horizon. Avec, l'utilisateur
-        // capte d'un coup d'œil "aujourd'hui T° 22° / dans 7j 18°" avec le
-        // dégradé qui montre l'évolution de la confiance entre les deux.
-        //
-        // Cas dégénéré : strip couvrant moins de 24h (spanDays == 0). Alors
-        // startLabel == endLabel et afficher "Auj. → Auj. · 22°" est laid et
-        // redondant avec la ligne 1. On skip la ligne du bas dans ce cas —
-        // la strip reste utile (dégradé de couleur sur les prochaines heures)
-        // mais sans ancres temporelles fantômes.
-        if (strip.startLabel != strip.endLabel) {
-            Row(
-                modifier = GlanceModifier.fillMaxWidth().padding(top = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = strip.startLabel,
-                    style = TextStyle(
-                        color = onContainerMuted,
-                        fontSize = 11.sp
+        // Ordre des textes : valeur en gras (le chiffre est ce qu'on
+        // regarde en premier), libellé jour discret dessous (contexte
+        // temporel). L'inverse — libellé au-dessus — casserait la
+        // lecture "quel jour donne quoi".
+        Row(
+            modifier = GlanceModifier.fillMaxWidth().padding(top = 4.dp)
+                .defaultWeight()
+        ) {
+            strip.buckets.forEach { bucket ->
+                Column(
+                    modifier = GlanceModifier.defaultWeight(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = bucket.value,
+                        style = TextStyle(
+                            color = onContainer,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
                     )
-                )
-                Spacer(GlanceModifier.defaultWeight())
-                // À droite : "J+7 · 18°" — le libellé temporel PLUS la valeur
-                // projetée. La juxtaposition raconte l'histoire "dans 7 jours il
-                // fera 18°" là où juste "18°" seul serait ambigü (il fait ça où ?
-                // quand ?).
-                Text(
-                    text = if (strip.endValue != null) "${strip.endLabel} · ${strip.endValue}"
-                        else strip.endLabel,
-                    style = TextStyle(
-                        color = onContainer,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium
+                    Text(
+                        text = bucket.label,
+                        style = TextStyle(
+                            color = onContainerMuted,
+                            fontSize = 10.sp
+                        )
                     )
-                )
+                }
             }
         }
     }

@@ -95,7 +95,6 @@
     <string name="widget_config_forecast_mode_conf_wind">Bande de confiance — vent</string>
     <!-- Ancres temporelles affichées sous la mini bande de confiance du widget 4×2 -->
     <string name="widget_confidence_now_short">Auj.</string>
-    <string name="widget_confidence_ahead_short">J+%d</string>
 
     <!-- Toggle mode d\'affichage (sous la TodaySummaryCard) -->
     <string name="display_mode_hourly">Par heure</string>

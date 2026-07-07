@@ -123,51 +123,52 @@ internal data class WidgetForecastItem(
  *
  * Le widget 4×2 ne peut pas rendre un vrai Canvas (Glance ne supporte pas
  * `androidx.compose.foundation.Canvas` — seulement des primitives Row/Column/
- * Box). On dégrade donc la bande en une série de "cellules colorées" alignées
- * horizontalement, façon heatmap : chaque cellule = un pas de temps, teintée
- * selon le niveau de confiance à cet instant.
+ * Box). On dégrade la bande en une série de "buckets journaliers" alignés
+ * horizontalement, chaque bucket portant TROIS informations superposées :
  *
- * ─── Contexte temporel et numérique ───────────────────────────────────
- * La heatmap seule (couleurs) ne suffit pas à situer ce qu'on regarde :
- * l'utilisateur voit un dégradé vert-orange-rouge sans savoir "à quelle
- * heure" ni "quelle valeur". La strip contient donc TROIS niveaux d'info
- * numérique/textuelle pour donner l'ancrage :
+ *   1. Une cellule de couleur — le niveau de confiance à ce jour
+ *   2. Une valeur numérique — la prévision agrégée pour ce jour (T°/mm/km/h)
+ *   3. Un libellé — le jour de la semaine ("Auj.", "Mar", "Mer", ...)
  *
- *   1. [metricLabel] + [nowValue] + [currentPct] : ce qui se passe MAINTENANT
- *      → affiché en haut de la strip
- *   2. La heatmap horizontale : évolution de la confiance sur l'horizon
- *   3. [startLabel] et [endLabel] (+ [endValue]) : les BORNES temporelles
- *      → affichés sous la heatmap (ex. "Auj." → "J+7 · 18°"). Sans ces
- *        labels, la strip n'a aucun sens (couleurs sans échelle).
+ * ─── Pourquoi des buckets JOURNALIERS et pas horaires ? ─────────────────
+ * Version précédente : 24 cellules très fines couvrant les 168 h. Belle
+ * densité de couleur mais aucun ancrage temporel/numérique au milieu de la
+ * strip — l'utilisateur voyait un dégradé sans savoir "22° quand ?".
  *
- * `metricLabel` : "T°", "mm", ou "km/h" — libellé court affiché à côté du
- * strip pour rappeler ce qu'on regarde.
+ * Nouvelle version : ~7 buckets, un par jour. Chaque cellule est un peu plus
+ * large et surtout PORTE une valeur numérique en dessous. La confiance devient
+ * lisible parce qu'on sait à quoi elle réfère.
  *
- * `nowValue` : valeur "maintenant" de la métrique (température actuelle,
- * précipitation actuelle, vent actuel). Formatée pour affichage direct.
+ * ─── Champs ────────────────────────────────────────────────────────────
+ * `metricLabel` : "T°", "Pluie", "Vent" — libellé métrique de la strip.
  *
- * `currentPct` : % de confiance à l'instant courant. Affiché avec la
- * couleur du niveau (vert/orange/rouge).
+ * `currentPct` : % de confiance à l'instant courant. Affiché en haut à
+ * droite avec la couleur du niveau (vert/orange/rouge).
  *
- * `endValue` : valeur PROJETÉE à la fin de l'horizon de la strip (moyenne
- * pondérée à J+N). Complète la ligne du bas — "aujourd'hui 22°, dans 7j 18°"
- * raconte une histoire là où juste "22°" n'a pas de perspective.
- *
- * `startLabel` / `endLabel` : libellés temporels affichés aux deux bouts
- * sous la heatmap. Localisés côté [buildConfidenceStrip] via context, pour
- * que le widget composable reste sans dépendance aux strings resources.
- *
- * `bucketPercents` : liste des confidences par cellule (typiquement 24 pas
- * pour couvrir 7 jours à ~7h/pas). L'ordre est chronologique, gauche→droite.
+ * `buckets` : liste ordonnée chronologiquement des buckets de la strip.
+ * Aujourd'hui en premier, puis jours suivants. Typiquement 7 éléments
+ * (7 jours d'horizon), moins si la série est plus courte.
  */
 internal data class WidgetConfidenceStrip(
     val metricLabel: String,
-    val nowValue: String?,
     val currentPct: Int?,
-    val endValue: String?,
-    val startLabel: String,
-    val endLabel: String,
-    val bucketPercents: List<Int>
+    val buckets: List<StripBucket>
+)
+
+/**
+ * Un bucket journalier de la strip de confiance widget.
+ *
+ * @property percent Niveau de confiance moyen sur la journée (0-100). Dicte
+ *   la couleur de la cellule (vert/orange/rouge via [confidenceColor]).
+ * @property value Prévision agrégée pour la journée, PRÉ-FORMATÉE prête à
+ *   afficher ("22°", "0.5 mm", "18 km/h"). Format cohérent avec l'app.
+ * @property label Libellé jour de la semaine court ("Auj.", "Mar", "Mer"...).
+ *   Localisé côté [buildConfidenceStrip] via context.
+ */
+internal data class StripBucket(
+    val percent: Int,
+    val value: String,
+    val label: String
 )
 
 /**
@@ -431,21 +432,24 @@ private fun buildDailyForecasts(
  * garantie entre app et widget, une seule source de vérité pour la logique
  * d'agrégation.
  *
- * Downsampling : la bande fait typiquement 168 pas horaires (7 jours). Pour
- * un widget qui fait ~350 dp de large avec des cellules 12 dp, on ne peut
- * afficher que 20-25 cellules max sans qu'elles deviennent illisibles. On
- * échantillonne donc à 24 buckets équirépartis — un pas ≈ 7h, granularité
- * suffisante pour voir "ça se gâte cet après-midi" ou "ça s'améliore samedi".
- * Cohérent avec le strip du chart grand format qui utilise la même
- * granularité (voir ConfidenceTimeline dans HourlyConfidenceChart.kt).
+ * ─── Agrégation par jour ───────────────────────────────────────────────
+ * On regroupe les bandes horaires (~168 pas) en buckets JOURNALIERS. Pour
+ * chaque jour civil couvert par la série :
  *
- * Format de `nowValue` / `endValue` : température en °, précip en mm, vent
- * en km/h — même unité que l'app pour continuité perceptuelle.
+ *   percent = moyenne des `percent` de toutes les bandes tombant dans ce jour
+ *   value   = moyenne des `meanValue` de toutes les bandes tombant dans ce jour
  *
- * Les labels temporels (`startLabel`, `endLabel`) sont calculés à partir de
- * `bands.first().timestamp` et `bands.last().timestamp` et localisés via
- * [context]. La strip contient assez d'info pour se comprendre sans avoir
- * à ouvrir l'app (unité + valeurs numériques + ancres temporelles).
+ * Cette agrégation par jour civil (dans la timezone de la ville, pas UTC)
+ * garantit que "aujourd'hui" ne dépasse pas au milieu de la nuit locale — un
+ * bucket ne mélange pas mardi soir avec mercredi matin.
+ *
+ * Format de `value` : température en °, précip en mm, vent en km/h — même
+ * unité que l'app pour continuité perceptuelle.
+ *
+ * Labels de jour :
+ *   Position 0 : "Auj." (chaîne locale, cf. R.string.widget_confidence_now_short)
+ *   Positions 1+ : nom court du jour de la semaine ("Mar", "Mer", ...) via
+ *                  [java.time.DayOfWeek.getDisplayName] pour la locale active.
  */
 private fun buildConfidenceStrip(
     context: Context,
@@ -461,27 +465,39 @@ private fun buildConfidenceStrip(
     }
     if (bands.size < 2) return null
 
-    // Downsample à 24 buckets uniformes. Si la série fait déjà ≤ 24 points
-    // (série tronquée par un cache pauvre), on la garde telle quelle.
-    val bucketPercents = if (bands.size <= 24) bands.map { it.percent }
-    else {
-        val step = bands.size / 24
-        bands.filterIndexed { idx, _ -> idx % step == 0 }
-            .take(24)
-            .map { it.percent }
+    val zone = runCatching {
+        java.time.ZoneId.of(forecast.city.timezone)
+    }.getOrDefault(java.time.ZoneId.systemDefault())
+    val locale = context.resources.configuration.locales[0]
+        ?: java.util.Locale.getDefault()
+
+    // Groupement par jour civil dans la timezone de la ville. LinkedHashMap
+    // pour préserver l'ordre chronologique — critique pour l'affichage.
+    val byDay = LinkedHashMap<java.time.LocalDate, MutableList<
+        com.meteocompare.app.domain.model.HourlyConfidenceBand>>()
+    for (band in bands) {
+        val day = band.timestamp.atZone(zone).toLocalDate()
+        byDay.getOrPut(day) { mutableListOf() }.add(band)
     }
 
-    // Valeur "maintenant" — reprend l'agrégat pondéré de l'app (cohérent avec
-    // la TodaySummaryCard). Pour le vent et la pluie, on utilise les getters
-    // dédiés du calculator qui traitent proprement les cas où seul un
-    // sous-ensemble de modèles a la variable.
-    val nowValue = formatBandValue(mode, bands.first().meanValue, calc, forecast, isNow = true)
-    // Valeur PROJETÉE à la fin de l'horizon : la moyenne pondérée du dernier
-    // bucket. Pas de version "current" du calculator possible ici (on n'est
-    // plus au temps t) → on prend directement mean de la bande. Cohérent
-    // puisque c'est la même formule utilisée par [nowValue] pour le mode
-    // précipitation.
-    val endValue = formatBandValue(mode, bands.last().meanValue, calc, forecast, isNow = false)
+    // Cap à 7 jours pour ne pas gonfler la strip au-delà de ce qui rentre
+    // sur un widget 4×2 (~7 colonnes avec valeur + label lisibles).
+    val today = java.time.LocalDate.now(zone)
+    val nowShortLabel = context.getString(R.string.widget_confidence_now_short)
+    val buckets = byDay.entries.take(7).map { (date, dayBands) ->
+        val avgPercent = dayBands.sumOf { it.percent } / dayBands.size
+        val avgValue = dayBands.sumOf { it.meanValue } / dayBands.size
+        StripBucket(
+            percent = avgPercent,
+            value = formatBucketValue(mode, avgValue),
+            label = if (date == today) nowShortLabel
+                else date.dayOfWeek
+                    .getDisplayName(java.time.format.TextStyle.SHORT, locale)
+                    .replace(".", "")
+        )
+    }
+
+    if (buckets.isEmpty()) return null
 
     val metricLabel = when (mode) {
         ForecastMode.CONFIDENCE_TEMPERATURE -> "T°"
@@ -490,60 +506,37 @@ private fun buildConfidenceStrip(
         else -> ""
     }
 
-    // Ancres temporelles pour la strip. spanDays est l'écart entier entre le
-    // premier et le dernier timestamp — c'est ce que "J+N" doit refléter
-    // pour rester honnête (arrondi vers le bas pour ne pas gonfler la
-    // portée : 6.7j → J+6, pas J+7).
-    val spanDays = java.time.Duration
-        .between(bands.first().timestamp, bands.last().timestamp)
-        .toDays()
-        .toInt()
-        .coerceAtLeast(0)
-    val startLabel = context.getString(R.string.widget_confidence_now_short)
-    val endLabel = if (spanDays == 0) startLabel
-        else context.getString(R.string.widget_confidence_ahead_short, spanDays)
-
     return WidgetConfidenceStrip(
         metricLabel = metricLabel,
-        nowValue = nowValue,
         currentPct = bands.first().percent,
-        endValue = endValue,
-        startLabel = startLabel,
-        endLabel = endLabel,
-        bucketPercents = bucketPercents
+        buckets = buckets
     )
 }
 
 /**
- * Formate une valeur de bande pour affichage compact widget selon la métrique.
- * Factorisé pour appliquer le même format à `nowValue` et `endValue` (sinon
- * ils divergent silencieusement).
+ * Format compact de la valeur agrégée d'un bucket selon la métrique.
  *
- * `isNow` : détermine si on peut utiliser les getters "courant" du calculator
- * (qui pondèrent proprement les valeurs entre modèles) ou si on se rabat sur
- * la valeur mean de la bande. Pour température et vent au temps t, le
- * getter est meilleur ; pour précip et pour les temps futurs, la bande fait
- * référence.
+ * Extrait de [buildConfidenceStrip] pour rester lisible et pour partager
+ * la même règle de formatage à travers TOUS les buckets (sinon "aujourd'hui"
+ * et "demain" pourraient dériver visuellement).
+ *
+ * ─── Contraintes de largeur ────────────────────────────────────────────
+ * Un bucket widget 4×2 fait ~40 dp de large. Le texte doit tenir en 4-5
+ * caractères max :
+ *   Temp  : "22°" (3 char) — OK
+ *   Précip: "0.5 mm" (6 char) — tight ; on omet l'unité "mm" quand une seule
+ *           métrique est affichée dans la strip et gardée en libellé du haut.
+ *           Compromis : format "0.5" seul, on comprend via metricLabel.
+ *   Vent  : "18" (2-3 char) — sans unité pour la même raison.
  */
-private fun formatBandValue(
-    mode: ForecastMode,
-    bandMean: Double,
-    calc: ConfidenceCalculator,
-    forecast: CityForecast,
-    isNow: Boolean
-): String? = when (mode) {
-    ForecastMode.CONFIDENCE_TEMPERATURE -> {
-        val v = if (isNow) calc.currentTemperature(forecast) else bandMean
-        v?.let { formatTemp(it) }
-    }
+private fun formatBucketValue(mode: ForecastMode, value: Double): String = when (mode) {
+    ForecastMode.CONFIDENCE_TEMPERATURE -> formatTemp(value)
     ForecastMode.CONFIDENCE_PRECIPITATION -> {
-        // Précip : quel que soit le moment on prend la valeur de la bande —
-        // pas de "précip courante" bien défini côté calculator.
-        if (bandMean < 0.1) "0 mm" else "%.1f mm".format(bandMean)
+        // Précipitation : arrondi à 0 pour valeurs sous 0.1 mm (trace),
+        // sinon 1 décimale. L'unité "mm" est portée par metricLabel="Pluie"
+        // dans la ligne du haut, pour ne pas surcharger la valeur elle-même.
+        if (value < 0.1) "0" else "%.1f".format(value)
     }
-    ForecastMode.CONFIDENCE_WIND -> {
-        val v = if (isNow) calc.currentWindSpeed(forecast) else bandMean
-        v?.let { "${it.toInt()} km/h" }
-    }
-    else -> null
+    ForecastMode.CONFIDENCE_WIND -> "${value.toInt()}"
+    else -> ""
 }
