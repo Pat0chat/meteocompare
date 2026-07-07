@@ -154,6 +154,8 @@
     <string name="error_timeout">Request timed out</string>
     <string name="error_server">Server error (HTTP %d)</string>
     <string name="error_unknown">Unknown error</string>
+    <string name="error_model_out_of_range">This model does not cover this city</string>
+    <string name="error_no_model_available">No model covers this city</string>
     <string name="city_not_found_in_favorites">City not found in favorites</string>
 
     <!-- Empty / loading states -->
