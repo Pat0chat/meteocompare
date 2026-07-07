@@ -95,6 +95,21 @@
     <!-- Time anchors shown under the widget 4x2 confidence strip -->
     <string name="widget_confidence_now_short">Now</string>
 
+    <!-- Metric labels shown at the top-left of the widget 4x2 confidence
+         strip. Kept intentionally short: widget width is limited and the
+         "%" value on the right must stay readable. -->
+    <string name="widget_metric_temperature">T°</string>
+    <string name="widget_metric_precipitation">Rain</string>
+    <string name="widget_metric_wind">Wind</string>
+
+    <!-- Widget status messages shown when no data can be displayed.
+         Rendered on two lines via \n to stay readable on small sizes
+         (2x2 widget is ~140 dp wide). -->
+    <string name="widget_error_not_configured">Configure\nthe city</string>
+    <string name="widget_error_loading">Loading…</string>
+    <string name="widget_error_city_gone">City\nremoved</string>
+    <string name="widget_error_fetch">No\ndata</string>
+
     <!-- Display-mode toggle (below the TodaySummaryCard) -->
     <string name="display_mode_hourly">Hourly</string>
     <string name="display_mode_daily">Daily</string>
@@ -122,6 +137,7 @@
     <!-- Chart messages -->
     <string name="chart_no_data">No data to display</string>
     <string name="chart_not_enough_data">Not enough data to compute a band</string>
+    <string name="chart_confidence_band_title">Inter-model forecast range</string>
     <string name="chart_confidence_band_desc">The wider the band, the more models disagree. Color shows the confidence level.</string>
     <string name="chart_confidence_now">Confidence now: %d%%</string>
     <string name="chart_confidence_ahead">at D+%1$d: %2$d%%</string>

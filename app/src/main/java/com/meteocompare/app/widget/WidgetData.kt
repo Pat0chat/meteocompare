@@ -2,6 +2,7 @@ package com.meteocompare.app.widget
 
 import android.content.Context
 import com.meteocompare.app.R
+import com.meteocompare.app.core.locale.applyPersistedLocale
 import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.RefreshInterval
@@ -221,8 +222,16 @@ internal suspend fun loadWidgetData(
 ): WidgetData {
     if (cityId == null) return WidgetData.NotConfigured
 
+    // Enrobe le context avec la locale persistée AVANT tout appel à
+    // context.getString(...). Sans ça, les libellés du widget rendus par
+    // Glance étaient toujours en langue système alors que l'app peut être
+    // configurée sur une autre langue via Settings. Bug typique cross-process
+    // Glance : le widget provider tourne avec le Context sans configuration
+    // AppCompat, donc n'hérite pas de la locale du recreate() de MainActivity.
+    val localizedContext = applyPersistedLocale(context)
+
     val entry = EntryPointAccessors.fromApplication(
-        context.applicationContext,
+        localizedContext.applicationContext,
         WidgetEntryPoint::class.java
     )
 
@@ -263,7 +272,7 @@ internal suspend fun loadWidgetData(
             val forecasts = if (forecastMode.isConfidenceBand()) emptyList()
                 else buildForecasts(forecast, forecastMode, city.timezone)
             val confidenceStrip = if (forecastMode.isConfidenceBand())
-                buildConfidenceStrip(context, forecast, forecastMode, calc)
+                buildConfidenceStrip(localizedContext, forecast, forecastMode, calc)
                 else null
 
             WidgetData(
@@ -500,9 +509,12 @@ private fun buildConfidenceStrip(
     if (buckets.isEmpty()) return null
 
     val metricLabel = when (mode) {
-        ForecastMode.CONFIDENCE_TEMPERATURE -> "T°"
-        ForecastMode.CONFIDENCE_PRECIPITATION -> "Pluie"
-        ForecastMode.CONFIDENCE_WIND -> "Vent"
+        ForecastMode.CONFIDENCE_TEMPERATURE ->
+            context.getString(R.string.widget_metric_temperature)
+        ForecastMode.CONFIDENCE_PRECIPITATION ->
+            context.getString(R.string.widget_metric_precipitation)
+        ForecastMode.CONFIDENCE_WIND ->
+            context.getString(R.string.widget_metric_wind)
         else -> ""
     }
 

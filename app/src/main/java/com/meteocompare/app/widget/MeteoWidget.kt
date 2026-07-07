@@ -23,6 +23,8 @@ import androidx.glance.LocalSize
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
+import com.meteocompare.app.R
+import com.meteocompare.app.core.locale.applyPersistedLocale
 import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
@@ -169,7 +171,21 @@ internal class MeteoWidget : GlanceAppWidget() {
     override val stateDefinition = PreferencesGlanceStateDefinition
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val appCtx = context.applicationContext
+        // Enrobe l'app context avec la locale persistée AVANT de le fournir
+        // aux composables. Deux étages de fix :
+        //
+        //   1. `loadWidgetData` reçoit ce context enrobé → les strings
+        //      résolues à load time (metricLabel, day labels, "Auj.") sont
+        //      dans la bonne langue.
+        //   2. Le `LocalContext.current` de tous les composables descendants
+        //      renvoie ce même context enrobé → les strings résolues à render
+        //      time (ex. messages ErrorLayout via LocalContext.current.getString)
+        //      sont aussi dans la bonne langue.
+        //
+        // Sans ce override, les widgets étaient TOUJOURS en langue système,
+        // ignorant le réglage app — bug reporté sur les widgets 4×2 avec
+        // "Vent/Pluie" affichés même quand l'app est en anglais.
+        val appCtx = applyPersistedLocale(context.applicationContext)
         provideContent {
             // Lecture réactive des prefs. Chaque updateAppWidgetState() sur
             // ce widget invalide cette lecture → recomposition automatique.
@@ -201,9 +217,14 @@ internal class MeteoWidget : GlanceAppWidget() {
 
             // Résolution UNE fois du mode nuit et propagation via CompositionLocal.
             // Voir docblock de LocalNightMode pour le pourquoi.
-            val night = LocalContext.current.resources.configuration
+            val night = appCtx.resources.configuration
                 .let { (it.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES }
-            CompositionLocalProvider(LocalNightMode provides night) {
+            // Override LocalContext avec l'app context localisé — voir le
+            // docblock du override ci-dessus pour l'étage #2 du fix.
+            CompositionLocalProvider(
+                LocalContext provides appCtx,
+                LocalNightMode provides night
+            ) {
                 GlanceTheme {
                     WidgetContent(data = data, opacityPct = opacityPct)
                 }
@@ -674,11 +695,19 @@ private fun ColumnScope.ConfidenceBandStrip(
 /** État "widget pas configuré" ou "erreur" ou "chargement". */
 @Composable
 private fun ErrorLayout(error: WidgetError, onContainerMuted: ColorProvider) {
+    // Résolution via LocalContext.current (surchargé dans provideGlance avec
+    // le context localisé) plutôt qu'en dur — sinon les widgets restaient
+    // affichés en français quel que soit le réglage app.
+    val ctx = LocalContext.current
     val message = when (error) {
-        WidgetError.NotConfigured -> "Configurer\nla ville"
-        WidgetError.Loading -> "Chargement…"
-        WidgetError.CityNoLongerInFavorites -> "Ville\nsupprimée"
-        is WidgetError.Fetch -> "Pas de\ndonnées"
+        WidgetError.NotConfigured ->
+            ctx.getString(R.string.widget_error_not_configured)
+        WidgetError.Loading ->
+            ctx.getString(R.string.widget_error_loading)
+        WidgetError.CityNoLongerInFavorites ->
+            ctx.getString(R.string.widget_error_city_gone)
+        is WidgetError.Fetch ->
+            ctx.getString(R.string.widget_error_fetch)
     }
     Column(
         modifier = GlanceModifier.fillMaxSize(),

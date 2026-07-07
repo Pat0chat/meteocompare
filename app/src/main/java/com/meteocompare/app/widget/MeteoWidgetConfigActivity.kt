@@ -48,6 +48,7 @@ import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.lifecycle.lifecycleScope
 import com.meteocompare.app.R
+import com.meteocompare.app.core.locale.applyPersistedLocale
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.ui.theme.MeteoCompareTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -81,6 +82,19 @@ import kotlinx.coroutines.launch
  */
 @AndroidEntryPoint
 class MeteoWidgetConfigActivity : ComponentActivity() {
+
+    /**
+     * Applique la locale persistée AVANT que les ressources soient résolues.
+     *
+     * Sans ce override, l'écran de config du widget affichait toujours en
+     * langue système (souvent anglais US pour les devs), même quand l'app
+     * était configurée en français. La bascule ici passe par le même
+     * helper que MainActivity — voir [applyPersistedLocale] pour la
+     * justification de l'approche SharedPreferences maison.
+     */
+    override fun attachBaseContext(newBase: android.content.Context) {
+        super.attachBaseContext(applyPersistedLocale(newBase))
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

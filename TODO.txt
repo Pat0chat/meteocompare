@@ -1,4 +1,0 @@
-TODO
-----
-
-- Optimiser les requetes et le nombre de requetes ?

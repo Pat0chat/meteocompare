@@ -96,6 +96,21 @@
     <!-- Ancres temporelles affichées sous la mini bande de confiance du widget 4×2 -->
     <string name="widget_confidence_now_short">Auj.</string>
 
+    <!-- Libellés de métrique affichés en haut à gauche de la mini bande de
+         confiance du widget 4×2. Volontairement courts : le widget dispose
+         d'une largeur limitée et la valeur "%" à droite doit rester lisible. -->
+    <string name="widget_metric_temperature">T°</string>
+    <string name="widget_metric_precipitation">Pluie</string>
+    <string name="widget_metric_wind">Vent</string>
+
+    <!-- Messages d'état du widget quand aucune donnée n'est affichable.
+         Rendus sur deux lignes via \n pour rester lisibles dans les petites
+         tailles (widget 2×2 fait ~140 dp de large). -->
+    <string name="widget_error_not_configured">Configurer\nla ville</string>
+    <string name="widget_error_loading">Chargement…</string>
+    <string name="widget_error_city_gone">Ville\nsupprimée</string>
+    <string name="widget_error_fetch">Pas de\ndonnées</string>
+
     <!-- Toggle mode d\'affichage (sous la TodaySummaryCard) -->
     <string name="display_mode_hourly">Par heure</string>
     <string name="display_mode_daily">Par jour</string>
@@ -123,6 +138,7 @@
     <!-- Chart messages -->
     <string name="chart_no_data">Aucune donnée à afficher</string>
     <string name="chart_not_enough_data">Pas assez de données pour calculer une bande</string>
+    <string name="chart_confidence_band_title">Plage des prévisions inter-modèles</string>
     <string name="chart_confidence_band_desc">Plus la bande s\'élargit, plus les modèles divergent. La couleur indique le niveau de confiance.</string>
     <string name="chart_confidence_now">Confiance maintenant : %d%%</string>
     <string name="chart_confidence_ahead">à J+%1$d : %2$d%%</string>
