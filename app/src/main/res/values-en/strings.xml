@@ -64,8 +64,8 @@
     <string name="no_daily_data">No daily data</string>
 
     <!-- Section titles in city detail -->
-    <string name="section_confidence_band">Hourly confidence band</string>
-    <string name="section_temp_table">Max / min temperatures</string>
+    <string name="section_confidence_band">Inter-model forecast</string>
+    <string name="section_temp_table">Min / max temperatures</string>
     <string name="section_temp_hourly">Hourly temperatures</string>
     <string name="section_precipitation">Precipitation</string>
     <string name="section_wind">10m mean wind</string>
@@ -120,7 +120,6 @@
     <!-- Chart messages -->
     <string name="chart_no_data">No data to display</string>
     <string name="chart_not_enough_data">Not enough data to compute a band</string>
-    <string name="chart_confidence_band_title">Inter-model forecast range</string>
     <string name="chart_confidence_band_desc">The wider the band, the more models disagree. Color shows the confidence level.</string>
     <string name="chart_confidence_now">Confidence now: %d%%</string>
     <string name="chart_confidence_ahead">at D+%1$d: %2$d%%</string>

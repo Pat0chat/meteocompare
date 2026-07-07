@@ -299,12 +299,6 @@ fun HourlyConfidenceChart(
                 .padding(horizontal = 16.dp, vertical = 6.dp)
         ) {
             Text(
-                text = stringResource(R.string.chart_confidence_band_title),
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Text(
                 text = stringResource(R.string.chart_confidence_band_desc),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant

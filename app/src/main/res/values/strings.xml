@@ -64,8 +64,8 @@
     <string name="no_daily_data">Pas de données journalières</string>
 
     <!-- Section titles in city detail -->
-    <string name="section_confidence_band">Bande de confiance horaire</string>
-    <string name="section_temp_table">Températures max / min</string>
+    <string name="section_confidence_band">Prévisions inter-modèles</string>
+    <string name="section_temp_table">Températures min / max</string>
     <string name="section_temp_hourly">Températures par heure</string>
     <string name="section_precipitation">Précipitations</string>
     <!-- Vent : titres explicites pour clarifier "mean à 10m" (pas rafale). -->
@@ -121,7 +121,6 @@
     <!-- Chart messages -->
     <string name="chart_no_data">Aucune donnée à afficher</string>
     <string name="chart_not_enough_data">Pas assez de données pour calculer une bande</string>
-    <string name="chart_confidence_band_title">Plage des prévisions inter-modèles</string>
     <string name="chart_confidence_band_desc">Plus la bande s\'élargit, plus les modèles divergent. La couleur indique le niveau de confiance.</string>
     <string name="chart_confidence_now">Confiance maintenant : %d%%</string>
     <string name="chart_confidence_ahead">à J+%1$d : %2$d%%</string>
