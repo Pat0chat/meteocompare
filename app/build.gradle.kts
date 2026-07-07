@@ -107,6 +107,16 @@ android {
         buildConfig = true
     }
 
+    // Nécessaire pour appeler android.util.Log dans le code de production
+    // depuis un unit test JVM pur — sans `returnDefaultValues = true`,
+    // Log.i/d/w renvoient une RuntimeException "Method not mocked" qui casse
+    // tout test qui déclenche du code loggé. Avec ce flag, les méthodes
+    // Android non implémentées retournent une valeur par défaut (0, null,
+    // false) au lieu de crasher — comportement sûr pour du logging accessoire.
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
+
     packaging {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
         // Évite le warning "Unable to strip the following libraries" lors du

@@ -351,6 +351,67 @@ class ForecastRepositoryImplTest {
         }
     }
 
+    @Test
+    fun `refresh - URL batched contient tous les modèles séparés par virgule`() = runTest {
+        // Verrouille le format exact du query param `models=`. Si un jour la
+        // construction devient ` models.map{it.apiKey}.joinToString(";")` ou
+        // qu'un espace se glisse, Open-Meteo répond en erreur — le test
+        // remonterait la régression avant la mise en prod.
+        val modelsParam = slot<String>()
+        coEvery {
+            api.getForecastBatched(
+                any(), any(), capture(modelsParam),
+                any(), any(), any(), any(), any(), any(), any()
+            )
+        } returns batchedResponseWith(
+            modelsWithData = listOf(
+                WeatherModel.GFS, WeatherModel.ECMWF, WeatherModel.ICON_EU
+            )
+        )
+        coEvery { cacheDao.getForCity(any()) } returns emptyList()
+
+        repository.refreshCityForecast(
+            city = paris,
+            // Ordre spécifique — on vérifie que l'ordre est préservé et que
+            // le format joinToString(",") est respecté à la virgule près.
+            models = listOf(WeatherModel.GFS, WeatherModel.ECMWF, WeatherModel.ICON_EU)
+        )
+
+        assertEquals(
+            "gfs_seamless,ecmwf_ifs025,icon_eu",
+            modelsParam.captured
+        )
+    }
+
+    @Test
+    fun `refresh - forecast_days pris au max des modèles bornée par forecastDays voulu`() =
+        runTest {
+            // AROME_FRANCE_HD.maxForecastDays = 2 (limite), GFS = 16, forecastDays voulu = 5.
+            // Attendu : effectiveForecastDays = min(max(2, 16), 5) = 5.
+            // Ce test verrouille l'algo : envoyer forecast_days=16 gaspillerait
+            // du réseau (GFS a 16 j de data mais UI n'affiche que 5), et
+            // envoyer forecast_days=2 tronquerait GFS et ECMWF prématurément.
+            val forecastDaysSlot = slot<Int>()
+            coEvery {
+                api.getForecastBatched(
+                    any(), any(), any(), any(), any(), any(),
+                    capture(forecastDaysSlot),
+                    any(), any(), any()
+                )
+            } returns batchedResponseWith(
+                modelsWithData = listOf(WeatherModel.AROME_FRANCE_HD, WeatherModel.GFS)
+            )
+            coEvery { cacheDao.getForCity(any()) } returns emptyList()
+
+            repository.refreshCityForecast(
+                city = paris,
+                models = listOf(WeatherModel.AROME_FRANCE_HD, WeatherModel.GFS),
+                forecastDays = 5
+            )
+
+            assertEquals(5, forecastDaysSlot.captured)
+        }
+
     // ─────────────────────── Helpers ───────────────────────────────────────
 
     /**

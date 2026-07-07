@@ -577,7 +577,7 @@ private fun ColumnScope.ConfidenceBandStrip(
     Column(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
         // Ligne 1 : "T° 22° · 87%" (couleur du % teintée par le niveau)
         Row(
-            modifier = GlanceModifier.fillMaxWidth().padding(bottom = 6.dp),
+            modifier = GlanceModifier.fillMaxWidth().padding(bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
@@ -627,6 +627,47 @@ private fun ColumnScope.ConfidenceBandStrip(
                         .cornerRadius(2.dp),
                     contentAlignment = Alignment.Center
                 ) {}
+            }
+        }
+
+        // Ligne 3 : ancres temporelles ("Auj." → "J+7 · 18°").
+        //
+        // Sans cette ligne, la heatmap au-dessus est illisible : couleurs sans
+        // échelle temporelle ni valeur de fin d'horizon. Avec, l'utilisateur
+        // capte d'un coup d'œil "aujourd'hui T° 22° / dans 7j 18°" avec le
+        // dégradé qui montre l'évolution de la confiance entre les deux.
+        //
+        // Cas dégénéré : strip couvrant moins de 24h (spanDays == 0). Alors
+        // startLabel == endLabel et afficher "Auj. → Auj. · 22°" est laid et
+        // redondant avec la ligne 1. On skip la ligne du bas dans ce cas —
+        // la strip reste utile (dégradé de couleur sur les prochaines heures)
+        // mais sans ancres temporelles fantômes.
+        if (strip.startLabel != strip.endLabel) {
+            Row(
+                modifier = GlanceModifier.fillMaxWidth().padding(top = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = strip.startLabel,
+                    style = TextStyle(
+                        color = onContainerMuted,
+                        fontSize = 11.sp
+                    )
+                )
+                Spacer(GlanceModifier.defaultWeight())
+                // À droite : "J+7 · 18°" — le libellé temporel PLUS la valeur
+                // projetée. La juxtaposition raconte l'histoire "dans 7 jours il
+                // fera 18°" là où juste "18°" seul serait ambigü (il fait ça où ?
+                // quand ?).
+                Text(
+                    text = if (strip.endValue != null) "${strip.endLabel} · ${strip.endValue}"
+                        else strip.endLabel,
+                    style = TextStyle(
+                        color = onContainer,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                )
             }
         }
     }

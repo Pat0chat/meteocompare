@@ -248,6 +248,20 @@ class ForecastRepositoryImpl @Inject constructor(
         val effectiveForecastDays = models.maxOf { it.maxForecastDays }
             .coerceAtMost(forecastDays.coerceAtLeast(1))
 
+        // Log explicite pour vérifier en debug/production que le batching
+        // fonctionne comme prévu. Filtrable par `adb logcat -s MeteoCompare/Net`,
+        // le tag court permet un grep visuel rapide. Un futur regression qui
+        // ferait éclater ce log en N lignes séparées (une par modèle) serait
+        // une régression très visible.
+        //
+        // Niveau INFO plutôt que DEBUG : on veut voir ce log même sur les
+        // logcat filtrés par défaut du Play Store (release keeps INFO+).
+        android.util.Log.i(
+            LOG_TAG,
+            "Batched fetch: ${models.size} models in 1 HTTPS request " +
+                "→ ${models.joinToString(",") { it.apiKey }}"
+        )
+
         val batched = try {
             api.getForecastBatched(
                 latitude = city.latitude,
@@ -314,5 +328,17 @@ class ForecastRepositoryImpl @Inject constructor(
                 )
             )
         }
+    }
+
+    companion object {
+        /**
+         * Tag court pour `adb logcat -s MeteoCompare/Net` — permet de vérifier
+         * visuellement (dev/QA) que le batching fonctionne comme prévu :
+         *   1 refresh utilisateur → 1 ligne "Batched fetch: N models…"
+         * Si plusieurs lignes apparaissent en séquence rapide, c'est le signe
+         * d'une régression (parallélisation non voulue) ou d'un refresh
+         * multiple (widget + app en même temps).
+         */
+        private const val LOG_TAG = "MeteoCompare/Net"
     }
 }

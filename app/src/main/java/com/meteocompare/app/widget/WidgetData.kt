@@ -1,6 +1,7 @@
 package com.meteocompare.app.widget
 
 import android.content.Context
+import com.meteocompare.app.R
 import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.RefreshInterval
@@ -126,17 +127,35 @@ internal data class WidgetForecastItem(
  * horizontalement, façon heatmap : chaque cellule = un pas de temps, teintée
  * selon le niveau de confiance à cet instant.
  *
+ * ─── Contexte temporel et numérique ───────────────────────────────────
+ * La heatmap seule (couleurs) ne suffit pas à situer ce qu'on regarde :
+ * l'utilisateur voit un dégradé vert-orange-rouge sans savoir "à quelle
+ * heure" ni "quelle valeur". La strip contient donc TROIS niveaux d'info
+ * numérique/textuelle pour donner l'ancrage :
+ *
+ *   1. [metricLabel] + [nowValue] + [currentPct] : ce qui se passe MAINTENANT
+ *      → affiché en haut de la strip
+ *   2. La heatmap horizontale : évolution de la confiance sur l'horizon
+ *   3. [startLabel] et [endLabel] (+ [endValue]) : les BORNES temporelles
+ *      → affichés sous la heatmap (ex. "Auj." → "J+7 · 18°"). Sans ces
+ *        labels, la strip n'a aucun sens (couleurs sans échelle).
+ *
  * `metricLabel` : "T°", "mm", ou "km/h" — libellé court affiché à côté du
- * strip pour rappeler ce qu'on regarde (sinon le user zappe et ne sait plus
- * quelle métrique il a choisie).
+ * strip pour rappeler ce qu'on regarde.
  *
  * `nowValue` : valeur "maintenant" de la métrique (température actuelle,
- * précipitation actuelle, vent actuel). Affichée en gros à gauche du strip
- * pour donner un ancrage numérique — sans ça la bande visuelle seule serait
- * trop abstraite pour un coup d'œil.
+ * précipitation actuelle, vent actuel). Formatée pour affichage direct.
  *
- * `currentPct` : % de confiance à l'instant courant. Affiché à côté de
- * `nowValue` avec la couleur du niveau (vert/orange/rouge).
+ * `currentPct` : % de confiance à l'instant courant. Affiché avec la
+ * couleur du niveau (vert/orange/rouge).
+ *
+ * `endValue` : valeur PROJETÉE à la fin de l'horizon de la strip (moyenne
+ * pondérée à J+N). Complète la ligne du bas — "aujourd'hui 22°, dans 7j 18°"
+ * raconte une histoire là où juste "22°" n'a pas de perspective.
+ *
+ * `startLabel` / `endLabel` : libellés temporels affichés aux deux bouts
+ * sous la heatmap. Localisés côté [buildConfidenceStrip] via context, pour
+ * que le widget composable reste sans dépendance aux strings resources.
  *
  * `bucketPercents` : liste des confidences par cellule (typiquement 24 pas
  * pour couvrir 7 jours à ~7h/pas). L'ordre est chronologique, gauche→droite.
@@ -145,6 +164,9 @@ internal data class WidgetConfidenceStrip(
     val metricLabel: String,
     val nowValue: String?,
     val currentPct: Int?,
+    val endValue: String?,
+    val startLabel: String,
+    val endLabel: String,
     val bucketPercents: List<Int>
 )
 
@@ -240,7 +262,7 @@ internal suspend fun loadWidgetData(
             val forecasts = if (forecastMode.isConfidenceBand()) emptyList()
                 else buildForecasts(forecast, forecastMode, city.timezone)
             val confidenceStrip = if (forecastMode.isConfidenceBand())
-                buildConfidenceStrip(forecast, forecastMode, calc)
+                buildConfidenceStrip(context, forecast, forecastMode, calc)
                 else null
 
             WidgetData(
@@ -417,10 +439,16 @@ private fun buildDailyForecasts(
  * Cohérent avec le strip du chart grand format qui utilise la même
  * granularité (voir ConfidenceTimeline dans HourlyConfidenceChart.kt).
  *
- * Format de `nowValue` : température en °, précip en mm, vent en km/h — même
- * unité que l'app pour continuité perceptuelle.
+ * Format de `nowValue` / `endValue` : température en °, précip en mm, vent
+ * en km/h — même unité que l'app pour continuité perceptuelle.
+ *
+ * Les labels temporels (`startLabel`, `endLabel`) sont calculés à partir de
+ * `bands.first().timestamp` et `bands.last().timestamp` et localisés via
+ * [context]. La strip contient assez d'info pour se comprendre sans avoir
+ * à ouvrir l'app (unité + valeurs numériques + ancres temporelles).
  */
 private fun buildConfidenceStrip(
+    context: Context,
     forecast: CityForecast,
     mode: ForecastMode,
     calc: ConfidenceCalculator
@@ -447,22 +475,13 @@ private fun buildConfidenceStrip(
     // la TodaySummaryCard). Pour le vent et la pluie, on utilise les getters
     // dédiés du calculator qui traitent proprement les cas où seul un
     // sous-ensemble de modèles a la variable.
-    val nowValue = when (mode) {
-        ForecastMode.CONFIDENCE_TEMPERATURE -> {
-            calc.currentTemperature(forecast)?.let { formatTemp(it) }
-        }
-        ForecastMode.CONFIDENCE_PRECIPITATION -> {
-            // Précipitation "maintenant" — pas de getter dédié, on prend la
-            // valeur mean de la première bande (== instant courant).
-            bands.first().meanValue.let {
-                if (it < 0.1) "0 mm" else "%.1f mm".format(it)
-            }
-        }
-        ForecastMode.CONFIDENCE_WIND -> {
-            calc.currentWindSpeed(forecast)?.let { "${it.toInt()} km/h" }
-        }
-        else -> null
-    }
+    val nowValue = formatBandValue(mode, bands.first().meanValue, calc, forecast, isNow = true)
+    // Valeur PROJETÉE à la fin de l'horizon : la moyenne pondérée du dernier
+    // bucket. Pas de version "current" du calculator possible ici (on n'est
+    // plus au temps t) → on prend directement mean de la bande. Cohérent
+    // puisque c'est la même formule utilisée par [nowValue] pour le mode
+    // précipitation.
+    val endValue = formatBandValue(mode, bands.last().meanValue, calc, forecast, isNow = false)
 
     val metricLabel = when (mode) {
         ForecastMode.CONFIDENCE_TEMPERATURE -> "T°"
@@ -471,10 +490,60 @@ private fun buildConfidenceStrip(
         else -> ""
     }
 
+    // Ancres temporelles pour la strip. spanDays est l'écart entier entre le
+    // premier et le dernier timestamp — c'est ce que "J+N" doit refléter
+    // pour rester honnête (arrondi vers le bas pour ne pas gonfler la
+    // portée : 6.7j → J+6, pas J+7).
+    val spanDays = java.time.Duration
+        .between(bands.first().timestamp, bands.last().timestamp)
+        .toDays()
+        .toInt()
+        .coerceAtLeast(0)
+    val startLabel = context.getString(R.string.widget_confidence_now_short)
+    val endLabel = if (spanDays == 0) startLabel
+        else context.getString(R.string.widget_confidence_ahead_short, spanDays)
+
     return WidgetConfidenceStrip(
         metricLabel = metricLabel,
         nowValue = nowValue,
         currentPct = bands.first().percent,
+        endValue = endValue,
+        startLabel = startLabel,
+        endLabel = endLabel,
         bucketPercents = bucketPercents
     )
+}
+
+/**
+ * Formate une valeur de bande pour affichage compact widget selon la métrique.
+ * Factorisé pour appliquer le même format à `nowValue` et `endValue` (sinon
+ * ils divergent silencieusement).
+ *
+ * `isNow` : détermine si on peut utiliser les getters "courant" du calculator
+ * (qui pondèrent proprement les valeurs entre modèles) ou si on se rabat sur
+ * la valeur mean de la bande. Pour température et vent au temps t, le
+ * getter est meilleur ; pour précip et pour les temps futurs, la bande fait
+ * référence.
+ */
+private fun formatBandValue(
+    mode: ForecastMode,
+    bandMean: Double,
+    calc: ConfidenceCalculator,
+    forecast: CityForecast,
+    isNow: Boolean
+): String? = when (mode) {
+    ForecastMode.CONFIDENCE_TEMPERATURE -> {
+        val v = if (isNow) calc.currentTemperature(forecast) else bandMean
+        v?.let { formatTemp(it) }
+    }
+    ForecastMode.CONFIDENCE_PRECIPITATION -> {
+        // Précip : quel que soit le moment on prend la valeur de la bande —
+        // pas de "précip courante" bien défini côté calculator.
+        if (bandMean < 0.1) "0 mm" else "%.1f mm".format(bandMean)
+    }
+    ForecastMode.CONFIDENCE_WIND -> {
+        val v = if (isNow) calc.currentWindSpeed(forecast) else bandMean
+        v?.let { "${it.toInt()} km/h" }
+    }
+    else -> null
 }
