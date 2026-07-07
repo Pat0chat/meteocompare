@@ -29,8 +29,8 @@ private val REFRESH_INTERVAL_KEY = stringPreferencesKey("refresh_interval")
 
 @Singleton
 class UserPreferencesRepositoryImpl @Inject constructor(
-    @ApplicationContext private val context: Context,
-    @IoDispatcher private val ioDispatcher: CoroutineDispatcher
+    @param:ApplicationContext private val context: Context,
+    @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : UserPreferencesRepository {
 
     // ─── distinctUntilChanged sur TOUS les flows ──────────────────────────

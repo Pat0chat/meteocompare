@@ -64,8 +64,8 @@ class ForecastRepositoryImpl @Inject constructor(
     private val cacheDao: ForecastCacheDao,
     private val json: Json,
     private val networkMonitor: NetworkMonitor,
-    @ApplicationContext private val context: Context,
-    @IoDispatcher private val ioDispatcher: CoroutineDispatcher
+    @param:ApplicationContext private val context: Context,
+    @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : ForecastRepository {
 
     override fun getCityForecastStream(

@@ -43,8 +43,8 @@ class ClimateNormalsRepositoryImpl @Inject constructor(
     private val api: ClimateArchiveApi,
     private val dao: ClimateNormalDao,
     private val networkMonitor: NetworkMonitor,
-    @ApplicationContext private val context: Context,
-    @IoDispatcher private val io: CoroutineDispatcher
+    @param:ApplicationContext private val context: Context,
+    @param:IoDispatcher private val io: CoroutineDispatcher
 ) : ClimateNormalsRepository {
 
     companion object {

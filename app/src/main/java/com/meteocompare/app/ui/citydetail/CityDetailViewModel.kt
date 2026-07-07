@@ -44,7 +44,7 @@ sealed interface RefreshFeedback {
 
 @HiltViewModel
 class CityDetailViewModel @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     savedStateHandle: SavedStateHandle,
     private val cityRepository: CityRepository,
     private val forecastRepository: ForecastRepository,
