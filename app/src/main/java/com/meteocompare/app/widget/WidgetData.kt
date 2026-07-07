@@ -53,9 +53,19 @@ internal data class WidgetData(
     /**
      * Prévision étendue affichée par le layout 4×2. Contient jusqu'à 4
      * items (heures ou jours selon la config utilisateur). Vide si le mode
-     * 4×2 n'est pas utilisé ou si aucun modèle ne fournit assez de données.
+     * 4×2 n'est pas utilisé, si aucun modèle ne fournit assez de données,
+     * ou si le mode utilisateur est un mode CONFIDENCE_* (auquel cas c'est
+     * [confidenceStrip] qui est alimenté).
      */
     val forecasts: List<WidgetForecastItem>,
+    /**
+     * Snapshot compact de la bande de confiance pour affichage sur widget 4×2
+     * en mode CONFIDENCE_*. Contient une série de segments colorés selon la
+     * confiance à chaque instant, un mean/min/max pour l'affichage textuel,
+     * et le % courant. Null si le mode utilisateur n'est pas un mode confidence
+     * ou si aucun modèle ne fournit la variable demandée.
+     */
+    val confidenceStrip: WidgetConfidenceStrip? = null,
     val error: WidgetError?
 ) {
     companion object {
@@ -76,6 +86,7 @@ internal data class WidgetData(
             currentCloudCover = null,
             currentWindSpeedKmh = null,
             forecasts = emptyList(),
+            confidenceStrip = null,
             error = error
         )
 
@@ -102,6 +113,37 @@ internal data class WidgetForecastItem(
     val label: String,
     val condition: WeatherCondition?,
     val temp: Double?
+)
+
+/**
+ * Snapshot compact d'une bande de confiance pour rendu widget.
+ *
+ * Le widget 4×2 ne peut pas rendre un vrai Canvas (Glance ne supporte pas
+ * `androidx.compose.foundation.Canvas` — seulement des primitives Row/Column/
+ * Box). On dégrade donc la bande en une série de "cellules colorées" alignées
+ * horizontalement, façon heatmap : chaque cellule = un pas de temps, teintée
+ * selon le niveau de confiance à cet instant.
+ *
+ * `metricLabel` : "T°", "mm", ou "km/h" — libellé court affiché à côté du
+ * strip pour rappeler ce qu'on regarde (sinon le user zappe et ne sait plus
+ * quelle métrique il a choisie).
+ *
+ * `nowValue` : valeur "maintenant" de la métrique (température actuelle,
+ * précipitation actuelle, vent actuel). Affichée en gros à gauche du strip
+ * pour donner un ancrage numérique — sans ça la bande visuelle seule serait
+ * trop abstraite pour un coup d'œil.
+ *
+ * `currentPct` : % de confiance à l'instant courant. Affiché à côté de
+ * `nowValue` avec la couleur du niveau (vert/orange/rouge).
+ *
+ * `bucketPercents` : liste des confidences par cellule (typiquement 24 pas
+ * pour couvrir 7 jours à ~7h/pas). L'ordre est chronologique, gauche→droite.
+ */
+internal data class WidgetConfidenceStrip(
+    val metricLabel: String,
+    val nowValue: String?,
+    val currentPct: Int?,
+    val bucketPercents: List<Int>
 )
 
 /**
@@ -188,6 +230,17 @@ internal suspend fun loadWidgetData(
             val dayConf = today?.let { calc.dayConfidence(forecast, it) }
             val rainConfidence = dayConf?.precipitation as?
                 com.meteocompare.app.domain.model.PrecipitationConfidence.Rain
+
+            // Selon le mode utilisateur, on alimente soit la ligne de prévisions
+            // 4 items (HOURLY/DAILY), soit la mini bande de confiance
+            // (CONFIDENCE_*). Les deux ne sont jamais alimentés en même temps
+            // — c'est une exclusivité contrôlée par le mode config utilisateur.
+            val forecasts = if (forecastMode.isConfidenceBand()) emptyList()
+                else buildForecasts(forecast, forecastMode, city.timezone)
+            val confidenceStrip = if (forecastMode.isConfidenceBand())
+                buildConfidenceStrip(forecast, forecastMode, calc)
+                else null
+
             WidgetData(
                 cityName = city.name,
                 currentTemp = calc.currentTemperature(forecast),
@@ -199,7 +252,8 @@ internal suspend fun loadWidgetData(
                 precipConfidencePct = rainConfidence?.percent,
                 currentCloudCover = calc.currentCloudCover(forecast),
                 currentWindSpeedKmh = calc.currentWindSpeed(forecast),
-                forecasts = buildForecasts(forecast, forecastMode, city.timezone),
+                forecasts = forecasts,
+                confidenceStrip = confidenceStrip,
                 error = null
             )
         }
@@ -253,12 +307,21 @@ private fun buildForecasts(
                 else series.hourly.timestamps.size - startIdx
             }
             ForecastMode.DAILY -> series.daily.dates.size
+            // Ne devrait jamais arriver : buildForecasts n'est appelée QUE quand
+            // !forecastMode.isConfidenceBand() (voir loadWidgetData). On retourne
+            // 0 par safety pour rester exhaustif sans crasher.
+            ForecastMode.CONFIDENCE_TEMPERATURE,
+            ForecastMode.CONFIDENCE_PRECIPITATION,
+            ForecastMode.CONFIDENCE_WIND -> 0
         }
 
     fun hasWeatherCodes(series: com.meteocompare.app.domain.model.ForecastSeries): Boolean =
         when (mode) {
             ForecastMode.HOURLY -> series.hourly.weatherCode.isNotEmpty()
             ForecastMode.DAILY -> series.daily.weatherCode.isNotEmpty()
+            ForecastMode.CONFIDENCE_TEMPERATURE,
+            ForecastMode.CONFIDENCE_PRECIPITATION,
+            ForecastMode.CONFIDENCE_WIND -> false
         }
 
     // Priorité (a) : couverture 4 items + weather_code présent
@@ -278,6 +341,9 @@ private fun buildForecasts(
     return when (mode) {
         ForecastMode.HOURLY -> buildHourlyForecasts(bestSeries.hourly, zone)
         ForecastMode.DAILY -> buildDailyForecasts(bestSeries.daily)
+        ForecastMode.CONFIDENCE_TEMPERATURE,
+        ForecastMode.CONFIDENCE_PRECIPITATION,
+        ForecastMode.CONFIDENCE_WIND -> emptyList()
     }
 }
 
@@ -331,4 +397,82 @@ private fun buildDailyForecasts(
             )
         WidgetForecastItem(label = label, condition = condition, temp = temp)
     }
+}
+
+/**
+ * Construit le snapshot de bande de confiance pour affichage widget.
+ *
+ * Réutilise directement les mêmes méthodes que l'écran détail
+ * ([ConfidenceCalculator.hourlyTemperatureConfidence] etc.) — cohérence
+ * garantie entre app et widget, une seule source de vérité pour la logique
+ * d'agrégation.
+ *
+ * Downsampling : la bande fait typiquement 168 pas horaires (7 jours). Pour
+ * un widget qui fait ~350 dp de large avec des cellules 12 dp, on ne peut
+ * afficher que 20-25 cellules max sans qu'elles deviennent illisibles. On
+ * échantillonne donc à 24 buckets équirépartis — un pas ≈ 7h, granularité
+ * suffisante pour voir "ça se gâte cet après-midi" ou "ça s'améliore samedi".
+ * Cohérent avec le strip du chart grand format qui utilise la même
+ * granularité (voir ConfidenceTimeline dans HourlyConfidenceChart.kt).
+ *
+ * Format de `nowValue` : température en °, précip en mm, vent en km/h — même
+ * unité que l'app pour continuité perceptuelle.
+ */
+private fun buildConfidenceStrip(
+    forecast: com.meteocompare.app.domain.model.CityForecast,
+    mode: ForecastMode,
+    calc: com.meteocompare.app.domain.usecase.ConfidenceCalculator
+): WidgetConfidenceStrip? {
+    val bands = when (mode) {
+        ForecastMode.CONFIDENCE_TEMPERATURE -> calc.hourlyTemperatureConfidence(forecast)
+        ForecastMode.CONFIDENCE_PRECIPITATION -> calc.hourlyPrecipitationConfidence(forecast)
+        ForecastMode.CONFIDENCE_WIND -> calc.hourlyWindConfidence(forecast)
+        else -> return null // sécurité — signature contrôlée par isConfidenceBand()
+    }
+    if (bands.size < 2) return null
+
+    // Downsample à 24 buckets uniformes. Si la série fait déjà ≤ 24 points
+    // (série tronquée par un cache pauvre), on la garde telle quelle.
+    val bucketPercents = if (bands.size <= 24) bands.map { it.percent }
+    else {
+        val step = bands.size / 24
+        bands.filterIndexed { idx, _ -> idx % step == 0 }
+            .take(24)
+            .map { it.percent }
+    }
+
+    // Valeur "maintenant" — reprend l'agrégat pondéré de l'app (cohérent avec
+    // la TodaySummaryCard). Pour le vent et la pluie, on utilise les getters
+    // dédiés du calculator qui traitent proprement les cas où seul un
+    // sous-ensemble de modèles a la variable.
+    val nowValue = when (mode) {
+        ForecastMode.CONFIDENCE_TEMPERATURE -> {
+            calc.currentTemperature(forecast)?.let { formatTemp(it) }
+        }
+        ForecastMode.CONFIDENCE_PRECIPITATION -> {
+            // Précipitation "maintenant" — pas de getter dédié, on prend la
+            // valeur mean de la première bande (== instant courant).
+            bands.first().meanValue.let {
+                if (it < 0.1) "0 mm" else "%.1f mm".format(it)
+            }
+        }
+        ForecastMode.CONFIDENCE_WIND -> {
+            calc.currentWindSpeed(forecast)?.let { "${it.toInt()} km/h" }
+        }
+        else -> null
+    }
+
+    val metricLabel = when (mode) {
+        ForecastMode.CONFIDENCE_TEMPERATURE -> "T°"
+        ForecastMode.CONFIDENCE_PRECIPITATION -> "Pluie"
+        ForecastMode.CONFIDENCE_WIND -> "Vent"
+        else -> ""
+    }
+
+    return WidgetConfidenceStrip(
+        metricLabel = metricLabel,
+        nowValue = nowValue,
+        currentPct = bands.first().percent,
+        bucketPercents = bucketPercents
+    )
 }

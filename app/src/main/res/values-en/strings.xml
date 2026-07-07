@@ -65,13 +65,32 @@
 
     <!-- Section titles in city detail -->
     <string name="section_confidence_band">Hourly confidence band</string>
-    <string name="section_temperatures">Min/max temperatures per model</string>
     <string name="section_temp_table">Max / min temperatures</string>
     <string name="section_temp_hourly">Hourly temperatures</string>
     <string name="section_precipitation">Precipitation</string>
     <string name="section_wind">10m mean wind</string>
     <string name="section_wind_hourly">10m mean wind</string>
     <string name="section_weather_by_model">Weather by model and day</string>
+
+    <!-- 3-state selector above the confidence band (Temp / Precip / Wind) -->
+    <string name="metric_temperature">Temperature</string>
+    <string name="metric_precipitation">Precipitation</string>
+    <string name="metric_wind">Wind</string>
+
+    <!-- Model sort in Settings (Zone / Family / Resolution) -->
+    <string name="model_sort_zone">Zone</string>
+    <string name="model_sort_family">Family</string>
+    <string name="model_sort_finesse">Resolution</string>
+
+    <!-- Legend for the "10-year normal" dashed line on confidence charts -->
+    <string name="chart_normals_legend_temp">10-year normal (daily min · max)</string>
+    <string name="chart_normals_legend_precip">10-year mean rainfall</string>
+    <string name="chart_normals_legend_wind">10-year mean wind</string>
+
+    <!-- Extra widget 4×2 forecast modes -->
+    <string name="widget_config_forecast_mode_conf_temp">Confidence band — temperature</string>
+    <string name="widget_config_forecast_mode_conf_precip">Confidence band — precipitation</string>
+    <string name="widget_config_forecast_mode_conf_wind">Confidence band — wind</string>
 
     <!-- Display-mode toggle (below the TodaySummaryCard) -->
     <string name="display_mode_hourly">Hourly</string>

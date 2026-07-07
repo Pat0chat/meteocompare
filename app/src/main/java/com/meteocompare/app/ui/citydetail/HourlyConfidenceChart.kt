@@ -12,18 +12,26 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
@@ -39,6 +47,7 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.meteocompare.app.R
+import com.meteocompare.app.domain.model.DayNormals
 import com.meteocompare.app.domain.model.HourlyConfidenceBand
 import com.meteocompare.app.ui.theme.confidenceColor
 import java.time.Duration
@@ -51,53 +60,120 @@ import kotlin.math.floor
 import kotlin.math.roundToInt
 
 // ─── Constantes de layout du chart ─────────────────────────────────────────
-//
-// Extraites au niveau fichier pour garantir que la timeline en dessous (et
-// toute future décoration alignée sur l'axe X) reste synchronisée avec
-// l'intérieur du Canvas. Si on les changeait en local sans toucher la
-// timeline, on retomberait sur le bug "les couleurs ne sont pas raccord
-// avec les données du graphique au dessus".
 private val ChartCanvasPadding = 8.dp
-private val ChartLeftAxisPad = 36.dp
+private val ChartLeftAxisPad = 40.dp
 private val ChartRightAxisPad = 8.dp
 private val ChartContentStart = ChartCanvasPadding + ChartLeftAxisPad
 private val ChartContentEnd = ChartCanvasPadding + ChartRightAxisPad
 
 // ─── Bornes du zoom ────────────────────────────────────────────────────────
-//
-// Le zoom est piloté par une "view window" (viewStart, viewEnd) exprimée en
-// fraction du dataset total ([0, 1]). Au max zoom, la fenêtre visible fait
-// MIN_VIEW_SPAN de la donnée totale — soit ~50x sur un dataset de 7 jours =
-// environ 3 heures visibles. Assez pour scruter le passage d'un front sans
-// perdre le sens de l'échelle globale.
 private const val MIN_VIEW_SPAN = 0.02f
 private const val MAX_VIEW_SPAN = 1.0f
 
 /**
- * Graphique de bande de confiance horaire — avec pinch-to-zoom sur l'axe X.
+ * Composant unique de bande de confiance avec sélecteur à 3 états.
  *
- * Visualise les prévisions de température comme une enveloppe min-max
- * autour d'une moyenne. La largeur de la bande à un instant `t` représente
- * directement le désaccord entre modèles à cet horizon.
+ * Encapsule le SegmentedButton (Température / Précipitations / Vent) et rend
+ * le chart correspondant en dessous. C'est la wrapper à utiliser depuis
+ * l'écran détail — il gère l'état de sélection en interne (rememberSaveable
+ * pour survivre à la rotation).
  *
- * Lecture utilisateur :
- *   - Bande étroite → modèles d'accord, prévision fiable
- *   - Bande qui s'élargit en avançant dans le temps → divergence croissante
- *   - Ligne de mean = la "meilleure estimation" pondérée par résolution
+ * L'appelant fournit les 3 séries de bandes (précalculées côté ViewModel pour
+ * que la transition entre métriques soit instantanée). Chaque série peut être
+ * vide ; le chart affichera son placeholder "pas assez de données" localement.
+ */
+@Composable
+fun ConfidenceBandSection(
+    tempBands: List<HourlyConfidenceBand>,
+    precipBands: List<HourlyConfidenceBand>,
+    windBands: List<HourlyConfidenceBand>,
+    timezone: String?,
+    normals: Map<Int, DayNormals>?,
+    modifier: Modifier = Modifier
+) {
+    var metric by rememberSaveable(stateSaver = ConfidenceMetric.Saver) {
+        mutableStateOf(ConfidenceMetric.TEMPERATURE)
+    }
+
+    Column(modifier = modifier) {
+        ConfidenceMetricSelector(
+            selected = metric,
+            onSelect = { metric = it },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+        )
+
+        val bands = when (metric) {
+            ConfidenceMetric.TEMPERATURE -> tempBands
+            ConfidenceMetric.PRECIPITATION -> precipBands
+            ConfidenceMetric.WIND -> windBands
+        }
+        HourlyConfidenceChart(
+            bands = bands,
+            metric = metric,
+            timezone = timezone,
+            normals = normals
+        )
+    }
+}
+
+/**
+ * Sélecteur segmenté à 3 états — Température / Précipitations / Vent.
  *
- * Interactions gestuelles :
- *   - **Pinch à 2 doigts** : zoom in/out autour du centroïde du pinch, avec
- *     pan horizontal simultané. Le geste à 1 doigt N'EST PAS intercepté →
- *     laisse la LazyColumn parente scroller normalement en vertical.
- *   - **Double-tap** : reset zoom (fenêtre = tout le dataset).
+ * Rendu comme un SingleChoiceSegmentedButtonRow M3, cohérent avec les autres
+ * segmented pickers de l'app (theme, langue, mode display). L'icône est laissée
+ * vide : les labels sont assez explicites, et forcer une icône par métrique
+ * bruiterait le composant.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ConfidenceMetricSelector(
+    selected: ConfidenceMetric,
+    onSelect: (ConfidenceMetric) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val options = listOf(
+        ConfidenceMetric.TEMPERATURE to stringResource(R.string.metric_temperature),
+        ConfidenceMetric.PRECIPITATION to stringResource(R.string.metric_precipitation),
+        ConfidenceMetric.WIND to stringResource(R.string.metric_wind)
+    )
+    SingleChoiceSegmentedButtonRow(modifier = modifier) {
+        options.forEachIndexed { idx, (metric, label) ->
+            SegmentedButton(
+                selected = selected == metric,
+                onClick = { onSelect(metric) },
+                shape = SegmentedButtonDefaults.itemShape(index = idx, count = options.size),
+                icon = { /* labels seuls, plus lisible sans icône avec 3 items */ }
+            ) {
+                Text(label)
+            }
+        }
+    }
+}
+
+/**
+ * Graphique de bande de confiance horaire — supporte 3 métriques (température,
+ * précipitation, vent) et un overlay optionnel de normales 10 ans.
  *
- * Le hint textuel disparaît dès que l'utilisateur a zoomé au moins une fois
- * (il a découvert le geste, plus besoin d'expliquer).
+ * Interactions :
+ *   - Pinch à 2 doigts : zoom horizontal (le 1 doigt reste passthrough pour
+ *     laisser la LazyColumn scroller).
+ *   - Double-tap : reset zoom.
+ *
+ * Overlay normales :
+ *   - Température : 2 traits pointillés (min et max 10 ans) qui varient jour
+ *     par jour — rendus comme step-function le long de l'axe X.
+ *   - Précipitations : 1 trait pointillé (précipitation moyenne journalière).
+ *   - Vent : 1 trait pointillé (vent moyen journalier).
+ *   Les normales manquantes (nullables sur [DayNormals]) sont simplement skipées.
  */
 @Composable
 fun HourlyConfidenceChart(
     bands: List<HourlyConfidenceBand>,
+    metric: ConfidenceMetric = ConfidenceMetric.TEMPERATURE,
     timezone: String?,
+    normals: Map<Int, DayNormals>? = null,
     modifier: Modifier = Modifier
 ) {
     if (bands.size < 2) {
@@ -114,12 +190,10 @@ fun HourlyConfidenceChart(
     val onSurface = MaterialTheme.colorScheme.onSurfaceVariant
     val gridColor = MaterialTheme.colorScheme.outlineVariant
     val primary = MaterialTheme.colorScheme.primary
+    val normalsColor = MaterialTheme.colorScheme.tertiary
     val textMeasurer = rememberTextMeasurer()
     val labelStyle = TextStyle(color = onSurface, fontSize = 10.sp)
 
-    // Trois teintes de confiance pré-résolues pour le thème courant. Le Canvas
-    // étant un DrawScope (non @Composable), il ne peut pas appeler
-    // confidenceColor() lui-même — on les capture par closure ici.
     val confidenceHighColor = confidenceColor(80)
     val confidenceMediumColor = confidenceColor(50)
     val confidenceLowColor = confidenceColor(0)
@@ -132,34 +206,70 @@ fun HourlyConfidenceChart(
     val lastTs = bands.last().timestamp
     val totalSeconds = Duration.between(firstTs, lastTs).seconds.coerceAtLeast(1L)
 
-    val allValues = bands.flatMap { listOf(it.minValue, it.maxValue) }
-    val yMin = floor(allValues.min()).toFloat() - 1f
-    val yMax = ceil(allValues.max()).toFloat() + 1f
+    // ─── Bornes Y — intègrent les normales quand présentes ────────────────
+    // Sinon un jour très pluvieux/venteux dans les normales sortirait de la
+    // fenêtre visible, invisible pour l'utilisateur. On étend les bornes pour
+    // que les traits pointillés restent toujours à l'écran.
+    val allValues = mutableListOf<Double>()
+    bands.forEach {
+        allValues += it.minValue
+        allValues += it.maxValue
+    }
+    // Ajoute les valeurs des normales couvertes par la fenêtre du chart
+    if (normals != null) {
+        val datesInRange = bands
+            .map { it.timestamp.atZone(zone).toLocalDate() }
+            .distinct()
+        datesInRange.forEach { date ->
+            normals[DayNormals.key(date.monthValue, date.dayOfMonth)]?.let { n ->
+                when (metric) {
+                    ConfidenceMetric.TEMPERATURE -> {
+                        allValues += n.tempMinNormal
+                        allValues += n.tempMaxNormal
+                    }
+                    ConfidenceMetric.PRECIPITATION ->
+                        n.precipMeanNormal?.let { allValues += it }
+                    ConfidenceMetric.WIND ->
+                        n.windMeanNormal?.let { allValues += it }
+                }
+            }
+        }
+    }
+
+    // Pour la précipitation, le min est toujours 0 — on force la borne basse
+    // à 0 pour que la bande touche le sol (visuellement plus naturel : pas de
+    // pluie = ligne à 0). Idem pour le vent (jamais négatif).
+    val forceZeroMin = metric == ConfidenceMetric.PRECIPITATION ||
+        metric == ConfidenceMetric.WIND
+    val rawMin = allValues.min()
+    val rawMax = allValues.max()
+    val yMin = if (forceZeroMin) 0f else floor(rawMin).toFloat() - 1f
+    val yMax = ceil(rawMax).toFloat() + 1f
 
     // ─── État de zoom ──────────────────────────────────────────────────────
-    // viewStart / viewEnd expriment la fenêtre visible en FRACTION du dataset
-    // (0..1). Défaut = (0, 1) = tout visible. On utilise rememberSaveable pour
-    // survivre à la rotation — le user aime rarement voir son zoom reset après
-    // avoir tourné son téléphone.
-    //
-    // remember(bands) — recalcul si la référence bands change (nouveau fetch).
-    // On ne saveable/remember pas sur bands.size ou hash : on veut juste que
-    // ça se remette à jour quand la donnée change, pas nécessairement reset le
-    // zoom (qui reste défini sur la fenêtre proportionnelle).
     var viewStart by rememberSaveable { mutableFloatStateOf(0f) }
     var viewEnd by rememberSaveable { mutableFloatStateOf(1f) }
     val isZoomed = (viewEnd - viewStart) < 0.999f
 
-    // Description sémantique pour les lecteurs d'écran. Quand on est zoomé,
-    // on préfixe pour signaler l'état et rappeler comment reset (accessibilité).
+    // Description sémantique
     val context = LocalContext.current
     val locale = LocalConfiguration.current.locales[0]
-    val a11yBase = remember(bands, context) {
+    val a11yBase = remember(bands, context, metric) {
+        // Note : le formatter reste calé sur la température, ce qui n'est pas
+        // idéal pour precip/wind mais c'est un incrément futur — pour l'instant
+        // TalkBack lit les valeurs numériques, l'utilisateur devine la métrique
+        // via le label du SegmentedButton du dessus. Correct pour le MVP.
         com.meteocompare.app.ui.accessibility.A11yFormatter
             .hourlyChartDescription(context, bands)
     }
     val a11yZoomedPrefix = stringResource(R.string.chart_zoom_a11y_zoomed)
     val a11yDescription = if (isZoomed) "$a11yZoomedPrefix. $a11yBase" else a11yBase
+
+    val unit = when (metric) {
+        ConfidenceMetric.TEMPERATURE -> "°"
+        ConfidenceMetric.PRECIPITATION -> " mm"
+        ConfidenceMetric.WIND -> " km/h"
+    }
 
     Column(
         modifier = modifier
@@ -168,7 +278,7 @@ fun HourlyConfidenceChart(
             }
             .padding(bottom = 12.dp)
     ) {
-        // ─── Header explicatif ─────────────────────────────────────────
+        // Header explicatif
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -185,11 +295,6 @@ fun HourlyConfidenceChart(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            // Hint gestuel — affiché tant que l'utilisateur n'a pas zoomé.
-            // Une fois qu'il a fait le geste, il connaît, on masque le hint
-            // pour rendre l'UI au calme. S'il reset au double-tap, il re-devient
-            // "unzoomed" et le hint réapparaît — c'est OK, la deuxième fois
-            // c'est un rappel pas gênant.
             if (!isZoomed) {
                 Text(
                     text = stringResource(R.string.chart_zoom_hint),
@@ -204,15 +309,6 @@ fun HourlyConfidenceChart(
                 .fillMaxWidth()
                 .height(260.dp)
                 .padding(ChartCanvasPadding)
-                // ─── Pinch/pan à 2 doigts ────────────────────────────────
-                // On gère les événements manuellement pour ne CONSOMMER que
-                // sur multi-touch. detectTransformGestures{} de Compose
-                // consommerait aussi les drags à 1 doigt et bloquerait le
-                // scroll vertical de la LazyColumn parente. Ici, si 1 seul
-                // doigt est down, on ne consomme rien → la LazyColumn scroll.
-                //
-                // Reclé sur (bands, totalSeconds) pour que le handler retrouve
-                // les bonnes constantes quand la donnée change.
                 .pointerInput(bands, totalSeconds) {
                     val leftPadPx = ChartLeftAxisPad.toPx()
                     val rightPadPx = ChartRightAxisPad.toPx()
@@ -221,18 +317,13 @@ fun HourlyConfidenceChart(
                         .coerceAtLeast(1f)
 
                     awaitEachGesture {
-                        // requireUnconsumed=false → on ne demande PAS un down
-                        // vierge, sinon un tap-and-hold qui viendrait juste
-                        // après un double-tap serait raté. On veut voir tout
-                        // ce qui arrive et décider nous-mêmes.
                         awaitFirstDown(requireUnconsumed = false)
                         while (true) {
                             val event = awaitPointerEvent()
                             val pressed = event.changes.filter { it.pressed }
                             if (pressed.isEmpty()) break
-                            if (pressed.size < 2) continue  // 1 doigt : passthrough
+                            if (pressed.size < 2) continue
 
-                            // ─── Multi-touch : zoom + pan ────────────────
                             val curCentroid = pressed
                                 .fold(Offset.Zero) { acc, c -> acc + c.position } /
                                 pressed.size.toFloat()
@@ -241,9 +332,6 @@ fun HourlyConfidenceChart(
                                 pressed.size.toFloat()
                             val pan = curCentroid - prevCentroid
 
-                            // Distance moyenne au centroïde — proxy pour la
-                            // "taille" du pinch. Utiliser la MOYENNE plutôt
-                            // que le MAX rend le zoom plus stable avec 3+ doigts.
                             val curSpread = pressed
                                 .map { (it.position - curCentroid).getDistance() }
                                 .average().toFloat().coerceAtLeast(1f)
@@ -256,37 +344,24 @@ fun HourlyConfidenceChart(
                             val newSpan = (curSpan / zoomFactor)
                                 .coerceIn(MIN_VIEW_SPAN, MAX_VIEW_SPAN)
 
-                            // Zoom AUTOUR du centroïde : le point sous le doigt
-                            // reste fixe dans l'espace données. C'est le geste
-                            // attendu (comme sur Google Maps).
                             val centroidXInChart = curCentroid.x - chartLeftPx
                             val centroidFracInView = (centroidXInChart / chartWPx)
                                 .coerceIn(0f, 1f)
                             val worldCentroid = viewStart + centroidFracInView * curSpan
                             var newStart = worldCentroid - centroidFracInView * newSpan
 
-                            // Pan horizontal — ajouté APRÈS le zoom (l'utilisateur
-                            // peut pincer et faire glisser en un seul geste).
                             val panFrac = -pan.x / chartWPx * newSpan
                             newStart += panFrac
 
-                            // Clamp aux bornes du dataset
                             newStart = newStart.coerceIn(0f, 1f - newSpan)
 
                             viewStart = newStart
                             viewEnd = newStart + newSpan
 
-                            // Consommer sinon la LazyColumn essaierait aussi
-                            // d'attraper le pan et on aurait un scroll parasite.
                             pressed.forEach { it.consume() }
                         }
                     }
                 }
-                // ─── Double-tap pour reset ───────────────────────────────
-                // Dans son propre pointerInput block, séparé du pinch. Compose
-                // route les events aux DEUX blocks en parallèle — pas de conflit :
-                // le double-tap requiert 1 doigt down+up rapide, le pinch requiert
-                // 2 doigts down. Ils s'excluent naturellement.
                 .pointerInput(Unit) {
                     detectTapGestures(
                         onDoubleTap = {
@@ -307,9 +382,6 @@ fun HourlyConfidenceChart(
             val chartW = chartRight - chartLeft
             val chartH = chartBottom - chartTop
 
-            // Fenêtre visible en secondes. C'est cette fenêtre qu'on mappe sur
-            // la largeur du chart — les bandes hors fenêtre finiront en dehors
-            // du rectangle du Canvas (clip automatique par Compose).
             val visibleStartSec = viewStart * totalSeconds
             val visibleEndSec = viewEnd * totalSeconds
             val visibleSpanSec = (visibleEndSec - visibleStartSec).coerceAtLeast(1f)
@@ -324,7 +396,7 @@ fun HourlyConfidenceChart(
                 return chartBottom - ((value.toFloat() - yMin) / (yMax - yMin)) * chartH
             }
 
-            // ─── Grille Y + labels température ────────────────────────────
+            // ─── Grille Y + labels valeurs ────────────────────────────────
             val yTicks = 4
             for (i in 0..yTicks) {
                 val y = chartBottom - (i.toFloat() / yTicks) * chartH
@@ -334,8 +406,17 @@ fun HourlyConfidenceChart(
                     end = Offset(chartRight, y),
                     strokeWidth = 1f
                 )
-                val tempValue = yMin + (yMax - yMin) * i / yTicks
-                val label = "${tempValue.roundToInt()}°"
+                val axisValue = yMin + (yMax - yMin) * i / yTicks
+                // Format spécifique par métrique — précip en 1 décimale sous 1 mm,
+                // vent et température en entier (précision non signifiante en dessous).
+                val label = when (metric) {
+                    ConfidenceMetric.TEMPERATURE -> "${axisValue.roundToInt()}°"
+                    ConfidenceMetric.PRECIPITATION -> {
+                        if (axisValue < 1f) "%.1f".format(axisValue)
+                        else "${axisValue.roundToInt()}"
+                    }
+                    ConfidenceMetric.WIND -> "${axisValue.roundToInt()}"
+                }
                 val measured = textMeasurer.measure(label, labelStyle)
                 drawText(
                     textLayoutResult = measured,
@@ -347,10 +428,6 @@ fun HourlyConfidenceChart(
             }
 
             // ─── Repères verticaux + labels aux changements de jour ──────
-            // On skippe les labels dont le x est hors [chartLeft, chartRight] —
-            // sinon en zoomant sur un seul jour, on aurait des labels de jours
-            // adjacents dépassant à gauche/droite du chart, chevauchant les
-            // labels de température.
             var currentDate: LocalDate? = null
             bands.forEach { band ->
                 val localDate = band.timestamp.atZone(zone).toLocalDate()
@@ -369,9 +446,6 @@ fun HourlyConfidenceChart(
                         .replace(".", "")
                     val measured = textMeasurer.measure(label, labelStyle)
                     val labelX = x + 4.dp.toPx()
-                    // Ne dessine le texte du jour que s'il est visible ET s'il
-                    // tient dans la zone chart (on lui donne son largeur pour
-                    // qu'un label proche de chartRight ne dépasse pas non plus).
                     if (labelX in chartLeft..(chartRight - measured.size.width)) {
                         drawText(
                             textLayoutResult = measured,
@@ -386,14 +460,6 @@ fun HourlyConfidenceChart(
             }
 
             // ─── Bande SEGMENTÉE colorée par confiance locale ────────────
-            // Au lieu d'un seul Path uniformément teinté, on découpe la bande
-            // en quadrilatères entre points consécutifs. Chaque segment prend
-            // sa couleur de la moyenne des deux endpoints — résultat : la
-            // bande "rougit" naturellement là où les modèles divergent.
-            //
-            // Les segments hors visible-range sont dessinés quand même — le
-            // Canvas clippe automatiquement à ses bounds, coût = 0 en visuel,
-            // et éviter d'itérer conditionnellement garde le code simple.
             bands.zipWithNext().forEach { (a, b) ->
                 val xa = xFor(a.timestamp)
                 val xb = xFor(b.timestamp)
@@ -419,6 +485,24 @@ fun HourlyConfidenceChart(
                 drawPath(path = segmentPath, color = segmentColor)
             }
 
+            // ─── Traits pointillés "normale 10 ans" ──────────────────────
+            // Rendus AVANT la ligne moyenne pour que celle-ci reste au-dessus
+            // (l'œil identifie mean = "notre estimation la plus probable" ;
+            // les normales sont un contexte historique).
+            if (normals != null) {
+                drawNormalsOverlay(
+                    bands = bands,
+                    metric = metric,
+                    normals = normals,
+                    zone = zone,
+                    xFor = ::xFor,
+                    yFor = ::yFor,
+                    chartLeft = chartLeft,
+                    chartRight = chartRight,
+                    normalsColor = normalsColor
+                )
+            }
+
             // ─── Ligne moyenne pondérée ──────────────────────────────────
             val meanPath = Path().apply {
                 bands.forEachIndexed { i, b ->
@@ -434,12 +518,185 @@ fun HourlyConfidenceChart(
             )
         }
 
-        // Strip et caption restent alignés sur la donnée FULL (pas zoomée) —
-        // ils servent de vue d'ensemble. Cela permet au user de garder la
-        // perception du "à quel horizon est-on" globalement, même quand le
-        // chart est zoomé. Idem pour le caption "Confiance maintenant / à J+N"
-        // qui donne les bornes DU DATASET, pas de la fenêtre visible.
+        // Légende compacte des normales — n'apparaît que si le graphe
+        // trace effectivement quelque chose (pour ne pas mentir à
+        // l'utilisateur en promettant une donnée absente du cache).
+        val hasNormals = normals != null && hasNormalsForMetric(bands, metric, normals, zone)
+        if (hasNormals) {
+            NormalsLegend(metric = metric, normalsColor = normalsColor, unit = unit)
+        }
+
         ConfidenceTimeline(bands = bands, stripAlpha = timelineStripAlpha)
+    }
+}
+
+/**
+ * Overlay des normales 10 ans en step-function le long de l'axe X.
+ *
+ * Les normales sont journalières mais l'axe est horaire → chaque jour rendu
+ * comme un segment horizontal (constant sur les 24 h) qui saute à la valeur
+ * suivante à minuit local. C'est visuellement plus honnête qu'une
+ * interpolation linéaire entre jours, qui ferait croire à une variation
+ * intra-journalière alors que c'est purement du day-of-year.
+ *
+ * Pour TEMPERATURE : deux traits (min et max) rendus avec la même couleur
+ * mais des dashes différents — max en dash long/court, min en dash court
+ * uniforme — pour rester distinguables même sans légende visible.
+ * Pour PRECIPITATION et WIND : un seul trait (moyenne).
+ */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawNormalsOverlay(
+    bands: List<HourlyConfidenceBand>,
+    metric: ConfidenceMetric,
+    normals: Map<Int, DayNormals>,
+    zone: ZoneId,
+    xFor: (Instant) -> Float,
+    yFor: (Double) -> Float,
+    chartLeft: Float,
+    chartRight: Float,
+    normalsColor: Color
+) {
+    val strokeWidth = 1.5.dp.toPx()
+    val dashLong = PathEffect.dashPathEffect(
+        floatArrayOf(8.dp.toPx(), 4.dp.toPx()), 0f
+    )
+    val dashShort = PathEffect.dashPathEffect(
+        floatArrayOf(4.dp.toPx(), 4.dp.toPx()), 0f
+    )
+
+    // Découpe la série en runs de même date. `bands` est déjà trié par
+    // timestamp, on peut donc balayer linéairement.
+    var runStart = 0
+    for (i in bands.indices) {
+        val date = bands[i].timestamp.atZone(zone).toLocalDate()
+        val nextDate = bands.getOrNull(i + 1)?.timestamp?.atZone(zone)?.toLocalDate()
+        val endOfRun = (nextDate == null || nextDate != date)
+        if (endOfRun) {
+            val startX = xFor(bands[runStart].timestamp).coerceAtLeast(chartLeft)
+            val endX = xFor(bands[i].timestamp).coerceAtMost(chartRight)
+            if (endX > startX) {
+                val normal = normals[DayNormals.key(date.monthValue, date.dayOfMonth)]
+                if (normal != null) {
+                    when (metric) {
+                        ConfidenceMetric.TEMPERATURE -> {
+                            val yMax = yFor(normal.tempMaxNormal)
+                            drawLine(
+                                color = normalsColor,
+                                start = Offset(startX, yMax),
+                                end = Offset(endX, yMax),
+                                strokeWidth = strokeWidth,
+                                pathEffect = dashLong
+                            )
+                            val yMin = yFor(normal.tempMinNormal)
+                            drawLine(
+                                color = normalsColor,
+                                start = Offset(startX, yMin),
+                                end = Offset(endX, yMin),
+                                strokeWidth = strokeWidth,
+                                pathEffect = dashShort
+                            )
+                        }
+                        ConfidenceMetric.PRECIPITATION -> {
+                            normal.precipMeanNormal?.let { p ->
+                                val y = yFor(p)
+                                drawLine(
+                                    color = normalsColor,
+                                    start = Offset(startX, y),
+                                    end = Offset(endX, y),
+                                    strokeWidth = strokeWidth,
+                                    pathEffect = dashLong
+                                )
+                            }
+                        }
+                        ConfidenceMetric.WIND -> {
+                            normal.windMeanNormal?.let { w ->
+                                val y = yFor(w)
+                                drawLine(
+                                    color = normalsColor,
+                                    start = Offset(startX, y),
+                                    end = Offset(endX, y),
+                                    strokeWidth = strokeWidth,
+                                    pathEffect = dashLong
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            runStart = i + 1
+        }
+    }
+}
+
+/**
+ * Vérifie qu'au moins un jour du chart a une valeur de normale exploitable
+ * pour la métrique demandée. Sert à ne pas afficher la légende quand aucune
+ * ligne pointillée n'est en fait rendue (cas cache pré-feature).
+ */
+private fun hasNormalsForMetric(
+    bands: List<HourlyConfidenceBand>,
+    metric: ConfidenceMetric,
+    normals: Map<Int, DayNormals>,
+    zone: ZoneId
+): Boolean {
+    val dates = bands.map { it.timestamp.atZone(zone).toLocalDate() }.distinct()
+    return dates.any { date ->
+        val n = normals[DayNormals.key(date.monthValue, date.dayOfMonth)] ?: return@any false
+        when (metric) {
+            ConfidenceMetric.TEMPERATURE -> true // toujours présent si la normale existe
+            ConfidenceMetric.PRECIPITATION -> n.precipMeanNormal != null
+            ConfidenceMetric.WIND -> n.windMeanNormal != null
+        }
+    }
+}
+
+/**
+ * Légende compacte des normales 10 ans — un pastille + label par trait rendu.
+ * On la rend seulement quand des normales sont effectivement affichées
+ * (voir [hasNormalsForMetric]).
+ */
+@Suppress("UNUSED_PARAMETER")
+@Composable
+private fun NormalsLegend(
+    metric: ConfidenceMetric,
+    normalsColor: Color,
+    unit: String
+) {
+    val label = when (metric) {
+        ConfidenceMetric.TEMPERATURE -> stringResource(R.string.chart_normals_legend_temp)
+        ConfidenceMetric.PRECIPITATION -> stringResource(R.string.chart_normals_legend_precip)
+        ConfidenceMetric.WIND -> stringResource(R.string.chart_normals_legend_wind)
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Petit tiret pointillé de démonstration (16dp × 2dp) — matérialise
+        // visuellement le style de trait utilisé sur le chart, plus explicite
+        // qu'un simple dot coloré (les traits pointillés se distinguent des
+        // pleins uniquement par leur pattern, pas leur couleur).
+        Canvas(
+            modifier = Modifier
+                .padding(end = 8.dp)
+                .width(18.dp)
+                .height(2.dp)
+        ) {
+            drawLine(
+                color = normalsColor,
+                start = Offset(0f, size.height / 2),
+                end = Offset(size.width, size.height / 2),
+                strokeWidth = 1.5.dp.toPx(),
+                pathEffect = PathEffect.dashPathEffect(
+                    floatArrayOf(4.dp.toPx(), 3.dp.toPx()), 0f
+                )
+            )
+        }
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
@@ -447,19 +704,13 @@ fun HourlyConfidenceChart(
  * Petite barre sous le graphique qui résume l'évolution de la confiance.
  *
  * On échantillonne 24 points (un par heure de la journée en moyenne pour 7j)
- * et on les colore selon le niveau de confiance. Donne un aperçu instantané
- * de "ça se gâte à partir de quand".
- *
- * `stripAlpha` est passé par le caller : en thème sombre on pousse un peu
- * plus la saturation parce que les couleurs pastel à 70% d'alpha étaient
- * trop ténues — l'utilisateur ne voyait plus le dégradé de confiance.
+ * et on les colore selon le niveau de confiance.
  */
 @Composable
 private fun ConfidenceTimeline(bands: List<HourlyConfidenceBand>, stripAlpha: Float) {
     val timeline = remember(bands) {
         if (bands.size <= 24) bands
         else {
-            // On échantillonne 24 points équidistants
             val step = bands.size / 24
             bands.filterIndexed { idx, _ -> idx % step == 0 }.take(24)
         }
@@ -487,7 +738,6 @@ private fun ConfidenceTimeline(bands: List<HourlyConfidenceBand>, stripAlpha: Fl
         }
     }
 
-    // Caption avec les bornes de confidence
     val firstPercent = bands.first().percent
     val lastBand = bands.last()
     val lastPercent = lastBand.percent

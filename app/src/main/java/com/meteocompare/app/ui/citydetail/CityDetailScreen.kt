@@ -214,6 +214,8 @@ internal fun CityDetailContent(
                         forecast = s.forecast,
                         weekly = s.weeklyConfidence,
                         hourlyBands = s.hourlyBands,
+                        hourlyPrecipBands = s.hourlyPrecipBands,
+                        hourlyWindBands = s.hourlyWindBands,
                         currentTemp = s.currentTemp,
                         currentCondition = s.currentCondition,
                         currentCloudCover = s.currentCloudCover,
@@ -262,6 +264,8 @@ private fun LoadedView(
     forecast: CityForecast,
     weekly: List<DayConfidence>,
     hourlyBands: List<com.meteocompare.app.domain.model.HourlyConfidenceBand>,
+    hourlyPrecipBands: List<com.meteocompare.app.domain.model.HourlyConfidenceBand>,
+    hourlyWindBands: List<com.meteocompare.app.domain.model.HourlyConfidenceBand>,
     currentTemp: Double?,
     currentCondition: WeatherCondition?,
     currentCloudCover: Int?,
@@ -302,12 +306,16 @@ private fun LoadedView(
         }
 
         // Bande de confiance horaire — TOUJOURS visible, au-dessus du toggle,
-        // parce que c'est le différenciateur clé de l'app (visualisation de
-        // l'incertitude inter-modèles sur 7 jours d'horizon). Elle vit hors du
-        // toggle : indépendante de la granularité daily/hourly des tableaux
-        // en dessous, elle sert de "vue d'ensemble temporelle" pour les deux
-        // modes.
-        if (hourlyBands.size >= 2) {
+        // parce que c'est le différenciateur clé de l'app. Le composant
+        // ConfidenceBandSection encapsule le sélecteur à 3 états (Température /
+        // Précipitations / Vent) et le chart correspondant. Il est indépendant
+        // du toggle daily/hourly qui pilote uniquement les tableaux du bas.
+        //
+        // On rend le bloc dès qu'AU MOINS UNE des 3 séries a de la donnée —
+        // typiquement dès que la température en a, les 2 autres suivent. Le
+        // chart lui-même gère son placeholder "pas assez de données" quand la
+        // métrique sélectionnée est vide (métrique optionnelle du modèle).
+        if (hourlyBands.size >= 2 || hourlyPrecipBands.size >= 2 || hourlyWindBands.size >= 2) {
             item("hourly_confidence") {
                 SectionTitle(stringResource(R.string.section_confidence_band))
                 Card(
@@ -316,9 +324,12 @@ private fun LoadedView(
                     ),
                     modifier = Modifier.padding(horizontal = 16.dp)
                 ) {
-                    HourlyConfidenceChart(
-                        bands = hourlyBands,
-                        timezone = forecast.city.timezone
+                    ConfidenceBandSection(
+                        tempBands = hourlyBands,
+                        precipBands = hourlyPrecipBands,
+                        windBands = hourlyWindBands,
+                        timezone = forecast.city.timezone,
+                        normals = normals
                     )
                 }
             }
@@ -326,7 +337,7 @@ private fun LoadedView(
 
         // Toggle "Par heure / Par jour" — placé juste sous la bande de confiance
         // (elle-même sous la TodaySummaryCard). Le reste du contenu (tableaux
-        // + graphe TemperatureComparisonChart en mode daily) réagit à ce toggle.
+        // en mode daily/hourly) réagit à ce toggle.
         item("display_mode_toggle") {
             DisplayModeToggle(
                 mode = displayMode,
@@ -366,10 +377,10 @@ private fun LoadedView(
 /**
  * Contenu du mode "par jour" — comportement historique de l'app avant le toggle.
  *
- * Ordre : matrice Temps → chart températures per-modèle → tableau min/max →
- * précip → vent. Rien de global ici : la bande de confiance horaire (rendue
- * au-dessus du toggle, indépendamment du mode) sert de vue d'ensemble à travers
- * les deux modes.
+ * Ordre : matrice Temps → tableau min/max avec normales → précip → vent.
+ * Rien de global ici : la bande de confiance horaire (rendue au-dessus du
+ * toggle, indépendamment du mode) sert de vue d'ensemble à travers les deux
+ * modes.
  */
 private fun androidx.compose.foundation.lazy.LazyListScope.dailyItems(
     forecast: CityForecast,
@@ -397,24 +408,16 @@ private fun androidx.compose.foundation.lazy.LazyListScope.dailyItems(
         }
     }
 
-    item("chart_daily") {
-        SectionTitle(stringResource(R.string.section_temperatures))
-        Card(
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-            ),
-            modifier = Modifier.padding(horizontal = 16.dp)
-        ) {
-            // Les normales se chargent en background — quand elles arrivent,
-            // les pointillés apparaissent automatiquement via recomposition.
-            TemperatureComparisonChart(forecast = forecast, normals = normals)
-        }
-    }
+    // Note : le graphe TemperatureComparisonChart (min/max par modèle sur 7j)
+    // a été retiré — la bande de confiance horaire rendue en haut de page
+    // couvre le même besoin (comparaison inter-modèles sur l'horizon) de
+    // manière plus synthétique et plus lisible, sans le doublon visuel.
 
     // Tableau fusionné max/min — coloration relative aux normales climatiques
     // (rouge si > normale + 2°, bleu si < normale − 2°). Si normals == null,
     // affichage neutre en attendant que les données historiques arrivent.
     item("temp_table_daily") {
+        SectionTitle(stringResource(R.string.section_temp_table))
         Card(
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainerLow

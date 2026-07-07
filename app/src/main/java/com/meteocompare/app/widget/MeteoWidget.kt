@@ -31,8 +31,10 @@ import androidx.glance.currentState
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
 import androidx.glance.layout.Column
+import androidx.glance.layout.ColumnScope
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
+import androidx.glance.layout.fillMaxHeight
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
@@ -509,8 +511,18 @@ private fun ExtraLargeLayout(
 
         Spacer(GlanceModifier.height(18.dp))
 
-        // ─── Bottom strip : 4 items de prévision étendue ──────────────
-        if (data.forecasts.isEmpty()) {
+        // ─── Bottom strip : selon le mode utilisateur ────────────────────
+        // Deux rendus mutuellement exclusifs pilotés par la présence de
+        // data.confidenceStrip vs data.forecasts (voir loadWidgetData qui
+        // n'alimente qu'un seul des deux selon le mode config utilisateur).
+        val strip = data.confidenceStrip
+        if (strip != null) {
+            ConfidenceBandStrip(
+                strip = strip,
+                onContainer = onContainer,
+                onContainerMuted = onContainerMuted
+            )
+        } else if (data.forecasts.isEmpty()) {
             Text(
                 text = "…",
                 style = TextStyle(color = onContainerMuted, fontSize = 12.sp)
@@ -534,6 +546,87 @@ private fun ExtraLargeLayout(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Rendu de la bande de confiance dans le layout 4×2.
+ *
+ * ─── Contraintes Glance ─────────────────────────────────────────────────
+ * Glance ne supporte pas Canvas/DrawScope — impossible de dessiner un chart
+ * "vrai" comme dans l'écran détail. On dégrade en Row de Box colorées : une
+ * heatmap horizontale où chaque cellule = une portion de l'horizon (~7h de
+ * prévision par cellule, 24 cellules pour couvrir 7 jours). C'est le même
+ * pattern visuel que ConfidenceTimeline dans HourlyConfidenceChart, qui a
+ * été validé comme un signal lisible d'un coup d'œil.
+ *
+ * ─── Composition ────────────────────────────────────────────────────────
+ * 1. Ligne du haut : libellé métrique + valeur maintenant + % confiance.
+ *    Donne un ancrage numérique — la bande visuelle seule serait trop abstraite.
+ * 2. Ligne du bas : heatmap 24 cellules. Chaque cellule prend
+ *    weight(1f) → largeur adaptée automatiquement à la largeur du widget.
+ */
+@Composable
+private fun ColumnScope.ConfidenceBandStrip(
+    strip: WidgetConfidenceStrip,
+    onContainer: ColorProvider,
+    onContainerMuted: ColorProvider
+) {
+    Column(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
+        // Ligne 1 : "T° 22° · 87%" (couleur du % teintée par le niveau)
+        Row(
+            modifier = GlanceModifier.fillMaxWidth().padding(bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = strip.metricLabel,
+                style = TextStyle(
+                    color = onContainerMuted,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            )
+            strip.nowValue?.let {
+                Spacer(GlanceModifier.width(6.dp))
+                Text(
+                    text = it,
+                    style = TextStyle(
+                        color = onContainer,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                )
+            }
+            Spacer(GlanceModifier.defaultWeight())
+            strip.currentPct?.let {
+                Text(
+                    text = "$it%",
+                    style = TextStyle(
+                        color = confidenceTextColor(it),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                )
+            }
+        }
+
+        // Ligne 2 : heatmap 24 cellules. Glance ne supporte pas Arrangement.spacedBy
+        // sur Row, on met un tout petit padding sur chaque Box pour la séparation.
+        // Chaque cellule prend defaultWeight() → largeur ~ egaleway.
+        Row(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
+            strip.bucketPercents.forEach { pct ->
+                val color = confidenceColor(pct)
+                Box(
+                    modifier = GlanceModifier
+                        .defaultWeight()
+                        .fillMaxHeight()
+                        .padding(horizontal = 0.5.dp)
+                        .background(ColorProvider(color))
+                        .cornerRadius(2.dp),
+                    contentAlignment = Alignment.Center
+                ) {}
             }
         }
     }

@@ -53,7 +53,29 @@ private val ModelColorMap: Map<WeatherModel, Color> = mapOf(
     WeatherModel.UKMO_GLOBAL to Color(0xFF00838F),
 
     // Environnement Canada — crimson
-    WeatherModel.GEM_GLOBAL to Color(0xFFC2185B)
+    WeatherModel.GEM_GLOBAL to Color(0xFFC2185B),
+
+    // NOAA HRRR — cousin haute-res de GFS : variation autour du violet, plus
+    // sombre pour signaler "modèle fine résolution" comme AROME HD / ICON-D2.
+    WeatherModel.HRRR_CONUS to Color(0xFF4A148C),
+
+    // MET Norway Nordic — bleu nordique proche du turquoise glacé (référence
+    // aux fjords). Distinct du bleu AROME (plus chaud) et du teal UKMO.
+    WeatherModel.METNO_NORDIC to Color(0xFF00695C),
+
+    // KNMI HARMONIE — orange rouille, cousine chromatique d'ICON-EU (même
+    // moteur numérique) sans coïncider — palette DWD reste rouge/orange plus
+    // vif, HARMONIE tire vers le brun-terre.
+    WeatherModel.KNMI_HARMONIE_EU to Color(0xFF8D6E63),
+
+    // BOM ACCESS — indigo/pourpre : couleur "outback" australien qui se
+    // distingue nettement du reste de la palette globale (violet GFS excepté,
+    // mais suffisamment décalé pour rester lisibles côte à côte).
+    WeatherModel.BOM_ACCESS to Color(0xFF283593),
+
+    // CMA GRAPES — magenta profond : accent chromatique unique dans la palette,
+    // distant du violet GFS et du crimson GEM pour éviter les confusions.
+    WeatherModel.CMA_GRAPES to Color(0xFFAD1457)
 )
 
 /**

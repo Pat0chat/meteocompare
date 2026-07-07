@@ -74,4 +74,56 @@ class ClimateNormalsAggregationTest {
         assertEquals(6 to 15, result[1].month to result[1].day)
         assertEquals(12 to 31, result[2].month to result[2].day)
     }
+
+    // ─── Nouveaux tests v3 : agrégation précipitations et vent ─────────────
+
+    @Test
+    fun `precipitation et vent - moyenne independante des jours a NULL`() {
+        val response = ArchiveResponseDto(
+            latitude = 48.85,
+            longitude = 2.35,
+            timezone = "Europe/Paris",
+            daily = ArchiveDailyDto(
+                time = listOf("2022-06-15", "2023-06-15", "2024-06-15"),
+                tempMax = listOf(25.0, 27.0, 26.0),
+                tempMin = listOf(15.0, 16.0, 14.0),
+                precipSum = listOf(0.0, 10.0, null),      // moyenne = 5.0 sur 2 obs
+                windSpeedMax = listOf(20.0, null, 30.0)   // moyenne = 25.0 sur 2 obs
+            )
+        )
+
+        val result = ClimateNormalsRepositoryImpl.aggregate(response)
+        assertEquals(1, result.size)
+        val june15 = result.first()
+        assertEquals(5.0, june15.precipMeanNormal!!, 0.001)
+        assertEquals(25.0, june15.windMeanNormal!!, 0.001)
+    }
+
+    @Test
+    fun `precipitation et vent - listes null retournent des normales null`() {
+        // Cas d'une API qui ne retournerait pas les variables (ex. downgrade
+        // temporaire côté serveur). L'agrégation doit rester robuste et laisser
+        // les champs à null plutôt que crash.
+        val response = ArchiveResponseDto(
+            latitude = 48.85,
+            longitude = 2.35,
+            timezone = "Europe/Paris",
+            daily = ArchiveDailyDto(
+                time = listOf("2022-06-15"),
+                tempMax = listOf(25.0),
+                tempMin = listOf(15.0),
+                precipSum = null,
+                windSpeedMax = null
+            )
+        )
+
+        val result = ClimateNormalsRepositoryImpl.aggregate(response)
+        assertEquals(1, result.size)
+        val june15 = result.first()
+        // Les températures restent renseignées
+        assertEquals(25.0, june15.tempMaxNormal, 0.001)
+        // Précip et vent tombent à null (pas de crash, pas de valeur bidon comme 0.0)
+        org.junit.Assert.assertNull(june15.precipMeanNormal)
+        org.junit.Assert.assertNull(june15.windMeanNormal)
+    }
 }

@@ -6,16 +6,6 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 
 /**
  * Clés de persistence des paramètres par-widget.
- *
- * Le stockage utilise le [androidx.glance.state.PreferencesGlanceStateDefinition]
- * fourni par Glance : chaque instance de widget a son propre fichier DataStore,
- * identifié par le GlanceId. On peut donc avoir plusieurs widgets sur l'écran
- * d'accueil, chacun pointant sur une ville différente et avec sa propre
- * opacité.
- *
- * On garde les clés STRING pour cityId (id de ville venant du domaine, string)
- * et INT pour l'opacité (0-100, entier — évite les problèmes de precision Float
- * dans DataStore et matche le pattern "slider entier" côté UI).
  */
 internal object WidgetPreferences {
     /** Id de la ville favorite affichée par ce widget. Null = pas configuré. */
@@ -25,43 +15,49 @@ internal object WidgetPreferences {
     val OpacityPctKey = intPreferencesKey("widget_opacity_pct")
 
     /**
-     * Mode d'affichage des prévisions dans le layout 4×2 (colonne du bas).
-     * Persisté comme String (nom de l'enum) pour rester lisible en cas de
-     * migration ; int aurait été plus compact mais introduit un couplage
-     * fragile "1=HOURLY 2=DAILY" facile à casser en renommant.
+     * Mode d'affichage de la ligne du bas dans le layout 4×2. Persisté comme
+     * String (nom de l'enum) pour rester lisible en cas de migration ; int
+     * aurait été plus compact mais introduit un couplage fragile.
      */
     val ForecastModeKey = stringPreferencesKey("widget_forecast_mode")
 
     /**
-     * "Refresh tick" : timestamp (ms epoch) de la dernière demande de refresh
-     * automatique par [WidgetRefreshWorker].
-     *
-     * Sémantique : chaque incrément déclenche une recomposition Glance (via
-     * la lecture réactive `currentState<Preferences>()`) qui invalide le
-     * `LaunchedEffect(cityId, forecastMode, refreshTick)` et re-fetch les
-     * données via le repository (cache-first, réseau si assez périmé).
+     * Refresh tick — timestamp (ms epoch) de la dernière demande de refresh
+     * automatique par [WidgetRefreshWorker]. Utilisé comme clé du
+     * `LaunchedEffect` dans le widget pour déclencher le re-fetch.
      */
     val RefreshTickKey = longPreferencesKey("widget_refresh_tick")
 
-    /**
-     * Défaut = 80% : assez opaque pour rester lisible sur n'importe quel fond
-     * d'écran (photo lumineuse ou sombre), mais laisse voir le wallpaper au
-     * travers pour rappeler que c'est un widget. 100% (opaque) écrase tout,
-     * 0% (transparent) rend le texte illisible sur un wallpaper contrasté.
-     */
     const val DEFAULT_OPACITY_PCT = 80
 
     /**
-     * Défaut = HOURLY : sur un widget de bureau consulté en cours de journée,
-     * "les 4 prochaines heures" est le signal le plus actionnable (dois-je
-     * prendre un parapluie en sortant ?). La vue journalière reste accessible
-     * via le paramètre.
+     * Défaut = HOURLY : "les 4 prochaines heures" est le signal le plus
+     * actionnable pour un widget consulté en cours de journée. Les modes
+     * confidence restent opt-in — plus abstraits, ils demandent une lecture
+     * intentionnelle plutôt qu'un coup d'œil rapide.
      */
     val DEFAULT_FORECAST_MODE = ForecastMode.HOURLY
 }
 
 /**
- * Deux modes d'affichage de la prévision étendue (4×2 uniquement).
+ * Contenu de la ligne du bas du widget 4×2.
+ *
+ *   - [HOURLY] : 4 prévisions horaires (labels "14h", "15h", …) — c'est le
+ *     comportement historique, défaut de l'app. Signal le plus actionnable
+ *     à courte échéance.
+ *   - [DAILY] : 4 prévisions journalières (labels "Lun", "Mar", …) — vue
+ *     synthétique de la semaine à venir.
+ *   - [CONFIDENCE_TEMPERATURE] : mini bande de confiance température sur
+ *     l'horizon complet (7 jours), rendue comme un strip coloré selon la
+ *     confiance locale. Réplique visuelle compacte du graphe grand-format
+ *     de l'écran détail.
+ *   - [CONFIDENCE_PRECIPITATION] : idem pour la pluie.
+ *   - [CONFIDENCE_WIND] : idem pour le vent.
+ *
+ * Ces 3 modes confidence sont l'application au widget de la même feature qui
+ * a été ajoutée à l'écran détail — un utilisateur qui trouve la bande de
+ * confiance utile veut pouvoir la voir en un coup d'œil sur son écran d'accueil
+ * sans ouvrir l'app.
  *
  * Sealed via enum plutôt que sealed class : pas de données associées, juste
  * un discriminant simple. La persistance stocke `name` (String), la lecture
@@ -69,8 +65,20 @@ internal object WidgetPreferences {
  * (retombe sur le défaut sans crash).
  */
 internal enum class ForecastMode {
-    /** 4 prochaines heures — libellés type "14h", "15h"… */
     HOURLY,
-    /** 4 prochains jours — libellés type "Lun", "Mar"… */
-    DAILY
+    DAILY,
+    CONFIDENCE_TEMPERATURE,
+    CONFIDENCE_PRECIPITATION,
+    CONFIDENCE_WIND
+}
+
+/**
+ * Helper : cette mode affiche-t-elle une bande de confiance (vs une prévision
+ * discrète 4 items) ? Sert dans le widget pour choisir le layout du bas.
+ */
+internal fun ForecastMode.isConfidenceBand(): Boolean = when (this) {
+    ForecastMode.CONFIDENCE_TEMPERATURE,
+    ForecastMode.CONFIDENCE_PRECIPITATION,
+    ForecastMode.CONFIDENCE_WIND -> true
+    ForecastMode.HOURLY, ForecastMode.DAILY -> false
 }

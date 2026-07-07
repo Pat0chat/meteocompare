@@ -357,12 +357,13 @@ private fun WidgetConfigScreen(
         Spacer(Modifier.height(24.dp))
 
         // ─── Section mode de prévision étendue ────────────────────
-        // Utilisé uniquement par le layout 4×2 (les tailles plus petites
-        // n'ont pas la place pour afficher un strip de 4 items). L'utilisateur
-        // pose typiquement la question "à quoi ressemblera la fin de la
-        // journée ?" (mode heures) ou "à quoi ressemblera la semaine ?" (mode
-        // jours). Deux presets radio > slider parce qu'il n'y a que 2 options
-        // discrètes — un slider créerait de faux positifs entre les deux.
+        // Utilisé uniquement par le layout 4×2. Cinq options exposées :
+        //   HOURLY / DAILY : ligne de 4 prévisions (comportement historique)
+        //   CONFIDENCE_*   : mini bande de confiance sur l'horizon complet,
+        //                    en 3 métriques (température, précipitation, vent)
+        // Les modes confidence répliquent au format widget la feature de
+        // l'écran détail. Utile pour les users qui aiment scanner "quand
+        // la prévision se dégrade cette semaine".
         Text(
             text = stringResource(R.string.widget_config_forecast_mode),
             style = MaterialTheme.typography.titleMedium,
@@ -389,6 +390,21 @@ private fun WidgetConfigScreen(
                 selected = forecastMode == ForecastMode.DAILY,
                 labelRes = R.string.widget_config_forecast_mode_daily,
                 onClick = { forecastMode = ForecastMode.DAILY }
+            )
+            ForecastModeRow(
+                selected = forecastMode == ForecastMode.CONFIDENCE_TEMPERATURE,
+                labelRes = R.string.widget_config_forecast_mode_conf_temp,
+                onClick = { forecastMode = ForecastMode.CONFIDENCE_TEMPERATURE }
+            )
+            ForecastModeRow(
+                selected = forecastMode == ForecastMode.CONFIDENCE_PRECIPITATION,
+                labelRes = R.string.widget_config_forecast_mode_conf_precip,
+                onClick = { forecastMode = ForecastMode.CONFIDENCE_PRECIPITATION }
+            )
+            ForecastModeRow(
+                selected = forecastMode == ForecastMode.CONFIDENCE_WIND,
+                labelRes = R.string.widget_config_forecast_mode_conf_wind,
+                onClick = { forecastMode = ForecastMode.CONFIDENCE_WIND }
             )
         }
 

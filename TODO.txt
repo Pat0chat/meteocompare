@@ -1,16 +1,8 @@
 TODO
 ----
 
-Gradlew :
-Dans les taches gradle, je n'ai que les tâches suivantes qui s'affichent :
-- testDebugUnitTest et testReleaseUnitTest
-Je n'ai pas les tâches assembleRelease ou bundleRelease par exemple
-
-Améliorations :
-- Page settings, trie des modèles par zone, famille et finesse ;
-- Ajouter de nouveaux modèles pertinents ?
-- De la même manière que pour le graphe "bande de confidence température", avoir un graphe "bande de confidence pluie" et "bande de confidence vent".
-- Ajouter un selecteur à trois états au dessu du graphe bande de confidence pour choisir lequel afficher (température par défaut).
-- Ajouter dans les trois graphes "bande de confidence, les moyennes des dix dernières années : températures moyenne min et max pour le graphe confidence température, pluie moyenne pour le graphe confidence pluie, vent moyen pour le graphe confidence vent.
-- Supprimer le graphe température min/max par modèle qui n'a plus vraiment d'intéret.
-- Ajouter dans le widget 4x2 la possibilité d'afficher un des graphes confidences (ajouter les options en plus de 4 hours forecast et 4 days forecast)
+- Améliorer qualité du code, clean code, remove useless / dead code
+- Vérifier que tous les tests sont présents, en ajouter si besoin
+- Optimiser les requetes et le nombre de requetes ?
+- Augmenter légèrement la hauteur du graphe de confidence.
+- Dans le graphe de confidence, la température moyenne max est rouge, la température min est bleu, la précipitation moyenne est bleu, le vent moyen est jaune
