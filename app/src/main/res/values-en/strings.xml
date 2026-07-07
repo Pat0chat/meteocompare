@@ -83,7 +83,8 @@
     <string name="model_sort_finesse">Resolution</string>
 
     <!-- Legend for the "10-year normal" dashed line on confidence charts -->
-    <string name="chart_normals_legend_temp">10-year normal (daily min · max)</string>
+    <string name="chart_normals_legend_temp_max">10-year max normal</string>
+    <string name="chart_normals_legend_temp_min">10-year min normal</string>
     <string name="chart_normals_legend_precip">10-year mean rainfall</string>
     <string name="chart_normals_legend_wind">10-year mean wind</string>
 
@@ -119,12 +120,6 @@
     <!-- Chart messages -->
     <string name="chart_no_data">No data to display</string>
     <string name="chart_not_enough_data">Not enough data to compute a band</string>
-    <string name="chart_no_model_selected">No model selected.\nTap a model in the legend below to display it.</string>
-    <string name="chart_a11y_no_model">No model selected.</string>
-    <string name="chart_legend_normal_max">10-year max normal</string>
-    <string name="chart_legend_normal_min">10-year min normal</string>
-    <string name="chart_legend_envelope">Solid line = model max · shaded area = min–max range</string>
-    <string name="chart_legend_toggle_hint">Tap a model in the legend to hide/show it</string>
     <string name="chart_confidence_band_title">Inter-model forecast range</string>
     <string name="chart_confidence_band_desc">The wider the band, the more models disagree. Color shows the confidence level.</string>
     <string name="chart_confidence_now">Confidence now: %d%%</string>
@@ -206,8 +201,6 @@
     <string name="a11y_divergence_strong">strongly increasing</string>
     <string name="a11y_divergence_increasing">increasing</string>
     <string name="a11y_divergence_stable">overall stable</string>
-    <string name="a11y_multi_model_chart_one">Temperature comparison chart over %1$d days, %2$d model shown.</string>
-    <string name="a11y_multi_model_chart_many">Temperature comparison chart over %1$d days, %2$d models shown.</string>
     <string name="a11y_today_summary_one">Today\'s summary, %d model analysed</string>
     <string name="a11y_today_summary_many">Today\'s summary, %d models analysed</string>
     <string name="a11y_temp_max_label">Max temperature</string>

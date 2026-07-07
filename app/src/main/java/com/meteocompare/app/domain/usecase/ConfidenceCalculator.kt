@@ -434,7 +434,7 @@ class ConfidenceCalculator @Inject constructor(
         forecast: CityForecast,
         horizonHours: Int,
         thresholds: Thresholds,
-        extractor: (com.meteocompare.app.domain.model.ForecastSeries, Int) -> Double?
+        extractor: (ForecastSeries, Int) -> Double?
     ): List<HourlyConfidenceBand> {
         val indexedByModel: Map<WeatherModel, Map<Instant, Double>> =
             forecast.seriesByModel.mapValues { (_, series) ->

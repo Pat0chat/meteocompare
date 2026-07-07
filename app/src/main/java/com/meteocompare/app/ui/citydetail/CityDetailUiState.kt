@@ -44,7 +44,6 @@ sealed interface CityDetailUiState {
          * modèle n'a la variable, UI affiche le placeholder.
          */
         val hourlyWindBands: List<HourlyConfidenceBand> = emptyList(),
-        val currentTemp: Double?,
         val currentCondition: WeatherCondition? = null,
         val currentCloudCover: Int? = null,
         val dailyConditions: List<DayConditionsRow> = emptyList(),

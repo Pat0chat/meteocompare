@@ -1,8 +1,4 @@
 TODO
 ----
 
-- Améliorer qualité du code, clean code, remove useless / dead code
-- Vérifier que tous les tests sont présents, en ajouter si besoin
 - Optimiser les requetes et le nombre de requetes ?
-- Augmenter légèrement la hauteur du graphe de confidence.
-- Dans le graphe de confidence, la température moyenne max est rouge, la température min est bleu, la précipitation moyenne est bleu, le vent moyen est jaune

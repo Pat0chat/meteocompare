@@ -2,8 +2,10 @@ package com.meteocompare.app.widget
 
 import android.content.Context
 import com.meteocompare.app.core.network.ApiResult
+import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.WeatherCondition
+import com.meteocompare.app.domain.usecase.ConfidenceCalculator
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
@@ -419,9 +421,9 @@ private fun buildDailyForecasts(
  * unité que l'app pour continuité perceptuelle.
  */
 private fun buildConfidenceStrip(
-    forecast: com.meteocompare.app.domain.model.CityForecast,
+    forecast: CityForecast,
     mode: ForecastMode,
-    calc: com.meteocompare.app.domain.usecase.ConfidenceCalculator
+    calc: ConfidenceCalculator
 ): WidgetConfidenceStrip? {
     val bands = when (mode) {
         ForecastMode.CONFIDENCE_TEMPERATURE -> calc.hourlyTemperatureConfidence(forecast)

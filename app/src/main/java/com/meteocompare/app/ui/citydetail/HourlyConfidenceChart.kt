@@ -65,6 +65,13 @@ private val ChartLeftAxisPad = 40.dp
 private val ChartRightAxisPad = 8.dp
 private val ChartContentStart = ChartCanvasPadding + ChartLeftAxisPad
 private val ChartContentEnd = ChartCanvasPadding + ChartRightAxisPad
+/**
+ * Hauteur du canevas de dessin. Bumpée à 300 dp (vs 260 précédemment) pour
+ * donner plus d'amplitude verticale à la bande — utile pour distinguer les
+ * traits pointillés "normale 10 ans" (max + min en T°) qui sont proches à
+ * l'échelle du chart et qui pouvaient se confondre visuellement.
+ */
+private val ChartCanvasHeight = 300.dp
 
 // ─── Bornes du zoom ────────────────────────────────────────────────────────
 private const val MIN_VIEW_SPAN = 0.02f
@@ -177,7 +184,7 @@ fun HourlyConfidenceChart(
     modifier: Modifier = Modifier
 ) {
     if (bands.size < 2) {
-        Box(modifier = modifier.height(260.dp), contentAlignment = Alignment.Center) {
+        Box(modifier = modifier.height(ChartCanvasHeight), contentAlignment = Alignment.Center) {
             Text(
                 stringResource(R.string.chart_not_enough_data),
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -190,7 +197,6 @@ fun HourlyConfidenceChart(
     val onSurface = MaterialTheme.colorScheme.onSurfaceVariant
     val gridColor = MaterialTheme.colorScheme.outlineVariant
     val primary = MaterialTheme.colorScheme.primary
-    val normalsColor = MaterialTheme.colorScheme.tertiary
     val textMeasurer = rememberTextMeasurer()
     val labelStyle = TextStyle(color = onSurface, fontSize = 10.sp)
 
@@ -201,50 +207,64 @@ fun HourlyConfidenceChart(
     val bandFillAlpha = if (isDarkTheme) 0.40f else 0.28f
     val timelineStripAlpha = if (isDarkTheme) 0.85f else 0.7f
 
+    // Palette dédiée aux traits pointillés "normale 10 ans" — sémantique
+    // per-métrique (rouge = chaud, bleu = froid/humide, jaune = vent). Les
+    // couleurs sont sélectionnées par [normalsPalette] pour rester lisibles
+    // sur les deux thèmes (variantes brighter en dark mode).
+    val normalsPalette = normalsPalette(isDarkTheme)
+
     // Bornes calculées
     val firstTs = bands.first().timestamp
     val lastTs = bands.last().timestamp
     val totalSeconds = Duration.between(firstTs, lastTs).seconds.coerceAtLeast(1L)
 
     // ─── Bornes Y — intègrent les normales quand présentes ────────────────
-    // Sinon un jour très pluvieux/venteux dans les normales sortirait de la
-    // fenêtre visible, invisible pour l'utilisateur. On étend les bornes pour
-    // que les traits pointillés restent toujours à l'écran.
-    val allValues = mutableListOf<Double>()
-    bands.forEach {
-        allValues += it.minValue
-        allValues += it.maxValue
-    }
-    // Ajoute les valeurs des normales couvertes par la fenêtre du chart
-    if (normals != null) {
-        val datesInRange = bands
-            .map { it.timestamp.atZone(zone).toLocalDate() }
-            .distinct()
-        datesInRange.forEach { date ->
-            normals[DayNormals.key(date.monthValue, date.dayOfMonth)]?.let { n ->
-                when (metric) {
-                    ConfidenceMetric.TEMPERATURE -> {
-                        allValues += n.tempMinNormal
-                        allValues += n.tempMaxNormal
+    // Mémorisées avec `remember(bands, metric, normals, zone)` : le calcul
+    // itère toutes les bandes (~168 items) + tous les jours-de-l'année
+    // couverts, chaque recomposition (theme swap, zoom, resize) refaisait
+    // ~500 additions inutilement. La clé de dépendance capture précisément
+    // les inputs qui changent la valeur, rien de plus.
+    val (yMin, yMax) = remember(bands, metric, normals, zone) {
+        // Pour la précipitation, le min est toujours 0 — on force la borne
+        // basse à 0 pour que la bande touche le sol (visuellement plus
+        // naturel : pas de pluie = ligne à 0). Idem pour le vent (jamais
+        // négatif).
+        val forceZeroMin = metric == ConfidenceMetric.PRECIPITATION ||
+            metric == ConfidenceMetric.WIND
+
+        val allValues = ArrayList<Double>(bands.size * 2 + 16)
+        bands.forEach {
+            allValues += it.minValue
+            allValues += it.maxValue
+        }
+        // Sinon un jour très pluvieux/venteux dans les normales sortirait de
+        // la fenêtre visible ; on étend les bornes pour garder les traits
+        // pointillés à l'écran.
+        if (normals != null) {
+            val datesInRange = bands
+                .map { it.timestamp.atZone(zone).toLocalDate() }
+                .distinct()
+            datesInRange.forEach { date ->
+                normals[DayNormals.key(date.monthValue, date.dayOfMonth)]?.let { n ->
+                    when (metric) {
+                        ConfidenceMetric.TEMPERATURE -> {
+                            allValues += n.tempMinNormal
+                            allValues += n.tempMaxNormal
+                        }
+                        ConfidenceMetric.PRECIPITATION ->
+                            n.precipMeanNormal?.let { allValues += it }
+                        ConfidenceMetric.WIND ->
+                            n.windMeanNormal?.let { allValues += it }
                     }
-                    ConfidenceMetric.PRECIPITATION ->
-                        n.precipMeanNormal?.let { allValues += it }
-                    ConfidenceMetric.WIND ->
-                        n.windMeanNormal?.let { allValues += it }
                 }
             }
         }
+        val rawMin = allValues.min()
+        val rawMax = allValues.max()
+        val yMinComputed = if (forceZeroMin) 0f else floor(rawMin).toFloat() - 1f
+        val yMaxComputed = ceil(rawMax).toFloat() + 1f
+        yMinComputed to yMaxComputed
     }
-
-    // Pour la précipitation, le min est toujours 0 — on force la borne basse
-    // à 0 pour que la bande touche le sol (visuellement plus naturel : pas de
-    // pluie = ligne à 0). Idem pour le vent (jamais négatif).
-    val forceZeroMin = metric == ConfidenceMetric.PRECIPITATION ||
-        metric == ConfidenceMetric.WIND
-    val rawMin = allValues.min()
-    val rawMax = allValues.max()
-    val yMin = if (forceZeroMin) 0f else floor(rawMin).toFloat() - 1f
-    val yMax = ceil(rawMax).toFloat() + 1f
 
     // ─── État de zoom ──────────────────────────────────────────────────────
     var viewStart by rememberSaveable { mutableFloatStateOf(0f) }
@@ -264,12 +284,6 @@ fun HourlyConfidenceChart(
     }
     val a11yZoomedPrefix = stringResource(R.string.chart_zoom_a11y_zoomed)
     val a11yDescription = if (isZoomed) "$a11yZoomedPrefix. $a11yBase" else a11yBase
-
-    val unit = when (metric) {
-        ConfidenceMetric.TEMPERATURE -> "°"
-        ConfidenceMetric.PRECIPITATION -> " mm"
-        ConfidenceMetric.WIND -> " km/h"
-    }
 
     Column(
         modifier = modifier
@@ -307,7 +321,7 @@ fun HourlyConfidenceChart(
         Canvas(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(260.dp)
+                .height(ChartCanvasHeight)
                 .padding(ChartCanvasPadding)
                 .pointerInput(bands, totalSeconds) {
                     val leftPadPx = ChartLeftAxisPad.toPx()
@@ -499,7 +513,7 @@ fun HourlyConfidenceChart(
                     yFor = ::yFor,
                     chartLeft = chartLeft,
                     chartRight = chartRight,
-                    normalsColor = normalsColor
+                    palette = normalsPalette
                 )
             }
 
@@ -523,7 +537,7 @@ fun HourlyConfidenceChart(
         // l'utilisateur en promettant une donnée absente du cache).
         val hasNormals = normals != null && hasNormalsForMetric(bands, metric, normals, zone)
         if (hasNormals) {
-            NormalsLegend(metric = metric, normalsColor = normalsColor, unit = unit)
+            NormalsLegend(metric = metric, palette = normalsPalette)
         }
 
         ConfidenceTimeline(bands = bands, stripAlpha = timelineStripAlpha)
@@ -539,10 +553,20 @@ fun HourlyConfidenceChart(
  * interpolation linéaire entre jours, qui ferait croire à une variation
  * intra-journalière alors que c'est purement du day-of-year.
  *
- * Pour TEMPERATURE : deux traits (min et max) rendus avec la même couleur
- * mais des dashes différents — max en dash long/court, min en dash court
- * uniforme — pour rester distinguables même sans légende visible.
- * Pour PRECIPITATION et WIND : un seul trait (moyenne).
+ * ─── Codage couleur sémantique ─────────────────────────────────────────
+ *  - TEMPERATURE : ROUGE pour la max journalière (référence "chaud"), BLEU
+ *    pour la min journalière (référence "froid"). Convention grand public
+ *    ("bleu = froid, rouge = chaud") — pas besoin de légende pour deviner.
+ *  - PRECIPITATION : BLEU (même palette que la min température — l'eau est
+ *    bleue partout dans la culture visuelle météo).
+ *  - WIND : JAUNE/AMBRE — assigné par contraste avec les deux autres (bleu
+ *    et rouge sont pris), et parce que les cartes vent utilisent souvent le
+ *    jaune pour les vitesses moyennes-élevées (au-dessus du fond bleu).
+ *
+ * Les couleurs sont piochées dans [NormalsPalette], calibrée pour rester
+ * lisible en dark ET light theme (variantes brighter en dark). Les dashes
+ * varient aussi (long pour max, court pour min en T°) — redondance
+ * visuelle bienvenue pour daltoniens rouge-vert.
  */
 private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawNormalsOverlay(
     bands: List<HourlyConfidenceBand>,
@@ -553,7 +577,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawNormalsOverlay(
     yFor: (Double) -> Float,
     chartLeft: Float,
     chartRight: Float,
-    normalsColor: Color
+    palette: NormalsPalette
 ) {
     val strokeWidth = 1.5.dp.toPx()
     val dashLong = PathEffect.dashPathEffect(
@@ -580,7 +604,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawNormalsOverlay(
                         ConfidenceMetric.TEMPERATURE -> {
                             val yMax = yFor(normal.tempMaxNormal)
                             drawLine(
-                                color = normalsColor,
+                                color = palette.tempMax,
                                 start = Offset(startX, yMax),
                                 end = Offset(endX, yMax),
                                 strokeWidth = strokeWidth,
@@ -588,7 +612,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawNormalsOverlay(
                             )
                             val yMin = yFor(normal.tempMinNormal)
                             drawLine(
-                                color = normalsColor,
+                                color = palette.tempMin,
                                 start = Offset(startX, yMin),
                                 end = Offset(endX, yMin),
                                 strokeWidth = strokeWidth,
@@ -599,7 +623,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawNormalsOverlay(
                             normal.precipMeanNormal?.let { p ->
                                 val y = yFor(p)
                                 drawLine(
-                                    color = normalsColor,
+                                    color = palette.precip,
                                     start = Offset(startX, y),
                                     end = Offset(endX, y),
                                     strokeWidth = strokeWidth,
@@ -611,7 +635,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawNormalsOverlay(
                             normal.windMeanNormal?.let { w ->
                                 val y = yFor(w)
                                 drawLine(
-                                    color = normalsColor,
+                                    color = palette.wind,
                                     start = Offset(startX, y),
                                     end = Offset(endX, y),
                                     strokeWidth = strokeWidth,
@@ -654,28 +678,114 @@ private fun hasNormalsForMetric(
  * On la rend seulement quand des normales sont effectivement affichées
  * (voir [hasNormalsForMetric]).
  */
-@Suppress("UNUSED_PARAMETER")
+/**
+ * Palette de couleurs des traits pointillés "normale 10 ans" du chart.
+ *
+ * Assignation sémantique par métrique — voir le docblock de
+ * [drawNormalsOverlay] pour la justification :
+ *   - `tempMax` = rouge (chaud)
+ *   - `tempMin` = bleu (froid)
+ *   - `precip`  = bleu (eau)
+ *   - `wind`    = jaune/ambre (contraste)
+ *
+ * Fabriquée par [normalsPalette] qui prend en compte le thème (dark/light)
+ * pour garder un contraste suffisant sur les deux fonds.
+ */
+private data class NormalsPalette(
+    val tempMax: Color,
+    val tempMin: Color,
+    val precip: Color,
+    val wind: Color
+)
+
+/**
+ * Palette calibrée par thème.
+ *
+ *   - Light : teintes 600-800 des palettes Material — assez saturées pour
+ *     ressortir sur un fond clair (surface Material light).
+ *   - Dark : teintes 300-400 — versions plus claires pour garder le
+ *     contraste sur fond sombre. Sinon un rouge 700 sur du gris #121212
+ *     deviendrait indistinguable.
+ *
+ * Les valeurs bleu (tempMin et precip) sont VOLONTAIREMENT identiques dans
+ * chaque thème — c'est cohérent avec la spec ("min = bleu, précip = bleu")
+ * et évite d'introduire deux teintes bleues qui se confondraient à l'écran.
+ */
+@Composable
+private fun normalsPalette(isDarkTheme: Boolean): NormalsPalette = remember(isDarkTheme) {
+    if (isDarkTheme) {
+        NormalsPalette(
+            tempMax = Color(0xFFEF5350),  // Red 400 — visible sur fond sombre
+            tempMin = Color(0xFF42A5F5),  // Blue 400
+            precip = Color(0xFF42A5F5),   // Blue 400 (identique tempMin)
+            wind = Color(0xFFFFCA28)      // Amber 400 — bien distinct du rouge/bleu
+        )
+    } else {
+        NormalsPalette(
+            tempMax = Color(0xFFD32F2F),  // Red 700 — bon contraste sur fond clair
+            tempMin = Color(0xFF1976D2),  // Blue 700
+            precip = Color(0xFF1976D2),   // Blue 700
+            wind = Color(0xFFF57C00)      // Orange 700 — sur fond clair l'ambre pur
+            // manque de contraste ; on choisit un orange plus profond, encore
+            // visuellement du côté "jaune-orange" (respecte la spec "vent = jaune").
+        )
+    }
+}
+
+/**
+ * Légende compacte des normales 10 ans — un tiret coloré + label par trait
+ * effectivement rendu :
+ *   - TEMPERATURE : deux lignes (max rouge + min bleu)
+ *   - PRECIPITATION / WIND : une seule ligne
+ *
+ * Rendue uniquement quand des normales sont effectivement affichées (voir
+ * [hasNormalsForMetric]) — évite de mentir à l'utilisateur en promettant
+ * une donnée absente du cache pré-feature.
+ */
 @Composable
 private fun NormalsLegend(
     metric: ConfidenceMetric,
-    normalsColor: Color,
-    unit: String
+    palette: NormalsPalette
 ) {
-    val label = when (metric) {
-        ConfidenceMetric.TEMPERATURE -> stringResource(R.string.chart_normals_legend_temp)
-        ConfidenceMetric.PRECIPITATION -> stringResource(R.string.chart_normals_legend_precip)
-        ConfidenceMetric.WIND -> stringResource(R.string.chart_normals_legend_wind)
-    }
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+    ) {
+        when (metric) {
+            ConfidenceMetric.TEMPERATURE -> {
+                NormalsLegendRow(
+                    color = palette.tempMax,
+                    label = stringResource(R.string.chart_normals_legend_temp_max)
+                )
+                NormalsLegendRow(
+                    color = palette.tempMin,
+                    label = stringResource(R.string.chart_normals_legend_temp_min)
+                )
+            }
+            ConfidenceMetric.PRECIPITATION -> {
+                NormalsLegendRow(
+                    color = palette.precip,
+                    label = stringResource(R.string.chart_normals_legend_precip)
+                )
+            }
+            ConfidenceMetric.WIND -> {
+                NormalsLegendRow(
+                    color = palette.wind,
+                    label = stringResource(R.string.chart_normals_legend_wind)
+                )
+            }
+        }
+    }
+}
+
+/** Une ligne de la légende : petit tiret pointillé de couleur + label. */
+@Composable
+private fun NormalsLegendRow(color: Color, label: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Petit tiret pointillé de démonstration (16dp × 2dp) — matérialise
-        // visuellement le style de trait utilisé sur le chart, plus explicite
-        // qu'un simple dot coloré (les traits pointillés se distinguent des
-        // pleins uniquement par leur pattern, pas leur couleur).
         Canvas(
             modifier = Modifier
                 .padding(end = 8.dp)
@@ -683,7 +793,7 @@ private fun NormalsLegend(
                 .height(2.dp)
         ) {
             drawLine(
-                color = normalsColor,
+                color = color,
                 start = Offset(0f, size.height / 2),
                 end = Offset(size.width, size.height / 2),
                 strokeWidth = 1.5.dp.toPx(),

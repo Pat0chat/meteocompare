@@ -84,7 +84,8 @@
     <string name="model_sort_finesse">Finesse</string>
 
     <!-- Légende du trait pointillé "normale 10 ans" sur les graphes confidence -->
-    <string name="chart_normals_legend_temp">Normale 10 ans (min · max journaliers)</string>
+    <string name="chart_normals_legend_temp_max">Normale max 10 ans</string>
+    <string name="chart_normals_legend_temp_min">Normale min 10 ans</string>
     <string name="chart_normals_legend_precip">Pluie moyenne 10 ans</string>
     <string name="chart_normals_legend_wind">Vent moyen 10 ans</string>
 
@@ -120,12 +121,6 @@
     <!-- Chart messages -->
     <string name="chart_no_data">Aucune donnée à afficher</string>
     <string name="chart_not_enough_data">Pas assez de données pour calculer une bande</string>
-    <string name="chart_no_model_selected">Aucun modèle sélectionné.\nTouchez un modèle dans la légende ci-dessous pour l\'afficher.</string>
-    <string name="chart_a11y_no_model">Aucun modèle sélectionné.</string>
-    <string name="chart_legend_normal_max">Normale max 10 ans</string>
-    <string name="chart_legend_normal_min">Normale min 10 ans</string>
-    <string name="chart_legend_envelope">Ligne pleine = max du modèle · zone teintée = plage min–max</string>
-    <string name="chart_legend_toggle_hint">Touchez un modèle dans la légende pour le masquer/réafficher</string>
     <string name="chart_confidence_band_title">Plage des prévisions inter-modèles</string>
     <string name="chart_confidence_band_desc">Plus la bande s\'élargit, plus les modèles divergent. La couleur indique le niveau de confiance.</string>
     <string name="chart_confidence_now">Confiance maintenant : %d%%</string>
@@ -207,8 +202,6 @@
     <string name="a11y_divergence_strong">qui augmente fortement</string>
     <string name="a11y_divergence_increasing">qui augmente</string>
     <string name="a11y_divergence_stable">globalement stable</string>
-    <string name="a11y_multi_model_chart_one">Graphique de comparaison des températures sur %1$d jours, %2$d modèle affiché.</string>
-    <string name="a11y_multi_model_chart_many">Graphique de comparaison des températures sur %1$d jours, %2$d modèles affichés.</string>
     <string name="a11y_today_summary_one">Résumé d\'aujourd\'hui, %d modèle analysé</string>
     <string name="a11y_today_summary_many">Résumé d\'aujourd\'hui, %d modèles analysés</string>
     <string name="a11y_temp_max_label">Température max</string>

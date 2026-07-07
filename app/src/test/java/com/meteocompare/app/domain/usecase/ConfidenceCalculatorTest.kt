@@ -360,6 +360,180 @@ class ConfidenceCalculatorTest {
         bands.forEach { assertEquals(2, it.modelCount) }
     }
 
+    // ──────────────────── Précipitation horaire ────────────────────
+
+    @Test
+    fun `hourly precip - modèles convergent à 0mm - confiance max`() {
+        val t0 = java.time.Instant.parse("2026-06-23T00:00:00Z")
+        val forecast = buildHourlyPrecipForecast(
+            timestamps = listOf(t0, t0.plusSeconds(3600)),
+            precipByModel = mapOf(
+                WeatherModel.AROME_FRANCE_HD to listOf(0.0, 0.0),
+                WeatherModel.ICON_EU to listOf(0.0, 0.0),
+                WeatherModel.GFS to listOf(0.0, 0.0)
+            )
+        )
+
+        val bands = calculator.hourlyPrecipitationConfidence(forecast)
+        assertEquals(2, bands.size)
+        // Convergence parfaite → confiance élevée (~100). Seuils PRECIP moins
+        // stricts que TEMP mais 0 == 0 == 0 doit rester au max.
+        bands.forEach {
+            assertEquals(0.0, it.meanValue, 0.001)
+            assertEquals(100, it.percent)
+        }
+    }
+
+    @Test
+    fun `hourly precip - désaccord entre modèles - confiance faible`() {
+        val t0 = java.time.Instant.parse("2026-06-23T00:00:00Z")
+        val forecast = buildHourlyPrecipForecast(
+            timestamps = listOf(t0),
+            precipByModel = mapOf(
+                // Un modèle voit gros orage, les autres voient sec — cas
+                // convectif classique.
+                WeatherModel.AROME_FRANCE_HD to listOf(0.0),
+                WeatherModel.ICON_EU to listOf(0.0),
+                WeatherModel.GFS to listOf(15.0)
+            )
+        )
+
+        val bands = calculator.hourlyPrecipitationConfidence(forecast)
+        assertEquals(1, bands.size)
+        // Fort désaccord → confiance nettement dégradée
+        assertTrue(
+            "Divergence forte doit dégrader la confiance : ${bands[0].percent}%",
+            bands[0].percent < 80
+        )
+        assertEquals(0.0, bands[0].minValue, 0.001)
+        assertEquals(15.0, bands[0].maxValue, 0.001)
+    }
+
+    @Test
+    fun `hourly precip - modèle sans donnée précipitation - ignoré`() {
+        val t0 = java.time.Instant.parse("2026-06-23T00:00:00Z")
+        // Un modèle sans variable précipitation. Ne doit pas crasher — le null
+        // filter du helper doit l'exclure proprement.
+        val aromeSeries = ForecastSeries(
+            model = WeatherModel.AROME_FRANCE_HD,
+            hourly = HourlyForecast(
+                timestamps = listOf(t0),
+                temperature2m = listOf(20.0),
+                precipitation = listOf(null),   // pas de donnée pluie
+                windSpeed10m = listOf(10.0)
+            ),
+            daily = emptyDaily()
+        )
+        val gfsSeries = ForecastSeries(
+            model = WeatherModel.GFS,
+            hourly = HourlyForecast(
+                timestamps = listOf(t0),
+                temperature2m = listOf(22.0),
+                precipitation = listOf(2.0),
+                windSpeed10m = listOf(12.0)
+            ),
+            daily = emptyDaily()
+        )
+        val forecast = CityForecast(
+            city = paris,
+            seriesByModel = mapOf(
+                WeatherModel.AROME_FRANCE_HD to aromeSeries,
+                WeatherModel.GFS to gfsSeries
+            )
+        )
+
+        val bands = calculator.hourlyPrecipitationConfidence(forecast)
+        // Un seul modèle avec la variable → pas de bande (règle : min 2 modèles)
+        assertEquals(0, bands.size)
+    }
+
+    // ──────────────────── Vent horaire ────────────────────
+
+    @Test
+    fun `hourly wind - modèles convergent - confiance max`() {
+        val t0 = java.time.Instant.parse("2026-06-23T00:00:00Z")
+        val forecast = buildHourlyWindForecast(
+            timestamps = listOf(t0, t0.plusSeconds(3600)),
+            windByModel = mapOf(
+                WeatherModel.AROME_FRANCE_HD to listOf(15.0, 15.0),
+                WeatherModel.ICON_EU to listOf(15.0, 15.0),
+                WeatherModel.GFS to listOf(15.0, 15.0)
+            )
+        )
+
+        val bands = calculator.hourlyWindConfidence(forecast)
+        assertEquals(2, bands.size)
+        bands.forEach {
+            assertEquals(15.0, it.meanValue, 0.001)
+            assertEquals(100, it.percent)
+        }
+    }
+
+    @Test
+    fun `hourly wind - divergence progressive avec l'horizon`() {
+        val t0 = java.time.Instant.parse("2026-06-23T00:00:00Z")
+        val forecast = buildHourlyWindForecast(
+            timestamps = listOf(t0, t0.plusSeconds(3600), t0.plusSeconds(7200)),
+            windByModel = mapOf(
+                // Spread 0 initial (tous à 15), puis divergence
+                WeatherModel.AROME_FRANCE_HD to listOf(15.0, 14.0, 12.0),
+                WeatherModel.ICON_EU to listOf(15.0, 16.0, 18.0),
+                WeatherModel.GFS to listOf(15.0, 17.0, 22.0)
+            )
+        )
+
+        val bands = calculator.hourlyWindConfidence(forecast)
+        assertEquals(3, bands.size)
+        // Spread croissant
+        assertTrue(bands[0].spread < bands[1].spread && bands[1].spread < bands[2].spread)
+        // Confiance décroissante
+        assertTrue(bands[0].percent >= bands[1].percent && bands[1].percent >= bands[2].percent)
+    }
+
+    private fun buildHourlyPrecipForecast(
+        timestamps: List<java.time.Instant>,
+        precipByModel: Map<WeatherModel, List<Double>>
+    ): CityForecast = buildHourlyMetricForecast(
+        timestamps = timestamps,
+        byModel = precipByModel,
+        picker = HourlyMetric.PRECIP
+    )
+
+    private fun buildHourlyWindForecast(
+        timestamps: List<java.time.Instant>,
+        windByModel: Map<WeatherModel, List<Double>>
+    ): CityForecast = buildHourlyMetricForecast(
+        timestamps = timestamps,
+        byModel = windByModel,
+        picker = HourlyMetric.WIND
+    )
+
+    private enum class HourlyMetric { PRECIP, WIND }
+
+    private fun buildHourlyMetricForecast(
+        timestamps: List<java.time.Instant>,
+        byModel: Map<WeatherModel, List<Double>>,
+        picker: HourlyMetric
+    ): CityForecast {
+        val series = byModel.mapValues { (model, values) ->
+            ForecastSeries(
+                model = model,
+                hourly = HourlyForecast(
+                    timestamps = timestamps,
+                    // Les variables non testées sont neutres pour ne pas
+                    // interférer avec le calcul de la bande demandée.
+                    temperature2m = List(values.size) { 20.0 },
+                    precipitation = if (picker == HourlyMetric.PRECIP) values
+                        else List(values.size) { 0.0 },
+                    windSpeed10m = if (picker == HourlyMetric.WIND) values
+                        else List(values.size) { 10.0 }
+                ),
+                daily = emptyDaily()
+            )
+        }
+        return CityForecast(city = paris, seriesByModel = series)
+    }
+
     private fun emptyDaily() = DailyForecast(
         emptyList(), emptyList(), emptyList(), emptyList(), emptyList()
     )

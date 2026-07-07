@@ -13,6 +13,30 @@ interface OpenMeteoApi {
      * un `models` différent — cela évite de devoir parser les suffixes
      * comme `temperature_2m_icon_seamless`.
      *
+     * ─── Piste d'optimisation future : batching multi-modèles ───────────
+     * Open-Meteo accepte `&models=arome_france_hd,arpege_europe,icon_eu`
+     * dans une seule requête. Cela permettrait de passer de N requêtes
+     * HTTP à 1 seule (avec N modèles activés dans les préférences).
+     *
+     * Bénéfices attendus :
+     *   - Économie de handshake TLS (1 vs N) → gain latence perçue
+     *   - Économie batterie mobile (moins de wakeup radio)
+     *   - Moins de code de retry/timeout à orchestrer côté repository
+     *
+     * Coûts du refactor (raison pour laquelle ce n'est pas fait ici) :
+     *   - Le response DTO devient dynamique : `temperature_2m_arome_france_hd`,
+     *     `temperature_2m_arpege_europe`, etc. → parser sur mesure (JsonElement
+     *     tree + suffix parsing) au lieu du @Serializable auto de kotlinx.
+     *   - Perte de granularité sur les erreurs : si un modèle est indisponible,
+     *     Open-Meteo retourne quand même 200 avec des NaN → il faut détecter
+     *     ces NaN par modèle pour reporter proprement l'échec.
+     *   - Change le contrat public de [ForecastRepository] (retour actuel :
+     *     N flows indépendants avec succès/échec individuels).
+     *
+     * À considérer si le nombre médian de modèles activés dépasse 8, ou si
+     * les métriques UX remontent une latence perçue élevée sur les cellulaires
+     * lents (3G/EDGE).
+     *
      * Doc : https://open-meteo.com/en/docs
      */
     @GET("v1/forecast")

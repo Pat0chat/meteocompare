@@ -76,13 +76,17 @@ import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.ConfidenceScore
 import com.meteocompare.app.domain.model.DailyForecast
 import com.meteocompare.app.domain.model.DayConfidence
+import com.meteocompare.app.domain.model.DayNormals
+import com.meteocompare.app.domain.model.HourlyConfidenceBand
 import com.meteocompare.app.domain.model.HourlyForecast
 import com.meteocompare.app.domain.model.PrecipitationConfidence
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
+import com.meteocompare.app.domain.usecase.DayConditionsRow
 import com.meteocompare.app.ui.components.WeatherIconDecorative
 import com.meteocompare.app.ui.components.semanticTint
 import com.meteocompare.app.ui.theme.confidenceColor
+import java.time.Instant
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
 
@@ -263,15 +267,15 @@ private fun ErrorView(message: String, onRetry: () -> Unit, padding: PaddingValu
 private fun LoadedView(
     forecast: CityForecast,
     weekly: List<DayConfidence>,
-    hourlyBands: List<com.meteocompare.app.domain.model.HourlyConfidenceBand>,
-    hourlyPrecipBands: List<com.meteocompare.app.domain.model.HourlyConfidenceBand>,
-    hourlyWindBands: List<com.meteocompare.app.domain.model.HourlyConfidenceBand>,
+    hourlyBands: List<HourlyConfidenceBand>,
+    hourlyPrecipBands: List<HourlyConfidenceBand>,
+    hourlyWindBands: List<HourlyConfidenceBand>,
     currentTemp: Double?,
     currentCondition: WeatherCondition?,
     currentCloudCover: Int?,
-    dailyConditions: List<com.meteocompare.app.domain.usecase.DayConditionsRow>,
-    normals: Map<Int, com.meteocompare.app.domain.model.DayNormals>?,
-    fetchedAt: java.time.Instant?,
+    dailyConditions: List<DayConditionsRow>,
+    normals: Map<Int, DayNormals>?,
+    fetchedAt: Instant?,
     padding: PaddingValues,
     onConfidenceClick: (isoDate: String) -> Unit = {}
 ) {
@@ -384,8 +388,8 @@ private fun LoadedView(
  */
 private fun androidx.compose.foundation.lazy.LazyListScope.dailyItems(
     forecast: CityForecast,
-    dailyConditions: List<com.meteocompare.app.domain.usecase.DayConditionsRow>,
-    normals: Map<Int, com.meteocompare.app.domain.model.DayNormals>?
+    dailyConditions: List<DayConditionsRow>,
+    normals: Map<Int, DayNormals>?
 ) {
     // Matrice Jour × Modèle des conditions météo. On ne rend pas le bloc si
     // aucune donnée — typiquement un cache pré-feature sans weather_code.
@@ -710,7 +714,7 @@ internal fun TodaySummaryCard(
     currentTemp: Double?,
     currentCondition: WeatherCondition? = null,
     currentCloudCover: Int? = null,
-    fetchedAt: java.time.Instant? = null,
+    fetchedAt: Instant? = null,
     onConfidenceClick: () -> Unit = {}
 ) {
     // Description unifiée pour TalkBack qui résume toutes les valeurs.
