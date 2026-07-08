@@ -1,38 +1,40 @@
 [versions]
-agp = "8.10.0"
-kotlin = "2.1.20"
-ksp = "2.1.20-1.0.32"
+agp = "8.13.2"
+kotlin = "2.3.0"
+ksp = "2.3.9"
 
 minSdk = "27"
-targetSdk = "35"
-compileSdk = "35"
+targetSdk = "36"
+compileSdk = "36"
 
-coreKtx = "1.15.0"
+coreKtx = "1.17.0"
 splashscreen = "1.0.1"
-appcompat = "1.7.0"
-lifecycle = "2.8.7"
-activityCompose = "1.9.3"
+appcompat = "1.7.1"
+lifecycle = "2.9.4"
+activityCompose = "1.11.0"
 composeBom = "2026.06.00"
-navCompose = "2.8.5"
+navCompose = "2.9.6"
 
-hilt = "2.55"
+hilt = "2.58"
 hiltNav = "1.2.0"
 
-retrofit = "2.11.0"
-okhttp = "4.12.0"
-kotlinxSerialization = "1.7.3"
+retrofit = "3.0.0"
+okhttp = "5.4.0"
+kotlinxSerialization = "1.9.0"
 
-coroutines = "1.9.0"
+coroutines = "1.11.0"
 
-datastore = "1.1.1"
+datastore = "1.2.1"
 
-room = "2.6.1"
+room = "2.8.4"
+work = "2.11.2"
+glance = "1.1.1"
 
 junit = "4.13.2"
-mockk = "1.13.13"
-turbine = "1.2.0"
-androidxTestExt = "1.2.1"
-espresso = "3.6.1"
+mockk = "1.14.11"
+turbine = "1.2.1"
+androidxTestExt = "1.3.0"
+espresso = "3.7.0"
 
 [libraries]
 # AndroidX core
@@ -77,6 +79,11 @@ androidx-datastore-preferences = { module = "androidx.datastore:datastore-prefer
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
 androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
+
+# Background work / widgets
+androidx-work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "work" }
+androidx-glance-appwidget = { module = "androidx.glance:glance-appwidget", version.ref = "glance" }
+androidx-glance-material3 = { module = "androidx.glance:glance-material3", version.ref = "glance" }
 
 # Tests
 junit = { module = "junit:junit", version.ref = "junit" }

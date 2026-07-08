@@ -36,7 +36,8 @@ L'app se concentre sur **les données brutes et l'incertitude** : au lieu d'agr�
 
 ## Stack technique
 
-- **Kotlin 2.1** + Coroutines + Flow
+- **Gradle 8.14** + **Android Gradle Plugin 8.13**
+- **Kotlin 2.3** + Coroutines + Flow
 - **Jetpack Compose** + Material 3 (couleurs dynamiques, typographie M3, formes)
 - **Hilt** pour l'injection de dépendances (via KSP)
 - **Retrofit + OkHttp + Kotlinx Serialization** pour la couche réseau
@@ -147,7 +148,7 @@ Un clic sur le badge de confiance (en haut à droite de la carte "Aujourd'hui") 
 
 1. Ouvrir le projet dans Android Studio.
 2. Sync Gradle (le wrapper sera téléchargé automatiquement la première fois).
-3. Lancer sur émulateur API 26+ ou device.
+3. Lancer sur émulateur API 27+ ou device.
 
 Aucune clé API n'est nécessaire — Open-Meteo est gratuit pour usage non commercial.
 
