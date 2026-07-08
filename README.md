@@ -214,11 +214,11 @@ Fait :
 - ✅ v0.4 — Toggle "par heure / par jour", zoom pincé sur la bande de confiance, badges probabilité de pluie et couverture nuageuse sous les icônes, direction du vent avec flèches downwind, indicateur "mis à jour il y a X", icône composite "partiellement nuageux" (soleil + nuage bi-color), titres du vent clarifiés ("moyenne à 10m" au lieu de "max" ambigu)
 - ✅ v0.5 — Nouvelles données (probabilité de pluie, couverture nuageuse, vent) et correction de bugs
 - ✅ v0.6 — Widget homescreen (Glance) redimensionnable 2×1 / 3×1 / 4×1 avec opacité de fond configurable et sélection de ville favorite ; reproduit un résumé compact de la TodaySummaryCard
+- ✅ v0.7 : Optimisation batterie et CPU pour l'application et widget (WorkManager pour le refresh widget, réduction des recomputes), upgrade de la stack, amélioration des widgets
 
-À venir :
+- À venir :
 
-- v0.7 : Optimisation batterie et CPU pour l'application et widget (WorkManager pour le refresh widget, réduction des recomputes)
-- v0.8 : Swipe entre villes favorites
+- v0.8 : Amélioration des widgets (langue FR/EN + UI), ajout widget 4x2 confidence, ajout graphe confidence pluie et vent, amélioration de la page settings, ajout nouveaux modèles
 - v0.9 : Historique de fiabilité des modèles (skill verification à partir des observations)
 
 ## Licence
