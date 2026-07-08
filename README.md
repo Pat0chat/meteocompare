@@ -227,17 +227,6 @@ Toutes les zones interactives ont des `contentDescription` lisibles par TalkBack
 
 Le module `ui/accessibility/A11yFormatter.kt` centralise les chaînes pour garder une terminologie cohérente.
 
-## CI/CD
-
-GitHub Actions configuré (`.github/workflows/android.yml`) :
-
-- Job `build` sur chaque push et PR : lint, tests unitaires, build APK debug.
-- Job `instrumented-tests` sur PR et `main` : tests d'instrumentation sur émulateur API 33.
-- Artifacts uploadés : APK debug (14 jours), rapports de tests (7 jours).
-- Symboles de débogage natifs (`native-debug-symbols.zip`) inclus dans le bundle release grâce à `ndk { debugSymbolLevel = "FULL" }` — évite le warning Play Console à chaque upload.
-
-Le cache Gradle est en lecture seule pour les branches non-`main` afin d'éviter la pollution croisée.
-
 ## Politique de confidentialité
 
 Le fichier [PRIVACY.md](PRIVACY.md) à la racine est conforme aux exigences Play Store : zéro collecte de données, déclaration explicite des permissions, des services tiers (Open-Meteo) et du stockage local.

@@ -1,1 +1,0 @@
-Compare 8 weather models (AROME, ARPEGE, ICON, GFS, ECMWF…) at a glance.
