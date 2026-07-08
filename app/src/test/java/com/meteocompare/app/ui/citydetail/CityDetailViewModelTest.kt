@@ -9,6 +9,7 @@ import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DailyForecast
 import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.HourlyForecast
+import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.repository.CityRepository
 import com.meteocompare.app.domain.repository.ClimateNormalsRepository
@@ -60,6 +61,7 @@ class CityDetailViewModelTest {
     private val paris = City("1", "Paris", country = "France", latitude = 48.85, longitude = 2.35)
     private val favoritesFlow = MutableStateFlow(listOf(paris))
     private val modelsFlow = MutableStateFlow(WeatherModel.MVP_SELECTION)
+    private val refreshIntervalFlow = MutableStateFlow(RefreshInterval.DEFAULT)
 
     private val cityRepo: CityRepository = mockk(relaxed = true) {
         coEvery { observeFavorites() } returns favoritesFlow
@@ -72,6 +74,12 @@ class CityDetailViewModelTest {
     }
     private val prefs: UserPreferencesRepository = mockk(relaxed = true) {
         coEvery { observeEnabledModels() } returns modelsFlow
+        // observeRefreshInterval() est appelé par loadInitial() via .first().
+        // Sans ce stub explicit, MockK relaxed retourne un flow VIDE et .first()
+        // lève NoSuchElementException. Un flow avec DEFAULT permet aux tests
+        // de passer sans changer leur comportement (DEFAULT = HOUR_1, non-MANUAL,
+        // donc maxCacheAgeMs = 3600000 — les tests fonctionnent avec cette valeur).
+        coEvery { observeRefreshInterval() } returns refreshIntervalFlow
     }
 
     // Context : on stub getString pour retourner des strings prévisibles.
@@ -100,7 +108,7 @@ class CityDetailViewModelTest {
         Dispatchers.setMain(dispatcher)
         // Par défaut, stream forecast ne fait rien (jamais terminé)
         coEvery {
-            forecastRepo.getCityForecastStream(any(), any(), any(), any())
+            forecastRepo.getCityForecastStream(any(), any(), any(), any(), any())
         } returns flow { /* hang */ }
     }
 
@@ -139,7 +147,7 @@ class CityDetailViewModelTest {
     fun `loadInitial - forecast en succès → Loaded`() = runTest(dispatcher) {
         val forecast = buildForecast(paris)
         coEvery {
-            forecastRepo.getCityForecastStream(eq(paris), any(), any(), any())
+            forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
         } returns flowOf(ApiResult.Success(forecast))
 
         val vm = buildViewModel()
@@ -156,7 +164,7 @@ class CityDetailViewModelTest {
     @Test
     fun `loadInitial - forecast en erreur sans cache → Error`() = runTest(dispatcher) {
         coEvery {
-            forecastRepo.getCityForecastStream(eq(paris), any(), any(), any())
+            forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
         } returns flowOf(ApiResult.Error(RuntimeException(), "Pas de connexion"))
 
         val vm = buildViewModel()
@@ -173,7 +181,7 @@ class CityDetailViewModelTest {
             // Stream qui émet d'abord Success(cache), puis Error(réseau)
             val cached = buildForecast(paris)
             coEvery {
-                forecastRepo.getCityForecastStream(eq(paris), any(), any(), any())
+                forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
             } returns flowOf(
                 ApiResult.Success(cached),
                 ApiResult.Error(RuntimeException(), "Pas de connexion")

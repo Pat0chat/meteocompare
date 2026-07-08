@@ -2,6 +2,7 @@ package com.meteocompare.app.widget
 
 import android.content.Context
 import com.meteocompare.app.core.network.ApiResult
+import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.WeatherCondition
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.flow.first
@@ -41,6 +42,15 @@ internal data class WidgetData(
      */
     val currentCloudCover: Int?,
     /**
+     * Vitesse du vent "maintenant" en km/h, agrégée entre modèles.
+     * Affichée par les layouts 4×1 et 4×2 dans la ligne extras. Toujours
+     * exposée quand disponible, sans seuil — un jour de vent nul est aussi
+     * un signal utile que 60 km/h. Null si aucun modèle ne fournit la
+     * variable à l'instant courant (rare : tous les modèles Open-Meteo
+     * l'exposent, mais robuste au cas d'un cache pré-feature).
+     */
+    val currentWindSpeedKmh: Double?,
+    /**
      * Prévision étendue affichée par le layout 4×2. Contient jusqu'à 4
      * items (heures ou jours selon la config utilisateur). Vide si le mode
      * 4×2 n'est pas utilisé ou si aucun modèle ne fournit assez de données.
@@ -49,9 +59,13 @@ internal data class WidgetData(
     val error: WidgetError?
 ) {
     companion object {
-        /** Placeholder "widget pas encore configuré". */
-        val NotConfigured = WidgetData(
-            cityName = null,
+        /**
+         * Constructeur d'états sans données (loading, erreur, non configuré) —
+         * seuls [cityName] et [error] varient, tout le reste est null.
+         * Évite la répétition de 8 champs `null` dans chaque cas d'erreur.
+         */
+        fun empty(cityName: String? = null, error: WidgetError): WidgetData = WidgetData(
+            cityName = cityName,
             currentTemp = null,
             currentCondition = null,
             tempMax = null,
@@ -60,24 +74,16 @@ internal data class WidgetData(
             precipMm = null,
             precipConfidencePct = null,
             currentCloudCover = null,
+            currentWindSpeedKmh = null,
             forecasts = emptyList(),
-            error = WidgetError.NotConfigured
+            error = error
         )
 
+        /** Placeholder "widget pas encore configuré". */
+        val NotConfigured = empty(error = WidgetError.NotConfigured)
+
         /** Placeholder "chargement en cours" — pas encore de données mais on est configuré. */
-        val Loading = WidgetData(
-            cityName = null,
-            currentTemp = null,
-            currentCondition = null,
-            tempMax = null,
-            tempMin = null,
-            confidencePct = null,
-            precipMm = null,
-            precipConfidencePct = null,
-            currentCloudCover = null,
-            forecasts = emptyList(),
-            error = WidgetError.Loading
-        )
+        val Loading = empty(error = WidgetError.Loading)
     }
 }
 
@@ -121,15 +127,25 @@ internal sealed class WidgetError {
  *
  * Étapes :
  *   1. Cherche la ville dans les favoris. Absente → CityNoLongerInFavorites.
- *   2. Fetch le forecast via la stream repository. `first()` : on prend la
- *      PREMIÈRE émission — cache si dispo, sinon réseau. Pas d'attente de la
- *      réémission "fresh" — le widget préfère montrer du contenu vite quitte
- *      à être un peu périmé, plutôt que rester blanc en attendant le réseau.
- *   3. Calcule les agrégats via ConfidenceCalculator (mêmes helpers que l'app).
+ *   2. Lit l'intervalle de rafraîchissement utilisateur et fetch le forecast
+ *      via la stream repository avec `maxCacheAgeMs` = cet intervalle.
+ *   3. `first()` : on prend la PREMIÈRE émission — cache si assez récent
+ *      (aucune requête réseau), sinon cache immédiat suivi de fetch, mais
+ *      on ne l'attend pas — on affiche déjà quelque chose.
+ *   4. Calcule les agrégats via ConfidenceCalculator (mêmes helpers que l'app).
  *
- * On garde le fetch au niveau ForecastRepository plutôt que d'implémenter un
- * cache-only bespoke pour le widget : le comportement "cache-first, réseau au
- * second plan" est déjà celui du repository, aucun besoin de dupliquer.
+ * ─── Économie batterie/data via maxCacheAgeMs ────────────────────────────
+ * L'ancien code fetchait TOUJOURS le réseau, même si le cache était vieux
+ * de quelques secondes. Sur un widget rafraîchi toutes les 15 min par
+ * WorkManager, cela signifiait 5 requêtes réseau × 4 modèles × 4 fois par
+ * heure = 80 requêtes/heure, dont la grande majorité renvoient les mêmes
+ * données que le cache. Le passage `maxCacheAgeMs = interval` élimine ce
+ * gaspillage : si le cache est plus jeune que l'intervalle utilisateur, on
+ * réutilise juste le cache sans requête réseau.
+ *
+ * Pour MANUAL (interval = ZERO), on considère le cache comme toujours frais
+ * — le widget ne fetch plus jamais automatiquement, seul un pull-to-refresh
+ * dans l'app rafraîchira les données.
  */
 internal suspend fun loadWidgetData(
     context: Context,
@@ -145,17 +161,23 @@ internal suspend fun loadWidgetData(
 
     val favorites = entry.cityRepository().observeFavorites().first()
     val city = favorites.firstOrNull { it.id == cityId }
-        ?: return WidgetData(
-            cityName = null,
-            currentTemp = null, currentCondition = null,
-            tempMax = null, tempMin = null,
-            confidencePct = null, precipMm = null,
-            precipConfidencePct = null, currentCloudCover = null,
-            forecasts = emptyList(),
-            error = WidgetError.CityNoLongerInFavorites
-        )
+        ?: return WidgetData.empty(error = WidgetError.CityNoLongerInFavorites)
 
-    val result = entry.forecastRepository().getCityForecastStream(city).firstOrNull()
+    // Lecture de l'intervalle utilisateur pour respecter le seuil de fraîcheur
+    // cache. Un widget rafraîchi par WorkManager toutes les 15 min mais avec
+    // un intervalle utilisateur de 1h ne fera de fetch réseau QU'une fois par
+    // heure (les 3 autres runs se contentent du cache).
+    //
+    // MANUAL : on utilise Long.MAX_VALUE comme seuil → tout cache est considéré
+    // "frais", aucun fetch réseau ne se déclenche automatiquement. Le user
+    // doit ouvrir l'app et pull-to-refresh pour rafraîchir manuellement.
+    val interval = entry.userPreferencesRepository().observeRefreshInterval().first()
+    val maxCacheAgeMs = if (interval == RefreshInterval.MANUAL) Long.MAX_VALUE
+        else interval.millis
+
+    val result = entry.forecastRepository()
+        .getCityForecastStream(city, maxCacheAgeMs = maxCacheAgeMs)
+        .firstOrNull()
 
     return when (result) {
         is ApiResult.Success -> {
@@ -176,26 +198,17 @@ internal suspend fun loadWidgetData(
                 precipMm = rainConfidence?.meanMm,
                 precipConfidencePct = rainConfidence?.percent,
                 currentCloudCover = calc.currentCloudCover(forecast),
+                currentWindSpeedKmh = calc.currentWindSpeed(forecast),
                 forecasts = buildForecasts(forecast, forecastMode, city.timezone),
                 error = null
             )
         }
-        is ApiResult.Error -> WidgetData(
+        is ApiResult.Error -> WidgetData.empty(
             cityName = city.name,
-            currentTemp = null, currentCondition = null,
-            tempMax = null, tempMin = null,
-            confidencePct = null, precipMm = null,
-            precipConfidencePct = null, currentCloudCover = null,
-            forecasts = emptyList(),
             error = WidgetError.Fetch(result.message)
         )
-        null -> WidgetData(
+        null -> WidgetData.empty(
             cityName = city.name,
-            currentTemp = null, currentCondition = null,
-            tempMax = null, tempMin = null,
-            confidencePct = null, precipMm = null,
-            precipConfidencePct = null, currentCloudCover = null,
-            forecasts = emptyList(),
             error = WidgetError.Fetch("no data")
         )
     }

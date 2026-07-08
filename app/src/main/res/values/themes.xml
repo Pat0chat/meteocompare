@@ -1,7 +1,51 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Theme appliqué après dismiss du splash. -->
-    <style name="Theme.MeteoCompare" parent="android:Theme.Material.Light.NoActionBar" />
+    <!--
+        Theme appliqué après dismiss du splash.
+
+        ─── Choix du parent ────────────────────────────────────────────────
+        AVANT : `android:Theme.Material.Light.NoActionBar` (framework, ancien).
+        Ce thème hérite en interne d'attributs `windowStatusBarColor` /
+        `windowNavigationBarColor` qui appellent `Window.setStatusBarColor()`
+        et `Window.setNavigationBarColor()` — deprecated depuis API 35.
+        Android Studio Lint reporte ces appels comme émanant de MainActivity
+        (via Hilt_MainActivity) même si notre code Kotlin ne les fait pas.
+
+        APRÈS : `Theme.AppCompat.DayNight.NoActionBar` (AppCompat, moderne).
+        Le thème AppCompat n'hérite plus des attrs deprecated ; il expose
+        DayNight qui suit automatiquement le mode dark/light système. Notre
+        [MeteoCompareTheme] Composable applique par-dessus le vrai
+        color scheme (dynamic color / dark / light) via SideEffect.
+
+        ─── Insets transparents ────────────────────────────────────────────
+        Les 4 items ci-dessous rendent la barre de statut ET la barre de
+        navigation SYSTÈME TRANSPARENTES par défaut. Combinées avec
+        `enableEdgeToEdge()` dans MainActivity.onCreate, elles permettent
+        au contenu Compose de dessiner sous ces barres (edge-to-edge).
+
+        Sur Android 15+ (SDK 35+), `windowLayoutInDisplayCutoutMode=default`
+        est requis : `shortEdges` est deprecated. `default` laisse le
+        système décider en fonction de l'orientation — comportement voulu.
+    -->
+    <style name="Theme.MeteoCompare" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <!-- Status/nav bars transparentes. Les valeurs @android:color/transparent
+             sont statiques (0x00000000) — Lint ne considère PAS que le theme
+             appelle setStatusBarColor() puisque la couleur reste la même sur
+             toutes les versions Android. -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+
+        <!-- Draw system bar backgrounds : true = système ne dessine PAS de
+             fond derrière la barre de statut/nav, notre contenu est dessous.
+             Requis pour edge-to-edge combiné avec les couleurs transparentes. -->
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+
+        <!-- Cutout mode : `default` sur SDK 35+ (le système gère selon
+             portrait/paysage). `shortEdges` était le défaut historique mais
+             est deprecated en API 35 — c'est le 3e warning mentionné par
+             l'IDE. -->
+        <item name="android:windowLayoutInDisplayCutoutMode">default</item>
+    </style>
 
     <!-- Theme splash Android 12+. La SplashScreen API peut servir ce theme
          sur toutes les versions Android (le compat lib backporte le rendu sur

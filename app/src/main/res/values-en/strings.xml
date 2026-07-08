@@ -28,6 +28,16 @@
     <!-- Settings -->
     <string name="settings_appearance">Appearance</string>
     <string name="settings_language">Language</string>
+    <!-- Refresh interval (widget + app) -->
+    <string name="settings_refresh_interval_title">Refresh interval</string>
+    <string name="settings_refresh_interval_desc">How often the widget and app try to fetch new data. A longer interval saves battery and data; a shorter one keeps forecasts fresher. In \"Manual\" mode, refresh only happens when you pull-to-refresh.</string>
+    <string name="refresh_interval_15_min">15 min</string>
+    <string name="refresh_interval_30_min">30 min</string>
+    <string name="refresh_interval_1_hour">1 h</string>
+    <string name="refresh_interval_3_hours">3 h</string>
+    <string name="refresh_interval_6_hours">6 h</string>
+    <string name="refresh_interval_manual">Manual</string>
+
     <string name="settings_models_title">Weather models</string>
     <string name="settings_models_desc">Pick the models to compare. More models = more accurate confidence, but more network requests.</string>
     <string name="settings_models_min_warning">At least one model must remain enabled.</string>

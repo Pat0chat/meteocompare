@@ -1,14 +1,21 @@
 package com.meteocompare.app.ui.settings
 
+import android.content.Context
 import app.cash.turbine.test
 import com.meteocompare.app.domain.model.LanguagePreference
+import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.ThemePreference
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
+import com.meteocompare.app.widget.WidgetRefreshScheduler
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.coVerifyOrder
+import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkObject
+import io.mockk.unmockkObject
+import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,6 +41,13 @@ import org.junit.Test
  * Sans ça, `enabledModels.value` retourne `MVP_SELECTION` (la sélection
  * par défaut) même si on a changé `modelsFlow.value`, ce qui fait passer
  * le test pour de mauvaises raisons.
+ *
+ * Note sur [WidgetRefreshScheduler] : c'est un `object` (singleton Kotlin) —
+ * on utilise `mockkObject` de MockK pour intercepter les appels statiques.
+ * Sinon, chaque appel `WidgetRefreshScheduler.schedule(context, ...)` tenterait
+ * d'invoquer WorkManager.getInstance() qui crasherait dans un unit test sans
+ * ApplicationContext instrumenté. Le mockObject renvoie des Unit no-op et permet
+ * de vérifier les invocations.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class SettingsViewModelTest {
@@ -43,23 +57,41 @@ class SettingsViewModelTest {
     private val modelsFlow = MutableStateFlow(WeatherModel.MVP_SELECTION)
     private val themeFlow = MutableStateFlow(ThemePreference.SYSTEM)
     private val languageFlow = MutableStateFlow(LanguagePreference.SYSTEM)
+    private val refreshIntervalFlow = MutableStateFlow(RefreshInterval.DEFAULT)
 
     private val prefs: UserPreferencesRepository = mockk(relaxed = true) {
         coEvery { observeEnabledModels() } returns modelsFlow
         coEvery { observeThemePreference() } returns themeFlow
         coEvery { observeLanguagePreference() } returns languageFlow
+        coEvery { observeRefreshInterval() } returns refreshIntervalFlow
     }
+
+    /**
+     * Application context mocké. Utilisé UNIQUEMENT pour être passé à
+     * WidgetRefreshScheduler.schedule() dans onRefreshIntervalSelected. La
+     * VM ne s'en sert pas autrement. On peut donc un mock relaxé.
+     */
+    private val appContext: Context = mockk(relaxed = true)
 
     private lateinit var viewModel: SettingsViewModel
 
     @Before
     fun setUp() {
         Dispatchers.setMain(dispatcher)
-        viewModel = SettingsViewModel(prefs)
+        // Intercepte les appels au singleton WidgetRefreshScheduler pour
+        // éviter tout accès WorkManager réel depuis les tests unitaires.
+        // La logique de programmation elle-même sera couverte par ses propres
+        // tests instrumentés séparés.
+        mockkObject(WidgetRefreshScheduler)
+        every { WidgetRefreshScheduler.schedule(any(), any()) } returns Unit
+        every { WidgetRefreshScheduler.cancel(any()) } returns Unit
+
+        viewModel = SettingsViewModel(appContext, prefs)
     }
 
     @After
     fun tearDown() {
+        unmockkObject(WidgetRefreshScheduler)
         Dispatchers.resetMain()
     }
 
@@ -189,6 +221,58 @@ class SettingsViewModelTest {
                 prefs.setEnabledModels(match {
                     it.toSet() == setOf(WeatherModel.ECMWF, WeatherModel.ICON_GLOBAL)
                 })
+            }
+        }
+
+    // ────────────────────────────────────────────────────────────────────
+    //  RefreshInterval
+    // ────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `refreshInterval - initial value est DEFAULT`() = runTest(dispatcher) {
+        viewModel.refreshInterval.test {
+            assertEquals(RefreshInterval.DEFAULT, awaitItem())
+        }
+    }
+
+    @Test
+    fun `refreshInterval - émet la valeur du repo quand elle change`() = runTest(dispatcher) {
+        viewModel.refreshInterval.test {
+            assertEquals(RefreshInterval.DEFAULT, awaitItem())
+            refreshIntervalFlow.value = RefreshInterval.HOURS_3
+            assertEquals(RefreshInterval.HOURS_3, awaitItem())
+        }
+    }
+
+    @Test
+    fun `onRefreshIntervalSelected - persiste ET reprogramme le worker`() = runTest(dispatcher) {
+        viewModel.onRefreshIntervalSelected(RefreshInterval.HOURS_6)
+
+        // Ordre : persistance AVANT reprogrammation. Sinon le worker
+        // fraîchement programmé pourrait lire l'ancienne valeur au premier
+        // tick — sur le run de test avec UnconfinedTestDispatcher ce n'est
+        // pas critique mais on documente l'invariant.
+        coVerifyOrder {
+            prefs.setRefreshInterval(RefreshInterval.HOURS_6)
+            WidgetRefreshScheduler.schedule(appContext, RefreshInterval.HOURS_6)
+        }
+    }
+
+    @Test
+    fun `onRefreshIntervalSelected MANUAL - reprogramme aussi (le scheduler cancel en interne)`() =
+        runTest(dispatcher) {
+            // Cas frontière : MANUAL n'annule PAS le worker via le repo, mais
+            // le scheduler gère lui-même l'annulation (voir
+            // WidgetRefreshScheduler.schedule qui bascule en cancelUniqueWork
+            // quand interval == MANUAL). La VM DOIT quand même appeler
+            // schedule() — c'est ce que ce test garantit.
+            viewModel.onRefreshIntervalSelected(RefreshInterval.MANUAL)
+
+            coVerify {
+                prefs.setRefreshInterval(RefreshInterval.MANUAL)
+            }
+            verify {
+                WidgetRefreshScheduler.schedule(appContext, RefreshInterval.MANUAL)
             }
         }
 }

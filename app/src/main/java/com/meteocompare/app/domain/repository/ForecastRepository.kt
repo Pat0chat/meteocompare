@@ -10,7 +10,8 @@ interface ForecastRepository {
 
     /**
      * Stream qui émet d'abord la valeur en cache (si disponible, même périmée),
-     * puis la valeur fraîche depuis le réseau.
+     * puis la valeur fraîche depuis le réseau — sauf si le cache est plus jeune
+     * que [maxCacheAgeMs], auquel cas on saute le fetch réseau.
      *
      * Émissions possibles :
      *   1. `Success(cached)` immédiatement si du cache existe pour cette ville.
@@ -22,12 +23,18 @@ interface ForecastRepository {
      *
      * @param forceRefresh Si true, ignore le cache pour la première émission
      *        (cas: pull-to-refresh).
+     * @param maxCacheAgeMs Âge maximal du cache au-delà duquel on lance un
+     *        fetch réseau. Si le cache est plus récent que cet âge, on émet
+     *        uniquement `Success(cached)` sans requête réseau — économie
+     *        batterie/data. `null` = comportement historique (toujours fetch).
+     *        Ignoré si `forceRefresh=true`.
      */
     fun getCityForecastStream(
         city: City,
         models: List<WeatherModel> = WeatherModel.MVP_SELECTION,
         forecastDays: Int = 7,
-        forceRefresh: Boolean = false
+        forceRefresh: Boolean = false,
+        maxCacheAgeMs: Long? = null
     ): Flow<ApiResult<CityForecast>>
 
     /**

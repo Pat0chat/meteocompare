@@ -173,7 +173,24 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
             }
             appCtx.sendBroadcast(refreshIntent)
 
-            // 4. Résultat final au système + fin d'activité.
+            // 4. S'assurer que le worker WorkManager est bien programmé. En
+            //    théorie [MeteoWidgetReceiver.onEnabled] l'a déjà fait au
+            //    premier drop du widget, mais :
+            //    - Un update install peut recréer les widgets sans re-appeler
+            //      onEnabled (le receiver était déjà "enabled" au sens système).
+            //    - Un utilisateur qui change son intervalle de refresh dans les
+            //      settings s'attend à ce que le widget respecte immédiatement
+            //      la nouvelle cadence, ce qui passe par une re-programmation.
+            //    L'appel est idempotent (ExistingPeriodicWorkPolicy.UPDATE) :
+            //    aucun coût si le worker tourne déjà avec la bonne cadence.
+            val entry = dagger.hilt.android.EntryPointAccessors.fromApplication(
+                appCtx, WidgetEntryPoint::class.java
+            )
+            val interval = entry.userPreferencesRepository()
+                .observeRefreshInterval().first()
+            WidgetRefreshScheduler.schedule(appCtx, interval)
+
+            // 5. Résultat final au système + fin d'activité.
             val resultIntent = Intent()
                 .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
             setResult(Activity.RESULT_OK, resultIntent)

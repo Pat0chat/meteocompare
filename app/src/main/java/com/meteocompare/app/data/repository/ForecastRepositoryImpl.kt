@@ -35,17 +35,20 @@ import javax.inject.Singleton
  * Stratégie de cache :
  *
  *  ┌──────────────────────────────────────────────────────────────────────┐
- *  │  getCityForecastStream(city, forceRefresh=false)                     │
+ *  │  getCityForecastStream(city, forceRefresh=false, maxCacheAgeMs=null) │
  *  │                                                                       │
  *  │   1. Lecture cache (synchrone, ~1 ms par modèle)                     │
  *  │   2. Si cache existe → emit Success(cached) immédiatement            │
- *  │   3. Fetch réseau en parallèle (5 modèles)                           │
- *  │   4. Si réseau OK → écriture cache + emit Success(fresh)             │
- *  │   5. Si réseau KO :                                                  │
+ *  │   3. Si maxCacheAgeMs != null ET cache plus récent → RETURN          │
+ *  │      (économie batterie/data : le user vient d'ouvrir l'app 2 min    │
+ *  │       après un précédent refresh, inutile de re-fetcher)             │
+ *  │   4. Fetch réseau en parallèle (5 modèles)                           │
+ *  │   5. Si réseau OK → écriture cache + emit Success(fresh)             │
+ *  │   6. Si réseau KO :                                                  │
  *  │      - cache existait → ne pas émettre d'erreur (user voit le cache) │
  *  │      - sinon → emit Error                                            │
  *  │                                                                       │
- *  │  Avec forceRefresh=true : skip étapes 1-2, traite comme pull-to-     │
+ *  │  Avec forceRefresh=true : skip étapes 1-3, traite comme pull-to-     │
  *  │  refresh — mais si réseau KO on retombe sur cache (fallback).        │
  *  └──────────────────────────────────────────────────────────────────────┘
  *
@@ -69,20 +72,43 @@ class ForecastRepositoryImpl @Inject constructor(
         city: City,
         models: List<WeatherModel>,
         forecastDays: Int,
-        forceRefresh: Boolean
+        forceRefresh: Boolean,
+        maxCacheAgeMs: Long?
     ): Flow<ApiResult<CityForecast>> = flow {
         var hasCached = false
+        var cachedFetchedAtMs: Long? = null
 
         // ── Étape 1 : émission immédiate depuis le cache (si non forcé) ──
         if (!forceRefresh) {
             val cached = readCache(city, models)
             if (cached != null) {
                 hasCached = true
+                cachedFetchedAtMs = cached.fetchedAt?.toEpochMilli()
                 emit(ApiResult.Success(cached))
             }
         }
 
-        // ── Étape 2 : fetch réseau + écriture cache ──
+        // ── Étape 2 : court-circuit si le cache est "assez frais" ──
+        //
+        // Économie batterie/data quand l'utilisateur ouvre l'app plusieurs
+        // fois dans une courte fenêtre. Sans ce garde, chaque cold start
+        // déclenche 5 requêtes réseau parallèles vers Open-Meteo — inutile
+        // si on vient de rafraîchir il y a 3 minutes.
+        //
+        // On garde la sécurité "cache pré-feature sans fetchedAt" : si
+        // cachedFetchedAtMs est null (donnée cache antérieure à l'ajout du
+        // champ fetchedAt), on refetch quand même, pour ne pas laisser le
+        // user coincé sur du cache très vieux.
+        if (!forceRefresh && maxCacheAgeMs != null && hasCached &&
+            cachedFetchedAtMs != null) {
+            val ageMs = System.currentTimeMillis() - cachedFetchedAtMs
+            if (ageMs in 0..maxCacheAgeMs) {
+                // Cache assez récent, on n'appelle même pas fetchAndCache.
+                return@flow
+            }
+        }
+
+        // ── Étape 3 : fetch réseau + écriture cache ──
         val networkResult = fetchAndCache(city, models, forecastDays)
 
         when (networkResult) {

@@ -182,6 +182,44 @@ class ConfidenceCalculator @Inject constructor(
         }
 
     /**
+     * Vitesse du vent "maintenant" — moyenne pondérée par résolution du
+     * wind_speed_10m horaire à l'instant courant, en km/h (unité fournie par
+     * l'API via `wind_speed_unit=kmh`).
+     *
+     * Utilisée pour afficher le vent sur les widgets et la TodaySummaryCard.
+     * Comme pour cloud cover et température, la moyenne pondérée est le bon
+     * agrégat pour une valeur continue.
+     *
+     * Retourne null si aucun modèle n'a de donnée wind_speed_10m à l'instant
+     * courant — cas rare (tous les modèles Open-Meteo supportent la variable),
+     * mais possible avec un cache pré-feature. L'UI omet alors le badge.
+     *
+     * ─── Note d'implémentation ────────────────────────────────────────────
+     * On duplique délibérément la logique de [currentTemperature] au lieu de
+     * la factoriser via [weightedMeanCurrentHourly] : ce helper renvoie Int?
+     * et est optimisé pour les pourcentages arrondis. Pour une valeur Double
+     * qu'on veut préserver en précision (le vent à 15.3 km/h n'est pas 15),
+     * l'inlining est plus honnête que de convertir Int↔Double dans les deux
+     * sens. Voir aussi [currentTemperature] pour le même choix.
+     */
+    fun currentWindSpeed(forecast: CityForecast): Double? {
+        val now = Instant.now()
+        val samples = forecast.seriesByModel.mapNotNull { (model, series) ->
+            if (series.hourly.timestamps.isEmpty()) return@mapNotNull null
+            val idx = series.hourly.timestamps.indices.minBy { i ->
+                kotlin.math.abs(series.hourly.timestamps[i].epochSecond - now.epochSecond)
+            }
+            val wind = series.hourly.windSpeed10m.getOrNull(idx) ?: return@mapNotNull null
+            model to wind
+        }
+        if (samples.isEmpty()) return null
+        val totalWeight = samples.sumOf { (model, _) -> weighting.weight(model) }
+        if (totalWeight == 0.0) return null
+        val weightedSum = samples.sumOf { (model, w) -> w * weighting.weight(model) }
+        return weightedSum / totalWeight
+    }
+
+    /**
      * Helper : moyenne pondérée d'une valeur horaire à l'instant courant.
      *
      * Factorise la logique commune à [currentTemperature] et [currentCloudCover] :

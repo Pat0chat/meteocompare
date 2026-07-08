@@ -12,16 +12,28 @@
       - maxResizeWidth=290dp : autorise jusqu'à 4 cellules horizontales (4×1).
         Formule Android grid : width_dp = 70 · n − 30. 4×1 → 250dp, on prend
         290 avec marge pour les launchers qui arrondissent.
-      - resizeMode="horizontal" : resize latéral uniquement — la hauteur reste
-        1 cellule. Le contenu ne bénéficierait pas d'un stack vertical (pas
-        de graphique à empiler ; l'app pour ça).
+      - resizeMode="horizontal|vertical" : autorise resize latéral ET vertical,
+        pour permettre au user de passer de 4×1 à 4×2 en tirant vers le bas.
 
     Rafraîchissement :
-      - updatePeriodMillis=1800000 (30 min) : minimum autorisé par le système.
-        En dessous, Android ignore et cale à 30 min pour économiser la batterie.
-        30 min est un bon compromis pour un widget météo : les prévisions
-        Open-Meteo sont republiées ~toutes les heures, refresh 2x/heure garantit
-        d'attraper la nouvelle version.
+      - updatePeriodMillis=0 : DÉSACTIVE le refresh AlarmManager du système.
+        Avant, on avait 1800000 (30 min) — le minimum autorisé par le système.
+        Le refresh est maintenant piloté par [WidgetRefreshScheduler] +
+        [WidgetRefreshWorker] via WorkManager. Cela donne :
+
+          · Respect de Doze / App Standby / Battery Saver (le worker se
+            groupe avec les autres jobs pour minimiser les wake-ups).
+          · Contrainte NETWORK CONNECTED : aucune tentative de fetch en
+            offline (économie majeure batterie en mode avion/tunnel).
+          · Contrainte BATTERY_NOT_LOW : pas de refresh auto si batterie
+            basse — le user peut toujours refresh manuellement via l'app.
+          · Intervalle CONFIGURABLE (15 min à 6 h, ou MANUEL) via les
+            settings de l'app. Auparavant hardcodé à 30 min.
+
+        Laisser updatePeriodMillis > 0 en parallèle du worker double le
+        refresh (une passe AlarmManager + une passe worker) et casse les
+        contraintes battery/network puisque AlarmManager les ignore. On MET
+        DONC EXPLICITEMENT 0 pour désactiver.
 
     Configuration :
       - configure="..MeteoWidgetConfigActivity" : au drop du widget, le système
@@ -46,7 +58,7 @@
     android:maxResizeWidth="290dp"
     android:maxResizeHeight="180dp"
     android:resizeMode="horizontal|vertical"
-    android:updatePeriodMillis="1800000"
+    android:updatePeriodMillis="0"
     android:widgetCategory="home_screen"
     android:widgetFeatures="reconfigurable"
     android:configure="com.meteocompare.app.widget.MeteoWidgetConfigActivity"
