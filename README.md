@@ -1,6 +1,5 @@
 # MeteoCompare
 
-[![Android CI](https://github.com/Pat0chat/MeteoCompare/actions/workflows/android.yml/badge.svg)](https://github.com/Pat0chat/MeteoCompare/actions/workflows/android.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![F-Droid](https://img.shields.io/f-droid/v/com.meteocompare.app)](https://f-droid.org/packages/com.meteocompare.app/)
 [![Liberapay patrons](https://img.shields.io/liberapay/patrons/Pat0chat.svg?logo=liberapay)](https://liberapay.com/Pat0chat)
@@ -207,6 +206,7 @@ Aucune clé API n'est nécessaire — Open-Meteo est gratuit pour usage non comm
 
 ```bash
 ./gradlew :app:testDebugUnitTest        # tests unitaires (mapper, calculator, repository, WMO codes, model colors, splitter)
+./gradlew :app:testReleaseUnitTest 
 ./gradlew :app:connectedAndroidTest     # tests UI Compose + intégration Hilt (émulateur requis)
 ```
 
