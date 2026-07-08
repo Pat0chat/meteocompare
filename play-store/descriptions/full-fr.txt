@@ -1,20 +1,33 @@
 MeteoCompare est l'application météo pensée pour les utilisateurs qui veulent comprendre la fiabilité d'une prévision, pas juste la consulter.
 
-Plutôt que d'afficher une seule prévision, MeteoCompare interroge en parallèle 12 modèles météorologiques de référence et vous montre où ils s'accordent — et où ils divergent.
+Plutôt que d'afficher une seule prévision, MeteoCompare interroge en parallèle 17 modèles météorologiques de référence et vous montre où ils s'accordent — et où ils divergent.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 LES MODÈLES SUPPORTÉS
 
+France
 • AROME France HD (Météo-France, 1.5 km)
 • AROME France (Météo-France, 2.5 km)
-• ARPEGE Europe / World (Météo-France, 11 / 25 km)
-• ICON-D2 / ICON-EU / ICON (DWD, 2 / 7 / 13 km)
-• GFS (NOAA, 13 km, jusqu'à 16 jours)
+
+Europe
+• ARPEGE Europe (Météo-France, 11 km)
+• ICON-EU (DWD Allemagne, 7 km)
+• ICON-D2 (DWD Allemagne, 2 km)
+• MET Nordic (MET Norway, 1 km, Scandinavie)
+• KNMI HARMONIE (Pays-Bas, 5.5 km)
+
+Global
+• ARPEGE World (Météo-France, 25 km)
+• ICON (DWD Allemagne, 13 km)
+• GFS (NOAA USA, 13 km, jusqu'à 16 jours)
+• HRRR (NOAA USA, 3 km, rapid-refresh continental)
 • ECMWF (Centre Européen, 25 km)
 • ECMWF AIFS (Centre Européen, modèle par IA)
 • UKMO Global (UK Met Office, 10 km)
 • GEM Global (ECCC Canada, 15 km)
+• BOM ACCESS (Bureau of Meteorology Australie, 12 km)
+• CMA GRAPES (China Meteorological Administration, 15 km)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -24,17 +37,26 @@ Un score 0-100 % vous indique à quel point les modèles s'accordent :
 • Convergence parfaite → 95 % (bonne confiance)
 • Forte divergence → 30 % (incertitude réelle)
 
-La pondération privilégie les modèles haute-résolution sur leur zone (AROME en France, ARPEGE en Europe). Un clic sur le badge ouvre une page "Pourquoi cette confiance ?" qui détaille variable par variable qui a prédit quoi.
+La pondération privilégie les modèles haute-résolution sur leur zone (AROME en France, ARPEGE en Europe, HRRR aux USA, MET Nordic en Scandinavie). Un clic sur le badge ouvre une page "Pourquoi cette confiance ?" qui détaille variable par variable qui a prédit quoi.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 VISUALISATIONS
 
 • Bande de confiance horaire sur 7 jours — zoomable par pincement à 2 doigts (double-tap pour réinitialiser)
+• Trois métriques sur la bande de confiance : température, précipitations, vent — bascule instantanée via un sélecteur segmenté
+• Overlay des normales climatiques 10 ans (traits pointillés) pour comparer la prévision au comportement typique de la date
 • Toggle "par heure / par jour" — bascule entre la vue synthétique 7 jours et le détail horaire jusqu'à la fin de la journée
-• Comparaison superposée des courbes par modèle
 • Tableaux jour × modèle : température, précipitations, vent avec direction (flèches)
 • Badges "%" sous les icônes : probabilité de pluie ou couverture nuageuse selon la condition
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+WIDGETS ÉCRAN D'ACCUEIL
+
+Widget redimensionnable (2×1 / 3×1 / 4×1 / 4×2) avec :
+• Résumé compact de la ville favorite choisie
+• 4×2 avec trois modes : 4 prochaines heures, 4 prochains jours, ou une mini bande de confiance (température, précipitations ou vent) avec les valeurs par jour
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -53,6 +75,7 @@ L'application demande exactement deux permissions : INTERNET et ACCESS_NETWORK_S
 AUTRES FONCTIONNALITÉS
 
 • Villes favorites avec aperçu rapide du jour
+• Tri des modèles dans les Settings par zone / famille / finesse
 • Indicateur de mise à jour — "Mis à jour à l'instant", "il y a 5 min"…
 • Recherche de ville par nom
 • Cache offline (consultez les dernières prévisions sans réseau)
@@ -60,10 +83,9 @@ AUTRES FONCTIONNALITÉS
 • Sélection personnalisée des modèles activés
 • Thème clair/sombre automatique (Material You)
 • Accessibilité TalkBack complète
-• Widget pour la ville favorite sur la page d'accueil
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 DONNÉES MÉTÉO
 
-Fournies par Open-Meteo (https://open-meteo.com), service gratuit pour usage non commercial. MeteoCompare est indépendant et non affilié à Open-Meteo, Météo-France, NOAA, DWD, ECMWF, UK Met Office ou ECCC.
+Fournies par Open-Meteo (https://open-meteo.com), service gratuit pour usage non commercial. MeteoCompare est indépendant et non affilié à Open-Meteo, Météo-France, NOAA, DWD, ECMWF, UK Met Office, ECCC, MET Norway, KNMI, BOM ou CMA.

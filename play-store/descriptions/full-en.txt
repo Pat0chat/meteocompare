@@ -1,20 +1,33 @@
 MeteoCompare is the weather app for people who want to understand forecast reliability, not just consult it.
 
-Instead of displaying a single forecast, MeteoCompare queries 12 reference weather models in parallel and shows you where they agree — and where they diverge.
+Instead of displaying a single forecast, MeteoCompare queries 17 reference weather models in parallel and shows you where they agree — and where they diverge.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 SUPPORTED MODELS
 
+France
 • AROME France HD (Météo-France, 1.5 km)
 • AROME France (Météo-France, 2.5 km)
-• ARPEGE Europe / World (Météo-France, 11 / 25 km)
-• ICON-D2 / ICON-EU / ICON (DWD, 2 / 7 / 13 km)
-• GFS (NOAA, 13 km, up to 16 days)
+
+Europe
+• ARPEGE Europe (Météo-France, 11 km)
+• ICON-EU (DWD Germany, 7 km)
+• ICON-D2 (DWD Germany, 2 km)
+• MET Nordic (MET Norway, 1 km, Scandinavia)
+• KNMI HARMONIE (Netherlands, 5.5 km)
+
+Global
+• ARPEGE World (Météo-France, 25 km)
+• ICON (DWD Germany, 13 km)
+• GFS (NOAA USA, 13 km, up to 16 days)
+• HRRR (NOAA USA, 3 km, rapid-refresh continental US)
 • ECMWF (European Centre, 25 km)
 • ECMWF AIFS (European Centre, AI model)
 • UKMO Global (UK Met Office, 10 km)
 • GEM Global (ECCC Canada, 15 km)
+• BOM ACCESS (Bureau of Meteorology Australia, 12 km)
+• CMA GRAPES (China Meteorological Administration, 15 km)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -24,17 +37,26 @@ A 0-100% score tells you how much the models agree:
 • Perfect convergence → 95% (good confidence)
 • Strong divergence → 30% (real uncertainty)
 
-Weighting favors high-resolution models in their coverage zone (AROME in France, ARPEGE in Europe). Tap the confidence badge to open a "Why this confidence?" page that breaks down which model predicted what, variable by variable.
+Weighting favors high-resolution models in their coverage zone (AROME in France, ARPEGE in Europe, HRRR in the US, MET Nordic in Scandinavia). Tap the confidence badge to open a "Why this confidence?" page that breaks down which model predicted what, variable by variable.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 VISUALIZATIONS
 
 • Hourly confidence band over 7 days — pinch-zoom with 2 fingers (double-tap to reset)
+• Three metrics on the confidence band: temperature, precipitation, wind — switch instantly with the segmented selector
+• 10-year climate normals overlay (dashed lines) to compare the forecast against typical values for the date
 • Hourly / daily toggle — switch between the 7-day summary and hour-by-hour detail until end of day
-• Overlaid line comparison per model
 • Day × Model tables: temperature, precipitation, wind with direction arrows
 • "%" badges under weather icons: rain probability or cloud cover depending on condition
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+HOME SCREEN WIDGETS
+
+Resizable widget (2×1 / 3×1 / 4×1 / 4×2) with:
+• Compact summary of the chosen favorite city
+• 4×2 with three modes: 4 upcoming hours, 4 upcoming days, or a mini confidence band (temperature, precipitation, or wind) with daily values
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -53,6 +75,7 @@ The app requests exactly two permissions: INTERNET and ACCESS_NETWORK_STATE.
 MORE FEATURES
 
 • Favorite cities with daily quick view
+• Model sorting in Settings by zone / family / resolution
 • Update indicator — "Updated just now", "5 min ago"…
 • City search by name
 • Offline cache (view last forecasts without network)
@@ -60,10 +83,9 @@ MORE FEATURES
 • Custom model selection
 • Auto light/dark theme (Material You)
 • Full TalkBack accessibility
-• Widgets for favorite city on your home screen
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 WEATHER DATA
 
-Provided by Open-Meteo (https://open-meteo.com), free for non-commercial use. MeteoCompare is independent and not affiliated with Open-Meteo, Météo-France, NOAA, DWD, ECMWF, UK Met Office or ECCC.
+Provided by Open-Meteo (https://open-meteo.com), free for non-commercial use. MeteoCompare is independent and not affiliated with Open-Meteo, Météo-France, NOAA, DWD, ECMWF, UK Met Office, ECCC, MET Norway, KNMI, BOM or CMA.
