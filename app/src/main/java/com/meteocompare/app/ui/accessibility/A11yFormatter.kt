@@ -138,12 +138,6 @@ object A11yFormatter {
         )
     }
 
-    fun multiModelChartDescription(context: Context, modelCount: Int, daysCovered: Int): String =
-        if (modelCount > 1)
-            context.getString(R.string.a11y_multi_model_chart_many, daysCovered, modelCount)
-        else
-            context.getString(R.string.a11y_multi_model_chart_one, daysCovered, modelCount)
-
     fun todaySummaryDescription(context: Context, today: DayConfidence, modelCount: Int): String {
         val header = if (modelCount > 1)
             context.getString(R.string.a11y_today_summary_many, modelCount)

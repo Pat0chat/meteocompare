@@ -8,6 +8,7 @@ import com.meteocompare.app.core.network.toUserMessage
 import com.meteocompare.app.data.local.ForecastCacheDao
 import com.meteocompare.app.data.local.ForecastCacheEntity
 import com.meteocompare.app.data.mapper.ForecastMapper
+import com.meteocompare.app.data.remote.BatchedForecastSplitter
 import com.meteocompare.app.data.remote.OpenMeteoApi
 import com.meteocompare.app.data.remote.dto.ForecastResponseDto
 import com.meteocompare.app.di.IoDispatcher
@@ -18,14 +19,12 @@ import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.repository.ForecastRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import java.io.IOException
+import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -42,7 +41,7 @@ import javax.inject.Singleton
  *  │   3. Si maxCacheAgeMs != null ET cache plus récent → RETURN          │
  *  │      (économie batterie/data : le user vient d'ouvrir l'app 2 min    │
  *  │       après un précédent refresh, inutile de re-fetcher)             │
- *  │   4. Fetch réseau en parallèle (5 modèles)                           │
+ *  │   4. Fetch réseau BATCHED (1 requête HTTPS pour N modèles)           │
  *  │   5. Si réseau OK → écriture cache + emit Success(fresh)             │
  *  │   6. Si réseau KO :                                                  │
  *  │      - cache existait → ne pas émettre d'erreur (user voit le cache) │
@@ -52,9 +51,16 @@ import javax.inject.Singleton
  *  │  refresh — mais si réseau KO on retombe sur cache (fallback).        │
  *  └──────────────────────────────────────────────────────────────────────┘
  *
+ * ─── Batching multi-modèles ──────────────────────────────────────────────
+ * Open-Meteo supporte le multi-modèles en une seule requête HTTPS (variables
+ * suffixées). Le fetch de N modèles = 1 seul appel réseau et 1 seul handshake
+ * TLS. La réponse est décomposée par [BatchedForecastSplitter] en un DTO par
+ * modèle, qui est ensuite mappé et caché indépendamment (format de cache
+ * inchangé — chaque modèle a toujours sa propre ligne Room).
+ *
  * Le re-parsing du JSON au read est délibérément accepté plutôt que de
  * cacher des ForecastSeries pré-parsés. Raison : le JSON brut est sérialisable
- * sans custom serializer (que des primitifs), et le coût (~1 ms × 5 modèles)
+ * sans custom serializer (que des primitifs), et le coût (~1 ms × N modèles)
  * est invisible à l'utilisateur.
  */
 @Singleton
@@ -64,8 +70,8 @@ class ForecastRepositoryImpl @Inject constructor(
     private val cacheDao: ForecastCacheDao,
     private val json: Json,
     private val networkMonitor: NetworkMonitor,
-    @ApplicationContext private val context: Context,
-    @IoDispatcher private val ioDispatcher: CoroutineDispatcher
+    @param:ApplicationContext private val context: Context,
+    @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : ForecastRepository {
 
     override fun getCityForecastStream(
@@ -192,13 +198,30 @@ class ForecastRepositoryImpl @Inject constructor(
             city = city,
             seriesByModel = series.associateBy { it.model },
             errors = emptyMap(), // on n'a pas mémorisé les erreurs en cache
-            fetchedAt = java.time.Instant.ofEpochMilli(newestFetchedAtMs)
+            fetchedAt = Instant.ofEpochMilli(newestFetchedAtMs)
         )
     }
 
     /**
-     * Fetch parallèle + écriture cache. Renvoie un Success si au moins un
-     * modèle a répondu (avec les erreurs des autres dans `errors`).
+     * Fetch batched multi-modèles (1 requête HTTPS) + écriture cache.
+     *
+     * ─── Historique ─────────────────────────────────────────────────────
+     * Version antérieure : N appels HTTPS parallèles via `coroutineScope +
+     * async` (voir [OpenMeteoApi.getForecast]). Fonctionnel mais coûteux :
+     * N handshakes TLS + N wakeups radio + retry par modèle. Remplacé par
+     * l'appel batched — voir [OpenMeteoApi.getForecastBatched] pour la
+     * justification.
+     *
+     * ─── Fraîcheur d'horodatage ──────────────────────────────────────────
+     * Tous les modèles reçoivent le même `now` en cache — c'est LA valeur
+     * de vérité pour "cette ville a été rafraîchie à telle heure" côté UI.
+     *
+     * ─── Erreurs par modèle ──────────────────────────────────────────────
+     * Le splitter filtre déjà les modèles pour lesquels Open-Meteo n'a
+     * renvoyé aucune donnée exploitable (typiquement hors de leur zone de
+     * couverture). Ces modèles apparaissent dans [CityForecast.errors] avec
+     * un message localisé "hors zone" — l'UI peut choisir de les grisage
+     * plutôt que masquer.
      */
     private suspend fun fetchAndCache(
         city: City,
@@ -207,9 +230,7 @@ class ForecastRepositoryImpl @Inject constructor(
     ): ApiResult<CityForecast> = withContext(ioDispatcher) {
         require(models.isNotEmpty()) { "models must not be empty" }
 
-        // Court-circuit hors-ligne : on évite N requêtes parallèles qui vont
-        // chacune timeout après 30s. Vérification instantanée via
-        // ConnectivityManager. Message localisé pour la locale courante.
+        // Court-circuit hors-ligne : évite un timeout de 15s pour rien.
         if (!networkMonitor.isOnline()) {
             return@withContext ApiResult.Error(
                 IOException("No network"),
@@ -219,66 +240,105 @@ class ForecastRepositoryImpl @Inject constructor(
 
         val now = System.currentTimeMillis()
 
-        val results: List<Triple<WeatherModel, ForecastSeries?, Throwable?>> = coroutineScope {
-            models.map { model ->
-                async {
-                    try {
-                        val dto = api.getForecast(
-                            latitude = city.latitude,
-                            longitude = city.longitude,
-                            models = model.apiKey,
-                            forecastDays = forecastDays.coerceAtMost(model.maxForecastDays)
-                        )
-                        // Écriture cache immédiate dès qu'on a la réponse.
-                        // Fait dans la coroutine du modèle → parallèle aussi.
-                        val cacheEntry = ForecastCacheEntity(
-                            cityId = city.id,
-                            modelKey = model.apiKey,
-                            fetchedAtEpochMs = now,
-                            responseJson = json.encodeToString(
-                                ForecastResponseDto.serializer(),
-                                dto
-                            )
-                        )
-                        runCatching { cacheDao.upsert(cacheEntry) }
-                            // En cas d'erreur d'écriture cache, on s'en fiche —
-                            // l'utilisateur a déjà sa donnée fraîche.
+        // ── Requête batched ────────────────────────────────────────────
+        // Une seule ligne = un seul appel HTTPS. `forecast_days` prend la
+        // valeur max sur les modèles demandés — les modèles à horizon plus
+        // court retournent null au-delà, ce que le mapper gère (aligne les
+        // listes de valeurs sur les timestamps, pad avec null si absent).
+        val effectiveForecastDays = models.maxOf { it.maxForecastDays }
+            .coerceAtMost(forecastDays.coerceAtLeast(1))
 
-                        Triple(model, mapper.toSeries(model, dto), null as Throwable?)
-                    } catch (e: kotlinx.coroutines.CancellationException) {
-                        throw e
-                    } catch (e: Throwable) {
-                        Triple(model, null, e)
-                    }
-                }
-            }.awaitAll()
+        // Log explicite pour vérifier en debug/production que le batching
+        // fonctionne comme prévu. Filtrable par `adb logcat -s MeteoCompare/Net`,
+        // le tag court permet un grep visuel rapide. Un futur regression qui
+        // ferait éclater ce log en N lignes séparées (une par modèle) serait
+        // une régression très visible.
+        //
+        // Niveau INFO plutôt que DEBUG : on veut voir ce log même sur les
+        // logcat filtrés par défaut du Play Store (release keeps INFO+).
+        android.util.Log.i(
+            LOG_TAG,
+            "Batched fetch: ${models.size} models in 1 HTTPS request " +
+                "→ ${models.joinToString(",") { it.apiKey }}"
+        )
+
+        val batched = try {
+            api.getForecastBatched(
+                latitude = city.latitude,
+                longitude = city.longitude,
+                models = models.joinToString(",") { it.apiKey },
+                forecastDays = effectiveForecastDays
+            )
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            return@withContext ApiResult.Error(e, e.toUserMessage(context))
         }
+
+        // ── Décomposition batched → per-modèle ─────────────────────────
+        val perModelDtos: Map<WeatherModel, ForecastResponseDto> =
+            BatchedForecastSplitter.split(batched, models)
 
         val successes = mutableMapOf<WeatherModel, ForecastSeries>()
         val errors = mutableMapOf<WeatherModel, String>()
 
-        results.forEach { (model, series, error) ->
-            if (series != null) successes[model] = series
-            if (error != null) errors[model] = error.toUserMessage(context)
+        // Modèles qui ont répondu : on cache + on mappe
+        for ((model, dto) in perModelDtos) {
+            runCatching {
+                cacheDao.upsert(
+                    ForecastCacheEntity(
+                        cityId = city.id,
+                        modelKey = model.apiKey,
+                        fetchedAtEpochMs = now,
+                        responseJson = json.encodeToString(
+                            ForecastResponseDto.serializer(),
+                            dto
+                        )
+                    )
+                )
+            }
+            // Une erreur d'écriture cache ne bloque PAS l'affichage — la
+            // donnée fraîche va quand même être renvoyée au caller.
+            successes[model] = mapper.toSeries(model, dto)
+        }
+
+        // Modèles demandés mais absents du split → filtrés par le splitter
+        // (données inexploitables). Reportés au caller pour affichage
+        // discret ("modèle hors zone").
+        val missingModels = models - perModelDtos.keys
+        for (model in missingModels) {
+            errors[model] = context.getString(R.string.error_model_out_of_range)
         }
 
         if (successes.isEmpty()) {
-            val firstFailure = results.firstNotNullOfOrNull { it.third }
-                ?: IllegalStateException("All models failed without exception")
-            ApiResult.Error(firstFailure, firstFailure.toUserMessage(context))
+            // TOUS les modèles demandés ont retourné vide — probablement
+            // hors de leur zone de couverture. On surface une seule erreur
+            // au lieu d'un CityForecast vide avec N erreurs individuelles.
+            ApiResult.Error(
+                IllegalStateException("No usable model in batched response"),
+                context.getString(R.string.error_no_model_available)
+            )
         } else {
             ApiResult.Success(
                 CityForecast(
                     city = city,
                     seriesByModel = successes,
                     errors = errors,
-                    // Tous les modèles ont été fetchés dans le même `coroutineScope`
-                    // avec le même `now` — cohérent d'utiliser cette valeur pour
-                    // l'horodatage global du CityForecast. Ce timestamp est ce que
-                    // l'UI affichera en "mis à jour il y a X".
-                    fetchedAt = java.time.Instant.ofEpochMilli(now)
+                    fetchedAt = Instant.ofEpochMilli(now)
                 )
             )
         }
+    }
+
+    companion object {
+        /**
+         * Tag court pour `adb logcat -s MeteoCompare/Net` — permet de vérifier
+         * visuellement (dev/QA) que le batching fonctionne comme prévu :
+         *   1 refresh utilisateur → 1 ligne "Batched fetch: N models…"
+         * Si plusieurs lignes apparaissent en séquence rapide, c'est le signe
+         * d'une régression (parallélisation non voulue) ou d'un refresh
+         * multiple (widget + app en même temps).
+         */
+        private const val LOG_TAG = "MeteoCompare/Net"
     }
 }

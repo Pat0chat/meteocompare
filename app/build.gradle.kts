@@ -39,8 +39,8 @@ android {
         applicationId = "com.meteocompare.app"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 7
-        versionName = "0.7.0"
+        versionCode = 8
+        versionName = "0.8.0"
         testInstrumentationRunner = "com.meteocompare.app.HiltTestRunner"
         vectorDrawables { useSupportLibrary = true }
     }
@@ -105,6 +105,16 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+
+    // Nécessaire pour appeler android.util.Log dans le code de production
+    // depuis un unit test JVM pur — sans `returnDefaultValues = true`,
+    // Log.i/d/w renvoient une RuntimeException "Method not mocked" qui casse
+    // tout test qui déclenche du code loggé. Avec ce flag, les méthodes
+    // Android non implémentées retournent une valeur par défaut (0, null,
+    // false) au lieu de crasher — comportement sûr pour du logging accessoire.
+    testOptions {
+        unitTests.isReturnDefaultValues = true
     }
 
     packaging {

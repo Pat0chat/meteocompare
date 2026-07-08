@@ -370,13 +370,76 @@ class ConfidenceCalculator @Inject constructor(
     fun hourlyTemperatureConfidence(
         forecast: CityForecast,
         horizonHours: Int = 168
+    ): List<HourlyConfidenceBand> = hourlyConfidenceBand(
+        forecast = forecast,
+        horizonHours = horizonHours,
+        thresholds = Thresholds.TEMPERATURE,
+        extractor = { series, idx -> series.hourly.temperature2m.getOrNull(idx) }
+    )
+
+    /**
+     * Bandes de confiance horaires sur les précipitations (mm/heure).
+     *
+     * Utilise le même modèle mathématique que la température : moyenne pondérée,
+     * min/max, écart-type converti en %. Les seuils tight/wide sont ceux de
+     * [Thresholds.PRECIP] — bien plus larges qu'en température (la pluie est
+     * intrinsèquement plus divergente entre modèles, surtout sur la convection).
+     *
+     * Différence importante avec le calcul journalier ([dayConfidence]) qui
+     * distingue les cas "sec/pluie/divisé" via [PrecipitationConfidence] :
+     * ici on reste sur une bande continue, c'est ce que le graphe attend.
+     * Le graphe visualise l'AMPLITUDE des prévisions pluie, pas leur
+     * classification qualitative — les deux vues sont complémentaires.
+     */
+    fun hourlyPrecipitationConfidence(
+        forecast: CityForecast,
+        horizonHours: Int = 168
+    ): List<HourlyConfidenceBand> = hourlyConfidenceBand(
+        forecast = forecast,
+        horizonHours = horizonHours,
+        thresholds = Thresholds.PRECIP,
+        extractor = { series, idx -> series.hourly.precipitation.getOrNull(idx) }
+    )
+
+    /**
+     * Bandes de confiance horaires sur le vent à 10m (km/h).
+     *
+     * Attention : c'est le vent moyen à 10m, pas les rafales. Les seuils sont
+     * ceux de [Thresholds.WIND] (calibrés sur des divergences inter-modèles
+     * de 2-12 km/h).
+     */
+    fun hourlyWindConfidence(
+        forecast: CityForecast,
+        horizonHours: Int = 168
+    ): List<HourlyConfidenceBand> = hourlyConfidenceBand(
+        forecast = forecast,
+        horizonHours = horizonHours,
+        thresholds = Thresholds.WIND,
+        extractor = { series, idx -> series.hourly.windSpeed10m.getOrNull(idx) }
+    )
+
+    /**
+     * Helper générique — factorise la logique de [hourlyTemperatureConfidence]
+     * / [hourlyPrecipitationConfidence] / [hourlyWindConfidence].
+     *
+     * Concept identique à la version historique : pré-indexation par timestamp
+     * pour éviter le indexOf quadratique, agrégation pondérée (moyenne + std),
+     * conversion σ → % via les seuils passés en paramètre.
+     *
+     * Le paramètre `extractor` isole la seule chose qui varie entre variables :
+     * quelle valeur horaire piocher dans la série. Tout le reste (alignment
+     * temporel, agrégation stat, conversion en %) est identique.
+     */
+    private fun hourlyConfidenceBand(
+        forecast: CityForecast,
+        horizonHours: Int,
+        thresholds: Thresholds,
+        extractor: (ForecastSeries, Int) -> Double?
     ): List<HourlyConfidenceBand> {
-        // Pré-indexation : Map<timestamp, temp> par modèle pour des lookups O(1).
-        // Évite le `indexOf` quadratique sur les 168 × 5 itérations.
         val indexedByModel: Map<WeatherModel, Map<Instant, Double>> =
             forecast.seriesByModel.mapValues { (_, series) ->
                 series.hourly.timestamps.mapIndexedNotNull { idx, ts ->
-                    series.hourly.temperature2m.getOrNull(idx)?.let { ts to it }
+                    extractor(series, idx)?.let { ts to it }
                 }.toMap()
             }
 
@@ -398,8 +461,8 @@ class ConfidenceCalculator @Inject constructor(
             val stats = computeWeightedStats(weighted)
             val percent = stdDevToConfidence(
                 stdDev = stats.stdDev,
-                tight = Thresholds.TEMPERATURE.tightStdDev,
-                wide = Thresholds.TEMPERATURE.wideStdDev
+                tight = thresholds.tightStdDev,
+                wide = thresholds.wideStdDev
             )
 
             HourlyConfidenceBand(

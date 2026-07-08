@@ -44,7 +44,7 @@
     <string name="settings_about_title">À propos</string>
     <string name="settings_about_version">Version %s</string>
     <string name="settings_about_data_source">Données météo fournies par Open-Meteo (open-meteo.com).</string>
-    <string name="settings_about_models_credit">Modèles : AROME et ARPEGE par Météo-France, ICON par DWD, GFS par NOAA, ECMWF et AIFS par le Centre Européen, UKMO par le UK Met Office, GEM par Environnement Canada.</string>
+    <string name="settings_about_models_credit">Modèles : AROME et ARPEGE par Météo-France, ICON par DWD, GFS et HRRR par NOAA, ECMWF et AIFS par le Centre Européen, UKMO par le UK Met Office, GEM par Environnement Canada, MET Nordic par MET Norway, HARMONIE par KNMI, ACCESS par le Bureau of Meteorology (Australie), GRAPES par le CMA (Chine).</string>
     <string name="settings_privacy_title">Confidentialité</string>
     <string name="settings_privacy_body">Cette application ne collecte aucune donnée personnelle. Aucun analytics, aucun tracking, aucune publicité. Vos favoris et préférences restent sur votre appareil.</string>
     <string name="theme_system">Système</string>
@@ -64,17 +64,52 @@
     <string name="no_daily_data">Pas de données journalières</string>
 
     <!-- Section titles in city detail -->
-    <string name="section_confidence_band">Bande de confiance horaire</string>
-    <string name="section_temperatures">Températures min/max par modèle</string>
-    <string name="section_temp_table">Températures max / min</string>
+    <string name="section_confidence_band">Prévisions inter-modèles</string>
+    <string name="section_temp_table">Températures min / max</string>
     <string name="section_temp_hourly">Températures par heure</string>
     <string name="section_precipitation">Précipitations</string>
     <!-- Vent : titres explicites pour clarifier "mean à 10m" (pas rafale). -->
-    <!-- "Vent moyen à 10m — max journalière" est le max sur la journée du -->
-    <!-- wind_speed_10m (moyenne horaire), et NON le max_wind_gusts (rafales). -->
     <string name="section_wind">Vent moyen à 10m</string>
     <string name="section_wind_hourly">Vent moyen à 10m</string>
     <string name="section_weather_by_model">Temps par modèle et par jour</string>
+
+    <!-- Sélecteur à 3 états au-dessus de la bande de confiance (T° / Pluie / Vent) -->
+    <string name="metric_temperature">Température</string>
+    <string name="metric_precipitation">Précipitations</string>
+    <string name="metric_wind">Vent</string>
+
+    <!-- Tri des modèles dans les Settings (Zone / Famille / Finesse) -->
+    <string name="model_sort_zone">Zone</string>
+    <string name="model_sort_family">Famille</string>
+    <string name="model_sort_finesse">Finesse</string>
+
+    <!-- Légende du trait pointillé "normale 10 ans" sur les graphes confidence -->
+    <string name="chart_normals_legend_temp_max">Normale max 10 ans</string>
+    <string name="chart_normals_legend_temp_min">Normale min 10 ans</string>
+    <string name="chart_normals_legend_precip">Pluie moyenne 10 ans</string>
+    <string name="chart_normals_legend_wind">Vent moyen 10 ans</string>
+
+    <!-- Modes de prévision étendue supplémentaires du widget 4×2 -->
+    <string name="widget_config_forecast_mode_conf_temp">Bande de confiance — température</string>
+    <string name="widget_config_forecast_mode_conf_precip">Bande de confiance — précipitations</string>
+    <string name="widget_config_forecast_mode_conf_wind">Bande de confiance — vent</string>
+    <!-- Ancres temporelles affichées sous la mini bande de confiance du widget 4×2 -->
+    <string name="widget_confidence_now_short">Auj.</string>
+
+    <!-- Libellés de métrique affichés en haut à gauche de la mini bande de
+         confiance du widget 4×2. Volontairement courts : le widget dispose
+         d'une largeur limitée et la valeur "%" à droite doit rester lisible. -->
+    <string name="widget_metric_temperature">T°</string>
+    <string name="widget_metric_precipitation">Pluie</string>
+    <string name="widget_metric_wind">Vent</string>
+
+    <!-- Messages d'état du widget quand aucune donnée n'est affichable.
+         Rendus sur deux lignes via \n pour rester lisibles dans les petites
+         tailles (widget 2×2 fait ~140 dp de large). -->
+    <string name="widget_error_not_configured">Configurer\nla ville</string>
+    <string name="widget_error_loading">Chargement…</string>
+    <string name="widget_error_city_gone">Ville\nsupprimée</string>
+    <string name="widget_error_fetch">Pas de\ndonnées</string>
 
     <!-- Toggle mode d\'affichage (sous la TodaySummaryCard) -->
     <string name="display_mode_hourly">Par heure</string>
@@ -103,12 +138,6 @@
     <!-- Chart messages -->
     <string name="chart_no_data">Aucune donnée à afficher</string>
     <string name="chart_not_enough_data">Pas assez de données pour calculer une bande</string>
-    <string name="chart_no_model_selected">Aucun modèle sélectionné.\nTouchez un modèle dans la légende ci-dessous pour l\'afficher.</string>
-    <string name="chart_a11y_no_model">Aucun modèle sélectionné.</string>
-    <string name="chart_legend_normal_max">Normale max 10 ans</string>
-    <string name="chart_legend_normal_min">Normale min 10 ans</string>
-    <string name="chart_legend_envelope">Ligne pleine = max du modèle · zone teintée = plage min–max</string>
-    <string name="chart_legend_toggle_hint">Touchez un modèle dans la légende pour le masquer/réafficher</string>
     <string name="chart_confidence_band_title">Plage des prévisions inter-modèles</string>
     <string name="chart_confidence_band_desc">Plus la bande s\'élargit, plus les modèles divergent. La couleur indique le niveau de confiance.</string>
     <string name="chart_confidence_now">Confiance maintenant : %d%%</string>
@@ -144,6 +173,8 @@
     <string name="error_timeout">Délai d\'attente dépassé</string>
     <string name="error_server">Erreur serveur (HTTP %d)</string>
     <string name="error_unknown">Erreur inconnue</string>
+    <string name="error_model_out_of_range">Ce modèle ne couvre pas cette ville</string>
+    <string name="error_no_model_available">Aucun modèle ne couvre cette ville</string>
     <string name="city_not_found_in_favorites">Ville non trouvée dans les favoris</string>
 
     <!-- Empty / loading states -->
@@ -190,8 +221,6 @@
     <string name="a11y_divergence_strong">qui augmente fortement</string>
     <string name="a11y_divergence_increasing">qui augmente</string>
     <string name="a11y_divergence_stable">globalement stable</string>
-    <string name="a11y_multi_model_chart_one">Graphique de comparaison des températures sur %1$d jours, %2$d modèle affiché.</string>
-    <string name="a11y_multi_model_chart_many">Graphique de comparaison des températures sur %1$d jours, %2$d modèles affichés.</string>
     <string name="a11y_today_summary_one">Résumé d\'aujourd\'hui, %d modèle analysé</string>
     <string name="a11y_today_summary_many">Résumé d\'aujourd\'hui, %d modèles analysés</string>
     <string name="a11y_temp_max_label">Température max</string>

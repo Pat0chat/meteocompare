@@ -23,6 +23,8 @@ import androidx.glance.LocalSize
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
+import com.meteocompare.app.R
+import com.meteocompare.app.core.locale.applyPersistedLocale
 import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
@@ -31,8 +33,10 @@ import androidx.glance.currentState
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
 import androidx.glance.layout.Column
+import androidx.glance.layout.ColumnScope
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
+import androidx.glance.layout.fillMaxHeight
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
@@ -167,7 +171,21 @@ internal class MeteoWidget : GlanceAppWidget() {
     override val stateDefinition = PreferencesGlanceStateDefinition
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val appCtx = context.applicationContext
+        // Enrobe l'app context avec la locale persistée AVANT de le fournir
+        // aux composables. Deux étages de fix :
+        //
+        //   1. `loadWidgetData` reçoit ce context enrobé → les strings
+        //      résolues à load time (metricLabel, day labels, "Auj.") sont
+        //      dans la bonne langue.
+        //   2. Le `LocalContext.current` de tous les composables descendants
+        //      renvoie ce même context enrobé → les strings résolues à render
+        //      time (ex. messages ErrorLayout via LocalContext.current.getString)
+        //      sont aussi dans la bonne langue.
+        //
+        // Sans ce override, les widgets étaient TOUJOURS en langue système,
+        // ignorant le réglage app — bug reporté sur les widgets 4×2 avec
+        // "Vent/Pluie" affichés même quand l'app est en anglais.
+        val appCtx = applyPersistedLocale(context.applicationContext)
         provideContent {
             // Lecture réactive des prefs. Chaque updateAppWidgetState() sur
             // ce widget invalide cette lecture → recomposition automatique.
@@ -199,9 +217,14 @@ internal class MeteoWidget : GlanceAppWidget() {
 
             // Résolution UNE fois du mode nuit et propagation via CompositionLocal.
             // Voir docblock de LocalNightMode pour le pourquoi.
-            val night = LocalContext.current.resources.configuration
+            val night = appCtx.resources.configuration
                 .let { (it.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES }
-            CompositionLocalProvider(LocalNightMode provides night) {
+            // Override LocalContext avec l'app context localisé — voir le
+            // docblock du override ci-dessus pour l'étage #2 du fix.
+            CompositionLocalProvider(
+                LocalContext provides appCtx,
+                LocalNightMode provides night
+            ) {
                 GlanceTheme {
                     WidgetContent(data = data, opacityPct = opacityPct)
                 }
@@ -509,8 +532,18 @@ private fun ExtraLargeLayout(
 
         Spacer(GlanceModifier.height(18.dp))
 
-        // ─── Bottom strip : 4 items de prévision étendue ──────────────
-        if (data.forecasts.isEmpty()) {
+        // ─── Bottom strip : selon le mode utilisateur ────────────────────
+        // Deux rendus mutuellement exclusifs pilotés par la présence de
+        // data.confidenceStrip vs data.forecasts (voir loadWidgetData qui
+        // n'alimente qu'un seul des deux selon le mode config utilisateur).
+        val strip = data.confidenceStrip
+        if (strip != null) {
+            ConfidenceBandStrip(
+                strip = strip,
+                onContainer = onContainer,
+                onContainerMuted = onContainerMuted
+            )
+        } else if (data.forecasts.isEmpty()) {
             Text(
                 text = "…",
                 style = TextStyle(color = onContainerMuted, fontSize = 12.sp)
@@ -539,14 +572,142 @@ private fun ExtraLargeLayout(
     }
 }
 
+/**
+ * Rendu de la bande de confiance dans le layout 4×2.
+ *
+ * ─── Contraintes Glance ─────────────────────────────────────────────────
+ * Glance ne supporte pas Canvas/DrawScope — impossible de dessiner un chart
+ * "vrai" comme dans l'écran détail. On dégrade en Row de Box colorées : une
+ * heatmap horizontale où chaque cellule = une portion de l'horizon (~7h de
+ * prévision par cellule, 24 cellules pour couvrir 7 jours). C'est le même
+ * pattern visuel que ConfidenceTimeline dans HourlyConfidenceChart, qui a
+ * été validé comme un signal lisible d'un coup d'œil.
+ *
+ * ─── Composition ────────────────────────────────────────────────────────
+ * 1. Ligne du haut : libellé métrique + valeur maintenant + % confiance.
+ *    Donne un ancrage numérique — la bande visuelle seule serait trop abstraite.
+ * 2. Ligne du bas : heatmap 24 cellules. Chaque cellule prend
+ *    weight(1f) → largeur adaptée automatiquement à la largeur du widget.
+ */
+@Composable
+private fun ColumnScope.ConfidenceBandStrip(
+    strip: WidgetConfidenceStrip,
+    onContainer: ColorProvider,
+    onContainerMuted: ColorProvider
+) {
+    Column(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
+        // ─── Ligne 1 : "T° · 87%" — libellé métrique + confiance actuelle ─
+        // Plus de valeur "maintenant" ici : elle est désormais reprise dans
+        // la première colonne de la ligne 3 (bucket "Auj."). Éviter la
+        // redondance libère de la place pour le "%" à droite qui a une
+        // valeur informative propre (couleur teintée par le niveau).
+        Row(
+            modifier = GlanceModifier.fillMaxWidth().padding(bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = strip.metricLabel,
+                style = TextStyle(
+                    color = onContainer,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            )
+            Spacer(GlanceModifier.defaultWeight())
+            strip.currentPct?.let {
+                Text(
+                    text = "$it%",
+                    style = TextStyle(
+                        color = confidenceTextColor(it),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                )
+            }
+        }
+
+        // ─── Ligne 2 : bande de confiance colorée par jour ─────────────
+        // Hauteur FIXE réduite (8 dp) au lieu de defaultWeight → la strip
+        // devient un liseré de couleur discret, laissant la place aux
+        // valeurs numériques en dessous qui portent l'info actionnable.
+        // 8 dp est un compromis : assez épais pour rester visible sur un
+        // écran mobile depuis un bras tendu, assez fin pour ne pas
+        // dominer les valeurs numériques.
+        //
+        // Chaque cellule s'aligne verticalement avec sa colonne value+label
+        // en ligne 3 grâce au `defaultWeight()` partagé (même nombre de
+        // colonnes → même largeur individuelle).
+        Row(modifier = GlanceModifier.fillMaxWidth().height(8.dp)) {
+            strip.buckets.forEach { bucket ->
+                val color = confidenceColor(bucket.percent)
+                Box(
+                    modifier = GlanceModifier
+                        .defaultWeight()
+                        .fillMaxHeight()
+                        .padding(horizontal = 0.5.dp)
+                        .background(ColorProvider(color))
+                        .cornerRadius(2.dp),
+                    contentAlignment = Alignment.Center
+                ) {}
+            }
+        }
+
+        // ─── Ligne 3 : valeur + libellé par jour ───────────────────────
+        // Une colonne par bucket, alignée verticalement avec la cellule de
+        // couleur du dessus. C'est CETTE ligne qui donne du sens à la
+        // bande de couleur : sans les valeurs numériques, la confiance
+        // colorée n'est référencée à rien.
+        //
+        // Ordre des textes : valeur en gras (le chiffre est ce qu'on
+        // regarde en premier), libellé jour discret dessous (contexte
+        // temporel). L'inverse — libellé au-dessus — casserait la
+        // lecture "quel jour donne quoi".
+        Row(
+            modifier = GlanceModifier.fillMaxWidth().padding(top = 4.dp)
+                .defaultWeight()
+        ) {
+            strip.buckets.forEach { bucket ->
+                Column(
+                    modifier = GlanceModifier.defaultWeight(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = bucket.value,
+                        style = TextStyle(
+                            color = onContainer,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    )
+                    Text(
+                        text = bucket.label,
+                        style = TextStyle(
+                            color = onContainerMuted,
+                            fontSize = 10.sp
+                        )
+                    )
+                }
+            }
+        }
+    }
+}
+
 /** État "widget pas configuré" ou "erreur" ou "chargement". */
 @Composable
 private fun ErrorLayout(error: WidgetError, onContainerMuted: ColorProvider) {
+    // Résolution via LocalContext.current (surchargé dans provideGlance avec
+    // le context localisé) plutôt qu'en dur — sinon les widgets restaient
+    // affichés en français quel que soit le réglage app.
+    val ctx = LocalContext.current
     val message = when (error) {
-        WidgetError.NotConfigured -> "Configurer\nla ville"
-        WidgetError.Loading -> "Chargement…"
-        WidgetError.CityNoLongerInFavorites -> "Ville\nsupprimée"
-        is WidgetError.Fetch -> "Pas de\ndonnées"
+        WidgetError.NotConfigured ->
+            ctx.getString(R.string.widget_error_not_configured)
+        WidgetError.Loading ->
+            ctx.getString(R.string.widget_error_loading)
+        WidgetError.CityNoLongerInFavorites ->
+            ctx.getString(R.string.widget_error_city_gone)
+        is WidgetError.Fetch ->
+            ctx.getString(R.string.widget_error_fetch)
     }
     Column(
         modifier = GlanceModifier.fillMaxSize(),

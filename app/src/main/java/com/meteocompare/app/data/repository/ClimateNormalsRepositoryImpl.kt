@@ -22,7 +22,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Stratégie :
+ * Stratégie identique à la version antérieure :
  *
  *   1. Cache local Room. Si fresh (< 180 jours), retourne directement.
  *   2. Sinon, fetch 10 années d'archives Open-Meteo (~3650 lignes daily).
@@ -30,27 +30,21 @@ import javax.inject.Singleton
  *      où la donnée existe.
  *   4. Persiste dans Room et retourne.
  *
- * Pourquoi 10 ans et pas 30 ?
- *   - 30 ans = 30 années de history à requêter. Open-Meteo répond en ~100ms
- *     pour les ranges multi-décennaux, mais ça gonfle le payload réseau et
- *     consomme du quota gratuit (10 000 req/jour partagés).
- *   - 10 ans donne une signal statistiquement solide (variance par jour
- *     d'environ ±2°C) sans payer le coût des 20 années supplémentaires.
- *   - Avec le changement climatique, les normales 30 ans sont aussi de plus
- *     en plus déphasées par rapport au climat actuel — 10 ans "glissants"
- *     représentent mieux la réalité que les utilisateurs perçoivent.
+ * Nouveau (v3) : on agrège aussi la précipitation et le vent max moyen. Ces
+ * séries sont OPTIONNELLES — un cache d'archive Open-Meteo qui n'a pas ces
+ * variables (ou une future coupure d'API sur ces champs) laisse le champ
+ * `precipMeanNormal`/`windMeanNormal` à null plutôt que de crash.
  *
- * À documenter dans l'UI : la valeur affichée est "Référence climatique
- * 10 ans" — terme moins ambigu que "normales" (qui réfèrent strictement
- * aux périodes 30 ans OMM).
+ * Le nombre de requêtes réseau ne change pas : on ajoute juste 2 variables à
+ * la query `daily=` existante, tout est retourné en un seul appel HTTP.
  */
 @Singleton
 class ClimateNormalsRepositoryImpl @Inject constructor(
     private val api: ClimateArchiveApi,
     private val dao: ClimateNormalDao,
     private val networkMonitor: NetworkMonitor,
-    @ApplicationContext private val context: Context,
-    @IoDispatcher private val io: CoroutineDispatcher
+    @param:ApplicationContext private val context: Context,
+    @param:IoDispatcher private val io: CoroutineDispatcher
 ) : ClimateNormalsRepository {
 
     companion object {
@@ -59,15 +53,20 @@ class ClimateNormalsRepositoryImpl @Inject constructor(
 
         /**
          * Agrégation : pour chaque (month, day) rencontré dans la série, moyenne
-         * arithmétique des max et des min sur toutes les années où la donnée
-         * existe. Les NULL sont ignorés (les jours sans observation ne pénalisent
-         * pas la moyenne).
+         * arithmétique des variables sur toutes les années où la donnée existe.
+         * Les NULL sont ignorés champ par champ — un jour où seule la pluie
+         * est manquante contribue quand même aux moyennes température/vent.
          *
-         * Exposée en `internal` dans le companion object pour testabilité —
-         * c'est de la logique pure sans dépendances I/O, donc isolable.
+         * Retour : les champs `precipMeanNormal` et `windMeanNormal` sont null
+         * quand aucune donnée valide n'existe (ex. série sans la variable, cas
+         * de coupure d'API), sinon la moyenne.
          */
         internal fun aggregate(response: ArchiveResponseDto): List<DayNormals> {
-            data class Acc(var sumMax: Double = 0.0, var sumMin: Double = 0.0, var n: Int = 0)
+            data class Acc(
+                var sumMax: Double = 0.0, var sumMin: Double = 0.0, var nTemp: Int = 0,
+                var sumPrecip: Double = 0.0, var nPrecip: Int = 0,
+                var sumWind: Double = 0.0, var nWind: Int = 0
+            )
             val byMonthDay = HashMap<Int, Acc>()
 
             val n = response.daily.time.size
@@ -75,12 +74,25 @@ class ClimateNormalsRepositoryImpl @Inject constructor(
                 val tempMax = response.daily.tempMax.getOrNull(i)
                 val tempMin = response.daily.tempMin.getOrNull(i)
                 if (tempMax == null || tempMin == null) continue
+
                 val date = LocalDate.parse(response.daily.time[i])
                 val key = DayNormals.key(date.monthValue, date.dayOfMonth)
                 val acc = byMonthDay.getOrPut(key) { Acc() }
                 acc.sumMax += tempMax
                 acc.sumMin += tempMin
-                acc.n += 1
+                acc.nTemp += 1
+
+                // Précip et vent : cumulés indépendamment. Un jour peut avoir
+                // une température mais pas de mesure de vent (rare mais possible
+                // sur des postes climatologiques anciens).
+                response.daily.precipSum?.getOrNull(i)?.let {
+                    acc.sumPrecip += it
+                    acc.nPrecip += 1
+                }
+                response.daily.windSpeedMax?.getOrNull(i)?.let {
+                    acc.sumWind += it
+                    acc.nWind += 1
+                }
             }
 
             return byMonthDay.entries
@@ -88,8 +100,10 @@ class ClimateNormalsRepositoryImpl @Inject constructor(
                     DayNormals(
                         month = key / 100,
                         day = key % 100,
-                        tempMaxNormal = acc.sumMax / acc.n,
-                        tempMinNormal = acc.sumMin / acc.n
+                        tempMaxNormal = acc.sumMax / acc.nTemp,
+                        tempMinNormal = acc.sumMin / acc.nTemp,
+                        precipMeanNormal = if (acc.nPrecip > 0) acc.sumPrecip / acc.nPrecip else null,
+                        windMeanNormal = if (acc.nWind > 0) acc.sumWind / acc.nWind else null
                     )
                 }
                 .sortedWith(compareBy({ it.month }, { it.day }))
@@ -109,8 +123,6 @@ class ClimateNormalsRepositoryImpl @Inject constructor(
             }
 
             // 2. Cache absent ou stale → fetch + agrégation
-            // Court-circuit hors-ligne. Si on a un cache stale, on le retourne
-            // (les normales bougent lentement, un cache de 7 mois reste utile).
             if (!networkMonitor.isOnline()) {
                 return@withContext if (cached.isNotEmpty()) {
                     ApiResult.Success(cached.map { it.toDomain() })
@@ -123,8 +135,6 @@ class ClimateNormalsRepositoryImpl @Inject constructor(
             }
 
             val today = LocalDate.now()
-            // On exclut l'année en cours (incomplète) en partant de l'année
-            // précédente, ce qui donne YEARS_OF_HISTORY années PLEINES.
             val endDate = today.withDayOfYear(1).minusDays(1) // 31 déc N-1
             val startDate = endDate.minusYears(YEARS_OF_HISTORY.toLong() - 1)
                 .withDayOfYear(1)                              // 1 jan N-10
@@ -140,9 +150,6 @@ class ClimateNormalsRepositoryImpl @Inject constructor(
 
             when (result) {
                 is ApiResult.Error -> {
-                    // Pas de réseau ET pas de cache → on remonte l'erreur.
-                    // Si on a un cache stale on retourne quand même (mieux
-                    // que rien — les normales bougent lentement).
                     if (cached.isNotEmpty()) {
                         ApiResult.Success(cached.map { it.toDomain() })
                     } else {
@@ -162,7 +169,9 @@ class ClimateNormalsRepositoryImpl @Inject constructor(
     private fun ClimateNormalEntity.toDomain() = DayNormals(
         month = month, day = day,
         tempMaxNormal = tempMaxNormal,
-        tempMinNormal = tempMinNormal
+        tempMinNormal = tempMinNormal,
+        precipMeanNormal = precipMeanNormal,
+        windMeanNormal = windMeanNormal
     )
 
     private fun DayNormals.toEntity(cityId: String, now: Long) = ClimateNormalEntity(
@@ -170,6 +179,8 @@ class ClimateNormalsRepositoryImpl @Inject constructor(
         month = month, day = day,
         tempMaxNormal = tempMaxNormal,
         tempMinNormal = tempMinNormal,
+        precipMeanNormal = precipMeanNormal,
+        windMeanNormal = windMeanNormal,
         computedAt = now
     )
 }

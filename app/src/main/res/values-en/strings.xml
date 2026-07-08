@@ -44,7 +44,7 @@
     <string name="settings_about_title">About</string>
     <string name="settings_about_version">Version %s</string>
     <string name="settings_about_data_source">Weather data provided by Open-Meteo (open-meteo.com).</string>
-    <string name="settings_about_models_credit">Models: AROME and ARPEGE by Météo-France, ICON by DWD, GFS by NOAA, ECMWF and AIFS by the European Centre, UKMO by the UK Met Office, GEM by Environment Canada.</string>
+    <string name="settings_about_models_credit">Models: AROME and ARPEGE by Météo-France, ICON by DWD, GFS and HRRR by NOAA, ECMWF and AIFS by the European Centre, UKMO by the UK Met Office, GEM by Environment Canada, MET Nordic by MET Norway, HARMONIE by KNMI, ACCESS by the Bureau of Meteorology (Australia), GRAPES by CMA (China).</string>
     <string name="settings_privacy_title">Privacy</string>
     <string name="settings_privacy_body">This app collects no personal data. No analytics, no tracking, no advertising. Your favorites and preferences stay on your device.</string>
     <string name="theme_system">System</string>
@@ -64,14 +64,51 @@
     <string name="no_daily_data">No daily data</string>
 
     <!-- Section titles in city detail -->
-    <string name="section_confidence_band">Hourly confidence band</string>
-    <string name="section_temperatures">Min/max temperatures per model</string>
-    <string name="section_temp_table">Max / min temperatures</string>
+    <string name="section_confidence_band">Inter-model forecast</string>
+    <string name="section_temp_table">Min / max temperatures</string>
     <string name="section_temp_hourly">Hourly temperatures</string>
     <string name="section_precipitation">Precipitation</string>
     <string name="section_wind">10m mean wind</string>
     <string name="section_wind_hourly">10m mean wind</string>
     <string name="section_weather_by_model">Weather by model and day</string>
+
+    <!-- 3-state selector above the confidence band (Temp / Precip / Wind) -->
+    <string name="metric_temperature">Temperature</string>
+    <string name="metric_precipitation">Precipitation</string>
+    <string name="metric_wind">Wind</string>
+
+    <!-- Model sort in Settings (Zone / Family / Resolution) -->
+    <string name="model_sort_zone">Zone</string>
+    <string name="model_sort_family">Family</string>
+    <string name="model_sort_finesse">Resolution</string>
+
+    <!-- Legend for the "10-year normal" dashed line on confidence charts -->
+    <string name="chart_normals_legend_temp_max">10-year max normal</string>
+    <string name="chart_normals_legend_temp_min">10-year min normal</string>
+    <string name="chart_normals_legend_precip">10-year mean rainfall</string>
+    <string name="chart_normals_legend_wind">10-year mean wind</string>
+
+    <!-- Extra widget 4×2 forecast modes -->
+    <string name="widget_config_forecast_mode_conf_temp">Confidence band — temperature</string>
+    <string name="widget_config_forecast_mode_conf_precip">Confidence band — precipitation</string>
+    <string name="widget_config_forecast_mode_conf_wind">Confidence band — wind</string>
+    <!-- Time anchors shown under the widget 4x2 confidence strip -->
+    <string name="widget_confidence_now_short">Now</string>
+
+    <!-- Metric labels shown at the top-left of the widget 4x2 confidence
+         strip. Kept intentionally short: widget width is limited and the
+         "%" value on the right must stay readable. -->
+    <string name="widget_metric_temperature">T°</string>
+    <string name="widget_metric_precipitation">Rain</string>
+    <string name="widget_metric_wind">Wind</string>
+
+    <!-- Widget status messages shown when no data can be displayed.
+         Rendered on two lines via \n to stay readable on small sizes
+         (2x2 widget is ~140 dp wide). -->
+    <string name="widget_error_not_configured">Configure\nthe city</string>
+    <string name="widget_error_loading">Loading…</string>
+    <string name="widget_error_city_gone">City\nremoved</string>
+    <string name="widget_error_fetch">No\ndata</string>
 
     <!-- Display-mode toggle (below the TodaySummaryCard) -->
     <string name="display_mode_hourly">Hourly</string>
@@ -100,12 +137,6 @@
     <!-- Chart messages -->
     <string name="chart_no_data">No data to display</string>
     <string name="chart_not_enough_data">Not enough data to compute a band</string>
-    <string name="chart_no_model_selected">No model selected.\nTap a model in the legend below to display it.</string>
-    <string name="chart_a11y_no_model">No model selected.</string>
-    <string name="chart_legend_normal_max">10-year max normal</string>
-    <string name="chart_legend_normal_min">10-year min normal</string>
-    <string name="chart_legend_envelope">Solid line = model max · shaded area = min–max range</string>
-    <string name="chart_legend_toggle_hint">Tap a model in the legend to hide/show it</string>
     <string name="chart_confidence_band_title">Inter-model forecast range</string>
     <string name="chart_confidence_band_desc">The wider the band, the more models disagree. Color shows the confidence level.</string>
     <string name="chart_confidence_now">Confidence now: %d%%</string>
@@ -141,6 +172,8 @@
     <string name="error_timeout">Request timed out</string>
     <string name="error_server">Server error (HTTP %d)</string>
     <string name="error_unknown">Unknown error</string>
+    <string name="error_model_out_of_range">This model does not cover this city</string>
+    <string name="error_no_model_available">No model covers this city</string>
     <string name="city_not_found_in_favorites">City not found in favorites</string>
 
     <!-- Empty / loading states -->
@@ -187,8 +220,6 @@
     <string name="a11y_divergence_strong">strongly increasing</string>
     <string name="a11y_divergence_increasing">increasing</string>
     <string name="a11y_divergence_stable">overall stable</string>
-    <string name="a11y_multi_model_chart_one">Temperature comparison chart over %1$d days, %2$d model shown.</string>
-    <string name="a11y_multi_model_chart_many">Temperature comparison chart over %1$d days, %2$d models shown.</string>
     <string name="a11y_today_summary_one">Today\'s summary, %d model analysed</string>
     <string name="a11y_today_summary_many">Today\'s summary, %d models analysed</string>
     <string name="a11y_temp_max_label">Max temperature</string>

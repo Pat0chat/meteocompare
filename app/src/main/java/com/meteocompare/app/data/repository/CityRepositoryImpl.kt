@@ -36,11 +36,11 @@ private val FAVORITES_KEY = stringPreferencesKey("cities")
  */
 @Singleton
 class CityRepositoryImpl @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val geocodingApi: GeocodingApi,
     private val json: Json,
     private val networkMonitor: NetworkMonitor,
-    @IoDispatcher private val ioDispatcher: CoroutineDispatcher
+    @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : CityRepository {
 
     private val cityListSerializer = ListSerializer(City.serializer())

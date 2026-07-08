@@ -1,5 +1,0 @@
-TODO
-----
-
-- Trie des modèles par finesse ;
-- ajouter une indication sur la page home à côté du titre de l'application si une nouvelle version est disponible ?
