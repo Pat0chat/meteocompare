@@ -63,7 +63,7 @@ class MeteoWidgetReceiverTest {
     @Test
     fun `anyAliveWith - Standard vivant retourne true`() {
         val alive = WidgetReceivers.anyAliveWith(
-            lookupAlive(MeteoWidgetReceiver::class.java)
+            lookupAlive(MeteoWidgetReceiver2x1::class.java)
         )
 
         assertTrue(alive)
@@ -76,7 +76,7 @@ class MeteoWidgetReceiverTest {
         // receivers, sinon le retrait du dernier Standard tuerait le
         // worker qui sert encore un Large — labels d'heure du Large gelés.
         val alive = WidgetReceivers.anyAliveWith(
-            lookupAlive(MeteoWidgetReceiverLarge::class.java)
+            lookupAlive(MeteoWidgetReceiver5x2::class.java)
         )
 
         assertTrue(alive)
@@ -85,11 +85,11 @@ class MeteoWidgetReceiverTest {
     @Test
     fun `anyAliveWith - un widget Tiny vivant suffit à retourner true`() {
         // Test symétrique avec le Tiny — il fait autant partie du registry
-        // que le Standard. Si un contributeur "oubliait" MeteoWidgetReceiverTiny
+        // que le Standard. Si un contributeur "oubliait" MeteoWidgetReceiver1x1
         // dans WidgetReceivers.All, ce test échouerait parce que la fonction
         // ne verrait pas le widget vivant.
         val alive = WidgetReceivers.anyAliveWith(
-            lookupAlive(MeteoWidgetReceiverTiny::class.java)
+            lookupAlive(MeteoWidgetReceiver1x1::class.java)
         )
 
         assertTrue(alive)

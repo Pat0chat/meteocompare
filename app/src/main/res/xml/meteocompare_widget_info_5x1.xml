@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Widget MeteoCompare — provider CIBLE 3×1.
+    Widget MeteoCompare — provider CIBLE 5×1 (bandeau).
 
     ─── Rôle parmi les 9 providers ─────────────────────────────────
-    Ce fichier concerne l'entrée "Météo" à la taille cible 3×1. Voir
+    Ce fichier concerne l'entrée "Météo" à la taille cible 5×1. Voir
     AndroidManifest.xml pour la liste complète des receivers.
 
     ─── Dimensions HOMOGÈNES pour tous les providers ───────────────
@@ -24,14 +24,14 @@
     D'où l'importance d'exposer les 9 tailles dans le picker.
 
     ─── Ce qui distingue ce provider des autres ────────────────────
-    UNIQUEMENT `targetCellWidth=3` et `targetCellHeight=1`. Toutes les
+    UNIQUEMENT `targetCellWidth=5` et `targetCellHeight=1`. Toutes les
     autres attributs sont identiques.
 -->
 <appwidget-provider
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:minWidth="40dp"
     android:minHeight="40dp"
-    android:targetCellWidth="3"
+    android:targetCellWidth="5"
     android:targetCellHeight="1"
     android:maxResizeWidth="360dp"
     android:maxResizeHeight="180dp"

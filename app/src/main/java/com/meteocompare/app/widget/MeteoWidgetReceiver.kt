@@ -7,16 +7,15 @@ import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 
 /**
- * BroadcastReceiver principal du widget MeteoCompare (variante STANDARD).
+ * BroadcastReceiver principal du widget MeteoCompare (variante STANDARD 2×1).
  * Le système Android appelle ce receiver pour les événements de lifecycle du
  * widget : ajout, resize, suppression, mise à jour périodique.
  *
- * ─── Multi-provider ────────────────────────────────────────────────────
- * Trois autres receivers frères ([MeteoWidgetReceiverTiny],
- * [MeteoWidgetReceiverWide], [MeteoWidgetReceiverLarge]) existent pour
- * exposer différentes tailles cible dans le picker de widgets — voir le
- * docblock du manifest pour la justification (compatibilité Pixel/Samsung
- * launchers, launchers sans resize).
+ * ─── Multi-provider (9 receivers au total) ─────────────────────────────
+ * Huit autres receivers frères existent pour exposer différentes tailles
+ * cible dans le picker de widgets — voir le docblock du manifest pour la
+ * justification (compatibilité Pixel/Samsung launchers, launchers sans
+ * resize). Liste complète dans [WidgetReceivers.All].
  *
  * Tous les receivers partagent :
  *   - Le MÊME [GlanceAppWidget] ([MeteoWidget]) pour le rendu. Le layout
@@ -24,8 +23,11 @@ import androidx.glance.appwidget.GlanceAppWidgetReceiver
  *     variantes de composable par taille.
  *   - Le MÊME lifecycle WorkManager tick (voir [WidgetRefreshScheduler]).
  *   - La MÊME activité de configuration.
+ *   - La MÊME plage de resize (min 1×1, max 5×2). Voir docblock d'un XML
+ *     provider (par ex. `meteocompare_widget_info.xml`) pour la
+ *     justification des dimensions homogènes.
  *
- * La seule différence est la meta-data XML (tailles cible/min/max) et
+ * La seule différence est la target size dans la meta-data XML et
  * l'entrée dans le picker.
  *
  * ─── Lifecycle WorkManager ────────────────────────────────────────────
@@ -72,7 +74,7 @@ open class MeteoWidgetReceiver : GlanceAppWidgetReceiver() {
 }
 
 /**
- * Variante MINI — cible 1×1. Les 3 receivers ci-dessous n'ajoutent aucun
+ * Variante MINI — cible 1×1. Les 8 receivers ci-dessous n'ajoutent aucun
  * comportement propre : ils héritent TOUT de [MeteoWidgetReceiver]. Leur
  * unique raison d'être est d'être une entrée séparée dans le manifest, ce
  * qui crée une entrée séparée dans le picker de widgets Android.
@@ -87,43 +89,47 @@ open class MeteoWidgetReceiver : GlanceAppWidgetReceiver() {
  * dans [MeteoWidget] via [SizeMode.Exact] et `LocalSize.current`. Pas besoin
  * de composables spécialisés par variante.
  */
-class MeteoWidgetReceiverTiny : MeteoWidgetReceiver()
+class MeteoWidgetReceiver1x1 : MeteoWidgetReceiver()
 
 /**
- * Variante 3×1. Voir [MeteoWidgetReceiverTiny] pour la justification de la
- * classe vide.
+ * Variante 2×1.
+ */
+class MeteoWidgetReceiver2x1 : MeteoWidgetReceiver()
+
+/**
+ * Variante 3×1.
  */
 class MeteoWidgetReceiver3x1 : MeteoWidgetReceiver()
 
 /**
- * Variante 4×1. Voir [MeteoWidgetReceiverTiny].
+ * Variante 4×1.
  */
 class MeteoWidgetReceiver4x1 : MeteoWidgetReceiver()
 
 /**
- * Variante BANDEAU 5×1. Voir [MeteoWidgetReceiverTiny].
+ * Variante 5×1.
  */
-class MeteoWidgetReceiverWide : MeteoWidgetReceiver()
+class MeteoWidgetReceiver5x1 : MeteoWidgetReceiver()
 
 /**
- * Variante 2×2. Voir [MeteoWidgetReceiverTiny].
+ * Variante 2×2.
  */
 class MeteoWidgetReceiver2x2 : MeteoWidgetReceiver()
 
 /**
- * Variante 3×2. Voir [MeteoWidgetReceiverTiny].
+ * Variante 3×2.
  */
 class MeteoWidgetReceiver3x2 : MeteoWidgetReceiver()
 
 /**
- * Variante 4×2. Voir [MeteoWidgetReceiverTiny].
+ * Variante 4×2.
  */
 class MeteoWidgetReceiver4x2 : MeteoWidgetReceiver()
 
 /**
- * Variante GRAND 5×2. Voir [MeteoWidgetReceiverTiny].
+ * Variante 5×2.
  */
-class MeteoWidgetReceiverLarge : MeteoWidgetReceiver()
+class MeteoWidgetReceiver5x2 : MeteoWidgetReceiver()
 
 /**
  * Registre central des receivers de widget MeteoCompare.
@@ -152,15 +158,15 @@ class MeteoWidgetReceiverLarge : MeteoWidgetReceiver()
  */
 internal object WidgetReceivers {
     val All: List<Class<out MeteoWidgetReceiver>> = listOf(
-        MeteoWidgetReceiverTiny::class.java,       // 1×1
-        MeteoWidgetReceiver::class.java,           // 2×1 (default)
-        MeteoWidgetReceiver3x1::class.java,        // 3×1
-        MeteoWidgetReceiver4x1::class.java,        // 4×1
-        MeteoWidgetReceiverWide::class.java,       // 5×1
-        MeteoWidgetReceiver2x2::class.java,        // 2×2
-        MeteoWidgetReceiver3x2::class.java,        // 3×2
-        MeteoWidgetReceiver4x2::class.java,        // 4×2
-        MeteoWidgetReceiverLarge::class.java       // 5×2
+        MeteoWidgetReceiver1x1::class.java,       // 1×1
+        MeteoWidgetReceiver2x1::class.java,       // 2×1 (default)
+        MeteoWidgetReceiver3x1::class.java,       // 3×1
+        MeteoWidgetReceiver4x1::class.java,       // 4×1
+        MeteoWidgetReceiver5x1::class.java,       // 5×1
+        MeteoWidgetReceiver2x2::class.java,       // 2×2
+        MeteoWidgetReceiver3x2::class.java,       // 3×2
+        MeteoWidgetReceiver4x2::class.java,       // 4×2
+        MeteoWidgetReceiver5x2::class.java        // 5×2
     )
 
     /**

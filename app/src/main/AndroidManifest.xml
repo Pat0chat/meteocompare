@@ -104,7 +104,7 @@
 
         <!-- 1×1 (mini) -->
         <receiver
-            android:name=".widget.MeteoWidgetReceiverTiny"
+            android:name=".widget.MeteoWidgetReceiver1x1"
             android:exported="true"
             android:label="@string/widget_label_1x1">
             <intent-filter>
@@ -112,12 +112,12 @@
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
-                android:resource="@xml/meteocompare_widget_info_tiny" />
+                android:resource="@xml/meteocompare_widget_info_1x1" />
         </receiver>
 
         <!-- 2×1 (STANDARD, taille par défaut historique) -->
         <receiver
-            android:name=".widget.MeteoWidgetReceiver"
+            android:name=".widget.MeteoWidgetReceiver2x1"
             android:exported="true"
             android:label="@string/widget_label_2x1">
             <intent-filter>
@@ -125,7 +125,7 @@
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
-                android:resource="@xml/meteocompare_widget_info" />
+                android:resource="@xml/meteocompare_widget_info_2x1" />
         </receiver>
 
         <!-- 3×1 -->
@@ -156,7 +156,7 @@
 
         <!-- 5×1 (bandeau) -->
         <receiver
-            android:name=".widget.MeteoWidgetReceiverWide"
+            android:name=".widget.MeteoWidgetReceiver5x1"
             android:exported="true"
             android:label="@string/widget_label_5x1">
             <intent-filter>
@@ -164,7 +164,7 @@
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
-                android:resource="@xml/meteocompare_widget_info_wide" />
+                android:resource="@xml/meteocompare_widget_info_5x1" />
         </receiver>
 
         <!-- ═══ Double-row widgets (hauteur = 2 cellules) ══════════════ -->
@@ -210,7 +210,7 @@
 
         <!-- 5×2 (grand, taille maximale) -->
         <receiver
-            android:name=".widget.MeteoWidgetReceiverLarge"
+            android:name=".widget.MeteoWidgetReceiver5x2"
             android:exported="true"
             android:label="@string/widget_label_5x2">
             <intent-filter>
@@ -218,7 +218,7 @@
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
-                android:resource="@xml/meteocompare_widget_info_large" />
+                android:resource="@xml/meteocompare_widget_info_5x2" />
         </receiver>
 
         <!--

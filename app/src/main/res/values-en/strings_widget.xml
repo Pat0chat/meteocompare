@@ -1,25 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    English translation. Kept in sync with values/strings_widget.xml (French,
-    default). See that file's header for context on why we split from the
-    main strings.xml.
+    English translation of widget-related strings. Kept in sync with the
+    French default (values/strings_widget.xml). See that file's header for
+    context on file splitting.
 
-    Size labels stay in "N×N" format across languages — they're numeric
-    references, not translated words. Users worldwide understand "2×1"
-    the same way.
+    ─── Label format: SIZE FIRST ────────────────────────────────
+    Size prefix "N×N" ensures alphabetical sort by the launcher matches
+    increasing-size order in the picker. Detailed rationale in the French
+    values/strings_widget.xml file — same reasoning applies here.
 -->
 <resources>
 
-    <!-- Widget size labels (shown in the picker) -->
-    <string name="widget_label_1x1">Weather 1×1</string>
-    <string name="widget_label_2x1">Weather 2×1</string>
-    <string name="widget_label_2x2">Weather 2×2</string>
-    <string name="widget_label_3x1">Weather 3×1</string>
-    <string name="widget_label_3x2">Weather 3×2</string>
-    <string name="widget_label_4x1">Weather 4×1</string>
-    <string name="widget_label_4x2">Weather 4×2</string>
-    <string name="widget_label_5x1">Weather 5×1</string>
-    <string name="widget_label_5x2">Weather 5×2</string>
+    <!-- Widget variant labels (shown in the picker) -->
+    <string name="widget_label_1x1">1×1 Weather</string>
+    <string name="widget_label_2x1">2×1 Weather</string>
+    <string name="widget_label_2x2">2×2 Weather</string>
+    <string name="widget_label_3x1">3×1 Weather</string>
+    <string name="widget_label_3x2">3×2 Weather</string>
+    <string name="widget_label_4x1">4×1 Weather</string>
+    <string name="widget_label_4x2">4×2 Weather</string>
+    <string name="widget_label_5x1">5×1 Weather</string>
+    <string name="widget_label_5x2">5×2 Weather</string>
 
     <!-- Colors section in the config activity -->
     <string name="widget_config_colors_section">Colors</string>

@@ -1,16 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Widget MeteoCompare — variante 4×2 (détaillé).
-    Voir meteocompare_widget_info.xml pour la logique multi-provider.
-    Dimensions :
-      - Cible : 4×2 = 250×110dp
-      - Rendu : ExtraLargeLayout à 4 items dans le bottom strip (contre
-        5 items en 5×2). Version "canonique" du widget 2-rangées.
+    Widget MeteoCompare — provider CIBLE 4×2 (détaillé).
+
+    ─── Rôle parmi les 9 providers ─────────────────────────────────
+    Ce fichier concerne l'entrée "Météo" à la taille cible 4×2. Voir
+    AndroidManifest.xml pour la liste complète des receivers.
+
+    ─── Dimensions HOMOGÈNES pour tous les providers ───────────────
+    Depuis l'itération "cohérence", tous les providers partagent la MÊME
+    plage de resize :
+      - minWidth  = 40dp   (1 cellule — permet resize vers 1×1)
+      - minHeight = 40dp
+      - maxResizeWidth  = 360dp  (~5 cellules avec marge pour clamping
+        des launchers — formule Android : 70·n − 30 = 320dp à 5 cellules)
+      - maxResizeHeight = 180dp  (~2 cellules)
+
+    Conséquence : sur un launcher qui supporte le resize, l'utilisateur
+    peut partir de N'IMPORTE QUEL provider et arriver à N'IMPORTE QUELLE
+    taille finale. Le rôle des 9 providers devient purement "point de
+    départ visuel dans le picker" — pas une contrainte de taille.
+
+    Sur les launchers sans resize post-drop, le user reste à la cible.
+    D'où l'importance d'exposer les 9 tailles dans le picker.
+
+    ─── Ce qui distingue ce provider des autres ────────────────────
+    UNIQUEMENT `targetCellWidth=4` et `targetCellHeight=2`. Toutes les
+    autres attributs sont identiques.
 -->
 <appwidget-provider
     xmlns:android="http://schemas.android.com/apk/res/android"
-    android:minWidth="250dp"
-    android:minHeight="110dp"
+    android:minWidth="40dp"
+    android:minHeight="40dp"
     android:targetCellWidth="4"
     android:targetCellHeight="2"
     android:maxResizeWidth="360dp"

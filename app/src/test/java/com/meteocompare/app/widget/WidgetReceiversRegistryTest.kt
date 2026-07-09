@@ -42,15 +42,15 @@ class WidgetReceiversRegistryTest {
      * pour la justification.
      */
     private val expectedReceivers = setOf<Class<out MeteoWidgetReceiver>>(
-        MeteoWidgetReceiver::class.java,
-        MeteoWidgetReceiverTiny::class.java,
-        MeteoWidgetReceiverWide::class.java,
-        MeteoWidgetReceiverLarge::class.java,
+        MeteoWidgetReceiver1x1::class.java,
+        MeteoWidgetReceiver2x1::class.java,
         MeteoWidgetReceiver3x1::class.java,
         MeteoWidgetReceiver4x1::class.java,
+        MeteoWidgetReceiver5x1::class.java,
         MeteoWidgetReceiver2x2::class.java,
         MeteoWidgetReceiver3x2::class.java,
-        MeteoWidgetReceiver4x2::class.java
+        MeteoWidgetReceiver4x2::class.java,
+        MeteoWidgetReceiver5x2::class.java
     )
 
     @Test

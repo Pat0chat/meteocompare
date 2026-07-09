@@ -4,39 +4,57 @@
     des 9 variantes de tailles, section colors de la config activity.
 
     ─── Pourquoi un fichier séparé ? ───────────────────────────────
-    Le strings.xml principal est déjà volumineux (~200 clés). Ajouter les
-    ~25 clés nouvelles dans un fichier dédié :
+    Le strings.xml principal est déjà volumineux. Ajouter les ~25 clés
+    nouvelles dans un fichier dédié :
       - Facilite le diff en review (les changements sont isolés).
       - Documente le scope (tout ce qui touche au widget est ici).
       - Aucun impact runtime : aapt merge tous les strings.xml d'un même
         module au build.
 
-    Version française : c'est le fichier de RÉFÉRENCE (values/ = default).
-    La version anglaise est dans values-en/strings_widget.xml.
+    ─── Format des labels : SIZE FIRST ─────────────────────────────
+    Format "N×N Météo" — la taille est le PREMIER élément du label. Ce
+    choix est crucial pour l'ordre d'affichage dans le picker :
 
-    ─── Convention de labels par taille ──────────────────────────────
-    Format uniforme "Météo N×N" pour toutes les 9 variantes :
-      - Signal immédiat au picker (l'user cherche une taille précise).
-      - Ordre alphabétique naturel dans les launchers qui trient (le
-        1×1 avant le 2×1 avant le 2×2, etc.).
-      - Robuste à l'ajout de futures variantes (une hypothétique 6×3
-        tablette s'insère naturellement sans casser la logique existante).
+      1. Certains launchers (Pixel, One UI récents) trient les widgets
+         d'une app par ORDRE ALPHABÉTIQUE du label. Avec "Météo 1×1"
+         d'abord, le préfixe commun "Météo " ne discrimine rien et
+         c'est le caractère suivant qui décide — sur Pixel spécifique-
+         ment, l'algorithme de tri peut hésiter sur des labels très
+         proches et retomber sur l'ordre d'installation.
 
-    Le caractère × est U+00D7 (Multiplication Sign) — pas la lettre "x".
-    Plus lisible et sémantiquement correct pour des dimensions.
+      2. Avec "1×1 Météo" en tête, le PREMIER caractère du label est
+         le chiffre de la largeur, décisif dès le premier tri. Ordre
+         résultant strictement identique à l'ordre par taille croissante
+         (single-row d'abord, puis double-row) :
+
+           "1×1 Météo" < "2×1 Météo" < "2×2 Météo"
+                     < "3×1 Météo" < "3×2 Météo"
+                     < "4×1 Météo" < "4×2 Météo"
+                     < "5×1 Météo" < "5×2 Météo"
+
+      3. Bonus UX : la taille étant l'info discriminante entre les 9
+         variantes, la mettre en tête réduit le temps de scan visuel de
+         l'utilisateur qui cherche une taille précise.
+
+    ─── Note technique sur "×" ─────────────────────────────────────
+    Le caractère × est U+00D7 (Multiplication Sign), pas la lettre "x".
+    Rendu propre sur toutes les polices modernes (Roboto, San Francisco,
+    Noto). Sémantiquement correct pour indiquer des dimensions.
 -->
 <resources>
 
     <!-- ─── Labels des 9 variantes (affichés dans le picker) ─── -->
-    <string name="widget_label_1x1">Météo 1×1</string>
-    <string name="widget_label_2x1">Météo 2×1</string>
-    <string name="widget_label_2x2">Météo 2×2</string>
-    <string name="widget_label_3x1">Météo 3×1</string>
-    <string name="widget_label_3x2">Météo 3×2</string>
-    <string name="widget_label_4x1">Météo 4×1</string>
-    <string name="widget_label_4x2">Météo 4×2</string>
-    <string name="widget_label_5x1">Météo 5×1</string>
-    <string name="widget_label_5x2">Météo 5×2</string>
+    <!-- Ordre = ordre d'apparition attendu dans le picker après tri
+         alphabétique par le launcher. Voir docblock ci-dessus. -->
+    <string name="widget_label_1x1">1×1 Météo</string>
+    <string name="widget_label_2x1">2×1 Météo</string>
+    <string name="widget_label_2x2">2×2 Météo</string>
+    <string name="widget_label_3x1">3×1 Météo</string>
+    <string name="widget_label_3x2">3×2 Météo</string>
+    <string name="widget_label_4x1">4×1 Météo</string>
+    <string name="widget_label_4x2">4×2 Météo</string>
+    <string name="widget_label_5x1">5×1 Météo</string>
+    <string name="widget_label_5x2">5×2 Météo</string>
 
     <!-- Section couleurs dans la config activity -->
     <string name="widget_config_colors_section">Couleurs</string>
