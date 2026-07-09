@@ -10,7 +10,6 @@
     <string name="action_cancel">Cancel</string>
 
     <!-- ─── Home-screen widget ────────────────────────────────────────── -->
-    <string name="widget_label">MeteoCompare</string>
     <string name="widget_description">Current weather for a favorite city with a multi-model confidence score.</string>
     <string name="widget_config_title">Configure widget</string>
     <string name="widget_config_subtitle">Pick which city to display and the background opacity.</string>
@@ -131,13 +130,10 @@
 
     <!-- Confidence band chart zoom -->
     <string name="chart_zoom_hint">Pinch to zoom • Double-tap to reset</string>
-    <string name="chart_zoom_reset">Reset zoom</string>
     <string name="chart_zoom_a11y_zoomed">Chart zoomed, double-tap to reset</string>
 
     <!-- Chart messages -->
-    <string name="chart_no_data">No data to display</string>
     <string name="chart_not_enough_data">Not enough data to compute a band</string>
-    <string name="chart_confidence_band_title">Inter-model forecast range</string>
     <string name="chart_confidence_band_desc">The wider the band, the more models disagree. Color shows the confidence level.</string>
     <string name="chart_confidence_now">Confidence now: %d%%</string>
     <string name="chart_confidence_ahead">at D+%1$d: %2$d%%</string>

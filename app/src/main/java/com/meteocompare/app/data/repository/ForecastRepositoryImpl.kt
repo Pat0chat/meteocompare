@@ -256,7 +256,7 @@ class ForecastRepositoryImpl @Inject constructor(
         //
         // Niveau INFO plutôt que DEBUG : on veut voir ce log même sur les
         // logcat filtrés par défaut du Play Store (release keeps INFO+).
-        android.util.Log.i(
+        android.util.Log.d(
             LOG_TAG,
             "Batched fetch: ${models.size} models in 1 HTTPS request " +
                 "→ ${models.joinToString(",") { it.apiKey }}"

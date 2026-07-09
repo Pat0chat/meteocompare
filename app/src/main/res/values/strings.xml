@@ -10,7 +10,6 @@
     <string name="action_cancel">Annuler</string>
 
     <!-- ─── Widget homescreen ────────────────────────────────────────── -->
-    <string name="widget_label">MeteoCompare</string>
     <string name="widget_description">Météo actuelle d\'une ville favorite avec indice de confiance multi-modèles.</string>
     <string name="widget_config_title">Configurer le widget</string>
     <string name="widget_config_subtitle">Choisissez la ville affichée et l\'opacité du fond.</string>
@@ -132,13 +131,10 @@
 
     <!-- Zoom sur la bande de confiance horaire -->
     <string name="chart_zoom_hint">Pincez pour zoomer • Double-tap pour réinitialiser</string>
-    <string name="chart_zoom_reset">Réinitialiser le zoom</string>
     <string name="chart_zoom_a11y_zoomed">Graphique zoomé, double-tap pour réinitialiser</string>
 
     <!-- Chart messages -->
-    <string name="chart_no_data">Aucune donnée à afficher</string>
     <string name="chart_not_enough_data">Pas assez de données pour calculer une bande</string>
-    <string name="chart_confidence_band_title">Plage des prévisions inter-modèles</string>
     <string name="chart_confidence_band_desc">Plus la bande s\'élargit, plus les modèles divergent. La couleur indique le niveau de confiance.</string>
     <string name="chart_confidence_now">Confiance maintenant : %d%%</string>
     <string name="chart_confidence_ahead">à J+%1$d : %2$d%%</string>
