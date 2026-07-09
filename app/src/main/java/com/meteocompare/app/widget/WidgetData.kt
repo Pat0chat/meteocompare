@@ -247,12 +247,27 @@ internal suspend fun loadWidgetData(
     // MANUAL : on utilise Long.MAX_VALUE comme seuil → tout cache est considéré
     // "frais", aucun fetch réseau ne se déclenche automatiquement. Le user
     // doit ouvrir l'app et pull-to-refresh pour rafraîchir manuellement.
-    val interval = entry.userPreferencesRepository().observeRefreshInterval().first()
+    val prefsRepo = entry.userPreferencesRepository()
+    val interval = prefsRepo.observeRefreshInterval().first()
+    // Aligne les modèles du widget sur ceux que l'utilisateur a choisis dans
+    // Settings. Sans ce lookup, `getCityForecastStream` retombait sur le
+    // défaut `WeatherModel.MVP_SELECTION`, qui pouvait différer de la
+    // sélection app — résultat : deux entrées de cache disjointes (les clés
+    // Room sont (cityId, modelKey), donc un modèle absent d'un côté n'est
+    // pas réutilisable par l'autre), et deux requêtes HTTPS parallèles au
+    // cold start alors qu'une seule aurait pu servir aux deux consommateurs.
+    // Avec `enabledModels`, app et widget écrivent/lisent EXACTEMENT les
+    // mêmes lignes de cache → le premier à démarrer sert le second.
+    val enabledModels = prefsRepo.observeEnabledModels().first()
     val maxCacheAgeMs = if (interval == RefreshInterval.MANUAL) Long.MAX_VALUE
         else interval.millis
 
     val result = entry.forecastRepository()
-        .getCityForecastStream(city, maxCacheAgeMs = maxCacheAgeMs)
+        .getCityForecastStream(
+            city = city,
+            models = enabledModels,
+            maxCacheAgeMs = maxCacheAgeMs
+        )
         .firstOrNull()
 
     return when (result) {

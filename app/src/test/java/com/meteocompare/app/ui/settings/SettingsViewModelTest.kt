@@ -44,10 +44,10 @@ import org.junit.Test
  *
  * Note sur [WidgetRefreshScheduler] : c'est un `object` (singleton Kotlin) —
  * on utilise `mockkObject` de MockK pour intercepter les appels statiques.
- * Sinon, chaque appel `WidgetRefreshScheduler.schedule(context, ...)` tenterait
- * d'invoquer WorkManager.getInstance() qui crasherait dans un unit test sans
- * ApplicationContext instrumenté. Le mockObject renvoie des Unit no-op et permet
- * de vérifier les invocations.
+ * Sinon, chaque appel `WidgetRefreshScheduler.schedule(...)` ou
+ * `triggerImmediateRefresh(...)` tenterait d'invoquer WorkManager.getInstance()
+ * qui crasherait dans un unit test sans ApplicationContext instrumenté. Le
+ * mockObject renvoie des Unit no-op et permet de vérifier les invocations.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class SettingsViewModelTest {
@@ -83,7 +83,8 @@ class SettingsViewModelTest {
         // La logique de programmation elle-même sera couverte par ses propres
         // tests instrumentés séparés.
         mockkObject(WidgetRefreshScheduler)
-        every { WidgetRefreshScheduler.schedule(any(), any()) } returns Unit
+        every { WidgetRefreshScheduler.schedule(any()) } returns Unit
+        every { WidgetRefreshScheduler.triggerImmediateRefresh(any()) } returns Unit
         every { WidgetRefreshScheduler.cancel(any()) } returns Unit
 
         viewModel = SettingsViewModel(appContext, prefs)
@@ -245,34 +246,70 @@ class SettingsViewModelTest {
     }
 
     @Test
-    fun `onRefreshIntervalSelected - persiste ET reprogramme le worker`() = runTest(dispatcher) {
+    fun `onRefreshIntervalSelected - persiste ET force un tick immédiat`() = runTest(dispatcher) {
         viewModel.onRefreshIntervalSelected(RefreshInterval.HOURS_6)
 
-        // Ordre : persistance AVANT reprogrammation. Sinon le worker
-        // fraîchement programmé pourrait lire l'ancienne valeur au premier
-        // tick — sur le run de test avec UnconfinedTestDispatcher ce n'est
+        // Ordre : persistance AVANT trigger. Sinon le tick immédiat qu'on
+        // vient de forcer lirait l'ancienne valeur pour le seuil de fraîcheur
+        // cache — sur le run de test avec UnconfinedTestDispatcher ce n'est
         // pas critique mais on documente l'invariant.
+        //
+        // Note : depuis le découplage tick/fetch, on n'appelle plus
+        // `schedule(context, interval)` — la cadence tick est fixe (15 min)
+        // et la nouvelle valeur d'intervalle sera lue au prochain
+        // loadWidgetData comme seuil `maxCacheAgeMs`. On force juste un
+        // tick immédiat pour ne pas attendre 15 min.
         coVerifyOrder {
             prefs.setRefreshInterval(RefreshInterval.HOURS_6)
-            WidgetRefreshScheduler.schedule(appContext, RefreshInterval.HOURS_6)
+            WidgetRefreshScheduler.triggerImmediateRefresh(appContext)
         }
     }
 
     @Test
-    fun `onRefreshIntervalSelected MANUAL - reprogramme aussi (le scheduler cancel en interne)`() =
+    fun `onRefreshIntervalSelected MANUAL - trigger aussi le tick immédiat`() =
         runTest(dispatcher) {
-            // Cas frontière : MANUAL n'annule PAS le worker via le repo, mais
-            // le scheduler gère lui-même l'annulation (voir
-            // WidgetRefreshScheduler.schedule qui bascule en cancelUniqueWork
-            // quand interval == MANUAL). La VM DOIT quand même appeler
-            // schedule() — c'est ce que ce test garantit.
+            // Cas frontière : MANUAL signifie "aucun fetch réseau automatique"
+            // (le loadWidgetData va lire un maxCacheAgeMs = Long.MAX_VALUE et
+            // ne fetchera plus). Mais on veut quand même refléter tout de suite
+            // que ce choix est actif — d'où le tick immédiat qui va
+            // recomposer le widget avec la nouvelle règle.
             viewModel.onRefreshIntervalSelected(RefreshInterval.MANUAL)
 
             coVerify {
                 prefs.setRefreshInterval(RefreshInterval.MANUAL)
             }
             verify {
-                WidgetRefreshScheduler.schedule(appContext, RefreshInterval.MANUAL)
+                WidgetRefreshScheduler.triggerImmediateRefresh(appContext)
             }
         }
+
+    @Test
+    fun `onModelToggled - persiste ET force un tick immédiat du widget`() = runTest(dispatcher) {
+        // Le widget lit `observeEnabledModels()` à chaque loadWidgetData.
+        // Sans trigger explicite, l'utilisateur devrait attendre le prochain
+        // tick périodique (jusqu'à 15 min) pour voir un nouveau modèle activé
+        // se refléter sur l'écran d'accueil. C'est spécifiquement la
+        // régression qu'on garde-fou ici.
+        //
+        // Souscription active pour que `enabledModels.value` reflète le
+        // modelsFlow amont — sinon stateIn WhileSubscribed sert l'initialValue.
+        val backgroundJob = backgroundScope.launch {
+            viewModel.enabledModels.collect { /* actif tant qu'on est dans runTest */ }
+        }
+        modelsFlow.value = listOf(WeatherModel.GFS)  // état source connu
+
+        viewModel.onModelToggled(WeatherModel.ECMWF, enabled = true)
+
+        // On vérifie l'ORDRE (persist → trigger) sans dépendre du contenu
+        // exact de la liste — l'ordre d'itération d'un Set + toList() est
+        // spécifié pour LinkedHashSet mais on préfère ne pas tester ça ici.
+        // Vérification du contenu :
+        coVerify { prefs.setEnabledModels(match { it.containsAll(listOf(WeatherModel.GFS, WeatherModel.ECMWF)) && it.size == 2 }) }
+        // Vérification de l'ordre setEnabled → triggerImmediateRefresh :
+        coVerifyOrder {
+            prefs.setEnabledModels(any())
+            WidgetRefreshScheduler.triggerImmediateRefresh(appContext)
+        }
+        backgroundJob.cancel()
+    }
 }

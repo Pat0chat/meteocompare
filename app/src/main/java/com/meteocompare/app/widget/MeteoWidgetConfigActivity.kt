@@ -189,20 +189,18 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
 
             // 4. S'assurer que le worker WorkManager est bien programmé. En
             //    théorie [MeteoWidgetReceiver.onEnabled] l'a déjà fait au
-            //    premier drop du widget, mais :
-            //    - Un update install peut recréer les widgets sans re-appeler
-            //      onEnabled (le receiver était déjà "enabled" au sens système).
-            //    - Un utilisateur qui change son intervalle de refresh dans les
-            //      settings s'attend à ce que le widget respecte immédiatement
-            //      la nouvelle cadence, ce qui passe par une re-programmation.
-            //    L'appel est idempotent (ExistingPeriodicWorkPolicy.UPDATE) :
-            //    aucun coût si le worker tourne déjà avec la bonne cadence.
-            val entry = dagger.hilt.android.EntryPointAccessors.fromApplication(
-                appCtx, WidgetEntryPoint::class.java
-            )
-            val interval = entry.userPreferencesRepository()
-                .observeRefreshInterval().first()
-            WidgetRefreshScheduler.schedule(appCtx, interval)
+            //    premier drop du widget, mais un update install peut recréer
+            //    les widgets sans re-appeler onEnabled (le receiver était
+            //    déjà "enabled" au sens système). L'appel est idempotent
+            //    (ExistingPeriodicWorkPolicy.KEEP) : aucun coût si le worker
+            //    tourne déjà.
+            //
+            //    Note : plus besoin de lire l'intervalle utilisateur ici. La
+            //    cadence du worker est maintenant fixe (voir docblock de
+            //    [WidgetRefreshScheduler]). L'intervalle utilisateur est
+            //    consommé au moment du loadWidgetData comme seuil
+            //    `maxCacheAgeMs`, pas comme fréquence de tick.
+            WidgetRefreshScheduler.schedule(appCtx)
 
             // 5. Résultat final au système + fin d'activité.
             val resultIntent = Intent()

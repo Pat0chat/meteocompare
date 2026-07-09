@@ -59,6 +59,20 @@ class SettingsViewModel @Inject constructor(
             val next = if (enabled) current + model else current - model
             if (next.isNotEmpty()) {
                 prefs.setEnabledModels(next.toList())
+                // Le widget lit la liste des modèles activés à chaque
+                // loadWidgetData. Sans ce trigger, il faudrait attendre le
+                // prochain tick 15 min pour que le changement se propage —
+                // frustrant pour l'utilisateur qui vient de faire un choix
+                // explicite. On force un tick immédiat pour re-fetcher avec
+                // le nouveau jeu de modèles tout de suite.
+                //
+                // Idempotent : si l'utilisateur enchaîne plusieurs toggles,
+                // les OneTime jobs se poursuivent (pas de dédup WorkManager
+                // sur les one-time sans nom unique), mais chaque tick est
+                // très bon marché (state write + éventuel cache read) et
+                // le repo court-circuite les fetches redondants via son
+                // seuil maxCacheAgeMs.
+                WidgetRefreshScheduler.triggerImmediateRefresh(appContext)
             }
         }
     }
@@ -93,28 +107,38 @@ class SettingsViewModel @Inject constructor(
     }
 
     /**
-     * Persiste le nouvel intervalle de rafraîchissement ET re-programme
-     * immédiatement le worker WorkManager du widget avec la nouvelle cadence.
+     * Persiste le nouvel intervalle de rafraîchissement et propage
+     * immédiatement le changement au widget.
      *
-     * ─── Pourquoi re-programmer ici, pas dans le repository ? ────────────
+     * ─── Ce qui a changé vs version précédente ──────────────────────────
+     * Avant : on re-programmait le worker WorkManager avec la nouvelle
+     * cadence. Ça avait deux inconvénients :
+     *   - Coupler la fréquence du tick d'affichage à un choix qui
+     *     concerne le fetch réseau. Résultat : en HOURS_3, les labels
+     *     d'heure du widget ne shiftaient qu'une fois toutes les 3h,
+     *     alors que l'utilisateur voulait juste "moins de fetch".
+     *   - Recréer un job périodique à chaque toggle utilisateur.
+     *
+     * Maintenant : la cadence tick est fixe (15 min), la RefreshInterval
+     * sert UNIQUEMENT de seuil `maxCacheAgeMs` lu dynamiquement par
+     * loadWidgetData à chaque tick. Il suffit donc de forcer un tick
+     * immédiat pour que la nouvelle valeur soit prise en compte tout de
+     * suite (sinon jusqu'à 15 min de latence).
+     *
+     * ─── Pourquoi côté VM et pas repository ? ───────────────────────────
      * Le repository est un pur data holder ; il ne connaît pas WorkManager.
      * On garde ce couplage explicit du côté de la VM (couche présentation)
      * plutôt que d'introduire une dépendance repository → WorkManager qui
      * casserait la testabilité pure du DataStore layer.
      *
-     * L'appel `WidgetRefreshScheduler.schedule` est idempotent grâce à
-     * `ExistingPeriodicWorkPolicy.UPDATE` : si l'utilisateur fait plusieurs
-     * clics d'affilée sur les segments, on ne crée pas de doublons de jobs.
-     *
-     * Note : on ne fait un update qu'APRÈS que le DataStore ait persisté la
-     * valeur, sinon le prochain widget refresh (déclenché par le worker qu'on
-     * vient de re-programmer) lirait l'ancienne valeur pour le seuil de
-     * fraîcheur cache.
+     * Note : on trigger APRÈS que le DataStore ait persisté la valeur,
+     * sinon le tick qu'on vient de forcer lirait l'ancienne valeur pour
+     * le seuil de fraîcheur cache.
      */
     fun onRefreshIntervalSelected(interval: RefreshInterval) {
         viewModelScope.launch {
             prefs.setRefreshInterval(interval)
-            WidgetRefreshScheduler.schedule(appContext, interval)
+            WidgetRefreshScheduler.triggerImmediateRefresh(appContext)
         }
     }
 }

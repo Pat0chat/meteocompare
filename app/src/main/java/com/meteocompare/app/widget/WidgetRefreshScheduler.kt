@@ -1,5 +1,7 @@
 package com.meteocompare.app.widget
 
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 import android.content.Context
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.state.updateAppWidgetState
@@ -7,107 +9,131 @@ import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
-import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import com.meteocompare.app.domain.model.RefreshInterval
 import java.util.concurrent.TimeUnit
 
 /**
- * Rafraîchissement périodique des widgets d'accueil via WorkManager.
+ * Tick périodique des widgets d'accueil.
  *
- * ─── Pourquoi WorkManager, pas updatePeriodMillis ? ──────────────────────
- * L'ancien mécanisme (attribut `updatePeriodMillis` du provider-info XML)
- * s'appuie sur AlarmManager :
- *   - Plancher de 30 minutes (le système ignore les valeurs plus basses).
- *   - Wakelocks du device pour respecter l'alarme.
- *   - Aucune contrainte système : le rafraîchissement s'exécute même en
- *     mode avion (échec réseau garanti, batterie perdue).
- *   - Aucun respect de Doze / App Standby Buckets.
+ * ─── Découpage tick d'affichage vs fetch réseau ─────────────────────────
+ * Version précédente : la cadence du worker était pilotée par la
+ * [com.meteocompare.app.domain.model.RefreshInterval] utilisateur (30 min,
+ * 1h, 3h, 6h, ou MANUAL). En pratique ce paramètre servait DEUX buts
+ * incompatibles :
+ *
+ *   1. Faire évoluer l'affichage — labels d'heure ("14h→15h" au passage
+ *      d'heure), "Auj." qui devient "Hier" à minuit, etc.
+ *   2. Fetcher les données depuis Open-Meteo.
+ *
+ * Un utilisateur qui choisissait HOUR_1 acceptait implicitement "un fetch
+ * par heure au max", mais se retrouvait avec des labels d'heure gelés
+ * jusqu'au tick suivant — d'où la plainte "les heures ne changent pas au
+ * fur et à mesure du temps".
+ *
+ * Maintenant le worker tick est à cadence FIXE = 15 min (le minimum
+ * WorkManager). La [RefreshInterval] utilisateur est encore lue à chaque
+ * loadWidgetData, mais elle sert UNIQUEMENT de seuil `maxCacheAgeMs`
+ * dans le repository :
+ *
+ *   - Tick 15 min → invalidation du LaunchedEffect → loadWidgetData tourne
+ *     → labels d'heure recalculés depuis un Instant.now() frais.
+ *   - À l'intérieur de loadWidgetData, le repo lit son cache et ne fetche
+ *     que si `System.currentTimeMillis() - cachedFetchedAt > maxCacheAgeMs`.
+ *     Donc en HOUR_1 : 1 tick sur 4 fait un vrai HTTP, les 3 autres sont
+ *     cache-only.
+ *
+ * Coût du tick cache-only : ~10 ms de CPU (lecture Room + reconstruction
+ * WidgetData). Négligeable vs le coût radio d'un HTTP.
+ *
+ * ─── Pourquoi pas AlarmManager ? ────────────────────────────────────────
+ * Voir docblock historique retenu ci-dessous — les motifs (Doze, App
+ * Standby, contraintes système) restent valides.
  *
  * WorkManager :
  *   - Respecte Doze / App Standby / Battery Saver — le système regroupe les
  *     jobs pour minimiser les wake-ups.
- *   - Contrainte NETWORK CONNECTED : on n'essaie même pas de fetch si le
- *     device est hors-ligne. Reprise automatique quand la connectivité revient.
  *   - Contrainte BATTERY_NOT_LOW : quand la batterie est basse, on suspend
- *     les rafraîchissements automatiques (l'utilisateur peut toujours
- *     rafraîchir manuellement via l'app).
- *   - Persistance des jobs à travers les redémarrages device.
- *
- * ─── Interaction avec [MeteoWidget.provideGlance] ────────────────────────
- * Le worker écrit une clé "refresh tick" (timestamp) dans les prefs Glance
- * de CHAQUE widget. Cette clé est lue via `currentState<Preferences>()`
- * dans `provideGlance` — un changement invalide la lecture réactive,
- * Glance recompose, et le `LaunchedEffect(cityId, forecastMode, refreshTick)`
- * re-déclenche `loadWidgetData` qui va re-fetcher (via le stream
- * cache-first → réseau si assez vieux).
- *
- * Sans ce tick, un simple `MeteoWidget().update(context, glanceId)` ne
- * suffit pas : la lecture réactive du state ne détecte aucun changement,
- * donc le composable interne ne se ré-exécute pas, et le LaunchedEffect
- * ne repart pas.
+ *     le tick automatique.
+ *   - Pas de contrainte NETWORK CONNECTED : le tick doit tourner même
+ *     offline pour faire évoluer les labels d'heure. Le fetch, lui, est
+ *     court-circuité en amont par NetworkMonitor.isOnline() dans le repo.
+ *   - Persistance à travers les redémarrages device.
  */
 internal object WidgetRefreshScheduler {
 
     /**
      * Nom unique du travail périodique. Un seul job à la fois — les appels
-     * ultérieurs à [schedule] avec `ExistingPeriodicWorkPolicy.UPDATE`
-     * remplacent la config sans doublon.
+     * ultérieurs à [schedule] avec `ExistingPeriodicWorkPolicy.KEEP`
+     * réutilisent le job existant sans le recréer.
      */
     private const val WORK_NAME = "meteocompare_widget_refresh"
 
     /**
-     * Programme (ou re-programme) le worker de rafraîchissement en fonction
-     * de l'intervalle utilisateur.
-     *
-     * - [RefreshInterval.MANUAL] : annule tout worker existant. Le widget ne
-     *   se rafraîchit alors plus automatiquement — comportement voulu par
-     *   l'utilisateur qui a explicitement demandé "manuel".
-     * - Sinon : programme un [androidx.work.PeriodicWorkRequest] avec la
-     *   cadence demandée. Le minimum WorkManager est 15 min ; la
-     *   [RefreshInterval] la plus basse est calquée dessus.
-     *
-     * `ExistingPeriodicWorkPolicy.UPDATE` : si un worker tourne déjà avec
-     * une autre cadence (parce que l'utilisateur vient de changer le
-     * réglage), on l'update sans perdre le state — la prochaine exécution
-     * respectera la nouvelle cadence.
+     * Cadence FIXE du tick d'affichage. 15 min = minimum autorisé par
+     * WorkManager pour un PeriodicWorkRequest. On veut ce plancher pour que
+     * le passage d'heure (14:00 → 15:00) soit reflété rapidement dans les
+     * labels "14h 15h 16h 17h" → "15h 16h 17h 18h".
      */
-    fun schedule(context: Context, interval: RefreshInterval) {
-        val workManager = WorkManager.getInstance(context.applicationContext)
-        if (interval == RefreshInterval.MANUAL) {
-            workManager.cancelUniqueWork(WORK_NAME)
-            return
-        }
+    private const val TICK_MINUTES = 15L
+
+    /**
+     * Programme (ou garde) le worker périodique. Idempotent via
+     * `ExistingPeriodicWorkPolicy.KEEP` : appeler plusieurs fois (au
+     * démarrage, à l'ajout d'un nouveau widget, à un changement de settings)
+     * ne recrée pas le job. La cadence étant maintenant fixe, il n'y a plus
+     * jamais besoin de re-schedule pour un changement d'intervalle
+     * utilisateur — seulement [triggerImmediateRefresh] pour propager le
+     * changement sans attendre 15 min.
+     */
+    fun schedule(context: Context) {
         val request = PeriodicWorkRequestBuilder<WidgetRefreshWorker>(
-            interval.duration.toMillis(), TimeUnit.MILLISECONDS
+            TICK_MINUTES, TimeUnit.MINUTES
         )
             .setConstraints(
                 Constraints.Builder()
-                    // Pas de tentative de fetch en offline — WorkManager
-                    // reportera automatiquement le job quand la connectivité
-                    // revient. Économie majeure de wake-ups en avion/tunnel.
-                    .setRequiredNetworkType(NetworkType.CONNECTED)
-                    // Quand la batterie est basse, on suspend l'actualisation
-                    // auto. Le user voit le dernier snapshot cache jusqu'à ce
-                    // que la batterie remonte ou qu'il ouvre l'app manuellement.
+                    // Pas de contrainte réseau : le tick doit tourner offline
+                    // pour que les labels d'heure évoluent. Le fetch réseau
+                    // est short-circuité par NetworkMonitor.isOnline() en
+                    // amont dans ForecastRepositoryImpl.fetchAndCache.
                     .setRequiresBatteryNotLow(true)
                     .build()
             )
             .build()
 
-        workManager.enqueueUniquePeriodicWork(
-            WORK_NAME,
-            ExistingPeriodicWorkPolicy.UPDATE,
-            request
-        )
+        WorkManager.getInstance(context.applicationContext)
+            .enqueueUniquePeriodicWork(
+                WORK_NAME,
+                ExistingPeriodicWorkPolicy.KEEP,
+                request
+            )
+    }
+
+    /**
+     * Déclenche un tick unique en plus du périodique. Utilisé quand une
+     * préférence qui affecte le widget change dans Settings :
+     *
+     *   - Modèles activés (impacte les URLs Open-Meteo et donc le cache)
+     *   - Intervalle de rafraîchissement (impacte `maxCacheAgeMs`)
+     *
+     * Sans ce trigger, un toggle de modèle mettrait jusqu'à 15 min à se
+     * refléter sur l'écran d'accueil — expérience frustrante quand l'user
+     * vient explicitement de faire un choix.
+     *
+     * Le OneTime job partage le même [WidgetRefreshWorker] class que le
+     * périodique : même logique, même filtre ghost-IDs.
+     */
+    fun triggerImmediateRefresh(context: Context) {
+        val request = OneTimeWorkRequestBuilder<WidgetRefreshWorker>().build()
+        WorkManager.getInstance(context.applicationContext).enqueue(request)
     }
 
     /**
      * Annule tout worker de rafraîchissement. Appelée quand le dernier widget
-     * est retiré de l'écran d'accueil (`onDisabled` du receiver) — inutile
-     * de continuer à fetcher pour un widget qui n'existe plus.
+     * est retiré de l'écran d'accueil ([MeteoWidgetReceiver.onDisabled]) —
+     * inutile de continuer à tick pour un widget qui n'existe plus.
      */
     fun cancel(context: Context) {
         WorkManager.getInstance(context.applicationContext)
@@ -116,20 +142,45 @@ internal object WidgetRefreshScheduler {
 }
 
 /**
- * Worker qui déclenche un rafraîchissement de tous les widgets MeteoCompare
- * posés sur l'écran d'accueil.
+ * Worker qui déclenche un rafraîchissement des widgets MeteoCompare posés
+ * sur l'écran d'accueil.
  *
- * Stratégie : on ne fait PAS le fetch réseau ici — on invalide juste l'état
- * Glance en incrémentant `RefreshTickKey`. Cela déclenche la recomposition
- * du widget qui, dans son `LaunchedEffect`, appelle `loadWidgetData` avec
- * la clé de fraîcheur cache appropriée. Résultat :
+ * ─── Ce qu'il fait, ce qu'il ne fait PAS ────────────────────────────────
+ * On écrit uniquement un timestamp dans `RefreshTickKey` des prefs Glance de
+ * chaque widget vivant. C'est cette écriture — pas de fetch, pas d'update
+ * explicit — qui invalide la lecture réactive `currentState<Preferences>()`
+ * dans [MeteoWidget.provideGlance], force la recomposition, et re-déclenche
+ * le `LaunchedEffect(cityId, forecastMode, refreshTick)` qui contient
+ * `loadWidgetData`. Là seulement le repo décide fetch OU cache selon
+ * `maxCacheAgeMs`.
  *
- *   - Si le cache est plus jeune que l'intervalle utilisateur → pas de
- *     requête réseau, on réutilise juste le cache.
- *   - Sinon → un unique fetch réseau (partagé via le cache pour l'app).
+ * ─── Suppression du double-update ───────────────────────────────────────
+ * Version précédente : après `updateAppWidgetState`, on appelait aussi
+ * `MeteoWidget().update(ctx, glanceId)` "au cas où le trigger réactif
+ * n'aurait pas fait effet". En pratique ce belt-and-suspenders démarrait
+ * une SECONDE session Glance en parallèle, qui re-lançait provideGlance
+ * → LaunchedEffect → loadWidgetData → potentiellement second fetch HTTP.
  *
- * Cette séparation évite de dupliquer la logique de fetch entre le worker
- * et l'app — la vérité vit dans [ForecastRepositoryImpl.getCityForecastStream].
+ * Le state write via `updateAppWidgetState` SUFFIT — Glance recompose bien
+ * de manière réactive dès que la valeur du pref change. Testé sur widget
+ * fraîchement installé (le cas d'edge invoqué à l'époque), la recomposition
+ * arrive au premier tick périodique. Pas de flake observé.
+ *
+ * ─── Filtre ghost glanceIds ─────────────────────────────────────────────
+ * Deuxième source de duplication : `GlanceAppWidgetManager.getGlanceIds`
+ * retourne des IDs vus par Glance en interne. Certains scénarios laissent
+ * ces IDs orphelins (widget removed pendant un crash, ConfigActivity
+ * cancelled après que le système a alloué le widgetId, app update pendant
+ * que le widget était sur l'écran, etc.). Ces ghosts n'ont pas de widget
+ * vivant côté launcher mais recevraient un tick — et donc un fetch — à
+ * chaque cycle, expliquant les "3 requêtes pour 1 widget" observées.
+ *
+ * On croise avec `AppWidgetManager.getAppWidgetIds` (la vérité côté
+ * système) et on skip les IDs qui n'y sont pas. On ne peut pas purger la
+ * DataStore Glance des ghosts (aucune API publique pour ça), mais le fait
+ * de les ignorer suffit à couper l'effet visible : plus de fetch fantôme.
+ * Les prefs orphelines occupent quelques octets en trop mais restent
+ * neutres.
  */
 internal class WidgetRefreshWorker(
     context: Context,
@@ -138,21 +189,40 @@ internal class WidgetRefreshWorker(
 
     override suspend fun doWork(): Result {
         val ctx = applicationContext
-        val manager = GlanceAppWidgetManager(ctx)
-        val glanceIds = manager.getGlanceIds(MeteoWidget::class.java)
+        val glanceManager = GlanceAppWidgetManager(ctx)
+        val glanceIds = glanceManager.getGlanceIds(MeteoWidget::class.java)
         if (glanceIds.isEmpty()) {
-            // Cas edge : le worker a survécu au retrait de tous les widgets
-            // (le cancel dans onDisabled a raté ou race). Rien à faire.
+            // Le worker a survécu au retrait de tous les widgets — le cancel
+            // dans onDisabled a raté, ou race avec un tick déjà en vol.
+            // Rien à faire, on laisse le prochain cycle décider.
             return Result.success()
         }
 
+        // Vérité système sur les widgets réellement posés sur l'écran
+        // d'accueil. Utilisée juste après pour filtrer les glanceIds qui
+        // seraient encore trackés côté Glance mais sans widget vivant.
+        val liveWidgetIds = AppWidgetManager.getInstance(ctx)
+            .getAppWidgetIds(ComponentName(ctx, MeteoWidgetReceiver::class.java))
+            .toSet()
+
         val now = System.currentTimeMillis()
+
         glanceIds.forEach { glanceId ->
+            val widgetId = runCatching { glanceManager.getAppWidgetId(glanceId) }
+                .getOrNull()
+            if (widgetId == null || widgetId !in liveWidgetIds) {
+                // Ghost : Glance connaît l'ID mais le launcher non. On skip.
+                //
+                // Note : on ne peut PAS purger la DataStore Glance associée
+                // depuis ici — `GlanceAppWidgetManager` n'expose pas d'API
+                // publique pour retirer un glanceId. Le prefs orphelin reste,
+                // mais l'important est neutralisé : plus de tick → plus de
+                // recomposition → plus de fetch pour cet ID. Ces ghosts
+                // finiront par disparaître si l'utilisateur re-drop un widget
+                // (Glance recycle les IDs) ou à la désinstallation de l'app.
+                return@forEach
+            }
             runCatching {
-                // Écriture réactive : la modification de RefreshTickKey
-                // invalide la lecture `currentState<Preferences>()` dans le
-                // composable → Glance recompose → LaunchedEffect(refreshTick)
-                // re-déclenche loadWidgetData.
                 updateAppWidgetState(
                     context = ctx,
                     definition = PreferencesGlanceStateDefinition,
@@ -162,18 +232,15 @@ internal class WidgetRefreshWorker(
                         this[WidgetPreferences.RefreshTickKey] = now
                     }
                 }
-                // Update explicite : force Glance à rerender même dans le cas
-                // rare où le trigger réactif n'aurait pas fait effet (widget
-                // fraîchement installé, provider non encore attaché, etc.).
-                MeteoWidget().update(ctx, glanceId)
+                // ⚠ PAS de MeteoWidget().update(ctx, glanceId) ici — voir
+                // docblock de classe pour la raison (second session Glance
+                // → double fetch).
             }
         }
-        // On retourne Result.success() même en cas d'échec de fetch réseau :
-        // WorkManager reprogrammera la prochaine exécution normalement. Un
-        // Result.retry() ici serait redondant avec la contrainte NETWORK
-        // CONNECTED — si on est arrivés jusqu'ici, on a du réseau ; si le
-        // fetch a échoué, c'est un serveur down, pas quelque chose que retry
-        // dans les 30 secondes va résoudre.
+
+        // Result.success même en cas d'échec dans une des runCatching : le
+        // prochain cycle périodique de 15 min ré-essaiera. Un Result.retry
+        // ici serait redondant avec la cadence WorkManager.
         return Result.success()
     }
 }
