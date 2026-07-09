@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Widget MeteoCompare — variante 4×2 (détaillé).
+    Voir meteocompare_widget_info.xml pour la logique multi-provider.
+    Dimensions :
+      - Cible : 4×2 = 250×110dp
+      - Rendu : ExtraLargeLayout à 4 items dans le bottom strip (contre
+        5 items en 5×2). Version "canonique" du widget 2-rangées.
+-->
+<appwidget-provider
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="250dp"
+    android:minHeight="110dp"
+    android:targetCellWidth="4"
+    android:targetCellHeight="2"
+    android:maxResizeWidth="360dp"
+    android:maxResizeHeight="180dp"
+    android:resizeMode="horizontal|vertical"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen"
+    android:widgetFeatures="reconfigurable"
+    android:configure="com.meteocompare.app.widget.MeteoWidgetConfigActivity"
+    android:previewImage="@mipmap/ic_launcher"
+    android:description="@string/widget_description" />

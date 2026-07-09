@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Widget MeteoCompare — variante 4×1.
+    Voir meteocompare_widget_info.xml pour la logique multi-provider.
+    Dimensions :
+      - Cible : 4×1 = 250×40dp
+      - Provider historiquement "Large" côté rendu (icône, temp, ville,
+        min/max, extras, badge de confiance).
+-->
+<appwidget-provider
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="250dp"
+    android:minHeight="40dp"
+    android:targetCellWidth="4"
+    android:targetCellHeight="1"
+    android:maxResizeWidth="360dp"
+    android:maxResizeHeight="180dp"
+    android:resizeMode="horizontal|vertical"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen"
+    android:widgetFeatures="reconfigurable"
+    android:configure="com.meteocompare.app.widget.MeteoWidgetConfigActivity"
+    android:previewImage="@mipmap/ic_launcher"
+    android:description="@string/widget_description" />

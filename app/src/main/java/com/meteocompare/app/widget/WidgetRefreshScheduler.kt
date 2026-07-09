@@ -89,6 +89,19 @@ internal object WidgetRefreshScheduler {
      * changement sans attendre 15 min.
      */
     fun schedule(context: Context) {
+        schedule(WorkManager.getInstance(context.applicationContext))
+    }
+
+    /**
+     * Overload testable : prend WorkManager en paramètre. Les tests
+     * unitaires passent un mock au lieu de dépendre de la factory static
+     * `WorkManager.getInstance(context)`. Le call-site production
+     * ([schedule] ci-dessus) fournit l'instance système.
+     *
+     * `internal` : accessible depuis les tests du même module, invisible
+     * pour les consumers hors module.
+     */
+    internal fun schedule(workManager: WorkManager) {
         val request = PeriodicWorkRequestBuilder<WidgetRefreshWorker>(
             TICK_MINUTES, TimeUnit.MINUTES
         )
@@ -103,12 +116,11 @@ internal object WidgetRefreshScheduler {
             )
             .build()
 
-        WorkManager.getInstance(context.applicationContext)
-            .enqueueUniquePeriodicWork(
-                WORK_NAME,
-                ExistingPeriodicWorkPolicy.KEEP,
-                request
-            )
+        workManager.enqueueUniquePeriodicWork(
+            WORK_NAME,
+            ExistingPeriodicWorkPolicy.KEEP,
+            request
+        )
     }
 
     /**
@@ -126,8 +138,13 @@ internal object WidgetRefreshScheduler {
      * périodique : même logique, même filtre ghost-IDs.
      */
     fun triggerImmediateRefresh(context: Context) {
+        triggerImmediateRefresh(WorkManager.getInstance(context.applicationContext))
+    }
+
+    /** Overload testable : voir [schedule] pour la justification. */
+    internal fun triggerImmediateRefresh(workManager: WorkManager) {
         val request = OneTimeWorkRequestBuilder<WidgetRefreshWorker>().build()
-        WorkManager.getInstance(context.applicationContext).enqueue(request)
+        workManager.enqueue(request)
     }
 
     /**
@@ -136,9 +153,20 @@ internal object WidgetRefreshScheduler {
      * inutile de continuer à tick pour un widget qui n'existe plus.
      */
     fun cancel(context: Context) {
-        WorkManager.getInstance(context.applicationContext)
-            .cancelUniqueWork(WORK_NAME)
+        cancel(WorkManager.getInstance(context.applicationContext))
     }
+
+    /** Overload testable : voir [schedule] pour la justification. */
+    internal fun cancel(workManager: WorkManager) {
+        workManager.cancelUniqueWork(WORK_NAME)
+    }
+
+    /**
+     * Nom unique du job périodique — exposé `internal` pour que les tests
+     * puissent vérifier que [schedule] et [cancel] utilisent bien le même
+     * (invariant sinon `cancel` ne trouve rien à annuler).
+     */
+    internal const val TESTABLE_WORK_NAME: String = WORK_NAME
 }
 
 /**

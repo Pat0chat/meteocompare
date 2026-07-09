@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Widget MeteoCompare — variante 2×2 (carré compact).
+    Voir meteocompare_widget_info.xml pour la logique multi-provider.
+    Dimensions :
+      - Cible : 2×2 = 110×110dp
+      - Rendu : SmallLayout étiré verticalement (le layout adapt via
+        SizeMode.Exact centrera le contenu). Pas de layout "carré"
+        spécialisé — SmallLayout suffit visuellement en 2×2.
+-->
+<appwidget-provider
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="110dp"
+    android:minHeight="110dp"
+    android:targetCellWidth="2"
+    android:targetCellHeight="2"
+    android:maxResizeWidth="360dp"
+    android:maxResizeHeight="180dp"
+    android:resizeMode="horizontal|vertical"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen"
+    android:widgetFeatures="reconfigurable"
+    android:configure="com.meteocompare.app.widget.MeteoWidgetConfigActivity"
+    android:previewImage="@mipmap/ic_launcher"
+    android:description="@string/widget_description" />

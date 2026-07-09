@@ -82,10 +82,18 @@ class SettingsViewModelTest {
         // éviter tout accès WorkManager réel depuis les tests unitaires.
         // La logique de programmation elle-même sera couverte par ses propres
         // tests instrumentés séparés.
+        //
+        // NB : chaque méthode a maintenant DEUX overloads (Context et
+        // WorkManager) pour la testabilité — le call-site production utilise
+        // Context, l'internal(WorkManager) est utilisé par les tests
+        // spécifiques du scheduler. Ici on stub UNIQUEMENT l'overload Context
+        // car c'est celui que SettingsViewModel appelle. `any<Context>()`
+        // rend le choix explicite pour le compilateur — sans ça il ne peut
+        // pas résoudre l'overload et échoue en "Cannot infer type for T".
         mockkObject(WidgetRefreshScheduler)
-        every { WidgetRefreshScheduler.schedule(any()) } returns Unit
-        every { WidgetRefreshScheduler.triggerImmediateRefresh(any()) } returns Unit
-        every { WidgetRefreshScheduler.cancel(any()) } returns Unit
+        every { WidgetRefreshScheduler.schedule(any<Context>()) } returns Unit
+        every { WidgetRefreshScheduler.triggerImmediateRefresh(any<Context>()) } returns Unit
+        every { WidgetRefreshScheduler.cancel(any<Context>()) } returns Unit
 
         viewModel = SettingsViewModel(appContext, prefs)
     }

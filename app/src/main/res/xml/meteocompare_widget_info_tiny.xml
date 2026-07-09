@@ -47,4 +47,4 @@
     android:widgetFeatures="reconfigurable"
     android:configure="com.meteocompare.app.widget.MeteoWidgetConfigActivity"
     android:previewImage="@mipmap/ic_launcher"
-    android:description="@string/widget_description_tiny" />
+    android:description="@string/widget_description" />

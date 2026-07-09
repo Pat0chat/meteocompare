@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
     Strings supplémentaires liées au widget : palettes de couleurs, labels
-    des variantes de tailles, section colors de la config activity.
+    des 9 variantes de tailles, section colors de la config activity.
 
     ─── Pourquoi un fichier séparé ? ───────────────────────────────
     Le strings.xml principal est déjà volumineux (~200 clés). Ajouter les
-    ~15 clés nouvelles dans un fichier dédié :
+    ~25 clés nouvelles dans un fichier dédié :
       - Facilite le diff en review (les changements sont isolés).
       - Documente le scope (tout ce qui touche au widget est ici).
       - Aucun impact runtime : aapt merge tous les strings.xml d'un même
@@ -14,21 +14,29 @@
     Version française : c'est le fichier de RÉFÉRENCE (values/ = default).
     La version anglaise est dans values-en/strings_widget.xml.
 
-    ─── Note de traduction ─────────────────────────────────────────
-    "Mini/Bandeau/Grand" sont préférés à "Small/Wide/Large" — plus proche
-    du vocabulaire naturel français pour décrire des formats de widget.
+    ─── Convention de labels par taille ──────────────────────────────
+    Format uniforme "Météo N×N" pour toutes les 9 variantes :
+      - Signal immédiat au picker (l'user cherche une taille précise).
+      - Ordre alphabétique naturel dans les launchers qui trient (le
+        1×1 avant le 2×1 avant le 2×2, etc.).
+      - Robuste à l'ajout de futures variantes (une hypothétique 6×3
+        tablette s'insère naturellement sans casser la logique existante).
+
+    Le caractère × est U+00D7 (Multiplication Sign) — pas la lettre "x".
+    Plus lisible et sémantiquement correct pour des dimensions.
 -->
 <resources>
 
-    <!-- Descriptions des variantes de widgets (affichées dans le picker) -->
-    <string name="widget_description_tiny">Version mini du widget MeteoCompare — icône, confiance et température seulement.</string>
-    <string name="widget_description_wide">Bandeau météo large avec prévisions inline. Idéal pour une seule ligne de l\'écran d\'accueil.</string>
-    <string name="widget_description_large">Widget météo grand format avec prévisions étendues sur 5 périodes.</string>
-
-    <!-- Labels des variantes (affichés à côté de l'icône dans le picker) -->
-    <string name="widget_label_tiny">Météo (mini)</string>
-    <string name="widget_label_wide">Météo (bandeau)</string>
-    <string name="widget_label_large">Météo (grand)</string>
+    <!-- ─── Labels des 9 variantes (affichés dans le picker) ─── -->
+    <string name="widget_label_1x1">Météo 1×1</string>
+    <string name="widget_label_2x1">Météo 2×1</string>
+    <string name="widget_label_2x2">Météo 2×2</string>
+    <string name="widget_label_3x1">Météo 3×1</string>
+    <string name="widget_label_3x2">Météo 3×2</string>
+    <string name="widget_label_4x1">Météo 4×1</string>
+    <string name="widget_label_4x2">Météo 4×2</string>
+    <string name="widget_label_5x1">Météo 5×1</string>
+    <string name="widget_label_5x2">Météo 5×2</string>
 
     <!-- Section couleurs dans la config activity -->
     <string name="widget_config_colors_section">Couleurs</string>

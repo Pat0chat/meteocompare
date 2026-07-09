@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Widget MeteoCompare — variante 3×2 (bloc).
+    Voir meteocompare_widget_info.xml pour la logique multi-provider.
+    Dimensions :
+      - Cible : 3×2 = 180×110dp
+      - Rendu : ExtraLargeLayout (déclenché par height ≥ 130dp AND
+        width ≥ 220dp — le launcher peut clamper à 3×2 vers 200×145dp
+        en pratique, ce qui tombe pile dans le bucket).
+-->
+<appwidget-provider
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="180dp"
+    android:minHeight="110dp"
+    android:targetCellWidth="3"
+    android:targetCellHeight="2"
+    android:maxResizeWidth="360dp"
+    android:maxResizeHeight="180dp"
+    android:resizeMode="horizontal|vertical"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen"
+    android:widgetFeatures="reconfigurable"
+    android:configure="com.meteocompare.app.widget.MeteoWidgetConfigActivity"
+    android:previewImage="@mipmap/ic_launcher"
+    android:description="@string/widget_description" />

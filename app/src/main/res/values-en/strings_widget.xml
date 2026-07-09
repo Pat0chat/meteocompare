@@ -1,20 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    English translation of the widget-specific strings. Kept in sync with
-    values/strings_widget.xml (French, default). See that file's header for
-    context on why we split from the main strings.xml.
+    English translation. Kept in sync with values/strings_widget.xml (French,
+    default). See that file's header for context on why we split from the
+    main strings.xml.
+
+    Size labels stay in "N×N" format across languages — they're numeric
+    references, not translated words. Users worldwide understand "2×1"
+    the same way.
 -->
 <resources>
 
-    <!-- Widget variant descriptions (shown in the picker) -->
-    <string name="widget_description_tiny">MeteoCompare mini widget — icon, confidence and temperature only.</string>
-    <string name="widget_description_wide">Wide weather bar with inline forecasts. Fits a single row on the home screen.</string>
-    <string name="widget_description_large">Extra-large weather widget with 5-slot extended forecast.</string>
-
-    <!-- Variant labels (shown next to the icon in the picker) -->
-    <string name="widget_label_tiny">Weather (mini)</string>
-    <string name="widget_label_wide">Weather (wide)</string>
-    <string name="widget_label_large">Weather (large)</string>
+    <!-- Widget size labels (shown in the picker) -->
+    <string name="widget_label_1x1">Weather 1×1</string>
+    <string name="widget_label_2x1">Weather 2×1</string>
+    <string name="widget_label_2x2">Weather 2×2</string>
+    <string name="widget_label_3x1">Weather 3×1</string>
+    <string name="widget_label_3x2">Weather 3×2</string>
+    <string name="widget_label_4x1">Weather 4×1</string>
+    <string name="widget_label_4x2">Weather 4×2</string>
+    <string name="widget_label_5x1">Weather 5×1</string>
+    <string name="widget_label_5x2">Weather 5×2</string>
 
     <!-- Colors section in the config activity -->
     <string name="widget_config_colors_section">Colors</string>

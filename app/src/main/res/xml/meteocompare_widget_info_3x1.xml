@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Widget MeteoCompare — variante 3×1.
+    Voir meteocompare_widget_info.xml pour la logique multi-provider.
+    Dimensions (formule Android : width_dp = 70·n − 30) :
+      - Cible : 3×1 = 180×40dp
+      - min = 180×40dp (pas de resize en dessous — sous 3 cellules on
+        passerait au layout Small/Medium, autant utiliser directement
+        les providers 1×1 ou 2×1)
+      - max = 360×110dp — autorise le passage à 5×2 sans changer de
+        provider pour les users qui veulent grandir après drop.
+-->
+<appwidget-provider
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="180dp"
+    android:minHeight="40dp"
+    android:targetCellWidth="3"
+    android:targetCellHeight="1"
+    android:maxResizeWidth="360dp"
+    android:maxResizeHeight="180dp"
+    android:resizeMode="horizontal|vertical"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen"
+    android:widgetFeatures="reconfigurable"
+    android:configure="com.meteocompare.app.widget.MeteoWidgetConfigActivity"
+    android:previewImage="@mipmap/ic_launcher"
+    android:description="@string/widget_description" />
