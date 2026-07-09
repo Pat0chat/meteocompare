@@ -199,10 +199,17 @@ internal class WidgetRefreshWorker(
         }
 
         // Vérité système sur les widgets réellement posés sur l'écran
-        // d'accueil. Utilisée juste après pour filtrer les glanceIds qui
-        // seraient encore trackés côté Glance mais sans widget vivant.
-        val liveWidgetIds = AppWidgetManager.getInstance(ctx)
-            .getAppWidgetIds(ComponentName(ctx, MeteoWidgetReceiver::class.java))
+        // d'accueil, aggrégée sur TOUS les receivers MeteoCompare (standard,
+        // tiny, wide, large). Voir [WidgetReceivers] pour la liste des
+        // classes. Sans cette agrégation on filtrerait uniquement les
+        // widgets du receiver Standard et on shipperait tous les ticks des
+        // autres receivers comme "ghosts" — cassant complètement les
+        // widgets tiny/wide/large.
+        val awm = AppWidgetManager.getInstance(ctx)
+        val liveWidgetIds = WidgetReceivers.All
+            .flatMap { clazz ->
+                awm.getAppWidgetIds(ComponentName(ctx, clazz)).toList()
+            }
             .toSet()
 
         val now = System.currentTimeMillis()

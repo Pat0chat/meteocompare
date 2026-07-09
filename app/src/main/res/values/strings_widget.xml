@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Strings supplémentaires liées au widget : palettes de couleurs, labels
+    des variantes de tailles, section colors de la config activity.
+
+    ─── Pourquoi un fichier séparé ? ───────────────────────────────
+    Le strings.xml principal est déjà volumineux (~200 clés). Ajouter les
+    ~15 clés nouvelles dans un fichier dédié :
+      - Facilite le diff en review (les changements sont isolés).
+      - Documente le scope (tout ce qui touche au widget est ici).
+      - Aucun impact runtime : aapt merge tous les strings.xml d'un même
+        module au build.
+
+    Version française : c'est le fichier de RÉFÉRENCE (values/ = default).
+    La version anglaise est dans values-en/strings_widget.xml.
+
+    ─── Note de traduction ─────────────────────────────────────────
+    "Mini/Bandeau/Grand" sont préférés à "Small/Wide/Large" — plus proche
+    du vocabulaire naturel français pour décrire des formats de widget.
+-->
+<resources>
+
+    <!-- Descriptions des variantes de widgets (affichées dans le picker) -->
+    <string name="widget_description_tiny">Version mini du widget MeteoCompare — icône, confiance et température seulement.</string>
+    <string name="widget_description_wide">Bandeau météo large avec prévisions inline. Idéal pour une seule ligne de l\'écran d\'accueil.</string>
+    <string name="widget_description_large">Widget météo grand format avec prévisions étendues sur 5 périodes.</string>
+
+    <!-- Labels des variantes (affichés à côté de l'icône dans le picker) -->
+    <string name="widget_label_tiny">Météo (mini)</string>
+    <string name="widget_label_wide">Météo (bandeau)</string>
+    <string name="widget_label_large">Météo (grand)</string>
+
+    <!-- Section couleurs dans la config activity -->
+    <string name="widget_config_colors_section">Couleurs</string>
+    <string name="widget_config_colors_bg">Fond</string>
+    <string name="widget_config_colors_text">Texte</string>
+    <string name="widget_config_colors_note">Auto suit le thème du système. L\'opacité s\'applique par-dessus la couleur choisie.</string>
+
+    <!-- Noms des couleurs (utilisés en TalkBack / contentDescription) -->
+    <string name="widget_color_auto">Auto</string>
+    <string name="widget_color_white">Blanc</string>
+    <string name="widget_color_black">Noir</string>
+    <string name="widget_color_blue">Bleu</string>
+    <string name="widget_color_teal">Turquoise</string>
+    <string name="widget_color_green">Vert</string>
+    <string name="widget_color_orange">Orange</string>
+    <string name="widget_color_red">Rouge</string>
+    <string name="widget_color_purple">Violet</string>
+    <string name="widget_color_light_grey">Gris clair</string>
+    <string name="widget_color_dark_grey">Gris foncé</string>
+
+</resources>

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    English translation of the widget-specific strings. Kept in sync with
+    values/strings_widget.xml (French, default). See that file's header for
+    context on why we split from the main strings.xml.
+-->
+<resources>
+
+    <!-- Widget variant descriptions (shown in the picker) -->
+    <string name="widget_description_tiny">MeteoCompare mini widget — icon, confidence and temperature only.</string>
+    <string name="widget_description_wide">Wide weather bar with inline forecasts. Fits a single row on the home screen.</string>
+    <string name="widget_description_large">Extra-large weather widget with 5-slot extended forecast.</string>
+
+    <!-- Variant labels (shown next to the icon in the picker) -->
+    <string name="widget_label_tiny">Weather (mini)</string>
+    <string name="widget_label_wide">Weather (wide)</string>
+    <string name="widget_label_large">Weather (large)</string>
+
+    <!-- Colors section in the config activity -->
+    <string name="widget_config_colors_section">Colors</string>
+    <string name="widget_config_colors_bg">Background</string>
+    <string name="widget_config_colors_text">Text</string>
+    <string name="widget_config_colors_note">Auto follows the system theme. Opacity applies on top of the chosen color.</string>
+
+    <!-- Color names (used for TalkBack / contentDescription) -->
+    <string name="widget_color_auto">Auto</string>
+    <string name="widget_color_white">White</string>
+    <string name="widget_color_black">Black</string>
+    <string name="widget_color_blue">Blue</string>
+    <string name="widget_color_teal">Teal</string>
+    <string name="widget_color_green">Green</string>
+    <string name="widget_color_orange">Orange</string>
+    <string name="widget_color_red">Red</string>
+    <string name="widget_color_purple">Purple</string>
+    <string name="widget_color_light_grey">Light grey</string>
+    <string name="widget_color_dark_grey">Dark grey</string>
+
+</resources>

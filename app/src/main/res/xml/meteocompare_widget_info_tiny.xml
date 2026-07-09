@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Widget MeteoCompare — variante MINI (1×1).
+
+    ─── Pourquoi une variante séparée ? ─────────────────────────────
+    Deux raisons de multiplier les providers plutôt que de tout unifier
+    sous un seul widget resizable :
+
+    1. Compatibilité launcher. Certains launchers (Pixel 9a et récents,
+       Samsung One UI 6+) ne montrent que la taille CIBLE dans le picker
+       — ils n'exposent pas les variantes de resize. Un utilisateur qui
+       ouvre le picker et cherche un widget 1×1 doit VOIR une entrée
+       1×1 dans la liste, pas devoir déposer un 2×1 et le resize.
+
+    2. Support des launchers pré-Android 12 (rares mais existants sur
+       ROM personnalisées, TV, tablettes). Ces launchers ne supportent
+       parfois PAS le resize post-drop — l'utilisateur reste bloqué à
+       la taille cible. Offrir un provider séparé par taille cible est
+       la seule façon de leur donner accès à toutes les tailles.
+
+    ─── Dimensions ─────────────────────────────────────────────────
+    - minWidth=40dp minHeight=40dp : plancher système pour 1 cellule.
+      Formule Android : width_dp = 70·n − 30. n=1 → 40dp.
+    - targetCellWidth=1 targetCellHeight=1 : cible naturelle 1×1.
+      Sur les launchers qui l'honorent, drop initial = 1 cellule.
+    - maxResizeWidth=180dp maxResizeHeight=110dp : autorise à passer
+      jusqu'à 3×2. Utile si l'utilisateur veut agrandir après drop.
+      Reste plus contraint que le provider Standard pour éviter que
+      le user se retrouve avec un "widget mini" qui prend la moitié
+      de l'écran — s'il veut du grand, il partira du provider Large.
+
+    Le rendu du widget lui-même est SizeMode.Exact — il adapte le
+    layout à la taille réelle du container (voir [MeteoWidget]). Ce
+    XML ne définit que le "point d'entrée" (taille de spawn + resize).
+-->
+<appwidget-provider
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="40dp"
+    android:minHeight="40dp"
+    android:targetCellWidth="1"
+    android:targetCellHeight="1"
+    android:maxResizeWidth="180dp"
+    android:maxResizeHeight="110dp"
+    android:resizeMode="horizontal|vertical"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen"
+    android:widgetFeatures="reconfigurable"
+    android:configure="com.meteocompare.app.widget.MeteoWidgetConfigActivity"
+    android:previewImage="@mipmap/ic_launcher"
+    android:description="@string/widget_description_tiny" />

@@ -7,7 +7,10 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,8 +18,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -38,8 +43,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -119,8 +128,15 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
         setContent {
             MeteoCompareTheme {
                 WidgetConfigScreen(
-                    onSave = { cityId, opacityPct, forecastMode ->
-                        persistAndFinish(widgetId, cityId, opacityPct, forecastMode)
+                    onSave = { cityId, opacityPct, forecastMode, bgColorArgb, textColorArgb ->
+                        persistAndFinish(
+                            widgetId = widgetId,
+                            cityId = cityId,
+                            opacityPct = opacityPct,
+                            forecastMode = forecastMode,
+                            bgColorArgb = bgColorArgb,
+                            textColorArgb = textColorArgb
+                        )
                     },
                     onCancel = { finish() }
                 )
@@ -144,6 +160,13 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
      *      après validation — et doit parfois relancer l'app pour débloquer.
      *   4. setResult + finish pour valider auprès du système.
      *
+     * ─── Broadcast APPWIDGET_UPDATE et receiver dynamique ────────────────
+     * Le broadcast doit cibler le receiver CORRECT parmi les 4 variantes
+     * (Standard / Tiny / Wide / Large). On récupère le nom du provider via
+     * l'AppWidgetProviderInfo du widgetId courant plutôt que de hardcoder
+     * MeteoWidgetReceiver — sinon un widget de variante Large recevrait le
+     * broadcast Standard qui n'en connaît rien.
+     *
      * Contexte utilisé : `applicationContext` plutôt que `this@ConfigActivity`
      * — les opérations DataStore et le broadcast doivent survivre à finish()
      * qui annule le CoroutineScope de l'activité. `applicationContext` reste
@@ -153,13 +176,25 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
         widgetId: Int,
         cityId: String,
         opacityPct: Int,
-        forecastMode: ForecastMode
+        forecastMode: ForecastMode,
+        bgColorArgb: Int?,
+        textColorArgb: Int?
     ) {
         val appCtx = applicationContext
         lifecycleScope.launch {
             val glanceId = GlanceAppWidgetManager(appCtx).getGlanceIdBy(widgetId)
 
             // 1. Écriture des prefs — atomique via DataStore.
+            //
+            // Pour les couleurs custom : si l'utilisateur a choisi "Auto"
+            // (bgColorArgb / textColorArgb == null), on SUPPRIME la clé du
+            // DataStore au lieu d'écrire une sentinelle. Ça garantit que la
+            // lecture réactive dans MeteoWidget.provideGlance retourne null,
+            // et le widget retombe sur les couleurs Material historiques.
+            // Écrire une sentinelle (0, MIN_VALUE) forcerait le rendu à
+            // vérifier "cette valeur est-elle une sentinelle ?" à chaque
+            // lecture, source potentielle de bugs (0 est aussi une couleur
+            // ARGB valide = noir transparent).
             updateAppWidgetState(
                 context = appCtx,
                 definition = PreferencesGlanceStateDefinition,
@@ -169,6 +204,17 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
                     this[WidgetPreferences.CityIdKey] = cityId
                     this[WidgetPreferences.OpacityPctKey] = opacityPct
                     this[WidgetPreferences.ForecastModeKey] = forecastMode.name
+
+                    if (bgColorArgb != null) {
+                        this[WidgetPreferences.BackgroundColorKey] = bgColorArgb
+                    } else {
+                        remove(WidgetPreferences.BackgroundColorKey)
+                    }
+                    if (textColorArgb != null) {
+                        this[WidgetPreferences.TextColorKey] = textColorArgb
+                    } else {
+                        remove(WidgetPreferences.TextColorKey)
+                    }
                 }
             }
 
@@ -176,14 +222,28 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
             MeteoWidget().update(appCtx, glanceId)
 
             // 3. Broadcast APPWIDGET_UPDATE ciblé sur notre widgetId. Traité
-            //    par [MeteoWidgetReceiver] après setResult+finish. Le receiver
+            //    par le receiver du widget après setResult+finish. Le receiver
             //    délègue à Glance, qui appelle provideGlance() avec les prefs
             //    fraîches (déjà persistées à l'étape 1). Le pattern reactive
             //    state via currentState<Preferences>() dans MeteoWidget garantit
             //    que la nouvelle valeur de cityId sera visible à la recomposition.
-            val refreshIntent = Intent(appCtx, MeteoWidgetReceiver::class.java).apply {
+            //
+            //    ⚠ Le receiver cible dépend de la VARIANTE du widget (Standard,
+            //    Tiny, Wide, Large). On ne peut pas hardcoder MeteoWidgetReceiver
+            //    — un widget Large recevrait le broadcast mais celui-ci ne le
+            //    "connaît" pas au sens système. On lit AppWidgetProviderInfo
+            //    pour récupérer le nom du provider réel de CE widgetId.
+            val awm = AppWidgetManager.getInstance(appCtx)
+            val providerClassName = runCatching {
+                awm.getAppWidgetInfo(widgetId)?.provider?.className
+            }.getOrNull() ?: MeteoWidgetReceiver::class.java.name
+            val refreshIntent = Intent().apply {
+                setClassName(appCtx.packageName, providerClassName)
                 action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-                putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, intArrayOf(widgetId))
+                putExtra(
+                    AppWidgetManager.EXTRA_APPWIDGET_IDS,
+                    intArrayOf(widgetId)
+                )
             }
             appCtx.sendBroadcast(refreshIntent)
 
@@ -217,7 +277,8 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
 
 @Composable
 private fun WidgetConfigScreen(
-    onSave: (cityId: String, opacityPct: Int, forecastMode: ForecastMode) -> Unit,
+    onSave: (cityId: String, opacityPct: Int, forecastMode: ForecastMode,
+             bgColorArgb: Int?, textColorArgb: Int?) -> Unit,
     onCancel: () -> Unit
 ) {
     val context = LocalContext.current
@@ -233,6 +294,10 @@ private fun WidgetConfigScreen(
     var forecastMode by remember {
         mutableStateOf(WidgetPreferences.DEFAULT_FORECAST_MODE)
     }
+    // Couleurs custom : null = Auto (Material colors via thème système).
+    // C'est le défaut, mis en avant en 1re position de la palette.
+    var bgColorArgb by remember { mutableStateOf<Int?>(null) }
+    var textColorArgb by remember { mutableStateOf<Int?>(null) }
 
     LaunchedEffect(Unit) {
         val entry = EntryPointAccessors.fromApplication(
@@ -363,8 +428,68 @@ private fun WidgetConfigScreen(
         // Preview visuel de l'opacité choisie — l'user voit à quoi ressemblera
         // son widget avant de valider. Sans ce feedback, "80%" reste abstrait
         // et il découvrirait le rendu final seulement après validation.
+        //
+        // Le preview reflète aussi les couleurs custom choisies (voir section
+        // Couleurs juste après) : quand l'utilisateur switch d'Auto à Bleu,
+        // le rectangle preview change de couleur — feedback immédiat qui
+        // évite de valider "à l'aveugle" sur des combos illisibles.
         Spacer(Modifier.height(8.dp))
-        OpacityPreview(opacityPct = opacityPct.toInt())
+        OpacityPreview(
+            opacityPct = opacityPct.toInt(),
+            bgColorArgb = bgColorArgb,
+            textColorArgb = textColorArgb
+        )
+
+        Spacer(Modifier.height(24.dp))
+
+        // ─── Section couleurs ────────────────────────────────────
+        // Deux palettes indépendantes : fond et texte. Chacune commence par
+        // "Auto" (null) qui = thème Material. Les autres options overrident.
+        //
+        // ─── Pourquoi deux palettes séparées plutôt qu'un preset combiné ? ──
+        // On voulait laisser au user la liberté de mixer (fond bleu foncé +
+        // texte blanc, ou fond blanc + texte noir). Un preset combiné forcerait
+        // des combos prédéfinis, moins flexible. Le trade-off : plus de choix
+        // à faire, mais l'option "Auto" pour le texte fait 90% du boulot
+        // (calcule blanc/noir selon la luminance du fond choisi) — la plupart
+        // des users ne toucheront jamais la palette texte.
+        Text(
+            text = stringResource(R.string.widget_config_colors_section),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Medium
+        )
+        Text(
+            text = stringResource(R.string.widget_config_colors_note),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(12.dp))
+
+        Text(
+            text = stringResource(R.string.widget_config_colors_bg),
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium
+        )
+        Spacer(Modifier.height(4.dp))
+        ColorPaletteRow(
+            options = WidgetColorPalette.Backgrounds,
+            selectedArgb = bgColorArgb,
+            onSelect = { bgColorArgb = it }
+        )
+
+        Spacer(Modifier.height(12.dp))
+
+        Text(
+            text = stringResource(R.string.widget_config_colors_text),
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium
+        )
+        Spacer(Modifier.height(4.dp))
+        ColorPaletteRow(
+            options = WidgetColorPalette.Texts,
+            selectedArgb = textColorArgb,
+            onSelect = { textColorArgb = it }
+        )
 
         Spacer(Modifier.height(24.dp))
 
@@ -438,7 +563,7 @@ private fun WidgetConfigScreen(
             Button(
                 onClick = {
                     selectedCityId?.let { id ->
-                        onSave(id, opacityPct.toInt(), forecastMode)
+                        onSave(id, opacityPct.toInt(), forecastMode, bgColorArgb, textColorArgb)
                     }
                 },
                 enabled = selectedCityId != null
@@ -497,29 +622,138 @@ private fun CityRow(city: City, selected: Boolean, onClick: () -> Unit) {
 }
 
 /**
- * Rectangle qui montre visuellement l'opacité choisie — même couleur de fond
- * que le widget final (primaryContainer), même arrondi. L'utilisateur voit
- * INSTANTANÉMENT à quoi ressemblera son widget sur son wallpaper.
+ * Rectangle qui montre visuellement l'opacité choisie ET les couleurs custom
+ * si l'utilisateur en a choisi. Même couleur de fond que le widget final
+ * (primaryContainer par défaut, ou custom si choisi), même arrondi.
+ * L'utilisateur voit INSTANTANÉMENT à quoi ressemblera son widget sur son
+ * wallpaper.
+ *
+ * ─── Contraste automatique ────────────────────────────────────────────
+ * Quand l'utilisateur choisit un fond custom mais laisse le texte en Auto,
+ * on reproduit ici la même logique que dans [MeteoWidget.WidgetContent] :
+ * calcul de luminance perceptuelle du fond, blanc si sombre, noir si clair.
+ * Doit rester SYNCHRONE avec le rendu widget — sinon le preview trompe.
  */
 @Composable
-private fun OpacityPreview(opacityPct: Int) {
+private fun OpacityPreview(
+    opacityPct: Int,
+    bgColorArgb: Int?,
+    textColorArgb: Int?
+) {
     val alpha = opacityPct / 100f
+    // Résolution du fond : custom ou primaryContainer du thème.
+    val baseBg = bgColorArgb?.let { Color(it) }
+        ?: MaterialTheme.colorScheme.primaryContainer
+    // Résolution du texte : custom > contraste auto > onPrimaryContainer du thème.
+    val fg = when {
+        textColorArgb != null -> Color(textColorArgb)
+        bgColorArgb != null -> {
+            if (baseBg.luminance() > 0.5f)
+                Color.Black
+            else Color.White
+        }
+        alpha < 0.15f -> MaterialTheme.colorScheme.onBackground
+        else -> MaterialTheme.colorScheme.onPrimaryContainer
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(48.dp)
             .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = alpha)),
+            .background(baseBg.copy(alpha = alpha)),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center
     ) {
         Text(
             text = stringResource(R.string.widget_config_opacity_preview),
-            color = if (alpha < 0.15f)
-                MaterialTheme.colorScheme.onBackground
-            else MaterialTheme.colorScheme.onPrimaryContainer,
+            color = fg,
             style = MaterialTheme.typography.bodyMedium,
             fontSize = 13.sp
         )
+    }
+}
+
+/**
+ * Rangée horizontale de chips colorées représentant les options de palette.
+ *
+ * ─── Décisions de rendu ───────────────────────────────────────────────
+ * - Row horizontale + horizontalScroll : sur un téléphone portrait, 9 chips
+ *   à côté ne rentrent pas. Scroll horizontal libère la contrainte de
+ *   largeur.
+ * - Taille des chips : 40dp × 40dp — assez grand pour un tap confortable
+ *   (Material recommande ≥ 48dp pour les vraies zones de tap ; 40 marche
+ *   ici parce qu'on rembourre avec spacedBy(8dp) qui étend implicitement
+ *   la zone touchable au vide entre les chips grâce à l'onClick sur le Box).
+ * - Chip "Auto" (argb == null) : dessinée avec un motif diagonal (Box
+ *   à deux couches, TopStart/BottomEnd rotates 45°). Version simplifiée
+ *   ici — juste un point d'interrogation stylisé "A" dans un cercle
+ *   qui contraste avec la surface — pas besoin de reproduire un damier
+ *   Photoshop-style pour signifier "aucune couleur".
+ * - Sélection : anneau de 2dp autour du chip choisi, couleur primary du
+ *   thème. Standard Material pour un état "selected" sur un swatch.
+ */
+@Composable
+private fun ColorPaletteRow(
+    options: List<WidgetColorOption>,
+    selectedArgb: Int?,
+    onSelect: (Int?) -> Unit
+) {
+    val scrollState = rememberScrollState()
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(scrollState),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        options.forEach { option ->
+            ColorSwatch(
+                option = option,
+                selected = option.argb == selectedArgb,
+                onClick = { onSelect(option.argb) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun ColorSwatch(
+    option: WidgetColorOption,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    val selectionBorder = MaterialTheme.colorScheme.primary
+    val autoFill = MaterialTheme.colorScheme.surfaceContainerHigh
+    val autoStroke = MaterialTheme.colorScheme.onSurfaceVariant
+    val label = stringResource(option.labelRes)
+
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .then(
+                if (selected) Modifier.border(
+                    2.dp, selectionBorder, RoundedCornerShape(20.dp)
+                ) else Modifier
+            )
+            .background(
+                color = option.argb?.let { Color(it) }
+                    ?: autoFill
+            )
+            .clickable(onClick = onClick)
+            .semantics { contentDescription = label },
+        contentAlignment = Alignment.Center
+    ) {
+        if (option.argb == null) {
+            // Chip "Auto" : simple lettre "A" en contraste avec le fond,
+            // pour signaler visuellement "pas de couleur choisie, l'app
+            // décide". Pas de damier ni de motif — trop chargé pour un
+            // 40dp × 40dp.
+            Text(
+                text = "A",
+                color = autoStroke,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold
+            )
+        }
     }
 }

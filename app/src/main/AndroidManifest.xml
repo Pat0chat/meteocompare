@@ -61,19 +61,38 @@
         </service>
 
         <!--
-            ─── Widget MeteoCompare (Glance) ────────────────────────────────
+            ─── Widgets MeteoCompare (Glance) ────────────────────────────────
 
             Le widget expose la météo courante d'une ville favorite sur
-            l'écran d'accueil. Tailles supportées : 2×1, 3×1, 4×1 (redimen-
-            sionnable horizontalement). L'utilisateur configure la ville
-            affichée et l'opacité du fond via la config activity au moment
-            du drop du widget.
+            l'écran d'accueil.
+
+            ─── Pourquoi 4 receivers ? ──────────────────────────────────
+            Chaque <receiver> = une entrée dans le picker de widgets Android.
+            Certains launchers (Pixel 9a et Samsung récents) n'exposent
+            typiquement que ~3 tailles par provider dans leur picker et ne
+            proposent pas de resize post-drop pour tous les widgets. Pour
+            garantir que l'utilisateur puisse choisir tailles 1×1, 2×1, 5×1
+            OU 5×2 dès le picker, on déclare 4 receivers avec 4 target sizes
+            différents. Le RENDU (composable MeteoWidget partagé) s'adapte
+            à la taille réelle via SizeMode.Exact — les receivers ne se
+            différencient QUE par leur meta-data XML.
+
+            Sur les launchers plus permissifs (Nova, emulator), un seul
+            receiver suffirait puisqu'ils exposent 5-6 tailles par provider.
+            La duplication est le prix à payer pour la compatibilité Pixel.
 
             android:exported="true" est REQUIS pour les widget receivers
-            depuis Android 12 — le système doit pouvoir les invoquer même
-            depuis un autre process (le launcher). Sans exported=true, le
-            widget ne s'installerait tout simplement pas.
+            depuis Android 12 — le système doit pouvoir les invoquer depuis
+            un autre process (le launcher). Sans exported=true, les widgets
+            ne s'installeraient tout simplement pas.
+
+            android:label : c'est ce que le user voit dans le picker à côté
+            du preview. Le distinguer par variante ("Météo", "Météo (mini)",
+            "Météo (bandeau)", "Météo (grand)") aide à choisir sans essayer
+            l'un après l'autre.
         -->
+
+        <!-- Provider STANDARD (target 2×1, resize jusqu'à 5×2) -->
         <receiver
             android:name=".widget.MeteoWidgetReceiver"
             android:exported="true"
@@ -84,6 +103,45 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/meteocompare_widget_info" />
+        </receiver>
+
+        <!-- Provider MINI (target 1×1, resize jusqu'à 3×2 max) -->
+        <receiver
+            android:name=".widget.MeteoWidgetReceiverTiny"
+            android:exported="true"
+            android:label="@string/widget_label_tiny">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/meteocompare_widget_info_tiny" />
+        </receiver>
+
+        <!-- Provider BANDEAU (target 5×1, resize horizontal + vertical modéré) -->
+        <receiver
+            android:name=".widget.MeteoWidgetReceiverWide"
+            android:exported="true"
+            android:label="@string/widget_label_wide">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/meteocompare_widget_info_wide" />
+        </receiver>
+
+        <!-- Provider GRAND (target 5×2, taille maximale) -->
+        <receiver
+            android:name=".widget.MeteoWidgetReceiverLarge"
+            android:exported="true"
+            android:label="@string/widget_label_large">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/meteocompare_widget_info_large" />
         </receiver>
 
         <!--

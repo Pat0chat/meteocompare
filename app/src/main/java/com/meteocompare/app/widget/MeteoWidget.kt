@@ -11,6 +11,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -62,15 +63,27 @@ import com.meteocompare.app.domain.model.WeatherCondition
 // selon launcher).
 //
 // Seuils choisis pour couvrir la variance cross-launcher :
-//   - Small : width < 210dp. Couvre 2×1 physique jusqu'à ~103dp/cellule (Samsung).
+//   - Tiny : width < 105dp AND height < 105dp. Cible le 1×1 physique. Le
+//     ET sur les deux dimensions évite qu'un widget 2×1 très étroit (édge case
+//     launchers custom) ne soit classé Tiny. En pratique 1×1 = ~40-90dp
+//     dans chaque dim selon le launcher.
+//   - Small : 105dp ≤ width < 210dp. Couvre 2×1 physique jusqu'à ~103dp/cellule
+//     (Samsung).
 //   - Medium : 210 ≤ width < 320dp. Couvre 3×1 physique typique.
-//   - Large : width ≥ 320dp. Couvre 4×1 physique.
-//   - ExtraLarge : width ≥ 220dp AND height ≥ 130dp. La double condition évite
-//     de mal classer un widget 1-cellule sur un launcher à cellules hautes
-//     (Pixel avec ~100-130dp de haut) — un vrai 4×2 fait au moins 145dp de
-//     haut sur tous les launchers testés.
+//   - Large : width ≥ 320dp AND width < 380dp. Couvre 4×1 physique.
+//   - WideRow (5×1) : width ≥ 380dp AND height < EXTRA_LARGE_MIN_HEIGHT_DP.
+//     Couvre 5×1. Utilise LargeLayout avec 1-2 items de prévision inline pour
+//     tirer parti de la largeur supplémentaire.
+//   - ExtraLarge (4×2) : width ≥ 220dp AND height ≥ 130dp AND width < 380dp.
+//     La double condition width+height évite de mal classer un widget 1-cellule
+//     sur launcher à cellules hautes.
+//   - ExtraLargeWide (5×2) : width ≥ 380dp AND height ≥ 130dp. Même layout
+//     qu'ExtraLarge mais avec 5 items de prévision au lieu de 4.
+private const val TINY_MAX_WIDTH_DP = 105
+private const val TINY_MAX_HEIGHT_DP = 105
 private const val SMALL_MAX_WIDTH_DP = 210
 private const val MEDIUM_MAX_WIDTH_DP = 320
+private const val WIDE_MIN_WIDTH_DP = 380
 private const val EXTRA_LARGE_MIN_HEIGHT_DP = 130
 private const val EXTRA_LARGE_MIN_WIDTH_DP = 220
 
@@ -104,6 +117,10 @@ private const val EXTRA_LARGE_MIN_WIDTH_DP = 220
  */
 private data class WidgetPadding(val horizontal: Dp, val vertical: Dp)
 
+// Tiny (1×1) : padding minimum pour préserver le maximum de contenu utile.
+// Sur 40-90dp par côté, 8dp de padding "mange" déjà 20-40% de la surface,
+// mais moins et le contenu touche les bords.
+private val TinyPadding = WidgetPadding(6.dp, 4.dp)
 private val SmallPadding = WidgetPadding(8.dp, 8.dp)
 private val MediumPadding = WidgetPadding(14.dp, 10.dp)
 private val LargePadding = WidgetPadding(18.dp, 12.dp)
@@ -201,6 +218,14 @@ internal class MeteoWidget : GlanceAppWidget() {
             // worker signale un besoin de refresh.
             val refreshTick = prefs[WidgetPreferences.RefreshTickKey] ?: 0L
 
+            // Couleurs custom (nullables). null = comportement historique
+            // (couleurs Material selon thème système). Non-null = override.
+            // La logique de résolution (contraste auto pour le texte quand
+            // absent mais fond custom présent) vit dans WidgetContent, pas
+            // ici — provideGlance se contente de propager la valeur brute.
+            val customBgArgb = prefs[WidgetPreferences.BackgroundColorKey]
+            val customTextArgb = prefs[WidgetPreferences.TextColorKey]
+
             // Chargement des données asynchrone. `remember` persiste la
             // dernière donnée bonne à travers les recompositions ; LaunchedEffect
             // re-fetch quand cityId/forecastMode/refreshTick change.
@@ -226,7 +251,12 @@ internal class MeteoWidget : GlanceAppWidget() {
                 LocalNightMode provides night
             ) {
                 GlanceTheme {
-                    WidgetContent(data = data, opacityPct = opacityPct)
+                    WidgetContent(
+                        data = data,
+                        opacityPct = opacityPct,
+                        customBgArgb = customBgArgb,
+                        customTextArgb = customTextArgb
+                    )
                 }
             }
         }
@@ -238,25 +268,59 @@ internal class MeteoWidget : GlanceAppWidget() {
 // ═════════════════════════════════════════════════════════════════════════════
 
 @Composable
-private fun WidgetContent(data: WidgetData, opacityPct: Int) {
-    // Mémoïsation des couleurs sur la clé "nightMode" : recompute UNIQUEMENT
-    // si le mode dark/light du système change. En pratique ces couleurs ne
-    // changent jamais pendant la durée d'affichage d'un widget — la mémoïsation
-    // évite quand même 5+ nouvelles allocations Color par recomposition
-    // (chaque `.copy(alpha = ...)` crée un nouvel objet immuable).
+private fun WidgetContent(
+    data: WidgetData,
+    opacityPct: Int,
+    customBgArgb: Int?,
+    customTextArgb: Int?
+) {
+    // ─── Résolution des couleurs ────────────────────────────────────────
+    // Trois cas :
+    //   1. Aucun custom → couleurs Material historiques (primaryContainer,
+    //      onPrimaryContainer) selon dark/light mode. Défaut.
+    //   2. Bg custom SEUL → utiliser le bg choisi, calculer une couleur texte
+    //      contrastée automatiquement (blanc/noir selon luminance du bg).
+    //   3. Text custom aussi → utiliser les deux tels quels.
+    //
+    // La couleur "muted" (utilisée pour cityName, min/max, extras dans les
+    // gros layouts) est dérivée du texte principal via .copy(alpha = 0.7f)
+    // — même contraste relatif quel que soit le choix de l'utilisateur.
+    //
+    // Mémoïsation : les 3 ColorProviders sont recréés uniquement quand une
+    // des dépendances change (nightMode, opacityPct, ou choix custom). En
+    // pratique, dans la durée d'affichage d'un widget, ces valeurs bougent
+    // rarement — la mémoïsation évite des allocations inutiles à chaque
+    // recomposition.
     val night = LocalNightMode.current
-    val onContainer = remember(night) {
-        ColorProvider(if (night) onPrimaryContainerDark else onPrimaryContainerLight)
+
+    val baseContainerColor = remember(night, customBgArgb) {
+        customBgArgb?.let { Color(it) }
+            ?: if (night) primaryContainerDark else primaryContainerLight
     }
-    val onContainerMuted = remember(night) {
-        ColorProvider(
-            (if (night) onPrimaryContainerDark else onPrimaryContainerLight)
-                .copy(alpha = 0.7f)
-        )
+    val baseOnContainerColor = remember(night, customTextArgb, customBgArgb) {
+        when {
+            // Priorité 1 : texte choisi par l'utilisateur.
+            customTextArgb != null -> Color(customTextArgb)
+            // Priorité 2 : fond choisi mais pas de texte → auto-contrast.
+            // Calcul via luminance perceptuelle Compose (WCAG-ish). Sur un
+            // fond bleu foncé #1976D2 (luminance ~0.2), on prend blanc ;
+            // sur un fond blanc/gris clair (luminance > 0.5), on prend noir.
+            customBgArgb != null -> {
+                if (Color(customBgArgb).luminance() > 0.5f) Color.Black else Color.White
+            }
+            // Priorité 3 : rien de custom → défaut Material.
+            else -> if (night) onPrimaryContainerDark else onPrimaryContainerLight
+        }
     }
-    val container = remember(night, opacityPct) {
-        val base = if (night) primaryContainerDark else primaryContainerLight
-        ColorProvider(base.copy(alpha = opacityPct / 100f))
+
+    val onContainer = remember(baseOnContainerColor) {
+        ColorProvider(baseOnContainerColor)
+    }
+    val onContainerMuted = remember(baseOnContainerColor) {
+        ColorProvider(baseOnContainerColor.copy(alpha = 0.7f))
+    }
+    val container = remember(baseContainerColor, opacityPct) {
+        ColorProvider(baseContainerColor.copy(alpha = opacityPct / 100f))
     }
 
     // Padding calculé selon la taille du widget — voir docblock WidgetPadding
@@ -265,6 +329,7 @@ private fun WidgetContent(data: WidgetData, opacityPct: Int) {
     val widthDp = size.width.value
     val heightDp = size.height.value
     val padding = when {
+        widthDp < TINY_MAX_WIDTH_DP && heightDp < TINY_MAX_HEIGHT_DP -> TinyPadding
         heightDp >= EXTRA_LARGE_MIN_HEIGHT_DP &&
             widthDp >= EXTRA_LARGE_MIN_WIDTH_DP -> ExtraLargePadding
         widthDp >= MEDIUM_MAX_WIDTH_DP -> LargePadding
@@ -285,20 +350,104 @@ private fun WidgetContent(data: WidgetData, opacityPct: Int) {
             else -> {
                 // Sélection du layout via la taille exacte du container. Voir
                 // les constantes en tête de fichier pour les seuils et leurs
-                // motivations. La condition ExtraLarge combine width ET height
-                // pour distinguer un vrai 4×2 d'un 3×1 sur launcher à cellules
-                // hautes (le width seul suffit à choisir Small/Medium/Large).
+                // motivations.
+                //
+                // Important : le check TinyLayout est FIRST — le cas 1×1 fait
+                // à la fois width < 105 et height < 105, ce qui aurait matché
+                // "else → Small" sinon (SmallLayout ne gère pas les hauteurs
+                // < 40dp gracieusement).
+                //
+                // Le check "wide" (5×) vient APRÈS le check ExtraLarge pour
+                // que le 5×2 aille en ExtraLargeLayout avec 5 items (via son
+                // paramètre showFiveItems calculé depuis widthDp), pas en
+                // LargeLayout single-row. La différence est portée par le
+                // heightDp du bucket ExtraLarge.
                 when {
+                    widthDp < TINY_MAX_WIDTH_DP && heightDp < TINY_MAX_HEIGHT_DP ->
+                        TinyLayout(data, onContainer)
                     heightDp >= EXTRA_LARGE_MIN_HEIGHT_DP &&
                         widthDp >= EXTRA_LARGE_MIN_WIDTH_DP ->
-                        ExtraLargeLayout(data, onContainer, onContainerMuted)
+                        ExtraLargeLayout(
+                            data = data,
+                            onContainer = onContainer,
+                            onContainerMuted = onContainerMuted,
+                            showFiveItems = widthDp >= WIDE_MIN_WIDTH_DP
+                        )
+                    widthDp >= WIDE_MIN_WIDTH_DP ->
+                        LargeLayout(
+                            data = data,
+                            onContainer = onContainer,
+                            onContainerMuted = onContainerMuted,
+                            inlineForecastItems = 2
+                        )
                     widthDp >= MEDIUM_MAX_WIDTH_DP ->
-                        LargeLayout(data, onContainer, onContainerMuted)
+                        LargeLayout(
+                            data = data,
+                            onContainer = onContainer,
+                            onContainerMuted = onContainerMuted,
+                            inlineForecastItems = 0
+                        )
                     widthDp >= SMALL_MAX_WIDTH_DP ->
                         MediumLayout(data, onContainer, onContainerMuted)
                     else -> SmallLayout(data, onContainer)
                 }
             }
+        }
+    }
+}
+
+/**
+ * Layout 1×1 — icône | Column(temp, confidence%).
+ *
+ * ─── Contraintes de rendu ────────────────────────────────────────────────
+ * Sur 40-90dp par côté, TOUT compte : chaque sp de font, chaque dp de
+ * spacing. Design contraint à trois informations :
+ *   - Icône météo (le "signal" primaire — "il fait quoi dehors ?")
+ *   - Température (le "chiffre" — "combien ?")
+ *   - Confiance % (le "signal éditorial" — c'est ce qui distingue notre
+ *     widget d'un widget météo générique)
+ *
+ * La ville est OMISE : sur 1×1 il n'y a physiquement pas de place, et
+ * l'utilisateur sait quelle ville il a choisie (le widget est le sien).
+ * Le min/max, la couverture nuageuse, les prévisions étendues sont aussi
+ * omis — le layout 2×1+ les couvre déjà.
+ *
+ * ─── Choix de disposition ────────────────────────────────────────────────
+ * Column verticale plutôt que Row horizontale : les cellules 1×1 sont
+ * typiquement plus HAUTES que larges (les grilles Android modernes ont des
+ * cellules ~70dp × 100dp). Empiler icône, temp, confidence en 3 lignes
+ * remplit mieux la surface qu'une ligne horizontale qui écraserait les
+ * éléments.
+ *
+ * Les tailles de font sont VOLONTAIREMENT petites (icône 22sp, temp 16sp,
+ * confiance 9sp) — testées à l'œil sur émulateur pour rester lisibles
+ * quand le launcher rend en 40-60dp de large.
+ */
+@Composable
+private fun TinyLayout(data: WidgetData, onContainer: ColorProvider) {
+    Column(
+        modifier = GlanceModifier.fillMaxSize(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        WeatherGlyph(data.currentCondition, sizeSp = 22, onContainer)
+        Text(
+            text = formatTemp(data.currentTemp),
+            style = TextStyle(
+                color = onContainer,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium
+            )
+        )
+        data.confidencePct?.let {
+            Text(
+                text = "$it%",
+                style = TextStyle(
+                    color = confidenceTextColor(it),
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            )
         }
     }
 }
@@ -408,14 +557,27 @@ private fun MediumLayout(
 }
 
 /**
- * Layout 4×1 : version enrichie avec 3 lignes centrales — ville, min/max,
- * ligne d'extras contextuels (cloud cover, pluie avec confiance).
+ * Layout 4×1 / 5×1 : version enrichie avec 3 lignes centrales — ville,
+ * min/max, ligne d'extras contextuels (cloud cover, pluie avec confiance).
+ *
+ * @param inlineForecastItems Nombre d'items de prévision "inline" à afficher
+ *   à droite du bloc principal, AVANT le badge de confiance. Utilisé pour
+ *   remplir l'espace supplémentaire en 5×1 sans passer à un vrai layout
+ *   2 rangées. 0 = comportement 4×1 historique, 2 = variante 5×1.
+ *
+ * ─── Pourquoi paramétrer plutôt qu'un layout séparé Wide5x1Layout ? ─────
+ * Le composable est presque entièrement identique — seule la Row de droite
+ * change (badge vs badge+2 items). Dédupliquer avec un flag évite ~80
+ * lignes de copie et garantit que les tweaks futurs (padding, tailles de
+ * font, couleurs) s'appliquent aux DEUX variantes automatiquement. Le
+ * risque de "flag hell" est faible ici : un seul param, sémantique claire.
  */
 @Composable
 private fun LargeLayout(
     data: WidgetData,
     onContainer: ColorProvider,
-    onContainerMuted: ColorProvider
+    onContainerMuted: ColorProvider,
+    inlineForecastItems: Int = 0
 ) {
     Row(
         modifier = GlanceModifier.fillMaxSize(),
@@ -460,6 +622,38 @@ private fun LargeLayout(
             }
         }
 
+        // Items de prévision inline (5×1 uniquement). Utile pour tirer
+        // parti de la largeur supplémentaire quand le user pose un widget
+        // qui fait 5 cellules mais ne veut PAS d'un deuxième row. On
+        // affiche 2 mini-items (heure/jour + icône + temp compacte)
+        // séparés d'un fin espace vertical.
+        //
+        // Note : `data.forecasts` peut être vide si le fetch n'a pas fini
+        // ou si le mode utilisateur est CONFIDENCE_* (pas de forecasts
+        // discrets). Dans ces cas on skip silencieusement — pas de
+        // placeholder "…" pour ne pas polluer l'aperçu.
+        if (inlineForecastItems > 0 && data.forecasts.isNotEmpty()) {
+            Spacer(GlanceModifier.width(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                data.forecasts.take(inlineForecastItems).forEach { item ->
+                    Column(
+                        modifier = GlanceModifier.padding(horizontal = 4.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = item.label,
+                            style = TextStyle(color = onContainerMuted, fontSize = 11.sp)
+                        )
+                        WeatherGlyph(item.condition, sizeSp = 18, onContainer)
+                        Text(
+                            text = formatTemp(item.temp),
+                            style = TextStyle(color = onContainer, fontSize = 12.sp)
+                        )
+                    }
+                }
+            }
+        }
+
         data.confidencePct?.let {
             ConfidencePill(percent = it)
         }
@@ -467,21 +661,32 @@ private fun LargeLayout(
 }
 
 /**
- * Layout 4×2 : top strip identique au 4×1 + bas strip avec 4 items de prévision
- * étendue (heures ou jours selon la config utilisateur).
+ * Layout 4×2 / 5×2 : top strip identique au 4×1 + bas strip avec 4 (ou 5)
+ * items de prévision étendue (heures ou jours selon la config utilisateur).
+ *
+ * @param showFiveItems `true` pour la variante 5×2 — affiche 5 items dans
+ *   le bas strip au lieu de 4. Utilise l'espace supplémentaire en largeur
+ *   sans surcharger le rendu.
  *
  * Tailles délibérément plus grandes que 4×1 pour REMPLIR l'espace vertical
  * doublé — sans ça le widget paraît vide, avec beaucoup de "coussin blanc"
  * en haut et en bas de chaque bloc. Un icône 32sp et une temp 28sp
  * consomment le top strip visuellement ; le bottom strip a icônes 26sp et
- * temp 15sp pour occuper les 4 colonnes.
+ * temp 15sp pour occuper les 4-5 colonnes.
+ *
+ * Note : quand `showFiveItems=true` et que `data.forecasts` contient moins
+ * de 5 items (edge case si le fetch est parti sur un horizon plus court),
+ * `.take(n)` renvoie ce qui est disponible sans crash — les weight-column
+ * s'adaptent en s'élargissant proportionnellement.
  */
 @Composable
 private fun ExtraLargeLayout(
     data: WidgetData,
     onContainer: ColorProvider,
-    onContainerMuted: ColorProvider
+    onContainerMuted: ColorProvider,
+    showFiveItems: Boolean = false
 ) {
+    val itemCount = if (showFiveItems) 5 else 4
     Column(modifier = GlanceModifier.fillMaxSize()) {
         // ─── Top strip (comme 4×1 mais TAILLES BUMPÉES pour remplir la hauteur)
         Row(
@@ -550,7 +755,7 @@ private fun ExtraLargeLayout(
             )
         } else {
             Row(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
-                data.forecasts.take(4).forEach { item ->
+                data.forecasts.take(itemCount).forEach { item ->
                     Column(
                         modifier = GlanceModifier.defaultWeight(),
                         horizontalAlignment = Alignment.CenterHorizontally,
