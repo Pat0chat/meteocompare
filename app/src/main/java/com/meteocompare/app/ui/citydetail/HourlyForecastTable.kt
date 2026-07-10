@@ -85,7 +85,15 @@ fun HourlyForecastTable(
     valueStyler: ((Double) -> ValueStyle?)? = null,
     heatmapStyler: ((Double) -> HeatmapCellStyle?)? = null,
     directionExtractor: ((HourlyForecast, Int) -> Int?)? = null,
-    cellWidth: Dp = 60.dp
+    cellWidth: Dp = 60.dp,
+    // ── Suivi de biais (Phase 1 UI) ──
+    // Provider optionnel qui associe un modèle à son biais pour la variable
+    // affichée. Retour `null` = pas de chip (soit le repo n'a pas de données,
+    // soit le biais est NOT_SIGNIFICANT — cas géré côté chip lui-même).
+    // Passer non-null active un header plus haut (60dp au lieu de 40dp) pour
+    // loger le chip, uniforme sur toutes les colonnes du tableau.
+    modelBiasProvider: ((com.meteocompare.app.domain.model.WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
+    onBiasChipClick: ((com.meteocompare.app.domain.model.WeatherModel, com.meteocompare.app.domain.model.ModelBias) -> Unit)? = null
 ) {
     // Fuseau de la ville — sert au filtrage de l'horizon ET au formatage des
     // labels d'heure. Fallback UTC silencieux si timezone invalide, pour ne
@@ -153,11 +161,18 @@ fun HourlyForecastTable(
     // on garde HHh partout pour la compacité — 5 caractères max).
     val hourFmt = remember(locale) { DateTimeFormatter.ofPattern("HH'h'", locale) }
 
+    // Header height dépend de la présence de chips de biais : 40dp par
+    // défaut, 60dp quand un modelBiasProvider est fourni pour loger le chip
+    // sous le nom du modèle. La colonne LABEL fixe (gauche) et la colonne
+    // MODEL (droite) doivent rester alignées visuellement → même hauteur des
+    // deux côtés, uniforme sur toutes les colonnes du tableau.
+    val headerHeight = if (modelBiasProvider != null) 60.dp else 40.dp
+
     Row(modifier = modifier.fillMaxWidth()) {
         // Colonne figée : labels d'heure. 84dp accommode "Lun. 14h" en français
         // (préfixe jour visible aux changements de jour uniquement).
         Column(modifier = Modifier.width(84.dp)) {
-            HourHeaderCell(background = headerBg)
+            HourHeaderCell(background = headerBg, height = headerHeight)
             var previousDate: java.time.LocalDate? = null
             timestamps.forEachIndexed { idx, ts ->
                 val local = ts.atZone(zone)
@@ -181,7 +196,7 @@ fun HourlyForecastTable(
         }
 
         VerticalDivider(
-            modifier = Modifier.height((40 + timestamps.size * 32).dp)
+            modifier = Modifier.height(headerHeight + (timestamps.size * 32).dp)
         )
 
         // Partie scrollable : une colonne par modèle. Cellules à `cellWidth`
@@ -191,11 +206,26 @@ fun HourlyForecastTable(
         // valeur plus grande pour les colonnes vent (unité "km/h" + flèche).
         Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
             models.forEach { model ->
+                // Résolution du biais pour ce modèle. remember(bias) plus bas
+                // dans HourModelHeaderCell évite la recomposition inutile —
+                // ici on lit une fois par render du tableau, ce qui reste
+                // O(nb_modèles) et cheap (le provider consulte typiquement
+                // une Map pré-calculée dans le ViewModel).
+                val bias = modelBiasProvider?.invoke(model)
+                // Callback stable : capture model + bias explicitement pour
+                // éviter la recréation à chaque recomposition (Compose ne
+                // peut inférer la stabilité d'une lambda qui capture bias?).
+                val chipClick = if (bias != null && onBiasChipClick != null) {
+                    remember(model, bias) { { onBiasChipClick(model, bias) } }
+                } else null
                 Column(modifier = Modifier.width(cellWidth)) {
                     HourModelHeaderCell(
                         text = model.displayName,
                         background = headerBg,
-                        width = cellWidth
+                        width = cellWidth,
+                        height = headerHeight,
+                        bias = bias,
+                        onBiasClick = chipClick
                     )
                     timestamps.forEachIndexed { idx, ts ->
                         val value = valueAt(forecast, model, ts, valueExtractor)
@@ -237,11 +267,11 @@ fun HourlyForecastTable(
 }
 
 @Composable
-private fun HourHeaderCell(background: Color) {
+private fun HourHeaderCell(background: Color, height: Dp = 40.dp) {
     Box(
         modifier = Modifier
             .width(84.dp)
-            .height(40.dp)
+            .height(height)
             .background(background)
             .padding(4.dp),
         contentAlignment = Alignment.Center
@@ -250,15 +280,39 @@ private fun HourHeaderCell(background: Color) {
     }
 }
 
+/**
+ * Cellule d'en-tête d'une colonne modèle. Deux modes de rendu :
+ *
+ *   1. **Sans biais** (`bias == null` ET `onBiasClick == null`) : hauteur 40dp,
+ *      juste le nom du modèle centré (comportement historique, inchangé).
+ *   2. **Avec biais actif** : hauteur passée par le parent (60dp typiquement),
+ *      nom en haut + éventuel chip en bas. Si `bias.significance` est
+ *      NOT_SIGNIFICANT, le chip n'est pas rendu — l'espace reste vide et
+ *      communique "modèle bien calibré ici" par l'absence.
+ *
+ * L'espace vide sous un nom de modèle sans chip est intentionnel : la
+ * hauteur uniforme sur toute la ligne d'entête préserve l'alignement de la
+ * grille, et l'absence de chip devient un signal (cf. mockup validé).
+ */
 @Composable
-private fun HourModelHeaderCell(text: String, background: Color, width: Dp) {
-    Box(
+private fun HourModelHeaderCell(
+    text: String,
+    background: Color,
+    width: Dp,
+    height: Dp = 40.dp,
+    bias: com.meteocompare.app.domain.model.ModelBias? = null,
+    onBiasClick: (() -> Unit)? = null
+) {
+    Column(
         modifier = Modifier
             .width(width)
-            .height(40.dp)
+            .height(height)
             .background(background)
-            .padding(4.dp),
-        contentAlignment = Alignment.Center
+            .padding(vertical = 4.dp, horizontal = 2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(
+            2.dp, Alignment.CenterVertically
+        )
     ) {
         Text(
             text = text,
@@ -266,6 +320,14 @@ private fun HourModelHeaderCell(text: String, background: Color, width: Dp) {
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center
         )
+        // Chip uniquement si (a) le mode "avec biais" est actif — height > 40 —
+        // ET (b) le biais existe ET est significatif. Sinon slot vide.
+        if (bias != null &&
+            bias.significance != com.meteocompare.app.domain.model.BiasSignificance.NOT_SIGNIFICANT &&
+            onBiasClick != null
+        ) {
+            ModelBiasChip(bias = bias, onClick = onBiasClick)
+        }
     }
 }
 

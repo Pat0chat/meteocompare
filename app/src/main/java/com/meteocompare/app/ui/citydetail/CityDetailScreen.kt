@@ -287,6 +287,13 @@ private fun LoadedView(
         mutableStateOf(DisplayMode.DAILY)
     }
 
+    // ── Suivi de biais : sélection courante pour l'ouverture de la sheet ──
+    // Un seul chip cliqué à la fois → un seul état simple. `null` = sheet
+    // fermée. On ne saveState pas ce state : la sheet est éphémère et
+    // n'a pas besoin de survivre à une rotation (l'utilisateur peut la
+    // rouvrir en 1 tap si c'est ce qu'il veut).
+    var selectedBias by remember { mutableStateOf<BiasSelection?>(null) }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize().testTag(TAG_DETAIL_LOADED),
         contentPadding = PaddingValues(
@@ -350,7 +357,13 @@ private fun LoadedView(
         }
 
         when (displayMode) {
-            DisplayMode.HOURLY -> hourlyItems(forecast = forecast)
+            DisplayMode.HOURLY -> hourlyItems(
+                forecast = forecast,
+                temperatureBiasProvider = ::mockTemperatureBias,
+                onBiasChipClick = { model, bias ->
+                    selectedBias = BiasSelection(model, bias)
+                }
+            )
             DisplayMode.DAILY -> dailyItems(
                 forecast = forecast,
                 dailyConditions = dailyConditions,
@@ -362,6 +375,14 @@ private fun LoadedView(
             item("errors") { PartialErrorsSection(forecast.errors) }
         }
     }
+
+    // Sheet de détail biais — mounted en dehors du LazyColumn, se pose en
+    // overlay via ModalBottomSheet. Recompose uniquement quand selectedBias
+    // change (Compose détecte que les autres reads n'ont pas bougé).
+    ModelBiasDetailSheet(
+        selection = selectedBias,
+        onDismiss = { selectedBias = null }
+    )
 }
 
 // ============================================================================
@@ -491,7 +512,14 @@ private fun androidx.compose.foundation.lazy.LazyListScope.dailyItems(
  * plus de contexte que ne le ferait un chart limité à la journée courante.
  */
 private fun androidx.compose.foundation.lazy.LazyListScope.hourlyItems(
-    forecast: CityForecast
+    forecast: CityForecast,
+    // Provider optionnel du biais température par modèle. Retour null =
+    // pas de chip pour ce modèle (données insuffisantes ou biais non
+    // significatif). Passer null au niveau screen = feature désactivée.
+    temperatureBiasProvider: ((com.meteocompare.app.domain.model.WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
+    // Callback pour ouvrir la sheet de détail. Uniquement pertinent si un
+    // provider est fourni. Signature : (modèle cliqué, biais correspondant).
+    onBiasChipClick: ((com.meteocompare.app.domain.model.WeatherModel, com.meteocompare.app.domain.model.ModelBias) -> Unit)? = null
 ) {
     // Matrice Heure × Modèle des conditions météo. Conditions calculées inline
     // dans le composant (via weather_code ou fallback précipitation). Aucun
@@ -534,6 +562,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hourlyItems(
                 },
                 valueFormatter = { "${it.roundToInt()}°" },
                 heatmapStyler = ::hourlyTemperatureHeatmap,
+                modelBiasProvider = temperatureBiasProvider,
+                onBiasChipClick = onBiasChipClick,
                 modifier = Modifier.padding(8.dp)
             )
         }
@@ -676,7 +706,7 @@ private fun HourlyTemperatureLegend() {
         // seg1 = "<-10", seg2 = "-10", ..., seg10 = "≥30°".
         // "°" sur les seules bornes extrêmes évite de saturer visuellement.
         tickLabels = listOf(
-            "<-10", "-10", "-5", "0", "5", "10", "15", "20", "25", "≥30"
+            "<-10", "-10", "-5", "0", "5", "10", "15", "20", "25", "≥30°"
         )
     )
 }
@@ -703,7 +733,7 @@ private fun HourlyPrecipitationLegend() {
             Color(0xFF0D47A1)
         ),
         tickLabels = listOf(
-            ".05", ".1", ".2", ".5", "1", "2", "3", "5", "7", "≥10"
+            ".05", ".1", ".2", ".5", "1", "2", "3", "5", "7", "≥10 mm"
         )
     )
 }
@@ -727,7 +757,7 @@ private fun HourlyWindLegend() {
             Color(0xFFC62828)
         ),
         tickLabels = listOf(
-            "20", "30", "40", "50", "60", "70", "80", "90", "100", "≥120"
+            "20", "30", "40", "50", "60", "70", "80", "90", "100", "≥120 km/h"
         )
     )
 }
@@ -939,8 +969,8 @@ internal fun TodaySummaryCard(
                         // bidon). Sur "clair" ou "pluie" le badge n'a aucun sens →
                         // rien n'apparaît, l'icône reste centrée bas comme avant.
                         val showCloudBadge = currentCloudCover != null &&
-                                (currentCondition == WeatherCondition.PARTLY_CLOUDY ||
-                                        currentCondition == WeatherCondition.OVERCAST)
+                            (currentCondition == WeatherCondition.PARTLY_CLOUDY ||
+                                currentCondition == WeatherCondition.OVERCAST)
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             modifier = Modifier.padding(bottom = 2.dp)
@@ -1302,4 +1332,45 @@ private fun windStyle(kmh: Double): ValueStyle? = when {
     kmh < 60.0 -> ValueStyle(color = Color(0xFFFB8C00), fontWeight = FontWeight.Medium)
     kmh < 80.0 -> ValueStyle(color = Color(0xFFE64A19), fontWeight = FontWeight.SemiBold)
     else       -> ValueStyle(color = Color(0xFFC62828), fontWeight = FontWeight.Bold)
+}
+
+// ============================================================================
+//  Mock biais — Phase 1 UI
+// ============================================================================
+//
+//  Provider en dur pour valider l'intégration UI sans dépendre du Repository
+//  de biais réel (à venir Phase 3 : ComputeBiasUseCase + Room + fetch archive
+//  Open-Meteo). Ces valeurs matchent le mockup HTML validé et couvrent les
+//  quatre cas d'affichage :
+//    - Biais chaud significatif (GFS, +1.5°) → chip rouge HIGH
+//    - Biais froid modéré (ECMWF, -0.4°)     → chip bleu MODERATE
+//    - Biais froid significatif (ICON-EU, -1.1°) → chip bleu HIGH
+//    - Bien calibré (AROME HD, +0.1°)        → aucun chip (NOT_SIGNIFICANT)
+//
+//  À supprimer dès que le vrai provider est branché — inutile de faire une
+//  abstraction Repository ici juste pour ce mock, on garde la fonction pure.
+
+/**
+ * Biais mockés pour la température. À remplacer Phase 3 par un lookup dans
+ * `biasRepository.observe(city, variable=TEMPERATURE)` (StateFlow<Map<...>>).
+ */
+private fun mockTemperatureBias(
+    model: com.meteocompare.app.domain.model.WeatherModel
+): com.meteocompare.app.domain.model.ModelBias? {
+    val (mean, sd, n) = when (model) {
+        com.meteocompare.app.domain.model.WeatherModel.GFS -> Triple(1.5, 0.8, 28)
+        com.meteocompare.app.domain.model.WeatherModel.AROME_FRANCE_HD -> Triple(0.1, 0.5, 29)
+        com.meteocompare.app.domain.model.WeatherModel.ARPEGE_EUROPE -> Triple(-0.5, 0.7, 30)
+        com.meteocompare.app.domain.model.WeatherModel.ECMWF -> Triple(-0.4, 0.6, 30)
+        com.meteocompare.app.domain.model.WeatherModel.ICON_EU -> Triple(-1.1, 0.9, 27)
+        com.meteocompare.app.domain.model.WeatherModel.UKMO_GLOBAL -> Triple(0.3, 0.6, 25)
+        com.meteocompare.app.domain.model.WeatherModel.ECMWF_AIFS -> Triple(0.8, 1.1, 22)
+        else -> return null // modèles non-MVP → pas de mock, feature inactive
+    }
+    return com.meteocompare.app.domain.model.ModelBias(
+        variable = com.meteocompare.app.domain.model.BiasVariable.TEMPERATURE,
+        meanBias = mean,
+        stdDev = sd,
+        sampleSize = n
+    )
 }
