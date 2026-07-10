@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -18,14 +17,16 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.BiasDirection
 import com.meteocompare.app.domain.model.BiasSignificance
 import com.meteocompare.app.domain.model.BiasVariable
@@ -35,21 +36,13 @@ import com.meteocompare.app.domain.model.WeatherModel
 /**
  * Bottom sheet Material 3 qui présente le détail d'un biais modèle × variable.
  *
- * Cette itération (Phase 1 UI) inclut : titre "sec" centré sur la donnée,
- * grille de statistiques, texte explicatif. La zone du sparkline (30 jours
- * forecast vs observation) est réservée mais rendue en placeholder — sera
- * complétée à l'itération suivante.
+ * Phase 1 UI (cette itération) : titre "sec" centré sur la donnée, grille de
+ * stats, texte explicatif. Sparkline 30j en placeholder — remplacé Phase 1.5.
  *
- * Rappel des trois choix produit qui pilotent cette UI (validés) :
- *   1. Titre "sec direct qui se focalise sur la donnée" — pas d'éditorial.
- *   2. Un biais PAR variable, dans le contexte de son tableau propre.
- *   3. Brut par défaut dans les tableaux — la sheet ne propose pas de bascule
- *      "afficher les valeurs corrigées" (jamais dans le MVP).
- *
- * @param selection modèle + biais à afficher, ou `null` pour ne pas afficher
- *   la sheet. Passer `null` équivaut à ne pas monter le composant.
- * @param onDismiss callback quand l'utilisateur ferme la sheet (drag down,
- *   scrim tap, ou système).
+ * Toutes les chaînes utilisateur passent par stringResource — la sheet est
+ * pleinement localisée FR/EN. Formatage numérique via `String.format` sans
+ * `.replace('.', ',')` forcé, donc le séparateur décimal suit la locale du
+ * device (virgule en FR, point en EN).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,12 +52,6 @@ internal fun ModelBiasDetailSheet(
 ) {
     if (selection == null) return
 
-    // sheetState créé en interne pour ne pas exposer le type SheetState
-    // (experimental Material3) dans la signature publique de la fonction —
-    // le compilateur remonte l'opt-in au call-site autrement. Aucune raison
-    // produit de laisser le caller customiser l'état pour l'instant ; on
-    // rétablira le paramètre le jour où on en aura besoin, avec un @OptIn
-    // explicite côté caller à ce moment-là.
     val sheetState = rememberModalBottomSheetState()
 
     ModalBottomSheet(
@@ -77,7 +64,7 @@ internal fun ModelBiasDetailSheet(
                 .padding(horizontal = 22.dp)
                 .padding(bottom = 24.dp)
         ) {
-            SheetEyebrow(selection.model, selection.bias.variable)
+            SheetEyebrow(selection.model, selection.bias.variable, selection.bias.windowDays)
             Spacer(Modifier.height(6.dp))
             SheetTitle(selection.bias)
             Spacer(Modifier.height(14.dp))
@@ -100,14 +87,15 @@ internal data class BiasSelection(
 )
 
 @Composable
-private fun SheetEyebrow(model: WeatherModel, variable: BiasVariable) {
-    val variableLabel = when (variable) {
-        BiasVariable.TEMPERATURE -> "Biais température"
-        BiasVariable.PRECIPITATION -> "Biais précipitations"
-        BiasVariable.WIND_SPEED -> "Biais vent"
-    }
+private fun SheetEyebrow(model: WeatherModel, variable: BiasVariable, windowDays: Int) {
+    val variableLabel = stringResource(sheetVariableLabelResId(variable))
     Text(
-        text = "${model.displayName}  ·  $variableLabel  ·  30 jours",
+        text = stringResource(
+            R.string.bias_sheet_eyebrow,
+            model.displayName,
+            variableLabel,
+            windowDays
+        ),
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         fontWeight = FontWeight.Medium
@@ -116,23 +104,19 @@ private fun SheetEyebrow(model: WeatherModel, variable: BiasVariable) {
 
 /**
  * Titre "sec direct centré sur la donnée" — décision produit validée.
- * Rendu en annotatedString pour teinter le nombre (WARM = rouge, COLD = bleu)
- * cohérent avec le chip — l'œil relie immédiatement la sheet à ce sur quoi
- * elle a été tapée.
+ * La magnitude teintée selon la direction relie visuellement la sheet au chip
+ * qui a été tapé. Prefix + suffix en stringResource pour permettre la
+ * localisation FR/EN sans casser la mise en couleur du milieu.
  */
 @Composable
 private fun SheetTitle(bias: ModelBias) {
     val palette = chipPalette(bias.direction)
     val magnitude = formatBiasLabel(bias)
-
-    val referenceWord = when (bias.direction) {
-        BiasDirection.WARM -> "par rapport à l'observation."
-        BiasDirection.COLD -> "par rapport à l'observation."
-        BiasDirection.NEUTRAL -> "par rapport à l'observation."
-    }
+    val prefix = stringResource(R.string.bias_sheet_title_prefix)
+    val suffix = stringResource(R.string.bias_sheet_title_suffix)
 
     val annotated = buildAnnotatedString {
-        append("Écart moyen ")
+        append(prefix)
         withStyle(
             SpanStyle(
                 color = palette.foreground,
@@ -140,7 +124,7 @@ private fun SheetTitle(bias: ModelBias) {
                 fontFamily = FontFamily.Monospace
             )
         ) { append(magnitude) }
-        append(" $referenceWord")
+        append(suffix)
     }
 
     Text(
@@ -152,12 +136,7 @@ private fun SheetTitle(bias: ModelBias) {
 
 /**
  * Placeholder pour le sparkline 30j — réservé à l'itération suivante.
- *
- * Rendu : rectangle arrondi tinté selon la direction (rouge léger pour WARM,
- * bleu léger pour COLD) avec la mention "Graphique 30 jours" au centre. C'est
- * volontairement discret — on garde la structure de la sheet en place sans
- * prétendre à un rendu final. En Phase 1.5, on remplace ce composable par
- * `BiasSparkline(bias, dailyForecast, dailyObservation, animate = true)`.
+ * Rendu discret : rectangle arrondi tinté selon la direction, texte au centre.
  */
 @Composable
 private fun SparklinePlaceholder(direction: BiasDirection) {
@@ -167,10 +146,10 @@ private fun SparklinePlaceholder(direction: BiasDirection) {
             .fillMaxWidth()
             .height(130.dp)
             .background(palette.background, RoundedCornerShape(8.dp)),
-        contentAlignment = androidx.compose.ui.Alignment.Center
+        contentAlignment = Alignment.Center
     ) {
         Text(
-            text = "Graphique 30 jours — à venir",
+            text = stringResource(R.string.bias_sparkline_placeholder),
             style = MaterialTheme.typography.labelMedium,
             color = palette.foreground,
             fontWeight = FontWeight.Medium
@@ -192,14 +171,14 @@ private fun StatsGrid(bias: ModelBias) {
             horizontalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             StatCell(
-                label = "Écart moyen",
+                label = stringResource(R.string.bias_stat_mean),
                 value = formatBiasLabel(bias),
                 emphasize = true,
                 modifier = Modifier.weight(1f)
             )
             StatCell(
-                label = "Écart-type",
-                value = "%.1f".format(bias.stdDev).replace('.', ',') + unitFor(bias.variable),
+                label = stringResource(R.string.bias_stat_stddev),
+                value = "%.1f".format(bias.stdDev) + unitFor(bias.variable),
                 modifier = Modifier.weight(1f)
             )
         }
@@ -208,17 +187,17 @@ private fun StatsGrid(bias: ModelBias) {
             horizontalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             StatCell(
-                label = "Jours de données",
-                value = "${bias.sampleSize} / ${bias.windowDays}",
+                label = stringResource(R.string.bias_stat_sample_size),
+                value = stringResource(
+                    R.string.bias_stat_sample_size_value,
+                    bias.sampleSize,
+                    bias.windowDays
+                ),
                 modifier = Modifier.weight(1f)
             )
             StatCell(
-                label = "Significativité",
-                value = when (bias.significance) {
-                    BiasSignificance.HIGH -> "Élevée"
-                    BiasSignificance.MODERATE -> "Modérée"
-                    BiasSignificance.NOT_SIGNIFICANT -> "Faible"
-                },
+                label = stringResource(R.string.bias_stat_significance),
+                value = stringResource(significanceLabelResId(bias.significance)),
                 modifier = Modifier.weight(1f)
             )
         }
@@ -257,42 +236,67 @@ private fun StatCell(
 }
 
 /**
- * Texte explicatif du "pourquoi physique" du biais. Rendu court volontairement
- * — cette info est un bonus pédagogique, pas la donnée principale (qui est
- * dans le titre et la grille).
+ * Texte explicatif du "pourquoi" du biais.
  *
- * Phase 1 : texte générique par direction. Phase 2 (Repository de biais réel),
- * le texte pourra être adapté par modèle si utile — mais probablement
- * over-engineering, un texte générique reste utile.
+ * Composé de deux paragraphes : (1) opener + hint sur comment corriger,
+ * (2) stabilité selon la significativité. Toutes les variantes en
+ * stringResource, chaînes assemblées ici pour rester une seule Text avec
+ * la mise en page finale.
  */
 @Composable
 private fun Explainer(selection: BiasSelection) {
-    val text = remember(selection) { buildExplainerText(selection) }
+    val name = selection.model.displayName
+    val verb = stringResource(explainerVerbResId(selection.bias.direction))
+    val variable = stringResource(sheetExplainerVariableResId(selection.bias.variable))
+    val opener = stringResource(
+        R.string.bias_explainer_opener,
+        name, verb, variable, selection.bias.windowDays
+    )
+    val hint = stringResource(explainerHintResId(selection.bias.direction))
+    val stability = stringResource(explainerStabilityResId(selection.bias.significance))
+
     Text(
-        text = text,
+        text = "$opener $hint\n\n$stability",
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurface,
         lineHeight = MaterialTheme.typography.bodyMedium.lineHeight
     )
 }
 
-private fun buildExplainerText(selection: BiasSelection): String {
-    val name = selection.model.displayName
-    val variable = when (selection.bias.variable) {
-        BiasVariable.TEMPERATURE -> "la température"
-        BiasVariable.PRECIPITATION -> "les précipitations"
-        BiasVariable.WIND_SPEED -> "le vent"
-    }
-    val (verb, hint) = when (selection.bias.direction) {
-        BiasDirection.WARM -> "surestime" to "Soustraire mentalement l'écart aux prévisions donne une lecture plus proche du réel."
-        BiasDirection.COLD -> "sous-estime" to "Ajouter mentalement l'écart aux prévisions donne une lecture plus proche du réel."
-        BiasDirection.NEUTRAL -> "reste calibré" to "Rien à corriger sur cette variable."
-    }
-    val stability = when (selection.bias.significance) {
-        BiasSignificance.HIGH -> "Le biais est consistant sur les 30 derniers jours (écart-type faible par rapport à la magnitude) — le comportement observé n'est pas dû au hasard."
-        BiasSignificance.MODERATE -> "Le biais est visible mais modéré — utile à garder en tête sur les décisions serrées."
-        BiasSignificance.NOT_SIGNIFICANT -> "Écart proche du bruit journalier — pas d'action nécessaire."
-    }
-    return "$name $verb systématiquement $variable à cet endroit sur les ${selection.bias.windowDays} derniers jours. " +
-            "$hint\n\n$stability"
+// ─── Res id resolvers (pas @Composable, appelables depuis remember blocks) ──
+
+private fun sheetVariableLabelResId(v: BiasVariable): Int = when (v) {
+    BiasVariable.TEMPERATURE   -> R.string.bias_sheet_variable_temperature
+    BiasVariable.PRECIPITATION -> R.string.bias_sheet_variable_precipitation
+    BiasVariable.WIND_SPEED    -> R.string.bias_sheet_variable_wind_speed
+}
+
+private fun sheetExplainerVariableResId(v: BiasVariable): Int = when (v) {
+    BiasVariable.TEMPERATURE   -> R.string.bias_variable_temperature
+    BiasVariable.PRECIPITATION -> R.string.bias_variable_precipitation
+    BiasVariable.WIND_SPEED    -> R.string.bias_variable_wind_speed
+}
+
+private fun significanceLabelResId(s: BiasSignificance): Int = when (s) {
+    BiasSignificance.HIGH             -> R.string.bias_significance_high
+    BiasSignificance.MODERATE         -> R.string.bias_significance_moderate
+    BiasSignificance.NOT_SIGNIFICANT  -> R.string.bias_significance_not_significant
+}
+
+private fun explainerVerbResId(d: BiasDirection): Int = when (d) {
+    BiasDirection.WARM    -> R.string.bias_verb_overestimates
+    BiasDirection.COLD    -> R.string.bias_verb_underestimates
+    BiasDirection.NEUTRAL -> R.string.bias_verb_neutral
+}
+
+private fun explainerHintResId(d: BiasDirection): Int = when (d) {
+    BiasDirection.WARM    -> R.string.bias_hint_warm
+    BiasDirection.COLD    -> R.string.bias_hint_cold
+    BiasDirection.NEUTRAL -> R.string.bias_hint_neutral
+}
+
+private fun explainerStabilityResId(s: BiasSignificance): Int = when (s) {
+    BiasSignificance.HIGH             -> R.string.bias_stability_high
+    BiasSignificance.MODERATE         -> R.string.bias_stability_moderate
+    BiasSignificance.NOT_SIGNIFICANT  -> R.string.bias_stability_not_significant
 }

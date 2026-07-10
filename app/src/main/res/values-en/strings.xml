@@ -283,4 +283,61 @@
     <string name="weather_legend_thunderstorm">Thunderstorm</string>
     <!-- Note explaining the % badges under icons in the weather-by-model table -->
     <string name="weather_legend_percent_note">The % under an icon = cloud cover (cloudy/overcast) or precipitation probability (rain/snow/thunderstorm).</string>
+
+    <!-- ============================================================
+         Per-model bias tracking — Phase 1 UI
+         ============================================================ -->
+
+    <!-- Chip: accessibility description (parameterized: verb, variable, magnitude, days).
+         E.g. "This model overestimates temperature by 1.5° on average over 30 days…" -->
+    <string name="bias_chip_content_description">This model %1$s %2$s by %3$s on average over %4$d days. Tap for details.</string>
+
+    <!-- Direction verbs (used in a11y and explainer text) -->
+    <string name="bias_verb_overestimates">overestimates</string>
+    <string name="bias_verb_underestimates">underestimates</string>
+    <string name="bias_verb_neutral">stays calibrated for</string>
+
+    <!-- Weather variables (no article in English) -->
+    <string name="bias_variable_temperature">temperature</string>
+    <string name="bias_variable_precipitation">precipitation</string>
+    <string name="bias_variable_wind_speed">wind speed</string>
+
+    <!-- Sheet eyebrow: "GFS · Temperature bias · 30 days" -->
+    <string name="bias_sheet_eyebrow">%1$s  ·  %2$s  ·  %3$d days</string>
+    <string name="bias_sheet_variable_temperature">Temperature bias</string>
+    <string name="bias_sheet_variable_precipitation">Precipitation bias</string>
+    <string name="bias_sheet_variable_wind_speed">Wind bias</string>
+
+    <!-- Sheet title, split into prefix + coloured magnitude + suffix -->
+    <string name="bias_sheet_title_prefix">Mean deviation </string>
+    <string name="bias_sheet_title_suffix"> compared with observations.</string>
+
+    <!-- Placeholder for the 30-day chart (coming next iteration) -->
+    <string name="bias_sparkline_placeholder">30-day chart — coming soon</string>
+
+    <!-- Stats grid labels -->
+    <string name="bias_stat_mean">Mean deviation</string>
+    <string name="bias_stat_stddev">Std deviation</string>
+    <string name="bias_stat_sample_size">Days of data</string>
+    <string name="bias_stat_sample_size_value">%1$d / %2$d</string>
+    <string name="bias_stat_significance">Significance</string>
+
+    <!-- Significance labels (shown in the stats grid) -->
+    <string name="bias_significance_high">High</string>
+    <string name="bias_significance_moderate">Moderate</string>
+    <string name="bias_significance_not_significant">Low</string>
+
+    <!-- Explainer opener, parameterized (model, verb, variable, days).
+         E.g. EN: "GFS systematically overestimates temperature here over the last 30 days." -->
+    <string name="bias_explainer_opener">%1$s systematically %2$s %3$s here over the last %4$d days.</string>
+
+    <!-- Correction hint — varies by direction -->
+    <string name="bias_hint_warm">Mentally subtracting the deviation from its forecasts gives a reading closer to reality.</string>
+    <string name="bias_hint_cold">Mentally adding the deviation to its forecasts gives a reading closer to reality.</string>
+    <string name="bias_hint_neutral">Nothing to correct on this variable.</string>
+
+    <!-- Stability interpretation — varies by significance -->
+    <string name="bias_stability_high">The bias is consistent over the last 30 days (low standard deviation relative to magnitude) — the observed pattern is not by chance.</string>
+    <string name="bias_stability_moderate">The bias is visible but moderate — worth keeping in mind for close calls.</string>
+    <string name="bias_stability_not_significant">Deviation close to daily noise — no action needed.</string>
 </resources>

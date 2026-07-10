@@ -85,7 +85,7 @@ fun HourlyForecastTable(
     valueStyler: ((Double) -> ValueStyle?)? = null,
     heatmapStyler: ((Double) -> HeatmapCellStyle?)? = null,
     directionExtractor: ((HourlyForecast, Int) -> Int?)? = null,
-    cellWidth: Dp = 60.dp,
+    cellWidth: Dp = 72.dp,
     // ── Suivi de biais (Phase 1 UI) ──
     // Provider optionnel qui associe un modèle à son biais pour la variable
     // affichée. Retour `null` = pas de chip (soit le repo n'a pas de données,
@@ -318,7 +318,12 @@ private fun HourModelHeaderCell(
             text = text,
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            // Garde-fou : si un futur modèle a un nom plus long que ne le
+            // permet cellWidth, on préfère l'ellipsis à un wrap qui casserait
+            // l'alignement vertical de la grille du tableau.
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
         )
         // Chip uniquement si (a) le mode "avec biais" est actif — height > 40 —
         // ET (b) le biais existe ET est significatif. Sinon slot vide.
@@ -478,4 +483,3 @@ private fun directionAt(
 //  [hourlyWindHeatmap]. Si on veut à nouveau un styler texte (ex : pour un
 //  écran daily hourly-like futur), il suffit de wrapper les fonctions heatmap
 //  et de mapper `background` sur `ValueStyle.color`.
-

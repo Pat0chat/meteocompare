@@ -284,4 +284,63 @@
     <string name="weather_legend_thunderstorm">Orage</string>
     <!-- Note expliquant les % sous les icônes du tableau du temps par modèle -->
     <string name="weather_legend_percent_note">Le % sous une icône = couverture nuageuse (nuageux/couvert) ou probabilité de pluie (pluie/neige/orage).</string>
+
+    <!-- ============================================================
+         Suivi de biais par modèle — Phase 1 UI
+         ============================================================ -->
+
+    <!-- Chip: description accessibilité (parametré : verbe, variable, magnitude, jours).
+         Ex: "Ce modèle surestime la température de 1,5° en moyenne sur 30 jours…" -->
+    <string name="bias_chip_content_description">Ce modèle %1$s %2$s de %3$s en moyenne sur %4$d jours. Toucher pour voir le détail.</string>
+
+    <!-- Verbes de direction (utilisés dans a11y et texte explicatif) -->
+    <string name="bias_verb_overestimates">surestime</string>
+    <string name="bias_verb_underestimates">sous-estime</string>
+    <string name="bias_verb_neutral">reste calibré sur</string>
+
+    <!-- Variables météo, article inclus (contexte "surestime LA température") -->
+    <string name="bias_variable_temperature">la température</string>
+    <string name="bias_variable_precipitation">les précipitations</string>
+    <string name="bias_variable_wind_speed">le vent</string>
+
+    <!-- Eyebrow de la sheet: "GFS · Biais température · 30 jours" -->
+    <string name="bias_sheet_eyebrow">%1$s  ·  %2$s  ·  %3$d jours</string>
+    <string name="bias_sheet_variable_temperature">Biais température</string>
+    <string name="bias_sheet_variable_precipitation">Biais précipitations</string>
+    <string name="bias_sheet_variable_wind_speed">Biais vent</string>
+
+    <!-- Titre "sec" de la sheet, découpé en prefix + magnitude (colorée) + suffix.
+         La magnitude est concaténée entre les deux via AnnotatedString.
+         Espace en fin du prefix / début du suffix pour espacer correctement. -->
+    <string name="bias_sheet_title_prefix">Écart moyen </string>
+    <string name="bias_sheet_title_suffix"> par rapport à l\'observation.</string>
+
+    <!-- Placeholder pour le graphique 30 jours (rendu à l\'itération suivante) -->
+    <string name="bias_sparkline_placeholder">Graphique 30 jours — à venir</string>
+
+    <!-- Labels de la grille de statistiques -->
+    <string name="bias_stat_mean">Écart moyen</string>
+    <string name="bias_stat_stddev">Écart-type</string>
+    <string name="bias_stat_sample_size">Jours de données</string>
+    <string name="bias_stat_sample_size_value">%1$d / %2$d</string>
+    <string name="bias_stat_significance">Significativité</string>
+
+    <!-- Étiquettes de significativité (affichées dans la grille de stats) -->
+    <string name="bias_significance_high">Élevée</string>
+    <string name="bias_significance_moderate">Modérée</string>
+    <string name="bias_significance_not_significant">Faible</string>
+
+    <!-- Texte explicatif — opener paramétré (modèle, verbe, variable, jours).
+         Ex FR : "GFS surestime systématiquement la température à cet endroit sur les 30 derniers jours." -->
+    <string name="bias_explainer_opener">%1$s %2$s systématiquement %3$s à cet endroit sur les %4$d derniers jours.</string>
+
+    <!-- Hint : comment corriger mentalement — varie selon la direction -->
+    <string name="bias_hint_warm">Soustraire mentalement l\'écart aux prévisions donne une lecture plus proche du réel.</string>
+    <string name="bias_hint_cold">Ajouter mentalement l\'écart aux prévisions donne une lecture plus proche du réel.</string>
+    <string name="bias_hint_neutral">Rien à corriger sur cette variable.</string>
+
+    <!-- Interprétation stabilité — varie selon la significativité -->
+    <string name="bias_stability_high">Le biais est consistant sur les 30 derniers jours (écart-type faible par rapport à la magnitude) — le comportement observé n\'est pas dû au hasard.</string>
+    <string name="bias_stability_moderate">Le biais est visible mais modéré — utile à garder en tête sur les décisions serrées.</string>
+    <string name="bias_stability_not_significant">Écart proche du bruit journalier — pas d\'action nécessaire.</string>
 </resources>
