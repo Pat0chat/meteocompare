@@ -312,8 +312,18 @@
     <string name="bias_sheet_title_prefix">Mean deviation </string>
     <string name="bias_sheet_title_suffix"> compared with observations.</string>
 
-    <!-- Placeholder for the 30-day chart (coming next iteration) -->
+    <!-- Placeholder for the 30-day chart (kept as defensive fallback). -->
     <string name="bias_sparkline_placeholder">30-day chart — coming soon</string>
+
+    <!-- X-axis labels at both ends of the sparkline. Short parameterized form
+         (window size) so a future variable window can be supported without
+         changing the strings. -->
+    <string name="bias_sparkline_label_past">%1$d d ago</string>
+    <string name="bias_sparkline_label_today">Today</string>
+
+    <!-- Mini-legend below the sparkline: which line is which curve. -->
+    <string name="bias_sparkline_legend_observation">observation</string>
+    <string name="bias_sparkline_legend_forecast">forecast</string>
 
     <!-- Stats grid labels -->
     <string name="bias_stat_mean">Mean deviation</string>

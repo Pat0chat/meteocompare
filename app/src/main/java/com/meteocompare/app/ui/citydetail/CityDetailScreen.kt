@@ -361,7 +361,21 @@ private fun LoadedView(
                 forecast = forecast,
                 temperatureBiasProvider = ::mockTemperatureBias,
                 onBiasChipClick = { model, bias ->
-                    selectedBias = BiasSelection(model, bias)
+                    // À l'ouverture de la sheet, on peuple le sparkline avec
+                    // la série 30j du modèle + observation partagée + le
+                    // domain Y calculé sur l'union de tous les modèles (pour
+                    // que passer d'un chip à l'autre permette de comparer
+                    // visuellement l'ampleur des biais entre modèles).
+                    val history = mockTemperatureHistory(model)
+                    val (yMin, yMax) = mockTemperatureDomain()
+                    selectedBias = BiasSelection(
+                        model = model,
+                        bias = bias,
+                        dailyForecast = history.forecast,
+                        dailyObservation = history.observation,
+                        yDomainMin = yMin,
+                        yDomainMax = yMax
+                    )
                 }
             )
             DisplayMode.DAILY -> dailyItems(
@@ -1373,4 +1387,83 @@ private fun mockTemperatureBias(
         stdDev = sd,
         sampleSize = n
     )
+}
+
+// ============================================================================
+//  Mock histoire 30 jours — Phase 1 UI (sparkline)
+// ============================================================================
+//
+//  Sériés déterministes (pas de Random) pour que le rendu reste stable en
+//  preview et facilite le debug visuel. La série d'observation est fixée
+//  (une seule "réalité"), les séries prévision par modèle sont dérivées de
+//  cette réalité + biais du modèle + un léger bruit reproductible.
+//
+//  À remplacer Phase 3 par le repo :
+//    `biasHistoryRepository.observe(city, model, variable, days = 30)`
+
+private data class MockHistory(val forecast: List<Double>, val observation: List<Double>)
+
+/**
+ * Observation 30 jours pour la température à Paris (juillet-type — max
+ * journalier). Fixée pour reproductibilité.
+ */
+private val MOCK_OBSERVATION_TEMPERATURE: List<Double> = listOf(
+    22.1, 24.3, 26.8, 28.2, 27.5, 26.0, 25.3, 27.1, 29.5, 31.2,
+    30.8, 28.7, 26.9, 25.4, 24.6, 26.3, 28.1, 29.9, 30.4, 31.8,
+    30.2, 27.5, 25.1, 24.3, 25.8, 27.4, 29.2, 30.6, 29.3, 27.1
+)
+
+/**
+ * Génère la série prévision 30j du modèle : observation + biais moyen +
+ * bruit déterministe basé sur `(model.ordinal, dayIndex)`. Le bruit est
+ * borné à ±0.6° pour rester réaliste (les modèles ne divergent jamais
+ * aléatoirement de plus d'un degré autour de leur biais moyen).
+ */
+private fun mockTemperatureHistory(
+    model: com.meteocompare.app.domain.model.WeatherModel
+): MockHistory {
+    val bias = mockTemperatureBias(model)
+    // Fallback pour un modèle sans mock : on retourne obs = forecast (biais
+    // nul). Ne devrait jamais s'atteindre — le chip n'est pas rendu pour ces
+    // modèles, donc onBiasChipClick ne peut pas être déclenché.
+    val meanBias = bias?.meanBias ?: 0.0
+    val forecast = MOCK_OBSERVATION_TEMPERATURE.mapIndexed { i, obs ->
+        obs + meanBias + deterministicNoise(model.ordinal, i, amplitude = 0.6)
+    }
+    return MockHistory(forecast = forecast, observation = MOCK_OBSERVATION_TEMPERATURE)
+}
+
+/**
+ * Bornes de l'axe Y température, calculées sur l'union de toutes les séries
+ * (observation + prévisions de tous les modèles mockés) avec une marge de
+ * ±1°. Ces mêmes bornes sont utilisées pour TOUS les sparklines de la
+ * variable — c'est ce qui permet à l'utilisateur de comparer visuellement
+ * l'ampleur du biais entre modèles en tapant successivement chaque chip.
+ */
+private fun mockTemperatureDomain(): Pair<Double, Double> {
+    val allValues = MOCK_OBSERVATION_TEMPERATURE +
+        com.meteocompare.app.domain.model.WeatherModel.entries
+            .filter { mockTemperatureBias(it) != null }
+            .flatMap { mockTemperatureHistory(it).forecast }
+    val min = (allValues.min() - 1.0)
+    val max = (allValues.max() + 1.0)
+    return min to max
+}
+
+/**
+ * Bruit déterministe basé sur un hash simple de (seed, index).
+ *
+ * Deux propriétés qu'on veut :
+ *   1. **Déterministe** — même seed + même index → même valeur. Le rendu
+ *      preview et debug reste stable entre lancements.
+ *   2. **Décoré des dépendances** — deux indices consécutifs ne donnent PAS
+ *      des valeurs consécutives (sinon on obtient une droite linéaire au lieu
+ *      d'un bruit d'aspect stochastique).
+ *
+ * Formule : hash multiplicatif → normalisé dans [−amplitude, +amplitude].
+ */
+private fun deterministicNoise(seed: Int, index: Int, amplitude: Double): Double {
+    val h = (seed * 2654435761L.toInt() xor index * 40503).toInt()
+    val normalized = ((h ushr 8) and 0xFFFF) / 65535.0 // [0, 1]
+    return (normalized - 0.5) * 2.0 * amplitude
 }

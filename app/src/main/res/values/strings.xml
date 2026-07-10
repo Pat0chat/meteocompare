@@ -315,8 +315,21 @@
     <string name="bias_sheet_title_prefix">Écart moyen </string>
     <string name="bias_sheet_title_suffix"> par rapport à l\'observation.</string>
 
-    <!-- Placeholder pour le graphique 30 jours (rendu à l\'itération suivante) -->
+    <!-- Placeholder pour le graphique 30 jours (rendu à l\'itération suivante).
+         Note : conservé après la Phase 1.5 comme fallback si dailyForecast /
+         dailyObservation sont vides (défensif — la sheet ne devrait pas
+         s\'ouvrir dans ce cas mais le string reste utile en cas de refactor). -->
     <string name="bias_sparkline_placeholder">Graphique 30 jours — à venir</string>
+
+    <!-- Labels X aux extrémités du sparkline. Format court parametré (nb de
+         jours de la fenêtre) — permettra en Phase 3 de gérer une fenêtre
+         paramétrable sans changer les strings. -->
+    <string name="bias_sparkline_label_past">J−%1$d</string>
+    <string name="bias_sparkline_label_today">Aujourd\'hui</string>
+
+    <!-- Mini-légende sous le sparkline : quelle ligne est quelle courbe. -->
+    <string name="bias_sparkline_legend_observation">observation</string>
+    <string name="bias_sparkline_legend_forecast">prévision</string>
 
     <!-- Labels de la grille de statistiques -->
     <string name="bias_stat_mean">Écart moyen</string>

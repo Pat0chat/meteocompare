@@ -1,15 +1,12 @@
 package com.meteocompare.app.ui.citydetail
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -17,7 +14,6 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
@@ -68,7 +64,13 @@ internal fun ModelBiasDetailSheet(
             Spacer(Modifier.height(6.dp))
             SheetTitle(selection.bias)
             Spacer(Modifier.height(14.dp))
-            SparklinePlaceholder(selection.bias.direction)
+            BiasSparkline(
+                forecast = selection.dailyForecast,
+                observation = selection.dailyObservation,
+                direction = selection.bias.direction,
+                yDomainMin = selection.yDomainMin,
+                yDomainMax = selection.yDomainMax
+            )
             Spacer(Modifier.height(18.dp))
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             StatsGrid(selection.bias)
@@ -83,7 +85,16 @@ internal fun ModelBiasDetailSheet(
 @androidx.compose.runtime.Immutable
 internal data class BiasSelection(
     val model: WeatherModel,
-    val bias: ModelBias
+    val bias: ModelBias,
+    // ── Données pour le sparkline ──
+    // Populated côté caller à l'ouverture de la sheet. Chronologique, index 0
+    // = J−(size−1), dernier index = aujourd'hui. Même taille des deux séries.
+    val dailyForecast: List<Double>,
+    val dailyObservation: List<Double>,
+    // Bornes Y communes à tous les modèles de la même variable (calculées sur
+    // l'union des séries) — permet la comparaison visuelle inter-modèles.
+    val yDomainMin: Double,
+    val yDomainMax: Double
 )
 
 @Composable
@@ -132,29 +143,6 @@ private fun SheetTitle(bias: ModelBias) {
         style = MaterialTheme.typography.headlineSmall,
         lineHeight = MaterialTheme.typography.headlineSmall.lineHeight
     )
-}
-
-/**
- * Placeholder pour le sparkline 30j — réservé à l'itération suivante.
- * Rendu discret : rectangle arrondi tinté selon la direction, texte au centre.
- */
-@Composable
-private fun SparklinePlaceholder(direction: BiasDirection) {
-    val palette = chipPalette(direction)
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(130.dp)
-            .background(palette.background, RoundedCornerShape(8.dp)),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = stringResource(R.string.bias_sparkline_placeholder),
-            style = MaterialTheme.typography.labelMedium,
-            color = palette.foreground,
-            fontWeight = FontWeight.Medium
-        )
-    }
 }
 
 /** Grille 2×2 des statistiques principales, style "instrument de mesure". */
