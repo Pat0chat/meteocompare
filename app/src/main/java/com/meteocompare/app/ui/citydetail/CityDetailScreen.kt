@@ -553,17 +553,19 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hourlyItems(
                 valueExtractor = { hourly: HourlyForecast, idx ->
                     hourly.precipitation.getOrNull(idx)
                 },
-                // Format compact "0.5" (pas "0.5 mm") pour tenir en 60dp — l'en-
-                // tête de section + la légende clarifient l'unité, et l'affichage
-                // par heure gagne à rester lisible.
+                // Unité "mm" explicite dans chaque cellule — cohérent avec
+                // le tableau vent ("km/h") et lève l'ambiguïté "0.5 = mm ?
+                // pouces ? probabilité ?" quand on scrolle vite en oubliant
+                // le titre de section. Reste sous 60dp même pour "15.4 mm"
+                // (7 caractères en labelSmall ≈ 42dp).
                 valueFormatter = { mm ->
-                    if (mm < 0.05) "0" else "%.1f".format(mm)
+                    if (mm < 0.05) "0 mm" else "%.1f mm".format(mm)
                 },
                 heatmapStyler = ::hourlyPrecipitationHeatmap,
                 modifier = Modifier.padding(8.dp)
             )
         }
-        PrecipitationLegend()
+        HourlyPrecipitationLegend()
     }
 
     item("wind_table_hourly") {
@@ -601,7 +603,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hourlyItems(
                 modifier = Modifier.padding(8.dp)
             )
         }
-        WindLegend()
+        HourlyWindLegend()
     }
 }
 
@@ -648,30 +650,155 @@ private fun DisplayModeToggle(
 }
 
 /**
- * Légende du tableau température horaire en mode heatmap — chips explicatifs
- * des 5 paliers absolus utilisés dans [hourlyTemperatureHeatmap]. Contrairement
- * aux légendes précipitation/vent (4 chips), celle-ci en a 5 : la zone
- * "tempérée" est aussi colorée (vert pâle) dans la heatmap parce que la
- * température est toujours définie à chaque heure, il n'y a pas d'état
- * "rien à signaler" comme pour la pluie (0 mm) ou le vent (calme).
+ * Légende du tableau température horaire en mode heatmap.
  *
- * Les couleurs des chips correspondent EXACTEMENT aux couleurs de fond des
- * cellules — pas au texte. Un utilisateur qui voit une cellule verte pâle
- * dans le tableau doit pouvoir la corréler au chip vert pâle "tempéré" de
- * la légende sans effort mental.
+ * Passage chips → barre dégradée à 10 paliers : au-delà de 5-6 chips, la
+ * FlowRow devient une pluie de puces et l'œil ne perçoit plus la
+ * *continuité* de l'échelle. Une barre dégradée segmentée dit d'un coup d'œil
+ * "c'est un dégradé continu du froid vers le chaud" — idiome standard des
+ * cartes thermiques (matplotlib, tableau, Grafana...).
+ *
+ * Les labels de tick sont numériques (universel, pas de traduction) et
+ * couvrent les bornes internes tous les 5° : "-10 / -5 / 0 / 5 / 10 / 15 /
+ * 20 / 25 / 30" — les endpoints "<-10" et "≥30" sont impliqués par la
+ * position des extrémités du dégradé.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun HourlyTemperatureLegend() {
-    LegendChipsRow(
-        chips = listOf(
-            Color(0xFF1E88E5) to stringResource(R.string.temp_hourly_legend_freezing),
-            Color(0xFF4FC3F7) to stringResource(R.string.temp_hourly_legend_cold),
-            Color(0xFFDCEDC8) to stringResource(R.string.temp_hourly_legend_temperate),
-            Color(0xFFFF7043) to stringResource(R.string.temp_hourly_legend_warm),
-            Color(0xFFE53935) to stringResource(R.string.temp_hourly_legend_hot)
+    HeatmapGradientLegend(
+        colors = listOf(
+            Color(0xFF0D47A1), Color(0xFF1565C0), Color(0xFF1E88E5),
+            Color(0xFF4FC3F7), Color(0xFFB3E5FC), Color(0xFFDCEDC8),
+            Color(0xFFFFF59D), Color(0xFFFFB74D), Color(0xFFFF7043),
+            Color(0xFFC62828)
+        ),
+        // 10 segments → 10 labels sous chaque segment (lower bound du bin) :
+        // seg1 = "<-10", seg2 = "-10", ..., seg10 = "≥30°".
+        // "°" sur les seules bornes extrêmes évite de saturer visuellement.
+        tickLabels = listOf(
+            "<-10", "-10", "-5", "0", "5", "10", "15", "20", "25", "≥30"
         )
     )
+}
+
+/**
+ * Légende du tableau précipitations horaire en mode heatmap.
+ *
+ * 10 paliers colorés (le palier "sec" < 0.05 mm/h n'apparaît pas dans la
+ * légende car les cellules sèches sont NEUTRES — sans couleur — dans la
+ * heatmap. La légende ne montre que ce qui EST coloré.)
+ *
+ * Progression bleu clair → bleu profond, seuils quasi-logarithmiques
+ * (0.05 → 10 mm/h) pour refléter la perception logarithmique d'intensité de
+ * pluie. Unité "mm" sur le dernier tick uniquement, pour identifier la
+ * grandeur sans encombrer.
+ */
+@Composable
+private fun HourlyPrecipitationLegend() {
+    HeatmapGradientLegend(
+        colors = listOf(
+            Color(0xFFE3F2FD), Color(0xFFBBDEFB), Color(0xFF90CAF9),
+            Color(0xFF64B5F6), Color(0xFF42A5F5), Color(0xFF2196F3),
+            Color(0xFF1E88E5), Color(0xFF1976D2), Color(0xFF1565C0),
+            Color(0xFF0D47A1)
+        ),
+        tickLabels = listOf(
+            ".05", ".1", ".2", ".5", "1", "2", "3", "5", "7", "≥10"
+        )
+    )
+}
+
+/**
+ * Légende du tableau vent horaire en mode heatmap.
+ *
+ * 10 paliers colorés (le palier "calme" < 20 km/h n'apparaît pas — cellules
+ * neutres). Progression jaune → orange → rouge alignée sur l'échelle de
+ * Beaufort (B3 à B12), avec un pas de 10 km/h dans la zone perceptible
+ * (20-100) et un pas de 20 km/h au-delà (les distinctions "cyclone
+ * modéré/fort" s'estompent perceptivement).
+ */
+@Composable
+private fun HourlyWindLegend() {
+    HeatmapGradientLegend(
+        colors = listOf(
+            Color(0xFFFFF9C4), Color(0xFFFFF176), Color(0xFFFFEB3B),
+            Color(0xFFFFCA28), Color(0xFFFFB74D), Color(0xFFFF9800),
+            Color(0xFFFB8C00), Color(0xFFF57C00), Color(0xFFE64A19),
+            Color(0xFFC62828)
+        ),
+        tickLabels = listOf(
+            "20", "30", "40", "50", "60", "70", "80", "90", "100", "≥120"
+        )
+    )
+}
+
+/**
+ * Barre dégradée à N segments avec labels de tick sous chaque segment.
+ *
+ * Layout : Column
+ *   1. Row de N `Box` colorés en poids égal (weight=1f) → barre
+ *      typographiquement rendue par blocs jointifs, clippée en coins arrondis
+ *      pour un look "pill" plus doux qu'un rectangle carré.
+ *   2. Row de N `Text` en poids égal → chaque label centré exactement sous
+ *      son bloc (contraste avec SpaceBetween qui aligne les extrémités mais
+ *      pas les intermédiaires).
+ *
+ * Alternatives écartées :
+ *   - Dégradé continu via `Brush.horizontalGradient` : "trop lisse", ne
+ *     communique plus la nature discrète des paliers du styler → l'œil
+ *     s'attendrait à ce que la cellule prenne exactement la couleur du
+ *     dégradé au point correspondant, ce qui serait faux.
+ *   - Labels aux frontières (positions %0/%10/%20...) : mieux formellement,
+ *     mais impose un layout absolu (Constraints ou Layout) au lieu d'un
+ *     simple Row de poids — surcoût de code non justifié pour ce cas.
+ *
+ * @param colors les N couleurs des segments, gauche à droite = du plus petit
+ *   au plus grand.
+ * @param tickLabels N labels courts (chiffres, notation "≥"/"≤") sous chaque
+ *   segment. Doit avoir la même taille que [colors].
+ */
+@Composable
+private fun HeatmapGradientLegend(
+    colors: List<Color>,
+    tickLabels: List<String>
+) {
+    require(colors.size == tickLabels.size) {
+        "colors and tickLabels must have same size (got ${colors.size} vs ${tickLabels.size})"
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(14.dp)
+                .clip(androidx.compose.foundation.shape.RoundedCornerShape(3.dp))
+        ) {
+            colors.forEach { color ->
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxSize()
+                        .background(color)
+                )
+            }
+        }
+        Spacer(Modifier.height(2.dp))
+        Row(modifier = Modifier.fillMaxWidth()) {
+            tickLabels.forEach { label ->
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    maxLines = 1,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -812,8 +939,8 @@ internal fun TodaySummaryCard(
                         // bidon). Sur "clair" ou "pluie" le badge n'a aucun sens →
                         // rien n'apparaît, l'icône reste centrée bas comme avant.
                         val showCloudBadge = currentCloudCover != null &&
-                            (currentCondition == WeatherCondition.PARTLY_CLOUDY ||
-                                currentCondition == WeatherCondition.OVERCAST)
+                                (currentCondition == WeatherCondition.PARTLY_CLOUDY ||
+                                        currentCondition == WeatherCondition.OVERCAST)
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             modifier = Modifier.padding(bottom = 2.dp)

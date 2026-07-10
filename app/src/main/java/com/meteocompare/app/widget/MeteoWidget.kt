@@ -101,16 +101,6 @@ private const val EXTRA_LARGE_MIN_WIDTH_DP = 220
  *   - Le confidence pill à droite en 3×1/4×1 se retrouve pratiquement
  *     contre le bord droit, sans respiration visuelle.
  *
- * Nouveau padding progressif :
- *   - Small (2×1)      : 8.dp — inchangé, l'espace est trop précieux.
- *   - Medium (3×1)     : 14.dp horizontal, 10.dp vertical — respiration à
- *                        gauche/droite pour éloigner le pill du bord.
- *   - Large (4×1)      : 16.dp horizontal, 12.dp vertical — un poil plus,
- *                        la largeur autorise le confort.
- *   - ExtraLarge (4×2) : 16.dp horizontal, 14.dp vertical — le vertical est
- *                        doublé du 4×1 pour éviter que le strip du bas colle
- *                        au bord bas quand les icônes météo sont hautes.
- *
  * Les valeurs restent SYMÉTRIQUES gauche/droite pour que le contenu reste
  * centré au regard, et légèrement plus resserrées verticalement que
  * horizontalement pour tirer parti de la forme 3-4:1 des layouts.
@@ -122,9 +112,9 @@ private data class WidgetPadding(val horizontal: Dp, val vertical: Dp)
 // mais moins et le contenu touche les bords.
 private val TinyPadding = WidgetPadding(6.dp, 4.dp)
 private val SmallPadding = WidgetPadding(8.dp, 8.dp)
-private val MediumPadding = WidgetPadding(14.dp, 10.dp)
-private val LargePadding = WidgetPadding(18.dp, 12.dp)
-private val ExtraLargePadding = WidgetPadding(20.dp, 20.dp)
+private val MediumPadding = WidgetPadding(12.dp, 8.dp)
+private val LargePadding = WidgetPadding(16.dp, 12.dp)
+private val ExtraLargePadding = WidgetPadding(16.dp, 12.dp)
 
 /**
  * Thème résolu (dark/light) — passé via [CompositionLocal] pour éviter que
@@ -735,7 +725,7 @@ private fun ExtraLargeLayout(
             }
         }
 
-        Spacer(GlanceModifier.height(18.dp))
+        Spacer(GlanceModifier.height(12.dp))
 
         // ─── Bottom strip : selon le mode utilisateur ────────────────────
         // Deux rendus mutuellement exclusifs pilotés par la présence de
