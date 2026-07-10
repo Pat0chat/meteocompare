@@ -254,12 +254,11 @@ Fait :
 - ✅ v0.4 — Toggle "par heure / par jour", zoom pincé sur la bande de confiance, badges probabilité de pluie et couverture nuageuse sous les icônes, direction du vent avec flèches downwind, indicateur "mis à jour il y a X", icône composite "partiellement nuageux" (soleil + nuage bi-color), titres du vent clarifiés ("moyenne à 10m" au lieu de "max" ambigu)
 - ✅ v0.5 — Nouvelles données (probabilité de pluie, couverture nuageuse, vent) et correction de bugs
 - ✅ v0.6 — Widget homescreen (Glance) redimensionnable 2×1 / 3×1 / 4×1 avec opacité de fond configurable et sélection de ville favorite ; reproduit un résumé compact de la TodaySummaryCard
-- ✅ v0.7 : Optimisation batterie et CPU pour l'application et widget (WorkManager pour le refresh widget, réduction des recomputes), upgrade de la stack, amélioration des widgets, mise à jour Kotlin 2.x
+- ✅ v0.7 — Optimisation batterie et CPU pour l'application et widget (WorkManager pour le refresh widget, réduction des recomputes), upgrade de la stack, amélioration des widgets, mise à jour Kotlin 2.x
 - ✅ v0.8 — Batching multi-modèles (1 requête HTTPS au lieu de N), bande de confiance multi-métriques (T° / pluie / vent), normales climatiques 10 ans en overlay, tri des modèles Settings (zone/famille/finesse), ajout HRRR / MET Nordic / KNMI HARMONIE / BOM ACCESS / CMA GRAPES (5 nouveaux modèles), widget 4×2 avec mode bande de confiance, i18n des widgets
+- ✅ v0.9 — Correction des requêtes dupliquées, correction des widgets fantômes, widgets et application partagent le même espace de données, amélioration des widgets, ajout des heatmaps pour les tableaux par heure
 
 - À venir :
-
-- v0.9 : Historique de fiabilité des modèles (skill verification à partir des observations)
 
 ## Licence
 
