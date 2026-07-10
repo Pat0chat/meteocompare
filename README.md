@@ -258,7 +258,7 @@ Fait :
 - ✅ v0.8 — Batching multi-modèles (1 requête HTTPS au lieu de N), bande de confiance multi-métriques (T° / pluie / vent), normales climatiques 10 ans en overlay, tri des modèles Settings (zone/famille/finesse), ajout HRRR / MET Nordic / KNMI HARMONIE / BOM ACCESS / CMA GRAPES (5 nouveaux modèles), widget 4×2 avec mode bande de confiance, i18n des widgets
 - ✅ v0.9 — Correction des requêtes dupliquées, correction des widgets fantômes, widgets et application partagent le même espace de données, amélioration des widgets, ajout des heatmaps pour les tableaux par heure
 
-- À venir :
+À venir :
 
 ## Licence
 
