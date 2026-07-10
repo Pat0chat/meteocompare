@@ -120,6 +120,7 @@
     <!-- Légende du tableau température horaire — seuils absolus -->
     <string name="temp_hourly_legend_freezing">gel (&lt; 0°)</string>
     <string name="temp_hourly_legend_cold">frais (0-5°)</string>
+    <string name="temp_hourly_legend_temperate">tempéré (5-20°)</string>
     <string name="temp_hourly_legend_warm">chaud (20-30°)</string>
     <string name="temp_hourly_legend_hot">très chaud (≥ 30°)</string>
 

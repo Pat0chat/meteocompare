@@ -52,7 +52,20 @@ import java.time.format.TextStyle as JavaTextStyle
  * @param valueExtractor Fonction qui renvoie la valeur (Double?) pour un
  *   modèle et un index d'heure donnés.
  * @param valueFormatter Formatage (ex: `{ "${it.roundToInt()}°" }`).
- * @param valueStyler Optionnel — applique une couleur et graisse selon la valeur.
+ * @param valueStyler Optionnel — applique une couleur et graisse au TEXTE
+ *   selon la valeur. Mutuellement exclusif avec [heatmapStyler] : si les
+ *   deux sont fournis, [heatmapStyler] gagne (sa couleur de contenu écrase
+ *   celle du valueStyler pour préserver la lisibilité sur fond coloré).
+ * @param heatmapStyler Optionnel — colore le FOND de la cellule selon la
+ *   valeur, transformant le tableau en carte thermique (heatmap). C'est le
+ *   mode "vue d'ensemble" du tableau hourly : l'œil repère instantanément
+ *   les zones "chaudes" (température élevée, forte pluie, vent fort) sans
+ *   avoir à lire les valeurs numériques. Le [HeatmapCellStyle.contentColor]
+ *   est calculé automatiquement (noir/blanc via [contrastingContentColor])
+ *   pour rester lisible quelle que soit la couleur de fond. Quand la lambda
+ *   retourne null pour une valeur donnée (ex: sec ou calme), on retombe sur
+ *   le fond de rangée alternée classique — utile pour ne signaler que les
+ *   valeurs remarquables sans "saturer" la vue.
  * @param directionExtractor Optionnel — pour les variables directionnelles.
  *   Retourne les degrés météo (0=N, 90=E, 180=S, 270=O) ou null si non
  *   applicable (variable absente, ou vent trop faible pour être informatif).
@@ -70,6 +83,7 @@ fun HourlyForecastTable(
     valueFormatter: (Double) -> String,
     modifier: Modifier = Modifier,
     valueStyler: ((Double) -> ValueStyle?)? = null,
+    heatmapStyler: ((Double) -> HeatmapCellStyle?)? = null,
     directionExtractor: ((HourlyForecast, Int) -> Int?)? = null,
     cellWidth: Dp = 60.dp
 ) {
@@ -188,10 +202,31 @@ fun HourlyForecastTable(
                         val direction = directionExtractor?.let {
                             directionAt(forecast, model, ts, it)
                         }
+                        // Résolution du fond de la cellule VALEUR :
+                        //   - Si un heatmap est actif ET renvoie une couleur pour
+                        //     cette valeur → cette couleur écrase le fond de rangée
+                        //     (y compris le highlight "heure courante" qui reste
+                        //     visible sur la colonne label figée à gauche).
+                        //   - Sinon → fond de rangée classique (alternance + highlight
+                        //     de l'heure courante) via [bgFor].
+                        // L'heure courante reste identifiable via la colonne label,
+                        // toujours mise en évidence indépendamment du heatmap.
+                        val heatmap = value?.let { v -> heatmapStyler?.invoke(v) }
+                        val cellBackground = heatmap?.background ?: bgFor(idx, ts)
+                        // Style texte : priorité au heatmap.contentColor (contrasté
+                        // avec son fond) ; à défaut, on retombe sur le valueStyler
+                        // classique s'il est fourni ; sinon couleur par défaut.
+                        val textStyle = when {
+                            heatmap != null -> ValueStyle(
+                                color = heatmap.contentColor,
+                                fontWeight = FontWeight.Medium
+                            )
+                            else -> value?.let { v -> valueStyler?.invoke(v) }
+                        }
                         HourValueCell(
                             text = value?.let(valueFormatter) ?: "—",
-                            style = value?.let { v -> valueStyler?.invoke(v) },
-                            background = bgFor(idx, ts),
+                            style = textStyle,
+                            background = cellBackground,
                             directionDegrees = direction
                         )
                     }
@@ -370,69 +405,15 @@ private fun directionAt(
 
 // ─── Stylers hourly-spécifiques ────────────────────────────────────────────
 //
-// Les seuils daily de CityDetailScreen ne se transposent pas tels quels à
-// l'horaire :
-//   - Précipitations : 5 mm sur UN jour = pluie modérée ; 5 mm en UNE heure =
-//     pluie forte (voire orage). Il faut recalibrer.
-//   - Vent : la variable est déjà une vitesse instantanée (km/h), pas un cumul.
-//     Les seuils daily calibrés sur "vent max de la journée" restent proches
-//     de ce qu'on lit dans l'horaire — on peut réutiliser les mêmes.
+//  Les stylers *texte* hourly (température / précipitation / vent) ont été
+//  déplacés vers [HourlyHeatmap.kt] sous la forme de stylers *heatmap* qui
+//  colorient le fond de la cellule au lieu du texte. Ce refactor a été fait
+//  quand les tableaux hourly sont passés en mode heatmap (bien plus lisible
+//  pour la matrice 24×5 qu'un texte simplement teinté).
+//
+//  Les seuils meteo et la palette n'ont PAS changé — voir
+//  [hourlyTemperatureHeatmap], [hourlyPrecipitationHeatmap] et
+//  [hourlyWindHeatmap]. Si on veut à nouveau un styler texte (ex : pour un
+//  écran daily hourly-like futur), il suffit de wrapper les fonctions heatmap
+//  et de mapper `background` sur `ValueStyle.color`.
 
-/**
- * Style de la cellule en fonction des précipitations horaires en mm/h.
- *
- *   - < 0.05 mm/h : null (neutre)
- *   - 0.05–0.5    : bleu clair, Normal        (bruine)
- *   - 0.5–2       : bleu, Medium              (pluie modérée)
- *   - 2–5         : bleu foncé, SemiBold      (pluie forte)
- *   - > 5         : bleu très foncé, Bold     (pluie très forte / orage)
- *
- *  Seuils environ 3-5× plus serrés que le daily : 5 mm/h en UNE heure c'est
- *  déjà de la pluie très forte (échelle Météo-France : > 7,6 mm/h = vigilance).
- */
-internal fun hourlyPrecipitationStyle(mm: Double): ValueStyle? = when {
-    mm < 0.05 -> null
-    mm < 0.5  -> ValueStyle(color = androidx.compose.ui.graphics.Color(0xFF4FC3F7), fontWeight = FontWeight.Normal)
-    mm < 2.0  -> ValueStyle(color = androidx.compose.ui.graphics.Color(0xFF1E88E5), fontWeight = FontWeight.Medium)
-    mm < 5.0  -> ValueStyle(color = androidx.compose.ui.graphics.Color(0xFF1565C0), fontWeight = FontWeight.SemiBold)
-    else      -> ValueStyle(color = androidx.compose.ui.graphics.Color(0xFF0D47A1), fontWeight = FontWeight.Bold)
-}
-
-/**
- * Style de la cellule en fonction du vent instantané en km/h.
- *
- * Mêmes seuils que le daily : la variable a la même unité (km/h) et la même
- * grille d'interprétation Beaufort. La différence "vent max quotidien" vs
- * "vent instantané" ne justifie pas de re-calibrer les 4 paliers.
- */
-internal fun hourlyWindStyle(kmh: Double): ValueStyle? = when {
-    kmh < 20.0 -> null
-    kmh < 40.0 -> ValueStyle(color = androidx.compose.ui.graphics.Color(0xFFFFB74D), fontWeight = FontWeight.Normal)
-    kmh < 60.0 -> ValueStyle(color = androidx.compose.ui.graphics.Color(0xFFFB8C00), fontWeight = FontWeight.Medium)
-    kmh < 80.0 -> ValueStyle(color = androidx.compose.ui.graphics.Color(0xFFE64A19), fontWeight = FontWeight.SemiBold)
-    else       -> ValueStyle(color = androidx.compose.ui.graphics.Color(0xFFC62828), fontWeight = FontWeight.Bold)
-}
-
-/**
- * Style de la cellule en fonction de la température horaire en °C.
- *
- * Contrairement au tableau min/max daily, on n'a pas de normales horaires
- * (les normales sont par jour). On applique un dégradé sémantique large :
- *
- *   - ≥ 30°  : rouge, SemiBold        (canicule)
- *   - 20-30° : orange clair, Medium   (chaud)
- *   - 5-20°  : null (neutre)          (tempéré, pas de signal)
- *   - 0-5°   : bleu clair, Medium     (frais)
- *   - < 0°   : bleu, SemiBold         (gel)
- *
- *  Ces couleurs sont indépendantes des couleurs "chaud/froid vs normale"
- *  du tableau daily (qui sont relatives). Ici c'est absolu — 25° reste chaud
- *  qu'on soit en été ou dans une vague de chaleur hivernale.
- */
-internal fun hourlyTemperatureStyle(celsius: Double): ValueStyle? = when {
-    celsius >= 30.0 -> ValueStyle(color = androidx.compose.ui.graphics.Color(0xFFE53935), fontWeight = FontWeight.SemiBold)
-    celsius >= 20.0 -> ValueStyle(color = androidx.compose.ui.graphics.Color(0xFFFF7043), fontWeight = FontWeight.Medium)
-    celsius > 5.0   -> null
-    celsius >= 0.0  -> ValueStyle(color = androidx.compose.ui.graphics.Color(0xFF4FC3F7), fontWeight = FontWeight.Medium)
-    else            -> ValueStyle(color = androidx.compose.ui.graphics.Color(0xFF1E88E5), fontWeight = FontWeight.SemiBold)
-}

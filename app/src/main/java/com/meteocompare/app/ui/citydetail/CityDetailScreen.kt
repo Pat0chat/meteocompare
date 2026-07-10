@@ -516,6 +516,9 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hourlyItems(
     // Table température horaire — pas de min/max ici (une seule valeur par
     // heure), donc une simple table Heure × Modèle avec coloration absolue
     // (canicule/gel), indépendante des normales climatiques journalières.
+    // La coloration passe par un HEATMAP (fond de cellule) — bien plus
+    // lisible sur une matrice 24×5 qu'une simple teinte de texte : les
+    // zones "chaudes" et "froides" ressortent visuellement d'un coup d'œil.
     item("temp_table_hourly") {
         SectionTitle(stringResource(R.string.section_temp_hourly))
         Card(
@@ -530,7 +533,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hourlyItems(
                     hourly.temperature2m.getOrNull(idx)
                 },
                 valueFormatter = { "${it.roundToInt()}°" },
-                valueStyler = ::hourlyTemperatureStyle,
+                heatmapStyler = ::hourlyTemperatureHeatmap,
                 modifier = Modifier.padding(8.dp)
             )
         }
@@ -556,7 +559,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hourlyItems(
                 valueFormatter = { mm ->
                     if (mm < 0.05) "0" else "%.1f".format(mm)
                 },
-                valueStyler = ::hourlyPrecipitationStyle,
+                heatmapStyler = ::hourlyPrecipitationHeatmap,
                 modifier = Modifier.padding(8.dp)
             )
         }
@@ -580,7 +583,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hourlyItems(
                 // le tableau daily et lève l'ambiguïté "24 = degrés ? nœuds ?
                 // km/h ?" quand on scrolle vite en oubliant le titre de section.
                 valueFormatter = { "${it.roundToInt()} km/h" },
-                valueStyler = ::hourlyWindStyle,
+                heatmapStyler = ::hourlyWindHeatmap,
                 // Même règle qu'en daily : direction affichée uniquement au
                 // dessus de 5 km/h. Sous ce seuil la direction horaire est du
                 // bruit (variabilité forte, pas d'info exploitable).
@@ -645,9 +648,17 @@ private fun DisplayModeToggle(
 }
 
 /**
- * Légende du tableau température horaire — chips explicatifs des seuils
- * absolus utilisés dans [hourlyTemperatureStyle]. Structure identique à
- * [PrecipitationLegend] pour cohérence visuelle entre légendes.
+ * Légende du tableau température horaire en mode heatmap — chips explicatifs
+ * des 5 paliers absolus utilisés dans [hourlyTemperatureHeatmap]. Contrairement
+ * aux légendes précipitation/vent (4 chips), celle-ci en a 5 : la zone
+ * "tempérée" est aussi colorée (vert pâle) dans la heatmap parce que la
+ * température est toujours définie à chaque heure, il n'y a pas d'état
+ * "rien à signaler" comme pour la pluie (0 mm) ou le vent (calme).
+ *
+ * Les couleurs des chips correspondent EXACTEMENT aux couleurs de fond des
+ * cellules — pas au texte. Un utilisateur qui voit une cellule verte pâle
+ * dans le tableau doit pouvoir la corréler au chip vert pâle "tempéré" de
+ * la légende sans effort mental.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -656,6 +667,7 @@ private fun HourlyTemperatureLegend() {
         chips = listOf(
             Color(0xFF1E88E5) to stringResource(R.string.temp_hourly_legend_freezing),
             Color(0xFF4FC3F7) to stringResource(R.string.temp_hourly_legend_cold),
+            Color(0xFFDCEDC8) to stringResource(R.string.temp_hourly_legend_temperate),
             Color(0xFFFF7043) to stringResource(R.string.temp_hourly_legend_warm),
             Color(0xFFE53935) to stringResource(R.string.temp_hourly_legend_hot)
         )

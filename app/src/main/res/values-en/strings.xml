@@ -119,6 +119,7 @@
     <!-- Hourly temperature table legend — absolute thresholds -->
     <string name="temp_hourly_legend_freezing">freezing (&lt; 0°)</string>
     <string name="temp_hourly_legend_cold">cold (0-5°)</string>
+    <string name="temp_hourly_legend_temperate">temperate (5-20°)</string>
     <string name="temp_hourly_legend_warm">warm (20-30°)</string>
     <string name="temp_hourly_legend_hot">hot (≥ 30°)</string>
 
