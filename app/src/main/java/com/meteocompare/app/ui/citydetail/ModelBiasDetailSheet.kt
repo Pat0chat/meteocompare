@@ -128,6 +128,7 @@ private fun SheetTitle(bias: ModelBias) {
 
     val annotated = buildAnnotatedString {
         append(prefix)
+        append(" ")
         withStyle(
             SpanStyle(
                 color = palette.foreground,
@@ -135,6 +136,7 @@ private fun SheetTitle(bias: ModelBias) {
                 fontFamily = FontFamily.Monospace
             )
         ) { append(magnitude) }
+        append(" ")
         append(suffix)
     }
 
