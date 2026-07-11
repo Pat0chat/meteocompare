@@ -1,9 +1,11 @@
 package com.meteocompare.app.di
 
 import com.meteocompare.app.data.preferences.UserPreferencesRepositoryImpl
+import com.meteocompare.app.data.repository.BiasSampleRepositoryImpl
 import com.meteocompare.app.data.repository.CityRepositoryImpl
 import com.meteocompare.app.data.repository.ClimateNormalsRepositoryImpl
 import com.meteocompare.app.data.repository.ForecastRepositoryImpl
+import com.meteocompare.app.domain.repository.BiasSampleRepository
 import com.meteocompare.app.domain.repository.CityRepository
 import com.meteocompare.app.domain.repository.ClimateNormalsRepository
 import com.meteocompare.app.domain.repository.ForecastRepository
@@ -39,6 +41,12 @@ abstract class RepositoryModule {
     abstract fun bindClimateNormalsRepository(
         impl: ClimateNormalsRepositoryImpl
     ): ClimateNormalsRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindBiasSampleRepository(
+        impl: BiasSampleRepositoryImpl
+    ): BiasSampleRepository
 
     @Binds
     @Singleton

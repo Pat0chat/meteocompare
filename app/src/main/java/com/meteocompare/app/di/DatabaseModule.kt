@@ -2,6 +2,7 @@ package com.meteocompare.app.di
 
 import android.content.Context
 import androidx.room.Room
+import com.meteocompare.app.data.local.BiasSampleDao
 import com.meteocompare.app.data.local.ClimateNormalDao
 import com.meteocompare.app.data.local.ForecastCacheDao
 import com.meteocompare.app.data.local.MeteoCompareDatabase
@@ -36,4 +37,8 @@ object DatabaseModule {
     @Provides
     fun provideClimateNormalDao(database: MeteoCompareDatabase): ClimateNormalDao =
         database.climateNormalDao()
+
+    @Provides
+    fun provideBiasSampleDao(database: MeteoCompareDatabase): BiasSampleDao =
+        database.biasSampleDao()
 }
