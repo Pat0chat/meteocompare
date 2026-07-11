@@ -69,11 +69,12 @@ data class ValueStyle(
  *   pour que la direction soit informative). Quand fourni ET non-null, une flèche
  *   pivotée est rendue avant la valeur. Le caller filtre les vents faibles en
  *   retournant null — voir l'appel de la section wind_table.
- * @param cellWidth Largeur d'une cellule modèle. 64dp par défaut — assez large
- *   pour "0.5 mm" ou "25°". Passer une valeur plus grande (80dp) pour la
- *   colonne vent qui affiche flèche + valeur + unité : "↗ 120 km/h" wrap à
- *   64dp mais tient à 80dp. La colonne des dates figée à gauche (76dp) reste
- *   dimensionnée séparément — pas de couplage.
+ * @param cellWidth Largeur d'une cellule modèle. 72dp par défaut — assez large
+ *   pour "0.5 mm" ou "25°" et pour loger un chip de biais sous le nom du
+ *   modèle. Passer une valeur plus grande (80dp) pour la colonne vent qui
+ *   affiche flèche + valeur + unité : "↗ 120 km/h" wrap à 64dp mais tient à
+ *   80dp. La colonne des dates figée à gauche (76dp) reste dimensionnée
+ *   séparément — pas de couplage.
  */
 @Composable
 fun ForecastTable(
@@ -83,7 +84,15 @@ fun ForecastTable(
     modifier: Modifier = Modifier,
     valueStyler: ((Double) -> ValueStyle?)? = null,
     directionExtractor: ((DailyForecast, Int) -> Int?)? = null,
-    cellWidth: Dp = 64.dp
+    cellWidth: Dp = 72.dp,
+    // ── Suivi de biais (Phase 1 UI) — même API que HourlyForecastTable ──
+    // Provider optionnel qui associe un modèle à son biais pour la variable
+    // affichée. Retour `null` = pas de chip (soit le repo n'a pas de données,
+    // soit le biais est NOT_SIGNIFICANT — cas géré côté chip lui-même).
+    // Passer non-null active un header plus haut (60dp au lieu de 40dp) pour
+    // loger le chip, uniforme sur toutes les colonnes du tableau.
+    modelBiasProvider: ((WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
+    onBiasChipClick: ((WeatherModel, com.meteocompare.app.domain.model.ModelBias) -> Unit)? = null
 ) {
     // Toutes les dates couvertes par au moins un modèle, triées
     val dates = remember(forecast) {
@@ -125,10 +134,16 @@ fun ForecastTable(
         else -> Color.Transparent
     }
 
+    // Header height dépend de la présence de chips de biais : 40dp par
+    // défaut, 60dp quand un modelBiasProvider est fourni pour loger le chip
+    // sous le nom du modèle. Uniforme sur toute la ligne d'en-tête pour
+    // garder l'alignement de la grille.
+    val headerHeight = if (modelBiasProvider != null) 60.dp else 40.dp
+
     Row(modifier = modifier.fillMaxWidth()) {
         // Colonne figée des dates
         Column(modifier = Modifier.width(76.dp)) {
-            HeaderCell(text = "", background = headerBg, modifier = Modifier.width(76.dp))
+            HeaderCell(text = "", background = headerBg, height = headerHeight, modifier = Modifier.width(76.dp))
             dates.forEachIndexed { idx, date ->
                 DayLabelCell(
                     date = date,
@@ -140,18 +155,28 @@ fun ForecastTable(
 
         VerticalDivider(
             modifier = Modifier
-                .height((40 + dates.size * 36).dp)
+                .height(headerHeight + (dates.size * 36).dp)
                 .padding(vertical = 0.dp)
         )
 
         // Partie scrollable
         Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
             models.forEach { model ->
+                // Résolution du biais pour ce modèle (identique à la version
+                // hourly). Callback mémorisé sur (model, bias) pour éviter la
+                // recréation à chaque recomposition.
+                val bias = modelBiasProvider?.invoke(model)
+                val chipClick = if (bias != null && onBiasChipClick != null) {
+                    remember(model, bias) { { onBiasChipClick(model, bias) } }
+                } else null
                 Column(modifier = Modifier.width(cellWidth)) {
                     HeaderCell(
                         text = model.displayName,
                         background = headerBg,
-                        modifier = Modifier.width(cellWidth)
+                        height = headerHeight,
+                        modifier = Modifier.width(cellWidth),
+                        bias = bias,
+                        onBiasClick = chipClick
                     )
                     dates.forEachIndexed { idx, date ->
                         val value = valueAt(forecast, model, date, valueExtractor)
@@ -171,21 +196,51 @@ fun ForecastTable(
     }
 }
 
+/**
+ * Cellule d'en-tête d'une colonne (date vide ou nom de modèle). Deux modes :
+ *   1. **Sans biais** (`bias == null`) : Box centrant le texte, hauteur 40dp
+ *      par défaut. Comportement historique préservé, comportement identique
+ *      pour la colonne de dates figée (qui n'a jamais de biais).
+ *   2. **Avec biais actif** : Column, texte en haut + chip optionnel dessous
+ *      si le biais est significatif. Hauteur passée par le parent (60dp).
+ *
+ * L'espace vide sous un nom de modèle sans chip est intentionnel : la
+ * hauteur uniforme sur toute la ligne d'entête préserve l'alignement de la
+ * grille, et l'absence de chip devient un signal ("ce modèle est calibré").
+ */
 @Composable
-private fun HeaderCell(text: String, background: Color, modifier: Modifier = Modifier) {
-    Box(
+private fun HeaderCell(
+    text: String,
+    background: Color,
+    modifier: Modifier = Modifier,
+    height: Dp = 40.dp,
+    bias: com.meteocompare.app.domain.model.ModelBias? = null,
+    onBiasClick: (() -> Unit)? = null
+) {
+    Column(
         modifier = modifier
-            .height(40.dp)
+            .height(height)
             .background(background)
-            .padding(4.dp),
-        contentAlignment = Alignment.Center
+            .padding(vertical = 4.dp, horizontal = 2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(
+            2.dp, Alignment.CenterVertically
+        )
     ) {
         Text(
             text = text,
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
         )
+        if (bias != null &&
+            bias.significance != com.meteocompare.app.domain.model.BiasSignificance.NOT_SIGNIFICANT &&
+            onBiasClick != null
+        ) {
+            ModelBiasChip(bias = bias, onClick = onBiasClick)
+        }
     }
 }
 

@@ -70,11 +70,12 @@ import java.time.format.TextStyle as JavaTextStyle
  *   Retourne les degrés météo (0=N, 90=E, 180=S, 270=O) ou null si non
  *   applicable (variable absente, ou vent trop faible pour être informatif).
  *   Symétrique du `directionExtractor` de [ForecastTable] (version daily).
- * @param cellWidth Largeur d'une cellule modèle. 60dp par défaut — assez large
- *   pour "0.5" ou "22°" sans unité. Passer une valeur plus grande pour la
- *   colonne vent qui affiche flèche + valeur + unité "km/h" (76dp donne
- *   suffisamment de marge pour "↗ 120 km/h"). La colonne label figée à gauche
- *   (84dp) reste dimensionnée séparément.
+ * @param cellWidth Largeur d'une cellule modèle. 72dp par défaut — assez large
+ *   pour "0.5 mm" ou "22°" et pour loger un chip de biais sous le nom du
+ *   modèle. Passer une valeur plus grande pour la colonne vent qui affiche
+ *   flèche + valeur + unité "km/h" (76dp donne suffisamment de marge pour
+ *   "↗ 120 km/h"). La colonne label figée à gauche (84dp) reste dimensionnée
+ *   séparément.
  */
 @Composable
 fun HourlyForecastTable(
@@ -469,17 +470,3 @@ private fun directionAt(
     if (idx < 0) return null
     return extractor(series.hourly, idx)
 }
-
-// ─── Stylers hourly-spécifiques ────────────────────────────────────────────
-//
-//  Les stylers *texte* hourly (température / précipitation / vent) ont été
-//  déplacés vers [HourlyHeatmap.kt] sous la forme de stylers *heatmap* qui
-//  colorient le fond de la cellule au lieu du texte. Ce refactor a été fait
-//  quand les tableaux hourly sont passés en mode heatmap (bien plus lisible
-//  pour la matrice 24×5 qu'un texte simplement teinté).
-//
-//  Les seuils meteo et la palette n'ont PAS changé — voir
-//  [hourlyTemperatureHeatmap], [hourlyPrecipitationHeatmap] et
-//  [hourlyWindHeatmap]. Si on veut à nouveau un styler texte (ex : pour un
-//  écran daily hourly-like futur), il suffit de wrapper les fonctions heatmap
-//  et de mapper `background` sur `ValueStyle.color`.

@@ -63,7 +63,10 @@ private val CoolTempColor = Color(0xFF1E88E5)  // blue 600
 fun MinMaxForecastTable(
     forecast: CityForecast,
     normals: Map<Int, DayNormals>?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    // ── Suivi de biais (Phase 1 UI) — même API que ForecastTable ──
+    modelBiasProvider: ((com.meteocompare.app.domain.model.WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
+    onBiasChipClick: ((com.meteocompare.app.domain.model.WeatherModel, com.meteocompare.app.domain.model.ModelBias) -> Unit)? = null
 ) {
     val dates = remember(forecast) {
         forecast.seriesByModel.values
@@ -99,12 +102,16 @@ fun MinMaxForecastTable(
         else -> Color.Transparent
     }
 
+    // Header height dépend de la présence de chips de biais (même règle que
+    // dans ForecastTable / HourlyForecastTable).
+    val headerHeight = if (modelBiasProvider != null) 60.dp else 40.dp
+
     Column(modifier = modifier.fillMaxWidth()) {
         Row(modifier = Modifier.fillMaxWidth()) {
             // Colonne figée des dates — largeur 96dp (plus large que la table
             // simple pour accomoder "Mer. 1" en jours longs)
             Column(modifier = Modifier.width(96.dp)) {
-                HeaderCellMM(text = "Jour", background = headerBg, width = 96.dp)
+                HeaderCellMM(text = "Jour", background = headerBg, width = 96.dp, height = headerHeight)
                 dates.forEachIndexed { idx, date ->
                     DayLabelCellMM(
                         date = date,
@@ -114,17 +121,24 @@ fun MinMaxForecastTable(
                 }
             }
 
-            VerticalDivider(modifier = Modifier.height((40 + dates.size * 40).dp))
+            VerticalDivider(modifier = Modifier.height(headerHeight + (dates.size * 40).dp))
 
             // Partie scrollable : une colonne par modèle, plus large (88dp) car
             // chaque cellule contient deux valeurs séparées par "/".
             Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
                 models.forEach { model ->
+                    val bias = modelBiasProvider?.invoke(model)
+                    val chipClick = if (bias != null && onBiasChipClick != null) {
+                        remember(model, bias) { { onBiasChipClick(model, bias) } }
+                    } else null
                     Column(modifier = Modifier.width(88.dp)) {
                         HeaderCellMM(
                             text = model.displayName,
                             background = headerBg,
-                            width = 88.dp
+                            width = 88.dp,
+                            height = headerHeight,
+                            bias = bias,
+                            onBiasClick = chipClick
                         )
                         dates.forEachIndexed { idx, date ->
                             val (maxV, minV) = maxMinAt(forecast, model, date)
@@ -195,21 +209,39 @@ private fun LegendDot(color: Color) {
 }
 
 @Composable
-private fun HeaderCellMM(text: String, background: Color, width: androidx.compose.ui.unit.Dp) {
-    Box(
+private fun HeaderCellMM(
+    text: String,
+    background: Color,
+    width: androidx.compose.ui.unit.Dp,
+    height: androidx.compose.ui.unit.Dp = 40.dp,
+    bias: com.meteocompare.app.domain.model.ModelBias? = null,
+    onBiasClick: (() -> Unit)? = null
+) {
+    Column(
         modifier = Modifier
             .width(width)
-            .height(40.dp)
+            .height(height)
             .background(background)
-            .padding(4.dp),
-        contentAlignment = Alignment.Center
+            .padding(vertical = 4.dp, horizontal = 2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(
+            2.dp, Alignment.CenterVertically
+        )
     ) {
         Text(
             text = text,
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
         )
+        if (bias != null &&
+            bias.significance != com.meteocompare.app.domain.model.BiasSignificance.NOT_SIGNIFICANT &&
+            onBiasClick != null
+        ) {
+            ModelBiasChip(bias = bias, onClick = onBiasClick)
+        }
     }
 }
 

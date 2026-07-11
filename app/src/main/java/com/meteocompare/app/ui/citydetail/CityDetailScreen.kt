@@ -288,11 +288,31 @@ private fun LoadedView(
     }
 
     // ── Suivi de biais : sélection courante pour l'ouverture de la sheet ──
-    // Un seul chip cliqué à la fois → un seul état simple. `null` = sheet
-    // fermée. On ne saveState pas ce state : la sheet est éphémère et
-    // n'a pas besoin de survivre à une rotation (l'utilisateur peut la
-    // rouvrir en 1 tap si c'est ce qu'il veut).
-    var selectedBias by remember { mutableStateOf<BiasSelection?>(null) }
+    // Persistance sur rotation : on sauvegarde uniquement L'IDENTIFIANT
+    // (deux noms d'enum) via deux String nativement saveable — la vraie
+    // BiasSelection est ensuite reconstruite déterministiquement depuis
+    // ces deux clés.
+    //
+    // Pourquoi deux Strings et pas un data class + Saver custom : Compose 1.x
+    // impose `T : Any` sur `rememberSaveable(stateSaver = ...)`, ce qui interdit
+    // un état vraiment nullable avec un Saver custom. Contourner via un
+    // sentinel "" (chaîne vide = pas de sélection) est plus court, plus
+    // portable, et évite un Saver à maintenir.
+    //
+    // Bundle payload : 2 × Utf8 ~30 octets max — même ordre de grandeur qu'un
+    // Saver custom l'aurait produit.
+    var selectedModelName by rememberSaveable { mutableStateOf("") }
+    var selectedVariableName by rememberSaveable { mutableStateOf("") }
+
+    // Reconstruction déterministe de la sélection complète. Les mocks étant
+    // pure functions, on obtient bit-identique au moment du tap.
+    val selectedBias: BiasSelection? = remember(selectedModelName, selectedVariableName) {
+        if (selectedModelName.isEmpty() || selectedVariableName.isEmpty()) null
+        else reconstructBiasSelection(
+            modelName = selectedModelName,
+            variableName = selectedVariableName
+        )
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().testTag(TAG_DETAIL_LOADED),
@@ -363,33 +383,25 @@ private fun LoadedView(
                 precipitationBiasProvider = ::mockPrecipitationBias,
                 windBiasProvider = ::mockWindBias,
                 onBiasChipClick = { model, bias ->
-                    // Dispatch sur bias.variable pour peupler le sparkline avec
-                    // la bonne série + le bon domain. Chaque variable a son
-                    // observation propre (physiquement disjointes : la pluie
-                    // ne partage rien avec la température) et son domain Y
-                    // partagé entre tous les modèles de la variable.
-                    val (history, domain) = when (bias.variable) {
-                        com.meteocompare.app.domain.model.BiasVariable.TEMPERATURE ->
-                            mockTemperatureHistory(model) to mockTemperatureDomain()
-                        com.meteocompare.app.domain.model.BiasVariable.PRECIPITATION ->
-                            mockPrecipitationHistory(model) to mockPrecipitationDomain()
-                        com.meteocompare.app.domain.model.BiasVariable.WIND_SPEED ->
-                            mockWindHistory(model) to mockWindDomain()
-                    }
-                    selectedBias = BiasSelection(
-                        model = model,
-                        bias = bias,
-                        dailyForecast = history.forecast,
-                        dailyObservation = history.observation,
-                        yDomainMin = domain.first,
-                        yDomainMax = domain.second
-                    )
+                    // On ne stocke que les deux identifiants — la reconstruction
+                    // complète (biais + historique + domain) est faite via
+                    // `reconstructBiasSelection` mémorisée par `remember`.
+                    selectedModelName = model.name
+                    selectedVariableName = bias.variable.name
                 }
             )
             DisplayMode.DAILY -> dailyItems(
                 forecast = forecast,
                 dailyConditions = dailyConditions,
-                normals = normals
+                normals = normals,
+                temperatureBiasProvider = ::mockTemperatureBias,
+                precipitationBiasProvider = ::mockPrecipitationBias,
+                windBiasProvider = ::mockWindBias,
+                onBiasChipClick = { model, bias ->
+                    // Même handler que hourly.
+                    selectedModelName = model.name
+                    selectedVariableName = bias.variable.name
+                }
             )
         }
 
@@ -403,7 +415,13 @@ private fun LoadedView(
     // change (Compose détecte que les autres reads n'ont pas bougé).
     ModelBiasDetailSheet(
         selection = selectedBias,
-        onDismiss = { selectedBias = null }
+        onDismiss = {
+            // Reset des deux sentinelles → selectedBias devient null → sheet
+            // se ferme. Deux writes qui vivent dans le même event handler,
+            // pas de risque de désynchronisation.
+            selectedModelName = ""
+            selectedVariableName = ""
+        }
     )
 }
 
@@ -432,7 +450,14 @@ private fun LoadedView(
 private fun androidx.compose.foundation.lazy.LazyListScope.dailyItems(
     forecast: CityForecast,
     dailyConditions: List<DayConditionsRow>,
-    normals: Map<Int, DayNormals>?
+    normals: Map<Int, DayNormals>?,
+    // Providers de biais — même API que hourlyItems (Phase 1 UI). Le biais est
+    // conceptuellement identique en daily et en hourly (moyenné sur 30j, pas
+    // sur la journée courante), donc on branche exactement les mêmes providers.
+    temperatureBiasProvider: ((com.meteocompare.app.domain.model.WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
+    precipitationBiasProvider: ((com.meteocompare.app.domain.model.WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
+    windBiasProvider: ((com.meteocompare.app.domain.model.WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
+    onBiasChipClick: ((com.meteocompare.app.domain.model.WeatherModel, com.meteocompare.app.domain.model.ModelBias) -> Unit)? = null
 ) {
     // Matrice Jour × Modèle des conditions météo. On ne rend pas le bloc si
     // aucune donnée — typiquement un cache pré-feature sans weather_code.
@@ -474,6 +499,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.dailyItems(
             MinMaxForecastTable(
                 forecast = forecast,
                 normals = normals,
+                modelBiasProvider = temperatureBiasProvider,
+                onBiasChipClick = onBiasChipClick,
                 modifier = Modifier.padding(8.dp)
             )
         }
@@ -489,6 +516,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.dailyItems(
                 if (mm < 0.05) "0" else "${"%.1f".format(mm)} mm"
             },
             valueStyler = ::precipitationStyle,
+            modelBiasProvider = precipitationBiasProvider,
+            onBiasChipClick = onBiasChipClick,
             legend = { PrecipitationLegend() }
         )
     }
@@ -515,6 +544,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.dailyItems(
             // aussi le retour à la ligne des valeurs à 2 chiffres qui étaient
             // trop proches du bord droit.
             cellWidth = 80.dp,
+            modelBiasProvider = windBiasProvider,
+            onBiasChipClick = onBiasChipClick,
             legend = { WindLegend() }
         )
     }
@@ -880,8 +911,11 @@ private fun ForecastSection(
     formatter: (Double) -> String,
     valueStyler: ((Double) -> ValueStyle?)? = null,
     directionExtractor: ((DailyForecast, Int) -> Int?)? = null,
-    cellWidth: androidx.compose.ui.unit.Dp = 64.dp,
-    legend: @Composable (() -> Unit)? = null
+    cellWidth: androidx.compose.ui.unit.Dp = 72.dp,
+    legend: @Composable (() -> Unit)? = null,
+    // Providers de biais optionnels — passés tels-quels à ForecastTable.
+    modelBiasProvider: ((com.meteocompare.app.domain.model.WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
+    onBiasChipClick: ((com.meteocompare.app.domain.model.WeatherModel, com.meteocompare.app.domain.model.ModelBias) -> Unit)? = null
 ) {
     Column {
         SectionTitle(title)
@@ -898,6 +932,8 @@ private fun ForecastSection(
                 valueStyler = valueStyler,
                 directionExtractor = directionExtractor,
                 cellWidth = cellWidth,
+                modelBiasProvider = modelBiasProvider,
+                onBiasChipClick = onBiasChipClick,
                 modifier = Modifier.padding(8.dp)
             )
         }
@@ -998,8 +1034,8 @@ internal fun TodaySummaryCard(
                         // bidon). Sur "clair" ou "pluie" le badge n'a aucun sens →
                         // rien n'apparaît, l'icône reste centrée bas comme avant.
                         val showCloudBadge = currentCloudCover != null &&
-                            (currentCondition == WeatherCondition.PARTLY_CLOUDY ||
-                                currentCondition == WeatherCondition.OVERCAST)
+                                (currentCondition == WeatherCondition.PARTLY_CLOUDY ||
+                                        currentCondition == WeatherCondition.OVERCAST)
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             modifier = Modifier.padding(bottom = 2.dp)
@@ -1457,9 +1493,9 @@ private fun mockTemperatureHistory(
  */
 private fun mockTemperatureDomain(): Pair<Double, Double> {
     val allValues = MOCK_OBSERVATION_TEMPERATURE +
-        com.meteocompare.app.domain.model.WeatherModel.entries
-            .filter { mockTemperatureBias(it) != null }
-            .flatMap { mockTemperatureHistory(it).forecast }
+            com.meteocompare.app.domain.model.WeatherModel.entries
+                .filter { mockTemperatureBias(it) != null }
+                .flatMap { mockTemperatureHistory(it).forecast }
     val min = (allValues.min() - 1.0)
     val max = (allValues.max() + 1.0)
     return min to max
@@ -1604,9 +1640,9 @@ private fun mockWindHistory(
  */
 private fun mockPrecipitationDomain(): Pair<Double, Double> {
     val allValues = MOCK_OBSERVATION_PRECIPITATION +
-        com.meteocompare.app.domain.model.WeatherModel.entries
-            .filter { mockPrecipitationBias(it) != null }
-            .flatMap { mockPrecipitationHistory(it).forecast }
+            com.meteocompare.app.domain.model.WeatherModel.entries
+                .filter { mockPrecipitationBias(it) != null }
+                .flatMap { mockPrecipitationHistory(it).forecast }
     return 0.0 to (allValues.max() + 0.5)
 }
 
@@ -1616,8 +1652,69 @@ private fun mockPrecipitationDomain(): Pair<Double, Double> {
  */
 private fun mockWindDomain(): Pair<Double, Double> {
     val allValues = MOCK_OBSERVATION_WIND +
-        com.meteocompare.app.domain.model.WeatherModel.entries
-            .filter { mockWindBias(it) != null }
-            .flatMap { mockWindHistory(it).forecast }
+            com.meteocompare.app.domain.model.WeatherModel.entries
+                .filter { mockWindBias(it) != null }
+                .flatMap { mockWindHistory(it).forecast }
     return 0.0 to (allValues.max() + 3.0)
 }
+
+// ============================================================================
+//  Persistance de la sélection sur rotation
+// ============================================================================
+//
+//  Le state MutableState<BiasSelection?> vivait auparavant en `remember`,
+//  perdu à chaque configuration change (rotation, dark-mode toggle, langue
+//  changée). Solution : ne sauver que l'identifiant (deux noms d'enum), et
+//  reconstruire la BiasSelection complète à la restauration.
+//
+//  Deux String rememberSaveable plutôt qu'un data class + Saver custom parce
+//  que Compose `stateSaver` impose T : Any (interdit un état vraiment
+//  nullable). Deux Strings vides = "pas de sélection", pattern qui marche
+//  natif sans Saver custom à maintenir.
+
+/**
+ * Reconstruit une [BiasSelection] complète à partir des deux noms d'enum
+ * sauvegardés. Toutes les données (biais, historique 30j, domain Y)
+ * proviennent des mêmes fonctions mock déterministes utilisées à l'ouverture
+ * initiale : le résultat est bit-identique à celui calculé au tap du chip.
+ *
+ * Robustesse au refactor : si `modelName` ou `variableName` ne correspond
+ * plus à un enum courant (renommage, suppression), on renvoie null → la
+ * sheet reste fermée après restauration. Meilleur qu'un crash.
+ */
+private fun reconstructBiasSelection(modelName: String, variableName: String): BiasSelection? {
+    val model = enumValueOrNull<com.meteocompare.app.domain.model.WeatherModel>(modelName)
+        ?: return null
+    val variable = enumValueOrNull<com.meteocompare.app.domain.model.BiasVariable>(variableName)
+        ?: return null
+
+    val bias = when (variable) {
+        com.meteocompare.app.domain.model.BiasVariable.TEMPERATURE   -> mockTemperatureBias(model)
+        com.meteocompare.app.domain.model.BiasVariable.PRECIPITATION -> mockPrecipitationBias(model)
+        com.meteocompare.app.domain.model.BiasVariable.WIND_SPEED    -> mockWindBias(model)
+    } ?: return null
+
+    val history = when (variable) {
+        com.meteocompare.app.domain.model.BiasVariable.TEMPERATURE   -> mockTemperatureHistory(model)
+        com.meteocompare.app.domain.model.BiasVariable.PRECIPITATION -> mockPrecipitationHistory(model)
+        com.meteocompare.app.domain.model.BiasVariable.WIND_SPEED    -> mockWindHistory(model)
+    }
+    val domain = when (variable) {
+        com.meteocompare.app.domain.model.BiasVariable.TEMPERATURE   -> mockTemperatureDomain()
+        com.meteocompare.app.domain.model.BiasVariable.PRECIPITATION -> mockPrecipitationDomain()
+        com.meteocompare.app.domain.model.BiasVariable.WIND_SPEED    -> mockWindDomain()
+    }
+
+    return BiasSelection(
+        model = model,
+        bias = bias,
+        dailyForecast = history.forecast,
+        dailyObservation = history.observation,
+        yDomainMin = domain.first,
+        yDomainMax = domain.second
+    )
+}
+
+/** enumValueOf qui renvoie null au lieu de throw sur nom inconnu. */
+private inline fun <reified T : Enum<T>> enumValueOrNull(name: String): T? =
+    runCatching { enumValueOf<T>(name) }.getOrNull()
