@@ -44,7 +44,7 @@ import javax.inject.Singleton
 @Singleton
 class BiasSampleRepositoryImpl @Inject constructor(
     private val dao: BiasSampleDao,
-    @IoDispatcher private val io: CoroutineDispatcher
+    @param:IoDispatcher private val io: CoroutineDispatcher
 ) : BiasSampleRepository {
 
     override fun observeSamples(

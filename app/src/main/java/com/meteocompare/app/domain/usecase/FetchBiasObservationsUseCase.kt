@@ -1,0 +1,139 @@
+package com.meteocompare.app.domain.usecase
+
+import com.meteocompare.app.data.remote.ClimateArchiveApi
+import com.meteocompare.app.di.IoDispatcher
+import com.meteocompare.app.domain.model.BiasVariable
+import com.meteocompare.app.domain.model.City
+import com.meteocompare.app.domain.repository.BiasSampleRepository
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.withContext
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import javax.inject.Inject
+import javax.inject.Singleton
+
+/**
+ * Récupère les observations historiques manquantes pour une ville et les
+ * enregistre dans le repo de biais.
+ *
+ * ## Stratégie delta
+ *
+ * L'endpoint archive Open-Meteo est cher (~10-50ko par ville pour 30 jours).
+ * On minimise le trafic :
+ *   1. Lecture de [BiasSampleRepository.latestObservationDate] pour la
+ *      variable ancre (température — les 3 variables sont fetchées en 1
+ *      requête donc leur latestObservationDate est identique en régime).
+ *   2. Calcul de la fenêtre `[start, end]` :
+ *      - `end = today - 1` (hier — l'archive n'a pas encore la journée en
+ *        cours).
+ *      - `start = min(latest + 1, end - MAX_BOOTSTRAP + 1)` — on borne
+ *        supérieurement pour ne pas fetcher 6 mois d'un coup si l'utilisateur
+ *        n'a pas ouvert l'app depuis longtemps.
+ *   3. Si `start > end` → rien à fetcher, retour immédiat.
+ *   4. Sinon un seul appel HTTP couvre les 3 variables (l'API archive prend
+ *      `daily=temperature_2m_max,precipitation_sum,wind_speed_10m_max` en une
+ *      passe).
+ *
+ * ## Bootstrap
+ *
+ * Première utilisation (repo vide) → `latestObservationDate` renvoie null →
+ * on fetche `MAX_BOOTSTRAP` jours (30 par défaut = la fenêtre du biais). Un
+ * seul call HTTP, pas de risque d'exploser.
+ *
+ * ## Robustesse
+ *
+ * L'archive peut avoir un lag de 1-3 jours sur les données les plus récentes
+ * (dépend du modèle de réanalyse : ERA5 non-final vs final). On enregistre
+ * uniquement les jours effectivement retournés par l'API — le tableau `time`
+ * de la réponse fait foi, pas le tableau `[start, end]` qu'on a demandé.
+ *
+ * Valeurs `null` dans les listes (jour sans mesure exploitable) skippées.
+ *
+ * ## Erreurs
+ *
+ * Les erreurs réseau/HTTP sont propagées en exception à l'appelant (le
+ * [com.meteocompare.app.data.worker.BiasRefreshWorker] les traite comme un
+ * `Result.retry()`). Ce use case ne s'en occupe pas : sa responsabilité est
+ * "fetch + persist", pas la politique de retry.
+ */
+@Singleton
+class FetchBiasObservationsUseCase @Inject constructor(
+    private val archiveApi: ClimateArchiveApi,
+    private val biasRepository: BiasSampleRepository,
+    @param:IoDispatcher private val io: CoroutineDispatcher
+) {
+
+    /**
+     * @param city ville pour laquelle fetcher.
+     * @param today utile pour tests : la date de référence "aujourd'hui".
+     * @return nombre de jours effectivement enregistrés (0 si rien à fetcher).
+     */
+    suspend operator fun invoke(
+        city: City,
+        today: LocalDate = LocalDate.now()
+    ): Int = withContext(io) {
+        val end = today.minusDays(1) // hier — l'archive n'a pas aujourd'hui
+        val latest = biasRepository.latestObservationDate(city.id, BiasVariable.TEMPERATURE)
+
+        val requestedStart = when {
+            latest == null -> end.minusDays((MAX_BOOTSTRAP_DAYS - 1).toLong()) // bootstrap
+            else -> latest.plusDays(1)
+        }
+        // Cap supérieur : jamais plus de MAX_BOOTSTRAP jours en une passe,
+        // même si l'app n'a pas été ouverte depuis longtemps.
+        val cappedStart = maxOf(requestedStart, end.minusDays((MAX_BOOTSTRAP_DAYS - 1).toLong()))
+
+        if (cappedStart > end) return@withContext 0
+
+        val response = archiveApi.archive(
+            latitude = city.latitude,
+            longitude = city.longitude,
+            startDate = cappedStart.format(ISO_DATE),
+            endDate = end.format(ISO_DATE)
+        )
+
+        val timeStrs = response.daily.time
+        val tempMax = response.daily.tempMax
+        val precipSum = response.daily.precipSum
+        val windMax = response.daily.windSpeedMax
+
+        // Sanity : listes désalignées → on filtre par la longueur commune.
+        // Certains modèles archive peuvent avoir des reprises partielles.
+        val n = minOf(
+            timeStrs.size,
+            tempMax.size,
+            precipSum?.size ?: 0,
+            windMax?.size ?: 0
+        )
+
+        var recorded = 0
+        for (i in 0 until n) {
+            val date = runCatching { LocalDate.parse(timeStrs[i], ISO_DATE) }.getOrNull()
+                ?: continue
+
+            tempMax[i]?.let { v ->
+                biasRepository.recordObservation(city.id, BiasVariable.TEMPERATURE, date, v)
+                recorded++
+            }
+            precipSum?.get(i)?.let { v ->
+                biasRepository.recordObservation(city.id, BiasVariable.PRECIPITATION, date, v)
+            }
+            windMax?.get(i)?.let { v ->
+                biasRepository.recordObservation(city.id, BiasVariable.WIND_SPEED, date, v)
+            }
+        }
+        recorded
+    }
+
+    companion object {
+        /**
+         * Nombre max de jours à fetcher en une passe. Aligné sur la fenêtre du
+         * biais (30) : au premier lancement, on remplit exactement ce qu'il
+         * faut pour un calcul complet dès qu'un modèle a 14 jours de forecasts
+         * historiques.
+         */
+        private const val MAX_BOOTSTRAP_DAYS = 30
+
+        private val ISO_DATE: DateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE
+    }
+}

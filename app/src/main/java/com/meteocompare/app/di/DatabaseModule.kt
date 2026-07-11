@@ -27,7 +27,11 @@ object DatabaseModule {
         )
             // Pas de migration pour le MVP — c'est un cache, on accepte les wipes
             // lors d'un changement de schéma. Pas de donnée critique.
-            .fallbackToDestructiveMigration()
+            // dropAllTables = true : sémantique identique au comportement legacy
+            // (drop-and-recreate). Room 2.7+ demande le paramètre explicite pour
+            // clarifier qu'on accepte de perdre AUSSI les tables non listées
+            // dans le schéma actuel (cache orphelin).
+            .fallbackToDestructiveMigration(dropAllTables = true)
             .build()
 
     @Provides

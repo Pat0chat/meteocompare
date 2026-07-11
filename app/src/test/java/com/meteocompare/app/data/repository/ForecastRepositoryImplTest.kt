@@ -89,6 +89,12 @@ class ForecastRepositoryImplTest {
             cacheDao = cacheDao,
             json = json,
             networkMonitor = networkMonitor,
+            // Le repo appelle snapshotForecast(fresh) via runCatching à chaque
+            // fetch réussi. Un relaxed mock renvoie Unit pour toute méthode
+            // suspendue sans stub explicite — l'aspect "biais tracking" n'est
+            // pas testé ici, on veut juste que le constructeur soit satisfait
+            // et que le fetch principal ne soit pas perturbé.
+            snapshotForecast = mockk(relaxed = true),
             context = context,
             ioDispatcher = kotlinx.coroutines.Dispatchers.Unconfined
         )
