@@ -1514,8 +1514,8 @@ private fun mockTemperatureDomain(): Pair<Double, Double> {
  * Formule : hash multiplicatif → normalisé dans [−amplitude, +amplitude].
  */
 private fun deterministicNoise(seed: Int, index: Int, amplitude: Double): Double {
-    val h = (seed * 2654435761L.toInt() xor index * 40503).toInt()
-    val normalized = ((h ushr 8) and 0xFFFF) / 65535.0 // [0, 1]
+    val h = (seed * 2654435761L.toInt()) xor (index * 40503)
+    val normalized = ((h ushr 8) and 0xFFFF) / 65535.0
     return (normalized - 0.5) * 2.0 * amplitude
 }
 
