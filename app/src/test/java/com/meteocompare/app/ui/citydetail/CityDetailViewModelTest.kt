@@ -70,7 +70,7 @@ class CityDetailViewModelTest {
     private val climateRepo: ClimateNormalsRepository = mockk(relaxed = true) {
         // Par défaut, normales en échec → loadedNormals reste null
         coEvery { getNormalsForCity(any()) } returns
-            ApiResult.Error(RuntimeException(), "normals unavailable")
+                ApiResult.Error(RuntimeException(), "normals unavailable")
     }
     private val prefs: UserPreferencesRepository = mockk(relaxed = true) {
         coEvery { observeEnabledModels() } returns modelsFlow
@@ -99,7 +99,14 @@ class CityDetailViewModelTest {
             forecastRepository = forecastRepo,
             climateNormalsRepository = climateRepo,
             confidenceCalculator = calculator,
-            userPreferences = prefs
+            userPreferences = prefs,
+            // Suivi de biais Phase 2d — tests existants agnostiques du feature :
+            // relaxed mocks qui renvoient valeurs par défaut (Flow vide, null bias).
+            // Le VM combinera un Flow amont qui n'émet jamais avec les prefs mockées ;
+            // biasState restera à EMPTY, ce qui ne perturbe pas la logique existante
+            // testée ici (loadInitial, refresh, applyResult).
+            biasSampleRepository = mockk(relaxed = true),
+            computeBias = mockk(relaxed = true)
         )
     }
 

@@ -6,25 +6,38 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.meteocompare.app.R
 import com.meteocompare.app.core.network.ApiResult
+import com.meteocompare.app.domain.model.BiasSample
+import com.meteocompare.app.domain.model.BiasVariable
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DayNormals
+import com.meteocompare.app.domain.model.ModelBias
+import com.meteocompare.app.domain.model.WeatherModel
+import com.meteocompare.app.domain.repository.BiasSampleRepository
 import com.meteocompare.app.domain.repository.CityRepository
 import com.meteocompare.app.domain.repository.ClimateNormalsRepository
 import com.meteocompare.app.domain.repository.ForecastRepository
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
+import com.meteocompare.app.domain.usecase.ComputeBiasUseCase
 import com.meteocompare.app.domain.usecase.ConfidenceCalculator
 import com.meteocompare.app.ui.navigation.Destinations
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -43,6 +56,7 @@ sealed interface RefreshFeedback {
 }
 
 @HiltViewModel
+@OptIn(ExperimentalCoroutinesApi::class)
 class CityDetailViewModel @Inject constructor(
     @param:ApplicationContext private val context: Context,
     savedStateHandle: SavedStateHandle,
@@ -50,7 +64,9 @@ class CityDetailViewModel @Inject constructor(
     private val forecastRepository: ForecastRepository,
     private val climateNormalsRepository: ClimateNormalsRepository,
     private val confidenceCalculator: ConfidenceCalculator,
-    private val userPreferences: UserPreferencesRepository
+    private val userPreferences: UserPreferencesRepository,
+    private val biasSampleRepository: BiasSampleRepository,
+    private val computeBias: ComputeBiasUseCase
 ) : ViewModel() {
 
     private val cityId: String = checkNotNull(
@@ -76,8 +92,109 @@ class CityDetailViewModel @Inject constructor(
     // à chaque applyResult() qui s'exécute pour cache + fresh forecasts.
     private var loadedNormals: Map<Int, DayNormals>? = null
 
+    // ── Suivi de biais : StateFlow composé depuis Room ────────────────────
+    //
+    // Structure : à chaque changement de la liste des modèles activés, on
+    // (ré)abonne aux flows Room correspondants (un par (model, variable)),
+    // on les combine, et on applique [computeBias] pour produire l'état
+    // consommé par la screen.
+    //
+    // WhileSubscribed(5s) — le calcul repart quand un subscriber revient
+    // dans les 5s, sinon on désabonne pour économiser (background app,
+    // navigation vers une autre ville). 5s couvre les rotations et les
+    // transitions courtes.
+    //
+    // État initial vide — l'UI n'affiche simplement pas de chip tant que
+    // Room n'a pas émis. Aucun placeholder à gérer.
+    val biasState: StateFlow<BiasScreenState> = userPreferences.observeEnabledModels()
+        .flatMapLatest { models -> observeBiasScreenState(models) }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000L),
+            initialValue = BiasScreenState.EMPTY
+        )
+
     init {
         loadInitial()
+    }
+
+    /**
+     * Compose les flows de samples Room en un [BiasScreenState] complet.
+     *
+     * Pour chacune des 3 variables : lance un [observeVariableBiasState]
+     * dédié, puis combine les 3 en un [BiasScreenState] agrégé.
+     */
+    private fun observeBiasScreenState(models: List<WeatherModel>): Flow<BiasScreenState> {
+        if (models.isEmpty()) return flowOf(BiasScreenState.EMPTY)
+        return combine(
+            observeVariableBiasState(models, BiasVariable.TEMPERATURE),
+            observeVariableBiasState(models, BiasVariable.PRECIPITATION),
+            observeVariableBiasState(models, BiasVariable.WIND_SPEED)
+        ) { t, p, w -> BiasScreenState(temperature = t, precipitation = p, wind = w) }
+    }
+
+    /**
+     * Compose les flows par modèle pour UNE variable. Chaque flow individuel
+     * est `biasSampleRepository.observeSamples(...)` → `Flow<List<BiasSample>>`.
+     *
+     * Le combine émet dès qu'UN des flows amont change. Non-problematique
+     * en pratique : Room ne re-émet que sur écriture dans la table, et les
+     * écritures sont rares (une par refresh forecast + une par cycle
+     * worker). Coût par émission : quelques ms pour 7 modèles.
+     */
+    private fun observeVariableBiasState(
+        models: List<WeatherModel>,
+        variable: BiasVariable
+    ): Flow<VariableBiasState> {
+        val perModelFlows: List<Flow<Pair<WeatherModel, List<BiasSample>>>> = models.map { model ->
+            biasSampleRepository.observeSamples(cityId, model, variable, windowDays = BIAS_WINDOW_DAYS)
+                .map { samples -> model to samples }
+        }
+        return combine(perModelFlows) { pairs ->
+            val historyByModel: Map<WeatherModel, List<BiasSample>> = pairs.toMap()
+            val biasByModel: Map<WeatherModel, ModelBias?> = historyByModel.mapValues { (_, samples) ->
+                computeBias(variable, samples)
+            }
+            val yDomain = computeYDomain(historyByModel, variable)
+            VariableBiasState(
+                biasByModel = biasByModel,
+                historyByModel = historyByModel,
+                yDomainMin = yDomain?.first,
+                yDomainMax = yDomain?.second
+            )
+        }
+    }
+
+    /**
+     * Bornes de l'axe Y du sparkline pour une variable, calculées sur l'union
+     * de toutes les valeurs (forecast + observation) de tous les modèles.
+     *
+     * Semantics par variable :
+     *   - **Température** : marge symétrique de ±1° autour de la plage. Peut
+     *     être négative (pas de plancher physique en °C).
+     *   - **Précipitations** : plancher forcé à 0 (pas de pluie négative),
+     *     plafond avec marge de +0.5 mm.
+     *   - **Vent** : plancher forcé à 0 (vitesse scalaire), plafond +3 km/h.
+     *
+     * Retourne `null` si aucun sample n'existe encore → le sparkline ne
+     * s'affichera pas (la sheet ne sera pas ouvrable non plus, faute de bias).
+     */
+    private fun computeYDomain(
+        historyByModel: Map<WeatherModel, List<BiasSample>>,
+        variable: BiasVariable
+    ): Pair<Double, Double>? {
+        val allValues = historyByModel.values.asSequence()
+            .flatMap { samples -> samples.asSequence() }
+            .flatMap { sequenceOf(it.forecast, it.observation) }
+            .toList()
+        if (allValues.isEmpty()) return null
+        val min = allValues.min()
+        val max = allValues.max()
+        return when (variable) {
+            BiasVariable.TEMPERATURE -> (min - 1.0) to (max + 1.0)
+            BiasVariable.PRECIPITATION -> 0.0 to (max + 0.5)
+            BiasVariable.WIND_SPEED -> 0.0 to (max + 3.0)
+        }
     }
 
     /**
@@ -217,5 +334,14 @@ class CityDetailViewModel @Inject constructor(
                 else CityDetailUiState.Error(result.message)
             }
         }
+    }
+
+    companion object {
+        /**
+         * Fenêtre glissante du suivi de biais. Aligné sur le défaut de
+         * [ComputeBiasUseCase] et sur la stratégie de retention du worker
+         * (35 jours, marge de 5 sur les 30 utilisés ici).
+         */
+        private const val BIAS_WINDOW_DAYS: Int = 30
     }
 }

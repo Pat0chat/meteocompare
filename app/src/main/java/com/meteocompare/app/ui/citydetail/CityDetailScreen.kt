@@ -105,6 +105,7 @@ fun CityDetailScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
+    val biasState by viewModel.biasState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     // Context capturé hors de LaunchedEffect pour résoudre les strings depuis
     // une coroutine (où stringResource n'est pas accessible — c'est un @Composable).
@@ -133,6 +134,7 @@ fun CityDetailScreen(
     CityDetailContent(
         state = state,
         isRefreshing = isRefreshing,
+        biasState = biasState,
         snackbarHostState = snackbarHostState,
         onBack = onBack,
         onRefresh = viewModel::refresh,
@@ -149,6 +151,7 @@ fun CityDetailScreen(
 internal fun CityDetailContent(
     state: CityDetailUiState,
     isRefreshing: Boolean,
+    biasState: BiasScreenState,
     snackbarHostState: SnackbarHostState,
     onBack: () -> Unit,
     onRefresh: () -> Unit,
@@ -226,6 +229,7 @@ internal fun CityDetailContent(
                         dailyConditions = s.dailyConditions,
                         normals = s.normals,
                         fetchedAt = s.fetchedAt,
+                        biasState = biasState,
                         padding = padding,
                         onConfidenceClick = onConfidenceClick
                     )
@@ -276,6 +280,7 @@ private fun LoadedView(
     dailyConditions: List<DayConditionsRow>,
     normals: Map<Int, DayNormals>?,
     fetchedAt: Instant?,
+    biasState: BiasScreenState,
     padding: PaddingValues,
     onConfidenceClick: (isoDate: String) -> Unit = {}
 ) {
@@ -291,26 +296,55 @@ private fun LoadedView(
     // Persistance sur rotation : on sauvegarde uniquement L'IDENTIFIANT
     // (deux noms d'enum) via deux String nativement saveable — la vraie
     // BiasSelection est ensuite reconstruite déterministiquement depuis
-    // ces deux clés.
+    // ces deux clés + l'état [biasState] courant.
     //
     // Pourquoi deux Strings et pas un data class + Saver custom : Compose 1.x
     // impose `T : Any` sur `rememberSaveable(stateSaver = ...)`, ce qui interdit
     // un état vraiment nullable avec un Saver custom. Contourner via un
     // sentinel "" (chaîne vide = pas de sélection) est plus court, plus
     // portable, et évite un Saver à maintenir.
-    //
-    // Bundle payload : 2 × Utf8 ~30 octets max — même ordre de grandeur qu'un
-    // Saver custom l'aurait produit.
     var selectedModelName by rememberSaveable { mutableStateOf("") }
     var selectedVariableName by rememberSaveable { mutableStateOf("") }
 
-    // Reconstruction déterministe de la sélection complète. Les mocks étant
-    // pure functions, on obtient bit-identique au moment du tap.
-    val selectedBias: BiasSelection? = remember(selectedModelName, selectedVariableName) {
-        if (selectedModelName.isEmpty() || selectedVariableName.isEmpty()) null
-        else reconstructBiasSelection(
-            modelName = selectedModelName,
-            variableName = selectedVariableName
+    // Reconstruction de la BiasSelection à partir des identifiants sauvegardés
+    // et du state Room courant. remember(...) mémorise le résultat tant que
+    // ni la sélection ni les données amont ne bougent.
+    //
+    // Retourne null si :
+    //   - Aucune sélection en cours (chaîne vide)
+    //   - Les enums sauvegardés ne matchent plus (refactor entre versions)
+    //   - Les données Room ne sont pas encore chargées (cold start, Flow pas
+    //     encore émis) → la sheet ne s'ouvre pas, se rouvrira dès que Room
+    //     émettra les samples correspondants.
+    val selectedBias: BiasSelection? = remember(selectedModelName, selectedVariableName, biasState) {
+        if (selectedModelName.isEmpty() || selectedVariableName.isEmpty()) return@remember null
+        val model = enumValueOrNull<com.meteocompare.app.domain.model.WeatherModel>(selectedModelName)
+            ?: return@remember null
+        val variable = enumValueOrNull<com.meteocompare.app.domain.model.BiasVariable>(selectedVariableName)
+            ?: return@remember null
+
+        val varState = when (variable) {
+            com.meteocompare.app.domain.model.BiasVariable.TEMPERATURE   -> biasState.temperature
+            com.meteocompare.app.domain.model.BiasVariable.PRECIPITATION -> biasState.precipitation
+            com.meteocompare.app.domain.model.BiasVariable.WIND_SPEED    -> biasState.wind
+        }
+        val bias = varState.biasByModel[model] ?: return@remember null
+        val samples = varState.historyByModel[model] ?: return@remember null
+        val yMin = varState.yDomainMin ?: return@remember null
+        val yMax = varState.yDomainMax ?: return@remember null
+
+        // Dédup par date : le repo peut renvoyer plusieurs snapshots par jour
+        // (un par issuedAt). Pour le sparkline on veut UN point par jour,
+        // le plus récent. `distinctBy` en itérant l'ordre DAO (date ASC,
+        // issuedAt DESC) garde exactement ça.
+        val perDay = samples.distinctBy { it.targetDate }
+        BiasSelection(
+            model = model,
+            bias = bias,
+            dailyForecast = perDay.map { it.forecast },
+            dailyObservation = perDay.map { it.observation },
+            yDomainMin = yMin,
+            yDomainMax = yMax
         )
     }
 
@@ -379,13 +413,17 @@ private fun LoadedView(
         when (displayMode) {
             DisplayMode.HOURLY -> hourlyItems(
                 forecast = forecast,
-                temperatureBiasProvider = ::mockTemperatureBias,
-                precipitationBiasProvider = ::mockPrecipitationBias,
-                windBiasProvider = ::mockWindBias,
+                // Providers de biais : lambdas qui lisent le map courant du
+                // state. Chaque provider est stable tant que le map sous-jacent
+                // n'a pas changé (Compose recompose sinon).
+                temperatureBiasProvider = { model -> biasState.temperature.biasByModel[model] },
+                precipitationBiasProvider = { model -> biasState.precipitation.biasByModel[model] },
+                windBiasProvider = { model -> biasState.wind.biasByModel[model] },
                 onBiasChipClick = { model, bias ->
                     // On ne stocke que les deux identifiants — la reconstruction
-                    // complète (biais + historique + domain) est faite via
-                    // `reconstructBiasSelection` mémorisée par `remember`.
+                    // complète (biais + historique + domain) est faite via le
+                    // `remember(selectedModelName, selectedVariableName, biasState)`
+                    // en tête de LoadedView.
                     selectedModelName = model.name
                     selectedVariableName = bias.variable.name
                 }
@@ -394,9 +432,9 @@ private fun LoadedView(
                 forecast = forecast,
                 dailyConditions = dailyConditions,
                 normals = normals,
-                temperatureBiasProvider = ::mockTemperatureBias,
-                precipitationBiasProvider = ::mockPrecipitationBias,
-                windBiasProvider = ::mockWindBias,
+                temperatureBiasProvider = { model -> biasState.temperature.biasByModel[model] },
+                precipitationBiasProvider = { model -> biasState.precipitation.biasByModel[model] },
+                windBiasProvider = { model -> biasState.wind.biasByModel[model] },
                 onBiasChipClick = { model, bias ->
                     // Même handler que hourly.
                     selectedModelName = model.name
@@ -1400,321 +1438,14 @@ private fun windStyle(kmh: Double): ValueStyle? = when {
 }
 
 // ============================================================================
-//  Mock biais — Phase 1 UI
+//  Helper pour la reconstruction de BiasSelection depuis les rememberSaveable
 // ============================================================================
-//
-//  Provider en dur pour valider l'intégration UI sans dépendre du Repository
-//  de biais réel (à venir Phase 3 : ComputeBiasUseCase + Room + fetch archive
-//  Open-Meteo). Ces valeurs matchent le mockup HTML validé et couvrent les
-//  quatre cas d'affichage :
-//    - Biais chaud significatif (GFS, +1.5°) → chip rouge HIGH
-//    - Biais froid modéré (ECMWF, -0.4°)     → chip bleu MODERATE
-//    - Biais froid significatif (ICON-EU, -1.1°) → chip bleu HIGH
-//    - Bien calibré (AROME HD, +0.1°)        → aucun chip (NOT_SIGNIFICANT)
-//
-//  À supprimer dès que le vrai provider est branché — inutile de faire une
-//  abstraction Repository ici juste pour ce mock, on garde la fonction pure.
 
 /**
- * Biais mockés pour la température. À remplacer Phase 3 par un lookup dans
- * `biasRepository.observe(city, variable=TEMPERATURE)` (StateFlow<Map<...>>).
+ * enumValueOf tolérant aux noms invalides. Utilisé par la reconstruction de
+ * BiasSelection dans LoadedView : si un enum est renommé/supprimé entre deux
+ * versions, une valeur sauvegardée en Bundle qui ne matche plus renvoie null
+ * plutôt que de crash — la sheet restera simplement fermée après restauration.
  */
-private fun mockTemperatureBias(
-    model: com.meteocompare.app.domain.model.WeatherModel
-): com.meteocompare.app.domain.model.ModelBias? {
-    val (mean, sd, n) = when (model) {
-        com.meteocompare.app.domain.model.WeatherModel.GFS -> Triple(1.5, 0.8, 28)
-        com.meteocompare.app.domain.model.WeatherModel.AROME_FRANCE_HD -> Triple(0.1, 0.5, 29)
-        com.meteocompare.app.domain.model.WeatherModel.ARPEGE_EUROPE -> Triple(-0.5, 0.7, 30)
-        com.meteocompare.app.domain.model.WeatherModel.ECMWF -> Triple(-0.4, 0.6, 30)
-        com.meteocompare.app.domain.model.WeatherModel.ICON_EU -> Triple(-1.1, 0.9, 27)
-        com.meteocompare.app.domain.model.WeatherModel.UKMO_GLOBAL -> Triple(0.3, 0.6, 25)
-        com.meteocompare.app.domain.model.WeatherModel.ECMWF_AIFS -> Triple(0.8, 1.1, 22)
-        else -> return null // modèles non-MVP → pas de mock, feature inactive
-    }
-    return com.meteocompare.app.domain.model.ModelBias(
-        variable = com.meteocompare.app.domain.model.BiasVariable.TEMPERATURE,
-        meanBias = mean,
-        stdDev = sd,
-        sampleSize = n
-    )
-}
-
-// ============================================================================
-//  Mock histoire 30 jours — Phase 1 UI (sparkline)
-// ============================================================================
-//
-//  Sériés déterministes (pas de Random) pour que le rendu reste stable en
-//  preview et facilite le debug visuel. La série d'observation est fixée
-//  (une seule "réalité"), les séries prévision par modèle sont dérivées de
-//  cette réalité + biais du modèle + un léger bruit reproductible.
-//
-//  À remplacer Phase 3 par le repo :
-//    `biasHistoryRepository.observe(city, model, variable, days = 30)`
-
-private data class MockHistory(val forecast: List<Double>, val observation: List<Double>)
-
-/**
- * Observation 30 jours pour la température à Paris (juillet-type — max
- * journalier). Fixée pour reproductibilité.
- */
-private val MOCK_OBSERVATION_TEMPERATURE: List<Double> = listOf(
-    22.1, 24.3, 26.8, 28.2, 27.5, 26.0, 25.3, 27.1, 29.5, 31.2,
-    30.8, 28.7, 26.9, 25.4, 24.6, 26.3, 28.1, 29.9, 30.4, 31.8,
-    30.2, 27.5, 25.1, 24.3, 25.8, 27.4, 29.2, 30.6, 29.3, 27.1
-)
-
-/**
- * Génère la série prévision 30j du modèle : observation + biais moyen +
- * bruit déterministe basé sur `(model.ordinal, dayIndex)`. Le bruit est
- * borné à ±0.6° pour rester réaliste (les modèles ne divergent jamais
- * aléatoirement de plus d'un degré autour de leur biais moyen).
- */
-private fun mockTemperatureHistory(
-    model: com.meteocompare.app.domain.model.WeatherModel
-): MockHistory {
-    val bias = mockTemperatureBias(model)
-    // Fallback pour un modèle sans mock : on retourne obs = forecast (biais
-    // nul). Ne devrait jamais s'atteindre — le chip n'est pas rendu pour ces
-    // modèles, donc onBiasChipClick ne peut pas être déclenché.
-    val meanBias = bias?.meanBias ?: 0.0
-    val forecast = MOCK_OBSERVATION_TEMPERATURE.mapIndexed { i, obs ->
-        obs + meanBias + deterministicNoise(model.ordinal, i, amplitude = 0.6)
-    }
-    return MockHistory(forecast = forecast, observation = MOCK_OBSERVATION_TEMPERATURE)
-}
-
-/**
- * Bornes de l'axe Y température, calculées sur l'union de toutes les séries
- * (observation + prévisions de tous les modèles mockés) avec une marge de
- * ±1°. Ces mêmes bornes sont utilisées pour TOUS les sparklines de la
- * variable — c'est ce qui permet à l'utilisateur de comparer visuellement
- * l'ampleur du biais entre modèles en tapant successivement chaque chip.
- */
-private fun mockTemperatureDomain(): Pair<Double, Double> {
-    val allValues = MOCK_OBSERVATION_TEMPERATURE +
-            com.meteocompare.app.domain.model.WeatherModel.entries
-                .filter { mockTemperatureBias(it) != null }
-                .flatMap { mockTemperatureHistory(it).forecast }
-    val min = (allValues.min() - 1.0)
-    val max = (allValues.max() + 1.0)
-    return min to max
-}
-
-/**
- * Bruit déterministe basé sur un hash simple de (seed, index).
- *
- * Deux propriétés qu'on veut :
- *   1. **Déterministe** — même seed + même index → même valeur. Le rendu
- *      preview et debug reste stable entre lancements.
- *   2. **Décoré des dépendances** — deux indices consécutifs ne donnent PAS
- *      des valeurs consécutives (sinon on obtient une droite linéaire au lieu
- *      d'un bruit d'aspect stochastique).
- *
- * Formule : hash multiplicatif → normalisé dans [−amplitude, +amplitude].
- */
-private fun deterministicNoise(seed: Int, index: Int, amplitude: Double): Double {
-    val h = (seed * 2654435761L.toInt()) xor (index * 40503)
-    val normalized = ((h ushr 8) and 0xFFFF) / 65535.0
-    return (normalized - 0.5) * 2.0 * amplitude
-}
-
-// ============================================================================
-//  Mock biais + histoire — précipitations et vent (Phase 1 UI)
-// ============================================================================
-//
-//  Parallèle stricte du bloc température : bias tables par modèle, série
-//  observation 30j, historique dérivé, domain Y unifié. À supprimer Phase 3
-//  quand le repo réel est branché.
-//
-//  Choix pragmatiques :
-//    - Précipitations et vent bornés à zéro physique. Les prévisions bruitées
-//      qui dériveraient sous zéro sont coerce'd via coerceAtLeast(0.0).
-//    - Domain Y min = 0 (pas de valeur négative possible). Domain max =
-//      max(observation ∪ toutes prévisions) + marge — permet de comparer
-//      visuellement les ampleurs de biais entre modèles.
-//    - Les biais moyens sont calibrés pour reproduire les 4 zones d'affichage
-//      (NOT_SIGNIFICANT → pas de chip, MODERATE, HIGH) via BiasSignificanceRule.
-
-/**
- * Biais précipitations mockés — orders of magnitude cohérents avec la
- * littérature (biais typiques 0.1–0.6 mm/h de moyenne max journalière).
- */
-private fun mockPrecipitationBias(
-    model: com.meteocompare.app.domain.model.WeatherModel
-): com.meteocompare.app.domain.model.ModelBias? {
-    val (mean, sd, n) = when (model) {
-        com.meteocompare.app.domain.model.WeatherModel.GFS             -> Triple(0.30, 0.40, 28)  // MODERATE — surestime convection continentale
-        com.meteocompare.app.domain.model.WeatherModel.AROME_FRANCE_HD -> Triple(0.05, 0.20, 29)  // NOT_SIGNIFICANT — calibré FR
-        com.meteocompare.app.domain.model.WeatherModel.ARPEGE_EUROPE   -> Triple(-0.15, 0.30, 30) // MODERATE — sous-estime légèrement
-        com.meteocompare.app.domain.model.WeatherModel.ECMWF           -> Triple(0.08, 0.25, 30)  // NOT_SIGNIFICANT — quasi calibré
-        com.meteocompare.app.domain.model.WeatherModel.ICON_EU         -> Triple(0.60, 0.50, 27)  // HIGH — surestime pluie en plaine (notoire)
-        com.meteocompare.app.domain.model.WeatherModel.UKMO_GLOBAL     -> Triple(-0.20, 0.30, 25) // MODERATE
-        com.meteocompare.app.domain.model.WeatherModel.ECMWF_AIFS      -> Triple(0.30, 0.40, 22)  // MODERATE
-        else -> return null
-    }
-    return com.meteocompare.app.domain.model.ModelBias(
-        variable = com.meteocompare.app.domain.model.BiasVariable.PRECIPITATION,
-        meanBias = mean,
-        stdDev = sd,
-        sampleSize = n
-    )
-}
-
-/**
- * Biais vent mockés — orders 1–9 km/h. ECMWF_AIFS est en HIGH parce que les
- * modèles IA récents ont un biais wind speed observé sur plusieurs études.
- */
-private fun mockWindBias(
-    model: com.meteocompare.app.domain.model.WeatherModel
-): com.meteocompare.app.domain.model.ModelBias? {
-    val (mean, sd, n) = when (model) {
-        com.meteocompare.app.domain.model.WeatherModel.GFS             -> Triple(-3.0, 4.0, 28)  // MODERATE — sous-estime rafales
-        com.meteocompare.app.domain.model.WeatherModel.AROME_FRANCE_HD -> Triple(1.0, 2.0, 29)   // NOT_SIGNIFICANT
-        com.meteocompare.app.domain.model.WeatherModel.ARPEGE_EUROPE   -> Triple(-5.0, 6.0, 30)  // MODERATE
-        com.meteocompare.app.domain.model.WeatherModel.ECMWF           -> Triple(2.0, 3.0, 30)   // NOT_SIGNIFICANT
-        com.meteocompare.app.domain.model.WeatherModel.ICON_EU         -> Triple(6.0, 5.0, 27)   // MODERATE — surestime côtier
-        com.meteocompare.app.domain.model.WeatherModel.UKMO_GLOBAL     -> Triple(-4.0, 5.0, 25)  // MODERATE
-        com.meteocompare.app.domain.model.WeatherModel.ECMWF_AIFS      -> Triple(9.0, 7.0, 22)   // HIGH — biais IA typique
-        else -> return null
-    }
-    return com.meteocompare.app.domain.model.ModelBias(
-        variable = com.meteocompare.app.domain.model.BiasVariable.WIND_SPEED,
-        meanBias = mean,
-        stdDev = sd,
-        sampleSize = n
-    )
-}
-
-/**
- * Observation 30j précipitations à Paris (juillet-type — max horaire journalier
- * en mm/h). Volontairement zéro sur ~12 jours (dry days) pour reproduire le
- * caractère intermittent de la pluie estivale.
- */
-private val MOCK_OBSERVATION_PRECIPITATION: List<Double> = listOf(
-    0.0, 0.1, 2.3, 0.8, 0.0, 0.0, 0.0, 1.5, 0.4, 0.0,
-    0.0, 3.2, 1.8, 0.6, 0.0, 0.0, 0.0, 0.9, 2.1, 4.5,
-    1.2, 0.0, 0.0, 0.3, 0.0, 0.7, 2.4, 0.0, 0.0, 0.5
-)
-
-/**
- * Observation 30j vent à Paris (juillet-type — max horaire journalier en km/h).
- * Range 15–42, alternance jours calmes / jours ventés.
- */
-private val MOCK_OBSERVATION_WIND: List<Double> = listOf(
-    18.0, 24.0, 22.0, 15.0, 30.0, 35.0, 28.0, 20.0, 15.0, 18.0,
-    25.0, 32.0, 40.0, 28.0, 15.0, 20.0, 22.0, 35.0, 42.0, 30.0,
-    25.0, 20.0, 18.0, 15.0, 22.0, 28.0, 35.0, 30.0, 25.0, 20.0
-)
-
-private fun mockPrecipitationHistory(
-    model: com.meteocompare.app.domain.model.WeatherModel
-): MockHistory {
-    val meanBias = mockPrecipitationBias(model)?.meanBias ?: 0.0
-    // Clamp >= 0 : la pluie n'est jamais négative. Un forecast bruité sous
-    // zéro est écrêté à zéro, ce qui reproduit le comportement réel d'un
-    // modèle qui prévoit "pas de pluie" pour un jour sec.
-    val forecast = MOCK_OBSERVATION_PRECIPITATION.mapIndexed { i, obs ->
-        (obs + meanBias + deterministicNoise(model.ordinal, i, amplitude = 0.30))
-            .coerceAtLeast(0.0)
-    }
-    return MockHistory(forecast = forecast, observation = MOCK_OBSERVATION_PRECIPITATION)
-}
-
-private fun mockWindHistory(
-    model: com.meteocompare.app.domain.model.WeatherModel
-): MockHistory {
-    val meanBias = mockWindBias(model)?.meanBias ?: 0.0
-    // Clamp >= 0 : le vent scalaire n'est jamais négatif (la direction porte
-    // le signe, pas la vitesse). Écrête les prévisions bruitées vers 0.
-    val forecast = MOCK_OBSERVATION_WIND.mapIndexed { i, obs ->
-        (obs + meanBias + deterministicNoise(model.ordinal, i, amplitude = 3.0))
-            .coerceAtLeast(0.0)
-    }
-    return MockHistory(forecast = forecast, observation = MOCK_OBSERVATION_WIND)
-}
-
-/**
- * Domain Y précipitations : min forcé à 0 (borne physique — pas de pluie
- * négative), max = union de toutes les séries + marge 0.5 mm.
- */
-private fun mockPrecipitationDomain(): Pair<Double, Double> {
-    val allValues = MOCK_OBSERVATION_PRECIPITATION +
-            com.meteocompare.app.domain.model.WeatherModel.entries
-                .filter { mockPrecipitationBias(it) != null }
-                .flatMap { mockPrecipitationHistory(it).forecast }
-    return 0.0 to (allValues.max() + 0.5)
-}
-
-/**
- * Domain Y vent : min forcé à 0 (borne physique — pas de vitesse négative),
- * max = union + marge 3 km/h.
- */
-private fun mockWindDomain(): Pair<Double, Double> {
-    val allValues = MOCK_OBSERVATION_WIND +
-            com.meteocompare.app.domain.model.WeatherModel.entries
-                .filter { mockWindBias(it) != null }
-                .flatMap { mockWindHistory(it).forecast }
-    return 0.0 to (allValues.max() + 3.0)
-}
-
-// ============================================================================
-//  Persistance de la sélection sur rotation
-// ============================================================================
-//
-//  Le state MutableState<BiasSelection?> vivait auparavant en `remember`,
-//  perdu à chaque configuration change (rotation, dark-mode toggle, langue
-//  changée). Solution : ne sauver que l'identifiant (deux noms d'enum), et
-//  reconstruire la BiasSelection complète à la restauration.
-//
-//  Deux String rememberSaveable plutôt qu'un data class + Saver custom parce
-//  que Compose `stateSaver` impose T : Any (interdit un état vraiment
-//  nullable). Deux Strings vides = "pas de sélection", pattern qui marche
-//  natif sans Saver custom à maintenir.
-
-/**
- * Reconstruit une [BiasSelection] complète à partir des deux noms d'enum
- * sauvegardés. Toutes les données (biais, historique 30j, domain Y)
- * proviennent des mêmes fonctions mock déterministes utilisées à l'ouverture
- * initiale : le résultat est bit-identique à celui calculé au tap du chip.
- *
- * Robustesse au refactor : si `modelName` ou `variableName` ne correspond
- * plus à un enum courant (renommage, suppression), on renvoie null → la
- * sheet reste fermée après restauration. Meilleur qu'un crash.
- */
-private fun reconstructBiasSelection(modelName: String, variableName: String): BiasSelection? {
-    val model = enumValueOrNull<com.meteocompare.app.domain.model.WeatherModel>(modelName)
-        ?: return null
-    val variable = enumValueOrNull<com.meteocompare.app.domain.model.BiasVariable>(variableName)
-        ?: return null
-
-    val bias = when (variable) {
-        com.meteocompare.app.domain.model.BiasVariable.TEMPERATURE   -> mockTemperatureBias(model)
-        com.meteocompare.app.domain.model.BiasVariable.PRECIPITATION -> mockPrecipitationBias(model)
-        com.meteocompare.app.domain.model.BiasVariable.WIND_SPEED    -> mockWindBias(model)
-    } ?: return null
-
-    val history = when (variable) {
-        com.meteocompare.app.domain.model.BiasVariable.TEMPERATURE   -> mockTemperatureHistory(model)
-        com.meteocompare.app.domain.model.BiasVariable.PRECIPITATION -> mockPrecipitationHistory(model)
-        com.meteocompare.app.domain.model.BiasVariable.WIND_SPEED    -> mockWindHistory(model)
-    }
-    val domain = when (variable) {
-        com.meteocompare.app.domain.model.BiasVariable.TEMPERATURE   -> mockTemperatureDomain()
-        com.meteocompare.app.domain.model.BiasVariable.PRECIPITATION -> mockPrecipitationDomain()
-        com.meteocompare.app.domain.model.BiasVariable.WIND_SPEED    -> mockWindDomain()
-    }
-
-    return BiasSelection(
-        model = model,
-        bias = bias,
-        dailyForecast = history.forecast,
-        dailyObservation = history.observation,
-        yDomainMin = domain.first,
-        yDomainMax = domain.second
-    )
-}
-
-/** enumValueOf qui renvoie null au lieu de throw sur nom inconnu. */
 private inline fun <reified T : Enum<T>> enumValueOrNull(name: String): T? =
     runCatching { enumValueOf<T>(name) }.getOrNull()
