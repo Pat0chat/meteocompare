@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
@@ -118,7 +119,16 @@ internal fun BiasSparkline(
     val forecastColor = palette.foreground
     val envelopeColor = palette.foreground
     val observationColor = MaterialTheme.colorScheme.onSurfaceVariant
-    val backgroundTint = palette.background
+    // Fond du container : composition "teinte de direction faible sur
+    // container thémé". La `palette.background` (rose/bleu très pâle) était
+    // codée en clair et donnait un gris quand elle passait à alpha 0.5 sur
+    // le sombre → grave problème d'identité visuelle en dark mode. Ici on
+    // part de `surfaceContainerHigh` (thémé automatiquement clair/sombre)
+    // et on ajoute juste 8% de la couleur foreground par-dessus. Le tint
+    // reste identifiable dans les deux modes sans jamais devenir gris.
+    val backgroundTint = palette.foreground
+        .copy(alpha = 0.10f)
+        .compositeOver(MaterialTheme.colorScheme.surfaceContainerHigh)
 
     // ── État d'animation : 3 progressions indépendantes ──
     // Chacun remonte de 0 → 1 (obs et fcst = fraction de path visible via
@@ -147,7 +157,7 @@ internal fun BiasSparkline(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
-            .background(backgroundTint.copy(alpha = 0.5f))
+            .background(backgroundTint)
             .padding(horizontal = 12.dp, vertical = 10.dp)
     ) {
         // ── Canvas des courbes ──

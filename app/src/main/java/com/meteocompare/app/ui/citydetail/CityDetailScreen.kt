@@ -360,21 +360,29 @@ private fun LoadedView(
             DisplayMode.HOURLY -> hourlyItems(
                 forecast = forecast,
                 temperatureBiasProvider = ::mockTemperatureBias,
+                precipitationBiasProvider = ::mockPrecipitationBias,
+                windBiasProvider = ::mockWindBias,
                 onBiasChipClick = { model, bias ->
-                    // À l'ouverture de la sheet, on peuple le sparkline avec
-                    // la série 30j du modèle + observation partagée + le
-                    // domain Y calculé sur l'union de tous les modèles (pour
-                    // que passer d'un chip à l'autre permette de comparer
-                    // visuellement l'ampleur des biais entre modèles).
-                    val history = mockTemperatureHistory(model)
-                    val (yMin, yMax) = mockTemperatureDomain()
+                    // Dispatch sur bias.variable pour peupler le sparkline avec
+                    // la bonne série + le bon domain. Chaque variable a son
+                    // observation propre (physiquement disjointes : la pluie
+                    // ne partage rien avec la température) et son domain Y
+                    // partagé entre tous les modèles de la variable.
+                    val (history, domain) = when (bias.variable) {
+                        com.meteocompare.app.domain.model.BiasVariable.TEMPERATURE ->
+                            mockTemperatureHistory(model) to mockTemperatureDomain()
+                        com.meteocompare.app.domain.model.BiasVariable.PRECIPITATION ->
+                            mockPrecipitationHistory(model) to mockPrecipitationDomain()
+                        com.meteocompare.app.domain.model.BiasVariable.WIND_SPEED ->
+                            mockWindHistory(model) to mockWindDomain()
+                    }
                     selectedBias = BiasSelection(
                         model = model,
                         bias = bias,
                         dailyForecast = history.forecast,
                         dailyObservation = history.observation,
-                        yDomainMin = yMin,
-                        yDomainMax = yMax
+                        yDomainMin = domain.first,
+                        yDomainMax = domain.second
                     )
                 }
             )
@@ -527,12 +535,15 @@ private fun androidx.compose.foundation.lazy.LazyListScope.dailyItems(
  */
 private fun androidx.compose.foundation.lazy.LazyListScope.hourlyItems(
     forecast: CityForecast,
-    // Provider optionnel du biais température par modèle. Retour null =
-    // pas de chip pour ce modèle (données insuffisantes ou biais non
-    // significatif). Passer null au niveau screen = feature désactivée.
+    // Providers optionnels du biais par variable. Retour null pour un modèle
+    // donné = pas de chip (données insuffisantes ou biais non significatif).
+    // Passer null au niveau screen = feature désactivée pour cette variable.
     temperatureBiasProvider: ((com.meteocompare.app.domain.model.WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
-    // Callback pour ouvrir la sheet de détail. Uniquement pertinent si un
-    // provider est fourni. Signature : (modèle cliqué, biais correspondant).
+    precipitationBiasProvider: ((com.meteocompare.app.domain.model.WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
+    windBiasProvider: ((com.meteocompare.app.domain.model.WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
+    // Callback pour ouvrir la sheet de détail. Signature :
+    // (modèle cliqué, biais correspondant — inclut sa variable via bias.variable).
+    // Le caller dispatche sur bias.variable pour peupler les données du sparkline.
     onBiasChipClick: ((com.meteocompare.app.domain.model.WeatherModel, com.meteocompare.app.domain.model.ModelBias) -> Unit)? = null
 ) {
     // Matrice Heure × Modèle des conditions météo. Conditions calculées inline
@@ -606,6 +617,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hourlyItems(
                     if (mm < 0.05) "0 mm" else "%.1f mm".format(mm)
                 },
                 heatmapStyler = ::hourlyPrecipitationHeatmap,
+                modelBiasProvider = precipitationBiasProvider,
+                onBiasChipClick = onBiasChipClick,
                 modifier = Modifier.padding(8.dp)
             )
         }
@@ -644,6 +657,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hourlyItems(
                 // les 80dp du daily parce que la flèche horaire est plus
                 // petite (10dp vs 12dp) — même densité perçue à l'écran.
                 cellWidth = 76.dp,
+                modelBiasProvider = windBiasProvider,
+                onBiasChipClick = onBiasChipClick,
                 modifier = Modifier.padding(8.dp)
             )
         }
@@ -1466,4 +1481,143 @@ private fun deterministicNoise(seed: Int, index: Int, amplitude: Double): Double
     val h = (seed * 2654435761L.toInt() xor index * 40503).toInt()
     val normalized = ((h ushr 8) and 0xFFFF) / 65535.0 // [0, 1]
     return (normalized - 0.5) * 2.0 * amplitude
+}
+
+// ============================================================================
+//  Mock biais + histoire — précipitations et vent (Phase 1 UI)
+// ============================================================================
+//
+//  Parallèle stricte du bloc température : bias tables par modèle, série
+//  observation 30j, historique dérivé, domain Y unifié. À supprimer Phase 3
+//  quand le repo réel est branché.
+//
+//  Choix pragmatiques :
+//    - Précipitations et vent bornés à zéro physique. Les prévisions bruitées
+//      qui dériveraient sous zéro sont coerce'd via coerceAtLeast(0.0).
+//    - Domain Y min = 0 (pas de valeur négative possible). Domain max =
+//      max(observation ∪ toutes prévisions) + marge — permet de comparer
+//      visuellement les ampleurs de biais entre modèles.
+//    - Les biais moyens sont calibrés pour reproduire les 4 zones d'affichage
+//      (NOT_SIGNIFICANT → pas de chip, MODERATE, HIGH) via BiasSignificanceRule.
+
+/**
+ * Biais précipitations mockés — orders of magnitude cohérents avec la
+ * littérature (biais typiques 0.1–0.6 mm/h de moyenne max journalière).
+ */
+private fun mockPrecipitationBias(
+    model: com.meteocompare.app.domain.model.WeatherModel
+): com.meteocompare.app.domain.model.ModelBias? {
+    val (mean, sd, n) = when (model) {
+        com.meteocompare.app.domain.model.WeatherModel.GFS             -> Triple(0.30, 0.40, 28)  // MODERATE — surestime convection continentale
+        com.meteocompare.app.domain.model.WeatherModel.AROME_FRANCE_HD -> Triple(0.05, 0.20, 29)  // NOT_SIGNIFICANT — calibré FR
+        com.meteocompare.app.domain.model.WeatherModel.ARPEGE_EUROPE   -> Triple(-0.15, 0.30, 30) // MODERATE — sous-estime légèrement
+        com.meteocompare.app.domain.model.WeatherModel.ECMWF           -> Triple(0.08, 0.25, 30)  // NOT_SIGNIFICANT — quasi calibré
+        com.meteocompare.app.domain.model.WeatherModel.ICON_EU         -> Triple(0.60, 0.50, 27)  // HIGH — surestime pluie en plaine (notoire)
+        com.meteocompare.app.domain.model.WeatherModel.UKMO_GLOBAL     -> Triple(-0.20, 0.30, 25) // MODERATE
+        com.meteocompare.app.domain.model.WeatherModel.ECMWF_AIFS      -> Triple(0.30, 0.40, 22)  // MODERATE
+        else -> return null
+    }
+    return com.meteocompare.app.domain.model.ModelBias(
+        variable = com.meteocompare.app.domain.model.BiasVariable.PRECIPITATION,
+        meanBias = mean,
+        stdDev = sd,
+        sampleSize = n
+    )
+}
+
+/**
+ * Biais vent mockés — orders 1–9 km/h. ECMWF_AIFS est en HIGH parce que les
+ * modèles IA récents ont un biais wind speed observé sur plusieurs études.
+ */
+private fun mockWindBias(
+    model: com.meteocompare.app.domain.model.WeatherModel
+): com.meteocompare.app.domain.model.ModelBias? {
+    val (mean, sd, n) = when (model) {
+        com.meteocompare.app.domain.model.WeatherModel.GFS             -> Triple(-3.0, 4.0, 28)  // MODERATE — sous-estime rafales
+        com.meteocompare.app.domain.model.WeatherModel.AROME_FRANCE_HD -> Triple(1.0, 2.0, 29)   // NOT_SIGNIFICANT
+        com.meteocompare.app.domain.model.WeatherModel.ARPEGE_EUROPE   -> Triple(-5.0, 6.0, 30)  // MODERATE
+        com.meteocompare.app.domain.model.WeatherModel.ECMWF           -> Triple(2.0, 3.0, 30)   // NOT_SIGNIFICANT
+        com.meteocompare.app.domain.model.WeatherModel.ICON_EU         -> Triple(6.0, 5.0, 27)   // MODERATE — surestime côtier
+        com.meteocompare.app.domain.model.WeatherModel.UKMO_GLOBAL     -> Triple(-4.0, 5.0, 25)  // MODERATE
+        com.meteocompare.app.domain.model.WeatherModel.ECMWF_AIFS      -> Triple(9.0, 7.0, 22)   // HIGH — biais IA typique
+        else -> return null
+    }
+    return com.meteocompare.app.domain.model.ModelBias(
+        variable = com.meteocompare.app.domain.model.BiasVariable.WIND_SPEED,
+        meanBias = mean,
+        stdDev = sd,
+        sampleSize = n
+    )
+}
+
+/**
+ * Observation 30j précipitations à Paris (juillet-type — max horaire journalier
+ * en mm/h). Volontairement zéro sur ~12 jours (dry days) pour reproduire le
+ * caractère intermittent de la pluie estivale.
+ */
+private val MOCK_OBSERVATION_PRECIPITATION: List<Double> = listOf(
+    0.0, 0.1, 2.3, 0.8, 0.0, 0.0, 0.0, 1.5, 0.4, 0.0,
+    0.0, 3.2, 1.8, 0.6, 0.0, 0.0, 0.0, 0.9, 2.1, 4.5,
+    1.2, 0.0, 0.0, 0.3, 0.0, 0.7, 2.4, 0.0, 0.0, 0.5
+)
+
+/**
+ * Observation 30j vent à Paris (juillet-type — max horaire journalier en km/h).
+ * Range 15–42, alternance jours calmes / jours ventés.
+ */
+private val MOCK_OBSERVATION_WIND: List<Double> = listOf(
+    18.0, 24.0, 22.0, 15.0, 30.0, 35.0, 28.0, 20.0, 15.0, 18.0,
+    25.0, 32.0, 40.0, 28.0, 15.0, 20.0, 22.0, 35.0, 42.0, 30.0,
+    25.0, 20.0, 18.0, 15.0, 22.0, 28.0, 35.0, 30.0, 25.0, 20.0
+)
+
+private fun mockPrecipitationHistory(
+    model: com.meteocompare.app.domain.model.WeatherModel
+): MockHistory {
+    val meanBias = mockPrecipitationBias(model)?.meanBias ?: 0.0
+    // Clamp >= 0 : la pluie n'est jamais négative. Un forecast bruité sous
+    // zéro est écrêté à zéro, ce qui reproduit le comportement réel d'un
+    // modèle qui prévoit "pas de pluie" pour un jour sec.
+    val forecast = MOCK_OBSERVATION_PRECIPITATION.mapIndexed { i, obs ->
+        (obs + meanBias + deterministicNoise(model.ordinal, i, amplitude = 0.30))
+            .coerceAtLeast(0.0)
+    }
+    return MockHistory(forecast = forecast, observation = MOCK_OBSERVATION_PRECIPITATION)
+}
+
+private fun mockWindHistory(
+    model: com.meteocompare.app.domain.model.WeatherModel
+): MockHistory {
+    val meanBias = mockWindBias(model)?.meanBias ?: 0.0
+    // Clamp >= 0 : le vent scalaire n'est jamais négatif (la direction porte
+    // le signe, pas la vitesse). Écrête les prévisions bruitées vers 0.
+    val forecast = MOCK_OBSERVATION_WIND.mapIndexed { i, obs ->
+        (obs + meanBias + deterministicNoise(model.ordinal, i, amplitude = 3.0))
+            .coerceAtLeast(0.0)
+    }
+    return MockHistory(forecast = forecast, observation = MOCK_OBSERVATION_WIND)
+}
+
+/**
+ * Domain Y précipitations : min forcé à 0 (borne physique — pas de pluie
+ * négative), max = union de toutes les séries + marge 0.5 mm.
+ */
+private fun mockPrecipitationDomain(): Pair<Double, Double> {
+    val allValues = MOCK_OBSERVATION_PRECIPITATION +
+        com.meteocompare.app.domain.model.WeatherModel.entries
+            .filter { mockPrecipitationBias(it) != null }
+            .flatMap { mockPrecipitationHistory(it).forecast }
+    return 0.0 to (allValues.max() + 0.5)
+}
+
+/**
+ * Domain Y vent : min forcé à 0 (borne physique — pas de vitesse négative),
+ * max = union + marge 3 km/h.
+ */
+private fun mockWindDomain(): Pair<Double, Double> {
+    val allValues = MOCK_OBSERVATION_WIND +
+        com.meteocompare.app.domain.model.WeatherModel.entries
+            .filter { mockWindBias(it) != null }
+            .flatMap { mockWindHistory(it).forecast }
+    return 0.0 to (allValues.max() + 3.0)
 }
