@@ -169,7 +169,7 @@ fun HourlyWeatherByModelTable(
         // a beaucoup de lignes (jusqu'à 24) et il faut ménager le scroll.
         Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
             models.forEach { model ->
-                Column(modifier = Modifier.width(60.dp)) {
+                Column(modifier = Modifier.width(74.dp)) {
                     ModelHeaderCell(text = model.displayName, background = headerBg)
                     timestamps.forEachIndexed { idx, ts ->
                         HourIconCell(
@@ -199,7 +199,7 @@ private fun HourHeaderCellBlank(background: Color) {
 private fun ModelHeaderCell(text: String, background: Color) {
     Box(
         modifier = Modifier
-            .width(60.dp)
+            .width(74.dp)
             .height(40.dp)
             .background(background)
             .padding(4.dp),

@@ -260,6 +260,8 @@ Fait :
 
 À venir :
 
+- v1.0 — Bias tracking par localisation
+
 ## Licence
 
 [Apache License 2.0](LICENSE) — vous pouvez utiliser, modifier et redistribuer le code librement, à condition de conserver la notice de copyright.

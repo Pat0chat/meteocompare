@@ -69,7 +69,7 @@
     <string name="section_precipitation">Precipitation</string>
     <string name="section_wind">10m mean wind</string>
     <string name="section_wind_hourly">10m mean wind</string>
-    <string name="section_weather_by_model">Weather by model and day</string>
+    <string name="section_weather_by_model">Weather by model</string>
 
     <!-- 3-state selector above the confidence band (Temp / Precip / Wind) -->
     <string name="metric_temperature">Temperature</string>

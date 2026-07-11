@@ -70,7 +70,7 @@
     <!-- Vent : titres explicites pour clarifier "mean à 10m" (pas rafale). -->
     <string name="section_wind">Vent moyen à 10m</string>
     <string name="section_wind_hourly">Vent moyen à 10m</string>
-    <string name="section_weather_by_model">Temps par modèle et par jour</string>
+    <string name="section_weather_by_model">Temps par modèle</string>
 
     <!-- Sélecteur à 3 états au-dessus de la bande de confiance (T° / Pluie / Vent) -->
     <string name="metric_temperature">Température</string>

@@ -109,11 +109,11 @@ fun WeatherByModelTable(
         // Partie scrollable : une colonne par modèle
         Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
             modelOrder.forEach { model ->
-                Column(modifier = Modifier.width(64.dp)) {
+                Column(modifier = Modifier.width(74.dp)) {
                     HeaderCell(
                         text = model.displayName,
                         background = headerBg,
-                        modifier = Modifier.width(64.dp)
+                        modifier = Modifier.width(74.dp)
                     )
                     rows.forEachIndexed { idx, row ->
                         IconCell(
