@@ -20,8 +20,14 @@ import com.meteocompare.app.domain.repository.ForecastRepository
 import com.meteocompare.app.domain.usecase.SnapshotForecastUseCase
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import java.io.IOException
@@ -76,6 +82,66 @@ class ForecastRepositoryImpl @Inject constructor(
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : ForecastRepository {
 
+    // ── Coalescing des fetch réseau concurrents ───────────────────────────
+    //
+    // Problème observé : au cold start, plusieurs souscripteurs indépendants
+    // du même flow pour une même ville coexistent (CityListVM + CityDetailVM
+    // + ConfidenceExplanationVM + widget composition Glance). Chaque flow
+    // étant cold, chaque subscriber déclenchait son propre `fetchAndCache`
+    // → N requêtes HTTPS pour la même donnée en < 500ms.
+    //
+    // Fix : registre des fetches en vol par clé (city, models, forecastDays).
+    // Un subscriber qui arrive alors qu'une fetch est déjà en cours pour la
+    // même clé attend son résultat au lieu d'en lancer une nouvelle. Le
+    // travail réel tourne sur [repoScope] (SupervisorJob dédié) — un
+    // subscriber qui cancel n'interrompt pas la fetch pour les autres, et
+    // le cache est mis à jour même si tous les subscribers d'origine ont
+    // disparu (donnée disponible au prochain démarrage).
+    //
+    // Impact HTTP réel : N subscribers concurrents pour la même clé →
+    // 1 seul HTTPS. N subscribers pour des clés différentes → toujours N
+    // (le coalescing est per-key, il ne sérialise pas).
+    private val repoScope = CoroutineScope(SupervisorJob() + ioDispatcher)
+    private val inflightMutex = Mutex()
+    private val inflightFetches = mutableMapOf<String, Deferred<ApiResult<CityForecast>>>()
+
+    /**
+     * Clé de coalescing. Ordonnée sur les noms de modèles pour être invariante
+     * au tri de la liste passée par le caller (deux appelants qui demandent
+     * les mêmes modèles dans un ordre différent doivent partager la fetch).
+     */
+    private fun cacheKey(city: City, models: List<WeatherModel>, forecastDays: Int): String =
+        "${city.id}|${models.map { it.name }.sorted().joinToString(",")}|$forecastDays"
+
+    /**
+     * Version coalescée de [fetchAndCache]. Voir le KDoc du registre pour le
+     * pourquoi. Sémantique identique côté retour : renvoie l'`ApiResult` que
+     * `fetchAndCache` aurait renvoyé pour cette clé.
+     */
+    private suspend fun coalescedFetchAndCache(
+        city: City,
+        models: List<WeatherModel>,
+        forecastDays: Int
+    ): ApiResult<CityForecast> {
+        val key = cacheKey(city, models, forecastDays)
+        val deferred = inflightMutex.withLock {
+            // Réutilise le Deferred existant s'il est encore actif. Un
+            // Deferred terminé mais pas encore retiré (race entre `finally`
+            // du produit et cet accès) fonctionne aussi — `await()` renvoie
+            // immédiatement la valeur déjà calculée.
+            inflightFetches[key]?.takeIf { !it.isCompleted } ?: repoScope.async {
+                try {
+                    fetchAndCache(city, models, forecastDays)
+                } finally {
+                    // Retrait sous mutex pour éviter la race avec un nouveau
+                    // caller qui arriverait juste après la fin de fetch.
+                    inflightMutex.withLock { inflightFetches.remove(key) }
+                }
+            }.also { inflightFetches[key] = it }
+        }
+        return deferred.await()
+    }
+
     override fun getCityForecastStream(
         city: City,
         models: List<WeatherModel>,
@@ -117,7 +183,9 @@ class ForecastRepositoryImpl @Inject constructor(
         }
 
         // ── Étape 3 : fetch réseau + écriture cache ──
-        val networkResult = fetchAndCache(city, models, forecastDays)
+        // Passe par [coalescedFetchAndCache] pour dédupliquer les fetches
+        // concurrents sur la même clé (voir le KDoc du registre).
+        val networkResult = coalescedFetchAndCache(city, models, forecastDays)
 
         when (networkResult) {
             is ApiResult.Success -> emit(networkResult)
@@ -151,7 +219,11 @@ class ForecastRepositoryImpl @Inject constructor(
         //
         // Les données déjà affichées dans l'UI ne sont pas effacées : la VM
         // garde son state Loaded (philosophie tolerant côté CityDetailViewModel).
-        fetchAndCache(city, models, forecastDays)
+        //
+        // Passe par [coalescedFetchAndCache] : un pull-to-refresh qui arrive
+        // pendant qu'une fetch est déjà en vol (autre subscriber, widget)
+        // attend son résultat au lieu d'en lancer une seconde HTTP identique.
+        coalescedFetchAndCache(city, models, forecastDays)
     }
 
     override suspend fun clearCacheForCity(cityId: String) = withContext(ioDispatcher) {
@@ -261,7 +333,7 @@ class ForecastRepositoryImpl @Inject constructor(
         android.util.Log.d(
             LOG_TAG,
             "Batched fetch: ${models.size} models in 1 HTTPS request " +
-                "→ ${models.joinToString(",") { it.apiKey }}"
+                    "→ ${models.joinToString(",") { it.apiKey }}"
         )
 
         val batched = try {
