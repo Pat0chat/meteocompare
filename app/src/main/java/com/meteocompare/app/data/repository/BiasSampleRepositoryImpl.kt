@@ -117,6 +117,13 @@ class BiasSampleRepositoryImpl @Inject constructor(
         dao.getLatestObservationEpochDay(cityId, variable.name)?.let(LocalDate::ofEpochDay)
     }
 
+    override suspend fun countPastForecastSamples(
+        cityId: String,
+        beforeDate: LocalDate
+    ): Int = withContext(io) {
+        dao.countPastForecastSamples(cityId, beforeDate.toEpochDay())
+    }
+
     override suspend fun purgeOlderThan(beforeDate: LocalDate) = withContext(io) {
         val epochDay = beforeDate.toEpochDay()
         dao.purgeForecastsBefore(epochDay)

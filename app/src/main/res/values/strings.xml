@@ -70,7 +70,7 @@
     <!-- Vent : titres explicites pour clarifier "mean à 10m" (pas rafale). -->
     <string name="section_wind">Vent moyen à 10m</string>
     <string name="section_wind_hourly">Vent moyen à 10m</string>
-    <string name="section_weather_by_model">Temps par modèle</string>
+    <string name="section_weather_by_model">Temps par modèle et par jour</string>
 
     <!-- Sélecteur à 3 états au-dessus de la bande de confiance (T° / Pluie / Vent) -->
     <string name="metric_temperature">Température</string>
@@ -320,6 +320,11 @@
          dailyObservation sont vides (défensif — la sheet ne devrait pas
          s\'ouvrir dans ce cas mais le string reste utile en cas de refactor). -->
     <string name="bias_sparkline_placeholder">Graphique 30 jours — à venir</string>
+
+    <!-- Hint affiché quand aucun chip de biais n\'est encore disponible pour la
+         ville (première utilisation OU l\'app n\'a pas encore fetché l\'historique).
+         Disparaît dès qu\'au moins un chip devient significatif. -->
+    <string name="bias_history_collecting">Historique de biais en cours de collecte. Les indicateurs par modèle apparaîtront dans les prochains jours.</string>
 
     <!-- Labels X aux extrémités du sparkline. Format court parametré (nb de
          jours de la fenêtre) — permettra en Phase 3 de gérer une fenêtre

@@ -410,6 +410,20 @@ private fun LoadedView(
             )
         }
 
+        // Hint "historique en cours de collecte" — visible tant qu'aucun chip
+        // n'est disponible sur AUCUNE variable pour AUCUN modèle. Une fois qu'un
+        // premier ModelBias non-null émerge (14+ jours d'historique dans Room),
+        // le hint disparaît automatiquement à la recomposition suivante.
+        val hasAnyBias =
+            biasState.temperature.biasByModel.values.any { it != null } ||
+            biasState.precipitation.biasByModel.values.any { it != null } ||
+            biasState.wind.biasByModel.values.any { it != null }
+        if (!hasAnyBias) {
+            item("bias_history_hint") {
+                BiasHistoryHint()
+            }
+        }
+
         when (displayMode) {
             DisplayMode.HOURLY -> hourlyItems(
                 forecast = forecast,
@@ -1072,8 +1086,8 @@ internal fun TodaySummaryCard(
                         // bidon). Sur "clair" ou "pluie" le badge n'a aucun sens →
                         // rien n'apparaît, l'icône reste centrée bas comme avant.
                         val showCloudBadge = currentCloudCover != null &&
-                                (currentCondition == WeatherCondition.PARTLY_CLOUDY ||
-                                        currentCondition == WeatherCondition.OVERCAST)
+                            (currentCondition == WeatherCondition.PARTLY_CLOUDY ||
+                                currentCondition == WeatherCondition.OVERCAST)
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             modifier = Modifier.padding(bottom = 2.dp)
@@ -1440,6 +1454,52 @@ private fun windStyle(kmh: Double): ValueStyle? = when {
 // ============================================================================
 //  Helper pour la reconstruction de BiasSelection depuis les rememberSaveable
 // ============================================================================
+
+/**
+ * Bandeau discret affiché en tête de la liste tant qu'aucun chip de biais
+ * n'est disponible pour la ville. Communique honnêtement à l'utilisateur que
+ * l'app est en train de collecter l'historique, sans être intrusif.
+ *
+ * Cas d'affichage :
+ *   - Première utilisation, avant que le worker n'ait fetché l'observation
+ *     historique et/ou le backfill historical-forecast n'ait tourné.
+ *   - Cas dégénéré où toutes les variables × modèles sont classées
+ *     NOT_SIGNIFICANT (peu probable mais possible avec des modèles très
+ *     calibrés — dans ce cas le hint sur-communique un peu, tradeoff accepté).
+ *
+ * Design : Card à surface `surfaceContainerLow`, icône info, texte muted.
+ * Reprend le vocabulaire du reste de l'app (Card 16dp de marge horizontale,
+ * même padding interne que les sections météo).
+ */
+@Composable
+private fun BiasHistoryHint() {
+    androidx.compose.material3.Card(
+        colors = androidx.compose.material3.CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        ),
+        modifier = Modifier.padding(horizontal = 16.dp)
+    ) {
+        androidx.compose.foundation.layout.Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp)
+        ) {
+            androidx.compose.material3.Icon(
+                imageVector = androidx.compose.material.icons.Icons.Outlined.Info,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp)
+            )
+            Text(
+                text = stringResource(R.string.bias_history_collecting),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
 
 /**
  * enumValueOf tolérant aux noms invalides. Utilisé par la reconstruction de

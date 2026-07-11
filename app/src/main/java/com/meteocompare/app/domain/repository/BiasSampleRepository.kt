@@ -101,6 +101,17 @@ interface BiasSampleRepository {
     ): LocalDate?
 
     /**
+     * Nombre de snapshots forecast dont `targetDate < beforeDate` — utilisé
+     * par le backfill historical-forecast pour vérifier s'il y a déjà des
+     * données passées. Si > 0, on considère que le backfill a déjà été fait
+     * (ou est en cours de constitution organique) et on skip l'appel HTTP.
+     */
+    suspend fun countPastForecastSamples(
+        cityId: String,
+        beforeDate: LocalDate
+    ): Int
+
+    /**
      * Housekeeping : supprime tous les samples (forecasts et observations)
      * antérieurs à [beforeDate]. Appelé une fois par jour par le worker de
      * refresh pour maintenir la DB dans un budget de ~35 jours de données.

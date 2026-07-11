@@ -69,7 +69,7 @@
     <string name="section_precipitation">Precipitation</string>
     <string name="section_wind">10m mean wind</string>
     <string name="section_wind_hourly">10m mean wind</string>
-    <string name="section_weather_by_model">Weather by model</string>
+    <string name="section_weather_by_model">Weather by model and day</string>
 
     <!-- 3-state selector above the confidence band (Temp / Precip / Wind) -->
     <string name="metric_temperature">Temperature</string>
@@ -314,6 +314,10 @@
 
     <!-- Placeholder for the 30-day chart (kept as defensive fallback). -->
     <string name="bias_sparkline_placeholder">30-day chart — coming soon</string>
+
+    <!-- Hint shown when no bias chip is available yet (first use OR history not
+         yet collected). Disappears as soon as at least one chip becomes visible. -->
+    <string name="bias_history_collecting">Bias history is being collected. Per-model indicators will appear over the coming days.</string>
 
     <!-- X-axis labels at both ends of the sparkline. Short parameterized form
          (window size) so a future variable window can be supported without
