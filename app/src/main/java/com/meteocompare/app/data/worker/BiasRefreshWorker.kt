@@ -18,13 +18,19 @@ import java.util.concurrent.TimeUnit
 /**
  * Rafraîchissement quotidien des données de suivi de biais.
  *
- * Deux responsabilités par cycle :
+ * Trois responsabilités par cycle :
  *   1. **Fetch delta des observations** — pour chaque ville favorite, appeler
  *      [com.meteocompare.app.domain.usecase.FetchBiasObservationsUseCase]
  *      qui interroge Open-Meteo archive et remplit `observation_samples`
  *      pour les jours manquants depuis le dernier fetch.
- *   2. **Housekeeping** — purger les samples au-delà de 35 jours pour maintenir
- *      la DB dans un budget contrôlé.
+ *   2. **Housekeeping bias** — purger les samples au-delà de 35 jours pour
+ *      maintenir la DB dans un budget contrôlé (fenêtre glissante 30j +
+ *      5j de marge).
+ *   3. **Housekeeping forecast cache** — purger les entrées de `forecast_cache`
+ *      au-delà de 7 jours. Ce cache sert de fallback offline "dernière
+ *      donnée connue" ; au-delà d'une semaine c'est de la donnée périmée
+ *      qui n'a plus d'utilité même pour l'affichage offline (l'utilisateur
+ *      qui rouvre l'app après 7 jours attend une prévision fraîche).
  *
  * ## Ce qui n'est PAS fait ici
  *
@@ -33,7 +39,12 @@ import java.util.concurrent.TimeUnit
  * [com.meteocompare.app.domain.usecase.SnapshotForecastUseCase]) — chaque fois
  * qu'un utilisateur ouvre une ville ou refresh, le forecast frais est
  * automatiquement snapshotté. Le worker ne s'occupe QUE des observations
- * rétrospectives et du purge.
+ * rétrospectives et des purges.
+ *
+ * Les `climate_normals_cache` ne sont PAS purgés — c'est un dataset stable
+ * de ~366 rows par ville (moyennes 10 ans par jour de l'année), qui ne
+ * change qu'aux migrations rares côté Open-Meteo. La croissance est bornée
+ * par le nombre de villes favorites, aucun besoin de nettoyage.
  *
  * ## Cadence
  *
@@ -52,6 +63,11 @@ import java.util.concurrent.TimeUnit
  * et on continue. La ville sera retentée au cycle suivant. Une erreur
  * catastrophique (repo inaccessible) → `Result.retry` pour laisser
  * WorkManager retenter avec backoff exponentiel.
+ *
+ * Les deux purges (bias + forecast cache) sont wrappées dans `runCatching`
+ * indépendamment : un échec de l'une ne bloque pas l'autre, et le worker
+ * retourne toujours SUCCESS après ces étapes (les fetches ont réussi, le
+ * cleanup est du bonus).
  */
 object BiasRefreshScheduler {
 
@@ -125,6 +141,22 @@ object BiasRefreshScheduler {
      * pour être testable et évoluer sans toucher au worker.
      */
     internal const val RETENTION_DAYS: Long = 35
+
+    /**
+     * Purge budget du cache forecast : 7 jours.
+     *
+     * Rationale du chiffre : au-delà de 7 jours d'absence d'ouverture d'app,
+     * l'utilisateur qui revient attend une prévision fraîche, pas la
+     * "dernière connue". Le cache ne sert plus qu'à masquer la latence du
+     * fetch en cours OU à couvrir un cas offline immédiat (~24h max en
+     * pratique). 7 jours est le plafond où l'utilité de garder chaque
+     * ligne devient franchement négative — plus longtemps ne rend PAS
+     * l'app plus utile, mais grossit la DB.
+     *
+     * Aligné sur la doc historique du DAO
+     * ([com.meteocompare.app.data.local.ForecastCacheDao.deleteOlderThan]).
+     */
+    internal const val FORECAST_CACHE_RETENTION_DAYS: Long = 7
 }
 
 /**
@@ -168,11 +200,27 @@ internal class BiasRefreshWorker(
             runCatching { fetchObs(city) }.getOrNull()
         }
 
-        // Housekeeping : purge les samples > RETENTION_DAYS.
+        // Housekeeping bias : purge les samples > RETENTION_DAYS.
         runCatching {
             biasRepo.purgeOlderThan(
                 LocalDate.now().minusDays(BiasRefreshScheduler.RETENTION_DAYS)
             )
+        }
+
+        // Housekeeping forecast cache : purge les entrées > FORECAST_CACHE_RETENTION_DAYS.
+        // Enveloppé dans son propre runCatching pour être indépendant du purge
+        // bias — un échec de l'un ne doit pas empêcher l'autre. Le DAO utilise
+        // un cutoff en epoch millis alors que biasRepo utilise LocalDate, d'où
+        // la conversion inline (Instant.now().minus(N days).toEpochMilli()).
+        //
+        // Coût : 1 DELETE indexé sur `fetchedAtEpochMs`. Sur une DB de
+        // ~100 rows (17 modèles × 5 villes × ~1 entry par jour × 1 semaine),
+        // s'exécute en < 5 ms. Négligeable même sur bas de gamme.
+        runCatching {
+            val cutoffMs = java.time.Instant.now()
+                .minus(BiasRefreshScheduler.FORECAST_CACHE_RETENTION_DAYS, java.time.temporal.ChronoUnit.DAYS)
+                .toEpochMilli()
+            entry.forecastCacheDao().deleteOlderThan(cutoffMs)
         }
 
         return Result.success()

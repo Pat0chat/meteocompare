@@ -1,5 +1,6 @@
 package com.meteocompare.app.data.worker
 
+import com.meteocompare.app.data.local.ForecastCacheDao
 import com.meteocompare.app.domain.repository.BiasSampleRepository
 import com.meteocompare.app.domain.repository.CityRepository
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
@@ -31,4 +32,13 @@ internal interface BiasRefreshEntryPoint {
     fun userPreferencesRepository(): UserPreferencesRepository
     fun fetchBiasObservationsUseCase(): FetchBiasObservationsUseCase
     fun backfillHistoricalForecastUseCase(): BackfillHistoricalForecastUseCase
+
+    /**
+     * Exposé pour le housekeeping quotidien du cache forecast — voir
+     * l'étage 3 du docblock de [BiasRefreshWorker.doWork]. Le DAO est
+     * `@Singleton` (partagé avec `ForecastRepositoryImpl`), aucune
+     * contention ne peut apparaître entre le fetch d'un utilisateur qui
+     * insère et le worker qui purge (Room sérialise les writes).
+     */
+    fun forecastCacheDao(): ForecastCacheDao
 }
