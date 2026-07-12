@@ -326,13 +326,17 @@ private fun HourModelHeaderCell(
             maxLines = 1,
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
         )
-        // Chip uniquement si (a) le mode "avec biais" est actif — height > 40 —
-        // ET (b) le biais existe ET est significatif. Sinon slot vide.
-        if (bias != null &&
-            bias.significance != com.meteocompare.app.domain.model.BiasSignificance.NOT_SIGNIFICANT &&
-            onBiasClick != null
-        ) {
-            ModelBiasChip(bias = bias, onClick = onBiasClick)
+        // Slot chip rendu quand on est en mode "avec biais" (signalé par
+        // onBiasClick != null, qui est fourni SEULEMENT quand un
+        // modelBiasProvider a été passé au tableau et donc que headerHeight
+        // = 60dp). Toujours quelque chose dans le slot pour préserver
+        // l'alignement des noms de modèle entre colonnes. Voir [ModelBiasChip]
+        // docstring pour la sémantique des trois variantes visuelles.
+        if (onBiasClick != null) {
+            when {
+                bias == null -> CalibratingChip()
+                else -> ModelBiasChip(bias = bias, onClick = onBiasClick)
+            }
         }
     }
 }

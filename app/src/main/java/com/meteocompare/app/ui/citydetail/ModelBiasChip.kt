@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -36,13 +37,38 @@ import kotlin.math.abs
 
 /**
  * Pill compact affichant le biais d'un modèle sous son nom dans le header
- * du tableau. Ne s'affiche QUE si [ModelBias.significance] > NOT_SIGNIFICANT
- * — l'absence de chip communique "modèle bien calibré ici, rien à signaler".
+ * du tableau. Trois variantes visuelles pour communiquer trois états sémantiques
+ * distincts, TOUTES avec le MÊME footprint vertical (22dp de haut) — c'est ce
+ * qui garantit l'alignement des noms de modèle entre colonnes, quelle que
+ * soit la maturité des données par modèle.
  *
- * Visuel : icône directionnelle (Material) + valeur signée en mono, sur un
- * fond teinté selon [BiasDirection]. Aucune différence visuelle entre
- * MODERATE et HIGH — le rôle du chip est d'attirer l'œil sur l'existence
- * d'un biais, pas d'en encoder la magnitude fine (la sheet détaille tout ça).
+ * ## Les trois états
+ *
+ * ### 1. Biais significatif — [ModelBiasChip] variant coloré
+ * Palette teintée (rouge chaud / bleu froid) + flèche directionnelle + valeur
+ * signée. C'est le signal d'alerte — "ce modèle a un biais systématique
+ * qu'il faut connaître avant de l'interpréter". Clickable → sheet détaillée.
+ *
+ * ### 2. Biais calibré — [ModelBiasChip] variant neutre (même fonction)
+ * Palette grise + icône plate ("−") + petite valeur signée. Le modèle a
+ * accumulé assez de données pour qu'on puisse juger, et son biais est jugé
+ * NON significatif. **C'est un signal positif** : ce modèle est fiable. La
+ * palette neutre communique "OK, rien à signaler" sans le crier fort — on
+ * ne veut pas noyer les vrais chips d'alerte au milieu de badges verts
+ * partout. Clickable → sheet détaillée (sparkline plate, éducatif).
+ *
+ * ### 3. En cours de calibration — [CalibratingChip]
+ * Composable séparé (pas de bias à afficher). Rend un placeholder discret
+ * — pill vide avec un dash — même hauteur que les autres. Non-clickable :
+ * il n'y a pas d'historique à montrer, la sheet serait vide.
+ *
+ * ## Pourquoi ne pas juste cacher les chips absents ?
+ * (Version antérieure du design.) Les headers de colonnes se désalignaient
+ * verticalement selon la présence du chip, ce qui rendait la comparaison
+ * inter-modèles pénible visuellement. Et surtout, "pas de chip" cachait
+ * un signal utile ("ce modèle est calibré, tu peux lui faire confiance")
+ * derrière un état ambigu ("... ou peut-être qu'on n'a pas encore les
+ * données ?").
  *
  * Pourquoi Icon plutôt qu'un glyphe unicode ↗/↘ : les glyphes textuels ont un
  * placement vertical variable selon la police (au-dessus de la baseline des
@@ -56,10 +82,20 @@ internal fun ModelBiasChip(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Sécurité : si la significativité est NOT_SIGNIFICANT, on ne rend rien.
-    if (bias.significance == BiasSignificance.NOT_SIGNIFICANT) return
-
-    val palette = chipPalette(bias.direction)
+    // Palette et icône dépendent du niveau de significativité :
+    //   - NOT_SIGNIFICANT → toujours neutre (peu importe la direction)
+    //   - sinon           → palette selon direction, flèche directionnelle
+    val isCalibrated = bias.significance == BiasSignificance.NOT_SIGNIFICANT
+    val palette = if (isCalibrated) {
+        chipPalette(BiasDirection.NEUTRAL)
+    } else {
+        chipPalette(bias.direction)
+    }
+    val icon = if (isCalibrated) {
+        Icons.Filled.Remove
+    } else {
+        arrowIconFor(bias.direction)
+    }
     val label = formatBiasLabel(bias)
     val a11y = biasContentDescription(bias)
 
@@ -75,7 +111,7 @@ internal fun ModelBiasChip(
         horizontalArrangement = Arrangement.spacedBy(3.dp)
     ) {
         Icon(
-            imageVector = arrowIconFor(bias.direction),
+            imageVector = icon,
             contentDescription = null, // décrit via le semantics parent
             tint = palette.foreground,
             modifier = Modifier.size(11.dp)
@@ -83,6 +119,48 @@ internal fun ModelBiasChip(
         Text(
             text = label,
             color = palette.foreground,
+            style = MaterialTheme.typography.labelSmall,
+            fontFamily = FontFamily.Monospace,
+            fontWeight = FontWeight.Medium
+        )
+    }
+}
+
+/**
+ * Placeholder discret pour un modèle dont on n'a pas encore assez de données
+ * pour calculer un biais (< 14 samples exploitables). Rendu comme une pill
+ * vide avec un dash centré — même hauteur (22dp) que [ModelBiasChip], donc
+ * l'alignement vertical des noms de modèle en header est préservé.
+ *
+ * Non-clickable : ouvrir la sheet ne montrerait rien d'exploitable (pas de
+ * sparkline, pas de stats). L'utilisateur qui tape dessus n'aurait qu'à
+ * fermer une modale vide — mieux vaut ne pas y aller.
+ *
+ * La palette est encore plus atténuée que la palette NEUTRAL du chip calibré :
+ * on veut que le lecteur distingue au premier coup d'œil "calibré (info
+ * positive)" de "en attente (info neutre en attente)". Le `defaultMinSize`
+ * assure une largeur minimale approchant celle des chips remplis pour un
+ * rendu visuel plus homogène.
+ */
+@Composable
+internal fun CalibratingChip(
+    modifier: Modifier = Modifier
+) {
+    val a11y = stringResource(R.string.bias_chip_calibrating_content_description)
+    Row(
+        modifier = modifier
+            .height(22.dp)
+            .defaultMinSize(minWidth = 40.dp)
+            .background(CalibratingPalette.background, RoundedCornerShape(999.dp))
+            .border(1.dp, CalibratingPalette.border, RoundedCornerShape(999.dp))
+            .padding(horizontal = 7.dp, vertical = 2.dp)
+            .semantics { contentDescription = a11y },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "—",
+            color = CalibratingPalette.foreground,
             style = MaterialTheme.typography.labelSmall,
             fontFamily = FontFamily.Monospace,
             fontWeight = FontWeight.Medium
@@ -120,6 +198,17 @@ internal fun chipPalette(direction: BiasDirection): ChipPalette = when (directio
         foreground = Color(0xFF6B7280)
     )
 }
+
+/**
+ * Palette du chip "en cours de calibration" — encore plus atténuée que la
+ * palette NEUTRAL des chips calibrés. On veut une hiérarchie visuelle claire :
+ * plein > neutre > vide/en attente.
+ */
+private val CalibratingPalette = ChipPalette(
+    background = Color(0x0D6B7280), // ~5% alpha du gris
+    border = Color(0x146B7280),     // ~8% alpha
+    foreground = Color(0xFF9CA3AF)  // gris plus clair que NEUTRAL
+)
 
 private fun arrowIconFor(direction: BiasDirection): ImageVector = when (direction) {
     BiasDirection.WARM    -> Icons.Filled.ArrowUpward

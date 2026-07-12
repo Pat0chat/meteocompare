@@ -326,6 +326,9 @@
          Disparaît dès qu\'au moins un chip devient significatif. -->
     <string name="bias_history_collecting">Historique de biais en cours de collecte. Les indicateurs par modèle apparaîtront dans les prochains jours.</string>
 
+    <!-- Description a11y du chip "en cours de calibration" (< 14 samples). -->
+    <string name="bias_chip_calibrating_content_description">Suivi de biais en cours pour ce modèle : pas encore assez de données historiques pour évaluer sa précision.</string>
+
     <!-- Labels X aux extrémités du sparkline. Format court parametré (nb de
          jours de la fenêtre) — permettra en Phase 3 de gérer une fenêtre
          paramétrable sans changer les strings. -->

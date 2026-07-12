@@ -319,6 +319,9 @@
          yet collected). Disappears as soon as at least one chip becomes visible. -->
     <string name="bias_history_collecting">Bias history is being collected. Per-model indicators will appear over the coming days.</string>
 
+    <!-- a11y description for the "calibrating" chip (< 14 samples). -->
+    <string name="bias_chip_calibrating_content_description">Bias tracking in progress for this model: not enough historical data yet to assess its accuracy.</string>
+
     <!-- X-axis labels at both ends of the sparkline. Short parameterized form
          (window size) so a future variable window can be supported without
          changing the strings. -->

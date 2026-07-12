@@ -236,11 +236,14 @@ private fun HeaderCellMM(
             maxLines = 1,
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
         )
-        if (bias != null &&
-            bias.significance != com.meteocompare.app.domain.model.BiasSignificance.NOT_SIGNIFICANT &&
-            onBiasClick != null
-        ) {
-            ModelBiasChip(bias = bias, onClick = onBiasClick)
+        // Slot chip toujours rendu quand on est en mode "avec biais" (signalé
+        // par onBiasClick != null). Les trois variantes ont le même footprint
+        // vertical pour préserver l'alignement des noms de modèle.
+        if (onBiasClick != null) {
+            when {
+                bias == null -> CalibratingChip()
+                else -> ModelBiasChip(bias = bias, onClick = onBiasClick)
+            }
         }
     }
 }
