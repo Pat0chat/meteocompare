@@ -2,25 +2,50 @@
 <!--
     Preview du provider 1×1 UNIQUEMENT.
 
-    Zone de rendu ~60-80dp × 60-80dp dans le picker. Trop petite pour
-    afficher plus qu'une donnée majeure. On garde uniquement la température
-    (donnée clé du widget) et rien d'autre — mieux vaut un petit widget
-    lisible qu'un truc surchargé et illisible.
+    Reproduit fidèlement la structure de [MeteoWidget.TinyLayout] :
+    colonne verticale avec 3 lignes empilées — glyphe météo, température,
+    pourcentage de confiance. Aucun autre info (pas de ville, pas de min/max)
+    parce que le vrai TinyLayout n'en a pas non plus : à 40-90dp de côté il
+    n'y a physiquement pas la place.
+
+    Le "☀" est un caractère Unicode U+2600 (WHITE SUN WITH RAYS) qui rend
+    en emoji couleur sur Android 7.0+ — reproduit visuellement l'effet du
+    WeatherGlyph du vrai widget sans avoir à embarquer un drawable custom.
 
     Utilisé uniquement par meteocompare_widget_info_1x1.xml.
 -->
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="6dp"
+    android:gravity="center"
     android:background="@drawable/widget_preview_bg">
 
+    <!-- Glyphe météo (représente WeatherGlyph du vrai widget) -->
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="center"
+        android:text="☀"
+        android:textSize="22sp"
+        android:textColor="?android:attr/textColorPrimary" />
+
+    <!-- Température actuelle -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
         android:text="18°"
-        android:textSize="24sp"
+        android:textSize="16sp"
         android:textStyle="bold"
         android:textColor="?android:attr/textColorPrimary" />
 
-</FrameLayout>
+    <!-- Confiance (couleur verte car ≥ 75%, cf. confidenceTextColor()) -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="85%"
+        android:textSize="9sp"
+        android:textStyle="bold"
+        android:textColor="#43A047" />
+
+</LinearLayout>

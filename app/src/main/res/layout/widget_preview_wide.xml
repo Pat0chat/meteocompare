@@ -3,57 +3,60 @@
     Preview des providers "wide-short" — targetCellHeight = 1.
     Utilisé pour meteocompare_widget_info_2x1.xml, _3x1.xml, _4x1.xml, _5x1.xml.
 
+    ─── Fidélité au vrai widget ───────────────────────────────────────
+    Reproduit la structure de [MeteoWidget.MediumLayout] (qui rend le 3×1
+    dans le vrai widget) :
+
+      [glyphe] [temp]  |  ville         [pill 85%]
+                       |  15° / 22°
+
+    Compromis assumé : la même preview est utilisée pour 2×1, 3×1, 4×1 et
+    5×1 alors que ces tailles rendent des layouts LÉGÈREMENT différents
+    dans le vrai widget (SmallLayout, MediumLayout, LargeLayout). Faire 4
+    previews séparées serait diminishing returns — le pattern général
+    "icône + temp + ville/min-max + confiance" est constant à travers ces
+    tailles, seule la richesse des extras change (badges cloud/rain, items
+    inline supplémentaires en 5×1). L'utilisateur qui hésite entre les
+    tailles verra la MÊME impression générale et pourra choisir sur la
+    largeur.
+
     ─── ⚠ Contrainte RemoteViews ─────────────────────────────────────
-    Depuis Android 12, le launcher rend `previewLayout` via RemoteViews
-    (LauncherAppsService). RemoteViews N'ACCEPTE QUE les vues annotées
-    `@RemoteView` — la liste est courte : FrameLayout, LinearLayout,
-    RelativeLayout, GridLayout, TextView, ImageView, Button, ImageButton,
-    ProgressBar, ViewFlipper, ViewStub, quelques Adapter classes.
-
-    NOTAMMENT PAS SUPPORTÉS :
-      - `<View>` (classe brute)
-      - `<Space>` (pas d'annotation @RemoteView)
-      - Toute custom view
-
-    Utiliser un `<View>` comme spacer avec layout_weight fait planter
-    l'inflate côté launcher, qui affiche "couldn't add widget" au lieu
-    du preview. Vu sur Pixel 9a — reproduit.
-
-    ─── Structure sans spacer ────────────────────────────────────────
-    On distribue le poids sur les DEUX enfants au lieu d'insérer un
-    spacer intermédiaire :
-      - TextView "18°" : wrap_content, pas de weight → prend sa taille naturelle
-      - LinearLayout ville/confiance : weight=1, gravity=end → prend
-        tout le reste et s'aligne à droite
-
-    Résultat visuel identique à l'ancienne version avec `<View>` mais
-    sans planter le picker.
+    Pas de `<View>` ni `<Space>` (non annotés @RemoteView). On distribue les
+    poids sur les enfants LinearLayout — voir historique du fichier pour
+    l'incident "couldn't add widget" du sprint précédent.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="horizontal"
-    android:padding="10dp"
+    android:padding="8dp"
     android:gravity="center_vertical"
     android:background="@drawable/widget_preview_bg">
 
-    <!-- Température à gauche — élément dominant, taille naturelle -->
+    <!-- Bloc gauche : glyphe + température actuelle en Row inline -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="☀"
+        android:textSize="24sp"
+        android:layout_marginEnd="4dp"
+        android:textColor="?android:attr/textColorPrimary" />
+
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="18°"
-        android:textSize="28sp"
+        android:textSize="22sp"
         android:textStyle="bold"
         android:textColor="?android:attr/textColorPrimary" />
 
-    <!-- Ville + confiance à droite, weight=1 pour occuper le reste
-         gravity=end pour aligner le contenu à droite -->
+    <!-- Bloc central : ville + min/max — prend l'espace restant (weight=1) -->
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:orientation="vertical"
-        android:gravity="end">
+        android:layout_marginStart="10dp"
+        android:orientation="vertical">
 
         <TextView
             android:layout_width="wrap_content"
@@ -68,12 +71,26 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="85% · Ensoleillé"
-            android:textSize="10sp"
+            android:text="15° / 22°"
+            android:textSize="11sp"
             android:textColor="?android:attr/textColorSecondary"
             android:maxLines="1"
             android:ellipsize="end" />
 
     </LinearLayout>
+
+    <!-- Pill de confiance — reproduit ConfidencePill du vrai widget -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="85%"
+        android:textSize="11sp"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF"
+        android:background="@drawable/widget_preview_pill_bg"
+        android:paddingStart="6dp"
+        android:paddingEnd="6dp"
+        android:paddingTop="2dp"
+        android:paddingBottom="2dp" />
 
 </LinearLayout>
