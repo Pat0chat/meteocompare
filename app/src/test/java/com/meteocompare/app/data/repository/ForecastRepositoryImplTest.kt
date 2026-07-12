@@ -16,9 +16,13 @@ import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.yield
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -449,5 +453,174 @@ class ForecastRepositoryImplTest {
               "hourly": $hourlyJson
             }"""
         )
+    }
+
+    // ────────────────────────── Coalescing tests ──────────────────────────
+    //
+    // Le repository dédoublonne les fetches concurrents pour la même clé
+    // (city, models, forecastDays) via [inflightFetches]. Ces tests vérifient :
+    //   1. N appels concurrents pour la même clé → 1 seul HTTPS
+    //   2. Appels concurrents pour des clés distinctes → N HTTPS
+    //   3. Le registre se nettoie après complétion → un appel séquentiel
+    //      APRÈS le premier déclenche bien un nouveau HTTPS
+    //   4. Un ordre différent des modèles pour la même liste effective
+    //      coalesce quand-même (clé triée)
+    //
+    // ─── Pourquoi un fake API manuel plutôt que mockk ? ──────────────────
+    // Pour observer le coalescing, il faut que la PREMIÈRE call soit encore
+    // en vol quand la SECONDE arrive. On utilise donc un fake gate-based
+    // ([GatedForecastApi]) qui suspend chaque appel jusqu'à `gate.complete(Unit)`.
+    // Cette suspension déterministe est plus fiable que jouer avec `delay` +
+    // TestDispatcher (interactions Unconfined/StandardTestDispatcher
+    // subtiles) et évite la dépendance à `coAnswers` (pas dans toutes les
+    // versions de mockk).
+
+    /** Fake OpenMeteoApi qui bloque sur un gate pour reproduire du concurrent. */
+    private class GatedForecastApi(
+        private val response: BatchedForecastResponseDto
+    ) : OpenMeteoApi {
+        val gate = CompletableDeferred<Unit>()
+        val callCount = java.util.concurrent.atomic.AtomicInteger(0)
+        val perModelCallCount = java.util.concurrent.ConcurrentHashMap<String, Int>()
+
+        override suspend fun getForecast(
+            latitude: Double, longitude: Double, models: String,
+            hourly: String, daily: String, timezone: String,
+            forecastDays: Int, windSpeedUnit: String,
+            temperatureUnit: String, precipitationUnit: String
+        ): ForecastResponseDto = error("Not used by batched code path")
+
+        override suspend fun getForecastBatched(
+            latitude: Double, longitude: Double, models: String,
+            hourly: String, daily: String, timezone: String,
+            forecastDays: Int, windSpeedUnit: String,
+            temperatureUnit: String, precipitationUnit: String
+        ): BatchedForecastResponseDto {
+            callCount.incrementAndGet()
+            perModelCallCount.merge(models, 1) { a, b -> a + b }
+            gate.await()
+            return response
+        }
+
+        fun release() { gate.complete(Unit) }
+    }
+
+    /** Reconstruit un repository sur un fake API, pour ces tests uniquement. */
+    private fun repositoryWith(fakeApi: OpenMeteoApi): ForecastRepositoryImpl {
+        val networkMonitor: NetworkMonitor = mockk { every { isOnline() } returns true }
+        val context: android.content.Context = mockk(relaxed = true) {
+            every { getString(any<Int>()) } returns "stubbed-error"
+            every { getString(any<Int>(), *anyVararg()) } returns "stubbed-error"
+        }
+        return ForecastRepositoryImpl(
+            api = fakeApi,
+            mapper = ForecastMapper(),
+            cacheDao = mockk(relaxed = true),
+            json = json,
+            networkMonitor = networkMonitor,
+            context = context,
+            ioDispatcher = kotlinx.coroutines.Dispatchers.Unconfined,
+            snapshotForecast = mockk(relaxed = true)
+        )
+    }
+
+    @Test
+    fun `coalescing - deux appels concurrents pour même clé = un seul HTTPS`() = runTest {
+        val fakeApi = GatedForecastApi(
+            batchedResponseWith(modelsWithData = listOf(WeatherModel.GFS))
+        )
+        val repo = repositoryWith(fakeApi)
+        val models = listOf(WeatherModel.GFS)
+
+        coroutineScope {
+            val a = async { repo.refreshCityForecast(paris, models) }
+            val b = async { repo.refreshCityForecast(paris, models) }
+
+            // Yields laissent les deux async progresser jusqu'au gate.
+            // La première atteint la mock, incrémente callCount, suspend.
+            // La seconde trouve le Deferred inflight, attend le même gate.
+            yield(); yield()
+
+            fakeApi.release()
+            a.await()
+            b.await()
+        }
+
+        // Une seule requête HTTPS a dû partir.
+        assertEquals(1, fakeApi.callCount.get())
+    }
+
+    @Test
+    fun `coalescing - villes différentes = HTTPS distincts`() = runTest {
+        val fakeApi = GatedForecastApi(
+            batchedResponseWith(modelsWithData = listOf(WeatherModel.GFS))
+        )
+        val repo = repositoryWith(fakeApi)
+        val edinburgh = City(id = "2", name = "Edinburgh", country = "UK",
+            latitude = 55.95, longitude = -3.19)
+        val models = listOf(WeatherModel.GFS)
+
+        coroutineScope {
+            val a = async { repo.refreshCityForecast(paris, models) }
+            val b = async { repo.refreshCityForecast(edinburgh, models) }
+
+            yield(); yield()
+
+            fakeApi.release()
+            a.await()
+            b.await()
+        }
+
+        // Deux clés distinctes → deux fetches
+        assertEquals(2, fakeApi.callCount.get())
+    }
+
+    @Test
+    fun `coalescing - appel séquentiel après complétion redéclenche HTTPS`() = runTest {
+        // Cette fois on pré-release le gate pour que chaque call complète
+        // immédiatement — on veut mesurer la ré-entrée séquentielle, pas la
+        // concurrence.
+        val fakeApi = GatedForecastApi(
+            batchedResponseWith(modelsWithData = listOf(WeatherModel.GFS))
+        )
+        fakeApi.release()
+        val repo = repositoryWith(fakeApi)
+        val models = listOf(WeatherModel.GFS)
+
+        // Premier appel, attend sa complétion.
+        repo.refreshCityForecast(paris, models)
+        // Deuxième appel séquentiel — l'inflight du premier a été retiré
+        // du registre par le finally, celui-ci doit donc redéclencher un HTTPS.
+        repo.refreshCityForecast(paris, models)
+
+        assertEquals(2, fakeApi.callCount.get())
+    }
+
+    @Test
+    fun `coalescing - ordres de modèles différents pour même ensemble = coalescent`() = runTest {
+        val fakeApi = GatedForecastApi(
+            batchedResponseWith(modelsWithData = listOf(WeatherModel.GFS, WeatherModel.ICON_EU))
+        )
+        val repo = repositoryWith(fakeApi)
+
+        coroutineScope {
+            // Deux appels concurrents avec l'ordre inversé — la clé de coalescing
+            // triant sur `model.name`, ces deux appels doivent partager le même
+            // Deferred inflight.
+            val a = async {
+                repo.refreshCityForecast(paris, listOf(WeatherModel.GFS, WeatherModel.ICON_EU))
+            }
+            val b = async {
+                repo.refreshCityForecast(paris, listOf(WeatherModel.ICON_EU, WeatherModel.GFS))
+            }
+
+            yield(); yield()
+
+            fakeApi.release()
+            a.await()
+            b.await()
+        }
+
+        assertEquals(1, fakeApi.callCount.get())
     }
 }

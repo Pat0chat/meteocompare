@@ -296,6 +296,10 @@ class SnapshotForecastUseCaseTest {
             cityId: String, variable: BiasVariable
         ) = error("Not expected in SnapshotForecastUseCase tests")
 
+        override suspend fun countPastForecastSamples(
+            cityId: String, beforeDate: LocalDate
+        ) = error("Not expected in SnapshotForecastUseCase tests")
+
         override suspend fun purgeOlderThan(beforeDate: LocalDate) =
             error("Not expected in SnapshotForecastUseCase tests")
     }
