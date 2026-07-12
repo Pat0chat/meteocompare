@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Preview des providers "wide-short" — targetCellHeight = 1.
+    Utilisé pour meteocompare_widget_info_2x1.xml, _3x1.xml, _4x1.xml, _5x1.xml.
+
+    Zone de rendu : ~150dp à ~400dp de large, ~60-80dp de haut. On tire
+    parti de la largeur avec un layout HORIZONTAL — la version verticale
+    de widget_preview.xml se fait manger le bas dans cette zone étroite.
+
+    Structure :
+      [température]  [espace flex]  [ville / confiance]
+
+    La `layout_weight="1"` sur le spacer central pousse la ville à droite
+    et la température à gauche, un layout aéré à toute largeur ≥ 2×1.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="horizontal"
+    android:padding="10dp"
+    android:gravity="center_vertical"
+    android:background="@drawable/widget_preview_bg">
+
+    <!-- Température à gauche — élément dominant -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="18°"
+        android:textSize="28sp"
+        android:textStyle="bold"
+        android:textColor="?android:attr/textColorPrimary" />
+
+    <!-- Spacer flex — pousse ville / condition à droite -->
+    <View
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1" />
+
+    <!-- Ville + confiance à droite, alignés à droite -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="end">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Paris"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:textColor="?android:attr/textColorPrimary"
+            android:maxLines="1"
+            android:ellipsize="end" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="85% · Ensoleillé"
+            android:textSize="10sp"
+            android:textColor="?android:attr/textColorSecondary"
+            android:maxLines="1"
+            android:ellipsize="end" />
+
+    </LinearLayout>
+
+</LinearLayout>

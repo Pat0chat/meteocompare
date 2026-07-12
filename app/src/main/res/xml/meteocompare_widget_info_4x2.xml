@@ -11,9 +11,9 @@
     plage de resize :
       - minWidth  = 40dp   (1 cellule — permet resize vers 1×1)
       - minHeight = 40dp
-      - maxResizeWidth  = 360dp  (~5 cellules avec marge pour clamping
-        des launchers — formule Android : 70·n − 30 = 320dp à 5 cellules)
-      - maxResizeHeight = 180dp  (~2 cellules)
+      - maxResizeWidth  = 1200dp (bornes très hautes pour ne JAMAIS bloquer
+        le placement sur launchers larges — voir issue Pixel 9a 5×1)
+      - maxResizeHeight = 1200dp (idem — pas de contrainte artificielle)
 
     Conséquence : sur un launcher qui supporte le resize, l'utilisateur
     peut partir de N'IMPORTE QUEL provider et arriver à N'IMPORTE QUELLE
@@ -33,10 +33,10 @@
     android:minHeight="40dp"
     android:targetCellWidth="4"
     android:targetCellHeight="2"
-    android:maxResizeWidth="360dp"
-    android:maxResizeHeight="180dp"
+    android:maxResizeWidth="1200dp"
+    android:maxResizeHeight="1200dp"
     android:resizeMode="horizontal|vertical"
-    android:updatePeriodMillis="0"
+    android:updatePeriodMillis="1800000"
     android:widgetCategory="home_screen"
     android:widgetFeatures="reconfigurable"
     android:configure="com.meteocompare.app.widget.MeteoWidgetConfigActivity"
