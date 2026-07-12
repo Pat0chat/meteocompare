@@ -3,15 +3,31 @@
     Preview des providers "wide-short" — targetCellHeight = 1.
     Utilisé pour meteocompare_widget_info_2x1.xml, _3x1.xml, _4x1.xml, _5x1.xml.
 
-    Zone de rendu : ~150dp à ~400dp de large, ~60-80dp de haut. On tire
-    parti de la largeur avec un layout HORIZONTAL — la version verticale
-    de widget_preview.xml se fait manger le bas dans cette zone étroite.
+    ─── ⚠ Contrainte RemoteViews ─────────────────────────────────────
+    Depuis Android 12, le launcher rend `previewLayout` via RemoteViews
+    (LauncherAppsService). RemoteViews N'ACCEPTE QUE les vues annotées
+    `@RemoteView` — la liste est courte : FrameLayout, LinearLayout,
+    RelativeLayout, GridLayout, TextView, ImageView, Button, ImageButton,
+    ProgressBar, ViewFlipper, ViewStub, quelques Adapter classes.
 
-    Structure :
-      [température]  [espace flex]  [ville / confiance]
+    NOTAMMENT PAS SUPPORTÉS :
+      - `<View>` (classe brute)
+      - `<Space>` (pas d'annotation @RemoteView)
+      - Toute custom view
 
-    La `layout_weight="1"` sur le spacer central pousse la ville à droite
-    et la température à gauche, un layout aéré à toute largeur ≥ 2×1.
+    Utiliser un `<View>` comme spacer avec layout_weight fait planter
+    l'inflate côté launcher, qui affiche "couldn't add widget" au lieu
+    du preview. Vu sur Pixel 9a — reproduit.
+
+    ─── Structure sans spacer ────────────────────────────────────────
+    On distribue le poids sur les DEUX enfants au lieu d'insérer un
+    spacer intermédiaire :
+      - TextView "18°" : wrap_content, pas de weight → prend sa taille naturelle
+      - LinearLayout ville/confiance : weight=1, gravity=end → prend
+        tout le reste et s'aligne à droite
+
+    Résultat visuel identique à l'ancienne version avec `<View>` mais
+    sans planter le picker.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
@@ -21,7 +37,7 @@
     android:gravity="center_vertical"
     android:background="@drawable/widget_preview_bg">
 
-    <!-- Température à gauche — élément dominant -->
+    <!-- Température à gauche — élément dominant, taille naturelle -->
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -30,16 +46,12 @@
         android:textStyle="bold"
         android:textColor="?android:attr/textColorPrimary" />
 
-    <!-- Spacer flex — pousse ville / condition à droite -->
-    <View
+    <!-- Ville + confiance à droite, weight=1 pour occuper le reste
+         gravity=end pour aligner le contenu à droite -->
+    <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_weight="1" />
-
-    <!-- Ville + confiance à droite, alignés à droite -->
-    <LinearLayout
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_weight="1"
         android:orientation="vertical"
         android:gravity="end">
 

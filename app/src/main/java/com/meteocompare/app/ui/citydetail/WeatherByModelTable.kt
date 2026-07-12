@@ -308,6 +308,29 @@ internal fun WeatherLegend() {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
         )
+        // Note d'inférence : couronne le marquage alpha 0.55 sur les cellules
+        // dont la condition vient du peer-consensus. Sans cette note, un
+        // utilisateur qui remarque une cellule "grisée" ne peut pas savoir
+        // qu'il s'agit d'une inférence (il pensera à un bug d'affichage).
+        // Un petit exemple visuel inline (icône + alpha) pour ancrer la
+        // sémantique — plus efficace qu'un texte seul.
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+        ) {
+            WeatherIconDecorative(
+                condition = WeatherCondition.PARTLY_CLOUDY,
+                size = 16.dp,
+                tint = WeatherCondition.PARTLY_CLOUDY.semanticTint(),
+                modifier = Modifier.alpha(0.45f)
+            )
+            Text(
+                text = stringResource(R.string.weather_legend_inferred_note),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 4.dp)
+            )
+        }
     }
 }
 

@@ -208,6 +208,29 @@ internal class MeteoWidget : GlanceAppWidget() {
             // worker signale un besoin de refresh.
             val refreshTick = prefs[WidgetPreferences.RefreshTickKey] ?: 0L
 
+            // ─── Ceinture-et-bretelles vs WorkManager throttlé ────────────
+            //
+            // Fix : ajouter une clé "time bucket" recalculée à chaque
+            // recomposition. Chaque recomposition (peu importe la source —
+            // worker, onUpdate, changement de prefs) recalcule ce bucket
+            // depuis System.currentTimeMillis(). Dès que le temps avance de
+            // 5 min entre deux recompositions, la clé change → LaunchedEffect
+            // re-fire → data reloadée.
+            //
+            // Pourquoi 5 min et pas 1 min : compromis entre fraîcheur et
+            // charge. À 5 min, worst case le widget est 5 min en retard —
+            // acceptable pour un widget météo. À 1 min on multiplierait le
+            // nombre de reloads sans gain perceptible (les heures affichées
+            // changent au passage d'heure pile, pas à la minute).
+            //
+            // Ce read n'est PAS snapshot-observable — il ne déclenche pas de
+            // recomposition tout seul. Il agit comme un "lecteur passif" :
+            // quand quelque chose d'autre déclenche la recomposition, on
+            // constate le nouveau bucket et on agit. Combiné à
+            // updatePeriodMillis=1800000, on garantit un reload au moins
+            // toutes les 30 min sans dépendre de WorkManager.
+            val timeBucket = System.currentTimeMillis() / (5 * 60 * 1000L)
+
             // Couleurs custom (nullables). null = comportement historique
             // (couleurs Material selon thème système). Non-null = override.
             // La logique de résolution (contraste auto pour le texte quand
@@ -226,7 +249,7 @@ internal class MeteoWidget : GlanceAppWidget() {
                     if (cityId == null) WidgetData.NotConfigured else WidgetData.Loading
                 )
             }
-            LaunchedEffect(cityId, forecastMode, refreshTick) {
+            LaunchedEffect(cityId, forecastMode, refreshTick, timeBucket) {
                 data = loadWidgetData(appCtx, cityId, forecastMode)
             }
 

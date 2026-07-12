@@ -116,15 +116,27 @@ enum class WeatherCondition {
          * ## Ne renvoie QUE 4 valeurs
          *
          * Les 4 familles "ciel non pluvieux" mappées sur les codes WMO 0-3 :
-         *   - < 6.25%   → CLEAR         (WMO 0 : 0/8 du ciel couvert)
-         *   - < 31.25%  → MAINLY_CLEAR  (WMO 1 : 1/8 à 2/8)
-         *   - < 81.25%  → PARTLY_CLOUDY (WMO 2 : 3/8 à 6/8)
-         *   - sinon     → OVERCAST      (WMO 3 : 7/8 à 8/8)
+         *   - < 15%  → CLEAR         (ciel dégagé, quelques cirrus au plus)
+         *   - < 40%  → MAINLY_CLEAR  (majoritairement clair avec quelques nuages)
+         *   - < 70%  → PARTLY_CLOUDY (nuages significatifs mais soleil visible)
+         *   - sinon  → OVERCAST      (ciel couvert)
          *
-         * Seuils positionnés aux MIDPOINTS entre les octas WMO (6.25 = 1/16,
-         * milieu entre 0/8 et 2/8), pas au bord des intervalles — un ciel à
-         * 30% est plus proche de "clair majoritaire" (WMO 1) que de
-         * "partiellement nuageux" (WMO 2 débute à 37.5%).
+         * ## Choix des seuils — leçon apprise
+         *
+         * Une première version utilisait les MIDPOINTS entre les octas WMO
+         * théoriques (6.25 / 31.25 / 81.25). Théoriquement rigoureux mais
+         * défectueux en pratique : la médiane inter-modèles (5+ peers avec
+         * bonne concordance) tape presque toujours dans le milieu, résultat
+         * ~80% des cellules AROME HD ressortaient en PARTLY_CLOUDY. Trop de
+         * fausse variabilité collapse en une seule catégorie.
+         *
+         * Cette version élargit délibérément CLEAR/MAINLY_CLEAR/OVERCAST et
+         * comprime PARTLY_CLOUDY à sa bande "vraiment mi-ciel" (40-70%). Les
+         * seuils correspondent mieux à la perception humaine :
+         *   - "il fait beau" ↔ < 15% de couverture
+         *   - "en majorité dégagé" ↔ 15-40%
+         *   - "mitigé" ↔ 40-70% (le seul cas où PARTLY_CLOUDY est vraiment vrai)
+         *   - "gris/couvert" ↔ ≥ 70%
          *
          * ## Pas de RAIN / FOG / THUNDERSTORM
          *
@@ -135,10 +147,10 @@ enum class WeatherCondition {
          * été essayée avant).
          */
         fun fromCloudCover(cloudCoverPct: Double): WeatherCondition = when {
-            cloudCoverPct < 6.25  -> CLEAR
-            cloudCoverPct < 31.25 -> MAINLY_CLEAR
-            cloudCoverPct < 81.25 -> PARTLY_CLOUDY
-            else                  -> OVERCAST
+            cloudCoverPct < 15.0 -> CLEAR
+            cloudCoverPct < 40.0 -> MAINLY_CLEAR
+            cloudCoverPct < 70.0 -> PARTLY_CLOUDY
+            else                 -> OVERCAST
         }
     }
 }

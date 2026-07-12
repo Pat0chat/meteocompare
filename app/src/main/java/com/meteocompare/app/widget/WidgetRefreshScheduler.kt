@@ -111,7 +111,21 @@ internal object WidgetRefreshScheduler {
                     // pour que les labels d'heure évoluent. Le fetch réseau
                     // est short-circuité par NetworkMonitor.isOnline() en
                     // amont dans ForecastRepositoryImpl.fetchAndCache.
-                    .setRequiresBatteryNotLow(true)
+                    //
+                    // ─── setRequiresBatteryNotLow SUPPRIMÉ ────────────────
+                    // Version précédente avait `.setRequiresBatteryNotLow(true)`.
+                    // Trade-off réévalué en défaveur : sur Pixel 9a comme sur
+                    // les OEMs agressifs (MIUI, OneUI, EMUI), cette contrainte
+                    // fait suspendre le worker DÈS que la batterie touche le
+                    // seuil "low" (~15%) OU dès que le mode économie s'active,
+                    // ce qui arrive fréquemment en journée. Symptôme visible :
+                    // widget qui n'évolue plus (12h/13h toujours affichés à 14h).
+                    //
+                    // Le coût du tick est négligeable (~10 ms CPU, souvent
+                    // cache-only), et le fetch réseau est de toute façon
+                    // court-circuité par `maxCacheAgeMs`. Rendre le tick
+                    // inconditionnel restaure la fiabilité de l'affichage à
+                    // un coût battery marginal — le bon compromis.
                     .build()
             )
             .build()

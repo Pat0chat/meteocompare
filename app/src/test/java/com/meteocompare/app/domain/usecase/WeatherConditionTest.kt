@@ -318,32 +318,33 @@ class WeatherConditionTest {
     // ─── fromCloudCover — dernier fallback peer-consensus ───────────────────
 
     @Test
-    fun `fromCloudCover renvoie CLEAR sous 6,25 pourcent`() {
+    fun `fromCloudCover renvoie CLEAR sous 15 pourcent`() {
         assertEquals(WeatherCondition.CLEAR, WeatherCondition.fromCloudCover(0.0))
-        assertEquals(WeatherCondition.CLEAR, WeatherCondition.fromCloudCover(6.24))
+        assertEquals(WeatherCondition.CLEAR, WeatherCondition.fromCloudCover(14.99))
     }
 
     @Test
-    fun `fromCloudCover renvoie MAINLY_CLEAR entre 6,25 et 31,25 pourcent`() {
-        // Borne inférieure : 6.25% pile bascule sur MAINLY_CLEAR (WMO 1)
-        assertEquals(WeatherCondition.MAINLY_CLEAR, WeatherCondition.fromCloudCover(6.25))
-        assertEquals(WeatherCondition.MAINLY_CLEAR, WeatherCondition.fromCloudCover(20.0))
-        assertEquals(WeatherCondition.MAINLY_CLEAR, WeatherCondition.fromCloudCover(31.24))
+    fun `fromCloudCover renvoie MAINLY_CLEAR entre 15 et 40 pourcent`() {
+        // Borne inférieure : 15% pile bascule sur MAINLY_CLEAR
+        assertEquals(WeatherCondition.MAINLY_CLEAR, WeatherCondition.fromCloudCover(15.0))
+        assertEquals(WeatherCondition.MAINLY_CLEAR, WeatherCondition.fromCloudCover(30.0))
+        assertEquals(WeatherCondition.MAINLY_CLEAR, WeatherCondition.fromCloudCover(39.99))
     }
 
     @Test
-    fun `fromCloudCover renvoie PARTLY_CLOUDY entre 31,25 et 81,25 pourcent`() {
-        // Bande la plus large (~50 points) — représente le cas typique où
-        // 5 modèles peers convergent autour d'un ciel "moyen".
-        assertEquals(WeatherCondition.PARTLY_CLOUDY, WeatherCondition.fromCloudCover(31.25))
-        assertEquals(WeatherCondition.PARTLY_CLOUDY, WeatherCondition.fromCloudCover(50.0))
-        assertEquals(WeatherCondition.PARTLY_CLOUDY, WeatherCondition.fromCloudCover(81.24))
+    fun `fromCloudCover renvoie PARTLY_CLOUDY entre 40 et 70 pourcent`() {
+        // Bande RESSERRÉE à 30 points — plus le fourre-tout hérité des
+        // seuils WMO théoriques. Le seul "vraiment partly cloudy" est
+        // ici 40-70% (le ciel où soleil et nuages coexistent visiblement).
+        assertEquals(WeatherCondition.PARTLY_CLOUDY, WeatherCondition.fromCloudCover(40.0))
+        assertEquals(WeatherCondition.PARTLY_CLOUDY, WeatherCondition.fromCloudCover(55.0))
+        assertEquals(WeatherCondition.PARTLY_CLOUDY, WeatherCondition.fromCloudCover(69.99))
     }
 
     @Test
-    fun `fromCloudCover renvoie OVERCAST au-dessus de 81,25 pourcent`() {
-        assertEquals(WeatherCondition.OVERCAST, WeatherCondition.fromCloudCover(81.25))
-        assertEquals(WeatherCondition.OVERCAST, WeatherCondition.fromCloudCover(95.0))
+    fun `fromCloudCover renvoie OVERCAST au-dessus de 70 pourcent`() {
+        assertEquals(WeatherCondition.OVERCAST, WeatherCondition.fromCloudCover(70.0))
+        assertEquals(WeatherCondition.OVERCAST, WeatherCondition.fromCloudCover(90.0))
         assertEquals(WeatherCondition.OVERCAST, WeatherCondition.fromCloudCover(100.0))
     }
 

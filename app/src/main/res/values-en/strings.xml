@@ -283,6 +283,8 @@
     <string name="weather_legend_thunderstorm">Thunderstorm</string>
     <!-- Note explaining the % badges under icons in the weather-by-model table -->
     <string name="weather_legend_percent_note">The % under an icon = cloud cover (cloudy/overcast) or precipitation probability (rain/snow/thunderstorm).</string>
+    <string name="weather_legend_inferred_note">Dimmed icon = condition inferred from other models.</string>
+
 
     <!-- ============================================================
          Per-model bias tracking — Phase 1 UI
