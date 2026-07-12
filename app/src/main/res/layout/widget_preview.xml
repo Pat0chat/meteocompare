@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Preview du widget MeteoCompare — utilisé UNIQUEMENT par le picker
+    (android:previewLayout dans les 9 meteocompare_widget_info_*.xml).
+
+    ─── Pourquoi ce fichier existe ────────────────────────────────────
+    Avant : android:previewImage="@mipmap/ic_launcher" → le picker Android
+    affichait l'icône lanceur (48×48dp) comme aperçu, quel que soit la
+    taille cible du widget. Résultat visible dans le picker : un carré 1×1
+    minuscule au-dessus du bouton "Ajouter" pour TOUS les providers
+    (2×1, 3×1, 4×2, etc). Pas d'aperçu utile pour l'utilisateur.
+
+    Fix : android:previewLayout pointe vers CE layout, rendu par le
+    picker à la taille cible du provider (targetCellWidth × targetCellHeight).
+    Le provider 4×2 rend ce layout dans une zone ~250×125dp — l'utilisateur
+    voit un widget représentatif avant de le poser.
+
+    ─── Contraintes de layout ─────────────────────────────────────────
+    Ce layout doit dégrader GRACIEUSEMENT du 1×1 au 5×2. En pratique :
+      - Le picker affiche généralement le preview dans une zone thumbnail
+        fixe (~150×150dp sur Pixel Launcher), pas à la taille cible réelle.
+      - Mais certains launchers rendent à la taille cible.
+    D'où l'usage de wrap_content + gravity center partout, et de tailles
+    de texte modestes. À 1×1 les éléments trop grands seront simplement
+    croppés — pas catastrophique, la ligne principale (temp + condition)
+    reste visible.
+
+    ─── Contenu : synthèse de la TodaySummaryCard ─────────────────────
+    Ligne 1 : nom de ville + badge confiance
+    Ligne 2 : température actuelle (grande)
+    Ligne 3 : condition + min/max
+
+    Données statiques (Paris, 18°, "Ensoleillé, 85%") — c'est un aperçu,
+    pas une preview live. Pas de string resource : ces textes ne sont
+    JAMAIS traduits parce qu'ils ne s'affichent que dans le picker et
+    servent à démontrer le format, pas à communiquer une info utile.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="12dp"
+    android:gravity="center"
+    android:background="@drawable/widget_preview_bg">
+
+    <!-- Ligne 1 : nom ville · confiance -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Paris  ·  85%"
+        android:textSize="11sp"
+        android:textColor="?android:attr/textColorSecondary"
+        android:maxLines="1"
+        android:ellipsize="end" />
+
+    <!-- Ligne 2 : température actuelle (élément dominant) -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="18°"
+        android:textSize="32sp"
+        android:textStyle="bold"
+        android:textColor="?android:attr/textColorPrimary"
+        android:layout_marginTop="2dp"
+        android:layout_marginBottom="2dp" />
+
+    <!-- Ligne 3 : condition + amplitude -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Ensoleillé  ·  15° / 22°"
+        android:textSize="10sp"
+        android:textColor="?android:attr/textColorSecondary"
+        android:maxLines="1"
+        android:ellipsize="end" />
+
+</LinearLayout>
