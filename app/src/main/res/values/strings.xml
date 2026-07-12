@@ -354,6 +354,10 @@
     <!-- Texte explicatif — opener paramétré (modèle, verbe, variable, jours).
          Ex FR : "GFS surestime systématiquement la température à cet endroit sur les 30 derniers jours." -->
     <string name="bias_explainer_opener">%1$s %2$s systématiquement %3$s à cet endroit sur les %4$d derniers jours.</string>
+    <!-- Texte de l\'explainer pour un modèle CALIBRÉ (NOT_SIGNIFICANT). Une
+         seule phrase, positive, qui ne parle plus de "systématiquement
+         surestime" — mensonger pour un modèle en fait bien calibré. -->
+    <string name="bias_explainer_calibrated">%1$s est calibré sur %2$s à cet endroit. Sur les %3$d derniers jours, l\'écart moyen aux observations reste dans le bruit journalier — aucune correction mentale n\'est nécessaire pour interpréter ses prévisions.</string>
 
     <!-- Hint : comment corriger mentalement — varie selon la direction -->
     <string name="bias_hint_warm">Soustraire mentalement l\'écart aux prévisions donne une lecture plus proche du réel.</string>

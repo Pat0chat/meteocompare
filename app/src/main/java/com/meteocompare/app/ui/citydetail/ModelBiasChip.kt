@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -92,7 +93,10 @@ internal fun ModelBiasChip(
         chipPalette(bias.direction)
     }
     val icon = if (isCalibrated) {
-        Icons.Filled.Remove
+        // Coche "✓" plutôt qu'un dash "—" : évite le doublon visuel "— −0.1°"
+        // quand la magnitude est négative (le lecteur voit deux tirets d'affilée).
+        // Sémantiquement plus juste aussi : "validé/vérifié", signal positif clair.
+        Icons.Filled.Check
     } else {
         arrowIconFor(bias.direction)
     }

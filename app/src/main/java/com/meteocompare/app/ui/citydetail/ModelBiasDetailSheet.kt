@@ -121,7 +121,17 @@ private fun SheetEyebrow(model: WeatherModel, variable: BiasVariable, windowDays
  */
 @Composable
 private fun SheetTitle(bias: ModelBias) {
-    val palette = chipPalette(bias.direction)
+    // Palette alignée sur celle du chip qui vient d'être tapé : neutre (gris)
+    // pour un modèle calibré, teintée warm/cold sinon. Sans cette symétrie,
+    // taper un chip gris ouvrirait une sheet dont le titre est teinté rouge
+    // ou bleu — dissonance visuelle, l'utilisateur croirait tout à coup que
+    // le modèle est problématique.
+    val isCalibrated = bias.significance == BiasSignificance.NOT_SIGNIFICANT
+    val palette = if (isCalibrated) {
+        chipPalette(BiasDirection.NEUTRAL)
+    } else {
+        chipPalette(bias.direction)
+    }
     val magnitude = formatBiasLabel(bias)
     val prefix = stringResource(R.string.bias_sheet_title_prefix)
     val suffix = stringResource(R.string.bias_sheet_title_suffix)
@@ -228,14 +238,38 @@ private fun StatCell(
 /**
  * Texte explicatif du "pourquoi" du biais.
  *
- * Composé de deux paragraphes : (1) opener + hint sur comment corriger,
- * (2) stabilité selon la significativité. Toutes les variantes en
- * stringResource, chaînes assemblées ici pour rester une seule Text avec
- * la mise en page finale.
+ * Deux chemins distincts :
+ *
+ * - **Biais significatif** — chemin historique : 2 paragraphes (opener +
+ *   hint, puis stability). L'opener utilise le verbe directionnel
+ *   ("surestime" / "sous-estime") pour dire ce que le modèle fait de mal
+ *   et le hint dit comment le corriger mentalement.
+ *
+ * - **Calibré (NOT_SIGNIFICANT)** — chemin dédié : une seule phrase positive.
+ *   L'ancien texte reprenait le verbe directionnel ("surestime") alors que
+ *   le modèle est en fait calibré — mensonger et anxiogène pour rien.
+ *   Le nouveau message assume que le petit écart existe (le titre le montre
+ *   déjà chiffré) et communique le message important : c'est du bruit,
+ *   aucune correction à faire.
  */
 @Composable
 private fun Explainer(selection: BiasSelection) {
     val name = selection.model.displayName
+
+    if (selection.bias.significance == BiasSignificance.NOT_SIGNIFICANT) {
+        val variable = stringResource(sheetExplainerVariableResId(selection.bias.variable))
+        Text(
+            text = stringResource(
+                R.string.bias_explainer_calibrated,
+                name, variable, selection.bias.windowDays
+            ),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            lineHeight = MaterialTheme.typography.bodyMedium.lineHeight
+        )
+        return
+    }
+
     val verb = stringResource(explainerVerbResId(selection.bias.direction))
     val variable = stringResource(sheetExplainerVariableResId(selection.bias.variable))
     val opener = stringResource(

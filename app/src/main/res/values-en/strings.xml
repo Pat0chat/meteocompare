@@ -347,6 +347,10 @@
     <!-- Explainer opener, parameterized (model, verb, variable, days).
          E.g. EN: "GFS systematically overestimates temperature here over the last 30 days." -->
     <string name="bias_explainer_opener">%1$s systematically %2$s %3$s here over the last %4$d days.</string>
+    <!-- Explainer text for a CALIBRATED model (NOT_SIGNIFICANT). Single
+         positive sentence — replaces the misleading "systematically overestimates"
+         template that would otherwise fire for a genuinely well-behaved model. -->
+    <string name="bias_explainer_calibrated">%1$s is well calibrated on %2$s at this location. Over the last %3$d days, the mean deviation from observations stays within daily noise — no mental correction is needed to interpret its forecasts.</string>
 
     <!-- Correction hint — varies by direction -->
     <string name="bias_hint_warm">Mentally subtracting the deviation from its forecasts gives a reading closer to reality.</string>
