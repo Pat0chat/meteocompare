@@ -173,7 +173,7 @@ fun HourlyWeatherByModelTable(
     Row(modifier = modifier.fillMaxWidth()) {
         // Colonne figée : labels d'heure. 84dp comme HourlyForecastTable pour
         // uniformité visuelle entre les tables hourly.
-        Column(modifier = Modifier.width(84.dp)) {
+        Column(modifier = Modifier.width(64.dp)) {
             HourHeaderCellBlank(background = headerBg)
             var previousDate: LocalDate? = null
             timestamps.forEachIndexed { idx, ts ->
@@ -205,7 +205,7 @@ fun HourlyWeatherByModelTable(
         // a beaucoup de lignes (jusqu'à 24) et il faut ménager le scroll.
         Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
             models.forEach { model ->
-                Column(modifier = Modifier.width(60.dp)) {
+                Column(modifier = Modifier.width(76.dp)) {
                     ModelHeaderCell(text = model.displayName, background = headerBg)
                     timestamps.forEachIndexed { idx, ts ->
                         HourIconCell(
@@ -223,7 +223,7 @@ fun HourlyWeatherByModelTable(
 private fun HourHeaderCellBlank(background: Color) {
     Box(
         modifier = Modifier
-            .width(84.dp)
+            .width(64.dp)
             .height(40.dp)
             .background(background)
             .padding(4.dp),
@@ -235,7 +235,7 @@ private fun HourHeaderCellBlank(background: Color) {
 private fun ModelHeaderCell(text: String, background: Color) {
     Box(
         modifier = Modifier
-            .width(60.dp)
+            .width(76.dp)
             .height(40.dp)
             .background(background)
             .padding(4.dp),
@@ -245,7 +245,12 @@ private fun ModelHeaderCell(text: String, background: Color) {
             text = text,
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            // Nom sur UNE seule ligne. Voir WeatherByModelTable.HeaderCell
+            // pour la rationale complète — cassait l'alignement vertical
+            // sans ce garde-fou.
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
         )
     }
 }
@@ -339,7 +344,7 @@ private fun HourIconCell(cell: HourCellData?, background: Color) {
             // Marqueur visuel d'inférence : alpha réduit sur le contenu quand
             // la condition vient de la médiane des peers (pas la prédiction
             // propre du modèle). Voir [HourCellData.isInferred].
-            val contentModifier = if (cell.isInferred) Modifier.alpha(0.45f) else Modifier
+            val contentModifier = if (cell.isInferred) Modifier.alpha(0.55f) else Modifier
             Column(
                 modifier = contentModifier,
                 horizontalAlignment = Alignment.CenterHorizontally,

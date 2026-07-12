@@ -110,8 +110,8 @@ fun MinMaxForecastTable(
         Row(modifier = Modifier.fillMaxWidth()) {
             // Colonne figée des dates — largeur 96dp (plus large que la table
             // simple pour accomoder "Mer. 1" en jours longs)
-            Column(modifier = Modifier.width(96.dp)) {
-                HeaderCellMM(text = "Jour", background = headerBg, width = 96.dp, height = headerHeight)
+            Column(modifier = Modifier.width(80.dp)) {
+                HeaderCellMM(text = "Jour", background = headerBg, width = 80.dp, height = headerHeight)
                 dates.forEachIndexed { idx, date ->
                     DayLabelCellMM(
                         date = date,
@@ -127,7 +127,12 @@ fun MinMaxForecastTable(
             // chaque cellule contient deux valeurs séparées par "/".
             Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
                 models.forEach { model ->
+                    // Voir ForecastTable pour la rationale du découplage
+                    // inBiasMode vs bias != null : sans ça, un modèle qui
+                    // accumule lentement (AROME HD notamment) ne recevrait
+                    // jamais le CalibratingChip d'attente.
                     val bias = modelBiasProvider?.invoke(model)
+                    val inBiasMode = modelBiasProvider != null
                     val chipClick = if (bias != null && onBiasChipClick != null) {
                         remember(model, bias) { { onBiasChipClick(model, bias) } }
                     } else null
@@ -138,7 +143,8 @@ fun MinMaxForecastTable(
                             width = 88.dp,
                             height = headerHeight,
                             bias = bias,
-                            onBiasClick = chipClick
+                            onBiasClick = chipClick,
+                            showChipSlot = inBiasMode
                         )
                         dates.forEachIndexed { idx, date ->
                             val (maxV, minV) = maxMinAt(forecast, model, date)
@@ -215,7 +221,8 @@ private fun HeaderCellMM(
     width: androidx.compose.ui.unit.Dp,
     height: androidx.compose.ui.unit.Dp = 40.dp,
     bias: com.meteocompare.app.domain.model.ModelBias? = null,
-    onBiasClick: (() -> Unit)? = null
+    onBiasClick: (() -> Unit)? = null,
+    showChipSlot: Boolean = false
 ) {
     Column(
         modifier = Modifier
@@ -236,13 +243,13 @@ private fun HeaderCellMM(
             maxLines = 1,
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
         )
-        // Slot chip toujours rendu quand on est en mode "avec biais" (signalé
-        // par onBiasClick != null). Les trois variantes ont le même footprint
-        // vertical pour préserver l'alignement des noms de modèle.
-        if (onBiasClick != null) {
+        // Slot chip rendu quand le parent est en "mode biais" (showChipSlot),
+        // indépendamment de la disponibilité des données pour CE modèle. Voir
+        // ForecastTable pour la sémantique complète des 3 variantes.
+        if (showChipSlot) {
             when {
                 bias == null -> CalibratingChip()
-                else -> ModelBiasChip(bias = bias, onClick = onBiasClick)
+                else -> ModelBiasChip(bias = bias, onClick = onBiasClick ?: {})
             }
         }
     }

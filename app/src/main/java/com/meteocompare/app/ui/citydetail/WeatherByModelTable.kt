@@ -92,8 +92,8 @@ fun WeatherByModelTable(
 
     Row(modifier = modifier.fillMaxWidth()) {
         // Colonne figée : dates
-        Column(modifier = Modifier.width(76.dp)) {
-            HeaderCell(text = "", background = headerBg, modifier = Modifier.width(76.dp))
+        Column(modifier = Modifier.width(60.dp)) {
+            HeaderCell(text = "", background = headerBg, modifier = Modifier.width(60.dp))
             rows.forEachIndexed { idx, row ->
                 DayLabelCell(
                     text = formatDayLabel(row),
@@ -110,11 +110,11 @@ fun WeatherByModelTable(
         // Partie scrollable : une colonne par modèle
         Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
             modelOrder.forEach { model ->
-                Column(modifier = Modifier.width(64.dp)) {
+                Column(modifier = Modifier.width(76.dp)) {
                     HeaderCell(
                         text = model.displayName,
                         background = headerBg,
-                        modifier = Modifier.width(64.dp)
+                        modifier = Modifier.width(76.dp)
                     )
                     rows.forEachIndexed { idx, row ->
                         IconCell(
@@ -154,7 +154,15 @@ private fun HeaderCell(text: String, background: Color, modifier: Modifier = Mod
             text = text,
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            // Nom du modèle sur UNE seule ligne — sans ce garde-fou, un nom
+            // comme "AROME France HD" (15 chars) wrappait sur 2 lignes à
+            // 64dp, cassait l'alignement vertical de la grille et donnait
+            // une impression d'inconsistance visuelle entre colonnes. Avec
+            // maxLines=1 + ellipsis, un nom qui dépasse est tronqué proprement
+            // ("AROME Franc…") — moins joli mais l'alignement est préservé.
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
         )
     }
 }
@@ -222,7 +230,7 @@ private fun IconCell(
             // pas de la prédiction propre du modèle. Non-invasif visuellement
             // — l'icône reste lisible et colorée — mais suffisant pour qu'un
             // utilisateur qui compare les cellules perçoive le différentiel.
-            val contentModifier = if (isInferred) Modifier.alpha(0.45f) else Modifier
+            val contentModifier = if (isInferred) Modifier.alpha(0.55f) else Modifier
             Column(
                 modifier = contentModifier,
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -322,7 +330,7 @@ internal fun WeatherLegend() {
                 condition = WeatherCondition.PARTLY_CLOUDY,
                 size = 16.dp,
                 tint = WeatherCondition.PARTLY_CLOUDY.semanticTint(),
-                modifier = Modifier.alpha(0.45f)
+                modifier = Modifier.alpha(0.55f)
             )
             Text(
                 text = stringResource(R.string.weather_legend_inferred_note),

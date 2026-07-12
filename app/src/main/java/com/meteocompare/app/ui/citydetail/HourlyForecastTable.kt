@@ -172,7 +172,7 @@ fun HourlyForecastTable(
     Row(modifier = modifier.fillMaxWidth()) {
         // Colonne figée : labels d'heure. 84dp accommode "Lun. 14h" en français
         // (préfixe jour visible aux changements de jour uniquement).
-        Column(modifier = Modifier.width(84.dp)) {
+        Column(modifier = Modifier.width(68.dp)) {
             HourHeaderCell(background = headerBg, height = headerHeight)
             var previousDate: java.time.LocalDate? = null
             timestamps.forEachIndexed { idx, ts ->
@@ -212,7 +212,15 @@ fun HourlyForecastTable(
                 // ici on lit une fois par render du tableau, ce qui reste
                 // O(nb_modèles) et cheap (le provider consulte typiquement
                 // une Map pré-calculée dans le ViewModel).
+                //
+                // ─── inBiasMode vs bias != null ────────────────────────────
+                // Voir ForecastTable pour la rationale complète — en résumé :
+                // le vrai signal "mode biais" est la présence du provider,
+                // pas la présence de données pour ce modèle spécifique. Sans
+                // ce découplage, AROME HD (accumulation lente) ne recevait
+                // jamais le CalibratingChip d'attente.
                 val bias = modelBiasProvider?.invoke(model)
+                val inBiasMode = modelBiasProvider != null
                 // Callback stable : capture model + bias explicitement pour
                 // éviter la recréation à chaque recomposition (Compose ne
                 // peut inférer la stabilité d'une lambda qui capture bias?).
@@ -226,7 +234,8 @@ fun HourlyForecastTable(
                         width = cellWidth,
                         height = headerHeight,
                         bias = bias,
-                        onBiasClick = chipClick
+                        onBiasClick = chipClick,
+                        showChipSlot = inBiasMode
                     )
                     timestamps.forEachIndexed { idx, ts ->
                         val value = valueAt(forecast, model, ts, valueExtractor)
@@ -271,7 +280,7 @@ fun HourlyForecastTable(
 private fun HourHeaderCell(background: Color, height: Dp = 40.dp) {
     Box(
         modifier = Modifier
-            .width(84.dp)
+            .width(68.dp)
             .height(height)
             .background(background)
             .padding(4.dp),
@@ -302,7 +311,8 @@ private fun HourModelHeaderCell(
     width: Dp,
     height: Dp = 40.dp,
     bias: com.meteocompare.app.domain.model.ModelBias? = null,
-    onBiasClick: (() -> Unit)? = null
+    onBiasClick: (() -> Unit)? = null,
+    showChipSlot: Boolean = false
 ) {
     Column(
         modifier = Modifier
@@ -326,16 +336,19 @@ private fun HourModelHeaderCell(
             maxLines = 1,
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
         )
-        // Slot chip rendu quand on est en mode "avec biais" (signalé par
-        // onBiasClick != null, qui est fourni SEULEMENT quand un
-        // modelBiasProvider a été passé au tableau et donc que headerHeight
-        // = 60dp). Toujours quelque chose dans le slot pour préserver
-        // l'alignement des noms de modèle entre colonnes. Voir [ModelBiasChip]
-        // docstring pour la sémantique des trois variantes visuelles.
-        if (onBiasClick != null) {
+        // Slot chip rendu quand le parent est en "mode biais" (showChipSlot),
+        // indépendamment de la disponibilité des données pour CE modèle. Trois
+        // variantes possibles au même footprint vertical pour préserver
+        // l'alignement des noms de modèle entre colonnes :
+        //   - calibrating (dashed, non clickable) : < 14 samples pour ce modèle
+        //   - significatif : biais coloré + valeur signée
+        //   - calibré : check neutre + valeur discrète
+        // Le fallback `onBiasClick ?: {}` gère le cas rare où bias est
+        // disponible mais le parent n'a pas fourni de handler de click.
+        if (showChipSlot) {
             when {
                 bias == null -> CalibratingChip()
-                else -> ModelBiasChip(bias = bias, onClick = onBiasClick)
+                else -> ModelBiasChip(bias = bias, onClick = onBiasClick ?: {})
             }
         }
     }
@@ -474,3 +487,18 @@ private fun directionAt(
     if (idx < 0) return null
     return extractor(series.hourly, idx)
 }
+
+// ─── Stylers hourly-spécifiques ────────────────────────────────────────────
+//
+//  Les stylers *texte* hourly (température / précipitation / vent) ont été
+//  déplacés vers [HourlyHeatmap.kt] sous la forme de stylers *heatmap* qui
+//  colorient le fond de la cellule au lieu du texte. Ce refactor a été fait
+//  quand les tableaux hourly sont passés en mode heatmap (bien plus lisible
+//  pour la matrice 24×5 qu'un texte simplement teinté).
+//
+//  Les seuils meteo et la palette n'ont PAS changé — voir
+//  [hourlyTemperatureHeatmap], [hourlyPrecipitationHeatmap] et
+//  [hourlyWindHeatmap]. Si on veut à nouveau un styler texte (ex : pour un
+//  écran daily hourly-like futur), il suffit de wrapper les fonctions heatmap
+//  et de mapper `background` sur `ValueStyle.color`.
+

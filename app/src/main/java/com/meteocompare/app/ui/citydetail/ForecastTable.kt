@@ -142,8 +142,8 @@ fun ForecastTable(
 
     Row(modifier = modifier.fillMaxWidth()) {
         // Colonne figée des dates
-        Column(modifier = Modifier.width(76.dp)) {
-            HeaderCell(text = "", background = headerBg, height = headerHeight, modifier = Modifier.width(76.dp))
+        Column(modifier = Modifier.width(64.dp)) {
+            HeaderCell(text = "", background = headerBg, height = headerHeight, modifier = Modifier.width(64.dp))
             dates.forEachIndexed { idx, date ->
                 DayLabelCell(
                     date = date,
@@ -165,7 +165,19 @@ fun ForecastTable(
                 // Résolution du biais pour ce modèle (identique à la version
                 // hourly). Callback mémorisé sur (model, bias) pour éviter la
                 // recréation à chaque recomposition.
+                //
+                // ─── inBiasMode vs bias != null ────────────────────────────
+                // On ne peut PAS gater l'affichage du chip sur `bias != null`,
+                // sinon un modèle qui n'a pas encore accumulé 14 samples
+                // (typique : AROME HD — horizon 3 jours + délai ERA5 1 jour
+                // → 2 snapshots utiles par fetch au lieu de 6 → collecte
+                // beaucoup plus lente que les modèles globaux) ne recevrait
+                // JAMAIS le CalibratingChip pédagogique, alors qu'il en a
+                // le plus besoin. Le vrai signal "on est en mode biais" est
+                // la présence du `modelBiasProvider`, indépendamment de ce
+                // qu'il renvoie pour un modèle donné.
                 val bias = modelBiasProvider?.invoke(model)
+                val inBiasMode = modelBiasProvider != null
                 val chipClick = if (bias != null && onBiasChipClick != null) {
                     remember(model, bias) { { onBiasChipClick(model, bias) } }
                 } else null
@@ -176,7 +188,8 @@ fun ForecastTable(
                         height = headerHeight,
                         modifier = Modifier.width(cellWidth),
                         bias = bias,
-                        onBiasClick = chipClick
+                        onBiasClick = chipClick,
+                        showChipSlot = inBiasMode
                     )
                     dates.forEachIndexed { idx, date ->
                         val value = valueAt(forecast, model, date, valueExtractor)
@@ -215,7 +228,8 @@ private fun HeaderCell(
     modifier: Modifier = Modifier,
     height: Dp = 40.dp,
     bias: com.meteocompare.app.domain.model.ModelBias? = null,
-    onBiasClick: (() -> Unit)? = null
+    onBiasClick: (() -> Unit)? = null,
+    showChipSlot: Boolean = false
 ) {
     Column(
         modifier = modifier
@@ -235,13 +249,19 @@ private fun HeaderCell(
             maxLines = 1,
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
         )
-        // Slot chip toujours rendu quand on est en mode "avec biais" (signalé
-        // par onBiasClick != null). Les trois variantes ont le même footprint
-        // vertical pour préserver l'alignement des noms de modèle.
-        if (onBiasClick != null) {
+        // Slot chip rendu quand le parent est en "mode biais" (showChipSlot),
+        // indépendamment de la disponibilité des données pour CE modèle. Les
+        // trois variantes (calibrating / significatif / calibré) ont le même
+        // footprint vertical pour préserver l'alignement des noms de modèle
+        // à travers les colonnes.
+        //
+        // Le fallback `onBiasClick ?: {}` gère le cas rare où bias est
+        // disponible mais le parent n'a pas fourni de handler de click — le
+        // chip reste visuel (info affichée) mais non interactif.
+        if (showChipSlot) {
             when {
                 bias == null -> CalibratingChip()
-                else -> ModelBiasChip(bias = bias, onClick = onBiasClick)
+                else -> ModelBiasChip(bias = bias, onClick = onBiasClick ?: {})
             }
         }
     }
