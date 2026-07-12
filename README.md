@@ -8,6 +8,8 @@ Application Android de comparaison multi-modèles météorologiques (AROME, ARPE
 
 L'app se concentre sur **les données brutes et l'incertitude** : au lieu d'agréger silencieusement les modèles en une seule prévision, elle expose les désaccords entre modèles pour que l'utilisateur puisse juger lui-même du niveau de confiance à accorder à la prévision.
 
+Depuis la v1.0, l'app apprend aussi **le biais historique de chaque modèle sur chaque ville favorite** — comparaison quotidienne des prévisions passées à ce qui a réellement été observé (ERA5). Les modèles qui surestiment ou sous-estiment systématiquement sont signalés d'une pastille discrète dans les tableaux, sans jamais modifier la donnée brute.
+
 <p>
   <a href="https://f-droid.org/packages/com.meteocompare.app/">
     <img src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png" alt="Get it on F-Droid" height="60">
@@ -22,6 +24,7 @@ L'app se concentre sur **les données brutes et l'incertitude** : au lieu d'agr�
 - **Comparaison multi-modèles** : jusqu'à 17 modèles météo (Météo-France, DWD, NOAA, ECMWF, UK Met Office, ECCC, MET Norway, KNMI, BOM, CMA, plus le modèle IA d'ECMWF)
 - **Indice de confiance** calculé par variable (température, vent, précipitations) et par heure
 - **Page "Pourquoi cette confiance ?"** — clic sur le badge de confiance ouvre une explication détaillée : qui a prédit quoi, quel écart, pourquoi la résolution du modèle compte
+- **Suivi de biais par modèle et par ville** — chaque modèle est confronté quotidiennement aux observations ERA5 sur ses prévisions passées. Trois pastilles possibles sous chaque nom de modèle : coloré si biais systématique significatif (+1.8° warm / −2.3° cold), coche neutre si le modèle est calibré, dash discret si l'historique n'est pas encore assez profond. Clic sur une pastille ouvre une sheet avec **sparkline 30 jours** croisant prévision et observation, moyenne, écart-type et évaluation qualitative
 - **Bande de confiance horaire multi-métriques** : sélecteur segmenté à 3 états pour basculer entre température, précipitations et vent — la bande se recalcule instantanément (précalcul dans le ViewModel). Graphique min-max autour de la moyenne pondérée qui s'élargit visuellement quand les modèles divergent
 - **Normales climatiques 10 ans en overlay** : traits pointillés qui permettent de repérer d'un coup d'œil un jour anormalement chaud/pluvieux/venteux — max en rouge, min en bleu pour la température, une seule ligne bleue/jaune pour précip/vent
 - **Zoom au pincement** sur l'axe temps (double-tap pour réinitialiser)
@@ -60,15 +63,20 @@ app/src/main/java/com/meteocompare/app/
 │   └── network/     ← ApiResult, NetworkMonitor, error mapping
 ├── data/
 │   ├── remote/      ← Interfaces Retrofit + DTOs + BatchedForecastSplitter
+│   │                  (+ HistoricalForecastApi pour le backfill de biais)
 │   ├── mapper/      ← DTO ↔ domain
-│   ├── local/       ← Room (ForecastCache, ClimateNormals)
+│   ├── local/       ← Room (ForecastCache, ClimateNormals, ForecastSample, ObservationSample)
 │   ├── preferences/ ← DataStore
-│   └── repository/  ← Implémentations
+│   ├── repository/  ← Implémentations (dont le coalescing des fetches concurrents)
+│   └── worker/      ← BiasRefreshWorker + Scheduler (WorkManager, fenêtre 24h)
 ├── domain/
 │   ├── model/       ← Modèles métier (City, ForecastSeries, WeatherModel, ModelFamily,
-│   │                  Coverage, DayNormals, HourlyConfidenceBand, WeatherCondition…)
-│   ├── repository/  ← Interfaces
-│   └── usecase/     ← ConfidenceCalculator, weighting strategies
+│   │                  Coverage, DayNormals, HourlyConfidenceBand, WeatherCondition,
+│   │                  BiasSample, ModelBias, BiasVariable, BiasSignificance…)
+│   ├── repository/  ← Interfaces (dont BiasSampleRepository)
+│   └── usecase/     ← ConfidenceCalculator, ComputeBiasUseCase, SnapshotForecastUseCase,
+│                      FetchBiasObservationsUseCase, BackfillHistoricalForecastUseCase,
+│                      weighting strategies
 ├── ui/
 │   ├── citylist/    ← Liste des villes favorites (accueil)
 │   ├── citydetail/  ← Détail d'une ville : cartes, chart, tableaux
@@ -168,6 +176,30 @@ Un clic sur le badge de confiance (en haut à droite de la carte "Aujourd'hui") 
    - Une phrase d'interprétation qui traduit les chiffres en sens
 3. **Section éducative "Pourquoi les modèles diffèrent ?"** : paragraphe pédagogique sur la résolution + tableau des modèles ayant réellement contribué + astuce AROME HD vs GFS/ECMWF
 
+## Suivi de biais par modèle
+
+L'app évalue en continu la précision de chaque modèle sur chaque ville favorite en croisant :
+
+- **Les prévisions passées** — quotidiennement snapshottées lors des refresh utilisateur (`SnapshotForecastUseCase`), plus un **backfill historical-forecast** au premier lancement qui récupère en un appel HTTP les 30 derniers jours de prévisions par modèle (évite d'attendre 14 jours avant de voir le premier chip)
+- **Les observations** — récupérées quotidiennement depuis l'archive ERA5 d'Open-Meteo par un `BiasRefreshWorker` (WorkManager, fenêtre 24h + flex 6h) et stockées dans Room
+
+Pour chaque paire `(modèle, variable)`, `ComputeBiasUseCase` calcule sur une fenêtre glissante 30 jours :
+- Écart moyen (arithmétique, dédup par date)
+- Écart-type (Bessel n−1)
+- Direction (WARM / COLD / NEUTRAL) et significativité (HIGH / MODERATE / NOT_SIGNIFICANT) basées sur des seuils absolus + ratios par variable
+
+**Trois états visuels** dans le tableau prévisions, footprint vertical identique pour préserver l'alignement des noms de modèle entre colonnes :
+
+| État | Rendu | Sémantique |
+|---|---|---|
+| **Biais significatif** | Chip coloré rouge/bleu + flèche + valeur signée | Le modèle sur/sous-estime — utile de le corriger mentalement |
+| **Calibré** | Chip gris neutre + coche + petite valeur signée | Le modèle est fiable, aucune correction nécessaire |
+| **En attente** | Pastille vide avec dash | < 14 jours de recouvrement, pas assez de données |
+
+Clic sur un chip (les deux premiers états) ouvre une sheet avec **sparkline 30 jours** superposant la prévision et l'observation, une grille de stats et un texte contextuel adapté à l'état. Pour un modèle calibré, le texte de la sheet ne parle plus de "surestimation" (mensonger) mais confirme la calibration — cohérence sémantique de bout en bout.
+
+**Coalescing des fetches** : le `ForecastRepositoryImpl` dédoublonne les requêtes HTTPS concurrentes pour la même `(city, models, forecastDays)` via un registre `Deferred` sur un `SupervisorJob` du repo. Quand CityList, CityDetail et le widget cold-start-refreshent Paris en parallèle, une seule requête part réellement.
+
 ## Widgets homescreen
 
 Widget Glance redimensionnable en 4 tailles :
@@ -212,7 +244,7 @@ Aucune clé API n'est nécessaire — Open-Meteo est gratuit pour usage non comm
 
 Couverture :
 
-- **Unitaires** : `ForecastMapper`, `ForecastRepositoryImpl` (cache + réseau batched), `BatchedForecastSplitter` (multi-modèles, single-modèle, modèles vides, JsonNull), `ConfidenceCalculator` (daily + hourly T/pluie/vent + condition + couverture nuageuse + weighting strategies), `ClimateNormalsRepositoryImpl` (agrégation T/pluie/vent), `WeatherCondition` (mapping WMO + fallback précipitation), `WeatherCellBadges` (règles d'affichage des % sous les icônes), `LastUpdatedFormatter` (paliers "à l'instant" / min / h / j), `DisplayMode` / `ConfidenceMetric` / `ModelSortMode` (Savers pour rememberSaveable), `ModelColors` (couleurs uniques + MVP_SELECTION intégrité), `WeatherModelInvariantsTest` (apiKey/displayName unique, France ⟹ Météo-France, MVP couvre ≥ 2 familles), `ForecastMode.isConfidenceBand` (exhaustivité).
+- **Unitaires** : `ForecastMapper`, `ForecastRepositoryImpl` (cache + réseau batched + coalescing des fetches concurrents), `BatchedForecastSplitter` (multi-modèles, single-modèle, modèles vides, JsonNull), `ConfidenceCalculator` (daily + hourly T/pluie/vent + condition + couverture nuageuse + weighting strategies), `ClimateNormalsRepositoryImpl` (agrégation T/pluie/vent), `ComputeBiasUseCase` (fenêtre glissante, dédup, seuil MIN_SAMPLES, agrégation stats), `SnapshotForecastUseCase` (piggyback sur les fetches réussies), `BackfillHistoricalForecastUseCase` (parsing multi-modèles, idempotence, robustesse aux modèles absents), `ModelBias` (règles de significativité par variable), `sparklinePoints`/`envelopeVertices` (interpolation Y, projection domaine), `WeatherCondition` (mapping WMO + fallback précipitation), `WeatherCellBadges` (règles d'affichage des % sous les icônes), `LastUpdatedFormatter` (paliers "à l'instant" / min / h / j), `DisplayMode` / `ConfidenceMetric` / `ModelSortMode` (Savers pour rememberSaveable), `ModelColors` (couleurs uniques + MVP_SELECTION intégrité), `WeatherModelInvariantsTest` (apiKey/displayName unique, France ⟹ Météo-France, MVP couvre ≥ 2 familles), `ForecastMode.isConfidenceBand` (exhaustivité).
 - **Compose UI** : `CityCardTest`, `CityListContentTest`, `TodaySummaryCardTest`, `ConfidenceBadgeClickTest` — tests isolés sans Hilt.
 - **Intégration Hilt** : `MainActivityNavigationTest` — lance la vraie app, vérifie la DI et la navigation. Démontre le pattern `@UninstallModules` + `@TestInstallIn` pour mocker certaines couches (ex: MockWebServer).
 
@@ -257,10 +289,11 @@ Fait :
 - ✅ v0.7 — Optimisation batterie et CPU pour l'application et widget (WorkManager pour le refresh widget, réduction des recomputes), upgrade de la stack, amélioration des widgets, mise à jour Kotlin 2.x
 - ✅ v0.8 — Batching multi-modèles (1 requête HTTPS au lieu de N), bande de confiance multi-métriques (T° / pluie / vent), normales climatiques 10 ans en overlay, tri des modèles Settings (zone/famille/finesse), ajout HRRR / MET Nordic / KNMI HARMONIE / BOM ACCESS / CMA GRAPES (5 nouveaux modèles), widget 4×2 avec mode bande de confiance, i18n des widgets
 - ✅ v0.9 — Correction des requêtes dupliquées, correction des widgets fantômes, widgets et application partagent le même espace de données, amélioration des widgets, ajout des heatmaps pour les tableaux par heure
+- ✅ v1.0 — Suivi de biais par modèle et par ville : capture quotidienne des prévisions (piggyback sur les refresh utilisateur), fetch delta observations ERA5 via WorkManager, backfill historical-forecast au premier lancement pour éviter d'attendre 14 jours, chip 3 états dans les tableaux (biais significatif / calibré / en attente), sheet dédiée avec sparkline 30j et texte contextuel, coalescing des fetches HTTP concurrents
 
 À venir :
 
-- v1.0 — Bias tracking par localisation
+- v1.1 — Suivi de biais visible dans le widget, densification des tests d'intégration
 
 ## Licence
 

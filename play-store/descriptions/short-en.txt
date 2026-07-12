@@ -1,1 +1,1 @@
-Compare 17 weather models (AROME, ICON, GFS, ECMWF, UKMO, HRRR, MET Nordic…) at a glance.
+Compare 17 weather models (AROME, GFS, ECMWF…) and track their bias by city.

@@ -41,6 +41,19 @@ Weighting favors high-resolution models in their coverage zone (AROME in France,
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+PER-MODEL BIAS TRACKING
+
+Every day, the app compares each model's past forecasts against actual observations (ERA5), for each of your favorite cities. Under each model name in the tables, a discreet pill tells you what you need to know:
+
+• Red pill "+1.8°" — the model systematically overestimates temperature by 1.8° on average over 30 days
+• Blue pill "−2.3 mm" — the model underestimates precipitation
+• Neutral checkmark — the model is calibrated here, no mental correction needed
+• Empty pill — not enough history yet (< 14 days of overlap)
+
+Tap a pill to open a sheet with a 30-day chart overlaying forecast and observation, mean bias, standard deviation and a plain-language summary. The forecast data itself is never modified — only the context is enriched so you can interpret forecasts more accurately.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 VISUALIZATIONS
 
 • Hourly confidence band over 7 days — pinch-zoom with 2 fingers (double-tap to reset)

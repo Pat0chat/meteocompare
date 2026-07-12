@@ -1,1 +1,1 @@
-Comparez 17 modèles météo (AROME, ICON, GFS, ECMWF, UKMO, HRRR, MET Nordic…) en un coup d'œil.
+Comparez 17 modèles météo (AROME, GFS, ECMWF…) et suivez leurs biais par ville.

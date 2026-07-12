@@ -41,6 +41,19 @@ La pondération privilégie les modèles haute-résolution sur leur zone (AROME 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+SUIVI DE BIAIS PAR MODÈLE
+
+L'app confronte chaque jour les prévisions passées de chaque modèle aux observations réelles (ERA5), sur chacune de vos villes favorites. Sous chaque nom de modèle dans les tableaux, une pastille discrète vous dit ce qu'il faut savoir :
+
+• Pastille rouge « +1.8° » — le modèle surestime systématiquement la température de 1.8° en moyenne sur 30 jours
+• Pastille bleue « −2.3 mm » — le modèle sous-estime les précipitations
+• Coche neutre — le modèle est calibré à cet endroit, pas de correction à faire
+• Pastille vide — pas encore assez d'historique (< 14 jours de recouvrement)
+
+Un clic sur une pastille ouvre une sheet avec un graphique 30 jours superposant prévision et observation, l'écart moyen, l'écart-type et un texte de synthèse. Les données ne sont jamais modifiées — seul le contexte est enrichi pour que vous puissiez interpréter les prévisions plus justement.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 VISUALISATIONS
 
 • Bande de confiance horaire sur 7 jours — zoomable par pincement à 2 doigts (double-tap pour réinitialiser)
