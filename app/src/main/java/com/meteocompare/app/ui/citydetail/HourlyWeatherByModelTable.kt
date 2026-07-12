@@ -18,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
@@ -82,26 +83,61 @@ fun HourlyWeatherByModelTable(
     // garder l'accès dans les cellules trivial.
     val cellsByTimestamp: Map<Instant, Map<WeatherModel, HourCellData>> =
         remember(forecast, timestamps) {
+            // Pré-calcul : médiane inter-modèles de cloud_cover par timestamp.
+            // Utilisé comme 3e fallback dans la boucle ci-dessous — dérive
+            // une condition sans-précip quand un modèle n'expose ni
+            // weather_code ni précip exploitable (AROME HD sur heure sèche).
+            //
+            // Médiane robuste aux outliers vs moyenne — pertinent quand
+            // 5+ modèles contribuent.
+            val medianCloudByTs: Map<Instant, Double> = buildMap {
+                for (ts in timestamps) {
+                    val values = forecast.seriesByModel.mapNotNull { (_, series) ->
+                        val i = series.hourly.timestamps.indexOf(ts)
+                        if (i < 0) null else series.hourly.cloudCover.getOrNull(i)
+                    }
+                    if (values.isNotEmpty()) {
+                        val sorted = values.sorted()
+                        val median = if (sorted.size % 2 == 1) {
+                            sorted[sorted.size / 2].toDouble()
+                        } else {
+                            (sorted[sorted.size / 2 - 1] + sorted[sorted.size / 2]) / 2.0
+                        }
+                        put(ts, median)
+                    }
+                }
+            }
+
             timestamps.associateWith { ts ->
                 forecast.seriesByModel.mapNotNull { (model, series) ->
                     val idx = series.hourly.timestamps.indexOf(ts)
                     if (idx < 0) return@mapNotNull null
                     val code = series.hourly.weatherCode.getOrNull(idx)
-                    // Même logique qu'en daily : priorité au weather_code natif,
-                    // fallback empirique via précipitation si absent (AROME HD
-                    // notamment n'expose pas weather_code).
-                    val condition = WeatherCondition.fromWmoCode(code)
+                    // Même logique qu'en daily : (1) weather_code natif,
+                    // (2) fallback empirique via précipitation, (3) fallback
+                    // ultime peer-consensus cloud_cover — signalé par
+                    // isInferred=true pour que l'UI affiche un marqueur.
+                    var isInferred = false
+                    var condition = WeatherCondition.fromWmoCode(code)
                         ?: WeatherCondition.inferFromPrecipAndTemp(
                             precipMm = series.hourly.precipitation.getOrNull(idx),
                             tempMinC = series.hourly.temperature2m.getOrNull(idx)
                         )
-                        ?: return@mapNotNull null
+                    if (condition == null) {
+                        val medianCloud = medianCloudByTs[ts]
+                        if (medianCloud != null) {
+                            condition = WeatherCondition.fromCloudCover(medianCloud)
+                            isInferred = true
+                        }
+                    }
+                    if (condition == null) return@mapNotNull null
                     val precipProb = series.hourly.precipitationProbability.getOrNull(idx)
                     val cloudCover = series.hourly.cloudCover.getOrNull(idx)
                     model to HourCellData(
                         condition = condition,
                         precipProbability = precipProb,
-                        cloudCover = cloudCover
+                        cloudCover = cloudCover,
+                        isInferred = isInferred
                     )
                 }.toMap()
             }
@@ -169,7 +205,7 @@ fun HourlyWeatherByModelTable(
         // a beaucoup de lignes (jusqu'à 24) et il faut ménager le scroll.
         Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
             models.forEach { model ->
-                Column(modifier = Modifier.width(74.dp)) {
+                Column(modifier = Modifier.width(60.dp)) {
                     ModelHeaderCell(text = model.displayName, background = headerBg)
                     timestamps.forEachIndexed { idx, ts ->
                         HourIconCell(
@@ -199,7 +235,7 @@ private fun HourHeaderCellBlank(background: Color) {
 private fun ModelHeaderCell(text: String, background: Color) {
     Box(
         modifier = Modifier
-            .width(74.dp)
+            .width(60.dp)
             .height(40.dp)
             .background(background)
             .padding(4.dp),
@@ -270,7 +306,15 @@ private fun HourLabelCellWeather(
 private data class HourCellData(
     val condition: WeatherCondition,
     val precipProbability: Int?,
-    val cloudCover: Int?
+    val cloudCover: Int?,
+    /**
+     * `true` si la [condition] provient du 3e fallback (médiane peer-consensus
+     * de cloud_cover), et pas de la prédiction propre du modèle. L'UI utilise
+     * ce flag pour appliquer un alpha réduit — voir [HourIconCell].
+     * Défaut à false : les paths (1) weather_code natif et (2) fallback
+     * précipitation restent des prédictions propres du modèle.
+     */
+    val isInferred: Boolean = false
 )
 
 @Composable
@@ -292,7 +336,12 @@ private fun HourIconCell(cell: HourCellData?, background: Color) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         } else {
+            // Marqueur visuel d'inférence : alpha réduit sur le contenu quand
+            // la condition vient de la médiane des peers (pas la prédiction
+            // propre du modèle). Voir [HourCellData.isInferred].
+            val contentModifier = if (cell.isInferred) Modifier.alpha(0.45f) else Modifier
             Column(
+                modifier = contentModifier,
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {

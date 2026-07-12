@@ -315,6 +315,131 @@ class WeatherConditionTest {
         assertEquals(WeatherCondition.RAIN, rows[0].byModel[WeatherModel.GFS])
     }
 
+    // ─── fromCloudCover — dernier fallback peer-consensus ───────────────────
+
+    @Test
+    fun `fromCloudCover renvoie CLEAR sous 6,25 pourcent`() {
+        assertEquals(WeatherCondition.CLEAR, WeatherCondition.fromCloudCover(0.0))
+        assertEquals(WeatherCondition.CLEAR, WeatherCondition.fromCloudCover(6.24))
+    }
+
+    @Test
+    fun `fromCloudCover renvoie MAINLY_CLEAR entre 6,25 et 31,25 pourcent`() {
+        // Borne inférieure : 6.25% pile bascule sur MAINLY_CLEAR (WMO 1)
+        assertEquals(WeatherCondition.MAINLY_CLEAR, WeatherCondition.fromCloudCover(6.25))
+        assertEquals(WeatherCondition.MAINLY_CLEAR, WeatherCondition.fromCloudCover(20.0))
+        assertEquals(WeatherCondition.MAINLY_CLEAR, WeatherCondition.fromCloudCover(31.24))
+    }
+
+    @Test
+    fun `fromCloudCover renvoie PARTLY_CLOUDY entre 31,25 et 81,25 pourcent`() {
+        // Bande la plus large (~50 points) — représente le cas typique où
+        // 5 modèles peers convergent autour d'un ciel "moyen".
+        assertEquals(WeatherCondition.PARTLY_CLOUDY, WeatherCondition.fromCloudCover(31.25))
+        assertEquals(WeatherCondition.PARTLY_CLOUDY, WeatherCondition.fromCloudCover(50.0))
+        assertEquals(WeatherCondition.PARTLY_CLOUDY, WeatherCondition.fromCloudCover(81.24))
+    }
+
+    @Test
+    fun `fromCloudCover renvoie OVERCAST au-dessus de 81,25 pourcent`() {
+        assertEquals(WeatherCondition.OVERCAST, WeatherCondition.fromCloudCover(81.25))
+        assertEquals(WeatherCondition.OVERCAST, WeatherCondition.fromCloudCover(95.0))
+        assertEquals(WeatherCondition.OVERCAST, WeatherCondition.fromCloudCover(100.0))
+    }
+
+    @Test
+    fun `dailyConditionsByModel infère AROME HD sur jour sec depuis le consensus peer cloud_cover`() {
+        // Scénario réel : AROME HD sur un jour SEC (précip = 0), sans
+        // weather_code. Les deux premiers fallbacks échouent — le 3e
+        // (médiane peer-consensus) doit prendre le relais et marquer la
+        // cellule comme inférée.
+        val today = LocalDate.of(2026, 6, 30)
+        val startOfDay = today.atStartOfDay(java.time.ZoneOffset.UTC).toInstant()
+        // 3 heures diurnes avec cloud_cover ~ 60% chacune (fenêtre PARTLY_CLOUDY,
+        // largement > 31.25% pour ne pas être MAINLY_CLEAR).
+        val hourlyTs = listOf(
+            startOfDay.plusSeconds(9 * 3600),
+            startOfDay.plusSeconds(13 * 3600),
+            startOfDay.plusSeconds(17 * 3600)
+        )
+        val aromeHd = ForecastSeries(
+            model = WeatherModel.AROME_FRANCE_HD,
+            hourly = emptyHourly(),
+            daily = DailyForecast(
+                dates = listOf(today),
+                tempMax = listOf(22.0),
+                tempMin = listOf(14.0),
+                precipitationSum = listOf(0.0), // sec
+                windSpeedMax = listOf(10.0),
+                weatherCode = emptyList() // AROME HD n'expose pas
+            )
+        )
+        val gfs = ForecastSeries(
+            model = WeatherModel.GFS,
+            hourly = HourlyForecast(
+                timestamps = hourlyTs,
+                temperature2m = listOf(18.0, 22.0, 20.0),
+                precipitation = listOf(0.0, 0.0, 0.0),
+                windSpeed10m = listOf(5.0, 5.0, 5.0),
+                cloudCover = listOf(60, 60, 60)
+            ),
+            daily = DailyForecast(
+                dates = listOf(today),
+                tempMax = listOf(22.0),
+                tempMin = listOf(14.0),
+                precipitationSum = listOf(0.0),
+                windSpeedMax = listOf(10.0),
+                weatherCode = listOf(2) // partly cloudy explicite pour GFS
+            )
+        )
+        val forecast = CityForecast(
+            paris,
+            mapOf(WeatherModel.AROME_FRANCE_HD to aromeHd, WeatherModel.GFS to gfs)
+        )
+
+        val rows = calculator.dailyConditionsByModel(forecast)
+        assertEquals(1, rows.size)
+        val row = rows[0]
+        // AROME HD : infére depuis la médiane peer (GFS seul contribue 60%) → PARTLY_CLOUDY
+        assertEquals(WeatherCondition.PARTLY_CLOUDY, row.byModel[WeatherModel.AROME_FRANCE_HD])
+        // GFS : condition depuis son propre weather_code, PAS inférée
+        assertEquals(WeatherCondition.PARTLY_CLOUDY, row.byModel[WeatherModel.GFS])
+        // Marquage inférence : SEUL AROME HD doit être marqué
+        assertTrue(
+            "AROME HD doit être dans inferredByModel",
+            WeatherModel.AROME_FRANCE_HD in row.inferredByModel
+        )
+        assertTrue(
+            "GFS ne doit PAS être dans inferredByModel (sa condition vient de son propre code)",
+            WeatherModel.GFS !in row.inferredByModel
+        )
+    }
+
+    @Test
+    fun `dailyConditionsByModel n'infère PAS quand aucun peer n'a de cloud_cover`() {
+        // Cas dégénéré : AROME HD seul sans weather_code sur jour sec.
+        // Le 3e fallback n'a rien à consulter → la cellule reste absente
+        // (comportement existant préservé, on n'INVENTE rien).
+        val today = LocalDate.of(2026, 6, 30)
+        val aromeHd = ForecastSeries(
+            model = WeatherModel.AROME_FRANCE_HD,
+            hourly = emptyHourly(),
+            daily = DailyForecast(
+                dates = listOf(today),
+                tempMax = listOf(22.0),
+                tempMin = listOf(14.0),
+                precipitationSum = listOf(0.0),
+                windSpeedMax = listOf(10.0),
+                weatherCode = emptyList()
+            )
+        )
+        val forecast = CityForecast(paris, mapOf(WeatherModel.AROME_FRANCE_HD to aromeHd))
+
+        val rows = calculator.dailyConditionsByModel(forecast)
+        // Ligne vide → filtrée par le .filter { it.byModel.isNotEmpty() } final
+        assertTrue("Sans peer, rien à inférer : ligne skippée", rows.isEmpty())
+    }
+
     // ─── Helpers ─────────────────────────────────────────────────────────────
 
     private fun emptyHourly() = HourlyForecast(

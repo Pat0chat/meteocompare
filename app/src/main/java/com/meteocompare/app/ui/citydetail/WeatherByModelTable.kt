@@ -20,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
@@ -109,16 +110,17 @@ fun WeatherByModelTable(
         // Partie scrollable : une colonne par modèle
         Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
             modelOrder.forEach { model ->
-                Column(modifier = Modifier.width(74.dp)) {
+                Column(modifier = Modifier.width(64.dp)) {
                     HeaderCell(
                         text = model.displayName,
                         background = headerBg,
-                        modifier = Modifier.width(74.dp)
+                        modifier = Modifier.width(64.dp)
                     )
                     rows.forEachIndexed { idx, row ->
                         IconCell(
                             condition = row.byModel[model],
                             extras = row.extrasByModel[model],
+                            isInferred = model in row.inferredByModel,
                             background = bgFor(idx, row.date)
                         )
                     }
@@ -197,6 +199,7 @@ private fun DayLabelCell(text: String, background: Color, isToday: Boolean = fal
 private fun IconCell(
     condition: WeatherCondition?,
     extras: DayCellExtras?,
+    isInferred: Boolean,
     background: Color
 ) {
     Box(
@@ -214,7 +217,14 @@ private fun IconCell(
             Text("—", style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
+            // Marqueur visuel d'inférence : alpha réduit sur le contenu pour
+            // signaler que cette condition vient de la médiane des peers et
+            // pas de la prédiction propre du modèle. Non-invasif visuellement
+            // — l'icône reste lisible et colorée — mais suffisant pour qu'un
+            // utilisateur qui compare les cellules perçoive le différentiel.
+            val contentModifier = if (isInferred) Modifier.alpha(0.45f) else Modifier
             Column(
+                modifier = contentModifier,
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {

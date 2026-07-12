@@ -93,5 +93,52 @@ enum class WeatherCondition {
                 else -> null
             }
         }
+
+        /**
+         * Fallback ULTIME : dérive une famille "ciel non pluvieux" depuis un
+         * pourcentage de couverture nuageuse.
+         *
+         * Utilisé UNIQUEMENT en dernier recours quand un modèle n'expose ni
+         * weather_code ni précipitation exploitable, à partir de la MÉDIANE
+         * des cloud_cover des modèles PEERS à ce (jour, lieu). Cas typique :
+         * AROME HD sur un jour sec — sa colonne restait "—" faute de moyen
+         * de dériver l'état du ciel. Voir
+         * [com.meteocompare.app.domain.usecase.ConfidenceCalculator.dailyConditionsByModel].
+         *
+         * ## Signalement à l'utilisateur
+         *
+         * Le caller DOIT signaler visuellement à l'utilisateur qu'une condition
+         * a été inférée depuis les peers (pas la prédiction propre du modèle) —
+         * typiquement via `Modifier.alpha(0.55f)` sur la cellule. Sans ce
+         * marqueur on trahirait la philosophie "on annote, on ne modifie
+         * jamais la donnée brute".
+         *
+         * ## Ne renvoie QUE 4 valeurs
+         *
+         * Les 4 familles "ciel non pluvieux" mappées sur les codes WMO 0-3 :
+         *   - < 6.25%   → CLEAR         (WMO 0 : 0/8 du ciel couvert)
+         *   - < 31.25%  → MAINLY_CLEAR  (WMO 1 : 1/8 à 2/8)
+         *   - < 81.25%  → PARTLY_CLOUDY (WMO 2 : 3/8 à 6/8)
+         *   - sinon     → OVERCAST      (WMO 3 : 7/8 à 8/8)
+         *
+         * Seuils positionnés aux MIDPOINTS entre les octas WMO (6.25 = 1/16,
+         * milieu entre 0/8 et 2/8), pas au bord des intervalles — un ciel à
+         * 30% est plus proche de "clair majoritaire" (WMO 1) que de
+         * "partiellement nuageux" (WMO 2 débute à 37.5%).
+         *
+         * ## Pas de RAIN / FOG / THUNDERSTORM
+         *
+         * Ces conditions demandent d'autres variables (précipitation,
+         * humidité, potentiel convectif) qu'on ne sait pas dériver de la
+         * seule couverture nuageuse. Utiliser cette méthode pour un cas
+         * non-pluvieux uniquement (le caller garantit ça — précip a déjà
+         * été essayée avant).
+         */
+        fun fromCloudCover(cloudCoverPct: Double): WeatherCondition = when {
+            cloudCoverPct < 6.25  -> CLEAR
+            cloudCoverPct < 31.25 -> MAINLY_CLEAR
+            cloudCoverPct < 81.25 -> PARTLY_CLOUDY
+            else                  -> OVERCAST
+        }
     }
 }

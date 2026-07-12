@@ -272,34 +272,72 @@ class ConfidenceCalculator @Inject constructor(
             .flatMap { it.daily.dates }
             .distinct()
             .sorted()
+
+        // Pré-calcul : médiane inter-modèles de cloud_cover_mean par date.
+        // Utilisé plus bas comme 3e fallback (ultime) pour dériver une
+        // condition sans-précipitation quand un modèle n'expose ni
+        // weather_code ni précip exploitable — cas AROME HD sur jour sec.
+        //
+        // Choix de la MÉDIANE (pas moyenne) : robuste aux outliers d'un
+        // modèle isolé qui verrait le ciel très différemment des autres.
+        // Sur 5+ modèles européens standards à ce niveau d'accord habituel,
+        // la médiane approche de très près la moyenne.
+        val medianCloudByDate: Map<java.time.LocalDate, Double> = buildMap {
+            for (date in allDates) {
+                val values = forecast.seriesByModel.mapNotNull { (_, series) ->
+                    if (series.daily.dates.indexOf(date) < 0) null
+                    else computeDailyCloudCoverMean(series, date, zone)
+                }
+                if (values.isNotEmpty()) {
+                    val sorted = values.sorted()
+                    val median = if (sorted.size % 2 == 1) {
+                        sorted[sorted.size / 2].toDouble()
+                    } else {
+                        (sorted[sorted.size / 2 - 1] + sorted[sorted.size / 2]) / 2.0
+                    }
+                    put(date, median)
+                }
+            }
+        }
+
         return allDates.map { date ->
             val byModel = mutableMapOf<WeatherModel, WeatherCondition>()
             val extrasByModel = mutableMapOf<WeatherModel, DayCellExtras>()
+            val inferredModels = mutableSetOf<WeatherModel>()
 
             forecast.seriesByModel.forEach { (model, series) ->
                 val idx = series.daily.dates.indexOf(date)
                 if (idx < 0) return@forEach
                 // Priorité au weather_code — sémantique la plus précise.
                 // Fallback précipitation-based pour les modèles sans code
-                // (AROME HD notamment) : mieux vaut une famille inférée pour
-                // les jours pluvieux que rien du tout — les jours secs restent
-                // en "—" plutôt que d'inventer clair vs couvert sans donnée.
+                // (AROME HD notamment).
+                //
+                // 3e fallback (nouveau) : médiane des cloud_cover des peers.
+                // Kick in uniquement quand les deux premiers ont échoué —
+                // typiquement AROME HD sur jour sec. Ce n'est PLUS la
+                // prédiction propre du modèle, donc on l'enregistre dans
+                // `inferredModels` pour que l'UI puisse le signaler (alpha
+                // réduit sur la cellule).
                 val code = series.daily.weatherCode.getOrNull(idx)
-                val condition = WeatherCondition.fromWmoCode(code)
+                var condition = WeatherCondition.fromWmoCode(code)
                     ?: WeatherCondition.inferFromPrecipAndTemp(
                         precipMm = series.daily.precipitationSum.getOrNull(idx),
                         tempMinC = series.daily.tempMin.getOrNull(idx)
                     )
-                    ?: return@forEach
+                if (condition == null) {
+                    val medianCloud = medianCloudByDate[date]
+                    if (medianCloud != null) {
+                        condition = WeatherCondition.fromCloudCover(medianCloud)
+                        inferredModels += model
+                    }
+                }
+                if (condition == null) return@forEach
                 byModel[model] = condition
 
                 // ─── Extras : probabilité de pluie max + couverture nuageuse ──
-                // Ces valeurs sont OPTIONNELLES (nullables) — un modèle sans
-                // la variable renverra simplement null, l'UI omettra le badge.
-                // La probabilité vient directement de l'API (précomputed max
-                // journalier), la couverture nuageuse est agrégée depuis
-                // l'horaire — Open-Meteo ne fournit pas de cloud_cover_mean
-                // en daily.
+                // Inchangé. Notamment, on n'ajoute PAS medianCloud dans les
+                // extras — ce serait mensonger (ça n'est pas la couverture
+                // nuageuse de CE modèle mais des peers).
                 val precipProb = series.daily.precipitationProbabilityMax.getOrNull(idx)
                 val cloudMean = computeDailyCloudCoverMean(series, date, zone)
                 if (precipProb != null || cloudMean != null) {
@@ -313,7 +351,8 @@ class ConfidenceCalculator @Inject constructor(
             DayConditionsRow(
                 date = date,
                 byModel = byModel,
-                extrasByModel = extrasByModel
+                extrasByModel = extrasByModel,
+                inferredByModel = inferredModels
             )
         }.filter { it.byModel.isNotEmpty() }
         // Skip les jours sans aucun code disponible — ça arrive avec un cache
@@ -669,7 +708,21 @@ data class DayConditionsRow(
      * extras). Un modèle peut être dans `byModel` sans être dans `extrasByModel`
      * si ces variables ne sont pas fournies (cache pré-feature notamment).
      */
-    val extrasByModel: Map<WeatherModel, DayCellExtras> = emptyMap()
+    val extrasByModel: Map<WeatherModel, DayCellExtras> = emptyMap(),
+
+    /**
+     * Modèles dont la condition affichée provient de l'INFÉRENCE peer-consensus
+     * (médiane des cloud_cover des autres modèles), et pas de leur propre
+     * prédiction. Cas typique : AROME HD sur un jour sec, où la seule variable
+     * "sky" qu'on peut lui attribuer vient du consensus des peers.
+     *
+     * L'UI DOIT signaler visuellement ces cellules (typiquement alpha réduit)
+     * pour rester honnête avec l'utilisateur — cohérent avec la philosophie
+     * "on annote, on ne modifie jamais la donnée brute d'un modèle".
+     *
+     * Défaut vide pour rétro-compat des tests + du cache pré-feature.
+     */
+    val inferredByModel: Set<WeatherModel> = emptySet()
 )
 
 /**
