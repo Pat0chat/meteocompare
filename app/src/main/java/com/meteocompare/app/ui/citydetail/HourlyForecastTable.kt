@@ -94,7 +94,11 @@ fun HourlyForecastTable(
     // Passer non-null active un header plus haut (60dp au lieu de 40dp) pour
     // loger le chip, uniforme sur toutes les colonnes du tableau.
     modelBiasProvider: ((com.meteocompare.app.domain.model.WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
-    onBiasChipClick: ((com.meteocompare.app.domain.model.WeatherModel, com.meteocompare.app.domain.model.ModelBias) -> Unit)? = null
+    onBiasChipClick: ((com.meteocompare.app.domain.model.WeatherModel, com.meteocompare.app.domain.model.ModelBias) -> Unit)? = null,
+    // Voir ForecastTable pour la sémantique — provider optionnel du nombre
+    // de samples déjà collectés, alimente la progression "N/14" du chip
+    // calibrating (via VariableBiasState.historyByModel[model].size).
+    sampleCountProvider: ((com.meteocompare.app.domain.model.WeatherModel) -> Int)? = null
 ) {
     // Fuseau de la ville — sert au filtrage de l'horizon ET au formatage des
     // labels d'heure. Fallback UTC silencieux si timezone invalide, pour ne
@@ -221,6 +225,7 @@ fun HourlyForecastTable(
                 // jamais le CalibratingChip d'attente.
                 val bias = modelBiasProvider?.invoke(model)
                 val inBiasMode = modelBiasProvider != null
+                val sampleCount = sampleCountProvider?.invoke(model)
                 // Callback stable : capture model + bias explicitement pour
                 // éviter la recréation à chaque recomposition (Compose ne
                 // peut inférer la stabilité d'une lambda qui capture bias?).
@@ -235,7 +240,8 @@ fun HourlyForecastTable(
                         height = headerHeight,
                         bias = bias,
                         onBiasClick = chipClick,
-                        showChipSlot = inBiasMode
+                        showChipSlot = inBiasMode,
+                        sampleCount = sampleCount
                     )
                     timestamps.forEachIndexed { idx, ts ->
                         val value = valueAt(forecast, model, ts, valueExtractor)
@@ -312,7 +318,8 @@ private fun HourModelHeaderCell(
     height: Dp = 40.dp,
     bias: com.meteocompare.app.domain.model.ModelBias? = null,
     onBiasClick: (() -> Unit)? = null,
-    showChipSlot: Boolean = false
+    showChipSlot: Boolean = false,
+    sampleCount: Int? = null
 ) {
     Column(
         modifier = Modifier
@@ -336,18 +343,13 @@ private fun HourModelHeaderCell(
             maxLines = 1,
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
         )
-        // Slot chip rendu quand le parent est en "mode biais" (showChipSlot),
-        // indépendamment de la disponibilité des données pour CE modèle. Trois
-        // variantes possibles au même footprint vertical pour préserver
-        // l'alignement des noms de modèle entre colonnes :
-        //   - calibrating (dashed, non clickable) : < 14 samples pour ce modèle
-        //   - significatif : biais coloré + valeur signée
-        //   - calibré : check neutre + valeur discrète
-        // Le fallback `onBiasClick ?: {}` gère le cas rare où bias est
-        // disponible mais le parent n'a pas fourni de handler de click.
+        // Voir ForecastTable.HeaderCell pour la rationale — showChipSlot est
+        // le signal "mode biais actif" (indépendant de la présence de data),
+        // sampleCount alimente l'affichage de progression "N/14" du chip
+        // calibrating (nettement plus lisible que "—").
         if (showChipSlot) {
             when {
-                bias == null -> CalibratingChip()
+                bias == null -> CalibratingChip(sampleCount = sampleCount)
                 else -> ModelBiasChip(bias = bias, onClick = onBiasClick ?: {})
             }
         }

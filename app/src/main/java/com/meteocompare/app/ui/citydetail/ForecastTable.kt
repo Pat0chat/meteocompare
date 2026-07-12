@@ -92,7 +92,15 @@ fun ForecastTable(
     // Passer non-null active un header plus haut (60dp au lieu de 40dp) pour
     // loger le chip, uniforme sur toutes les colonnes du tableau.
     modelBiasProvider: ((WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
-    onBiasChipClick: ((WeatherModel, com.meteocompare.app.domain.model.ModelBias) -> Unit)? = null
+    onBiasChipClick: ((WeatherModel, com.meteocompare.app.domain.model.ModelBias) -> Unit)? = null,
+    // Provider optionnel du nombre de samples déjà collectés par modèle. Sert
+    // uniquement à alimenter la progression "N/14" affichée dans le
+    // CalibratingChip quand ce modèle n'a pas encore assez de données. Retour
+    // 0 (ou provider null) → chip retombe sur le "—" historique. Le count est
+    // typiquement dérivé de `VariableBiasState.historyByModel[model]?.size`
+    // par le parent — déjà dédupliqué par date, donc la valeur reflète bien
+    // le nombre de jours effectivement observés.
+    sampleCountProvider: ((WeatherModel) -> Int)? = null
 ) {
     // Toutes les dates couvertes par au moins un modèle, triées
     val dates = remember(forecast) {
@@ -178,6 +186,7 @@ fun ForecastTable(
                 // qu'il renvoie pour un modèle donné.
                 val bias = modelBiasProvider?.invoke(model)
                 val inBiasMode = modelBiasProvider != null
+                val sampleCount = sampleCountProvider?.invoke(model)
                 val chipClick = if (bias != null && onBiasChipClick != null) {
                     remember(model, bias) { { onBiasChipClick(model, bias) } }
                 } else null
@@ -189,7 +198,8 @@ fun ForecastTable(
                         modifier = Modifier.width(cellWidth),
                         bias = bias,
                         onBiasClick = chipClick,
-                        showChipSlot = inBiasMode
+                        showChipSlot = inBiasMode,
+                        sampleCount = sampleCount
                     )
                     dates.forEachIndexed { idx, date ->
                         val value = valueAt(forecast, model, date, valueExtractor)
@@ -229,7 +239,8 @@ private fun HeaderCell(
     height: Dp = 40.dp,
     bias: com.meteocompare.app.domain.model.ModelBias? = null,
     onBiasClick: (() -> Unit)? = null,
-    showChipSlot: Boolean = false
+    showChipSlot: Boolean = false,
+    sampleCount: Int? = null
 ) {
     Column(
         modifier = modifier
@@ -255,12 +266,17 @@ private fun HeaderCell(
         // footprint vertical pour préserver l'alignement des noms de modèle
         // à travers les colonnes.
         //
+        // sampleCount est passé au CalibratingChip pour afficher la progression
+        // "N/14" au lieu du "—" laconique — nettement plus lisible pour comprendre
+        // combien de jours d'observation il reste avant que le biais devienne
+        // disponible. Si null, le chip retombe sur le comportement historique.
+        //
         // Le fallback `onBiasClick ?: {}` gère le cas rare où bias est
         // disponible mais le parent n'a pas fourni de handler de click — le
         // chip reste visuel (info affichée) mais non interactif.
         if (showChipSlot) {
             when {
-                bias == null -> CalibratingChip()
+                bias == null -> CalibratingChip(sampleCount = sampleCount)
                 else -> ModelBiasChip(bias = bias, onClick = onBiasClick ?: {})
             }
         }

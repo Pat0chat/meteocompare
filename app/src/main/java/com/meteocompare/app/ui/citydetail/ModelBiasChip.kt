@@ -148,9 +148,29 @@ internal fun ModelBiasChip(
  */
 @Composable
 internal fun CalibratingChip(
+    sampleCount: Int? = null,
     modifier: Modifier = Modifier
 ) {
-    val a11y = stringResource(R.string.bias_chip_calibrating_content_description)
+    // Affichage progressif quand on connaît le nombre d'échantillons déjà
+    // collectés — "8/14" est nettement plus parlant qu'un "—" laconique.
+    // Deux conditions pour afficher la progression :
+    //   1. Le count doit être fourni (data flow depuis historyByModel via
+    //      le sampleCountProvider des tableaux).
+    //   2. Il doit être strictement positif — un "0/14" côtoie le "—" en
+    //      utilité mais rajoute du bruit visuel.
+    // Sinon on retombe sur le "—" historique, comportement backward-compat
+    // pour tout appelant qui ne fournirait pas le count (tests, futurs
+    // usages hors du pipeline standard).
+    val showProgress = sampleCount != null && sampleCount > 0
+    val a11y = if (showProgress) {
+        stringResource(
+            R.string.bias_chip_calibrating_progress_a11y,
+            sampleCount!!,
+            com.meteocompare.app.domain.model.ModelBias.MIN_SAMPLES_FOR_BIAS
+        )
+    } else {
+        stringResource(R.string.bias_chip_calibrating_content_description)
+    }
     Row(
         modifier = modifier
             .height(22.dp)
@@ -163,7 +183,11 @@ internal fun CalibratingChip(
         horizontalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "—",
+            text = if (showProgress) {
+                "$sampleCount/${com.meteocompare.app.domain.model.ModelBias.MIN_SAMPLES_FOR_BIAS}"
+            } else {
+                "—"
+            },
             color = CalibratingPalette.foreground,
             style = MaterialTheme.typography.labelSmall,
             fontFamily = FontFamily.Monospace,

@@ -66,7 +66,9 @@ fun MinMaxForecastTable(
     modifier: Modifier = Modifier,
     // ── Suivi de biais (Phase 1 UI) — même API que ForecastTable ──
     modelBiasProvider: ((com.meteocompare.app.domain.model.WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
-    onBiasChipClick: ((com.meteocompare.app.domain.model.WeatherModel, com.meteocompare.app.domain.model.ModelBias) -> Unit)? = null
+    onBiasChipClick: ((com.meteocompare.app.domain.model.WeatherModel, com.meteocompare.app.domain.model.ModelBias) -> Unit)? = null,
+    // Voir ForecastTable — alimente la progression "N/14" du chip calibrating.
+    sampleCountProvider: ((com.meteocompare.app.domain.model.WeatherModel) -> Int)? = null
 ) {
     val dates = remember(forecast) {
         forecast.seriesByModel.values
@@ -133,6 +135,7 @@ fun MinMaxForecastTable(
                     // jamais le CalibratingChip d'attente.
                     val bias = modelBiasProvider?.invoke(model)
                     val inBiasMode = modelBiasProvider != null
+                    val sampleCount = sampleCountProvider?.invoke(model)
                     val chipClick = if (bias != null && onBiasChipClick != null) {
                         remember(model, bias) { { onBiasChipClick(model, bias) } }
                     } else null
@@ -144,7 +147,8 @@ fun MinMaxForecastTable(
                             height = headerHeight,
                             bias = bias,
                             onBiasClick = chipClick,
-                            showChipSlot = inBiasMode
+                            showChipSlot = inBiasMode,
+                            sampleCount = sampleCount
                         )
                         dates.forEachIndexed { idx, date ->
                             val (maxV, minV) = maxMinAt(forecast, model, date)
@@ -222,7 +226,8 @@ private fun HeaderCellMM(
     height: androidx.compose.ui.unit.Dp = 40.dp,
     bias: com.meteocompare.app.domain.model.ModelBias? = null,
     onBiasClick: (() -> Unit)? = null,
-    showChipSlot: Boolean = false
+    showChipSlot: Boolean = false,
+    sampleCount: Int? = null
 ) {
     Column(
         modifier = Modifier
@@ -243,12 +248,11 @@ private fun HeaderCellMM(
             maxLines = 1,
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
         )
-        // Slot chip rendu quand le parent est en "mode biais" (showChipSlot),
-        // indépendamment de la disponibilité des données pour CE modèle. Voir
-        // ForecastTable pour la sémantique complète des 3 variantes.
+        // Voir ForecastTable.HeaderCell pour la rationale — sampleCount alimente
+        // la progression "N/14" du chip calibrating.
         if (showChipSlot) {
             when {
-                bias == null -> CalibratingChip()
+                bias == null -> CalibratingChip(sampleCount = sampleCount)
                 else -> ModelBiasChip(bias = bias, onClick = onBiasClick ?: {})
             }
         }

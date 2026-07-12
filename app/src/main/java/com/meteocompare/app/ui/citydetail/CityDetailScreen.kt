@@ -434,6 +434,22 @@ private fun LoadedView(
                 temperatureBiasProvider = { model -> biasState.temperature.biasByModel[model] },
                 precipitationBiasProvider = { model -> biasState.precipitation.biasByModel[model] },
                 windBiasProvider = { model -> biasState.wind.biasByModel[model] },
+                // Providers de progression pour le CalibratingChip. On lit
+                // `historyByModel[model].size` qui est déjà dédupliqué par date
+                // (cf. docstring VariableBiasState), donc la valeur reflète
+                // bien le nombre de jours effectivement observés — c'est le
+                // même dénominateur que ComputeBiasUseCase utilise pour son
+                // seuil MIN_SAMPLES_FOR_BIAS (14). Un modèle sans historique
+                // → size 0 → chip retombe sur "—".
+                temperatureSampleCountProvider = { model ->
+                    biasState.temperature.historyByModel[model]?.size ?: 0
+                },
+                precipitationSampleCountProvider = { model ->
+                    biasState.precipitation.historyByModel[model]?.size ?: 0
+                },
+                windSampleCountProvider = { model ->
+                    biasState.wind.historyByModel[model]?.size ?: 0
+                },
                 onBiasChipClick = { model, bias ->
                     // On ne stocke que les deux identifiants — la reconstruction
                     // complète (biais + historique + domain) est faite via le
@@ -450,6 +466,15 @@ private fun LoadedView(
                 temperatureBiasProvider = { model -> biasState.temperature.biasByModel[model] },
                 precipitationBiasProvider = { model -> biasState.precipitation.biasByModel[model] },
                 windBiasProvider = { model -> biasState.wind.biasByModel[model] },
+                temperatureSampleCountProvider = { model ->
+                    biasState.temperature.historyByModel[model]?.size ?: 0
+                },
+                precipitationSampleCountProvider = { model ->
+                    biasState.precipitation.historyByModel[model]?.size ?: 0
+                },
+                windSampleCountProvider = { model ->
+                    biasState.wind.historyByModel[model]?.size ?: 0
+                },
                 onBiasChipClick = { model, bias ->
                     // Même handler que hourly.
                     selectedModelName = model.name
@@ -510,6 +535,10 @@ private fun androidx.compose.foundation.lazy.LazyListScope.dailyItems(
     temperatureBiasProvider: ((com.meteocompare.app.domain.model.WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
     precipitationBiasProvider: ((com.meteocompare.app.domain.model.WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
     windBiasProvider: ((com.meteocompare.app.domain.model.WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
+    // Providers de progression parallèles pour le CalibratingChip.
+    temperatureSampleCountProvider: ((com.meteocompare.app.domain.model.WeatherModel) -> Int)? = null,
+    precipitationSampleCountProvider: ((com.meteocompare.app.domain.model.WeatherModel) -> Int)? = null,
+    windSampleCountProvider: ((com.meteocompare.app.domain.model.WeatherModel) -> Int)? = null,
     onBiasChipClick: ((com.meteocompare.app.domain.model.WeatherModel, com.meteocompare.app.domain.model.ModelBias) -> Unit)? = null
 ) {
     // Matrice Jour × Modèle des conditions météo. On ne rend pas le bloc si
@@ -553,6 +582,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.dailyItems(
                 forecast = forecast,
                 normals = normals,
                 modelBiasProvider = temperatureBiasProvider,
+                sampleCountProvider = temperatureSampleCountProvider,
                 onBiasChipClick = onBiasChipClick,
                 modifier = Modifier.padding(8.dp)
             )
@@ -570,6 +600,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.dailyItems(
             },
             valueStyler = ::precipitationStyle,
             modelBiasProvider = precipitationBiasProvider,
+                sampleCountProvider = precipitationSampleCountProvider,
             onBiasChipClick = onBiasChipClick,
             legend = { PrecipitationLegend() }
         )
@@ -598,6 +629,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.dailyItems(
             // trop proches du bord droit.
             cellWidth = 80.dp,
             modelBiasProvider = windBiasProvider,
+                sampleCountProvider = windSampleCountProvider,
             onBiasChipClick = onBiasChipClick,
             legend = { WindLegend() }
         )
@@ -625,6 +657,13 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hourlyItems(
     temperatureBiasProvider: ((com.meteocompare.app.domain.model.WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
     precipitationBiasProvider: ((com.meteocompare.app.domain.model.WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
     windBiasProvider: ((com.meteocompare.app.domain.model.WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
+    // Providers de progression pour le CalibratingChip — un par variable,
+    // parallèles aux providers de biais. Le count vient de
+    // VariableBiasState.historyByModel[model].size qui reflète le nombre
+    // effectif de jours observés (dédupliqué par date).
+    temperatureSampleCountProvider: ((com.meteocompare.app.domain.model.WeatherModel) -> Int)? = null,
+    precipitationSampleCountProvider: ((com.meteocompare.app.domain.model.WeatherModel) -> Int)? = null,
+    windSampleCountProvider: ((com.meteocompare.app.domain.model.WeatherModel) -> Int)? = null,
     // Callback pour ouvrir la sheet de détail. Signature :
     // (modèle cliqué, biais correspondant — inclut sa variable via bias.variable).
     // Le caller dispatche sur bias.variable pour peupler les données du sparkline.
@@ -672,6 +711,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hourlyItems(
                 valueFormatter = { "${it.roundToInt()}°" },
                 heatmapStyler = ::hourlyTemperatureHeatmap,
                 modelBiasProvider = temperatureBiasProvider,
+                sampleCountProvider = temperatureSampleCountProvider,
                 onBiasChipClick = onBiasChipClick,
                 modifier = Modifier.padding(8.dp)
             )
@@ -702,6 +742,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hourlyItems(
                 },
                 heatmapStyler = ::hourlyPrecipitationHeatmap,
                 modelBiasProvider = precipitationBiasProvider,
+                sampleCountProvider = precipitationSampleCountProvider,
                 onBiasChipClick = onBiasChipClick,
                 modifier = Modifier.padding(8.dp)
             )
@@ -742,6 +783,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hourlyItems(
                 // petite (10dp vs 12dp) — même densité perçue à l'écran.
                 cellWidth = 76.dp,
                 modelBiasProvider = windBiasProvider,
+                sampleCountProvider = windSampleCountProvider,
                 onBiasChipClick = onBiasChipClick,
                 modifier = Modifier.padding(8.dp)
             )
@@ -968,7 +1010,9 @@ private fun ForecastSection(
     legend: @Composable (() -> Unit)? = null,
     // Providers de biais optionnels — passés tels-quels à ForecastTable.
     modelBiasProvider: ((com.meteocompare.app.domain.model.WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
-    onBiasChipClick: ((com.meteocompare.app.domain.model.WeatherModel, com.meteocompare.app.domain.model.ModelBias) -> Unit)? = null
+    onBiasChipClick: ((com.meteocompare.app.domain.model.WeatherModel, com.meteocompare.app.domain.model.ModelBias) -> Unit)? = null,
+    // Provider de progression pour le CalibratingChip.
+    sampleCountProvider: ((com.meteocompare.app.domain.model.WeatherModel) -> Int)? = null
 ) {
     Column {
         SectionTitle(title)
@@ -987,6 +1031,7 @@ private fun ForecastSection(
                 cellWidth = cellWidth,
                 modelBiasProvider = modelBiasProvider,
                 onBiasChipClick = onBiasChipClick,
+                sampleCountProvider = sampleCountProvider,
                 modifier = Modifier.padding(8.dp)
             )
         }

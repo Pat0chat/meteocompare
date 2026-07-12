@@ -284,8 +284,7 @@
     <string name="weather_legend_thunderstorm">Orage</string>
     <!-- Note expliquant les % sous les icônes du tableau du temps par modèle -->
     <string name="weather_legend_percent_note">Le % sous une icône = couverture nuageuse (nuageux/couvert) ou probabilité de pluie (pluie/neige/orage).</string>
-    <string name="weather_legend_inferred_note">Icône atténuée = condition inférée depuis les autres modèles.</string>
-
+    <string name="weather_legend_inferred_note">Icône atténuée = condition inférée depuis les autres modèles (l\'AROME HD ne publie pas d\'état du ciel sans précipitation).</string>
 
     <!-- ============================================================
          Suivi de biais par modèle — Phase 1 UI
@@ -370,4 +369,13 @@
     <string name="bias_stability_high">Le biais est consistant sur les 30 derniers jours (écart-type faible par rapport à la magnitude) — le comportement observé n\'est pas dû au hasard.</string>
     <string name="bias_stability_moderate">Le biais est visible mais modéré — utile à garder en tête sur les décisions serrées.</string>
     <string name="bias_stability_not_significant">Écart proche du bruit journalier — pas d\'action nécessaire.</string>
+
+    <!--
+        Progression du chip "en cours de calibration" — affichée sous le nom
+        de modèle dans les tableaux de biais quand < 14 samples sont collectés.
+        Le texte visible est "N/14" (compact, universel). Cette string couvre
+        UNIQUEMENT l'a11y : ce qu'un utilisateur TalkBack entend en focalisant
+        le chip. %1$d = nb de samples collectés, %2$d = seuil (typiquement 14).
+    -->
+    <string name="bias_chip_calibrating_progress_a11y">En cours de calibration : %1$d échantillons sur %2$d collectés</string>
 </resources>

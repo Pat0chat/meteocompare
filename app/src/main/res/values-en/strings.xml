@@ -363,4 +363,9 @@
     <string name="bias_stability_high">The bias is consistent over the last 30 days (low standard deviation relative to magnitude) — the observed pattern is not by chance.</string>
     <string name="bias_stability_moderate">The bias is visible but moderate — worth keeping in mind for close calls.</string>
     <string name="bias_stability_not_significant">Deviation close to daily noise — no action needed.</string>
+
+    <!-- Progress announcement of the "calibrating" chip. Visible text is "N/14"
+         (compact, universal). This string is a11y-only, %1$d = samples collected,
+         %2$d = threshold (typically 14). -->
+    <string name="bias_chip_calibrating_progress_a11y">Calibrating: %1$d of %2$d samples collected</string>
 </resources>
