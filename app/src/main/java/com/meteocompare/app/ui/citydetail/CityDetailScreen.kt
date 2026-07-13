@@ -600,7 +600,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.dailyItems(
             },
             valueStyler = ::precipitationStyle,
             modelBiasProvider = precipitationBiasProvider,
-                sampleCountProvider = precipitationSampleCountProvider,
+            sampleCountProvider = precipitationSampleCountProvider,
             onBiasChipClick = onBiasChipClick,
             legend = { PrecipitationLegend() }
         )
@@ -629,7 +629,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.dailyItems(
             // trop proches du bord droit.
             cellWidth = 80.dp,
             modelBiasProvider = windBiasProvider,
-                sampleCountProvider = windSampleCountProvider,
+            sampleCountProvider = windSampleCountProvider,
             onBiasChipClick = onBiasChipClick,
             legend = { WindLegend() }
         )

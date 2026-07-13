@@ -152,6 +152,7 @@ class CityDetailViewModel @Inject constructor(
         }
         return combine(perModelFlows) { pairs ->
             val historyByModel: Map<WeatherModel, List<BiasSample>> = pairs.toMap()
+            android.util.Log.d("BiasDebug", "$variable → ${historyByModel.mapValues { it.value.size }}")
             val biasByModel: Map<WeatherModel, ModelBias?> = historyByModel.mapValues { (_, samples) ->
                 computeBias(variable, samples)
             }
