@@ -187,6 +187,10 @@ fun ForecastTable(
                 val bias = modelBiasProvider?.invoke(model)
                 val inBiasMode = modelBiasProvider != null
                 val sampleCount = sampleCountProvider?.invoke(model)
+                //android.util.Log.d(
+                //    "ChipDebug",
+                //    "${model.name}: bias=${bias != null}, sampleCount=$sampleCount, providerNull=${sampleCountProvider == null}"
+                //)
                 val chipClick = if (bias != null && onBiasChipClick != null) {
                     remember(model, bias) { { onBiasChipClick(model, bias) } }
                 } else null
