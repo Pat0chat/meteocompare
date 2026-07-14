@@ -207,7 +207,7 @@ class CityListViewModel @Inject constructor(
         //    les villes. Si modelsChanged=false, on ne lance que pour les
         //    nouvelles.
         val maxCacheAgeMs = if (interval == RefreshInterval.MANUAL) Long.MAX_VALUE
-            else interval.millis
+        else interval.millis
         cities.forEach { city ->
             if (city.id !in streamJobs) {
                 streamJobs[city.id] = viewModelScope.launch {
@@ -219,7 +219,7 @@ class CityListViewModel @Inject constructor(
                         )
                         .collect { result ->
                             forecastsById.update {
-                                it + (city.id to toForecastState(result))
+                                it + (city.id to toForecastState(city, result))
                             }
                         }
                 }
@@ -251,7 +251,7 @@ class CityListViewModel @Inject constructor(
             forecastsById.update { it + (city.id to ForecastState.Loading) }
             val models = userPreferences.observeEnabledModels().first()
             val result = forecastRepository.refreshCityForecast(city, models = models)
-            forecastsById.update { it + (city.id to toForecastState(result)) }
+            forecastsById.update { it + (city.id to toForecastState(city, result)) }
         }
     }
 
@@ -266,7 +266,7 @@ class CityListViewModel @Inject constructor(
                     cities.map { city ->
                         async {
                             val result = forecastRepository.refreshCityForecast(city, models)
-                            forecastsById.update { it + (city.id to toForecastState(result)) }
+                            forecastsById.update { it + (city.id to toForecastState(city, result)) }
                         }
                     }.awaitAll()
                 }
@@ -278,17 +278,49 @@ class CityListViewModel @Inject constructor(
 
     // ─── Helpers ────────────────────────────────────────────────────────────
 
-    private fun toForecastState(result: ApiResult<CityForecast>): ForecastState = when (result) {
+    private fun toForecastState(
+        city: City,
+        result: ApiResult<CityForecast>
+    ): ForecastState = when (result) {
         is ApiResult.Success -> {
             val today = result.data.seriesByModel.values
                 .firstOrNull()?.daily?.dates?.firstOrNull()
             if (today != null) {
+                // ─── Sunrise/sunset via calcul local NOAA ─────────────────
+                // Résout automatiquement le fuseau : le champ `city.timezone`
+                // peut être null si l'utilisateur a ajouté la ville avant que
+                // le geocoder ne renvoie le fuseau — on retombe alors sur UTC
+                // (safe fallback : l'heure sera à ±quelques h de la réalité,
+                // mais mieux que crasher).
+                val zone = runCatching {
+                    java.time.ZoneId.of(city.timezone ?: "UTC")
+                }.getOrDefault(java.time.ZoneId.of("UTC"))
+                val sun = com.meteocompare.app.domain.util.SolarTimes.compute(
+                    latitude = city.latitude,
+                    longitude = city.longitude,
+                    date = today,
+                    zone = zone
+                )
+
                 ForecastState.Loaded(
                     today = confidenceCalculator.dayConfidence(result.data, today),
                     currentTemp = confidenceCalculator.currentTemperature(result.data),
                     currentCondition = confidenceCalculator.currentWeatherCondition(result.data),
                     currentCloudCover = confidenceCalculator.currentCloudCover(result.data),
-                    fetchedAt = result.data.fetchedAt
+                    fetchedAt = result.data.fetchedAt,
+                    // Agrégats 12h pour la mini prévision — 2 listes fixes
+                    // taille 12 avec null pour heures où aucun modèle ne fournit.
+                    next12hTemps = HomeAggregates.next12hTemperatures(result.data),
+                    next12hPrecipProb = HomeAggregates.next12hPrecipProbability(result.data),
+                    // Moment de départ dans le fuseau de la ville — sert aux
+                    // labels temporels sous la strip. On tronque à l'heure car
+                    // les ancres visuelles sont horaires (pas de "15:23", juste "15h").
+                    hourlyStartTime = java.time.Instant.now()
+                        .atZone(zone)
+                        .toLocalDateTime()
+                        .truncatedTo(java.time.temporal.ChronoUnit.HOURS),
+                    sunrise = sun.sunrise,
+                    sunset = sun.sunset
                 )
             } else {
                 ForecastState.Error("Aucune donnée journalière reçue")

@@ -344,7 +344,7 @@ private fun HourIconCell(cell: HourCellData?, background: Color) {
             // Marqueur visuel d'inférence : alpha réduit sur le contenu quand
             // la condition vient de la médiane des peers (pas la prédiction
             // propre du modèle). Voir [HourCellData.isInferred].
-            val contentModifier = if (cell.isInferred) Modifier.alpha(0.55f) else Modifier
+            val contentModifier = if (cell.isInferred) Modifier.alpha(0.20f) else Modifier
             Column(
                 modifier = contentModifier,
                 horizontalAlignment = Alignment.CenterHorizontally,

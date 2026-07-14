@@ -6,12 +6,16 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -73,7 +77,6 @@ import com.meteocompare.app.domain.model.DayConfidence
 import com.meteocompare.app.domain.model.PrecipitationConfidence
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.ui.components.ShimmerBox
-import com.meteocompare.app.ui.components.WeatherIconDecorative
 import com.meteocompare.app.ui.components.semanticTint
 import com.meteocompare.app.ui.theme.confidenceColor
 import com.meteocompare.app.ui.theme.MeteoCompareTheme
@@ -236,6 +239,14 @@ internal fun CityCard(
     val context = LocalContext.current
     val a11yDescription = com.meteocompare.app.ui.accessibility.A11yFormatter
         .cityCardDescription(context, state)
+    val isDark = isSystemInDarkTheme()
+    // ─── Halo latéral météo-adaptatif ────────────────────────────────────
+    // Couleur dérivée de la condition courante quand disponible. Loading /
+    // Error → neutre (on ne connaît pas le temps qu'il fait, on ne bluffe pas).
+    val accentColor = WeatherAccent.of(
+        condition = (state.forecast as? ForecastState.Loaded)?.currentCondition,
+        isDark = isDark
+    )
     Card(
         onClick = onClick,
         modifier = modifier
@@ -249,57 +260,92 @@ internal fun CityCard(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
         )
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = state.city.name,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    val subtitle = state.city.admin1 ?: state.city.country
-                    if (subtitle.isNotBlank()) {
+        // Row parente avec `IntrinsicSize.Min` : sans ça, le Box.fillMaxHeight()
+        // de la barre latérale ne trouve pas de hauteur définie (parent en
+        // wrap_content). Avec IntrinsicSize.Min, la Row prend la hauteur de son
+        // plus grand enfant (le Column contenu), et la barre latérale peut
+        // s'étirer verticalement.
+        Row(modifier = Modifier.height(IntrinsicSize.Min)) {
+            // Barre d'accent 4dp — subtile mais non-négligeable. Clippée
+            // automatiquement par le shape rounded du Card, donc les coins
+            // haut-gauche et bas-gauche sont arrondis pour épouser la card.
+            Box(
+                modifier = Modifier
+                    .width(4.dp)
+                    .fillMaxHeight()
+                    .background(accentColor)
+            )
+            Column(modifier = Modifier.padding(16.dp).weight(1f)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = subtitle,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            text = state.city.name,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold
                         )
+                        val subtitle = state.city.admin1 ?: state.city.country
+                        if (subtitle.isNotBlank()) {
+                            Text(
+                                text = subtitle,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    // Column pour empiler menu 3-points ET sunrise/sunset en
+                    // haut à droite. Le menu reste au sommet (interactif prioritaire),
+                    // les sun times viennent en dessous (info secondaire, discrète).
+                    Column(horizontalAlignment = Alignment.End) {
+                        CityCardMenu(onRemove = onRemove)
+                        // SunTimes n'est affiché QUE si la card est Loaded ET
+                        // qu'on a au moins une valeur (sunrise OU sunset). En
+                        // Loading/Error on ne pollue pas avec du "—".
+                        val loaded = state.forecast as? ForecastState.Loaded
+                        if (loaded != null && (loaded.sunrise != null || loaded.sunset != null)) {
+                            SunTimesRow(
+                                sunrise = loaded.sunrise,
+                                sunset = loaded.sunset,
+                                modifier = Modifier.padding(top = 2.dp)
+                            )
+                        }
                     }
                 }
-                CityCardMenu(onRemove = onRemove)
-            }
 
-            Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(12.dp))
 
-            // AnimatedContent entre les états du forecast.
-            // La cible utilise une clé type-stable (le simpleName de la classe),
-            // pas l'objet lui-même, pour que le Loaded(today=A) →
-            // Loaded(today=B) ne soit pas vu comme un changement d'état.
-            AnimatedContent(
-                targetState = state.forecast,
-                transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(300)) },
-                label = "forecast-state",
-                contentKey = {
-                    when (it) {
-                        ForecastState.Loading -> "loading"
-                        is ForecastState.Loaded -> "loaded"
-                        is ForecastState.Error -> "error"
+                // AnimatedContent entre les états du forecast.
+                // La cible utilise une clé type-stable (le simpleName de la classe),
+                // pas l'objet lui-même, pour que le Loaded(today=A) →
+                // Loaded(today=B) ne soit pas vu comme un changement d'état.
+                AnimatedContent(
+                    targetState = state.forecast,
+                    transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(300)) },
+                    label = "forecast-state",
+                    contentKey = {
+                        when (it) {
+                            ForecastState.Loading -> "loading"
+                            is ForecastState.Loaded -> "loaded"
+                            is ForecastState.Error -> "error"
+                        }
                     }
-                }
-            ) { forecast ->
-                when (forecast) {
-                    ForecastState.Loading -> CityCardLoading()
-                    is ForecastState.Loaded -> CityCardLoaded(
-                        today = forecast.today,
-                        currentTemp = forecast.currentTemp,
-                        currentCondition = forecast.currentCondition,
-                        currentCloudCover = forecast.currentCloudCover,
-                        fetchedAt = forecast.fetchedAt
-                    )
-                    is ForecastState.Error -> CityCardError(forecast.message, onRetry)
+                ) { forecast ->
+                    when (forecast) {
+                        ForecastState.Loading -> CityCardLoading()
+                        is ForecastState.Loaded -> CityCardLoaded(
+                            today = forecast.today,
+                            currentTemp = forecast.currentTemp,
+                            currentCondition = forecast.currentCondition,
+                            currentCloudCover = forecast.currentCloudCover,
+                            fetchedAt = forecast.fetchedAt,
+                            next12hTemps = forecast.next12hTemps,
+                            next12hPrecipProb = forecast.next12hPrecipProb,
+                            hourlyStartTime = forecast.hourlyStartTime
+                        )
+                        is ForecastState.Error -> CityCardError(forecast.message, onRetry)
+                    }
                 }
             }
         }
@@ -346,11 +392,18 @@ private fun CityCardLoaded(
     currentTemp: Double?,
     currentCondition: WeatherCondition?,
     currentCloudCover: Int?,
-    fetchedAt: java.time.Instant?
+    fetchedAt: java.time.Instant?,
+    next12hTemps: List<Double?>,
+    next12hPrecipProb: List<Int?>,
+    hourlyStartTime: java.time.LocalDateTime?
 ) {
-    // Column pour empiler la Row de valeurs + le petit caption de fraîcheur
-    // en dessous. Sans ce Column, la caption viendrait s'aligner dans la Row
-    // et casserait l'alignement des trois blocs (temp | precip | confidence).
+    // Column pour empiler la Row de valeurs + la mini prévision 12h + le
+    // caption de fraîcheur. Ordre choisi de haut en bas :
+    //   1. Valeurs primaires (temp/precip/confidence) — le "coup d'œil"
+    //   2. Mini prévision 12h — le "et après ?" contextuel
+    //   3. Caption "il y a X" — la fraîcheur, discrète
+    // Sans ce Column, la caption viendrait s'aligner dans la Row et casserait
+    // l'alignement des trois blocs.
     Column {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -365,6 +418,18 @@ private fun CityCardLoaded(
             )
             PrecipitationSummary(precip = today.precipitation)
             ConfidenceBadge(percent = today.overallPercent)
+        }
+
+        // Mini prévision 12h — n'apparaît QUE si on a au moins une temperature
+        // exploitable. Sur un cache pré-feature (listes vides), on saute
+        // silencieusement plutôt que d'afficher un rectangle vide.
+        if (next12hTemps.any { it != null }) {
+            Spacer(Modifier.height(10.dp))
+            MiniForecastStrip(
+                hourlyTemps = next12hTemps,
+                hourlyPrecipProb = next12hPrecipProb,
+                startTime = hourlyStartTime
+            )
         }
 
         // Caption "mis à jour il y a X" — placé en bas à droite de la card,
@@ -409,8 +474,8 @@ private fun TemperatureSummary(
             // face au titre de la ville en titleLarge à côté ; 32dp lui donne
             // assez de présence pour qu'on la repère d'un balayage du pouce.
             val showCloudBadge = currentCloudCover != null &&
-                (currentCondition == WeatherCondition.PARTLY_CLOUDY ||
-                    currentCondition == WeatherCondition.OVERCAST)
+                    (currentCondition == WeatherCondition.PARTLY_CLOUDY ||
+                            currentCondition == WeatherCondition.OVERCAST)
             // Colonne icône + badge % nuage éventuel. Le badge n'apparaît que
             // pour les conditions cloudy/overcast (il n'a pas de sens pour
             // "clair" ou "pluie") ET si on a une valeur cloud_cover réelle
@@ -418,7 +483,11 @@ private fun TemperatureSummary(
             // layout Row à côté ne bouge pas (Column avec seul enfant = taille
             // de l'icône, comme avant).
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                WeatherIconDecorative(
+                // AnimatedWeatherIcon wrap WeatherIconDecorative avec une
+                // animation subtile par condition (rotation soleil, dérive
+                // nuages, rebond pluie/neige). Voir la doc du composable pour
+                // le détail par famille de temps.
+                AnimatedWeatherIcon(
                     condition = currentCondition,
                     size = 42.dp,
                     tint = currentCondition.semanticTint()
@@ -629,7 +698,15 @@ private fun CityCardLoadedPreview() {
                     windMax = ConfidenceScore(72, 12.0, 18.0, 15.0, 2.5, 5)
                 ),
                 currentTemp = 19.0,
-                currentCondition = WeatherCondition.PARTLY_CLOUDY
+                currentCondition = WeatherCondition.PARTLY_CLOUDY,
+                // Preview des 4 nouvelles features — courbe de temp en cloche
+                // sur la journée, un peu de pluie en fin d'après-midi.
+                next12hTemps = listOf(19.0, 20.5, 22.0, 23.5, 24.0, 23.5,
+                    22.5, 21.0, 19.5, 18.0, 17.0, 16.5),
+                next12hPrecipProb = listOf(0, 0, 10, 20, 30, 40, 60, 50, 20, 5, 0, 0),
+                hourlyStartTime = java.time.LocalDateTime.of(2026, 7, 14, 15, 0),
+                sunrise = java.time.LocalTime.of(6, 12),
+                sunset = java.time.LocalTime.of(21, 45)
             )
         )
         Surface { CityCard(state = sample, onClick = {}, onRemove = {}, onRetry = {}) }

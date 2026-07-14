@@ -368,4 +368,13 @@
          (compact, universal). This string is a11y-only, %1$d = samples collected,
          %2$d = threshold (typically 14). -->
     <string name="bias_chip_calibrating_progress_a11y">Calibrating: %1$d of %2$d samples collected</string>
+
+    <!-- ─── CityCard home enrichment (v1.0: weather halo, 12h mini forecast, sunrise/sunset) ─── -->
+    <!-- Sunrise/sunset: consolidated phrase for TalkBack. %1$s = sunrise time, %2$s = sunset time. -->
+    <string name="sun_times_a11y">Sunrise at %1$s, sunset at %2$s</string>
+    <!-- 12h mini forecast: 3 variants depending on available data. -->
+    <string name="mini_forecast_a11y_no_data">12h forecast unavailable</string>
+    <string name="mini_forecast_a11y_no_rain">12h forecast: between %1$d and %2$d degrees, no rain expected</string>
+    <string name="mini_forecast_a11y_with_rain">12h forecast: between %1$d and %2$d degrees, rain expected over %3$d hours</string>
+
 </resources>

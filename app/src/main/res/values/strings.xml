@@ -378,4 +378,13 @@
         le chip. %1$d = nb de samples collectés, %2$d = seuil (typiquement 14).
     -->
     <string name="bias_chip_calibrating_progress_a11y">En cours de calibration : %1$d échantillons sur %2$d collectés</string>
+
+    <!-- ─── Enrichissement CityCard (v1.0 : halo météo, mini prévision 12h, sunrise/sunset) ─── -->
+    <!-- Sunrise/sunset : phrase consolidée pour TalkBack. %1$s = heure lever, %2$s = heure coucher. -->
+    <string name="sun_times_a11y">Lever du soleil à %1$s, coucher à %2$s</string>
+    <!-- Mini prévision 12h : 3 variantes selon les données disponibles. -->
+    <string name="mini_forecast_a11y_no_data">Prévision 12h non disponible</string>
+    <string name="mini_forecast_a11y_no_rain">Prévision 12h : entre %1$d et %2$d degrés, pas de pluie prévue</string>
+    <string name="mini_forecast_a11y_with_rain">Prévision 12h : entre %1$d et %2$d degrés, pluie prévue sur %3$d heures</string>
+
 </resources>

@@ -230,7 +230,7 @@ private fun IconCell(
             // pas de la prédiction propre du modèle. Non-invasif visuellement
             // — l'icône reste lisible et colorée — mais suffisant pour qu'un
             // utilisateur qui compare les cellules perçoive le différentiel.
-            val contentModifier = if (isInferred) Modifier.alpha(0.55f) else Modifier
+            val contentModifier = if (isInferred) Modifier.alpha(0.25f) else Modifier
             Column(
                 modifier = contentModifier,
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -316,7 +316,7 @@ internal fun WeatherLegend() {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
         )
-        // Note d'inférence : couronne le marquage alpha 0.55 sur les cellules
+        // Note d'inférence : couronne le marquage alpha 0.35 sur les cellules
         // dont la condition vient du peer-consensus. Sans cette note, un
         // utilisateur qui remarque une cellule "grisée" ne peut pas savoir
         // qu'il s'agit d'une inférence (il pensera à un bug d'affichage).
@@ -330,7 +330,7 @@ internal fun WeatherLegend() {
                 condition = WeatherCondition.PARTLY_CLOUDY,
                 size = 16.dp,
                 tint = WeatherCondition.PARTLY_CLOUDY.semanticTint(),
-                modifier = Modifier.alpha(0.55f)
+                modifier = Modifier.alpha(0.25f)
             )
             Text(
                 text = stringResource(R.string.weather_legend_inferred_note),
