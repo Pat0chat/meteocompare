@@ -1,4 +1,4 @@
-package com.meteocompare.app.ui.citylist
+package com.meteocompare.app.ui.components
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.LinearEasing
@@ -40,6 +40,7 @@ import com.meteocompare.app.domain.model.WeatherCondition
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
+import kotlin.math.floor
 import kotlin.math.min
 import kotlin.math.sin
 
@@ -1239,7 +1240,7 @@ private fun precipitationAlpha(localProgress: Float): Float {
     return min(fadeIn, fadeOut)
 }
 
-private fun fract(value: Float): Float = value - kotlin.math.floor(value)
+private fun fract(value: Float): Float = value - floor(value)
 
 private fun lerp(start: Float, end: Float, fraction: Float): Float =
     start + (end - start) * fraction

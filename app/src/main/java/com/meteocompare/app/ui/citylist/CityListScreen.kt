@@ -77,8 +77,8 @@ import com.meteocompare.app.domain.model.ConfidenceScore
 import com.meteocompare.app.domain.model.DayConfidence
 import com.meteocompare.app.domain.model.PrecipitationConfidence
 import com.meteocompare.app.domain.model.WeatherCondition
+import com.meteocompare.app.ui.components.AnimatedWeatherIcon
 import com.meteocompare.app.ui.components.ShimmerBox
-import com.meteocompare.app.ui.components.semanticTint
 import com.meteocompare.app.ui.theme.confidenceColor
 import com.meteocompare.app.ui.theme.MeteoCompareTheme
 import java.time.LocalDate
@@ -315,7 +315,7 @@ internal fun CityCard(
                     }
                 }
 
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(0.dp))
 
                 // AnimatedContent entre les états du forecast.
                 // La cible utilise une clé type-stable (le simpleName de la classe),

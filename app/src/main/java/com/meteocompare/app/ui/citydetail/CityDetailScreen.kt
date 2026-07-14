@@ -84,8 +84,7 @@ import com.meteocompare.app.domain.model.PrecipitationConfidence
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.usecase.DayConditionsRow
-import com.meteocompare.app.ui.components.WeatherIconDecorative
-import com.meteocompare.app.ui.components.semanticTint
+import com.meteocompare.app.ui.components.AnimatedWeatherIcon
 import com.meteocompare.app.ui.theme.confidenceColor
 import java.time.Instant
 import java.time.format.DateTimeFormatter
@@ -1097,6 +1096,14 @@ internal fun TodaySummaryCard(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                     )
+                    Text(
+                        text = if (modelCount > 1)
+                            stringResource(R.string.models_analysed_many, modelCount)
+                        else
+                            stringResource(R.string.models_analysed_one, modelCount),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                    )
                 }
                 today.overallPercent?.let { ConfidenceBadge(it, onClick = onConfidenceClick) }
             }
@@ -1114,23 +1121,8 @@ internal fun TodaySummaryCard(
                         fontWeight = FontWeight.Light,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
-                    // Icône temps à droite de la grosse température. Taille
-                    // 52dp : assez grande pour rivaliser avec le displayMedium
-                    // ~57sp et donner du poids visuel à l'info "il fait beau /
-                    // il pleut", qui est l'info qu'on veut surfacer.
-                    // Spacer 24dp (au lieu de 12) pour que l'icône respire
-                    // après la grosse température — collée à 12dp elle donnait
-                    // l'impression de "déborder" sur le chiffre.
-                    // Padding-bottom 6dp pour caler l'icône sur la baseline
-                    // visuelle du chiffre (avec une icône plus grande, 8dp
-                    // remontait trop l'icône au-dessus du chiffre).
                     if (currentCondition != null) {
                         Spacer(Modifier.width(24.dp))
-                        // Colonne icône + badge nuage éventuel. Le badge apparaît
-                        // sous l'icône si la condition affichée est cloudy/overcast
-                        // ET qu'on a une valeur de cloud_cover (pas de fallback
-                        // bidon). Sur "clair" ou "pluie" le badge n'a aucun sens →
-                        // rien n'apparaît, l'icône reste centrée bas comme avant.
                         val showCloudBadge = currentCloudCover != null &&
                             (currentCondition == WeatherCondition.PARTLY_CLOUDY ||
                                 currentCondition == WeatherCondition.OVERCAST)
@@ -1138,10 +1130,12 @@ internal fun TodaySummaryCard(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             modifier = Modifier.padding(bottom = 2.dp)
                         ) {
-                            WeatherIconDecorative(
+                            AnimatedWeatherIcon(
                                 condition = currentCondition,
                                 size = 52.dp,
-                                tint = currentCondition.semanticTint()
+                                animated = true,
+                                motionScale = 2.0f,
+                                tint = Color.Unspecified
                             )
                             if (showCloudBadge) {
                                 Text(
@@ -1154,28 +1148,9 @@ internal fun TodaySummaryCard(
                             }
                         }
                     }
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = stringResource(R.string.now_label),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
-                        modifier = Modifier.padding(bottom = 12.dp)
-                    )
                 }
             }
 
-            Spacer(Modifier.height(8.dp))
-            // Pluriels gérés via 2 string resources distinctes — la grammaire FR/EN
-            // ne suit pas la même règle (FR: 1=singulier, 2+=pluriel ; EN: 1=singulier,
-            // 0+2+=pluriel). On simplifie en "1 = singulier, sinon pluriel".
-            Text(
-                text = if (modelCount > 1)
-                    stringResource(R.string.models_analysed_many, modelCount)
-                else
-                    stringResource(R.string.models_analysed_one, modelCount),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-            )
             Spacer(Modifier.height(12.dp))
 
             VariableRow(stringResource(R.string.var_temp_max), today.tempMax, "°")
