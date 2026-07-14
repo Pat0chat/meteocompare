@@ -109,10 +109,12 @@ internal fun ModelBiasChip(
             .background(palette.background, RoundedCornerShape(999.dp))
             .border(1.dp, palette.border, RoundedCornerShape(999.dp))
             .clickable(onClick = onClick)
-            .padding(horizontal = 7.dp, vertical = 2.dp)
+            // Padding H réduit 7→5dp — libère 4dp au total pour le texte.
+            .padding(horizontal = 5.dp, vertical = 2.dp)
             .semantics { contentDescription = a11y },
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(3.dp)
+        // Spacing 3→2dp — libère 1dp supplémentaire.
+        horizontalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         Icon(
             imageVector = icon,
@@ -124,8 +126,19 @@ internal fun ModelBiasChip(
             text = label,
             color = palette.foreground,
             style = MaterialTheme.typography.labelSmall,
-            fontFamily = FontFamily.Monospace,
-            fontWeight = FontWeight.Medium
+            // Monospace RETIRÉ — les glyphes proportionnels sont ~40% plus étroits
+            // sur labelSmall, ce qui garantit qu'"+15km/h" tienne dans le budget
+            // de 44dp du chip. L'alignement des décimales entre chips était le
+            // seul argument monospace, mais chaque chip est dans SA colonne
+            // (modèle) donc l'alignement inter-chip ne se voit pas.
+            fontWeight = FontWeight.Medium,
+            // Force le rendu sur UNE seule ligne, sans coupure au milieu du
+            // texte. Si le texte dépasse tout de même (ne devrait pas après
+            // les optim ci-dessus), il déborde à droite sans wrap — clippé
+            // par le Column parent, mais au moins pas invisible sur une
+            // deuxième ligne inatteignable (Row height=22dp).
+            maxLines = 1,
+            softWrap = false
         )
     }
 }
@@ -240,11 +253,23 @@ private fun arrowIconFor(direction: BiasDirection): ImageVector = when (directio
 }
 
 /**
- * Formatte "+1,5°" / "−0,4 mm" / "+15 km/h".
+ * Formatte "+1,5°" / "−0,4mm" / "+15km/h".
  *
  * Le séparateur décimal suit `Locale.getDefault()` via `String.format` — pas
  * de `.replace('.', ',')` forcé (bug antérieur qui affichait une virgule
  * même en anglais).
+ *
+ * ─── Format compact "sans espace avant l'unité" ────────────────────────────
+ * Le chip vit dans un header de colonne de 72dp (moins padding = 68dp utiles).
+ * Un chip contient icon 11dp + spacing 3dp + padding H 10dp + text. Le budget
+ * text est donc ~44dp. En monospace labelSmall, chaque char = ~7dp → 6 chars
+ * max. La forme "+0.5 mm" fait 7 chars → clippée à droite ("+0.5 m"). En
+ * retirant l'espace → "+0.5mm" (6 chars) tient tout juste, "+15km/h" (7 chars)
+ * a besoin d'une seconde optim (font proportionnelle côté chip).
+ *
+ * Note : ne PAS supprimer l'espace côté a11y — `biasContentDescription` utilise
+ * ses propres phrases localisées ("de 1,5 millimètres en moyenne"), donc le
+ * format visuel compact n'impacte pas TalkBack.
  */
 internal fun formatBiasLabel(bias: ModelBias): String {
     val abs = abs(bias.meanBias)
@@ -259,10 +284,12 @@ internal fun formatBiasLabel(bias: ModelBias): String {
         BiasVariable.WIND_SPEED -> "%.0f".format(abs)
         else                    -> "%.1f".format(abs) // locale-aware
     }
+    // Unités accolées sans espace pour économiser 1 char de largeur — critique
+    // dans le contexte de header 72dp.
     val unit = when (bias.variable) {
         BiasVariable.TEMPERATURE   -> "°"
-        BiasVariable.PRECIPITATION -> " mm"
-        BiasVariable.WIND_SPEED    -> " km/h"
+        BiasVariable.PRECIPITATION -> "mm"
+        BiasVariable.WIND_SPEED    -> "km/h"
     }
     return "$sign$magnitude$unit"
 }
