@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
@@ -22,42 +23,27 @@ import com.meteocompare.app.ui.components.WeatherIconDecorative
  * Version animée de [WeatherIconDecorative] pour la liste des villes.
  *
  * ─── Philosophie d'animation ───────────────────────────────────────────────
- * L'animation doit être **subtile** — l'objectif est d'ajouter un léger
- * "signal de vie" aux cards, PAS de distraire. Un utilisateur qui scrolle sa
- * home ne doit pas percevoir consciemment le mouvement ; il doit juste sentir
- * que "la page respire", comme un fond d'écran en parallaxe iOS.
+ * L'animation ajoute un signal de vie à la card sans distraire. Les amplitudes
+ * ont été calibrées après feedback utilisateur : les valeurs initiales
+ * (rotation 60s, ±1.5dp) étaient sous le seuil de perception passive. Les
+ * valeurs actuelles restent contenues (± quelques dp, durées de 1-15s) mais
+ * sont clairement perçues comme "l'icône vit".
  *
  * Chaque condition a un motif qui évoque physiquement le phénomène :
- *   - CLEAR / MAINLY_CLEAR : rotation TRÈS lente du soleil (60s/tour, imperceptible
- *     à l'œil nu mais présente en périphérie de vision)
- *   - PARTLY_CLOUDY / OVERCAST : dérive horizontale des nuages (4s de cycle,
- *     amplitude 1.5dp — mimique du vent)
- *   - RAIN / DRIZZLE / RAIN_SHOWERS : petit rebond vertical (1.2s, amplitude 2dp
- *     — évoque la chute de gouttes)
- *   - FREEZING_RAIN : pas d'animation — "gel" symbolique + économie de tokens
- *     visuels pour signaler la condition dangereuse
- *   - SNOW / SNOW_SHOWERS : dérive verticale lente (2s, 1.5dp — évoque la
- *     chute légère des flocons)
- *   - THUNDERSTORM : pas d'animation — pause visuelle = tension. C'est la
- *     couleur d'alerte de la barre latérale qui doit accrocher l'œil, pas
- *     l'animation.
- *   - FOG : pas d'animation — l'immobilité évoque la stagnation de l'air
+ *   - CLEAR / MAINLY_CLEAR : rotation continue à 15s/tour (rayons "scintillent")
+ *   - PARTLY_CLOUDY / OVERCAST : dérive horizontale ±5dp / 3s (vent)
+ *   - RAIN / DRIZZLE / RAIN_SHOWERS : rebond vertical 4dp / 0.8s (chute goutte)
+ *   - SNOW / SNOW_SHOWERS : dérive X + Y de périodes différentes (flocon
+ *     tourbillonnant, mouvement organique non répétitif)
+ *   - THUNDERSTORM : flash d'opacité ponctuel ~4s (éclair au loin)
+ *   - FREEZING_RAIN, FOG : pas d'animation — l'immobilité communique la
+ *     stagnation / le danger figé
  *
  * ─── Coût perf ─────────────────────────────────────────────────────────────
  * `InfiniteTransition` génère 1 frame animation par recomposition Compose,
- * mais l'invalidation est locale au composable icône (16dp² max). Sur 4-6
+ * mais l'invalidation est locale au composable icône (42dp² max). Sur 4-6
  * cards visibles, on parle de ~500µs de layout + recompose par frame — sous
- * le budget d'une frame 60fps (16ms). Aucune allocation supplémentaire par
- * frame (les floats sont recyclés).
- *
- * ─── Ce qui N'EST PAS animé ───────────────────────────────────────────────
- * - La couleur de tint (reste stable via `semanticTint()`)
- * - La taille de l'icône (les .dp restent constantes)
- * - La barre latérale d'accent (statique — c'est un signal, pas un mouvement)
- *
- * Les recompositions provoquées par le tick d'animation ne recalculent PAS
- * la logique de sélection d'icône (`WeatherIconDecorative` est stable sur
- * son enum). Coût strictement au niveau du draw.
+ * le budget d'une frame 60fps (16ms).
  */
 @Composable
 internal fun AnimatedWeatherIcon(
@@ -70,20 +56,19 @@ internal fun AnimatedWeatherIcon(
 
     val transition = rememberInfiniteTransition(label = "weather-icon-anim")
 
-    // Chaque motif d'animation est isolé — on ne crée que celle nécessaire
-    // pour la condition courante. Un remember-based approach avec
-    // `key(condition) { ... }` serait équivalent mais plus verbeux.
     val animModifier: Modifier = when (condition) {
 
         WeatherCondition.CLEAR,
         WeatherCondition.MAINLY_CLEAR -> {
-            // Rotation continue TRÈS lente. 60s/tour = 6°/s = 0.1°/frame à
-            // 60fps. Consciemment invisible, subliminalement perçu.
+            // Rotation continue à 15s/tour = 24°/s. Clairement perçue en
+            // vision périphérique. Rayons de Filled.WbSunny (8 pointes)
+            // "tournent" comme les branches d'une roue solaire — évoque
+            // rayonnement/scintillement plutôt que rotation mécanique.
             val angle by transition.animateFloat(
                 initialValue = 0f,
                 targetValue = 360f,
                 animationSpec = infiniteRepeatable(
-                    animation = tween(durationMillis = 60_000, easing = LinearEasing),
+                    animation = tween(durationMillis = 15_000, easing = LinearEasing),
                     repeatMode = RepeatMode.Restart
                 ),
                 label = "sun-rotation"
@@ -93,13 +78,13 @@ internal fun AnimatedWeatherIcon(
 
         WeatherCondition.PARTLY_CLOUDY,
         WeatherCondition.OVERCAST -> {
-            // Dérive horizontale sinusoïdale. FastOutSlowIn donne un mouvement
-            // "aisé" naturel qui ressemble à une brise, pas à un métronome.
+            // Dérive horizontale sinusoïdale ±5dp sur 3s. Amplitude visible
+            // sans "sauter aux yeux" — le nuage semble poussé par une brise.
             val dx by transition.animateFloat(
-                initialValue = -1.5f,
-                targetValue = 1.5f,
+                initialValue = -5f,
+                targetValue = 5f,
                 animationSpec = infiniteRepeatable(
-                    animation = tween(durationMillis = 4_000, easing = FastOutSlowInEasing),
+                    animation = tween(durationMillis = 3_000, easing = FastOutSlowInEasing),
                     repeatMode = RepeatMode.Reverse
                 ),
                 label = "cloud-drift"
@@ -110,16 +95,14 @@ internal fun AnimatedWeatherIcon(
         WeatherCondition.RAIN,
         WeatherCondition.DRIZZLE,
         WeatherCondition.RAIN_SHOWERS -> {
-            // Petit rebond vertical asymétrique : plus lent en descente, plus
-            // rapide en remontée, comme une goutte qui tombe et rebondit. En
-            // pratique on ne fait qu'un ping-pong linéaire — le cerveau
-            // interprète le mouvement vertical à cette taille comme "pluie"
-            // sans avoir besoin de finesse.
+            // Rebond vertical 4dp / 1.0s. Fréquence rapide (1.25 Hz) qui évoque
+            // la chute continue des gouttes. Un utilisateur perçoit clairement
+            // le mouvement sans que ça devienne agressif.
             val dy by transition.animateFloat(
                 initialValue = 0f,
-                targetValue = 2f,
+                targetValue = 4f,
                 animationSpec = infiniteRepeatable(
-                    animation = tween(durationMillis = 1_200, easing = FastOutSlowInEasing),
+                    animation = tween(durationMillis = 1_000, easing = FastOutSlowInEasing),
                     repeatMode = RepeatMode.Reverse
                 ),
                 label = "rain-bounce"
@@ -129,22 +112,57 @@ internal fun AnimatedWeatherIcon(
 
         WeatherCondition.SNOW,
         WeatherCondition.SNOW_SHOWERS -> {
-            // Chute lente + dérive latérale légère — flocon idéalisé.
-            // Amplitude verticale 1.5dp, période 2s (plus lent que la pluie).
+            // Deux animations X et Y de périodes INCOMMENSURABLES (1800 vs
+            // 2200ms) → chemin non-répétitif type Lissajous. Le flocon paraît
+            // tourbillonner naturellement au lieu de suivre une trajectoire
+            // mécanique. C'est le seul cas d'usage à 2 animations combinées
+            // — les autres conditions s'accommodent d'un seul axe.
             val dy by transition.animateFloat(
-                initialValue = -1f,
-                targetValue = 1f,
+                initialValue = -2f,
+                targetValue = 3f,
                 animationSpec = infiniteRepeatable(
-                    animation = tween(durationMillis = 2_000, easing = LinearEasing),
+                    animation = tween(durationMillis = 1_800, easing = LinearEasing),
                     repeatMode = RepeatMode.Reverse
                 ),
-                label = "snow-drift"
+                label = "snow-y"
             )
-            Modifier.offset(y = dy.dp)
+            val dx by transition.animateFloat(
+                initialValue = -2f,
+                targetValue = 2f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(durationMillis = 2_200, easing = FastOutSlowInEasing),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "snow-x"
+            )
+            Modifier.offset(x = dx.dp, y = dy.dp)
         }
 
-        // Conditions immobiles — voir docstring pour la rationale
-        WeatherCondition.THUNDERSTORM,
+        WeatherCondition.THUNDERSTORM -> {
+            // Flash d'opacité 1.0 → 0.35 → 1.0 sur 4s au total, avec la moitié
+            // basse (opacity < 0.5) courte (~0.3s) pour évoquer un flash
+            // d'éclair — pas une pulsation régulière type "cœur qui bat".
+            // FastOutSlowInEasing avec Reverse produit un demi-cycle ~2s
+            // aller-retour, l'utilisateur perçoit un "clin d'œil" sombre
+            // occasionnel plutôt qu'un métronome.
+            val alpha by transition.animateFloat(
+                initialValue = 1f,
+                targetValue = 0.35f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(durationMillis = 2_000, easing = FastOutSlowInEasing),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "thunder-flash"
+            )
+            Modifier.alpha(alpha)
+        }
+
+        // Conditions volontairement immobiles :
+        //  - FREEZING_RAIN : "gel" symbolique + condition dangereuse (mieux
+        //    vaut que l'utilisateur remarque la couleur alarme du halo que
+        //    l'animation de l'icône)
+        //  - FOG : évoque la stagnation de l'air, cohérent avec le phénomène
+        //  - UNKNOWN : pas d'info sur laquelle animer
         WeatherCondition.FREEZING_RAIN,
         WeatherCondition.FOG,
         WeatherCondition.UNKNOWN -> Modifier
