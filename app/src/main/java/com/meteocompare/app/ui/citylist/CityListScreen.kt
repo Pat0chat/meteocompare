@@ -58,6 +58,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -489,8 +490,10 @@ private fun TemperatureSummary(
                 // le détail par famille de temps.
                 AnimatedWeatherIcon(
                     condition = currentCondition,
-                    size = 42.dp,
-                    tint = currentCondition.semanticTint()
+                    size = 50.dp,
+                    animated = true,
+                    motionScale = 2.0f,
+                    tint = Color.Unspecified
                 )
                 if (showCloudBadge) {
                     Text(
