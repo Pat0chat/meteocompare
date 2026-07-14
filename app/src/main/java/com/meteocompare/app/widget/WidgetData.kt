@@ -70,6 +70,24 @@ internal data class WidgetData(
      * ou si aucun modèle ne fournit la variable demandée.
      */
     val confidenceStrip: WidgetConfidenceStrip? = null,
+    /**
+     * Températures agrégées 12h à partir de "maintenant" pour la mini prévision
+     * du widget 2-row (mode [ForecastMode.MINI_FORECAST_12H]). Vide dans tous
+     * les autres modes — le rendu du widget n'invoque pas le renderer bitmap.
+     */
+    val next12hTemps: List<Double?> = emptyList(),
+    /**
+     * Probabilités de précipitation (0-100) agrégées 12h, alignées sur
+     * [next12hTemps]. Utilisées pour les dots pluie sous la strip.
+     */
+    val next12hPrecipProb: List<Int?> = emptyList(),
+    /**
+     * Moment de la première heure de [next12hTemps] dans le fuseau de la
+     * ville, pour afficher les 3 ancres "HHh ... HHh ... HHh" sous la strip.
+     * Null si la ville n'a pas de fuseau connu ou si le mode n'est pas
+     * MINI_FORECAST_12H.
+     */
+    val hourlyStartTime: java.time.LocalDateTime? = null,
     val error: WidgetError?
 ) {
     companion object {
@@ -260,7 +278,7 @@ internal suspend fun loadWidgetData(
     // mêmes lignes de cache → le premier à démarrer sert le second.
     val enabledModels = prefsRepo.observeEnabledModels().first()
     val maxCacheAgeMs = if (interval == RefreshInterval.MANUAL) Long.MAX_VALUE
-        else interval.millis
+    else interval.millis
 
     val result = entry.forecastRepository()
         .getCityForecastStream(
@@ -278,17 +296,41 @@ internal suspend fun loadWidgetData(
                 .firstOrNull()?.daily?.dates?.firstOrNull()
             val dayConf = today?.let { calc.dayConfidence(forecast, it) }
             val rainConfidence = dayConf?.precipitation as?
-                com.meteocompare.app.domain.model.PrecipitationConfidence.Rain
+                    com.meteocompare.app.domain.model.PrecipitationConfidence.Rain
 
             // Selon le mode utilisateur, on alimente soit la ligne de prévisions
             // 4 items (HOURLY/DAILY), soit la mini bande de confiance
-            // (CONFIDENCE_*). Les deux ne sont jamais alimentés en même temps
-            // — c'est une exclusivité contrôlée par le mode config utilisateur.
-            val forecasts = if (forecastMode.isConfidenceBand()) emptyList()
-                else buildForecasts(forecast, forecastMode, city.timezone)
+            // (CONFIDENCE_*), soit la mini prévision 12h (MINI_FORECAST_12H).
+            // Les trois sont exclusifs — c'est ExtraLargeLayout qui aiguille.
+            val forecasts = if (forecastMode.isConfidenceBand() || forecastMode.isMiniForecast())
+                emptyList()
+            else buildForecasts(forecast, forecastMode, city.timezone)
             val confidenceStrip = if (forecastMode.isConfidenceBand())
                 buildConfidenceStrip(localizedContext, forecast, forecastMode, calc)
-                else null
+            else null
+
+            // ─── Mini forecast 12h (nouveau mode) ─────────────────────────
+            // Réutilise l'agrégateur de la home pour la cohérence : mêmes valeurs
+            // dans le widget que dans la card home. hourlyStartTime = maintenant
+            // tronqué à l'heure, dans le fuseau de la ville (les ancres
+            // s'affichent en heure locale ville, pas device).
+            val (next12hTemps, next12hPrecipProb, hourlyStartTime) =
+                if (forecastMode.isMiniForecast()) {
+                    val zone = runCatching {
+                        java.time.ZoneId.of(city.timezone ?: "UTC")
+                    }.getOrDefault(java.time.ZoneId.of("UTC"))
+                    val start = java.time.Instant.now()
+                        .atZone(zone)
+                        .toLocalDateTime()
+                        .truncatedTo(java.time.temporal.ChronoUnit.HOURS)
+                    Triple(
+                        com.meteocompare.app.ui.citylist.HomeAggregates.next12hTemperatures(forecast),
+                        com.meteocompare.app.ui.citylist.HomeAggregates.next12hPrecipProbability(forecast),
+                        start
+                    )
+                } else {
+                    Triple(emptyList(), emptyList(), null)
+                }
 
             WidgetData(
                 cityName = city.name,
@@ -303,6 +345,9 @@ internal suspend fun loadWidgetData(
                 currentWindSpeedKmh = calc.currentWindSpeed(forecast),
                 forecasts = forecasts,
                 confidenceStrip = confidenceStrip,
+                next12hTemps = next12hTemps,
+                next12hPrecipProb = next12hPrecipProb,
+                hourlyStartTime = hourlyStartTime,
                 error = null
             )
         }
@@ -357,11 +402,13 @@ private fun buildForecasts(
             }
             ForecastMode.DAILY -> series.daily.dates.size
             // Ne devrait jamais arriver : buildForecasts n'est appelée QUE quand
-            // !forecastMode.isConfidenceBand() (voir loadWidgetData). On retourne
-            // 0 par safety pour rester exhaustif sans crasher.
+            // !forecastMode.isConfidenceBand() && !forecastMode.isMiniForecast()
+            // (voir loadWidgetData). On retourne 0 par safety pour rester
+            // exhaustif sans crasher.
             ForecastMode.CONFIDENCE_TEMPERATURE,
             ForecastMode.CONFIDENCE_PRECIPITATION,
-            ForecastMode.CONFIDENCE_WIND -> 0
+            ForecastMode.CONFIDENCE_WIND,
+            ForecastMode.MINI_FORECAST_12H -> 0
         }
 
     fun hasWeatherCodes(series: com.meteocompare.app.domain.model.ForecastSeries): Boolean =
@@ -370,7 +417,8 @@ private fun buildForecasts(
             ForecastMode.DAILY -> series.daily.weatherCode.isNotEmpty()
             ForecastMode.CONFIDENCE_TEMPERATURE,
             ForecastMode.CONFIDENCE_PRECIPITATION,
-            ForecastMode.CONFIDENCE_WIND -> false
+            ForecastMode.CONFIDENCE_WIND,
+            ForecastMode.MINI_FORECAST_12H -> false
         }
 
     // Priorité (a) : couverture 4 items + weather_code présent
@@ -392,7 +440,8 @@ private fun buildForecasts(
         ForecastMode.DAILY -> buildDailyForecasts(bestSeries.daily)
         ForecastMode.CONFIDENCE_TEMPERATURE,
         ForecastMode.CONFIDENCE_PRECIPITATION,
-        ForecastMode.CONFIDENCE_WIND -> emptyList()
+        ForecastMode.CONFIDENCE_WIND,
+        ForecastMode.MINI_FORECAST_12H -> emptyList()
     }
 }
 
@@ -498,7 +547,7 @@ private fun buildConfidenceStrip(
     // Groupement par jour civil dans la timezone de la ville. LinkedHashMap
     // pour préserver l'ordre chronologique — critique pour l'affichage.
     val byDay = LinkedHashMap<java.time.LocalDate, MutableList<
-        com.meteocompare.app.domain.model.HourlyConfidenceBand>>()
+            com.meteocompare.app.domain.model.HourlyConfidenceBand>>()
     for (band in bands) {
         val day = band.timestamp.atZone(zone).toLocalDate()
         byDay.getOrPut(day) { mutableListOf() }.add(band)
@@ -515,9 +564,9 @@ private fun buildConfidenceStrip(
             percent = avgPercent,
             value = formatBucketValue(mode, avgValue),
             label = if (date == today) nowShortLabel
-                else date.dayOfWeek
-                    .getDisplayName(java.time.format.TextStyle.SHORT, locale)
-                    .replace(".", "")
+            else date.dayOfWeek
+                .getDisplayName(java.time.format.TextStyle.SHORT, locale)
+                .replace(".", "")
         )
     }
 

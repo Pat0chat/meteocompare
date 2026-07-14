@@ -543,6 +543,11 @@ private fun WidgetConfigScreen(
                 labelRes = R.string.widget_config_forecast_mode_conf_wind,
                 onClick = { forecastMode = ForecastMode.CONFIDENCE_WIND }
             )
+            ForecastModeRow(
+                selected = forecastMode == ForecastMode.MINI_FORECAST_12H,
+                labelRes = R.string.widget_config_forecast_mode_mini_12h,
+                onClick = { forecastMode = ForecastMode.MINI_FORECAST_12H }
+            )
         }
 
         Spacer(Modifier.height(24.dp))

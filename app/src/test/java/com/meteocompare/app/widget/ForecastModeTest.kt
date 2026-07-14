@@ -22,6 +22,13 @@ class ForecastModeTest {
     }
 
     @Test
+    fun `isConfidenceBand - MINI_FORECAST_12H renvoie false`() {
+        // Le mini forecast est un rendu Bitmap dédié, PAS une bande de confiance.
+        // Il est traité par sa propre branche dans ExtraLargeLayout.
+        assertFalse(ForecastMode.MINI_FORECAST_12H.isConfidenceBand())
+    }
+
+    @Test
     fun `isConfidenceBand - les trois modes CONFIDENCE renvoient true`() {
         assertTrue(ForecastMode.CONFIDENCE_TEMPERATURE.isConfidenceBand())
         assertTrue(ForecastMode.CONFIDENCE_PRECIPITATION.isConfidenceBand())
@@ -29,14 +36,44 @@ class ForecastModeTest {
     }
 
     @Test
-    fun `isConfidenceBand - partition exhaustive de l'enum`() {
-        // Verrouille l'invariant "chaque mode est soit une bande, soit un
-        // forecast discret, pas les deux". Un futur ajout d'enum sans
-        // classification tomberait ici.
-        val confidenceModes = ForecastMode.entries.count { it.isConfidenceBand() }
-        val nonConfidenceModes = ForecastMode.entries.count { !it.isConfidenceBand() }
-        assertEquals(ForecastMode.entries.size, confidenceModes + nonConfidenceModes)
-        assertEquals(3, confidenceModes) // TEMPERATURE, PRECIPITATION, WIND
-        assertEquals(2, nonConfidenceModes) // HOURLY, DAILY
+    fun `isMiniForecast - reconnaît uniquement le mode dédié`() {
+        // Le helper doit être STRICTEMENT vrai pour MINI_FORECAST_12H et faux
+        // pour tous les autres. Sert de guard dans loadWidgetData pour aiguiller
+        // vers le pipeline de rendu bitmap.
+        assertTrue(ForecastMode.MINI_FORECAST_12H.isMiniForecast())
+        assertFalse(ForecastMode.HOURLY.isMiniForecast())
+        assertFalse(ForecastMode.DAILY.isMiniForecast())
+        assertFalse(ForecastMode.CONFIDENCE_TEMPERATURE.isMiniForecast())
+        assertFalse(ForecastMode.CONFIDENCE_PRECIPITATION.isMiniForecast())
+        assertFalse(ForecastMode.CONFIDENCE_WIND.isMiniForecast())
+    }
+
+    @Test
+    fun `partition exhaustive de l'enum en 3 groupes disjoints`() {
+        // Verrouille l'invariant "chaque mode appartient à EXACTEMENT UN groupe" :
+        //   - CONFIDENCE_* (bandes) : 3 modes
+        //   - MINI_FORECAST_12H : 1 mode
+        //   - Forecast discret (HOURLY, DAILY) : 2 modes
+        // Un futur ajout d'enum sans classification tombera ici — soit dans
+        // le total, soit dans "aucun groupe / plusieurs groupes".
+        val confidenceCount = ForecastMode.entries.count { it.isConfidenceBand() }
+        val miniCount = ForecastMode.entries.count { it.isMiniForecast() }
+        val discreteCount = ForecastMode.entries.count {
+            !it.isConfidenceBand() && !it.isMiniForecast()
+        }
+        // Exhaustivité : la somme = total
+        assertEquals(
+            ForecastMode.entries.size,
+            confidenceCount + miniCount + discreteCount
+        )
+        // Disjonction : aucun mode ne peut être à la fois confidence ET mini
+        val overlap = ForecastMode.entries.count {
+            it.isConfidenceBand() && it.isMiniForecast()
+        }
+        assertEquals("Un mode ne peut pas être à la fois confidence et mini", 0, overlap)
+        // Comptages spécifiques
+        assertEquals("Confidence : 3 (TEMPERATURE, PRECIPITATION, WIND)", 3, confidenceCount)
+        assertEquals("Mini forecast : 1 (MINI_FORECAST_12H)", 1, miniCount)
+        assertEquals("Forecast discret : 2 (HOURLY, DAILY)", 2, discreteCount)
     }
 }

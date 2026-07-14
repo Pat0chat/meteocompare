@@ -115,7 +115,14 @@ internal enum class ForecastMode {
     DAILY,
     CONFIDENCE_TEMPERATURE,
     CONFIDENCE_PRECIPITATION,
-    CONFIDENCE_WIND
+    CONFIDENCE_WIND,
+    /**
+     * Mini prévision 12h : barres de température (heatmap) + dots pluie +
+     * ancres horaires. Rendu via Bitmap ([WidgetMiniForecastRenderer]) +
+     * Row Glance de 3 Text pour les heures. Same look que le composable de
+     * la home. Uniquement pertinent pour les widgets 2-row (3×2, 4×2, 5×2).
+     */
+    MINI_FORECAST_12H
 }
 
 /**
@@ -126,8 +133,16 @@ internal fun ForecastMode.isConfidenceBand(): Boolean = when (this) {
     ForecastMode.CONFIDENCE_TEMPERATURE,
     ForecastMode.CONFIDENCE_PRECIPITATION,
     ForecastMode.CONFIDENCE_WIND -> true
-    ForecastMode.HOURLY, ForecastMode.DAILY -> false
+    ForecastMode.HOURLY, ForecastMode.DAILY, ForecastMode.MINI_FORECAST_12H -> false
 }
+
+/**
+ * Helper : cette mode nécessite-t-elle un rendu Bitmap custom (mini forecast) ?
+ * Introduit avec MINI_FORECAST_12H — pour distinguer du confidence strip qui
+ * lui est fait avec des Box Glance colorées.
+ */
+internal fun ForecastMode.isMiniForecast(): Boolean =
+    this == ForecastMode.MINI_FORECAST_12H
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  Palette de couleurs proposée dans la config activity

@@ -387,4 +387,7 @@
     <string name="mini_forecast_a11y_no_rain">Prévision 12h : entre %1$d et %2$d degrés, pas de pluie prévue</string>
     <string name="mini_forecast_a11y_with_rain">Prévision 12h : entre %1$d et %2$d degrés, pluie prévue sur %3$d heures</string>
 
+    <!-- Nouveau mode de prévision étendue pour widgets 3×2/4×2/5×2 : bitmap heatmap 12h + ancres horaires. -->
+    <string name="widget_config_forecast_mode_mini_12h">Mini prévision 12 heures</string>
+
 </resources>
