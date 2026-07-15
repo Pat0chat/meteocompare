@@ -54,8 +54,6 @@
     <string name="language_english">English</string>
 
     <!-- Today summary -->
-    <string name="today_label">Aujourd\'hui</string>
-    <string name="now_label">maintenant</string>
     <string name="models_analysed_one">%d modèle analysé</string>
     <string name="models_analysed_many">%d modèles analysés</string>
     <string name="confidence_badge_percent">%d %% de confiance</string>
@@ -89,13 +87,11 @@
     <string name="chart_normals_legend_wind">Vent moyen 10 ans</string>
 
     <!-- Modes de prévision étendue supplémentaires du widget 4×2 -->
-    <string name="widget_config_forecast_mode_conf_temp">Bande de confiance — température</string>
     <string name="widget_config_forecast_mode_conf_all">Confiance des modèles</string>
     <string name="widget_config_forecast_mode_conf_all_note">Affiche ensemble les bandes température, pluie et vent sur les mêmes jours.</string>
     <string name="widget_confidence_combined_title">Accord des modèles</string>
     <string name="widget_confidence_combined_hint">5 jours · % confiance</string>
-    <string name="widget_config_forecast_mode_conf_precip">Bande de confiance — précipitations</string>
-    <string name="widget_config_forecast_mode_conf_wind">Bande de confiance — vent</string>
+
     <!-- Ancres temporelles affichées sous la mini bande de confiance du widget 4×2 -->
     <string name="widget_confidence_now_short">Auj.</string>
 
@@ -120,13 +116,6 @@
 
     <!-- Absence de données horaires (mode "par heure") -->
     <string name="no_hourly_data">Pas de données horaires</string>
-
-    <!-- Légende du tableau température horaire — seuils absolus -->
-    <string name="temp_hourly_legend_freezing">gel (&lt; 0°)</string>
-    <string name="temp_hourly_legend_cold">frais (0-5°)</string>
-    <string name="temp_hourly_legend_temperate">tempéré (5-20°)</string>
-    <string name="temp_hourly_legend_warm">chaud (20-30°)</string>
-    <string name="temp_hourly_legend_hot">très chaud (≥ 30°)</string>
 
     <!-- Caption "dernière mise à jour" (CityCard home + TodaySummaryCard détail) -->
     <string name="updated_just_now">Mis à jour à l\'instant</string>
@@ -319,12 +308,6 @@
          Espace en fin du prefix / début du suffix pour espacer correctement. -->
     <string name="bias_sheet_title_prefix">Écart moyen </string>
     <string name="bias_sheet_title_suffix"> par rapport à l\'observation.</string>
-
-    <!-- Placeholder pour le graphique 30 jours (rendu à l\'itération suivante).
-         Note : conservé après la Phase 1.5 comme fallback si dailyForecast /
-         dailyObservation sont vides (défensif — la sheet ne devrait pas
-         s\'ouvrir dans ce cas mais le string reste utile en cas de refactor). -->
-    <string name="bias_sparkline_placeholder">Graphique 30 jours — à venir</string>
 
     <!-- Hint affiché quand aucun chip de biais n\'est encore disponible pour la
          ville (première utilisation OU l\'app n\'a pas encore fetché l\'historique).

@@ -1,5 +1,6 @@
 package com.meteocompare.app.di
 
+import com.meteocompare.app.BuildConfig
 import com.meteocompare.app.data.remote.ClimateArchiveApi
 import com.meteocompare.app.data.remote.GeocodingApi
 import com.meteocompare.app.data.remote.HistoricalForecastApi
@@ -49,9 +50,13 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideOkHttp(): OkHttpClient = OkHttpClient.Builder()
-        .addInterceptor(HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BASIC
-        })
+        .apply {
+            if (BuildConfig.DEBUG) {
+                addInterceptor(HttpLoggingInterceptor().apply {
+                    level = HttpLoggingInterceptor.Level.BASIC
+                })
+            }
+        }
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(15, TimeUnit.SECONDS)
         .build()

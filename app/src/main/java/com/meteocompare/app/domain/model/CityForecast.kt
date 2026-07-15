@@ -24,9 +24,6 @@ data class CityForecast(
     val errors: Map<WeatherModel, String> = emptyMap(),
     val fetchedAt: Instant? = null
 ) {
-    /** True si au moins un modèle a répondu. */
-    val hasData: Boolean get() = seriesByModel.isNotEmpty()
-
     /** Modèles disponibles, triés par résolution (du plus fin au plus grossier). */
     val availableModels: List<WeatherModel>
         get() = seriesByModel.keys.sortedBy { it.resolutionKm }

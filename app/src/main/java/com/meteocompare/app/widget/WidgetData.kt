@@ -8,6 +8,7 @@ import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.usecase.ConfidenceCalculator
+import com.meteocompare.app.domain.util.ForecastAggregates
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
@@ -317,13 +318,16 @@ internal suspend fun loadWidgetData(
                     val zone = runCatching {
                         java.time.ZoneId.of(city.timezone ?: "UTC")
                     }.getOrDefault(java.time.ZoneId.of("UTC"))
-                    val start = java.time.Instant.now()
+                    val now = java.time.Instant.now()
+                    val miniForecast =
+                        ForecastAggregates.next12h(forecast, now)
+                    val start = now
                         .atZone(zone)
                         .toLocalDateTime()
                         .truncatedTo(java.time.temporal.ChronoUnit.HOURS)
                     Triple(
-                        com.meteocompare.app.ui.citylist.HomeAggregates.next12hTemperatures(forecast),
-                        com.meteocompare.app.ui.citylist.HomeAggregates.next12hPrecipProbability(forecast),
+                        miniForecast.temperatures,
+                        miniForecast.precipitationProbabilities,
                         start
                     )
                 } else {

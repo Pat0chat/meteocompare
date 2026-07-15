@@ -12,8 +12,6 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.doubleOrNull
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonPrimitive
 import java.time.Instant
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -124,35 +122,27 @@ class BackfillHistoricalForecastUseCase @Inject constructor(
             val precipValues = daily.doubleArrayOrNull("precipitation_sum_${model.apiKey}")
             val windValues = daily.doubleArrayOrNull("wind_speed_10m_max_${model.apiKey}")
 
-            // Aligne par index — l'API garantit des listes de même longueur
-            // que `time`, mais on borne défensivement par la min pour tolérer
-            // une réponse partielle sans crash.
-            val n = minOf(
-                dates.size,
-                tempValues?.size ?: 0,
-                precipValues?.size ?: 0,
-                windValues?.size ?: 0
-            )
-            if (n == 0) continue
-
-            for (i in 0 until n) {
+            // Chaque variable est alignée indépendamment sur `time`. Une
+            // liste absente ou plus courte ne doit pas supprimer les valeurs
+            // valides des deux autres variables.
+            for (i in dates.indices) {
                 val date = dates[i] ?: continue
 
-                tempValues?.get(i)?.let { v ->
+                tempValues?.getOrNull(i)?.let { value ->
                     biasRepository.recordForecast(
-                        city.id, model, BiasVariable.TEMPERATURE, date, issuedAt, v
+                        city.id, model, BiasVariable.TEMPERATURE, date, issuedAt, value
                     )
                     recorded++
                 }
-                precipValues?.get(i)?.let { v ->
+                precipValues?.getOrNull(i)?.let { value ->
                     biasRepository.recordForecast(
-                        city.id, model, BiasVariable.PRECIPITATION, date, issuedAt, v
+                        city.id, model, BiasVariable.PRECIPITATION, date, issuedAt, value
                     )
                     recorded++
                 }
-                windValues?.get(i)?.let { v ->
+                windValues?.getOrNull(i)?.let { value ->
                     biasRepository.recordForecast(
-                        city.id, model, BiasVariable.WIND_SPEED, date, issuedAt, v
+                        city.id, model, BiasVariable.WIND_SPEED, date, issuedAt, value
                     )
                     recorded++
                 }

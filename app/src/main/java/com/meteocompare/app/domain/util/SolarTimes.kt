@@ -8,7 +8,6 @@ import kotlin.math.PI
 import kotlin.math.acos
 import kotlin.math.cos
 import kotlin.math.sin
-import kotlin.math.tan
 
 /**
  * Résultat d'un calcul de sunrise/sunset pour une position et une date.

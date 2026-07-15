@@ -5,8 +5,8 @@
     <!--
         Permissions minimales — strictement nécessaires au fonctionnement.
         INTERNET : requise pour les requêtes Open-Meteo (seul backend utilisé).
-        ACCESS_NETWORK_STATE : pour des futures fonctionnalités offline-aware
-        (afficher un bandeau "hors-ligne"). Ne donne accès à aucune donnée perso.
+        ACCESS_NETWORK_STATE : permet de court-circuiter immédiatement les
+        requêtes quand aucun réseau Internet validé n'est disponible.
     -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />

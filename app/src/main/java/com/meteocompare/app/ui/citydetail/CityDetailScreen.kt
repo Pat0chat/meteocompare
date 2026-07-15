@@ -94,11 +94,9 @@ import kotlin.math.roundToInt
 //  Public screen entry
 // ============================================================================
 
-@Suppress("UNUSED_PARAMETER")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CityDetailScreen(
-    cityId: String,
     onBack: () -> Unit,
     onConfidenceClick: (isoDate: String) -> Unit = {},
     viewModel: CityDetailViewModel = hiltViewModel()

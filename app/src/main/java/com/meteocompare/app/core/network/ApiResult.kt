@@ -44,7 +44,7 @@ suspend inline fun <T> apiCall(
     ApiResult.Success(block())
 } catch (e: kotlinx.coroutines.CancellationException) {
     throw e
-} catch (e: Throwable) {
+} catch (e: Exception) {
     ApiResult.Error(e, e.toUserMessage(context))
 }
 

@@ -1,10 +1,12 @@
 package com.meteocompare.app.data.repository
 
 import android.content.Context
+import com.meteocompare.app.BuildConfig
 import com.meteocompare.app.R
 import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.core.network.NetworkMonitor
 import com.meteocompare.app.core.network.toUserMessage
+import com.meteocompare.app.core.util.runSuspendCatching
 import com.meteocompare.app.data.local.ForecastCacheDao
 import com.meteocompare.app.data.local.ForecastCacheEntity
 import com.meteocompare.app.data.mapper.ForecastMapper
@@ -21,9 +23,11 @@ import com.meteocompare.app.domain.usecase.SnapshotForecastUseCase
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.sync.Mutex
@@ -125,19 +129,28 @@ class ForecastRepositoryImpl @Inject constructor(
     ): ApiResult<CityForecast> {
         val key = cacheKey(city, models, forecastDays)
         val deferred = inflightMutex.withLock {
-            // Réutilise le Deferred existant s'il est encore actif. Un
-            // Deferred terminé mais pas encore retiré (race entre `finally`
-            // du produit et cet accès) fonctionne aussi — `await()` renvoie
-            // immédiatement la valeur déjà calculée.
-            inflightFetches[key]?.takeIf { !it.isCompleted } ?: repoScope.async {
-                try {
+            inflightFetches[key]?.takeIf { !it.isCompleted } ?: run {
+                // Démarrage lazy : le Deferred est enregistré avant que le
+                // travail puisse finir, même avec un dispatcher immédiat.
+                val created = repoScope.async(start = CoroutineStart.LAZY) {
                     fetchAndCache(city, models, forecastDays)
-                } finally {
-                    // Retrait sous mutex pour éviter la race avec un nouveau
-                    // caller qui arriverait juste après la fin de fetch.
-                    inflightMutex.withLock { inflightFetches.remove(key) }
                 }
-            }.also { inflightFetches[key] = it }
+                inflightFetches[key] = created
+                created.invokeOnCompletion {
+                    // Le nettoyage compare l'identité du Deferred. Sans ce
+                    // garde, la fin d'un ancien fetch pourrait retirer du
+                    // registre un nouveau fetch créé entre-temps pour la même clé.
+                    repoScope.launch {
+                        inflightMutex.withLock {
+                            if (inflightFetches[key] === created) {
+                                inflightFetches.remove(key)
+                            }
+                        }
+                    }
+                }
+                created.start()
+                created
+            }
         }
         return deferred.await()
     }
@@ -247,30 +260,28 @@ class ForecastRepositoryImpl @Inject constructor(
         city: City,
         models: List<WeatherModel>
     ): CityForecast? = withContext(ioDispatcher) {
-        val entries = cacheDao.getForCity(city.id)
-            .filter { entry -> models.any { it.apiKey == entry.modelKey } }
-        if (entries.isEmpty()) return@withContext null
-
-        val series = entries.mapNotNull { entry ->
-            val model = models.firstOrNull { it.apiKey == entry.modelKey } ?: return@mapNotNull null
+        val modelByApiKey = models.associateBy(WeatherModel::apiKey)
+        val cachedSeries = cacheDao.getForCity(city.id).mapNotNull { entry ->
+            val model = modelByApiKey[entry.modelKey] ?: return@mapNotNull null
             runCatching {
                 val dto = json.decodeFromString<ForecastResponseDto>(entry.responseJson)
-                mapper.toSeries(model, dto)
+                entry.fetchedAtEpochMs to mapper.toSeries(model, dto)
             }.getOrNull()
         }
-        if (series.isEmpty()) return@withContext null
+        if (cachedSeries.isEmpty()) return@withContext null
 
-        // Fraîcheur du CityForecast = plus récent des fetchedAt de tous les
-        // modèles présents en cache. En pratique tous les modèles d'une même
-        // ville sont écrits ensemble (même `now` dans fetchAndCache), donc les
-        // valeurs sont très proches ; on prend le max pour être robuste au cas
-        // où un modèle isolé aurait été rafraîchi séparément par une future
-        // évolution du code.
-        val newestFetchedAtMs = entries.maxOf { it.fetchedAtEpochMs }
+        // Une entrée corrompue est ignorée et ne doit pas influencer la date
+        // affichée. On calcule donc la fraîcheur uniquement sur les entrées
+        // effectivement décodées et mappées.
+        val newestFetchedAtMs = cachedSeries.maxOf { it.first }
+        val seriesByModel = cachedSeries
+            .asSequence()
+            .map { it.second }
+            .associateBy(ForecastSeries::model)
 
         CityForecast(
             city = city,
-            seriesByModel = series.associateBy { it.model },
+            seriesByModel = seriesByModel,
             errors = emptyMap(), // on n'a pas mémorisé les erreurs en cache
             fetchedAt = Instant.ofEpochMilli(newestFetchedAtMs)
         )
@@ -322,19 +333,21 @@ class ForecastRepositoryImpl @Inject constructor(
         val effectiveForecastDays = models.maxOf { it.maxForecastDays }
             .coerceAtMost(forecastDays.coerceAtLeast(1))
 
-        // Log explicite pour vérifier en debug/production que le batching
-        // fonctionne comme prévu. Filtrable par `adb logcat -s MeteoCompare/Net`,
+        // Log explicite pour vérifier en debug que le batching fonctionne
+        // comme prévu. Filtrable par `adb logcat -s MeteoCompare/Net`,
         // le tag court permet un grep visuel rapide. Un futur regression qui
         // ferait éclater ce log en N lignes séparées (une par modèle) serait
         // une régression très visible.
         //
-        // Niveau INFO plutôt que DEBUG : on veut voir ce log même sur les
-        // logcat filtrés par défaut du Play Store (release keeps INFO+).
-        android.util.Log.d(
-            LOG_TAG,
-            "Batched fetch: ${models.size} models in 1 HTTPS request " +
+        // Niveau DEBUG uniquement : aucun URL ni diagnostic réseau n'est
+        // construit ou émis dans les versions release.
+        if (BuildConfig.DEBUG) {
+            android.util.Log.d(
+                LOG_TAG,
+                "Batched fetch: ${models.size} models in 1 HTTPS request " +
                     "→ ${models.joinToString(",") { it.apiKey }}"
-        )
+            )
+        }
 
         val batched = try {
             api.getForecastBatched(
@@ -345,7 +358,7 @@ class ForecastRepositoryImpl @Inject constructor(
             )
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
-        } catch (e: Throwable) {
+        } catch (e: Exception) {
             return@withContext ApiResult.Error(e, e.toUserMessage(context))
         }
 
@@ -353,27 +366,27 @@ class ForecastRepositoryImpl @Inject constructor(
         val perModelDtos: Map<WeatherModel, ForecastResponseDto> =
             BatchedForecastSplitter.split(batched, models)
 
-        val successes = mutableMapOf<WeatherModel, ForecastSeries>()
+        val successes = perModelDtos.mapValues { (model, dto) ->
+            mapper.toSeries(model, dto)
+        }
         val errors = mutableMapOf<WeatherModel, String>()
 
-        // Modèles qui ont répondu : on cache + on mappe
-        for ((model, dto) in perModelDtos) {
-            runCatching {
-                cacheDao.upsert(
-                    ForecastCacheEntity(
-                        cityId = city.id,
-                        modelKey = model.apiKey,
-                        fetchedAtEpochMs = now,
-                        responseJson = json.encodeToString(
-                            ForecastResponseDto.serializer(),
-                            dto
-                        )
-                    )
+        // Une seule transaction Room pour tous les modèles, au lieu d'une
+        // transaction par entrée. Une erreur de cache ne bloque pas
+        // l'affichage de la donnée fraîche.
+        val cacheEntries = perModelDtos.map { (model, dto) ->
+            ForecastCacheEntity(
+                cityId = city.id,
+                modelKey = model.apiKey,
+                fetchedAtEpochMs = now,
+                responseJson = json.encodeToString(
+                    ForecastResponseDto.serializer(),
+                    dto
                 )
-            }
-            // Une erreur d'écriture cache ne bloque PAS l'affichage — la
-            // donnée fraîche va quand même être renvoyée au caller.
-            successes[model] = mapper.toSeries(model, dto)
+            )
+        }
+        if (cacheEntries.isNotEmpty()) {
+            runSuspendCatching { cacheDao.upsertAll(cacheEntries) }
         }
 
         // Modèles demandés mais absents du split → filtrés par le splitter
@@ -400,11 +413,11 @@ class ForecastRepositoryImpl @Inject constructor(
                 fetchedAt = Instant.ofEpochMilli(now)
             )
             // Piggyback : chaque fetch réseau réussi alimente aussi l'historique
-            // de suivi de biais. runCatching pour être défensif — un bug dans
+            // de suivi de biais. runSuspendCatching pour être défensif — un bug dans
             // le snapshot use case ne doit JAMAIS faire échouer le refresh
             // utilisateur (dégradation gracieuse : l'user voit son forecast
             // frais, on perd juste un point d'historique de biais).
-            runCatching { snapshotForecast(fresh) }
+            runSuspendCatching { snapshotForecast(fresh) }
             ApiResult.Success(fresh)
         }
     }

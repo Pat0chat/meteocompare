@@ -11,13 +11,6 @@ val Primary40 = Color(0xFF0277BD)
 val Secondary40 = Color(0xFF00838F)
 val Tertiary40 = Color(0xFFD84315)
 
-// Couleurs sémantiques par modèle (utilisées pour différencier les courbes superposées).
-val ModelArome = Color(0xFF1976D2)
-val ModelArpege = Color(0xFF388E3C)
-val ModelIcon = Color(0xFFE64A19)
-val ModelGfs = Color(0xFF7B1FA2)
-val ModelEcmwf = Color(0xFFFBC02D)
-
 // Couleurs sémantiques pour les niveaux de confiance.
 //
 // Deux palettes : SATURÉES pour le thème clair (utilisées comme texte

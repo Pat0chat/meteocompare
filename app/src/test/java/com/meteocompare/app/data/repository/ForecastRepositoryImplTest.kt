@@ -93,7 +93,7 @@ class ForecastRepositoryImplTest {
             cacheDao = cacheDao,
             json = json,
             networkMonitor = networkMonitor,
-            // Le repo appelle snapshotForecast(fresh) via runCatching à chaque
+            // Le repo appelle snapshotForecast(fresh) via runSuspendCatching à chaque
             // fetch réussi. Un relaxed mock renvoie Unit pour toute méthode
             // suspendue sans stub explicite — l'aspect "biais tracking" n'est
             // pas testé ici, on veut juste que le constructeur soit satisfait
@@ -136,23 +136,24 @@ class ForecastRepositoryImplTest {
         }
 
     @Test
-    fun `refresh - ecrit chaque modele reussi dans le cache`() = runTest {
+    fun `refresh - ecrit les modeles reussis dans le cache en un lot`() = runTest {
         coEvery {
             api.getForecastBatched(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
         } returns batchedResponseWith(modelsWithData = listOf(WeatherModel.GFS))
         coEvery { cacheDao.getForCity(any()) } returns emptyList()
 
-        val slot = slot<ForecastCacheEntity>()
-        coEvery { cacheDao.upsert(capture(slot)) } returns Unit
+        val slot = slot<List<ForecastCacheEntity>>()
+        coEvery { cacheDao.upsertAll(capture(slot)) } returns Unit
 
         repository.refreshCityForecast(
             city = paris,
             models = listOf(WeatherModel.GFS)
         )
 
-        coVerify { cacheDao.upsert(any()) }
-        assertEquals("1", slot.captured.cityId)
-        assertEquals(WeatherModel.GFS.apiKey, slot.captured.modelKey)
+        coVerify(exactly = 1) { cacheDao.upsertAll(any()) }
+        assertEquals(1, slot.captured.size)
+        assertEquals("1", slot.captured.single().cityId)
+        assertEquals(WeatherModel.GFS.apiKey, slot.captured.single().modelKey)
     }
 
     @Test

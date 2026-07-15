@@ -290,10 +290,9 @@ Fait :
 - ✅ v0.8 — Batching multi-modèles (1 requête HTTPS au lieu de N), bande de confiance multi-métriques (T° / pluie / vent), normales climatiques 10 ans en overlay, tri des modèles Settings (zone/famille/finesse), ajout HRRR / MET Nordic / KNMI HARMONIE / BOM ACCESS / CMA GRAPES (5 nouveaux modèles), widget 4×2 avec mode bande de confiance, i18n des widgets
 - ✅ v0.9 — Correction des requêtes dupliquées, correction des widgets fantômes, widgets et application partagent le même espace de données, amélioration des widgets, ajout des heatmaps pour les tableaux par heure
 - ✅ v1.0 — Suivi de biais par modèle et par ville : capture quotidienne des prévisions (piggyback sur les refresh utilisateur), fetch delta observations ERA5 via WorkManager, backfill historical-forecast au premier lancement pour éviter d'attendre 14 jours, chip 3 états dans les tableaux (biais significatif / calibré / en attente), sheet dédiée avec sparkline 30j et texte contextuel, coalescing des fetches HTTP concurrents
+- ✅ v1.1 — Refonte des widgets, ajout des icônes partagées, optimisation globale de l'application, correction de bugs
 
 À venir :
-
-- v1.1 — Suivi de biais visible dans le widget, densification des tests d'intégration
 
 ## Licence
 

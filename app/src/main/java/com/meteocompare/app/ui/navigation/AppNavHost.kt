@@ -43,7 +43,6 @@ fun AppNavHost() {
             val cityId = backStackEntry.arguments?.getString(Destinations.CITY_DETAIL_ARG)
                 ?: return@composable
             CityDetailScreen(
-                cityId = cityId,
                 onBack = { navController.popBackStack() },
                 onConfidenceClick = { isoDate ->
                     navController.navigate(Destinations.confidence(cityId, isoDate))

@@ -189,7 +189,7 @@ private fun PartlyCloudyIcon(
  * sur la pluie).
  *
  * Les couleurs collent à celles déjà utilisées dans l'app pour la cohérence :
- *   - jaune (ambre Material) pour soleil, comme `ModelEcmwf`
+ *   - jaune ambré pour le soleil
  *   - bleus pour pluie/bruine, comme la légende des précipitations
  *   - violets/grays pour orage et neige
  *   - **familles nuageuses neutres** (PARTLY_CLOUDY, OVERCAST, FOG) →

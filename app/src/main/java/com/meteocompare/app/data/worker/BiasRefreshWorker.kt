@@ -10,6 +10,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import com.meteocompare.app.core.util.runSuspendCatching
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.flow.first
 import java.time.LocalDate
@@ -64,8 +65,8 @@ import java.util.concurrent.TimeUnit
  * catastrophique (repo inaccessible) → `Result.retry` pour laisser
  * WorkManager retenter avec backoff exponentiel.
  *
- * Les deux purges (bias + forecast cache) sont wrappées dans `runCatching`
- * indépendamment : un échec de l'une ne bloque pas l'autre, et le worker
+ * Les deux purges (biais + cache prévisionnel) sont protégées séparément :
+ * un échec de l'une ne bloque pas l'autre, et le worker
  * retourne toujours SUCCESS après ces étapes (les fetches ont réussi, le
  * cleanup est du bonus).
  */
@@ -181,9 +182,9 @@ internal class BiasRefreshWorker(
 
         // Snapshot one-shot des favorites + modèles activés — pas besoin
         // d'écouter les Flow (le worker ne vit que le temps d'un cycle).
-        val favorites = runCatching { cityRepo.observeFavorites().first() }
+        val favorites = runSuspendCatching { cityRepo.observeFavorites().first() }
             .getOrElse { return Result.retry() }
-        val enabledModels = runCatching { userPrefs.observeEnabledModels().first() }
+        val enabledModels = runSuspendCatching { userPrefs.observeEnabledModels().first() }
             .getOrDefault(emptyList())
 
         // Backfill historical-forecast d'abord — le use case est idempotent
@@ -191,32 +192,32 @@ internal class BiasRefreshWorker(
         // cycle est safe. Une ville en échec (timeout, 5xx) est skippée sans
         // faire échouer le cycle global. Coût no-op = 1 SELECT COUNT local.
         for (city in favorites) {
-            runCatching { backfill(city, enabledModels) }.getOrNull()
+            runSuspendCatching { backfill(city, enabledModels) }.getOrNull()
         }
 
         // Fetch delta observations pour chaque ville, tolérant aux erreurs
         // individuelles (idem : une ville qui rate ne bloque pas les autres).
         for (city in favorites) {
-            runCatching { fetchObs(city) }.getOrNull()
+            runSuspendCatching { fetchObs(city) }.getOrNull()
         }
 
         // Housekeeping bias : purge les samples > RETENTION_DAYS.
-        runCatching {
+        runSuspendCatching {
             biasRepo.purgeOlderThan(
                 LocalDate.now().minusDays(BiasRefreshScheduler.RETENTION_DAYS)
             )
         }
 
         // Housekeeping forecast cache : purge les entrées > FORECAST_CACHE_RETENTION_DAYS.
-        // Enveloppé dans son propre runCatching pour être indépendant du purge
-        // bias — un échec de l'un ne doit pas empêcher l'autre. Le DAO utilise
-        // un cutoff en epoch millis alors que biasRepo utilise LocalDate, d'où
+        // Protégé séparément pour rester indépendant de la purge du biais :
+        // un échec de l'un ne doit pas empêcher l'autre. Le DAO utilise un
+        // cutoff en epoch millis alors que biasRepo utilise LocalDate, d'où
         // la conversion inline (Instant.now().minus(N days).toEpochMilli()).
         //
         // Coût : 1 DELETE indexé sur `fetchedAtEpochMs`. Sur une DB de
         // ~100 rows (17 modèles × 5 villes × ~1 entry par jour × 1 semaine),
         // s'exécute en < 5 ms. Négligeable même sur bas de gamme.
-        runCatching {
+        runSuspendCatching {
             val cutoffMs = java.time.Instant.now()
                 .minus(BiasRefreshScheduler.FORECAST_CACHE_RETENTION_DAYS, java.time.temporal.ChronoUnit.DAYS)
                 .toEpochMilli()

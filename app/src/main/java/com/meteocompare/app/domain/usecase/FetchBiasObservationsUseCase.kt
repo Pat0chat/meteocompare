@@ -97,32 +97,30 @@ class FetchBiasObservationsUseCase @Inject constructor(
         val precipSum = response.daily.precipSum
         val windMax = response.daily.windSpeedMax
 
-        // Sanity : listes désalignées → on filtre par la longueur commune.
-        // Certains modèles archive peuvent avoir des reprises partielles.
-        val n = minOf(
-            timeStrs.size,
-            tempMax.size,
-            precipSum?.size ?: 0,
-            windMax?.size ?: 0
-        )
-
-        var recorded = 0
-        for (i in 0 until n) {
+        // Chaque série est lue indépendamment. Une variable optionnelle
+        // absente ou une liste partielle ne doit pas empêcher de persister les
+        // autres observations disponibles pour la même date.
+        var recordedDays = 0
+        for (i in timeStrs.indices) {
             val date = runCatching { LocalDate.parse(timeStrs[i], ISO_DATE) }.getOrNull()
                 ?: continue
+            var recordedForDate = false
 
-            tempMax[i]?.let { v ->
-                biasRepository.recordObservation(city.id, BiasVariable.TEMPERATURE, date, v)
-                recorded++
+            tempMax.getOrNull(i)?.let { value ->
+                biasRepository.recordObservation(city.id, BiasVariable.TEMPERATURE, date, value)
+                recordedForDate = true
             }
-            precipSum?.get(i)?.let { v ->
-                biasRepository.recordObservation(city.id, BiasVariable.PRECIPITATION, date, v)
+            precipSum?.getOrNull(i)?.let { value ->
+                biasRepository.recordObservation(city.id, BiasVariable.PRECIPITATION, date, value)
+                recordedForDate = true
             }
-            windMax?.get(i)?.let { v ->
-                biasRepository.recordObservation(city.id, BiasVariable.WIND_SPEED, date, v)
+            windMax?.getOrNull(i)?.let { value ->
+                biasRepository.recordObservation(city.id, BiasVariable.WIND_SPEED, date, value)
+                recordedForDate = true
             }
+            if (recordedForDate) recordedDays++
         }
-        recorded
+        recordedDays
     }
 
     companion object {

@@ -13,6 +13,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import com.meteocompare.app.core.util.runSuspendCatching
 import java.util.concurrent.TimeUnit
 
 /**
@@ -257,7 +258,7 @@ internal class WidgetRefreshWorker(
         val now = System.currentTimeMillis()
 
         glanceIds.forEach { glanceId ->
-            val widgetId = runCatching { glanceManager.getAppWidgetId(glanceId) }
+            val widgetId = runSuspendCatching { glanceManager.getAppWidgetId(glanceId) }
                 .getOrNull()
             if (widgetId == null || widgetId !in liveWidgetIds) {
                 // Ghost : Glance connaît l'ID mais le launcher non. On skip.
@@ -271,7 +272,7 @@ internal class WidgetRefreshWorker(
                 // (Glance recycle les IDs) ou à la désinstallation de l'app.
                 return@forEach
             }
-            runCatching {
+            runSuspendCatching {
                 updateAppWidgetState(
                     context = ctx,
                     definition = PreferencesGlanceStateDefinition,
@@ -287,7 +288,7 @@ internal class WidgetRefreshWorker(
             }
         }
 
-        // Result.success même en cas d'échec dans une des runCatching : le
+        // Result.success même si une mise à jour isolée échoue : le
         // prochain cycle périodique de 15 min ré-essaiera. Un Result.retry
         // ici serait redondant avec la cadence WorkManager.
         return Result.success()

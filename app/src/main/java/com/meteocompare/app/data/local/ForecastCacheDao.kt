@@ -12,11 +12,7 @@ interface ForecastCacheDao {
     @Query("SELECT * FROM forecast_cache WHERE cityId = :cityId")
     suspend fun getForCity(cityId: String): List<ForecastCacheEntity>
 
-    /** Insère ou remplace une entrée (clé composite (cityId, modelKey)). */
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsert(entity: ForecastCacheEntity)
-
-    /** Suppression en lot (utile pour `refresh` qui recrée tout). */
+    /** Insère ou remplace les entrées d'un refresh en une transaction Room. */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(entities: List<ForecastCacheEntity>)
 

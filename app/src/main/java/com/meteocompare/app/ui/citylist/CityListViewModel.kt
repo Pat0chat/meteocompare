@@ -11,6 +11,7 @@ import com.meteocompare.app.domain.repository.CityRepository
 import com.meteocompare.app.domain.repository.ForecastRepository
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
 import com.meteocompare.app.domain.usecase.ConfidenceCalculator
+import com.meteocompare.app.domain.util.ForecastAggregates
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
@@ -302,20 +303,19 @@ class CityListViewModel @Inject constructor(
                     zone = zone
                 )
 
+                val now = java.time.Instant.now()
+                val miniForecast = ForecastAggregates.next12h(result.data, now)
                 ForecastState.Loaded(
                     today = confidenceCalculator.dayConfidence(result.data, today),
                     currentTemp = confidenceCalculator.currentTemperature(result.data),
                     currentCondition = confidenceCalculator.currentWeatherCondition(result.data),
                     currentCloudCover = confidenceCalculator.currentCloudCover(result.data),
                     fetchedAt = result.data.fetchedAt,
-                    // Agrégats 12h pour la mini prévision — 2 listes fixes
-                    // taille 12 avec null pour heures où aucun modèle ne fournit.
-                    next12hTemps = HomeAggregates.next12hTemperatures(result.data),
-                    next12hPrecipProb = HomeAggregates.next12hPrecipProbability(result.data),
-                    // Moment de départ dans le fuseau de la ville — sert aux
-                    // labels temporels sous la strip. On tronque à l'heure car
-                    // les ancres visuelles sont horaires (pas de "15:23", juste "15h").
-                    hourlyStartTime = java.time.Instant.now()
+                    next12hTemps = miniForecast.temperatures,
+                    next12hPrecipProb = miniForecast.precipitationProbabilities,
+                    // Même instant de référence que les agrégats ci-dessus :
+                    // les valeurs et les labels horaires restent alignés.
+                    hourlyStartTime = now
                         .atZone(zone)
                         .toLocalDateTime()
                         .truncatedTo(java.time.temporal.ChronoUnit.HOURS),

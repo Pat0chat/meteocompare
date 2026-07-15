@@ -15,7 +15,6 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.time.LocalDate
@@ -304,7 +303,7 @@ class BackfillHistoricalForecastUseCaseTest {
     }
 
     @Test
-    fun `longueurs de listes différentes bornées par le min sans crash`() = runTest {
+    fun `longueurs différentes conservent les valeurs disponibles de chaque variable`() = runTest {
         coEvery { repo.countPastForecastSamples(any(), any()) } returns 0
         coEvery {
             api.getHistoricalForecast(any(), any(), any(), any(), any(), any(), any(), any(), any())
@@ -317,8 +316,52 @@ class BackfillHistoricalForecastUseCaseTest {
 
         val recorded = useCase(paris, listOf(WeatherModel.GFS), today)
 
-        // Borne = min(3, 2, 3, 3) = 2 → 2 dates × 3 variables = 6 rows
-        assertEquals(6, recorded)
+        // Température : 2 valeurs, pluie : 3, vent : 3 → 8 rows.
+        assertEquals(8, recorded)
+    }
+
+
+    @Test
+    fun `variable absente ne supprime pas les autres séries valides`() = runTest {
+        coEvery { repo.countPastForecastSamples(any(), any()) } returns 0
+        coEvery {
+            api.getHistoricalForecast(any(), any(), any(), any(), any(), any(), any(), any(), any())
+        } returns BatchedForecastResponseDto(
+            latitude = paris.latitude,
+            longitude = paris.longitude,
+            timezone = "Europe/Paris",
+            daily = buildJsonObject {
+                put("time", buildJsonArray {
+                    add(kotlinx.serialization.json.JsonPrimitive("2024-06-15"))
+                    add(kotlinx.serialization.json.JsonPrimitive("2024-06-16"))
+                })
+                put("temperature_2m_max_gfs_seamless", buildJsonArray {
+                    add(kotlinx.serialization.json.JsonPrimitive(22.0))
+                    add(kotlinx.serialization.json.JsonPrimitive(23.0))
+                })
+                // precipitation_sum volontairement absente
+                put("wind_speed_10m_max_gfs_seamless", buildJsonArray {
+                    add(kotlinx.serialization.json.JsonPrimitive(10.0))
+                    add(kotlinx.serialization.json.JsonPrimitive(12.0))
+                })
+            }
+        )
+
+        val recorded = useCase(paris, listOf(WeatherModel.GFS), today)
+
+        assertEquals(4, recorded)
+        coVerify(exactly = 2) {
+            repo.recordForecast(paris.id, WeatherModel.GFS, BiasVariable.TEMPERATURE,
+                any(), any(), any())
+        }
+        coVerify(exactly = 0) {
+            repo.recordForecast(paris.id, WeatherModel.GFS, BiasVariable.PRECIPITATION,
+                any(), any(), any())
+        }
+        coVerify(exactly = 2) {
+            repo.recordForecast(paris.id, WeatherModel.GFS, BiasVariable.WIND_SPEED,
+                any(), any(), any())
+        }
     }
 
     // ─── Helpers ────────────────────────────────────────────────────────

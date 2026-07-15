@@ -12,8 +12,6 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.intOrNull
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * Décompose une réponse batched multi-modèles en un [ForecastResponseDto]
@@ -190,42 +188,33 @@ object BatchedForecastSplitter {
      * en `List<String>`. Silencieusement filtre les éléments qui ne seraient pas
      * des String — défense en profondeur contre une réponse malformée.
      */
-    private fun JsonElement.asStringList(): List<String> = try {
+    private fun JsonElement.asStringList(): List<String> =
         (this as? JsonArray)?.mapNotNull {
-            (it as? JsonPrimitive)?.takeIf { p -> p.isString }?.content
-        } ?: emptyList()
-    } catch (_: Throwable) {
-        emptyList()
-    }
+            (it as? JsonPrimitive)?.takeIf { primitive -> primitive.isString }?.content
+        }.orEmpty()
 
     /**
      * Convertit un JsonArray en `List<Double?>`. `JsonNull` devient `null`,
      * un primitif numérique devient sa valeur double, tout autre type devient
      * `null` silencieusement.
      */
-    private fun JsonElement.asNullableDoubles(): List<Double?> = try {
-        jsonArray.map { element ->
+    private fun JsonElement.asNullableDoubles(): List<Double?> =
+        (this as? JsonArray)?.map { element ->
             when (element) {
                 is JsonNull -> null
                 is JsonPrimitive -> element.doubleOrNull
                 else -> null
             }
-        }
-    } catch (_: Throwable) {
-        emptyList()
-    }
+        }.orEmpty()
 
-    private fun JsonElement.asNullableInts(): List<Int?> = try {
-        jsonArray.map { element ->
+    private fun JsonElement.asNullableInts(): List<Int?> =
+        (this as? JsonArray)?.map { element ->
             when (element) {
                 is JsonNull -> null
                 is JsonPrimitive -> element.intOrNull
                 else -> null
             }
-        }
-    } catch (_: Throwable) {
-        emptyList()
-    }
+        }.orEmpty()
 
     // ────────────────── Noms des variables (constantes de scope) ────────────────
 

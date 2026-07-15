@@ -15,9 +15,6 @@ data class ForecastResponseDto(
     val latitude: Double,
     val longitude: Double,
     val timezone: String,
-    @SerialName("timezone_abbreviation")
-    val timezoneAbbreviation: String? = null,
-    val elevation: Double? = null,
     val hourly: HourlyDto? = null,
     val daily: DailyDto? = null
 )
