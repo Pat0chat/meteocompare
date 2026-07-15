@@ -95,6 +95,12 @@ private val LargePadding = WidgetPadding(18.dp, 12.dp)
 private val CompactTallPadding = WidgetPadding(12.dp, 12.dp)
 private val ExtraLargePadding = WidgetPadding(16.dp, 12.dp)
 
+// Demi-espace autour des cartes secondaires. Chaque carte apporte 3 dp de
+// marge de son côté, soit 6 dp visibles entre deux fonds arrondis voisins.
+// L'ancien espacement de 2 dp (4 dp au total) était trop faible : avec un
+// fond translucide, les surfaces semblaient se toucher sur les écrans denses.
+private val SecondaryCardOuterPadding = 3.dp
+
 /**
  * Thème résolu (dark/light) — passé via [CompositionLocal] pour éviter que
  * chaque helper couleur ne recalcule `ctx.resources.configuration.uiMode` à
@@ -357,7 +363,8 @@ private fun WidgetContent(
                             onContainerMuted = onContainerMuted,
                             softSurface = softSurface,
                             onContainerArgb = baseOnContainerColor.toArgb(),
-                            showFiveItems = widthDp >= WIDE_MIN_WIDTH_DP
+                            showFiveItems = widthDp >= WIDE_MIN_WIDTH_DP,
+                            showExtras = widthDp >= MEDIUM_MAX_WIDTH_DP
                         )
                     WidgetLayoutKind.COMPACT_TALL ->
                         CompactTallLayout(
@@ -654,7 +661,7 @@ private fun LargeLayout(
                         onContainerMuted = onContainerMuted,
                         softSurface = softSurface,
                         compact = true,
-                        modifier = GlanceModifier.padding(horizontal = 2.dp)
+                        modifier = GlanceModifier.padding(horizontal = SecondaryCardOuterPadding)
                     )
                 }
             }
@@ -759,7 +766,7 @@ private fun CompactTallLayout(
                         compact = true,
                         modifier = GlanceModifier
                             .defaultWeight()
-                            .padding(horizontal = 2.dp)
+                            .padding(horizontal = SecondaryCardOuterPadding)
                     )
                 }
             }
@@ -802,7 +809,7 @@ private fun ColumnScope.CompactConfidenceSummary(
             Column(
                 modifier = GlanceModifier
                     .defaultWeight()
-                    .padding(horizontal = 2.dp)
+                    .padding(horizontal = SecondaryCardOuterPadding)
                     .background(softSurface)
                     .cornerRadius(10.dp)
                     .padding(horizontal = 6.dp, vertical = 5.dp),
@@ -862,7 +869,7 @@ private fun ColumnScope.CompactMiniForecastSummary(
             Column(
                 modifier = GlanceModifier
                     .defaultWeight()
-                    .padding(horizontal = 2.dp)
+                    .padding(horizontal = SecondaryCardOuterPadding)
                     .background(softSurface)
                     .cornerRadius(10.dp)
                     .padding(horizontal = 4.dp, vertical = 5.dp),
@@ -903,6 +910,8 @@ private fun ColumnScope.CompactMiniForecastSummary(
  * @param showFiveItems `true` pour la variante 5×2 — affiche 5 items dans
  *   le bas strip au lieu de 4. Utilise l'espace supplémentaire en largeur
  *   sans surcharger le rendu.
+ * @param showExtras masque la ligne vent/humidité sur le format 3×2, où elle
+ *   surcharge le bandeau supérieur. Elle reste affichée à partir du 4×2.
  *
  * Les tailles sont adaptées à la hauteur exacte : le rendu se compacte sous
  * 165dp afin de rester dans le budget des launchers aux cellules basses, tout
@@ -924,7 +933,8 @@ private fun ExtraLargeLayout(
     // baseOnContainerColor). Sert au rendu Bitmap de la mini forecast, où on
     // ne peut pas passer un ColorProvider (le canvas Android exige un Int).
     onContainerArgb: Int,
-    showFiveItems: Boolean = false
+    showFiveItems: Boolean = false,
+    showExtras: Boolean = true
 ) {
     val itemCount = if (showFiveItems) 5 else 4
     val compactHeight = LocalSize.current.height.value < 165f
@@ -964,16 +974,18 @@ private fun ExtraLargeLayout(
                         fontSize = if (compactHeight) 12.sp else 14.sp
                     )
                 )
-                val extras = buildExtrasLine(data)
-                if (extras.isNotEmpty()) {
-                    Spacer(GlanceModifier.height(2.dp))
-                    Text(
-                        text = extras,
-                        style = TextStyle(
-                            color = onContainerMuted,
-                            fontSize = if (compactHeight) 11.sp else 14.sp
+                if (showExtras) {
+                    val extras = buildExtrasLine(data)
+                    if (extras.isNotEmpty()) {
+                        Spacer(GlanceModifier.height(2.dp))
+                        Text(
+                            text = extras,
+                            style = TextStyle(
+                                color = onContainerMuted,
+                                fontSize = if (compactHeight) 11.sp else 14.sp
+                            )
                         )
-                    )
+                    }
                 }
             }
 
@@ -1027,7 +1039,7 @@ private fun ExtraLargeLayout(
                         compact = compactHeight,
                         modifier = GlanceModifier
                             .defaultWeight()
-                            .padding(horizontal = 2.dp)
+                            .padding(horizontal = SecondaryCardOuterPadding)
                     )
                 }
             }
@@ -1135,6 +1147,17 @@ private fun MiniForecastStrip(
                 vertical = if (compact) 4.dp else 6.dp
             )
     ) {
+        if (!compact) {
+            Text(
+                text = "12 h",
+                style = TextStyle(
+                    color = onContainer,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            )
+            Spacer(GlanceModifier.height(2.dp))
+        }
         Image(
             provider = ImageProvider(bitmap),
             contentDescription = null,
