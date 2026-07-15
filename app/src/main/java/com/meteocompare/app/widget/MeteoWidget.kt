@@ -842,12 +842,13 @@ private fun MiniForecastStrip(
     val size = LocalSize.current
     val density = context.resources.displayMetrics.density
 
-    // Dimensions cibles du bitmap : largeur widget × densité, hauteur 40dp × densité.
-    // Hauteur bumpée de 24 → 40dp pour loger les 2 rangées de labels textuels
-    // sous les barres et les dots (temp "22°" + precip "60%"). Sans cet
-    // espace, les labels seraient inlisibles ou overlappaient les bars.
+    // Dimensions cibles du bitmap : largeur widget × densité, hauteur 65dp × densité.
+    // Hauteur bumpée de 40 → 65dp pour donner ~4-5dp de respiration entre les
+    // 4 éléments verticaux (barres, dots, label precip, label temp). À 40dp,
+    // les labels precip cap-top overlappaient littéralement le fond des dots
+    // (25.4 vs 24.6dp — voir docstring du renderer).
     val widthPx = (size.width.value * density).toInt().coerceAtLeast(1)
-    val heightPx = (40 * density).toInt().coerceAtLeast(1)
+    val heightPx = (65 * density).toInt().coerceAtLeast(1)
 
     // Couleur des dots pluie : Material blue 700. Fixé en dur plutôt que résolu
     // depuis GlanceTheme pour garder le renderer pure JVM (testable sans Android
@@ -887,10 +888,10 @@ private fun MiniForecastStrip(
         Image(
             provider = ImageProvider(bitmap),
             contentDescription = null,
-            // Height du placeholder Image doit MATCHER heightPx / density = 40dp.
+            // Height du placeholder Image doit MATCHER heightPx / density = 65dp.
             // Si Image height < bitmap dp height, le bitmap est downscalé et
             // les labels petits deviennent illisibles.
-            modifier = GlanceModifier.fillMaxWidth().height(40.dp)
+            modifier = GlanceModifier.fillMaxWidth().height(65.dp)
         )
 
         // ─── Ancres horaires ──────────────────────────────────────────────
@@ -899,7 +900,7 @@ private fun MiniForecastStrip(
         // Spacer(defaultWeight) | Text, chaque Spacer prend 50% de l'espace
         // libre → le Text central se trouve au centre exact.
         data.hourlyStartTime?.let { start ->
-            Spacer(GlanceModifier.height(8.dp))
+            Spacer(GlanceModifier.height(2.dp))
             val is24 = android.text.format.DateFormat.is24HourFormat(context)
             val pattern = if (is24) "H'h'" else "h a"
             val formatter = java.time.format.DateTimeFormatter.ofPattern(

@@ -17,25 +17,11 @@ import kotlin.math.roundToInt
  * sont `Text`, `Image`, `Row/Column/Box` avec `background` couleur unie.
  *
  * ─── Contenu du bitmap ─────────────────────────────────────────────────────
- * Trois couches verticales dans le bitmap (heightPx recommandé : ~40dp × density) :
- *   1. Bandes de température (heatmap froid→chaud), hauteur variable — zone
- *      0-50% de heightPx
- *   2. Dots de précipitation quand proba >= 30% — y ~ 58% de heightPx
- *   3. Deux rangées de labels textuels :
- *      - Valeur de précipitation (%) sous le dot — y ~ 76%, couleur precip
- *      - Valeur de température (°C) au bas de la cellule — y ~ 97%, couleur texte
- *
- * ─── Densité et scaling ────────────────────────────────────────────────────
- * Toutes les dimensions internes (rayons, tailles de texte, gaps) sont
- * exprimées en FRACTION de heightPx — le renderer est density-agnostic. Le
- * caller passe heightPx = targetDp * displayMetrics.density et le résultat
- * est net à toutes les densités sans code de conversion supplémentaire.
- *
- * ─── Cohérence avec le composable home ────────────────────────────────────
- * Même sémantique d'encodage que `MiniForecastStrip` de la home (heatmap
- * palette 6-stops, seuil pluie 30%, dots proportionnels à la proba). Les
- * VALEURS de la palette sont dupliquées manuellement dans les deux fichiers
- * — synchro à maintenir à la main si l'une évolue.
+ * Quatre zones verticales dans le bitmap (heightPx recommandé : ~65dp × density) :
+ *   1. Bandes de température (heatmap froid→chaud), zone 0-35% de heightPx
+ *   2. Dots de précipitation quand proba >= 30% — y ~ 45% de heightPx
+ *   3. Label de précipitation (%) sous le dot — baseline y ~ 67%, couleur precip
+ *   4. Label de température (°C) au bas de la cellule — baseline y ~ 93%, couleur texte
  */
 internal object WidgetMiniForecastRenderer {
 
@@ -43,11 +29,12 @@ internal object WidgetMiniForecastRenderer {
      * Rend la strip complète (bandes + dots + labels temp + labels precip).
      *
      * @param widthPx largeur en pixels du bitmap.
-     * @param heightPx hauteur totale — recommandé 40dp * density (~80px xhdpi).
-     *   Historiquement 24dp mais bumpé pour loger les 2 rangées de labels
-     *   textuels sous les barres et les dots. Un heightPx trop petit rendra
-     *   les labels illisibles ; un heightPx trop grand grille le budget
-     *   d'affichage du widget 2-row.
+     * @param heightPx hauteur totale — recommandé 60dp * density (~120px xhdpi).
+     *   Historiquement 24dp puis 40dp, bumpé à 60dp pour éviter que les 4 zones
+     *   (barres, dots, label precip, label temp) ne s'écrasent verticalement.
+     *   Un heightPx trop petit rendra les labels illisibles ou overlappera les
+     *   dots ; un heightPx trop grand grille le budget d'affichage du widget
+     *   2-row (~140dp max sur 3x2).
      * @param temps 12 températures agrégées, index 0 = "maintenant".
      * @param precips 12 probabilités (0-100).
      * @param precipColorArgb couleur ARGB du dot ET du label de précipitation.
@@ -76,23 +63,35 @@ internal object WidgetMiniForecastRenderer {
 
         val cellWidth = widthPx.toFloat() / cellCount
         val cellGap = heightPx * 0.02f
-        val barMaxHeight = heightPx * 0.50f
-        val dotRow = heightPx * 0.58f
-        val precipLabelBaseline = heightPx * 0.76f
-        val tempLabelBaseline = heightPx * 0.97f
+        // Nouveau layout à 4 zones bien espacées (vs. l'ancien à 2 zones tassées) :
+        //   - Bars : 0 → 35% (bottom des barres à 21dp sur 60dp)
+        //   - Dot centre : 45%     (à 27dp — 3.6dp au-dessus des barres, radius incl.)
+        //   - Label precip baseline : 67%  (à 40.2dp — 4dp sous le dot bottom)
+        //   - Label temp baseline : 93%    (à 55.8dp — 5.7dp sous le precip descender)
+        // Chaque zone a ~4-5dp de respiration par rapport à la suivante à 60dp.
+        val barMaxHeight = heightPx * 0.35f
+        val dotRow = heightPx * 0.45f
+        val precipLabelBaseline = heightPx * 0.67f
+        val tempLabelBaseline = heightPx * 0.93f
 
         // Text paint dédiés — configurés une fois, réutilisés. Anti-alias est
         // critique sur texte petit (~10-14px) pour la lisibilité.
         val tempTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = textColorArgb
             textAlign = Paint.Align.CENTER
-            textSize = heightPx * 0.28f
+            // Fraction 0.19 → à heightPx=60dp*density on obtient ~11.4sp, une
+            // taille de texte confortable pour un widget. Historiquement 0.22
+            // à 40dp (~8.8sp) — plus petit ET plus tassé. Bump absolu de ~30%.
+            textSize = heightPx * 0.19f
             isSubpixelText = true
         }
         val precipTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = precipColorArgb
             textAlign = Paint.Align.CENTER
-            textSize = heightPx * 0.22f
+            // Fraction 0.15 → ~9sp à heightPx=60dp*density. Précip label reste
+            // légèrement plus petit que temp car il n'apparaît que par
+            // intermittence (~30% des cellules) et véhicule une info secondaire.
+            textSize = heightPx * 0.15f
             isSubpixelText = true
         }
 
@@ -158,14 +157,6 @@ internal object WidgetMiniForecastRenderer {
      * plage courante en climat tempéré européen (-10°C → 40°C). Interpolation
      * linéaire entre 6 arrêts.
      *
-     * ─── Pourquoi une copie de la version Compose ─────────────────────────
-     * Le composable de la home utilise `androidx.compose.ui.graphics.Color`
-     * (wrapper d'un Long). Ici on retourne un `Int` ARGB brut compatible avec
-     * `android.graphics.Paint.color`. Convertir entre les deux nécessiterait
-     * d'importer Compose dans le widget renderer, ce qui casserait la
-     * pureté JVM (utile pour les tests unitaires : on peut tester cette
-     * fonction sans Android runtime).
-     *
      * Les VALEURS des stops sont synchronisées manuellement avec
      * `MiniForecastStrip.temperatureHeatmapColor` — si l'un change, l'autre
      * doit suivre pour préserver la cohérence visuelle app + widget.
@@ -193,11 +184,6 @@ internal object WidgetMiniForecastRenderer {
         return stops.last().second
     }
 
-    /**
-     * Interpolation ARGB canal par canal. Ignore l'alpha des inputs et
-     * force alpha = 255 dans le résultat — les stops sont opaques par
-     * construction, on ne veut pas de translucidité involontaire.
-     */
     private fun lerpArgb(a: Int, b: Int, f: Float): Int {
         val ar = (a shr 16) and 0xFF
         val ag = (a shr 8) and 0xFF
