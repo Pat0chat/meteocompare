@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
+import kotlin.math.roundToInt
 
 /**
  * Rendu de la mini prévision 12h sous forme de [Bitmap], destinée à être
@@ -11,59 +12,56 @@ import android.graphics.RectF
  *
  * ─── Pourquoi un Bitmap et pas des composables Glance ─────────────────────
  * Glance ne supporte PAS Canvas ni DrawScope — impossible de dessiner des
- * formes custom (rectangles de hauteur variable, cercles anti-aliasés). Les
- * seules primitives visuelles sont `Text`, `Image`, `Row/Column/Box` avec un
- * `background` couleur unie.
+ * formes custom (rectangles de hauteur variable, cercles anti-aliasés, texte
+ * positionné pixel-perfect sous chaque barre). Les primitives visuelles Glance
+ * sont `Text`, `Image`, `Row/Column/Box` avec `background` couleur unie.
  *
- * On pourrait émuler la strip avec 12 `Box` en Row (une par heure) et jouer
- * sur le `height` de chaque Box pour figurer la temp — c'est ce que fait
- * `ConfidenceBandStrip` dans le même widget. Mais :
- *   - 12 Box avec 12 modifiers différents = arbre de composition lourd
- *   - Pas d'anti-aliasing sur les dots de précipitation (des Box carrés,
- *     visible à 2-3dp de rayon)
- *   - Le heatmap de température est un gradient : émuler avec 5-6 palettes
- *     discrètes = perte de nuance
+ * ─── Contenu du bitmap ─────────────────────────────────────────────────────
+ * Trois couches verticales dans le bitmap (heightPx recommandé : ~40dp × density) :
+ *   1. Bandes de température (heatmap froid→chaud), hauteur variable — zone
+ *      0-50% de heightPx
+ *   2. Dots de précipitation quand proba >= 30% — y ~ 58% de heightPx
+ *   3. Deux rangées de labels textuels :
+ *      - Valeur de précipitation (%) sous le dot — y ~ 76%, couleur precip
+ *      - Valeur de température (°C) au bas de la cellule — y ~ 97%, couleur texte
  *
- * Le pipeline Bitmap contourne tout ça : on dessine en `android.graphics.Canvas`
- * (plein pouvoir : paint anti-alias, formes arbitraires, gradients), on
- * embarque le résultat via `Image(ImageProvider(bitmap))` dans Glance.
+ * ─── Densité et scaling ────────────────────────────────────────────────────
+ * Toutes les dimensions internes (rayons, tailles de texte, gaps) sont
+ * exprimées en FRACTION de heightPx — le renderer est density-agnostic. Le
+ * caller passe heightPx = targetDp * displayMetrics.density et le résultat
+ * est net à toutes les densités sans code de conversion supplémentaire.
  *
- * ─── Coût ──────────────────────────────────────────────────────────────────
- * Un widget refresh (WorkManager, 15-60 min selon config) recrée le Bitmap
- * à chaque update. À ~500×48px en ARGB_8888, c'est ~96 KB par rendu — perdu
- * ensuite quand Glance rebuild sa RemoteViews tree. Négligeable, on ne
- * cherche pas à cacher (les temps changent chaque heure de toute façon).
- *
- * ─── Synchronisation visuelle avec la home ────────────────────────────────
- * L'encodage COULEUR + POSITION DES DOTS suit exactement la même sémantique
- * que le composable `MiniForecastStrip` de la home (heatmap froid→chaud,
- * seuil 30% pour les dots pluie, rayon 1.5→2.5dp). Un utilisateur qui a le
- * widget ET la home doit reconnaître la même lecture visuelle des deux
- * côtés.
+ * ─── Cohérence avec le composable home ────────────────────────────────────
+ * Même sémantique d'encodage que `MiniForecastStrip` de la home (heatmap
+ * palette 6-stops, seuil pluie 30%, dots proportionnels à la proba). Les
+ * VALEURS de la palette sont dupliquées manuellement dans les deux fichiers
+ * — synchro à maintenir à la main si l'une évolue.
  */
 internal object WidgetMiniForecastRenderer {
 
     /**
-     * Rend la strip dans un nouveau bitmap ARGB_8888.
+     * Rend la strip complète (bandes + dots + labels temp + labels precip).
      *
-     * @param widthPx largeur en pixels — typiquement la largeur du widget
-     *   convertie via `size.width.value * displayMetrics.density`.
-     * @param heightPx hauteur en pixels — recommandé 24dp × density (soit ~72px
-     *   à densité xhdpi). Les sous-éléments se calibrent en fraction de heightPx.
-     * @param temps 12 températures agrégées, l'index 0 est l'heure "maintenant"
-     *   (au sens de [ForecastMode.MINI_FORECAST_12H]). Les valeurs null sont
-     *   sautées (bar non dessinée) — utile quand un modèle plafonne à H+6h.
-     * @param precips 12 probabilités de précipitation (0-100). Un dot n'est
-     *   dessiné qu'au-delà du seuil [PRECIP_THRESHOLD].
-     * @param precipColorArgb couleur ARGB du dot de pluie. Fournie par le
-     *   caller pour respecter le thème du widget (couleur primaire du user).
+     * @param widthPx largeur en pixels du bitmap.
+     * @param heightPx hauteur totale — recommandé 40dp * density (~80px xhdpi).
+     *   Historiquement 24dp mais bumpé pour loger les 2 rangées de labels
+     *   textuels sous les barres et les dots. Un heightPx trop petit rendra
+     *   les labels illisibles ; un heightPx trop grand grille le budget
+     *   d'affichage du widget 2-row.
+     * @param temps 12 températures agrégées, index 0 = "maintenant".
+     * @param precips 12 probabilités (0-100).
+     * @param precipColorArgb couleur ARGB du dot ET du label de précipitation.
+     * @param textColorArgb couleur ARGB du label de température. Fourni par
+     *   le caller pour respecter le thème du widget (dark on light, light on
+     *   dark). Typiquement `onContainer` du GlanceTheme.
      */
     fun render(
         widthPx: Int,
         heightPx: Int,
         temps: List<Double?>,
         precips: List<Int?>,
-        precipColorArgb: Int
+        precipColorArgb: Int,
+        textColorArgb: Int
     ): Bitmap {
         require(widthPx > 0) { "widthPx doit être > 0, reçu $widthPx" }
         require(heightPx > 0) { "heightPx doit être > 0, reçu $heightPx" }
@@ -73,15 +71,30 @@ internal object WidgetMiniForecastRenderer {
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
 
         val cellCount = 12
-        // On tronque à 12 valeurs — la liste peut être plus courte (données
-        // partielles en fin de fenêtre) ou plus longue (défensif).
         val temps12 = temps.take(cellCount)
         val precips12 = precips.take(cellCount)
 
         val cellWidth = widthPx.toFloat() / cellCount
-        val cellGap = heightPx * 0.04f  // ~1dp à densité normale
-        val barMaxHeight = heightPx * 0.70f
-        val dotRow = heightPx * 0.90f
+        val cellGap = heightPx * 0.02f
+        val barMaxHeight = heightPx * 0.50f
+        val dotRow = heightPx * 0.58f
+        val precipLabelBaseline = heightPx * 0.76f
+        val tempLabelBaseline = heightPx * 0.97f
+
+        // Text paint dédiés — configurés une fois, réutilisés. Anti-alias est
+        // critique sur texte petit (~10-14px) pour la lisibilité.
+        val tempTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = textColorArgb
+            textAlign = Paint.Align.CENTER
+            textSize = heightPx * 0.28f
+            isSubpixelText = true
+        }
+        val precipTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = precipColorArgb
+            textAlign = Paint.Align.CENTER
+            textSize = heightPx * 0.22f
+            isSubpixelText = true
+        }
 
         // ─── Normalisation temp sur la fenêtre ───────────────────────────
         val nonNullTemps = temps12.filterNotNull()
@@ -89,39 +102,52 @@ internal object WidgetMiniForecastRenderer {
         val maxT = nonNullTemps.maxOrNull()
         val range = if (minT != null && maxT != null && maxT > minT) maxT - minT else 1.0
 
-        // ─── Barres de température ────────────────────────────────────────
-        val rect = RectF()  // réutilisé pour éviter les allocations dans la boucle
-        temps12.forEachIndexed { i, temp ->
-            if (temp == null) return@forEachIndexed
-            val normalized = if (minT != null && maxT != null && maxT > minT) {
-                (temp - minT) / range
-            } else {
-                0.5  // cas dégénéré min==max → hauteur milieu
-            }
-            val barHeight = barMaxHeight * (0.30f + 0.70f * normalized.toFloat())
-            val x = i * cellWidth
-            rect.set(
-                x + cellGap / 2f,
-                barMaxHeight - barHeight,
-                x + cellWidth - cellGap / 2f,
-                barMaxHeight
-            )
-            paint.color = temperatureHeatmapArgb(temp)
-            canvas.drawRect(rect, paint)
-        }
+        val rect = RectF()
 
-        // ─── Dots de précipitation ────────────────────────────────────────
-        paint.color = precipColorArgb
-        precips12.forEachIndexed { i, prob ->
-            if (prob == null || prob < PRECIP_THRESHOLD) return@forEachIndexed
-            val x = i * cellWidth + cellWidth / 2f
-            // Rayon 1.5→2.5dp mappé sur 30→100% de proba. On exprime en fraction
-            // de heightPx pour rester proportionnel : à 24dp de haut, 1.5-2.5dp
-            // = 6-10% de heightPx.
-            val radiusFrac = 0.06f + (prob - PRECIP_THRESHOLD)
-                .coerceAtLeast(0) / 70f * 0.04f
-            val radius = heightPx * radiusFrac
-            canvas.drawCircle(x, dotRow, radius, paint)
+        temps12.forEachIndexed { i, temp ->
+            val cellCenterX = i * cellWidth + cellWidth / 2f
+
+            // ─── Barre de température ─────────────────────────────────────
+            if (temp != null) {
+                val normalized = if (minT != null && maxT != null && maxT > minT) {
+                    (temp - minT) / range
+                } else {
+                    0.5
+                }
+                val barHeight = barMaxHeight * (0.30f + 0.70f * normalized.toFloat())
+                val x = i * cellWidth
+                rect.set(
+                    x + cellGap / 2f,
+                    barMaxHeight - barHeight,
+                    x + cellWidth - cellGap / 2f,
+                    barMaxHeight
+                )
+                paint.color = temperatureHeatmapArgb(temp)
+                canvas.drawRect(rect, paint)
+
+                // Label temp : entier arrondi + "°" suffixé. Format compact
+                // "22°" plutôt que "22°C" — l'unité est implicite dans un
+                // contexte météo widget, le "°" seul suffit.
+                val tempLabel = "${temp.roundToInt()}°"
+                canvas.drawText(tempLabel, cellCenterX, tempLabelBaseline, tempTextPaint)
+            }
+
+            // ─── Dot + label de précipitation (proba >= 30%) ─────────────
+            val prob = precips12.getOrNull(i)
+            if (prob != null && prob >= PRECIP_THRESHOLD) {
+                paint.color = precipColorArgb
+                // Rayon proportionnel à la proba : ~4% de heightPx à 30%,
+                // jusqu'à ~7% à 100%. Assez petit pour rester lisible même
+                // quand plusieurs dots consécutifs sont affichés.
+                val radiusFrac = 0.04f + (prob - PRECIP_THRESHOLD)
+                    .coerceAtLeast(0) / 70f * 0.03f
+                val radius = heightPx * radiusFrac
+                canvas.drawCircle(cellCenterX, dotRow, radius, paint)
+
+                // Label precip : entier + "%". Positionné sous le dot dans
+                // la même cellule verticale.
+                canvas.drawText("$prob%", cellCenterX, precipLabelBaseline, precipTextPaint)
+            }
         }
 
         return bitmap
@@ -185,6 +211,6 @@ internal object WidgetMiniForecastRenderer {
         return (0xFF shl 24) or (r shl 16) or (g shl 8) or bl
     }
 
-    /** Seuil "il pleut" en dessous duquel on ne dessine pas de dot. */
+    /** Seuil "il pleut" en dessous duquel on ne dessine pas de dot / label. */
     internal const val PRECIP_THRESHOLD = 30
 }

@@ -12,6 +12,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -373,6 +374,7 @@ private fun WidgetContent(
                             data = data,
                             onContainer = onContainer,
                             onContainerMuted = onContainerMuted,
+                            onContainerArgb = baseOnContainerColor.toArgb(),
                             showFiveItems = widthDp >= WIDE_MIN_WIDTH_DP
                         )
                     widthDp >= WIDE_MIN_WIDTH_DP ->
@@ -686,6 +688,11 @@ private fun ExtraLargeLayout(
     data: WidgetData,
     onContainer: ColorProvider,
     onContainerMuted: ColorProvider,
+    // ARGB brut de la couleur de texte "onContainer", résolu au niveau widget
+    // root en tenant compte du night mode + des overrides utilisateur (voir
+    // baseOnContainerColor). Sert au rendu Bitmap de la mini forecast, où on
+    // ne peut pas passer un ColorProvider (le canvas Android exige un Int).
+    onContainerArgb: Int,
     showFiveItems: Boolean = false
 ) {
     val itemCount = if (showFiveItems) 5 else 4
@@ -757,6 +764,7 @@ private fun ExtraLargeLayout(
                 data = data,
                 onContainer = onContainer,
                 onContainerMuted = onContainerMuted,
+                textColorArgb = onContainerArgb,
                 // defaultWeight ici parce qu'on est dans le ColumnScope de
                 // l'ExtraLargeLayout — occupe l'espace vertical restant sous le
                 // top strip pour ne pas laisser un vide de 40+dp en bas de card.
@@ -823,37 +831,48 @@ private fun MiniForecastStrip(
     data: WidgetData,
     onContainer: ColorProvider,
     onContainerMuted: ColorProvider,
+    // Couleur ARGB des labels de température dans le bitmap. Fournie par
+    // ExtraLargeLayout depuis baseOnContainerColor qui respecte le night mode
+    // ET les overrides utilisateur (texte custom, auto-contrast sur fond
+    // custom). Sans ce param, on aurait un noir fixe illisible en dark mode.
+    textColorArgb: Int,
     modifier: GlanceModifier = GlanceModifier
 ) {
     val context = LocalContext.current
     val size = LocalSize.current
     val density = context.resources.displayMetrics.density
 
-    // Dimensions cibles du bitmap : largeur widget × densité, hauteur 24dp × densité.
-    // On borne à des minima défensifs (1px) pour éviter que Bitmap.createBitmap
-    // ne lève si un widget est mesuré transitoirement à 0dp durant le layout.
+    // Dimensions cibles du bitmap : largeur widget × densité, hauteur 40dp × densité.
+    // Hauteur bumpée de 24 → 40dp pour loger les 2 rangées de labels textuels
+    // sous les barres et les dots (temp "22°" + precip "60%"). Sans cet
+    // espace, les labels seraient inlisibles ou overlappaient les bars.
     val widthPx = (size.width.value * density).toInt().coerceAtLeast(1)
-    val heightPx = (24 * density).toInt().coerceAtLeast(1)
+    val heightPx = (40 * density).toInt().coerceAtLeast(1)
 
-    // Couleur des dots pluie : on prend la primaire du thème du widget — cohérent
-    // avec la palette qu'utilise déjà la card home (MaterialTheme.colorScheme.primary).
-    // On extrait l'ARGB via GlanceTheme.colors si dispo, sinon on fige un bleu
-    // Material 3 primary neutre. À l'usage on lit via ColorProviders → Color →
-    // toArgb() ; on utilise ici une couleur en dur pour éviter la dépendance
-    // au thème dans le renderer (qui doit rester pure JVM pour être testable).
-    val precipColorArgb = 0xFF1976D2.toInt()  // Material blue 700
+    // Couleur des dots pluie : Material blue 700. Fixé en dur plutôt que résolu
+    // depuis GlanceTheme pour garder le renderer pure JVM (testable sans Android
+    // runtime). Un thème dynamique pourrait être ajouté en v1.1 via un mapping
+    // GlanceTheme → ARGB Int fait côté composable.
+    val precipColorArgb = 0xFF1976D2.toInt()
 
-    // Memoize par (data, dimensions) — inutile de reconstruire le bitmap si rien
-    // n'a changé. Pour la longévité en mémoire vs Glance recomposition : le
-    // bitmap est référencé par ImageProvider qui garde une strong ref jusqu'à
-    // la prochaine recomposition qui invaliderait le remember.
-    val bitmap = remember(data.next12hTemps, data.next12hPrecipProb, widthPx, heightPx) {
+    // Memoize par (data, dimensions, textColor) — inutile de reconstruire le
+    // bitmap si rien n'a changé. Le textColor fait partie des clés parce qu'un
+    // changement de thème dark/light modifie la couleur des labels : sans lui
+    // dans les keys, le cache renverrait un vieux bitmap au mauvais thème.
+    val bitmap = remember(
+        data.next12hTemps,
+        data.next12hPrecipProb,
+        widthPx,
+        heightPx,
+        textColorArgb
+    ) {
         WidgetMiniForecastRenderer.render(
             widthPx = widthPx,
             heightPx = heightPx,
             temps = data.next12hTemps,
             precips = data.next12hPrecipProb,
-            precipColorArgb = precipColorArgb
+            precipColorArgb = precipColorArgb,
+            textColorArgb = textColorArgb
         )
     }
 
@@ -868,7 +887,10 @@ private fun MiniForecastStrip(
         Image(
             provider = ImageProvider(bitmap),
             contentDescription = null,
-            modifier = GlanceModifier.fillMaxWidth().height(24.dp)
+            // Height du placeholder Image doit MATCHER heightPx / density = 40dp.
+            // Si Image height < bitmap dp height, le bitmap est downscalé et
+            // les labels petits deviennent illisibles.
+            modifier = GlanceModifier.fillMaxWidth().height(40.dp)
         )
 
         // ─── Ancres horaires ──────────────────────────────────────────────
@@ -877,7 +899,7 @@ private fun MiniForecastStrip(
         // Spacer(defaultWeight) | Text, chaque Spacer prend 50% de l'espace
         // libre → le Text central se trouve au centre exact.
         data.hourlyStartTime?.let { start ->
-            Spacer(GlanceModifier.height(2.dp))
+            Spacer(GlanceModifier.height(8.dp))
             val is24 = android.text.format.DateFormat.is24HourFormat(context)
             val pattern = if (is24) "H'h'" else "h a"
             val formatter = java.time.format.DateTimeFormatter.ofPattern(

@@ -111,7 +111,8 @@ class WidgetMiniForecastRendererTest {
             widthPx = 0, heightPx = 48,
             temps = List(12) { 20.0 },
             precips = List(12) { 0 },
-            precipColorArgb = 0xFF2196F3.toInt()
+            precipColorArgb = 0xFF2196F3.toInt(),
+            textColorArgb = 0xDE000000.toInt()
         )
     }
 
@@ -121,7 +122,8 @@ class WidgetMiniForecastRendererTest {
             widthPx = 480, heightPx = -1,
             temps = List(12) { 20.0 },
             precips = List(12) { 0 },
-            precipColorArgb = 0xFF2196F3.toInt()
+            precipColorArgb = 0xFF2196F3.toInt(),
+            textColorArgb = 0xDE000000.toInt()
         )
     }
 }
