@@ -5,57 +5,98 @@
 # complète.
 
 Categories:
+  - Time
   - Science & Education
 License: Apache-2.0
+AuthorName: Pat0chat
 WebSite: https://github.com/Pat0chat/MeteoCompare
 SourceCode: https://github.com/Pat0chat/MeteoCompare
 IssueTracker: https://github.com/Pat0chat/MeteoCompare/issues
 Changelog: https://github.com/Pat0chat/MeteoCompare/releases
 Donate: https://liberapay.com/Pat0chat
 
+# Open-Meteo est un service web tiers : la data API est gratuite, sans compte,
+# sans tracking et documentée FOSS-friendly, mais le backend server reste
+# proprietary. La pratique F-Droid pour toute app qui consomme une API météo
+# externe (BreezyWeather, Forecastie, Geometric Weather...) est d'ajouter
+# `NonFreeNet` — les reviewers l'ajouteraient de toute façon lors du review.
+# Le déclarer explicitement ici évite un cycle de review supplémentaire.
+AntiFeatures:
+  - NonFreeNet
+
 AutoName: MeteoCompare
 
+# Summary : max 80 chars, affiché dans les listings F-Droid et la home du
+# store. C'est LA phrase d'accroche — doit être auto-suffisante et vendre le
+# différenciateur produit (comparaison multi-modèles + suivi de fiabilité).
+Summary: Comparez 17 modèles météo et suivez leur fiabilité par ville
+
 Description: |-
-    MeteoCompare interroge en parallèle 8 modèles météorologiques de référence
-    (AROME, ARPEGE, ICON, GFS, ECMWF...) et calcule un indice de confiance
-    basé sur leur convergence.
+    MeteoCompare interroge en parallèle 17 modèles météorologiques de référence
+    (AROME, ARPEGE, ICON, GFS, ECMWF, UKMO, ECMWF AIFS, MET Nordic, HRRR, KNMI
+    HARMONIE, GEM, BOM, GRAPES...) et calcule un indice de confiance basé sur
+    leur convergence.
 
     Plutôt que d'afficher une prévision opaque, l'application montre où les
     modèles s'accordent et où ils divergent — la vraie information utile pour
-    planifier sereinement vos activités extérieures.
+    planifier sereinement vos activités extérieures. L'app calibre en continu
+    chaque modèle sur votre ville (30 jours d'observations) et signale
+    visuellement les biais systématiques.
 
     Fonctionnalités principales :
 
-    * Comparaison de 8 modèles météo en parallèle
-    * Indice de confiance pondéré par résolution
-    * Bande de confiance horaire sur 7 jours
-    * Cache local pour démarrage instantané et mode offline
-    * Sélection personnalisée des modèles activés
+    * 17 modèles météo en parallèle (7 activés par défaut, tous configurables)
+    * Indice de confiance pondéré par résolution spatiale
+    * Bande de confiance horaire zoomable sur 7 jours (température, précipitations, vent)
+    * Suivi des biais par modèle et par ville (calibration continue sur 30 jours)
+    * Mini prévision 12h par ville : heatmap de température, probabilités de pluie et ancres horaires
+    * Halo météo-adaptatif sur les cards (repérage visuel instantané entre villes)
+    * Icônes météo animées (rotation soleil, dérive nuages, chute pluie, flash orage)
+    * Sunrise/sunset locaux calculés côté client (aucun appel réseau supplémentaire)
+    * Widgets écran d'accueil redimensionnables (9 tailles, du 1×1 au 5×2) avec 6 modes d'affichage (dont mini prévision 12h)
+    * Overlay des normales climatiques 10 ans pour comparer prévision et comportement typique
+    * Cache local pour démarrage instantané et consultation offline
     * Accessibilité TalkBack complète
 
-    Vie privée :
+    Vie privée par conception :
 
     * Zéro collecte de données
     * Aucun analytics, aucun tracking, aucune publicité
-    * Aucun identifiant publicitaire (AD_ID explicitement retiré)
-    * Toutes les données restent sur votre appareil
-    * Seul backend interrogé : Open-Meteo (FOSS, sans compte requis)
+    * Aucun identifiant publicitaire (AD_ID explicitement retiré du manifest)
+    * Deux permissions uniquement : INTERNET et ACCESS_NETWORK_STATE
+    * Aucune permission de localisation
+    * Toutes les données (favoris, cache, préférences, historique) restent sur votre appareil
+    * Seul backend interrogé : Open-Meteo (gratuit, sans compte requis)
 
-    Données fournies par Open-Meteo. Modèles : AROME et ARPEGE par
-    Météo-France, ICON par DWD, GFS par NOAA, ECMWF par le Centre Européen.
+    Données fournies par Open-Meteo (https://open-meteo.com). Modèles : AROME
+    et ARPEGE par Météo-France, ICON par DWD (Allemagne), GFS et HRRR par NOAA,
+    ECMWF par le Centre Européen, UKMO par le UK Met Office, MET Nordic par
+    MET Norway, KNMI HARMONIE par KNMI (Pays-Bas), GEM par ECCC (Canada),
+    BOM ACCESS par le Bureau of Meteorology (Australie), GRAPES par CMA (Chine).
+
+    MeteoCompare est indépendant et non affilié aux services météorologiques
+    nationaux cités.
 
 RepoType: git
 Repo: https://github.com/Pat0chat/MeteoCompare.git
 
 Builds:
-  - versionName: 0.1.0
-    versionCode: 1
-    commit: v0.1.0
+  - versionName: 1.0.0
+    versionCode: 10
+    commit: v1.0.0
     subdir: app
     gradle:
       - yes
 
-AutoUpdateMode: Version
-UpdateCheckMode: Tags
-CurrentVersion: 0.1.0
-CurrentVersionCode: 1
+# AutoUpdateMode: Version v%v
+#   → à chaque nouveau tag `v<X.Y.Z>` matchant versionName, F-Droid génère
+#     automatiquement un nouveau bloc Builds. Le suffixe `v%v` réplique le
+#     préfixe `v` utilisé dans tes tags git (v1.0.0, v1.1.0, ...) — sans ce
+#     suffixe, F-Droid chercherait un tag "1.0.0" et échouerait.
+# UpdateCheckMode: Tags ^v
+#   → regex qui filtre les tags à ceux commençant par `v` (évite qu'un tag
+#     hors versioning comme `test-branch` déclenche une release).
+AutoUpdateMode: Version v%v
+UpdateCheckMode: Tags ^v
+CurrentVersion: 1.0.0
+CurrentVersionCode: 10

@@ -126,8 +126,8 @@ private data class WidgetPadding(val horizontal: Dp, val vertical: Dp)
 private val TinyPadding = WidgetPadding(6.dp, 4.dp)
 private val SmallPadding = WidgetPadding(8.dp, 8.dp)
 private val MediumPadding = WidgetPadding(14.dp, 10.dp)
-private val LargePadding = WidgetPadding(18.dp, 12.dp)
-private val ExtraLargePadding = WidgetPadding(20.dp, 20.dp)
+private val LargePadding = WidgetPadding(14.dp, 10.dp)
+private val ExtraLargePadding = WidgetPadding(14.dp, 10.dp)
 
 /**
  * Thème résolu (dark/light) — passé via [CompositionLocal] pour éviter que
@@ -744,7 +744,7 @@ private fun ExtraLargeLayout(
             }
         }
 
-        Spacer(GlanceModifier.height(18.dp))
+        Spacer(GlanceModifier.height(6.dp))
 
         // ─── Bottom strip : selon le mode utilisateur ────────────────────
         // TROIS rendus mutuellement exclusifs pilotés par les data alimentées
