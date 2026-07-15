@@ -299,8 +299,7 @@ internal fun CityCard(
                     // Column pour empiler menu 3-points ET sunrise/sunset en
                     // haut à droite. Le menu reste au sommet (interactif prioritaire),
                     // les sun times viennent en dessous (info secondaire, discrète).
-                    Column(horizontalAlignment = Alignment.End) {
-                        CityCardMenu(onRemove = onRemove)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         // SunTimes n'est affiché QUE si la card est Loaded ET
                         // qu'on a au moins une valeur (sunrise OU sunset). En
                         // Loading/Error on ne pollue pas avec du "—".
@@ -309,9 +308,10 @@ internal fun CityCard(
                             SunTimesRow(
                                 sunrise = loaded.sunrise,
                                 sunset = loaded.sunset,
-                                modifier = Modifier.padding(top = 2.dp)
+                                modifier = Modifier.padding(end = 2.dp)
                             )
                         }
+                        CityCardMenu(onRemove = onRemove)
                     }
                 }
 

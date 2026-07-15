@@ -1076,12 +1076,6 @@ internal fun TodaySummaryCard(
                 verticalAlignment = Alignment.Top
             ) {
                 Column {
-                    Text(
-                        text = stringResource(R.string.today_label),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
                     // Formatter ré-créé via remember(locale) — sinon le top-level
                     // val resterait sur la locale initiale du process pour toute
                     // sa vie. Pattern "EEEE d MMMM" en FR donne "lundi 1 janvier",
@@ -1093,8 +1087,9 @@ internal fun TodaySummaryCard(
                     Text(
                         text = today.date.format(longDateFmt)
                             .replaceFirstChar { it.uppercase() },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                     Text(
                         text = if (modelCount > 1)
@@ -1132,7 +1127,7 @@ internal fun TodaySummaryCard(
                         ) {
                             AnimatedWeatherIcon(
                                 condition = currentCondition,
-                                size = 52.dp,
+                                size = 60.dp,
                                 animated = true,
                                 motionScale = 2.0f,
                                 tint = Color.Unspecified
