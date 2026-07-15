@@ -54,7 +54,34 @@ import androidx.glance.unit.ColorProvider
 import com.meteocompare.app.MainActivity
 import com.meteocompare.app.domain.model.WeatherCondition
 
-
+// ─── Sélection de layout ────────────────────────────────────────────────────
+//
+// SizeMode.Exact expose la taille RÉELLE du container via LocalSize (par
+// opposition à Responsive qui expose une taille "bucket" pré-configurée). On
+// prend Exact pour éviter le piège : sur un launcher à cellules de 90dp, un
+// widget physique 2×1 fait 180dp de large — pile la valeur d'un bucket
+// "3×1 = 180dp" qui aurait été choisi par Responsive et déclenché MediumLayout
+// (badge à droite) au lieu de SmallLayout (badge sous la temp). Exact permet
+// des seuils ajustés à la réalité des grilles Android (74-130dp par cellule
+// selon launcher).
+//
+// Seuils choisis pour couvrir la variance cross-launcher :
+//   - Tiny : width < 105dp AND height < 105dp. Cible le 1×1 physique. Le
+//     ET sur les deux dimensions évite qu'un widget 2×1 très étroit (édge case
+//     launchers custom) ne soit classé Tiny. En pratique 1×1 = ~40-90dp
+//     dans chaque dim selon le launcher.
+//   - Small : 105dp ≤ width < 210dp. Couvre 2×1 physique jusqu'à ~103dp/cellule
+//     (Samsung).
+//   - Medium : 210 ≤ width < 320dp. Couvre 3×1 physique typique.
+//   - Large : width ≥ 320dp AND width < 380dp. Couvre 4×1 physique.
+//   - WideRow (5×1) : width ≥ 380dp AND height < EXTRA_LARGE_MIN_HEIGHT_DP.
+//     Couvre 5×1. Utilise LargeLayout avec 1-2 items de prévision inline pour
+//     tirer parti de la largeur supplémentaire.
+//   - ExtraLarge (4×2) : width ≥ 220dp AND height ≥ 130dp AND width < 380dp.
+//     La double condition width+height évite de mal classer un widget 1-cellule
+//     sur launcher à cellules hautes.
+//   - ExtraLargeWide (5×2) : width ≥ 380dp AND height ≥ 130dp. Même layout
+//     qu'ExtraLarge mais avec 5 items de prévision au lieu de 4.
 /**
  * Padding intérieur par taille de widget.
  *
@@ -95,11 +122,11 @@ private val LargePadding = WidgetPadding(18.dp, 12.dp)
 private val CompactTallPadding = WidgetPadding(12.dp, 12.dp)
 private val ExtraLargePadding = WidgetPadding(16.dp, 12.dp)
 
-// Demi-espace autour des cartes secondaires. Chaque carte apporte 3 dp de
-// marge de son côté, soit 6 dp visibles entre deux fonds arrondis voisins.
-// L'ancien espacement de 2 dp (4 dp au total) était trop faible : avec un
-// fond translucide, les surfaces semblaient se toucher sur les écrans denses.
-private val SecondaryCardOuterPadding = 3.dp
+// Espace explicite entre deux cartes de prévision. Un vrai Spacer est plus
+// fiable qu'un padding porté par un enfant pondéré : selon le launcher et la
+// traduction RemoteViews de Glance, ce padding pouvait être absorbé dans la
+// largeur de la surface et les fonds arrondis semblaient encore se toucher.
+private val ForecastCardSpacing = 8.dp
 
 /**
  * Thème résolu (dark/light) — passé via [CompositionLocal] pour éviter que
@@ -371,7 +398,8 @@ private fun WidgetContent(
                             data = data,
                             onContainer = onContainer,
                             onContainerMuted = onContainerMuted,
-                            softSurface = softSurface
+                            softSurface = softSurface,
+                            onContainerArgb = baseOnContainerColor.toArgb()
                         )
                     WidgetLayoutKind.WIDE ->
                         LargeLayout(
@@ -654,14 +682,14 @@ private fun LargeLayout(
         if (inlineForecastItems > 0 && data.forecasts.isNotEmpty()) {
             Spacer(GlanceModifier.width(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                data.forecasts.take(inlineForecastItems).forEach { item ->
+                data.forecasts.take(inlineForecastItems).forEachIndexed { index, item ->
+                    if (index > 0) Spacer(GlanceModifier.width(ForecastCardSpacing))
                     ForecastItemCard(
                         item = item,
                         onContainer = onContainer,
                         onContainerMuted = onContainerMuted,
                         softSurface = softSurface,
-                        compact = true,
-                        modifier = GlanceModifier.padding(horizontal = SecondaryCardOuterPadding)
+                        compact = true
                     )
                 }
             }
@@ -688,7 +716,8 @@ private fun CompactTallLayout(
     data: WidgetData,
     onContainer: ColorProvider,
     onContainerMuted: ColorProvider,
-    softSurface: ColorProvider
+    softSurface: ColorProvider,
+    onContainerArgb: Int
 ) {
     val narrow = LocalSize.current.width.value < 150f
     Column(modifier = GlanceModifier.fillMaxSize()) {
@@ -747,26 +776,27 @@ private fun CompactTallLayout(
                 softSurface = softSurface
             )
 
-            data.next12hTemps.isNotEmpty() -> CompactMiniForecastSummary(
+            data.next12hTemps.isNotEmpty() -> MiniForecastStrip(
                 data = data,
-                onContainer = onContainer,
-                onContainerMuted = onContainerMuted,
-                softSurface = softSurface
+                softSurface = softSurface,
+                compact = true,
+                textColorArgb = onContainerArgb,
+                outerHorizontalPadding = CompactTallPadding.horizontal,
+                modifier = GlanceModifier.defaultWeight()
             )
 
             data.forecasts.isNotEmpty() -> Row(
                 modifier = GlanceModifier.fillMaxWidth().defaultWeight()
             ) {
-                data.forecasts.take(2).forEach { item ->
+                data.forecasts.take(2).forEachIndexed { index, item ->
+                    if (index > 0) Spacer(GlanceModifier.width(ForecastCardSpacing))
                     ForecastItemCard(
                         item = item,
                         onContainer = onContainer,
                         onContainerMuted = onContainerMuted,
                         softSurface = softSurface,
                         compact = true,
-                        modifier = GlanceModifier
-                            .defaultWeight()
-                            .padding(horizontal = SecondaryCardOuterPadding)
+                        modifier = GlanceModifier.defaultWeight()
                     )
                 }
             }
@@ -805,11 +835,11 @@ private fun ColumnScope.CompactConfidenceSummary(
 ) {
     val night = LocalNightMode.current
     Row(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
-        strip.buckets.take(2).forEach { bucket ->
+        strip.buckets.take(2).forEachIndexed { index, bucket ->
+            if (index > 0) Spacer(GlanceModifier.width(ForecastCardSpacing))
             Column(
                 modifier = GlanceModifier
                     .defaultWeight()
-                    .padding(horizontal = SecondaryCardOuterPadding)
                     .background(softSurface)
                     .cornerRadius(10.dp)
                     .padding(horizontal = 6.dp, vertical = 5.dp),
@@ -836,68 +866,6 @@ private fun ColumnScope.CompactConfidenceSummary(
                     text = bucket.label,
                     style = TextStyle(color = onContainerMuted, fontSize = 9.sp)
                 )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ColumnScope.CompactMiniForecastSummary(
-    data: WidgetData,
-    onContainer: ColorProvider,
-    onContainerMuted: ColorProvider,
-    softSurface: ColorProvider
-) {
-    val context = LocalContext.current
-    val width = LocalSize.current.width.value
-    val indices = if (width < 170f) listOf(0, 11) else listOf(0, 6, 11)
-    val is24 = android.text.format.DateFormat.is24HourFormat(context)
-    val formatter = java.time.format.DateTimeFormatter.ofPattern(
-        if (is24) "H'h'" else "h a",
-        java.util.Locale.getDefault()
-    )
-    val rain = remember { ColorProvider(Color(0xFF1976D2)) }
-
-    Row(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
-        indices.forEach { index ->
-            val temp = data.next12hTemps.getOrNull(index)
-            val precip = data.next12hPrecipProb.getOrNull(index)
-            val label = data.hourlyStartTime
-                ?.plusHours(index.toLong())
-                ?.format(formatter)
-                ?: "+${index}h"
-            Column(
-                modifier = GlanceModifier
-                    .defaultWeight()
-                    .padding(horizontal = SecondaryCardOuterPadding)
-                    .background(softSurface)
-                    .cornerRadius(10.dp)
-                    .padding(horizontal = 4.dp, vertical = 5.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = label,
-                    style = TextStyle(color = onContainerMuted, fontSize = 9.sp)
-                )
-                Text(
-                    text = formatTemp(temp),
-                    style = TextStyle(
-                        color = onContainer,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                )
-                if (precip != null && precip >= WidgetMiniForecastRenderer.PRECIP_THRESHOLD) {
-                    Text(
-                        text = "● $precip%",
-                        style = TextStyle(
-                            color = rain,
-                            fontSize = 8.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                    )
-                }
             }
         }
     }
@@ -1001,7 +969,7 @@ private fun ExtraLargeLayout(
         // TROIS rendus mutuellement exclusifs pilotés par les data alimentées
         // dans loadWidgetData selon le mode config :
         //   - confidenceStrip non-null : heatmap 7 jours de confiance
-        //   - next12hTemps non-vide   : mini prévision 12h via Bitmap + Row ancres
+        //   - next12hTemps non-vide   : mini prévision 12h centrée sur l'axe horaire
         //   - sinon                   : Row de 4-5 forecast items (HOURLY/DAILY)
         val strip = data.confidenceStrip
         val hasMiniForecast = data.next12hTemps.isNotEmpty()
@@ -1015,8 +983,6 @@ private fun ExtraLargeLayout(
             )
             hasMiniForecast -> MiniForecastStrip(
                 data = data,
-                onContainer = onContainer,
-                onContainerMuted = onContainerMuted,
                 softSurface = softSurface,
                 compact = compactHeight,
                 textColorArgb = onContainerArgb,
@@ -1030,16 +996,15 @@ private fun ExtraLargeLayout(
                 style = TextStyle(color = onContainerMuted, fontSize = 12.sp)
             )
             else -> Row(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
-                data.forecasts.take(itemCount).forEach { item ->
+                data.forecasts.take(itemCount).forEachIndexed { index, item ->
+                    if (index > 0) Spacer(GlanceModifier.width(ForecastCardSpacing))
                     ForecastItemCard(
                         item = item,
                         onContainer = onContainer,
                         onContainerMuted = onContainerMuted,
                         softSurface = softSurface,
                         compact = compactHeight,
-                        modifier = GlanceModifier
-                            .defaultWeight()
-                            .padding(horizontal = SecondaryCardOuterPadding)
+                        modifier = GlanceModifier.defaultWeight()
                     )
                 }
             }
@@ -1048,74 +1013,56 @@ private fun ExtraLargeLayout(
 }
 
 /**
- * Rendu de la mini prévision 12h dans le layout ExtraLarge (widgets 3×2/4×2/5×2).
+ * Mini-prévision 12 h pour les widgets hauts 2×2 à 5×2.
  *
- * ─── Architecture visuelle ────────────────────────────────────────────────
- * Composée de deux "couches" empilées verticalement :
- *   1. **Image** — un [Bitmap] rendu par [WidgetMiniForecastRenderer] qui
- *      contient les 12 barres de température (heatmap froid→chaud) + les
- *      dots de précipitation. Occupe toute la largeur du bottom strip et
- *      ~52dp de hauteur.
- *   2. **Row d'ancres horaires** — 3 `Text` Glance qui indiquent l'heure de
- *      début, du milieu et de la fin de la fenêtre 12h. Distribués via des
- *      `Spacer(defaultWeight())` — Glance ne supporte pas
- *      `Arrangement.SpaceBetween`.
- *
- * ─── Cohérence avec le composable home ────────────────────────────────────
- * Même sémantique d'encodage que `MiniForecastStrip` de la home (couleurs,
- * seuil pluie 30%, agrégation via HomeAggregates). Un utilisateur qui
- * possède le widget ET la home doit lire les deux de la même manière — c'est
- * le seul moyen que le "vocabulaire visuel" de l'app soit consistant.
- *
- * ─── Rendu Bitmap ─────────────────────────────────────────────────────────
- * Le Bitmap est reconstruit à CHAQUE recomposition (memoized par les inputs).
- * Coût : ~50-100µs de dessin sur canvas, ~96KB d'allocation. Négligeable
- * vs le refresh worker qui tourne toutes les 15-60 min.
- *
- * On rend à `LocalSize` × densité native pour éviter les artefacts de scaling
- * — Glance affichera l'Image en `ContentScale.FillBounds` de toute façon,
- * mais partir de la bonne résolution évite les cellules floues au bord.
+ * Le bitmap place l'axe horaire au centre. La température est lue au-dessus
+ * de sa heatmap et la probabilité de pluie sous sa propre heatmap. Les douze
+ * colonnes restent ainsi parfaitement alignées, même quand le launcher
+ * redimensionne légèrement le widget.
  */
 @Composable
 private fun MiniForecastStrip(
     data: WidgetData,
-    onContainer: ColorProvider,
-    onContainerMuted: ColorProvider,
     softSurface: ColorProvider,
     compact: Boolean,
-    // Couleur ARGB des labels de température dans le bitmap. Fournie par
-    // ExtraLargeLayout depuis baseOnContainerColor qui respecte le night mode
-    // ET les overrides utilisateur (texte custom, auto-contrast sur fond
-    // custom). Sans ce param, on aurait un noir fixe illisible en dark mode.
     textColorArgb: Int,
+    outerHorizontalPadding: Dp = ExtraLargePadding.horizontal,
     modifier: GlanceModifier = GlanceModifier
 ) {
     val context = LocalContext.current
     val size = LocalSize.current
     val density = context.resources.displayMetrics.density
     val renderDensity = density.coerceAtMost(2f)
-
-    // Dimensions cibles du bitmap : largeur widget × densité plafonnée à 2×.
-    // Le chart utilise 52dp en taille normale et 36dp sur les widgets bas. Ce
-    // plafond réduit le poids des bitmaps transmis par RemoteViews sans rendre
-    // les traits flous sur les densités courantes.
-    val widthPx = (size.width.value * renderDensity).toInt().coerceAtLeast(1)
-    val chartHeightDp = if (compact) 36 else 52
+    val chartHorizontalPaddingDp = if (compact) 6f else 8f
+    val availableWidthDp = (
+        size.width.value -
+            outerHorizontalPadding.value * 2f -
+            chartHorizontalPaddingDp * 2f
+        ).coerceAtLeast(80f)
+    val widthPx = (availableWidthDp * renderDensity).toInt().coerceAtLeast(1)
+    val chartHeightDp = if (compact) 50 else 64
     val heightPx = (chartHeightDp * renderDensity).toInt().coerceAtLeast(1)
-
-    // Couleur des dots pluie : Material blue 700. Fixé en dur plutôt que résolu
-    // depuis GlanceTheme pour garder le renderer pure JVM (testable sans Android
-    // runtime). Un thème dynamique pourrait être ajouté en v1.1 via un mapping
-    // GlanceTheme → ARGB Int fait côté composable.
     val precipColorArgb = 0xFF1976D2.toInt()
 
-    // Memoize par (data, dimensions, textColor) — inutile de reconstruire le
-    // bitmap si rien n'a changé. Le textColor fait partie des clés parce qu'un
-    // changement de thème dark/light modifie la couleur des labels : sans lui
-    // dans les keys, le cache renverrait un vieux bitmap au mauvais thème.
+    val is24 = android.text.format.DateFormat.is24HourFormat(context)
+    val formatter = remember(is24) {
+        java.time.format.DateTimeFormatter.ofPattern(
+            if (is24) "H'h'" else "h a",
+            java.util.Locale.getDefault()
+        )
+    }
+    val timelineLabels = data.hourlyStartTime?.let { start ->
+        listOf(
+            start.format(formatter),
+            start.plusHours(6).format(formatter),
+            start.plusHours(11).format(formatter)
+        )
+    } ?: listOf("+0h", "+6h", "+11h")
+
     val bitmap = remember(
         data.next12hTemps,
         data.next12hPrecipProb,
+        timelineLabels,
         widthPx,
         heightPx,
         textColorArgb
@@ -1126,86 +1073,27 @@ private fun MiniForecastStrip(
             temps = data.next12hTemps,
             precips = data.next12hPrecipProb,
             precipColorArgb = precipColorArgb,
-            textColorArgb = textColorArgb
+            textColorArgb = textColorArgb,
+            timelineLabels = timelineLabels
         )
     }
 
-    // Column externe : reçoit le modifier du call site (typiquement
-    // `GlanceModifier.defaultWeight()` pour occuper l'espace restant sous le
-    // top strip). `defaultWeight()` NE PEUT PAS être appelé ici directement
-    // car c'est une extension scoped `ColumnScope` — elle n'est valide qu'à
-    // l'intérieur d'une lambda `Column { }` parente, pas dans le corps d'un
-    // composable top-level. Le call site (ExtraLargeLayout) est bien dans un
-    // ColumnScope, donc c'est lui qui construit le weight modifier.
     Column(
         modifier = modifier
             .fillMaxWidth()
             .background(softSurface)
             .cornerRadius(14.dp)
             .padding(
-                horizontal = if (compact) 6.dp else 8.dp,
-                vertical = if (compact) 4.dp else 6.dp
-            )
+                horizontal = chartHorizontalPaddingDp.dp,
+                vertical = if (compact) 3.dp else 5.dp
+            ),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        if (!compact) {
-            Text(
-                text = "12 h",
-                style = TextStyle(
-                    color = onContainer,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            )
-            Spacer(GlanceModifier.height(2.dp))
-        }
         Image(
             provider = ImageProvider(bitmap),
             contentDescription = null,
-            // Height du placeholder Image doit MATCHER heightPx / density = 52dp.
-            // Si Image height < bitmap dp height, le bitmap est downscalé et
-            // les labels petits deviennent illisibles.
             modifier = GlanceModifier.fillMaxWidth().height(chartHeightDp.dp)
         )
-
-        // ─── Ancres horaires ──────────────────────────────────────────────
-        // 3 Text distribués à gauche/milieu/droite. Glance n'offre pas
-        // SpaceBetween — on empile Text | Spacer(defaultWeight) | Text |
-        // Spacer(defaultWeight) | Text, chaque Spacer prend 50% de l'espace
-        // libre → le Text central se trouve au centre exact.
-        data.hourlyStartTime?.let { start ->
-            Spacer(GlanceModifier.height(2.dp))
-            val is24 = android.text.format.DateFormat.is24HourFormat(context)
-            val pattern = if (is24) "H'h'" else "h a"
-            val formatter = java.time.format.DateTimeFormatter.ofPattern(
-                pattern,
-                java.util.Locale.getDefault()
-            )
-            Row(modifier = GlanceModifier.fillMaxWidth()) {
-                Text(
-                    text = start.format(formatter),
-                    style = TextStyle(
-                        color = onContainerMuted,
-                        fontSize = if (compact) 9.sp else 10.sp
-                    )
-                )
-                Spacer(GlanceModifier.defaultWeight())
-                Text(
-                    text = start.plusHours(6).format(formatter),
-                    style = TextStyle(
-                        color = onContainerMuted,
-                        fontSize = if (compact) 9.sp else 10.sp
-                    )
-                )
-                Spacer(GlanceModifier.defaultWeight())
-                Text(
-                    text = start.plusHours(11).format(formatter),
-                    style = TextStyle(
-                        color = onContainerMuted,
-                        fontSize = if (compact) 9.sp else 10.sp
-                    )
-                )
-            }
-        }
     }
 }
 

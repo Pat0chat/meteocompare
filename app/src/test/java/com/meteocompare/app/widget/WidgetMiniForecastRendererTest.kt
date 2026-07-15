@@ -17,10 +17,10 @@ import org.junit.Test
  *     sur émulateur.
  *
  * ─── Pourquoi c'est suffisant ─────────────────────────────────────────────
- * Le rendu Bitmap est mécanique (drawRoundRect + drawCircle) — les seuls bugs qui
+ * Le rendu Bitmap est mécanique (drawRoundRect + drawLine + drawText) — les seuls bugs qui
  * peuvent apparaître sont dans les CALCULS (couleurs, offsets, tailles). Ces
  * calculs sont pures functions ou boucles triviales, tous testables ici.
- * L'appel `canvas.drawRect(rect, paint)` ne peut pas mal se passer une fois
+ * Les appels Canvas ne peuvent pas mal se passer une fois
  * `rect` et `paint.color` calculés correctement.
  */
 class WidgetMiniForecastRendererTest {
@@ -101,6 +101,49 @@ class WidgetMiniForecastRendererTest {
         assertTrue("R attendu ~192, obtenu $r", (r - 192).let { it in -1..1 })
         assertTrue("G attendu ~191, obtenu $g", (g - 191).let { it in -1..1 })
         assertTrue("B attendu ~104, obtenu $b", (b - 104).let { it in -1..1 })
+    }
+
+
+    // ─── precipitationHeatmapArgb ────────────────────────────────────────
+
+    @Test
+    fun `heatmap pluie devient plus opaque quand la probabilite augmente`() {
+        val blue = 0xFF1976D2.toInt()
+        val text = 0xFF001A41.toInt()
+        val alphas = listOf(0, 25, 50, 75, 100).map { probability ->
+            val color = WidgetMiniForecastRenderer.precipitationHeatmapArgb(
+                probability = probability,
+                precipColorArgb = blue,
+                textColorArgb = text
+            )
+            (color ushr 24) and 0xFF
+        }
+        alphas.zipWithNext().forEach { (a, b) ->
+            assertTrue("L'alpha pluie doit augmenter: $a puis $b", b > a)
+        }
+    }
+
+    @Test
+    fun `heatmap pluie conserve la teinte bleue`() {
+        val blue = 0xFF1976D2.toInt()
+        val color = WidgetMiniForecastRenderer.precipitationHeatmapArgb(
+            probability = 60,
+            precipColorArgb = blue,
+            textColorArgb = 0xFF001A41.toInt()
+        )
+        assertEquals(blue and 0x00FFFFFF, color and 0x00FFFFFF)
+    }
+
+    @Test
+    fun `heatmap pluie inconnue utilise une cellule neutre discrete`() {
+        val text = 0xFF001A41.toInt()
+        val color = WidgetMiniForecastRenderer.precipitationHeatmapArgb(
+            probability = null,
+            precipColorArgb = 0xFF1976D2.toInt(),
+            textColorArgb = text
+        )
+        assertEquals(0x12, (color ushr 24) and 0xFF)
+        assertEquals(text and 0x00FFFFFF, color and 0x00FFFFFF)
     }
 
     // ─── Contrat public de render (bornes d'input) ───────────────────────
