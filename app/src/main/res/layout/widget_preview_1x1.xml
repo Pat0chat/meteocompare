@@ -1,36 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-    Preview du provider 1×1 UNIQUEMENT.
-
-    Reproduit fidèlement la structure de [MeteoWidget.TinyLayout] :
-    colonne verticale avec 3 lignes empilées — glyphe météo, température,
-    pourcentage de confiance. Aucun autre info (pas de ville, pas de min/max)
-    parce que le vrai TinyLayout n'en a pas non plus : à 40-90dp de côté il
-    n'y a physiquement pas la place.
-
-    Le "☀" est un caractère Unicode U+2600 (WHITE SUN WITH RAYS) qui rend
-    en emoji couleur sur Android 7.0+ — reproduit visuellement l'effet du
-    WeatherGlyph du vrai widget sans avoir à embarquer un drawable custom.
-
-    Utilisé uniquement par meteocompare_widget_info_1x1.xml.
--->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="6dp"
+    android:padding="5dp"
     android:gravity="center"
     android:background="@drawable/widget_preview_bg">
 
-    <!-- Glyphe météo (représente WeatherGlyph du vrai widget) -->
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="☀"
-        android:textSize="22sp"
-        android:textColor="?android:attr/textColorPrimary" />
+    <ImageView
+        android:layout_width="30dp"
+        android:layout_height="30dp"
+        android:src="@drawable/widget_preview_weather_sun"
+        android:contentDescription="@null" />
 
-    <!-- Température actuelle -->
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -39,13 +21,11 @@
         android:textStyle="bold"
         android:textColor="?android:attr/textColorPrimary" />
 
-    <!-- Confiance (couleur verte car ≥ 75%, cf. confidenceTextColor()) -->
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="85%"
-        android:textSize="9sp"
+        android:text="● 85%"
+        android:textSize="8sp"
         android:textStyle="bold"
-        android:textColor="#43A047" />
-
+        android:textColor="@color/widget_preview_confidence" />
 </LinearLayout>

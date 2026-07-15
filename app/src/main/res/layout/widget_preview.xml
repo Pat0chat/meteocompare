@@ -1,66 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-    Preview des providers "*×2" — targetCellHeight = 2.
-    Utilisé pour meteocompare_widget_info_2x2.xml, _3x2.xml, _4x2.xml, _5x2.xml.
-
-    ─── Fidélité au vrai widget ───────────────────────────────────────
-    Reproduit la structure de [MeteoWidget.ExtraLargeLayout] qui est le
-    layout dominant sur les *×2 :
-
-      ┌─────────────────────────────────────────────────┐
-      │ [☀] 18°   Paris        [85%]                   │  ← top strip
-      │           15° / 22°                             │
-      │                                                 │
-      │ 14h    15h     16h     17h                     │  ← forecast strip
-      │  ☀     ⛅     ☁      🌧                        │    4 items
-      │ 22°    20°    19°     18°                      │
-      └─────────────────────────────────────────────────┘
-
-    C'est la spécificité annoncée du widget MeteoCompare — les 4 prochaines
-    heures OU les 4 prochains jours selon la config utilisateur — que les
-    previews précédentes ne montraient PAS DU TOUT. L'utilisateur voyait
-    "18° Paris" et n'imaginait pas qu'il obtiendrait un strip de prévisions.
-    Fix ici : le strip est représenté explicitement pour que l'utilisateur
-    puisse voir l'intérêt de choisir un *×2 vs un *×1.
-
-    ─── Ordre des icônes météo ───────────────────────────────────────
-    On alterne délibérément soleil / partiellement nuageux / couvert / pluie
-    pour DONNER À VOIR que la prévision peut varier heure par heure — sinon
-    un utilisateur pourrait croire que le widget affiche 4 fois la même chose
-    parce que "il fait beau maintenant". Choix pédagogique : montrer que le
-    widget rend une VRAIE progression.
-
-    ─── ⚠ Contrainte RemoteViews ─────────────────────────────────────
-    Layout à base de LinearLayout imbriqués + poids. Pas de View/Space raw.
-    Chaque item du strip est une Column avec weight=1 dans une Row weight=1.
--->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="8dp"
+    android:padding="12dp"
     android:background="@drawable/widget_preview_bg">
 
-    <!-- ═══ Top strip : glyphe + temp + ville/minmax + pill conf ═══ -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="☀"
-            android:textSize="26sp"
-            android:layout_marginEnd="4dp"
-            android:textColor="?android:attr/textColorPrimary" />
+        <ImageView
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:src="@drawable/widget_preview_weather_sun"
+            android:contentDescription="@null" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginStart="5dp"
             android:text="18°"
-            android:textSize="24sp"
+            android:textSize="26sp"
             android:textStyle="bold"
             android:textColor="?android:attr/textColorPrimary" />
 
@@ -69,13 +32,19 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:layout_marginStart="10dp"
-            android:orientation="vertical">
+            android:layout_marginEnd="8dp"
+            android:orientation="vertical"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="5dp"
+            android:paddingBottom="5dp"
+            android:background="@drawable/widget_preview_surface_bg">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Paris"
-                android:textSize="13sp"
+                android:textSize="14sp"
                 android:textStyle="bold"
                 android:textColor="?android:attr/textColorPrimary"
                 android:maxLines="1"
@@ -89,148 +58,86 @@
                 android:textColor="?android:attr/textColorSecondary"
                 android:maxLines="1"
                 android:ellipsize="end" />
-
         </LinearLayout>
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="85%"
+            android:text="● 85%"
             android:textSize="11sp"
             android:textStyle="bold"
-            android:textColor="#FFFFFF"
+            android:textColor="@color/widget_preview_confidence"
             android:background="@drawable/widget_preview_pill_bg"
-            android:paddingStart="6dp"
-            android:paddingEnd="6dp"
-            android:paddingTop="2dp"
-            android:paddingBottom="2dp" />
-
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="5dp"
+            android:paddingBottom="5dp" />
     </LinearLayout>
 
-    <!-- ═══ Forecast strip : 4 items — la vraie valeur ajoutée du *×2 ═══
-         Chaque colonne = un item. weight=1 sur chacune pour distribution
-         équitable dans la largeur disponible. Contenu : label / glyphe /
-         température. -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="10dp"
         android:orientation="horizontal"
         android:gravity="center_vertical">
 
-        <!-- Item 1 : 14h, soleil, 22° -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
+            android:layout_marginEnd="2dp"
             android:orientation="vertical"
-            android:gravity="center_horizontal">
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="14h"
-                android:textSize="11sp"
-                android:textColor="?android:attr/textColorSecondary" />
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="☀"
-                android:textSize="20sp"
-                android:textColor="?android:attr/textColorPrimary" />
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="22°"
-                android:textSize="12sp"
-                android:textStyle="bold"
-                android:textColor="?android:attr/textColorPrimary" />
+            android:gravity="center_horizontal"
+            android:padding="4dp"
+            android:background="@drawable/widget_preview_surface_bg">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="14h" android:textSize="9sp" android:textColor="?android:attr/textColorSecondary" />
+            <ImageView android:layout_width="24dp" android:layout_height="24dp" android:src="@drawable/widget_preview_weather_sun" android:contentDescription="@null" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="22°" android:textSize="11sp" android:textStyle="bold" android:textColor="?android:attr/textColorPrimary" />
         </LinearLayout>
 
-        <!-- Item 2 : 15h, partiellement nuageux, 20° -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
+            android:layout_marginStart="2dp"
+            android:layout_marginEnd="2dp"
             android:orientation="vertical"
-            android:gravity="center_horizontal">
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="15h"
-                android:textSize="11sp"
-                android:textColor="?android:attr/textColorSecondary" />
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="⛅"
-                android:textSize="20sp"
-                android:textColor="?android:attr/textColorPrimary" />
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="20°"
-                android:textSize="12sp"
-                android:textStyle="bold"
-                android:textColor="?android:attr/textColorPrimary" />
+            android:gravity="center_horizontal"
+            android:padding="4dp"
+            android:background="@drawable/widget_preview_surface_bg">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="15h" android:textSize="9sp" android:textColor="?android:attr/textColorSecondary" />
+            <ImageView android:layout_width="24dp" android:layout_height="24dp" android:src="@drawable/widget_preview_weather_partly" android:contentDescription="@null" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="20°" android:textSize="11sp" android:textStyle="bold" android:textColor="?android:attr/textColorPrimary" />
         </LinearLayout>
 
-        <!-- Item 3 : 16h, couvert, 19° -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
+            android:layout_marginStart="2dp"
+            android:layout_marginEnd="2dp"
             android:orientation="vertical"
-            android:gravity="center_horizontal">
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="16h"
-                android:textSize="11sp"
-                android:textColor="?android:attr/textColorSecondary" />
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="☁"
-                android:textSize="20sp"
-                android:textColor="?android:attr/textColorPrimary" />
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="19°"
-                android:textSize="12sp"
-                android:textStyle="bold"
-                android:textColor="?android:attr/textColorPrimary" />
+            android:gravity="center_horizontal"
+            android:padding="4dp"
+            android:background="@drawable/widget_preview_surface_bg">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="16h" android:textSize="9sp" android:textColor="?android:attr/textColorSecondary" />
+            <ImageView android:layout_width="24dp" android:layout_height="24dp" android:src="@drawable/widget_preview_weather_cloud" android:contentDescription="@null" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="19°" android:textSize="11sp" android:textStyle="bold" android:textColor="?android:attr/textColorPrimary" />
         </LinearLayout>
 
-        <!-- Item 4 : 17h, pluie, 18° -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
+            android:layout_marginStart="2dp"
             android:orientation="vertical"
-            android:gravity="center_horizontal">
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="17h"
-                android:textSize="11sp"
-                android:textColor="?android:attr/textColorSecondary" />
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="🌧"
-                android:textSize="20sp"
-                android:textColor="?android:attr/textColorPrimary" />
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="18°"
-                android:textSize="12sp"
-                android:textStyle="bold"
-                android:textColor="?android:attr/textColorPrimary" />
+            android:gravity="center_horizontal"
+            android:padding="4dp"
+            android:background="@drawable/widget_preview_surface_bg">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="17h" android:textSize="9sp" android:textColor="?android:attr/textColorSecondary" />
+            <ImageView android:layout_width="24dp" android:layout_height="24dp" android:src="@drawable/widget_preview_weather_rain" android:contentDescription="@null" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="18°" android:textSize="11sp" android:textStyle="bold" android:textColor="?android:attr/textColorPrimary" />
         </LinearLayout>
-
     </LinearLayout>
-
 </LinearLayout>

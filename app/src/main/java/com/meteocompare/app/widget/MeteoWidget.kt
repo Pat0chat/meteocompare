@@ -54,41 +54,6 @@ import androidx.glance.unit.ColorProvider
 import com.meteocompare.app.MainActivity
 import com.meteocompare.app.domain.model.WeatherCondition
 
-// ─── Sélection de layout ────────────────────────────────────────────────────
-//
-// SizeMode.Exact expose la taille RÉELLE du container via LocalSize (par
-// opposition à Responsive qui expose une taille "bucket" pré-configurée). On
-// prend Exact pour éviter le piège : sur un launcher à cellules de 90dp, un
-// widget physique 2×1 fait 180dp de large — pile la valeur d'un bucket
-// "3×1 = 180dp" qui aurait été choisi par Responsive et déclenché MediumLayout
-// (badge à droite) au lieu de SmallLayout (badge sous la temp). Exact permet
-// des seuils ajustés à la réalité des grilles Android (74-130dp par cellule
-// selon launcher).
-//
-// Seuils choisis pour couvrir la variance cross-launcher :
-//   - Tiny : width < 105dp AND height < 105dp. Cible le 1×1 physique. Le
-//     ET sur les deux dimensions évite qu'un widget 2×1 très étroit (édge case
-//     launchers custom) ne soit classé Tiny. En pratique 1×1 = ~40-90dp
-//     dans chaque dim selon le launcher.
-//   - Small : 105dp ≤ width < 210dp. Couvre 2×1 physique jusqu'à ~103dp/cellule
-//     (Samsung).
-//   - Medium : 210 ≤ width < 320dp. Couvre 3×1 physique typique.
-//   - Large : width ≥ 320dp AND width < 380dp. Couvre 4×1 physique.
-//   - WideRow (5×1) : width ≥ 380dp AND height < EXTRA_LARGE_MIN_HEIGHT_DP.
-//     Couvre 5×1. Utilise LargeLayout avec 1-2 items de prévision inline pour
-//     tirer parti de la largeur supplémentaire.
-//   - ExtraLarge (4×2) : width ≥ 220dp AND height ≥ 130dp AND width < 380dp.
-//     La double condition width+height évite de mal classer un widget 1-cellule
-//     sur launcher à cellules hautes.
-//   - ExtraLargeWide (5×2) : width ≥ 380dp AND height ≥ 130dp. Même layout
-//     qu'ExtraLarge mais avec 5 items de prévision au lieu de 4.
-private const val TINY_MAX_WIDTH_DP = 105
-private const val TINY_MAX_HEIGHT_DP = 105
-private const val SMALL_MAX_WIDTH_DP = 210
-private const val MEDIUM_MAX_WIDTH_DP = 320
-private const val WIDE_MIN_WIDTH_DP = 380
-private const val EXTRA_LARGE_MIN_HEIGHT_DP = 130
-private const val EXTRA_LARGE_MIN_WIDTH_DP = 220
 
 /**
  * Padding intérieur par taille de widget.
@@ -126,8 +91,9 @@ private data class WidgetPadding(val horizontal: Dp, val vertical: Dp)
 private val TinyPadding = WidgetPadding(6.dp, 4.dp)
 private val SmallPadding = WidgetPadding(8.dp, 8.dp)
 private val MediumPadding = WidgetPadding(14.dp, 10.dp)
-private val LargePadding = WidgetPadding(14.dp, 10.dp)
-private val ExtraLargePadding = WidgetPadding(14.dp, 10.dp)
+private val LargePadding = WidgetPadding(18.dp, 12.dp)
+private val CompactTallPadding = WidgetPadding(12.dp, 12.dp)
+private val ExtraLargePadding = WidgetPadding(16.dp, 12.dp)
 
 /**
  * Thème résolu (dark/light) — passé via [CompositionLocal] pour éviter que
@@ -322,6 +288,9 @@ private fun WidgetContent(
     val onContainerMuted = remember(baseOnContainerColor) {
         ColorProvider(baseOnContainerColor.copy(alpha = 0.7f))
     }
+    val softSurface = remember(baseOnContainerColor, night) {
+        ColorProvider(baseOnContainerColor.copy(alpha = if (night) 0.12f else 0.08f))
+    }
     val container = remember(baseContainerColor, opacityPct) {
         ColorProvider(baseContainerColor.copy(alpha = opacityPct / 100f))
     }
@@ -331,25 +300,38 @@ private fun WidgetContent(
     val size = LocalSize.current
     val widthDp = size.width.value
     val heightDp = size.height.value
-    val padding = when {
-        widthDp < TINY_MAX_WIDTH_DP && heightDp < TINY_MAX_HEIGHT_DP -> TinyPadding
-        heightDp >= EXTRA_LARGE_MIN_HEIGHT_DP &&
-                widthDp >= EXTRA_LARGE_MIN_WIDTH_DP -> ExtraLargePadding
-        widthDp >= MEDIUM_MAX_WIDTH_DP -> LargePadding
-        widthDp >= SMALL_MAX_WIDTH_DP -> MediumPadding
-        else -> SmallPadding
+    val layoutKind = classifyWidgetLayout(widthDp, heightDp)
+    val padding = when (layoutKind) {
+        WidgetLayoutKind.TINY -> TinyPadding
+        WidgetLayoutKind.COMPACT_TALL -> CompactTallPadding
+        WidgetLayoutKind.EXTRA_LARGE -> ExtraLargePadding
+        WidgetLayoutKind.MEDIUM -> MediumPadding
+        WidgetLayoutKind.LARGE,
+        WidgetLayoutKind.WIDE -> LargePadding
+        WidgetLayoutKind.SMALL -> SmallPadding
     }
 
     Box(
         modifier = GlanceModifier
             .fillMaxSize()
             .background(container)
-            .cornerRadius(16.dp)
+            .cornerRadius(
+                if (layoutKind == WidgetLayoutKind.TINY) {
+                    18.dp
+                } else {
+                    22.dp
+                }
+            )
             .clickable(actionStartActivity<MainActivity>())
             .padding(horizontal = padding.horizontal, vertical = padding.vertical)
     ) {
         when {
-            data.error != null -> ErrorLayout(data.error, onContainerMuted)
+            data.error != null -> ErrorLayout(
+                error = data.error,
+                onContainer = onContainer,
+                onContainerMuted = onContainerMuted,
+                softSurface = softSurface
+            )
             else -> {
                 // Sélection du layout via la taille exacte du container. Voir
                 // les constantes en tête de fichier pour les seuils et leurs
@@ -365,35 +347,44 @@ private fun WidgetContent(
                 // paramètre showFiveItems calculé depuis widthDp), pas en
                 // LargeLayout single-row. La différence est portée par le
                 // heightDp du bucket ExtraLarge.
-                when {
-                    widthDp < TINY_MAX_WIDTH_DP && heightDp < TINY_MAX_HEIGHT_DP ->
+                when (layoutKind) {
+                    WidgetLayoutKind.TINY ->
                         TinyLayout(data, onContainer)
-                    heightDp >= EXTRA_LARGE_MIN_HEIGHT_DP &&
-                            widthDp >= EXTRA_LARGE_MIN_WIDTH_DP ->
+                    WidgetLayoutKind.EXTRA_LARGE ->
                         ExtraLargeLayout(
                             data = data,
                             onContainer = onContainer,
                             onContainerMuted = onContainerMuted,
+                            softSurface = softSurface,
                             onContainerArgb = baseOnContainerColor.toArgb(),
                             showFiveItems = widthDp >= WIDE_MIN_WIDTH_DP
                         )
-                    widthDp >= WIDE_MIN_WIDTH_DP ->
+                    WidgetLayoutKind.COMPACT_TALL ->
+                        CompactTallLayout(
+                            data = data,
+                            onContainer = onContainer,
+                            onContainerMuted = onContainerMuted,
+                            softSurface = softSurface
+                        )
+                    WidgetLayoutKind.WIDE ->
                         LargeLayout(
                             data = data,
                             onContainer = onContainer,
                             onContainerMuted = onContainerMuted,
+                            softSurface = softSurface,
                             inlineForecastItems = 2
                         )
-                    widthDp >= MEDIUM_MAX_WIDTH_DP ->
+                    WidgetLayoutKind.LARGE ->
                         LargeLayout(
                             data = data,
                             onContainer = onContainer,
                             onContainerMuted = onContainerMuted,
+                            softSurface = softSurface,
                             inlineForecastItems = 0
                         )
-                    widthDp >= SMALL_MAX_WIDTH_DP ->
-                        MediumLayout(data, onContainer, onContainerMuted)
-                    else -> SmallLayout(data, onContainer)
+                    WidgetLayoutKind.MEDIUM ->
+                        MediumLayout(data, onContainer, onContainerMuted, softSurface)
+                    WidgetLayoutKind.SMALL -> SmallLayout(data, onContainer)
                 }
             }
         }
@@ -423,24 +414,26 @@ private fun WidgetContent(
  * remplit mieux la surface qu'une ligne horizontale qui écraserait les
  * éléments.
  *
- * Les tailles de font sont VOLONTAIREMENT petites (icône 22sp, temp 16sp,
- * confiance 9sp) — testées à l'œil sur émulateur pour rester lisibles
- * quand le launcher rend en 40-60dp de large.
+ * Les tailles sont adaptatives : sous 70dp de haut (ou 60dp de large),
+ * le pictogramme descend à 22dp et la typographie se resserre pour éviter
+ * tout débordement sur les grilles de launchers les plus compactes.
  */
 @Composable
 private fun TinyLayout(data: WidgetData, onContainer: ColorProvider) {
+    val size = LocalSize.current
+    val ultraCompact = size.height.value < 70f || size.width.value < 60f
     Column(
         modifier = GlanceModifier.fillMaxSize(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        WeatherGlyph(data.currentCondition, sizeSp = 22, onContainer)
+        WeatherGlyph(data.currentCondition, sizeDp = if (ultraCompact) 22 else 30)
         Text(
             text = formatTemp(data.currentTemp),
             style = TextStyle(
                 color = onContainer,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium
+                fontSize = if (ultraCompact) 13.sp else 16.sp,
+                fontWeight = FontWeight.Bold
             )
         )
         data.confidencePct?.let {
@@ -448,7 +441,7 @@ private fun TinyLayout(data: WidgetData, onContainer: ColorProvider) {
                 text = "$it%",
                 style = TextStyle(
                     color = confidenceTextColor(it),
-                    fontSize = 9.sp,
+                    fontSize = if (ultraCompact) 8.sp else 9.sp,
                     fontWeight = FontWeight.Medium
                 )
             )
@@ -476,7 +469,7 @@ private fun SmallLayout(data: WidgetData, onContainer: ColorProvider) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        WeatherGlyph(data.currentCondition, sizeSp = 24, onContainer)
+        WeatherGlyph(data.currentCondition, sizeDp = 34)
         Spacer(GlanceModifier.width(6.dp))
         Column {
             data.cityName?.let {
@@ -489,13 +482,13 @@ private fun SmallLayout(data: WidgetData, onContainer: ColorProvider) {
                     )
                 )
             }
-            Spacer(GlanceModifier.width(6.dp))
+            Spacer(GlanceModifier.height(1.dp))
             Text(
                 text = formatTemp(data.currentTemp),
                 style = TextStyle(
                     color = onContainer,
                     fontSize = 20.sp,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Bold
                 )
             )
             data.confidencePct?.let {
@@ -517,27 +510,34 @@ private fun SmallLayout(data: WidgetData, onContainer: ColorProvider) {
 private fun MediumLayout(
     data: WidgetData,
     onContainer: ColorProvider,
-    onContainerMuted: ColorProvider
+    onContainerMuted: ColorProvider,
+    softSurface: ColorProvider
 ) {
     Row(
         modifier = GlanceModifier.fillMaxSize(),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            WeatherGlyph(data.currentCondition, sizeSp = 28, onContainer)
+            WeatherGlyph(data.currentCondition, sizeDp = 38)
             Spacer(GlanceModifier.width(6.dp))
             Text(
                 text = formatTemp(data.currentTemp),
                 style = TextStyle(
                     color = onContainer,
                     fontSize = 26.sp,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Bold
                 )
             )
         }
         Spacer(GlanceModifier.width(10.dp))
 
-        Column(modifier = GlanceModifier.defaultWeight()) {
+        Column(
+            modifier = GlanceModifier
+                .defaultWeight()
+                .background(softSurface)
+                .cornerRadius(12.dp)
+                .padding(horizontal = 10.dp, vertical = 6.dp)
+        ) {
             data.cityName?.let {
                 Text(
                     text = it,
@@ -555,6 +555,7 @@ private fun MediumLayout(
         }
 
         data.confidencePct?.let {
+            Spacer(GlanceModifier.width(8.dp))
             ConfidencePill(percent = it)
         }
     }
@@ -581,6 +582,7 @@ private fun LargeLayout(
     data: WidgetData,
     onContainer: ColorProvider,
     onContainerMuted: ColorProvider,
+    softSurface: ColorProvider,
     inlineForecastItems: Int = 0
 ) {
     Row(
@@ -588,20 +590,26 @@ private fun LargeLayout(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            WeatherGlyph(data.currentCondition, sizeSp = 30, onContainer)
+            WeatherGlyph(data.currentCondition, sizeDp = 42)
             Spacer(GlanceModifier.width(6.dp))
             Text(
                 text = formatTemp(data.currentTemp),
                 style = TextStyle(
                     color = onContainer,
                     fontSize = 26.sp,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Bold
                 )
             )
         }
         Spacer(GlanceModifier.width(12.dp))
 
-        Column(modifier = GlanceModifier.defaultWeight()) {
+        Column(
+            modifier = GlanceModifier
+                .defaultWeight()
+                .background(softSurface)
+                .cornerRadius(12.dp)
+                .padding(horizontal = 10.dp, vertical = 6.dp)
+        ) {
             data.cityName?.let {
                 Text(
                     text = it,
@@ -640,26 +648,250 @@ private fun LargeLayout(
             Spacer(GlanceModifier.width(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 data.forecasts.take(inlineForecastItems).forEach { item ->
-                    Column(
-                        modifier = GlanceModifier.padding(horizontal = 4.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = item.label,
-                            style = TextStyle(color = onContainerMuted, fontSize = 11.sp)
-                        )
-                        WeatherGlyph(item.condition, sizeSp = 18, onContainer)
-                        Text(
-                            text = formatTemp(item.temp),
-                            style = TextStyle(color = onContainer, fontSize = 12.sp)
-                        )
-                    }
+                    ForecastItemCard(
+                        item = item,
+                        onContainer = onContainer,
+                        onContainerMuted = onContainerMuted,
+                        softSurface = softSurface,
+                        compact = true,
+                        modifier = GlanceModifier.padding(horizontal = 2.dp)
+                    )
                 }
             }
         }
 
         data.confidencePct?.let {
+            Spacer(GlanceModifier.width(8.dp))
             ConfidencePill(percent = it)
+        }
+    }
+}
+
+/**
+ * Layout dédié aux formats hauts mais étroits, principalement 2×2.
+ *
+ * Sans ce bucket, un 2×2 tombait sur [SmallLayout] car sa largeur restait
+ * sous le seuil du layout 4×2. Le résultat occupait seulement le centre de
+ * la tuile et laissait une grande zone vide. Cette variante utilise la
+ * hauteur disponible tout en limitant le bas du widget à deux ou trois
+ * valeurs lisibles selon le mode configuré.
+ */
+@Composable
+private fun CompactTallLayout(
+    data: WidgetData,
+    onContainer: ColorProvider,
+    onContainerMuted: ColorProvider,
+    softSurface: ColorProvider
+) {
+    val narrow = LocalSize.current.width.value < 150f
+    Column(modifier = GlanceModifier.fillMaxSize()) {
+        Row(
+            modifier = GlanceModifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            WeatherGlyph(data.currentCondition, sizeDp = if (narrow) 32 else 38)
+            Spacer(GlanceModifier.width(if (narrow) 6.dp else 8.dp))
+            Column(modifier = GlanceModifier.defaultWeight()) {
+                data.cityName?.let {
+                    Text(
+                        text = it,
+                        style = TextStyle(
+                            color = onContainer,
+                            fontSize = if (narrow) 11.sp else 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                }
+                Text(
+                    text = formatTemp(data.currentTemp),
+                    style = TextStyle(
+                        color = onContainer,
+                        fontSize = if (narrow) 22.sp else 24.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                )
+                val minMax = formatMinMax(data.tempMin, data.tempMax)
+                if (minMax.isNotEmpty()) {
+                    Text(
+                        text = minMax,
+                        style = TextStyle(color = onContainerMuted, fontSize = 10.sp)
+                    )
+                }
+                data.confidencePct?.let {
+                    Text(
+                        text = "● $it%",
+                        style = TextStyle(
+                            color = confidenceTextColor(it),
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                }
+            }
+        }
+
+        Spacer(GlanceModifier.height(6.dp))
+
+        when {
+            data.confidenceStrip != null -> CompactConfidenceSummary(
+                strip = data.confidenceStrip,
+                onContainer = onContainer,
+                onContainerMuted = onContainerMuted,
+                softSurface = softSurface
+            )
+
+            data.next12hTemps.isNotEmpty() -> CompactMiniForecastSummary(
+                data = data,
+                onContainer = onContainer,
+                onContainerMuted = onContainerMuted,
+                softSurface = softSurface
+            )
+
+            data.forecasts.isNotEmpty() -> Row(
+                modifier = GlanceModifier.fillMaxWidth().defaultWeight()
+            ) {
+                data.forecasts.take(2).forEach { item ->
+                    ForecastItemCard(
+                        item = item,
+                        onContainer = onContainer,
+                        onContainerMuted = onContainerMuted,
+                        softSurface = softSurface,
+                        compact = true,
+                        modifier = GlanceModifier
+                            .defaultWeight()
+                            .padding(horizontal = 2.dp)
+                    )
+                }
+            }
+
+            else -> {
+                val extras = buildExtrasLine(data)
+                Box(
+                    modifier = GlanceModifier
+                        .fillMaxWidth()
+                        .defaultWeight()
+                        .background(softSurface)
+                        .cornerRadius(12.dp)
+                        .padding(8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = extras.ifEmpty { formatMinMax(data.tempMin, data.tempMax) },
+                        style = TextStyle(
+                            color = onContainerMuted,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ColumnScope.CompactConfidenceSummary(
+    strip: WidgetConfidenceStrip,
+    onContainer: ColorProvider,
+    onContainerMuted: ColorProvider,
+    softSurface: ColorProvider
+) {
+    val night = LocalNightMode.current
+    Row(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
+        strip.buckets.take(2).forEach { bucket ->
+            Column(
+                modifier = GlanceModifier
+                    .defaultWeight()
+                    .padding(horizontal = 2.dp)
+                    .background(softSurface)
+                    .cornerRadius(10.dp)
+                    .padding(horizontal = 6.dp, vertical = 5.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = GlanceModifier
+                        .fillMaxWidth()
+                        .height(5.dp)
+                        .background(ColorProvider(confidenceColor(bucket.percent, night)))
+                        .cornerRadius(3.dp)
+                ) {}
+                Spacer(GlanceModifier.height(3.dp))
+                Text(
+                    text = bucket.value,
+                    style = TextStyle(
+                        color = onContainer,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                )
+                Text(
+                    text = bucket.label,
+                    style = TextStyle(color = onContainerMuted, fontSize = 9.sp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ColumnScope.CompactMiniForecastSummary(
+    data: WidgetData,
+    onContainer: ColorProvider,
+    onContainerMuted: ColorProvider,
+    softSurface: ColorProvider
+) {
+    val context = LocalContext.current
+    val width = LocalSize.current.width.value
+    val indices = if (width < 170f) listOf(0, 11) else listOf(0, 6, 11)
+    val is24 = android.text.format.DateFormat.is24HourFormat(context)
+    val formatter = java.time.format.DateTimeFormatter.ofPattern(
+        if (is24) "H'h'" else "h a",
+        java.util.Locale.getDefault()
+    )
+    val rain = remember { ColorProvider(Color(0xFF1976D2)) }
+
+    Row(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
+        indices.forEach { index ->
+            val temp = data.next12hTemps.getOrNull(index)
+            val precip = data.next12hPrecipProb.getOrNull(index)
+            val label = data.hourlyStartTime
+                ?.plusHours(index.toLong())
+                ?.format(formatter)
+                ?: "+${index}h"
+            Column(
+                modifier = GlanceModifier
+                    .defaultWeight()
+                    .padding(horizontal = 2.dp)
+                    .background(softSurface)
+                    .cornerRadius(10.dp)
+                    .padding(horizontal = 4.dp, vertical = 5.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = label,
+                    style = TextStyle(color = onContainerMuted, fontSize = 9.sp)
+                )
+                Text(
+                    text = formatTemp(temp),
+                    style = TextStyle(
+                        color = onContainer,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                )
+                if (precip != null && precip >= WidgetMiniForecastRenderer.PRECIP_THRESHOLD) {
+                    Text(
+                        text = "● $precip%",
+                        style = TextStyle(
+                            color = rain,
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    )
+                }
+            }
         }
     }
 }
@@ -672,11 +904,9 @@ private fun LargeLayout(
  *   le bas strip au lieu de 4. Utilise l'espace supplémentaire en largeur
  *   sans surcharger le rendu.
  *
- * Tailles délibérément plus grandes que 4×1 pour REMPLIR l'espace vertical
- * doublé — sans ça le widget paraît vide, avec beaucoup de "coussin blanc"
- * en haut et en bas de chaque bloc. Un icône 32sp et une temp 28sp
- * consomment le top strip visuellement ; le bottom strip a icônes 26sp et
- * temp 15sp pour occuper les 4-5 colonnes.
+ * Les tailles sont adaptées à la hauteur exacte : le rendu se compacte sous
+ * 165dp afin de rester dans le budget des launchers aux cellules basses, tout
+ * en conservant des pictogrammes et une température plus généreux au-dessus.
  *
  * Note : quand `showFiveItems=true` et que `data.forecasts` contient moins
  * de 5 items (edge case si le fetch est parti sur un horizon plus court),
@@ -688,6 +918,7 @@ private fun ExtraLargeLayout(
     data: WidgetData,
     onContainer: ColorProvider,
     onContainerMuted: ColorProvider,
+    softSurface: ColorProvider,
     // ARGB brut de la couleur de texte "onContainer", résolu au niveau widget
     // root en tenant compte du night mode + des overrides utilisateur (voir
     // baseOnContainerColor). Sert au rendu Bitmap de la mini forecast, où on
@@ -696,20 +927,21 @@ private fun ExtraLargeLayout(
     showFiveItems: Boolean = false
 ) {
     val itemCount = if (showFiveItems) 5 else 4
+    val compactHeight = LocalSize.current.height.value < 165f
     Column(modifier = GlanceModifier.fillMaxSize()) {
         // ─── Top strip (comme 4×1 mais TAILLES BUMPÉES pour remplir la hauteur)
         Row(
             modifier = GlanceModifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            WeatherGlyph(data.currentCondition, sizeSp = 32, onContainer)
+            WeatherGlyph(data.currentCondition, sizeDp = if (compactHeight) 38 else 44)
             Spacer(GlanceModifier.width(8.dp))
             Text(
                 text = formatTemp(data.currentTemp),
                 style = TextStyle(
                     color = onContainer,
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Medium
+                    fontSize = if (compactHeight) 25.sp else 28.sp,
+                    fontWeight = FontWeight.Bold
                 )
             )
             Spacer(GlanceModifier.width(12.dp))
@@ -720,31 +952,38 @@ private fun ExtraLargeLayout(
                         text = it,
                         style = TextStyle(
                             color = onContainer,
-                            fontSize = 16.sp,
+                            fontSize = if (compactHeight) 14.sp else 16.sp,
                             fontWeight = FontWeight.Medium
                         )
                     )
                 }
                 Text(
                     text = formatMinMax(data.tempMin, data.tempMax),
-                    style = TextStyle(color = onContainerMuted, fontSize = 14.sp)
+                    style = TextStyle(
+                        color = onContainerMuted,
+                        fontSize = if (compactHeight) 12.sp else 14.sp
+                    )
                 )
                 val extras = buildExtrasLine(data)
                 if (extras.isNotEmpty()) {
                     Spacer(GlanceModifier.height(2.dp))
                     Text(
                         text = extras,
-                        style = TextStyle(color = onContainerMuted, fontSize = 14.sp)
+                        style = TextStyle(
+                            color = onContainerMuted,
+                            fontSize = if (compactHeight) 11.sp else 14.sp
+                        )
                     )
                 }
             }
 
             data.confidencePct?.let {
+                Spacer(GlanceModifier.width(8.dp))
                 ConfidencePill(percent = it)
             }
         }
 
-        Spacer(GlanceModifier.height(6.dp))
+        Spacer(GlanceModifier.height(if (compactHeight) 6.dp else 10.dp))
 
         // ─── Bottom strip : selon le mode utilisateur ────────────────────
         // TROIS rendus mutuellement exclusifs pilotés par les data alimentées
@@ -758,12 +997,16 @@ private fun ExtraLargeLayout(
             strip != null -> ConfidenceBandStrip(
                 strip = strip,
                 onContainer = onContainer,
-                onContainerMuted = onContainerMuted
+                onContainerMuted = onContainerMuted,
+                softSurface = softSurface,
+                compact = compactHeight
             )
             hasMiniForecast -> MiniForecastStrip(
                 data = data,
                 onContainer = onContainer,
                 onContainerMuted = onContainerMuted,
+                softSurface = softSurface,
+                compact = compactHeight,
                 textColorArgb = onContainerArgb,
                 // defaultWeight ici parce qu'on est dans le ColumnScope de
                 // l'ExtraLargeLayout — occupe l'espace vertical restant sous le
@@ -776,21 +1019,16 @@ private fun ExtraLargeLayout(
             )
             else -> Row(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
                 data.forecasts.take(itemCount).forEach { item ->
-                    Column(
-                        modifier = GlanceModifier.defaultWeight(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = item.label,
-                            style = TextStyle(color = onContainerMuted, fontSize = 14.sp)
-                        )
-                        WeatherGlyph(item.condition, sizeSp = 26, onContainer)
-                        Text(
-                            text = formatTemp(item.temp),
-                            style = TextStyle(color = onContainer, fontSize = 15.sp)
-                        )
-                    }
+                    ForecastItemCard(
+                        item = item,
+                        onContainer = onContainer,
+                        onContainerMuted = onContainerMuted,
+                        softSurface = softSurface,
+                        compact = compactHeight,
+                        modifier = GlanceModifier
+                            .defaultWeight()
+                            .padding(horizontal = 2.dp)
+                    )
                 }
             }
         }
@@ -805,7 +1043,7 @@ private fun ExtraLargeLayout(
  *   1. **Image** — un [Bitmap] rendu par [WidgetMiniForecastRenderer] qui
  *      contient les 12 barres de température (heatmap froid→chaud) + les
  *      dots de précipitation. Occupe toute la largeur du bottom strip et
- *      ~24dp de hauteur.
+ *      ~52dp de hauteur.
  *   2. **Row d'ancres horaires** — 3 `Text` Glance qui indiquent l'heure de
  *      début, du milieu et de la fin de la fenêtre 12h. Distribués via des
  *      `Spacer(defaultWeight())` — Glance ne supporte pas
@@ -831,6 +1069,8 @@ private fun MiniForecastStrip(
     data: WidgetData,
     onContainer: ColorProvider,
     onContainerMuted: ColorProvider,
+    softSurface: ColorProvider,
+    compact: Boolean,
     // Couleur ARGB des labels de température dans le bitmap. Fournie par
     // ExtraLargeLayout depuis baseOnContainerColor qui respecte le night mode
     // ET les overrides utilisateur (texte custom, auto-contrast sur fond
@@ -841,14 +1081,15 @@ private fun MiniForecastStrip(
     val context = LocalContext.current
     val size = LocalSize.current
     val density = context.resources.displayMetrics.density
+    val renderDensity = density.coerceAtMost(2f)
 
-    // Dimensions cibles du bitmap : largeur widget × densité, hauteur 65dp × densité.
-    // Hauteur bumpée de 40 → 65dp pour donner ~4-5dp de respiration entre les
-    // 4 éléments verticaux (barres, dots, label precip, label temp). À 40dp,
-    // les labels precip cap-top overlappaient littéralement le fond des dots
-    // (25.4 vs 24.6dp — voir docstring du renderer).
-    val widthPx = (size.width.value * density).toInt().coerceAtLeast(1)
-    val heightPx = (65 * density).toInt().coerceAtLeast(1)
+    // Dimensions cibles du bitmap : largeur widget × densité plafonnée à 2×.
+    // Le chart utilise 52dp en taille normale et 36dp sur les widgets bas. Ce
+    // plafond réduit le poids des bitmaps transmis par RemoteViews sans rendre
+    // les traits flous sur les densités courantes.
+    val widthPx = (size.width.value * renderDensity).toInt().coerceAtLeast(1)
+    val chartHeightDp = if (compact) 36 else 52
+    val heightPx = (chartHeightDp * renderDensity).toInt().coerceAtLeast(1)
 
     // Couleur des dots pluie : Material blue 700. Fixé en dur plutôt que résolu
     // depuis GlanceTheme pour garder le renderer pure JVM (testable sans Android
@@ -884,14 +1125,23 @@ private fun MiniForecastStrip(
     // l'intérieur d'une lambda `Column { }` parente, pas dans le corps d'un
     // composable top-level. Le call site (ExtraLargeLayout) est bien dans un
     // ColumnScope, donc c'est lui qui construit le weight modifier.
-    Column(modifier = modifier.fillMaxWidth()) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(softSurface)
+            .cornerRadius(14.dp)
+            .padding(
+                horizontal = if (compact) 6.dp else 8.dp,
+                vertical = if (compact) 4.dp else 6.dp
+            )
+    ) {
         Image(
             provider = ImageProvider(bitmap),
             contentDescription = null,
-            // Height du placeholder Image doit MATCHER heightPx / density = 65dp.
+            // Height du placeholder Image doit MATCHER heightPx / density = 52dp.
             // Si Image height < bitmap dp height, le bitmap est downscalé et
             // les labels petits deviennent illisibles.
-            modifier = GlanceModifier.fillMaxWidth().height(65.dp)
+            modifier = GlanceModifier.fillMaxWidth().height(chartHeightDp.dp)
         )
 
         // ─── Ancres horaires ──────────────────────────────────────────────
@@ -910,17 +1160,26 @@ private fun MiniForecastStrip(
             Row(modifier = GlanceModifier.fillMaxWidth()) {
                 Text(
                     text = start.format(formatter),
-                    style = TextStyle(color = onContainerMuted, fontSize = 11.sp)
+                    style = TextStyle(
+                        color = onContainerMuted,
+                        fontSize = if (compact) 9.sp else 10.sp
+                    )
                 )
                 Spacer(GlanceModifier.defaultWeight())
                 Text(
                     text = start.plusHours(6).format(formatter),
-                    style = TextStyle(color = onContainerMuted, fontSize = 11.sp)
+                    style = TextStyle(
+                        color = onContainerMuted,
+                        fontSize = if (compact) 9.sp else 10.sp
+                    )
                 )
                 Spacer(GlanceModifier.defaultWeight())
                 Text(
                     text = start.plusHours(11).format(formatter),
-                    style = TextStyle(color = onContainerMuted, fontSize = 11.sp)
+                    style = TextStyle(
+                        color = onContainerMuted,
+                        fontSize = if (compact) 9.sp else 10.sp
+                    )
                 )
             }
         }
@@ -948,9 +1207,22 @@ private fun MiniForecastStrip(
 private fun ColumnScope.ConfidenceBandStrip(
     strip: WidgetConfidenceStrip,
     onContainer: ColorProvider,
-    onContainerMuted: ColorProvider
+    onContainerMuted: ColorProvider,
+    softSurface: ColorProvider,
+    compact: Boolean
 ) {
-    Column(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
+    val night = LocalNightMode.current
+    Column(
+        modifier = GlanceModifier
+            .fillMaxWidth()
+            .defaultWeight()
+            .background(softSurface)
+            .cornerRadius(14.dp)
+            .padding(
+                horizontal = if (compact) 6.dp else 8.dp,
+                vertical = if (compact) 4.dp else 6.dp
+            )
+    ) {
         // ─── Ligne 1 : "T° · 87%" — libellé métrique + confiance actuelle ─
         // Plus de valeur "maintenant" ici : elle est désormais reprise dans
         // la première colonne de la ligne 3 (bucket "Auj."). Éviter la
@@ -964,7 +1236,7 @@ private fun ColumnScope.ConfidenceBandStrip(
                 text = strip.metricLabel,
                 style = TextStyle(
                     color = onContainer,
-                    fontSize = 13.sp,
+                    fontSize = if (compact) 11.sp else 13.sp,
                     fontWeight = FontWeight.Medium
                 )
             )
@@ -974,7 +1246,7 @@ private fun ColumnScope.ConfidenceBandStrip(
                     text = "$it%",
                     style = TextStyle(
                         color = confidenceTextColor(it),
-                        fontSize = 13.sp,
+                        fontSize = if (compact) 11.sp else 13.sp,
                         fontWeight = FontWeight.Bold
                     )
                 )
@@ -992,9 +1264,13 @@ private fun ColumnScope.ConfidenceBandStrip(
         // Chaque cellule s'aligne verticalement avec sa colonne value+label
         // en ligne 3 grâce au `defaultWeight()` partagé (même nombre de
         // colonnes → même largeur individuelle).
-        Row(modifier = GlanceModifier.fillMaxWidth().height(8.dp)) {
+        Row(
+            modifier = GlanceModifier
+                .fillMaxWidth()
+                .height(if (compact) 6.dp else 8.dp)
+        ) {
             strip.buckets.forEach { bucket ->
-                val color = confidenceColor(bucket.percent)
+                val color = confidenceColor(bucket.percent, night)
                 Box(
                     modifier = GlanceModifier
                         .defaultWeight()
@@ -1030,7 +1306,7 @@ private fun ColumnScope.ConfidenceBandStrip(
                         text = bucket.value,
                         style = TextStyle(
                             color = onContainer,
-                            fontSize = 12.sp,
+                            fontSize = if (compact) 10.sp else 12.sp,
                             fontWeight = FontWeight.Medium
                         )
                     )
@@ -1038,7 +1314,7 @@ private fun ColumnScope.ConfidenceBandStrip(
                         text = bucket.label,
                         style = TextStyle(
                             color = onContainerMuted,
-                            fontSize = 10.sp
+                            fontSize = if (compact) 9.sp else 10.sp
                         )
                     )
                 }
@@ -1049,7 +1325,12 @@ private fun ColumnScope.ConfidenceBandStrip(
 
 /** État "widget pas configuré" ou "erreur" ou "chargement". */
 @Composable
-private fun ErrorLayout(error: WidgetError, onContainerMuted: ColorProvider) {
+private fun ErrorLayout(
+    error: WidgetError,
+    onContainer: ColorProvider,
+    onContainerMuted: ColorProvider,
+    softSurface: ColorProvider
+) {
     // Résolution via LocalContext.current (surchargé dans provideGlance avec
     // le context localisé) plutôt qu'en dur — sinon les widgets restaient
     // affichés en français quel que soit le réglage app.
@@ -1064,11 +1345,34 @@ private fun ErrorLayout(error: WidgetError, onContainerMuted: ColorProvider) {
         is WidgetError.Fetch ->
             ctx.getString(R.string.widget_error_fetch)
     }
+    val symbol = when (error) {
+        WidgetError.NotConfigured -> "+"
+        WidgetError.Loading -> "↻"
+        WidgetError.CityNoLongerInFavorites -> "⌂"
+        is WidgetError.Fetch -> "!"
+    }
     Column(
         modifier = GlanceModifier.fillMaxSize(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        Box(
+            modifier = GlanceModifier
+                .background(softSurface)
+                .cornerRadius(14.dp)
+                .padding(horizontal = 11.dp, vertical = 7.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = symbol,
+                style = TextStyle(
+                    color = onContainer,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            )
+        }
+        Spacer(GlanceModifier.height(6.dp))
         Text(
             text = message,
             style = TextStyle(
@@ -1084,48 +1388,106 @@ private fun ErrorLayout(error: WidgetError, onContainerMuted: ColorProvider) {
 @Composable
 private fun WeatherGlyph(
     condition: WeatherCondition?,
-    sizeSp: Int,
-    onContainer: ColorProvider
+    sizeDp: Int
 ) {
-    val glyph = when (condition) {
-        WeatherCondition.CLEAR, WeatherCondition.MAINLY_CLEAR -> "☀"
-        WeatherCondition.PARTLY_CLOUDY -> "⛅"
-        WeatherCondition.OVERCAST -> "☁"
-        WeatherCondition.FOG -> "🌫"
-        WeatherCondition.DRIZZLE, WeatherCondition.RAIN_SHOWERS -> "🌦"
-        WeatherCondition.RAIN -> "🌧"
-        WeatherCondition.FREEZING_RAIN -> "🌨"
-        WeatherCondition.SNOW, WeatherCondition.SNOW_SHOWERS -> "❄"
-        WeatherCondition.THUNDERSTORM -> "⛈"
-        WeatherCondition.UNKNOWN, null -> "—"
+    val context = LocalContext.current
+    val density = context.resources.displayMetrics.density
+    val renderDensity = density.coerceAtMost(2f)
+    val bitmap = remember(condition, sizeDp, renderDensity) {
+        WidgetWeatherIconRenderer.render(
+            condition = condition,
+            sizePx = (sizeDp * renderDensity).toInt().coerceAtLeast(1)
+        )
     }
-    Text(
-        text = glyph,
-        style = TextStyle(color = onContainer, fontSize = sizeSp.sp)
+    Image(
+        provider = ImageProvider(bitmap),
+        contentDescription = context.getString(weatherDescriptionRes(condition)),
+        modifier = GlanceModifier.width(sizeDp.dp).height(sizeDp.dp)
     )
+}
+
+private fun weatherDescriptionRes(condition: WeatherCondition?): Int = when (condition) {
+    WeatherCondition.CLEAR -> R.string.weather_clear
+    WeatherCondition.MAINLY_CLEAR -> R.string.weather_mainly_clear
+    WeatherCondition.PARTLY_CLOUDY -> R.string.weather_partly_cloudy
+    WeatherCondition.OVERCAST -> R.string.weather_overcast
+    WeatherCondition.FOG -> R.string.weather_fog
+    WeatherCondition.DRIZZLE -> R.string.weather_drizzle
+    WeatherCondition.RAIN -> R.string.weather_rain
+    WeatherCondition.FREEZING_RAIN -> R.string.weather_freezing_rain
+    WeatherCondition.SNOW -> R.string.weather_snow
+    WeatherCondition.RAIN_SHOWERS -> R.string.weather_rain_showers
+    WeatherCondition.SNOW_SHOWERS -> R.string.weather_snow_showers
+    WeatherCondition.THUNDERSTORM -> R.string.weather_thunderstorm
+    WeatherCondition.UNKNOWN,
+    null -> R.string.weather_unknown
+}
+
+@Composable
+private fun ForecastItemCard(
+    item: WidgetForecastItem,
+    onContainer: ColorProvider,
+    onContainerMuted: ColorProvider,
+    softSurface: ColorProvider,
+    compact: Boolean,
+    modifier: GlanceModifier = GlanceModifier
+) {
+    Column(
+        modifier = modifier
+            .background(softSurface)
+            .cornerRadius(if (compact) 10.dp else 12.dp)
+            .padding(
+                horizontal = if (compact) 4.dp else 6.dp,
+                vertical = if (compact) 3.dp else 5.dp
+            ),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = item.label,
+            style = TextStyle(
+                color = onContainerMuted,
+                fontSize = if (compact) 9.sp else 11.sp,
+                fontWeight = FontWeight.Medium
+            )
+        )
+        WeatherGlyph(
+            condition = item.condition,
+            sizeDp = if (compact) 20 else 30
+        )
+        Text(
+            text = formatTemp(item.temp),
+            style = TextStyle(
+                color = onContainer,
+                fontSize = if (compact) 11.sp else 14.sp,
+                fontWeight = FontWeight.Bold
+            )
+        )
+    }
 }
 
 @Composable
 private fun ConfidencePill(percent: Int) {
-    val color = confidenceColor(percent)
+    val night = LocalNightMode.current
+    val color = confidenceColor(percent, night)
     // Mémoïsation des ColorProviders : sans ça, `.copy(alpha = 0.18f)` alloue
     // un nouvel objet Color à chaque recomposition — pour un widget avec strip
     // 4×2, ça peut être plusieurs allocations par render. Le remember(percent)
     // n'invalide que si le % change, ce qui n'arrive qu'au fetch de données.
-    val bg = remember(percent) { ColorProvider(color.copy(alpha = 0.18f)) }
-    val fg = remember(percent) { ColorProvider(color) }
+    val bg = remember(percent, night) { ColorProvider(color.copy(alpha = 0.18f)) }
+    val fg = remember(percent, night) { ColorProvider(color) }
     Box(
         modifier = GlanceModifier
             .background(bg)
-            .cornerRadius(8.dp)
-            .padding(horizontal = 6.dp, vertical = 3.dp),
+            .cornerRadius(12.dp)
+            .padding(horizontal = 8.dp, vertical = 5.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = "$percent%",
+            text = "● $percent%",
             style = TextStyle(
                 color = fg,
-                fontSize = 12.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Bold
             )
         )
@@ -1140,18 +1502,19 @@ private val onPrimaryContainerLight = Color(0xFF001A41)
 private val onPrimaryContainerDark = Color(0xFFDBE2FF)
 
 /**
- * Couleur du texte de confiance selon le %. Alignées sur ConfidenceColors de
- * l'app (vert/orange/rouge M3-ish), hardcodées ici parce que Glance n'a pas
- * accès à MaterialTheme. Un même chiffre garde ainsi une teinte identique
- * dans le widget et dans l'app.
+ * Couleur de confiance selon le %. Les variantes claires utilisent des tons
+ * 700, tandis que le mode sombre passe sur des tons 300 plus lumineux pour
+ * préserver le contraste sur le container bleu nuit.
  */
-private fun confidenceColor(percent: Int): Color = when {
-    percent >= 80 -> Color(0xFF388E3C)  // green 700
-    percent >= 50 -> Color(0xFFF57C00)  // orange 700
-    else -> Color(0xFFC62828)           // red 700
+private fun confidenceColor(percent: Int, night: Boolean = false): Color = when {
+    percent >= 80 -> if (night) Color(0xFF81C784) else Color(0xFF388E3C)
+    percent >= 50 -> if (night) Color(0xFFFFB74D) else Color(0xFFF57C00)
+    else -> if (night) Color(0xFFEF9A9A) else Color(0xFFC62828)
 }
 
 @Composable
 private fun confidenceTextColor(percent: Int): ColorProvider =
     // Mémoïsation identique à ConfidencePill — le percent change rarement.
-    remember(percent) { ColorProvider(confidenceColor(percent)) }
+    LocalNightMode.current.let { night ->
+        remember(percent, night) { ColorProvider(confidenceColor(percent, night)) }
+    }

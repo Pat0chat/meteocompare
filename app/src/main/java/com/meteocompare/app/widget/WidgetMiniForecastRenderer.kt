@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
+import kotlin.math.min
 import kotlin.math.roundToInt
 
 /**
@@ -103,6 +104,12 @@ internal object WidgetMiniForecastRenderer {
 
         val rect = RectF()
 
+        // Fine baseline under the bars. It gives the chart a stable visual
+        // rhythm without competing with the temperature colors.
+        paint.color = (textColorArgb and 0x00FFFFFF) or 0x18000000
+        paint.strokeWidth = (heightPx * 0.012f).coerceAtLeast(1f)
+        canvas.drawLine(0f, barMaxHeight, widthPx.toFloat(), barMaxHeight, paint)
+
         temps12.forEachIndexed { i, temp ->
             val cellCenterX = i * cellWidth + cellWidth / 2f
 
@@ -122,7 +129,8 @@ internal object WidgetMiniForecastRenderer {
                     barMaxHeight
                 )
                 paint.color = temperatureHeatmapArgb(temp)
-                canvas.drawRect(rect, paint)
+                val radius = min(cellWidth * 0.24f, heightPx * 0.035f)
+                canvas.drawRoundRect(rect, radius, radius, paint)
 
                 // Label temp : entier arrondi + "°" suffixé. Format compact
                 // "22°" plutôt que "22°C" — l'unité est implicite dans un

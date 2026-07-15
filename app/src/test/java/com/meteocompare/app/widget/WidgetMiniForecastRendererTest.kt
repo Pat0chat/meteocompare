@@ -17,7 +17,7 @@ import org.junit.Test
  *     sur émulateur.
  *
  * ─── Pourquoi c'est suffisant ─────────────────────────────────────────────
- * Le rendu Bitmap est mécanique (drawRect + drawCircle) — les seuls bugs qui
+ * Le rendu Bitmap est mécanique (drawRoundRect + drawCircle) — les seuls bugs qui
  * peuvent apparaître sont dans les CALCULS (couleurs, offsets, tailles). Ces
  * calculs sont pures functions ou boucles triviales, tous testables ici.
  * L'appel `canvas.drawRect(rect, paint)` ne peut pas mal se passer une fois
