@@ -40,7 +40,7 @@ class WidgetFormattingTest {
                 currentCondition = WeatherCondition.CLEAR,
                 currentWindSpeedKmh = 12.4
             )
-        assertEquals("💨 12 km/h", buildExtrasLine(data))
+        assertEquals("↝ 12 km/h", buildExtrasLine(data))
     }
 
     @Test
@@ -48,10 +48,10 @@ class WidgetFormattingTest {
         // 14.7 → 15 (arrondi standard), 14.3 → 14
         val data17 = WidgetData.empty(cityName = "P", error = WidgetError.Loading)
             .copy(currentCondition = WeatherCondition.CLEAR, currentWindSpeedKmh = 14.7)
-        assertEquals("💨 15 km/h", buildExtrasLine(data17))
+        assertEquals("↝ 15 km/h", buildExtrasLine(data17))
 
         val data13 = data17.copy(currentWindSpeedKmh = 14.3)
-        assertEquals("💨 14 km/h", buildExtrasLine(data13))
+        assertEquals("↝ 14 km/h", buildExtrasLine(data13))
     }
 
     @Test
@@ -59,7 +59,7 @@ class WidgetFormattingTest {
         // Régression contre "cacher si == 0". Un jour calme est un signal utile.
         val data = WidgetData.empty(cityName = "P", error = WidgetError.Loading)
             .copy(currentCondition = WeatherCondition.CLEAR, currentWindSpeedKmh = 0.0)
-        assertEquals("💨 0 km/h", buildExtrasLine(data))
+        assertEquals("↝ 0 km/h", buildExtrasLine(data))
     }
 
     @Test
@@ -71,11 +71,11 @@ class WidgetFormattingTest {
 
         // PARTLY_CLOUDY : badge affiché
         val partly = clear.copy(currentCondition = WeatherCondition.PARTLY_CLOUDY)
-        assertEquals("☁ 15%", buildExtrasLine(partly))
+        assertEquals("☁︎ 15%", buildExtrasLine(partly))
 
         // OVERCAST : badge affiché
         val overcast = clear.copy(currentCondition = WeatherCondition.OVERCAST)
-        assertEquals("☁ 15%", buildExtrasLine(overcast))
+        assertEquals("☁︎ 15%", buildExtrasLine(overcast))
 
         // RAIN : pas de badge nuage (couverture implicite)
         val rain = clear.copy(currentCondition = WeatherCondition.RAIN)
@@ -99,8 +99,8 @@ class WidgetFormattingTest {
         // On vérifie l'ordre relatif via indexOf plutôt qu'égalité stricte,
         // pour rester tolérant à la locale sur "2.5 mm" vs "2,5 mm".
         val cloudPos = extras.indexOf("☁")
-        val windPos = extras.indexOf("💨")
-        val rainPos = extras.indexOf("🌧")
+        val windPos = extras.indexOf("↝")
+        val rainPos = extras.indexOf("☂︎")
         assert(cloudPos in 0 until windPos) { "cloud avant vent, actual: $extras" }
         assert(windPos in 0 until rainPos) { "vent avant pluie, actual: $extras" }
         assert(extras.contains("(78%)")) { "confiance affichée, actual: $extras" }
@@ -115,7 +115,7 @@ class WidgetFormattingTest {
                 precipConfidencePct = null
             )
         val extras = buildExtrasLine(data)
-        assert(extras.contains("🌧")) { "pluie affichée, actual: $extras" }
+        assert(extras.contains("☂︎")) { "pluie affichée, actual: $extras" }
         assert(extras.contains("mm")) { "unité mm présente, actual: $extras" }
         assert(!extras.contains("(")) { "pas de parenthèses sans confidence, actual: $extras" }
     }

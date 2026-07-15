@@ -20,7 +20,7 @@ import kotlin.math.roundToInt
  * Construit la ligne d'extras affichée sous la ville/min-max dans les layouts
  * 4×1 et 4×2.
  *
- * Format : `"☁ 60% · 💨 15 km/h · 🌧 1.2 mm (78%)"`
+ * Format : `"☁︎ 60% · ↝ 15 km/h · ☂︎ 1.2 mm (78%)"`
  *
  * ─── Règles d'affichage par élément ────────────────────────────────────
  * - **Cloud cover** : uniquement quand la condition est PARTLY_CLOUDY ou
@@ -45,16 +45,16 @@ internal fun buildExtrasLine(data: WidgetData): String {
     val showCloud = data.currentCloudCover != null &&
         (cond == WeatherCondition.PARTLY_CLOUDY || cond == WeatherCondition.OVERCAST)
     if (showCloud) {
-        parts += "☁ ${data.currentCloudCover}%"
+        parts += "☁︎ ${data.currentCloudCover}%"
     }
 
     data.currentWindSpeedKmh?.let { wind ->
-        parts += "💨 ${wind.roundToInt()} km/h"
+        parts += "↝ ${wind.roundToInt()} km/h"
     }
 
     data.precipMm?.let { mm ->
         val precip = buildString {
-            append("🌧 %.1f mm".format(mm))
+            append("☂︎ %.1f mm".format(mm))
             data.precipConfidencePct?.let { append(" ($it%)") }
         }
         parts += precip

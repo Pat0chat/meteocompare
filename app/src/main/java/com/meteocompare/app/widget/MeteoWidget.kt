@@ -664,7 +664,7 @@ private fun LargeLayout(
                 Spacer(GlanceModifier.height(2.dp))
                 Text(
                     text = extras,
-                    style = TextStyle(color = onContainerMuted, fontSize = 14.sp)
+                    style = TextStyle(color = onContainerMuted, fontSize = 11.sp)
                 )
             }
         }
@@ -950,7 +950,7 @@ private fun ExtraLargeLayout(
                             text = extras,
                             style = TextStyle(
                                 color = onContainerMuted,
-                                fontSize = if (compactHeight) 11.sp else 14.sp
+                                fontSize = if (compactHeight) 9.sp else 11.sp
                             )
                         )
                     }
@@ -1033,14 +1033,23 @@ private fun MiniForecastStrip(
     val size = LocalSize.current
     val density = context.resources.displayMetrics.density
     val renderDensity = density.coerceAtMost(2f)
-    val chartHorizontalPaddingDp = if (compact) 6f else 8f
+    val profile = miniForecastProfileForWidth(size.width.value)
+    val chartHorizontalPaddingDp = when (profile) {
+        MiniForecastSizeProfile.COMPACT_2X2 -> 4f
+        MiniForecastSizeProfile.MEDIUM_3X2 -> 6f
+        MiniForecastSizeProfile.EXPANDED_4X2 -> 8f
+    }
     val availableWidthDp = (
         size.width.value -
             outerHorizontalPadding.value * 2f -
             chartHorizontalPaddingDp * 2f
         ).coerceAtLeast(80f)
     val widthPx = (availableWidthDp * renderDensity).toInt().coerceAtLeast(1)
-    val chartHeightDp = if (compact) 50 else 64
+    val chartHeightDp = when (profile) {
+        MiniForecastSizeProfile.COMPACT_2X2 -> 48
+        MiniForecastSizeProfile.MEDIUM_3X2 -> 56
+        MiniForecastSizeProfile.EXPANDED_4X2 -> if (compact) 60 else 68
+    }
     val heightPx = (chartHeightDp * renderDensity).toInt().coerceAtLeast(1)
     val precipColorArgb = 0xFF1976D2.toInt()
 
@@ -1065,7 +1074,8 @@ private fun MiniForecastStrip(
         timelineLabels,
         widthPx,
         heightPx,
-        textColorArgb
+        textColorArgb,
+        profile
     ) {
         WidgetMiniForecastRenderer.render(
             widthPx = widthPx,
@@ -1074,7 +1084,8 @@ private fun MiniForecastStrip(
             precips = data.next12hPrecipProb,
             precipColorArgb = precipColorArgb,
             textColorArgb = textColorArgb,
-            timelineLabels = timelineLabels
+            timelineLabels = timelineLabels,
+            profile = profile
         )
     }
 
@@ -1085,7 +1096,11 @@ private fun MiniForecastStrip(
             .cornerRadius(14.dp)
             .padding(
                 horizontal = chartHorizontalPaddingDp.dp,
-                vertical = if (compact) 3.dp else 5.dp
+                vertical = when (profile) {
+                    MiniForecastSizeProfile.COMPACT_2X2 -> 2.dp
+                    MiniForecastSizeProfile.MEDIUM_3X2 -> 3.dp
+                    MiniForecastSizeProfile.EXPANDED_4X2 -> 5.dp
+                }
             ),
         verticalAlignment = Alignment.CenterVertically
     ) {
