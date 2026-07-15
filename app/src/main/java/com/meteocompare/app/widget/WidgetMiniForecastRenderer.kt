@@ -86,7 +86,7 @@ internal object WidgetMiniForecastRenderer {
             isSubpixelText = true
         }
         val precipTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = precipColorArgb
+            color = textColorArgb
             textAlign = Paint.Align.CENTER
             textSize = heightPx * metrics.precipTextFraction
             isSubpixelText = true
