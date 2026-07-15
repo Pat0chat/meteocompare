@@ -18,9 +18,9 @@
     <string name="widget_config_opacity">Background opacity</string>
     <string name="widget_config_opacity_preview">Background preview</string>
     <string name="widget_config_forecast_mode">Extended forecast</string>
-    <string name="widget_config_forecast_mode_note">Bottom row of the extended widget.</string>
-    <string name="widget_config_forecast_mode_hourly">Next 4 hours</string>
-    <string name="widget_config_forecast_mode_daily">Next 4 days</string>
+    <string name="widget_config_forecast_mode_note">Content adapts to the size. 4×2 and 5×2 widgets show five forecast steps.</string>
+    <string name="widget_config_forecast_mode_hourly">Next 5 hours</string>
+    <string name="widget_config_forecast_mode_daily">Next 5 days</string>
     <string name="widget_config_save">Add</string>
     <string name="title_detail_fallback">Detail</string>
 
@@ -89,6 +89,10 @@
 
     <!-- Extra widget 4×2 forecast modes -->
     <string name="widget_config_forecast_mode_conf_temp">Confidence band — temperature</string>
+    <string name="widget_config_forecast_mode_conf_all">Model confidence</string>
+    <string name="widget_config_forecast_mode_conf_all_note">Shows temperature, rain and wind confidence bands together over the same days.</string>
+    <string name="widget_confidence_combined_title">Model agreement</string>
+    <string name="widget_confidence_combined_hint">5 days · confidence %</string>
     <string name="widget_config_forecast_mode_conf_precip">Confidence band — precipitation</string>
     <string name="widget_config_forecast_mode_conf_wind">Confidence band — wind</string>
     <!-- Time anchors shown under the widget 4x2 confidence strip -->

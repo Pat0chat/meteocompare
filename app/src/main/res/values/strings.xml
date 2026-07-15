@@ -18,9 +18,9 @@
     <string name="widget_config_opacity">Opacité du fond</string>
     <string name="widget_config_opacity_preview">Aperçu du fond</string>
     <string name="widget_config_forecast_mode">Prévision étendue</string>
-    <string name="widget_config_forecast_mode_note">Ligne du bas du widget étendu.</string>
-    <string name="widget_config_forecast_mode_hourly">4 prochaines heures</string>
-    <string name="widget_config_forecast_mode_daily">4 prochains jours</string>
+    <string name="widget_config_forecast_mode_note">Le contenu s’adapte à la taille. Les widgets 4×2 et 5×2 affichent cinq échéances.</string>
+    <string name="widget_config_forecast_mode_hourly">5 prochaines heures</string>
+    <string name="widget_config_forecast_mode_daily">5 prochains jours</string>
     <string name="widget_config_save">Ajouter</string>
     <string name="title_detail_fallback">Détail</string>
 
@@ -90,6 +90,10 @@
 
     <!-- Modes de prévision étendue supplémentaires du widget 4×2 -->
     <string name="widget_config_forecast_mode_conf_temp">Bande de confiance — température</string>
+    <string name="widget_config_forecast_mode_conf_all">Confiance des modèles</string>
+    <string name="widget_config_forecast_mode_conf_all_note">Affiche ensemble les bandes température, pluie et vent sur les mêmes jours.</string>
+    <string name="widget_confidence_combined_title">Accord des modèles</string>
+    <string name="widget_confidence_combined_hint">5 jours · % confiance</string>
     <string name="widget_config_forecast_mode_conf_precip">Bande de confiance — précipitations</string>
     <string name="widget_config_forecast_mode_conf_wind">Bande de confiance — vent</string>
     <!-- Ancres temporelles affichées sous la mini bande de confiance du widget 4×2 -->

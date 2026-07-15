@@ -55,21 +55,19 @@ internal data class WidgetData(
      */
     val currentWindSpeedKmh: Double?,
     /**
-     * Prévision étendue affichée par le layout 4×2. Contient jusqu'à 4
+     * Prévision étendue affichée par le layout 4×2. Contient jusqu'à 5
      * items (heures ou jours selon la config utilisateur). Vide si le mode
      * 4×2 n'est pas utilisé, si aucun modèle ne fournit assez de données,
      * ou si le mode utilisateur est un mode CONFIDENCE_* (auquel cas c'est
-     * [confidenceStrip] qui est alimenté).
+     * [confidenceStrips] qui est alimenté).
      */
     val forecasts: List<WidgetForecastItem>,
     /**
-     * Snapshot compact de la bande de confiance pour affichage sur widget 4×2
-     * en mode CONFIDENCE_*. Contient une série de segments colorés selon la
-     * confiance à chaque instant, un mean/min/max pour l'affichage textuel,
-     * et le % courant. Null si le mode utilisateur n'est pas un mode confidence
-     * ou si aucun modèle ne fournit la variable demandée.
+     * Les trois bandes de confiance synchronisées (température, pluie, vent).
+     * La liste est vide hors mode confiance. Une métrique peut être absente si
+     * aucun modèle ne fournit la variable correspondante.
      */
-    val confidenceStrip: WidgetConfidenceStrip? = null,
+    val confidenceStrips: List<WidgetConfidenceStrip> = emptyList(),
     /**
      * Températures agrégées 12h à partir de "maintenant" pour la mini prévision
      * du widget 2-row (mode [ForecastMode.MINI_FORECAST_12H]). Vide dans tous
@@ -108,7 +106,7 @@ internal data class WidgetData(
             currentCloudCover = null,
             currentWindSpeedKmh = null,
             forecasts = emptyList(),
-            confidenceStrip = null,
+            confidenceStrips = emptyList(),
             error = error
         )
 
@@ -154,7 +152,7 @@ internal data class WidgetForecastItem(
  * densité de couleur mais aucun ancrage temporel/numérique au milieu de la
  * strip — l'utilisateur voyait un dégradé sans savoir "22° quand ?".
  *
- * Nouvelle version : ~7 buckets, un par jour. Chaque cellule est un peu plus
+ * Nouvelle version : jusqu’à 5 buckets, un par jour. Chaque cellule est un peu plus
  * large et surtout PORTE une valeur numérique en dessous. La confiance devient
  * lisible parce qu'on sait à quoi elle réfère.
  *
@@ -166,7 +164,7 @@ internal data class WidgetForecastItem(
  *
  * `buckets` : liste ordonnée chronologiquement des buckets de la strip.
  * Aujourd'hui en premier, puis jours suivants. Typiquement 7 éléments
- * (7 jours d'horizon), moins si la série est plus courte.
+ * (5 jours d'horizon), moins si la série est plus courte.
  */
 internal data class WidgetConfidenceStrip(
     val metricLabel: String,
@@ -299,15 +297,15 @@ internal suspend fun loadWidgetData(
                     com.meteocompare.app.domain.model.PrecipitationConfidence.Rain
 
             // Selon le mode utilisateur, on alimente soit la ligne de prévisions
-            // 4 items (HOURLY/DAILY), soit la mini bande de confiance
+            // 5 items (HOURLY/DAILY), soit la mini bande de confiance
             // (CONFIDENCE_*), soit la mini prévision 12h (MINI_FORECAST_12H).
             // Les trois sont exclusifs — c'est ExtraLargeLayout qui aiguille.
             val forecasts = if (forecastMode.isConfidenceBand() || forecastMode.isMiniForecast())
                 emptyList()
             else buildForecasts(forecast, forecastMode, city.timezone)
-            val confidenceStrip = if (forecastMode.isConfidenceBand())
-                buildConfidenceStrip(localizedContext, forecast, forecastMode, calc)
-            else null
+            val confidenceStrips = if (forecastMode.isConfidenceBand())
+                buildAllConfidenceStrips(localizedContext, forecast, calc)
+            else emptyList()
 
             // ─── Mini forecast 12h (nouveau mode) ─────────────────────────
             // Réutilise l'agrégateur de la home pour la cohérence : mêmes valeurs
@@ -344,7 +342,7 @@ internal suspend fun loadWidgetData(
                 currentCloudCover = calc.currentCloudCover(forecast),
                 currentWindSpeedKmh = calc.currentWindSpeed(forecast),
                 forecasts = forecasts,
-                confidenceStrip = confidenceStrip,
+                confidenceStrips = confidenceStrips,
                 next12hTemps = next12hTemps,
                 next12hPrecipProb = next12hPrecipProb,
                 hourlyStartTime = hourlyStartTime,
@@ -363,11 +361,11 @@ internal suspend fun loadWidgetData(
 }
 
 /**
- * Construit la liste des 4 items de prévision étendue pour le layout 4×2.
+ * Construit la liste des 5 items de prévision étendue pour le layout 4×2.
  *
  * ─── Choix du modèle "meilleur" ────────────────────────────────────────
  * On veut le modèle le plus fin (résolution basse en km) qui ait :
- *   1. Assez d'horizon pour couvrir 4 items (4h en HOURLY, 4j en DAILY)
+ *   1. Assez d'horizon pour couvrir 5 items (5h en HOURLY, 5j en DAILY)
  *   2. Des `weather_code` non-vides pour afficher des icônes
  *
  * L'ancien code prenait le plus haut résolution sans filtre — AROME HD (1.5km)
@@ -405,6 +403,7 @@ private fun buildForecasts(
             // !forecastMode.isConfidenceBand() && !forecastMode.isMiniForecast()
             // (voir loadWidgetData). On retourne 0 par safety pour rester
             // exhaustif sans crasher.
+            ForecastMode.CONFIDENCE_ALL,
             ForecastMode.CONFIDENCE_TEMPERATURE,
             ForecastMode.CONFIDENCE_PRECIPITATION,
             ForecastMode.CONFIDENCE_WIND,
@@ -415,19 +414,20 @@ private fun buildForecasts(
         when (mode) {
             ForecastMode.HOURLY -> series.hourly.weatherCode.isNotEmpty()
             ForecastMode.DAILY -> series.daily.weatherCode.isNotEmpty()
+            ForecastMode.CONFIDENCE_ALL,
             ForecastMode.CONFIDENCE_TEMPERATURE,
             ForecastMode.CONFIDENCE_PRECIPITATION,
             ForecastMode.CONFIDENCE_WIND,
             ForecastMode.MINI_FORECAST_12H -> false
         }
 
-    // Priorité (a) : couverture 4 items + weather_code présent
+    // Priorité (a) : couverture 5 items + weather_code présent
     val ideal = forecast.seriesByModel.entries
-        .filter { horizonSize(it.value) >= 4 && hasWeatherCodes(it.value) }
+        .filter { horizonSize(it.value) >= 5 && hasWeatherCodes(it.value) }
         .minByOrNull { it.key.resolutionKm }?.value
     // Priorité (b) : couverture suffisante, weather_code peut manquer (inférence)
     val fallback = forecast.seriesByModel.entries
-        .filter { horizonSize(it.value) >= 4 }
+        .filter { horizonSize(it.value) >= 5 }
         .minByOrNull { it.key.resolutionKm }?.value
     // Priorité (c) : n'importe quel modèle avec au moins 1 item — dernière chance
     val lastResort = forecast.seriesByModel.entries
@@ -438,6 +438,7 @@ private fun buildForecasts(
     return when (mode) {
         ForecastMode.HOURLY -> buildHourlyForecasts(bestSeries.hourly, zone)
         ForecastMode.DAILY -> buildDailyForecasts(bestSeries.daily)
+        ForecastMode.CONFIDENCE_ALL,
         ForecastMode.CONFIDENCE_TEMPERATURE,
         ForecastMode.CONFIDENCE_PRECIPITATION,
         ForecastMode.CONFIDENCE_WIND,
@@ -454,7 +455,7 @@ private fun buildHourlyForecasts(
     val startIdx = hourly.timestamps.indexOfFirst { it >= now }
         .takeIf { it >= 0 } ?: 0
     val formatter = java.time.format.DateTimeFormatter.ofPattern("H'h'", java.util.Locale.getDefault())
-    return (startIdx until minOf(startIdx + 4, hourly.timestamps.size)).map { i ->
+    return (startIdx until minOf(startIdx + 5, hourly.timestamps.size)).map { i ->
         val ts = hourly.timestamps[i]
         val label = ts.atZone(zone).format(formatter)
         // Priorité au weather_code natif. Si absent (AROME HD notamment),
@@ -479,7 +480,7 @@ private fun buildDailyForecasts(
 ): List<WidgetForecastItem> {
     if (daily.dates.isEmpty()) return emptyList()
     val locale = java.util.Locale.getDefault()
-    return daily.dates.take(4).mapIndexed { i, date ->
+    return daily.dates.take(5).mapIndexed { i, date ->
         val label = date.dayOfWeek
             .getDisplayName(java.time.format.TextStyle.SHORT, locale)
             .replaceFirstChar { it.uppercase() }
@@ -524,6 +525,16 @@ private fun buildDailyForecasts(
  *   Positions 1+ : nom court du jour de la semaine ("Mar", "Mer", ...) via
  *                  [java.time.DayOfWeek.getDisplayName] pour la locale active.
  */
+private fun buildAllConfidenceStrips(
+    context: Context,
+    forecast: CityForecast,
+    calc: ConfidenceCalculator
+): List<WidgetConfidenceStrip> = listOfNotNull(
+    buildConfidenceStrip(context, forecast, ForecastMode.CONFIDENCE_TEMPERATURE, calc),
+    buildConfidenceStrip(context, forecast, ForecastMode.CONFIDENCE_PRECIPITATION, calc),
+    buildConfidenceStrip(context, forecast, ForecastMode.CONFIDENCE_WIND, calc)
+)
+
 private fun buildConfidenceStrip(
     context: Context,
     forecast: CityForecast,
@@ -553,11 +564,11 @@ private fun buildConfidenceStrip(
         byDay.getOrPut(day) { mutableListOf() }.add(band)
     }
 
-    // Cap à 7 jours pour ne pas gonfler la strip au-delà de ce qui rentre
-    // sur un widget 4×2 (~7 colonnes avec valeur + label lisibles).
+    // Cinq jours correspondent au nombre de colonnes affichées sur les
+    // widgets 4×2 et 5×2. Les formats plus petits en montrent un sous-ensemble.
     val today = java.time.LocalDate.now(zone)
     val nowShortLabel = context.getString(R.string.widget_confidence_now_short)
-    val buckets = byDay.entries.take(7).map { (date, dayBands) ->
+    val buckets = byDay.entries.take(5).map { (date, dayBands) ->
         val avgPercent = dayBands.sumOf { it.percent } / dayBands.size
         val avgValue = dayBands.sumOf { it.meanValue } / dayBands.size
         StripBucket(

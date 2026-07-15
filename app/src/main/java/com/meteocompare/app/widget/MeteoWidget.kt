@@ -158,8 +158,8 @@ private val LocalNightMode = staticCompositionLocalOf { false }
  *   - **4×1** : + couverture nuageuse ou pluie avec confiance associée.
  *     Résumé complet, quasi-parité avec la TodaySummaryCard.
  *
- *   - **4×2** : ajoute au 4×1 un strip de 4 prévisions étendues (4 prochaines
- *     heures OU 4 prochains jours selon le paramètre utilisateur).
+ *   - **4×2** : ajoute au 4×1 un strip de 5 prévisions étendues (5 prochaines
+ *     heures OU 5 prochains jours selon le paramètre utilisateur).
  *
  * L'utilisateur configure : ville affichée, opacité du fond (0-100%), mode
  * de prévision étendue (Hourly/Daily) — tout accessible via l'activity de
@@ -213,7 +213,7 @@ internal class MeteoWidget : GlanceAppWidget() {
             val opacityPct = (prefs[WidgetPreferences.OpacityPctKey]
                 ?: WidgetPreferences.DEFAULT_OPACITY_PCT).coerceIn(0, 100)
             val forecastMode = prefs[WidgetPreferences.ForecastModeKey]
-                ?.let { runCatching { ForecastMode.valueOf(it) }.getOrNull() }
+                ?.let { runCatching { ForecastMode.valueOf(it).normalized() }.getOrNull() }
                 ?: WidgetPreferences.DEFAULT_FORECAST_MODE
             // Refresh tick écrit par le WidgetRefreshWorker. Utilisé comme clé
             // du LaunchedEffect pour re-déclencher loadWidgetData quand le
@@ -390,7 +390,7 @@ private fun WidgetContent(
                             onContainerMuted = onContainerMuted,
                             softSurface = softSurface,
                             onContainerArgb = baseOnContainerColor.toArgb(),
-                            showFiveItems = widthDp >= WIDE_MIN_WIDTH_DP,
+                            showFiveItems = extendedForecastItemCount(widthDp) == 5,
                             showExtras = widthDp >= MEDIUM_MAX_WIDTH_DP
                         )
                     WidgetLayoutKind.COMPACT_TALL ->
@@ -769,8 +769,8 @@ private fun CompactTallLayout(
         Spacer(GlanceModifier.height(6.dp))
 
         when {
-            data.confidenceStrip != null -> CompactConfidenceSummary(
-                strip = data.confidenceStrip,
+            data.confidenceStrips.isNotEmpty() -> CompactConfidenceSummary(
+                strips = data.confidenceStrips,
                 onContainer = onContainer,
                 onContainerMuted = onContainerMuted,
                 softSurface = softSurface
@@ -828,43 +828,67 @@ private fun CompactTallLayout(
 
 @Composable
 private fun ColumnScope.CompactConfidenceSummary(
-    strip: WidgetConfidenceStrip,
+    strips: List<WidgetConfidenceStrip>,
     onContainer: ColorProvider,
     onContainerMuted: ColorProvider,
     softSurface: ColorProvider
 ) {
     val night = LocalNightMode.current
-    Row(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
-        strip.buckets.take(2).forEachIndexed { index, bucket ->
-            if (index > 0) Spacer(GlanceModifier.width(ForecastCardSpacing))
-            Column(
-                modifier = GlanceModifier
-                    .defaultWeight()
-                    .background(softSurface)
-                    .cornerRadius(10.dp)
-                    .padding(horizontal = 6.dp, vertical = 5.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
+    val ctx = LocalContext.current
+    Column(
+        modifier = GlanceModifier
+            .fillMaxWidth()
+            .defaultWeight()
+            .background(softSurface)
+            .cornerRadius(12.dp)
+            .padding(horizontal = 7.dp, vertical = 5.dp)
+    ) {
+        Text(
+            text = ctx.getString(R.string.widget_confidence_combined_title),
+            style = TextStyle(
+                color = onContainerMuted,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Medium
+            )
+        )
+        strips.take(3).forEachIndexed { rowIndex, strip ->
+            if (rowIndex > 0) Spacer(GlanceModifier.height(4.dp))
+            Row(
+                modifier = GlanceModifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(
-                    modifier = GlanceModifier
-                        .fillMaxWidth()
-                        .height(5.dp)
-                        .background(ColorProvider(confidenceColor(bucket.percent, night)))
-                        .cornerRadius(3.dp)
-                ) {}
-                Spacer(GlanceModifier.height(3.dp))
                 Text(
-                    text = bucket.value,
+                    text = strip.metricLabel,
+                    modifier = GlanceModifier.width(31.dp),
                     style = TextStyle(
                         color = onContainer,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Medium
                     )
                 )
+                Row(
+                    modifier = GlanceModifier.defaultWeight().height(6.dp)
+                ) {
+                    strip.buckets.take(3).forEachIndexed { index, bucket ->
+                        if (index > 0) Spacer(GlanceModifier.width(2.dp))
+                        Box(
+                            modifier = GlanceModifier
+                                .defaultWeight()
+                                .fillMaxHeight()
+                                .background(ColorProvider(confidenceColor(bucket.percent, night)))
+                                .cornerRadius(3.dp)
+                        ) {}
+                    }
+                }
+                Spacer(GlanceModifier.width(5.dp))
                 Text(
-                    text = bucket.label,
-                    style = TextStyle(color = onContainerMuted, fontSize = 9.sp)
+                    text = strip.currentPct?.let { "$it%" } ?: "—",
+                    modifier = GlanceModifier.width(30.dp),
+                    style = TextStyle(
+                        color = strip.currentPct?.let { confidenceTextColor(it) } ?: onContainerMuted,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 )
             }
         }
@@ -872,11 +896,11 @@ private fun ColumnScope.CompactConfidenceSummary(
 }
 
 /**
- * Layout 4×2 / 5×2 : top strip identique au 4×1 + bas strip avec 4 (ou 5)
+ * Layout 4×2 / 5×2 : top strip identique au 4×1 + bas strip avec 4 ou 5
  * items de prévision étendue (heures ou jours selon la config utilisateur).
  *
- * @param showFiveItems `true` pour la variante 5×2 — affiche 5 items dans
- *   le bas strip au lieu de 4. Utilise l'espace supplémentaire en largeur
+ * @param showFiveItems `true` pour les variantes 4×2 et 5×2 — affiche 5 items dans
+ *   le bas strip (le 3×2 reste limité à 4). Utilise l'espace supplémentaire en largeur
  *   sans surcharger le rendu.
  * @param showExtras masque la ligne vent/humidité sur le format 3×2, où elle
  *   surcharge le bandeau supérieur. Elle reste affichée à partir du 4×2.
@@ -968,14 +992,14 @@ private fun ExtraLargeLayout(
         // ─── Bottom strip : selon le mode utilisateur ────────────────────
         // TROIS rendus mutuellement exclusifs pilotés par les data alimentées
         // dans loadWidgetData selon le mode config :
-        //   - confidenceStrip non-null : heatmap 7 jours de confiance
+        //   - confidenceStrips non vide : trois bandes sur 5 jours de confiance
         //   - next12hTemps non-vide   : mini prévision 12h centrée sur l'axe horaire
         //   - sinon                   : Row de 4-5 forecast items (HOURLY/DAILY)
-        val strip = data.confidenceStrip
+        val strips = data.confidenceStrips
         val hasMiniForecast = data.next12hTemps.isNotEmpty()
         when {
-            strip != null -> ConfidenceBandStrip(
-                strip = strip,
+            strips.isNotEmpty() -> CombinedConfidenceBands(
+                strips = strips,
                 onContainer = onContainer,
                 onContainerMuted = onContainerMuted,
                 softSurface = softSurface,
@@ -1113,31 +1137,29 @@ private fun MiniForecastStrip(
 }
 
 /**
- * Rendu de la bande de confiance dans le layout 4×2.
+ * Vue combinée des trois bandes de confiance.
  *
- * ─── Contraintes Glance ─────────────────────────────────────────────────
- * Glance ne supporte pas Canvas/DrawScope — impossible de dessiner un chart
- * "vrai" comme dans l'écran détail. On dégrade en Row de Box colorées : une
- * heatmap horizontale où chaque cellule = une portion de l'horizon (~7h de
- * prévision par cellule, 24 cellules pour couvrir 7 jours). C'est le même
- * pattern visuel que ConfidenceTimeline dans HourlyConfidenceChart, qui a
- * été validé comme un signal lisible d'un coup d'œil.
- *
- * ─── Composition ────────────────────────────────────────────────────────
- * 1. Ligne du haut : libellé métrique + valeur maintenant + % confiance.
- *    Donne un ancrage numérique — la bande visuelle seule serait trop abstraite.
- * 2. Ligne du bas : heatmap 24 cellules. Chaque cellule prend
- *    weight(1f) → largeur adaptée automatiquement à la largeur du widget.
+ * Les métriques partagent les mêmes cinq colonnes journalières : le lecteur
+ * compare immédiatement l'accord des modèles pour la température, la pluie
+ * et le vent sans changer d'option. Les libellés de jours ne sont dessinés
+ * qu'une fois en bas pour réduire le bruit visuel.
  */
 @Composable
-private fun ColumnScope.ConfidenceBandStrip(
-    strip: WidgetConfidenceStrip,
+private fun ColumnScope.CombinedConfidenceBands(
+    strips: List<WidgetConfidenceStrip>,
     onContainer: ColorProvider,
     onContainerMuted: ColorProvider,
     softSurface: ColorProvider,
     compact: Boolean
 ) {
     val night = LocalNightMode.current
+    val ctx = LocalContext.current
+    val visibleStrips = strips.take(3)
+    val dayBuckets = visibleStrips.firstOrNull()?.buckets?.take(5).orEmpty()
+    val metricWidth = if (compact) 34.dp else 42.dp
+    val valueWidth = if (compact) 29.dp else 36.dp
+    val percentWidth = if (compact) 31.dp else 38.dp
+
     Column(
         modifier = GlanceModifier
             .fillMaxWidth()
@@ -1145,105 +1167,106 @@ private fun ColumnScope.ConfidenceBandStrip(
             .background(softSurface)
             .cornerRadius(14.dp)
             .padding(
-                horizontal = if (compact) 6.dp else 8.dp,
-                vertical = if (compact) 4.dp else 6.dp
+                horizontal = if (compact) 6.dp else 9.dp,
+                vertical = if (compact) 5.dp else 7.dp
             )
     ) {
-        // ─── Ligne 1 : "T° · 87%" — libellé métrique + confiance actuelle ─
-        // Plus de valeur "maintenant" ici : elle est désormais reprise dans
-        // la première colonne de la ligne 3 (bucket "Auj."). Éviter la
-        // redondance libère de la place pour le "%" à droite qui a une
-        // valeur informative propre (couleur teintée par le niveau).
         Row(
-            modifier = GlanceModifier.fillMaxWidth().padding(bottom = 4.dp),
+            modifier = GlanceModifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = strip.metricLabel,
+                text = ctx.getString(R.string.widget_confidence_combined_title),
                 style = TextStyle(
                     color = onContainer,
-                    fontSize = if (compact) 11.sp else 13.sp,
-                    fontWeight = FontWeight.Medium
+                    fontSize = if (compact) 10.sp else 12.sp,
+                    fontWeight = FontWeight.Bold
                 )
             )
             Spacer(GlanceModifier.defaultWeight())
-            strip.currentPct?.let {
+            Text(
+                text = ctx.getString(R.string.widget_confidence_combined_hint),
+                style = TextStyle(
+                    color = onContainerMuted,
+                    fontSize = if (compact) 8.sp else 9.sp
+                )
+            )
+        }
+
+        Spacer(GlanceModifier.height(if (compact) 4.dp else 6.dp))
+
+        visibleStrips.forEachIndexed { rowIndex, strip ->
+            if (rowIndex > 0) Spacer(GlanceModifier.height(if (compact) 4.dp else 5.dp))
+            val buckets = strip.buckets.take(5)
+            Row(
+                modifier = GlanceModifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
-                    text = "$it%",
+                    text = strip.metricLabel,
+                    modifier = GlanceModifier.width(metricWidth),
                     style = TextStyle(
-                        color = confidenceTextColor(it),
-                        fontSize = if (compact) 11.sp else 13.sp,
+                        color = onContainer,
+                        fontSize = if (compact) 9.sp else 10.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                )
+                Text(
+                    text = buckets.firstOrNull()?.value ?: "—",
+                    modifier = GlanceModifier.width(valueWidth),
+                    style = TextStyle(
+                        color = onContainerMuted,
+                        fontSize = if (compact) 8.sp else 9.sp
+                    )
+                )
+                Row(
+                    modifier = GlanceModifier.defaultWeight().height(if (compact) 7.dp else 9.dp)
+                ) {
+                    buckets.forEachIndexed { index, bucket ->
+                        if (index > 0) Spacer(GlanceModifier.width(2.dp))
+                        Box(
+                            modifier = GlanceModifier
+                                .defaultWeight()
+                                .fillMaxHeight()
+                                .background(ColorProvider(confidenceColor(bucket.percent, night)))
+                                .cornerRadius(3.dp)
+                        ) {}
+                    }
+                }
+                Spacer(GlanceModifier.width(5.dp))
+                Text(
+                    text = strip.currentPct?.let { "$it%" } ?: "—",
+                    modifier = GlanceModifier.width(percentWidth),
+                    style = TextStyle(
+                        color = strip.currentPct?.let { confidenceTextColor(it) } ?: onContainerMuted,
+                        fontSize = if (compact) 9.sp else 10.sp,
                         fontWeight = FontWeight.Bold
                     )
                 )
             }
         }
 
-        // ─── Ligne 2 : bande de confiance colorée par jour ─────────────
-        // Hauteur FIXE réduite (8 dp) au lieu de defaultWeight → la strip
-        // devient un liseré de couleur discret, laissant la place aux
-        // valeurs numériques en dessous qui portent l'info actionnable.
-        // 8 dp est un compromis : assez épais pour rester visible sur un
-        // écran mobile depuis un bras tendu, assez fin pour ne pas
-        // dominer les valeurs numériques.
-        //
-        // Chaque cellule s'aligne verticalement avec sa colonne value+label
-        // en ligne 3 grâce au `defaultWeight()` partagé (même nombre de
-        // colonnes → même largeur individuelle).
-        Row(
-            modifier = GlanceModifier
-                .fillMaxWidth()
-                .height(if (compact) 6.dp else 8.dp)
-        ) {
-            strip.buckets.forEach { bucket ->
-                val color = confidenceColor(bucket.percent, night)
-                Box(
-                    modifier = GlanceModifier
-                        .defaultWeight()
-                        .fillMaxHeight()
-                        .padding(horizontal = 0.5.dp)
-                        .background(ColorProvider(color))
-                        .cornerRadius(2.dp),
-                    contentAlignment = Alignment.Center
-                ) {}
-            }
-        }
-
-        // ─── Ligne 3 : valeur + libellé par jour ───────────────────────
-        // Une colonne par bucket, alignée verticalement avec la cellule de
-        // couleur du dessus. C'est CETTE ligne qui donne du sens à la
-        // bande de couleur : sans les valeurs numériques, la confiance
-        // colorée n'est référencée à rien.
-        //
-        // Ordre des textes : valeur en gras (le chiffre est ce qu'on
-        // regarde en premier), libellé jour discret dessous (contexte
-        // temporel). L'inverse — libellé au-dessus — casserait la
-        // lecture "quel jour donne quoi".
-        Row(
-            modifier = GlanceModifier.fillMaxWidth().padding(top = 4.dp)
-                .defaultWeight()
-        ) {
-            strip.buckets.forEach { bucket ->
-                Column(
-                    modifier = GlanceModifier.defaultWeight(),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = bucket.value,
-                        style = TextStyle(
-                            color = onContainer,
-                            fontSize = if (compact) 10.sp else 12.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                    )
-                    Text(
-                        text = bucket.label,
-                        style = TextStyle(
-                            color = onContainerMuted,
-                            fontSize = if (compact) 9.sp else 10.sp
-                        )
-                    )
+        if (dayBuckets.isNotEmpty()) {
+            Spacer(GlanceModifier.height(if (compact) 3.dp else 4.dp))
+            Row(modifier = GlanceModifier.fillMaxWidth()) {
+                Spacer(GlanceModifier.width(metricWidth + valueWidth))
+                Row(modifier = GlanceModifier.defaultWeight()) {
+                    dayBuckets.forEach { bucket ->
+                        Column(
+                            modifier = GlanceModifier.defaultWeight(),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = bucket.label,
+                                style = TextStyle(
+                                    color = onContainerMuted,
+                                    fontSize = if (compact) 7.sp else 8.sp
+                                )
+                            )
+                        }
+                    }
                 }
+                Spacer(GlanceModifier.width(5.dp + percentWidth))
             }
         }
     }

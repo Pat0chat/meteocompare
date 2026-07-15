@@ -494,10 +494,9 @@ private fun WidgetConfigScreen(
         Spacer(Modifier.height(24.dp))
 
         // ─── Section mode de prévision étendue ────────────────────
-        // Utilisé uniquement par le layout 4×2. Cinq options exposées :
-        //   HOURLY / DAILY : ligne de 4 prévisions (comportement historique)
-        //   CONFIDENCE_*   : mini bande de confiance sur l'horizon complet,
-        //                    en 3 métriques (température, précipitation, vent)
+        // Utilisé par les widgets sur deux lignes. Quatre options exposées :
+        //   HOURLY / DAILY : jusqu'à 5 prévisions sur les formats 4×2 et 5×2
+        //   CONFIDENCE_ALL : trois bandes synchronisées (température, pluie, vent)
         // Les modes confidence répliquent au format widget la feature de
         // l'écran détail. Utile pour les users qui aiment scanner "quand
         // la prévision se dégrade cette semaine".
@@ -528,20 +527,9 @@ private fun WidgetConfigScreen(
                 labelRes = R.string.widget_config_forecast_mode_daily,
                 onClick = { forecastMode = ForecastMode.DAILY }
             )
-            ForecastModeRow(
-                selected = forecastMode == ForecastMode.CONFIDENCE_TEMPERATURE,
-                labelRes = R.string.widget_config_forecast_mode_conf_temp,
-                onClick = { forecastMode = ForecastMode.CONFIDENCE_TEMPERATURE }
-            )
-            ForecastModeRow(
-                selected = forecastMode == ForecastMode.CONFIDENCE_PRECIPITATION,
-                labelRes = R.string.widget_config_forecast_mode_conf_precip,
-                onClick = { forecastMode = ForecastMode.CONFIDENCE_PRECIPITATION }
-            )
-            ForecastModeRow(
-                selected = forecastMode == ForecastMode.CONFIDENCE_WIND,
-                labelRes = R.string.widget_config_forecast_mode_conf_wind,
-                onClick = { forecastMode = ForecastMode.CONFIDENCE_WIND }
+            ConfidenceModeRow(
+                selected = forecastMode.normalized() == ForecastMode.CONFIDENCE_ALL,
+                onClick = { forecastMode = ForecastMode.CONFIDENCE_ALL }
             )
             ForecastModeRow(
                 selected = forecastMode == ForecastMode.MINI_FORECAST_12H,
@@ -597,6 +585,66 @@ private fun ForecastModeRow(
             text = stringResource(labelRes),
             style = MaterialTheme.typography.bodyLarge,
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
+        )
+    }
+}
+
+
+/**
+ * Choix unique pour les trois bandes de confiance. Les trois chips rendent
+ * explicite que température, pluie et vent seront visibles simultanément,
+ * contrairement à l'ancienne liste de trois options mutuellement exclusives.
+ */
+@Composable
+private fun ConfidenceModeRow(
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        RadioButton(selected = selected, onClick = onClick)
+        Spacer(Modifier.width(8.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = stringResource(R.string.widget_config_forecast_mode_conf_all),
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
+            )
+            Spacer(Modifier.height(3.dp))
+            Text(
+                text = stringResource(R.string.widget_config_forecast_mode_conf_all_note),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(7.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                ConfidenceMetricChip("T°")
+                ConfidenceMetricChip(stringResource(R.string.widget_metric_precipitation))
+                ConfidenceMetricChip(stringResource(R.string.widget_metric_wind))
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConfidenceMetricChip(label: String) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.secondaryContainer)
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSecondaryContainer,
+            fontWeight = FontWeight.Medium
         )
     }
 }

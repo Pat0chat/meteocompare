@@ -77,7 +77,7 @@ internal object WidgetPreferences {
     const val DEFAULT_OPACITY_PCT = 80
 
     /**
-     * Défaut = HOURLY : "les 4 prochaines heures" est le signal le plus
+     * Défaut = HOURLY : les prochaines heures sont le signal le plus
      * actionnable pour un widget consulté en cours de journée. Les modes
      * confidence restent opt-in — plus abstraits, ils demandent une lecture
      * intentionnelle plutôt qu'un coup d'œil rapide.
@@ -88,22 +88,13 @@ internal object WidgetPreferences {
 /**
  * Contenu de la ligne du bas du widget 4×2.
  *
- *   - [HOURLY] : 4 prévisions horaires (labels "14h", "15h", …) — c'est le
- *     comportement historique, défaut de l'app. Signal le plus actionnable
- *     à courte échéance.
- *   - [DAILY] : 4 prévisions journalières (labels "Lun", "Mar", …) — vue
- *     synthétique de la semaine à venir.
- *   - [CONFIDENCE_TEMPERATURE] : mini bande de confiance température sur
- *     l'horizon complet (7 jours), rendue comme un strip coloré selon la
- *     confiance locale. Réplique visuelle compacte du graphe grand-format
- *     de l'écran détail.
- *   - [CONFIDENCE_PRECIPITATION] : idem pour la pluie.
- *   - [CONFIDENCE_WIND] : idem pour le vent.
- *
- * Ces 3 modes confidence sont l'application au widget de la même feature qui
- * a été ajoutée à l'écran détail — un utilisateur qui trouve la bande de
- * confiance utile veut pouvoir la voir en un coup d'œil sur son écran d'accueil
- * sans ouvrir l'app.
+ *   - [HOURLY] : jusqu'à 5 prévisions horaires (labels "14h", "15h", …).
+ *     Signal le plus actionnable à courte échéance.
+ *   - [DAILY] : jusqu'à 5 prévisions journalières ("Lun", "Mar", …).
+ *   - [CONFIDENCE_ALL] : trois bandes synchronisées sur cinq jours pour la
+ *     température, la pluie et le vent.
+ *   - Les trois valeurs `CONFIDENCE_*` historiques sont uniquement conservées
+ *     pour migrer les widgets existants vers [CONFIDENCE_ALL].
  *
  * Sealed via enum plutôt que sealed class : pas de données associées, juste
  * un discriminant simple. La persistance stocke `name` (String), la lecture
@@ -113,6 +104,13 @@ internal object WidgetPreferences {
 internal enum class ForecastMode {
     HOURLY,
     DAILY,
+    /**
+     * Vue synthétique qui superpose les trois indicateurs de confiance :
+     * température, précipitations et vent. C'est l'unique choix exposé dans
+     * la configuration du widget.
+     */
+    CONFIDENCE_ALL,
+    /** Anciennes valeurs conservées uniquement pour relire les widgets existants. */
     CONFIDENCE_TEMPERATURE,
     CONFIDENCE_PRECIPITATION,
     CONFIDENCE_WIND,
@@ -127,13 +125,26 @@ internal enum class ForecastMode {
 
 /**
  * Helper : cette mode affiche-t-elle une bande de confiance (vs une prévision
- * discrète 4 items) ? Sert dans le widget pour choisir le layout du bas.
+ * discrète 5 items) ? Sert dans le widget pour choisir le layout du bas.
  */
 internal fun ForecastMode.isConfidenceBand(): Boolean = when (this) {
+    ForecastMode.CONFIDENCE_ALL,
     ForecastMode.CONFIDENCE_TEMPERATURE,
     ForecastMode.CONFIDENCE_PRECIPITATION,
     ForecastMode.CONFIDENCE_WIND -> true
     ForecastMode.HOURLY, ForecastMode.DAILY, ForecastMode.MINI_FORECAST_12H -> false
+}
+
+/**
+ * Migre à la volée les trois anciens choix séparés vers la vue combinée.
+ * Les noms historiques restent dans l'enum pour que `valueOf` puisse relire
+ * les préférences de widgets déjà installés sans les casser.
+ */
+internal fun ForecastMode.normalized(): ForecastMode = when (this) {
+    ForecastMode.CONFIDENCE_TEMPERATURE,
+    ForecastMode.CONFIDENCE_PRECIPITATION,
+    ForecastMode.CONFIDENCE_WIND -> ForecastMode.CONFIDENCE_ALL
+    else -> this
 }
 
 /**

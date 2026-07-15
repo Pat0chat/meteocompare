@@ -29,10 +29,21 @@ class ForecastModeTest {
     }
 
     @Test
-    fun `isConfidenceBand - les trois modes CONFIDENCE renvoient true`() {
+    fun `isConfidenceBand - le mode combiné et les valeurs historiques renvoient true`() {
+        assertTrue(ForecastMode.CONFIDENCE_ALL.isConfidenceBand())
         assertTrue(ForecastMode.CONFIDENCE_TEMPERATURE.isConfidenceBand())
         assertTrue(ForecastMode.CONFIDENCE_PRECIPITATION.isConfidenceBand())
         assertTrue(ForecastMode.CONFIDENCE_WIND.isConfidenceBand())
+    }
+
+    @Test
+    fun `normalized - migre les anciens modes vers la vue combinée`() {
+        assertEquals(ForecastMode.CONFIDENCE_ALL, ForecastMode.CONFIDENCE_ALL.normalized())
+        assertEquals(ForecastMode.CONFIDENCE_ALL, ForecastMode.CONFIDENCE_TEMPERATURE.normalized())
+        assertEquals(ForecastMode.CONFIDENCE_ALL, ForecastMode.CONFIDENCE_PRECIPITATION.normalized())
+        assertEquals(ForecastMode.CONFIDENCE_ALL, ForecastMode.CONFIDENCE_WIND.normalized())
+        assertEquals(ForecastMode.HOURLY, ForecastMode.HOURLY.normalized())
+        assertEquals(ForecastMode.DAILY, ForecastMode.DAILY.normalized())
     }
 
     @Test
@@ -43,6 +54,7 @@ class ForecastModeTest {
         assertTrue(ForecastMode.MINI_FORECAST_12H.isMiniForecast())
         assertFalse(ForecastMode.HOURLY.isMiniForecast())
         assertFalse(ForecastMode.DAILY.isMiniForecast())
+        assertFalse(ForecastMode.CONFIDENCE_ALL.isMiniForecast())
         assertFalse(ForecastMode.CONFIDENCE_TEMPERATURE.isMiniForecast())
         assertFalse(ForecastMode.CONFIDENCE_PRECIPITATION.isMiniForecast())
         assertFalse(ForecastMode.CONFIDENCE_WIND.isMiniForecast())
@@ -51,7 +63,7 @@ class ForecastModeTest {
     @Test
     fun `partition exhaustive de l'enum en 3 groupes disjoints`() {
         // Verrouille l'invariant "chaque mode appartient à EXACTEMENT UN groupe" :
-        //   - CONFIDENCE_* (bandes) : 3 modes
+        //   - CONFIDENCE_ALL + 3 valeurs historiques : 4 modes
         //   - MINI_FORECAST_12H : 1 mode
         //   - Forecast discret (HOURLY, DAILY) : 2 modes
         // Un futur ajout d'enum sans classification tombera ici — soit dans
@@ -72,7 +84,7 @@ class ForecastModeTest {
         }
         assertEquals("Un mode ne peut pas être à la fois confidence et mini", 0, overlap)
         // Comptages spécifiques
-        assertEquals("Confidence : 3 (TEMPERATURE, PRECIPITATION, WIND)", 3, confidenceCount)
+        assertEquals("Confidence : 1 mode combiné + 3 valeurs historiques", 4, confidenceCount)
         assertEquals("Mini forecast : 1 (MINI_FORECAST_12H)", 1, miniCount)
         assertEquals("Forecast discret : 2 (HOURLY, DAILY)", 2, discreteCount)
     }

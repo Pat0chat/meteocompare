@@ -44,4 +44,16 @@ class WidgetLayoutClassifierTest {
     fun `wide two row widget prefers extra large over wide`() {
         assertEquals(WidgetLayoutKind.EXTRA_LARGE, classifyWidgetLayout(420f, 170f))
     }
+
+
+    @Test
+    fun `three by two keeps four forecast cards`() {
+        assertEquals(4, extendedForecastItemCount(319f))
+    }
+
+    @Test
+    fun `four and five by two show five forecast cards`() {
+        assertEquals(5, extendedForecastItemCount(320f))
+        assertEquals(5, extendedForecastItemCount(420f))
+    }
 }
