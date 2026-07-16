@@ -10,6 +10,7 @@
     -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <!--
         Pas de Google Play Services / Firebase / AdMob dans les dépendances,
@@ -59,6 +60,22 @@
                 android:name="autoStoreLocales"
                 android:value="true" />
         </service>
+
+
+        <!--
+            Répare le travail périodique après reboot ou mise à jour de l'APK.
+            exported=false : seuls les broadcasts système ciblant l'application
+            peuvent l'invoquer. Le travail reste unique et ne se duplique pas.
+        -->
+        <receiver
+            android:name=".widget.WidgetRefreshRepairReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
 
         <!--
             ─── Widgets MeteoCompare (Glance) ────────────────────────────────

@@ -16,7 +16,7 @@ import org.junit.Assert.assertTrue
  *
  *   - L'user drop UN widget Standard 2×1 et UN widget Large 5×2.
  *   - `onEnabled(Standard)` puis `onEnabled(Large)` sont appelés →
- *     schedule le worker (idempotent grâce à KEEP).
+ *     schedule le worker (idempotent grâce à UPDATE).
  *   - L'user retire le Standard. `onDisabled(Standard)` est appelé.
  *   - Le worker DOIT continuer à tourner pour le Large qui reste.
  *
@@ -121,7 +121,7 @@ class MeteoWidgetReceiverTest {
         var seenFirst = false
         WidgetReceivers.anyAliveWith { clazz ->
             if (seenFirst) callsAfterFirstAlive++
-            if (clazz == MeteoWidgetReceiver::class.java) {
+            if (clazz == WidgetReceivers.All.first()) {
                 seenFirst = true
                 true  // premier true — la boucle DOIT s'arrêter ici
             } else {
@@ -134,4 +134,27 @@ class MeteoWidgetReceiverTest {
             callsAfterFirstAlive == 0
         )
     }
+    @Test
+    fun `liveWidgetIdsWith - fusionne les neuf providers et deduplique les ids`() {
+        val first = WidgetReceivers.All.first()
+        val second = WidgetReceivers.All[1]
+
+        val ids = WidgetReceivers.liveWidgetIdsWith { clazz ->
+            when (clazz) {
+                first -> listOf(10, 20)
+                second -> listOf(20, 30)
+                else -> emptyList()
+            }
+        }
+
+        org.junit.Assert.assertEquals(listOf(10, 20, 30), ids)
+    }
+
+    @Test
+    fun `liveWidgetIdsWith - aucun provider retourne une liste vide`() {
+        val ids = WidgetReceivers.liveWidgetIdsWith { emptyList() }
+
+        org.junit.Assert.assertTrue(ids.isEmpty())
+    }
+
 }

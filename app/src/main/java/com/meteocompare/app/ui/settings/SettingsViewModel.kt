@@ -66,12 +66,9 @@ class SettingsViewModel @Inject constructor(
                 // explicite. On force un tick immédiat pour re-fetcher avec
                 // le nouveau jeu de modèles tout de suite.
                 //
-                // Idempotent : si l'utilisateur enchaîne plusieurs toggles,
-                // les OneTime jobs se poursuivent (pas de dédup WorkManager
-                // sur les one-time sans nom unique), mais chaque tick est
-                // très bon marché (state write + éventuel cache read) et
-                // le repo court-circuite les fetches redondants via son
-                // seuil maxCacheAgeMs.
+                // Les demandes immédiates sont dédupliquées sous un nom
+                // WorkManager unique : plusieurs toggles rapides remplacent
+                // le tick précédent au lieu d'empiler des workers.
                 WidgetRefreshScheduler.triggerImmediateRefresh(appContext)
             }
         }

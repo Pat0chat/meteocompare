@@ -6,10 +6,9 @@ import java.time.Duration
  * Intervalle entre deux rafraîchissements automatiques des données météo.
  *
  * S'applique à deux consommateurs :
- *   - **Widget** : cadence de la [PeriodicWorkRequest] WorkManager qui met à
- *     jour les widgets d'accueil. Si l'intervalle est MANUAL, on annule le
- *     worker — le widget ne se rafraîchit alors que lorsque l'utilisateur
- *     rouvre l'app (nouveau fetch en cache) ou reconfigure le widget.
+ *   - **Widget** : seuil de fraîcheur du cache réseau. Le tick d'affichage
+ *     reste planifié toutes les 15 minutes afin de faire avancer les heures ;
+ *     en MANUAL il ne déclenche aucun fetch automatique.
  *   - **App** : seuil de fraîcheur du cache. Si le dernier fetch est plus
  *     récent que cet intervalle, on saute la requête réseau au chargement
  *     d'un écran. L'utilisateur peut toujours forcer via pull-to-refresh.
@@ -45,8 +44,9 @@ enum class RefreshInterval(val duration: Duration) {
     HOURS_3(Duration.ofHours(3)),
     HOURS_6(Duration.ofHours(6)),
     /**
-     * Aucun rafraîchissement automatique. Le worker widget est annulé, et
-     * les écrans de l'app affichent le cache sans tenter de fetch réseau.
+     * Aucun rafraîchissement réseau automatique. Le worker widget continue
+     * ses ticks cache-only pour actualiser les libellés temporels, et les
+     * écrans de l'app affichent le cache sans tenter de fetch réseau.
      * L'utilisateur doit pull-to-refresh ou appuyer sur le bouton refresh.
      */
     MANUAL(Duration.ZERO);

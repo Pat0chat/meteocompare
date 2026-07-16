@@ -170,8 +170,8 @@ private val LocalNightMode = staticCompositionLocalOf { false }
  * le corps de [provideGlance]. Raison : [provideGlance] est exécutée UNE
  * fois par session Glance, mais son composable interne se recompose à chaque
  * changement d'état. Lire les prefs dehors capture la valeur au moment de la
- * session ; lire dedans avec [currentState] rend le read réactif — un
- * `updateAppWidgetState` déclenche automatiquement la recomposition.
+ * session ; lire dedans avec [currentState] rend le read réactif dans la
+ * session. Le host est ensuite notifié explicitement via `update()`.
  * Ce pattern règle "widget bloqué sur Configurer une ville" — auparavant le
  * composable utilisait la valeur cityId capturée à la 1re render, jamais
  * rafraîchie même après le save de la config.
@@ -206,8 +206,8 @@ internal class MeteoWidget : GlanceAppWidget() {
         // "Vent/Pluie" affichés même quand l'app est en anglais.
         val appCtx = applyPersistedLocale(context.applicationContext)
         provideContent {
-            // Lecture réactive des prefs. Chaque updateAppWidgetState() sur
-            // ce widget invalide cette lecture → recomposition automatique.
+            // Lecture des prefs Glance. Le worker met à jour le tick puis appelle
+            // explicitement MeteoWidget.update() pour notifier le launcher.
             val prefs = currentState<Preferences>()
             val cityId = prefs[WidgetPreferences.CityIdKey]
             val opacityPct = (prefs[WidgetPreferences.OpacityPctKey]
@@ -1020,7 +1020,7 @@ private fun ExtraLargeLayout(
         // ─── Bottom strip : selon le mode utilisateur ────────────────────
         // TROIS rendus mutuellement exclusifs pilotés par les data alimentées
         // dans loadWidgetData selon le mode config :
-        //   - confidenceStrips non vide : trois bandes sur 5 jours de confiance
+        //   - confidenceStrips non vide : deux bandes sur 5 jours de confiance
         //   - next12hTemps non-vide   : mini prévision 12h centrée sur l'axe horaire
         //   - sinon                   : Row de 4-5 forecast items (HOURLY/DAILY)
         val strips = data.confidenceStrips

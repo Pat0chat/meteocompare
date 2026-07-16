@@ -10,8 +10,9 @@ import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.usecase.ConfidenceCalculator
 import com.meteocompare.app.domain.util.ForecastAggregates
 import dagger.hilt.android.EntryPointAccessors
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.lastOrNull
 
 /**
  * Snapshot des données affichées par le widget, pré-calculé côté suspending
@@ -64,7 +65,7 @@ internal data class WidgetData(
      */
     val forecasts: List<WidgetForecastItem>,
     /**
-     * Les trois bandes de confiance synchronisées (température, pluie, vent).
+     * Les deux bandes de confiance synchronisées (température et pluie).
      * La liste est vide hors mode confiance. Une métrique peut être absente si
      * aucun modèle ne fournit la variable correspondante.
      */
@@ -217,9 +218,11 @@ internal sealed class WidgetError {
  *   1. Cherche la ville dans les favoris. Absente → CityNoLongerInFavorites.
  *   2. Lit l'intervalle de rafraîchissement utilisateur et fetch le forecast
  *      via la stream repository avec `maxCacheAgeMs` = cet intervalle.
- *   3. `first()` : on prend la PREMIÈRE émission — cache si assez récent
- *      (aucune requête réseau), sinon cache immédiat suivi de fetch, mais
- *      on ne l'attend pas — on affiche déjà quelque chose.
+ *   3. `lastOrNull()` : si le cache est frais, il reste l'unique émission.
+ *      S'il est périmé, le repository émet d'abord le cache puis lance le
+ *      réseau ; on attend la dernière émission pour réellement afficher les
+ *      données fraîches. En cas d'échec réseau après un cache, le repository
+ *      termine sans erreur supplémentaire et la dernière valeur reste le cache.
  *   4. Calcule les agrégats via ConfidenceCalculator (mêmes helpers que l'app).
  *
  * ─── Économie batterie/data via maxCacheAgeMs ────────────────────────────
@@ -288,7 +291,7 @@ internal suspend fun loadWidgetData(
             models = enabledModels,
             maxCacheAgeMs = maxCacheAgeMs
         )
-        .firstOrNull()
+        .awaitWidgetTerminalEmission()
 
     return when (result) {
         is ApiResult.Success -> {
@@ -364,6 +367,14 @@ internal suspend fun loadWidgetData(
         )
     }
 }
+
+
+/**
+ * Attend la fin du flux repository au lieu de s'arrêter sur le cache initial.
+ * Un cache périmé est émis avant le résultat réseau ; utiliser `first()` ici
+ * annulerait l'amont avant même que le fetch ne démarre.
+ */
+internal suspend fun <T> Flow<T>.awaitWidgetTerminalEmission(): T? = lastOrNull()
 
 /**
  * Construit la liste des 5 items de prévision étendue pour le layout 4×2.

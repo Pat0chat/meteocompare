@@ -255,7 +255,7 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
             //    premier drop du widget, mais un update install peut recréer
             //    les widgets sans re-appeler onEnabled (le receiver était
             //    déjà "enabled" au sens système). L'appel est idempotent
-            //    (ExistingPeriodicWorkPolicy.KEEP) : aucun coût si le worker
+            //    (ExistingPeriodicWorkPolicy.UPDATE) : pas de duplication si le worker
             //    tourne déjà.
             //
             //    Note : plus besoin de lire l'intervalle utilisateur ici. La
@@ -500,7 +500,7 @@ private fun WidgetConfigScreen(
         // ─── Section mode de prévision étendue ────────────────────
         // Utilisé par les widgets sur deux lignes. Quatre options exposées :
         //   HOURLY / DAILY : jusqu'à 5 prévisions sur les formats 4×2 et 5×2
-        //   CONFIDENCE_ALL : trois bandes synchronisées (température, pluie, vent)
+        //   CONFIDENCE_ALL : deux bandes synchronisées (température et pluie)
         // Les modes confidence répliquent au format widget la feature de
         // l'écran détail. Utile pour les users qui aiment scanner "quand
         // la prévision se dégrade cette semaine".
@@ -610,8 +610,8 @@ private fun ForecastModeRow(
 
 
 /**
- * Choix unique pour les trois bandes de confiance. Les trois chips rendent
- * explicite que température, pluie et vent seront visibles simultanément,
+ * Choix unique pour les deux bandes de confiance. Les chips rendent
+ * explicite que température et pluie seront visibles simultanément,
  * contrairement à l'ancienne liste de trois options mutuellement exclusives.
  */
 @Composable

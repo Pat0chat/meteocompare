@@ -13,6 +13,7 @@ local.properties
 /app/release
 *.apk
 *.aab
+*.patch
 gradle/
 
 # Signing — NE JAMAIS committer le keystore ni les credentials

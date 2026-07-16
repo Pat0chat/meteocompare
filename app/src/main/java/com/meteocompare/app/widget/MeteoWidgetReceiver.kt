@@ -32,7 +32,7 @@ import androidx.glance.appwidget.GlanceAppWidgetReceiver
  *
  * ─── Lifecycle WorkManager ────────────────────────────────────────────
  *   - onEnabled  : PREMIER widget ajouté pour CE receiver → programme le
- *                  worker périodique. Idempotent (KEEP policy) — si un
+ *                  worker périodique. Idempotent (UPDATE policy) — si un
  *                  autre receiver frère l'a déjà programmé, no-op.
  *   - onDisabled : DERNIER widget de CE receiver retiré → on ne cancel
  *                  PAS le worker (des frères peuvent encore avoir des
@@ -52,10 +52,33 @@ open class MeteoWidgetReceiver : GlanceAppWidgetReceiver() {
 
     override fun onEnabled(context: Context) {
         super.onEnabled(context)
-        // Idempotent : `schedule` utilise ExistingPeriodicWorkPolicy.KEEP,
-        // donc si un autre receiver frère a déjà programmé le worker, ce
-        // second appel est un no-op côté WorkManager.
+        // UPDATE est idempotent : un autre receiver peut rappeler schedule
+        // sans créer un second worker, tout en migrant une ancienne spec.
         WidgetRefreshScheduler.schedule(context)
+    }
+
+    override fun onUpdate(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetIds: IntArray
+    ) {
+        // Le callback système de repli (updatePeriodMillis) est aussi une
+        // occasion de réparer une planification WorkManager absente ou issue
+        // d'une ancienne version de l'app. `super` déclenche le rendu Glance.
+        WidgetRefreshScheduler.schedule(context)
+        super.onUpdate(context, appWidgetManager, appWidgetIds)
+    }
+
+    override fun onRestored(
+        context: Context,
+        oldWidgetIds: IntArray,
+        newWidgetIds: IntArray
+    ) {
+        // Après restauration sur un nouveau téléphone, la base WorkManager
+        // n'est pas forcément restaurée avec les AppWidgetIds. Replanifier ici
+        // évite un widget figé jusqu'au prochain lancement de l'application.
+        WidgetRefreshScheduler.schedule(context)
+        super.onRestored(context, oldWidgetIds, newWidgetIds)
     }
 
     override fun onDisabled(context: Context) {
@@ -63,9 +86,19 @@ open class MeteoWidgetReceiver : GlanceAppWidgetReceiver() {
         // On cancel le worker UNIQUEMENT si aucun autre receiver frère n'a
         // encore de widget vivant. Sinon on laisserait des widgets d'autres
         // variantes sans tick, avec des labels d'heure gelés.
-        if (!WidgetReceivers.anyAlive(context, AppWidgetManager.getInstance(context))) {
-            WidgetRefreshScheduler.cancel(context)
+        val anyWidgetStillAlive = runCatching {
+            WidgetReceivers.anyAlive(context, AppWidgetManager.getInstance(context))
+        }.getOrElse { error ->
+            // Fail-open : en cas de bug launcher temporaire, conserver un
+            // worker inutile est préférable à figer les widgets restants.
+            android.util.Log.w(
+                "MeteoCompare/Widget",
+                "Unable to inspect widgets during onDisabled",
+                error
+            )
+            true
         }
+        if (!anyWidgetStillAlive) WidgetRefreshScheduler.cancel(context)
     }
 
     override fun onDeleted(context: Context, appWidgetIds: IntArray) {
@@ -188,6 +221,10 @@ internal object WidgetReceivers {
         anyAliveWith { clazz ->
             awm.getAppWidgetIds(ComponentName(context, clazz)).isNotEmpty()
         }
+
+    internal fun liveWidgetIdsWith(
+        idsFor: (Class<out MeteoWidgetReceiver>) -> List<Int>
+    ): List<Int> = All.flatMap(idsFor).distinct()
 
     /**
      * Cœur testable de [anyAlive]. Reçoit une fonction de lookup qui répond

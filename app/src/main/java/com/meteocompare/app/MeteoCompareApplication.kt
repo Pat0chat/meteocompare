@@ -1,7 +1,11 @@
 package com.meteocompare.app
 
 import android.app.Application
+import android.appwidget.AppWidgetManager
+import android.util.Log
 import com.meteocompare.app.data.worker.BiasRefreshScheduler
+import com.meteocompare.app.widget.WidgetReceivers
+import com.meteocompare.app.widget.WidgetRefreshScheduler
 import dagger.hilt.android.HiltAndroidApp
 
 /**
@@ -19,21 +23,31 @@ import dagger.hilt.android.HiltAndroidApp
  *   Idempotent via `ExistingPeriodicWorkPolicy.KEEP` : re-schedule à chaque
  *   process start, no-op si déjà planifié.
  *
- * ## Ce qui n'est PAS planifié ici
+ * ## Réparation de la planification widget
  *
- * Le worker widget est planifié à la demande dans `MeteoWidgetReceiver.onEnabled`
- * (uniquement quand un widget est posé), pas au démarrage de l'app. Deux
- * politiques différentes délibérées :
- *   - Widget : dépendant de l'existence d'au moins un widget posé → schedule
- *     par lifecycle receiver.
- *   - Biais : dépendant de l'existence d'au moins une ville favorite, mais
- *     puisque le worker skip proprement une liste vide de favorites, on peut
- *     toujours schedule sans overhead — plus simple à raisonner.
+ * À chaque démarrage de process, l'application vérifie si au moins une
+ * instance de widget est posée. Si oui, elle ré-enregistre le travail unique
+ * avec la policy UPDATE. Cela répare les bases WorkManager nettoyées par un
+ * constructeur ou les anciennes contraintes conservées après mise à jour.
  */
 @HiltAndroidApp
 class MeteoCompareApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         BiasRefreshScheduler.schedule(this)
+
+        // Répare la planification après mise à jour de l'app, restauration ou
+        // nettoyage de la base WorkManager par un OEM. On ne programme rien
+        // quand aucun widget n'est réellement posé.
+        val hasWidgets = runCatching {
+            WidgetReceivers.anyAlive(this, AppWidgetManager.getInstance(this))
+        }.getOrElse { error ->
+            // Un launcher constructeur ne doit jamais pouvoir faire échouer le
+            // démarrage complet de l'application. Le prochain onUpdate du
+            // provider ou la prochaine ouverture réparera la planification.
+            Log.w("MeteoCompare/Widget", "Unable to inspect installed widgets", error)
+            false
+        }
+        if (hasWidgets) WidgetRefreshScheduler.schedule(this)
     }
 }

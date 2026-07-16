@@ -73,3 +73,34 @@ Les rapports sont générés dans :
 - `app/build/reports/tests/testDebugUnitTest/`
 - `app/build/reports/androidTests/connected/`
 - `app/build/reports/lint-results-debug.html`
+
+
+## Diagnostic du rafraîchissement des widgets
+
+Le travail périodique porte le tag `meteocompare_widget` et le nom unique
+`meteocompare_widget_refresh`. Pour diagnostiquer un téléphone où le launcher
+semble conserver une ancienne vue :
+
+```powershell
+adb logcat -s MeteoCompare/Widget WM-WorkerWrapper WM-Processor
+adb shell dumpsys jobscheduler | findstr /I "meteocompare widget_refresh"
+```
+
+Test de reprise après veille profonde :
+
+```powershell
+adb shell dumpsys deviceidle force-idle
+# Attendre, puis sortir du mode idle
+adb shell dumpsys deviceidle unforce
+adb shell input keyevent KEYCODE_WAKEUP
+```
+
+Points à vérifier :
+
+- le travail unique reste `ENQUEUED` entre deux exécutions ;
+- une exécution produit un nouveau rendu Glance pour chaque AppWidgetId vivant ;
+- après reboot ou mise à jour de l'APK, le receiver de réparation reprogramme
+  le périodique et demande un tick immédiat ;
+- un `force-stop` manuel bloque volontairement tous les composants Android
+  jusqu'à la prochaine ouverture de l'application : ce cas ne peut pas être
+  contourné par WorkManager ou par un receiver.

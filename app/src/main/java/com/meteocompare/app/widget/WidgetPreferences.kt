@@ -91,8 +91,8 @@ internal object WidgetPreferences {
  *   - [HOURLY] : jusqu'à 5 prévisions horaires (labels "14h", "15h", …).
  *     Signal le plus actionnable à courte échéance.
  *   - [DAILY] : jusqu'à 5 prévisions journalières ("Lun", "Mar", …).
- *   - [CONFIDENCE_ALL] : trois bandes synchronisées sur cinq jours pour la
- *     température, la pluie et le vent.
+ *   - [CONFIDENCE_ALL] : deux bandes synchronisées sur cinq jours pour la
+ *     température et la pluie.
  *   - Les trois valeurs `CONFIDENCE_*` historiques sont uniquement conservées
  *     pour migrer les widgets existants vers [CONFIDENCE_ALL].
  *
@@ -105,8 +105,8 @@ internal enum class ForecastMode {
     HOURLY,
     DAILY,
     /**
-     * Vue synthétique qui superpose les trois indicateurs de confiance :
-     * température, précipitations et vent. C'est l'unique choix exposé dans
+     * Vue synthétique qui superpose les deux indicateurs de confiance :
+     * température et précipitations. C'est l'unique choix exposé dans
      * la configuration du widget.
      */
     CONFIDENCE_ALL,

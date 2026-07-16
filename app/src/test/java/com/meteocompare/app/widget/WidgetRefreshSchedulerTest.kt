@@ -1,6 +1,7 @@
 package com.meteocompare.app.widget
 
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequest
 import androidx.work.PeriodicWorkRequest
@@ -26,8 +27,8 @@ import java.util.concurrent.TimeUnit
  *   1. Cadence du tick FIXE à 15 min. Fondement du fix "les heures ne
  *      changent pas au fur et à mesure du temps" : le RefreshInterval
  *      utilisateur ne doit PLUS piloter la cadence du worker.
- *   2. Politique KEEP (pas UPDATE). `schedule` doit être idempotent pour
- *      ne pas recréer le job à chaque changement de settings.
+ *   2. Politique UPDATE. `schedule` reste unique mais migre les anciennes
+ *      contraintes après une mise à jour de l'application.
  *   3. `triggerImmediateRefresh` enqueue un ONE-TIME, pas un PERIODIC.
  *      Sinon chaque toggle utilisateur créerait un job permanent parallèle
  *      → duplication de requêtes qu'on voulait justement éviter.
@@ -77,11 +78,10 @@ class WidgetRefreshSchedulerTest {
     }
 
     @Test
-    fun `schedule - policy KEEP pour être idempotent`() {
-        // Si on utilisait UPDATE, chaque appel de `schedule` recrée le job
-        // — au pire, ça remet à zéro le compteur de l'intervalle et le
-        // widget peut manquer un tick. KEEP garantit qu'un `schedule` sur
-        // un job déjà existant est un no-op.
+    fun `schedule - policy UPDATE pour migrer les anciennes contraintes sans dupliquer`() {
+        // UPDATE conserve le travail unique mais applique la nouvelle spec. C'est
+        // indispensable pour retirer une ancienne contrainte batterie déjà
+        // persistée dans la base WorkManager d'un utilisateur.
         val policySlot = slot<ExistingPeriodicWorkPolicy>()
         every {
             workManager.enqueueUniquePeriodicWork(any(), capture(policySlot), any())
@@ -89,7 +89,7 @@ class WidgetRefreshSchedulerTest {
 
         WidgetRefreshScheduler.schedule(workManager)
 
-        assertEquals(ExistingPeriodicWorkPolicy.KEEP, policySlot.captured)
+        assertEquals(ExistingPeriodicWorkPolicy.UPDATE, policySlot.captured)
     }
 
     @Test
@@ -130,6 +130,21 @@ class WidgetRefreshSchedulerTest {
         )
     }
 
+
+    @Test
+    fun `schedule - ajoute un tag de diagnostic stable`() {
+        val requestSlot = slot<PeriodicWorkRequest>()
+        every {
+            workManager.enqueueUniquePeriodicWork(any(), any(), capture(requestSlot))
+        } returns mockk(relaxed = true)
+
+        WidgetRefreshScheduler.schedule(workManager)
+
+        org.junit.Assert.assertTrue(
+            requestSlot.captured.tags.contains(WidgetRefreshScheduler.TESTABLE_WORK_TAG)
+        )
+    }
+
     // ─────────────────────── triggerImmediateRefresh() ───────────────────
 
     @Test
@@ -141,7 +156,17 @@ class WidgetRefreshSchedulerTest {
         // de requêtes qu'on voulait justement éliminer.
         WidgetRefreshScheduler.triggerImmediateRefresh(workManager)
 
-        verify(exactly = 1) { workManager.enqueue(any<OneTimeWorkRequest>()) }
+        val requestSlot = slot<OneTimeWorkRequest>()
+        verify(exactly = 1) {
+            workManager.enqueueUniqueWork(
+                WidgetRefreshScheduler.TESTABLE_IMMEDIATE_WORK_NAME,
+                ExistingWorkPolicy.REPLACE,
+                capture(requestSlot)
+            )
+        }
+        org.junit.Assert.assertTrue(
+            requestSlot.captured.tags.contains(WidgetRefreshScheduler.TESTABLE_WORK_TAG)
+        )
         // On ne doit surtout PAS avoir touché à l'enqueue périodique.
         verify(exactly = 0) {
             workManager.enqueueUniquePeriodicWork(any(), any(), any())
