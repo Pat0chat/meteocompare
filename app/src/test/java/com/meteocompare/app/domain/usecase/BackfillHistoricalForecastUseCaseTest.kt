@@ -9,7 +9,6 @@ import com.meteocompare.app.domain.repository.BiasSampleRepository
 import com.meteocompare.app.domain.repository.ForecastBiasRecord
 import io.mockk.coEvery
 import io.mockk.coVerify
-import io.mockk.firstArg
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
