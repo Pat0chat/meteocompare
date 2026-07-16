@@ -12,7 +12,9 @@ import com.meteocompare.app.domain.util.ForecastAggregates
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.lastOrNull
+import kotlinx.coroutines.withContext
 
 /**
  * Snapshot des données affichées par le widget, pré-calculé côté suspending
@@ -294,7 +296,7 @@ internal suspend fun loadWidgetData(
         .awaitWidgetTerminalEmission()
 
     return when (result) {
-        is ApiResult.Success -> {
+        is ApiResult.Success -> withContext(Dispatchers.Default) {
             val forecast = result.data
             val calc = entry.confidenceCalculator()
             val today = forecast.seriesByModel.values

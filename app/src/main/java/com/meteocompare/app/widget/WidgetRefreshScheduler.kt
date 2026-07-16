@@ -15,7 +15,9 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.meteocompare.app.core.util.runSuspendCatching
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 
 private const val WIDGET_LOG_TAG = "MeteoCompare/Widget"
 
@@ -269,35 +271,49 @@ internal class WidgetRefreshWorker(
         var updatedCount = 0
         var failedCount = 0
 
-        for (appWidgetId in liveWidgetIds) {
-            val updateResult = runSuspendCatching {
-                val glanceId = glanceManager.getGlanceIdBy(appWidgetId)
-                updateAppWidgetState(
-                    context = ctx,
-                    definition = PreferencesGlanceStateDefinition,
-                    glanceId = glanceId
-                ) { prefs ->
-                    prefs.toMutablePreferences().apply {
-                        this[WidgetPreferences.RefreshTickKey] = now
+        val completedWithinBudget = withTimeoutOrNull(WORK_BUDGET_MS) {
+            for (appWidgetId in liveWidgetIds) {
+                val updateResult = withTimeoutOrNull(PER_WIDGET_TIMEOUT_MS) {
+                    runSuspendCatching {
+                        val glanceId = glanceManager.getGlanceIdBy(appWidgetId)
+                        updateAppWidgetState(
+                            context = ctx,
+                            definition = PreferencesGlanceStateDefinition,
+                            glanceId = glanceId
+                        ) { prefs ->
+                            prefs.toMutablePreferences().apply {
+                                this[WidgetPreferences.RefreshTickKey] = now
+                            }
+                        }
+
+                        // Une écriture DataStore ne suffit pas à prévenir le host du
+                        // widget. Glance doit recréer puis renvoyer les RemoteViews.
+                        // Sans cet appel explicite certains launchers restent figés.
+                        widget.update(ctx, glanceId)
                     }
                 }
 
-                // Une écriture DataStore ne suffit pas à prévenir le host du
-                // widget. Glance doit recréer puis renvoyer les RemoteViews.
-                // Sans cet appel explicite certains launchers restent figés.
-                widget.update(ctx, glanceId)
+                if (updateResult?.isSuccess == true) {
+                    updatedCount++
+                } else {
+                    failedCount++
+                    android.util.Log.w(
+                        WIDGET_LOG_TAG,
+                        "Widget refresh failed for appWidgetId=$appWidgetId",
+                        updateResult?.exceptionOrNull()
+                            ?: TimeoutException("Widget update exceeded ${PER_WIDGET_TIMEOUT_MS}ms")
+                    )
+                }
             }
+            true
+        } ?: false
 
-            if (updateResult.isSuccess) {
-                updatedCount++
-            } else {
-                failedCount++
-                android.util.Log.w(
-                    WIDGET_LOG_TAG,
-                    "Widget refresh failed for appWidgetId=$appWidgetId",
-                    updateResult.exceptionOrNull()
-                )
-            }
+        if (!completedWithinBudget) {
+            android.util.Log.w(
+                WIDGET_LOG_TAG,
+                "Widget refresh exceeded global ${WORK_BUDGET_MS}ms budget"
+            )
+            return Result.retry()
         }
 
         android.util.Log.d(
@@ -315,5 +331,10 @@ internal class WidgetRefreshWorker(
         } else {
             Result.success()
         }
+    }
+
+    companion object {
+        internal const val PER_WIDGET_TIMEOUT_MS: Long = 45_000L
+        internal const val WORK_BUDGET_MS: Long = 8 * 60_000L
     }
 }

@@ -6,6 +6,7 @@ import com.meteocompare.app.domain.model.BiasVariable
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.repository.BiasSampleRepository
+import com.meteocompare.app.domain.repository.ForecastBiasRecord
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonArray
@@ -115,40 +116,34 @@ class BackfillHistoricalForecastUseCase @Inject constructor(
         }
 
         val issuedAt = Instant.now()
-        var recorded = 0
+        val records = ArrayList<ForecastBiasRecord>(models.size * dates.size * 3)
 
         for (model in models) {
             val tempValues = daily.doubleArrayOrNull("temperature_2m_max_${model.apiKey}")
             val precipValues = daily.doubleArrayOrNull("precipitation_sum_${model.apiKey}")
             val windValues = daily.doubleArrayOrNull("wind_speed_10m_max_${model.apiKey}")
 
-            // Chaque variable est alignée indépendamment sur `time`. Une
-            // liste absente ou plus courte ne doit pas supprimer les valeurs
-            // valides des deux autres variables.
             for (i in dates.indices) {
                 val date = dates[i] ?: continue
-
                 tempValues?.getOrNull(i)?.let { value ->
-                    biasRepository.recordForecast(
+                    records += ForecastBiasRecord(
                         city.id, model, BiasVariable.TEMPERATURE, date, issuedAt, value
                     )
-                    recorded++
                 }
                 precipValues?.getOrNull(i)?.let { value ->
-                    biasRepository.recordForecast(
+                    records += ForecastBiasRecord(
                         city.id, model, BiasVariable.PRECIPITATION, date, issuedAt, value
                     )
-                    recorded++
                 }
                 windValues?.getOrNull(i)?.let { value ->
-                    biasRepository.recordForecast(
+                    records += ForecastBiasRecord(
                         city.id, model, BiasVariable.WIND_SPEED, date, issuedAt, value
                     )
-                    recorded++
                 }
             }
         }
-        recorded
+        biasRepository.recordForecasts(records)
+        records.size
     }
 
     /**

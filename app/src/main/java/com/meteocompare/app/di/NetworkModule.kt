@@ -11,6 +11,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.Dispatcher
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -49,17 +50,31 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideOkHttp(): OkHttpClient = OkHttpClient.Builder()
-        .apply {
-            if (BuildConfig.DEBUG) {
-                addInterceptor(HttpLoggingInterceptor().apply {
-                    level = HttpLoggingInterceptor.Level.BASIC
-                })
-            }
+    fun provideOkHttp(): OkHttpClient {
+        // Bornes explicites : évite qu'un refresh de nombreuses villes ou un
+        // enchaînement app + widgets ne crée des dizaines d'appels actifs. Les
+        // appels supplémentaires restent dans la queue OkHttp sans occuper de
+        // socket ni lancer du parsing concurrent.
+        val dispatcher = Dispatcher().apply {
+            maxRequests = 8
+            maxRequestsPerHost = 4
         }
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(15, TimeUnit.SECONDS)
-        .build()
+        return OkHttpClient.Builder()
+            .dispatcher(dispatcher)
+            .apply {
+                if (BuildConfig.DEBUG) {
+                    addInterceptor(HttpLoggingInterceptor().apply {
+                        level = HttpLoggingInterceptor.Level.BASIC
+                    })
+                }
+            }
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(15, TimeUnit.SECONDS)
+            // Borne totale incluant DNS, redirects, retries et lecture. Aucun
+            // appel ne peut survivre indéfiniment après disparition de l'écran.
+            .callTimeout(30, TimeUnit.SECONDS)
+            .build()
+    }
 
     @Provides
     @Singleton

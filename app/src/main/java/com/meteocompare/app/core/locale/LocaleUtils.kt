@@ -2,7 +2,6 @@ package com.meteocompare.app.core.locale
 
 import android.content.Context
 import android.content.res.Configuration
-import android.os.Build
 import android.os.LocaleList
 import com.meteocompare.app.MainActivity
 import java.util.Locale
@@ -53,11 +52,7 @@ fun applyPersistedLocale(context: Context): Context {
     val locale = Locale.forLanguageTag(tag)
     Locale.setDefault(locale)
     val config = Configuration(context.resources.configuration)
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-        config.setLocales(LocaleList(locale))
-    } else {
-        @Suppress("DEPRECATION")
-        config.locale = locale
-    }
+    // minSdk 27 : LocaleList est disponible sur toutes les versions supportées.
+    config.setLocales(LocaleList(locale))
     return context.createConfigurationContext(config)
 }

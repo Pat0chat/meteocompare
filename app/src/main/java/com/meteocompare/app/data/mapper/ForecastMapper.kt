@@ -91,9 +91,9 @@ class ForecastMapper @Inject constructor() {
         if (values == null) {
             return List(times.count { it != null }) { null }
         }
-        return times.mapIndexedNotNull { index, instant ->
-            if (instant != null) values.getOrNull(index) else null
-        }
+        return times.indices
+            .filter { index -> times[index] != null }
+            .map { index -> values.getOrNull(index) }
     }
 
     private fun alignNonNullDates(
@@ -103,9 +103,9 @@ class ForecastMapper @Inject constructor() {
         if (values == null) {
             return List(dates.count { it != null }) { null }
         }
-        return dates.mapIndexedNotNull { index, date ->
-            if (date != null) values.getOrNull(index) else null
-        }
+        return dates.indices
+            .filter { index -> dates[index] != null }
+            .map { index -> values.getOrNull(index) }
     }
 
     // Variantes Int? : les codes WMO sont des entiers, pas des doubles. On
@@ -119,9 +119,9 @@ class ForecastMapper @Inject constructor() {
         if (values == null) {
             return List(times.count { it != null }) { null }
         }
-        return times.mapIndexedNotNull { index, instant ->
-            if (instant != null) values.getOrNull(index) else null
-        }
+        return times.indices
+            .filter { index -> times[index] != null }
+            .map { index -> values.getOrNull(index) }
     }
 
     private fun alignNonNullDatesInt(
@@ -131,9 +131,9 @@ class ForecastMapper @Inject constructor() {
         if (values == null) {
             return List(dates.count { it != null }) { null }
         }
-        return dates.mapIndexedNotNull { index, date ->
-            if (date != null) values.getOrNull(index) else null
-        }
+        return dates.indices
+            .filter { index -> dates[index] != null }
+            .map { index -> values.getOrNull(index) }
     }
 }
 

@@ -6,8 +6,10 @@ import com.meteocompare.app.domain.model.BiasVariable
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.repository.BiasSampleRepository
+import com.meteocompare.app.domain.repository.ForecastBiasRecord
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.firstArg
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
@@ -50,6 +52,14 @@ class BackfillHistoricalForecastUseCaseTest {
     fun setUp() {
         api = mockk()
         repo = mockk(relaxed = true)
+        coEvery { repo.recordForecasts(any()) } coAnswers {
+            firstArg<List<ForecastBiasRecord>>().forEach { record ->
+                repo.recordForecast(
+                    record.cityId, record.model, record.variable,
+                    record.targetDate, record.issuedAt, record.value
+                )
+            }
+        }
         useCase = BackfillHistoricalForecastUseCase(
             historicalApi = api,
             biasRepository = repo,

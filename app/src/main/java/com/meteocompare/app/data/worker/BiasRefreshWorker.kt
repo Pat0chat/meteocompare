@@ -1,6 +1,7 @@
 package com.meteocompare.app.data.worker
 
 import android.content.Context
+import android.util.Log
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -13,6 +14,7 @@ import androidx.work.WorkerParameters
 import com.meteocompare.app.core.util.runSuspendCatching
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import java.time.LocalDate
 import java.util.concurrent.TimeUnit
 
@@ -79,8 +81,8 @@ object BiasRefreshScheduler {
      * Planifie le worker. Deux requests enqueue'd :
      *
      * 1. **PeriodicWorkRequest** (cadence 24h, flex 6h) — le rythme de croisière.
-     *    [ExistingPeriodicWorkPolicy.KEEP] : re-schedule à chaque démarrage
-     *    n'écrase pas un job déjà planifié, seul le premier appel "compte".
+     *    [ExistingPeriodicWorkPolicy.UPDATE] : conserve l'identité du travail
+     *    unique mais applique la dernière cadence et les dernières contraintes.
      *
      * 2. **OneTimeWorkRequest** (kickoff immédiat) — pour que le premier fetch
      *    d'observations n'attende pas la première fenêtre système du periodic
@@ -116,7 +118,7 @@ object BiasRefreshScheduler {
 
         workManager.enqueueUniquePeriodicWork(
             WORK_NAME,
-            ExistingPeriodicWorkPolicy.KEEP,
+            ExistingPeriodicWorkPolicy.UPDATE,
             periodic
         )
 
@@ -141,6 +143,15 @@ object BiasRefreshScheduler {
      * marge pour couvrir un éventuel décalage de fetch). Extrait `internal`
      * pour être testable et évoluer sans toucher au worker.
      */
+    internal const val PER_CITY_OPERATION_TIMEOUT_MS: Long = 45_000L
+
+    /**
+     * Budget global inférieur à la fenêtre d'exécution habituelle d'un worker.
+     * Les opérations sont idempotentes : si le budget expire, WorkManager
+     * reprend le cycle avec backoff sans laisser un job monopoliser le process.
+     */
+    internal const val WORK_BUDGET_MS: Long = 8 * 60_000L
+
     internal const val RETENTION_DAYS: Long = 35
 
     /**
@@ -187,18 +198,60 @@ internal class BiasRefreshWorker(
         val enabledModels = runSuspendCatching { userPrefs.observeEnabledModels().first() }
             .getOrDefault(emptyList())
 
-        // Backfill historical-forecast d'abord — le use case est idempotent
-        // (skip si des rows passées existent déjà) donc l'appeler à chaque
-        // cycle est safe. Une ville en échec (timeout, 5xx) est skippée sans
-        // faire échouer le cycle global. Coût no-op = 1 SELECT COUNT local.
-        for (city in favorites) {
-            runSuspendCatching { backfill(city, enabledModels) }.getOrNull()
+        // Chaque opération réseau ET le cycle global sont bornés.
+        // `withTimeoutOrNull` distingue le timeout local d'une vraie annulation
+        // du worker : une annulation externe continue de se propager, tandis
+        // qu'un serveur lent ne laisse pas un job monopoliser le process.
+        val observationSuccesses = withTimeoutOrNull(BiasRefreshScheduler.WORK_BUDGET_MS) {
+            for (city in favorites) {
+                val result = withTimeoutOrNull(
+                    BiasRefreshScheduler.PER_CITY_OPERATION_TIMEOUT_MS
+                ) {
+                    runSuspendCatching { backfill(city, enabledModels) }
+                }
+                when {
+                    result == null -> Log.w(
+                        LOG_TAG,
+                        "Historical forecast backfill timed out for city=${city.id}"
+                    )
+                    result.isFailure -> Log.w(
+                        LOG_TAG,
+                        "Historical forecast backfill failed for city=${city.id}",
+                        result.exceptionOrNull()
+                    )
+                }
+            }
+
+            var successes = 0
+            for (city in favorites) {
+                val result = withTimeoutOrNull(
+                    BiasRefreshScheduler.PER_CITY_OPERATION_TIMEOUT_MS
+                ) {
+                    runSuspendCatching { fetchObs(city) }
+                }
+                when {
+                    result?.isSuccess == true -> successes++
+                    result == null -> Log.w(
+                        LOG_TAG,
+                        "Observation refresh timed out for city=${city.id}"
+                    )
+                    else -> Log.w(
+                        LOG_TAG,
+                        "Observation refresh failed for city=${city.id}",
+                        result.exceptionOrNull()
+                    )
+                }
+            }
+            successes
+        } ?: run {
+            Log.w(LOG_TAG, "Bias refresh exceeded global work budget")
+            return Result.retry()
         }
 
-        // Fetch delta observations pour chaque ville, tolérant aux erreurs
-        // individuelles (idem : une ville qui rate ne bloque pas les autres).
-        for (city in favorites) {
-            runSuspendCatching { fetchObs(city) }.getOrNull()
+        // Si toutes les villes ont échoué, signaler retry plutôt qu'un faux
+        // SUCCESS. WorkManager appliquera son backoff sans boucle active.
+        if (favorites.isNotEmpty() && observationSuccesses == 0) {
+            return Result.retry()
         }
 
         // Housekeeping bias : purge les samples > RETENTION_DAYS.
@@ -206,7 +259,7 @@ internal class BiasRefreshWorker(
             biasRepo.purgeOlderThan(
                 LocalDate.now().minusDays(BiasRefreshScheduler.RETENTION_DAYS)
             )
-        }
+        }.onFailure { Log.w(LOG_TAG, "Bias sample cleanup failed", it) }
 
         // Housekeeping forecast cache : purge les entrées > FORECAST_CACHE_RETENTION_DAYS.
         // Protégé séparément pour rester indépendant de la purge du biais :
@@ -214,16 +267,20 @@ internal class BiasRefreshWorker(
         // cutoff en epoch millis alors que biasRepo utilise LocalDate, d'où
         // la conversion inline (Instant.now().minus(N days).toEpochMilli()).
         //
-        // Coût : 1 DELETE indexé sur `fetchedAtEpochMs`. Sur une DB de
-        // ~100 rows (17 modèles × 5 villes × ~1 entry par jour × 1 semaine),
-        // s'exécute en < 5 ms. Négligeable même sur bas de gamme.
+        // Coût : une seule requête DELETE sur une table naturellement bornée
+        // à une ligne par couple (ville, modèle). Le volume reste faible ; un
+        // index supplémentaire ne justifierait pas une migration destructive.
         runSuspendCatching {
             val cutoffMs = java.time.Instant.now()
                 .minus(BiasRefreshScheduler.FORECAST_CACHE_RETENTION_DAYS, java.time.temporal.ChronoUnit.DAYS)
                 .toEpochMilli()
             entry.forecastCacheDao().deleteOlderThan(cutoffMs)
-        }
+        }.onFailure { Log.w(LOG_TAG, "Forecast cache cleanup failed", it) }
 
         return Result.success()
+    }
+
+    companion object {
+        private const val LOG_TAG = "MeteoCompare/BiasWorker"
     }
 }

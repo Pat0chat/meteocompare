@@ -6,8 +6,10 @@ import com.meteocompare.app.data.remote.dto.ArchiveResponseDto
 import com.meteocompare.app.domain.model.BiasVariable
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.repository.BiasSampleRepository
+import com.meteocompare.app.domain.repository.ObservationBiasRecord
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.firstArg
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
@@ -35,6 +37,13 @@ class FetchBiasObservationsUseCaseTest {
     fun setUp() {
         api = mockk()
         repository = mockk(relaxed = true)
+        coEvery { repository.recordObservations(any()) } coAnswers {
+            firstArg<List<ObservationBiasRecord>>().forEach { record ->
+                repository.recordObservation(
+                    record.cityId, record.variable, record.targetDate, record.value
+                )
+            }
+        }
         useCase = FetchBiasObservationsUseCase(
             archiveApi = api,
             biasRepository = repository,

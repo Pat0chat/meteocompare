@@ -10,6 +10,7 @@ import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DayConfidence
 import com.meteocompare.app.domain.model.WeatherModel
+import com.meteocompare.app.di.DefaultDispatcher
 import com.meteocompare.app.domain.repository.CityRepository
 import com.meteocompare.app.domain.repository.ForecastRepository
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
@@ -17,11 +18,14 @@ import com.meteocompare.app.domain.usecase.ConfidenceCalculator
 import com.meteocompare.app.ui.navigation.Destinations
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import javax.inject.Inject
 
@@ -87,7 +91,8 @@ class ConfidenceExplanationViewModel @Inject constructor(
     private val cityRepository: CityRepository,
     private val forecastRepository: ForecastRepository,
     private val userPreferences: UserPreferencesRepository,
-    private val confidenceCalculator: ConfidenceCalculator
+    private val confidenceCalculator: ConfidenceCalculator,
+    @param:DefaultDispatcher private val computationDispatcher: CoroutineDispatcher = Dispatchers.Default
 ) : ViewModel() {
 
     private val cityId: String = checkNotNull(
@@ -140,7 +145,9 @@ class ConfidenceExplanationViewModel @Inject constructor(
                 .getCityForecastStream(city, models = models, forecastDays = 7)
                 .collect { result ->
                     _state.value = when (result) {
-                        is ApiResult.Success -> buildLoadedState(city, date, result.data)
+                        is ApiResult.Success -> withContext(computationDispatcher) {
+                            buildLoadedState(city, date, result.data)
+                        }
                         is ApiResult.Error -> {
                             // Si on avait déjà un Loaded (cache émis avant
                             // une erreur réseau), on le garde — l'utilisateur

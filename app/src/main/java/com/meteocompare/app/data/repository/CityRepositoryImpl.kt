@@ -2,6 +2,7 @@ package com.meteocompare.app.data.repository
 
 import android.content.Context
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.meteocompare.app.R
@@ -16,6 +17,9 @@ import com.meteocompare.app.domain.repository.CityRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
@@ -43,6 +47,10 @@ class CityRepositoryImpl @Inject constructor(
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : CityRepository {
 
+    private val safeFavorites = context.favoritesDataStore.data.catch { error ->
+        if (error is IOException) emit(emptyPreferences()) else throw error
+    }
+
     private val cityListSerializer = ListSerializer(City.serializer())
 
     override suspend fun searchCities(query: String): ApiResult<List<City>> =
@@ -67,12 +75,14 @@ class CityRepositoryImpl @Inject constructor(
         }
 
     override fun observeFavorites(): Flow<List<City>> =
-        context.favoritesDataStore.data.map { prefs ->
+        safeFavorites.map { prefs ->
             val raw = prefs[FAVORITES_KEY] ?: return@map emptyList()
             runCatching {
                 json.decodeFromString(cityListSerializer, raw)
             }.getOrDefault(emptyList())
         }
+            .distinctUntilChanged()
+            .flowOn(ioDispatcher)
 
     override suspend fun addFavorite(city: City) = withContext(ioDispatcher) {
         context.favoritesDataStore.edit { prefs ->

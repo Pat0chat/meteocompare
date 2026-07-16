@@ -9,12 +9,14 @@ import com.meteocompare.app.data.local.ClimateNormalDao
 import com.meteocompare.app.data.local.ClimateNormalEntity
 import com.meteocompare.app.data.remote.ClimateArchiveApi
 import com.meteocompare.app.data.remote.dto.ArchiveResponseDto
+import com.meteocompare.app.di.DefaultDispatcher
 import com.meteocompare.app.di.IoDispatcher
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.DayNormals
 import com.meteocompare.app.domain.repository.ClimateNormalsRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.time.LocalDate
@@ -44,7 +46,8 @@ class ClimateNormalsRepositoryImpl @Inject constructor(
     private val dao: ClimateNormalDao,
     private val networkMonitor: NetworkMonitor,
     @param:ApplicationContext private val context: Context,
-    @param:IoDispatcher private val io: CoroutineDispatcher
+    @param:IoDispatcher private val io: CoroutineDispatcher,
+    @param:DefaultDispatcher private val computation: CoroutineDispatcher = Dispatchers.Default
 ) : ClimateNormalsRepository {
 
     companion object {
@@ -71,20 +74,24 @@ class ClimateNormalsRepositoryImpl @Inject constructor(
 
             val n = response.daily.time.size
             for (i in 0 until n) {
-                val tempMax = response.daily.tempMax.getOrNull(i)
-                val tempMin = response.daily.tempMin.getOrNull(i)
-                if (tempMax == null || tempMin == null) continue
-
-                val date = LocalDate.parse(response.daily.time[i])
+                // Une ligne distante malformée ne doit pas faire perdre les
+                // milliers d'autres jours valides du lot.
+                val date = runCatching { LocalDate.parse(response.daily.time[i]) }
+                    .getOrNull() ?: continue
                 val key = DayNormals.key(date.monthValue, date.dayOfMonth)
                 val acc = byMonthDay.getOrPut(key) { Acc() }
-                acc.sumMax += tempMax
-                acc.sumMin += tempMin
-                acc.nTemp += 1
 
-                // Précip et vent : cumulés indépendamment. Un jour peut avoir
-                // une température mais pas de mesure de vent (rare mais possible
-                // sur des postes climatologiques anciens).
+                // Température : max et min forment une paire. Une année sans
+                // cette paire ne contribue pas à la normale thermique, mais ne
+                // doit pas empêcher pluie/vent de contribuer indépendamment.
+                val tempMax = response.daily.tempMax.getOrNull(i)
+                val tempMin = response.daily.tempMin.getOrNull(i)
+                if (tempMax != null && tempMin != null) {
+                    acc.sumMax += tempMax
+                    acc.sumMin += tempMin
+                    acc.nTemp += 1
+                }
+
                 response.daily.precipSum?.getOrNull(i)?.let {
                     acc.sumPrecip += it
                     acc.nPrecip += 1
@@ -96,6 +103,10 @@ class ClimateNormalsRepositoryImpl @Inject constructor(
             }
 
             return byMonthDay.entries
+                // DayNormals exige une base thermique exploitable. Les autres
+                // variables restent toutefois agrégées avec toutes leurs
+                // années valides, même quand la température manque ponctuellement.
+                .filter { (_, acc) -> acc.nTemp > 0 }
                 .map { (key, acc) ->
                     DayNormals(
                         month = key / 100,
@@ -157,7 +168,7 @@ class ClimateNormalsRepositoryImpl @Inject constructor(
                     }
                 }
                 is ApiResult.Success -> {
-                    val normals = aggregate(result.data)
+                    val normals = withContext(computation) { aggregate(result.data) }
                     val now = System.currentTimeMillis()
                     val entities = normals.map { it.toEntity(city.id, now) }
                     dao.replaceForCity(city.id, entities)

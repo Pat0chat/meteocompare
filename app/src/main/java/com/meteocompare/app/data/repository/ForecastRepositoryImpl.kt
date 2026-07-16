@@ -13,6 +13,7 @@ import com.meteocompare.app.data.mapper.ForecastMapper
 import com.meteocompare.app.data.remote.BatchedForecastSplitter
 import com.meteocompare.app.data.remote.OpenMeteoApi
 import com.meteocompare.app.data.remote.dto.ForecastResponseDto
+import com.meteocompare.app.di.DefaultDispatcher
 import com.meteocompare.app.di.IoDispatcher
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityForecast
@@ -22,6 +23,7 @@ import com.meteocompare.app.domain.repository.ForecastRepository
 import com.meteocompare.app.domain.usecase.SnapshotForecastUseCase
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred
@@ -83,7 +85,8 @@ class ForecastRepositoryImpl @Inject constructor(
     private val networkMonitor: NetworkMonitor,
     private val snapshotForecast: SnapshotForecastUseCase,
     @param:ApplicationContext private val context: Context,
-    @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher
+    @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+    @param:DefaultDispatcher private val computationDispatcher: CoroutineDispatcher = Dispatchers.Default
 ) : ForecastRepository {
 
     // ── Coalescing des fetch réseau concurrents ───────────────────────────
@@ -164,14 +167,16 @@ class ForecastRepositoryImpl @Inject constructor(
     ): Flow<ApiResult<CityForecast>> = flow {
         var hasCached = false
         var cachedFetchedAtMs: Long? = null
+        var cacheComplete = false
 
         // ── Étape 1 : émission immédiate depuis le cache (si non forcé) ──
         if (!forceRefresh) {
             val cached = readCache(city, models)
             if (cached != null) {
                 hasCached = true
-                cachedFetchedAtMs = cached.fetchedAt?.toEpochMilli()
-                emit(ApiResult.Success(cached))
+                cachedFetchedAtMs = cached.oldestFetchedAtMs
+                cacheComplete = cached.isComplete
+                emit(ApiResult.Success(cached.forecast))
             }
         }
 
@@ -186,7 +191,7 @@ class ForecastRepositoryImpl @Inject constructor(
         // cachedFetchedAtMs est null (donnée cache antérieure à l'ajout du
         // champ fetchedAt), on refetch quand même, pour ne pas laisser le
         // user coincé sur du cache très vieux.
-        if (!forceRefresh && maxCacheAgeMs != null && hasCached &&
+        if (!forceRefresh && maxCacheAgeMs != null && hasCached && cacheComplete &&
             cachedFetchedAtMs != null) {
             val ageMs = System.currentTimeMillis() - cachedFetchedAtMs
             if (ageMs in 0..maxCacheAgeMs) {
@@ -208,7 +213,7 @@ class ForecastRepositoryImpl @Inject constructor(
                     // Mais on essaie une dernière fois de lire le cache, au cas
                     // où on avait forceRefresh=true et il existe quand même.
                     val fallback = readCache(city, models)
-                    if (fallback != null) emit(ApiResult.Success(fallback))
+                    if (fallback != null) emit(ApiResult.Success(fallback.forecast))
                     else emit(networkResult)
                 }
                 // Si on a déjà émis du cache, on n'émet PAS l'erreur — l'UI
@@ -259,31 +264,43 @@ class ForecastRepositoryImpl @Inject constructor(
     private suspend fun readCache(
         city: City,
         models: List<WeatherModel>
-    ): CityForecast? = withContext(ioDispatcher) {
+    ): CachedForecast? = withContext(ioDispatcher) {
+        val entries = cacheDao.getForCity(city.id)
         val modelByApiKey = models.associateBy(WeatherModel::apiKey)
-        val cachedSeries = cacheDao.getForCity(city.id).mapNotNull { entry ->
-            val model = modelByApiKey[entry.modelKey] ?: return@mapNotNull null
-            runCatching {
-                val dto = json.decodeFromString<ForecastResponseDto>(entry.responseJson)
-                entry.fetchedAtEpochMs to mapper.toSeries(model, dto)
-            }.getOrNull()
+        val cachedSeries = withContext(computationDispatcher) {
+            entries.mapNotNull { entry ->
+                val model = modelByApiKey[entry.modelKey] ?: return@mapNotNull null
+                runCatching {
+                    val dto = json.decodeFromString<ForecastResponseDto>(entry.responseJson)
+                    entry.fetchedAtEpochMs to mapper.toSeries(model, dto)
+                }.getOrNull()
+            }
         }
         if (cachedSeries.isEmpty()) return@withContext null
 
         // Une entrée corrompue est ignorée et ne doit pas influencer la date
         // affichée. On calcule donc la fraîcheur uniquement sur les entrées
         // effectivement décodées et mappées.
-        val newestFetchedAtMs = cachedSeries.maxOf { it.first }
+        // La fraîcheur du lot est celle de son entrée LA PLUS ANCIENNE, pas
+        // de la plus récente. Sinon l'ajout d'un nouveau modèle pouvait rendre
+        // le cache "frais" grâce à un autre modèle récent et empêcher le fetch
+        // de la série manquante pendant tout l'intervalle utilisateur.
+        val oldestFetchedAtMs = cachedSeries.minOf { it.first }
         val seriesByModel = cachedSeries
             .asSequence()
             .map { it.second }
             .associateBy(ForecastSeries::model)
+        val isComplete = models.all { it in seriesByModel }
 
-        CityForecast(
-            city = city,
-            seriesByModel = seriesByModel,
-            errors = emptyMap(), // on n'a pas mémorisé les erreurs en cache
-            fetchedAt = Instant.ofEpochMilli(newestFetchedAtMs)
+        CachedForecast(
+            forecast = CityForecast(
+                city = city,
+                seriesByModel = seriesByModel,
+                errors = emptyMap(), // on n'a pas mémorisé les erreurs en cache
+                fetchedAt = Instant.ofEpochMilli(oldestFetchedAtMs)
+            ),
+            isComplete = isComplete,
+            oldestFetchedAtMs = oldestFetchedAtMs
         )
     }
 
@@ -362,29 +379,31 @@ class ForecastRepositoryImpl @Inject constructor(
             return@withContext ApiResult.Error(e, e.toUserMessage(context))
         }
 
-        // ── Décomposition batched → per-modèle ─────────────────────────
-        val perModelDtos: Map<WeatherModel, ForecastResponseDto> =
-            BatchedForecastSplitter.split(batched, models)
-
-        val successes = perModelDtos.mapValues { (model, dto) ->
-            mapper.toSeries(model, dto)
-        }
-        val errors = mutableMapOf<WeatherModel, String>()
-
-        // Une seule transaction Room pour tous les modèles, au lieu d'une
-        // transaction par entrée. Une erreur de cache ne bloque pas
-        // l'affichage de la donnée fraîche.
-        val cacheEntries = perModelDtos.map { (model, dto) ->
-            ForecastCacheEntity(
-                cityId = city.id,
-                modelKey = model.apiKey,
-                fetchedAtEpochMs = now,
-                responseJson = json.encodeToString(
-                    ForecastResponseDto.serializer(),
-                    dto
+        // Parsing, split, mapping et ré-encodage JSON sont du travail CPU :
+        // ils tournent sur Default, borné par le nombre de cœurs, et non sur
+        // le pool I/O élastique.
+        val processed = withContext(computationDispatcher) {
+            val perModelDtos = BatchedForecastSplitter.split(batched, models)
+            val successes = perModelDtos.mapValues { (model, dto) ->
+                mapper.toSeries(model, dto)
+            }
+            val cacheEntries = perModelDtos.map { (model, dto) ->
+                ForecastCacheEntity(
+                    cityId = city.id,
+                    modelKey = model.apiKey,
+                    fetchedAtEpochMs = now,
+                    responseJson = json.encodeToString(
+                        ForecastResponseDto.serializer(),
+                        dto
+                    )
                 )
-            )
+            }
+            ProcessedForecast(perModelDtos, successes, cacheEntries)
         }
+        val perModelDtos = processed.dtos
+        val successes = processed.series
+        val cacheEntries = processed.cacheEntries
+        val errors = mutableMapOf<WeatherModel, String>()
         if (cacheEntries.isNotEmpty()) {
             runSuspendCatching { cacheDao.upsertAll(cacheEntries) }
         }
@@ -421,6 +440,18 @@ class ForecastRepositoryImpl @Inject constructor(
             ApiResult.Success(fresh)
         }
     }
+
+    private data class CachedForecast(
+        val forecast: CityForecast,
+        val isComplete: Boolean,
+        val oldestFetchedAtMs: Long
+    )
+
+    private data class ProcessedForecast(
+        val dtos: Map<WeatherModel, ForecastResponseDto>,
+        val series: Map<WeatherModel, ForecastSeries>,
+        val cacheEntries: List<ForecastCacheEntity>
+    )
 
     companion object {
         /**

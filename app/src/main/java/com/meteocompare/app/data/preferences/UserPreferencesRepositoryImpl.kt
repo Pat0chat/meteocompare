@@ -2,6 +2,7 @@ package com.meteocompare.app.data.preferences
 
 import android.content.Context
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -14,9 +15,11 @@ import com.meteocompare.app.domain.repository.UserPreferencesRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -33,6 +36,11 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : UserPreferencesRepository {
 
+    /** Une erreur I/O DataStore ne doit pas tuer définitivement les collecteurs UI. */
+    private val safePreferences = context.preferencesDataStore.data.catch { error ->
+        if (error is IOException) emit(emptyPreferences()) else throw error
+    }
+
     // ─── distinctUntilChanged sur TOUS les flows ──────────────────────────
     // DataStore émet à CHAQUE écriture dans le fichier preferences, y compris
     // quand la valeur qu'on observe n'a pas bougé (une autre clé a été
@@ -44,7 +52,7 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     // trivial et évite un pic de CPU/network au moment d'un toggle sans
     // rapport avec les modèles.
     override fun observeEnabledModels(): Flow<List<WeatherModel>> =
-        context.preferencesDataStore.data.map { prefs ->
+        safePreferences.map { prefs ->
             val apiKeys = prefs[ENABLED_MODELS_KEY]
             if (apiKeys == null) {
                 WeatherModel.MVP_SELECTION
@@ -64,7 +72,7 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         }
 
     override fun observeThemePreference(): Flow<ThemePreference> =
-        context.preferencesDataStore.data.map { prefs ->
+        safePreferences.map { prefs ->
             ThemePreference.fromString(prefs[THEME_PREFERENCE_KEY])
         }.distinctUntilChanged()
 
@@ -77,7 +85,7 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         }
 
     override fun observeLanguagePreference(): Flow<LanguagePreference> =
-        context.preferencesDataStore.data.map { prefs ->
+        safePreferences.map { prefs ->
             LanguagePreference.fromString(prefs[LANGUAGE_PREFERENCE_KEY])
         }.distinctUntilChanged()
 
@@ -90,7 +98,7 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         }
 
     override fun observeRefreshInterval(): Flow<RefreshInterval> =
-        context.preferencesDataStore.data.map { prefs ->
+        safePreferences.map { prefs ->
             RefreshInterval.fromString(prefs[REFRESH_INTERVAL_KEY])
         }.distinctUntilChanged()
 

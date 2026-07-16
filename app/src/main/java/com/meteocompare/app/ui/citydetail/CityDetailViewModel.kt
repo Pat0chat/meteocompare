@@ -13,6 +13,7 @@ import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DayNormals
 import com.meteocompare.app.domain.model.ModelBias
 import com.meteocompare.app.domain.model.WeatherModel
+import com.meteocompare.app.di.DefaultDispatcher
 import com.meteocompare.app.domain.repository.BiasSampleRepository
 import com.meteocompare.app.domain.repository.CityRepository
 import com.meteocompare.app.domain.repository.ClimateNormalsRepository
@@ -23,6 +24,8 @@ import com.meteocompare.app.domain.usecase.ConfidenceCalculator
 import com.meteocompare.app.ui.navigation.Destinations
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
@@ -35,11 +38,13 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 /**
@@ -66,7 +71,8 @@ class CityDetailViewModel @Inject constructor(
     private val confidenceCalculator: ConfidenceCalculator,
     private val userPreferences: UserPreferencesRepository,
     private val biasSampleRepository: BiasSampleRepository,
-    private val computeBias: ComputeBiasUseCase
+    private val computeBias: ComputeBiasUseCase,
+    @param:DefaultDispatcher private val computationDispatcher: CoroutineDispatcher = Dispatchers.Default
 ) : ViewModel() {
 
     private val cityId: String = checkNotNull(
@@ -162,7 +168,7 @@ class CityDetailViewModel @Inject constructor(
                 yDomainMin = yDomain?.first,
                 yDomainMax = yDomain?.second
             )
-        }
+        }.flowOn(computationDispatcher)
     }
 
     /**
@@ -298,20 +304,14 @@ class CityDetailViewModel @Inject constructor(
     private suspend fun findCity(): City? =
         cityRepository.observeFavorites().first().firstOrNull { it.id == cityId }
 
-    private fun applyResult(result: ApiResult<CityForecast>) {
-        _state.value = when (result) {
-            is ApiResult.Success -> {
+    private suspend fun applyResult(result: ApiResult<CityForecast>) {
+        val previous = _state.value
+        val next = when (result) {
+            is ApiResult.Success -> withContext(computationDispatcher) {
                 val weekly = confidenceCalculator.weeklyConfidence(result.data)
                 val hourly = confidenceCalculator.hourlyTemperatureConfidence(result.data)
-                // Pré-calcul des bandes précipitation et vent — le user peut
-                // switcher entre les 3 métriques via le SegmentedButton du chart
-                // et on veut que la transition soit instantanée. Coût O(H × N)
-                // par bande, N ≈ 5-8 modèles, H ≤ 168 heures → négligeable
-                // (mesure : < 10 ms cumulé sur un Pixel 6).
-                val hourlyPrecip = confidenceCalculator
-                    .hourlyPrecipitationConfidence(result.data)
-                val hourlyWind = confidenceCalculator
-                    .hourlyWindConfidence(result.data)
+                val hourlyPrecip = confidenceCalculator.hourlyPrecipitationConfidence(result.data)
+                val hourlyWind = confidenceCalculator.hourlyWindConfidence(result.data)
                 val currentTemp = confidenceCalculator.currentTemperature(result.data)
                 val currentCondition = confidenceCalculator.currentWeatherCondition(result.data)
                 val dailyConditions = confidenceCalculator.dailyConditionsByModel(result.data)
@@ -330,10 +330,11 @@ class CityDetailViewModel @Inject constructor(
                 )
             }
             is ApiResult.Error -> {
-                if (_state.value is CityDetailUiState.Loaded) _state.value
+                if (previous is CityDetailUiState.Loaded) previous
                 else CityDetailUiState.Error(result.message)
             }
         }
+        _state.value = next
     }
 
     companion object {

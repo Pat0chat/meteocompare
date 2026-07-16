@@ -484,15 +484,15 @@ private fun TemperatureSummary(
             // layout Row à côté ne bouge pas (Column avec seul enfant = taille
             // de l'icône, comme avant).
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                // AnimatedWeatherIcon wrap WeatherIconDecorative avec une
-                // animation subtile par condition (rotation soleil, dérive
-                // nuages, rebond pluie/neige). Voir la doc du composable pour
-                // le détail par famille de temps.
+                // La liste peut afficher plusieurs villes simultanément. Une
+                // animation infinie par carte maintiendrait le rendu GPU/CPU
+                // actif tant que l'écran reste ouvert. On garde ici le dessin
+                // statique et la transition ponctuelle de condition ; l'icône
+                // animée complète reste réservée à l'écran détail.
                 AnimatedWeatherIcon(
                     condition = currentCondition,
                     size = 50.dp,
-                    animated = true,
-                    motionScale = 2.0f,
+                    animated = false,
                     tint = Color.Unspecified
                 )
                 if (showCloudBadge) {

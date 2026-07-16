@@ -13,9 +13,12 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 
 @HiltViewModel
@@ -23,6 +26,8 @@ class SettingsViewModel @Inject constructor(
     @param:ApplicationContext private val appContext: Context,
     private val prefs: UserPreferencesRepository
 ) : ViewModel() {
+
+    private val modelUpdateMutex = Mutex()
 
     val enabledModels: StateFlow<Set<WeatherModel>> = prefs.observeEnabledModels()
         .map { it.toSet() }
@@ -55,21 +60,27 @@ class SettingsViewModel @Inject constructor(
 
     fun onModelToggled(model: WeatherModel, enabled: Boolean) {
         viewModelScope.launch {
-            val current = enabledModels.value
-            val next = if (enabled) current + model else current - model
-            if (next.isNotEmpty()) {
-                prefs.setEnabledModels(next.toList())
-                // Le widget lit la liste des modèles activés à chaque
-                // loadWidgetData. Sans ce trigger, il faudrait attendre le
-                // prochain tick 15 min pour que le changement se propage —
-                // frustrant pour l'utilisateur qui vient de faire un choix
-                // explicite. On force un tick immédiat pour re-fetcher avec
-                // le nouveau jeu de modèles tout de suite.
-                //
-                // Les demandes immédiates sont dédupliquées sous un nom
-                // WorkManager unique : plusieurs toggles rapides remplacent
-                // le tick précédent au lieu d'empiler des workers.
-                WidgetRefreshScheduler.triggerImmediateRefresh(appContext)
+            // Les taps peuvent arriver plus vite que la réémission DataStore.
+            // On sérialise donc les mutations et on relit la source de vérité
+            // dans la section critique, sinon deux toggles rapprochés peuvent
+            // se réécrire mutuellement à partir d'un StateFlow encore ancien.
+            modelUpdateMutex.withLock {
+                val current = prefs.observeEnabledModels().first().toSet()
+                val next = if (enabled) current + model else current - model
+                if (next.isNotEmpty()) {
+                    prefs.setEnabledModels(next.toList())
+                    // Le widget lit la liste des modèles activés à chaque
+                    // loadWidgetData. Sans ce trigger, il faudrait attendre le
+                    // prochain tick 15 min pour que le changement se propage —
+                    // frustrant pour l'utilisateur qui vient de faire un choix
+                    // explicite. On force un tick immédiat pour re-fetcher avec
+                    // le nouveau jeu de modèles tout de suite.
+                    //
+                    // Les demandes immédiates sont dédupliquées sous un nom
+                    // WorkManager unique : plusieurs toggles rapides remplacent
+                    // le tick précédent au lieu d'empiler des workers.
+                    WidgetRefreshScheduler.triggerImmediateRefresh(appContext)
+                }
             }
         }
     }

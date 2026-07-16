@@ -188,6 +188,30 @@ class BatchedForecastSplitterTest {
     }
 
     @Test
+    fun `timestamp malforme conserve sa position pour ne pas decaler les valeurs`() {
+        val response = json.decodeFromString<BatchedForecastResponseDto>(
+            """{
+              "latitude": 0.0, "longitude": 0.0, "timezone": "UTC",
+              "hourly": {
+                "time": ["2026-06-23T00:00", null, "2026-06-23T02:00"],
+                "temperature_2m_gfs_seamless": [20.0, 99.0, 22.0]
+              }
+            }"""
+        )
+
+        val split = BatchedForecastSplitter.split(response, listOf(WeatherModel.GFS))
+
+        assertEquals(
+            listOf("2026-06-23T00:00", "", "2026-06-23T02:00"),
+            split.getValue(WeatherModel.GFS).hourly?.time
+        )
+        assertEquals(
+            listOf(20.0, 99.0, 22.0),
+            split.getValue(WeatherModel.GFS).hourly?.temperature2m
+        )
+    }
+
+    @Test
     fun `hourly absent de la reponse - dto reconstruit avec hourly null`() {
         val response = json.decodeFromString<BatchedForecastResponseDto>(
             """{

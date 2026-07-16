@@ -39,6 +39,26 @@ import java.time.LocalDate
  * qu'on a réussi à fetch. Un utilisateur hors ligne verra les samples
  * jusqu'au dernier fetch réussi, ce qui est le comportement attendu.
  */
+
+/** Lot de prévisions de biais prêt à persister en une transaction. */
+data class ForecastBiasRecord(
+    val cityId: String,
+    val model: WeatherModel,
+    val variable: BiasVariable,
+    val targetDate: LocalDate,
+    val issuedAt: Instant,
+    val value: Double
+)
+
+/** Lot d'observations de biais prêt à persister en une transaction. */
+data class ObservationBiasRecord(
+    val cityId: String,
+    val variable: BiasVariable,
+    val targetDate: LocalDate,
+    val value: Double,
+    val fetchedAt: Instant = Instant.now()
+)
+
 interface BiasSampleRepository {
 
     /**
@@ -77,6 +97,24 @@ interface BiasSampleRepository {
     )
 
     /**
+     * Variante batch. L'implémentation Room surcharge cette méthode pour faire
+     * une seule transaction. Le corps par défaut conserve la compatibilité des
+     * fakes/tests et des implémentations alternatives.
+     */
+    suspend fun recordForecasts(records: List<ForecastBiasRecord>) {
+        records.forEach { record ->
+            recordForecast(
+                cityId = record.cityId,
+                model = record.model,
+                variable = record.variable,
+                targetDate = record.targetDate,
+                issuedAt = record.issuedAt,
+                value = record.value
+            )
+        }
+    }
+
+    /**
      * Persiste une observation pour [targetDate]. Idempotent sur
      * (city, variable, targetDate) — écrase silencieusement (une nouvelle
      * mesure ERA5 remplace la précédente pour la même date).
@@ -87,6 +125,18 @@ interface BiasSampleRepository {
         targetDate: LocalDate,
         value: Double
     )
+
+    /** Variante batch des observations, avec fallback compatible. */
+    suspend fun recordObservations(records: List<ObservationBiasRecord>) {
+        records.forEach { record ->
+            recordObservation(
+                cityId = record.cityId,
+                variable = record.variable,
+                targetDate = record.targetDate,
+                value = record.value
+            )
+        }
+    }
 
     /**
      * Retourne la date la plus récente pour laquelle on a déjà une observation

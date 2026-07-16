@@ -27,7 +27,7 @@ import java.time.LocalDate
  *      jour) qui a une valeur non-null.
  *   2. Valeurs `null` skippées silencieusement — pas d'exception.
  *   3. Fenêtre de sanité : dates aberrantes rejetées.
- *   4. Listes désalignées (données corrompues) : modèle skippé sans crash.
+ *   4. Listes désalignées (données partielles) : chaque variable valide est conservée.
  *   5. Idempotence contract : même forecast snapshotté 2x = mêmes rows
  *      (via REPLACE côté DB, testé au niveau contract avec un fake qui
  *      capture chaque appel).
@@ -153,7 +153,7 @@ class SnapshotForecastUseCaseTest {
     // ─── Robustesse : listes désalignées ─────────────────────────────────
 
     @Test
-    fun `misaligned lists skip the model without crashing`() = runTest {
+    fun `misaligned lists preserve valid values independently`() = runTest {
         val forecast = buildForecast(
             models = mapOf(
                 WeatherModel.GFS to DailyForecast(
@@ -173,9 +173,17 @@ class SnapshotForecastUseCaseTest {
         )
         useCase(forecast, issuedAt = issuedAt, today = today)
 
-        // GFS entièrement skippé (misaligné), ECMWF ok → 3 rows
-        assertEquals(3, fakeRepo.forecastRecords.size)
-        assertTrue(fakeRepo.forecastRecords.all { it.model == WeatherModel.ECMWF })
+        // GFS : 1 température + 2 pluies + 2 vents = 5 rows.
+        // ECMWF : 3 rows. Aucune variable valide n'est perdue.
+        assertEquals(8, fakeRepo.forecastRecords.size)
+        assertEquals(
+            5,
+            fakeRepo.forecastRecords.count { it.model == WeatherModel.GFS }
+        )
+        assertEquals(
+            3,
+            fakeRepo.forecastRecords.count { it.model == WeatherModel.ECMWF }
+        )
     }
 
     // ─── Contract d'idempotence ───────────────────────────────────────────

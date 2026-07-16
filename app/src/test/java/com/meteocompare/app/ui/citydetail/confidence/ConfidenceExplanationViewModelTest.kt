@@ -154,7 +154,8 @@ class ConfidenceExplanationViewModelTest {
         cityRepository = cityRepository,
         forecastRepository = forecastRepository,
         userPreferences = preferences,
-        confidenceCalculator = calculator
+        confidenceCalculator = calculator,
+        computationDispatcher = dispatcher
     )
 
     private fun forecast(): CityForecast {

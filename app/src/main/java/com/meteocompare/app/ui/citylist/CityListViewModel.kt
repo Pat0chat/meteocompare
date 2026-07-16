@@ -7,12 +7,16 @@ import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.WeatherModel
+import com.meteocompare.app.di.DefaultDispatcher
 import com.meteocompare.app.domain.repository.CityRepository
 import com.meteocompare.app.domain.repository.ForecastRepository
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
 import com.meteocompare.app.domain.usecase.ConfidenceCalculator
 import com.meteocompare.app.domain.util.ForecastAggregates
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -31,6 +35,9 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @HiltViewModel
@@ -39,7 +46,8 @@ class CityListViewModel @Inject constructor(
     private val cityRepository: CityRepository,
     private val forecastRepository: ForecastRepository,
     private val confidenceCalculator: ConfidenceCalculator,
-    private val userPreferences: UserPreferencesRepository
+    private val userPreferences: UserPreferencesRepository,
+    @param:DefaultDispatcher private val computationDispatcher: CoroutineDispatcher = Dispatchers.Default
 ) : ViewModel() {
 
     private val forecastsById = MutableStateFlow<Map<String, ForecastState>>(emptyMap())
@@ -50,10 +58,10 @@ class CityListViewModel @Inject constructor(
     // changent (auquel cas on relance avec la nouvelle config).
     private val streamJobs = mutableMapOf<String, Job>()
 
-    // Snapshot de la dernière config utilisée pour lancer les streams.
-    // Sert à détecter si un update de source amont concerne effectivement
-    // ce qu'on écoute — évite les cancel/relaunch inutiles.
-    private var lastModelsSnapshot: List<WeatherModel>? = null
+    // Snapshot de la dernière configuration de stream. L'intervalle fait
+    // partie de la clé : il détermine la fraîcheur acceptable du cache au
+    // moment de la souscription.
+    private var lastStreamConfig: Pair<List<WeatherModel>, RefreshInterval>? = null
 
     val uiState: StateFlow<CityListUiState> = combine(
         cityRepository.observeFavorites(),
@@ -183,22 +191,19 @@ class CityListViewModel @Inject constructor(
         streamJobs.keys.filter { it !in currentIds }.forEach { id ->
             streamJobs.remove(id)?.cancel()
             forecastsById.update { it - id }
-            viewModelScope.launch { forecastRepository.clearCacheForCity(id) }
         }
 
-        val modelsChanged = lastModelsSnapshot?.let { it != models } ?: true
+        val config = models to interval
+        val configChanged = lastStreamConfig?.let { it != config } ?: true
 
-        // 2. Si les modèles ont changé (ou si c'est le premier appel), on
+        // 2. Si les modèles OU l'intervalle ont changé (ou premier appel), on
         //    cancel TOUS les streams restants pour tout relancer avec la
         //    nouvelle config. Sinon on garde les streams existants et on ne
         //    lance que ceux des villes nouvellement ajoutées.
         //
-        //    Note : l'intervalle affecte `maxCacheAgeMs` du repository, mais
-        //    ce paramètre n'est utilisé qu'à la subscription du stream. Un
-        //    stream déjà en collecte a déjà fait sa décision fetch/cache — le
-        //    changement d'intervalle affecte le PROCHAIN démarrage de stream.
-        //    Donc on N'annule PAS pour un pur changement d'intervalle.
-        if (modelsChanged) {
+        //    L'intervalle affecte `maxCacheAgeMs` au démarrage du stream : on
+        //    relance donc immédiatement pour appliquer le nouveau seuil.
+        if (configChanged) {
             streamJobs.values.forEach { it.cancel() }
             streamJobs.clear()
         }
@@ -210,24 +215,32 @@ class CityListViewModel @Inject constructor(
         val maxCacheAgeMs = if (interval == RefreshInterval.MANUAL) Long.MAX_VALUE
         else interval.millis
         cities.forEach { city ->
-            if (city.id !in streamJobs) {
-                streamJobs[city.id] = viewModelScope.launch {
-                    forecastRepository
-                        .getCityForecastStream(
-                            city = city,
-                            models = models,
-                            maxCacheAgeMs = maxCacheAgeMs
-                        )
-                        .collect { result ->
-                            forecastsById.update {
-                                it + (city.id to toForecastState(city, result))
+            val existing = streamJobs[city.id]
+            if (existing?.isActive != true) {
+                val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
+                    val ownJob = coroutineContext[Job]
+                    try {
+                        forecastRepository
+                            .getCityForecastStream(
+                                city = city,
+                                models = models,
+                                maxCacheAgeMs = maxCacheAgeMs
+                            )
+                            .collect { result ->
+                                val mapped = toForecastState(city, result)
+                                forecastsById.update { it + (city.id to mapped) }
                             }
-                        }
+                    } finally {
+                        // Ne jamais laisser de Job terminé dans la registry.
+                        if (streamJobs[city.id] === ownJob) streamJobs.remove(city.id)
+                    }
                 }
+                streamJobs[city.id] = job
+                job.start()
             }
         }
 
-        lastModelsSnapshot = models
+        lastStreamConfig = config
     }
 
     // ─── Actions utilisateur ────────────────────────────────────────────────
@@ -244,7 +257,12 @@ class CityListViewModel @Inject constructor(
     }
 
     fun onRemoveCity(cityId: String) {
-        viewModelScope.launch { cityRepository.removeFavorite(cityId) }
+        viewModelScope.launch {
+            cityRepository.removeFavorite(cityId)
+            // Nettoyage explicite après la suppression utilisateur. Une émission
+            // DataStore vide transitoire ne doit jamais effacer le cache.
+            forecastRepository.clearCacheForCity(cityId)
+        }
     }
 
     fun onRetry(city: City) {
@@ -252,7 +270,8 @@ class CityListViewModel @Inject constructor(
             forecastsById.update { it + (city.id to ForecastState.Loading) }
             val models = userPreferences.observeEnabledModels().first()
             val result = forecastRepository.refreshCityForecast(city, models = models)
-            forecastsById.update { it + (city.id to toForecastState(city, result)) }
+            val mapped = toForecastState(city, result)
+            forecastsById.update { it + (city.id to mapped) }
         }
     }
 
@@ -263,11 +282,15 @@ class CityListViewModel @Inject constructor(
             try {
                 val cities = uiState.value.items.map { it.city }
                 val models = userPreferences.observeEnabledModels().first()
+                val limiter = Semaphore(MAX_CONCURRENT_CITY_REFRESHES)
                 coroutineScope {
                     cities.map { city ->
                         async {
-                            val result = forecastRepository.refreshCityForecast(city, models)
-                            forecastsById.update { it + (city.id to toForecastState(city, result)) }
+                            limiter.withPermit {
+                                val result = forecastRepository.refreshCityForecast(city, models)
+                                val mapped = toForecastState(city, result)
+                                forecastsById.update { it + (city.id to mapped) }
+                            }
                         }
                     }.awaitAll()
                 }
@@ -279,10 +302,10 @@ class CityListViewModel @Inject constructor(
 
     // ─── Helpers ────────────────────────────────────────────────────────────
 
-    private fun toForecastState(
+    private suspend fun toForecastState(
         city: City,
         result: ApiResult<CityForecast>
-    ): ForecastState = when (result) {
+    ): ForecastState = withContext(computationDispatcher) { when (result) {
         is ApiResult.Success -> {
             val today = result.data.seriesByModel.values
                 .firstOrNull()?.daily?.dates?.firstOrNull()
@@ -327,5 +350,10 @@ class CityListViewModel @Inject constructor(
             }
         }
         is ApiResult.Error -> ForecastState.Error(result.message)
+    } }
+
+    companion object {
+        /** Évite de saturer CPU, sockets et quotas lorsqu'il y a beaucoup de favoris. */
+        private const val MAX_CONCURRENT_CITY_REFRESHES = 3
     }
 }

@@ -105,7 +105,7 @@ class CityListViewModelTest {
         } returns flow {
             /* ne rien émettre, ne pas terminer */
         }
-        viewModel = CityListViewModel(cityRepo, forecastRepo, calculator, prefs)
+        viewModel = CityListViewModel(cityRepo, forecastRepo, calculator, prefs, dispatcher)
     }
 
     @After
@@ -149,7 +149,7 @@ class CityListViewModelTest {
         } returns flowOf(ApiResult.Success(forecast))
 
         // Nouvelle VM qui capturera le bon stub
-        val vm = CityListViewModel(cityRepo, forecastRepo, calculator, prefs)
+        val vm = CityListViewModel(cityRepo, forecastRepo, calculator, prefs, dispatcher)
 
         vm.uiState.test {
             awaitItem() // initial vide
@@ -172,7 +172,7 @@ class CityListViewModelTest {
                 forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
             } returns flowOf(ApiResult.Error(RuntimeException("net"), "Pas de connexion"))
 
-            val vm = CityListViewModel(cityRepo, forecastRepo, calculator, prefs)
+            val vm = CityListViewModel(cityRepo, forecastRepo, calculator, prefs, dispatcher)
 
             vm.uiState.test {
                 awaitItem()
@@ -227,7 +227,7 @@ class CityListViewModelTest {
             forecastRepo.refreshCityForecast(eq(paris), any(), any())
         } returns ApiResult.Success(freshForecast)
 
-        val vm = CityListViewModel(cityRepo, forecastRepo, calculator, prefs)
+        val vm = CityListViewModel(cityRepo, forecastRepo, calculator, prefs, dispatcher)
 
         vm.uiState.test {
             awaitItem() // initial vide
@@ -245,6 +245,22 @@ class CityListViewModelTest {
                 final = awaitItem()
             }
             assertTrue(final.items.first().forecast is ForecastState.Loaded)
+        }
+    }
+
+
+    @Test
+    fun `changing refresh interval restarts streams with the new cache policy`() = runTest(dispatcher) {
+        favoritesFlow.value = listOf(paris)
+
+        coVerify(atLeast = 1) {
+            forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), eq(RefreshInterval.DEFAULT.millis))
+        }
+
+        refreshIntervalFlow.value = RefreshInterval.HOURS_3
+
+        coVerify(atLeast = 1) {
+            forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), eq(RefreshInterval.HOURS_3.millis))
         }
     }
 

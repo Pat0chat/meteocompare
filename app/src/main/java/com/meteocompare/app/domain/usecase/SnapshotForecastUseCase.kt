@@ -3,6 +3,7 @@ package com.meteocompare.app.domain.usecase
 import com.meteocompare.app.domain.model.BiasVariable
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.repository.BiasSampleRepository
+import com.meteocompare.app.domain.repository.ForecastBiasRecord
 import java.time.Instant
 import java.time.LocalDate
 import javax.inject.Inject
@@ -79,39 +80,36 @@ class SnapshotForecastUseCase @Inject constructor(
         val minDay = today.minusDays(35).toEpochDay()
         val maxDay = today.plusDays(10).toEpochDay()
 
+        val records = ArrayList<ForecastBiasRecord>(forecast.seriesByModel.size * 21)
         for ((model, series) in forecast.seriesByModel) {
             val daily = series.daily
             val dates = daily.dates
-            // Sanity check : listes désalignées = données corrompues, skip
-            // le modèle plutôt que de crash. Le domain garantit normalement
-            // l'alignement mais on ne veut pas dépendre de cette invariante
-            // silencieusement.
-            if (daily.tempMax.size != dates.size ||
-                daily.precipitationSum.size != dates.size ||
-                daily.windSpeedMax.size != dates.size
-            ) continue
 
             for (i in dates.indices) {
                 val date = dates[i]
                 val epochDay = date.toEpochDay()
                 if (epochDay !in minDay..maxDay) continue
 
-                daily.tempMax[i]?.let { value ->
-                    biasRepository.recordForecast(
+                // Chaque variable est indépendante. Un cache ancien, un modèle
+                // partiel ou une série tronquée ne doit pas faire perdre les
+                // autres valeurs valides du même jour.
+                daily.tempMax.getOrNull(i)?.let { value ->
+                    records += ForecastBiasRecord(
                         cityId, model, BiasVariable.TEMPERATURE, date, issuedAt, value
                     )
                 }
-                daily.precipitationSum[i]?.let { value ->
-                    biasRepository.recordForecast(
+                daily.precipitationSum.getOrNull(i)?.let { value ->
+                    records += ForecastBiasRecord(
                         cityId, model, BiasVariable.PRECIPITATION, date, issuedAt, value
                     )
                 }
-                daily.windSpeedMax[i]?.let { value ->
-                    biasRepository.recordForecast(
+                daily.windSpeedMax.getOrNull(i)?.let { value ->
+                    records += ForecastBiasRecord(
                         cityId, model, BiasVariable.WIND_SPEED, date, issuedAt, value
                     )
                 }
             }
         }
+        biasRepository.recordForecasts(records)
     }
 }

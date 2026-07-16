@@ -136,7 +136,10 @@ android {
     // assembleRelease produit toujours un APK pour tests locaux, bundleRelease
     // produit l'AAB pour upload.
     bundle {
-        language { enableSplit = true }
+        // L'application permet de changer de langue à l'exécution. Toutes les
+        // traductions doivent donc rester dans le module de base, y compris
+        // hors ligne et avant qu'un éventuel split Play ne soit téléchargé.
+        language { enableSplit = false }
         density { enableSplit = true }
         abi { enableSplit = true }
     }

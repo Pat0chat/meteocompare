@@ -8,6 +8,8 @@ import com.meteocompare.app.domain.model.BiasSample
 import com.meteocompare.app.domain.model.BiasVariable
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.repository.BiasSampleRepository
+import com.meteocompare.app.domain.repository.ForecastBiasRecord
+import com.meteocompare.app.domain.repository.ObservationBiasRecord
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -93,6 +95,20 @@ class BiasSampleRepositoryImpl @Inject constructor(
         )
     }
 
+    override suspend fun recordForecasts(records: List<ForecastBiasRecord>) = withContext(io) {
+        if (records.isEmpty()) return@withContext
+        dao.insertForecasts(records.map { record ->
+            ForecastSampleEntity(
+                cityId = record.cityId,
+                modelKey = record.model.name,
+                variable = record.variable.name,
+                targetDateEpochDay = record.targetDate.toEpochDay(),
+                issuedAtEpochMs = record.issuedAt.toEpochMilli(),
+                value = record.value
+            )
+        })
+    }
+
     override suspend fun recordObservation(
         cityId: String,
         variable: BiasVariable,
@@ -108,6 +124,19 @@ class BiasSampleRepositoryImpl @Inject constructor(
                 fetchedAtEpochMs = Instant.now().toEpochMilli()
             )
         )
+    }
+
+    override suspend fun recordObservations(records: List<ObservationBiasRecord>) = withContext(io) {
+        if (records.isEmpty()) return@withContext
+        dao.insertObservations(records.map { record ->
+            ObservationSampleEntity(
+                cityId = record.cityId,
+                variable = record.variable.name,
+                targetDateEpochDay = record.targetDate.toEpochDay(),
+                value = record.value,
+                fetchedAtEpochMs = record.fetchedAt.toEpochMilli()
+            )
+        })
     }
 
     override suspend fun latestObservationDate(

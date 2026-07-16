@@ -57,4 +57,24 @@ class BiasSampleDaoTest {
         assertEquals(20L, rows.single().targetDateEpochDay)
         assertTrue(dao.countPastForecastSamples("paris", 20L) == 0)
     }
+    @Test
+    fun batch_inserts_are_visible_as_one_consistent_dataset() = runTest {
+        dao.insertForecasts(
+            listOf(
+                ForecastSampleEntity("paris", "GFS", "TEMPERATURE", 100L, 1_000L, 18.0),
+                ForecastSampleEntity("paris", "GFS", "TEMPERATURE", 101L, 1_000L, 19.0)
+            )
+        )
+        dao.insertObservations(
+            listOf(
+                ObservationSampleEntity("paris", "TEMPERATURE", 100L, 20.0, 2_000L),
+                ObservationSampleEntity("paris", "TEMPERATURE", 101L, 21.0, 2_000L)
+            )
+        )
+
+        val rows = dao.observeJoinedSamples("paris", "GFS", "TEMPERATURE", 90L, 110L).first()
+        assertEquals(2, rows.size)
+        assertEquals(listOf(100L, 101L), rows.map { it.targetDateEpochDay })
+    }
+
 }

@@ -30,6 +30,10 @@ interface BiasSampleDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertForecast(sample: ForecastSampleEntity)
 
+    /** Une transaction Room pour tout un snapshot/backfill. */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertForecasts(samples: List<ForecastSampleEntity>)
+
     /**
      * REPLACE pour supporter les révisions rétroactives ERA5 (l'archive
      * Open-Meteo peut mettre à jour une observation d'il y a quelques jours
@@ -37,6 +41,10 @@ interface BiasSampleDao {
      */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertObservation(sample: ObservationSampleEntity)
+
+    /** Une transaction Room pour tout un delta d'observations. */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertObservations(samples: List<ObservationSampleEntity>)
 
     // ─── Lectures ─────────────────────────────────────────────────────────
 

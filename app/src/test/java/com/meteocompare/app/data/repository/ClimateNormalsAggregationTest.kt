@@ -126,4 +126,50 @@ class ClimateNormalsAggregationTest {
         org.junit.Assert.assertNull(june15.precipMeanNormal)
         org.junit.Assert.assertNull(june15.windMeanNormal)
     }
+    @Test
+    fun `pluie et vent contribuent meme si la temperature manque cette annee`() {
+        val response = ArchiveResponseDto(
+            latitude = 48.85,
+            longitude = 2.35,
+            timezone = "Europe/Paris",
+            daily = ArchiveDailyDto(
+                time = listOf("2022-06-15", "2023-06-15", "2024-06-15"),
+                tempMax = listOf(25.0, null, 27.0),
+                tempMin = listOf(15.0, null, 17.0),
+                precipSum = listOf(0.0, 12.0, 6.0),
+                windSpeedMax = listOf(20.0, 40.0, 30.0)
+            )
+        )
+
+        val result = ClimateNormalsRepositoryImpl.aggregate(response).single()
+
+        assertEquals(26.0, result.tempMaxNormal, 0.001)
+        assertEquals(16.0, result.tempMinNormal, 0.001)
+        assertEquals(6.0, result.precipMeanNormal!!, 0.001)
+        assertEquals(30.0, result.windMeanNormal!!, 0.001)
+    }
+
+    @Test
+    fun `date malformee est ignoree sans interrompre le lot`() {
+        val response = ArchiveResponseDto(
+            latitude = 48.85,
+            longitude = 2.35,
+            timezone = "Europe/Paris",
+            daily = ArchiveDailyDto(
+                time = listOf("2022-06-15", "date-invalide", "2024-06-15"),
+                tempMax = listOf(25.0, 999.0, 27.0),
+                tempMin = listOf(15.0, 999.0, 17.0),
+                precipSum = listOf(0.0, 999.0, 6.0),
+                windSpeedMax = listOf(20.0, 999.0, 30.0)
+            )
+        )
+
+        val result = ClimateNormalsRepositoryImpl.aggregate(response).single()
+
+        assertEquals(26.0, result.tempMaxNormal, 0.001)
+        assertEquals(16.0, result.tempMinNormal, 0.001)
+        assertEquals(3.0, result.precipMeanNormal!!, 0.001)
+        assertEquals(25.0, result.windMeanNormal!!, 0.001)
+    }
+
 }

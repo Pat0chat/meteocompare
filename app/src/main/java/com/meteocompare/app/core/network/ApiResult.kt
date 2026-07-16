@@ -55,8 +55,12 @@ suspend inline fun <T> apiCall(
  * pour matcher la langue courante (FR/EN selon la sélection user).
  */
 fun Throwable.toUserMessage(context: Context): String = when (this) {
-    is java.net.UnknownHostException -> context.getString(R.string.error_no_network)
     is java.net.SocketTimeoutException -> context.getString(R.string.error_timeout)
+    is java.net.UnknownHostException,
+    is java.net.ConnectException,
+    is java.io.IOException -> context.getString(R.string.error_no_network)
     is retrofit2.HttpException -> context.getString(R.string.error_server, code())
-    else -> message ?: context.getString(R.string.error_unknown)
+    // Les détails de parsing/implémentation ne doivent pas être exposés dans
+    // l'interface. Ils restent disponibles dans les logs debug/Crash reports.
+    else -> context.getString(R.string.error_unknown)
 }

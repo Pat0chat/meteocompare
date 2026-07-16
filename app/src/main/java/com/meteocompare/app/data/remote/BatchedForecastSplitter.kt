@@ -185,12 +185,17 @@ object BatchedForecastSplitter {
 
     /**
      * Convertit un JsonElement représentant `["2026-06-23T00:00", "2026-06-23T01:00", ...]`
-     * en `List<String>`. Silencieusement filtre les éléments qui ne seraient pas
-     * des String — défense en profondeur contre une réponse malformée.
+     * en `List<String>`. Une position malformée devient une chaîne vide au
+     * lieu d'être supprimée : le mapper la rejettera comme timestamp invalide
+     * tout en retirant la valeur située au MÊME index. Filtrer ici décalerait
+     * toutes les variables suivantes d'une heure ou d'un jour.
      */
     private fun JsonElement.asStringList(): List<String> =
-        (this as? JsonArray)?.mapNotNull {
-            (it as? JsonPrimitive)?.takeIf { primitive -> primitive.isString }?.content
+        (this as? JsonArray)?.map { element ->
+            (element as? JsonPrimitive)
+                ?.takeIf(JsonPrimitive::isString)
+                ?.content
+                .orEmpty()
         }.orEmpty()
 
     /**

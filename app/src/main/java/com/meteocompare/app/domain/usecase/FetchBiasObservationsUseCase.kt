@@ -5,8 +5,10 @@ import com.meteocompare.app.di.IoDispatcher
 import com.meteocompare.app.domain.model.BiasVariable
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.repository.BiasSampleRepository
+import com.meteocompare.app.domain.repository.ObservationBiasRecord
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
+import java.time.Instant
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
@@ -97,9 +99,10 @@ class FetchBiasObservationsUseCase @Inject constructor(
         val precipSum = response.daily.precipSum
         val windMax = response.daily.windSpeedMax
 
-        // Chaque série est lue indépendamment. Une variable optionnelle
-        // absente ou une liste partielle ne doit pas empêcher de persister les
-        // autres observations disponibles pour la même date.
+        // Chaque série est lue indépendamment. Toutes les lignes sont ensuite
+        // persistées en une transaction Room pour éviter 30 × 3 transactions.
+        val fetchedAt = Instant.now()
+        val records = ArrayList<ObservationBiasRecord>(timeStrs.size * 3)
         var recordedDays = 0
         for (i in timeStrs.indices) {
             val date = runCatching { LocalDate.parse(timeStrs[i], ISO_DATE) }.getOrNull()
@@ -107,19 +110,26 @@ class FetchBiasObservationsUseCase @Inject constructor(
             var recordedForDate = false
 
             tempMax.getOrNull(i)?.let { value ->
-                biasRepository.recordObservation(city.id, BiasVariable.TEMPERATURE, date, value)
+                records += ObservationBiasRecord(
+                    city.id, BiasVariable.TEMPERATURE, date, value, fetchedAt
+                )
                 recordedForDate = true
             }
             precipSum?.getOrNull(i)?.let { value ->
-                biasRepository.recordObservation(city.id, BiasVariable.PRECIPITATION, date, value)
+                records += ObservationBiasRecord(
+                    city.id, BiasVariable.PRECIPITATION, date, value, fetchedAt
+                )
                 recordedForDate = true
             }
             windMax?.getOrNull(i)?.let { value ->
-                biasRepository.recordObservation(city.id, BiasVariable.WIND_SPEED, date, value)
+                records += ObservationBiasRecord(
+                    city.id, BiasVariable.WIND_SPEED, date, value, fetchedAt
+                )
                 recordedForDate = true
             }
             if (recordedForDate) recordedDays++
         }
+        biasRepository.recordObservations(records)
         recordedDays
     }
 

@@ -60,6 +60,54 @@ class ForecastMapperTest {
     }
 
     @Test
+    fun `inline null values keep their timestamp position`() {
+        val dto = ForecastResponseDto(
+            latitude = 48.85,
+            longitude = 2.35,
+            timezone = "Europe/Paris",
+            hourly = HourlyDto(
+                time = listOf(
+                    "2026-06-23T00:00",
+                    "2026-06-23T01:00",
+                    "2026-06-23T02:00"
+                ),
+                temperature2m = listOf(18.0, null, 17.0),
+                weatherCode = listOf(1, null, 3)
+            )
+        )
+
+        val series = mapper.toSeries(WeatherModel.GFS, dto)
+
+        assertEquals(3, series.hourly.timestamps.size)
+        assertEquals(listOf(18.0, null, 17.0), series.hourly.temperature2m)
+        assertEquals(listOf(1, null, 3), series.hourly.weatherCode)
+    }
+
+    @Test
+    fun `invalid timestamp removes the same position from every variable`() {
+        val dto = ForecastResponseDto(
+            latitude = 48.85,
+            longitude = 2.35,
+            timezone = "Europe/Paris",
+            hourly = HourlyDto(
+                time = listOf(
+                    "2026-06-23T00:00",
+                    "invalid",
+                    "2026-06-23T02:00"
+                ),
+                temperature2m = listOf(18.0, 99.0, null),
+                precipitation = listOf(0.0, 42.0, 1.5)
+            )
+        )
+
+        val series = mapper.toSeries(WeatherModel.GFS, dto)
+
+        assertEquals(2, series.hourly.timestamps.size)
+        assertEquals(listOf(18.0, null), series.hourly.temperature2m)
+        assertEquals(listOf(0.0, 1.5), series.hourly.precipitation)
+    }
+
+    @Test
     fun `returns empty forecast when hourly is absent`() {
         val dto = ForecastResponseDto(
             latitude = 48.85,

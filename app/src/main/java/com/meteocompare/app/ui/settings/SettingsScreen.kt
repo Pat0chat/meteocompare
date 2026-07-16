@@ -1,5 +1,7 @@
 package com.meteocompare.app.ui.settings
 
+import android.annotation.SuppressLint
+import android.content.Context
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -35,6 +37,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,6 +57,25 @@ import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.ThemePreference
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.ui.theme.color
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+@SuppressLint("ApplySharedPref")
+private suspend fun persistLocaleBeforeRecreate(
+    context: Context,
+    preference: LanguagePreference
+) = withContext(Dispatchers.IO) {
+    context.getSharedPreferences(
+        com.meteocompare.app.MainActivity.LOCALE_PREFS,
+        Context.MODE_PRIVATE
+    ).edit()
+        .putString(
+            com.meteocompare.app.MainActivity.LOCALE_KEY,
+            preference.bcp47Tag
+        )
+        .commit()
+}
 
 // ═════════════════════════════════════════════════════════════════════════════
 //  Tri des modèles
@@ -99,6 +121,7 @@ fun SettingsScreen(
     val refreshInterval by viewModel.refreshInterval.collectAsStateWithLifecycle()
     var showDonationDialog by rememberSaveable { mutableStateOf(false) }
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     Scaffold(
         topBar = {
@@ -125,24 +148,20 @@ fun SettingsScreen(
             onThemeSelected = viewModel::onThemeSelected,
             language = language,
             onLanguageSelected = { preference ->
-                context.getSharedPreferences(
-                    com.meteocompare.app.MainActivity.LOCALE_PREFS,
-                    android.content.Context.MODE_PRIVATE
-                ).edit()
-                    .putString(
-                        com.meteocompare.app.MainActivity.LOCALE_KEY,
-                        preference.bcp47Tag
-                    )
-                    .commit()
+                scope.launch {
+                    // La valeur doit être persistée AVANT recreate(), car
+                    // attachBaseContext la lit synchronement. L'écriture reste
+                    // donc un commit, mais elle est déplacée hors du thread UI.
+                    persistLocaleBeforeRecreate(context, preference)
 
-                val locales = preference.bcp47Tag?.let {
-                    androidx.core.os.LocaleListCompat.forLanguageTags(it)
-                } ?: androidx.core.os.LocaleListCompat.getEmptyLocaleList()
-                androidx.appcompat.app.AppCompatDelegate.setApplicationLocales(locales)
+                    val locales = preference.bcp47Tag?.let {
+                        androidx.core.os.LocaleListCompat.forLanguageTags(it)
+                    } ?: androidx.core.os.LocaleListCompat.getEmptyLocaleList()
+                    androidx.appcompat.app.AppCompatDelegate.setApplicationLocales(locales)
 
-                viewModel.onLanguageSelected(preference)
-
-                (context as? android.app.Activity)?.recreate()
+                    viewModel.onLanguageSelected(preference)
+                    (context as? android.app.Activity)?.recreate()
+                }
             },
             refreshInterval = refreshInterval,
             onRefreshIntervalSelected = viewModel::onRefreshIntervalSelected,

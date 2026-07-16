@@ -100,7 +100,8 @@ class ForecastRepositoryImplTest {
             // et que le fetch principal ne soit pas perturbé.
             snapshotForecast = mockk(relaxed = true),
             context = context,
-            ioDispatcher = kotlinx.coroutines.Dispatchers.Unconfined
+            ioDispatcher = kotlinx.coroutines.Dispatchers.Unconfined,
+            computationDispatcher = kotlinx.coroutines.Dispatchers.Unconfined
         )
     }
 
@@ -283,6 +284,73 @@ class ForecastRepositoryImplTest {
                 api.getForecastBatched(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
             }
         }
+
+    @Test
+    fun `stream avec cache recent mais incomplet - refetch les modeles manquants`() = runTest {
+        val recent = System.currentTimeMillis() - 5_000L
+        coEvery { cacheDao.getForCity(paris.id) } returns listOf(
+            ForecastCacheEntity(
+                cityId = paris.id,
+                modelKey = WeatherModel.GFS.apiKey,
+                fetchedAtEpochMs = recent,
+                responseJson = json.encodeToString(
+                    ForecastResponseDto.serializer(), sampleDto
+                )
+            )
+        )
+        coEvery {
+            api.getForecastBatched(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        } returns batchedResponseWith(
+            modelsWithData = listOf(WeatherModel.GFS, WeatherModel.ICON_EU)
+        )
+
+        val emissions = repository.getCityForecastStream(
+            city = paris,
+            models = listOf(WeatherModel.GFS, WeatherModel.ICON_EU),
+            maxCacheAgeMs = 60 * 60 * 1000L
+        ).toList()
+
+        assertEquals("Cache partiel puis données complètes", 2, emissions.size)
+        coVerify(exactly = 1) {
+            api.getForecastBatched(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        }
+    }
+
+    @Test
+    fun `stream utilise la plus ancienne entree pour juger la fraicheur du lot`() = runTest {
+        val now = System.currentTimeMillis()
+        val encoded = json.encodeToString(ForecastResponseDto.serializer(), sampleDto)
+        coEvery { cacheDao.getForCity(paris.id) } returns listOf(
+            ForecastCacheEntity(
+                cityId = paris.id,
+                modelKey = WeatherModel.GFS.apiKey,
+                fetchedAtEpochMs = now - 5_000L,
+                responseJson = encoded
+            ),
+            ForecastCacheEntity(
+                cityId = paris.id,
+                modelKey = WeatherModel.ICON_EU.apiKey,
+                fetchedAtEpochMs = now - 2 * 60 * 60 * 1000L,
+                responseJson = encoded
+            )
+        )
+        coEvery {
+            api.getForecastBatched(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        } returns batchedResponseWith(
+            modelsWithData = listOf(WeatherModel.GFS, WeatherModel.ICON_EU)
+        )
+
+        val emissions = repository.getCityForecastStream(
+            city = paris,
+            models = listOf(WeatherModel.GFS, WeatherModel.ICON_EU),
+            maxCacheAgeMs = 60 * 60 * 1000L
+        ).toList()
+
+        assertEquals("Le modèle ancien force un refresh du lot", 2, emissions.size)
+        coVerify(exactly = 1) {
+            api.getForecastBatched(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        }
+    }
 
     @Test
     fun `stream avec maxCacheAgeMs - refetch quand cache trop vieux`() = runTest {
@@ -521,6 +589,7 @@ class ForecastRepositoryImplTest {
             networkMonitor = networkMonitor,
             context = context,
             ioDispatcher = kotlinx.coroutines.Dispatchers.Unconfined,
+            computationDispatcher = kotlinx.coroutines.Dispatchers.Unconfined,
             snapshotForecast = mockk(relaxed = true)
         )
     }

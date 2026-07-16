@@ -106,7 +106,8 @@ class CityDetailViewModelTest {
             // biasState restera à EMPTY, ce qui ne perturbe pas la logique existante
             // testée ici (loadInitial, refresh, applyResult).
             biasSampleRepository = mockk(relaxed = true),
-            computeBias = mockk(relaxed = true)
+            computeBias = mockk(relaxed = true),
+            computationDispatcher = dispatcher
         )
     }
 
