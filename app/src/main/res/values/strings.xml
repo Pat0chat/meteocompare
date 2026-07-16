@@ -352,9 +352,9 @@
     <string name="bias_hint_neutral">Rien à corriger sur cette variable.</string>
 
     <!-- Interprétation stabilité — varie selon la significativité -->
-    <string name="bias_stability_high">Le biais est consistant sur les 30 derniers jours (écart-type faible par rapport à la magnitude) — le comportement observé n\'est pas dû au hasard.</string>
-    <string name="bias_stability_moderate">Le biais est visible mais modéré — utile à garder en tête sur les décisions serrées.</string>
-    <string name="bias_stability_not_significant">Écart proche du bruit journalier — pas d\'action nécessaire.</string>
+    <string name="bias_stability_high">Le biais est important sur les 30 derniers jours.</string>
+    <string name="bias_stability_moderate">Le biais est visible mais modéré.</string>
+    <string name="bias_stability_not_significant">Écart proche du bruit journalier.</string>
 
     <!--
         Progression du chip "en cours de calibration" — affichée sous le nom
