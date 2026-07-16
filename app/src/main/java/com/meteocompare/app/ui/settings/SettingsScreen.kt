@@ -40,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -104,7 +105,10 @@ fun SettingsScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.action_settings)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(
+                        onClick = onBack,
+                        modifier = Modifier.testTag(TAG_SETTINGS_BACK)
+                    ) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(R.string.nav_back)
@@ -153,7 +157,7 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun SettingsContent(
+internal fun SettingsContent(
     enabledModels: Set<WeatherModel>,
     onToggle: (WeatherModel, Boolean) -> Unit,
     theme: ThemePreference,
@@ -174,7 +178,7 @@ private fun SettingsContent(
     }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().testTag(TAG_SETTINGS_ROOT),
         contentPadding = PaddingValues(
             top = padding.calculateTopPadding(),
             bottom = padding.calculateBottomPadding() + 16.dp
@@ -317,7 +321,7 @@ private fun SettingsContent(
 
                 OutlinedButton(
                     onClick = onDonateClick,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().testTag(TAG_SETTINGS_DONATE)
                 ) {
                     Icon(
                         Icons.Outlined.FavoriteBorder,
@@ -474,7 +478,8 @@ private fun CompactModelRow(
         modifier = Modifier
             .fillMaxWidth()
             .let { if (clickable) it.clickable { onToggle(!enabled) } else it }
-            .padding(horizontal = 16.dp, vertical = 6.dp),
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .testTag("$TAG_SETTINGS_MODEL${model.name}"),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Pastille de couleur du modèle — 10dp (vs 14dp historique) pour
@@ -542,6 +547,7 @@ private fun ModelSortSelector(
                 selected = selected == mode,
                 onClick = { onSelect(mode) },
                 shape = SegmentedButtonDefaults.itemShape(index = idx, count = options.size),
+                modifier = Modifier.testTag("$TAG_SETTINGS_SORT${mode.name}"),
                 icon = { /* labels courts, icônes redondantes */ }
             ) {
                 Text(label)
@@ -568,6 +574,7 @@ private fun ThemeSelector(
                 selected = selected == pref,
                 onClick = { onSelect(pref) },
                 shape = SegmentedButtonDefaults.itemShape(index = idx, count = options.size),
+                modifier = Modifier.testTag("$TAG_SETTINGS_THEME${pref.name}"),
                 icon = { }
             ) {
                 Text(label)
@@ -594,6 +601,7 @@ private fun LanguageSelector(
                 selected = selected == pref,
                 onClick = { onSelect(pref) },
                 shape = SegmentedButtonDefaults.itemShape(index = idx, count = options.size),
+                modifier = Modifier.testTag("$TAG_SETTINGS_LANGUAGE${pref.name}"),
                 icon = { }
             ) {
                 Text(label)
@@ -625,8 +633,18 @@ private fun RefreshIntervalSelector(
             androidx.compose.material3.FilterChip(
                 selected = selected == interval,
                 onClick = { onSelect(interval) },
+                modifier = Modifier.testTag("$TAG_SETTINGS_REFRESH${interval.name}"),
                 label = { Text(label) }
             )
         }
     }
 }
+
+internal const val TAG_SETTINGS_ROOT = "settings_root"
+internal const val TAG_SETTINGS_BACK = "settings_back"
+internal const val TAG_SETTINGS_DONATE = "settings_donate"
+internal const val TAG_SETTINGS_MODEL = "settings_model_"
+internal const val TAG_SETTINGS_SORT = "settings_sort_"
+internal const val TAG_SETTINGS_THEME = "settings_theme_"
+internal const val TAG_SETTINGS_LANGUAGE = "settings_language_"
+internal const val TAG_SETTINGS_REFRESH = "settings_refresh_"

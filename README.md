@@ -237,16 +237,18 @@ Aucune clé API n'est nécessaire — Open-Meteo est gratuit pour usage non comm
 ## Tests
 
 ```bash
-./gradlew :app:testDebugUnitTest        # tests unitaires (mapper, calculator, repository, WMO codes, model colors, splitter)
-./gradlew :app:testReleaseUnitTest 
-./gradlew :app:connectedAndroidTest     # tests UI Compose + intégration Hilt (émulateur requis)
+./gradlew testDebugUnitTest             # tests JVM rapides
+./gradlew connectedDebugAndroidTest     # UI, navigation, Room et DataStore sur appareil
+./gradlew lintDebug assembleDebug        # analyse statique + compilation APK
 ```
 
-Couverture :
+La suite instrumentée utilise des repositories Hilt factices : aucune requête
+Open-Meteo n'est effectuée pendant `androidTest`. Elle couvre les parcours de
+navigation, les états Compose, l'accessibilité, la configuration widget, les
+DAO Room en mémoire, DataStore et la locale persistée.
 
-- **Unitaires** : `ForecastMapper`, `ForecastRepositoryImpl` (cache + réseau batched + coalescing des fetches concurrents), `BatchedForecastSplitter` (multi-modèles, single-modèle, modèles vides, JsonNull), `ConfidenceCalculator` (daily + hourly T/pluie/vent + condition + couverture nuageuse + weighting strategies), `ClimateNormalsRepositoryImpl` (agrégation T/pluie/vent), `ComputeBiasUseCase` (fenêtre glissante, dédup, seuil MIN_SAMPLES, agrégation stats), `SnapshotForecastUseCase` (piggyback sur les fetches réussies), `BackfillHistoricalForecastUseCase` (parsing multi-modèles, idempotence, robustesse aux modèles absents), `ModelBias` (règles de significativité par variable), `sparklinePoints`/`envelopeVertices` (interpolation Y, projection domaine), `WeatherCondition` (mapping WMO + fallback précipitation), `WeatherCellBadges` (règles d'affichage des % sous les icônes), `LastUpdatedFormatter` (paliers "à l'instant" / min / h / j), `DisplayMode` / `ConfidenceMetric` / `ModelSortMode` (Savers pour rememberSaveable), `ModelColors` (couleurs uniques + MVP_SELECTION intégrité), `WeatherModelInvariantsTest` (apiKey/displayName unique, France ⟹ Météo-France, MVP couvre ≥ 2 familles), `ForecastMode.isConfidenceBand` (exhaustivité).
-- **Compose UI** : `CityCardTest`, `CityListContentTest`, `TodaySummaryCardTest`, `ConfidenceBadgeClickTest` — tests isolés sans Hilt.
-- **Intégration Hilt** : `MainActivityNavigationTest` — lance la vraie app, vérifie la DI et la navigation. Démontre le pattern `@UninstallModules` + `@TestInstallIn` pour mocker certaines couches (ex: MockWebServer).
+La stratégie complète, les règles de stabilité et les commandes Windows sont
+documentées dans [`TESTING.md`](TESTING.md).
 
 ## Accessibilité
 

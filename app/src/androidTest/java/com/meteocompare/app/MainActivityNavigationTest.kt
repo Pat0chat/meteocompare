@@ -1,67 +1,144 @@
 package com.meteocompare.app
 
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
+import com.meteocompare.app.testutil.FakeCityRepository
+import com.meteocompare.app.testutil.FakeClimateNormalsRepository
+import com.meteocompare.app.testutil.FakeForecastRepository
+import com.meteocompare.app.testutil.FakeUserPreferencesRepository
+import com.meteocompare.app.testutil.TestFixtures
+import com.meteocompare.app.ui.citydetail.TAG_CONFIDENCE_BADGE
+import com.meteocompare.app.ui.citydetail.TAG_DETAIL_LOADED
+import com.meteocompare.app.ui.citydetail.confidence.TAG_CONFIDENCE_EXPLANATION_BACK
+import com.meteocompare.app.ui.citydetail.confidence.TAG_CONFIDENCE_EXPLANATION_ROOT
+import com.meteocompare.app.ui.citylist.TAG_ADD_CITY_RESULT
+import com.meteocompare.app.ui.citylist.TAG_ADD_FAB
+import com.meteocompare.app.ui.citylist.TAG_ADD_CITY_SEARCH_FIELD
+import com.meteocompare.app.ui.citylist.TAG_CITY_CARD
+import com.meteocompare.app.ui.citylist.TAG_EMPTY_STATE
+import com.meteocompare.app.ui.citylist.TAG_SETTINGS_BUTTON
+import com.meteocompare.app.ui.settings.TAG_SETTINGS_BACK
+import com.meteocompare.app.ui.settings.TAG_SETTINGS_ROOT
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
+import javax.inject.Inject
 
 /**
- * Test d'intégration de démonstration avec Hilt.
+ * Parcours instrumentés de l'application complète.
  *
- * Cette classe lance la vraie [MainActivity] avec tous les bindings Hilt
- * réels (Retrofit, Room, DataStore). C'est utile pour :
- *   - vérifier que la DI est correctement câblée (ce test échoue à la
- *     compilation si un binding manque)
- *   - tester des flux end-to-end avec navigation réelle
- *
- * Pour mocker des dépendances (ex: MockWebServer pour Open-Meteo), utilise
- * `@UninstallModules(NetworkModule::class)` + un module de test annoté avec
- * `@TestInstallIn(replaces = [NetworkModule::class], components = [SingletonComponent::class])`.
- * Exemple (non implémenté ici) :
- *
- * ```
- * @TestInstallIn(replaces = [NetworkModule::class], components = [SingletonComponent::class])
- * @Module
- * object TestNetworkModule {
- *     @Provides @Singleton @ForecastRetrofit
- *     fun provideForecastRetrofit(): Retrofit = Retrofit.Builder()
- *         .baseUrl(mockWebServer.url("/"))
- *         .addConverterFactory(json.asConverterFactory(...))
- *         .build()
- * }
- * ```
+ * Les repositories sont remplacés par des fakes Hilt déterministes : aucun
+ * réseau, aucune base persistante et aucune dépendance à l'état laissé par un
+ * test précédent. Ces tests valident donc réellement navigation + ViewModels +
+ * composition, sans flakiness liée à Open-Meteo ou à l'émulateur.
  */
 @HiltAndroidTest
 class MainActivityNavigationTest {
 
-    // Ordre important : Hilt d'abord (order=0), ce qui garantit l'injection
-    // disponible avant que la Compose rule lance l'activité.
     @get:Rule(order = 0)
     val hiltRule = HiltAndroidRule(this)
 
     @get:Rule(order = 1)
     val composeRule = createAndroidComposeRule<MainActivity>()
 
+    @Inject lateinit var cities: FakeCityRepository
+    @Inject lateinit var forecasts: FakeForecastRepository
+    @Inject lateinit var preferences: FakeUserPreferencesRepository
+    @Inject lateinit var normals: FakeClimateNormalsRepository
+
     @Before
     fun setUp() {
         hiltRule.inject()
+        cities.reset()
+        forecasts.reset()
+        preferences.reset()
+        normals.reset()
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodes(
+                androidx.compose.ui.test.hasTestTag(TAG_EMPTY_STATE)
+            ).fetchSemanticsNodes().isNotEmpty()
+        }
     }
 
     @Test
-    fun app_launches_on_city_list_screen() {
-        // Le titre de la top app bar est "MeteoCompare" sur l'écran liste.
-        composeRule.onNodeWithText("MeteoCompare").assertExists()
+    fun launch_displays_empty_city_list() {
+        composeRule.onNodeWithTag(TAG_EMPTY_STATE).assertIsDisplayed()
+        composeRule.onNodeWithText(composeRule.activity.getString(R.string.empty_favorites_title))
+            .assertIsDisplayed()
     }
 
     @Test
-    fun empty_state_visible_on_fresh_install() {
-        // À l'install les favoris sont vides → empty state affiché.
-        // Note : ce test suppose qu'aucune migration ni seed initial ne
-        // pré-remplit le DataStore. Si on ajoutait des villes par défaut
-        // un jour, ce test devrait s'adapter.
-        composeRule.onNodeWithText("Aucune ville en favoris").assertExists()
+    fun settings_round_trip_keeps_city_list_available() {
+        composeRule.onNodeWithTag(TAG_SETTINGS_BUTTON).performClick()
+        composeRule.onNodeWithTag(TAG_SETTINGS_ROOT).assertIsDisplayed()
+        composeRule.onNodeWithTag(TAG_SETTINGS_BACK).performClick()
+        composeRule.onNodeWithTag(TAG_EMPTY_STATE).assertIsDisplayed()
+    }
+
+    @Test
+    fun add_city_search_select_and_open_detail() {
+        composeRule.onNodeWithTag(TAG_ADD_FAB).performClick()
+        composeRule.onNodeWithTag(TAG_ADD_CITY_SEARCH_FIELD).performTextInput("Paris")
+
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodes(
+                androidx.compose.ui.test.hasTestTag("$TAG_ADD_CITY_RESULT${TestFixtures.paris.id}")
+            ).fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithTag("$TAG_ADD_CITY_RESULT${TestFixtures.paris.id}").performClick()
+
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodes(
+                androidx.compose.ui.test.hasTestTag("$TAG_CITY_CARD${TestFixtures.paris.id}")
+            ).fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithTag("$TAG_CITY_CARD${TestFixtures.paris.id}").performClick()
+        composeRule.onNodeWithTag(TAG_DETAIL_LOADED).assertIsDisplayed()
+    }
+
+    @Test
+    fun detail_confidence_explanation_and_back_navigation() {
+        cities.setFavorites(listOf(TestFixtures.paris))
+        forecasts.setForecast(TestFixtures.paris)
+
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodes(
+                androidx.compose.ui.test.hasTestTag("$TAG_CITY_CARD${TestFixtures.paris.id}")
+            ).fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithTag("$TAG_CITY_CARD${TestFixtures.paris.id}").performClick()
+        composeRule.onNodeWithTag(TAG_DETAIL_LOADED).assertIsDisplayed()
+        composeRule.onNodeWithTag(TAG_CONFIDENCE_BADGE, useUnmergedTree = true).performClick()
+
+        composeRule.onNodeWithTag(TAG_CONFIDENCE_EXPLANATION_ROOT).assertIsDisplayed()
+        composeRule.onNodeWithTag(TAG_CONFIDENCE_EXPLANATION_BACK).performClick()
+        composeRule.onNodeWithTag(TAG_DETAIL_LOADED).assertIsDisplayed()
+    }
+
+    @Test
+    fun removing_a_city_returns_to_empty_state() {
+        cities.setFavorites(listOf(TestFixtures.paris))
+        forecasts.setForecast(TestFixtures.paris)
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodes(
+                androidx.compose.ui.test.hasTestTag("$TAG_CITY_CARD${TestFixtures.paris.id}")
+            ).fetchSemanticsNodes().isNotEmpty()
+        }
+
+        composeRule.onNodeWithContentDescription(
+            composeRule.activity.getString(R.string.action_more_options),
+            useUnmergedTree = true
+        ).performClick()
+        composeRule.onNodeWithText(composeRule.activity.getString(R.string.action_remove_from_favorites))
+            .performClick()
+
+        composeRule.onNodeWithTag(TAG_EMPTY_STATE).assertIsDisplayed()
     }
 }

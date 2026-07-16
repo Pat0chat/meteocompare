@@ -67,7 +67,7 @@
     <string name="section_precipitation">Precipitation</string>
     <string name="section_wind">10m mean wind</string>
     <string name="section_wind_hourly">10m mean wind</string>
-    <string name="section_weather_by_model">Weather by model and day</string>
+    <string name="section_weather_by_model">Weather by model</string>
 
     <!-- 3-state selector above the confidence band (Temp / Precip / Wind) -->
     <string name="metric_temperature">Temperature</string>
@@ -89,8 +89,7 @@
     <string name="widget_config_forecast_mode_conf_all">Model confidence</string>
     <string name="widget_config_forecast_mode_conf_all_note">Shows temperature, rain and wind confidence bands together over the same days.</string>
     <string name="widget_confidence_combined_title">Model agreement</string>
-    <string name="widget_confidence_combined_hint">5 days · confidence %</string>
-
+    <string name="widget_confidence_combined_hint" formatted="false">5 days · confidence %</string>
     <!-- Time anchors shown under the widget 4x2 confidence strip -->
     <string name="widget_confidence_now_short">Now</string>
 
@@ -115,6 +114,8 @@
 
     <!-- Missing hourly data (hourly mode) -->
     <string name="no_hourly_data">No hourly data</string>
+
+    <!-- Hourly temperature table legend — absolute thresholds -->
 
     <!-- "Last updated" caption (CityCard home + TodaySummaryCard details) -->
     <string name="updated_just_now">Updated just now</string>
@@ -275,7 +276,7 @@
     <string name="weather_legend_snow">Snow</string>
     <string name="weather_legend_thunderstorm">Thunderstorm</string>
     <!-- Note explaining the % badges under icons in the weather-by-model table -->
-    <string name="weather_legend_percent_note">The % under an icon = cloud cover (cloudy/overcast) or precipitation probability (rain/snow/thunderstorm).</string>
+    <string name="weather_legend_percent_note" formatted="false">The % under an icon = cloud cover (cloudy/overcast) or precipitation probability (rain/snow/thunderstorm).</string>
     <string name="weather_legend_inferred_note">Dimmed icon = condition inferred from other models.</string>
 
 
@@ -306,6 +307,8 @@
     <!-- Sheet title, split into prefix + coloured magnitude + suffix -->
     <string name="bias_sheet_title_prefix">Mean deviation </string>
     <string name="bias_sheet_title_suffix"> compared with observations.</string>
+
+    <!-- Placeholder for the 30-day chart (kept as defensive fallback). -->
 
     <!-- Hint shown when no bias chip is available yet (first use OR history not
          yet collected). Disappears as soon as at least one chip becomes visible. -->
@@ -342,11 +345,11 @@
     <!-- Explainer text for a CALIBRATED model (NOT_SIGNIFICANT). Single
          positive sentence — replaces the misleading "systematically overestimates"
          template that would otherwise fire for a genuinely well-behaved model. -->
-    <string name="bias_explainer_calibrated">%1$s is well calibrated on %2$s at this location. Over the last %3$d days, the mean deviation from observations stays within daily noise — no mental correction is needed to interpret its forecasts.</string>
+    <string name="bias_explainer_calibrated">%1$s is well calibrated on %2$s at this location. Over the last %3$d days, the mean deviation from observations stays within daily noise — no correction is needed to interpret its forecasts.</string>
 
     <!-- Correction hint — varies by direction -->
-    <string name="bias_hint_warm">Mentally subtracting the deviation from its forecasts gives a reading closer to reality.</string>
-    <string name="bias_hint_cold">Mentally adding the deviation to its forecasts gives a reading closer to reality.</string>
+    <string name="bias_hint_warm">Subtracting the deviation from its forecasts gives a reading closer to reality.</string>
+    <string name="bias_hint_cold">Adding the deviation to its forecasts gives a reading closer to reality.</string>
     <string name="bias_hint_neutral">Nothing to correct on this variable.</string>
 
     <!-- Stability interpretation — varies by significance -->

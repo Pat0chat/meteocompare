@@ -1,13 +1,13 @@
 package com.meteocompare.app.ui.components
 
-import android.content.Context
+import android.content.res.Resources
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import com.meteocompare.app.R
 import kotlinx.coroutines.delay
 import java.time.Duration
@@ -93,7 +93,7 @@ internal fun refreshIntervalMsFor(palier: LastUpdatedPalier): Long = when (palie
 }
 
 /**
- * Formate un [Instant] en caption "mis à jour il y a X" localisé via [context].
+ * Formate un [Instant] en caption « mis à jour il y a X » via [resources].
  *
  * Cette fonction est un thin wrapper autour de [computeLastUpdatedPalier] : elle
  * mappe chaque palier à sa string ressource localisée. La logique métier
@@ -101,19 +101,19 @@ internal fun refreshIntervalMsFor(palier: LastUpdatedPalier): Long = when (palie
  * en pratique serait "chaque palier passe la bonne resId à getString", ce que
  * la revue de code couvre déjà.
  *
- * @param context requis pour accéder aux [R.string] (résolution locale).
+ * @param resources ressources observables utilisées pour résoudre les [R.string].
  * @param fetchedAt instant à formater.
  * @param now instant "maintenant" (injectable pour tests, défaut = Instant.now()).
  */
 fun formatLastUpdated(
-    context: Context,
+    resources: Resources,
     fetchedAt: Instant,
     now: Instant = Instant.now()
 ): String = when (val palier = computeLastUpdatedPalier(fetchedAt, now)) {
-    LastUpdatedPalier.JustNow -> context.getString(R.string.updated_just_now)
-    is LastUpdatedPalier.Minutes -> context.getString(R.string.updated_min_ago, palier.value)
-    is LastUpdatedPalier.Hours -> context.getString(R.string.updated_hour_ago, palier.value)
-    is LastUpdatedPalier.Days -> context.getString(R.string.updated_day_ago, palier.value)
+    LastUpdatedPalier.JustNow -> resources.getString(R.string.updated_just_now)
+    is LastUpdatedPalier.Minutes -> resources.getString(R.string.updated_min_ago, palier.value)
+    is LastUpdatedPalier.Hours -> resources.getString(R.string.updated_hour_ago, palier.value)
+    is LastUpdatedPalier.Days -> resources.getString(R.string.updated_day_ago, palier.value)
 }
 
 /**
@@ -130,23 +130,21 @@ fun formatLastUpdated(
  */
 @Composable
 fun rememberFormattedLastUpdated(fetchedAt: Instant): String {
-    val context = LocalContext.current
-    // On re-key sur fetchedAt : si les données sont rafraîchies, on redémarre
-    // le compteur avec la nouvelle valeur "à l'instant".
-    var label by remember(fetchedAt) {
-        mutableStateOf(formatLastUpdated(context, fetchedAt))
-    }
+    val resources = LocalResources.current
+    // On conserve uniquement l'instant du dernier tick, pas le texte traduit.
+    // Ainsi un changement de langue/configuration recompose immédiatement avec
+    // les nouvelles Resources sans attendre le prochain délai.
+    var now by remember(fetchedAt) { mutableStateOf(Instant.now()) }
 
     // Boucle de refresh périodique. LaunchedEffect(fetchedAt) : le job est
-    // annulé et relancé quand fetchedAt change (nouveau refresh manuel), ce
-    // qui remet immédiatement l'affichage sur "à l'instant".
+    // annulé et relancé quand fetchedAt change (nouveau refresh manuel).
     LaunchedEffect(fetchedAt) {
         while (true) {
             val palier = computeLastUpdatedPalier(fetchedAt, Instant.now())
             delay(refreshIntervalMsFor(palier))
-            label = formatLastUpdated(context, fetchedAt)
+            now = Instant.now()
         }
     }
 
-    return label
+    return formatLastUpdated(resources, fetchedAt, now)
 }

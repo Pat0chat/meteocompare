@@ -115,6 +115,7 @@ android {
     // false) au lieu de crasher — comportement sûr pour du logging accessoire.
     testOptions {
         unitTests.isReturnDefaultValues = true
+        animationsDisabled = true
     }
 
     packaging {
@@ -184,10 +185,8 @@ dependencies {
     // les mêmes contraintes s'appliquent : pas de Modifier générique, pas
     // de callbacks arbitraires (uniquement Action), API très restreinte.
     // Le sur-ensemble de Compose disponible est documenté dans le package
-    // `androidx.glance.*`. On garde `glance-material3` pour hériter du
-    // thème Material 3 côté widget (couleurs primaires du système).
+    // `androidx.glance.*`.
     implementation(libs.androidx.glance.appwidget)
-    implementation(libs.androidx.glance.material3)
 
     // ─── WorkManager ──────────────────────────────────────────────────────
     // Remplace le refresh AlarmManager historique du widget (updatePeriodMillis)
@@ -211,6 +210,7 @@ dependencies {
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    androidTestImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.hilt.android.testing)
     kspAndroidTest(libs.hilt.compiler)
     debugImplementation(libs.androidx.compose.ui.test.manifest)

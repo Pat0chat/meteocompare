@@ -66,7 +66,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -237,9 +237,9 @@ internal fun CityCard(
     // Description sémantique consolidée pour TalkBack : on remplace l'annonce
     // fragmentée (chaque texte/icône à part) par un résumé fluide qui inclut
     // la ville, les valeurs et le niveau de confiance.
-    val context = LocalContext.current
+    val resources = LocalResources.current
     val a11yDescription = com.meteocompare.app.ui.accessibility.A11yFormatter
-        .cityCardDescription(context, state)
+        .cityCardDescription(resources, state)
     val isDark = isSystemInDarkTheme()
     // ─── Halo latéral météo-adaptatif ────────────────────────────────────
     // Couleur dérivée de la condition courante quand disponible. Loading /

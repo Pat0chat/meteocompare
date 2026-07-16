@@ -36,7 +36,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -272,16 +272,12 @@ fun HourlyConfidenceChart(
     val isZoomed = (viewEnd - viewStart) < 0.999f
 
     // Description sémantique
-    val context = LocalContext.current
+    val resources = LocalResources.current
     val locale = LocalConfiguration.current.locales[0]
-    val a11yBase = remember(bands, context, metric) {
-        // Note : le formatter reste calé sur la température, ce qui n'est pas
-        // idéal pour precip/wind mais c'est un incrément futur — pour l'instant
-        // TalkBack lit les valeurs numériques, l'utilisateur devine la métrique
-        // via le label du SegmentedButton du dessus. Correct pour le MVP.
-        com.meteocompare.app.ui.accessibility.A11yFormatter
-            .hourlyChartDescription(context, bands)
-    }
+    // Calcul léger refait à chaque recomposition pertinente afin qu'un
+    // changement de langue/configuration soit reflété immédiatement.
+    val a11yBase = com.meteocompare.app.ui.accessibility.A11yFormatter
+        .hourlyChartDescription(resources, bands)
     val a11yZoomedPrefix = stringResource(R.string.chart_zoom_a11y_zoomed)
     val a11yDescription = if (isZoomed) "$a11yZoomedPrefix. $a11yBase" else a11yBase
 

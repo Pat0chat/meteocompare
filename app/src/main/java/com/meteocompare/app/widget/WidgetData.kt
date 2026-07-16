@@ -594,7 +594,10 @@ private fun buildConfidenceStrip(
             context.getString(R.string.widget_metric_precipitation)
         ForecastMode.CONFIDENCE_WIND ->
             context.getString(R.string.widget_metric_wind)
-        else -> ""
+        ForecastMode.HOURLY,
+        ForecastMode.DAILY,
+        ForecastMode.CONFIDENCE_ALL,
+        ForecastMode.MINI_FORECAST_12H -> return null
     }
 
     return WidgetConfidenceStrip(

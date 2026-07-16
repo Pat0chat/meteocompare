@@ -24,6 +24,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.meteocompare.app.R
@@ -41,7 +42,8 @@ fun AddCitySheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = sheetState
+        sheetState = sheetState,
+        modifier = Modifier.testTag(TAG_ADD_CITY_SHEET)
     ) {
         Column(
             modifier = Modifier
@@ -60,7 +62,9 @@ fun AddCitySheet(
                 placeholder = { Text(stringResource(R.string.search_city_placeholder)) },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag(TAG_ADD_CITY_SEARCH_FIELD)
             )
 
             Spacer(Modifier.height(8.dp))
@@ -68,7 +72,7 @@ fun AddCitySheet(
             // Contenu : trois états possibles
             when {
                 state.error != null -> {
-                    Box(modifier = Modifier.padding(16.dp)) {
+                    Box(modifier = Modifier.padding(16.dp).testTag(TAG_ADD_CITY_ERROR)) {
                         Text(
                             text = state.error,
                             color = MaterialTheme.colorScheme.error,
@@ -80,14 +84,15 @@ fun AddCitySheet(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(24.dp),
+                            .padding(24.dp)
+                            .testTag(TAG_ADD_CITY_LOADING),
                         contentAlignment = Alignment.Center
                     ) {
                         CircularProgressIndicator()
                     }
                 }
                 state.query.length >= 2 && state.results.isEmpty() -> {
-                    Box(modifier = Modifier.padding(16.dp)) {
+                    Box(modifier = Modifier.padding(16.dp).testTag(TAG_ADD_CITY_NO_RESULTS)) {
                         Text(
                             text = stringResource(R.string.search_no_results),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -108,11 +113,12 @@ fun AddCitySheet(
 }
 
 @Composable
-private fun CityResultRow(city: City, onClick: () -> Unit) {
+internal fun CityResultRow(city: City, onClick: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
+            .testTag("$TAG_ADD_CITY_RESULT${city.id}")
             .padding(vertical = 12.dp, horizontal = 4.dp)
     ) {
         Text(city.name, style = MaterialTheme.typography.bodyLarge)
@@ -127,3 +133,10 @@ private fun CityResultRow(city: City, onClick: () -> Unit) {
         }
     }
 }
+
+internal const val TAG_ADD_CITY_SHEET = "add_city_sheet"
+internal const val TAG_ADD_CITY_SEARCH_FIELD = "add_city_search_field"
+internal const val TAG_ADD_CITY_LOADING = "add_city_loading"
+internal const val TAG_ADD_CITY_ERROR = "add_city_error"
+internal const val TAG_ADD_CITY_NO_RESULTS = "add_city_no_results"
+internal const val TAG_ADD_CITY_RESULT = "add_city_result_"

@@ -170,10 +170,11 @@ internal fun CalibratingChip(
     // Le "—" est réservé au cas où l'appelant ne fournit AUCUN count (null),
     // par ex. un usage futur du chip hors du pipeline biais standard.
     val showProgress = sampleCount != null
+    val progress = sampleCount ?: 0
     val a11y = if (showProgress) {
         stringResource(
             R.string.bias_chip_calibrating_progress_a11y,
-            sampleCount!!,
+            progress,
             com.meteocompare.app.domain.model.ModelBias.MIN_SAMPLES_FOR_BIAS
         )
     } else {
@@ -192,7 +193,7 @@ internal fun CalibratingChip(
     ) {
         Text(
             text = if (showProgress) {
-                "${sampleCount!!}/${com.meteocompare.app.domain.model.ModelBias.MIN_SAMPLES_FOR_BIAS}"
+                "$progress/${com.meteocompare.app.domain.model.ModelBias.MIN_SAMPLES_FOR_BIAS}"
             } else {
                 "—"
             },

@@ -1,6 +1,6 @@
 package com.meteocompare.app.ui.accessibility
 
-import android.content.Context
+import android.content.res.Resources
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.ConfidenceLevel
 import com.meteocompare.app.domain.model.ConfidenceScore
@@ -22,73 +22,73 @@ import kotlin.math.roundToInt
  * Avant : "85" lu comme "quatre-vingt cinq" (sans contexte)
  * Après : "Confiance haute, 85 pourcent" (lisible et informatif)
  *
- * Chaque fonction prend un [Context] pour résoudre les ressources string
+ * Chaque fonction prend des [Resources] pour résoudre les ressources string
  * — ça permet la localisation (FR/EN) sans dupliquer la logique de formatage.
- * On garde `object` (pas `class`) pour éviter d'injecter ça partout : un
- * Context est facile à obtenir au call site (LocalContext.current en Compose,
- * ApplicationContext via Hilt sinon).
+ * On garde `object` (pas `class`) pour éviter d'injecter ce formatter partout.
+ * Les Resources sont obtenues via LocalResources.current en Compose, ce qui
+ * invalide correctement la composition lors des changements de configuration.
  */
 object A11yFormatter {
 
-    fun confidenceLevelLabel(context: Context, level: ConfidenceLevel): String = when (level) {
-        ConfidenceLevel.HIGH -> context.getString(R.string.a11y_confidence_high)
-        ConfidenceLevel.MEDIUM -> context.getString(R.string.a11y_confidence_medium)
-        ConfidenceLevel.LOW -> context.getString(R.string.a11y_confidence_low)
+    fun confidenceLevelLabel(resources: Resources, level: ConfidenceLevel): String = when (level) {
+        ConfidenceLevel.HIGH -> resources.getString(R.string.a11y_confidence_high)
+        ConfidenceLevel.MEDIUM -> resources.getString(R.string.a11y_confidence_medium)
+        ConfidenceLevel.LOW -> resources.getString(R.string.a11y_confidence_low)
     }
 
-    fun temperatureDescription(context: Context, score: ConfidenceScore): String {
+    fun temperatureDescription(resources: Resources, score: ConfidenceScore): String {
         val main = if (score.spread <= 1.0) {
-            context.getString(R.string.a11y_temp_single, score.meanValue.roundToInt())
+            resources.getString(R.string.a11y_temp_single, score.meanValue.roundToInt())
         } else {
-            context.getString(
+            resources.getString(
                 R.string.a11y_temp_range,
                 score.minValue.roundToInt(),
                 score.maxValue.roundToInt()
             )
         }
-        return context.getString(
+        return resources.getString(
             R.string.a11y_temp_with_confidence,
             main,
-            confidenceLevelLabel(context, score.level).lowercase(),
+            confidenceLevelLabel(resources, score.level).lowercase(),
             score.percent
         )
     }
 
-    fun precipitationDescription(context: Context, precip: PrecipitationConfidence): String = when (precip) {
+    fun precipitationDescription(resources: Resources, precip: PrecipitationConfidence): String = when (precip) {
         is PrecipitationConfidence.NoRain ->
-            context.getString(R.string.a11y_no_rain, precip.percent)
+            resources.getString(R.string.a11y_no_rain, precip.percent)
         is PrecipitationConfidence.Rain ->
-            context.getString(
+            resources.getString(
                 R.string.a11y_rain,
                 precip.minMm.roundToInt(),
                 precip.maxMm.roundToInt(),
                 precip.percent
             )
         is PrecipitationConfidence.Divided ->
-            context.getString(R.string.a11y_models_divided, precip.modelsForRain, precip.modelCount)
+            resources.getString(R.string.a11y_models_divided, precip.modelsForRain, precip.modelCount)
     }
 
-    fun cityCardDescription(context: Context, state: CityCardState): String {
+    fun cityCardDescription(resources: Resources, state: CityCardState): String {
         val city = state.city
         val base = "Ville ${city.name}${city.admin1?.let { ", $it" } ?: ""}"
         return when (val f = state.forecast) {
-            ForecastState.Loading -> "$base. ${context.getString(R.string.a11y_city_loading)}"
-            is ForecastState.Error -> "$base. ${context.getString(R.string.a11y_city_error, f.message)}"
+            ForecastState.Loading -> "$base. ${resources.getString(R.string.a11y_city_loading)}"
+            is ForecastState.Error -> "$base. ${resources.getString(R.string.a11y_city_error, f.message)}"
             is ForecastState.Loaded -> {
                 val parts = mutableListOf<String>()
                 // Condition actuelle en premier : "ensoleillé" + "20°" se
                 // suivent dans la lecture TalkBack, ce qui mime la perception
                 // visuelle de l'icône + température côte à côte.
                 f.currentCondition?.let {
-                    parts += context.getString(weatherConditionStringRes(it))
+                    parts += resources.getString(weatherConditionStringRes(it))
                 }
-                f.currentTemp?.let { parts += context.getString(R.string.a11y_now_temp, it.roundToInt()) }
+                f.currentTemp?.let { parts += resources.getString(R.string.a11y_now_temp, it.roundToInt()) }
                 f.today.tempMax?.let {
-                    parts += context.getString(R.string.a11y_temperature_prefix) + " " +
-                        temperatureDescription(context, it)
+                    parts += resources.getString(R.string.a11y_temperature_prefix) + " " +
+                        temperatureDescription(resources, it)
                 }
-                f.today.precipitation?.let { parts += precipitationDescription(context, it) }
-                f.today.overallPercent?.let { parts += context.getString(R.string.a11y_overall_confidence, it) }
+                f.today.precipitation?.let { parts += precipitationDescription(resources, it) }
+                f.today.overallPercent?.let { parts += resources.getString(R.string.a11y_overall_confidence, it) }
                 "$base. " + parts.joinToString(". ") + "."
             }
         }
@@ -117,8 +117,8 @@ object A11yFormatter {
         com.meteocompare.app.domain.model.WeatherCondition.UNKNOWN -> R.string.weather_unknown
     }
 
-    fun hourlyChartDescription(context: Context, bands: List<HourlyConfidenceBand>): String {
-        if (bands.size < 2) return context.getString(R.string.a11y_hourly_empty)
+    fun hourlyChartDescription(resources: Resources, bands: List<HourlyConfidenceBand>): String {
+        if (bands.size < 2) return resources.getString(R.string.a11y_hourly_empty)
         val first = bands.first()
         val last = bands.last()
         val daysAhead = java.time.Duration
@@ -128,36 +128,36 @@ object A11yFormatter {
         val spreadStart = first.maxValue - first.minValue
         val spreadEnd = last.maxValue - last.minValue
         val divergence = when {
-            spreadEnd > spreadStart * 2 -> context.getString(R.string.a11y_divergence_strong)
-            spreadEnd > spreadStart * 1.3 -> context.getString(R.string.a11y_divergence_increasing)
-            else -> context.getString(R.string.a11y_divergence_stable)
+            spreadEnd > spreadStart * 2 -> resources.getString(R.string.a11y_divergence_strong)
+            spreadEnd > spreadStart * 1.3 -> resources.getString(R.string.a11y_divergence_increasing)
+            else -> resources.getString(R.string.a11y_divergence_stable)
         }
-        return context.getString(
+        return resources.getString(
             R.string.a11y_hourly_template,
             daysAhead, firstTemp, lastTemp, divergence, first.percent, last.percent
         )
     }
 
-    fun todaySummaryDescription(context: Context, today: DayConfidence, modelCount: Int): String {
+    fun todaySummaryDescription(resources: Resources, today: DayConfidence, modelCount: Int): String {
         val header = if (modelCount > 1)
-            context.getString(R.string.a11y_today_summary_many, modelCount)
+            resources.getString(R.string.a11y_today_summary_many, modelCount)
         else
-            context.getString(R.string.a11y_today_summary_one, modelCount)
+            resources.getString(R.string.a11y_today_summary_one, modelCount)
         val parts = mutableListOf(header)
         today.tempMax?.let {
-            parts += context.getString(R.string.a11y_temp_max_label) + " " + temperatureDescription(context, it)
+            parts += resources.getString(R.string.a11y_temp_max_label) + " " + temperatureDescription(resources, it)
         }
         today.tempMin?.let {
-            parts += context.getString(R.string.a11y_temp_min_label) + " " + temperatureDescription(context, it)
+            parts += resources.getString(R.string.a11y_temp_min_label) + " " + temperatureDescription(resources, it)
         }
-        today.precipitation?.let { parts += precipitationDescription(context, it) }
+        today.precipitation?.let { parts += precipitationDescription(resources, it) }
         today.windMax?.let {
             // Vent : on remplace "degrés" par "kilomètres par heure" dans la description.
             // Hack utilitaire pour ne pas dupliquer toute la logique de format pour une seule unité.
-            val degUnit = context.getString(R.string.a11y_temp_single, 0).removePrefix("0 ")
-            val kmhUnit = context.getString(R.string.a11y_kmh_unit)
-            parts += context.getString(R.string.a11y_wind_max_label) + " " +
-                temperatureDescription(context, it).replace(degUnit, kmhUnit)
+            val degUnit = resources.getString(R.string.a11y_temp_single, 0).removePrefix("0 ")
+            val kmhUnit = resources.getString(R.string.a11y_kmh_unit)
+            parts += resources.getString(R.string.a11y_wind_max_label) + " " +
+                temperatureDescription(resources, it).replace(degUnit, kmhUnit)
         }
         return parts.joinToString(". ") + "."
     }

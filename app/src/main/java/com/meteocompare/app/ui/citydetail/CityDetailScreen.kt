@@ -67,7 +67,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -105,9 +105,10 @@ fun CityDetailScreen(
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     val biasState by viewModel.biasState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    // Context capturé hors de LaunchedEffect pour résoudre les strings depuis
-    // une coroutine (où stringResource n'est pas accessible — c'est un @Composable).
-    val context = LocalContext.current
+    // Resources observables capturées hors de LaunchedEffect : contrairement à
+    // LocalContext, LocalResources invalide la composition quand la locale ou
+    // une autre configuration de ressources change.
+    val resources = LocalResources.current
 
     // Collecte les événements one-shot de refresh — succès ou erreur.
     // LaunchedEffect avec viewModel comme key : si la VM change (changement
@@ -118,11 +119,11 @@ fun CityDetailScreen(
         viewModel.refreshFeedback.collect { feedback ->
             when (feedback) {
                 RefreshFeedback.Success -> snackbarHostState.showSnackbar(
-                    message = context.getString(R.string.refresh_success),
+                    message = resources.getString(R.string.refresh_success),
                     duration = SnackbarDuration.Short
                 )
                 is RefreshFeedback.Error -> snackbarHostState.showSnackbar(
-                    message = context.getString(R.string.refresh_error, feedback.message),
+                    message = resources.getString(R.string.refresh_error, feedback.message),
                     duration = SnackbarDuration.Long
                 )
             }
@@ -1049,11 +1050,11 @@ internal fun TodaySummaryCard(
     // Description unifiée pour TalkBack qui résume toutes les valeurs.
     // On préfixe par "Maintenant X°" si dispo — c'est l'info la plus utile
     // au premier abord pour quelqu'un qui ouvre l'app.
-    val context = LocalContext.current
+    val resources = LocalResources.current
     val baseDescription = com.meteocompare.app.ui.accessibility.A11yFormatter
-        .todaySummaryDescription(context, today, modelCount)
+        .todaySummaryDescription(resources, today, modelCount)
     val a11yDescription = if (currentTemp != null) {
-        context.getString(R.string.a11y_now_temp, currentTemp.roundToInt()) + ". $baseDescription"
+        resources.getString(R.string.a11y_now_temp, currentTemp.roundToInt()) + ". $baseDescription"
     } else baseDescription
 
     Card(
@@ -1290,6 +1291,7 @@ private fun ConfidenceBadge(percent: Int, onClick: () -> Unit = {}) {
             .clip(MaterialTheme.shapes.small)
             .clickable(role = Role.Button, onClick = onClick)
             .semantics { contentDescription = a11yLabel }
+            .testTag(TAG_CONFIDENCE_BADGE)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -1338,6 +1340,7 @@ private fun PartialErrorsSection(errors: Map<WeatherModel, String>) {
 internal const val TAG_DETAIL_LOADING = "detail_loading"
 internal const val TAG_DETAIL_ERROR = "detail_error"
 internal const val TAG_DETAIL_LOADED = "detail_loaded"
+internal const val TAG_CONFIDENCE_BADGE = "confidence_badge"
 
 // ============================================================================
 //  Légendes des tableaux précipitations et vent

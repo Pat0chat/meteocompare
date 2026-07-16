@@ -36,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -74,11 +75,15 @@ internal fun ConfidenceExplanationContent(
     onBack: () -> Unit
 ) {
     Scaffold(
+        modifier = Modifier.testTag(TAG_CONFIDENCE_EXPLANATION_ROOT),
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.confidence_explanation_title)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(
+                        onClick = onBack,
+                        modifier = Modifier.testTag(TAG_CONFIDENCE_EXPLANATION_BACK)
+                    ) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(R.string.nav_back)
@@ -586,3 +591,6 @@ private fun variableLabel(kind: VariableKind): String = when (kind) {
     VariableKind.PRECIPITATION -> stringResource(R.string.var_precipitation)
     VariableKind.WIND_MAX -> stringResource(R.string.var_wind_max)
 }
+
+internal const val TAG_CONFIDENCE_EXPLANATION_ROOT = "confidence_explanation_root"
+internal const val TAG_CONFIDENCE_EXPLANATION_BACK = "confidence_explanation_back"

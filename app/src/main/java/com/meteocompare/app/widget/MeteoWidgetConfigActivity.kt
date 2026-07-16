@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -46,7 +47,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -320,6 +323,7 @@ private fun WidgetConfigScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .testTag(TAG_WIDGET_CONFIG_ROOT)
             .background(MaterialTheme.colorScheme.background)
             // systemBarsPadding : décale le contenu SOUS la barre de statut
             // (heure, batterie, notifications) et AU-DESSUS de la barre de
@@ -414,7 +418,7 @@ private fun WidgetConfigScreen(
                 // fin pour ajuster précisément à un wallpaper, assez grossier
                 // pour que le slider ne "trémble" pas sous le doigt.
                 steps = 19,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f).testTag(TAG_WIDGET_OPACITY)
             )
             Spacer(Modifier.width(12.dp))
             Text(
@@ -519,20 +523,24 @@ private fun WidgetConfigScreen(
         ) {
             ForecastModeRow(
                 selected = forecastMode == ForecastMode.HOURLY,
+                tag = "$TAG_WIDGET_MODE${ForecastMode.HOURLY.name}",
                 labelRes = R.string.widget_config_forecast_mode_hourly,
                 onClick = { forecastMode = ForecastMode.HOURLY }
             )
             ForecastModeRow(
                 selected = forecastMode == ForecastMode.DAILY,
+                tag = "$TAG_WIDGET_MODE${ForecastMode.DAILY.name}",
                 labelRes = R.string.widget_config_forecast_mode_daily,
                 onClick = { forecastMode = ForecastMode.DAILY }
             )
             ConfidenceModeRow(
                 selected = forecastMode.normalized() == ForecastMode.CONFIDENCE_ALL,
+                tag = "$TAG_WIDGET_MODE${ForecastMode.CONFIDENCE_ALL.name}",
                 onClick = { forecastMode = ForecastMode.CONFIDENCE_ALL }
             )
             ForecastModeRow(
                 selected = forecastMode == ForecastMode.MINI_FORECAST_12H,
+                tag = "$TAG_WIDGET_MODE${ForecastMode.MINI_FORECAST_12H.name}",
                 labelRes = R.string.widget_config_forecast_mode_mini_12h,
                 onClick = { forecastMode = ForecastMode.MINI_FORECAST_12H }
             )
@@ -549,7 +557,7 @@ private fun WidgetConfigScreen(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.End
         ) {
-            TextButton(onClick = onCancel) {
+            TextButton(onClick = onCancel, modifier = Modifier.testTag(TAG_WIDGET_CANCEL)) {
                 Text(stringResource(R.string.action_cancel))
             }
             Spacer(Modifier.width(8.dp))
@@ -559,7 +567,8 @@ private fun WidgetConfigScreen(
                         onSave(id, opacityPct.toInt(), forecastMode, bgColorArgb, textColorArgb)
                     }
                 },
-                enabled = selectedCityId != null
+                enabled = selectedCityId != null,
+                modifier = Modifier.testTag(TAG_WIDGET_SAVE)
             ) {
                 Text(stringResource(R.string.widget_config_save))
             }
@@ -570,16 +579,26 @@ private fun WidgetConfigScreen(
 @Composable
 private fun ForecastModeRow(
     selected: Boolean,
+    tag: String,
     labelRes: Int,
     onClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .selectable(
+                selected = selected,
+                role = Role.RadioButton,
+                onClick = onClick
+            )
+            .testTag(tag)
             .padding(horizontal = 12.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        RadioButton(selected = selected, onClick = onClick)
+        RadioButton(
+            selected = selected,
+            onClick = null
+        )
         Spacer(Modifier.width(8.dp))
         Text(
             text = stringResource(labelRes),
@@ -598,16 +617,22 @@ private fun ForecastModeRow(
 @Composable
 private fun ConfidenceModeRow(
     selected: Boolean,
+    tag: String,
     onClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .selectable(
+                selected = selected,
+                role = Role.RadioButton,
+                onClick = onClick
+            )
+            .testTag(tag)
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        RadioButton(selected = selected, onClick = onClick)
+        RadioButton(selected = selected, onClick = null)
         Spacer(Modifier.width(8.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
@@ -654,10 +679,16 @@ private fun CityRow(city: City, selected: Boolean, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .selectable(
+                selected = selected,
+                role = Role.RadioButton,
+                onClick = onClick
+            )
+            .testTag("$TAG_WIDGET_CITY${city.id}")
             .padding(horizontal = 12.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        RadioButton(selected = selected, onClick = onClick)
+        RadioButton(selected = selected, onClick = null)
         Spacer(Modifier.width(8.dp))
         Column {
             Text(
@@ -810,3 +841,10 @@ private fun ColorSwatch(
         }
     }
 }
+
+internal const val TAG_WIDGET_CONFIG_ROOT = "widget_config_root"
+internal const val TAG_WIDGET_CITY = "widget_city_"
+internal const val TAG_WIDGET_OPACITY = "widget_opacity"
+internal const val TAG_WIDGET_MODE = "widget_mode_"
+internal const val TAG_WIDGET_SAVE = "widget_save"
+internal const val TAG_WIDGET_CANCEL = "widget_cancel"
