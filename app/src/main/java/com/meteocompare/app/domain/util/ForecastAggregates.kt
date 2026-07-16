@@ -8,13 +8,14 @@ import kotlin.math.roundToInt
 /** Résultat agrégé utilisé par la liste des villes et le mini-forecast widget. */
 internal data class Next12hForecast(
     val temperatures: List<Double?>,
-    val precipitationProbabilities: List<Int?>
+    val precipitationProbabilities: List<Int?>,
+    val precipitationAmountsMm: List<Double?>
 )
 
 /**
  * Agrégats partagés entre l'interface principale et les widgets.
  *
- * Les deux métriques sont calculées en une seule passe afin de réutiliser le
+ * Les trois métriques sont calculées en une seule passe afin de réutiliser le
  * même index horaire par modèle. Les timestamps Open-Meteo étant triés, une
  * recherche binaire évite de reparcourir toute la série pour chaque heure.
  */
@@ -24,8 +25,9 @@ internal object ForecastAggregates {
     private const val MAX_TIME_DELTA_SECONDS = 30L * 60L
 
     /**
-     * Agrège température et probabilité de précipitation sur les 12 prochaines
-     * heures en faisant une moyenne non pondérée des modèles disponibles.
+     * Agrège température, quantité de pluie et probabilité de précipitation
+     * sur les 12 prochaines heures en faisant une moyenne non pondérée des
+     * modèles disponibles.
      */
     fun next12h(
         forecast: CityForecast,
@@ -33,11 +35,13 @@ internal object ForecastAggregates {
     ): Next12hForecast {
         val temperatures = ArrayList<Double?>(HOUR_COUNT)
         val precipitationProbabilities = ArrayList<Int?>(HOUR_COUNT)
+        val precipitationAmountsMm = ArrayList<Double?>(HOUR_COUNT)
 
         repeat(HOUR_COUNT) { hourOffset ->
             val target = now.plusSeconds(hourOffset * 3_600L)
             val temperatureValues = ArrayList<Double>(forecast.seriesByModel.size)
             val precipitationValues = ArrayList<Int>(forecast.seriesByModel.size)
+            val precipitationAmountValues = ArrayList<Double>(forecast.seriesByModel.size)
 
             forecast.seriesByModel.values.forEach { series ->
                 val timestamps = series.hourly.timestamps
@@ -48,6 +52,8 @@ internal object ForecastAggregates {
                 series.hourly.temperature2m.getOrNull(index)?.let(temperatureValues::add)
                 series.hourly.precipitationProbability.getOrNull(index)
                     ?.let(precipitationValues::add)
+                series.hourly.precipitation.getOrNull(index)
+                    ?.let(precipitationAmountValues::add)
             }
 
             temperatures += temperatureValues.takeIf { it.isNotEmpty() }?.average()
@@ -55,11 +61,15 @@ internal object ForecastAggregates {
                 .takeIf { it.isNotEmpty() }
                 ?.average()
                 ?.roundToInt()
+            precipitationAmountsMm += precipitationAmountValues
+                .takeIf { it.isNotEmpty() }
+                ?.average()
         }
 
         return Next12hForecast(
             temperatures = temperatures,
-            precipitationProbabilities = precipitationProbabilities
+            precipitationProbabilities = precipitationProbabilities,
+            precipitationAmountsMm = precipitationAmountsMm
         )
     }
 

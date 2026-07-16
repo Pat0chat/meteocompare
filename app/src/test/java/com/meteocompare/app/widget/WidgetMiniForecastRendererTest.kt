@@ -146,6 +146,57 @@ class WidgetMiniForecastRendererTest {
         assertEquals(text and 0x00FFFFFF, color and 0x00FFFFFF)
     }
 
+
+    // ─── Hauteur des barres ─────────────────────────────────────────────
+
+    @Test
+    fun `barres temperature grandissent avec la temperature sur la fenetre`() {
+        val fractions = WidgetMiniForecastRenderer.temperatureBarFractions(
+            listOf(10.0, 15.0, 20.0, 25.0)
+        ).filterNotNull()
+
+        fractions.zipWithNext().forEach { (a, b) ->
+            assertTrue("La barre chaude doit être plus haute: $a puis $b", b > a)
+        }
+    }
+
+    @Test
+    fun `barres temperature restent visibles quand les valeurs sont identiques`() {
+        val fractions = WidgetMiniForecastRenderer.temperatureBarFractions(
+            List(12) { 18.0 }
+        ).filterNotNull()
+
+        assertEquals(12, fractions.size)
+        fractions.forEach { fraction ->
+            assertTrue(fraction in 0.14f..1f)
+        }
+    }
+
+    @Test
+    fun `barre pluie augmente avec la quantite a probabilite egale`() {
+        val light = WidgetMiniForecastRenderer.precipitationBarFraction(0.2, 70)
+            ?: error("fraction manquante")
+        val heavy = WidgetMiniForecastRenderer.precipitationBarFraction(3.5, 70)
+            ?: error("fraction manquante")
+
+        assertTrue(heavy > light)
+    }
+
+    @Test
+    fun `barre pluie augmente avec la probabilite a quantite egale`() {
+        val unlikely = WidgetMiniForecastRenderer.precipitationBarFraction(0.5, 20)
+            ?: error("fraction manquante")
+        val likely = WidgetMiniForecastRenderer.precipitationBarFraction(0.5, 90)
+            ?: error("fraction manquante")
+
+        assertTrue(likely > unlikely)
+    }
+
+    @Test
+    fun `barre pluie est absente sans quantite ni probabilite`() {
+        assertEquals(null, WidgetMiniForecastRenderer.precipitationBarFraction(null, null))
+    }
+
     // ─── Contrat public de render (bornes d'input) ───────────────────────
 
     @Test(expected = IllegalArgumentException::class)
@@ -153,7 +204,7 @@ class WidgetMiniForecastRendererTest {
         WidgetMiniForecastRenderer.render(
             widthPx = 0, heightPx = 48,
             temps = List(12) { 20.0 },
-            precips = List(12) { 0 },
+            precipProbabilities = List(12) { 0 },
             precipColorArgb = 0xFF2196F3.toInt(),
             textColorArgb = 0xDE000000.toInt()
         )
@@ -164,7 +215,7 @@ class WidgetMiniForecastRendererTest {
         WidgetMiniForecastRenderer.render(
             widthPx = 480, heightPx = -1,
             temps = List(12) { 20.0 },
-            precips = List(12) { 0 },
+            precipProbabilities = List(12) { 0 },
             precipColorArgb = 0xFF2196F3.toInt(),
             textColorArgb = 0xDE000000.toInt()
         )

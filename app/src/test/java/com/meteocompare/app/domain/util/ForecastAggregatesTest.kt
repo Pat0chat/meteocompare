@@ -20,11 +20,13 @@ class ForecastAggregatesTest {
         val forecast = forecastOf(
             WeatherModel.GFS to hourly(
                 temperatures = listOf(10.0, 20.0),
-                precipitationProbabilities = listOf(20, 40)
+                precipitationProbabilities = listOf(20, 40),
+                precipitationAmounts = listOf(0.2, 1.0)
             ),
             WeatherModel.ICON_GLOBAL to hourly(
                 temperatures = listOf(20.0, 30.0),
-                precipitationProbabilities = listOf(40, 60)
+                precipitationProbabilities = listOf(40, 60),
+                precipitationAmounts = listOf(0.4, 2.0)
             )
         )
 
@@ -32,12 +34,16 @@ class ForecastAggregatesTest {
 
         assertEquals(12, result.temperatures.size)
         assertEquals(12, result.precipitationProbabilities.size)
+        assertEquals(12, result.precipitationAmountsMm.size)
         assertEquals(15.0, result.temperatures[0] ?: error("temperature manquante"), 0.001)
         assertEquals(25.0, result.temperatures[1] ?: error("temperature manquante"), 0.001)
         assertEquals(30, result.precipitationProbabilities[0])
         assertEquals(50, result.precipitationProbabilities[1])
+        assertEquals(0.3, result.precipitationAmountsMm[0] ?: error("pluie manquante"), 0.001)
+        assertEquals(1.5, result.precipitationAmountsMm[1] ?: error("pluie manquante"), 0.001)
         assertNull(result.temperatures[2])
         assertNull(result.precipitationProbabilities[2])
+        assertNull(result.precipitationAmountsMm[2])
     }
 
     @Test
@@ -57,15 +63,17 @@ class ForecastAggregatesTest {
 
         assertNull(result.temperatures.first())
         assertNull(result.precipitationProbabilities.first())
+        assertNull(result.precipitationAmountsMm.first())
     }
 
     private fun hourly(
         temperatures: List<Double?>,
-        precipitationProbabilities: List<Int?>
+        precipitationProbabilities: List<Int?>,
+        precipitationAmounts: List<Double?>
     ): HourlyForecast = HourlyForecast(
         timestamps = temperatures.indices.map { now.plusSeconds(it * 3_600L) },
         temperature2m = temperatures,
-        precipitation = List(temperatures.size) { null },
+        precipitation = precipitationAmounts,
         windSpeed10m = List(temperatures.size) { null },
         precipitationProbability = precipitationProbabilities
     )

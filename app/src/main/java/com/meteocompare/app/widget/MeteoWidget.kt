@@ -835,6 +835,10 @@ private fun ColumnScope.CompactConfidenceSummary(
 ) {
     val night = LocalNightMode.current
     val ctx = LocalContext.current
+    val visibleStrips = strips.take(3)
+    val dayBuckets = visibleStrips.firstOrNull()?.buckets?.take(3).orEmpty()
+    val metricWidth = 31.dp
+
     Column(
         modifier = GlanceModifier
             .fillMaxWidth()
@@ -851,45 +855,69 @@ private fun ColumnScope.CompactConfidenceSummary(
                 fontWeight = FontWeight.Medium
             )
         )
-        strips.take(3).forEachIndexed { rowIndex, strip ->
-            if (rowIndex > 0) Spacer(GlanceModifier.height(4.dp))
+
+        visibleStrips.forEachIndexed { rowIndex, strip ->
+            if (rowIndex > 0) Spacer(GlanceModifier.height(3.dp))
             Row(
                 modifier = GlanceModifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = strip.metricLabel,
-                    modifier = GlanceModifier.width(31.dp),
+                    modifier = GlanceModifier.width(metricWidth),
                     style = TextStyle(
                         color = onContainer,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Medium
                     )
                 )
-                Row(
-                    modifier = GlanceModifier.defaultWeight().height(6.dp)
-                ) {
+                Row(modifier = GlanceModifier.defaultWeight()) {
                     strip.buckets.take(3).forEachIndexed { index, bucket ->
                         if (index > 0) Spacer(GlanceModifier.width(2.dp))
-                        Box(
-                            modifier = GlanceModifier
-                                .defaultWeight()
-                                .fillMaxHeight()
-                                .background(ColorProvider(confidenceColor(bucket.percent, night)))
-                                .cornerRadius(3.dp)
-                        ) {}
+                        Column(
+                            modifier = GlanceModifier.defaultWeight(),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = bucket.value,
+                                style = TextStyle(
+                                    color = onContainer,
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            )
+                            Spacer(GlanceModifier.height(1.dp))
+                            Box(
+                                modifier = GlanceModifier
+                                    .fillMaxWidth()
+                                    .height(6.dp)
+                                    .background(ColorProvider(confidenceColor(bucket.percent, night)))
+                                    .cornerRadius(3.dp)
+                            ) {}
+                        }
                     }
                 }
-                Spacer(GlanceModifier.width(5.dp))
-                Text(
-                    text = strip.currentPct?.let { "$it%" } ?: "—",
-                    modifier = GlanceModifier.width(30.dp),
-                    style = TextStyle(
-                        color = strip.currentPct?.let { confidenceTextColor(it) } ?: onContainerMuted,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                )
+            }
+        }
+
+        if (dayBuckets.isNotEmpty()) {
+            Spacer(GlanceModifier.height(2.dp))
+            Row(modifier = GlanceModifier.fillMaxWidth()) {
+                Spacer(GlanceModifier.width(metricWidth))
+                dayBuckets.forEach { bucket ->
+                    Column(
+                        modifier = GlanceModifier.defaultWeight(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = bucket.label,
+                            style = TextStyle(
+                                color = onContainerMuted,
+                                fontSize = 7.sp
+                            )
+                        )
+                    }
+                }
             }
         }
     }
@@ -1070,9 +1098,9 @@ private fun MiniForecastStrip(
         ).coerceAtLeast(80f)
     val widthPx = (availableWidthDp * renderDensity).toInt().coerceAtLeast(1)
     val chartHeightDp = when (profile) {
-        MiniForecastSizeProfile.COMPACT_2X2 -> 48
-        MiniForecastSizeProfile.MEDIUM_3X2 -> 56
-        MiniForecastSizeProfile.EXPANDED_4X2 -> if (compact) 60 else 68
+        MiniForecastSizeProfile.COMPACT_2X2 -> 54
+        MiniForecastSizeProfile.MEDIUM_3X2 -> 62
+        MiniForecastSizeProfile.EXPANDED_4X2 -> if (compact) 68 else 74
     }
     val heightPx = (chartHeightDp * renderDensity).toInt().coerceAtLeast(1)
     val precipColorArgb = 0xFF1976D2.toInt()
@@ -1095,6 +1123,7 @@ private fun MiniForecastStrip(
     val bitmap = remember(
         data.next12hTemps,
         data.next12hPrecipProb,
+        data.next12hPrecipMm,
         timelineLabels,
         widthPx,
         heightPx,
@@ -1105,7 +1134,8 @@ private fun MiniForecastStrip(
             widthPx = widthPx,
             heightPx = heightPx,
             temps = data.next12hTemps,
-            precips = data.next12hPrecipProb,
+            precipProbabilities = data.next12hPrecipProb,
+            precipAmountsMm = data.next12hPrecipMm,
             precipColorArgb = precipColorArgb,
             textColorArgb = textColorArgb,
             timelineLabels = timelineLabels,
@@ -1157,8 +1187,6 @@ private fun ColumnScope.CombinedConfidenceBands(
     val visibleStrips = strips.take(3)
     val dayBuckets = visibleStrips.firstOrNull()?.buckets?.take(5).orEmpty()
     val metricWidth = if (compact) 34.dp else 42.dp
-    val valueWidth = if (compact) 29.dp else 36.dp
-    val percentWidth = if (compact) 31.dp else 38.dp
 
     Column(
         modifier = GlanceModifier
@@ -1193,11 +1221,10 @@ private fun ColumnScope.CombinedConfidenceBands(
             )
         }
 
-        Spacer(GlanceModifier.height(if (compact) 4.dp else 6.dp))
+        Spacer(GlanceModifier.height(if (compact) 3.dp else 5.dp))
 
         visibleStrips.forEachIndexed { rowIndex, strip ->
-            if (rowIndex > 0) Spacer(GlanceModifier.height(if (compact) 4.dp else 5.dp))
-            val buckets = strip.buckets.take(5)
+            if (rowIndex > 0) Spacer(GlanceModifier.height(if (compact) 3.dp else 4.dp))
             Row(
                 modifier = GlanceModifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -1211,62 +1238,62 @@ private fun ColumnScope.CombinedConfidenceBands(
                         fontWeight = FontWeight.Medium
                     )
                 )
-                Text(
-                    text = buckets.firstOrNull()?.value ?: "—",
-                    modifier = GlanceModifier.width(valueWidth),
-                    style = TextStyle(
-                        color = onContainerMuted,
-                        fontSize = if (compact) 8.sp else 9.sp
-                    )
-                )
-                Row(
-                    modifier = GlanceModifier.defaultWeight().height(if (compact) 7.dp else 9.dp)
-                ) {
-                    buckets.forEachIndexed { index, bucket ->
-                        if (index > 0) Spacer(GlanceModifier.width(2.dp))
-                        Box(
-                            modifier = GlanceModifier
-                                .defaultWeight()
-                                .fillMaxHeight()
-                                .background(ColorProvider(confidenceColor(bucket.percent, night)))
-                                .cornerRadius(3.dp)
-                        ) {}
-                    }
-                }
-                Spacer(GlanceModifier.width(5.dp))
-                Text(
-                    text = strip.currentPct?.let { "$it%" } ?: "—",
-                    modifier = GlanceModifier.width(percentWidth),
-                    style = TextStyle(
-                        color = strip.currentPct?.let { confidenceTextColor(it) } ?: onContainerMuted,
-                        fontSize = if (compact) 9.sp else 10.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                )
-            }
-        }
-
-        if (dayBuckets.isNotEmpty()) {
-            Spacer(GlanceModifier.height(if (compact) 3.dp else 4.dp))
-            Row(modifier = GlanceModifier.fillMaxWidth()) {
-                Spacer(GlanceModifier.width(metricWidth + valueWidth))
                 Row(modifier = GlanceModifier.defaultWeight()) {
-                    dayBuckets.forEach { bucket ->
+                    strip.buckets.take(5).forEachIndexed { index, bucket ->
+                        if (index > 0) Spacer(GlanceModifier.width(if (compact) 2.dp else 3.dp))
                         Column(
                             modifier = GlanceModifier.defaultWeight(),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                text = bucket.label,
+                                text = bucket.value,
                                 style = TextStyle(
-                                    color = onContainerMuted,
-                                    fontSize = if (compact) 7.sp else 8.sp
+                                    color = onContainer,
+                                    fontSize = if (compact) 8.sp else 9.sp,
+                                    fontWeight = FontWeight.Medium
                                 )
                             )
+                            Spacer(GlanceModifier.height(1.dp))
+                            Box(
+                                modifier = GlanceModifier
+                                    .fillMaxWidth()
+                                    .height(if (compact) 6.dp else 8.dp)
+                                    .background(ColorProvider(confidenceColor(bucket.percent, night)))
+                                    .cornerRadius(3.dp)
+                            ) {}
+                            if (!compact) {
+                                Text(
+                                    text = "${bucket.percent}%",
+                                    style = TextStyle(
+                                        color = confidenceTextColor(bucket.percent),
+                                        fontSize = 8.sp
+                                    )
+                                )
+                            }
                         }
                     }
                 }
-                Spacer(GlanceModifier.width(5.dp + percentWidth))
+            }
+        }
+
+        if (dayBuckets.isNotEmpty()) {
+            Spacer(GlanceModifier.height(if (compact) 2.dp else 3.dp))
+            Row(modifier = GlanceModifier.fillMaxWidth()) {
+                Spacer(GlanceModifier.width(metricWidth))
+                dayBuckets.forEach { bucket ->
+                    Column(
+                        modifier = GlanceModifier.defaultWeight(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = bucket.label,
+                            style = TextStyle(
+                                color = onContainerMuted,
+                                fontSize = if (compact) 7.sp else 8.sp
+                            )
+                        )
+                    }
+                }
             }
         }
     }

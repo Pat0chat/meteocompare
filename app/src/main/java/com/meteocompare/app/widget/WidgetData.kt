@@ -77,9 +77,16 @@ internal data class WidgetData(
     val next12hTemps: List<Double?> = emptyList(),
     /**
      * Probabilités de précipitation (0-100) agrégées 12h, alignées sur
-     * [next12hTemps]. Utilisées pour les dots pluie sous la strip.
+     * [next12hTemps]. Utilisées pour l'opacité des barres pluie sous la ligne temporelle.
      */
     val next12hPrecipProb: List<Int?> = emptyList(),
+    /**
+     * Quantités de précipitation horaires en millimètres, agrégées entre
+     * modèles et alignées sur [next12hTemps]. Elles pilotent la hauteur des
+     * barres pluie du mini-forecast, tandis que [next12hPrecipProb] pilote
+     * leur opacité.
+     */
+    val next12hPrecipMm: List<Double?> = emptyList(),
     /**
      * Moment de la première heure de [next12hTemps] dans le fuseau de la
      * ville, pour afficher les 3 ancres "HHh ... HHh ... HHh" sous la strip.
@@ -160,16 +167,12 @@ internal data class WidgetForecastItem(
  * ─── Champs ────────────────────────────────────────────────────────────
  * `metricLabel` : "T°", "Pluie", "Vent" — libellé métrique de la strip.
  *
- * `currentPct` : % de confiance à l'instant courant. Affiché en haut à
- * droite avec la couleur du niveau (vert/orange/rouge).
- *
  * `buckets` : liste ordonnée chronologiquement des buckets de la strip.
- * Aujourd'hui en premier, puis jours suivants. Typiquement 7 éléments
+ * Aujourd'hui en premier, puis jours suivants. Typiquement 5 éléments
  * (5 jours d'horizon), moins si la série est plus courte.
  */
 internal data class WidgetConfidenceStrip(
     val metricLabel: String,
-    val currentPct: Int?,
     val buckets: List<StripBucket>
 )
 
@@ -313,26 +316,23 @@ internal suspend fun loadWidgetData(
             // dans le widget que dans la card home. hourlyStartTime = maintenant
             // tronqué à l'heure, dans le fuseau de la ville (les ancres
             // s'affichent en heure locale ville, pas device).
-            val (next12hTemps, next12hPrecipProb, hourlyStartTime) =
-                if (forecastMode.isMiniForecast()) {
-                    val zone = runCatching {
-                        java.time.ZoneId.of(city.timezone ?: "UTC")
-                    }.getOrDefault(java.time.ZoneId.of("UTC"))
-                    val now = java.time.Instant.now()
-                    val miniForecast =
-                        ForecastAggregates.next12h(forecast, now)
-                    val start = now
-                        .atZone(zone)
-                        .toLocalDateTime()
-                        .truncatedTo(java.time.temporal.ChronoUnit.HOURS)
-                    Triple(
-                        miniForecast.temperatures,
-                        miniForecast.precipitationProbabilities,
-                        start
-                    )
-                } else {
-                    Triple(emptyList(), emptyList(), null)
-                }
+            val miniForecastNow = java.time.Instant.now()
+            val miniForecast = if (forecastMode.isMiniForecast()) {
+                ForecastAggregates.next12h(forecast, miniForecastNow)
+            } else {
+                null
+            }
+            val hourlyStartTime = if (miniForecast != null) {
+                val zone = runCatching {
+                    java.time.ZoneId.of(city.timezone ?: "UTC")
+                }.getOrDefault(java.time.ZoneId.of("UTC"))
+                miniForecastNow
+                    .atZone(zone)
+                    .toLocalDateTime()
+                    .truncatedTo(java.time.temporal.ChronoUnit.HOURS)
+            } else {
+                null
+            }
 
             WidgetData(
                 cityName = city.name,
@@ -347,8 +347,9 @@ internal suspend fun loadWidgetData(
                 currentWindSpeedKmh = calc.currentWindSpeed(forecast),
                 forecasts = forecasts,
                 confidenceStrips = confidenceStrips,
-                next12hTemps = next12hTemps,
-                next12hPrecipProb = next12hPrecipProb,
+                next12hTemps = miniForecast?.temperatures.orEmpty(),
+                next12hPrecipProb = miniForecast?.precipitationProbabilities.orEmpty(),
+                next12hPrecipMm = miniForecast?.precipitationAmountsMm.orEmpty(),
                 hourlyStartTime = hourlyStartTime,
                 error = null
             )
@@ -602,7 +603,6 @@ private fun buildConfidenceStrip(
 
     return WidgetConfidenceStrip(
         metricLabel = metricLabel,
-        currentPct = bands.first().percent,
         buckets = buckets
     )
 }
