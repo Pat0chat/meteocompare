@@ -650,7 +650,6 @@ private fun ConfidenceModeRow(
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 ConfidenceMetricChip("T°")
                 ConfidenceMetricChip(stringResource(R.string.widget_metric_precipitation))
-                ConfidenceMetricChip(stringResource(R.string.widget_metric_wind))
             }
         }
     }

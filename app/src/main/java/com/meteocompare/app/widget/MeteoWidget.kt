@@ -835,7 +835,7 @@ private fun ColumnScope.CompactConfidenceSummary(
 ) {
     val night = LocalNightMode.current
     val ctx = LocalContext.current
-    val visibleStrips = strips.take(3)
+    val visibleStrips = strips.take(2)
     val dayBuckets = visibleStrips.firstOrNull()?.buckets?.take(3).orEmpty()
     val metricWidth = 31.dp
 
@@ -1167,12 +1167,12 @@ private fun MiniForecastStrip(
 }
 
 /**
- * Vue combinée des trois bandes de confiance.
+ * Vue combinée des bandes de confiance température et précipitations.
  *
- * Les métriques partagent les mêmes cinq colonnes journalières : le lecteur
- * compare immédiatement l'accord des modèles pour la température, la pluie
- * et le vent sans changer d'option. Les libellés de jours ne sont dessinés
- * qu'une fois en bas pour réduire le bruit visuel.
+ * Les deux métriques partagent les mêmes cinq colonnes journalières : le
+ * lecteur compare immédiatement l'accord des modèles sans surcharger la
+ * hauteur du widget. Les libellés de jours ne sont dessinés qu'une fois en
+ * bas pour réduire le bruit visuel.
  */
 @Composable
 private fun ColumnScope.CombinedConfidenceBands(
@@ -1184,7 +1184,7 @@ private fun ColumnScope.CombinedConfidenceBands(
 ) {
     val night = LocalNightMode.current
     val ctx = LocalContext.current
-    val visibleStrips = strips.take(3)
+    val visibleStrips = strips.take(2)
     val dayBuckets = visibleStrips.firstOrNull()?.buckets?.take(5).orEmpty()
     val metricWidth = if (compact) 34.dp else 42.dp
 
@@ -1275,7 +1275,7 @@ private fun ColumnScope.CombinedConfidenceBands(
                 }
             }
         }
-
+        /*
         if (dayBuckets.isNotEmpty()) {
             Spacer(GlanceModifier.height(if (compact) 2.dp else 3.dp))
             Row(modifier = GlanceModifier.fillMaxWidth()) {
@@ -1295,7 +1295,7 @@ private fun ColumnScope.CombinedConfidenceBands(
                     }
                 }
             }
-        }
+        }*/
     }
 }
 

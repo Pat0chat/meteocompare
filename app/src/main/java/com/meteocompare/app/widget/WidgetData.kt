@@ -522,8 +522,8 @@ private fun buildDailyForecasts(
  * garantit que "aujourd'hui" ne dépasse pas au milieu de la nuit locale — un
  * bucket ne mélange pas mardi soir avec mercredi matin.
  *
- * Format de `value` : température en °, précip en mm, vent en km/h — même
- * unité que l'app pour continuité perceptuelle.
+ * Format de `value` : température en ° et précipitations en mm — mêmes
+ * unités que l'app pour continuité perceptuelle.
  *
  * Labels de jour :
  *   Position 0 : "Auj." (chaîne locale, cf. R.string.widget_confidence_now_short)
@@ -536,8 +536,7 @@ private fun buildAllConfidenceStrips(
     calc: ConfidenceCalculator
 ): List<WidgetConfidenceStrip> = listOfNotNull(
     buildConfidenceStrip(context, forecast, ForecastMode.CONFIDENCE_TEMPERATURE, calc),
-    buildConfidenceStrip(context, forecast, ForecastMode.CONFIDENCE_PRECIPITATION, calc),
-    buildConfidenceStrip(context, forecast, ForecastMode.CONFIDENCE_WIND, calc)
+    buildConfidenceStrip(context, forecast, ForecastMode.CONFIDENCE_PRECIPITATION, calc)
 )
 
 private fun buildConfidenceStrip(
