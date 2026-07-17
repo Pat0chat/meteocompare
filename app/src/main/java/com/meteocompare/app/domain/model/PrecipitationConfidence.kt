@@ -38,7 +38,16 @@ sealed interface PrecipitationConfidence {
         override val percent: Int,
         override val modelCount: Int,
         val modelsForRain: Int,
-        val modelsAgainstRain: Int
+        val modelsAgainstRain: Int,
+        /**
+         * Fourchette calculée uniquement sur les modèles qui annoncent une
+         * pluie significative. Même en cas de désaccord sur l'occurrence, ces
+         * valeurs restent utiles : masquer totalement les millimètres faisait
+         * perdre l'information portée par la majorité pluvieuse.
+         */
+        val rainMinMm: Double,
+        val rainMaxMm: Double,
+        val rainMeanMm: Double
     ) : PrecipitationConfidence
 
     companion object {

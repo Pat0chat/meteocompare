@@ -606,11 +606,19 @@ class ConfidenceCalculator @Inject constructor(
                 // en double à cause de l'imprécision flottante, et un toInt
                 // tronquerait à 19 au lieu du 20 mathématiquement correct.
                 val percent = ((agreement - 0.5) * 200).roundToInt().coerceIn(0, 100)
+                val rainStats = computeWeightedStats(
+                    rainModels.map { (model, value) ->
+                        WeightedSample(value, weighting.weight(model))
+                    }
+                )
                 PrecipitationConfidence.Divided(
                     percent = percent,
                     modelCount = total,
                     modelsForRain = rainModels.size,
-                    modelsAgainstRain = dryModels.size
+                    modelsAgainstRain = dryModels.size,
+                    rainMinMm = rainStats.min,
+                    rainMaxMm = rainStats.max,
+                    rainMeanMm = rainStats.mean
                 )
             }
         }

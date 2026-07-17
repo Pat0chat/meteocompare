@@ -33,6 +33,12 @@ internal data class WidgetData(
     val tempMax: Double?,
     val tempMin: Double?,
     val confidencePct: Int?,
+    /**
+     * Quantité de pluie représentative pour aujourd'hui. En cas d'accord
+     * complet, c'est la moyenne de tous les modèles pluvieux ; en cas de
+     * désaccord, c'est la moyenne des seuls modèles qui annoncent une pluie
+     * significative, afin de ne plus masquer complètement les millimètres.
+     */
     val precipMm: Double?,
     /**
      * Confiance (%) sur la prévision de précipitations quand les modèles
@@ -302,8 +308,16 @@ internal suspend fun loadWidgetData(
             val today = forecast.seriesByModel.values
                 .firstOrNull()?.daily?.dates?.firstOrNull()
             val dayConf = today?.let { calc.dayConfidence(forecast, it) }
-            val rainConfidence = dayConf?.precipitation as?
-                    com.meteocompare.app.domain.model.PrecipitationConfidence.Rain
+            val precipitation = dayConf?.precipitation
+            val rainConfidence = precipitation as?
+                com.meteocompare.app.domain.model.PrecipitationConfidence.Rain
+            val precipAmountMm = when (precipitation) {
+                is com.meteocompare.app.domain.model.PrecipitationConfidence.Rain ->
+                    precipitation.meanMm
+                is com.meteocompare.app.domain.model.PrecipitationConfidence.Divided ->
+                    precipitation.rainMeanMm
+                else -> null
+            }
 
             // Selon le mode utilisateur, on alimente soit la ligne de prévisions
             // 5 items (HOURLY/DAILY), soit la mini bande de confiance
@@ -346,7 +360,7 @@ internal suspend fun loadWidgetData(
                 tempMax = dayConf?.tempMax?.meanValue,
                 tempMin = dayConf?.tempMin?.meanValue,
                 confidencePct = dayConf?.overallPercent,
-                precipMm = rainConfidence?.meanMm,
+                precipMm = precipAmountMm,
                 precipConfidencePct = rainConfidence?.percent,
                 currentCloudCover = calc.currentCloudCover(forecast),
                 currentWindSpeedKmh = calc.currentWindSpeed(forecast),
@@ -382,105 +396,89 @@ internal suspend fun <T> Flow<T>.awaitWidgetTerminalEmission(): T? = lastOrNull(
  * Construit la liste des 5 items de prévision étendue pour le layout 4×2.
  *
  * ─── Choix du modèle "meilleur" ────────────────────────────────────────
- * On veut le modèle le plus fin (résolution basse en km) qui ait :
- *   1. Assez d'horizon pour couvrir 5 items (5h en HOURLY, 5j en DAILY)
- *   2. Des `weather_code` non-vides pour afficher des icônes
+ * Les réponses batched utilisent un axe temporel commun. La taille de
+ * `dates`/`timestamps` ne prouve donc pas qu'un modèle possède réellement des
+ * valeurs sur cinq échéances : un modèle court peut avoir cinq positions dont
+ * les trois dernières sont nulles.
  *
- * L'ancien code prenait le plus haut résolution sans filtre — AROME HD (1.5km)
- * gagnait toujours. Or AROME HD n'expose PAS weather_code (voir Note dans le
- * README) → aucune icône dans le widget 4×2. Idem AROME HD ne couvre que ~2j,
- * ce qui laissait J+2 et J+3 vides en mode DAILY.
- *
- * Fallback en 3 niveaux :
- *   a) Modèle fin AVEC weather_code et horizon suffisant (idéal : ICON-D2 en
- *      Europe centrale, ARPEGE Europe partout, ECMWF/GFS en global)
- *   b) Modèle avec horizon suffisant mais SANS weather_code — on utilisera
- *      l'inférence précipitation-based (voir WeatherCondition.inferFromPrecipAndTemp)
- *   c) N'importe quel modèle disponible, dernier recours pour ne pas retourner
- *      une liste vide (préférable à afficher rien)
+ * On construit les cinq cartes de chaque modèle et on classe les candidats
+ * selon les données réellement exploitables : cinq échéances complètes,
+ * présence d'une condition météo, puis résolution spatiale. Ce choix évite de
+ * sélectionner AROME HD pour cinq jours alors que son horizon utile n'en couvre
+ * que deux, tout en continuant à privilégier les modèles fins quand ils sont
+ * effectivement complets.
  */
-private fun buildForecasts(
+internal fun buildForecasts(
     forecast: com.meteocompare.app.domain.model.CityForecast,
     mode: ForecastMode,
-    timezone: String?
+    timezone: String?,
+    now: java.time.Instant = java.time.Instant.now()
 ): List<WidgetForecastItem> {
     val zone = runCatching { java.time.ZoneId.of(timezone ?: "UTC") }
         .getOrDefault(java.time.ZoneId.of("UTC"))
-    val now = java.time.Instant.now()
 
-    // Combien d'items chaque modèle candidate peut-il fournir depuis "maintenant" ?
-    fun horizonSize(series: com.meteocompare.app.domain.model.ForecastSeries): Int =
-        when (mode) {
-            ForecastMode.HOURLY -> {
-                val startIdx = series.hourly.timestamps.indexOfFirst { it >= now }
-                if (startIdx < 0) 0
-                else series.hourly.timestamps.size - startIdx
-            }
-            ForecastMode.DAILY -> series.daily.dates.size
-            // Ne devrait jamais arriver : buildForecasts n'est appelée QUE quand
-            // !forecastMode.isConfidenceBand() && !forecastMode.isMiniForecast()
-            // (voir loadWidgetData). On retourne 0 par safety pour rester
-            // exhaustif sans crasher.
-            ForecastMode.CONFIDENCE_ALL,
-            ForecastMode.CONFIDENCE_TEMPERATURE,
-            ForecastMode.CONFIDENCE_PRECIPITATION,
-            ForecastMode.CONFIDENCE_WIND,
-            ForecastMode.MINI_FORECAST_12H -> 0
-        }
-
-    fun hasWeatherCodes(series: com.meteocompare.app.domain.model.ForecastSeries): Boolean =
-        when (mode) {
-            ForecastMode.HOURLY -> series.hourly.weatherCode.isNotEmpty()
-            ForecastMode.DAILY -> series.daily.weatherCode.isNotEmpty()
-            ForecastMode.CONFIDENCE_ALL,
-            ForecastMode.CONFIDENCE_TEMPERATURE,
-            ForecastMode.CONFIDENCE_PRECIPITATION,
-            ForecastMode.CONFIDENCE_WIND,
-            ForecastMode.MINI_FORECAST_12H -> false
-        }
-
-    // Priorité (a) : couverture 5 items + weather_code présent
-    val ideal = forecast.seriesByModel.entries
-        .filter { horizonSize(it.value) >= 5 && hasWeatherCodes(it.value) }
-        .minByOrNull { it.key.resolutionKm }?.value
-    // Priorité (b) : couverture suffisante, weather_code peut manquer (inférence)
-    val fallback = forecast.seriesByModel.entries
-        .filter { horizonSize(it.value) >= 5 }
-        .minByOrNull { it.key.resolutionKm }?.value
-    // Priorité (c) : n'importe quel modèle avec au moins 1 item — dernière chance
-    val lastResort = forecast.seriesByModel.entries
-        .minByOrNull { it.key.resolutionKm }?.value
-
-    val bestSeries = ideal ?: fallback ?: lastResort ?: return emptyList()
-
-    return when (mode) {
-        ForecastMode.HOURLY -> buildHourlyForecasts(bestSeries.hourly, zone)
-        ForecastMode.DAILY -> buildDailyForecasts(bestSeries.daily)
-        ForecastMode.CONFIDENCE_ALL,
-        ForecastMode.CONFIDENCE_TEMPERATURE,
-        ForecastMode.CONFIDENCE_PRECIPITATION,
-        ForecastMode.CONFIDENCE_WIND,
-        ForecastMode.MINI_FORECAST_12H -> emptyList()
+    data class Candidate(
+        val resolutionKm: Double,
+        val items: List<WidgetForecastItem>
+    ) {
+        val visibleItems: List<WidgetForecastItem> = items.take(5)
+        val temperatureCount: Int = visibleItems.count { it.temp != null }
+        val conditionCount: Int = visibleItems.count { it.condition != null }
+        val complete: Boolean = visibleItems.size == 5 && temperatureCount == 5
     }
+
+    /*
+     * Les tableaux batched partagent le même axe temporel pour tous les modèles.
+     * Un modèle court comme AROME HD reçoit donc bien 5/7 dates dans `dates`,
+     * mais ses valeurs deviennent null après son horizon réel. Compter la taille
+     * des listes sélectionnait à tort ce modèle fin : deux jours remplis puis
+     * trois cartes vides, et parfois cinq heures vides autour d'un run incomplet.
+     *
+     * On construit désormais les cinq cartes réelles de chaque modèle, puis on
+     * choisit d'abord un candidat COMPLET. À complétude égale, on favorise les
+     * cartes qui possèdent aussi une condition météo, puis la résolution la plus
+     * fine. Si aucun modèle ne couvre les cinq échéances, on prend celui qui
+     * fournit le plus de températures utiles, sans masquer les données disponibles.
+     */
+    val candidates = forecast.seriesByModel.entries.map { (model, series) ->
+        val items = when (mode) {
+            ForecastMode.HOURLY -> buildHourlyForecasts(series.hourly, zone, now)
+            ForecastMode.DAILY -> buildDailyForecasts(series.daily)
+            ForecastMode.CONFIDENCE_ALL,
+            ForecastMode.CONFIDENCE_TEMPERATURE,
+            ForecastMode.CONFIDENCE_PRECIPITATION,
+            ForecastMode.CONFIDENCE_WIND,
+            ForecastMode.MINI_FORECAST_12H -> emptyList()
+        }
+        Candidate(model.resolutionKm, items)
+    }.filter { it.visibleItems.isNotEmpty() }
+
+    val best = candidates.minWithOrNull(
+        compareByDescending<Candidate> { it.complete }
+            .thenByDescending { it.temperatureCount }
+            .thenByDescending { it.conditionCount }
+            .thenBy { it.resolutionKm }
+    ) ?: return emptyList()
+
+    return best.visibleItems
 }
 
-private fun buildHourlyForecasts(
+internal fun buildHourlyForecasts(
     hourly: com.meteocompare.app.domain.model.HourlyForecast,
-    zone: java.time.ZoneId
+    zone: java.time.ZoneId,
+    now: java.time.Instant = java.time.Instant.now()
 ): List<WidgetForecastItem> {
     if (hourly.timestamps.isEmpty()) return emptyList()
-    val now = java.time.Instant.now()
     val startIdx = hourly.timestamps.indexOfFirst { it >= now }
-        .takeIf { it >= 0 } ?: 0
+    // Un cache dont tout l'horizon horaire est déjà passé ne doit pas afficher
+    // les cinq premières heures historiques comme si elles étaient futures.
+    if (startIdx < 0) return emptyList()
     val formatter = java.time.format.DateTimeFormatter.ofPattern("H'h'", java.util.Locale.getDefault())
     return (startIdx until minOf(startIdx + 5, hourly.timestamps.size)).map { i ->
         val ts = hourly.timestamps[i]
         val label = ts.atZone(zone).format(formatter)
         // Priorité au weather_code natif. Si absent (AROME HD notamment),
-        // fallback sur inférence précipitation-based : même règle que dans
-        // ConfidenceCalculator.dailyConditionsByModel. Sur AROME HD sans pluie
-        // ni gel, inferFromPrecipAndTemp renverra null et l'UI affichera "—"
-        // (pas d'icône) — accepté comme limitation d'AROME HD sans cloud_cover.
+        // fallback sur l'inférence précipitation/température.
         val code = hourly.weatherCode.getOrNull(i)
         val precip = hourly.precipitation.getOrNull(i)
         val temp = hourly.temperature2m.getOrNull(i)
@@ -493,7 +491,7 @@ private fun buildHourlyForecasts(
     }
 }
 
-private fun buildDailyForecasts(
+internal fun buildDailyForecasts(
     daily: com.meteocompare.app.domain.model.DailyForecast
 ): List<WidgetForecastItem> {
     if (daily.dates.isEmpty()) return emptyList()

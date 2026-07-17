@@ -69,13 +69,25 @@ class CityCardTest {
                     date = TestFixtures.today,
                     tempMax = ConfidenceScore(60, 20.0, 25.0, 22.0, 1.5, 5),
                     tempMin = null,
-                    precipitation = PrecipitationConfidence.Divided(20, 5, 3, 2),
+                    precipitation = PrecipitationConfidence.Divided(
+                        percent = 20,
+                        modelCount = 5,
+                        modelsForRain = 3,
+                        modelsAgainstRain = 2,
+                        rainMinMm = 1.5,
+                        rainMaxMm = 3.0,
+                        rainMeanMm = 2.2
+                    ),
                     windMax = null
                 ),
                 currentTemp = null
             )
         )
-        composeRule.onNodeWithText("3/5 ⚠", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("2-3 mm", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText(
+            context.getString(R.string.precip_divided, 3, 5),
+            useUnmergedTree = true
+        ).assertIsDisplayed()
     }
 
     @Test

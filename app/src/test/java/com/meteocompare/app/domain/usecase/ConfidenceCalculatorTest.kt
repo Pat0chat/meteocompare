@@ -179,6 +179,9 @@ class ConfidenceCalculatorTest {
         precip as PrecipitationConfidence.Divided
         assertEquals(3, precip.modelsForRain)
         assertEquals(2, precip.modelsAgainstRain)
+        assertEquals(1.5, precip.rainMinMm, 0.001)
+        assertEquals(3.0, precip.rainMaxMm, 0.001)
+        assertTrue(precip.rainMeanMm in 1.5..3.0)
         // 3/5 = 60% d'agreement → (0.6 - 0.5) * 200 = 20%
         assertEquals(20, precip.percent)
     }

@@ -85,7 +85,15 @@ class TodaySummaryCardTest {
                 date = TestFixtures.today,
                 tempMax = null,
                 tempMin = null,
-                precipitation = PrecipitationConfidence.Divided(20, 5, 3, 2),
+                precipitation = PrecipitationConfidence.Divided(
+                    percent = 20,
+                    modelCount = 5,
+                    modelsForRain = 3,
+                    modelsAgainstRain = 2,
+                    rainMinMm = 1.5,
+                    rainMaxMm = 3.0,
+                    rainMeanMm = 2.2
+                ),
                 windMax = null
             )
         )

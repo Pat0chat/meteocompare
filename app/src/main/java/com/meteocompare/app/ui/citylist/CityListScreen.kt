@@ -572,15 +572,37 @@ private fun PrecipitationSummary(precip: PrecipitationConfidence?) {
             tint = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(Modifier.width(4.dp))
-        val text = when (precip) {
-            null -> "—"
-            is PrecipitationConfidence.NoRain -> stringResource(R.string.precip_dry)
-            is PrecipitationConfidence.Rain ->
-                "${precip.minMm.roundToInt()}-${precip.maxMm.roundToInt()} mm"
-            is PrecipitationConfidence.Divided ->
-                "${precip.modelsForRain}/${precip.modelCount} ⚠"
+        when (precip) {
+            is PrecipitationConfidence.Divided -> {
+                val amount = if (precip.rainMinMm.roundToInt() == precip.rainMaxMm.roundToInt()) {
+                    "${precip.rainMeanMm.roundToInt()} mm"
+                } else {
+                    "${precip.rainMinMm.roundToInt()}-${precip.rainMaxMm.roundToInt()} mm"
+                }
+                Column {
+                    Text(amount, style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        text = stringResource(
+                            R.string.precip_divided,
+                            precip.modelsForRain,
+                            precip.modelCount
+                        ),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            else -> {
+                val text = when (precip) {
+                    null -> "—"
+                    is PrecipitationConfidence.NoRain -> stringResource(R.string.precip_dry)
+                    is PrecipitationConfidence.Rain ->
+                        "${precip.minMm.roundToInt()}-${precip.maxMm.roundToInt()} mm"
+                    is PrecipitationConfidence.Divided -> error("handled above")
+                }
+                Text(text, style = MaterialTheme.typography.bodyLarge)
+            }
         }
-        Text(text, style = MaterialTheme.typography.bodyLarge)
     }
 }
 
