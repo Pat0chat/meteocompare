@@ -218,3 +218,12 @@ dependencies {
     kspAndroidTest(libs.hilt.compiler)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
+
+// MeteoCompare : les sources Hilt AndroidTest doivent exister avant que lint
+// analyse les sources de tests dans une invocation Gradle combinée.
+tasks.matching {
+    it.name == "lintAnalyzeDebugAndroidTest" ||
+            it.name == "lintAnalyzeDebugUnitTest"
+}.configureEach {
+    dependsOn("hiltJavaCompileDebugAndroidTest")
+}

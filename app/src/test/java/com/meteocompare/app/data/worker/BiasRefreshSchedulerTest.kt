@@ -2,6 +2,7 @@ package com.meteocompare.app.data.worker
 
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequest
 import androidx.work.WorkManager
 import io.mockk.every
 import io.mockk.mockk
@@ -46,11 +47,21 @@ class BiasRefreshSchedulerTest {
 
     @Test
     fun `le kickoff reste unique avec KEEP dans les deux chemins`() {
+        val workNames = mutableListOf<String>()
+        val requests = mutableListOf<OneTimeWorkRequest>()
+
         BiasRefreshScheduler.schedule(workManager)
         BiasRefreshScheduler.updateAfterAppReplacement(workManager)
 
         verify(exactly = 2) {
-            workManager.enqueueUniqueWork(any(), ExistingWorkPolicy.KEEP, any())
+            workManager.enqueueUniqueWork(
+                capture(workNames),
+                ExistingWorkPolicy.KEEP,
+                capture(requests)
+            )
         }
+        assertEquals(2, workNames.size)
+        assertEquals(1, workNames.distinct().size)
+        assertEquals(2, requests.size)
     }
 }
