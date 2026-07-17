@@ -1440,8 +1440,8 @@ private fun ForecastItemCard(
 /** Ligne secondaire compacte : couverture nuageuse puis risque de pluie. */
 private fun forecastDetailsLine(item: WidgetForecastItem): String? {
     val parts = buildList {
-        item.cloudCoverPct?.let { add("☁${it.coerceIn(0, 100)}%") }
-        item.precipProbabilityPct?.let { add("☂${it.coerceIn(0, 100)}%") }
+        item.cloudCoverPct?.let { add("☁ ${it.coerceIn(0, 100)}%") }
+        item.precipProbabilityPct?.let { add("☂ ${it.coerceIn(0, 100)}%") }
     }
     return parts.takeIf { it.isNotEmpty() }?.joinToString(" · ")
 }
