@@ -114,6 +114,100 @@ class WidgetForecastSelectionTest {
     }
 
     @Test
+    fun `hourly privilegie les details nuages et pluie entre modeles complets`() {
+        val now = Instant.parse("2026-07-17T10:15:00Z")
+        val timestamps = (1L..5L).map { now.plusSeconds(it * 3600) }
+        val fineWithoutDetails = ForecastSeries(
+            model = WeatherModel.AROME_FRANCE_HD,
+            hourly = HourlyForecast(
+                timestamps = timestamps,
+                temperature2m = List(5) { 20.0 },
+                precipitation = List(5) { 0.0 },
+                windSpeed10m = List(5) { 8.0 },
+                weatherCode = List(5) { 1 }
+            ),
+            daily = emptyDaily()
+        )
+        val detailedModel = ForecastSeries(
+            model = WeatherModel.GFS,
+            hourly = HourlyForecast(
+                timestamps = timestamps,
+                temperature2m = listOf(18.0, 19.0, 20.0, 21.0, 22.0),
+                precipitation = List(5) { 0.0 },
+                windSpeed10m = List(5) { 9.0 },
+                weatherCode = List(5) { 2 },
+                precipitationProbability = listOf(10, 20, 30, 40, 50),
+                cloudCover = listOf(25, 35, 45, 55, 65)
+            ),
+            daily = emptyDaily()
+        )
+
+        val items = buildForecasts(
+            forecast = CityForecast(
+                city = city,
+                seriesByModel = linkedMapOf(
+                    WeatherModel.AROME_FRANCE_HD to fineWithoutDetails,
+                    WeatherModel.GFS to detailedModel
+                )
+            ),
+            mode = ForecastMode.HOURLY,
+            timezone = city.timezone,
+            now = now
+        )
+
+        assertEquals(listOf(18.0, 19.0, 20.0, 21.0, 22.0), items.map { it.temp })
+        assertEquals(listOf(25, 35, 45, 55, 65), items.map { it.cloudCoverPct })
+        assertEquals(listOf(10, 20, 30, 40, 50), items.map { it.precipProbabilityPct })
+    }
+
+    @Test
+    fun `daily calcule la couverture nuageuse sur les heures diurnes`() {
+        val date = LocalDate.of(2026, 7, 17)
+        val zone = java.time.ZoneId.of("Europe/Paris")
+        val timestamps = (0L until 24L).map { hour ->
+            date.atTime(hour.toInt(), 0).atZone(zone).toInstant()
+        }
+        val cloud = (0 until 24).map { hour -> if (hour in 7..19) 60 else 10 }
+        val hourly = HourlyForecast(
+            timestamps = timestamps,
+            temperature2m = List(24) { 20.0 },
+            precipitation = List(24) { 0.0 },
+            windSpeed10m = List(24) { 8.0 },
+            cloudCover = cloud
+        )
+
+        assertEquals(60, dailyCloudCoverPct(hourly, date, zone))
+    }
+
+    @Test
+    fun `confiance prudente penalise une faible couverture modeles`() {
+        val fullCoverage = conservativeConfidencePercent(
+            percents = listOf(90, 90, 90, 90),
+            contributingModels = 7,
+            totalModels = 7
+        )
+        val partialCoverage = conservativeConfidencePercent(
+            percents = listOf(90, 90, 90, 90),
+            contributingModels = 2,
+            totalModels = 7
+        )
+
+        assertEquals(90, fullCoverage)
+        assertTrue(partialCoverage < fullCoverage)
+    }
+
+    @Test
+    fun `confiance prudente retient le quartile bas plutot que la moyenne`() {
+        val score = conservativeConfidencePercent(
+            percents = listOf(20, 90, 90, 90),
+            contributingModels = 7,
+            totalModels = 7
+        )
+
+        assertEquals(20, score)
+    }
+
+    @Test
     fun `hourly ne recycle pas les premieres heures d un cache entierement passe`() {
         val now = Instant.parse("2026-07-17T10:15:00Z")
         val hourly = HourlyForecast(

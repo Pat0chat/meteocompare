@@ -847,15 +847,6 @@ private fun ColumnScope.CompactConfidenceSummary(
             .cornerRadius(12.dp)
             .padding(horizontal = 7.dp, vertical = 5.dp)
     ) {
-        Text(
-            text = ctx.getString(R.string.widget_confidence_combined_title),
-            style = TextStyle(
-                color = onContainerMuted,
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Medium
-            )
-        )
-
         visibleStrips.forEachIndexed { rowIndex, strip ->
             if (rowIndex > 0) Spacer(GlanceModifier.height(3.dp))
             Row(
@@ -914,6 +905,13 @@ private fun ColumnScope.CompactConfidenceSummary(
                             style = TextStyle(
                                 color = onContainerMuted,
                                 fontSize = 7.sp
+                            )
+                        )
+                        Text(
+                            text = "${bucket.modelCount}/${bucket.totalModelCount}",
+                            style = TextStyle(
+                                color = onContainerMuted,
+                                fontSize = 6.sp
                             )
                         )
                     }
@@ -1067,10 +1065,10 @@ private fun ExtraLargeLayout(
 /**
  * Mini-prévision 12 h pour les widgets hauts 2×2 à 5×2.
  *
- * Le bitmap place l'axe horaire au centre. La température est lue au-dessus
- * de sa heatmap et la probabilité de pluie sous sa propre heatmap. Les douze
- * colonnes restent ainsi parfaitement alignées, même quand le launcher
- * redimensionne légèrement le widget.
+ * Le bitmap répartit les douze heures sur deux lignes de six cellules. Chaque
+ * cellule porte son heure, sa température, un accent thermique et le risque de
+ * pluie. Le rendu utilise ainsi la hauteur des formats ×2 au lieu de laisser
+ * une bande étroite centrée dans un grand espace vide.
  */
 @Composable
 private fun MiniForecastStrip(
@@ -1097,11 +1095,19 @@ private fun MiniForecastStrip(
             chartHorizontalPaddingDp * 2f
         ).coerceAtLeast(80f)
     val widthPx = (availableWidthDp * renderDensity).toInt().coerceAtLeast(1)
-    val chartHeightDp = when (profile) {
-        MiniForecastSizeProfile.COMPACT_2X2 -> 54
-        MiniForecastSizeProfile.MEDIUM_3X2 -> 62
-        MiniForecastSizeProfile.EXPANDED_4X2 -> if (compact) 68 else 74
+    // La grille 2 × 6 utilise réellement la hauteur disponible des widgets
+    // ×2. L'ancienne bande de 54-74dp restait centrée dans un grand espace
+    // vide ; on passe à une surface plus généreuse tout en restant sous la
+    // hauteur disponible après le bandeau principal.
+    val preferredChartHeightDp = when (profile) {
+        MiniForecastSizeProfile.COMPACT_2X2 -> 88
+        MiniForecastSizeProfile.MEDIUM_3X2 -> 94
+        MiniForecastSizeProfile.EXPANDED_4X2 -> if (compact) 96 else 102
     }
+    val chartHeightDp = minOf(
+        preferredChartHeightDp,
+        (size.height.value * 0.55f).coerceAtLeast(72f).toInt()
+    )
     val heightPx = (chartHeightDp * renderDensity).toInt().coerceAtLeast(1)
     val precipColorArgb = 0xFF1976D2.toInt()
 
@@ -1113,12 +1119,8 @@ private fun MiniForecastStrip(
         )
     }
     val timelineLabels = data.hourlyStartTime?.let { start ->
-        listOf(
-            start.format(formatter),
-            start.plusHours(6).format(formatter),
-            start.plusHours(11).format(formatter)
-        )
-    } ?: listOf("+0h", "+6h", "+11h")
+        List(12) { offset -> start.plusHours(offset.toLong()).format(formatter) }
+    } ?: List(12) { offset -> "+${offset}h" }
 
     val bitmap = remember(
         data.next12hTemps,
@@ -1152,8 +1154,8 @@ private fun MiniForecastStrip(
                 horizontal = chartHorizontalPaddingDp.dp,
                 vertical = when (profile) {
                     MiniForecastSizeProfile.COMPACT_2X2 -> 2.dp
-                    MiniForecastSizeProfile.MEDIUM_3X2 -> 3.dp
-                    MiniForecastSizeProfile.EXPANDED_4X2 -> 5.dp
+                    MiniForecastSizeProfile.MEDIUM_3X2 -> 2.dp
+                    MiniForecastSizeProfile.EXPANDED_4X2 -> 3.dp
                 }
             ),
         verticalAlignment = Alignment.CenterVertically
@@ -1199,30 +1201,6 @@ private fun ColumnScope.CombinedConfidenceBands(
                 vertical = if (compact) 5.dp else 7.dp
             )
     ) {
-        Row(
-            modifier = GlanceModifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = ctx.getString(R.string.widget_confidence_combined_title),
-                style = TextStyle(
-                    color = onContainer,
-                    fontSize = if (compact) 10.sp else 12.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            )
-            Spacer(GlanceModifier.defaultWeight())
-            Text(
-                text = ctx.getString(R.string.widget_confidence_combined_hint),
-                style = TextStyle(
-                    color = onContainerMuted,
-                    fontSize = if (compact) 8.sp else 9.sp
-                )
-            )
-        }
-
-        Spacer(GlanceModifier.height(if (compact) 3.dp else 5.dp))
-
         visibleStrips.forEachIndexed { rowIndex, strip ->
             if (rowIndex > 0) Spacer(GlanceModifier.height(if (compact) 3.dp else 4.dp))
             Row(
@@ -1275,7 +1253,6 @@ private fun ColumnScope.CombinedConfidenceBands(
                 }
             }
         }
-        /*
         if (dayBuckets.isNotEmpty()) {
             Spacer(GlanceModifier.height(if (compact) 2.dp else 3.dp))
             Row(modifier = GlanceModifier.fillMaxWidth()) {
@@ -1292,10 +1269,17 @@ private fun ColumnScope.CombinedConfidenceBands(
                                 fontSize = if (compact) 7.sp else 8.sp
                             )
                         )
+                        Text(
+                            text = "${bucket.modelCount}/${bucket.totalModelCount}",
+                            style = TextStyle(
+                                color = onContainerMuted,
+                                fontSize = if (compact) 6.sp else 7.sp
+                            )
+                        )
                     }
                 }
             }
-        }*/
+        }
     }
 }
 
@@ -1439,7 +1423,27 @@ private fun ForecastItemCard(
                 fontWeight = FontWeight.Bold
             )
         )
+        forecastDetailsLine(item)?.let { details ->
+            Spacer(GlanceModifier.height(1.dp))
+            Text(
+                text = details,
+                style = TextStyle(
+                    color = onContainerMuted,
+                    fontSize = if (compact) 6.sp else 7.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            )
+        }
     }
+}
+
+/** Ligne secondaire compacte : couverture nuageuse puis risque de pluie. */
+private fun forecastDetailsLine(item: WidgetForecastItem): String? {
+    val parts = buildList {
+        item.cloudCoverPct?.let { add("☁${it.coerceIn(0, 100)}%") }
+        item.precipProbabilityPct?.let { add("☂${it.coerceIn(0, 100)}%") }
+    }
+    return parts.takeIf { it.isNotEmpty() }?.joinToString(" · ")
 }
 
 @Composable

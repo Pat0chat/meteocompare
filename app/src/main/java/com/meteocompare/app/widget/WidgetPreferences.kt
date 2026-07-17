@@ -115,10 +115,10 @@ internal enum class ForecastMode {
     CONFIDENCE_PRECIPITATION,
     CONFIDENCE_WIND,
     /**
-     * Mini prévision 12h : barres de température (heatmap) + dots pluie +
-     * ancres horaires. Rendu via Bitmap ([WidgetMiniForecastRenderer]) +
-     * Row Glance de 3 Text pour les heures. Same look que le composable de
-     * la home. Uniquement pertinent pour les widgets 2-row (3×2, 4×2, 5×2).
+     * Mini prévision 12h : grille de deux lignes × six heures, avec heure,
+     * température, accent thermique et risque de pluie dans chaque cellule.
+     * Rendu via Bitmap ([WidgetMiniForecastRenderer]). Uniquement pertinent
+     * pour les widgets 2-row (2×2, 3×2, 4×2, 5×2).
      */
     MINI_FORECAST_12H
 }

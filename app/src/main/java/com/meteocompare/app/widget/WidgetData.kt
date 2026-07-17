@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.lastOrNull
 import kotlinx.coroutines.withContext
+import kotlin.math.roundToInt
 
 /**
  * Snapshot des données affichées par le widget, pré-calculé côté suspending
@@ -86,7 +87,7 @@ internal data class WidgetData(
     val next12hTemps: List<Double?> = emptyList(),
     /**
      * Probabilités de précipitation (0-100) agrégées 12h, alignées sur
-     * [next12hTemps]. Utilisées pour l'opacité des barres pluie sous la ligne temporelle.
+     * [next12hTemps]. Affichées dans chaque cellule horaire de la grille 2 × 6.
      */
     val next12hPrecipProb: List<Int?> = emptyList(),
     /**
@@ -98,7 +99,7 @@ internal data class WidgetData(
     val next12hPrecipMm: List<Double?> = emptyList(),
     /**
      * Moment de la première heure de [next12hTemps] dans le fuseau de la
-     * ville, pour afficher les 3 ancres "HHh ... HHh ... HHh" sous la strip.
+     * ville, pour produire les 12 libellés horaires de la grille.
      * Null si la ville n'a pas de fuseau connu ou si le mode n'est pas
      * MINI_FORECAST_12H.
      */
@@ -149,7 +150,11 @@ internal data class WidgetData(
 internal data class WidgetForecastItem(
     val label: String,
     val condition: WeatherCondition?,
-    val temp: Double?
+    val temp: Double?,
+    /** Couverture nuageuse de l'échéance, 0-100%. */
+    val cloudCoverPct: Int? = null,
+    /** Probabilité de précipitation de l'échéance, 0-100%. */
+    val precipProbabilityPct: Int? = null
 )
 
 /**
@@ -188,8 +193,9 @@ internal data class WidgetConfidenceStrip(
 /**
  * Un bucket journalier de la strip de confiance widget.
  *
- * @property percent Niveau de confiance moyen sur la journée (0-100). Dicte
- *   la couleur de la cellule (vert/orange/rouge via [confidenceColor]).
+ * @property percent Niveau de confiance prudent sur les heures futures
+ *   (quartile bas, ajusté à la couverture modèles). Dicte la couleur de la
+ *   cellule (vert/orange/rouge via [confidenceColor]).
  * @property value Prévision agrégée pour la journée, PRÉ-FORMATÉE prête à
  *   afficher ("22°", "0.5 mm", "18 km/h"). Format cohérent avec l'app.
  * @property label Libellé jour de la semaine court ("Auj.", "Mar", "Mer"...).
@@ -198,7 +204,11 @@ internal data class WidgetConfidenceStrip(
 internal data class StripBucket(
     val percent: Int,
     val value: String,
-    val label: String
+    val label: String,
+    /** Nombre minimal de modèles disponibles sur les heures du bucket. */
+    val modelCount: Int,
+    /** Nombre total de modèles activés pour cette prévision. */
+    val totalModelCount: Int
 )
 
 /**
@@ -424,7 +434,12 @@ internal fun buildForecasts(
         val visibleItems: List<WidgetForecastItem> = items.take(5)
         val temperatureCount: Int = visibleItems.count { it.temp != null }
         val conditionCount: Int = visibleItems.count { it.condition != null }
+        val detailCount: Int = visibleItems.sumOf { item ->
+            (if (item.cloudCoverPct != null) 1 else 0) +
+                (if (item.precipProbabilityPct != null) 1 else 0)
+        }
         val complete: Boolean = visibleItems.size == 5 && temperatureCount == 5
+        val fullyDetailed: Boolean = complete && detailCount == 10
     }
 
     /*
@@ -443,7 +458,7 @@ internal fun buildForecasts(
     val candidates = forecast.seriesByModel.entries.map { (model, series) ->
         val items = when (mode) {
             ForecastMode.HOURLY -> buildHourlyForecasts(series.hourly, zone, now)
-            ForecastMode.DAILY -> buildDailyForecasts(series.daily)
+            ForecastMode.DAILY -> buildDailyForecasts(series.daily, series.hourly, zone)
             ForecastMode.CONFIDENCE_ALL,
             ForecastMode.CONFIDENCE_TEMPERATURE,
             ForecastMode.CONFIDENCE_PRECIPITATION,
@@ -455,6 +470,8 @@ internal fun buildForecasts(
 
     val best = candidates.minWithOrNull(
         compareByDescending<Candidate> { it.complete }
+            .thenByDescending { it.fullyDetailed }
+            .thenByDescending { it.detailCount }
             .thenByDescending { it.temperatureCount }
             .thenByDescending { it.conditionCount }
             .thenBy { it.resolutionKm }
@@ -487,12 +504,20 @@ internal fun buildHourlyForecasts(
                 precipMm = precip,
                 tempMinC = temp
             )
-        WidgetForecastItem(label = label, condition = condition, temp = temp)
+        WidgetForecastItem(
+            label = label,
+            condition = condition,
+            temp = temp,
+            cloudCoverPct = hourly.cloudCover.getOrNull(i),
+            precipProbabilityPct = hourly.precipitationProbability.getOrNull(i)
+        )
     }
 }
 
 internal fun buildDailyForecasts(
-    daily: com.meteocompare.app.domain.model.DailyForecast
+    daily: com.meteocompare.app.domain.model.DailyForecast,
+    hourly: com.meteocompare.app.domain.model.HourlyForecast,
+    zone: java.time.ZoneId
 ): List<WidgetForecastItem> {
     if (daily.dates.isEmpty()) return emptyList()
     val locale = java.util.Locale.getDefault()
@@ -510,8 +535,38 @@ internal fun buildDailyForecasts(
                 precipMm = precip,
                 tempMinC = tempMin
             )
-        WidgetForecastItem(label = label, condition = condition, temp = temp)
+        WidgetForecastItem(
+            label = label,
+            condition = condition,
+            temp = temp,
+            cloudCoverPct = dailyCloudCoverPct(hourly, date, zone),
+            precipProbabilityPct = daily.precipitationProbabilityMax.getOrNull(i)
+        )
     }
+}
+
+/**
+ * Couverture nuageuse moyenne d'une journée pour un modèle.
+ *
+ * On privilégie les heures 7h-19h locales, plus représentatives de ce que
+ * l'utilisateur voit réellement en consultant une prévision journalière. Si
+ * aucune valeur diurne n'est disponible, on retombe sur toutes les heures de
+ * la journée afin de rester compatible avec les horizons partiels.
+ */
+internal fun dailyCloudCoverPct(
+    hourly: com.meteocompare.app.domain.model.HourlyForecast,
+    date: java.time.LocalDate,
+    zone: java.time.ZoneId
+): Int? {
+    val valuesForDate = hourly.timestamps.indices.mapNotNull { index ->
+        val local = hourly.timestamps[index].atZone(zone)
+        if (local.toLocalDate() != date) return@mapNotNull null
+        hourly.cloudCover.getOrNull(index)?.let { local.hour to it }
+    }
+    if (valuesForDate.isEmpty()) return null
+    val daytime = valuesForDate.filter { (hour, _) -> hour in 7..19 }
+    val selected = if (daytime.isNotEmpty()) daytime else valuesForDate
+    return selected.map { it.second }.average().roundToInt().coerceIn(0, 100)
 }
 
 /**
@@ -570,11 +625,18 @@ private fun buildConfidenceStrip(
     val locale = context.resources.configuration.locales[0]
         ?: java.util.Locale.getDefault()
 
+    // Le widget répond à la question "à partir de maintenant" : les heures
+    // déjà passées ne doivent pas relever artificiellement (ou abaisser) la
+    // confiance du jour courant.
+    val now = java.time.Instant.now()
+    val futureBands = bands.filter { it.timestamp >= now }
+    if (futureBands.size < 2) return null
+
     // Groupement par jour civil dans la timezone de la ville. LinkedHashMap
     // pour préserver l'ordre chronologique — critique pour l'affichage.
     val byDay = LinkedHashMap<java.time.LocalDate, MutableList<
             com.meteocompare.app.domain.model.HourlyConfidenceBand>>()
-    for (band in bands) {
+    for (band in futureBands) {
         val day = band.timestamp.atZone(zone).toLocalDate()
         byDay.getOrPut(day) { mutableListOf() }.add(band)
     }
@@ -583,16 +645,24 @@ private fun buildConfidenceStrip(
     // widgets 4×2 et 5×2. Les formats plus petits en montrent un sous-ensemble.
     val today = java.time.LocalDate.now(zone)
     val nowShortLabel = context.getString(R.string.widget_confidence_now_short)
+    val totalModels = forecast.seriesByModel.size.coerceAtLeast(1)
     val buckets = byDay.entries.take(5).map { (date, dayBands) ->
-        val avgPercent = dayBands.sumOf { it.percent } / dayBands.size
+        val minModelCount = dayBands.minOf { it.modelCount }
+        val conservativePercent = conservativeConfidencePercent(
+            percents = dayBands.map { it.percent },
+            contributingModels = minModelCount,
+            totalModels = totalModels
+        )
         val avgValue = dayBands.sumOf { it.meanValue } / dayBands.size
         StripBucket(
-            percent = avgPercent,
+            percent = conservativePercent,
             value = formatBucketValue(mode, avgValue),
             label = if (date == today) nowShortLabel
             else date.dayOfWeek
                 .getDisplayName(java.time.format.TextStyle.SHORT, locale)
-                .replace(".", "")
+                .replace(".", ""),
+            modelCount = minModelCount,
+            totalModelCount = totalModels
         )
     }
 
@@ -615,6 +685,29 @@ private fun buildConfidenceStrip(
         metricLabel = metricLabel,
         buckets = buckets
     )
+}
+
+/**
+ * Score journalier prudent pour le widget de confiance.
+ *
+ * 1. On retient le quartile bas des scores horaires plutôt que leur moyenne :
+ *    une fenêtre très incertaine ne disparaît plus dans une journée globalement
+ *    stable.
+ * 2. On applique une pénalité de couverture : un accord entre 2 modèles sur 7
+ *    ne peut pas être présenté avec la même force qu'un accord entre 7 modèles.
+ */
+internal fun conservativeConfidencePercent(
+    percents: List<Int>,
+    contributingModels: Int,
+    totalModels: Int
+): Int {
+    if (percents.isEmpty()) return 0
+    val sorted = percents.map { it.coerceIn(0, 100) }.sorted()
+    val lowerQuartile = sorted[((sorted.size - 1) * 0.25).toInt()]
+    val coverage = if (totalModels <= 0) 0.0
+    else contributingModels.coerceIn(0, totalModels).toDouble() / totalModels
+    val coverageFactor = 0.60 + 0.40 * coverage
+    return (lowerQuartile * coverageFactor).roundToInt().coerceIn(0, 100)
 }
 
 /**

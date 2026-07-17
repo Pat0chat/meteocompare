@@ -525,24 +525,27 @@ private fun WidgetConfigScreen(
                 selected = forecastMode == ForecastMode.HOURLY,
                 tag = "$TAG_WIDGET_MODE${ForecastMode.HOURLY.name}",
                 labelRes = R.string.widget_config_forecast_mode_hourly,
+                descrRes = R.string.widget_config_forecast_mode_hourly_descr,
                 onClick = { forecastMode = ForecastMode.HOURLY }
             )
             ForecastModeRow(
                 selected = forecastMode == ForecastMode.DAILY,
                 tag = "$TAG_WIDGET_MODE${ForecastMode.DAILY.name}",
                 labelRes = R.string.widget_config_forecast_mode_daily,
+                descrRes = R.string.widget_config_forecast_mode_daily_descr,
                 onClick = { forecastMode = ForecastMode.DAILY }
-            )
-            ConfidenceModeRow(
-                selected = forecastMode.normalized() == ForecastMode.CONFIDENCE_ALL,
-                tag = "$TAG_WIDGET_MODE${ForecastMode.CONFIDENCE_ALL.name}",
-                onClick = { forecastMode = ForecastMode.CONFIDENCE_ALL }
             )
             ForecastModeRow(
                 selected = forecastMode == ForecastMode.MINI_FORECAST_12H,
                 tag = "$TAG_WIDGET_MODE${ForecastMode.MINI_FORECAST_12H.name}",
                 labelRes = R.string.widget_config_forecast_mode_mini_12h,
+                descrRes = R.string.widget_config_forecast_mode_mini_12h_descr,
                 onClick = { forecastMode = ForecastMode.MINI_FORECAST_12H }
+            )
+            ConfidenceModeRow(
+                selected = forecastMode.normalized() == ForecastMode.CONFIDENCE_ALL,
+                tag = "$TAG_WIDGET_MODE${ForecastMode.CONFIDENCE_ALL.name}",
+                onClick = { forecastMode = ForecastMode.CONFIDENCE_ALL }
             )
         }
 
@@ -581,6 +584,7 @@ private fun ForecastModeRow(
     selected: Boolean,
     tag: String,
     labelRes: Int,
+    descrRes: Int,
     onClick: () -> Unit
 ) {
     Row(
@@ -592,7 +596,7 @@ private fun ForecastModeRow(
                 onClick = onClick
             )
             .testTag(tag)
-            .padding(horizontal = 12.dp, vertical = 4.dp),
+            .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         RadioButton(
@@ -600,11 +604,19 @@ private fun ForecastModeRow(
             onClick = null
         )
         Spacer(Modifier.width(8.dp))
-        Text(
-            text = stringResource(labelRes),
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = stringResource(labelRes),
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
+            )
+            Spacer(Modifier.height(3.dp))
+            Text(
+                text = stringResource(descrRes),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 
@@ -646,11 +658,6 @@ private fun ConfidenceModeRow(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(Modifier.height(7.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                ConfidenceMetricChip("T°")
-                ConfidenceMetricChip(stringResource(R.string.widget_metric_precipitation))
-            }
         }
     }
 }

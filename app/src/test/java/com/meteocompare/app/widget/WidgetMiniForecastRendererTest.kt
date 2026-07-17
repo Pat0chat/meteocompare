@@ -223,25 +223,25 @@ class WidgetMiniForecastRendererTest {
     // ─── Profils responsives ─────────────────────────────────────────────
 
     @Test
-    fun `profil 2x2 limite les valeurs aux reperes essentiels`() {
+    fun `profil 2x2 conserve les douze valeurs grace a la grille deux lignes`() {
         assertEquals(
             MiniForecastSizeProfile.COMPACT_2X2,
             miniForecastProfileForWidth(180f)
         )
         assertEquals(
-            listOf(0, 3, 6, 9, 11),
+            (0..11).toList(),
             WidgetMiniForecastRenderer.visibleValueIndices(MiniForecastSizeProfile.COMPACT_2X2)
         )
     }
 
     @Test
-    fun `profil 3x2 affiche une valeur sur deux`() {
+    fun `profil 3x2 conserve les douze valeurs`() {
         assertEquals(
             MiniForecastSizeProfile.MEDIUM_3X2,
             miniForecastProfileForWidth(260f)
         )
         assertEquals(
-            listOf(0, 2, 4, 6, 8, 10),
+            (0..11).toList(),
             WidgetMiniForecastRenderer.visibleValueIndices(MiniForecastSizeProfile.MEDIUM_3X2)
         )
     }

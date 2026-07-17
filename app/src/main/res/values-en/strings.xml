@@ -21,6 +21,8 @@
     <string name="widget_config_forecast_mode_note">Content adapts to the size. 4×2 and 5×2 widgets show five forecast steps.</string>
     <string name="widget_config_forecast_mode_hourly">Next 5 hours</string>
     <string name="widget_config_forecast_mode_daily">Next 5 days</string>
+    <string name="widget_config_forecast_mode_hourly_descr">Displays the forecast for the next 5 hours.</string>
+    <string name="widget_config_forecast_mode_daily_descr">Displays the forecast for the next 5 days.</string>
     <string name="widget_config_save">Add</string>
     <string name="title_detail_fallback">Detail</string>
 
@@ -87,9 +89,9 @@
 
     <!-- Extra widget 4×2 forecast modes -->
     <string name="widget_config_forecast_mode_conf_all">Model confidence</string>
-    <string name="widget_config_forecast_mode_conf_all_note">Shows temperature, rain and wind confidence bands together over the same days.</string>
+    <string name="widget_config_forecast_mode_conf_all_note">Shows temperature and rain confidence bands together over the same days.</string>
     <string name="widget_confidence_combined_title">Model agreement</string>
-    <string name="widget_confidence_combined_hint" formatted="false">5 days · confidence %</string>
+    <string name="widget_confidence_combined_hint" formatted="false">5 days · agreement %</string>
     <!-- Time anchors shown under the widget 4x2 confidence strip -->
     <string name="widget_confidence_now_short">Now</string>
 
@@ -372,5 +374,6 @@
 
     <!-- New extended forecast mode for widgets 3x2/4x2/5x2: 12h heatmap bitmap + time anchors. -->
     <string name="widget_config_forecast_mode_mini_12h">12-hour mini forecast</string>
+    <string name="widget_config_forecast_mode_mini_12h_descr">Displays temperature and precipitation forecasts for the next 12 hours.</string>
 
 </resources>
