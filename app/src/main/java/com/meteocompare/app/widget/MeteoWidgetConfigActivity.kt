@@ -255,8 +255,8 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
             //    premier drop du widget, mais un update install peut recréer
             //    les widgets sans re-appeler onEnabled (le receiver était
             //    déjà "enabled" au sens système). L'appel est idempotent
-            //    (ExistingPeriodicWorkPolicy.UPDATE) : pas de duplication si le worker
-            //    tourne déjà.
+            //    (ExistingPeriodicWorkPolicy.KEEP) : le worker existant est
+            //    conservé sans annulation ni replanification.
             //
             //    Note : plus besoin de lire l'intervalle utilisateur ici. La
             //    cadence du worker est maintenant fixe (voir docblock de

@@ -7,46 +7,117 @@ import com.meteocompare.app.MainActivity
 import java.util.Locale
 
 /**
+ * Cache process-wide du tag de langue persisté.
+ *
+ * La lecture initiale est déclenchée par
+ * [com.meteocompare.app.MeteoCompareApplication.onCreate] avant l'activation
+ * de StrictMode. Les Activity et widgets peuvent ensuite appliquer la locale
+ * sans relire SharedPreferences sur le thread principal.
+ */
+private object PersistedLocaleCache {
+    @Volatile
+    private var initialized = false
+
+    @Volatile
+    private var languageTag: String? = null
+
+    fun initialize(context: Context) {
+        if (initialized) return
+        synchronized(this) {
+            if (initialized) return
+            languageTag = readPersistedTag(context)
+            initialized = true
+        }
+    }
+
+    fun refresh(context: Context) {
+        val persistedTag = readPersistedTag(context)
+        synchronized(this) {
+            languageTag = persistedTag
+            initialized = true
+        }
+    }
+
+    fun update(tag: String?) {
+        synchronized(this) {
+            languageTag = normalizeTag(tag)
+            initialized = true
+        }
+    }
+
+    fun get(context: Context): String? {
+        initialize(context)
+        return languageTag
+    }
+
+    private fun readPersistedTag(context: Context): String? = normalizeTag(
+        context.applicationContext
+            .getSharedPreferences(MainActivity.LOCALE_PREFS, Context.MODE_PRIVATE)
+            .getString(MainActivity.LOCALE_KEY, null)
+    )
+
+    private fun normalizeTag(tag: String?): String? = tag?.takeIf { it.isNotBlank() }
+}
+
+/**
+ * Charge une fois la préférence de langue en mémoire.
+ *
+ * À appeler avant d'activer StrictMode afin que les composants UI ne fassent
+ * pas de lecture disque lors de leur `attachBaseContext` ou de leur rendu.
+ */
+fun initializePersistedLocaleCache(context: Context) {
+    PersistedLocaleCache.initialize(context)
+}
+
+/**
+ * Persiste un nouveau choix de langue puis met immédiatement le cache mémoire
+ * à jour. Cette fonction effectue une écriture disque et doit donc être appelée
+ * depuis un dispatcher d'I/O.
+ *
+ * @return `true` si la préférence a été écrite avec succès.
+ */
+fun persistLocalePreference(context: Context, languageTag: String?): Boolean {
+    val normalizedTag = languageTag?.takeIf { it.isNotBlank() }
+    val committed = context.applicationContext
+        .getSharedPreferences(MainActivity.LOCALE_PREFS, Context.MODE_PRIVATE)
+        .edit()
+        .putString(MainActivity.LOCALE_KEY, normalizedTag)
+        .commit()
+
+    if (committed) PersistedLocaleCache.update(normalizedTag)
+    return committed
+}
+
+/**
+ * Force une relecture disque du cache. Réservé aux tests et aux éventuelles
+ * migrations de préférences ; le flux de production normal n'en a pas besoin.
+ */
+internal fun refreshPersistedLocaleCache(context: Context) {
+    PersistedLocaleCache.refresh(context)
+}
+
+/**
  * Enrobe [context] avec la locale persistée dans les SharedPreferences de
  * l'app. C'est la source de vérité utilisée par [MainActivity], le widget,
  * et [com.meteocompare.app.widget.MeteoWidgetConfigActivity] pour que tous
  * les composants qui affichent du texte respectent la même préférence
  * utilisateur.
  *
- * ─── Contexte : pourquoi une source de vérité maison ? ─────────────────
- * `AppCompatDelegate.getApplicationLocales()` semble être la voie officielle,
- * mais elle avait des problèmes de timing (race entre setApplicationLocales
- * et la lecture ultérieure) et exigeait AppCompatActivity comme parent — pas
- * notre cas puisqu'on est en Compose sur ComponentActivity. Voir le docblock
- * de [MainActivity.attachBaseContext] pour l'historique complet.
+ * La préférence n'est pas relue ici : elle provient du cache initialisé par
+ * l'Application, puis maintenu à jour lors des changements effectués dans les
+ * réglages. Un fallback d'initialisation existe uniquement pour les contextes
+ * de tests ou les intégrations atypiques qui appelleraient cette fonction sans
+ * avoir démarré l'Application.
  *
- * Solution actuelle : les SharedPreferences maison (LOCALE_PREFS / LOCALE_KEY)
- * sont écrites synchronement par SettingsScreen et lues ici. L'intégration
- * système Android 13+ (per-app language dans Settings) reste alimentée en
- * parallèle via AppCompatDelegate, mais ce n'est plus notre source de vérité.
- *
- * ─── Points d'appel ────────────────────────────────────────────────────
- *   1. [MainActivity.attachBaseContext] — écran principal de l'app.
- *   2. `MeteoWidgetConfigActivity.attachBaseContext` — sinon la config
- *      widget affiche en anglais même si l'app est en français.
- *   3. `loadWidgetData` avant chaque `context.getString(...)` pour que les
- *      libellés du widget rendu (T°/Pluie/Vent, noms de jours, "Auj."...)
- *      suivent la préférence app, pas la locale système du device.
- *
- * ─── Effet de bord Locale.setDefault ────────────────────────────────────
- * Applique `Locale.setDefault(locale)` en même temps que la Configuration —
- * indispensable car certaines APIs (DateTimeFormatter créés via
- * `Locale.getDefault()`, NumberFormat, formatage %) lisent depuis le default
- * JVM-wide plutôt que depuis la Configuration du Context. Sans ça, les dates
- * resteraient sur la locale système même si les R.string changent.
+ * `Locale.setDefault(locale)` est appliqué en même temps que la Configuration,
+ * car certaines APIs de formatage lisent la locale JVM par défaut plutôt que
+ * celle du Context.
  *
  * @return le Context d'origine si aucune préférence n'est persistée (mode
  *   "suivre la locale système"), sinon un Context enrobé.
  */
 fun applyPersistedLocale(context: Context): Context {
-    val tag = context
-        .getSharedPreferences(MainActivity.LOCALE_PREFS, Context.MODE_PRIVATE)
-        .getString(MainActivity.LOCALE_KEY, null)
+    val tag = PersistedLocaleCache.get(context)
     if (tag.isNullOrEmpty()) return context
 
     val locale = Locale.forLanguageTag(tag)

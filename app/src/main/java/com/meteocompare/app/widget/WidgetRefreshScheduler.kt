@@ -71,9 +71,9 @@ private const val WIDGET_LOG_TAG = "MeteoCompare/Widget"
 internal object WidgetRefreshScheduler {
 
     /**
-     * Nom unique du travail périodique. Un seul job à la fois — les appels
-     * ultérieurs à [schedule] avec `ExistingPeriodicWorkPolicy.UPDATE`
-     * mettent à niveau le job existant sans dupliquer sa planification.
+     * Nom unique du travail périodique. Un seul job à la fois : les appels
+     * ordinaires à [schedule] conservent le travail existant avec KEEP, tandis
+     * que [updateAfterAppReplacement] applique explicitement la nouvelle spec.
      */
     private const val WORK_NAME = "meteocompare_widget_refresh"
     private const val IMMEDIATE_WORK_NAME = "meteocompare_widget_refresh_now"
@@ -88,28 +88,44 @@ internal object WidgetRefreshScheduler {
     private const val TICK_MINUTES = 15L
 
     /**
-     * Programme (ou garde) le worker périodique. Idempotent via
-     * `ExistingPeriodicWorkPolicy.UPDATE` : appeler plusieurs fois (au
-     * démarrage, à l'ajout d'un nouveau widget, à un changement de settings)
-     * ne recrée pas le job. La cadence étant maintenant fixe, il n'y a plus
-     * jamais besoin de re-schedule pour un changement d'intervalle
-     * utilisateur — seulement [triggerImmediateRefresh] pour propager le
-     * changement sans attendre 15 min.
+     * Garantit la présence du worker périodique sans toucher à une
+     * planification déjà valide. KEEP évite les annulations/recréations
+     * observées à chaque démarrage de process.
      */
     fun schedule(context: Context) {
-        schedule(WorkManager.getInstance(context.applicationContext))
+        enqueue(
+            workManager = WorkManager.getInstance(context.applicationContext),
+            policy = ExistingPeriodicWorkPolicy.KEEP
+        )
     }
 
     /**
-     * Overload testable : prend WorkManager en paramètre. Les tests
-     * unitaires passent un mock au lieu de dépendre de la factory static
-     * `WorkManager.getInstance(context)`. Le call-site production
-     * ([schedule] ci-dessus) fournit l'instance système.
-     *
-     * `internal` : accessible depuis les tests du même module, invisible
-     * pour les consumers hors module.
+     * Applique la spécification courante après remplacement de l'APK. Cette
+     * voie est volontairement séparée du démarrage normal : UPDATE peut
+     * migrer une cadence ou des contraintes, mais peut aussi interrompre et
+     * replanifier un travail déjà enregistré.
      */
+    fun updateAfterAppReplacement(context: Context) {
+        enqueue(
+            workManager = WorkManager.getInstance(context.applicationContext),
+            policy = ExistingPeriodicWorkPolicy.UPDATE
+        )
+    }
+
+    /** Overload testable du chemin normal KEEP. */
     internal fun schedule(workManager: WorkManager) {
+        enqueue(workManager, ExistingPeriodicWorkPolicy.KEEP)
+    }
+
+    /** Overload testable du chemin de migration UPDATE. */
+    internal fun updateAfterAppReplacement(workManager: WorkManager) {
+        enqueue(workManager, ExistingPeriodicWorkPolicy.UPDATE)
+    }
+
+    private fun enqueue(
+        workManager: WorkManager,
+        policy: ExistingPeriodicWorkPolicy
+    ) {
         val request = PeriodicWorkRequestBuilder<WidgetRefreshWorker>(
             TICK_MINUTES, TimeUnit.MINUTES
         )
@@ -141,7 +157,7 @@ internal object WidgetRefreshScheduler {
 
         workManager.enqueueUniquePeriodicWork(
             WORK_NAME,
-            ExistingPeriodicWorkPolicy.UPDATE,
+            policy,
             request
         )
     }

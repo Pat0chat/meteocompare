@@ -81,8 +81,9 @@ object BiasRefreshScheduler {
      * Planifie le worker. Deux requests enqueue'd :
      *
      * 1. **PeriodicWorkRequest** (cadence 24h, flex 6h) — le rythme de croisière.
-     *    [ExistingPeriodicWorkPolicy.UPDATE] : conserve l'identité du travail
-     *    unique mais applique la dernière cadence et les dernières contraintes.
+     *    Le démarrage normal utilise [ExistingPeriodicWorkPolicy.KEEP] pour ne
+     *    pas interrompre/replanifier un travail déjà valide. UPDATE est réservé
+     *    au remplacement de l'APK via [updateAfterAppReplacement].
      *
      * 2. **OneTimeWorkRequest** (kickoff immédiat) — pour que le premier fetch
      *    d'observations n'attende pas la première fenêtre système du periodic
@@ -95,11 +96,38 @@ object BiasRefreshScheduler {
      * À appeler depuis [com.meteocompare.app.MeteoCompareApplication.onCreate].
      */
     fun schedule(context: Context) {
-        schedule(WorkManager.getInstance(context.applicationContext))
+        enqueue(
+            workManager = WorkManager.getInstance(context.applicationContext),
+            periodicPolicy = ExistingPeriodicWorkPolicy.KEEP
+        )
     }
 
-    /** Overload testable — permet d'injecter un WorkManager mocké. */
+    /**
+     * Met à niveau la spécification du worker après remplacement de l'APK.
+     * Cette opération est séparée du démarrage normal pour éviter le bruit et
+     * les interruptions WorkManager inutiles.
+     */
+    fun updateAfterAppReplacement(context: Context) {
+        enqueue(
+            workManager = WorkManager.getInstance(context.applicationContext),
+            periodicPolicy = ExistingPeriodicWorkPolicy.UPDATE
+        )
+    }
+
+    /** Overload testable du chemin normal KEEP. */
     internal fun schedule(workManager: WorkManager) {
+        enqueue(workManager, ExistingPeriodicWorkPolicy.KEEP)
+    }
+
+    /** Overload testable du chemin de migration UPDATE. */
+    internal fun updateAfterAppReplacement(workManager: WorkManager) {
+        enqueue(workManager, ExistingPeriodicWorkPolicy.UPDATE)
+    }
+
+    private fun enqueue(
+        workManager: WorkManager,
+        periodicPolicy: ExistingPeriodicWorkPolicy
+    ) {
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .setRequiresBatteryNotLow(true)
@@ -118,7 +146,7 @@ object BiasRefreshScheduler {
 
         workManager.enqueueUniquePeriodicWork(
             WORK_NAME,
-            ExistingPeriodicWorkPolicy.UPDATE,
+            periodicPolicy,
             periodic
         )
 

@@ -27,8 +27,8 @@ import java.util.concurrent.TimeUnit
  *   1. Cadence du tick FIXE à 15 min. Fondement du fix "les heures ne
  *      changent pas au fur et à mesure du temps" : le RefreshInterval
  *      utilisateur ne doit PLUS piloter la cadence du worker.
- *   2. Politique UPDATE. `schedule` reste unique mais migre les anciennes
- *      contraintes après une mise à jour de l'application.
+ *   2. Politique KEEP au démarrage normal, UPDATE uniquement après
+ *      remplacement de l'APK.
  *   3. `triggerImmediateRefresh` enqueue un ONE-TIME, pas un PERIODIC.
  *      Sinon chaque toggle utilisateur créerait un job permanent parallèle
  *      → duplication de requêtes qu'on voulait justement éviter.
@@ -78,16 +78,27 @@ class WidgetRefreshSchedulerTest {
     }
 
     @Test
-    fun `schedule - policy UPDATE pour migrer les anciennes contraintes sans dupliquer`() {
-        // UPDATE conserve le travail unique mais applique la nouvelle spec. C'est
-        // indispensable pour retirer une ancienne contrainte batterie déjà
-        // persistée dans la base WorkManager d'un utilisateur.
+    fun `schedule - policy KEEP pour conserver la planification existante`() {
+        // KEEP évite les annulations et replanifications à chaque démarrage
+        // normal du process.
         val policySlot = slot<ExistingPeriodicWorkPolicy>()
         every {
             workManager.enqueueUniquePeriodicWork(any(), capture(policySlot), any())
         } returns mockk(relaxed = true)
 
         WidgetRefreshScheduler.schedule(workManager)
+
+        assertEquals(ExistingPeriodicWorkPolicy.KEEP, policySlot.captured)
+    }
+
+    @Test
+    fun `updateAfterAppReplacement - policy UPDATE pour migrer la specification`() {
+        val policySlot = slot<ExistingPeriodicWorkPolicy>()
+        every {
+            workManager.enqueueUniquePeriodicWork(any(), capture(policySlot), any())
+        } returns mockk(relaxed = true)
+
+        WidgetRefreshScheduler.updateAfterAppReplacement(workManager)
 
         assertEquals(ExistingPeriodicWorkPolicy.UPDATE, policySlot.captured)
     }

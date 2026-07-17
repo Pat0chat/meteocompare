@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.meteocompare.app.R
+import com.meteocompare.app.core.locale.persistLocalePreference
 import com.meteocompare.app.domain.model.Coverage
 import com.meteocompare.app.domain.model.LanguagePreference
 import com.meteocompare.app.domain.model.ModelFamily
@@ -66,15 +67,10 @@ private suspend fun persistLocaleBeforeRecreate(
     context: Context,
     preference: LanguagePreference
 ) = withContext(Dispatchers.IO) {
-    context.getSharedPreferences(
-        com.meteocompare.app.MainActivity.LOCALE_PREFS,
-        Context.MODE_PRIVATE
-    ).edit()
-        .putString(
-            com.meteocompare.app.MainActivity.LOCALE_KEY,
-            preference.bcp47Tag
-        )
-        .commit()
+    persistLocalePreference(
+        context = context.applicationContext,
+        languageTag = preference.bcp47Tag
+    )
 }
 
 // ═════════════════════════════════════════════════════════════════════════════

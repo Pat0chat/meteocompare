@@ -19,11 +19,13 @@ class LocaleUtilsTest {
         context = ApplicationProvider.getApplicationContext()
         originalLocale = Locale.getDefault()
         preferences().edit().clear().commit()
+        refreshPersistedLocaleCache(context)
     }
 
     @After
     fun tearDown() {
         preferences().edit().clear().commit()
+        refreshPersistedLocaleCache(context)
         Locale.setDefault(originalLocale)
     }
 
@@ -35,11 +37,27 @@ class LocaleUtilsTest {
     @Test
     fun persisted_language_updates_context_resources_and_default_locale() {
         preferences().edit().putString(MainActivity.LOCALE_KEY, "en").commit()
+        refreshPersistedLocaleCache(context)
 
         val localized = applyPersistedLocale(context)
 
         assertEquals("en", localized.resources.configuration.locales[0].language)
         assertEquals("en", Locale.getDefault().language)
+    }
+
+
+    @Test
+    fun persisted_language_updates_memory_cache_immediately() {
+        persistLocalePreference(context, "en")
+
+        // Modifier le disque directement simule une valeur devenue différente
+        // sans passer par l'API de persistance. applyPersistedLocale doit garder
+        // le cache "en" et ne pas relire SharedPreferences sur ce chemin.
+        preferences().edit().putString(MainActivity.LOCALE_KEY, "fr").commit()
+
+        val localized = applyPersistedLocale(context)
+
+        assertEquals("en", localized.resources.configuration.locales[0].language)
     }
 
     private fun preferences() = context.getSharedPreferences(

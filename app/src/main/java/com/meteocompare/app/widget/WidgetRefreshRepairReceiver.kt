@@ -5,15 +5,15 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import com.meteocompare.app.data.worker.BiasRefreshScheduler
 
 /**
  * Répare la planification après redémarrage ou remplacement de l'APK.
  *
- * WorkManager restaure normalement ses travaux tout seul, mais ce receiver
- * applique aussi la spécification courante (`ExistingPeriodicWorkPolicy.UPDATE`)
- * et déclenche un rendu immédiat. C'est utile après une mise à jour qui retire
- * une ancienne contrainte batterie, ou sur un firmware qui a nettoyé la base
- * WorkManager tout en conservant les widgets du launcher.
+ * WorkManager restaure normalement ses travaux tout seul. Après un reboot,
+ * ce receiver utilise KEEP et déclenche seulement un rendu widget immédiat.
+ * Après remplacement de l'APK, il utilise UPDATE pour migrer explicitement les
+ * spécifications des workers de biais et de widget.
  */
 class WidgetRefreshRepairReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -22,6 +22,12 @@ class WidgetRefreshRepairReceiver : BroadcastReceiver() {
         ) return
 
         val appContext = context.applicationContext
+        val isAppReplacement = intent.action == Intent.ACTION_MY_PACKAGE_REPLACED
+
+        if (isAppReplacement) {
+            BiasRefreshScheduler.updateAfterAppReplacement(appContext)
+        }
+
         val hasWidgets = runCatching {
             WidgetReceivers.anyAlive(
                 appContext,
@@ -34,7 +40,11 @@ class WidgetRefreshRepairReceiver : BroadcastReceiver() {
 
         if (hasWidgets) {
             Log.d("MeteoCompare/Widget", "Repairing widget refresh after ${intent.action}")
-            WidgetRefreshScheduler.schedule(appContext)
+            if (isAppReplacement) {
+                WidgetRefreshScheduler.updateAfterAppReplacement(appContext)
+            } else {
+                WidgetRefreshScheduler.schedule(appContext)
+            }
             WidgetRefreshScheduler.triggerImmediateRefresh(appContext)
         }
     }
