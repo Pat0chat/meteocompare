@@ -27,6 +27,7 @@ import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DailyForecast
 import com.meteocompare.app.domain.model.WeatherModel
+import com.meteocompare.app.domain.model.sortedByFamily
 import com.meteocompare.app.ui.components.WindArrow
 import com.meteocompare.app.ui.theme.color
 import java.time.LocalDate
@@ -62,7 +63,7 @@ fun ForecastTable(
         forecast.seriesByModel.values.flatMap { it.daily.dates }.distinct().sorted()
     }
     val models = remember(forecast) {
-        forecast.seriesByModel.keys.toList().sortedBy { it.ordinal }
+        forecast.seriesByModel.keys.sortedByFamily()
     }
 
     if (dates.isEmpty() || models.isEmpty()) {

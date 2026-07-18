@@ -4,99 +4,59 @@ import androidx.compose.ui.graphics.Color
 import com.meteocompare.app.domain.model.WeatherModel
 
 /**
- * Couleurs assignées explicitement à chaque modèle.
+ * Palette chromatique des modèles météo.
  *
- * Pourquoi un Map plutôt qu'une List<Color> indexée par ordinal :
- *   - L'approche `palette[ordinal % size]` fonctionne tant qu'on a autant
- *     d'entrées que de modèles, mais cycle silencieusement si on ajoute un
- *     modèle sans étendre la palette → deux modèles partagent la même couleur,
- *     bug invisible jusqu'à ce qu'on les superpose dans un chart.
- *   - L'approche Map force à choisir une couleur EXPLICITE à chaque ajout de
- *     modèle, le compilateur ne nous rappellera pas mais l'absence de couleur
- *     remonte un fallback visible (gris) plutôt qu'un doublon silencieux.
+ * Chaque institution utilise une teinte de base unique. Ses différents modèles
+ * sont distingués par des nuances plus ou moins claires de cette même teinte :
  *
- * Familles chromatiques pensées pour le scan visuel :
- *   - Météo-France AROME (fine résolution France) : bleus
- *   - Météo-France ARPEGE (échelle synoptique) : verts
- *   - DWD ICON (Allemagne) : oranges / rouges chauds
- *   - NOAA GFS : violet (signature unique pour le modèle US le plus connu)
- *   - ECMWF (physique et IA) : jaunes ambrés
- *   - UK Met Office : cyan / teal (couleur traditionnellement associée au UK)
- *   - Environnement Canada GEM : crimson (couleur du drapeau canadien)
+ *   - Météo-France : bleus
+ *   - DWD : oranges
+ *   - NOAA : violets
+ *   - ECMWF : ambres
  *
- * Toutes les couleurs sont calibrées pour rester lisibles sur surface clair
- * ET sombre — saturation modérée, luminance dans la zone visible des deux
- * thèmes (testé sur les charts de comparaison de températures).
+ * Les institutions qui ne proposent qu'un modèle conservent une couleur propre.
+ * Les valeurs restent volontairement assez contrastées pour être lisibles sur
+ * les thèmes clair et sombre, y compris dans les courbes superposées.
  */
 private val ModelColorMap: Map<WeatherModel, Color> = mapOf(
-    // Météo-France AROME — bleus
-    WeatherModel.AROME_FRANCE_HD to Color(0xFF1565C0), // bleu foncé
-    WeatherModel.AROME_FRANCE to Color(0xFF42A5F5),    // bleu clair
+    // Météo-France — une même famille de bleus, du modèle le plus fin au global.
+    WeatherModel.AROME_FRANCE_HD to Color(0xFF0D47A1),
+    WeatherModel.AROME_FRANCE to Color(0xFF1565C0),
+    WeatherModel.ARPEGE_EUROPE to Color(0xFF1976D2),
+    WeatherModel.ARPEGE_WORLD to Color(0xFF42A5F5),
 
-    // Météo-France ARPEGE — verts
-    WeatherModel.ARPEGE_EUROPE to Color(0xFF2E7D32),   // vert foncé
-    WeatherModel.ARPEGE_WORLD to Color(0xFF66BB6A),    // vert clair
+    // DWD — déclinaisons orange, de la haute résolution au modèle global.
+    WeatherModel.ICON_D2 to Color(0xFFBF360C),
+    WeatherModel.ICON_EU to Color(0xFFE64A19),
+    WeatherModel.ICON_GLOBAL to Color(0xFFFF7043),
 
-    // DWD ICON — oranges / rouges chauds
-    WeatherModel.ICON_EU to Color(0xFFD84315),         // orange foncé
-    WeatherModel.ICON_GLOBAL to Color(0xFFFF7043),     // orange clair
-    WeatherModel.ICON_D2 to Color(0xFFBF360C),         // orange brûlé (variante haute-res)
-
-    // NOAA — violet
-    WeatherModel.GFS to Color(0xFF6A1B9A),
-
-    // ECMWF — jaunes ambrés (physique foncé, IA clair)
-    WeatherModel.ECMWF to Color(0xFFF9A825),           // jaune ambré
-    WeatherModel.ECMWF_AIFS to Color(0xFFFFCA28),      // jaune clair (variante IA)
-
-    // UK Met Office — cyan / teal
-    WeatherModel.UKMO_GLOBAL to Color(0xFF00838F),
-
-    // Environnement Canada — crimson
-    WeatherModel.GEM_GLOBAL to Color(0xFFC2185B),
-
-    // NOAA HRRR — cousin haute-res de GFS : variation autour du violet, plus
-    // sombre pour signaler "modèle fine résolution" comme AROME HD / ICON-D2.
+    // NOAA — violets : HRRR plus sombre, GFS plus lumineux.
     WeatherModel.HRRR_CONUS to Color(0xFF4A148C),
+    WeatherModel.GFS to Color(0xFF7B1FA2),
 
-    // MET Norway Nordic — bleu nordique proche du turquoise glacé (référence
-    // aux fjords). Distinct du bleu AROME (plus chaud) et du teal UKMO.
+    // ECMWF — ambres : IFS plus profond, AIFS plus lumineux.
+    WeatherModel.ECMWF to Color(0xFFF57F17),
+    WeatherModel.ECMWF_AIFS to Color(0xFFFBC02D),
+
+    // Familles à modèle unique — teintes distinctes entre institutions.
+    WeatherModel.UKMO_GLOBAL to Color(0xFF00838F),
+    WeatherModel.GEM_GLOBAL to Color(0xFFC2185B),
     WeatherModel.METNO_NORDIC to Color(0xFF00695C),
-
-    // KNMI HARMONIE — orange rouille, cousine chromatique d'ICON-EU (même
-    // moteur numérique) sans coïncider — palette DWD reste rouge/orange plus
-    // vif, HARMONIE tire vers le brun-terre.
-    WeatherModel.KNMI_HARMONIE_EU to Color(0xFF8D6E63),
-
-    // BOM ACCESS — indigo/pourpre : couleur "outback" australien qui se
-    // distingue nettement du reste de la palette globale (violet GFS excepté,
-    // mais suffisamment décalé pour rester lisibles côte à côte).
+    WeatherModel.KNMI_HARMONIE_EU to Color(0xFF795548),
     WeatherModel.BOM_ACCESS to Color(0xFF283593),
-
-    // CMA GRAPES — magenta profond : accent chromatique unique dans la palette,
-    // distant du violet GFS et du crimson GEM pour éviter les confusions.
     WeatherModel.CMA_GRAPES to Color(0xFFAD1457)
 )
 
 /**
- * Couleur du modèle. Fallback gris neutre si un nouveau modèle a été ajouté
- * à l'enum sans entrée dans la map — au moins l'UI ne crashe pas, et le gris
- * "anormal" signale visuellement qu'une correction est requise.
+ * Couleur du modèle. Le gris signale visuellement qu'un nouveau modèle n'a pas
+ * encore reçu de couleur explicite.
  */
 fun WeatherModel.color(): Color = ModelColorMap[this] ?: Color(0xFF9E9E9E)
 
-// ─── Helpers de validation (utilisés par les tests unitaires) ──────────────
-// `internal` : visible depuis le module mais pas part de l'API publique.
-
-/** Modèles présents dans l'enum sans entrée explicite dans la map. */
+// Helpers de validation utilisés par les tests unitaires.
 internal fun modelsWithoutExplicitColor(): List<WeatherModel> =
     WeatherModel.entries.filter { it !in ModelColorMap }
 
-/**
- * Paires de modèles qui partagent EXACTEMENT la même couleur — utile pour
- * détecter un copier-coller raté. Sur les charts superposés, deux modèles
- * partageant une couleur deviennent indiscernables.
- */
 internal fun duplicateModelColors(): List<Pair<WeatherModel, WeatherModel>> {
     val entries = WeatherModel.entries.toList()
     val out = mutableListOf<Pair<WeatherModel, WeatherModel>>()

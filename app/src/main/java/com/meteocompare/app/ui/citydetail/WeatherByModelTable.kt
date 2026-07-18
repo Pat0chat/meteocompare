@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
+import com.meteocompare.app.domain.model.sortedByFamily
 import com.meteocompare.app.domain.usecase.DayCellExtras
 import com.meteocompare.app.domain.usecase.DayConditionsRow
 import com.meteocompare.app.ui.components.WeatherIconDecorative
@@ -55,6 +56,7 @@ fun WeatherByModelTable(
         return
     }
 
+    val sortedModels = remember(modelOrder) { modelOrder.sortedByFamily() }
     val palette = detailTablePalette()
     val today = remember { LocalDate.now() }
     val modelWidth = 90.dp
@@ -72,7 +74,7 @@ fun WeatherByModelTable(
                 palette = palette,
                 alignStart = true
             )
-            modelOrder.forEachIndexed { modelIndex, model ->
+            sortedModels.forEachIndexed { modelIndex, model ->
                 HeaderCell(
                     text = model.displayName,
                     background = palette.labelRowBackground(modelIndex, false),
@@ -86,7 +88,7 @@ fun WeatherByModelTable(
         }
 
         VerticalDivider(
-            modifier = Modifier.height((headerHeight.value + rowHeight.value * modelOrder.size).dp),
+            modifier = Modifier.height((headerHeight.value + rowHeight.value * sortedModels.size).dp),
             color = palette.frozenDivider
         )
 
@@ -102,7 +104,7 @@ fun WeatherByModelTable(
                         palette = palette,
                         highlighted = isToday
                     )
-                    modelOrder.forEachIndexed { modelIndex, model ->
+                    sortedModels.forEachIndexed { modelIndex, model ->
                         IconCell(
                             condition = row.byModel[model],
                             extras = row.extrasByModel[model],
@@ -144,7 +146,7 @@ private fun HeaderCell(
     ) {
         Text(
             text = text,
-            style = MaterialTheme.typography.labelMedium,
+            style = if (accentColor != null) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelMedium,
             fontWeight = if (highlighted) FontWeight.Bold else FontWeight.SemiBold,
             color = if (highlighted) palette.highlightedText else MaterialTheme.colorScheme.onSurface,
             textAlign = if (alignStart) TextAlign.Start else TextAlign.Center,

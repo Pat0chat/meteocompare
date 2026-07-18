@@ -27,6 +27,7 @@ import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.HourlyForecast
 import com.meteocompare.app.domain.model.WeatherModel
+import com.meteocompare.app.domain.model.sortedByFamily
 import com.meteocompare.app.ui.components.WindArrow
 import com.meteocompare.app.ui.theme.color
 import java.time.Instant
@@ -60,7 +61,7 @@ fun HourlyForecastTable(
             .filter { it >= startHour && it < endExclusive }
     }
     val models = remember(forecast) {
-        forecast.seriesByModel.keys.toList().sortedBy { it.ordinal }
+        forecast.seriesByModel.keys.sortedByFamily()
     }
 
     if (timestamps.isEmpty() || models.isEmpty()) {
