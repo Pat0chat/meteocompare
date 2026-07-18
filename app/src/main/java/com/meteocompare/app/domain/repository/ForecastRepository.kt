@@ -48,12 +48,14 @@ interface ForecastRepository {
     ): ApiResult<CityForecast>
 
     /**
-     * Émissions en mémoire des prévisions fraîchement obtenues et mises en cache.
+     * Émissions en mémoire des prévisions obtenues par un refresh manuel.
      *
      * Ce flux permet aux écrans déjà présents dans la pile de navigation de
-     * refléter un refresh lancé ailleurs sans refaire de requête réseau. Il ne
-     * rejoue pas les anciennes valeurs : un écran recréé relit simplement Room
-     * via [getCityForecastStream].
+     * refléter un refresh lancé ailleurs sans refaire de requête réseau. Les
+     * fetchs automatiques de [getCityForecastStream] — dont ceux des widgets —
+     * ne publient pas ici, afin de ne pas réveiller les écrans en arrière-plan.
+     * Le flux ne rejoue pas les anciennes valeurs : un écran recréé relit Room.
+     * La publication est best-effort et ne ralentit jamais le caller.
      */
     fun observeForecastUpdates(): Flow<CityForecast> = emptyFlow()
 

@@ -25,6 +25,7 @@ import com.meteocompare.app.ui.navigation.Destinations
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.BufferOverflow
@@ -121,7 +122,25 @@ class CityDetailViewModel @Inject constructor(
         )
 
     init {
+        observeExternalForecastUpdates()
         loadInitial()
+    }
+
+    /**
+     * Reçoit les refresh réussis lancés depuis la Home ou un autre composant.
+     *
+     * Le flux transporte directement le résultat déjà téléchargé : aucune
+     * lecture Room supplémentaire et surtout aucune seconde requête réseau.
+     * Le filtre par [cityId] empêche une mise à jour d'une autre CityCard de
+     * recomposer cette page Détails.
+     */
+    private fun observeExternalForecastUpdates() {
+        viewModelScope.launch(start = CoroutineStart.UNDISPATCHED) {
+            forecastRepository.observeForecastUpdates().collect { forecast ->
+                if (forecast.city.id != cityId) return@collect
+                applyResult(ApiResult.Success(forecast))
+            }
+        }
     }
 
     /**
@@ -306,6 +325,21 @@ class CityDetailViewModel @Inject constructor(
 
     private suspend fun applyResult(result: ApiResult<CityForecast>) {
         val previous = _state.value
+
+        // Le chargement initial, un refresh manuel local et le signal partagé
+        // peuvent recevoir le même fetch coalescé dans un ordre différent. Ne
+        // jamais laisser une valeur identique ou plus ancienne écraser le
+        // forecast le plus frais déjà affiché.
+        if (result is ApiResult.Success && previous is CityDetailUiState.Loaded) {
+            val incomingFetchedAt = result.data.fetchedAt
+            val currentFetchedAt = previous.fetchedAt
+            if (currentFetchedAt != null &&
+                (incomingFetchedAt == null || !incomingFetchedAt.isAfter(currentFetchedAt))
+            ) {
+                return
+            }
+        }
+
         val next = when (result) {
             is ApiResult.Success -> withContext(computationDispatcher) {
                 val weekly = confidenceCalculator.weeklyConfidence(result.data)

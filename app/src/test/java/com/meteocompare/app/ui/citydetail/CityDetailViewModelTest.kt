@@ -24,6 +24,7 @@ import io.mockk.mockk
 import io.mockk.coVerify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
@@ -62,6 +63,7 @@ class CityDetailViewModelTest {
     private val favoritesFlow = MutableStateFlow(listOf(paris))
     private val modelsFlow = MutableStateFlow(WeatherModel.MVP_SELECTION)
     private val refreshIntervalFlow = MutableStateFlow(RefreshInterval.DEFAULT)
+    private val forecastUpdates = MutableSharedFlow<CityForecast>(extraBufferCapacity = 4)
 
     private val cityRepo: CityRepository = mockk(relaxed = true) {
         coEvery { observeFavorites() } returns favoritesFlow
@@ -118,6 +120,7 @@ class CityDetailViewModelTest {
         coEvery {
             forecastRepo.getCityForecastStream(any(), any(), any(), any(), any())
         } returns flow { /* hang */ }
+        every { forecastRepo.observeForecastUpdates() } returns forecastUpdates
     }
 
     @After
@@ -209,6 +212,69 @@ class CityDetailViewModelTest {
         }
 
     // ──────────────── Refresh ────────────────
+
+    @Test
+    fun `refresh depuis la Home - met à jour la page Détails sans second fetch`() =
+        runTest(dispatcher) {
+            val initialAt = Instant.parse("2026-06-28T10:00:00Z")
+            val refreshedAt = Instant.parse("2026-06-28T10:05:00Z")
+            val initial = buildForecast(paris).copy(fetchedAt = initialAt)
+            val refreshed = buildForecast(paris).copy(fetchedAt = refreshedAt)
+
+            coEvery {
+                forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
+            } returns flowOf(ApiResult.Success(initial))
+
+            val vm = buildViewModel()
+            vm.state.test {
+                var state = awaitItem()
+                while ((state as? CityDetailUiState.Loaded)?.fetchedAt != initialAt) {
+                    state = awaitItem()
+                }
+
+                forecastUpdates.emit(refreshed)
+
+                var updated = awaitItem()
+                while ((updated as? CityDetailUiState.Loaded)?.fetchedAt != refreshedAt) {
+                    updated = awaitItem()
+                }
+                assertEquals(refreshedAt, (updated as CityDetailUiState.Loaded).fetchedAt)
+            }
+
+            coVerify(exactly = 1) {
+                forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
+            }
+            coVerify(exactly = 0) {
+                forecastRepo.refreshCityForecast(any(), any(), any())
+            }
+        }
+
+    @Test
+    fun `refresh externe - ignore autre ville et valeur plus ancienne`() = runTest(dispatcher) {
+        val currentAt = Instant.parse("2026-06-28T10:05:00Z")
+        val olderAt = Instant.parse("2026-06-28T10:00:00Z")
+        val initial = buildForecast(paris).copy(fetchedAt = currentAt)
+        val lyon = City("2", "Lyon", country = "France", latitude = 45.75, longitude = 4.85)
+
+        coEvery {
+            forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
+        } returns flowOf(ApiResult.Success(initial))
+
+        val vm = buildViewModel()
+        vm.state.test {
+            var state = awaitItem()
+            while ((state as? CityDetailUiState.Loaded)?.fetchedAt != currentAt) {
+                state = awaitItem()
+            }
+
+            forecastUpdates.emit(
+                buildForecast(lyon).copy(fetchedAt = Instant.parse("2026-06-28T10:10:00Z"))
+            )
+            forecastUpdates.emit(buildForecast(paris).copy(fetchedAt = olderAt))
+            expectNoEvents()
+            assertEquals(currentAt, (vm.state.value as CityDetailUiState.Loaded).fetchedAt)
+        }
+    }
 
     @Test
     fun `refresh - succès émet RefreshFeedback Success`() = runTest(dispatcher) {

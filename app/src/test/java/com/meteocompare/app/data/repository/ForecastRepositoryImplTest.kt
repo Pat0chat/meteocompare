@@ -17,11 +17,17 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.yield
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
@@ -125,6 +131,59 @@ class ForecastRepositoryImplTest {
 
         assertTrue(result is ApiResult.Success)
         assertEquals(paris.id, update.await().city.id)
+    }
+
+    @Test
+    fun `fetch automatique de stream ne publie pas de signal UI`() = runTest {
+        coEvery {
+            api.getForecastBatched(
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any()
+            )
+        } returns batchedResponseWith(modelsWithData = listOf(WeatherModel.AROME_FRANCE_HD))
+
+        val unexpectedUpdate = async {
+            withTimeoutOrNull(1L) { repository.observeForecastUpdates().first() }
+        }
+        yield()
+
+        val results = repository.getCityForecastStream(
+            city = paris,
+            models = listOf(WeatherModel.AROME_FRANCE_HD)
+        ).toList()
+
+        assertTrue(results.last() is ApiResult.Success)
+        assertEquals(null, unexpectedUpdate.await())
+    }
+
+    @Test
+    fun `publication des refreshes ne bloque jamais un worker si un écran est lent`() = runTest {
+        coEvery {
+            api.getForecastBatched(
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any()
+            )
+        } returns batchedResponseWith(modelsWithData = listOf(WeatherModel.AROME_FRANCE_HD))
+
+        // Le collecteur consomme la première émission puis reste bloqué. Les
+        // émissions suivantes saturent volontairement le buffer mémoire. Un
+        // worker doit tout de même pouvoir terminer ses refreshes : le signal UI
+        // est best-effort, Room reste la source de vérité.
+        val slowCollector = launch(start = CoroutineStart.UNDISPATCHED) {
+            repository.observeForecastUpdates().collect {
+                awaitCancellation()
+            }
+        }
+
+        repeat(12) {
+            val result = withTimeout(1_000L) {
+                repository.refreshCityForecast(
+                    city = paris,
+                    models = listOf(WeatherModel.AROME_FRANCE_HD)
+                )
+            }
+            assertTrue(result is ApiResult.Success)
+        }
+
+        slowCollector.cancel()
     }
 
     @Test

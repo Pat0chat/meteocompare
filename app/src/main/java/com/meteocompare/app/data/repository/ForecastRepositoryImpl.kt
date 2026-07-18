@@ -256,7 +256,17 @@ class ForecastRepositoryImpl @Inject constructor(
         // Passe par [coalescedFetchAndCache] : un pull-to-refresh qui arrive
         // pendant qu'une fetch est déjà en vol (autre subscriber, widget)
         // attend son résultat au lieu d'en lancer une seconde HTTP identique.
-        coalescedFetchAndCache(city, models, forecastDays)
+        val result = coalescedFetchAndCache(city, models, forecastDays)
+
+        // Seuls les refreshs EXPLICITES de l'application publient ce signal.
+        // Les streams automatiques — notamment ceux des widgets/workers —
+        // mettent bien Room à jour mais ne réveillent pas les ViewModels en
+        // arrière-plan. tryEmit garantit en plus qu'aucune UI lente ne peut
+        // suspendre le caller.
+        if (result is ApiResult.Success) {
+            _forecastUpdates.tryEmit(result.data)
+        }
+        result
     }
 
     override suspend fun clearCacheForCity(cityId: String) = withContext(ioDispatcher) {
@@ -453,10 +463,6 @@ class ForecastRepositoryImpl @Inject constructor(
             // frais, on perd juste un point d'historique de biais).
             runSuspendCatching { snapshotForecast(fresh) }
 
-            // Informe les autres écrans du même processus après que Room a été
-            // mise à jour. La Home peut ainsi remplacer uniquement la CityCard
-            // concernée quand le refresh vient de la page Détails.
-            _forecastUpdates.emit(fresh)
             ApiResult.Success(fresh)
         }
     }
