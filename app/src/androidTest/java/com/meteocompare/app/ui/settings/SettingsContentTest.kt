@@ -31,6 +31,8 @@ class SettingsContentTest {
         onTheme: (ThemePreference) -> Unit = {},
         onLanguage: (LanguagePreference) -> Unit = {},
         onRefresh: (RefreshInterval) -> Unit = {},
+        biasRefreshRequested: Boolean = false,
+        onBiasRefresh: () -> Unit = {},
         onDonate: () -> Unit = {}
     ) {
         composeRule.setContent {
@@ -44,6 +46,8 @@ class SettingsContentTest {
                     onLanguageSelected = onLanguage,
                     refreshInterval = RefreshInterval.DEFAULT,
                     onRefreshIntervalSelected = onRefresh,
+                    biasRefreshRequested = biasRefreshRequested,
+                    onBiasRefreshClick = onBiasRefresh,
                     onDonateClick = onDonate,
                     padding = PaddingValues(0.dp)
                 )
@@ -129,6 +133,19 @@ class SettingsContentTest {
         scrollTo(modelTag)
         composeRule.onNodeWithTag(modelTag).assertHasNoClickAction()
         assertFalse(called)
+    }
+
+    @Test
+    fun manual_bias_refresh_action_is_reachable_at_bottom_of_list() {
+        var requested = false
+        content(onBiasRefresh = { requested = true })
+
+        scrollTo(TAG_SETTINGS_BIAS_REFRESH)
+        composeRule.onNodeWithTag(TAG_SETTINGS_BIAS_REFRESH)
+            .assertIsDisplayed()
+            .performClick()
+
+        assertTrue(requested)
     }
 
     @Test

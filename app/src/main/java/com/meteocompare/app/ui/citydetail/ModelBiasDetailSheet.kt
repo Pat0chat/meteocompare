@@ -276,11 +276,10 @@ private fun Explainer(selection: BiasSelection) {
         R.string.bias_explainer_opener,
         name, verb, variable, selection.bias.windowDays
     )
-    val hint = stringResource(explainerHintResId(selection.bias.direction))
     val stability = stringResource(explainerStabilityResId(selection.bias.significance))
 
     Text(
-        text = "$opener $hint\n\n$stability",
+        text = "$opener $stability",
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurface,
         lineHeight = MaterialTheme.typography.bodyMedium.lineHeight
@@ -311,12 +310,6 @@ private fun explainerVerbResId(d: BiasDirection): Int = when (d) {
     BiasDirection.WARM    -> R.string.bias_verb_overestimates
     BiasDirection.COLD    -> R.string.bias_verb_underestimates
     BiasDirection.NEUTRAL -> R.string.bias_verb_neutral
-}
-
-private fun explainerHintResId(d: BiasDirection): Int = when (d) {
-    BiasDirection.WARM    -> R.string.bias_hint_warm
-    BiasDirection.COLD    -> R.string.bias_hint_cold
-    BiasDirection.NEUTRAL -> R.string.bias_hint_neutral
 }
 
 private fun explainerStabilityResId(s: BiasSignificance): Int = when (s) {

@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -116,6 +117,7 @@ fun SettingsScreen(
     val language by viewModel.languagePreference.collectAsStateWithLifecycle()
     val refreshInterval by viewModel.refreshInterval.collectAsStateWithLifecycle()
     var showDonationDialog by rememberSaveable { mutableStateOf(false) }
+    var biasRefreshRequested by rememberSaveable { mutableStateOf(false) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -161,6 +163,11 @@ fun SettingsScreen(
             },
             refreshInterval = refreshInterval,
             onRefreshIntervalSelected = viewModel::onRefreshIntervalSelected,
+            biasRefreshRequested = biasRefreshRequested,
+            onBiasRefreshClick = {
+                viewModel.onBiasRefreshRequested()
+                biasRefreshRequested = true
+            },
             onDonateClick = { showDonationDialog = true },
             padding = padding
         )
@@ -181,6 +188,8 @@ internal fun SettingsContent(
     onLanguageSelected: (LanguagePreference) -> Unit,
     refreshInterval: RefreshInterval,
     onRefreshIntervalSelected: (RefreshInterval) -> Unit,
+    biasRefreshRequested: Boolean,
+    onBiasRefreshClick: () -> Unit,
     onDonateClick: () -> Unit,
     padding: PaddingValues
 ) {
@@ -345,6 +354,46 @@ internal fun SettingsContent(
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(stringResource(R.string.action_support_dev))
+                }
+            }
+        }
+
+        // Action de maintenance volontairement placée tout en bas : elle ne
+        // fait pas partie des réglages courants et doit rester exceptionnelle.
+        item {
+            HorizontalDivider()
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = stringResource(R.string.settings_bias_refresh_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = stringResource(R.string.settings_bias_refresh_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(12.dp))
+                OutlinedButton(
+                    onClick = onBiasRefreshClick,
+                    modifier = Modifier.fillMaxWidth().testTag(TAG_SETTINGS_BIAS_REFRESH)
+                ) {
+                    Icon(
+                        Icons.Outlined.Refresh,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.settings_bias_refresh_action))
+                }
+                if (biasRefreshRequested) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = stringResource(R.string.settings_bias_refresh_queued),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 }
             }
         }
@@ -658,6 +707,7 @@ private fun RefreshIntervalSelector(
 internal const val TAG_SETTINGS_ROOT = "settings_root"
 internal const val TAG_SETTINGS_BACK = "settings_back"
 internal const val TAG_SETTINGS_DONATE = "settings_donate"
+internal const val TAG_SETTINGS_BIAS_REFRESH = "settings_bias_refresh"
 internal const val TAG_SETTINGS_MODEL = "settings_model_"
 internal const val TAG_SETTINGS_SORT = "settings_sort_"
 internal const val TAG_SETTINGS_THEME = "settings_theme_"

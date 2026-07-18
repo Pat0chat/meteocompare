@@ -46,6 +46,29 @@ class BiasRefreshSchedulerTest {
     }
 
     @Test
+    fun `refresh manuel est unique avec KEEP et contourne la garde`() {
+        val workName = slot<String>()
+        val request = slot<OneTimeWorkRequest>()
+
+        BiasRefreshScheduler.triggerManualRefresh(workManager)
+
+        verify(exactly = 1) {
+            workManager.enqueueUniqueWork(
+                capture(workName),
+                ExistingWorkPolicy.KEEP,
+                capture(request)
+            )
+        }
+        org.junit.Assert.assertTrue(workName.captured.isNotBlank())
+        org.junit.Assert.assertTrue(
+            request.captured.workSpec.input.getBoolean(
+                BiasRefreshScheduler.MANUAL_INPUT_KEY,
+                false
+            )
+        )
+    }
+
+    @Test
     fun `le kickoff reste unique avec KEEP dans les deux chemins`() {
         val workNames = mutableListOf<String>()
         val requests = mutableListOf<OneTimeWorkRequest>()

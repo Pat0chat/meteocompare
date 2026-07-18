@@ -3,6 +3,7 @@ package com.meteocompare.app.ui.settings
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.meteocompare.app.data.worker.BiasRefreshScheduler
 import com.meteocompare.app.domain.model.LanguagePreference
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.ThemePreference
@@ -83,6 +84,16 @@ class SettingsViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    /**
+     * Demande un cycle exceptionnel de collecte des biais. Le scheduler
+     * conserve les contraintes réseau/batterie, le mutex global et la
+     * déduplication WorkManager ; ce bouton ne modifie pas la cadence
+     * quotidienne normale.
+     */
+    fun onBiasRefreshRequested() {
+        BiasRefreshScheduler.triggerManualRefresh(appContext)
     }
 
     fun onThemeSelected(preference: ThemePreference) {

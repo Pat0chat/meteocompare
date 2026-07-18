@@ -80,6 +80,7 @@ object BiasRefreshScheduler {
 
     private const val WORK_NAME = "meteocompare_bias_refresh"
     private const val KICKOFF_WORK_NAME = "meteocompare_bias_refresh_kickoff"
+    private const val MANUAL_WORK_NAME = "meteocompare_bias_refresh_manual"
     private const val WORK_TAG = "meteocompare_bias"
 
     /**
@@ -117,6 +118,45 @@ object BiasRefreshScheduler {
         enqueue(
             workManager = WorkManager.getInstance(context.applicationContext),
             periodicPolicy = ExistingPeriodicWorkPolicy.UPDATE
+        )
+    }
+
+    /**
+     * Lance un cycle exceptionnel demandé explicitement depuis les réglages.
+     *
+     * Le travail garde les mêmes contraintes et le même mutex que les cycles
+     * automatiques. Il contourne uniquement la garde temporelle de 20 h afin
+     * que l'utilisateur puisse initialiser les biais après avoir ajouté ses
+     * premières villes. KEEP empêche plusieurs taps d'empiler les workers.
+     */
+    fun triggerManualRefresh(context: Context) {
+        triggerManualRefresh(
+            WorkManager.getInstance(context.applicationContext)
+        )
+    }
+
+    /** Overload testable du déclenchement manuel. */
+    internal fun triggerManualRefresh(workManager: WorkManager) {
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .setRequiresBatteryNotLow(true)
+            .build()
+
+        val manual = OneTimeWorkRequestBuilder<BiasRefreshWorker>()
+            .setInputData(workDataOf(MANUAL_INPUT_KEY to true))
+            .setConstraints(constraints)
+            .setBackoffCriteria(
+                BackoffPolicy.EXPONENTIAL,
+                1,
+                TimeUnit.HOURS
+            )
+            .addTag(WORK_TAG)
+            .build()
+
+        workManager.enqueueUniqueWork(
+            MANUAL_WORK_NAME,
+            ExistingWorkPolicy.KEEP,
+            manual
         )
     }
 
@@ -190,6 +230,7 @@ object BiasRefreshScheduler {
      * pour être testable et évoluer sans toucher au worker.
      */
     internal const val KICKOFF_INPUT_KEY: String = "bias_refresh_kickoff"
+    internal const val MANUAL_INPUT_KEY: String = "bias_refresh_manual"
 
     internal const val PER_CITY_OPERATION_TIMEOUT_MS: Long = 45_000L
 
@@ -240,23 +281,33 @@ internal class BiasRefreshWorker(
             BiasRefreshScheduler.KICKOFF_INPUT_KEY,
             false
         )
-        val minIntervalMs = if (isKickoff) {
-            BiasRefreshRunGate.KICKOFF_MIN_INTERVAL_MS
-        } else {
-            // Le periodic reste quotidien. Ce garde court ne sert qu'à éviter
-            // un doublon si un kickoff vient de réussir juste avant sa fenêtre.
-            BiasRefreshRunGate.PERIODIC_MIN_INTERVAL_MS
-        }
-        if (!BiasRefreshRunGate.shouldRun(ctx, minIntervalMs)) {
-            Log.d(
-                LOG_TAG,
-                if (isKickoff) {
-                    "Bias kickoff skipped: a successful daily cycle is still fresh"
-                } else {
-                    "Bias periodic skipped: a kickoff completed recently"
-                }
-            )
-            return@withLock Result.success()
+        val isManual = inputData.getBoolean(
+            BiasRefreshScheduler.MANUAL_INPUT_KEY,
+            false
+        )
+
+        // Une demande manuelle est une action utilisateur explicite : elle
+        // contourne la garde de fraîcheur, mais reste sérialisée par RUN_MUTEX
+        // et dédupliquée par le nom de travail unique du scheduler.
+        if (!isManual) {
+            val minIntervalMs = if (isKickoff) {
+                BiasRefreshRunGate.KICKOFF_MIN_INTERVAL_MS
+            } else {
+                // Le periodic reste quotidien. Ce garde court ne sert qu'à éviter
+                // un doublon si un kickoff vient de réussir juste avant sa fenêtre.
+                BiasRefreshRunGate.PERIODIC_MIN_INTERVAL_MS
+            }
+            if (!BiasRefreshRunGate.shouldRun(ctx, minIntervalMs)) {
+                Log.d(
+                    LOG_TAG,
+                    if (isKickoff) {
+                        "Bias kickoff skipped: a successful daily cycle is still fresh"
+                    } else {
+                        "Bias periodic skipped: a kickoff completed recently"
+                    }
+                )
+                return@withLock Result.success()
+            }
         }
 
         val entry = EntryPointAccessors.fromApplication(ctx, BiasRefreshEntryPoint::class.java)
@@ -271,6 +322,15 @@ internal class BiasRefreshWorker(
         // d'écouter les Flow (le worker ne vit que le temps d'un cycle).
         val favorites = runSuspendCatching { cityRepo.observeFavorites().first() }
             .getOrElse { return@withLock Result.retry() }
+
+        // Un cycle vide peut tout de même exécuter le housekeeping, mais il ne
+        // sera pas marqué comme cycle de collecte réussi. Sinon un kickoff lancé
+        // avant l'ajout de la première ville bloquerait les prochains kickoffs
+        // pendant 20 h alors qu'aucune donnée de biais n'a été collectée.
+        if (favorites.isEmpty()) {
+            Log.d(LOG_TAG, "Bias refresh has no favorite city; housekeeping only")
+        }
+
         val enabledModels = runSuspendCatching { userPrefs.observeEnabledModels().first() }
             .getOrDefault(emptyList())
 
@@ -353,7 +413,9 @@ internal class BiasRefreshWorker(
             entry.forecastCacheDao().deleteOlderThan(cutoffMs)
         }.onFailure { Log.w(LOG_TAG, "Forecast cache cleanup failed", it) }
 
-        BiasRefreshRunGate.markSuccess(ctx)
+        if (favorites.isNotEmpty()) {
+            BiasRefreshRunGate.markSuccess(ctx)
+        }
         Result.success()
     }
 

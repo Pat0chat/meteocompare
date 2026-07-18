@@ -46,6 +46,10 @@
     <string name="settings_about_version">Version %s</string>
     <string name="settings_about_data_source">Données météo fournies par Open-Meteo (open-meteo.com).</string>
     <string name="settings_about_models_credit">Modèles : AROME et ARPEGE par Météo-France, ICON par DWD, GFS et HRRR par NOAA, ECMWF et AIFS par le Centre Européen, UKMO par le UK Met Office, GEM par Environnement Canada, MET Nordic par MET Norway, HARMONIE par KNMI, ACCESS par le Bureau of Meteorology (Australie), GRAPES par le CMA (Chine).</string>
+    <string name="settings_bias_refresh_title">Suivi des biais</string>
+    <string name="settings_bias_refresh_desc">Lance exceptionnellement la collecte des prévisions historiques et des observations pour vos villes favorites. La cadence quotidienne normale reste inchangée ; le travail attendra un réseau disponible et une batterie suffisante.</string>
+    <string name="settings_bias_refresh_action">Mettre à jour les biais maintenant</string>
+    <string name="settings_bias_refresh_queued">Mise à jour planifiée. Les indicateurs apparaîtront dès qu’au moins 14 jours communs seront disponibles.</string>
     <string name="settings_privacy_title">Confidentialité</string>
     <string name="settings_privacy_body">Cette application ne collecte aucune donnée personnelle. Aucun analytics, aucun tracking, aucune publicité. Vos favoris et préférences restent sur votre appareil.</string>
     <string name="theme_system">Système</string>
@@ -347,11 +351,6 @@
          seule phrase, positive, qui ne parle plus de "systématiquement
          surestime" — mensonger pour un modèle en fait bien calibré. -->
     <string name="bias_explainer_calibrated">%1$s est calibré sur %2$s à cet endroit. Sur les %3$d derniers jours, l\'écart moyen aux observations reste dans le bruit journalier — aucune correction n\'est nécessaire pour interpréter ses prévisions.</string>
-
-    <!-- Hint : comment corriger mentalement — varie selon la direction -->
-    <string name="bias_hint_warm">Soustraire l\'écart aux prévisions donne une lecture plus proche du réel.</string>
-    <string name="bias_hint_cold">Ajouter l\'écart aux prévisions donne une lecture plus proche du réel.</string>
-    <string name="bias_hint_neutral">Rien à corriger sur cette variable.</string>
 
     <!-- Interprétation stabilité — varie selon la significativité -->
     <string name="bias_stability_high">Le biais est important sur les 30 derniers jours.</string>

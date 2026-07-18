@@ -2,6 +2,7 @@ package com.meteocompare.app.ui.settings
 
 import android.content.Context
 import app.cash.turbine.test
+import com.meteocompare.app.data.worker.BiasRefreshScheduler
 import com.meteocompare.app.domain.model.LanguagePreference
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.ThemePreference
@@ -91,15 +92,18 @@ class SettingsViewModelTest {
         // rend le choix explicite pour le compilateur — sans ça il ne peut
         // pas résoudre l'overload et échoue en "Cannot infer type for T".
         mockkObject(WidgetRefreshScheduler)
+        mockkObject(BiasRefreshScheduler)
         every { WidgetRefreshScheduler.schedule(any<Context>()) } returns Unit
         every { WidgetRefreshScheduler.triggerImmediateRefresh(any<Context>()) } returns Unit
         every { WidgetRefreshScheduler.cancel(any<Context>()) } returns Unit
+        every { BiasRefreshScheduler.triggerManualRefresh(any<Context>()) } returns Unit
 
         viewModel = SettingsViewModel(appContext, prefs)
     }
 
     @After
     fun tearDown() {
+        unmockkObject(BiasRefreshScheduler)
         unmockkObject(WidgetRefreshScheduler)
         Dispatchers.resetMain()
     }
@@ -164,6 +168,15 @@ class SettingsViewModelTest {
             // que l'app puisse toujours afficher quelque chose.
             coVerify(exactly = 0) { prefs.setEnabledModels(any()) }
         }
+
+    @Test
+    fun `onBiasRefreshRequested - déclenche uniquement le worker manuel`() {
+        viewModel.onBiasRefreshRequested()
+
+        verify(exactly = 1) {
+            BiasRefreshScheduler.triggerManualRefresh(appContext)
+        }
+    }
 
     @Test
     fun `onThemeSelected - délègue au repo`() = runTest(dispatcher) {

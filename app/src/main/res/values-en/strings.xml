@@ -46,6 +46,10 @@
     <string name="settings_about_version">Version %s</string>
     <string name="settings_about_data_source">Weather data provided by Open-Meteo (open-meteo.com).</string>
     <string name="settings_about_models_credit">Models: AROME and ARPEGE by Météo-France, ICON by DWD, GFS and HRRR by NOAA, ECMWF and AIFS by the European Centre, UKMO by the UK Met Office, GEM by Environment Canada, MET Nordic by MET Norway, HARMONIE by KNMI, ACCESS by the Bureau of Meteorology (Australia), GRAPES by CMA (China).</string>
+    <string name="settings_bias_refresh_title">Bias tracking</string>
+    <string name="settings_bias_refresh_desc">Exceptionally collects historical forecasts and observations for your favorite cities. The normal daily schedule remains unchanged; the work waits for network access and sufficient battery.</string>
+    <string name="settings_bias_refresh_action">Update biases now</string>
+    <string name="settings_bias_refresh_queued">Update scheduled. Indicators will appear once at least 14 matching days are available.</string>
     <string name="settings_privacy_title">Privacy</string>
     <string name="settings_privacy_body">This app collects no personal data. No analytics, no tracking, no advertising. Your favorites and preferences stay on your device.</string>
     <string name="theme_system">System</string>
@@ -348,11 +352,6 @@
          positive sentence — replaces the misleading "systematically overestimates"
          template that would otherwise fire for a genuinely well-behaved model. -->
     <string name="bias_explainer_calibrated">%1$s is well calibrated on %2$s at this location. Over the last %3$d days, the mean deviation from observations stays within daily noise — no correction is needed to interpret its forecasts.</string>
-
-    <!-- Correction hint — varies by direction -->
-    <string name="bias_hint_warm">Subtracting the deviation from its forecasts gives a reading closer to reality.</string>
-    <string name="bias_hint_cold">Adding the deviation to its forecasts gives a reading closer to reality.</string>
-    <string name="bias_hint_neutral">Nothing to correct on this variable.</string>
 
     <!-- Stability interpretation — varies by significance -->
     <string name="bias_stability_high">The bias is consistent over the last 30 days.</string>
