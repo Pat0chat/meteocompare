@@ -89,10 +89,10 @@ class CityListViewModel @Inject constructor(
     private val _searchError = MutableStateFlow<String?>(null)
 
     private val searchResults: StateFlow<List<City>> = _searchQuery
-        .debounce(300)
+        .debounce(700)
         .distinctUntilChanged()
         .flatMapLatest { query ->
-            if (query.length < 2) {
+            if (query.length < 3) {
                 _isSearching.value = false
                 flowOf(emptyList())
             } else {

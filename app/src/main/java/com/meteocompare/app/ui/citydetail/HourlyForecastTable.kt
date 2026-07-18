@@ -79,7 +79,7 @@ fun HourlyForecastTable(
     val locale = LocalConfiguration.current.locales[0]
     val hourFmt = remember(locale) { DateTimeFormatter.ofPattern("HH'h'", locale) }
     val headerHeight = 50.dp
-    val modelRowHeight = if (modelBiasProvider != null) 60.dp else 38.dp
+    val modelRowHeight = if (modelBiasProvider != null) 56.dp else 38.dp
     val modelWidth = if (modelBiasProvider != null) 100.dp else 90.dp
 
     val dayPrefixes = remember(timestamps, zone, locale) {

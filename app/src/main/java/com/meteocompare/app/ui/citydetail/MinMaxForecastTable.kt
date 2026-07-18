@@ -70,7 +70,7 @@ fun MinMaxForecastTable(
     val onSurface = MaterialTheme.colorScheme.onSurface
     val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
     val today = remember { LocalDate.now() }
-    val modelRowHeight = if (modelBiasProvider != null) 60.dp else 44.dp
+    val modelRowHeight = if (modelBiasProvider != null) 56.dp else 44.dp
     val modelColumnWidth = if (modelBiasProvider != null) 100.dp else 90.dp
     val dateColumnWidth = 88.dp
     val headerHeight = 44.dp

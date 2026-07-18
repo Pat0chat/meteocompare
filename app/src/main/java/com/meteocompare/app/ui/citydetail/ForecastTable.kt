@@ -78,7 +78,7 @@ fun ForecastTable(
 
     val palette = detailTablePalette()
     val today = remember { LocalDate.now() }
-    val modelRowHeight = if (modelBiasProvider != null) 60.dp else 40.dp
+    val modelRowHeight = if (modelBiasProvider != null) 56.dp else 40.dp
     val modelColumnWidth = if (modelBiasProvider != null) 100.dp else 90.dp
     val temporalHeaderHeight = 44.dp
     val locale = LocalConfiguration.current.locales[0]
