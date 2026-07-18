@@ -282,24 +282,26 @@ internal fun CityCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = state.city.name,
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        val subtitle = state.city.admin1 ?: state.city.country
-                        if (subtitle.isNotBlank()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.Bottom
+                        ) {
                             Text(
-                                text = subtitle,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                text = state.city.name,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.SemiBold
                             )
+                            Spacer(Modifier.width(10.dp))
+                            val subtitle = state.city.admin1 ?: state.city.country
+                            if (subtitle.isNotBlank()) {
+                                Text(
+                                    text = subtitle,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(bottom = 2.dp)
+                                )
+                            }
                         }
-                    }
-                    // Column pour empiler menu 3-points ET sunrise/sunset en
-                    // haut à droite. Le menu reste au sommet (interactif prioritaire),
-                    // les sun times viennent en dessous (info secondaire, discrète).
-                    Row(verticalAlignment = Alignment.CenterVertically) {
                         // SunTimes n'est affiché QUE si la card est Loaded ET
                         // qu'on a au moins une valeur (sunrise OU sunset). En
                         // Loading/Error on ne pollue pas avec du "—".
@@ -311,11 +313,13 @@ internal fun CityCard(
                                 modifier = Modifier.padding(end = 2.dp)
                             )
                         }
+                    }
+                    Column(horizontalAlignment = Alignment.End) {
                         CityCardMenu(onRemove = onRemove)
                     }
                 }
 
-                Spacer(Modifier.height(0.dp))
+                Spacer(Modifier.height(2.dp))
 
                 // AnimatedContent entre les états du forecast.
                 // La cible utilise une clé type-stable (le simpleName de la classe),
