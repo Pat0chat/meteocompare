@@ -108,6 +108,26 @@ class ForecastRepositoryImplTest {
     // ─────────────────────── Tests refresh de base ───────────────────────
 
     @Test
+    fun `refresh réussi - publie la prévision fraîche pour les autres écrans`() = runTest {
+        coEvery {
+            api.getForecastBatched(
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any()
+            )
+        } returns batchedResponseWith(modelsWithData = listOf(WeatherModel.AROME_FRANCE_HD))
+
+        val update = async { repository.observeForecastUpdates().first() }
+        yield() // abonne le collecteur avant le refresh
+
+        val result = repository.refreshCityForecast(
+            city = paris,
+            models = listOf(WeatherModel.AROME_FRANCE_HD)
+        )
+
+        assertTrue(result is ApiResult.Success)
+        assertEquals(paris.id, update.await().city.id)
+    }
+
+    @Test
     fun `refresh - modeles ayant répondu sont mappés, modèles vides deviennent des erreurs`() =
         runTest {
             // ICON_EU répond (données suffixées présentes), GFS n'a rien —

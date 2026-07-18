@@ -5,6 +5,7 @@ import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.WeatherModel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 
 interface ForecastRepository {
 
@@ -45,6 +46,16 @@ interface ForecastRepository {
         models: List<WeatherModel> = WeatherModel.MVP_SELECTION,
         forecastDays: Int = 7
     ): ApiResult<CityForecast>
+
+    /**
+     * Émissions en mémoire des prévisions fraîchement obtenues et mises en cache.
+     *
+     * Ce flux permet aux écrans déjà présents dans la pile de navigation de
+     * refléter un refresh lancé ailleurs sans refaire de requête réseau. Il ne
+     * rejoue pas les anciennes valeurs : un écran recréé relit simplement Room
+     * via [getCityForecastStream].
+     */
+    fun observeForecastUpdates(): Flow<CityForecast> = emptyFlow()
 
     /** Nettoyage du cache quand une ville est retirée des favoris. */
     suspend fun clearCacheForCity(cityId: String)

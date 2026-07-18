@@ -58,6 +58,11 @@ class CityListViewModel @Inject constructor(
     // changent (auquel cas on relance avec la nouvelle config).
     private val streamJobs = mutableMapOf<String, Job>()
 
+    // Index courant des favoris, maintenu sur le Main dispatcher par
+    // [syncStreams]. Il permet d'ignorer une mise à jour tardive reçue juste
+    // après la suppression d'une ville.
+    private var favoriteCitiesById: Map<String, City> = emptyMap()
+
     // Snapshot de la dernière configuration de stream. L'intervalle fait
     // partie de la clé : il détermine la fraîcheur acceptable du cache au
     // moment de la souscription.
@@ -152,6 +157,31 @@ class CityListViewModel @Inject constructor(
                     syncStreams(cities, models, interval)
                 }
         }
+
+        // Le stream cache+réseau d'une CityCard est volontairement fini. Sans
+        // ce canal, un refresh forcé depuis CityDetail écrit bien Room mais la
+        // Home déjà présente dans la back stack conserve son ancien timestamp.
+        // On applique ici le résultat frais déjà téléchargé : zéro second fetch.
+        viewModelScope.launch {
+            forecastRepository.observeForecastUpdates().collect { forecast ->
+                val city = favoriteCitiesById[forecast.city.id] ?: return@collect
+                val current = forecastsById.value[city.id] as? ForecastState.Loaded
+                val currentFetchedAt = current?.fetchedAt
+                val incomingFetchedAt = forecast.fetchedAt
+
+                // Les flux initiaux et un refresh manuel peuvent partager le
+                // même fetch coalescé. Évite de recalculer la carte si cette
+                // émission est identique ou plus ancienne que celle affichée.
+                if (incomingFetchedAt != null && currentFetchedAt != null &&
+                    !incomingFetchedAt.isAfter(currentFetchedAt)
+                ) {
+                    return@collect
+                }
+
+                val mapped = toForecastState(city, ApiResult.Success(forecast))
+                forecastsById.update { states -> states + (city.id to mapped) }
+            }
+        }
     }
 
     /**
@@ -184,7 +214,8 @@ class CityListViewModel @Inject constructor(
         models: List<WeatherModel>,
         interval: RefreshInterval
     ) {
-        val currentIds = cities.map { it.id }.toSet()
+        favoriteCitiesById = cities.associateBy(City::id)
+        val currentIds = favoriteCitiesById.keys
 
         // 1. Cancel les streams pour les villes retirées + purge cache. On le
         //    fait TOUJOURS, indépendamment du path d'optimisation ci-dessous.

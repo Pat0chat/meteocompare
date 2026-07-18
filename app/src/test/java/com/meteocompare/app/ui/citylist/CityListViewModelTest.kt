@@ -16,9 +16,11 @@ import com.meteocompare.app.domain.usecase.ConfidenceCalculator
 import com.meteocompare.app.domain.usecase.EqualWeighting
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
@@ -70,6 +72,7 @@ class CityListViewModelTest {
     private val favoritesFlow = MutableStateFlow<List<City>>(emptyList())
     private val modelsFlow = MutableStateFlow(WeatherModel.MVP_SELECTION)
     private val refreshIntervalFlow = MutableStateFlow(RefreshInterval.DEFAULT)
+    private val forecastUpdates = MutableSharedFlow<CityForecast>(extraBufferCapacity = 4)
 
     private val cityRepo: CityRepository = mockk(relaxed = true) {
         coEvery { observeFavorites() } returns favoritesFlow
@@ -105,6 +108,7 @@ class CityListViewModelTest {
         } returns flow {
             /* ne rien émettre, ne pas terminer */
         }
+        every { forecastRepo.observeForecastUpdates() } returns forecastUpdates
         viewModel = CityListViewModel(cityRepo, forecastRepo, calculator, prefs, dispatcher)
     }
 
@@ -187,6 +191,45 @@ class CityListViewModelTest {
         }
 
     // ──────────────── Refresh ────────────────
+
+    @Test
+    fun `refresh externe - met à jour le timestamp de la CityCard sans nouveau fetch`() =
+        runTest(dispatcher) {
+            val initialAt = Instant.parse("2026-06-28T10:00:00Z")
+            val refreshedAt = Instant.parse("2026-06-28T10:05:00Z")
+            val initial = buildForecast(paris, dailyMaxTemp = 22.0).copy(fetchedAt = initialAt)
+            val refreshed = buildForecast(paris, dailyMaxTemp = 24.0).copy(fetchedAt = refreshedAt)
+
+            coEvery {
+                forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
+            } returns flowOf(ApiResult.Success(initial))
+
+            val vm = CityListViewModel(cityRepo, forecastRepo, calculator, prefs, dispatcher)
+
+            vm.uiState.test {
+                awaitItem()
+                favoritesFlow.value = listOf(paris)
+
+                var state = awaitItem()
+                while ((state.items.firstOrNull()?.forecast as? ForecastState.Loaded)?.fetchedAt != initialAt) {
+                    state = awaitItem()
+                }
+
+                forecastUpdates.emit(refreshed)
+
+                var updated = awaitItem()
+                while ((updated.items.firstOrNull()?.forecast as? ForecastState.Loaded)?.fetchedAt != refreshedAt) {
+                    updated = awaitItem()
+                }
+                val loaded = updated.items.first().forecast as ForecastState.Loaded
+                assertEquals(refreshedAt, loaded.fetchedAt)
+                assertEquals(22.0, loaded.currentTemp ?: Double.NaN, 0.001)
+            }
+
+            coVerify(exactly = 1) {
+                forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
+            }
+        }
 
     @Test
     fun `onRefreshAll - termine avec isRefreshing à false et appelle refresh pour chaque favori`() =

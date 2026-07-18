@@ -31,6 +31,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -111,6 +113,19 @@ class ForecastRepositoryImpl @Inject constructor(
     private val repoScope = CoroutineScope(SupervisorJob() + ioDispatcher)
     private val inflightMutex = Mutex()
     private val inflightFetches = mutableMapOf<String, Deferred<ApiResult<CityForecast>>>()
+
+    // Signal applicatif léger : un refresh réussi peut être lancé depuis la
+    // page Détails, la Home ou un autre composant. Les écrans déjà vivants
+    // reçoivent directement le CityForecast frais, sans relire Room et surtout
+    // sans déclencher une seconde requête HTTP. Le buffer couvre les refreshes
+    // parallèles de plusieurs favoris ; l'émission reste ordonnée.
+    private val _forecastUpdates = MutableSharedFlow<CityForecast>(
+        replay = 0,
+        extraBufferCapacity = FORECAST_UPDATE_BUFFER
+    )
+
+    override fun observeForecastUpdates(): Flow<CityForecast> =
+        _forecastUpdates.asSharedFlow()
 
     /**
      * Clé de coalescing. Ordonnée sur les noms de modèles pour être invariante
@@ -437,6 +452,11 @@ class ForecastRepositoryImpl @Inject constructor(
             // utilisateur (dégradation gracieuse : l'user voit son forecast
             // frais, on perd juste un point d'historique de biais).
             runSuspendCatching { snapshotForecast(fresh) }
+
+            // Informe les autres écrans du même processus après que Room a été
+            // mise à jour. La Home peut ainsi remplacer uniquement la CityCard
+            // concernée quand le refresh vient de la page Détails.
+            _forecastUpdates.emit(fresh)
             ApiResult.Success(fresh)
         }
     }
@@ -463,5 +483,6 @@ class ForecastRepositoryImpl @Inject constructor(
          * multiple (widget + app en même temps).
          */
         private const val LOG_TAG = "MeteoCompare/Net"
+        private const val FORECAST_UPDATE_BUFFER = 8
     }
 }
