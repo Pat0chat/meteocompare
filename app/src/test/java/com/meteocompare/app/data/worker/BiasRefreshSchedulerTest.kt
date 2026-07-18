@@ -63,5 +63,10 @@ class BiasRefreshSchedulerTest {
         assertEquals(2, workNames.size)
         assertEquals(1, workNames.distinct().size)
         assertEquals(2, requests.size)
+        requests.forEach { request ->
+            org.junit.Assert.assertTrue(
+                request.inputData.getBoolean(BiasRefreshScheduler.KICKOFF_INPUT_KEY, false)
+            )
+        }
     }
 }

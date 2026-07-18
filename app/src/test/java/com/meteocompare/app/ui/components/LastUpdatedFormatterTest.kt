@@ -168,39 +168,46 @@ class LastUpdatedFormatterTest {
         )
     }
 
-    // ─── Fréquence de refresh ──────────────────────────────────────────────
+    // ─── Délai jusqu'au prochain changement visible ─────────────────────
 
     @Test
-    fun `refresh interval - JustNow ticks at 15 s`() {
-        // Assez rapide pour basculer promptement à "il y a 1 min" — sans ça
-        // on afficherait "à l'instant" jusqu'à 30 s après la vérité.
-        assertEquals(15_000L, refreshIntervalMsFor(LastUpdatedPalier.JustNow))
+    fun `next delay - JustNow attend exactement la minute`() {
+        assertEquals(
+            45_000L,
+            nextLastUpdatedRefreshDelayMs(now.minusSeconds(15), now)
+        )
     }
 
     @Test
-    fun `refresh interval - Minutes ticks at 30 s`() {
-        // 30 s = compromis "précision minute" : on retarde d'au max 30 s
-        // l'affichage du bon nombre de minutes. Un intervalle plus court
-        // (ex: 10 s) réveillerait la coroutine 3x plus souvent pour rien.
-        assertEquals(30_000L, refreshIntervalMsFor(LastUpdatedPalier.Minutes(1)))
-        assertEquals(30_000L, refreshIntervalMsFor(LastUpdatedPalier.Minutes(59)))
+    fun `next delay - Minutes attend la prochaine frontière minute`() {
+        assertEquals(
+            50_000L,
+            nextLastUpdatedRefreshDelayMs(now.minusSeconds(70), now)
+        )
     }
 
     @Test
-    fun `refresh interval - Hours ticks at 5 min`() {
-        // Palier heure : le libellé ne change que toutes les heures. Réveiller
-        // toutes les 30 s serait un gaspillage batterie ; 5 min = fenêtre
-        // acceptable d'imprécision (au pire 5 min de retard sur la bascule
-        // vers le libellé suivant).
-        assertEquals(300_000L, refreshIntervalMsFor(LastUpdatedPalier.Hours(1)))
+    fun `next delay - Hours attend la prochaine frontière heure`() {
+        assertEquals(
+            1_800_000L,
+            nextLastUpdatedRefreshDelayMs(now.minusSeconds(5_400), now)
+        )
     }
 
     @Test
-    fun `refresh interval - Days ticks at 5 min`() {
-        // Palier jour — même logique que heures, même intervalle. Simplifier
-        // à un seul palier "élevé" = 5 min évite un tick à l'heure qui
-        // sync mal avec des affichages qui pourraient prendre 10 min à
-        // basculer visuellement.
-        assertEquals(300_000L, refreshIntervalMsFor(LastUpdatedPalier.Days(1)))
+    fun `next delay - Days attend la prochaine frontière jour`() {
+        assertEquals(
+            43_200_000L,
+            nextLastUpdatedRefreshDelayMs(now.minusSeconds(129_600), now)
+        )
     }
+
+    @Test
+    fun `next delay - horloge reculée attend une minute sans boucle serrée`() {
+        assertEquals(
+            60_000L,
+            nextLastUpdatedRefreshDelayMs(now.plusSeconds(120), now)
+        )
+    }
+
 }
