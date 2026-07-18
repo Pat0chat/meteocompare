@@ -115,7 +115,7 @@ internal fun BiasSparkline(
         "yDomainMax ($yDomainMax) must be > yDomainMin ($yDomainMin)"
     }
 
-    val palette = chipPalette(direction)
+    val palette = biasChipPalette(direction, pending = false)
     val forecastColor = palette.foreground
     val envelopeColor = palette.foreground
     val observationColor = MaterialTheme.colorScheme.onSurfaceVariant

@@ -128,9 +128,9 @@ private fun SheetTitle(bias: ModelBias) {
     // le modèle est problématique.
     val isCalibrated = bias.significance == BiasSignificance.NOT_SIGNIFICANT
     val palette = if (isCalibrated) {
-        chipPalette(BiasDirection.NEUTRAL)
+        biasChipPalette(BiasDirection.NEUTRAL, pending = false)
     } else {
-        chipPalette(bias.direction)
+        biasChipPalette(bias.direction, pending = false)
     }
     val magnitude = formatBiasLabel(bias)
     val prefix = stringResource(R.string.bias_sheet_title_prefix)

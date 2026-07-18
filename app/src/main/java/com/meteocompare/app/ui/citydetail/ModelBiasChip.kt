@@ -164,7 +164,7 @@ internal data class ChipPalette(
 
 /** Palette adaptative au thème clair/sombre et à Material You. */
 @Composable
-private fun biasChipPalette(
+internal fun biasChipPalette(
     direction: BiasDirection,
     pending: Boolean
 ): ChipPalette {
