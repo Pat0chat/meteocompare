@@ -4,8 +4,10 @@ import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
 import androidx.glance.appwidget.GlanceAppWidgetManager
+import androidx.glance.appwidget.state.getAppWidgetState
 import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.state.PreferencesGlanceStateDefinition
+import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -14,7 +16,11 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import androidx.work.workDataOf
 import com.meteocompare.app.core.util.runSuspendCatching
+import com.meteocompare.app.domain.model.RefreshInterval
+import dagger.hilt.android.EntryPointAccessors
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
@@ -39,20 +45,15 @@ private const val WIDGET_LOG_TAG = "MeteoCompare/Widget"
  * jusqu'au tick suivant — d'où la plainte "les heures ne changent pas au
  * fur et à mesure du temps".
  *
- * Maintenant le worker tick est à cadence FIXE = 15 min (le minimum
- * WorkManager). La [RefreshInterval] utilisateur est encore lue à chaque
- * loadWidgetData, mais elle sert UNIQUEMENT de seuil `maxCacheAgeMs`
- * dans le repository :
+ * Le worker conserve un tick de sécurité à 15 min (minimum WorkManager),
+ * mais ne reconstruit plus systématiquement les RemoteViews. Il compare le
+ * bucket courant au dernier rendu : 15 min pour le profil le plus frais,
+ * 30 min pour MINUTES_30 et 1 h pour HOUR_1/HOURS_3/HOURS_6/MANUAL.
  *
- *   - Tick 15 min → invalidation du LaunchedEffect → loadWidgetData tourne
- *     → labels d'heure recalculés depuis un Instant.now() frais.
- *   - À l'intérieur de loadWidgetData, le repo lit son cache et ne fetche
- *     que si `System.currentTimeMillis() - cachedFetchedAt > maxCacheAgeMs`.
- *     Donc en HOUR_1 : 1 tick sur 4 fait un vrai HTTP, les 3 autres sont
- *     cache-only.
- *
- * Coût du tick cache-only : ~10 ms de CPU (lecture Room + reconstruction
- * WidgetData). Négligeable vs le coût radio d'un HTTP.
+ * Les rafraîchissements immédiats (configuration, préférences, boot) portent
+ * un flag `force` et contournent ce filtre. Lorsqu'un rendu est nécessaire,
+ * loadWidgetData conserve le même seuil `maxCacheAgeMs` : la réduction de
+ * CPU/IPC n'altère donc ni les fetch réseau attendus ni le mode manuel.
  *
  * ─── Pourquoi pas AlarmManager ? ────────────────────────────────────────
  * Voir docblock historique retenu ci-dessous — les motifs (Doze, App
@@ -127,7 +128,13 @@ internal object WidgetRefreshScheduler {
         policy: ExistingPeriodicWorkPolicy
     ) {
         val request = PeriodicWorkRequestBuilder<WidgetRefreshWorker>(
-            TICK_MINUTES, TimeUnit.MINUTES
+            repeatInterval = TICK_MINUTES,
+            repeatIntervalTimeUnit = TimeUnit.MINUTES,
+            // Une fenêtre de 5 min permet à Android de regrouper ce tick avec
+            // d'autres travaux système, sans perdre la précision utile du
+            // widget (les heures sont affichées par pas d'une heure).
+            flexTimeInterval = 5,
+            flexTimeIntervalUnit = TimeUnit.MINUTES
         )
             .setConstraints(
                 Constraints.Builder()
@@ -151,6 +158,13 @@ internal object WidgetRefreshScheduler {
                     // inconditionnel restaure la fiabilité de l'affichage à
                     // un coût battery marginal — le bon compromis.
                     .build()
+            )
+            // En cas de panne persistante du launcher ou de Glance, ne pas
+            // réveiller le process toutes les quelques dizaines de secondes.
+            .setBackoffCriteria(
+                BackoffPolicy.EXPONENTIAL,
+                30,
+                TimeUnit.MINUTES
             )
             .addTag(WORK_TAG)
             .build()
@@ -183,6 +197,12 @@ internal object WidgetRefreshScheduler {
     /** Overload testable : voir [schedule] pour la justification. */
     internal fun triggerImmediateRefresh(workManager: WorkManager) {
         val request = OneTimeWorkRequestBuilder<WidgetRefreshWorker>()
+            .setInputData(workDataOf(FORCE_REFRESH_KEY to true))
+            .setBackoffCriteria(
+                BackoffPolicy.EXPONENTIAL,
+                30,
+                TimeUnit.MINUTES
+            )
             .addTag(WORK_TAG)
             .build()
         workManager.enqueueUniqueWork(
@@ -211,6 +231,8 @@ internal object WidgetRefreshScheduler {
      * puissent vérifier que [schedule] et [cancel] utilisent bien le même
      * (invariant sinon `cancel` ne trouve rien à annuler).
      */
+    internal const val FORCE_REFRESH_KEY: String = "force_widget_refresh"
+
     internal const val TESTABLE_WORK_NAME: String = WORK_NAME
     internal const val TESTABLE_IMMEDIATE_WORK_NAME: String = IMMEDIATE_WORK_NAME
     internal const val TESTABLE_WORK_TAG: String = WORK_TAG
@@ -284,7 +306,19 @@ internal class WidgetRefreshWorker(
         val glanceManager = GlanceAppWidgetManager(ctx)
         val widget = MeteoWidget()
         val now = System.currentTimeMillis()
+        val forceRefresh = inputData.getBoolean(
+            WidgetRefreshScheduler.FORCE_REFRESH_KEY,
+            false
+        )
+        val refreshInterval = runSuspendCatching {
+            EntryPointAccessors.fromApplication(ctx, WidgetEntryPoint::class.java)
+                .userPreferencesRepository()
+                .observeRefreshInterval()
+                .first()
+        }.getOrDefault(RefreshInterval.DEFAULT)
+
         var updatedCount = 0
+        var skippedCount = 0
         var failedCount = 0
 
         val completedWithinBudget = withTimeoutOrNull(WORK_BUDGET_MS) {
@@ -292,33 +326,74 @@ internal class WidgetRefreshWorker(
                 val updateResult = withTimeoutOrNull(PER_WIDGET_TIMEOUT_MS) {
                     runSuspendCatching {
                         val glanceId = glanceManager.getGlanceIdBy(appWidgetId)
+                        val prefs = getAppWidgetState(
+                            context = ctx,
+                            definition = PreferencesGlanceStateDefinition,
+                            glanceId = glanceId
+                        )
+                        val lastDispatch = prefs[WidgetPreferences.LastDispatchAtKey] ?: 0L
+
+                        if (!isWidgetDispatchDue(
+                                lastDispatchAtMs = lastDispatch,
+                                nowMs = now,
+                                interval = refreshInterval,
+                                force = forceRefresh
+                            )
+                        ) {
+                            return@runSuspendCatching false
+                        }
+
                         updateAppWidgetState(
                             context = ctx,
                             definition = PreferencesGlanceStateDefinition,
                             glanceId = glanceId
-                        ) { prefs ->
-                            prefs.toMutablePreferences().apply {
+                        ) { current ->
+                            current.toMutablePreferences().apply {
                                 this[WidgetPreferences.RefreshTickKey] = now
+                                this[WidgetPreferences.LastDispatchAtKey] = now
                             }
                         }
 
                         // Une écriture DataStore ne suffit pas à prévenir le host du
                         // widget. Glance doit recréer puis renvoyer les RemoteViews.
                         // Sans cet appel explicite certains launchers restent figés.
-                        widget.update(ctx, glanceId)
+                        try {
+                            widget.update(ctx, glanceId)
+                        } catch (error: Throwable) {
+                            // Le tick a déjà été écrit pour déclencher la composition.
+                            // Si l'envoi RemoteViews échoue, restaurer uniquement le
+                            // marqueur de cadence afin que le retry ne soit pas filtré.
+                            updateAppWidgetState(
+                                context = ctx,
+                                definition = PreferencesGlanceStateDefinition,
+                                glanceId = glanceId
+                            ) { current ->
+                                current.toMutablePreferences().apply {
+                                    this[WidgetPreferences.LastDispatchAtKey] = lastDispatch
+                                }
+                            }
+                            throw error
+                        }
+                        true
                     }
                 }
 
-                if (updateResult?.isSuccess == true) {
-                    updatedCount++
-                } else {
-                    failedCount++
-                    android.util.Log.w(
-                        WIDGET_LOG_TAG,
-                        "Widget refresh failed for appWidgetId=$appWidgetId",
-                        updateResult?.exceptionOrNull()
-                            ?: TimeoutException("Widget update exceeded ${PER_WIDGET_TIMEOUT_MS}ms")
-                    )
+                when {
+                    updateResult?.isSuccess == true && updateResult.getOrNull() == true -> {
+                        updatedCount++
+                    }
+                    updateResult?.isSuccess == true -> {
+                        skippedCount++
+                    }
+                    else -> {
+                        failedCount++
+                        android.util.Log.w(
+                            WIDGET_LOG_TAG,
+                            "Widget refresh failed for appWidgetId=$appWidgetId",
+                            updateResult?.exceptionOrNull()
+                                ?: TimeoutException("Widget update exceeded ${PER_WIDGET_TIMEOUT_MS}ms")
+                        )
+                    }
                 }
             }
             true
@@ -335,7 +410,7 @@ internal class WidgetRefreshWorker(
         android.util.Log.d(
             WIDGET_LOG_TAG,
             "Widget refresh completed: live=${liveWidgetIds.size}, " +
-                "updated=$updatedCount, failed=$failedCount"
+                "updated=$updatedCount, skipped=$skippedCount, failed=$failedCount"
         )
 
         // Une panne isolée ne doit pas refaire tout le lot. En revanche, si

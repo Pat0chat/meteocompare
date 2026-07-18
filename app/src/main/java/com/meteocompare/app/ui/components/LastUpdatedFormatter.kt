@@ -75,21 +75,26 @@ internal fun computeLastUpdatedPalier(
 }
 
 /**
- * Intervalle avant le prochain re-tick d'affichage (en ms), en fonction du
- * palier courant. Extrait en fonction pure pour être testable et pour éviter
- * de tourner en boucle serrée quand on est dans un palier stable (heure/jour).
+ * Délai exact avant que le texte affiché puisse changer.
  *
- *   - JustNow (< 1 min)  → 15 s : bascule rapidement vers "il y a 1 min"
- *   - Minutes (< 1 h)    → 30 s : rafraîchit à la mi-minute pour rester précis
- *   - Hours ou Days      → 5 min : ces paliers changent rarement, inutile de
- *                                  faire tourner un LaunchedEffect toutes les
- *                                  30 s pour rien
+ * L'ancienne implémentation réveillait la coroutine toutes les 15 ou 30 s,
+ * même lorsque le libellé restait identique. Ici on dort directement jusqu'à
+ * la prochaine frontière utile : 1 minute, minute suivante, heure suivante ou
+ * jour suivant. Une page laissée ouverte ne provoque donc plus de
+ * recompositions intermédiaires sans effet visuel.
  */
-internal fun refreshIntervalMsFor(palier: LastUpdatedPalier): Long = when (palier) {
-    LastUpdatedPalier.JustNow -> 15_000L
-    is LastUpdatedPalier.Minutes -> 30_000L
-    is LastUpdatedPalier.Hours -> 300_000L
-    is LastUpdatedPalier.Days -> 300_000L
+internal fun nextLastUpdatedRefreshDelayMs(
+    fetchedAt: Instant,
+    now: Instant
+): Long {
+    val secondsAgo = Duration.between(fetchedAt, now).seconds.coerceAtLeast(0L)
+    val secondsUntilChange = when {
+        secondsAgo < 60L -> 60L - secondsAgo
+        secondsAgo < 3_600L -> 60L - (secondsAgo % 60L)
+        secondsAgo < 86_400L -> 3_600L - (secondsAgo % 3_600L)
+        else -> 86_400L - (secondsAgo % 86_400L)
+    }
+    return secondsUntilChange.coerceAtLeast(1L) * 1_000L
 }
 
 /**
@@ -121,7 +126,7 @@ fun formatLastUpdated(
  *
  * Sans ce refresh, un utilisateur qui laisserait l'écran ouvert 30 minutes
  * verrait toujours "à l'instant" — mensonger. Un [LaunchedEffect] re-tick à
- * la fréquence adaptée au palier courant (voir [refreshIntervalMsFor]).
+ * exactement à la prochaine frontière où le texte peut changer.
  *
  * Rendu comme un simple [String] utilisable dans un Text() :
  * ```
@@ -136,12 +141,12 @@ fun rememberFormattedLastUpdated(fetchedAt: Instant): String {
     // les nouvelles Resources sans attendre le prochain délai.
     var now by remember(fetchedAt) { mutableStateOf(Instant.now()) }
 
-    // Boucle de refresh périodique. LaunchedEffect(fetchedAt) : le job est
+    // Boucle alignée sur les frontières visibles. LaunchedEffect(fetchedAt) : le job est
     // annulé et relancé quand fetchedAt change (nouveau refresh manuel).
     LaunchedEffect(fetchedAt) {
         while (true) {
-            val palier = computeLastUpdatedPalier(fetchedAt, Instant.now())
-            delay(refreshIntervalMsFor(palier))
+            val current = Instant.now()
+            delay(nextLastUpdatedRefreshDelayMs(fetchedAt, current))
             now = Instant.now()
         }
     }

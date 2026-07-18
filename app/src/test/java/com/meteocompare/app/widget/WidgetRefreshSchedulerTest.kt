@@ -178,6 +178,12 @@ class WidgetRefreshSchedulerTest {
         org.junit.Assert.assertTrue(
             requestSlot.captured.tags.contains(WidgetRefreshScheduler.TESTABLE_WORK_TAG)
         )
+        org.junit.Assert.assertTrue(
+            requestSlot.captured.workSpec.input.getBoolean(
+                WidgetRefreshScheduler.FORCE_REFRESH_KEY,
+                false
+            )
+        )
         // On ne doit surtout PAS avoir touché à l'enqueue périodique.
         verify(exactly = 0) {
             workManager.enqueueUniquePeriodicWork(any(), any(), any())

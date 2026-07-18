@@ -41,6 +41,13 @@ internal object WidgetPreferences {
     val RefreshTickKey = longPreferencesKey("widget_refresh_tick")
 
     /**
+     * Dernière reconstruction RemoteViews réellement envoyée au launcher.
+     * Le worker périodique s'en sert pour ignorer les ticks intermédiaires qui
+     * ne changeraient ni les données ni l'échéance affichée.
+     */
+    val LastDispatchAtKey = longPreferencesKey("widget_last_dispatch_at")
+
+    /**
      * Couleur de fond custom, encodée en ARGB Int (compatible
      * `android.graphics.Color`).
      *
