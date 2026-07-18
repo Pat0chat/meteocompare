@@ -25,6 +25,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.WeatherCondition
@@ -37,29 +38,7 @@ import com.meteocompare.app.ui.theme.color
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
-/**
- * Matrice Jour × Modèle des conditions météo.
- *
- * Layout calqué sur [ForecastTable] pour cohérence visuelle :
- *   - Colonne gauche figée avec les dates (76dp)
- *   - VerticalDivider
- *   - Row scrollable horizontalement avec une Column par modèle (largeur 64dp)
- *
- * Chaque cellule contient l'icône colorée. Le scan horizontal d'une ligne =
- * "que prédisent les différents modèles pour ce jour ?" — un alignement
- * parfait des icônes signale accord, une icône différente saute aux yeux.
- *
- * Différence vs ForecastTable : pas de [ValueStyle] ni de formatter — on a
- * un type fixe (icône), pas une valeur numérique à styler. Tenter de fusionner
- * les deux composants nous aurait imposé un generic <T> ou un sealed sur
- * "Value | Icon", ce qui aurait alourdi le call-site pour pas grand-chose.
- *
- * @param rows Une entrée par date, dans l'ordre chronologique.
- * @param modelOrder Liste des modèles à afficher en colonnes, dans l'ordre.
- *   On accepte un ordre externe (typiquement `forecast.availableModels`,
- *   trié par résolution) plutôt qu'un tri interne, pour ne pas dupliquer
- *   la décision ailleurs si on la veut différente plus tard.
- */
+/** Matrice Modèle × Jour des conditions météo. */
 @Composable
 fun WeatherByModelTable(
     rows: List<DayConditionsRow>,
@@ -76,51 +55,61 @@ fun WeatherByModelTable(
         return
     }
 
-    val tablePalette = detailTablePalette()
+    val palette = detailTablePalette()
     val today = remember { LocalDate.now() }
+    val modelWidth = 104.dp
+    val dateWidth = 76.dp
+    val headerHeight = 44.dp
+    val rowHeight = 52.dp
 
-    Row(modifier = modifier.fillMaxWidth().detailTableFrame(tablePalette)) {
-        // Colonne figée : dates
-        Column(modifier = Modifier.width(60.dp)) {
+    Row(modifier = modifier.fillMaxWidth().detailTableFrame(palette)) {
+        Column(modifier = Modifier.width(modelWidth)) {
             HeaderCell(
-                text = "",
-                background = tablePalette.frozenHeaderSurface,
-                modifier = Modifier.width(60.dp),
-                palette = tablePalette
+                text = stringResource(R.string.detail_table_model_header),
+                background = palette.frozenHeaderSurface,
+                width = modelWidth,
+                height = headerHeight,
+                palette = palette,
+                alignStart = true
             )
-            rows.forEachIndexed { idx, row ->
-                DayLabelCell(
-                    text = formatDayLabel(row),
-                    background = tablePalette.labelRowBackground(idx, row.date == today),
-                    isToday = row.date == today,
-                    palette = tablePalette
+            modelOrder.forEachIndexed { modelIndex, model ->
+                HeaderCell(
+                    text = model.displayName,
+                    background = palette.labelRowBackground(modelIndex, false),
+                    width = modelWidth,
+                    height = rowHeight,
+                    palette = palette,
+                    accentColor = model.color(),
+                    alignStart = true
                 )
             }
         }
 
         VerticalDivider(
-            modifier = Modifier.height((40 + rows.size * 52).dp),
-            color = tablePalette.frozenDivider
+            modifier = Modifier.height((headerHeight.value + rowHeight.value * modelOrder.size).dp),
+            color = palette.frozenDivider
         )
 
-        // Partie scrollable : une colonne par modèle
         Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
-            modelOrder.forEach { model ->
-                Column(modifier = Modifier.width(76.dp)) {
+            rows.forEachIndexed { dateIndex, row ->
+                val isToday = row.date == today
+                Column(modifier = Modifier.width(dateWidth)) {
                     HeaderCell(
-                        text = model.displayName,
-                        background = tablePalette.headerSurface,
-                        modifier = Modifier.width(76.dp),
-                        palette = tablePalette,
-                        accentColor = model.color()
+                        text = formatDayLabel(row),
+                        background = palette.labelRowBackground(dateIndex, isToday),
+                        width = dateWidth,
+                        height = headerHeight,
+                        palette = palette,
+                        highlighted = isToday
                     )
-                    rows.forEachIndexed { idx, row ->
+                    modelOrder.forEachIndexed { modelIndex, model ->
                         IconCell(
                             condition = row.byModel[model],
                             extras = row.extrasByModel[model],
                             isInferred = model in row.inferredByModel,
-                            background = tablePalette.dataRowBackground(idx, row.date == today),
-                            palette = tablePalette
+                            background = palette.dataRowBackground(modelIndex, isToday),
+                            height = rowHeight,
+                            palette = palette
                         )
                     }
                 }
@@ -132,11 +121,7 @@ fun WeatherByModelTable(
 @Composable
 private fun formatDayLabel(row: DayConditionsRow): String {
     val locale = LocalConfiguration.current.locales[0]
-    // remember(locale) sinon un changement de langue ne rafraîchirait pas le
-    // format ("EEE d" est sensible à la locale).
-    val formatter = remember(locale) {
-        DateTimeFormatter.ofPattern("EEE d", locale)
-    }
+    val formatter = remember(locale) { DateTimeFormatter.ofPattern("EEE d", locale) }
     return row.date.format(formatter).replaceFirstChar { it.uppercase() }
 }
 
@@ -144,28 +129,25 @@ private fun formatDayLabel(row: DayConditionsRow): String {
 private fun HeaderCell(
     text: String,
     background: Color,
-    modifier: Modifier = Modifier,
+    width: Dp,
+    height: Dp,
     palette: DetailTablePalette,
-    accentColor: Color? = null
+    accentColor: Color? = null,
+    highlighted: Boolean = false,
+    alignStart: Boolean = false
 ) {
     Box(
-        modifier = modifier
-            .height(40.dp)
+        modifier = Modifier.width(width).height(height)
             .detailTableCell(background, palette, accentColor)
-            .padding(4.dp),
-        contentAlignment = Alignment.Center
+            .padding(horizontal = if (alignStart) 8.dp else 4.dp),
+        contentAlignment = if (alignStart) Alignment.CenterStart else Alignment.Center
     ) {
         Text(
             text = text,
             style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.Center,
-            // Nom du modèle sur UNE seule ligne — sans ce garde-fou, un nom
-            // comme "AROME France HD" (15 chars) wrappait sur 2 lignes à
-            // 64dp, cassait l'alignement vertical de la grille et donnait
-            // une impression d'inconsistance visuelle entre colonnes. Avec
-            // maxLines=1 + ellipsis, un nom qui dépasse est tronqué proprement
-            // ("AROME Franc…") — moins joli mais l'alignement est préservé.
+            fontWeight = if (highlighted) FontWeight.Bold else FontWeight.SemiBold,
+            color = if (highlighted) palette.highlightedText else MaterialTheme.colorScheme.onSurface,
+            textAlign = if (alignStart) TextAlign.Start else TextAlign.Center,
             maxLines = 1,
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
         )
@@ -173,53 +155,18 @@ private fun HeaderCell(
 }
 
 @Composable
-private fun DayLabelCell(text: String, background: Color, isToday: Boolean = false, palette: DetailTablePalette) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(52.dp)
-            .detailTableCell(background, palette)
-            .padding(horizontal = 4.dp),
-        contentAlignment = Alignment.CenterStart
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodySmall,
-            fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
-            color = if (isToday)
-                palette.highlightedText
-            else MaterialTheme.colorScheme.onSurface
-        )
-    }
-}
-
-/**
- * Cellule Icône + badge extra pour la matrice Jour × Modèle.
- *
- * Layout vertical dans une hauteur de 52dp :
- *   - Icône 22dp centrée (taille légèrement réduite vs les 24dp historiques
- *     pour laisser de l'air au badge en dessous)
- *   - Badge optionnel 2 lignes plus bas (labelSmall) — probabilité de pluie
- *     ou couverture nuageuse selon la condition
- *
- * Règles de badge :
- *   - Famille pluie/orage → probabilité de pluie max si dispo
- *   - Famille PARTLY_CLOUDY / OVERCAST → couverture nuageuse moyenne si dispo
- *   - Autres familles ou données manquantes → pas de badge (aligne le layout
- *     visuellement sur les cellules avec badge, l'espace reste le même)
- */
-@Composable
 private fun IconCell(
     condition: WeatherCondition?,
     extras: DayCellExtras?,
     isInferred: Boolean,
     background: Color,
+    height: Dp,
     palette: DetailTablePalette
 ) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(52.dp)
+            .height(height)
             .detailTableCell(background, palette),
         contentAlignment = Alignment.Center
     ) {

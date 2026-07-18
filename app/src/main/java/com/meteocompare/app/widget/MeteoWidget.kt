@@ -336,8 +336,24 @@ private fun WidgetContent(
     val layoutKind = classifyWidgetLayout(widthDp, heightDp)
     val padding = when (layoutKind) {
         WidgetLayoutKind.TINY -> TinyPadding
-        WidgetLayoutKind.COMPACT_TALL -> CompactTallPadding
-        WidgetLayoutKind.EXTRA_LARGE -> ExtraLargePadding
+        WidgetLayoutKind.COMPACT_TALL -> WidgetPadding(
+            horizontal = CompactTallPadding.horizontal,
+            vertical = when (forecastCardHeightProfile(heightDp)) {
+                ForecastCardHeightProfile.DENSE -> 7.dp
+                ForecastCardHeightProfile.COMPACT -> 9.dp
+                ForecastCardHeightProfile.COMFORTABLE -> 11.dp
+                ForecastCardHeightProfile.EXPANDED -> 13.dp
+            }
+        )
+        WidgetLayoutKind.EXTRA_LARGE -> WidgetPadding(
+            horizontal = ExtraLargePadding.horizontal,
+            vertical = when (forecastCardHeightProfile(heightDp)) {
+                ForecastCardHeightProfile.DENSE -> 7.dp
+                ForecastCardHeightProfile.COMPACT -> 9.dp
+                ForecastCardHeightProfile.COMFORTABLE -> 11.dp
+                ForecastCardHeightProfile.EXPANDED -> 13.dp
+            }
+        )
         WidgetLayoutKind.MEDIUM -> MediumPadding
         WidgetLayoutKind.LARGE,
         WidgetLayoutKind.WIDE -> LargePadding
@@ -796,7 +812,8 @@ private fun CompactTallLayout(
                         onContainerMuted = onContainerMuted,
                         softSurface = softSurface,
                         compact = true,
-                        modifier = GlanceModifier.defaultWeight()
+                        responsiveHeight = true,
+                        modifier = GlanceModifier.defaultWeight().fillMaxHeight()
                     )
                 }
             }
@@ -1054,7 +1071,8 @@ private fun ExtraLargeLayout(
                         onContainerMuted = onContainerMuted,
                         softSurface = softSurface,
                         compact = compactHeight,
-                        modifier = GlanceModifier.defaultWeight()
+                        responsiveHeight = true,
+                        modifier = GlanceModifier.defaultWeight().fillMaxHeight()
                     )
                 }
             }
@@ -1390,16 +1408,63 @@ private fun ForecastItemCard(
     onContainerMuted: ColorProvider,
     softSurface: ColorProvider,
     compact: Boolean,
+    responsiveHeight: Boolean = false,
     modifier: GlanceModifier = GlanceModifier
 ) {
+    val profile = if (responsiveHeight) {
+        forecastCardHeightProfile(LocalSize.current.height.value)
+    } else if (compact) {
+        ForecastCardHeightProfile.DENSE
+    } else {
+        ForecastCardHeightProfile.COMPACT
+    }
+    val horizontalPadding = when (profile) {
+        ForecastCardHeightProfile.DENSE -> 3.dp
+        ForecastCardHeightProfile.COMPACT -> 4.dp
+        ForecastCardHeightProfile.COMFORTABLE -> 5.dp
+        ForecastCardHeightProfile.EXPANDED -> 6.dp
+    }
+    val verticalPadding = when (profile) {
+        ForecastCardHeightProfile.DENSE -> 2.dp
+        ForecastCardHeightProfile.COMPACT -> 4.dp
+        ForecastCardHeightProfile.COMFORTABLE -> 6.dp
+        ForecastCardHeightProfile.EXPANDED -> 8.dp
+    }
+    val labelSize = when (profile) {
+        ForecastCardHeightProfile.DENSE -> 8.sp
+        ForecastCardHeightProfile.COMPACT -> 9.sp
+        ForecastCardHeightProfile.COMFORTABLE -> 10.sp
+        ForecastCardHeightProfile.EXPANDED -> 11.sp
+    }
+    val glyphSize = when (profile) {
+        ForecastCardHeightProfile.DENSE -> 18
+        ForecastCardHeightProfile.COMPACT -> 22
+        ForecastCardHeightProfile.COMFORTABLE -> 28
+        ForecastCardHeightProfile.EXPANDED -> 32
+    }
+    val temperatureSize = when (profile) {
+        ForecastCardHeightProfile.DENSE -> 10.sp
+        ForecastCardHeightProfile.COMPACT -> 12.sp
+        ForecastCardHeightProfile.COMFORTABLE -> 14.sp
+        ForecastCardHeightProfile.EXPANDED -> 16.sp
+    }
+    val detailSize = when (profile) {
+        ForecastCardHeightProfile.DENSE -> 6.sp
+        ForecastCardHeightProfile.COMPACT -> 7.sp
+        ForecastCardHeightProfile.COMFORTABLE -> 8.sp
+        ForecastCardHeightProfile.EXPANDED -> 9.sp
+    }
+    val splitDetails = responsiveHeight && (
+        profile == ForecastCardHeightProfile.COMFORTABLE ||
+            profile == ForecastCardHeightProfile.EXPANDED
+        )
+    val cardModifier = if (responsiveHeight) modifier.fillMaxHeight() else modifier
+
     Column(
-        modifier = modifier
+        modifier = cardModifier
             .background(softSurface)
-            .cornerRadius(if (compact) 10.dp else 12.dp)
-            .padding(
-                horizontal = if (compact) 4.dp else 6.dp,
-                vertical = if (compact) 3.dp else 5.dp
-            ),
+            .cornerRadius(if (profile == ForecastCardHeightProfile.DENSE) 9.dp else 12.dp)
+            .padding(horizontal = horizontalPadding, vertical = verticalPadding),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -1407,43 +1472,59 @@ private fun ForecastItemCard(
             text = item.label,
             style = TextStyle(
                 color = onContainerMuted,
-                fontSize = if (compact) 9.sp else 11.sp,
+                fontSize = labelSize,
                 fontWeight = FontWeight.Medium
             )
         )
-        WeatherGlyph(
-            condition = item.condition,
-            sizeDp = if (compact) 20 else 30
-        )
+        if (profile != ForecastCardHeightProfile.DENSE) {
+            Spacer(GlanceModifier.height(1.dp))
+        }
+        WeatherGlyph(condition = item.condition, sizeDp = glyphSize)
+        if (profile == ForecastCardHeightProfile.EXPANDED) {
+            Spacer(GlanceModifier.height(1.dp))
+        }
         Text(
             text = formatTemp(item.temp),
             style = TextStyle(
                 color = onContainer,
-                fontSize = if (compact) 11.sp else 14.sp,
+                fontSize = temperatureSize,
                 fontWeight = FontWeight.Bold
             )
         )
-        forecastDetailsLine(item)?.let { details ->
-            Spacer(GlanceModifier.height(1.dp))
-            Text(
-                text = details,
-                style = TextStyle(
-                    color = onContainerMuted,
-                    fontSize = if (compact) 6.sp else 7.sp,
-                    fontWeight = FontWeight.Medium
+
+        val details = forecastDetailParts(item)
+        if (details.isNotEmpty()) {
+            Spacer(GlanceModifier.height(if (splitDetails) 2.dp else 1.dp))
+            if (splitDetails) {
+                details.forEachIndexed { index, detail ->
+                    if (index > 0) Spacer(GlanceModifier.height(1.dp))
+                    Text(
+                        text = detail,
+                        style = TextStyle(
+                            color = onContainerMuted,
+                            fontSize = detailSize,
+                            fontWeight = FontWeight.Medium
+                        )
+                    )
+                }
+            } else {
+                Text(
+                    text = details.joinToString(" · "),
+                    style = TextStyle(
+                        color = onContainerMuted,
+                        fontSize = detailSize,
+                        fontWeight = FontWeight.Medium
+                    )
                 )
-            )
+            }
         }
     }
 }
 
-/** Ligne secondaire compacte : couverture nuageuse puis risque de pluie. */
-private fun forecastDetailsLine(item: WidgetForecastItem): String? {
-    val parts = buildList {
-        item.cloudCoverPct?.let { add("☁ ${it.coerceIn(0, 100)}%") }
-        item.precipProbabilityPct?.let { add("☂ ${it.coerceIn(0, 100)}%") }
-    }
-    return parts.takeIf { it.isNotEmpty() }?.joinToString(" · ")
+/** Détails secondaires, réutilisables en ligne compacte ou en lignes séparées. */
+private fun forecastDetailParts(item: WidgetForecastItem): List<String> = buildList {
+    item.cloudCoverPct?.let { add("☁ ${it.coerceIn(0, 100)}%") }
+    item.precipProbabilityPct?.let { add("☂ ${it.coerceIn(0, 100)}%") }
 }
 
 @Composable

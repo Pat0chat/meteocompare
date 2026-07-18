@@ -23,6 +23,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.CityForecast
@@ -32,64 +33,32 @@ import com.meteocompare.app.ui.components.WeatherIconDecorative
 import com.meteocompare.app.ui.components.semanticTint
 import com.meteocompare.app.ui.theme.color
 import java.time.Instant
-import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle as JavaTextStyle
 
-/**
- * Matrice Heure × Modèle des conditions météo horaires.
- *
- * Pendant hourly du [WeatherByModelTable]. Layout identique dans l'esprit :
- * colonne d'heures figée à gauche + une colonne par modèle scrollables. Le
- * scan horizontal d'une ligne = "à cette heure, que prédisent les modèles ?"
- * — un alignement des icônes signale accord, une divergence saute aux yeux.
- *
- * Différences vs [WeatherByModelTable] :
- *   - Jusqu'à 24 lignes au lieu de 7 (une par heure sur la fin du jour)
- *   - Colonne label plus large pour préfixe jour aux transitions
- *   - Conditions calculées ici depuis la série hourly de chaque modèle
- *     (via weather_code ou fallback précipitation) — pas de use case dédié
- *     dans la ViewModel, la logique reste locale à la vue
- */
+/** Matrice Modèle × Heure des conditions météo horaires. */
 @Composable
 fun HourlyWeatherByModelTable(
     forecast: CityForecast,
     modifier: Modifier = Modifier
 ) {
     val zone = remember(forecast.city.timezone) {
-        runCatching { ZoneId.of(forecast.city.timezone ?: "UTC") }
-            .getOrDefault(ZoneId.of("UTC"))
+        runCatching { ZoneId.of(forecast.city.timezone ?: "UTC") }.getOrDefault(ZoneId.of("UTC"))
     }
-
     val (startHour, endExclusive) = remember(forecast) {
         computeHourlyHorizon(forecast.city.timezone)
     }
-
     val timestamps = remember(forecast, startHour, endExclusive) {
-        forecast.seriesByModel.values
-            .flatMap { it.hourly.timestamps }
-            .distinct()
-            .sorted()
+        forecast.seriesByModel.values.flatMap { it.hourly.timestamps }.distinct().sorted()
             .filter { it >= startHour && it < endExclusive }
     }
-
     val models = remember(forecast) {
         forecast.seriesByModel.keys.toList().sortedBy { it.ordinal }
     }
 
-    // Pré-calcul des conditions + extras Heure × Modèle. Un data holder local
-    // au fichier (HourCellData) pour ne pas multiplier les maps parallèles et
-    // garder l'accès dans les cellules trivial.
     val cellsByTimestamp: Map<Instant, Map<WeatherModel, HourCellData>> =
         remember(forecast, timestamps) {
-            // Pré-calcul : médiane inter-modèles de cloud_cover par timestamp.
-            // Utilisé comme 3e fallback dans la boucle ci-dessous — dérive
-            // une condition sans-précip quand un modèle n'expose ni
-            // weather_code ni précip exploitable (AROME HD sur heure sèche).
-            //
-            // Médiane robuste aux outliers vs moyenne — pertinent quand
-            // 5+ modèles contribuent.
             val medianCloudByTs: Map<Instant, Double> = buildMap {
                 for (ts in timestamps) {
                     val values = forecast.seriesByModel.mapNotNull { (_, series) ->
@@ -98,12 +67,11 @@ fun HourlyWeatherByModelTable(
                     }
                     if (values.isNotEmpty()) {
                         val sorted = values.sorted()
-                        val median = if (sorted.size % 2 == 1) {
-                            sorted[sorted.size / 2].toDouble()
-                        } else {
-                            (sorted[sorted.size / 2 - 1] + sorted[sorted.size / 2]) / 2.0
-                        }
-                        put(ts, median)
+                        put(
+                            ts,
+                            if (sorted.size % 2 == 1) sorted[sorted.size / 2].toDouble()
+                            else (sorted[sorted.size / 2 - 1] + sorted[sorted.size / 2]) / 2.0
+                        )
                     }
                 }
             }
@@ -112,41 +80,30 @@ fun HourlyWeatherByModelTable(
                 forecast.seriesByModel.mapNotNull { (model, series) ->
                     val idx = series.hourly.timestamps.indexOf(ts)
                     if (idx < 0) return@mapNotNull null
-                    val code = series.hourly.weatherCode.getOrNull(idx)
-                    // Même logique qu'en daily : (1) weather_code natif,
-                    // (2) fallback empirique via précipitation, (3) fallback
-                    // ultime peer-consensus cloud_cover — signalé par
-                    // isInferred=true pour que l'UI affiche un marqueur.
-                    var isInferred = false
-                    var condition = WeatherCondition.fromWmoCode(code)
+                    var inferred = false
+                    var condition = WeatherCondition.fromWmoCode(series.hourly.weatherCode.getOrNull(idx))
                         ?: WeatherCondition.inferFromPrecipAndTemp(
                             precipMm = series.hourly.precipitation.getOrNull(idx),
                             tempMinC = series.hourly.temperature2m.getOrNull(idx)
                         )
                     if (condition == null) {
-                        val medianCloud = medianCloudByTs[ts]
-                        if (medianCloud != null) {
-                            condition = WeatherCondition.fromCloudCover(medianCloud)
-                            isInferred = true
+                        medianCloudByTs[ts]?.let {
+                            condition = WeatherCondition.fromCloudCover(it)
+                            inferred = true
                         }
                     }
                     if (condition == null) return@mapNotNull null
-                    val precipProb = series.hourly.precipitationProbability.getOrNull(idx)
-                    val cloudCover = series.hourly.cloudCover.getOrNull(idx)
                     model to HourCellData(
                         condition = condition,
-                        precipProbability = precipProb,
-                        cloudCover = cloudCover,
-                        isInferred = isInferred
+                        precipProbability = series.hourly.precipitationProbability.getOrNull(idx),
+                        cloudCover = series.hourly.cloudCover.getOrNull(idx),
+                        isInferred = inferred
                     )
                 }.toMap()
             }
         }
 
-    // Si aucune donnée d'aucun modèle sur toute la fenêtre : message plutôt
-    // qu'un tableau vide qui donnerait l'impression d'un bug de rendu.
-    if (timestamps.isEmpty() || models.isEmpty() ||
-        cellsByTimestamp.values.all { it.isEmpty() }) {
+    if (timestamps.isEmpty() || models.isEmpty() || cellsByTimestamp.values.all { it.isEmpty() }) {
         Text(
             stringResource(R.string.no_hourly_data),
             style = MaterialTheme.typography.bodyMedium,
@@ -156,61 +113,74 @@ fun HourlyWeatherByModelTable(
         return
     }
 
-    val tablePalette = detailTablePalette()
-    val currentHourInstant = timestamps.first()
-
+    val palette = detailTablePalette()
+    val currentHour = timestamps.first()
     val locale = LocalConfiguration.current.locales[0]
     val hourFmt = remember(locale) { DateTimeFormatter.ofPattern("HH'h'", locale) }
+    val modelWidth = 104.dp
+    val timeWidth = 72.dp
+    val headerHeight = 50.dp
+    val rowHeight = 48.dp
+    val dayPrefixes = remember(timestamps, zone, locale) {
+        var previous: java.time.LocalDate? = null
+        timestamps.associateWith { ts ->
+            val date = ts.atZone(zone).toLocalDate()
+            val prefix = if (date != previous) {
+                date.dayOfWeek.getDisplayName(JavaTextStyle.SHORT, locale).replace(".", "")
+            } else null
+            previous = date
+            prefix
+        }
+    }
 
-    Row(modifier = modifier.fillMaxWidth().detailTableFrame(tablePalette)) {
-        // Colonne figée : labels d'heure. 84dp comme HourlyForecastTable pour
-        // uniformité visuelle entre les tables hourly.
-        Column(modifier = Modifier.width(64.dp)) {
-            HourHeaderCellBlank(background = tablePalette.frozenHeaderSurface, palette = tablePalette)
-            var previousDate: LocalDate? = null
-            timestamps.forEachIndexed { idx, ts ->
-                val local = ts.atZone(zone)
-                val date = local.toLocalDate()
-                val showDayPrefix = date != previousDate
-                HourLabelCellWeather(
-                    hourText = local.format(hourFmt),
-                    dayPrefix = if (showDayPrefix) {
-                        date.dayOfWeek
-                            .getDisplayName(JavaTextStyle.SHORT, locale)
-                            .replace(".", "")
-                    } else null,
-                    background = tablePalette.labelRowBackground(idx, ts == currentHourInstant),
-                    isCurrentHour = ts == currentHourInstant,
-                    palette = tablePalette
+    Row(modifier = modifier.fillMaxWidth().detailTableFrame(palette)) {
+        Column(modifier = Modifier.width(modelWidth)) {
+            HeaderCell(
+                text = stringResource(R.string.detail_table_model_header),
+                width = modelWidth,
+                height = headerHeight,
+                background = palette.frozenHeaderSurface,
+                palette = palette,
+                alignStart = true
+            )
+            models.forEachIndexed { modelIndex, model ->
+                HeaderCell(
+                    text = model.displayName,
+                    width = modelWidth,
+                    height = rowHeight,
+                    background = palette.labelRowBackground(modelIndex, false),
+                    palette = palette,
+                    accentColor = model.color(),
+                    alignStart = true
                 )
-                previousDate = date
             }
         }
 
         VerticalDivider(
-            modifier = Modifier.height((40 + timestamps.size * 44).dp),
-            color = tablePalette.frozenDivider
+            modifier = Modifier.height((headerHeight.value + rowHeight.value * models.size).dp),
+            color = palette.frozenDivider
         )
 
-        // Partie scrollable : une colonne par modèle. Cellule 44dp — plus haute
-        // que la précédente version (36dp) pour accommoder l'icône 20dp + un
-        // badge extra (probabilité de pluie ou couverture nuageuse) sur une
-        // ligne en dessous. Reste dense vs les tables daily (52dp) car ici on
-        // a beaucoup de lignes (jusqu'à 24) et il faut ménager le scroll.
         Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
-            models.forEach { model ->
-                Column(modifier = Modifier.width(76.dp)) {
-                    ModelHeaderCell(
-                        text = model.displayName,
-                        background = tablePalette.headerSurface,
-                        palette = tablePalette,
-                        accentColor = model.color()
+            timestamps.forEachIndexed { timeIndex, ts ->
+                val isCurrent = ts == currentHour
+                val local = ts.atZone(zone)
+                Column(modifier = Modifier.width(timeWidth)) {
+                    TimeHeaderCell(
+                        hourText = local.format(hourFmt),
+                        dayPrefix = dayPrefixes[ts],
+                        width = timeWidth,
+                        height = headerHeight,
+                        background = palette.labelRowBackground(timeIndex, isCurrent),
+                        highlighted = isCurrent,
+                        palette = palette
                     )
-                    timestamps.forEachIndexed { idx, ts ->
+                    models.forEachIndexed { modelIndex, model ->
                         HourIconCell(
                             cell = cellsByTimestamp[ts]?.get(model),
-                            background = tablePalette.dataRowBackground(idx, ts == currentHourInstant),
-                            palette = tablePalette
+                            background = palette.dataRowBackground(modelIndex, isCurrent),
+                            height = rowHeight,
+                            palette = palette
                         )
                     }
                 }
@@ -220,35 +190,26 @@ fun HourlyWeatherByModelTable(
 }
 
 @Composable
-private fun HourHeaderCellBlank(background: Color, palette: DetailTablePalette) {
+private fun HeaderCell(
+    text: String,
+    width: Dp,
+    height: Dp,
+    background: Color,
+    palette: DetailTablePalette,
+    accentColor: Color? = null,
+    alignStart: Boolean = false
+) {
     Box(
-        modifier = Modifier
-            .width(64.dp)
-            .height(40.dp)
-            .detailTableCell(background, palette)
-            .padding(4.dp),
-        contentAlignment = Alignment.Center
-    ) { }
-}
-
-@Composable
-private fun ModelHeaderCell(text: String, background: Color, palette: DetailTablePalette, accentColor: Color? = null) {
-    Box(
-        modifier = Modifier
-            .width(76.dp)
-            .height(40.dp)
+        modifier = Modifier.width(width).height(height)
             .detailTableCell(background, palette, accentColor)
-            .padding(4.dp),
-        contentAlignment = Alignment.Center
+            .padding(horizontal = if (alignStart) 8.dp else 4.dp),
+        contentAlignment = if (alignStart) Alignment.CenterStart else Alignment.Center
     ) {
         Text(
             text = text,
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.Center,
-            // Nom sur UNE seule ligne. Voir WeatherByModelTable.HeaderCell
-            // pour la rationale complète — cassait l'alignement vertical
-            // sans ce garde-fou.
+            textAlign = if (alignStart) TextAlign.Start else TextAlign.Center,
             maxLines = 1,
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
         )
@@ -256,59 +217,40 @@ private fun ModelHeaderCell(text: String, background: Color, palette: DetailTabl
 }
 
 @Composable
-private fun HourLabelCellWeather(
+private fun TimeHeaderCell(
     hourText: String,
     dayPrefix: String?,
+    width: Dp,
+    height: Dp,
     background: Color,
-    isCurrentHour: Boolean,
+    highlighted: Boolean,
     palette: DetailTablePalette
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(44.dp)
-            .detailTableCell(background, palette)
-            .padding(horizontal = 6.dp),
-        contentAlignment = Alignment.CenterStart
+    Column(
+        modifier = Modifier.width(width).height(height)
+            .detailTableCell(background, palette).padding(horizontal = 3.dp, vertical = 3.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
         if (dayPrefix != null) {
-            Column {
-                Text(
-                    text = dayPrefix,
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (isCurrentHour)
-                        palette.highlightedText
-                    else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = hourText,
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = if (isCurrentHour) FontWeight.Bold else FontWeight.Normal,
-                    color = if (isCurrentHour)
-                        palette.highlightedText
-                    else MaterialTheme.colorScheme.onSurface
-                )
-            }
-        } else {
             Text(
-                text = hourText,
-                style = MaterialTheme.typography.bodySmall,
-                fontWeight = if (isCurrentHour) FontWeight.Bold else FontWeight.Normal,
-                color = if (isCurrentHour)
-                    palette.highlightedText
-                else MaterialTheme.colorScheme.onSurface
+                text = dayPrefix,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = if (highlighted) palette.highlightedText else MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
             )
         }
+        Text(
+            text = hourText,
+            style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"),
+            fontWeight = if (highlighted) FontWeight.Bold else FontWeight.Medium,
+            color = if (highlighted) palette.highlightedText else MaterialTheme.colorScheme.onSurface,
+            maxLines = 1
+        )
     }
 }
 
-/**
- * Données affichées dans une cellule Heure × Modèle du tableau du temps
- * horaire. Analogue à [com.meteocompare.app.domain.usecase.DayCellExtras]
- * mais tenues LOCALES au composant : ce type n'a pas d'utilité en dehors
- * du rendu ; l'ajouter au domaine créerait un couplage inutile.
- */
 private data class HourCellData(
     val condition: WeatherCondition,
     val precipProbability: Int?,
@@ -324,11 +266,16 @@ private data class HourCellData(
 )
 
 @Composable
-private fun HourIconCell(cell: HourCellData?, background: Color, palette: DetailTablePalette) {
+private fun HourIconCell(
+    cell: HourCellData?,
+    background: Color,
+    height: Dp,
+    palette: DetailTablePalette
+) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(44.dp)
+            .height(height)
             .detailTableCell(background, palette),
         contentAlignment = Alignment.Center
     ) {

@@ -17,8 +17,8 @@ import androidx.compose.ui.unit.dp
 /**
  * Palette visuelle commune aux tableaux de la page détail.
  *
- * La structure des tableaux reste inchangée : colonne de libellés figée,
- * colonnes de modèles scrollables et mêmes dimensions de cellules. Cette
+ * La colonne des modèles est figée à gauche et les échéances défilent
+ * horizontalement. La palette reste commune aux orientations daily/hourly. Cette
  * palette modernise uniquement leur rendu avec des surfaces plus douces,
  * une alternance très légère, des séparateurs horizontaux discrets et un
  * accent stable sous chaque en-tête de modèle.

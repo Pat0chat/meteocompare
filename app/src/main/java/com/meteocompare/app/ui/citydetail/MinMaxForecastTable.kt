@@ -18,12 +18,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.CityForecast
@@ -32,55 +34,27 @@ import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.ui.theme.color
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import androidx.compose.ui.platform.LocalConfiguration
 import kotlin.math.roundToInt
 
-// Couleurs chaud / froid. Choisies pour rester lisibles en thèmes clair ET
-// sombre. Top-level pour être partagées entre [MinMaxForecastTable] (utilisées
-// dans les cellules) et [MinMaxForecastLegend] (chips de légende), sans avoir
-// à les ré-instancier dans chaque composable.
-private val WarmTempColor = Color(0xFFE53935)  // red 600
-private val CoolTempColor = Color(0xFF1E88E5)  // blue 600
+private val WarmTempColor = Color(0xFFE53935)
+private val CoolTempColor = Color(0xFF1E88E5)
 
-/**
- * Tableau fusionné des températures max/min, avec coloration en fonction
- * des normales climatiques.
- *
- * Affichage par cellule : "MAX° / MIN°" — chaque valeur colorée individuellement :
- *   - Rouge si > normale + 2°C (chaud par rapport au climat 10 ans)
- *   - Bleu si < normale − 2°C (froid)
- *   - Neutre (onSurface) sinon
- *
- * Si les normales ne sont pas encore chargées (null), affichage neutre uniquement
- * — l'app reste fonctionnelle, la coloration apparaît dès que les données
- * historiques sont fetchées en background.
- *
- * **Note d'architecture** : la légende N'EST PAS dans ce composable. Pour matcher
- * le pattern des autres tableaux (cf. ForecastSection dans CityDetailScreen),
- * le table-only ici se rend dans une Card, et la légende [MinMaxForecastLegend]
- * se rend SÉPARÉMENT en dessous de la Card.
- */
+/** Tableau Modèle × Jour des températures maximales et minimales. */
 @Composable
 fun MinMaxForecastTable(
     forecast: CityForecast,
     normals: Map<Int, DayNormals>?,
     modifier: Modifier = Modifier,
-    // ── Suivi de biais (Phase 1 UI) — même API que ForecastTable ──
-    modelBiasProvider: ((com.meteocompare.app.domain.model.WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
-    onBiasChipClick: ((com.meteocompare.app.domain.model.WeatherModel, com.meteocompare.app.domain.model.ModelBias) -> Unit)? = null,
-    // Voir ForecastTable — alimente la progression "N/14" du chip calibrating.
-    sampleCountProvider: ((com.meteocompare.app.domain.model.WeatherModel) -> Int)? = null
+    modelBiasProvider: ((WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
+    onBiasChipClick: ((WeatherModel, com.meteocompare.app.domain.model.ModelBias) -> Unit)? = null,
+    sampleCountProvider: ((WeatherModel) -> Int)? = null
 ) {
     val dates = remember(forecast) {
-        forecast.seriesByModel.values
-            .flatMap { it.daily.dates }
-            .distinct()
-            .sorted()
+        forecast.seriesByModel.values.flatMap { it.daily.dates }.distinct().sorted()
     }
     val models = remember(forecast) {
         forecast.seriesByModel.keys.toList().sortedBy { it.ordinal }
     }
-
     if (dates.isEmpty() || models.isEmpty()) {
         Text(
             stringResource(R.string.no_daily_data),
@@ -91,86 +65,81 @@ fun MinMaxForecastTable(
         return
     }
 
-    val tablePalette = detailTablePalette()
+    val palette = detailTablePalette()
     val onSurface = MaterialTheme.colorScheme.onSurface
     val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
     val today = remember { LocalDate.now() }
+    val modelRowHeight = if (modelBiasProvider != null) 60.dp else 44.dp
+    val modelColumnWidth = if (modelBiasProvider != null) 122.dp else 104.dp
+    val dateColumnWidth = 88.dp
+    val headerHeight = 44.dp
+    val locale = LocalConfiguration.current.locales[0]
+    val formatter = remember(locale) { DateTimeFormatter.ofPattern("EEE d", locale) }
 
-    // Header height dépend de la présence de chips de biais (même règle que
-    // dans ForecastTable / HourlyForecastTable).
-    val headerHeight = if (modelBiasProvider != null) 60.dp else 40.dp
-
-    Column(modifier = modifier.fillMaxWidth()) {
-        Row(modifier = Modifier.fillMaxWidth().detailTableFrame(tablePalette)) {
-            // Colonne figée des dates — largeur 96dp (plus large que la table
-            // simple pour accomoder "Mer. 1" en jours longs)
-            Column(modifier = Modifier.width(80.dp)) {
-                HeaderCellMM(
-                    text = "Jour",
-                    background = tablePalette.frozenHeaderSurface,
-                    width = 80.dp,
-                    height = headerHeight,
-                    palette = tablePalette
-                )
-                dates.forEachIndexed { idx, date ->
-                    DayLabelCellMM(
-                        date = date,
-                        background = tablePalette.labelRowBackground(idx, date == today),
-                        isToday = date == today,
-                        palette = tablePalette
-                    )
-                }
-            }
-
-            VerticalDivider(
-                modifier = Modifier.height(headerHeight + (dates.size * 40).dp),
-                color = tablePalette.frozenDivider
+    Row(modifier = modifier.fillMaxWidth().detailTableFrame(palette)) {
+        Column(modifier = Modifier.width(modelColumnWidth)) {
+            HeaderCellMM(
+                text = stringResource(R.string.detail_table_model_header),
+                background = palette.frozenHeaderSurface,
+                width = modelColumnWidth,
+                height = headerHeight,
+                palette = palette,
+                alignStart = true
             )
+            models.forEachIndexed { modelIndex, model ->
+                val bias = modelBiasProvider?.invoke(model)
+                val sampleCount = sampleCountProvider?.invoke(model)
+                val chipClick = if (bias != null && onBiasChipClick != null) {
+                    remember(model, bias) { { onBiasChipClick(model, bias) } }
+                } else null
+                HeaderCellMM(
+                    text = model.displayName,
+                    background = palette.labelRowBackground(modelIndex, false),
+                    width = modelColumnWidth,
+                    height = modelRowHeight,
+                    palette = palette,
+                    accentColor = model.color(),
+                    bias = bias,
+                    onBiasClick = chipClick,
+                    showChipSlot = modelBiasProvider != null,
+                    sampleCount = sampleCount,
+                    alignStart = true
+                )
+            }
+        }
 
-            // Partie scrollable : une colonne par modèle, plus large (88dp) car
-            // chaque cellule contient deux valeurs séparées par "/".
-            Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
-                models.forEach { model ->
-                    // Voir ForecastTable pour la rationale du découplage
-                    // inBiasMode vs bias != null : sans ça, un modèle qui
-                    // accumule lentement (AROME HD notamment) ne recevrait
-                    // jamais le CalibratingChip d'attente.
-                    val bias = modelBiasProvider?.invoke(model)
-                    val inBiasMode = modelBiasProvider != null
-                    val sampleCount = sampleCountProvider?.invoke(model)
-                    val chipClick = if (bias != null && onBiasChipClick != null) {
-                        remember(model, bias) { { onBiasChipClick(model, bias) } }
-                    } else null
-                    Column(modifier = Modifier.width(88.dp)) {
-                        HeaderCellMM(
-                            text = model.displayName,
-                            background = tablePalette.headerSurface,
-                            width = 88.dp,
-                            height = headerHeight,
-                            palette = tablePalette,
-                            accentColor = model.color(),
-                            bias = bias,
-                            onBiasClick = chipClick,
-                            showChipSlot = inBiasMode,
-                            sampleCount = sampleCount
+        VerticalDivider(
+            modifier = Modifier.height((headerHeight.value + modelRowHeight.value * models.size).dp),
+            color = palette.frozenDivider
+        )
+
+        Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
+            dates.forEachIndexed { dateIndex, date ->
+                val isToday = date == today
+                Column(modifier = Modifier.width(dateColumnWidth)) {
+                    HeaderCellMM(
+                        text = date.format(formatter).replaceFirstChar { it.uppercase() },
+                        background = palette.labelRowBackground(dateIndex, isToday),
+                        width = dateColumnWidth,
+                        height = headerHeight,
+                        palette = palette,
+                        highlighted = isToday
+                    )
+                    models.forEachIndexed { modelIndex, model ->
+                        val (maxV, minV) = maxMinAt(forecast, model, date)
+                        val normal = normals?.get(DayNormals.key(date.monthValue, date.dayOfMonth))
+                        MinMaxCell(
+                            tempMax = maxV,
+                            tempMin = minV,
+                            normal = normal,
+                            neutralColor = onSurface,
+                            separatorColor = onSurfaceVariant,
+                            warmColor = WarmTempColor,
+                            coolColor = CoolTempColor,
+                            background = palette.dataRowBackground(modelIndex, isToday),
+                            height = modelRowHeight,
+                            palette = palette
                         )
-                        dates.forEachIndexed { idx, date ->
-                            val (maxV, minV) = maxMinAt(forecast, model, date)
-                            val normalForDay = normals?.get(
-                                DayNormals.key(date.monthValue, date.dayOfMonth)
-                            )
-                            MinMaxCell(
-                                tempMax = maxV,
-                                tempMin = minV,
-                                normal = normalForDay,
-                                neutralColor = onSurface,
-                                separatorColor = onSurfaceVariant,
-                                warmColor = WarmTempColor,
-                                coolColor = CoolTempColor,
-                                background = tablePalette.dataRowBackground(idx, date == today),
-                                palette = tablePalette
-                            )
-                        }
                     }
                 }
             }
@@ -178,15 +147,6 @@ fun MinMaxForecastTable(
     }
 }
 
-/**
- * Légende du tableau min/max — chips colorées expliquant la coloration des
- * cellules. Composable séparé (et non inclus dans [MinMaxForecastTable]) pour
- * matcher le pattern des autres tableaux : la Card englobe juste le tableau,
- * la légende est rendue en dessous.
- *
- * Conditionnelle dans son rendu : ne rend rien si normales == null (pas de
- * coloration à expliquer si les données historiques ne sont pas chargées).
- */
 @Composable
 fun MinMaxForecastLegend(normalsAvailable: Boolean) {
     if (!normalsAvailable) return
@@ -234,15 +194,17 @@ private fun HeaderCellMM(
     showChipSlot: Boolean = false,
     sampleCount: Int? = null,
     palette: DetailTablePalette,
-    accentColor: Color? = null
+    accentColor: Color? = null,
+    highlighted: Boolean = false,
+    alignStart: Boolean = false
 ) {
     Column(
         modifier = Modifier
             .width(width)
             .height(height)
             .detailTableCell(background, palette, accentColor)
-            .padding(vertical = 4.dp, horizontal = 2.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+            .padding(vertical = 4.dp, horizontal = if (alignStart) 7.dp else 2.dp),
+        horizontalAlignment = if (alignStart) Alignment.Start else Alignment.CenterHorizontally,
         verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(
             2.dp, Alignment.CenterVertically
         )
@@ -250,8 +212,9 @@ private fun HeaderCellMM(
         Text(
             text = text,
             style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.Center,
+            fontWeight = if (highlighted) FontWeight.Bold else FontWeight.SemiBold,
+            color = if (highlighted) palette.highlightedText else MaterialTheme.colorScheme.onSurface,
+            textAlign = if (alignStart) TextAlign.Start else TextAlign.Center,
             maxLines = 1,
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
         )
@@ -267,32 +230,6 @@ private fun HeaderCellMM(
 }
 
 @Composable
-private fun DayLabelCellMM(date: LocalDate, background: Color, isToday: Boolean = false, palette: DetailTablePalette) {
-    val locale = LocalConfiguration.current.locales[0]
-    val formatter = remember(locale) {
-        DateTimeFormatter.ofPattern("EEE d", locale)
-    }
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(40.dp)
-            .detailTableCell(background, palette)
-            .padding(horizontal = 6.dp),
-        contentAlignment = Alignment.CenterStart
-    ) {
-        val text = date.format(formatter).replaceFirstChar { it.uppercase() }
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodySmall,
-            fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
-            color = if (isToday)
-                palette.highlightedText
-            else MaterialTheme.colorScheme.onSurface
-        )
-    }
-}
-
-@Composable
 private fun MinMaxCell(
     tempMax: Double?,
     tempMin: Double?,
@@ -302,12 +239,13 @@ private fun MinMaxCell(
     warmColor: Color,
     coolColor: Color,
     background: Color,
+    height: Dp,
     palette: DetailTablePalette
 ) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(40.dp)
+            .height(height)
             .detailTableCell(background, palette),
         contentAlignment = Alignment.Center
     ) {
