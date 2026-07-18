@@ -179,7 +179,7 @@ class WidgetRefreshSchedulerTest {
             requestSlot.captured.tags.contains(WidgetRefreshScheduler.TESTABLE_WORK_TAG)
         )
         org.junit.Assert.assertTrue(
-            requestSlot.captured.inputData.getBoolean(
+            requestSlot.captured.workSpec.input.getBoolean(
                 WidgetRefreshScheduler.FORCE_REFRESH_KEY,
                 false
             )
