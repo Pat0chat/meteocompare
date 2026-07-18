@@ -78,7 +78,7 @@ fun ForecastTable(
     val palette = detailTablePalette()
     val today = remember { LocalDate.now() }
     val modelRowHeight = if (modelBiasProvider != null) 60.dp else 40.dp
-    val modelColumnWidth = if (modelBiasProvider != null) 122.dp else 104.dp
+    val modelColumnWidth = if (modelBiasProvider != null) 100.dp else 90.dp
     val temporalHeaderHeight = 44.dp
     val locale = LocalConfiguration.current.locales[0]
     val dayFormatter = remember(locale) { DateTimeFormatter.ofPattern("EEE d", locale) }
@@ -186,7 +186,7 @@ private fun ModelRowHeaderCell(
     Column(
         modifier = Modifier.width(width).height(height)
             .detailTableCell(background, palette, model.color())
-            .padding(horizontal = 7.dp, vertical = 4.dp),
+            .padding(horizontal = 6.dp, vertical = 4.dp),
         horizontalAlignment = Alignment.Start,
         verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(
             2.dp, Alignment.CenterVertically

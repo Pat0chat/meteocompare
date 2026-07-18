@@ -79,7 +79,7 @@ fun HourlyForecastTable(
     val hourFmt = remember(locale) { DateTimeFormatter.ofPattern("HH'h'", locale) }
     val headerHeight = 50.dp
     val modelRowHeight = if (modelBiasProvider != null) 60.dp else 38.dp
-    val modelWidth = if (modelBiasProvider != null) 122.dp else 104.dp
+    val modelWidth = if (modelBiasProvider != null) 100.dp else 90.dp
 
     val dayPrefixes = remember(timestamps, zone, locale) {
         var previous: java.time.LocalDate? = null
@@ -195,7 +195,7 @@ private fun HourHeaderCell(
     Column(
         modifier = Modifier.width(width).height(height)
             .detailTableCell(background, palette, model?.color())
-            .padding(horizontal = if (alignStart) 7.dp else 3.dp, vertical = 4.dp),
+            .padding(horizontal = if (alignStart) 6.dp else 3.dp, vertical = 4.dp),
         horizontalAlignment = if (alignStart) Alignment.Start else Alignment.CenterHorizontally,
         verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(
             2.dp, Alignment.CenterVertically

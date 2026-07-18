@@ -70,7 +70,7 @@ fun MinMaxForecastTable(
     val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
     val today = remember { LocalDate.now() }
     val modelRowHeight = if (modelBiasProvider != null) 60.dp else 44.dp
-    val modelColumnWidth = if (modelBiasProvider != null) 122.dp else 104.dp
+    val modelColumnWidth = if (modelBiasProvider != null) 100.dp else 90.dp
     val dateColumnWidth = 88.dp
     val headerHeight = 44.dp
     val locale = LocalConfiguration.current.locales[0]
@@ -203,7 +203,7 @@ private fun HeaderCellMM(
             .width(width)
             .height(height)
             .detailTableCell(background, palette, accentColor)
-            .padding(vertical = 4.dp, horizontal = if (alignStart) 7.dp else 2.dp),
+            .padding(vertical = 4.dp, horizontal = if (alignStart) 6.dp else 2.dp),
         horizontalAlignment = if (alignStart) Alignment.Start else Alignment.CenterHorizontally,
         verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(
             2.dp, Alignment.CenterVertically

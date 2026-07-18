@@ -972,12 +972,12 @@ private fun SectionTitle(text: String) {
 private fun DetailTableCard(content: @Composable () -> Unit) {
     val palette = detailTablePalette()
     Card(
-        modifier = Modifier.padding(horizontal = 16.dp),
+        modifier = Modifier.padding(horizontal = 14.dp),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLowest
+            containerColor = palette.tableSurface
         ),
-        border = BorderStroke(1.dp, palette.border.copy(alpha = 0.72f)),
+        //border = BorderStroke(1.dp, palette.border.copy(alpha = 0.50f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         content()

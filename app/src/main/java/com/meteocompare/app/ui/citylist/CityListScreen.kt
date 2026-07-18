@@ -319,7 +319,7 @@ internal fun CityCard(
                     }
                 }
 
-                Spacer(Modifier.height(2.dp))
+                Spacer(Modifier.height(5.dp))
 
                 // AnimatedContent entre les états du forecast.
                 // La cible utilise une clé type-stable (le simpleName de la classe),

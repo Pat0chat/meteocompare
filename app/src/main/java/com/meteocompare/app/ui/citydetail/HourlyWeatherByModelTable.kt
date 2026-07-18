@@ -117,7 +117,7 @@ fun HourlyWeatherByModelTable(
     val currentHour = timestamps.first()
     val locale = LocalConfiguration.current.locales[0]
     val hourFmt = remember(locale) { DateTimeFormatter.ofPattern("HH'h'", locale) }
-    val modelWidth = 104.dp
+    val modelWidth = 90.dp
     val timeWidth = 72.dp
     val headerHeight = 50.dp
     val rowHeight = 48.dp
@@ -202,7 +202,7 @@ private fun HeaderCell(
     Box(
         modifier = Modifier.width(width).height(height)
             .detailTableCell(background, palette, accentColor)
-            .padding(horizontal = if (alignStart) 8.dp else 4.dp),
+            .padding(horizontal = if (alignStart) 6.dp else 4.dp),
         contentAlignment = if (alignStart) Alignment.CenterStart else Alignment.Center
     ) {
         Text(

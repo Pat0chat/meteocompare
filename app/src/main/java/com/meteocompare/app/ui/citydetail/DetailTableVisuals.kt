@@ -44,8 +44,8 @@ internal val DetailTableShape = RoundedCornerShape(14.dp)
 @Composable
 internal fun detailTablePalette(): DetailTablePalette {
     val scheme = MaterialTheme.colorScheme
-    val tableSurface = scheme.surfaceContainerLowest
-    val frozenSurface = scheme.surfaceContainerLow
+    val tableSurface = scheme.surfaceContainerLow
+    val frozenSurface = scheme.surfaceContainer
 
     return DetailTablePalette(
         tableSurface = tableSurface,
@@ -84,7 +84,7 @@ internal fun DetailTablePalette.labelRowBackground(index: Int, highlighted: Bool
 internal fun Modifier.detailTableFrame(palette: DetailTablePalette): Modifier =
     clip(DetailTableShape)
         .background(palette.tableSurface)
-        .border(1.dp, palette.border, DetailTableShape)
+        //.border(1.dp, palette.border, DetailTableShape)
 
 /**
  * Fond et séparateur horizontal communs à toutes les cellules.

@@ -57,7 +57,7 @@ fun WeatherByModelTable(
 
     val palette = detailTablePalette()
     val today = remember { LocalDate.now() }
-    val modelWidth = 104.dp
+    val modelWidth = 90.dp
     val dateWidth = 76.dp
     val headerHeight = 44.dp
     val rowHeight = 52.dp
@@ -139,7 +139,7 @@ private fun HeaderCell(
     Box(
         modifier = Modifier.width(width).height(height)
             .detailTableCell(background, palette, accentColor)
-            .padding(horizontal = if (alignStart) 8.dp else 4.dp),
+            .padding(horizontal = if (alignStart) 6.dp else 4.dp),
         contentAlignment = if (alignStart) Alignment.CenterStart else Alignment.Center
     ) {
         Text(
