@@ -39,10 +39,10 @@ import javax.inject.Singleton
  *
  * ## Idempotence
  *
- * Vérifie [BiasSampleRepository.countPastForecastSamples]. Si > seuil, skip
- * — le backfill a déjà été fait, ou la constitution organique via
- * `snapshotForecast` est en cours. Coût du no-op : 1 requête SQL locale
- * (`SELECT COUNT(*)`), quelques µs.
+ * Vérifie [BiasSampleRepository.countPastForecastSamples] pour chaque modèle.
+ * Les modèles déjà suffisamment couverts sont exclus de l'appel ; un modèle
+ * activé récemment reste backfillé même si la ville possède déjà l'historique
+ * des autres familles. Coût du no-op : une petite requête SQL par modèle.
  *
  * ## Sémantique du `issuedAt`
  *
@@ -86,12 +86,13 @@ class BackfillHistoricalForecastUseCase @Inject constructor(
     ): Int = withContext(io) {
         if (models.isEmpty()) return@withContext 0
 
-        // Guard idempotence : si on a déjà >= SKIP_THRESHOLD rows passées,
-        // on considère que le backfill a été fait ou n'est plus nécessaire.
-        // Le seuil est bas exprès — 5 rows suffisent à distinguer "vraiment
-        // vide" de "quelques rows déjà accumulées organiquement".
-        val existing = biasRepository.countPastForecastSamples(city.id, today)
-        if (existing >= SKIP_THRESHOLD) return@withContext 0
+        // Guard idempotence PAR MODÈLE. Un modèle activé récemment doit être
+        // backfillé même si les autres modèles de la ville ont déjà assez de
+        // samples passés.
+        val modelsToBackfill = models.filter { model ->
+            biasRepository.countPastForecastSamples(city.id, model, today) < SKIP_THRESHOLD
+        }
+        if (modelsToBackfill.isEmpty()) return@withContext 0
 
         val end = today.minusDays(1)
         val start = end.minusDays((WINDOW_DAYS - 1).toLong())
@@ -99,7 +100,7 @@ class BackfillHistoricalForecastUseCase @Inject constructor(
         val response = historicalApi.getHistoricalForecast(
             latitude = city.latitude,
             longitude = city.longitude,
-            models = models.joinToString(",") { it.apiKey },
+            models = modelsToBackfill.joinToString(",") { it.apiKey },
             startDate = start.format(ISO_DATE),
             endDate = end.format(ISO_DATE)
         )
@@ -116,9 +117,9 @@ class BackfillHistoricalForecastUseCase @Inject constructor(
         }
 
         val issuedAt = Instant.now()
-        val records = ArrayList<ForecastBiasRecord>(models.size * dates.size * 3)
+        val records = ArrayList<ForecastBiasRecord>(modelsToBackfill.size * dates.size * 3)
 
-        for (model in models) {
+        for (model in modelsToBackfill) {
             val tempValues = daily.doubleArrayOrNull("temperature_2m_max_${model.apiKey}")
             val precipValues = daily.doubleArrayOrNull("precipitation_sum_${model.apiKey}")
             val windValues = daily.doubleArrayOrNull("wind_speed_10m_max_${model.apiKey}")

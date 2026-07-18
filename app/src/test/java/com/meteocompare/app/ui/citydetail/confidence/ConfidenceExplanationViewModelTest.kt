@@ -8,6 +8,7 @@ import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DailyForecast
 import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.HourlyForecast
+import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.repository.CityRepository
 import com.meteocompare.app.domain.repository.ForecastRepository
@@ -20,7 +21,9 @@ import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -47,7 +50,9 @@ class ConfidenceExplanationViewModelTest {
     )
     private val favorites = MutableStateFlow(listOf(paris))
     private val enabledModels = MutableStateFlow(listOf(WeatherModel.GFS, WeatherModel.ICON_EU))
+    private val refreshInterval = MutableStateFlow(RefreshInterval.DEFAULT)
     private val forecastResults = MutableStateFlow<ApiResult<CityForecast>>(ApiResult.Success(forecast()))
+    private val forecastUpdates = MutableSharedFlow<CityForecast>(extraBufferCapacity = 1)
 
     private val context: Context = mockk(relaxed = true) {
         every { getString(any<Int>()) } returns "localized-error"
@@ -57,9 +62,11 @@ class ConfidenceExplanationViewModelTest {
     }
     private val forecastRepository: ForecastRepository = mockk(relaxed = true) {
         every { getCityForecastStream(any(), any(), any(), any(), any()) } returns forecastResults
+        every { observeForecastUpdates() } returns forecastUpdates
     }
     private val preferences: UserPreferencesRepository = mockk(relaxed = true) {
         every { observeEnabledModels() } returns enabledModels
+        every { observeRefreshInterval() } returns refreshInterval
     }
     private val calculator = ConfidenceCalculator(EqualWeighting())
 
@@ -67,6 +74,8 @@ class ConfidenceExplanationViewModelTest {
     fun setUp() {
         Dispatchers.setMain(dispatcher)
         favorites.value = listOf(paris)
+        enabledModels.value = listOf(WeatherModel.GFS, WeatherModel.ICON_EU)
+        refreshInterval.value = RefreshInterval.DEFAULT
         forecastResults.value = ApiResult.Success(forecast())
     }
 
@@ -123,6 +132,109 @@ class ConfidenceExplanationViewModelTest {
     }
 
     @Test
+    fun `uses the user refresh interval to avoid a redundant network fetch`() = runTest(dispatcher) {
+        refreshInterval.value = RefreshInterval.HOURS_3
+
+        viewModel()
+
+        verify(exactly = 1) {
+            forecastRepository.getCityForecastStream(
+                eq(paris),
+                any(),
+                eq(7),
+                eq(false),
+                eq(RefreshInterval.HOURS_3.millis)
+            )
+        }
+    }
+
+
+    @Test
+    fun `changing enabled models reloads an open explanation with equal timestamp`() =
+        runTest(dispatcher) {
+            val fetchedAt = Instant.parse("2026-07-15T12:00:00Z")
+            val initial = forecast(
+                models = listOf(WeatherModel.GFS, WeatherModel.ICON_EU),
+                baseTemp = 25.0,
+                fetchedAt = fetchedAt
+            )
+            val changed = forecast(
+                models = listOf(WeatherModel.GFS),
+                baseTemp = 40.0,
+                fetchedAt = fetchedAt
+            )
+
+            every {
+                forecastRepository.getCityForecastStream(
+                    eq(paris),
+                    eq(listOf(WeatherModel.GFS, WeatherModel.ICON_EU)),
+                    any(),
+                    any(),
+                    any()
+                )
+            } returns flowOf(ApiResult.Success(initial))
+            every {
+                forecastRepository.getCityForecastStream(
+                    eq(paris),
+                    eq(listOf(WeatherModel.GFS)),
+                    any(),
+                    any(),
+                    any()
+                )
+            } returns flowOf(ApiResult.Success(changed))
+
+            val viewModel = viewModel()
+            assertEquals(
+                listOf(WeatherModel.ICON_EU, WeatherModel.GFS),
+                (viewModel.state.value as ConfidenceExplanationUiState.Loaded).contributingModels
+            )
+
+            enabledModels.value = listOf(WeatherModel.GFS)
+
+            val loaded = viewModel.state.value as ConfidenceExplanationUiState.Loaded
+            assertEquals(listOf(WeatherModel.GFS), loaded.contributingModels)
+            assertEquals(
+                listOf(40.0),
+                loaded.variableBreakdowns
+                    .first { it.kind == VariableKind.TEMP_MAX }
+                    .perModel
+                    .map(ModelValue::value)
+            )
+
+            verify(exactly = 1) {
+                forecastRepository.getCityForecastStream(
+                    eq(paris),
+                    eq(listOf(WeatherModel.GFS)),
+                    any(),
+                    any(),
+                    any()
+                )
+            }
+        }
+
+    @Test
+    fun `manual refresh from another screen updates an already open explanation`() =
+        runTest(dispatcher) {
+            val viewModel = viewModel()
+            val base = forecast()
+            val refreshed = base.copy(
+                seriesByModel = base.seriesByModel.mapValues { (_, series) ->
+                    series.copy(daily = series.daily.copy(tempMax = listOf(42.0)))
+                },
+                fetchedAt = Instant.parse("2026-07-15T12:10:00Z")
+            )
+
+            forecastUpdates.emit(refreshed)
+
+            val loaded = viewModel.state.value as ConfidenceExplanationUiState.Loaded
+            val maxTemps = loaded.variableBreakdowns
+                .first { it.kind == VariableKind.TEMP_MAX }
+                .perModel
+                .map(ModelValue::value)
+            assertEquals(listOf(42.0, 42.0), maxTemps)
+        }
+
+    @Test
     fun `network error before data is displayed as error`() = runTest(dispatcher) {
         forecastResults.value = ApiResult.Error(IllegalStateException("network"), "network")
         val viewModel = viewModel()
@@ -158,8 +270,11 @@ class ConfidenceExplanationViewModelTest {
         computationDispatcher = dispatcher
     )
 
-    private fun forecast(): CityForecast {
-        val models = listOf(WeatherModel.GFS, WeatherModel.ICON_EU)
+    private fun forecast(
+        models: List<WeatherModel> = listOf(WeatherModel.GFS, WeatherModel.ICON_EU),
+        baseTemp: Double = 25.0,
+        fetchedAt: Instant? = null
+    ): CityForecast {
         val series = models.mapIndexed { index, model ->
             model to ForecastSeries(
                 model = model,
@@ -171,13 +286,13 @@ class ConfidenceExplanationViewModelTest {
                 ),
                 daily = DailyForecast(
                     dates = listOf(date),
-                    tempMax = listOf(25.0 + index),
-                    tempMin = listOf(15.0 + index),
+                    tempMax = listOf(baseTemp + index),
+                    tempMin = listOf(baseTemp - 10.0 + index),
                     precipitationSum = listOf(index.toDouble()),
                     windSpeedMax = listOf(20.0 + index)
                 )
             )
         }.toMap()
-        return CityForecast(paris, series)
+        return CityForecast(paris, series, fetchedAt = fetchedAt)
     }
 }

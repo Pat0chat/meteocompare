@@ -98,6 +98,9 @@ class CityListViewModelTest {
     @Before
     fun setUp() {
         Dispatchers.setMain(dispatcher)
+        favoritesFlow.value = emptyList()
+        modelsFlow.value = WeatherModel.MVP_SELECTION
+        refreshIntervalFlow.value = RefreshInterval.DEFAULT
         // Par défaut, getCityForecastStream renvoie un flow qui reste en cours.
         // Les tests qui veulent un résultat spécifique l'overrident AVANT
         // d'instancier la VM (sinon l'init de syncStreams capture l'ancien stub).
@@ -237,6 +240,113 @@ class CityListViewModelTest {
                 forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
             }
         }
+
+
+    @Test
+    fun `refresh externe - accepte un jeu de modèles différent avec le même timestamp`() =
+        runTest(dispatcher) {
+            val fetchedAt = Instant.parse("2026-06-28T10:05:00Z")
+            val initial = buildForecast(
+                paris,
+                dailyMaxTemp = 22.0,
+                model = WeatherModel.AROME_FRANCE_HD
+            ).copy(fetchedAt = fetchedAt)
+            val refreshed = buildForecast(
+                paris,
+                dailyMaxTemp = 30.0,
+                model = WeatherModel.GFS
+            ).copy(fetchedAt = fetchedAt)
+
+            coEvery {
+                forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
+            } returns flowOf(ApiResult.Success(initial))
+
+            val vm = CityListViewModel(cityRepo, forecastRepo, calculator, prefs, dispatcher)
+
+            vm.uiState.test {
+                awaitItem()
+                favoritesFlow.value = listOf(paris)
+
+                var state = awaitItem()
+                while ((state.items.firstOrNull()?.forecast as? ForecastState.Loaded)?.sourceModels !=
+                    setOf(WeatherModel.AROME_FRANCE_HD)
+                ) {
+                    state = awaitItem()
+                }
+
+                clearMocks(forecastRepo, answers = false, recordedCalls = true)
+                forecastUpdates.emit(refreshed)
+
+                var updated = awaitItem()
+                while ((updated.items.firstOrNull()?.forecast as? ForecastState.Loaded)?.sourceModels !=
+                    setOf(WeatherModel.GFS)
+                ) {
+                    updated = awaitItem()
+                }
+
+                val loaded = updated.items.first().forecast as ForecastState.Loaded
+                assertEquals(fetchedAt, loaded.fetchedAt)
+                assertEquals(28.0, loaded.currentTemp ?: Double.NaN, 0.001)
+            }
+
+            coVerify(exactly = 0) {
+                forecastRepo.getCityForecastStream(any(), any(), any(), any(), any())
+            }
+        }
+
+    @Test
+    fun `ajouter un favori ne relance pas le stream fini des villes deja initialisees`() =
+        runTest(dispatcher) {
+            coEvery {
+                forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
+            } returns flowOf(ApiResult.Success(buildForecast(paris, dailyMaxTemp = 22.0)))
+            coEvery {
+                forecastRepo.getCityForecastStream(eq(lyon), any(), any(), any(), any())
+            } returns flowOf(ApiResult.Success(buildForecast(lyon, dailyMaxTemp = 20.0)))
+
+            val vm = CityListViewModel(cityRepo, forecastRepo, calculator, prefs, dispatcher)
+            backgroundScope.launch { vm.uiState.collect {} }
+            favoritesFlow.value = listOf(paris)
+            vm.uiState.first { it.items.firstOrNull()?.forecast is ForecastState.Loaded }
+
+            clearMocks(forecastRepo, answers = false, recordedCalls = true)
+            favoritesFlow.value = listOf(paris, lyon)
+            vm.uiState.first { state ->
+                state.items.size == 2 && state.items.all { it.forecast is ForecastState.Loaded }
+            }
+
+            coVerify(exactly = 0) {
+                forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
+            }
+            coVerify(exactly = 1) {
+                forecastRepo.getCityForecastStream(eq(lyon), any(), any(), any(), any())
+            }
+        }
+
+    @Test
+    fun `refresh global en erreur conserve la derniere carte chargee`() = runTest(dispatcher) {
+        val initialAt = Instant.parse("2026-06-28T10:00:00Z")
+        val initial = buildForecast(paris, dailyMaxTemp = 22.0).copy(fetchedAt = initialAt)
+        coEvery {
+            forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
+        } returns flowOf(ApiResult.Success(initial))
+        coEvery {
+            forecastRepo.refreshCityForecast(eq(paris), any(), any())
+        } returns ApiResult.Error(RuntimeException("offline"), "Pas de connexion")
+
+        val vm = CityListViewModel(cityRepo, forecastRepo, calculator, prefs, dispatcher)
+        backgroundScope.launch { vm.uiState.collect {} }
+        favoritesFlow.value = listOf(paris)
+        vm.uiState.first {
+            (it.items.firstOrNull()?.forecast as? ForecastState.Loaded)?.fetchedAt == initialAt
+        }
+
+        vm.onRefreshAll()
+
+        val after = vm.uiState.value.items.single().forecast
+        assertTrue(after is ForecastState.Loaded)
+        assertEquals(initialAt, (after as ForecastState.Loaded).fetchedAt)
+    }
 
     @Test
     fun `onRefreshAll - termine avec isRefreshing à false et appelle refresh pour chaque favori`() =
@@ -414,7 +524,11 @@ class CityListViewModelTest {
 
     // ──────────────── Helpers ────────────────
 
-    private fun buildForecast(city: City, dailyMaxTemp: Double): CityForecast {
+    private fun buildForecast(
+        city: City,
+        dailyMaxTemp: Double,
+        model: WeatherModel = WeatherModel.AROME_FRANCE_HD
+    ): CityForecast {
         val today = LocalDate.of(2026, 6, 28)
         val now = Instant.parse("2026-06-28T12:00:00Z")
         val daily = DailyForecast(
@@ -431,13 +545,13 @@ class CityListViewModelTest {
             windSpeed10m = listOf(10.0)
         )
         val series = ForecastSeries(
-            model = WeatherModel.AROME_FRANCE_HD,
+            model = model,
             hourly = hourly,
             daily = daily
         )
         return CityForecast(
             city = city,
-            seriesByModel = mapOf(WeatherModel.AROME_FRANCE_HD to series),
+            seriesByModel = mapOf(model to series),
             errors = emptyMap()
         )
     }

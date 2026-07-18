@@ -10,8 +10,10 @@ import java.time.Instant
  * @property errors Modèles ayant échoué avec leur message d'erreur.
  *                  Permet à l'UI d'afficher "ARPEGE: indisponible" sans
  *                  bloquer l'affichage du reste.
- * @property fetchedAt Horodatage de la fraîcheur des données — instant de la
- *                     dernière écriture cache pour le modèle le plus récent.
+ * @property fetchedAt Horodatage de fraîcheur du lot. Pour un résultat
+ *                     réseau, tous les modèles partagent le même instant ;
+ *                     pour un lot relu du cache, c'est l'instant du modèle le
+ *                     plus ancien afin de ne jamais masquer une série périmée.
  *                     Null quand la donnée provient d'un cache pré-feature
  *                     (pas de garantie côté migration) ou dans les tests qui
  *                     construisent le modèle à la main. L'UI (TodaySummaryCard,

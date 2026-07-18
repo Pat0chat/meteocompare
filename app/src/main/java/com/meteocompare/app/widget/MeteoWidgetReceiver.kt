@@ -32,14 +32,14 @@ import androidx.glance.appwidget.GlanceAppWidgetReceiver
  *
  * ─── Lifecycle WorkManager ────────────────────────────────────────────
  *   - onEnabled  : PREMIER widget ajouté pour CE receiver → programme le
- *                  worker périodique. Idempotent (UPDATE policy) — si un
+ *                  worker périodique. Idempotent (KEEP policy) — si un
  *                  autre receiver frère l'a déjà programmé, no-op.
  *   - onDisabled : DERNIER widget de CE receiver retiré → on ne cancel
  *                  PAS le worker (des frères peuvent encore avoir des
  *                  widgets vivants). Le worker s'auto-noop via son
  *                  early-return `glanceIds.isEmpty()` si vraiment plus
  *                  rien n'est vivant. On cancel seulement si TOUS les
- *                  receivers sont vides — vérifié via [isAnyReceiverAlive].
+ *                  receivers sont vides — vérifié via [WidgetReceivers.anyAlive].
  *   - onDeleted  : override explicite pour visibilité — la default de
  *                  [GlanceAppWidgetReceiver.onDeleted] appelle déjà
  *                  `cleanUp(appWidgetIds)` qui purge les DataStore Glance
@@ -52,8 +52,8 @@ open class MeteoWidgetReceiver : GlanceAppWidgetReceiver() {
 
     override fun onEnabled(context: Context) {
         super.onEnabled(context)
-        // UPDATE est idempotent : un autre receiver peut rappeler schedule
-        // sans créer un second worker, tout en migrant une ancienne spec.
+        // KEEP est idempotent : un autre receiver peut rappeler schedule
+        // sans créer ni remplacer le worker périodique existant.
         WidgetRefreshScheduler.schedule(context)
     }
 
@@ -62,9 +62,11 @@ open class MeteoWidgetReceiver : GlanceAppWidgetReceiver() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
-        // Le callback système de repli (updatePeriodMillis) est aussi une
-        // occasion de réparer une planification WorkManager absente ou issue
-        // d'une ancienne version de l'app. `super` déclenche le rendu Glance.
+        // Callback initial/configuration/resize du launcher. La cadence
+        // périodique XML est désactivée (updatePeriodMillis=0) pour éviter un
+        // second réveil toutes les 30 min en parallèle de WorkManager. Cet
+        // événement reste une occasion de réparer la planification unique ;
+        // `super` déclenche le rendu Glance demandé par le launcher.
         WidgetRefreshScheduler.schedule(context)
         super.onUpdate(context, appWidgetManager, appWidgetIds)
     }
@@ -169,7 +171,7 @@ class MeteoWidgetReceiver5x2 : MeteoWidgetReceiver()
  *
  * ─── Pourquoi centraliser ? ───────────────────────────────────────────
  * Plusieurs endroits du code doivent itérer sur "tous les receivers" :
- *   - [MeteoWidgetReceiver.isAnyReceiverAlive] : check si on peut cancel
+ *   - [WidgetReceivers.anyAlive] : check si on peut cancel
  *     le worker.
  *   - [WidgetRefreshWorker.doWork] : cross-check `getAppWidgetIds` sur
  *     chaque ComponentName pour filtrer les ghost glanceIds.

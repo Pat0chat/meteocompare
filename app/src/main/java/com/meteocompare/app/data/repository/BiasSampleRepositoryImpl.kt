@@ -148,9 +148,10 @@ class BiasSampleRepositoryImpl @Inject constructor(
 
     override suspend fun countPastForecastSamples(
         cityId: String,
+        model: WeatherModel,
         beforeDate: LocalDate
     ): Int = withContext(io) {
-        dao.countPastForecastSamples(cityId, beforeDate.toEpochDay())
+        dao.countPastForecastSamples(cityId, model.apiKey, beforeDate.toEpochDay())
     }
 
     override suspend fun purgeOlderThan(beforeDate: LocalDate) = withContext(io) {

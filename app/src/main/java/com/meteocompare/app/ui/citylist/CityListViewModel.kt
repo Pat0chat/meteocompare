@@ -58,6 +58,11 @@ class CityListViewModel @Inject constructor(
     // changent (auquel cas on relance avec la nouvelle config).
     private val streamJobs = mutableMapOf<String, Job>()
 
+    // Les streams cache+réseau sont finis. Une ville reste donc marquée comme
+    // initialisée après la fin normale de son stream, sinon l'ajout d'un autre
+    // favori relancerait tous les anciens streams (et potentiellement le réseau).
+    private val initializedCityIds = mutableSetOf<String>()
+
     // Index courant des favoris, maintenu sur le Main dispatcher par
     // [syncStreams]. Il permet d'ignorer une mise à jour tardive reçue juste
     // après la suppression d'une ville.
@@ -165,21 +170,7 @@ class CityListViewModel @Inject constructor(
         viewModelScope.launch {
             forecastRepository.observeForecastUpdates().collect { forecast ->
                 val city = favoriteCitiesById[forecast.city.id] ?: return@collect
-                val current = forecastsById.value[city.id] as? ForecastState.Loaded
-                val currentFetchedAt = current?.fetchedAt
-                val incomingFetchedAt = forecast.fetchedAt
-
-                // Les flux initiaux et un refresh manuel peuvent partager le
-                // même fetch coalescé. Évite de recalculer la carte si cette
-                // émission est identique ou plus ancienne que celle affichée.
-                if (incomingFetchedAt != null && currentFetchedAt != null &&
-                    !incomingFetchedAt.isAfter(currentFetchedAt)
-                ) {
-                    return@collect
-                }
-
-                val mapped = toForecastState(city, ApiResult.Success(forecast))
-                forecastsById.update { states -> states + (city.id to mapped) }
+                applyForecastResult(city, ApiResult.Success(forecast))
             }
         }
     }
@@ -219,8 +210,9 @@ class CityListViewModel @Inject constructor(
 
         // 1. Cancel les streams pour les villes retirées + purge cache. On le
         //    fait TOUJOURS, indépendamment du path d'optimisation ci-dessous.
-        streamJobs.keys.filter { it !in currentIds }.forEach { id ->
+        (streamJobs.keys + initializedCityIds).filter { it !in currentIds }.forEach { id ->
             streamJobs.remove(id)?.cancel()
+            initializedCityIds.remove(id)
             forecastsById.update { it - id }
         }
 
@@ -237,6 +229,7 @@ class CityListViewModel @Inject constructor(
         if (configChanged) {
             streamJobs.values.forEach { it.cancel() }
             streamJobs.clear()
+            initializedCityIds.clear()
         }
 
         // 3. Lance les streams manquants (ceux qui n'ont pas de job actif).
@@ -246,10 +239,11 @@ class CityListViewModel @Inject constructor(
         val maxCacheAgeMs = if (interval == RefreshInterval.MANUAL) Long.MAX_VALUE
         else interval.millis
         cities.forEach { city ->
-            val existing = streamJobs[city.id]
-            if (existing?.isActive != true) {
+            if (city.id !in initializedCityIds) {
+                initializedCityIds += city.id
                 val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
                     val ownJob = coroutineContext[Job]
+                    var completedNormally = false
                     try {
                         forecastRepository
                             .getCityForecastStream(
@@ -258,12 +252,18 @@ class CityListViewModel @Inject constructor(
                                 maxCacheAgeMs = maxCacheAgeMs
                             )
                             .collect { result ->
-                                val mapped = toForecastState(city, result)
-                                forecastsById.update { it + (city.id to mapped) }
+                                applyForecastResult(city, result)
                             }
+                        completedNormally = true
                     } finally {
-                        // Ne jamais laisser de Job terminé dans la registry.
-                        if (streamJobs[city.id] === ownJob) streamJobs.remove(city.id)
+                        // La fin normale est mémorisée : ce stream fini ne doit
+                        // pas être relancé lors d'un simple ajout de favori.
+                        // Une exception inattendue autorise en revanche un retry
+                        // à la prochaine émission de configuration.
+                        if (streamJobs[city.id] === ownJob) {
+                            if (!completedNormally) initializedCityIds.remove(city.id)
+                            streamJobs.remove(city.id)
+                        }
                     }
                 }
                 streamJobs[city.id] = job
@@ -301,8 +301,7 @@ class CityListViewModel @Inject constructor(
             forecastsById.update { it + (city.id to ForecastState.Loading) }
             val models = userPreferences.observeEnabledModels().first()
             val result = forecastRepository.refreshCityForecast(city, models = models)
-            val mapped = toForecastState(city, result)
-            forecastsById.update { it + (city.id to mapped) }
+            applyForecastResult(city, result)
         }
     }
 
@@ -319,8 +318,7 @@ class CityListViewModel @Inject constructor(
                         async {
                             limiter.withPermit {
                                 val result = forecastRepository.refreshCityForecast(city, models)
-                                val mapped = toForecastState(city, result)
-                                forecastsById.update { it + (city.id to mapped) }
+                                applyForecastResult(city, result)
                             }
                         }
                     }.awaitAll()
@@ -332,6 +330,44 @@ class CityListViewModel @Inject constructor(
     }
 
     // ─── Helpers ────────────────────────────────────────────────────────────
+
+    /**
+     * Calcule puis applique un résultat avec une comparaison atomique de
+     * fraîcheur. La comparaison finale dans StateFlow est indispensable : un
+     * calcul de CityCard plus ancien peut finir après un refresh plus récent.
+     */
+    private suspend fun applyForecastResult(
+        city: City,
+        result: ApiResult<CityForecast>
+    ) {
+        val mapped = toForecastState(city, result)
+        forecastsById.update { states ->
+            if (city.id !in favoriteCitiesById) return@update states
+
+            val current = states[city.id]
+            when {
+                // Une erreur de refresh ne détruit jamais une carte déjà chargée.
+                mapped is ForecastState.Error && current is ForecastState.Loaded -> states
+
+                mapped is ForecastState.Loaded && current is ForecastState.Loaded -> {
+                    val incomingAt = mapped.fetchedAt
+                    val currentAt = current.fetchedAt
+                    val isOlder = currentAt != null &&
+                        (incomingAt == null || incomingAt.isBefore(currentAt))
+                    val isSameVersion = currentAt != null &&
+                        incomingAt == currentAt &&
+                        current.sourceModels == mapped.sourceModels
+                    if (isOlder || isSameVersion) {
+                        states
+                    } else {
+                        states + (city.id to mapped)
+                    }
+                }
+
+                else -> states + (city.id to mapped)
+            }
+        }
+    }
 
     private suspend fun toForecastState(
         city: City,
@@ -365,6 +401,7 @@ class CityListViewModel @Inject constructor(
                     currentCondition = confidenceCalculator.currentWeatherCondition(result.data),
                     currentCloudCover = confidenceCalculator.currentCloudCover(result.data),
                     fetchedAt = result.data.fetchedAt,
+                    sourceModels = result.data.seriesByModel.keys + result.data.errors.keys,
                     next12hTemps = miniForecast.temperatures,
                     next12hPrecipProb = miniForecast.precipitationProbabilities,
                     // Même instant de référence que les agrégats ci-dessus :

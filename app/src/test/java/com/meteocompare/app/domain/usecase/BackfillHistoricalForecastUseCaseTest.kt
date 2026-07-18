@@ -79,7 +79,7 @@ class BackfillHistoricalForecastUseCaseTest {
 
     @Test
     fun `skip si countPastForecastSamples atteint le seuil`() = runTest {
-        coEvery { repo.countPastForecastSamples(paris.id, today) } returns 5
+        coEvery { repo.countPastForecastSamples(paris.id, any(), today) } returns 5
 
         val n = useCase(paris, listOf(WeatherModel.GFS), today)
 
@@ -91,7 +91,7 @@ class BackfillHistoricalForecastUseCaseTest {
 
     @Test
     fun `procède si countPastForecastSamples juste sous le seuil`() = runTest {
-        coEvery { repo.countPastForecastSamples(paris.id, today) } returns 4
+        coEvery { repo.countPastForecastSamples(paris.id, any(), today) } returns 4
         coEvery {
             api.getHistoricalForecast(any(), any(), any(), any(), any(), any(), any(), any(), any())
         } returns emptyResponse()
@@ -103,11 +103,46 @@ class BackfillHistoricalForecastUseCaseTest {
         }
     }
 
+    @Test
+    fun `un modele nouvellement active est backfille sans refaire les modeles deja couverts`() = runTest {
+        coEvery {
+            repo.countPastForecastSamples(paris.id, WeatherModel.GFS, today)
+        } returns 5
+        coEvery {
+            repo.countPastForecastSamples(paris.id, WeatherModel.ICON_EU, today)
+        } returns 0
+        coEvery {
+            api.getHistoricalForecast(any(), any(), any(), any(), any(), any(), any(), any(), any())
+        } returns responseWithMultiple(
+            dates = listOf("2024-06-15"),
+            perModel = mapOf("icon_eu" to Triple(21.0, 0.5, 12.0))
+        )
+
+        val recorded = useCase(
+            paris,
+            listOf(WeatherModel.GFS, WeatherModel.ICON_EU),
+            today
+        )
+
+        assertEquals(3, recorded)
+        coVerify {
+            api.getHistoricalForecast(
+                any(), any(), models = "icon_eu",
+                any(), any(), any(), any(), any(), any(), any()
+            )
+        }
+        coVerify(exactly = 0) {
+            repo.recordForecast(
+                paris.id, WeatherModel.GFS, any(), any(), any(), any()
+            )
+        }
+    }
+
     // ─── Fenêtre temporelle ──────────────────────────────────────────────
 
     @Test
     fun `fenêtre — start = today-30 jusqu'à end = today-1 (inclusive)`() = runTest {
-        coEvery { repo.countPastForecastSamples(any(), any()) } returns 0
+        coEvery { repo.countPastForecastSamples(any(), any(), any()) } returns 0
         coEvery {
             api.getHistoricalForecast(any(), any(), any(), any(), any(), any(), any(), any(), any())
         } returns emptyResponse()
@@ -132,7 +167,7 @@ class BackfillHistoricalForecastUseCaseTest {
 
     @Test
     fun `models query concatène les apiKey triés dans l'ordre fourni`() = runTest {
-        coEvery { repo.countPastForecastSamples(any(), any()) } returns 0
+        coEvery { repo.countPastForecastSamples(any(), any(), any()) } returns 0
         coEvery {
             api.getHistoricalForecast(any(), any(), any(), any(), any(), any(), any(), any(), any())
         } returns emptyResponse()
@@ -154,7 +189,7 @@ class BackfillHistoricalForecastUseCaseTest {
 
     @Test
     fun `enregistre un sample par (modèle, variable, date) présente`() = runTest {
-        coEvery { repo.countPastForecastSamples(any(), any()) } returns 0
+        coEvery { repo.countPastForecastSamples(any(), any(), any()) } returns 0
         coEvery {
             api.getHistoricalForecast(any(), any(), any(), any(), any(), any(), any(), any(), any())
         } returns responseWithGfs(
@@ -186,7 +221,7 @@ class BackfillHistoricalForecastUseCaseTest {
 
     @Test
     fun `parse plusieurs modèles indépendamment`() = runTest {
-        coEvery { repo.countPastForecastSamples(any(), any()) } returns 0
+        coEvery { repo.countPastForecastSamples(any(), any(), any()) } returns 0
         coEvery {
             api.getHistoricalForecast(any(), any(), any(), any(), any(), any(), any(), any(), any())
         } returns responseWithMultiple(
@@ -213,7 +248,7 @@ class BackfillHistoricalForecastUseCaseTest {
 
     @Test
     fun `modèle absent de la réponse ne fait pas planter les autres`() = runTest {
-        coEvery { repo.countPastForecastSamples(any(), any()) } returns 0
+        coEvery { repo.countPastForecastSamples(any(), any(), any()) } returns 0
         coEvery {
             api.getHistoricalForecast(any(), any(), any(), any(), any(), any(), any(), any(), any())
         } returns responseWithGfs(  // seul GFS présent
@@ -236,7 +271,7 @@ class BackfillHistoricalForecastUseCaseTest {
 
     @Test
     fun `valeurs null inline dans le tableau ne font pas planter`() = runTest {
-        coEvery { repo.countPastForecastSamples(any(), any()) } returns 0
+        coEvery { repo.countPastForecastSamples(any(), any(), any()) } returns 0
         coEvery {
             api.getHistoricalForecast(any(), any(), any(), any(), any(), any(), any(), any(), any())
         } returns BatchedForecastResponseDto(
@@ -275,7 +310,7 @@ class BackfillHistoricalForecastUseCaseTest {
 
     @Test
     fun `réponse sans daily object retourne 0`() = runTest {
-        coEvery { repo.countPastForecastSamples(any(), any()) } returns 0
+        coEvery { repo.countPastForecastSamples(any(), any(), any()) } returns 0
         coEvery {
             api.getHistoricalForecast(any(), any(), any(), any(), any(), any(), any(), any(), any())
         } returns BatchedForecastResponseDto(
@@ -295,7 +330,7 @@ class BackfillHistoricalForecastUseCaseTest {
 
     @Test
     fun `date malformée dans time skippée, les autres continuent`() = runTest {
-        coEvery { repo.countPastForecastSamples(any(), any()) } returns 0
+        coEvery { repo.countPastForecastSamples(any(), any(), any()) } returns 0
         coEvery {
             api.getHistoricalForecast(any(), any(), any(), any(), any(), any(), any(), any(), any())
         } returns responseWithGfs(
@@ -313,7 +348,7 @@ class BackfillHistoricalForecastUseCaseTest {
 
     @Test
     fun `longueurs différentes conservent les valeurs disponibles de chaque variable`() = runTest {
-        coEvery { repo.countPastForecastSamples(any(), any()) } returns 0
+        coEvery { repo.countPastForecastSamples(any(), any(), any()) } returns 0
         coEvery {
             api.getHistoricalForecast(any(), any(), any(), any(), any(), any(), any(), any(), any())
         } returns responseWithGfs(
@@ -332,7 +367,7 @@ class BackfillHistoricalForecastUseCaseTest {
 
     @Test
     fun `variable absente ne supprime pas les autres séries valides`() = runTest {
-        coEvery { repo.countPastForecastSamples(any(), any()) } returns 0
+        coEvery { repo.countPastForecastSamples(any(), any(), any()) } returns 0
         coEvery {
             api.getHistoricalForecast(any(), any(), any(), any(), any(), any(), any(), any(), any())
         } returns BatchedForecastResponseDto(

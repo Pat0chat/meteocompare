@@ -171,6 +171,10 @@ class FakeBiasSampleRepository @Inject constructor() : BiasSampleRepository {
     ) = Unit
 
     override suspend fun latestObservationDate(cityId: String, variable: BiasVariable): LocalDate? = null
-    override suspend fun countPastForecastSamples(cityId: String, beforeDate: LocalDate): Int = 0
+    override suspend fun countPastForecastSamples(
+        cityId: String,
+        model: WeatherModel,
+        beforeDate: LocalDate
+    ): Int = 0
     override suspend fun purgeOlderThan(beforeDate: LocalDate) = Unit
 }

@@ -21,6 +21,8 @@ import com.meteocompare.app.core.util.runSuspendCatching
 import com.meteocompare.app.domain.model.RefreshInterval
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
@@ -267,7 +269,7 @@ internal class WidgetRefreshWorker(
     params: WorkerParameters
 ) : CoroutineWorker(context, params) {
 
-    override suspend fun doWork(): Result {
+    override suspend fun doWork(): Result = RUN_MUTEX.withLock {
         val ctx = applicationContext
         val appWidgetManager = AppWidgetManager.getInstance(ctx)
 
@@ -295,7 +297,7 @@ internal class WidgetRefreshWorker(
         if (liveWidgetIds.isEmpty()) {
             // Si toutes les interrogations launcher ont échoué, ne pas conclure
             // à tort qu'il n'existe aucun widget : demander un retry.
-            return if (receiverLookupFailures == WidgetReceivers.All.size) {
+            return@withLock if (receiverLookupFailures == WidgetReceivers.All.size) {
                 Result.retry()
             } else {
                 android.util.Log.d(WIDGET_LOG_TAG, "No live widgets to refresh")
@@ -404,7 +406,7 @@ internal class WidgetRefreshWorker(
                 WIDGET_LOG_TAG,
                 "Widget refresh exceeded global ${WORK_BUDGET_MS}ms budget"
             )
-            return Result.retry()
+            return@withLock Result.retry()
         }
 
         android.util.Log.d(
@@ -417,7 +419,7 @@ internal class WidgetRefreshWorker(
         // aucun widget vivant n'a pu être actualisé, demander un retry avec
         // le backoff WorkManager améliore la récupération après un problème
         // transitoire du launcher, de Glance ou du stockage.
-        return if (updatedCount == 0 && failedCount > 0) {
+        if (updatedCount == 0 && failedCount > 0) {
             Result.retry()
         } else {
             Result.success()
@@ -425,6 +427,12 @@ internal class WidgetRefreshWorker(
     }
 
     companion object {
+        // Le periodic et un refresh immédiat ont des noms WorkManager distincts
+        // et peuvent donc se chevaucher. Un seul worker process-wide évite deux
+        // écritures Glance/RemoteViews concurrentes ; le cache réseau reste de
+        // toute façon coalescé par ForecastRepositoryImpl.
+        private val RUN_MUTEX = Mutex()
+
         internal const val PER_WIDGET_TIMEOUT_MS: Long = 45_000L
         internal const val WORK_BUDGET_MS: Long = 8 * 60_000L
     }

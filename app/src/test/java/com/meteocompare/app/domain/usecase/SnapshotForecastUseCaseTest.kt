@@ -305,7 +305,7 @@ class SnapshotForecastUseCaseTest {
         ) = error("Not expected in SnapshotForecastUseCase tests")
 
         override suspend fun countPastForecastSamples(
-            cityId: String, beforeDate: LocalDate
+            cityId: String, model: WeatherModel, beforeDate: LocalDate
         ) = error("Not expected in SnapshotForecastUseCase tests")
 
         override suspend fun purgeOlderThan(beforeDate: LocalDate) =

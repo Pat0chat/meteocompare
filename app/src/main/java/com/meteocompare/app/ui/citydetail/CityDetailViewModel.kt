@@ -12,6 +12,7 @@ import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DayNormals
 import com.meteocompare.app.domain.model.ModelBias
+import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.di.DefaultDispatcher
 import com.meteocompare.app.domain.repository.BiasSampleRepository
@@ -36,6 +37,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -45,6 +47,8 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
@@ -98,6 +102,11 @@ class CityDetailViewModel @Inject constructor(
     // Cache en mémoire des normales pour la ville courante. Évite de re-fetch
     // à chaque applyResult() qui s'exécute pour cache + fresh forecasts.
     private var loadedNormals: Map<Int, DayNormals>? = null
+
+    // Sérialise cache, refresh local et refresh externe. Sans ce verrou, deux
+    // calculs de confiance concurrents pouvaient lire le même ancien state puis
+    // terminer dans l'ordre inverse et laisser la prévision la plus vieille.
+    private val resultMutex = Mutex()
 
     // ── Suivi de biais : StateFlow composé depuis Room ────────────────────
     //
@@ -229,8 +238,8 @@ class CityDetailViewModel @Inject constructor(
      * auquel cas on n'émet QUE le cache (pas de requête réseau).
      *
      * ─── Économie batterie/data ─────────────────────────────────────────
-     * Sans ce garde, chaque navigation vers l'écran détail déclenche 5 requêtes
-     * réseau parallèles vers Open-Meteo — même si l'utilisateur vient d'ouvrir
+     * Sans ce garde, chaque navigation vers l'écran détail déclenche une requête
+     * batched vers Open-Meteo — même si l'utilisateur vient d'ouvrir
      * cette même ville 30 secondes plus tôt. Avec le seuil `maxCacheAgeMs`
      * égal à l'intervalle utilisateur, on saute complètement le fetch quand
      * le cache est encore frais. Pull-to-refresh continue de fonctionner
@@ -240,28 +249,38 @@ class CityDetailViewModel @Inject constructor(
     private fun loadInitial() {
         viewModelScope.launch {
             val city = findCity() ?: run {
-                _state.value = CityDetailUiState.Error(context.getString(R.string.city_not_found_in_favorites))
+                _state.value = CityDetailUiState.Error(
+                    context.getString(R.string.city_not_found_in_favorites)
+                )
                 return@launch
             }
-            val models = userPreferences.observeEnabledModels().first()
-            val interval = userPreferences.observeRefreshInterval().first()
-            // MANUAL : cache considéré toujours frais → aucun fetch auto.
-            // L'utilisateur doit pull-to-refresh pour rafraîchir.
-            val maxCacheAgeMs = if (
-                interval == com.meteocompare.app.domain.model.RefreshInterval.MANUAL
-            ) Long.MAX_VALUE else interval.millis
 
-            // Lance le fetch des normales en parallèle — ne bloque pas l'affichage
-            // du forecast. Quand les normales arrivent, on met à jour le state
-            // existant via copy() pour ajouter le champ normals.
+            // Les normales sont indépendantes du jeu de modèles météo : une
+            // seule lecture suffit pour toute la durée de vie de cette page.
             launchNormalsLoad(city)
 
-            forecastRepository.getCityForecastStream(
-                city = city,
-                models = models,
-                forecastDays = 7,
-                maxCacheAgeMs = maxCacheAgeMs
-            )
+            // La page peut rester vivante dans la back stack pendant un passage
+            // par Settings. Modèles et intervalle doivent donc être observés,
+            // pas seulement lus une fois au démarrage. distinctUntilChanged
+            // évite toute relance lorsqu'une préférence sans rapport change.
+            combine(
+                userPreferences.observeEnabledModels(),
+                userPreferences.observeRefreshInterval()
+            ) { models, interval -> models to interval }
+                .distinctUntilChanged()
+                .flatMapLatest { (models, interval) ->
+                    val maxCacheAgeMs = if (interval == RefreshInterval.MANUAL) {
+                        Long.MAX_VALUE
+                    } else {
+                        interval.millis
+                    }
+                    forecastRepository.getCityForecastStream(
+                        city = city,
+                        models = models,
+                        forecastDays = 7,
+                        maxCacheAgeMs = maxCacheAgeMs
+                    )
+                }
                 .collect { result -> applyResult(result) }
         }
     }
@@ -323,7 +342,7 @@ class CityDetailViewModel @Inject constructor(
     private suspend fun findCity(): City? =
         cityRepository.observeFavorites().first().firstOrNull { it.id == cityId }
 
-    private suspend fun applyResult(result: ApiResult<CityForecast>) {
+    private suspend fun applyResult(result: ApiResult<CityForecast>) = resultMutex.withLock {
         val previous = _state.value
 
         // Le chargement initial, un refresh manuel local et le signal partagé
@@ -333,11 +352,14 @@ class CityDetailViewModel @Inject constructor(
         if (result is ApiResult.Success && previous is CityDetailUiState.Loaded) {
             val incomingFetchedAt = result.data.fetchedAt
             val currentFetchedAt = previous.fetchedAt
-            if (currentFetchedAt != null &&
-                (incomingFetchedAt == null || !incomingFetchedAt.isAfter(currentFetchedAt))
-            ) {
-                return
-            }
+            val incomingModels = result.data.seriesByModel.keys + result.data.errors.keys
+            val currentModels = previous.forecast.seriesByModel.keys + previous.forecast.errors.keys
+            val isOlder = currentFetchedAt != null &&
+                (incomingFetchedAt == null || incomingFetchedAt.isBefore(currentFetchedAt))
+            val isSameVersion = currentFetchedAt != null &&
+                incomingFetchedAt == currentFetchedAt &&
+                incomingModels == currentModels
+            if (isOlder || isSameVersion) return@withLock
         }
 
         val next = when (result) {

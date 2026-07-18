@@ -18,10 +18,8 @@ import io.mockk.mockk
 import io.mockk.slot
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
-import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
@@ -156,33 +154,38 @@ class ForecastRepositoryImplTest {
     }
 
     @Test
-    fun `publication des refreshes ne bloque jamais un worker si un écran est lent`() = runTest {
+    fun `publication des refreshes ne bloque pas et conserve la mise a jour la plus recente`() = runTest {
         coEvery {
             api.getForecastBatched(
                 any(), any(), any(), any(), any(), any(), any(), any(), any(), any()
             )
         } returns batchedResponseWith(modelsWithData = listOf(WeatherModel.AROME_FRANCE_HD))
 
-        // Le collecteur consomme la première émission puis reste bloqué. Les
-        // émissions suivantes saturent volontairement le buffer mémoire. Un
-        // worker doit tout de même pouvoir terminer ses refreshes : le signal UI
-        // est best-effort, Room reste la source de vérité.
+        // Le collecteur bloque après la première émission. Les suivantes
+        // saturent le buffer : DROP_OLDEST doit préserver la prévision la plus
+        // récente, tout en laissant chaque refresh terminer sans suspension.
+        val releaseCollector = CompletableDeferred<Unit>()
+        val receivedCityIds = mutableListOf<String>()
         val slowCollector = launch(start = CoroutineStart.UNDISPATCHED) {
-            repository.observeForecastUpdates().collect {
-                awaitCancellation()
+            repository.observeForecastUpdates().collect { forecast ->
+                receivedCityIds += forecast.city.id
+                if (receivedCityIds.size == 1) releaseCollector.await()
             }
         }
 
-        repeat(12) {
+        repeat(12) { index ->
             val result = withTimeout(1_000L) {
                 repository.refreshCityForecast(
-                    city = paris,
+                    city = paris.copy(id = index.toString()),
                     models = listOf(WeatherModel.AROME_FRANCE_HD)
                 )
             }
             assertTrue(result is ApiResult.Success)
         }
 
+        releaseCollector.complete(Unit)
+        repeat(20) { yield() }
+        assertEquals("11", receivedCityIds.last())
         slowCollector.cancel()
     }
 
@@ -222,19 +225,92 @@ class ForecastRepositoryImplTest {
         } returns batchedResponseWith(modelsWithData = listOf(WeatherModel.GFS))
         coEvery { cacheDao.getForCity(any()) } returns emptyList()
 
-        val slot = slot<List<ForecastCacheEntity>>()
-        coEvery { cacheDao.upsertAll(capture(slot)) } returns Unit
+        val requestedKeys = slot<List<String>>()
+        val entries = slot<List<ForecastCacheEntity>>()
+        val fetchedAt = slot<Long>()
+        coEvery {
+            cacheDao.replaceRequestedModels(
+                eq(paris.id),
+                capture(requestedKeys),
+                capture(entries),
+                capture(fetchedAt)
+            )
+        } returns Unit
 
         repository.refreshCityForecast(
             city = paris,
             models = listOf(WeatherModel.GFS)
         )
 
-        coVerify(exactly = 1) { cacheDao.upsertAll(any()) }
-        assertEquals(1, slot.captured.size)
-        assertEquals("1", slot.captured.single().cityId)
-        assertEquals(WeatherModel.GFS.apiKey, slot.captured.single().modelKey)
+        coVerify(exactly = 1) {
+            cacheDao.replaceRequestedModels(eq(paris.id), any(), any(), any())
+        }
+        assertEquals(listOf(WeatherModel.GFS.apiKey), requestedKeys.captured)
+        assertEquals(1, entries.captured.size)
+        assertEquals("1", entries.captured.single().cityId)
+        assertEquals(WeatherModel.GFS.apiKey, entries.captured.single().modelKey)
+        assertEquals(fetchedAt.captured, entries.captured.single().fetchedAtEpochMs)
     }
+
+    @Test
+    fun `refresh partiel - remplace tous les modeles demandes pour supprimer les anciennes lignes`() =
+        runTest {
+            coEvery {
+                api.getForecastBatched(
+                    any(), any(), any(), any(), any(), any(), any(), any(), any(), any()
+                )
+            } returns batchedResponseWith(modelsWithData = listOf(WeatherModel.ICON_EU))
+
+            val requestedKeys = slot<List<String>>()
+            val entries = slot<List<ForecastCacheEntity>>()
+            coEvery {
+                cacheDao.replaceRequestedModels(
+                    eq(paris.id),
+                    capture(requestedKeys),
+                    capture(entries),
+                    any()
+                )
+            } returns Unit
+
+            val result = repository.refreshCityForecast(
+                city = paris,
+                models = listOf(WeatherModel.ICON_EU, WeatherModel.GFS)
+            )
+
+            assertTrue(result is ApiResult.Success)
+            assertEquals(
+                listOf(WeatherModel.ICON_EU.apiKey, WeatherModel.GFS.apiKey),
+                requestedKeys.captured
+            )
+            assertEquals(
+                setOf(WeatherModel.ICON_EU.apiKey, WeatherModel.GFS.apiKey),
+                entries.captured.map(ForecastCacheEntity::modelKey).toSet()
+            )
+            val missingMarker = entries.captured.single {
+                it.modelKey == WeatherModel.GFS.apiKey
+            }
+            assertTrue(missingMarker.responseJson.contains("MODEL_UNAVAILABLE"))
+
+            // Le marqueur négatif rend le cache complet pendant l'intervalle :
+            // rouvrir l'écran ou exécuter un tick widget ne doit pas rappeler
+            // l'API immédiatement pour le même modèle hors zone.
+            coEvery { cacheDao.getForCity(paris.id) } returns entries.captured
+            val cached = repository.getCityForecastStream(
+                city = paris,
+                models = listOf(WeatherModel.ICON_EU, WeatherModel.GFS),
+                maxCacheAgeMs = 60 * 60 * 1000L
+            ).toList()
+
+            assertEquals(1, cached.size)
+            val cachedForecast = (cached.single() as ApiResult.Success).data
+            assertTrue(WeatherModel.ICON_EU in cachedForecast.seriesByModel)
+            assertTrue(WeatherModel.GFS in cachedForecast.errors)
+            coVerify(exactly = 1) {
+                api.getForecastBatched(
+                    any(), any(), any(), any(), any(), any(), any(), any(), any(), any()
+                )
+            }
+        }
 
     @Test
     fun `refresh - reseau ko sans cache retourne Error`() = runTest {

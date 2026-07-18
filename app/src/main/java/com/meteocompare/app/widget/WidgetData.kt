@@ -252,9 +252,9 @@ internal sealed class WidgetError {
  * gaspillage : si le cache est plus jeune que l'intervalle utilisateur, on
  * réutilise juste le cache sans requête réseau.
  *
- * Pour MANUAL (interval = ZERO), on considère le cache comme toujours frais
- * — le widget ne fetch plus jamais automatiquement, seul un pull-to-refresh
- * dans l'app rafraîchira les données.
+ * Pour MANUAL, tout cache existant est considéré frais. Un premier chargement
+ * peut toutefois amorcer le cache s'il est vide ; après cela, seul un refresh
+ * explicite dans l'app renouvelle les données réseau.
  */
 internal suspend fun loadWidgetData(
     context: Context,
@@ -285,9 +285,9 @@ internal suspend fun loadWidgetData(
     // un intervalle utilisateur de 1h ne fera de fetch réseau QU'une fois par
     // heure (les 3 autres runs se contentent du cache).
     //
-    // MANUAL : on utilise Long.MAX_VALUE comme seuil → tout cache est considéré
-    // "frais", aucun fetch réseau ne se déclenche automatiquement. Le user
-    // doit ouvrir l'app et pull-to-refresh pour rafraîchir manuellement.
+    // MANUAL : Long.MAX_VALUE rend tout cache existant "frais". Un bootstrap
+    // réseau reste possible si aucun cache n'existe encore, puis les mises à
+    // jour suivantes sont exclusivement manuelles.
     val prefsRepo = entry.userPreferencesRepository()
     val interval = prefsRepo.observeRefreshInterval().first()
     // Aligne les modèles du widget sur ceux que l'utilisateur a choisis dans

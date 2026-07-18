@@ -3,6 +3,7 @@ package com.meteocompare.app.ui.citylist
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.DayConfidence
 import com.meteocompare.app.domain.model.WeatherCondition
+import com.meteocompare.app.domain.model.WeatherModel
 import java.time.Instant
 import java.time.LocalTime
 
@@ -63,6 +64,8 @@ sealed interface ForecastState {
         val currentCondition: WeatherCondition? = null,
         val currentCloudCover: Int? = null,
         val fetchedAt: Instant? = null,
+        /** Modèles demandés, y compris ceux connus indisponibles/hors zone. */
+        val sourceModels: Set<WeatherModel> = emptySet(),
         // ─── Nouveautés pour la home enrichie ────────────────────────────
         val next12hTemps: List<Double?> = emptyList(),
         val next12hPrecipProb: List<Int?> = emptyList(),

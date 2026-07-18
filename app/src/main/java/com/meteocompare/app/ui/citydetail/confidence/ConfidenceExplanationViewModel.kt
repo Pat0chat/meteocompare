@@ -9,6 +9,7 @@ import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DayConfidence
+import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.di.DefaultDispatcher
 import com.meteocompare.app.domain.repository.CityRepository
@@ -19,13 +20,20 @@ import com.meteocompare.app.ui.navigation.Destinations
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import java.time.Instant
 import java.time.LocalDate
 import javax.inject.Inject
 
@@ -110,8 +118,24 @@ class ConfidenceExplanationViewModel @Inject constructor(
         MutableStateFlow<ConfidenceExplanationUiState>(ConfidenceExplanationUiState.Loading)
     val state: StateFlow<ConfidenceExplanationUiState> = _state.asStateFlow()
 
+    private val resultMutex = Mutex()
+    private var latestFetchedAt: Instant? = null
+    private var latestModels: Set<WeatherModel> = emptySet()
+
     init {
+        observeExternalForecastUpdates()
         load()
+    }
+
+    /** Met à jour l'explication déjà ouverte après un refresh Home/Détails. */
+    private fun observeExternalForecastUpdates() {
+        viewModelScope.launch(start = CoroutineStart.UNDISPATCHED) {
+            forecastRepository.observeForecastUpdates().collect { forecast ->
+                val date = targetDate ?: return@collect
+                if (forecast.city.id != cityId) return@collect
+                applyResult(forecast.city, date, ApiResult.Success(forecast))
+            }
+        }
     }
 
     /**
@@ -139,24 +163,62 @@ class ConfidenceExplanationViewModel @Inject constructor(
                 )
                 return@launch
             }
-            val models = userPreferences.observeEnabledModels().first()
-
-            forecastRepository
-                .getCityForecastStream(city, models = models, forecastDays = 7)
-                .collect { result ->
-                    _state.value = when (result) {
-                        is ApiResult.Success -> withContext(computationDispatcher) {
-                            buildLoadedState(city, date, result.data)
-                        }
-                        is ApiResult.Error -> {
-                            // Si on avait déjà un Loaded (cache émis avant
-                            // une erreur réseau), on le garde — l'utilisateur
-                            // a déjà des données utiles à l'écran.
-                            if (_state.value is ConfidenceExplanationUiState.Loaded) _state.value
-                            else ConfidenceExplanationUiState.Error(result.message)
-                        }
+            // Même contrat que Home, Détails et widgets. Si l'utilisateur
+            // modifie les modèles ou la cadence pendant que cette destination
+            // reste dans la back stack, l'explication se réaligne sans recréer
+            // le ViewModel et sans fetch superflu pour une valeur identique.
+            combine(
+                userPreferences.observeEnabledModels(),
+                userPreferences.observeRefreshInterval()
+            ) { models, interval -> models to interval }
+                .distinctUntilChanged()
+                .flatMapLatest { (models, interval) ->
+                    val maxCacheAgeMs = if (interval == RefreshInterval.MANUAL) {
+                        Long.MAX_VALUE
+                    } else {
+                        interval.millis
                     }
+                    forecastRepository.getCityForecastStream(
+                        city = city,
+                        models = models,
+                        forecastDays = 7,
+                        maxCacheAgeMs = maxCacheAgeMs
+                    )
                 }
+                .collect { result -> applyResult(city, date, result) }
+        }
+    }
+
+    private suspend fun applyResult(
+        city: City,
+        date: LocalDate,
+        result: ApiResult<CityForecast>
+    ) = resultMutex.withLock {
+        when (result) {
+            is ApiResult.Success -> {
+                val incomingAt = result.data.fetchedAt
+                val incomingModels = result.data.seriesByModel.keys + result.data.errors.keys
+                val currentAt = latestFetchedAt
+                val isOlder = currentAt != null &&
+                    (incomingAt == null || incomingAt.isBefore(currentAt))
+                val isSameVersion = currentAt != null &&
+                    incomingAt == currentAt &&
+                    incomingModels == latestModels
+                if (isOlder || isSameVersion) return@withLock
+                val loaded = withContext(computationDispatcher) {
+                    buildLoadedState(city, date, result.data)
+                }
+                latestFetchedAt = incomingAt
+                latestModels = incomingModels
+                _state.value = loaded
+            }
+            is ApiResult.Error -> {
+                // Si un cache ou un refresh précédent est déjà affiché, une
+                // panne réseau ne détruit pas l'explication utile.
+                if (_state.value !is ConfidenceExplanationUiState.Loaded) {
+                    _state.value = ConfidenceExplanationUiState.Error(result.message)
+                }
+            }
         }
     }
 

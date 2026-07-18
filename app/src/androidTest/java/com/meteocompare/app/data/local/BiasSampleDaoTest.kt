@@ -44,18 +44,20 @@ class BiasSampleDaoTest {
     fun latest_count_and_purge_respect_boundaries() = runTest {
         dao.insertForecast(ForecastSampleEntity("paris", "GFS", "WIND_SPEED", 10L, 1L, 20.0))
         dao.insertForecast(ForecastSampleEntity("paris", "GFS", "WIND_SPEED", 20L, 2L, 21.0))
+        dao.insertForecast(ForecastSampleEntity("paris", "ICON_EU", "WIND_SPEED", 10L, 1L, 22.0))
         dao.insertObservation(ObservationSampleEntity("paris", "WIND_SPEED", 10L, 19.0, 1L))
         dao.insertObservation(ObservationSampleEntity("paris", "WIND_SPEED", 20L, 20.0, 2L))
 
         assertEquals(20L, dao.getLatestObservationEpochDay("paris", "WIND_SPEED"))
-        assertEquals(1, dao.countPastForecastSamples("paris", 20L))
+        assertEquals(1, dao.countPastForecastSamples("paris", "GFS", 20L))
+        assertEquals(1, dao.countPastForecastSamples("paris", "ICON_EU", 20L))
 
         dao.purgeForecastsBefore(20L)
         dao.purgeObservationsBefore(20L)
         val rows = dao.observeJoinedSamples("paris", "GFS", "WIND_SPEED", 0L, 30L).first()
         assertEquals(1, rows.size)
         assertEquals(20L, rows.single().targetDateEpochDay)
-        assertTrue(dao.countPastForecastSamples("paris", 20L) == 0)
+        assertTrue(dao.countPastForecastSamples("paris", "GFS", 20L) == 0)
     }
     @Test
     fun batch_inserts_are_visible_as_one_consistent_dataset() = runTest {

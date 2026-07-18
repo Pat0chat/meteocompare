@@ -35,7 +35,8 @@ import java.time.Duration
  *        modèles Open-Meteo, sans gaspiller de requêtes entre deux runs.
  *      · HOURS_3 / HOURS_6 : profil "économie de batterie", accepté quand
  *        on regarde la météo une ou deux fois par jour.
- *      · MANUAL : power user qui veut zéro requête automatique.
+ *      · MANUAL : aucune requête périodique ; un premier chargement sans
+ *        cache reste autorisé pour éviter un écran définitivement vide.
  */
 enum class RefreshInterval(val duration: Duration) {
     MINUTES_15(Duration.ofMinutes(15)),
@@ -44,10 +45,12 @@ enum class RefreshInterval(val duration: Duration) {
     HOURS_3(Duration.ofHours(3)),
     HOURS_6(Duration.ofHours(6)),
     /**
-     * Aucun rafraîchissement réseau automatique. Le worker widget continue
+     * Aucun rafraîchissement réseau périodique. Le worker widget continue
      * ses ticks cache-only pour actualiser les libellés temporels, et les
-     * écrans de l'app affichent le cache sans tenter de fetch réseau.
-     * L'utilisateur doit pull-to-refresh ou appuyer sur le bouton refresh.
+     * écrans de l'app réutilisent le cache. Exception volontaire : si aucun
+     * cache n'existe encore pour une ville, un chargement initial est permis
+     * afin d'amorcer l'affichage. Ensuite l'utilisateur doit pull-to-refresh
+     * ou appuyer sur le bouton refresh.
      */
     MANUAL(Duration.ZERO);
 

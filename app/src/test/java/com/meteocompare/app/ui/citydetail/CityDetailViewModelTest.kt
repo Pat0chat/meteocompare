@@ -116,6 +116,9 @@ class CityDetailViewModelTest {
     @Before
     fun setUp() {
         Dispatchers.setMain(dispatcher)
+        favoritesFlow.value = listOf(paris)
+        modelsFlow.value = WeatherModel.MVP_SELECTION
+        refreshIntervalFlow.value = RefreshInterval.DEFAULT
         // Par défaut, stream forecast ne fait rien (jamais terminé)
         coEvery {
             forecastRepo.getCityForecastStream(any(), any(), any(), any(), any())
@@ -213,6 +216,75 @@ class CityDetailViewModelTest {
 
     // ──────────────── Refresh ────────────────
 
+
+    @Test
+    fun `changement de modèles recharge la page et accepte un timestamp identique`() =
+        runTest(dispatcher) {
+            val fetchedAt = Instant.parse("2026-06-28T10:05:00Z")
+            val initial = buildForecast(
+                paris,
+                model = WeatherModel.AROME_FRANCE_HD,
+                temperature = 20.0
+            ).copy(fetchedAt = fetchedAt)
+            val changed = buildForecast(
+                paris,
+                model = WeatherModel.GFS,
+                temperature = 31.0
+            ).copy(fetchedAt = fetchedAt)
+
+            coEvery {
+                forecastRepo.getCityForecastStream(
+                    eq(paris),
+                    eq(WeatherModel.MVP_SELECTION),
+                    any(),
+                    any(),
+                    any()
+                )
+            } returns flowOf(ApiResult.Success(initial))
+            coEvery {
+                forecastRepo.getCityForecastStream(
+                    eq(paris),
+                    eq(listOf(WeatherModel.GFS)),
+                    any(),
+                    any(),
+                    any()
+                )
+            } returns flowOf(ApiResult.Success(changed))
+
+            val vm = buildViewModel()
+            vm.state.test {
+                var state = awaitItem()
+                while ((state as? CityDetailUiState.Loaded)?.forecast?.seriesByModel?.keys !=
+                    setOf(WeatherModel.AROME_FRANCE_HD)
+                ) {
+                    state = awaitItem()
+                }
+
+                modelsFlow.value = listOf(WeatherModel.GFS)
+
+                var updated = awaitItem()
+                while ((updated as? CityDetailUiState.Loaded)?.forecast?.seriesByModel?.keys !=
+                    setOf(WeatherModel.GFS)
+                ) {
+                    updated = awaitItem()
+                }
+
+                val loaded = updated as CityDetailUiState.Loaded
+                assertEquals(fetchedAt, loaded.fetchedAt)
+                assertEquals(31.0, loaded.currentTemp ?: Double.NaN, 0.001)
+            }
+
+            coVerify(exactly = 1) {
+                forecastRepo.getCityForecastStream(
+                    eq(paris),
+                    eq(listOf(WeatherModel.GFS)),
+                    any(),
+                    any(),
+                    any()
+                )
+            }
+        }
+
     @Test
     fun `refresh depuis la Home - met à jour la page Détails sans second fetch`() =
         runTest(dispatcher) {
@@ -270,7 +342,9 @@ class CityDetailViewModelTest {
             forecastUpdates.emit(
                 buildForecast(lyon).copy(fetchedAt = Instant.parse("2026-06-28T10:10:00Z"))
             )
-            forecastUpdates.emit(buildForecast(paris).copy(fetchedAt = olderAt))
+            forecastUpdates.emit(
+                buildForecast(paris, model = WeatherModel.GFS).copy(fetchedAt = olderAt)
+            )
             expectNoEvents()
             assertEquals(currentAt, (vm.state.value as CityDetailUiState.Loaded).fetchedAt)
         }
@@ -362,30 +436,34 @@ class CityDetailViewModelTest {
 
     // ──────────────── Helpers ────────────────
 
-    private fun buildForecast(city: City): CityForecast {
+    private fun buildForecast(
+        city: City,
+        model: WeatherModel = WeatherModel.AROME_FRANCE_HD,
+        temperature: Double = 20.0
+    ): CityForecast {
         val today = LocalDate.of(2026, 6, 28)
         val now = Instant.parse("2026-06-28T12:00:00Z")
         val daily = DailyForecast(
             dates = listOf(today),
-            tempMax = listOf(22.0),
-            tempMin = listOf(14.0),
+            tempMax = listOf(temperature + 2.0),
+            tempMin = listOf(temperature - 6.0),
             precipitationSum = listOf(0.0),
             windSpeedMax = listOf(10.0)
         )
         val hourly = HourlyForecast(
             timestamps = listOf(now),
-            temperature2m = listOf(20.0),
+            temperature2m = listOf(temperature),
             precipitation = listOf(0.0),
             windSpeed10m = listOf(10.0)
         )
         val series = ForecastSeries(
-            model = WeatherModel.AROME_FRANCE_HD,
+            model = model,
             hourly = hourly,
             daily = daily
         )
         return CityForecast(
             city = city,
-            seriesByModel = mapOf(WeatherModel.AROME_FRANCE_HD to series),
+            seriesByModel = mapOf(model to series),
             errors = emptyMap()
         )
     }

@@ -26,6 +26,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
@@ -121,7 +122,11 @@ class ForecastRepositoryImpl @Inject constructor(
     // parallèles de plusieurs favoris ; l'émission reste ordonnée.
     private val _forecastUpdates = MutableSharedFlow<CityForecast>(
         replay = 0,
-        extraBufferCapacity = FORECAST_UPDATE_BUFFER
+        extraBufferCapacity = FORECAST_UPDATE_BUFFER,
+        // La synchronisation UI est best-effort et ne doit jamais suspendre un
+        // refresh. En cas de rafale, conserver les événements les plus récents
+        // est plus sûr que de perdre précisément la dernière prévision.
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
     )
 
     override fun observeForecastUpdates(): Flow<CityForecast> =
@@ -292,36 +297,62 @@ class ForecastRepositoryImpl @Inject constructor(
     ): CachedForecast? = withContext(ioDispatcher) {
         val entries = cacheDao.getForCity(city.id)
         val modelByApiKey = models.associateBy(WeatherModel::apiKey)
-        val cachedSeries = withContext(computationDispatcher) {
+        val cachedModels = withContext(computationDispatcher) {
             entries.mapNotNull { entry ->
                 val model = modelByApiKey[entry.modelKey] ?: return@mapNotNull null
-                runCatching {
-                    val dto = json.decodeFromString<ForecastResponseDto>(entry.responseJson)
-                    entry.fetchedAtEpochMs to mapper.toSeries(model, dto)
-                }.getOrNull()
+                if (entry.responseJson == MISSING_MODEL_CACHE_SENTINEL) {
+                    CachedModelEntry(
+                        fetchedAtMs = entry.fetchedAtEpochMs,
+                        model = model,
+                        series = null,
+                        knownUnavailable = true
+                    )
+                } else {
+                    runCatching {
+                        val dto = json.decodeFromString<ForecastResponseDto>(entry.responseJson)
+                        CachedModelEntry(
+                            fetchedAtMs = entry.fetchedAtEpochMs,
+                            model = model,
+                            series = mapper.toSeries(model, dto),
+                            knownUnavailable = false
+                        )
+                    }.getOrNull()
+                }
             }
         }
-        if (cachedSeries.isEmpty()) return@withContext null
+        if (cachedModels.isEmpty()) return@withContext null
+
+        val seriesByModel = cachedModels
+            .mapNotNull(CachedModelEntry::series)
+            .associateBy(ForecastSeries::model)
+        // Un cache composé uniquement de marqueurs d'indisponibilité ne peut
+        // pas alimenter l'UI. Il ne doit donc pas masquer un nouvel essai réseau.
+        if (seriesByModel.isEmpty()) return@withContext null
+
+        val unavailableModels = cachedModels
+            .asSequence()
+            .filter(CachedModelEntry::knownUnavailable)
+            .map(CachedModelEntry::model)
+            .toSet()
 
         // Une entrée corrompue est ignorée et ne doit pas influencer la date
-        // affichée. On calcule donc la fraîcheur uniquement sur les entrées
-        // effectivement décodées et mappées.
+        // affichée. Les marqueurs d'indisponibilité valides participent en
+        // revanche à la fraîcheur : ils évitent de re-questionner toutes les
+        // 15 minutes un modèle régional connu hors zone.
         // La fraîcheur du lot est celle de son entrée LA PLUS ANCIENNE, pas
         // de la plus récente. Sinon l'ajout d'un nouveau modèle pouvait rendre
         // le cache "frais" grâce à un autre modèle récent et empêcher le fetch
         // de la série manquante pendant tout l'intervalle utilisateur.
-        val oldestFetchedAtMs = cachedSeries.minOf { it.first }
-        val seriesByModel = cachedSeries
-            .asSequence()
-            .map { it.second }
-            .associateBy(ForecastSeries::model)
-        val isComplete = models.all { it in seriesByModel }
+        val oldestFetchedAtMs = cachedModels.minOf(CachedModelEntry::fetchedAtMs)
+        val isComplete = models.all { it in seriesByModel || it in unavailableModels }
 
         CachedForecast(
             forecast = CityForecast(
                 city = city,
                 seriesByModel = seriesByModel,
-                errors = emptyMap(), // on n'a pas mémorisé les erreurs en cache
+                errors = unavailableModels.associateWith {
+                    context.getString(R.string.error_model_out_of_range)
+                },
                 fetchedAt = Instant.ofEpochMilli(oldestFetchedAtMs)
             ),
             isComplete = isComplete,
@@ -429,9 +460,6 @@ class ForecastRepositoryImpl @Inject constructor(
         val successes = processed.series
         val cacheEntries = processed.cacheEntries
         val errors = mutableMapOf<WeatherModel, String>()
-        if (cacheEntries.isNotEmpty()) {
-            runSuspendCatching { cacheDao.upsertAll(cacheEntries) }
-        }
 
         // Modèles demandés mais absents du split → filtrés par le splitter
         // (données inexploitables). Reportés au caller pour affichage
@@ -439,6 +467,39 @@ class ForecastRepositoryImpl @Inject constructor(
         val missingModels = models - perModelDtos.keys
         for (model in missingModels) {
             errors[model] = context.getString(R.string.error_model_out_of_range)
+        }
+
+        // Remplacement atomique du sous-ensemble demandé. Une réponse partielle
+        // doit retirer du cache les anciennes lignes des modèles désormais
+        // absents, sans toucher aux modèles non demandés par ce caller.
+        // Les absences connues sont conservées sous forme de marqueurs légers :
+        // le cache reste complet pendant l'intervalle utilisateur et les widgets
+        // ne refont pas une requête toutes les 15 minutes pour un modèle hors zone.
+        // Si aucun modèle n'est exploitable, on conserve le cache précédent :
+        // le refresh est un échec complet et ne doit pas détruire le fallback.
+        if (cacheEntries.isNotEmpty()) {
+            val persistedEntries = cacheEntries + missingModels.map { model ->
+                ForecastCacheEntity(
+                    cityId = city.id,
+                    modelKey = model.apiKey,
+                    fetchedAtEpochMs = now,
+                    responseJson = MISSING_MODEL_CACHE_SENTINEL
+                )
+            }
+            runSuspendCatching {
+                cacheDao.replaceRequestedModels(
+                    cityId = city.id,
+                    requestedModelKeys = models.map { it.apiKey },
+                    entities = persistedEntries,
+                    incomingFetchedAtEpochMs = now
+                )
+            }.onFailure { error ->
+                android.util.Log.w(
+                    LOG_TAG,
+                    "Forecast cache write failed for city=${city.id}",
+                    error
+                )
+            }
         }
 
         if (successes.isEmpty()) {
@@ -473,6 +534,13 @@ class ForecastRepositoryImpl @Inject constructor(
         val oldestFetchedAtMs: Long
     )
 
+    private data class CachedModelEntry(
+        val fetchedAtMs: Long,
+        val model: WeatherModel,
+        val series: ForecastSeries?,
+        val knownUnavailable: Boolean
+    )
+
     private data class ProcessedForecast(
         val dtos: Map<WeatherModel, ForecastResponseDto>,
         val series: Map<WeatherModel, ForecastSeries>,
@@ -490,5 +558,7 @@ class ForecastRepositoryImpl @Inject constructor(
          */
         private const val LOG_TAG = "MeteoCompare/Net"
         private const val FORECAST_UPDATE_BUFFER = 8
+        private const val MISSING_MODEL_CACHE_SENTINEL =
+            "__METEOCOMPARE_MODEL_UNAVAILABLE__"
     }
 }

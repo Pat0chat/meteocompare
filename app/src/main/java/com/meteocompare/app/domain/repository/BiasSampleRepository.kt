@@ -151,13 +151,13 @@ interface BiasSampleRepository {
     ): LocalDate?
 
     /**
-     * Nombre de snapshots forecast dont `targetDate < beforeDate` — utilisé
-     * par le backfill historical-forecast pour vérifier s'il y a déjà des
-     * données passées. Si > 0, on considère que le backfill a déjà été fait
-     * (ou est en cours de constitution organique) et on skip l'appel HTTP.
+     * Nombre de snapshots forecast passés pour un modèle précis. Le garde
+     * doit être par modèle : activer un nouveau modèle ne doit pas être bloqué
+     * par l'historique déjà présent pour les autres familles.
      */
     suspend fun countPastForecastSamples(
         cityId: String,
+        model: WeatherModel,
         beforeDate: LocalDate
     ): Int
 
