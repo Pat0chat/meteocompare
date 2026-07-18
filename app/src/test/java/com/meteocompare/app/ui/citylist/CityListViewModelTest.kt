@@ -14,6 +14,7 @@ import com.meteocompare.app.domain.repository.ForecastRepository
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
 import com.meteocompare.app.domain.usecase.ConfidenceCalculator
 import com.meteocompare.app.domain.usecase.EqualWeighting
+import io.mockk.clearMocks
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -29,6 +30,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
@@ -215,6 +217,11 @@ class CityListViewModelTest {
                     state = awaitItem()
                 }
 
+                // Ignore les appels d'initialisation des deux ViewModels présents
+                // dans cette classe. À partir d'ici, on vérifie uniquement que
+                // l'événement partagé ne relance aucun stream réseau.
+                clearMocks(forecastRepo, answers = false, recordedCalls = true)
+
                 forecastUpdates.emit(refreshed)
 
                 var updated = awaitItem()
@@ -226,7 +233,7 @@ class CityListViewModelTest {
                 assertEquals(22.0, loaded.currentTemp ?: Double.NaN, 0.001)
             }
 
-            coVerify(exactly = 1) {
+            coVerify(exactly = 0) {
                 forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
             }
         }
@@ -339,7 +346,7 @@ class CityListViewModelTest {
         }
 
     @Test
-    fun `addCityState - debounce 300ms - frappes rapides ne déclenchent qu'une seule requête`() =
+    fun `addCityState - debounce 700ms - frappes rapides ne déclenchent qu'une seule requête`() =
         runTest(dispatcher) {
             coEvery { cityRepo.searchCities(any()) } returns ApiResult.Success(listOf(paris))
             backgroundScope.launch { viewModel.addCityState.collect {} }
@@ -351,10 +358,14 @@ class CityListViewModelTest {
             viewModel.onSearchQueryChanged("Pari")
             advanceTimeBy(100)
             viewModel.onSearchQueryChanged("Paris")
-            // 4 changements en 300ms. debounce(300) attend 300ms de silence
-            // → seule la dernière valeur déclenche la requête.
-            advanceTimeBy(500)
+            // 4 changements en 300 ms. debounce(700) attend ensuite
+            // 700 ms de silence avant de lancer uniquement la dernière recherche.
+            advanceTimeBy(699)
+            runCurrent()
+            coVerify(exactly = 0) { cityRepo.searchCities(any()) }
 
+            advanceTimeBy(1)
+            runCurrent()
             coVerify(exactly = 1) { cityRepo.searchCities("Paris") }
             coVerify(exactly = 0) { cityRepo.searchCities("Pa") }
             coVerify(exactly = 0) { cityRepo.searchCities("Par") }
@@ -369,7 +380,8 @@ class CityListViewModelTest {
             viewModel.addCityState.test {
                 awaitItem() // initial vide
                 viewModel.onSearchQueryChanged("Paris")
-                advanceTimeBy(500)
+                advanceTimeBy(700)
+                runCurrent()
 
                 // Plusieurs émissions possibles via combine — on attend l'état final
                 var state = awaitItem()
@@ -390,7 +402,8 @@ class CityListViewModelTest {
         viewModel.addCityState.test {
             awaitItem()
             viewModel.onSearchQueryChanged("Xyz")
-            advanceTimeBy(500)
+            advanceTimeBy(700)
+            runCurrent()
 
             var state = awaitItem()
             while (state.error == null) state = awaitItem()
