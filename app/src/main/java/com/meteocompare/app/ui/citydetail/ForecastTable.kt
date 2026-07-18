@@ -1,6 +1,5 @@
 package com.meteocompare.app.ui.citydetail
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +28,7 @@ import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DailyForecast
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.ui.components.WindArrow
+import com.meteocompare.app.ui.theme.color
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -123,24 +123,10 @@ fun ForecastTable(
         return
     }
 
-    val headerBg = MaterialTheme.colorScheme.surfaceContainerHigh
-    val rowAltBg = MaterialTheme.colorScheme.surfaceContainerLow
-    // Fond du jour courant. On prend `primaryContainer` avec un alpha
-    // modéré : c'est la couleur de la TodaySummaryCard, donc "aujourd'hui"
-    // est visuellement cohérent entre les deux vues. Alpha 0.55 :
-    //   - assez soutenu pour être perçu comme un highlight distinct de
-    //     l'alternance neutre `surfaceContainerLow` des lignes paires
-    //   - pas trop opaque pour ne pas écraser le texte au-dessus
-    val todayBg = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
+    val tablePalette = detailTablePalette()
     // remember(dates) plutôt qu'un fetch par ligne — LocalDate.now() coûte
-    // peu, mais on économise 7 appels + le comparaison LocalDate est claire.
+    // peu, mais on économise 7 appels + la comparaison LocalDate est claire.
     val today = remember { LocalDate.now() }
-
-    fun bgFor(idx: Int, date: LocalDate): Color = when {
-        date == today -> todayBg
-        idx % 2 == 1 -> rowAltBg
-        else -> Color.Transparent
-    }
 
     // Header height dépend de la présence de chips de biais : 40dp par
     // défaut, 60dp quand un modelBiasProvider est fourni pour loger le chip
@@ -148,15 +134,22 @@ fun ForecastTable(
     // garder l'alignement de la grille.
     val headerHeight = if (modelBiasProvider != null) 60.dp else 40.dp
 
-    Row(modifier = modifier.fillMaxWidth()) {
+    Row(modifier = modifier.fillMaxWidth().detailTableFrame(tablePalette)) {
         // Colonne figée des dates
         Column(modifier = Modifier.width(64.dp)) {
-            HeaderCell(text = "", background = headerBg, height = headerHeight, modifier = Modifier.width(64.dp))
+            HeaderCell(
+                text = "",
+                background = tablePalette.frozenHeaderSurface,
+                height = headerHeight,
+                modifier = Modifier.width(64.dp),
+                palette = tablePalette
+            )
             dates.forEachIndexed { idx, date ->
                 DayLabelCell(
                     date = date,
-                    background = bgFor(idx, date),
-                    isToday = date == today
+                    background = tablePalette.labelRowBackground(idx, date == today),
+                    isToday = date == today,
+                    palette = tablePalette
                 )
             }
         }
@@ -164,7 +157,8 @@ fun ForecastTable(
         VerticalDivider(
             modifier = Modifier
                 .height(headerHeight + (dates.size * 36).dp)
-                .padding(vertical = 0.dp)
+                .padding(vertical = 0.dp),
+            color = tablePalette.frozenDivider
         )
 
         // Partie scrollable
@@ -193,9 +187,11 @@ fun ForecastTable(
                 Column(modifier = Modifier.width(cellWidth)) {
                     HeaderCell(
                         text = model.displayName,
-                        background = headerBg,
+                        background = tablePalette.headerSurface,
                         height = headerHeight,
                         modifier = Modifier.width(cellWidth),
+                        palette = tablePalette,
+                        accentColor = model.color(),
                         bias = bias,
                         onBiasClick = chipClick,
                         showChipSlot = inBiasMode,
@@ -209,8 +205,9 @@ fun ForecastTable(
                         ValueCell(
                             text = value?.let(valueFormatter) ?: "—",
                             style = value?.let { v -> valueStyler?.invoke(v) },
-                            background = bgFor(idx, date),
-                            directionDegrees = direction
+                            background = tablePalette.dataRowBackground(idx, date == today),
+                            directionDegrees = direction,
+                            palette = tablePalette
                         )
                     }
                 }
@@ -240,12 +237,14 @@ private fun HeaderCell(
     bias: com.meteocompare.app.domain.model.ModelBias? = null,
     onBiasClick: (() -> Unit)? = null,
     showChipSlot: Boolean = false,
-    sampleCount: Int? = null
+    sampleCount: Int? = null,
+    palette: DetailTablePalette,
+    accentColor: Color? = null
 ) {
     Column(
         modifier = modifier
             .height(height)
-            .background(background)
+            .detailTableCell(background, palette, accentColor)
             .padding(vertical = 4.dp, horizontal = 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(
@@ -284,7 +283,7 @@ private fun HeaderCell(
 }
 
 @Composable
-private fun DayLabelCell(date: LocalDate, background: Color, isToday: Boolean = false) {
+private fun DayLabelCell(date: LocalDate, background: Color, isToday: Boolean = false, palette: DetailTablePalette) {
     // Locale courante (mise à jour par AppCompatDelegate.setApplicationLocales).
     // Formatter recréé via `remember(locale)` quand la locale change — sinon
     // on resterait sur le formatter French initial du process.
@@ -296,7 +295,7 @@ private fun DayLabelCell(date: LocalDate, background: Color, isToday: Boolean = 
         modifier = Modifier
             .fillMaxWidth()
             .height(36.dp)
-            .background(background)
+            .detailTableCell(background, palette)
             .padding(horizontal = 4.dp),
         contentAlignment = Alignment.CenterStart
     ) {
@@ -309,7 +308,7 @@ private fun DayLabelCell(date: LocalDate, background: Color, isToday: Boolean = 
             // en thème sombre où primaryContainer.copy(0.55) peut être ténu).
             fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
             color = if (isToday)
-                MaterialTheme.colorScheme.onPrimaryContainer
+                palette.highlightedText
             else MaterialTheme.colorScheme.onSurface
         )
     }
@@ -320,13 +319,14 @@ private fun ValueCell(
     text: String,
     style: ValueStyle?,
     background: Color,
-    directionDegrees: Int? = null
+    directionDegrees: Int? = null,
+    palette: DetailTablePalette
 ) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(36.dp)
-            .background(background),
+            .detailTableCell(background, palette),
         contentAlignment = Alignment.Center
     ) {
         // Si direction fournie : flèche + valeur en Row côte à côte. Sinon :
@@ -337,7 +337,7 @@ private fun ValueCell(
                 WindArrow(directionDegrees = directionDegrees, size = 12.dp)
                 Text(
                     text = text,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"),
                     color = style?.color ?: Color.Unspecified,
                     fontWeight = style?.fontWeight,
                     modifier = Modifier.padding(start = 2.dp)
@@ -346,7 +346,7 @@ private fun ValueCell(
         } else {
             Text(
                 text = text,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"),
                 // Si pas de style fourni → couleur par défaut (onSurface via MaterialTheme).
                 // L'utilisation de `Color.Unspecified` indique à Text de prendre la couleur
                 // depuis le LocalContentColor courant, ce qui respecte le thème.

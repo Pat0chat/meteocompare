@@ -5,6 +5,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -22,6 +23,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -544,12 +546,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.dailyItems(
     if (dailyConditions.isNotEmpty()) {
         item("weather_by_model_daily") {
             SectionTitle(stringResource(R.string.section_weather_by_model))
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                ),
-                modifier = Modifier.padding(horizontal = 16.dp)
-            ) {
+            DetailTableCard {
                 WeatherByModelTable(
                     rows = dailyConditions,
                     modelOrder = forecast.availableModels,
@@ -570,12 +567,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.dailyItems(
     // affichage neutre en attendant que les données historiques arrivent.
     item("temp_table_daily") {
         SectionTitle(stringResource(R.string.section_temp_table))
-        Card(
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-            ),
-            modifier = Modifier.padding(horizontal = 16.dp)
-        ) {
+        DetailTableCard {
             MinMaxForecastTable(
                 forecast = forecast,
                 normals = normals,
@@ -673,12 +665,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hourlyItems(
     // si la fenêtre horaire est vide (rare — nécessiterait cache pré-feature).
     item("weather_by_model_hourly") {
         SectionTitle(stringResource(R.string.section_weather_by_model))
-        Card(
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-            ),
-            modifier = Modifier.padding(horizontal = 16.dp)
-        ) {
+        DetailTableCard {
             HourlyWeatherByModelTable(
                 forecast = forecast,
                 modifier = Modifier.padding(8.dp)
@@ -695,12 +682,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hourlyItems(
     // zones "chaudes" et "froides" ressortent visuellement d'un coup d'œil.
     item("temp_table_hourly") {
         SectionTitle(stringResource(R.string.section_temp_hourly))
-        Card(
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-            ),
-            modifier = Modifier.padding(horizontal = 16.dp)
-        ) {
+        DetailTableCard {
             HourlyForecastTable(
                 forecast = forecast,
                 valueExtractor = { hourly: HourlyForecast, idx ->
@@ -719,12 +701,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hourlyItems(
 
     item("precip_table_hourly") {
         SectionTitle(stringResource(R.string.section_precipitation))
-        Card(
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-            ),
-            modifier = Modifier.padding(horizontal = 16.dp)
-        ) {
+        DetailTableCard {
             HourlyForecastTable(
                 forecast = forecast,
                 valueExtractor = { hourly: HourlyForecast, idx ->
@@ -750,12 +727,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hourlyItems(
 
     item("wind_table_hourly") {
         SectionTitle(stringResource(R.string.section_wind_hourly))
-        Card(
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-            ),
-            modifier = Modifier.padding(horizontal = 16.dp)
-        ) {
+        DetailTableCard {
             HourlyForecastTable(
                 forecast = forecast,
                 valueExtractor = { hourly: HourlyForecast, idx ->
@@ -997,6 +969,22 @@ private fun SectionTitle(text: String) {
 }
 
 @Composable
+private fun DetailTableCard(content: @Composable () -> Unit) {
+    val palette = detailTablePalette()
+    Card(
+        modifier = Modifier.padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLowest
+        ),
+        border = BorderStroke(1.dp, palette.border.copy(alpha = 0.72f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        content()
+    }
+}
+
+@Composable
 private fun ForecastSection(
     title: String,
     forecast: CityForecast,
@@ -1014,12 +1002,7 @@ private fun ForecastSection(
 ) {
     Column {
         SectionTitle(title)
-        Card(
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-            ),
-            modifier = Modifier.padding(horizontal = 16.dp)
-        ) {
+        DetailTableCard {
             ForecastTable(
                 forecast = forecast,
                 valueExtractor = extractor,

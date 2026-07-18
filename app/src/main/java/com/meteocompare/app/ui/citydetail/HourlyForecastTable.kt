@@ -1,6 +1,5 @@
 package com.meteocompare.app.ui.citydetail
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,6 +27,7 @@ import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.HourlyForecast
 import com.meteocompare.app.ui.components.WindArrow
+import com.meteocompare.app.ui.theme.color
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -141,22 +141,12 @@ fun HourlyForecastTable(
         return
     }
 
-    val headerBg = MaterialTheme.colorScheme.surfaceContainerHigh
-    val rowAltBg = MaterialTheme.colorScheme.surfaceContainerLow
-    // Highlight de l'heure courante — cohérent avec le highlight "aujourd'hui"
-    // du ForecastTable daily. Alpha 0.55 sur primaryContainer.
-    val currentHourBg = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
+    val tablePalette = detailTablePalette()
 
     // "Heure courante" = premier timestamp de la fenêtre (calé sur l'heure
     // pleine dans le fuseau). Comparé par identité d'Instant pour éviter
     // toute erreur de rounding.
     val currentHourInstant = timestamps.first()
-
-    fun bgFor(idx: Int, ts: Instant): Color = when {
-        ts == currentHourInstant -> currentHourBg
-        idx % 2 == 1 -> rowAltBg
-        else -> Color.Transparent
-    }
 
     val locale = LocalConfiguration.current.locales[0]
 
@@ -173,11 +163,11 @@ fun HourlyForecastTable(
     // deux côtés, uniforme sur toutes les colonnes du tableau.
     val headerHeight = if (modelBiasProvider != null) 60.dp else 40.dp
 
-    Row(modifier = modifier.fillMaxWidth()) {
+    Row(modifier = modifier.fillMaxWidth().detailTableFrame(tablePalette)) {
         // Colonne figée : labels d'heure. 84dp accommode "Lun. 14h" en français
         // (préfixe jour visible aux changements de jour uniquement).
         Column(modifier = Modifier.width(68.dp)) {
-            HourHeaderCell(background = headerBg, height = headerHeight)
+            HourHeaderCell(background = tablePalette.frozenHeaderSurface, height = headerHeight, palette = tablePalette)
             var previousDate: java.time.LocalDate? = null
             timestamps.forEachIndexed { idx, ts ->
                 val local = ts.atZone(zone)
@@ -193,15 +183,17 @@ fun HourlyForecastTable(
                             .getDisplayName(JavaTextStyle.SHORT, locale)
                             .replace(".", "")
                     } else null,
-                    background = bgFor(idx, ts),
-                    isCurrentHour = ts == currentHourInstant
+                    background = tablePalette.labelRowBackground(idx, ts == currentHourInstant),
+                    isCurrentHour = ts == currentHourInstant,
+                    palette = tablePalette
                 )
                 previousDate = date
             }
         }
 
         VerticalDivider(
-            modifier = Modifier.height(headerHeight + (timestamps.size * 32).dp)
+            modifier = Modifier.height(headerHeight + (timestamps.size * 32).dp),
+            color = tablePalette.frozenDivider
         )
 
         // Partie scrollable : une colonne par modèle. Cellules à `cellWidth`
@@ -235,9 +227,11 @@ fun HourlyForecastTable(
                 Column(modifier = Modifier.width(cellWidth)) {
                     HourModelHeaderCell(
                         text = model.displayName,
-                        background = headerBg,
+                        background = tablePalette.headerSurface,
                         width = cellWidth,
                         height = headerHeight,
+                        palette = tablePalette,
+                        accentColor = model.color(),
                         bias = bias,
                         onBiasClick = chipClick,
                         showChipSlot = inBiasMode,
@@ -258,13 +252,17 @@ fun HourlyForecastTable(
                         // L'heure courante reste identifiable via la colonne label,
                         // toujours mise en évidence indépendamment du heatmap.
                         val heatmap = value?.let { v -> heatmapStyler?.invoke(v) }
-                        val cellBackground = heatmap?.background ?: bgFor(idx, ts)
+                        val modernHeatmapBackground = heatmap?.background?.let {
+                            tablePalette.modernHeatmapBackground(it)
+                        }
+                        val cellBackground = modernHeatmapBackground
+                            ?: tablePalette.dataRowBackground(idx, ts == currentHourInstant)
                         // Style texte : priorité au heatmap.contentColor (contrasté
                         // avec son fond) ; à défaut, on retombe sur le valueStyler
                         // classique s'il est fourni ; sinon couleur par défaut.
                         val textStyle = when {
-                            heatmap != null -> ValueStyle(
-                                color = heatmap.contentColor,
+                            modernHeatmapBackground != null -> ValueStyle(
+                                color = contrastingContentColor(modernHeatmapBackground),
                                 fontWeight = FontWeight.Medium
                             )
                             else -> value?.let { v -> valueStyler?.invoke(v) }
@@ -273,7 +271,8 @@ fun HourlyForecastTable(
                             text = value?.let(valueFormatter) ?: "—",
                             style = textStyle,
                             background = cellBackground,
-                            directionDegrees = direction
+                            directionDegrees = direction,
+                            palette = tablePalette
                         )
                     }
                 }
@@ -283,12 +282,12 @@ fun HourlyForecastTable(
 }
 
 @Composable
-private fun HourHeaderCell(background: Color, height: Dp = 40.dp) {
+private fun HourHeaderCell(background: Color, height: Dp = 40.dp, palette: DetailTablePalette) {
     Box(
         modifier = Modifier
             .width(68.dp)
             .height(height)
-            .background(background)
+            .detailTableCell(background, palette)
             .padding(4.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -319,13 +318,15 @@ private fun HourModelHeaderCell(
     bias: com.meteocompare.app.domain.model.ModelBias? = null,
     onBiasClick: (() -> Unit)? = null,
     showChipSlot: Boolean = false,
-    sampleCount: Int? = null
+    sampleCount: Int? = null,
+    palette: DetailTablePalette,
+    accentColor: Color? = null
 ) {
     Column(
         modifier = Modifier
             .width(width)
             .height(height)
-            .background(background)
+            .detailTableCell(background, palette, accentColor)
             .padding(vertical = 4.dp, horizontal = 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(
@@ -367,13 +368,14 @@ private fun HourLabelCell(
     hourText: String,
     dayPrefix: String?,
     background: Color,
-    isCurrentHour: Boolean
+    isCurrentHour: Boolean,
+    palette: DetailTablePalette
 ) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(32.dp)
-            .background(background)
+            .detailTableCell(background, palette)
             .padding(horizontal = 6.dp),
         contentAlignment = Alignment.CenterStart
     ) {
@@ -389,7 +391,7 @@ private fun HourLabelCell(
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = if (isCurrentHour)
-                        MaterialTheme.colorScheme.onPrimaryContainer
+                        palette.highlightedText
                     else MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
@@ -397,7 +399,7 @@ private fun HourLabelCell(
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = if (isCurrentHour) FontWeight.Bold else FontWeight.Normal,
                     color = if (isCurrentHour)
-                        MaterialTheme.colorScheme.onPrimaryContainer
+                        palette.highlightedText
                     else MaterialTheme.colorScheme.onSurface
                 )
             }
@@ -407,7 +409,7 @@ private fun HourLabelCell(
                 style = MaterialTheme.typography.bodySmall,
                 fontWeight = if (isCurrentHour) FontWeight.Bold else FontWeight.Normal,
                 color = if (isCurrentHour)
-                    MaterialTheme.colorScheme.onPrimaryContainer
+                    palette.highlightedText
                 else MaterialTheme.colorScheme.onSurface
             )
         }
@@ -419,13 +421,14 @@ private fun HourValueCell(
     text: String,
     style: ValueStyle?,
     background: Color,
-    directionDegrees: Int? = null
+    directionDegrees: Int? = null,
+    palette: DetailTablePalette
 ) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(32.dp)
-            .background(background),
+            .detailTableCell(background, palette),
         contentAlignment = Alignment.Center
     ) {
         if (directionDegrees != null) {
@@ -436,7 +439,7 @@ private fun HourValueCell(
                 WindArrow(directionDegrees = directionDegrees, size = 10.dp)
                 Text(
                     text = text,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"),
                     color = style?.color ?: Color.Unspecified,
                     fontWeight = style?.fontWeight,
                     modifier = Modifier.padding(start = 2.dp)
@@ -445,7 +448,7 @@ private fun HourValueCell(
         } else {
             Text(
                 text = text,
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"),
                 color = style?.color ?: Color.Unspecified,
                 fontWeight = style?.fontWeight
             )

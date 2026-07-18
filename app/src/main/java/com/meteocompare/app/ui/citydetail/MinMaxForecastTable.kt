@@ -29,6 +29,7 @@ import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DayNormals
 import com.meteocompare.app.domain.model.WeatherModel
+import com.meteocompare.app.ui.theme.color
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import androidx.compose.ui.platform.LocalConfiguration
@@ -90,40 +91,41 @@ fun MinMaxForecastTable(
         return
     }
 
-    val headerBg = MaterialTheme.colorScheme.surfaceContainerHigh
-    val rowAltBg = MaterialTheme.colorScheme.surfaceContainerLow
+    val tablePalette = detailTablePalette()
     val onSurface = MaterialTheme.colorScheme.onSurface
     val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
-    // Highlight du jour courant — cohérent avec ForecastTable et
-    // WeatherByModelTable. Voir ForecastTable pour la rationale de l'alpha.
-    val todayBg = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
     val today = remember { LocalDate.now() }
-    fun bgFor(idx: Int, date: LocalDate): Color = when {
-        date == today -> todayBg
-        idx % 2 == 1 -> rowAltBg
-        else -> Color.Transparent
-    }
 
     // Header height dépend de la présence de chips de biais (même règle que
     // dans ForecastTable / HourlyForecastTable).
     val headerHeight = if (modelBiasProvider != null) 60.dp else 40.dp
 
     Column(modifier = modifier.fillMaxWidth()) {
-        Row(modifier = Modifier.fillMaxWidth()) {
+        Row(modifier = Modifier.fillMaxWidth().detailTableFrame(tablePalette)) {
             // Colonne figée des dates — largeur 96dp (plus large que la table
             // simple pour accomoder "Mer. 1" en jours longs)
             Column(modifier = Modifier.width(80.dp)) {
-                HeaderCellMM(text = "Jour", background = headerBg, width = 80.dp, height = headerHeight)
+                HeaderCellMM(
+                    text = "Jour",
+                    background = tablePalette.frozenHeaderSurface,
+                    width = 80.dp,
+                    height = headerHeight,
+                    palette = tablePalette
+                )
                 dates.forEachIndexed { idx, date ->
                     DayLabelCellMM(
                         date = date,
-                        background = bgFor(idx, date),
-                        isToday = date == today
+                        background = tablePalette.labelRowBackground(idx, date == today),
+                        isToday = date == today,
+                        palette = tablePalette
                     )
                 }
             }
 
-            VerticalDivider(modifier = Modifier.height(headerHeight + (dates.size * 40).dp))
+            VerticalDivider(
+                modifier = Modifier.height(headerHeight + (dates.size * 40).dp),
+                color = tablePalette.frozenDivider
+            )
 
             // Partie scrollable : une colonne par modèle, plus large (88dp) car
             // chaque cellule contient deux valeurs séparées par "/".
@@ -142,9 +144,11 @@ fun MinMaxForecastTable(
                     Column(modifier = Modifier.width(88.dp)) {
                         HeaderCellMM(
                             text = model.displayName,
-                            background = headerBg,
+                            background = tablePalette.headerSurface,
                             width = 88.dp,
                             height = headerHeight,
+                            palette = tablePalette,
+                            accentColor = model.color(),
                             bias = bias,
                             onBiasClick = chipClick,
                             showChipSlot = inBiasMode,
@@ -163,7 +167,8 @@ fun MinMaxForecastTable(
                                 separatorColor = onSurfaceVariant,
                                 warmColor = WarmTempColor,
                                 coolColor = CoolTempColor,
-                                background = bgFor(idx, date)
+                                background = tablePalette.dataRowBackground(idx, date == today),
+                                palette = tablePalette
                             )
                         }
                     }
@@ -227,13 +232,15 @@ private fun HeaderCellMM(
     bias: com.meteocompare.app.domain.model.ModelBias? = null,
     onBiasClick: (() -> Unit)? = null,
     showChipSlot: Boolean = false,
-    sampleCount: Int? = null
+    sampleCount: Int? = null,
+    palette: DetailTablePalette,
+    accentColor: Color? = null
 ) {
     Column(
         modifier = Modifier
             .width(width)
             .height(height)
-            .background(background)
+            .detailTableCell(background, palette, accentColor)
             .padding(vertical = 4.dp, horizontal = 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(
@@ -260,7 +267,7 @@ private fun HeaderCellMM(
 }
 
 @Composable
-private fun DayLabelCellMM(date: LocalDate, background: Color, isToday: Boolean = false) {
+private fun DayLabelCellMM(date: LocalDate, background: Color, isToday: Boolean = false, palette: DetailTablePalette) {
     val locale = LocalConfiguration.current.locales[0]
     val formatter = remember(locale) {
         DateTimeFormatter.ofPattern("EEE d", locale)
@@ -269,7 +276,7 @@ private fun DayLabelCellMM(date: LocalDate, background: Color, isToday: Boolean 
         modifier = Modifier
             .fillMaxWidth()
             .height(40.dp)
-            .background(background)
+            .detailTableCell(background, palette)
             .padding(horizontal = 6.dp),
         contentAlignment = Alignment.CenterStart
     ) {
@@ -279,7 +286,7 @@ private fun DayLabelCellMM(date: LocalDate, background: Color, isToday: Boolean 
             style = MaterialTheme.typography.bodySmall,
             fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
             color = if (isToday)
-                MaterialTheme.colorScheme.onPrimaryContainer
+                palette.highlightedText
             else MaterialTheme.colorScheme.onSurface
         )
     }
@@ -294,13 +301,14 @@ private fun MinMaxCell(
     separatorColor: Color,
     warmColor: Color,
     coolColor: Color,
-    background: Color
+    background: Color,
+    palette: DetailTablePalette
 ) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(40.dp)
-            .background(background),
+            .detailTableCell(background, palette),
         contentAlignment = Alignment.Center
     ) {
         val display = remember(tempMax, tempMin, normal) {
@@ -322,7 +330,7 @@ private fun MinMaxCell(
                 }
             }
         }
-        Text(text = display, style = MaterialTheme.typography.bodyMedium)
+        Text(text = display, style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"))
     }
 }
 

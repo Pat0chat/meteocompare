@@ -1,6 +1,5 @@
 package com.meteocompare.app.ui.citydetail
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -34,6 +33,7 @@ import com.meteocompare.app.domain.usecase.DayCellExtras
 import com.meteocompare.app.domain.usecase.DayConditionsRow
 import com.meteocompare.app.ui.components.WeatherIconDecorative
 import com.meteocompare.app.ui.components.semanticTint
+import com.meteocompare.app.ui.theme.color
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -76,35 +76,31 @@ fun WeatherByModelTable(
         return
     }
 
-    val headerBg = MaterialTheme.colorScheme.surfaceContainerHigh
-    val rowAltBg = MaterialTheme.colorScheme.surfaceContainerLow
-    // Highlight du jour courant — cohérent avec ForecastTable et
-    // MinMaxForecastTable. Alpha 0.55 sur primaryContainer donne un ton
-    // distinct de l'alternance neutre sans écraser l'icône colorée à
-    // l'intérieur.
-    val todayBg = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
+    val tablePalette = detailTablePalette()
     val today = remember { LocalDate.now() }
-    fun bgFor(idx: Int, date: LocalDate): Color = when {
-        date == today -> todayBg
-        idx % 2 == 1 -> rowAltBg
-        else -> Color.Transparent
-    }
 
-    Row(modifier = modifier.fillMaxWidth()) {
+    Row(modifier = modifier.fillMaxWidth().detailTableFrame(tablePalette)) {
         // Colonne figée : dates
         Column(modifier = Modifier.width(60.dp)) {
-            HeaderCell(text = "", background = headerBg, modifier = Modifier.width(60.dp))
+            HeaderCell(
+                text = "",
+                background = tablePalette.frozenHeaderSurface,
+                modifier = Modifier.width(60.dp),
+                palette = tablePalette
+            )
             rows.forEachIndexed { idx, row ->
                 DayLabelCell(
                     text = formatDayLabel(row),
-                    background = bgFor(idx, row.date),
-                    isToday = row.date == today
+                    background = tablePalette.labelRowBackground(idx, row.date == today),
+                    isToday = row.date == today,
+                    palette = tablePalette
                 )
             }
         }
 
         VerticalDivider(
-            modifier = Modifier.height((40 + rows.size * 52).dp)
+            modifier = Modifier.height((40 + rows.size * 52).dp),
+            color = tablePalette.frozenDivider
         )
 
         // Partie scrollable : une colonne par modèle
@@ -113,15 +109,18 @@ fun WeatherByModelTable(
                 Column(modifier = Modifier.width(76.dp)) {
                     HeaderCell(
                         text = model.displayName,
-                        background = headerBg,
-                        modifier = Modifier.width(76.dp)
+                        background = tablePalette.headerSurface,
+                        modifier = Modifier.width(76.dp),
+                        palette = tablePalette,
+                        accentColor = model.color()
                     )
                     rows.forEachIndexed { idx, row ->
                         IconCell(
                             condition = row.byModel[model],
                             extras = row.extrasByModel[model],
                             isInferred = model in row.inferredByModel,
-                            background = bgFor(idx, row.date)
+                            background = tablePalette.dataRowBackground(idx, row.date == today),
+                            palette = tablePalette
                         )
                     }
                 }
@@ -142,11 +141,17 @@ private fun formatDayLabel(row: DayConditionsRow): String {
 }
 
 @Composable
-private fun HeaderCell(text: String, background: Color, modifier: Modifier = Modifier) {
+private fun HeaderCell(
+    text: String,
+    background: Color,
+    modifier: Modifier = Modifier,
+    palette: DetailTablePalette,
+    accentColor: Color? = null
+) {
     Box(
         modifier = modifier
             .height(40.dp)
-            .background(background)
+            .detailTableCell(background, palette, accentColor)
             .padding(4.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -168,12 +173,12 @@ private fun HeaderCell(text: String, background: Color, modifier: Modifier = Mod
 }
 
 @Composable
-private fun DayLabelCell(text: String, background: Color, isToday: Boolean = false) {
+private fun DayLabelCell(text: String, background: Color, isToday: Boolean = false, palette: DetailTablePalette) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(52.dp)
-            .background(background)
+            .detailTableCell(background, palette)
             .padding(horizontal = 4.dp),
         contentAlignment = Alignment.CenterStart
     ) {
@@ -182,7 +187,7 @@ private fun DayLabelCell(text: String, background: Color, isToday: Boolean = fal
             style = MaterialTheme.typography.bodySmall,
             fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
             color = if (isToday)
-                MaterialTheme.colorScheme.onPrimaryContainer
+                palette.highlightedText
             else MaterialTheme.colorScheme.onSurface
         )
     }
@@ -208,13 +213,14 @@ private fun IconCell(
     condition: WeatherCondition?,
     extras: DayCellExtras?,
     isInferred: Boolean,
-    background: Color
+    background: Color,
+    palette: DetailTablePalette
 ) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(52.dp)
-            .background(background),
+            .detailTableCell(background, palette),
         contentAlignment = Alignment.Center
     ) {
         if (condition == null) {

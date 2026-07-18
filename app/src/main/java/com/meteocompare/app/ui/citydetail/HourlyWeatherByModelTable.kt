@@ -1,6 +1,5 @@
 package com.meteocompare.app.ui.citydetail
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,6 +30,7 @@ import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.ui.components.WeatherIconDecorative
 import com.meteocompare.app.ui.components.semanticTint
+import com.meteocompare.app.ui.theme.color
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -156,25 +156,17 @@ fun HourlyWeatherByModelTable(
         return
     }
 
-    val headerBg = MaterialTheme.colorScheme.surfaceContainerHigh
-    val rowAltBg = MaterialTheme.colorScheme.surfaceContainerLow
-    val currentHourBg = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
+    val tablePalette = detailTablePalette()
     val currentHourInstant = timestamps.first()
-
-    fun bgFor(idx: Int, ts: Instant): Color = when {
-        ts == currentHourInstant -> currentHourBg
-        idx % 2 == 1 -> rowAltBg
-        else -> Color.Transparent
-    }
 
     val locale = LocalConfiguration.current.locales[0]
     val hourFmt = remember(locale) { DateTimeFormatter.ofPattern("HH'h'", locale) }
 
-    Row(modifier = modifier.fillMaxWidth()) {
+    Row(modifier = modifier.fillMaxWidth().detailTableFrame(tablePalette)) {
         // Colonne figée : labels d'heure. 84dp comme HourlyForecastTable pour
         // uniformité visuelle entre les tables hourly.
         Column(modifier = Modifier.width(64.dp)) {
-            HourHeaderCellBlank(background = headerBg)
+            HourHeaderCellBlank(background = tablePalette.frozenHeaderSurface, palette = tablePalette)
             var previousDate: LocalDate? = null
             timestamps.forEachIndexed { idx, ts ->
                 val local = ts.atZone(zone)
@@ -187,15 +179,17 @@ fun HourlyWeatherByModelTable(
                             .getDisplayName(JavaTextStyle.SHORT, locale)
                             .replace(".", "")
                     } else null,
-                    background = bgFor(idx, ts),
-                    isCurrentHour = ts == currentHourInstant
+                    background = tablePalette.labelRowBackground(idx, ts == currentHourInstant),
+                    isCurrentHour = ts == currentHourInstant,
+                    palette = tablePalette
                 )
                 previousDate = date
             }
         }
 
         VerticalDivider(
-            modifier = Modifier.height((40 + timestamps.size * 44).dp)
+            modifier = Modifier.height((40 + timestamps.size * 44).dp),
+            color = tablePalette.frozenDivider
         )
 
         // Partie scrollable : une colonne par modèle. Cellule 44dp — plus haute
@@ -206,11 +200,17 @@ fun HourlyWeatherByModelTable(
         Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
             models.forEach { model ->
                 Column(modifier = Modifier.width(76.dp)) {
-                    ModelHeaderCell(text = model.displayName, background = headerBg)
+                    ModelHeaderCell(
+                        text = model.displayName,
+                        background = tablePalette.headerSurface,
+                        palette = tablePalette,
+                        accentColor = model.color()
+                    )
                     timestamps.forEachIndexed { idx, ts ->
                         HourIconCell(
                             cell = cellsByTimestamp[ts]?.get(model),
-                            background = bgFor(idx, ts)
+                            background = tablePalette.dataRowBackground(idx, ts == currentHourInstant),
+                            palette = tablePalette
                         )
                     }
                 }
@@ -220,24 +220,24 @@ fun HourlyWeatherByModelTable(
 }
 
 @Composable
-private fun HourHeaderCellBlank(background: Color) {
+private fun HourHeaderCellBlank(background: Color, palette: DetailTablePalette) {
     Box(
         modifier = Modifier
             .width(64.dp)
             .height(40.dp)
-            .background(background)
+            .detailTableCell(background, palette)
             .padding(4.dp),
         contentAlignment = Alignment.Center
     ) { }
 }
 
 @Composable
-private fun ModelHeaderCell(text: String, background: Color) {
+private fun ModelHeaderCell(text: String, background: Color, palette: DetailTablePalette, accentColor: Color? = null) {
     Box(
         modifier = Modifier
             .width(76.dp)
             .height(40.dp)
-            .background(background)
+            .detailTableCell(background, palette, accentColor)
             .padding(4.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -260,13 +260,14 @@ private fun HourLabelCellWeather(
     hourText: String,
     dayPrefix: String?,
     background: Color,
-    isCurrentHour: Boolean
+    isCurrentHour: Boolean,
+    palette: DetailTablePalette
 ) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(44.dp)
-            .background(background)
+            .detailTableCell(background, palette)
             .padding(horizontal = 6.dp),
         contentAlignment = Alignment.CenterStart
     ) {
@@ -277,7 +278,7 @@ private fun HourLabelCellWeather(
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = if (isCurrentHour)
-                        MaterialTheme.colorScheme.onPrimaryContainer
+                        palette.highlightedText
                     else MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
@@ -285,7 +286,7 @@ private fun HourLabelCellWeather(
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = if (isCurrentHour) FontWeight.Bold else FontWeight.Normal,
                     color = if (isCurrentHour)
-                        MaterialTheme.colorScheme.onPrimaryContainer
+                        palette.highlightedText
                     else MaterialTheme.colorScheme.onSurface
                 )
             }
@@ -295,7 +296,7 @@ private fun HourLabelCellWeather(
                 style = MaterialTheme.typography.bodySmall,
                 fontWeight = if (isCurrentHour) FontWeight.Bold else FontWeight.Normal,
                 color = if (isCurrentHour)
-                    MaterialTheme.colorScheme.onPrimaryContainer
+                    palette.highlightedText
                 else MaterialTheme.colorScheme.onSurface
             )
         }
@@ -323,12 +324,12 @@ private data class HourCellData(
 )
 
 @Composable
-private fun HourIconCell(cell: HourCellData?, background: Color) {
+private fun HourIconCell(cell: HourCellData?, background: Color, palette: DetailTablePalette) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(44.dp)
-            .background(background),
+            .detailTableCell(background, palette),
         contentAlignment = Alignment.Center
     ) {
         if (cell == null) {
