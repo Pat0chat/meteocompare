@@ -304,7 +304,10 @@ class CityListViewModelTest {
                 forecastRepo.getCityForecastStream(eq(lyon), any(), any(), any(), any())
             } returns flowOf(ApiResult.Success(buildForecast(lyon, dailyMaxTemp = 20.0)))
 
-            val vm = CityListViewModel(cityRepo, forecastRepo, calculator, prefs, dispatcher)
+            // Utilise l'instance créée par setUp. Créer une seconde VM ici
+            // abonnerait deux collecteurs au même favoritesFlow et lancerait
+            // légitimement deux streams pour la nouvelle ville.
+            val vm = viewModel
             backgroundScope.launch { vm.uiState.collect {} }
             favoritesFlow.value = listOf(paris)
             vm.uiState.first { it.items.firstOrNull()?.forecast is ForecastState.Loaded }
