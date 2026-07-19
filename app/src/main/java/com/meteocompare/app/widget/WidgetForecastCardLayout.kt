@@ -21,3 +21,12 @@ internal fun forecastCardHeightProfile(heightDp: Float): ForecastCardHeightProfi
     heightDp < 215f -> ForecastCardHeightProfile.COMFORTABLE
     else -> ForecastCardHeightProfile.EXPANDED
 }
+
+/** Padding vertical partagé par les layouts hauts et leurs contenus adaptatifs. */
+internal fun forecastContainerVerticalPaddingDp(heightDp: Float): Float =
+    when (forecastCardHeightProfile(heightDp)) {
+        ForecastCardHeightProfile.DENSE -> 7f
+        ForecastCardHeightProfile.COMPACT -> 9f
+        ForecastCardHeightProfile.COMFORTABLE -> 11f
+        ForecastCardHeightProfile.EXPANDED -> 13f
+    }

@@ -338,21 +338,11 @@ private fun WidgetContent(
         WidgetLayoutKind.TINY -> TinyPadding
         WidgetLayoutKind.COMPACT_TALL -> WidgetPadding(
             horizontal = CompactTallPadding.horizontal,
-            vertical = when (forecastCardHeightProfile(heightDp)) {
-                ForecastCardHeightProfile.DENSE -> 7.dp
-                ForecastCardHeightProfile.COMPACT -> 9.dp
-                ForecastCardHeightProfile.COMFORTABLE -> 11.dp
-                ForecastCardHeightProfile.EXPANDED -> 13.dp
-            }
+            vertical = forecastContainerVerticalPaddingDp(heightDp).dp
         )
         WidgetLayoutKind.EXTRA_LARGE -> WidgetPadding(
             horizontal = ExtraLargePadding.horizontal,
-            vertical = when (forecastCardHeightProfile(heightDp)) {
-                ForecastCardHeightProfile.DENSE -> 7.dp
-                ForecastCardHeightProfile.COMPACT -> 9.dp
-                ForecastCardHeightProfile.COMFORTABLE -> 11.dp
-                ForecastCardHeightProfile.EXPANDED -> 13.dp
-            }
+            vertical = forecastContainerVerticalPaddingDp(heightDp).dp
         )
         WidgetLayoutKind.MEDIUM -> MediumPadding
         WidgetLayoutKind.LARGE,
@@ -798,6 +788,7 @@ private fun CompactTallLayout(
                 compact = true,
                 textColorArgb = onContainerArgb,
                 outerHorizontalPadding = CompactTallPadding.horizontal,
+                headerHeightBudgetDp = 52f,
                 modifier = GlanceModifier.defaultWeight()
             )
 
@@ -1053,6 +1044,7 @@ private fun ExtraLargeLayout(
                 softSurface = softSurface,
                 compact = compactHeight,
                 textColorArgb = onContainerArgb,
+                headerHeightBudgetDp = if (compactHeight) 38f else 44f,
                 // defaultWeight ici parce qu'on est dans le ColumnScope de
                 // l'ExtraLargeLayout — occupe l'espace vertical restant sous le
                 // top strip pour ne pas laisser un vide de 40+dp en bas de card.
@@ -1095,6 +1087,7 @@ private fun MiniForecastStrip(
     compact: Boolean,
     textColorArgb: Int,
     outerHorizontalPadding: Dp = ExtraLargePadding.horizontal,
+    headerHeightBudgetDp: Float,
     modifier: GlanceModifier = GlanceModifier
 ) {
     val context = LocalContext.current
@@ -1113,18 +1106,14 @@ private fun MiniForecastStrip(
             chartHorizontalPaddingDp * 2f
         ).coerceAtLeast(80f)
     val widthPx = (availableWidthDp * renderDensity).toInt().coerceAtLeast(1)
-    // La grille 2 × 6 utilise réellement la hauteur disponible des widgets
-    // ×2. L'ancienne bande de 54-74dp restait centrée dans un grand espace
-    // vide ; on passe à une surface plus généreuse tout en restant sous la
-    // hauteur disponible après le bandeau principal.
-    val preferredChartHeightDp = when (profile) {
-        MiniForecastSizeProfile.COMPACT_2X2 -> 88
-        MiniForecastSizeProfile.MEDIUM_3X2 -> 94
-        MiniForecastSizeProfile.EXPANDED_4X2 -> if (compact) 96 else 102
-    }
-    val chartHeightDp = minOf(
-        preferredChartHeightDp,
-        (size.height.value * 0.55f).coerceAtLeast(72f).toInt()
+    // La hauteur du bitmap suit désormais la hauteur exacte du widget. Le
+    // calcul retire le bandeau courant et les paddings, puis laisse les deux
+    // lignes de heatmap grandir jusqu'à une borne adaptée à la largeur.
+    val chartHeightDp = miniForecastChartHeightDp(
+        widgetHeightDp = size.height.value,
+        headerHeightDp = headerHeightBudgetDp,
+        sectionGapDp = if (compact) 6f else 10f,
+        profile = profile
     )
     val heightPx = (chartHeightDp * renderDensity).toInt().coerceAtLeast(1)
     val precipColorArgb = 0xFF1976D2.toInt()

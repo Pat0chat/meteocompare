@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
+import android.graphics.Typeface
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -24,19 +25,49 @@ internal fun miniForecastProfileForWidth(widthDp: Float): MiniForecastSizeProfil
 }
 
 /**
+ * Calcule la hauteur réellement utile du bitmap à partir de la hauteur du widget.
+ *
+ * L'ancien rendu plafonnait la mini-prévision autour de 90–100 dp : sur un widget
+ * redimensionné en hauteur, le conteneur grandissait mais pas son contenu. Ici on
+ * retire le budget du bandeau courant, des paddings du widget et de l'espacement,
+ * puis on laisse la heatmap grandir dans des bornes adaptées à la largeur.
+ */
+internal fun miniForecastChartHeightDp(
+    widgetHeightDp: Float,
+    headerHeightDp: Float,
+    sectionGapDp: Float,
+    profile: MiniForecastSizeProfile
+): Int {
+    val widgetPadding = forecastContainerVerticalPaddingDp(widgetHeightDp) * 2f
+    val chartInnerPadding = if (widgetHeightDp < 175f) 4f else 6f
+    val available = widgetHeightDp - widgetPadding - headerHeightDp - sectionGapDp - chartInnerPadding
+
+    val minimum = when {
+        widgetHeightDp < 145f -> 54f
+        widgetHeightDp < 175f -> 66f
+        else -> 78f
+    }
+    val maximum = when (profile) {
+        MiniForecastSizeProfile.COMPACT_2X2 -> 160f
+        MiniForecastSizeProfile.MEDIUM_3X2 -> 190f
+        MiniForecastSizeProfile.EXPANDED_4X2 -> 220f
+    }
+
+    return available.coerceIn(minimum, maximum).roundToInt()
+}
+
+/**
  * Rendu bitmap de la mini-prévision 12 h utilisée dans les widgets Glance.
  *
- * Les douze échéances sont réparties sur deux lignes de six cellules. Cette
- * grille double la largeur utile de chaque heure par rapport à l'ancienne
- * bande unique et exploite la hauteur des formats ×2 :
+ * Les douze échéances sont réparties sur deux lignes de six cellules. Chaque
+ * cellule est désormais une vraie heatmap en deux zones :
  *
- *   heure
- *   température forte
- *   accent thermique coloré
- *   risque de pluie + indicateur d'intensité
+ *   - zone haute colorée selon la température absolue ;
+ *   - zone basse bleue dont l'opacité combine probabilité et cumul de pluie.
  *
- * La première échéance est légèrement mise en avant, sans ajouter de bordure
- * lourde. Les couleurs restent les mêmes que dans l'application.
+ * Les valeurs restent au premier plan avec une couleur de texte calculée pour
+ * conserver le contraste. Le bitmap se redimensionne avec la hauteur du widget,
+ * au lieu de rester une petite bande centrée dans un grand conteneur.
  */
 internal object WidgetMiniForecastRenderer {
 
@@ -66,46 +97,52 @@ internal object WidgetMiniForecastRenderer {
         val shapePaint = Paint(Paint.ANTI_ALIAS_FLAG)
         val temperatureFractions = temperatureBarFractions(temps)
 
-        val outerPadding = (heightPx * 0.025f).coerceAtLeast(2f)
-        val rowGap = (heightPx * 0.045f).coerceAtLeast(3f)
+        val outerPadding = (heightPx * 0.022f).coerceAtLeast(2f)
+        val rowGap = (heightPx * 0.042f).coerceAtLeast(3f)
         val usableHeight = heightPx - outerPadding * 2f - rowGap
         val rowHeight = usableHeight / 2f
         val columnWidth = (widthPx - outerPadding * 2f) / COLUMNS_PER_ROW
         val cellGap = (columnWidth * metrics.cellGapFraction).coerceAtLeast(1f)
-        val cellRadius = min(columnWidth * 0.20f, rowHeight * 0.12f)
+        val cellRadius = min(columnWidth * 0.18f, rowHeight * 0.10f)
 
         val timePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = withAlpha(textColorArgb, 0xA8)
             textAlign = Paint.Align.CENTER
-            textSize = rowHeight * metrics.timeTextFraction
+            textSize = min(
+                rowHeight * metrics.timeTextFraction,
+                columnWidth * metrics.timeWidthLimitFraction
+            ).coerceAtLeast(7f)
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             isSubpixelText = true
         }
         val tempPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = textColorArgb
             textAlign = Paint.Align.CENTER
-            textSize = rowHeight * metrics.tempTextFraction
-            typeface = android.graphics.Typeface.create(
-                android.graphics.Typeface.DEFAULT,
-                android.graphics.Typeface.BOLD
-            )
+            textSize = min(
+                rowHeight * metrics.tempTextFraction,
+                columnWidth * metrics.tempWidthLimitFraction
+            ).coerceAtLeast(13f)
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             isSubpixelText = true
         }
         val precipPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = withAlpha(textColorArgb, 0xC8)
             textAlign = Paint.Align.CENTER
-            textSize = rowHeight * metrics.precipTextFraction
+            textSize = min(
+                rowHeight * metrics.precipTextFraction,
+                columnWidth * metrics.precipWidthLimitFraction
+            ).coerceAtLeast(7f)
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             isSubpixelText = true
         }
         val dividerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = withAlpha(textColorArgb, 0x20)
+            color = withAlpha(textColorArgb, 0x24)
             strokeWidth = (heightPx * 0.006f).coerceAtLeast(1f)
         }
 
-        // Séparation très discrète entre les deux tranches de six heures.
+        // Séparation discrète entre les deux tranches de six heures.
         val dividerY = outerPadding + rowHeight + rowGap / 2f
         canvas.drawLine(outerPadding, dividerY, widthPx - outerPadding, dividerY, dividerPaint)
 
         val rect = RectF()
+        val cellRect = RectF()
         for (index in 0 until CELL_COUNT) {
             val row = index / COLUMNS_PER_ROW
             val column = index % COLUMNS_PER_ROW
@@ -115,80 +152,115 @@ internal object WidgetMiniForecastRenderer {
             val bottom = rowTop + rowHeight
             val centerX = (left + right) / 2f
 
-            // Carte horaire sobre ; la première échéance est légèrement mise en avant.
-            /*rect.set(left, rowTop, right, bottom)
+            cellRect.set(left, rowTop, right, bottom)
+            shapePaint.style = Paint.Style.FILL
             shapePaint.color = withAlpha(textColorArgb, if (index == 0) 0x18 else 0x0C)
-            canvas.drawRoundRect(rect, cellRadius, cellRadius, shapePaint)*/
+            canvas.drawRoundRect(cellRect, cellRadius, cellRadius, shapePaint)
 
-            val label = timelineLabels.getOrNull(index) ?: "+${index}h"
-            canvas.drawText(label, centerX, rowTop + rowHeight * 0.20f, timePaint)
-
+            // ─── Zone température : grande tuile colorée ─────────────────
+            val tempTop = rowTop + rowHeight * 0.045f
+            val tempBottom = rowTop + rowHeight * 0.645f
             val temp = temps.getOrNull(index)
-            if (temp != null) {
-                canvas.drawText(
-                    "${temp.roundToInt()}°",
-                    centerX,
-                    rowTop + rowHeight * 0.51f,
-                    tempPaint
-                )
+            val tempColor = temp?.let(::temperatureHeatmapArgb)
+                ?: withAlpha(textColorArgb, 0x18)
+            val tempTileColor = if (temp == null) tempColor else withAlpha(tempColor, 0xE8)
 
-                // Accent thermique horizontal : couleur = température,
-                // longueur = position relative dans la fenêtre 12 h.
-                val fraction = temperatureFractions.getOrNull(index)
-                    ?: MIN_VISIBLE_BAR_FRACTION
-                val accentMaxWidth = (right - left) * 0.70f
-                val accentWidth = accentMaxWidth * (0.45f + 0.55f * fraction)
-                val accentHeight = (rowHeight * 0.055f).coerceAtLeast(2f)
+            rect.set(left, tempTop, right, tempBottom)
+            shapePaint.color = tempTileColor
+            canvas.drawRoundRect(rect, cellRadius, cellRadius, shapePaint)
+
+            val tempContentColor = if (temp == null) {
+                withAlpha(textColorArgb, 0xB0)
+            } else {
+                heatmapContentColorArgb(tempColor)
+            }
+            val label = timelineLabels.getOrNull(index) ?: "+${index}h"
+            timePaint.color = withAlpha(tempContentColor, 0xD8)
+            tempPaint.color = tempContentColor
+
+            val tempZoneHeight = tempBottom - tempTop
+            canvas.drawText(
+                label,
+                centerX,
+                tempTop + tempZoneHeight * 0.29f,
+                timePaint
+            )
+            canvas.drawText(
+                temp?.let { "${it.roundToInt()}°" } ?: "—",
+                centerX,
+                tempTop + tempZoneHeight * 0.78f,
+                tempPaint
+            )
+
+            // Marqueur thermique relatif très discret : il aide à comparer les
+            // heures proches sans concurrencer la couleur absolue de la heatmap.
+            val tempFraction = temperatureFractions.getOrNull(index)
+            if (tempFraction != null) {
+                val levelWidth = (right - left) * tempFraction.coerceIn(0f, 1f)
+                val levelHeight = (rowHeight * 0.018f).coerceAtLeast(1.5f)
                 rect.set(
-                    centerX - accentWidth / 2f,
-                    rowTop + rowHeight * 0.59f,
-                    centerX + accentWidth / 2f,
-                    rowTop + rowHeight * 0.59f + accentHeight
+                    left,
+                    tempBottom - levelHeight,
+                    left + levelWidth,
+                    tempBottom
                 )
-                shapePaint.color = temperatureHeatmapArgb(temp)
-                canvas.drawRoundRect(rect, accentHeight / 2f, accentHeight / 2f, shapePaint)
+                shapePaint.color = withAlpha(tempContentColor, 0xA0)
+                canvas.drawRoundRect(rect, levelHeight / 2f, levelHeight / 2f, shapePaint)
             }
 
+            // ─── Zone précipitations : bande heatmap pleine largeur ──────
+            val precipTop = rowTop + rowHeight * 0.705f
+            val precipBottom = rowTop + rowHeight * 0.955f
             val probability = precipProbabilities.getOrNull(index)?.coerceIn(0, 100)
             val amountMm = precipAmountsMm.getOrNull(index)?.coerceAtLeast(0.0)
-            if (probability != null) {
-                val dotRadius = (rowHeight * 0.035f).coerceAtLeast(1.5f)
-                val text = "$probability%"
-                val textWidth = precipPaint.measureText(text)
-                val contentWidth = dotRadius * 2.6f + textWidth
-                val dotX = centerX - contentWidth / 2f + dotRadius
-                val precipBaseline = rowTop + rowHeight * 0.84f
-                shapePaint.color = precipitationHeatmapArgb(
-                    probability = probability,
-                    precipColorArgb = precipColorArgb,
-                    textColorArgb = textColorArgb,
-                    amountMm = amountMm
-                )
-                canvas.drawCircle(dotX, precipBaseline - dotRadius, dotRadius, shapePaint)
-                precipPaint.textAlign = Paint.Align.LEFT
-                canvas.drawText(text, dotX + dotRadius * 1.6f, precipBaseline, precipPaint)
-                precipPaint.textAlign = Paint.Align.CENTER
-            }
+            val precipTileColor = precipitationHeatmapArgb(
+                probability = probability,
+                precipColorArgb = precipColorArgb,
+                textColorArgb = textColorArgb,
+                amountMm = amountMm
+            )
 
-            // Trait pluie inférieur : intensité combinée quantité/probabilité.
+            rect.set(left, precipTop, right, precipBottom)
+            shapePaint.color = precipTileColor
+            canvas.drawRoundRect(rect, cellRadius * 0.72f, cellRadius * 0.72f, shapePaint)
+
+            val precipAlpha = (precipTileColor ushr 24) and 0xFF
+            precipPaint.color = if (precipAlpha >= 0x78) {
+                heatmapContentColorArgb(precipColorArgb)
+            } else {
+                withAlpha(textColorArgb, 0xD8)
+            }
+            val precipText = probability?.let { "$it%" } ?: "—"
+            val precipFontMetrics = precipPaint.fontMetrics
+            val precipBaseline = (precipTop + precipBottom) / 2f -
+                (precipFontMetrics.ascent + precipFontMetrics.descent) / 2f
+            canvas.drawText(precipText, centerX, precipBaseline, precipPaint)
+
+            // Barre de saturation : probabilité + quantité. Elle reste secondaire
+            // par rapport à la bande bleue, mais rend les cumuls forts visibles.
             val rainFraction = precipitationBarFraction(amountMm, probability)
             if (rainFraction != null && rainFraction > 0f) {
-                val trackWidth = (right - left) * 0.72f
-                val rainWidth = trackWidth * rainFraction
-                val rainHeight = (rowHeight * 0.035f).coerceAtLeast(1.5f)
+                val rainHeight = (rowHeight * 0.022f).coerceAtLeast(1.5f)
+                val rainWidth = (right - left) * rainFraction
                 rect.set(
-                    centerX - rainWidth / 2f,
-                    bottom - rowHeight * 0.08f,
-                    centerX + rainWidth / 2f,
-                    bottom - rowHeight * 0.08f + rainHeight
+                    left,
+                    precipBottom - rainHeight,
+                    left + rainWidth,
+                    precipBottom
                 )
-                shapePaint.color = precipitationHeatmapArgb(
-                    probability = probability,
-                    precipColorArgb = precipColorArgb,
-                    textColorArgb = textColorArgb,
-                    amountMm = amountMm
-                )
+                shapePaint.color = withAlpha(precipColorArgb, 0xF0)
                 canvas.drawRoundRect(rect, rainHeight / 2f, rainHeight / 2f, shapePaint)
+            }
+
+            // Première échéance = maintenant : contour léger, visible sur les
+            // deux couleurs sans rajouter un badge ou du texte.
+            if (index == 0) {
+                shapePaint.style = Paint.Style.STROKE
+                shapePaint.strokeWidth = (min(columnWidth, rowHeight) * 0.025f)
+                    .coerceAtLeast(1.5f)
+                shapePaint.color = withAlpha(textColorArgb, 0x88)
+                canvas.drawRoundRect(cellRect, cellRadius, cellRadius, shapePaint)
+                shapePaint.style = Paint.Style.FILL
             }
         }
 
@@ -199,7 +271,7 @@ internal object WidgetMiniForecastRenderer {
     internal fun visibleValueIndices(profile: MiniForecastSizeProfile): List<Int> =
         (0 until CELL_COUNT).toList()
 
-    /** Hauteur relative des barres température, normalisée sur la fenêtre 12 h. */
+    /** Longueur relative du marqueur thermique, normalisée sur la fenêtre 12 h. */
     internal fun temperatureBarFractions(temps: List<Double?>): List<Float?> {
         val values = temps.filterNotNull()
         if (values.isEmpty()) return List(temps.size) { null }
@@ -219,9 +291,9 @@ internal object WidgetMiniForecastRenderer {
     }
 
     /**
-     * Hauteur pluie combinant la quantité horaire et la probabilité.
+     * Intensité pluie combinant la quantité horaire et la probabilité.
      * La racine carrée rend les faibles cumuls visibles sans laisser un épisode
-     * intense écraser toutes les autres barres.
+     * intense écraser toutes les autres cases.
      */
     internal fun precipitationBarFraction(amountMm: Double?, probability: Int?): Float? {
         if (amountMm == null && probability == null) return null
@@ -241,22 +313,31 @@ internal object WidgetMiniForecastRenderer {
 
     private fun gridMetricsFor(profile: MiniForecastSizeProfile): GridMetrics = when (profile) {
         MiniForecastSizeProfile.COMPACT_2X2 -> GridMetrics(
-            timeTextFraction = 0.125f,
-            tempTextFraction = 0.245f,
-            precipTextFraction = 0.115f,
-            cellGapFraction = 0.10f
+            timeTextFraction = 0.105f,
+            tempTextFraction = 0.225f,
+            precipTextFraction = 0.105f,
+            cellGapFraction = 0.08f,
+            timeWidthLimitFraction = 0.24f,
+            tempWidthLimitFraction = 0.43f,
+            precipWidthLimitFraction = 0.22f
         )
         MiniForecastSizeProfile.MEDIUM_3X2 -> GridMetrics(
-            timeTextFraction = 0.13f,
-            tempTextFraction = 0.255f,
-            precipTextFraction = 0.12f,
-            cellGapFraction = 0.12f
+            timeTextFraction = 0.112f,
+            tempTextFraction = 0.235f,
+            precipTextFraction = 0.11f,
+            cellGapFraction = 0.10f,
+            timeWidthLimitFraction = 0.25f,
+            tempWidthLimitFraction = 0.44f,
+            precipWidthLimitFraction = 0.23f
         )
         MiniForecastSizeProfile.EXPANDED_4X2 -> GridMetrics(
-            timeTextFraction = 0.135f,
-            tempTextFraction = 0.27f,
-            precipTextFraction = 0.125f,
-            cellGapFraction = 0.14f
+            timeTextFraction = 0.12f,
+            tempTextFraction = 0.25f,
+            precipTextFraction = 0.115f,
+            cellGapFraction = 0.12f,
+            timeWidthLimitFraction = 0.26f,
+            tempWidthLimitFraction = 0.46f,
+            precipWidthLimitFraction = 0.24f
         )
     }
 
@@ -264,7 +345,10 @@ internal object WidgetMiniForecastRenderer {
         val timeTextFraction: Float,
         val tempTextFraction: Float,
         val precipTextFraction: Float,
-        val cellGapFraction: Float
+        val cellGapFraction: Float,
+        val timeWidthLimitFraction: Float,
+        val tempWidthLimitFraction: Float,
+        val precipWidthLimitFraction: Float
     )
 
     /** Rampe de couleurs froid → chaud commune à l'application et au widget. */
@@ -310,6 +394,15 @@ internal object WidgetMiniForecastRenderer {
         val intensity = max(probabilityScore * 0.75f, amountScore)
         val alpha = 0x30 + ((0xFF - 0x30) * intensity).roundToInt()
         return withAlpha(precipColorArgb, alpha)
+    }
+
+    /** Choisit noir ou blanc pour garantir la lisibilité sur la heatmap. */
+    internal fun heatmapContentColorArgb(backgroundArgb: Int): Int {
+        val r = (backgroundArgb shr 16) and 0xFF
+        val g = (backgroundArgb shr 8) and 0xFF
+        val b = backgroundArgb and 0xFF
+        val luminance = (0.299f * r + 0.587f * g + 0.114f * b) / 255f
+        return if (luminance >= 0.62f) 0xFF17202A.toInt() else 0xFFFFFFFF.toInt()
     }
 
     private fun withAlpha(color: Int, alpha: Int): Int =

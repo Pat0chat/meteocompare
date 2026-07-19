@@ -19,4 +19,12 @@ class WidgetForecastCardLayoutTest {
         assertEquals(ForecastCardHeightProfile.COMFORTABLE, forecastCardHeightProfile(175f))
         assertEquals(ForecastCardHeightProfile.EXPANDED, forecastCardHeightProfile(215f))
     }
+
+    @Test
+    fun `vertical padding follows the shared height profile`() {
+        assertEquals(7f, forecastContainerVerticalPaddingDp(130f))
+        assertEquals(9f, forecastContainerVerticalPaddingDp(160f))
+        assertEquals(11f, forecastContainerVerticalPaddingDp(190f))
+        assertEquals(13f, forecastContainerVerticalPaddingDp(240f))
+    }
 }

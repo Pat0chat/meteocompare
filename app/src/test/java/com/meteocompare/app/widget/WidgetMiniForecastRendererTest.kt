@@ -258,4 +258,75 @@ class WidgetMiniForecastRendererTest {
         )
     }
 
+
+
+    @Test
+    fun `hauteur mini forecast grandit avec le widget`() {
+        val dense = miniForecastChartHeightDp(
+            widgetHeightDp = 130f,
+            headerHeightDp = 52f,
+            sectionGapDp = 6f,
+            profile = MiniForecastSizeProfile.COMPACT_2X2
+        )
+        val medium = miniForecastChartHeightDp(
+            widgetHeightDp = 175f,
+            headerHeightDp = 44f,
+            sectionGapDp = 10f,
+            profile = MiniForecastSizeProfile.MEDIUM_3X2
+        )
+        val tall = miniForecastChartHeightDp(
+            widgetHeightDp = 260f,
+            headerHeightDp = 44f,
+            sectionGapDp = 10f,
+            profile = MiniForecastSizeProfile.EXPANDED_4X2
+        )
+
+        assertTrue("La hauteur doit suivre le redimensionnement: $dense, $medium, $tall", dense < medium)
+        assertTrue("La hauteur doit suivre le redimensionnement: $dense, $medium, $tall", medium < tall)
+    }
+
+    @Test
+    fun `hauteur mini forecast reste bornee sur widget tres haut`() {
+        assertEquals(
+            220,
+            miniForecastChartHeightDp(
+                widgetHeightDp = 600f,
+                headerHeightDp = 44f,
+                sectionGapDp = 10f,
+                profile = MiniForecastSizeProfile.EXPANDED_4X2
+            )
+        )
+    }
+
+    @Test
+    fun `texte heatmap est sombre sur une tuile claire`() {
+        val orange = WidgetMiniForecastRenderer.temperatureHeatmapArgb(22.0)
+        assertEquals(0xFF17202A.toInt(), WidgetMiniForecastRenderer.heatmapContentColorArgb(orange))
+    }
+
+    @Test
+    fun `texte heatmap est blanc sur une tuile sombre`() {
+        val blue = WidgetMiniForecastRenderer.temperatureHeatmapArgb(-10.0)
+        assertEquals(0xFFFFFFFF.toInt(), WidgetMiniForecastRenderer.heatmapContentColorArgb(blue))
+    }
+
+    @Test
+    fun `heatmap pluie devient plus forte avec le cumul a probabilite egale`() {
+        val blue = 0xFF1976D2.toInt()
+        val text = 0xFF001A41.toInt()
+        val light = WidgetMiniForecastRenderer.precipitationHeatmapArgb(
+            probability = 50,
+            precipColorArgb = blue,
+            textColorArgb = text,
+            amountMm = 0.1
+        )
+        val heavy = WidgetMiniForecastRenderer.precipitationHeatmapArgb(
+            probability = 50,
+            precipColorArgb = blue,
+            textColorArgb = text,
+            amountMm = 4.0
+        )
+
+        assertTrue(((heavy ushr 24) and 0xFF) > ((light ushr 24) and 0xFF))
+    }
 }
