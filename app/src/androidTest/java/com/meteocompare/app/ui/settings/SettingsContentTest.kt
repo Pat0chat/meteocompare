@@ -3,6 +3,7 @@ package com.meteocompare.app.ui.settings
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasTestTag
@@ -146,6 +147,23 @@ class SettingsContentTest {
             .performClick()
 
         assertTrue(requested)
+    }
+
+
+    @Test
+    fun manual_bias_refresh_action_is_disabled_after_request() {
+        var requested = false
+        content(
+            biasRefreshRequested = true,
+            onBiasRefresh = { requested = true }
+        )
+
+        scrollTo(TAG_SETTINGS_BIAS_REFRESH)
+        composeRule.onNodeWithTag(TAG_SETTINGS_BIAS_REFRESH)
+            .assertIsDisplayed()
+            .assertIsNotEnabled()
+
+        assertFalse(requested)
     }
 
     @Test

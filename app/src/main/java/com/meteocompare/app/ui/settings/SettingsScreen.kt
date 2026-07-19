@@ -377,6 +377,7 @@ internal fun SettingsContent(
                 Spacer(Modifier.height(12.dp))
                 OutlinedButton(
                     onClick = onBiasRefreshClick,
+                    enabled = !biasRefreshRequested,
                     modifier = Modifier.fillMaxWidth().testTag(TAG_SETTINGS_BIAS_REFRESH)
                 ) {
                     Icon(

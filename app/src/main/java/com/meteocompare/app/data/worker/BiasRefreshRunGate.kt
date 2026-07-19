@@ -16,6 +16,7 @@ internal object BiasRefreshRunGate {
 
     internal val KICKOFF_MIN_INTERVAL_MS: Long = TimeUnit.HOURS.toMillis(20)
     internal val PERIODIC_MIN_INTERVAL_MS: Long = TimeUnit.HOURS.toMillis(6)
+    internal val MANUAL_MIN_INTERVAL_MS: Long = TimeUnit.MINUTES.toMillis(30)
 
     fun shouldRun(
         context: Context,

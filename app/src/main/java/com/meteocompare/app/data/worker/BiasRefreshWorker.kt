@@ -127,7 +127,9 @@ object BiasRefreshScheduler {
      * Le travail garde les mêmes contraintes et le même mutex que les cycles
      * automatiques. Il contourne uniquement la garde temporelle de 20 h afin
      * que l'utilisateur puisse initialiser les biais après avoir ajouté ses
-     * premières villes. KEEP empêche plusieurs taps d'empiler les workers.
+     * premières villes. KEEP déduplique les taps pendant que le travail est
+     * en attente ou actif ; le worker applique ensuite un anti-répétition de
+     * 30 minutes après un cycle réussi.
      */
     fun triggerManualRefresh(context: Context) {
         triggerManualRefresh(
@@ -286,28 +288,30 @@ internal class BiasRefreshWorker(
             false
         )
 
-        // Une demande manuelle est une action utilisateur explicite : elle
-        // contourne la garde de fraîcheur, mais reste sérialisée par RUN_MUTEX
-        // et dédupliquée par le nom de travail unique du scheduler.
-        if (!isManual) {
-            val minIntervalMs = if (isKickoff) {
-                BiasRefreshRunGate.KICKOFF_MIN_INTERVAL_MS
-            } else {
+        // Une demande manuelle contourne la garde longue de 20 h, mais pas
+        // l'anti-répétition court : après un cycle réussi, relancer le même
+        // backfill quelques secondes plus tard ne peut produire aucune donnée
+        // supplémentaire et gaspillerait réseau et batterie. KEEP couvre les
+        // taps pendant ENQUEUED/RUNNING ; ce garde couvre les taps après SUCCESS.
+        val minIntervalMs = when {
+            isManual -> BiasRefreshRunGate.MANUAL_MIN_INTERVAL_MS
+            isKickoff -> BiasRefreshRunGate.KICKOFF_MIN_INTERVAL_MS
+            else -> {
                 // Le periodic reste quotidien. Ce garde court ne sert qu'à éviter
                 // un doublon si un kickoff vient de réussir juste avant sa fenêtre.
                 BiasRefreshRunGate.PERIODIC_MIN_INTERVAL_MS
             }
-            if (!BiasRefreshRunGate.shouldRun(ctx, minIntervalMs)) {
-                Log.d(
-                    LOG_TAG,
-                    if (isKickoff) {
-                        "Bias kickoff skipped: a successful daily cycle is still fresh"
-                    } else {
-                        "Bias periodic skipped: a kickoff completed recently"
-                    }
-                )
-                return@withLock Result.success()
-            }
+        }
+        if (!BiasRefreshRunGate.shouldRun(ctx, minIntervalMs)) {
+            Log.d(
+                LOG_TAG,
+                when {
+                    isManual -> "Bias manual refresh skipped: a successful cycle is still fresh"
+                    isKickoff -> "Bias kickoff skipped: a successful daily cycle is still fresh"
+                    else -> "Bias periodic skipped: a kickoff completed recently"
+                }
+            )
+            return@withLock Result.success()
         }
 
         val entry = EntryPointAccessors.fromApplication(ctx, BiasRefreshEntryPoint::class.java)
