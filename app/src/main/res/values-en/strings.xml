@@ -189,7 +189,7 @@
     <!-- Donations -->
     <string name="action_support_dev">Support development</string>
     <string name="donations_dialog_title">Support development</string>
-    <string name="donations_dialog_body">MeteoCompare is free, open-source and ad-free. If you\'d like to support development:</string>
+    <string name="donations_dialog_body">MeteoCompare is free with zero data collection, no analytics, no tracking, no ads. If you\'d like to support development:</string>
     <string name="donations_dialog_disclaimer">No privileges are granted to donors. The source code and the app stay identical for everyone.</string>
     <string name="donations_liberapay_desc">Weekly contributions, friendly FOSS</string>
     <string name="donations_github_sponsors_desc">Monthly contributions via GitHub</string>
