@@ -41,4 +41,11 @@
     <string name="widget_color_light_grey">Light grey</string>
     <string name="widget_color_dark_grey">Dark grey</string>
 
+    <!-- Modern forecast panel titles -->
+    <string name="widget_forecast_hours">Next hours</string>
+    <string name="widget_forecast_days">Next days</string>
+    <string name="widget_forecast_generic">Forecast</string>
+    <string name="widget_forecast_confidence">Model confidence</string>
+    <string name="widget_forecast_confidence_hint">agreement / models</string>
+
 </resources>

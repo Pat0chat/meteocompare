@@ -325,6 +325,9 @@ private fun WidgetContent(
     val softSurface = remember(baseOnContainerColor, night) {
         ColorProvider(baseOnContainerColor.copy(alpha = if (night) 0.12f else 0.08f))
     }
+    val raisedSurface = remember(baseOnContainerColor, night) {
+        ColorProvider(baseOnContainerColor.copy(alpha = if (night) 0.20f else 0.13f))
+    }
     val container = remember(baseContainerColor, opacityPct) {
         ColorProvider(baseContainerColor.copy(alpha = opacityPct / 100f))
     }
@@ -408,6 +411,7 @@ private fun WidgetContent(
                             onContainer = onContainer,
                             onContainerMuted = onContainerMuted,
                             softSurface = softSurface,
+                            raisedSurface = raisedSurface,
                             onContainerArgb = baseOnContainerColor.toArgb(),
                             showFiveItems = extendedForecastItemCount(widthDp) == 5,
                             showExtras = widthDp >= MEDIUM_MAX_WIDTH_DP
@@ -418,6 +422,7 @@ private fun WidgetContent(
                             onContainer = onContainer,
                             onContainerMuted = onContainerMuted,
                             softSurface = softSurface,
+                            raisedSurface = raisedSurface,
                             onContainerArgb = baseOnContainerColor.toArgb()
                         )
                     WidgetLayoutKind.WIDE ->
@@ -426,6 +431,7 @@ private fun WidgetContent(
                             onContainer = onContainer,
                             onContainerMuted = onContainerMuted,
                             softSurface = softSurface,
+                            raisedSurface = raisedSurface,
                             inlineForecastItems = inlineForecastItemCount(widthDp)
                         )
                     WidgetLayoutKind.LARGE ->
@@ -434,6 +440,7 @@ private fun WidgetContent(
                             onContainer = onContainer,
                             onContainerMuted = onContainerMuted,
                             softSurface = softSurface,
+                            raisedSurface = raisedSurface,
                             inlineForecastItems = 0
                         )
                     WidgetLayoutKind.MEDIUM ->
@@ -717,6 +724,7 @@ private fun LargeLayout(
     onContainer: ColorProvider,
     onContainerMuted: ColorProvider,
     softSurface: ColorProvider,
+    raisedSurface: ColorProvider,
     inlineForecastItems: Int = 0
 ) {
     val size = LocalSize.current
@@ -818,6 +826,8 @@ private fun LargeLayout(
                         onContainer = onContainer,
                         onContainerMuted = onContainerMuted,
                         softSurface = softSurface,
+                        raisedSurface = raisedSurface,
+                        mode = data.forecastMode,
                         compact = true,
                         heightProfile = ForecastCardHeightProfile.DENSE,
                         emphasized = index == 0
@@ -851,15 +861,20 @@ private fun CompactTallLayout(
     onContainer: ColorProvider,
     onContainerMuted: ColorProvider,
     softSurface: ColorProvider,
+    raisedSurface: ColorProvider,
     onContainerArgb: Int
 ) {
     val size = LocalSize.current
     val narrow = size.width.value < 150f
     val headerBudgetDp = compactTallHeaderHeightBudgetDp(narrow)
     val sectionGapDp = 6f
+    val showPanelHeader = !narrow && size.height.value >= 165f
     val forecastCardProfile = forecastBottomCardHeightProfile(
         widgetHeightDp = size.height.value,
-        headerHeightDp = headerBudgetDp,
+        headerHeightDp = headerBudgetDp + forecastPanelHeaderHeightDp(
+            showHeader = showPanelHeader,
+            compact = true
+        ),
         sectionGapDp = sectionGapDp
     )
 
@@ -895,13 +910,16 @@ private fun CompactTallLayout(
                 if (minMax.isNotEmpty()) {
                     Text(
                         text = minMax,
-                        style = TextStyle(color = onContainerMuted, fontSize = if (narrow) 9.sp else 10.sp),
+                        style = TextStyle(
+                            color = onContainerMuted,
+                            fontSize = if (narrow) 9.sp else 10.sp
+                        ),
                         maxLines = 1
                     )
                 }
                 data.confidencePct?.let {
                     Text(
-                        text = "● $it%",
+                        text = "$it%",
                         style = TextStyle(
                             color = confidenceTextColor(it),
                             fontSize = if (narrow) 8.sp else 9.sp,
@@ -920,7 +938,9 @@ private fun CompactTallLayout(
                 strips = data.confidenceStrips,
                 onContainer = onContainer,
                 onContainerMuted = onContainerMuted,
-                softSurface = softSurface
+                softSurface = softSurface,
+                raisedSurface = raisedSurface,
+                showHeader = showPanelHeader
             )
 
             data.next12hTemps.isNotEmpty() -> MiniForecastStrip(
@@ -933,23 +953,20 @@ private fun CompactTallLayout(
                 modifier = GlanceModifier.defaultWeight()
             )
 
-            data.forecasts.isNotEmpty() -> Row(
+            data.forecasts.isNotEmpty() -> ForecastCardsPanel(
+                items = data.forecasts,
+                mode = data.forecastMode,
+                itemCount = 2,
+                onContainer = onContainer,
+                onContainerMuted = onContainerMuted,
+                softSurface = softSurface,
+                raisedSurface = raisedSurface,
+                compact = true,
+                veryCompact = narrow,
+                heightProfile = forecastCardProfile,
+                showHeader = showPanelHeader,
                 modifier = GlanceModifier.fillMaxWidth().defaultWeight()
-            ) {
-                data.forecasts.take(2).forEachIndexed { index, item ->
-                    if (index > 0) Spacer(GlanceModifier.width(ForecastCardSpacing))
-                    ForecastItemCard(
-                        item = item,
-                        onContainer = onContainer,
-                        onContainerMuted = onContainerMuted,
-                        softSurface = softSurface,
-                        compact = true,
-                        heightProfile = forecastCardProfile,
-                        emphasized = index == 0,
-                        modifier = GlanceModifier.defaultWeight().fillMaxHeight()
-                    )
-                }
-            }
+            )
 
             else -> {
                 val extras = buildExtrasLine(data)
@@ -958,7 +975,7 @@ private fun CompactTallLayout(
                         .fillMaxWidth()
                         .defaultWeight()
                         .background(softSurface)
-                        .cornerRadius(12.dp)
+                        .cornerRadius(14.dp)
                         .padding(8.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -982,94 +999,21 @@ private fun ColumnScope.CompactConfidenceSummary(
     strips: List<WidgetConfidenceStrip>,
     onContainer: ColorProvider,
     onContainerMuted: ColorProvider,
-    softSurface: ColorProvider
+    softSurface: ColorProvider,
+    raisedSurface: ColorProvider,
+    showHeader: Boolean
 ) {
-    val night = LocalNightMode.current
-    val ctx = LocalContext.current
-    val visibleStrips = strips.take(2)
-    val dayBuckets = visibleStrips.firstOrNull()?.buckets?.take(3).orEmpty()
-    val metricWidth = 31.dp
-
-    Column(
-        modifier = GlanceModifier
-            .fillMaxWidth()
-            .defaultWeight()
-            .background(softSurface)
-            .cornerRadius(12.dp)
-            .padding(horizontal = 7.dp, vertical = 5.dp)
-    ) {
-        visibleStrips.forEachIndexed { rowIndex, strip ->
-            if (rowIndex > 0) Spacer(GlanceModifier.height(3.dp))
-            Row(
-                modifier = GlanceModifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = strip.metricLabel,
-                    modifier = GlanceModifier.width(metricWidth),
-                    style = TextStyle(
-                        color = onContainer,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                )
-                Row(modifier = GlanceModifier.defaultWeight()) {
-                    strip.buckets.take(3).forEachIndexed { index, bucket ->
-                        if (index > 0) Spacer(GlanceModifier.width(2.dp))
-                        Column(
-                            modifier = GlanceModifier.defaultWeight(),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                text = bucket.value,
-                                style = TextStyle(
-                                    color = onContainer,
-                                    fontSize = 8.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            )
-                            Spacer(GlanceModifier.height(1.dp))
-                            Box(
-                                modifier = GlanceModifier
-                                    .fillMaxWidth()
-                                    .height(6.dp)
-                                    .background(ColorProvider(confidenceColor(bucket.percent, night)))
-                                    .cornerRadius(3.dp)
-                            ) {}
-                        }
-                    }
-                }
-            }
-        }
-
-        if (dayBuckets.isNotEmpty()) {
-            Spacer(GlanceModifier.height(2.dp))
-            Row(modifier = GlanceModifier.fillMaxWidth()) {
-                Spacer(GlanceModifier.width(metricWidth))
-                dayBuckets.forEach { bucket ->
-                    Column(
-                        modifier = GlanceModifier.defaultWeight(),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = bucket.label,
-                            style = TextStyle(
-                                color = onContainerMuted,
-                                fontSize = 7.sp
-                            )
-                        )
-                        Text(
-                            text = "${bucket.modelCount}/${bucket.totalModelCount}",
-                            style = TextStyle(
-                                color = onContainerMuted,
-                                fontSize = 6.sp
-                            )
-                        )
-                    }
-                }
-            }
-        }
-    }
+    ModernConfidencePanel(
+        strips = strips,
+        onContainer = onContainer,
+        onContainerMuted = onContainerMuted,
+        softSurface = softSurface,
+        raisedSurface = raisedSurface,
+        compact = true,
+        bucketCount = 3,
+        showHeader = showHeader,
+        modifier = GlanceModifier.fillMaxWidth().defaultWeight()
+    )
 }
 
 /**
@@ -1097,6 +1041,7 @@ private fun ExtraLargeLayout(
     onContainer: ColorProvider,
     onContainerMuted: ColorProvider,
     softSurface: ColorProvider,
+    raisedSurface: ColorProvider,
     // ARGB brut de la couleur de texte "onContainer", résolu au niveau widget
     // root en tenant compte du night mode + des overrides utilisateur.
     onContainerArgb: Int,
@@ -1111,6 +1056,7 @@ private fun ExtraLargeLayout(
     val veryCompact = sizeProfile == TwoRowWidgetSizeProfile.VERY_DENSE
     val compactHeight = sizeProfile != TwoRowWidgetSizeProfile.REGULAR
     val actualShowExtras = showExtras && !veryCompact
+    val showPanelHeader = shouldShowForecastPanelHeader(heightDp, sizeProfile)
     val sectionGapDp = when {
         veryCompact -> 5f
         compactHeight -> 7f
@@ -1122,7 +1068,10 @@ private fun ExtraLargeLayout(
     )
     val forecastCardProfile = forecastBottomCardHeightProfile(
         widgetHeightDp = heightDp,
-        headerHeightDp = headerHeightBudgetDp,
+        headerHeightDp = headerHeightBudgetDp + forecastPanelHeaderHeightDp(
+            showHeader = showPanelHeader,
+            compact = compactHeight
+        ),
         sectionGapDp = sectionGapDp
     )
 
@@ -1215,8 +1164,10 @@ private fun ExtraLargeLayout(
                 onContainer = onContainer,
                 onContainerMuted = onContainerMuted,
                 softSurface = softSurface,
+                raisedSurface = raisedSurface,
                 compact = compactHeight,
-                bucketCount = itemCount
+                bucketCount = itemCount,
+                showHeader = showPanelHeader
             )
             hasMiniForecast -> MiniForecastStrip(
                 data = data,
@@ -1235,23 +1186,20 @@ private fun ExtraLargeLayout(
                     style = TextStyle(color = onContainerMuted, fontSize = 12.sp)
                 )
             }
-            else -> Row(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
-                data.forecasts.take(itemCount).forEachIndexed { index, item ->
-                    if (index > 0) Spacer(
-                        GlanceModifier.width(if (veryCompact) 5.dp else ForecastCardSpacing)
-                    )
-                    ForecastItemCard(
-                        item = item,
-                        onContainer = onContainer,
-                        onContainerMuted = onContainerMuted,
-                        softSurface = softSurface,
-                        compact = compactHeight,
-                        heightProfile = forecastCardProfile,
-                        emphasized = index == 0,
-                        modifier = GlanceModifier.defaultWeight().fillMaxHeight()
-                    )
-                }
-            }
+            else -> ForecastCardsPanel(
+                items = data.forecasts,
+                mode = data.forecastMode,
+                itemCount = itemCount,
+                onContainer = onContainer,
+                onContainerMuted = onContainerMuted,
+                softSurface = softSurface,
+                raisedSurface = raisedSurface,
+                compact = compactHeight,
+                veryCompact = veryCompact,
+                heightProfile = forecastCardProfile,
+                showHeader = showPanelHeader,
+                modifier = GlanceModifier.fillMaxWidth().defaultWeight()
+            )
         }
     }
 }
@@ -1356,12 +1304,107 @@ private fun MiniForecastStrip(
 }
 
 /**
- * Vue combinée des bandes de confiance température et précipitations.
- *
- * Les deux métriques partagent les mêmes cinq colonnes journalières : le
- * lecteur compare immédiatement l'accord des modèles sans surcharger la
- * hauteur du widget. Les libellés de jours ne sont dessinés qu'une fois en
- * bas pour réduire le bruit visuel.
+ * Panneau moderne commun aux vues « prochaines heures » et « prochains jours ».
+ * L'en-tête donne immédiatement le contexte, tandis que les cartes utilisent
+ * une bande thermique, une hiérarchie typographique plus nette et des micro-
+ * badges pour les nuages et la pluie.
+ */
+@Composable
+private fun ForecastCardsPanel(
+    items: List<WidgetForecastItem>,
+    mode: ForecastMode?,
+    itemCount: Int,
+    onContainer: ColorProvider,
+    onContainerMuted: ColorProvider,
+    softSurface: ColorProvider,
+    raisedSurface: ColorProvider,
+    compact: Boolean,
+    veryCompact: Boolean,
+    heightProfile: ForecastCardHeightProfile,
+    showHeader: Boolean,
+    modifier: GlanceModifier = GlanceModifier
+) {
+    val ctx = LocalContext.current
+    val normalizedMode = mode?.normalized()
+    val title = when (normalizedMode) {
+        ForecastMode.HOURLY -> ctx.getString(R.string.widget_forecast_hours)
+        ForecastMode.DAILY -> ctx.getString(R.string.widget_forecast_days)
+        else -> ctx.getString(R.string.widget_forecast_generic)
+    }
+    val visibleItems = items.take(itemCount)
+
+    Column(modifier = modifier) {
+        if (showHeader) {
+            Row(
+                modifier = GlanceModifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = title,
+                    modifier = GlanceModifier.defaultWeight(),
+                    style = TextStyle(
+                        color = onContainer,
+                        fontSize = if (compact) 9.sp else 10.sp,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    maxLines = 1
+                )
+                Box(
+                    modifier = GlanceModifier
+                        .background(raisedSurface)
+                        .cornerRadius(8.dp)
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = visibleItems.size.toString(),
+                        style = TextStyle(
+                            color = onContainerMuted,
+                            fontSize = if (compact) 7.sp else 8.sp,
+                            fontWeight = FontWeight.Bold
+                        ),
+                        maxLines = 1
+                    )
+                }
+            }
+            Spacer(GlanceModifier.height(if (compact) 3.dp else 5.dp))
+        }
+
+        Row(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
+            visibleItems.forEachIndexed { index, item ->
+                if (index > 0) {
+                    Spacer(
+                        GlanceModifier.width(
+                            when {
+                                veryCompact -> 4.dp
+                                compact -> 6.dp
+                                else -> ForecastCardSpacing
+                            }
+                        )
+                    )
+                }
+                ForecastItemCard(
+                    item = item,
+                    onContainer = onContainer,
+                    onContainerMuted = onContainerMuted,
+                    softSurface = softSurface,
+                    raisedSurface = raisedSurface,
+                    mode = normalizedMode,
+                    compact = compact,
+                    heightProfile = heightProfile,
+                    emphasized = index == 0,
+                    modifier = GlanceModifier.defaultWeight().fillMaxHeight()
+                )
+            }
+        }
+    }
+}
+
+/**
+ * La confiance est désormais organisée par JOUR plutôt que par métrique.
+ * Chaque colonne devient une petite carte autonome : jour, valeurs T°/pluie,
+ * pourcentages colorés et couverture des modèles. Cette lecture verticale est
+ * plus proche d'une heatmap et permet de comparer les jours en un regard.
  */
 @Composable
 private fun ColumnScope.CombinedConfidenceBands(
@@ -1369,108 +1412,184 @@ private fun ColumnScope.CombinedConfidenceBands(
     onContainer: ColorProvider,
     onContainerMuted: ColorProvider,
     softSurface: ColorProvider,
+    raisedSurface: ColorProvider,
     compact: Boolean,
-    bucketCount: Int
+    bucketCount: Int,
+    showHeader: Boolean
 ) {
-    val night = LocalNightMode.current
+    ModernConfidencePanel(
+        strips = strips,
+        onContainer = onContainer,
+        onContainerMuted = onContainerMuted,
+        softSurface = softSurface,
+        raisedSurface = raisedSurface,
+        compact = compact,
+        bucketCount = bucketCount,
+        showHeader = showHeader,
+        modifier = GlanceModifier.fillMaxWidth().defaultWeight()
+    )
+}
+
+@Composable
+private fun ModernConfidencePanel(
+    strips: List<WidgetConfidenceStrip>,
+    onContainer: ColorProvider,
+    onContainerMuted: ColorProvider,
+    softSurface: ColorProvider,
+    raisedSurface: ColorProvider,
+    compact: Boolean,
+    bucketCount: Int,
+    showHeader: Boolean,
+    modifier: GlanceModifier = GlanceModifier
+) {
     val ctx = LocalContext.current
     val visibleStrips = strips.take(2)
     val safeBucketCount = bucketCount.coerceIn(1, 5)
-    val dayBuckets = visibleStrips.firstOrNull()?.buckets?.take(safeBucketCount).orEmpty()
-    val metricWidth = when {
-        compact && safeBucketCount >= 5 -> 32.dp
-        compact -> 34.dp
-        else -> 42.dp
-    }
+    val days = visibleStrips.firstOrNull()?.buckets?.take(safeBucketCount).orEmpty()
 
     Column(
-        modifier = GlanceModifier
-            .fillMaxWidth()
-            .defaultWeight()
+        modifier = modifier
             .background(softSurface)
-            .cornerRadius(14.dp)
+            .cornerRadius(16.dp)
             .padding(
-                horizontal = if (compact) 6.dp else 9.dp,
+                horizontal = if (compact) 5.dp else 7.dp,
                 vertical = if (compact) 5.dp else 7.dp
             )
     ) {
-        visibleStrips.forEachIndexed { rowIndex, strip ->
-            if (rowIndex > 0) Spacer(GlanceModifier.height(if (compact) 3.dp else 4.dp))
+        if (showHeader) {
+            Row(
+                modifier = GlanceModifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = ctx.getString(R.string.widget_forecast_confidence),
+                    modifier = GlanceModifier.defaultWeight(),
+                    style = TextStyle(
+                        color = onContainer,
+                        fontSize = if (compact) 9.sp else 10.sp,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    maxLines = 1
+                )
+                Text(
+                    text = ctx.getString(R.string.widget_forecast_confidence_hint),
+                    style = TextStyle(
+                        color = onContainerMuted,
+                        fontSize = if (compact) 6.sp else 7.sp,
+                        fontWeight = FontWeight.Medium
+                    ),
+                    maxLines = 1
+                )
+            }
+            Spacer(GlanceModifier.height(if (compact) 3.dp else 5.dp))
+        }
+
+        Row(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
+            days.forEachIndexed { index, day ->
+                if (index > 0) Spacer(GlanceModifier.width(if (compact) 3.dp else 5.dp))
+                ConfidenceDayCard(
+                    dayIndex = index,
+                    day = day,
+                    strips = visibleStrips,
+                    onContainer = onContainer,
+                    onContainerMuted = onContainerMuted,
+                    raisedSurface = raisedSurface,
+                    compact = compact,
+                    modifier = GlanceModifier.defaultWeight().fillMaxHeight()
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConfidenceDayCard(
+    dayIndex: Int,
+    day: StripBucket,
+    strips: List<WidgetConfidenceStrip>,
+    onContainer: ColorProvider,
+    onContainerMuted: ColorProvider,
+    raisedSurface: ColorProvider,
+    compact: Boolean,
+    modifier: GlanceModifier = GlanceModifier
+) {
+    val night = LocalNightMode.current
+    Column(
+        modifier = modifier
+            .cornerRadius(if (compact) 11.dp else 14.dp)
+            .padding(
+                horizontal = if (compact) 3.dp else 5.dp,
+                vertical = if (compact) 3.dp else 5.dp
+            ),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = day.label,
+            style = TextStyle(
+                color = onContainer,
+                fontSize = if (compact) 7.sp else 9.sp,
+                fontWeight = FontWeight.Bold
+            ),
+            maxLines = 1
+        )
+        Text(
+            text = "${day.modelCount}/${day.totalModelCount}",
+            style = TextStyle(
+                color = onContainerMuted,
+                fontSize = if (compact) 6.sp else 7.sp
+            ),
+            maxLines = 1
+        )
+
+        strips.forEach { strip ->
+            val bucket = strip.buckets.getOrNull(dayIndex) ?: return@forEach
+            Spacer(GlanceModifier.height(if (compact) 2.dp else 4.dp))
             Row(
                 modifier = GlanceModifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = strip.metricLabel,
-                    modifier = GlanceModifier.width(metricWidth),
+                    modifier = GlanceModifier.defaultWeight(),
+                    style = TextStyle(
+                        color = onContainerMuted,
+                        fontSize = if (compact) 6.sp else 7.sp,
+                        fontWeight = FontWeight.Medium
+                    ),
+                    maxLines = 1
+                )
+                Text(
+                    text = bucket.value,
                     style = TextStyle(
                         color = onContainer,
-                        fontSize = if (compact) 9.sp else 10.sp,
-                        fontWeight = FontWeight.Medium
-                    )
+                        fontSize = if (compact) 7.sp else 9.sp,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    maxLines = 1
                 )
-                Row(modifier = GlanceModifier.defaultWeight()) {
-                    strip.buckets.take(safeBucketCount).forEachIndexed { index, bucket ->
-                        if (index > 0) Spacer(GlanceModifier.width(if (compact) 2.dp else 3.dp))
-                        Column(
-                            modifier = GlanceModifier.defaultWeight(),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                text = bucket.value,
-                                style = TextStyle(
-                                    color = onContainer,
-                                    fontSize = if (compact) 8.sp else 9.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            )
-                            Spacer(GlanceModifier.height(1.dp))
-                            Box(
-                                modifier = GlanceModifier
-                                    .fillMaxWidth()
-                                    .height(if (compact) 6.dp else 8.dp)
-                                    .background(ColorProvider(confidenceColor(bucket.percent, night)))
-                                    .cornerRadius(3.dp)
-                            ) {}
-                            if (!compact) {
-                                Text(
-                                    text = "${bucket.percent}%",
-                                    style = TextStyle(
-                                        color = confidenceTextColor(bucket.percent),
-                                        fontSize = 8.sp
-                                    )
-                                )
-                            }
-                        }
-                    }
-                }
             }
-        }
-        if (dayBuckets.isNotEmpty()) {
-            Spacer(GlanceModifier.height(if (compact) 2.dp else 3.dp))
-            Row(modifier = GlanceModifier.fillMaxWidth()) {
-                Spacer(GlanceModifier.width(metricWidth))
-                dayBuckets.forEach { bucket ->
-                    Column(
-                        modifier = GlanceModifier.defaultWeight(),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = bucket.label,
-                            style = TextStyle(
-                                color = onContainerMuted,
-                                fontSize = if (compact) 7.sp else 8.sp
-                            )
-                        )
-                        Text(
-                            text = "${bucket.modelCount}/${bucket.totalModelCount}",
-                            style = TextStyle(
-                                color = onContainerMuted,
-                                fontSize = if (compact) 6.sp else 7.sp
-                            )
-                        )
-                    }
-                }
+            Spacer(GlanceModifier.height(1.dp))
+            Row(
+                modifier = GlanceModifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = GlanceModifier
+                        .defaultWeight()
+                        .height(if (compact) 4.dp else 6.dp)
+                        .background(ColorProvider(confidenceColor(bucket.percent, night)))
+                        .cornerRadius(4.dp)
+                ) {}
+                Spacer(GlanceModifier.width(2.dp))
+                Text(
+                    text = "${bucket.percent}%",
+                    style = TextStyle(
+                        color = confidenceTextColor(bucket.percent),
+                        fontSize = if (compact) 6.sp else 7.sp,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    maxLines = 1
+                )
             }
         }
     }
@@ -1639,11 +1758,14 @@ private fun ForecastItemCard(
     onContainer: ColorProvider,
     onContainerMuted: ColorProvider,
     softSurface: ColorProvider,
+    raisedSurface: ColorProvider,
+    mode: ForecastMode?,
     compact: Boolean,
     heightProfile: ForecastCardHeightProfile? = null,
     emphasized: Boolean = false,
     modifier: GlanceModifier = GlanceModifier
 ) {
+    val night = LocalNightMode.current
     val profile = heightProfile ?: if (compact) {
         ForecastCardHeightProfile.DENSE
     } else {
@@ -1657,57 +1779,60 @@ private fun ForecastItemCard(
     }
     val verticalPadding = when (profile) {
         ForecastCardHeightProfile.DENSE -> 2.dp
-        ForecastCardHeightProfile.COMPACT -> 4.dp
-        ForecastCardHeightProfile.COMFORTABLE -> 6.dp
-        ForecastCardHeightProfile.EXPANDED -> 8.dp
+        ForecastCardHeightProfile.COMPACT -> 3.dp
+        ForecastCardHeightProfile.COMFORTABLE -> 5.dp
+        ForecastCardHeightProfile.EXPANDED -> 6.dp
     }
     val labelSize = when (profile) {
-        ForecastCardHeightProfile.DENSE -> 8.sp
-        ForecastCardHeightProfile.COMPACT -> 9.sp
-        ForecastCardHeightProfile.COMFORTABLE -> 10.sp
-        ForecastCardHeightProfile.EXPANDED -> 11.sp
+        ForecastCardHeightProfile.DENSE -> 7.sp
+        ForecastCardHeightProfile.COMPACT -> 8.sp
+        ForecastCardHeightProfile.COMFORTABLE -> 9.sp
+        ForecastCardHeightProfile.EXPANDED -> 10.sp
     }
     val baseGlyphSize = when (profile) {
         ForecastCardHeightProfile.DENSE -> 18
         ForecastCardHeightProfile.COMPACT -> 22
-        ForecastCardHeightProfile.COMFORTABLE -> 28
-        ForecastCardHeightProfile.EXPANDED -> 32
+        ForecastCardHeightProfile.COMFORTABLE -> 27
+        ForecastCardHeightProfile.EXPANDED -> 31
     }
-    val baseTemperatureSize = when (profile) {
-        ForecastCardHeightProfile.DENSE -> 10.sp
-        ForecastCardHeightProfile.COMPACT -> 12.sp
-        ForecastCardHeightProfile.COMFORTABLE -> 14.sp
-        ForecastCardHeightProfile.EXPANDED -> 16.sp
+    val dailyGlyphBoost = if (mode?.normalized() == ForecastMode.DAILY &&
+        profile != ForecastCardHeightProfile.DENSE
+    ) 2 else 0
+    val glyphSize = baseGlyphSize + dailyGlyphBoost +
+        if (emphasized && profile != ForecastCardHeightProfile.DENSE) 1 else 0
+    val temperatureSize = when (profile) {
+        ForecastCardHeightProfile.DENSE -> if (emphasized) 11.sp else 10.sp
+        ForecastCardHeightProfile.COMPACT -> if (emphasized) 14.sp else 13.sp
+        ForecastCardHeightProfile.COMFORTABLE -> if (emphasized) 16.sp else 15.sp
+        ForecastCardHeightProfile.EXPANDED -> if (emphasized) 18.sp else 17.sp
     }
     val detailSize = when (profile) {
         ForecastCardHeightProfile.DENSE -> 6.sp
         ForecastCardHeightProfile.COMPACT -> 7.sp
-        ForecastCardHeightProfile.COMFORTABLE -> 8.sp
-        ForecastCardHeightProfile.EXPANDED -> 9.sp
+        ForecastCardHeightProfile.COMFORTABLE -> 7.sp
+        ForecastCardHeightProfile.EXPANDED -> 8.sp
     }
-    val splitDetails = profile == ForecastCardHeightProfile.COMFORTABLE ||
-        profile == ForecastCardHeightProfile.EXPANDED
-    val glyphSize = baseGlyphSize + if (emphasized && profile != ForecastCardHeightProfile.DENSE) 2 else 0
-    val temperatureSize = if (!emphasized) {
-        baseTemperatureSize
-    } else {
-        when (profile) {
-            ForecastCardHeightProfile.DENSE -> 11.sp
-            ForecastCardHeightProfile.COMPACT -> 13.sp
-            ForecastCardHeightProfile.COMFORTABLE -> 15.sp
-            ForecastCardHeightProfile.EXPANDED -> 17.sp
-        }
+    val cardBackground = if (emphasized) raisedSurface else softSurface
+    val accentColor = remember(item.temp, night) {
+        ColorProvider(forecastTemperatureAccent(item.temp, night))
+    }
+    val precipForeground = remember(night) {
+        ColorProvider(if (night) Color(0xFF90CAF9) else Color(0xFF1565C0))
+    }
+    val precipSurface = remember(night) {
+        ColorProvider(
+            (if (night) Color(0xFF90CAF9) else Color(0xFF1565C0)).copy(alpha = 0.18f)
+        )
     }
 
     Column(
         modifier = modifier
-            .background(softSurface)
+            .background(cardBackground)
             .cornerRadius(
                 when {
-                    emphasized && profile == ForecastCardHeightProfile.DENSE -> 10.dp
-                    emphasized -> 14.dp
-                    profile == ForecastCardHeightProfile.DENSE -> 9.dp
-                    else -> 12.dp
+                    emphasized && profile != ForecastCardHeightProfile.DENSE -> 15.dp
+                    profile == ForecastCardHeightProfile.DENSE -> 10.dp
+                    else -> 13.dp
                 }
             )
             .padding(horizontal = horizontalPadding, vertical = verticalPadding),
@@ -1717,19 +1842,13 @@ private fun ForecastItemCard(
         Text(
             text = item.label,
             style = TextStyle(
-                color = onContainerMuted,
+                color = if (emphasized) onContainer else onContainerMuted,
                 fontSize = labelSize,
                 fontWeight = if (emphasized) FontWeight.Bold else FontWeight.Medium
             ),
             maxLines = 1
         )
-        if (profile != ForecastCardHeightProfile.DENSE) {
-            Spacer(GlanceModifier.height(1.dp))
-        }
         WeatherGlyph(condition = item.condition, sizeDp = glyphSize)
-        if (profile == ForecastCardHeightProfile.EXPANDED) {
-            Spacer(GlanceModifier.height(1.dp))
-        }
         Text(
             text = formatTemp(item.temp),
             style = TextStyle(
@@ -1740,41 +1859,72 @@ private fun ForecastItemCard(
             maxLines = 1
         )
 
-        val details = forecastDetailParts(item)
-        if (details.isNotEmpty()) {
-            Spacer(GlanceModifier.height(if (splitDetails) 2.dp else 1.dp))
-            if (splitDetails) {
-                details.forEachIndexed { index, detail ->
-                    if (index > 0) Spacer(GlanceModifier.height(1.dp))
-                    Text(
-                        text = detail,
-                        style = TextStyle(
-                            color = onContainerMuted,
-                            fontSize = detailSize,
-                            fontWeight = FontWeight.Medium
-                        ),
-                        maxLines = 1
+        val hasCloud = item.cloudCoverPct != null
+        val hasRain = item.precipProbabilityPct != null
+        if (hasCloud || hasRain) {
+            Spacer(GlanceModifier.height(if (profile == ForecastCardHeightProfile.DENSE) 1.dp else 2.dp))
+            Column (
+                horizontalAlignment = Alignment.CenterHorizontally
+            ){
+                item.cloudCoverPct?.let { cloud ->
+                    ForecastMetricChip(
+                        text = "☁ ${cloud.coerceIn(0, 100)}%",
+                        foreground = onContainerMuted,
+                        background = raisedSurface,
+                        fontSize = detailSize,
+                        modifier = GlanceModifier.defaultWeight()
                     )
                 }
-            } else {
-                Text(
-                    text = details.joinToString(" · "),
-                    style = TextStyle(
-                        color = onContainerMuted,
+                if (hasCloud && hasRain) Spacer(GlanceModifier.height(4.dp))
+                item.precipProbabilityPct?.let { rain ->
+                    ForecastMetricChip(
+                        text = "☂ ${rain.coerceIn(0, 100)}%",
+                        foreground = precipForeground,
+                        background = precipSurface,
                         fontSize = detailSize,
-                        fontWeight = FontWeight.Medium
-                    ),
-                    maxLines = 1
-                )
+                        modifier = GlanceModifier.defaultWeight()
+                    )
+                }
             }
         }
     }
 }
 
-/** Détails secondaires, réutilisables en ligne compacte ou en lignes séparées. */
-private fun forecastDetailParts(item: WidgetForecastItem): List<String> = buildList {
-    item.cloudCoverPct?.let { add("☁ ${it.coerceIn(0, 100)}%") }
-    item.precipProbabilityPct?.let { add("☂ ${it.coerceIn(0, 100)}%") }
+@Composable
+private fun ForecastMetricChip(
+    text: String,
+    foreground: ColorProvider,
+    background: ColorProvider,
+    fontSize: androidx.compose.ui.unit.TextUnit,
+    modifier: GlanceModifier = GlanceModifier
+) {
+    Box(
+        modifier = modifier
+            .background(background)
+            .cornerRadius(6.dp)
+            .padding(horizontal = 4.dp, vertical = 2.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            style = TextStyle(
+                color = foreground,
+                fontSize = fontSize,
+                fontWeight = FontWeight.Bold
+            ),
+            maxLines = 1
+        )
+    }
+}
+
+/** Teinte thermique adoucie utilisée comme accent des cartes 5 h / 5 j. */
+internal fun forecastTemperatureAccent(temp: Double?, night: Boolean): Color = when {
+    temp == null -> if (night) Color(0xFF90A4AE) else Color(0xFF607D8B)
+    temp < 5.0 -> if (night) Color(0xFF64B5F6) else Color(0xFF1976D2)
+    temp < 14.0 -> if (night) Color(0xFF80CBC4) else Color(0xFF00897B)
+    temp < 22.0 -> if (night) Color(0xFFA5D6A7) else Color(0xFF43A047)
+    temp < 29.0 -> if (night) Color(0xFFFFCC80) else Color(0xFFFB8C00)
+    else -> if (night) Color(0xFFEF9A9A) else Color(0xFFE53935)
 }
 
 @Composable
@@ -1783,18 +1933,26 @@ private fun ConfidencePill(percent: Int, compact: Boolean = false) {
     val color = confidenceColor(percent, night)
     val bg = remember(percent, night) { ColorProvider(color.copy(alpha = 0.18f)) }
     val fg = remember(percent, night) { ColorProvider(color) }
-    Box(
+    Row(
         modifier = GlanceModifier
             .background(bg)
             .cornerRadius(if (compact) 10.dp else 12.dp)
             .padding(
-                horizontal = if (compact) 6.dp else 8.dp,
+                horizontal = if (compact) 5.dp else 7.dp,
                 vertical = if (compact) 3.dp else 5.dp
             ),
-        contentAlignment = Alignment.Center
+        verticalAlignment = Alignment.CenterVertically
     ) {
+        Box(
+            modifier = GlanceModifier
+                .width(if (compact) 3.dp else 4.dp)
+                .height(if (compact) 11.dp else 14.dp)
+                .background(fg)
+                .cornerRadius(3.dp)
+        ) {}
+        Spacer(GlanceModifier.width(if (compact) 4.dp else 5.dp))
         Text(
-            text = "● $percent%",
+            text = "$percent%",
             style = TextStyle(
                 color = fg,
                 fontSize = if (compact) 9.sp else 11.sp,

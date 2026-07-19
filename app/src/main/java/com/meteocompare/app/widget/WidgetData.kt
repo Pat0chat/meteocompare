@@ -65,6 +65,10 @@ internal data class WidgetData(
      * l'exposent, mais robuste au cas d'un cache pré-feature).
      */
     val currentWindSpeedKmh: Double?,
+    /** Mode ayant produit la vue étendue. Conservé dans le snapshot pour que
+     * le rendu puisse distinguer visuellement les 5 heures des 5 jours sans
+     * essayer de déduire le mode depuis les libellés localisés. */
+    val forecastMode: ForecastMode? = null,
     /**
      * Prévision étendue affichée par le layout 4×2. Contient jusqu'à 5
      * items (heures ou jours selon la config utilisateur). Vide si le mode
@@ -123,6 +127,7 @@ internal data class WidgetData(
             precipConfidencePct = null,
             currentCloudCover = null,
             currentWindSpeedKmh = null,
+            forecastMode = null,
             forecasts = emptyList(),
             confidenceStrips = emptyList(),
             error = error
@@ -374,6 +379,7 @@ internal suspend fun loadWidgetData(
                 precipConfidencePct = rainConfidence?.percent,
                 currentCloudCover = calc.currentCloudCover(forecast),
                 currentWindSpeedKmh = calc.currentWindSpeed(forecast),
+                forecastMode = forecastMode.normalized(),
                 forecasts = forecasts,
                 confidenceStrips = confidenceStrips,
                 next12hTemps = miniForecast?.temperatures.orEmpty(),

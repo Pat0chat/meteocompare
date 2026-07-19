@@ -157,6 +157,28 @@ internal fun miniForecastHeaderHeightBudgetDp(
     else -> 44f
 }
 
+
+/**
+ * Budget vertical du petit en-tête "Heures / Jours" placé au-dessus des
+ * cartes modernes. Le mode très dense le masque entièrement pour préserver
+ * la lisibilité des valeurs météo.
+ */
+internal fun forecastPanelHeaderHeightDp(showHeader: Boolean, compact: Boolean): Float = when {
+    !showHeader -> 0f
+    compact -> 14f
+    else -> 18f
+}
+
+/**
+ * L'en-tête du panneau n'est affiché que lorsque la zone basse conserve assez
+ * de hauteur après le bandeau météo. Il apporte du contexte en 3×2+ sans
+ * pénaliser les 2×2 et les launchers aux cellules très basses.
+ */
+internal fun shouldShowForecastPanelHeader(
+    widgetHeightDp: Float,
+    sizeProfile: TwoRowWidgetSizeProfile
+): Boolean = sizeProfile != TwoRowWidgetSizeProfile.VERY_DENSE && widgetHeightDp >= 165f
+
 /**
  * Hauteur réellement disponible pour une rangée de cartes dans un widget ×2.
  *

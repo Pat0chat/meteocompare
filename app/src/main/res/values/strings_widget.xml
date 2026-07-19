@@ -75,4 +75,11 @@
     <string name="widget_color_light_grey">Gris clair</string>
     <string name="widget_color_dark_grey">Gris foncé</string>
 
+    <!-- Titres des panneaux de prévision modernisés -->
+    <string name="widget_forecast_hours">Prochaines heures</string>
+    <string name="widget_forecast_days">Prochains jours</string>
+    <string name="widget_forecast_generic">Prévisions</string>
+    <string name="widget_forecast_confidence">Confiance des modèles</string>
+    <string name="widget_forecast_confidence_hint">accord / modèles</string>
+
 </resources>

@@ -90,4 +90,20 @@ class WidgetForecastCardLayoutTest {
         assertTrue("Le strip bas doit être plus petit que le widget complet", available < 110f)
         assertEquals(ForecastCardHeightProfile.COMPACT, profile)
     }
+    @Test
+    fun `modern forecast header is hidden when vertical space is critical`() {
+        assertTrue(!shouldShowForecastPanelHeader(150f, TwoRowWidgetSizeProfile.VERY_DENSE))
+        assertTrue(!shouldShowForecastPanelHeader(160f, TwoRowWidgetSizeProfile.COMPACT))
+        assertTrue(shouldShowForecastPanelHeader(180f, TwoRowWidgetSizeProfile.COMPACT))
+        assertTrue(shouldShowForecastPanelHeader(200f, TwoRowWidgetSizeProfile.REGULAR))
+    }
+
+    @Test
+    fun `modern forecast header budget stays compact`() {
+        assertEquals(0f, forecastPanelHeaderHeightDp(showHeader = false, compact = true))
+        assertEquals(14f, forecastPanelHeaderHeightDp(showHeader = true, compact = true))
+        assertEquals(18f, forecastPanelHeaderHeightDp(showHeader = true, compact = false))
+    }
+
+
 }

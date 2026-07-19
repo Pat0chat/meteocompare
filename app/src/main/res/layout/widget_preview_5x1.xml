@@ -63,6 +63,11 @@
         android:gravity="center"
         android:padding="3dp"
         android:background="@drawable/widget_preview_surface_bg">
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="2dp"
+            android:layout_marginBottom="1dp"
+            android:background="@drawable/widget_preview_temp_accent" />
         <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="14h" android:textSize="8sp" android:textColor="?android:attr/textColorSecondary" />
         <ImageView android:layout_width="18dp" android:layout_height="18dp" android:src="@drawable/widget_preview_weather_partly" android:contentDescription="@null" />
         <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="21°" android:textSize="10sp" android:textStyle="bold" android:textColor="?android:attr/textColorPrimary" />
@@ -71,7 +76,7 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="● 85%"
+        android:text="85%"
         android:textSize="10sp"
         android:textStyle="bold"
         android:textColor="@color/widget_preview_confidence"
