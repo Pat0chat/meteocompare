@@ -30,3 +30,36 @@ internal fun forecastContainerVerticalPaddingDp(heightDp: Float): Float =
         ForecastCardHeightProfile.COMFORTABLE -> 11f
         ForecastCardHeightProfile.EXPANDED -> 13f
     }
+
+/**
+ * Respiration verticale autour du bitmap de la mini-prévision.
+ *
+ * Le profil 4×2 est volontairement un peu plus généreux : sur certains
+ * launchers, l'arrondi en pixels de RemoteViews rognait visuellement la
+ * première et la dernière ligne quand le bitmap remplissait exactement le
+ * poids disponible.
+ */
+internal fun miniForecastContainerVerticalPaddingDp(
+    profile: MiniForecastSizeProfile
+): Float = when (profile) {
+    MiniForecastSizeProfile.COMPACT_2X2 -> 3f
+    MiniForecastSizeProfile.MEDIUM_3X2 -> 4f
+    MiniForecastSizeProfile.EXPANDED_4X2 -> 5f
+}
+
+/**
+ * Hauteur réaliste du bandeau météo placé au-dessus de la heatmap.
+ *
+ * À partir du 4×2, la ligne vent/humidité est présente : la pile de trois
+ * textes devient alors plus haute que l'icône. L'ancien budget de 38/44 dp
+ * sous-estimait cette hauteur et reportait le dépassement sur la heatmap.
+ */
+internal fun miniForecastHeaderHeightBudgetDp(
+    compact: Boolean,
+    showExtras: Boolean
+): Float = when {
+    showExtras && compact -> 46f
+    showExtras -> 54f
+    compact -> 38f
+    else -> 44f
+}

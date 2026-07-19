@@ -39,21 +39,31 @@ internal fun miniForecastChartHeightDp(
     profile: MiniForecastSizeProfile
 ): Int {
     val widgetPadding = forecastContainerVerticalPaddingDp(widgetHeightDp) * 2f
-    val chartInnerPadding = if (widgetHeightDp < 175f) 4f else 6f
-    val available = widgetHeightDp - widgetPadding - headerHeightDp - sectionGapDp - chartInnerPadding
-
-    val minimum = when {
-        widgetHeightDp < 145f -> 54f
-        widgetHeightDp < 175f -> 66f
-        else -> 78f
+    val chartContainerPadding = miniForecastContainerVerticalPaddingDp(profile) * 2f
+    // Petite réserve pour absorber les arrondis dp→px de Glance/RemoteViews.
+    // Elle est plus forte en 4×2+, là où le rognage a été observé.
+    val hostRoundingSafety = when (profile) {
+        MiniForecastSizeProfile.COMPACT_2X2 -> 2f
+        MiniForecastSizeProfile.MEDIUM_3X2 -> 3f
+        MiniForecastSizeProfile.EXPANDED_4X2 -> 6f
     }
+    val available = widgetHeightDp -
+        widgetPadding -
+        headerHeightDp -
+        sectionGapDp -
+        chartContainerPadding -
+        hostRoundingSafety
+
     val maximum = when (profile) {
         MiniForecastSizeProfile.COMPACT_2X2 -> 160f
         MiniForecastSizeProfile.MEDIUM_3X2 -> 190f
         MiniForecastSizeProfile.EXPANDED_4X2 -> 220f
     }
 
-    return available.coerceIn(minimum, maximum).roundToInt()
+    // Ne jamais réimposer une hauteur minimale supérieure à l'espace réel :
+    // c'était précisément ce qui pouvait faire dépasser le bitmap en haut et
+    // en bas sur les grilles de launcher les plus compactes.
+    return available.coerceIn(1f, maximum).roundToInt()
 }
 
 /**
@@ -73,8 +83,6 @@ internal object WidgetMiniForecastRenderer {
 
     private const val CELL_COUNT = 12
     private const val COLUMNS_PER_ROW = 6
-    private const val MIN_VISIBLE_BAR_FRACTION = 0.14f
-    private const val MIN_TEMPERATURE_RANGE_C = 6.0
     private const val HEAVY_HOURLY_RAIN_MM = 4.0
 
     fun render(
@@ -95,7 +103,6 @@ internal object WidgetMiniForecastRenderer {
         val bitmap = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         val shapePaint = Paint(Paint.ANTI_ALIAS_FLAG)
-        val temperatureFractions = temperatureBarFractions(temps)
 
         val outerPadding = (heightPx * 0.022f).coerceAtLeast(2f)
         val rowGap = (heightPx * 0.042f).coerceAtLeast(3f)
@@ -105,30 +112,34 @@ internal object WidgetMiniForecastRenderer {
         val cellGap = (columnWidth * metrics.cellGapFraction).coerceAtLeast(1f)
         val cellRadius = min(columnWidth * 0.18f, rowHeight * 0.10f)
 
+        val baseTimeTextSize = min(
+            rowHeight * metrics.timeTextFraction,
+            columnWidth * metrics.timeWidthLimitFraction
+        ).coerceAtLeast(7f)
+        val baseTempTextSize = min(
+            rowHeight * metrics.tempTextFraction,
+            columnWidth * metrics.tempWidthLimitFraction
+        ).coerceAtLeast(13f)
+        val basePrecipTextSize = min(
+            rowHeight * metrics.precipTextFraction,
+            columnWidth * metrics.precipWidthLimitFraction
+        ).coerceAtLeast(7f)
+
         val timePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             textAlign = Paint.Align.CENTER
-            textSize = min(
-                rowHeight * metrics.timeTextFraction,
-                columnWidth * metrics.timeWidthLimitFraction
-            ).coerceAtLeast(7f)
+            textSize = baseTimeTextSize
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             isSubpixelText = true
         }
         val tempPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             textAlign = Paint.Align.CENTER
-            textSize = min(
-                rowHeight * metrics.tempTextFraction,
-                columnWidth * metrics.tempWidthLimitFraction
-            ).coerceAtLeast(13f)
+            textSize = baseTempTextSize
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             isSubpixelText = true
         }
         val precipPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             textAlign = Paint.Align.CENTER
-            textSize = min(
-                rowHeight * metrics.precipTextFraction,
-                columnWidth * metrics.precipWidthLimitFraction
-            ).coerceAtLeast(7f)
+            textSize = basePrecipTextSize
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             isSubpixelText = true
         }
@@ -146,20 +157,55 @@ internal object WidgetMiniForecastRenderer {
         for (index in 0 until CELL_COUNT) {
             val row = index / COLUMNS_PER_ROW
             val column = index % COLUMNS_PER_ROW
+            val isUpcomingHour = index == 0
             val rowTop = outerPadding + row * (rowHeight + rowGap)
-            val left = outerPadding + column * columnWidth + cellGap / 2f
-            val right = outerPadding + (column + 1) * columnWidth - cellGap / 2f
-            val bottom = rowTop + rowHeight
+            val baseLeft = outerPadding + column * columnWidth + cellGap / 2f
+            val baseRight = outerPadding + (column + 1) * columnWidth - cellGap / 2f
+            val baseBottom = rowTop + rowHeight
+
+            val horizontalExpansion = if (isUpcomingHour) {
+                min(
+                    columnWidth * metrics.highlightWidthFraction,
+                    min(cellGap * 0.46f, outerPadding * 0.55f)
+                )
+            } else {
+                0f
+            }
+            val verticalExpansion = if (isUpcomingHour) {
+                min(
+                    rowHeight * metrics.highlightHeightFraction,
+                    min(outerPadding * 0.55f, rowGap * 0.32f)
+                )
+            } else {
+                0f
+            }
+
+            val left = baseLeft - horizontalExpansion
+            val right = baseRight + horizontalExpansion
+            val top = rowTop - verticalExpansion
+            val bottom = baseBottom + verticalExpansion
+            val cellHeight = bottom - top
             val centerX = (left + right) / 2f
 
-            cellRect.set(left, rowTop, right, bottom)
+            if (isUpcomingHour) {
+                timePaint.textSize = baseTimeTextSize * metrics.highlightContentScale
+                tempPaint.textSize = baseTempTextSize * metrics.highlightContentScale
+                precipPaint.textSize = basePrecipTextSize * metrics.highlightContentScale
+            } else {
+                timePaint.textSize = baseTimeTextSize
+                tempPaint.textSize = baseTempTextSize
+                precipPaint.textSize = basePrecipTextSize
+            }
+
+            /*cellRect.set(left, top, right, bottom)
             shapePaint.style = Paint.Style.FILL
-            shapePaint.color = withAlpha(textColorArgb, if (index == 0) 0x18 else 0x0C)
-            canvas.drawRoundRect(cellRect, cellRadius, cellRadius, shapePaint)
+            shapePaint.color = withAlpha(textColorArgb, if (isUpcomingHour) 0x16 else 0x0C)*/
+            val currentCellRadius = min(cellRadius + horizontalExpansion * 0.35f, cellHeight * 0.12f)
+            canvas.drawRoundRect(cellRect, currentCellRadius, currentCellRadius, shapePaint)
 
             // ─── Zone température : grande tuile colorée ─────────────────
-            val tempTop = rowTop + rowHeight * 0.045f
-            val tempBottom = rowTop + rowHeight * 0.645f
+            val tempTop = top + cellHeight * 0.045f
+            val tempBottom = top + cellHeight * 0.645f
             val temp = temps.getOrNull(index)
             val tempColor = temp?.let(::temperatureHeatmapArgb)
                 ?: withAlpha(textColorArgb, 0x18)
@@ -167,7 +213,7 @@ internal object WidgetMiniForecastRenderer {
 
             rect.set(left, tempTop, right, tempBottom)
             shapePaint.color = tempTileColor
-            canvas.drawRoundRect(rect, cellRadius, cellRadius, shapePaint)
+            canvas.drawRoundRect(rect, currentCellRadius, currentCellRadius, shapePaint)
 
             val tempContentColor = if (temp == null) {
                 withAlpha(textColorArgb, 0xB0)
@@ -192,25 +238,9 @@ internal object WidgetMiniForecastRenderer {
                 tempPaint
             )
 
-            // Marqueur thermique relatif très discret : il aide à comparer les
-            // heures proches sans concurrencer la couleur absolue de la heatmap.
-            val tempFraction = temperatureFractions.getOrNull(index)
-            if (tempFraction != null) {
-                val levelWidth = (right - left) * tempFraction.coerceIn(0f, 1f)
-                val levelHeight = (rowHeight * 0.018f).coerceAtLeast(1.5f)
-                rect.set(
-                    left,
-                    tempBottom - levelHeight,
-                    left + levelWidth,
-                    tempBottom
-                )
-                shapePaint.color = withAlpha(tempContentColor, 0xA0)
-                canvas.drawRoundRect(rect, levelHeight / 2f, levelHeight / 2f, shapePaint)
-            }
-
             // ─── Zone précipitations : bande heatmap pleine largeur ──────
-            val precipTop = rowTop + rowHeight * 0.705f
-            val precipBottom = rowTop + rowHeight * 0.955f
+            val precipTop = top + cellHeight * 0.705f
+            val precipBottom = top + cellHeight * 0.955f
             val probability = precipProbabilities.getOrNull(index)?.coerceIn(0, 100)
             val amountMm = precipAmountsMm.getOrNull(index)?.coerceAtLeast(0.0)
             val precipTileColor = precipitationHeatmapArgb(
@@ -222,7 +252,12 @@ internal object WidgetMiniForecastRenderer {
 
             rect.set(left, precipTop, right, precipBottom)
             shapePaint.color = precipTileColor
-            canvas.drawRoundRect(rect, cellRadius * 0.72f, cellRadius * 0.72f, shapePaint)
+            canvas.drawRoundRect(
+                rect,
+                currentCellRadius * 0.72f,
+                currentCellRadius * 0.72f,
+                shapePaint
+            )
 
             val precipAlpha = (precipTileColor ushr 24) and 0xFF
             precipPaint.color = if (precipAlpha >= 0x78) {
@@ -236,32 +271,8 @@ internal object WidgetMiniForecastRenderer {
                 (precipFontMetrics.ascent + precipFontMetrics.descent) / 2f
             canvas.drawText(precipText, centerX, precipBaseline, precipPaint)
 
-            // Barre de saturation : probabilité + quantité. Elle reste secondaire
-            // par rapport à la bande bleue, mais rend les cumuls forts visibles.
-            val rainFraction = precipitationBarFraction(amountMm, probability)
-            if (rainFraction != null && rainFraction > 0f) {
-                val rainHeight = (rowHeight * 0.022f).coerceAtLeast(1.5f)
-                val rainWidth = (right - left) * rainFraction
-                rect.set(
-                    left,
-                    precipBottom - rainHeight,
-                    left + rainWidth,
-                    precipBottom
-                )
-                shapePaint.color = withAlpha(precipColorArgb, 0xF0)
-                canvas.drawRoundRect(rect, rainHeight / 2f, rainHeight / 2f, shapePaint)
-            }
-
-            // Première échéance = maintenant : contour léger, visible sur les
-            // deux couleurs sans rajouter un badge ou du texte.
-            if (index == 0) {
-                shapePaint.style = Paint.Style.STROKE
-                shapePaint.strokeWidth = (min(columnWidth, rowHeight) * 0.025f)
-                    .coerceAtLeast(1.5f)
-                shapePaint.color = withAlpha(textColorArgb, 0x88)
-                canvas.drawRoundRect(cellRect, cellRadius, cellRadius, shapePaint)
-                shapePaint.style = Paint.Style.FILL
-            }
+            // Première échéance = maintenant : plus de contour dédié.
+            // L'emphase passe uniquement par une carte légèrement agrandie.
         }
 
         return bitmap
@@ -271,46 +282,6 @@ internal object WidgetMiniForecastRenderer {
     internal fun visibleValueIndices(profile: MiniForecastSizeProfile): List<Int> =
         (0 until CELL_COUNT).toList()
 
-    /** Longueur relative du marqueur thermique, normalisée sur la fenêtre 12 h. */
-    internal fun temperatureBarFractions(temps: List<Double?>): List<Float?> {
-        val values = temps.filterNotNull()
-        if (values.isEmpty()) return List(temps.size) { null }
-
-        val rawMin = values.minOrNull() ?: return List(temps.size) { null }
-        val rawMax = values.maxOrNull() ?: return List(temps.size) { null }
-        val center = (rawMin + rawMax) / 2.0
-        val span = max(rawMax - rawMin, MIN_TEMPERATURE_RANGE_C)
-        val minValue = center - span / 2.0
-
-        return temps.map { temp ->
-            temp?.let {
-                val normalized = ((it - minValue) / span).toFloat().coerceIn(0f, 1f)
-                MIN_VISIBLE_BAR_FRACTION + normalized * (1f - MIN_VISIBLE_BAR_FRACTION)
-            }
-        }
-    }
-
-    /**
-     * Intensité pluie combinant la quantité horaire et la probabilité.
-     * La racine carrée rend les faibles cumuls visibles sans laisser un épisode
-     * intense écraser toutes les autres cases.
-     */
-    internal fun precipitationBarFraction(amountMm: Double?, probability: Int?): Float? {
-        if (amountMm == null && probability == null) return null
-        val amountScore = amountMm
-            ?.coerceAtLeast(0.0)
-            ?.div(HEAVY_HOURLY_RAIN_MM)
-            ?.coerceIn(0.0, 1.0)
-            ?.let(::sqrt)
-            ?.toFloat()
-            ?: 0f
-        val probabilityScore = probability?.coerceIn(0, 100)?.div(100f) ?: 0f
-        val combined = amountScore * 0.65f + probabilityScore * 0.35f
-        if (combined <= 0f) return 0f
-        return (MIN_VISIBLE_BAR_FRACTION + combined * (1f - MIN_VISIBLE_BAR_FRACTION))
-            .coerceIn(MIN_VISIBLE_BAR_FRACTION, 1f)
-    }
-
     private fun gridMetricsFor(profile: MiniForecastSizeProfile): GridMetrics = when (profile) {
         MiniForecastSizeProfile.COMPACT_2X2 -> GridMetrics(
             timeTextFraction = 0.105f,
@@ -319,7 +290,10 @@ internal object WidgetMiniForecastRenderer {
             cellGapFraction = 0.08f,
             timeWidthLimitFraction = 0.24f,
             tempWidthLimitFraction = 0.43f,
-            precipWidthLimitFraction = 0.22f
+            precipWidthLimitFraction = 0.22f,
+            highlightWidthFraction = 0.034f,
+            highlightHeightFraction = 0.036f,
+            highlightContentScale = 1.04f
         )
         MiniForecastSizeProfile.MEDIUM_3X2 -> GridMetrics(
             timeTextFraction = 0.112f,
@@ -328,7 +302,10 @@ internal object WidgetMiniForecastRenderer {
             cellGapFraction = 0.10f,
             timeWidthLimitFraction = 0.25f,
             tempWidthLimitFraction = 0.44f,
-            precipWidthLimitFraction = 0.23f
+            precipWidthLimitFraction = 0.23f,
+            highlightWidthFraction = 0.038f,
+            highlightHeightFraction = 0.04f,
+            highlightContentScale = 1.05f
         )
         MiniForecastSizeProfile.EXPANDED_4X2 -> GridMetrics(
             timeTextFraction = 0.12f,
@@ -337,7 +314,10 @@ internal object WidgetMiniForecastRenderer {
             cellGapFraction = 0.12f,
             timeWidthLimitFraction = 0.26f,
             tempWidthLimitFraction = 0.46f,
-            precipWidthLimitFraction = 0.24f
+            precipWidthLimitFraction = 0.24f,
+            highlightWidthFraction = 0.042f,
+            highlightHeightFraction = 0.044f,
+            highlightContentScale = 1.06f
         )
     }
 
@@ -348,8 +328,14 @@ internal object WidgetMiniForecastRenderer {
         val cellGapFraction: Float,
         val timeWidthLimitFraction: Float,
         val tempWidthLimitFraction: Float,
-        val precipWidthLimitFraction: Float
+        val precipWidthLimitFraction: Float,
+        val highlightWidthFraction: Float,
+        val highlightHeightFraction: Float,
+        val highlightContentScale: Float
     )
+
+    internal fun upcomingHourHighlightScale(profile: MiniForecastSizeProfile): Float =
+        gridMetricsFor(profile).highlightContentScale
 
     /** Rampe de couleurs froid → chaud commune à l'application et au widget. */
     internal fun temperatureHeatmapArgb(temp: Double): Int {

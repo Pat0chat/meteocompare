@@ -1044,7 +1044,10 @@ private fun ExtraLargeLayout(
                 softSurface = softSurface,
                 compact = compactHeight,
                 textColorArgb = onContainerArgb,
-                headerHeightBudgetDp = if (compactHeight) 38f else 44f,
+                headerHeightBudgetDp = miniForecastHeaderHeightBudgetDp(
+                    compact = compactHeight,
+                    showExtras = showExtras
+                ),
                 // defaultWeight ici parce qu'on est dans le ColumnScope de
                 // l'ExtraLargeLayout — occupe l'espace vertical restant sous le
                 // top strip pour ne pas laisser un vide de 40+dp en bas de card.
@@ -1159,11 +1162,7 @@ private fun MiniForecastStrip(
             .cornerRadius(14.dp)
             .padding(
                 horizontal = chartHorizontalPaddingDp.dp,
-                vertical = when (profile) {
-                    MiniForecastSizeProfile.COMPACT_2X2 -> 2.dp
-                    MiniForecastSizeProfile.MEDIUM_3X2 -> 2.dp
-                    MiniForecastSizeProfile.EXPANDED_4X2 -> 3.dp
-                }
+                vertical = miniForecastContainerVerticalPaddingDp(profile).dp
             ),
         verticalAlignment = Alignment.CenterVertically
     ) {

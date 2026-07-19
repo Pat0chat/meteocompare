@@ -76,8 +76,8 @@ class WidgetMiniForecastRendererTest {
     @Test
     fun `alpha toujours 255 opaque quel que soit le temp`() {
         // Les couleurs des stops sont toutes opaques (préfixe 0xFF). L'interpolation
-        // ne doit pas introduire de translucidité — le dot pluie et les bars doivent
-        // être franchement lisibles sur fond de widget.
+        // ne doit pas introduire de translucidité : les tuiles doivent rester
+        // franchement lisibles sur fond de widget.
         val temps = listOf(-20.0, -10.0, 0.0, 10.0, 20.0, 30.0, 40.0, 50.0)
         temps.forEach { temp ->
             val color = WidgetMiniForecastRenderer.temperatureHeatmapArgb(temp)
@@ -147,56 +147,6 @@ class WidgetMiniForecastRendererTest {
     }
 
 
-    // ─── Hauteur des barres ─────────────────────────────────────────────
-
-    @Test
-    fun `barres temperature grandissent avec la temperature sur la fenetre`() {
-        val fractions = WidgetMiniForecastRenderer.temperatureBarFractions(
-            listOf(10.0, 15.0, 20.0, 25.0)
-        ).filterNotNull()
-
-        fractions.zipWithNext().forEach { (a, b) ->
-            assertTrue("La barre chaude doit être plus haute: $a puis $b", b > a)
-        }
-    }
-
-    @Test
-    fun `barres temperature restent visibles quand les valeurs sont identiques`() {
-        val fractions = WidgetMiniForecastRenderer.temperatureBarFractions(
-            List(12) { 18.0 }
-        ).filterNotNull()
-
-        assertEquals(12, fractions.size)
-        fractions.forEach { fraction ->
-            assertTrue(fraction in 0.14f..1f)
-        }
-    }
-
-    @Test
-    fun `barre pluie augmente avec la quantite a probabilite egale`() {
-        val light = WidgetMiniForecastRenderer.precipitationBarFraction(0.2, 70)
-            ?: error("fraction manquante")
-        val heavy = WidgetMiniForecastRenderer.precipitationBarFraction(3.5, 70)
-            ?: error("fraction manquante")
-
-        assertTrue(heavy > light)
-    }
-
-    @Test
-    fun `barre pluie augmente avec la probabilite a quantite egale`() {
-        val unlikely = WidgetMiniForecastRenderer.precipitationBarFraction(0.5, 20)
-            ?: error("fraction manquante")
-        val likely = WidgetMiniForecastRenderer.precipitationBarFraction(0.5, 90)
-            ?: error("fraction manquante")
-
-        assertTrue(likely > unlikely)
-    }
-
-    @Test
-    fun `barre pluie est absente sans quantite ni probabilite`() {
-        assertEquals(null, WidgetMiniForecastRenderer.precipitationBarFraction(null, null))
-    }
-
     // ─── Contrat public de render (bornes d'input) ───────────────────────
 
     @Test(expected = IllegalArgumentException::class)
@@ -260,6 +210,24 @@ class WidgetMiniForecastRendererTest {
 
 
 
+
+    @Test
+    fun `heure a venir est mise en avant par une carte legerement agrandie`() {
+        val compact = WidgetMiniForecastRenderer.upcomingHourHighlightScale(
+            MiniForecastSizeProfile.COMPACT_2X2
+        )
+        val medium = WidgetMiniForecastRenderer.upcomingHourHighlightScale(
+            MiniForecastSizeProfile.MEDIUM_3X2
+        )
+        val expanded = WidgetMiniForecastRenderer.upcomingHourHighlightScale(
+            MiniForecastSizeProfile.EXPANDED_4X2
+        )
+
+        assertTrue("La carte mise en avant doit etre un peu plus grande", compact > 1f)
+        assertTrue("La mise en avant ne doit pas diminuer quand le widget s'elargit", compact <= medium)
+        assertTrue("La mise en avant ne doit pas diminuer quand le widget s'elargit", medium <= expanded)
+    }
+
     @Test
     fun `hauteur mini forecast grandit avec le widget`() {
         val dense = miniForecastChartHeightDp(
@@ -283,6 +251,48 @@ class WidgetMiniForecastRendererTest {
 
         assertTrue("La hauteur doit suivre le redimensionnement: $dense, $medium, $tall", dense < medium)
         assertTrue("La hauteur doit suivre le redimensionnement: $dense, $medium, $tall", medium < tall)
+    }
+
+
+    @Test
+    fun `budget du header 4x2 tient compte de la ligne extras`() {
+        assertEquals(46f, miniForecastHeaderHeightBudgetDp(compact = true, showExtras = true))
+        assertEquals(54f, miniForecastHeaderHeightBudgetDp(compact = false, showExtras = true))
+        assertEquals(44f, miniForecastHeaderHeightBudgetDp(compact = false, showExtras = false))
+    }
+
+    @Test
+    fun `hauteur 4x2 ne depasse jamais le budget vertical reel`() {
+        val widgetHeight = 175f
+        val header = miniForecastHeaderHeightBudgetDp(compact = false, showExtras = true)
+        val rootPadding = forecastContainerVerticalPaddingDp(widgetHeight) * 2f
+        val chartPadding = miniForecastContainerVerticalPaddingDp(
+            MiniForecastSizeProfile.EXPANDED_4X2
+        ) * 2f
+        val sectionGap = 10f
+        val roundingSafety = 6f
+        val available = widgetHeight - rootPadding - header - chartPadding - sectionGap - roundingSafety
+
+        val chart = miniForecastChartHeightDp(
+            widgetHeightDp = widgetHeight,
+            headerHeightDp = header,
+            sectionGapDp = sectionGap,
+            profile = MiniForecastSizeProfile.EXPANDED_4X2
+        )
+
+        assertTrue("Le bitmap $chart dp dépasse le budget $available dp", chart <= available + 0.5f)
+    }
+
+    @Test
+    fun `hauteur compacte accepte de se reduire plutot que de rogner`() {
+        val chart = miniForecastChartHeightDp(
+            widgetHeightDp = 130f,
+            headerHeightDp = 60f,
+            sectionGapDp = 8f,
+            profile = MiniForecastSizeProfile.EXPANDED_4X2
+        )
+
+        assertTrue("La heatmap doit rester dans le peu d'espace restant", chart in 1..42)
     }
 
     @Test
