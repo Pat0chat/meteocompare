@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.LocationCity
 import androidx.compose.material.icons.outlined.Thermostat
 import androidx.compose.material.icons.outlined.WaterDrop
@@ -79,6 +80,7 @@ import com.meteocompare.app.domain.model.PrecipitationConfidence
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.ui.components.AnimatedWeatherIcon
 import com.meteocompare.app.ui.components.ShimmerBox
+import com.meteocompare.app.ui.settings.DonationDialog
 import com.meteocompare.app.ui.theme.confidenceColor
 import com.meteocompare.app.ui.theme.MeteoCompareTheme
 import java.time.LocalDate
@@ -98,16 +100,22 @@ fun CityListScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val addState by viewModel.addCityState.collectAsStateWithLifecycle()
     var showAddSheet by rememberSaveable { mutableStateOf(false) }
+    var showDonationDialog by rememberSaveable { mutableStateOf(false) }
 
     CityListContent(
         uiState = uiState,
         onCityClick = onCityClick,
         onAddClick = { showAddSheet = true },
+        onDonateClick = { showDonationDialog = true },
         onSettingsClick = onSettingsClick,
         onRemoveCity = viewModel::onRemoveCity,
         onRetry = viewModel::onRetry,
         onRefresh = viewModel::onRefreshAll
     )
+
+    if (showDonationDialog) {
+        DonationDialog(onDismiss = { showDonationDialog = false })
+    }
 
     if (showAddSheet) {
         AddCitySheet(
@@ -135,6 +143,7 @@ internal fun CityListContent(
     uiState: CityListUiState,
     onCityClick: (cityId: String) -> Unit,
     onAddClick: () -> Unit,
+    onDonateClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onRemoveCity: (cityId: String) -> Unit,
     onRetry: (City) -> Unit,
@@ -145,6 +154,15 @@ internal fun CityListContent(
             TopAppBar(
                 title = { Text(stringResource(R.string.app_name)) },
                 actions = {
+                    IconButton(
+                        onClick = onDonateClick,
+                        modifier = Modifier.testTag(TAG_DONATE_BUTTON)
+                    ) {
+                        Icon(
+                            Icons.Outlined.FavoriteBorder,
+                            contentDescription = stringResource(R.string.action_support_dev)
+                        )
+                    }
                     IconButton(
                         onClick = onSettingsClick,
                         modifier = Modifier.testTag(TAG_SETTINGS_BUTTON)
@@ -705,6 +723,7 @@ internal const val TAG_CITY_LIST = "city_list"
 internal const val TAG_CITY_CARD = "city_card_"
 internal const val TAG_EMPTY_STATE = "empty_state"
 internal const val TAG_ADD_FAB = "add_fab"
+internal const val TAG_DONATE_BUTTON = "donate_button"
 internal const val TAG_SETTINGS_BUTTON = "settings_button"
 
 // ─── Previews ────────────────────────────────────────────────────────────────

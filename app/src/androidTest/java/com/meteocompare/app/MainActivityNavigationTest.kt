@@ -20,6 +20,7 @@ import com.meteocompare.app.ui.citylist.TAG_ADD_CITY_RESULT
 import com.meteocompare.app.ui.citylist.TAG_ADD_FAB
 import com.meteocompare.app.ui.citylist.TAG_ADD_CITY_SEARCH_FIELD
 import com.meteocompare.app.ui.citylist.TAG_CITY_CARD
+import com.meteocompare.app.ui.citylist.TAG_DONATE_BUTTON
 import com.meteocompare.app.ui.citylist.TAG_EMPTY_STATE
 import com.meteocompare.app.ui.citylist.TAG_SETTINGS_BUTTON
 import com.meteocompare.app.ui.settings.TAG_SETTINGS_BACK
@@ -72,6 +73,19 @@ class MainActivityNavigationTest {
         composeRule.onNodeWithTag(TAG_EMPTY_STATE).assertIsDisplayed()
         composeRule.onNodeWithText(composeRule.activity.getString(R.string.empty_favorites_title))
             .assertIsDisplayed()
+    }
+
+
+    @Test
+    fun home_donation_button_opens_shared_donation_dialog() {
+        composeRule.onNodeWithTag(TAG_DONATE_BUTTON).performClick()
+        composeRule.onNodeWithText(
+            composeRule.activity.getString(R.string.donations_dialog_title)
+        ).assertIsDisplayed()
+        composeRule.onNodeWithText(
+            composeRule.activity.getString(R.string.donations_dialog_close)
+        ).performClick()
+        composeRule.onNodeWithTag(TAG_EMPTY_STATE).assertIsDisplayed()
     }
 
     @Test
