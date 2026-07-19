@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="horizontal"
+    android:padding="10dp"
+    android:gravity="center_vertical"
+    android:background="@drawable/widget_preview_bg">
+
+    <ImageView
+        android:layout_width="38dp"
+        android:layout_height="38dp"
+        android:src="@drawable/widget_preview_weather_sun"
+        android:contentDescription="@null" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="5dp"
+        android:text="18°"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:textColor="?android:attr/textColorPrimary" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:layout_marginStart="10dp"
+        android:layout_marginEnd="7dp"
+        android:orientation="vertical"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp"
+        android:background="@drawable/widget_preview_surface_bg">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Paris"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:textColor="?android:attr/textColorPrimary"
+            android:maxLines="1"
+            android:ellipsize="end" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="15° / 22° · vent 15 km/h"
+            android:textSize="9sp"
+            android:textColor="?android:attr/textColorSecondary"
+            android:maxLines="1"
+            android:ellipsize="end" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="42dp"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="7dp"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="3dp"
+        android:background="@drawable/widget_preview_surface_bg">
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="14h" android:textSize="8sp" android:textColor="?android:attr/textColorSecondary" />
+        <ImageView android:layout_width="18dp" android:layout_height="18dp" android:src="@drawable/widget_preview_weather_partly" android:contentDescription="@null" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="21°" android:textSize="10sp" android:textStyle="bold" android:textColor="?android:attr/textColorPrimary" />
+    </LinearLayout>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="● 85%"
+        android:textSize="10sp"
+        android:textStyle="bold"
+        android:textColor="@color/widget_preview_confidence"
+        android:background="@drawable/widget_preview_pill_bg"
+        android:paddingStart="6dp"
+        android:paddingEnd="6dp"
+        android:paddingTop="3dp"
+        android:paddingBottom="3dp" />
+</LinearLayout>

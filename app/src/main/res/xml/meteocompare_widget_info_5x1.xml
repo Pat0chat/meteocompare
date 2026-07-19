@@ -42,7 +42,7 @@
       - maxResizeHeight = 1200dp
       - updatePeriodMillis = 0 (cadence confiée uniquement à WorkManager
         est étranglé par Doze/économie batterie)
-      - previewLayout = widget_preview_wide (partagé avec 2×1, 3×1, 4×1)
+      - previewLayout = widget_preview_5x1 (aperçu dédié avec une échéance inline)
 -->
 <appwidget-provider
     xmlns:android="http://schemas.android.com/apk/res/android"
@@ -60,5 +60,5 @@
     android:widgetFeatures="reconfigurable"
     android:configure="com.meteocompare.app.widget.MeteoWidgetConfigActivity"
     android:previewImage="@mipmap/ic_launcher"
-    android:previewLayout="@layout/widget_preview_wide"
+    android:previewLayout="@layout/widget_preview_5x1"
     android:description="@string/widget_description" />

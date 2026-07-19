@@ -24,8 +24,8 @@
     D'où l'importance d'exposer les 9 tailles dans le picker.
 
     ─── Ce qui distingue ce provider des autres ────────────────────
-    UNIQUEMENT `targetCellWidth=2` et `targetCellHeight=1`. Toutes les
-    autres attributs sont identiques.
+    `targetCellWidth=2`, `targetCellHeight=1` et un aperçu compact dédié.
+    Les autres attributs sont identiques.
 -->
 <appwidget-provider
     xmlns:android="http://schemas.android.com/apk/res/android"
@@ -41,5 +41,5 @@
     android:widgetFeatures="reconfigurable"
     android:configure="com.meteocompare.app.widget.MeteoWidgetConfigActivity"
     android:previewImage="@mipmap/ic_launcher"
-    android:previewLayout="@layout/widget_preview_wide"
+    android:previewLayout="@layout/widget_preview_2x1"
     android:description="@string/widget_description" />
