@@ -62,7 +62,6 @@ internal fun ModelBiasChip(
         direction = if (isCalibrated) BiasDirection.NEUTRAL else bias.direction,
         pending = false
     )
-    val icon = if (isCalibrated) Icons.Filled.Check else arrowIconFor(bias.direction)
     val label = formatBiasLabel(bias)
     val a11y = biasContentDescription(bias)
     val shape = RoundedCornerShape(6.dp)
@@ -83,12 +82,6 @@ internal fun ModelBiasChip(
                 .width(2.dp)
                 .height(10.dp)
                 .background(palette.indicator, RoundedCornerShape(999.dp))
-        )
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = palette.foreground,
-            modifier = Modifier.size(10.dp)
         )
         Text(
             text = label,
@@ -196,12 +189,6 @@ internal fun biasChipPalette(
         indicator = accent.copy(alpha = indicatorAlpha),
         foreground = foreground
     )
-}
-
-private fun arrowIconFor(direction: BiasDirection): ImageVector = when (direction) {
-    BiasDirection.WARM -> Icons.Filled.ArrowUpward
-    BiasDirection.COLD -> Icons.Filled.ArrowDownward
-    BiasDirection.NEUTRAL -> Icons.Filled.Remove
 }
 
 /**
