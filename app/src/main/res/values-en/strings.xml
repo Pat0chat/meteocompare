@@ -114,6 +114,8 @@
     <string name="widget_error_city_gone">City\nremoved</string>
     <string name="widget_error_fetch">No\ndata</string>
 
+    <string name="forecast_tables_section">Detailed forecasts</string>
+
     <!-- Display-mode toggle (below the TodaySummaryCard) -->
     <string name="display_mode_hourly">Hourly</string>
     <string name="display_mode_daily">Daily</string>

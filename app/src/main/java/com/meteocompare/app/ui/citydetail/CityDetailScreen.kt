@@ -5,7 +5,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -86,6 +85,7 @@ import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.usecase.DayConditionsRow
 import com.meteocompare.app.ui.components.AnimatedWeatherIcon
 import com.meteocompare.app.ui.components.ModernInlineSelector
+import com.meteocompare.app.ui.components.ModernSectionSeparator
 import com.meteocompare.app.ui.theme.confidenceColor
 import java.time.Instant
 import java.time.format.DateTimeFormatter
@@ -415,6 +415,16 @@ private fun LoadedView(
                     }
                 )
             }
+        }
+
+        item("forecast_tables_separator") {
+            ModernSectionSeparator(
+                textRes = R.string.forecast_tables_section,
+                modifier = Modifier.padding(
+                    top = 22.dp,
+                    bottom = 12.dp
+                )
+            )
         }
 
         // Toggle "Par heure / Par jour" — placé juste sous la bande de confiance

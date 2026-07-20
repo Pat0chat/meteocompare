@@ -115,6 +115,8 @@
     <string name="widget_error_city_gone">Ville\nsupprimée</string>
     <string name="widget_error_fetch">Pas de\ndonnées</string>
 
+    <string name="forecast_tables_section">Prévisions détaillées</string>
+
     <!-- Toggle mode d\'affichage (sous la TodaySummaryCard) -->
     <string name="display_mode_hourly">Par heure</string>
     <string name="display_mode_daily">Par jour</string>
