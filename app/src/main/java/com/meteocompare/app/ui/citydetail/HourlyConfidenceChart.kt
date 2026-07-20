@@ -45,7 +45,7 @@ import androidx.compose.ui.unit.sp
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.DayNormals
 import com.meteocompare.app.domain.model.HourlyConfidenceBand
-import com.meteocompare.app.ui.components.ModernStateSelector
+import com.meteocompare.app.ui.components.ModernTextTabs
 import com.meteocompare.app.ui.theme.confidenceColor
 import java.time.Duration
 import java.time.Instant
@@ -105,7 +105,7 @@ fun ConfidenceBandSection(
             onSelect = { metric = it },
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .padding(horizontal = 16.dp, vertical = 4.dp)
         )
 
         val bands = when (metric) {
@@ -123,11 +123,10 @@ fun ConfidenceBandSection(
 }
 
 /**
- * Sélecteur segmenté à 3 états — Température / Précipitations / Vent.
+ * Onglets de métrique — Température / Précipitations / Vent.
  *
- * Rendu avec le composant commun ModernStateSelector : capsule active teintée
- * selon la métrique, fond discret et cible tactile homogène. Les labels restent
- * seuls afin de préserver la lisibilité sur les écrans étroits.
+ * Rendu sous forme d'onglets texte légers : aucun gros conteneur commun, seul
+ * le libellé actif et un indicateur inférieur coloré signalent la métrique.
  */
 @Composable
 private fun ConfidenceMetricSelector(
@@ -145,7 +144,7 @@ private fun ConfidenceMetricSelector(
         ConfidenceMetric.PRECIPITATION -> MaterialTheme.colorScheme.primary
         ConfidenceMetric.WIND -> MaterialTheme.colorScheme.tertiary
     }
-    ModernStateSelector(
+    ModernTextTabs(
         options = options,
         selected = selected,
         onSelected = onSelect,

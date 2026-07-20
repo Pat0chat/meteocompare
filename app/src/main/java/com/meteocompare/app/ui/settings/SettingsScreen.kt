@@ -52,12 +52,11 @@ import com.meteocompare.app.R
 import com.meteocompare.app.core.locale.persistLocalePreference
 import com.meteocompare.app.domain.model.Coverage
 import com.meteocompare.app.domain.model.LanguagePreference
-import com.meteocompare.app.domain.model.ModelFamily
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.ThemePreference
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.ui.components.ModernStateChip
-import com.meteocompare.app.ui.components.ModernStateSelector
+import com.meteocompare.app.ui.components.ModernSlidingSelector
 import com.meteocompare.app.ui.theme.color
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -601,7 +600,7 @@ private fun ModelSortSelector(
     onSelect: (ModelSortMode) -> Unit
 ) {
     val options = listOf(ModelSortMode.ZONE, ModelSortMode.FAMILLE, ModelSortMode.FINESSE)
-    ModernStateSelector(
+    ModernSlidingSelector(
         options = options,
         selected = selected,
         onSelected = onSelect,
@@ -626,7 +625,7 @@ private fun ThemeSelector(
     onSelect: (ThemePreference) -> Unit
 ) {
     val options = listOf(ThemePreference.SYSTEM, ThemePreference.LIGHT, ThemePreference.DARK)
-    ModernStateSelector(
+    ModernSlidingSelector(
         options = options,
         selected = selected,
         onSelected = onSelect,
@@ -655,7 +654,7 @@ private fun LanguageSelector(
         LanguagePreference.FRENCH,
         LanguagePreference.ENGLISH
     )
-    ModernStateSelector(
+    ModernSlidingSelector(
         options = options,
         selected = selected,
         onSelected = onSelect,

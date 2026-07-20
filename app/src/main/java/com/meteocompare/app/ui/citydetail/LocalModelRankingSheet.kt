@@ -47,7 +47,7 @@ import com.meteocompare.app.domain.model.BiasVariable
 import com.meteocompare.app.domain.model.ModelReliability
 import com.meteocompare.app.domain.model.ReliabilityLevel
 import com.meteocompare.app.domain.model.WeatherModel
-import com.meteocompare.app.ui.components.ModernStateSelector
+import com.meteocompare.app.ui.components.ModernTextTabs
 import com.meteocompare.app.ui.theme.confidenceColor
 import kotlin.math.abs
 
@@ -253,7 +253,7 @@ private fun RankingVariableTabs(
             BiasVariable.WIND_SPEED
         )
     }
-    ModernStateSelector(
+    ModernTextTabs(
         options = variables,
         selected = selected,
         onSelected = onSelected,

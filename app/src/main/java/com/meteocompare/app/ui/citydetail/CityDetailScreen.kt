@@ -84,7 +84,7 @@ import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.usecase.DayConditionsRow
 import com.meteocompare.app.ui.components.AnimatedWeatherIcon
-import com.meteocompare.app.ui.components.ModernStateSelector
+import com.meteocompare.app.ui.components.ModernSlidingSelector
 import com.meteocompare.app.ui.theme.confidenceColor
 import java.time.Instant
 import java.time.format.DateTimeFormatter
@@ -805,7 +805,10 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hourlyItems(
 // ============================================================================
 
 /**
- * Toggle segmenté "Par heure / Par jour" — style Material 3.
+ * Sélecteur coulissant tonal "Par heure / Par jour".
+ *
+ * Le fond commun est volontairement discret et l'état actif est porté par un
+ * unique indicateur animé, sans bordure ni ombre.
  *
  * Ordre HOURLY-first plutôt que DAILY-first parce que dans l'app finale, la
  * lecture gauche→droite fait naturellement lire "par heure" comme la vue
@@ -821,7 +824,7 @@ private fun DisplayModeToggle(
     modifier: Modifier = Modifier
 ) {
     val options = listOf(DisplayMode.HOURLY, DisplayMode.DAILY)
-    ModernStateSelector(
+    ModernSlidingSelector(
         options = options,
         selected = mode,
         onSelected = onModeChange,
