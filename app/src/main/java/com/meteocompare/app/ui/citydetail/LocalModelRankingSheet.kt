@@ -78,30 +78,7 @@ internal fun LocalModelRankingSummaryCard(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow
         )
     ) {
-        Column(modifier = Modifier.padding(vertical = 16.dp)) {
-            Row(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.local_ranking_summary_title),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        text = stringResource(R.string.local_ranking_summary_subtitle),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                TextButton(onClick = { onOpenRanking(rankings.firstAvailableVariable) }) {
-                    Text(stringResource(R.string.local_ranking_view_all))
-                }
-            }
-
-            Spacer(Modifier.height(10.dp))
+        Column(modifier = Modifier.padding(vertical = 4.dp)) {
             RankingWinnerRow(
                 ranking = rankings.temperature,
                 accent = MaterialTheme.colorScheme.error,
@@ -117,6 +94,19 @@ internal fun LocalModelRankingSummaryCard(
                 accent = MaterialTheme.colorScheme.tertiary,
                 onClick = { onOpenRanking(BiasVariable.WIND_SPEED) }
             )
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = stringResource(R.string.local_ranking_summary_subtitle),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                TextButton(onClick = { onOpenRanking(rankings.firstAvailableVariable) }) {
+                    Text(stringResource(R.string.local_ranking_view_all))
+                }
+            }
         }
     }
 }

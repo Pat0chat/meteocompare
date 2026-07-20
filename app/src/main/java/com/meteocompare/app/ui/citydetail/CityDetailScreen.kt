@@ -407,6 +407,7 @@ private fun LoadedView(
 
         if (localRankings.hasAnyRanking) {
             item("local_model_ranking_summary") {
+                SectionTitle(stringResource(R.string.local_ranking_summary_title))
                 LocalModelRankingSummaryCard(
                     rankings = localRankings,
                     onOpenRanking = { variable ->
