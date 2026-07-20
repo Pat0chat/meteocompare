@@ -1,6 +1,7 @@
 package com.meteocompare.app.ui.citydetail
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,6 +34,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -71,7 +74,8 @@ import kotlin.math.roundToInt
 @Composable
 internal fun ModelBiasDetailSheet(
     selection: BiasSelection?,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onOpenRanking: ((WeatherModel, BiasVariable) -> Unit)? = null
 ) {
     if (selection == null) return
 
@@ -97,7 +101,10 @@ internal fun ModelBiasDetailSheet(
                 fontWeight = FontWeight.SemiBold
             )
             Spacer(Modifier.height(12.dp))
-            ReliabilityHero(selection)
+            ReliabilityHero(
+                selection = selection,
+                onOpenRanking = onOpenRanking
+            )
             Spacer(Modifier.height(10.dp))
             ReliabilitySummary(selection)
 
@@ -209,11 +216,17 @@ private fun SheetEyebrow(model: WeatherModel, variable: BiasVariable, windowDays
 }
 
 @Composable
-private fun ReliabilityHero(selection: BiasSelection) {
+private fun ReliabilityHero(
+    selection: BiasSelection,
+    onOpenRanking: ((WeatherModel, BiasVariable) -> Unit)?
+) {
     val reliability = selection.reliability
     val accent = reliabilityLevelAccent(reliability.level)
     val container = accent.copy(alpha = 0.11f)
         .compositeOver(MaterialTheme.colorScheme.surfaceContainerHigh)
+    val openRankingDescription = stringResource(
+        R.string.local_ranking_open_content_description
+    )
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -274,7 +287,18 @@ private fun ReliabilityHero(selection: BiasSelection) {
                                 rank.rank,
                                 rank.modelCount
                             ),
-                            accent = accent
+                            accent = accent,
+                            modifier = if (onOpenRanking != null) {
+                                Modifier
+                                    .semantics {
+                                        contentDescription = openRankingDescription
+                                    }
+                                    .clickable {
+                                        onOpenRanking(selection.model, selection.bias.variable)
+                                    }
+                            } else {
+                                Modifier
+                            }
                         )
                     }
                 }

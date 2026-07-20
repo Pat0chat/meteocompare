@@ -75,6 +75,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.meteocompare.app.R
+import com.meteocompare.app.domain.model.BiasVariable
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.ConfidenceScore
 import com.meteocompare.app.domain.model.DailyForecast
@@ -307,6 +308,22 @@ private fun LoadedView(
     var selectedModelName by rememberSaveable { mutableStateOf("") }
     var selectedVariableName by rememberSaveable { mutableStateOf("") }
 
+    // ── Classement local : sheet globale + variable/modèle mis en avant ──
+    var isLocalRankingOpen by rememberSaveable { mutableStateOf(false) }
+    var localRankingVariableName by rememberSaveable {
+        mutableStateOf(BiasVariable.TEMPERATURE.name)
+    }
+    var highlightedRankingModelName by rememberSaveable { mutableStateOf("") }
+
+    val localRankings = remember(biasState) { buildLocalModelRankings(biasState) }
+    val localRankingVariable = remember(localRankingVariableName) {
+        enumValueOrNull<BiasVariable>(localRankingVariableName)
+            ?: localRankings.firstAvailableVariable
+    }
+    val highlightedRankingModel = remember(highlightedRankingModelName) {
+        enumValueOrNull<WeatherModel>(highlightedRankingModelName)
+    }
+
     // Reconstruction de la BiasSelection à partir des identifiants sauvegardés
     // et du state Room courant. remember(...) mémorise le résultat tant que
     // ni la sélection ni les données amont ne bougent.
@@ -385,6 +402,19 @@ private fun LoadedView(
                         normals = normals
                     )
                 }
+            }
+        }
+
+        if (localRankings.hasAnyRanking) {
+            item("local_model_ranking_summary") {
+                LocalModelRankingSummaryCard(
+                    rankings = localRankings,
+                    onOpenRanking = { variable ->
+                        localRankingVariableName = variable.name
+                        highlightedRankingModelName = ""
+                        isLocalRankingOpen = true
+                    }
+                )
             }
         }
 
@@ -486,8 +516,31 @@ private fun LoadedView(
             // pas de risque de désynchronisation.
             selectedModelName = ""
             selectedVariableName = ""
+        },
+        onOpenRanking = { model, variable ->
+            // Le rang du biais sheet devient un second point d'entrée vers le
+            // classement global. On ferme d'abord le détail du modèle, puis on
+            // ouvre le classement sur la même variable en surlignant ce modèle.
+            selectedModelName = ""
+            selectedVariableName = ""
+            localRankingVariableName = variable.name
+            highlightedRankingModelName = model.name
+            isLocalRankingOpen = true
         }
     )
+
+    if (isLocalRankingOpen) {
+        LocalModelRankingSheet(
+            rankings = localRankings,
+            cityLabel = forecast.city.shortLabel,
+            initialVariable = localRankingVariable,
+            highlightedModel = highlightedRankingModel,
+            onDismiss = {
+                isLocalRankingOpen = false
+                highlightedRankingModelName = ""
+            }
+        )
+    }
 }
 
 // ============================================================================

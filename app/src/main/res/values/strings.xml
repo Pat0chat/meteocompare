@@ -430,4 +430,24 @@
     <string name="widget_config_forecast_mode_mini_12h_descr">Affiche les prévisions température et précipitation des 12 prochaines heures</string>
 
     <string name="detail_table_model_header">Modèle</string>
+
+    <string name="local_ranking_summary_title">Meilleurs modèles locaux</string>
+    <string name="local_ranking_summary_subtitle">Selon l’historique observé pour cette ville</string>
+    <string name="local_ranking_view_all">Voir le classement</string>
+    <string name="local_ranking_sheet_title">Classement local</string>
+    <string name="local_ranking_sheet_explanation">Les modèles sont classés par indice de fiabilité local, puis par erreur absolue moyenne en cas d’égalité.</string>
+    <string name="local_ranking_temperature">Température</string>
+    <string name="local_ranking_precipitation">Précipitations</string>
+    <string name="local_ranking_wind">Vent</string>
+    <string name="local_ranking_temperature_short">Température</string>
+    <string name="local_ranking_precipitation_short">Pluie</string>
+    <string name="local_ranking_wind_short">Vent</string>
+    <string name="local_ranking_not_available">Historique insuffisant</string>
+    <string name="local_ranking_selected_model">Modèle consulté</string>
+    <string name="local_ranking_standard_support">MAE %1$s · biais %2$s</string>
+    <string name="local_ranking_rain_support">MAE %1$s · %2$d fausses alertes</string>
+    <string name="local_ranking_empty_title">Classement indisponible</string>
+    <string name="local_ranking_empty_body">Au moins 14 jours d’historique local sont nécessaires pour classer les modèles sur cette variable.</string>
+    <string name="local_ranking_method_note">Ce classement est local et pédagogique. Il dépend de la ville, de la variable et de la période réellement disponible ; il ne constitue pas une évaluation officielle des modèles.</string>
+    <string name="local_ranking_open_content_description">Ouvrir le classement local des modèles</string>
 </resources>
