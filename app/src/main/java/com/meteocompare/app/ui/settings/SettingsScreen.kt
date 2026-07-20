@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.FavoriteBorder
@@ -27,9 +28,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -58,6 +56,8 @@ import com.meteocompare.app.domain.model.ModelFamily
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.ThemePreference
 import com.meteocompare.app.domain.model.WeatherModel
+import com.meteocompare.app.ui.components.ModernStateChip
+import com.meteocompare.app.ui.components.ModernStateSelector
 import com.meteocompare.app.ui.theme.color
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -595,87 +595,85 @@ private fun coverageLabel(coverage: Coverage): String = when (coverage) {
 }
 
 /** Sélecteur de mode de tri des modèles. */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ModelSortSelector(
     selected: ModelSortMode,
     onSelect: (ModelSortMode) -> Unit
 ) {
-    val options = listOf(
-        ModelSortMode.ZONE to stringResource(R.string.model_sort_zone),
-        ModelSortMode.FAMILLE to stringResource(R.string.model_sort_family),
-        ModelSortMode.FINESSE to stringResource(R.string.model_sort_finesse)
+    val options = listOf(ModelSortMode.ZONE, ModelSortMode.FAMILLE, ModelSortMode.FINESSE)
+    ModernStateSelector(
+        options = options,
+        selected = selected,
+        onSelected = onSelect,
+        label = { mode ->
+            stringResource(
+                when (mode) {
+                    ModelSortMode.ZONE -> R.string.model_sort_zone
+                    ModelSortMode.FAMILLE -> R.string.model_sort_family
+                    ModelSortMode.FINESSE -> R.string.model_sort_finesse
+                }
+            )
+        },
+        accent = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.fillMaxWidth(),
+        itemModifier = { mode -> Modifier.testTag("$TAG_SETTINGS_SORT${mode.name}") }
     )
-    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-        options.forEachIndexed { idx, (mode, label) ->
-            SegmentedButton(
-                selected = selected == mode,
-                onClick = { onSelect(mode) },
-                shape = SegmentedButtonDefaults.itemShape(index = idx, count = options.size),
-                modifier = Modifier.testTag("$TAG_SETTINGS_SORT${mode.name}"),
-                icon = { /* labels courts, icônes redondantes */ }
-            ) {
-                Text(label)
-            }
-        }
-    }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ThemeSelector(
     selected: ThemePreference,
     onSelect: (ThemePreference) -> Unit
 ) {
-    val options = listOf(
-        ThemePreference.SYSTEM to stringResource(R.string.theme_system),
-        ThemePreference.LIGHT to stringResource(R.string.theme_light),
-        ThemePreference.DARK to stringResource(R.string.theme_dark)
+    val options = listOf(ThemePreference.SYSTEM, ThemePreference.LIGHT, ThemePreference.DARK)
+    ModernStateSelector(
+        options = options,
+        selected = selected,
+        onSelected = onSelect,
+        label = { pref ->
+            stringResource(
+                when (pref) {
+                    ThemePreference.SYSTEM -> R.string.theme_system
+                    ThemePreference.LIGHT -> R.string.theme_light
+                    ThemePreference.DARK -> R.string.theme_dark
+                }
+            )
+        },
+        accent = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.fillMaxWidth(),
+        itemModifier = { pref -> Modifier.testTag("$TAG_SETTINGS_THEME${pref.name}") }
     )
-
-    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-        options.forEachIndexed { idx, (pref, label) ->
-            SegmentedButton(
-                selected = selected == pref,
-                onClick = { onSelect(pref) },
-                shape = SegmentedButtonDefaults.itemShape(index = idx, count = options.size),
-                modifier = Modifier.testTag("$TAG_SETTINGS_THEME${pref.name}"),
-                icon = { }
-            ) {
-                Text(label)
-            }
-        }
-    }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun LanguageSelector(
     selected: LanguagePreference,
     onSelect: (LanguagePreference) -> Unit
 ) {
     val options = listOf(
-        LanguagePreference.SYSTEM to stringResource(R.string.language_system),
-        LanguagePreference.FRENCH to stringResource(R.string.language_french),
-        LanguagePreference.ENGLISH to stringResource(R.string.language_english)
+        LanguagePreference.SYSTEM,
+        LanguagePreference.FRENCH,
+        LanguagePreference.ENGLISH
     )
-
-    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-        options.forEachIndexed { idx, (pref, label) ->
-            SegmentedButton(
-                selected = selected == pref,
-                onClick = { onSelect(pref) },
-                shape = SegmentedButtonDefaults.itemShape(index = idx, count = options.size),
-                modifier = Modifier.testTag("$TAG_SETTINGS_LANGUAGE${pref.name}"),
-                icon = { }
-            ) {
-                Text(label)
-            }
-        }
-    }
+    ModernStateSelector(
+        options = options,
+        selected = selected,
+        onSelected = onSelect,
+        label = { pref ->
+            stringResource(
+                when (pref) {
+                    LanguagePreference.SYSTEM -> R.string.language_system
+                    LanguagePreference.FRENCH -> R.string.language_french
+                    LanguagePreference.ENGLISH -> R.string.language_english
+                }
+            )
+        },
+        accent = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.fillMaxWidth(),
+        itemModifier = { pref -> Modifier.testTag("$TAG_SETTINGS_LANGUAGE${pref.name}") }
+    )
 }
 
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 private fun RefreshIntervalSelector(
     selected: RefreshInterval,
@@ -691,15 +689,17 @@ private fun RefreshIntervalSelector(
     )
 
     androidx.compose.foundation.layout.FlowRow(
+        modifier = Modifier.selectableGroup(),
         horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
-        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp)
+        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
     ) {
         options.forEach { (interval, label) ->
-            androidx.compose.material3.FilterChip(
+            ModernStateChip(
                 selected = selected == interval,
                 onClick = { onSelect(interval) },
-                modifier = Modifier.testTag("$TAG_SETTINGS_REFRESH${interval.name}"),
-                label = { Text(label) }
+                label = label,
+                accent = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.testTag("$TAG_SETTINGS_REFRESH${interval.name}")
             )
         }
     }

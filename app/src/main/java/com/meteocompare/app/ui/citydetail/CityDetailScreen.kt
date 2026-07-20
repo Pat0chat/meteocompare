@@ -5,7 +5,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -39,9 +38,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -88,6 +84,7 @@ import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.usecase.DayConditionsRow
 import com.meteocompare.app.ui.components.AnimatedWeatherIcon
+import com.meteocompare.app.ui.components.ModernStateSelector
 import com.meteocompare.app.ui.theme.confidenceColor
 import java.time.Instant
 import java.time.format.DateTimeFormatter
@@ -817,32 +814,31 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hourlyItems(
  * la moitié droite — configuration cohérente avec "j'ai la vue synthétique par
  * défaut, un tap à gauche pour zoomer sur l'heure".
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DisplayModeToggle(
     mode: DisplayMode,
     onModeChange: (DisplayMode) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val options = listOf(
-        DisplayMode.HOURLY to stringResource(R.string.display_mode_hourly),
-        DisplayMode.DAILY to stringResource(R.string.display_mode_daily)
-    )
-    SingleChoiceSegmentedButtonRow(
+    val options = listOf(DisplayMode.HOURLY, DisplayMode.DAILY)
+    ModernStateSelector(
+        options = options,
+        selected = mode,
+        onSelected = onModeChange,
+        label = { option ->
+            stringResource(
+                if (option == DisplayMode.HOURLY) {
+                    R.string.display_mode_hourly
+                } else {
+                    R.string.display_mode_daily
+                }
+            )
+        },
+        accent = MaterialTheme.colorScheme.primary,
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
-    ) {
-        options.forEachIndexed { idx, (m, label) ->
-            SegmentedButton(
-                selected = mode == m,
-                onClick = { onModeChange(m) },
-                shape = SegmentedButtonDefaults.itemShape(index = idx, count = options.size)
-            ) {
-                Text(label)
-            }
-        }
-    }
+    )
 }
 
 /**

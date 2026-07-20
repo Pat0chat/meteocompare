@@ -13,11 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -49,6 +45,7 @@ import androidx.compose.ui.unit.sp
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.DayNormals
 import com.meteocompare.app.domain.model.HourlyConfidenceBand
+import com.meteocompare.app.ui.components.ModernStateSelector
 import com.meteocompare.app.ui.theme.confidenceColor
 import java.time.Duration
 import java.time.Instant
@@ -80,7 +77,7 @@ private const val MAX_VIEW_SPAN = 1.0f
 /**
  * Composant unique de bande de confiance avec sélecteur à 3 états.
  *
- * Encapsule le SegmentedButton (Température / Précipitations / Vent) et rend
+ * Encapsule le sélecteur à état (Température / Précipitations / Vent) et rend
  * le chart correspondant en dessous. C'est la wrapper à utiliser depuis
  * l'écran détail — il gère l'état de sélection en interne (rememberSaveable
  * pour survivre à la rotation).
@@ -128,12 +125,10 @@ fun ConfidenceBandSection(
 /**
  * Sélecteur segmenté à 3 états — Température / Précipitations / Vent.
  *
- * Rendu comme un SingleChoiceSegmentedButtonRow M3, cohérent avec les autres
- * segmented pickers de l'app (theme, langue, mode display). L'icône est laissée
- * vide : les labels sont assez explicites, et forcer une icône par métrique
- * bruiterait le composant.
+ * Rendu avec le composant commun ModernStateSelector : capsule active teintée
+ * selon la métrique, fond discret et cible tactile homogène. Les labels restent
+ * seuls afin de préserver la lisibilité sur les écrans étroits.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ConfidenceMetricSelector(
     selected: ConfidenceMetric,
@@ -141,22 +136,31 @@ private fun ConfidenceMetricSelector(
     modifier: Modifier = Modifier
 ) {
     val options = listOf(
-        ConfidenceMetric.TEMPERATURE to stringResource(R.string.metric_temperature),
-        ConfidenceMetric.PRECIPITATION to stringResource(R.string.metric_precipitation),
-        ConfidenceMetric.WIND to stringResource(R.string.metric_wind)
+        ConfidenceMetric.TEMPERATURE,
+        ConfidenceMetric.PRECIPITATION,
+        ConfidenceMetric.WIND
     )
-    SingleChoiceSegmentedButtonRow(modifier = modifier) {
-        options.forEachIndexed { idx, (metric, label) ->
-            SegmentedButton(
-                selected = selected == metric,
-                onClick = { onSelect(metric) },
-                shape = SegmentedButtonDefaults.itemShape(index = idx, count = options.size),
-                icon = { /* labels seuls, plus lisible sans icône avec 3 items */ }
-            ) {
-                Text(label)
-            }
-        }
+    val accent = when (selected) {
+        ConfidenceMetric.TEMPERATURE -> MaterialTheme.colorScheme.error
+        ConfidenceMetric.PRECIPITATION -> MaterialTheme.colorScheme.primary
+        ConfidenceMetric.WIND -> MaterialTheme.colorScheme.tertiary
     }
+    ModernStateSelector(
+        options = options,
+        selected = selected,
+        onSelected = onSelect,
+        label = { metric ->
+            stringResource(
+                when (metric) {
+                    ConfidenceMetric.TEMPERATURE -> R.string.metric_temperature
+                    ConfidenceMetric.PRECIPITATION -> R.string.metric_precipitation
+                    ConfidenceMetric.WIND -> R.string.metric_wind
+                }
+            )
+        },
+        accent = accent,
+        modifier = modifier
+    )
 }
 
 /**

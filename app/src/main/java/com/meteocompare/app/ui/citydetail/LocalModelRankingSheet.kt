@@ -1,8 +1,9 @@
 package com.meteocompare.app.ui.citydetail
 
+import androidx.compose.foundation.border
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,9 +22,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -49,6 +47,7 @@ import com.meteocompare.app.domain.model.BiasVariable
 import com.meteocompare.app.domain.model.ModelReliability
 import com.meteocompare.app.domain.model.ReliabilityLevel
 import com.meteocompare.app.domain.model.WeatherModel
+import com.meteocompare.app.ui.components.ModernStateSelector
 import com.meteocompare.app.ui.theme.confidenceColor
 import kotlin.math.abs
 
@@ -254,24 +253,14 @@ private fun RankingVariableTabs(
             BiasVariable.WIND_SPEED
         )
     }
-    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-        variables.forEachIndexed { index, variable ->
-            SegmentedButton(
-                selected = selected == variable,
-                onClick = { onSelected(variable) },
-                shape = SegmentedButtonDefaults.itemShape(
-                    index = index,
-                    count = variables.size
-                ),
-                label = {
-                    Text(
-                        text = stringResource(variableShortLabelResId(variable)),
-                        maxLines = 1
-                    )
-                }
-            )
-        }
-    }
+    ModernStateSelector(
+        options = variables,
+        selected = selected,
+        onSelected = onSelected,
+        label = { variable -> stringResource(variableShortLabelResId(variable)) },
+        accent = rankingVariableAccent(selected),
+        modifier = Modifier.fillMaxWidth()
+    )
 }
 
 @Composable
@@ -281,19 +270,17 @@ private fun RankingModelRow(
     highlighted: Boolean
 ) {
     val accent = confidenceColor(entry.reliability.score)
-    val container = if (highlighted) {
-        accent.copy(alpha = 0.14f)
-            .compositeOver(MaterialTheme.colorScheme.surfaceContainerLow)
-    } else {
-        MaterialTheme.colorScheme.surfaceContainerLow
-    }
+    val container = accent.copy(alpha = if (highlighted) 0.16f else 0.07f)
+        .compositeOver(MaterialTheme.colorScheme.surfaceContainerLow)
+    val borderColor = accent.copy(alpha = if (highlighted) 0.62f else 0.20f)
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 5.dp),
-        shape = RoundedCornerShape(17.dp),
-        colors = CardDefaults.cardColors(containerColor = container)
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = container),
+        border = BorderStroke(if (highlighted) 1.5.dp else 1.dp, borderColor)
     ) {
         Row(
             modifier = Modifier.padding(14.dp),
@@ -346,23 +333,23 @@ private fun RankingModelRow(
 
 @Composable
 private fun RankingPositionBadge(rank: Int, accent: Color) {
-    val podiumAccent = when (rank) {
-        1 -> confidenceColor(95)
-        2 -> MaterialTheme.colorScheme.secondary
-        3 -> MaterialTheme.colorScheme.tertiary
-        else -> accent
-    }
+    val isPodium = rank <= 3
     Box(
         modifier = Modifier
-            .size(38.dp)
+            .size(if (isPodium) 40.dp else 38.dp)
             .clip(RoundedCornerShape(13.dp))
-            .background(podiumAccent.copy(alpha = 0.14f)),
+            .background(accent.copy(alpha = if (isPodium) 0.20f else 0.12f))
+            .border(
+                width = 1.dp,
+                color = accent.copy(alpha = if (isPodium) 0.42f else 0.18f),
+                shape = RoundedCornerShape(13.dp)
+            ),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = rank.toString(),
             style = MaterialTheme.typography.titleMedium,
-            color = podiumAccent,
+            color = accent,
             fontWeight = FontWeight.Bold,
             fontFamily = FontFamily.Monospace
         )
@@ -456,6 +443,13 @@ private fun rankingUnit(variable: BiasVariable): String = when (variable) {
     BiasVariable.TEMPERATURE -> "°"
     BiasVariable.PRECIPITATION -> " mm"
     BiasVariable.WIND_SPEED -> " km/h"
+}
+
+@Composable
+private fun rankingVariableAccent(variable: BiasVariable): Color = when (variable) {
+    BiasVariable.TEMPERATURE -> MaterialTheme.colorScheme.error
+    BiasVariable.PRECIPITATION -> MaterialTheme.colorScheme.primary
+    BiasVariable.WIND_SPEED -> MaterialTheme.colorScheme.tertiary
 }
 
 private fun variableSymbol(variable: BiasVariable): String = when (variable) {
