@@ -1879,7 +1879,7 @@ private fun ForecastItemCard(
                 item.precipProbabilityPct?.let { rain ->
                     ForecastMetricChip(
                         text = "☂ ${rain.coerceIn(0, 100)}%",
-                        foreground = precipForeground,
+                        foreground = onContainerMuted,
                         background = precipSurface,
                         fontSize = detailSize,
                         modifier = GlanceModifier.defaultWeight()
@@ -1902,7 +1902,7 @@ private fun ForecastMetricChip(
         modifier = modifier
             .background(background)
             .cornerRadius(6.dp)
-            .padding(horizontal = 4.dp, vertical = 2.dp),
+            .padding(horizontal = 4.dp, vertical = 1.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
