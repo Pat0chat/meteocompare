@@ -47,6 +47,9 @@ import com.meteocompare.app.domain.model.DayNormals
 import com.meteocompare.app.domain.model.HourlyConfidenceBand
 import com.meteocompare.app.ui.components.ModernTextTabs
 import com.meteocompare.app.ui.theme.confidenceColor
+import com.meteocompare.app.ui.theme.precipitationMetricAccent
+import com.meteocompare.app.ui.theme.temperatureMetricAccent
+import com.meteocompare.app.ui.theme.windMetricAccent
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
@@ -140,9 +143,9 @@ private fun ConfidenceMetricSelector(
         ConfidenceMetric.WIND
     )
     val accent = when (selected) {
-        ConfidenceMetric.TEMPERATURE -> MaterialTheme.colorScheme.error
-        ConfidenceMetric.PRECIPITATION -> MaterialTheme.colorScheme.primary
-        ConfidenceMetric.WIND -> MaterialTheme.colorScheme.tertiary
+        ConfidenceMetric.TEMPERATURE -> temperatureMetricAccent()
+        ConfidenceMetric.PRECIPITATION -> precipitationMetricAccent()
+        ConfidenceMetric.WIND -> windMetricAccent()
     }
     ModernTextTabs(
         options = options,
@@ -199,7 +202,10 @@ fun HourlyConfidenceChart(
     val zone = remember(timezone) { ZoneId.of(timezone ?: "UTC") }
     val onSurface = MaterialTheme.colorScheme.onSurfaceVariant
     val gridColor = MaterialTheme.colorScheme.outlineVariant
-    val primary = MaterialTheme.colorScheme.primary
+    val meanLineColor = when (metric) {
+        ConfidenceMetric.WIND -> windMetricAccent()
+        else -> MaterialTheme.colorScheme.primary
+    }
     val textMeasurer = rememberTextMeasurer()
     val labelStyle = TextStyle(color = onSurface, fontSize = 10.sp)
 
@@ -211,7 +217,7 @@ fun HourlyConfidenceChart(
     val timelineStripAlpha = if (isDarkTheme) 0.85f else 0.7f
 
     // Palette dédiée aux traits pointillés "normale 10 ans" — sémantique
-    // per-métrique (rouge = chaud, bleu = froid/humide, jaune = vent). Les
+    // par métrique. Le vent reprend exactement l'accent de l'onglet Vent. Les
     // couleurs sont sélectionnées par [normalsPalette] pour rester lisibles
     // sur les deux thèmes (variantes brighter en dark mode).
     val normalsPalette = normalsPalette(isDarkTheme)
@@ -520,7 +526,7 @@ fun HourlyConfidenceChart(
             }
             drawPath(
                 path = meanPath,
-                color = primary,
+                color = meanLineColor,
                 style = Stroke(width = 2.dp.toPx())
             )
         }
@@ -550,11 +556,9 @@ fun HourlyConfidenceChart(
  *  - TEMPERATURE : ROUGE pour la max journalière (référence "chaud"), BLEU
  *    pour la min journalière (référence "froid"). Convention grand public
  *    ("bleu = froid, rouge = chaud") — pas besoin de légende pour deviner.
- *  - PRECIPITATION : BLEU (même palette que la min température — l'eau est
- *    bleue partout dans la culture visuelle météo).
- *  - WIND : JAUNE/AMBRE — assigné par contraste avec les deux autres (bleu
- *    et rouge sont pris), et parce que les cartes vent utilisent souvent le
- *    jaune pour les vitesses moyennes-élevées (au-dessus du fond bleu).
+ *  - PRECIPITATION : bleu météo plus franc, identique à l’onglet Pluie.
+ *  - WIND : même accent tertiaire que l’onglet Vent, afin que le trait de
+ *    vent moyen et le contrôle utilisent exactement le même langage visuel.
  *
  * Les couleurs sont piochées dans [NormalsPalette], calibrée pour rester
  * lisible en dark ET light theme (variantes brighter en dark). Les dashes
@@ -679,7 +683,7 @@ private fun hasNormalsForMetric(
  *   - `tempMax` = rouge (chaud)
  *   - `tempMin` = bleu (froid)
  *   - `precip`  = bleu (eau)
- *   - `wind`    = jaune/ambre (contraste)
+ *   - `wind`    = accent tertiaire partagé avec l’onglet Vent
  *
  * Fabriquée par [normalsPalette] qui prend en compte le thème (dark/light)
  * pour garder un contraste suffisant sur les deux fonds.
@@ -700,27 +704,28 @@ private data class NormalsPalette(
  *     contraste sur fond sombre. Sinon un rouge 700 sur du gris #121212
  *     deviendrait indistinguable.
  *
- * Les valeurs bleu (tempMin et precip) sont VOLONTAIREMENT identiques dans
- * chaque thème — c'est cohérent avec la spec ("min = bleu, précip = bleu")
- * et évite d'introduire deux teintes bleues qui se confondraient à l'écran.
+ * La pluie utilise volontairement un bleu plus franc que le bleu froid de la
+ * température. Les deux restent immédiatement identifiables comme des repères
+ * météo, sans se confondre lorsqu'ils apparaissent dans des écrans voisins.
  */
 @Composable
-private fun normalsPalette(isDarkTheme: Boolean): NormalsPalette = remember(isDarkTheme) {
-    if (isDarkTheme) {
+private fun normalsPalette(isDarkTheme: Boolean): NormalsPalette {
+    val temperatureAccent = temperatureMetricAccent()
+    val precipitationAccent = precipitationMetricAccent()
+    val windAccent = windMetricAccent()
+    val coldAccent = if (isDarkTheme) Color(0xFF64B5F6) else Color(0xFF1976D2)
+
+    return remember(
+        isDarkTheme,
+        temperatureAccent,
+        precipitationAccent,
+        windAccent
+    ) {
         NormalsPalette(
-            tempMax = Color(0xFFEF5350),  // Red 400 — visible sur fond sombre
-            tempMin = Color(0xFF42A5F5),  // Blue 400
-            precip = Color(0xFF42A5F5),   // Blue 400 (identique tempMin)
-            wind = Color(0xFFFFCA28)      // Amber 400 — bien distinct du rouge/bleu
-        )
-    } else {
-        NormalsPalette(
-            tempMax = Color(0xFFD32F2F),  // Red 700 — bon contraste sur fond clair
-            tempMin = Color(0xFF1976D2),  // Blue 700
-            precip = Color(0xFF1976D2),   // Blue 700
-            wind = Color(0xFFF57C00)      // Orange 700 — sur fond clair l'ambre pur
-            // manque de contraste ; on choisit un orange plus profond, encore
-            // visuellement du côté "jaune-orange" (respecte la spec "vent = jaune").
+            tempMax = temperatureAccent,
+            tempMin = coldAccent,
+            precip = precipitationAccent,
+            wind = windAccent
         )
     }
 }

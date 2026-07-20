@@ -137,6 +137,80 @@ internal fun <T> ModernSlidingSelector(
     }
 }
 
+
+/**
+ * Choix exclusif très léger sans conteneur commun.
+ *
+ * L'option inactive reste un simple libellé, tandis que l'option active reçoit
+ * une petite capsule tonale. Ce rendu correspond à « Par heure   [ Par jour ] »
+ * et évite l'effet de barre segmentée massive pour un choix binaire.
+ */
+@Composable
+internal fun <T> ModernInlineSelector(
+    options: List<T>,
+    selected: T,
+    onSelected: (T) -> Unit,
+    label: @Composable (T) -> String,
+    accent: Color,
+    modifier: Modifier = Modifier,
+    itemModifier: (T) -> Modifier = { Modifier }
+) {
+    if (options.isEmpty()) return
+
+    val scheme = MaterialTheme.colorScheme
+    Row(
+        modifier = modifier.selectableGroup(),
+        horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        options.forEach { option ->
+            val isSelected = option == selected
+            val containerColor by animateColorAsState(
+                targetValue = if (isSelected) {
+                    accent.copy(alpha = 0.11f).compositeOver(scheme.surfaceContainerLow)
+                } else {
+                    Color.Transparent
+                },
+                animationSpec = tween(durationMillis = SELECTOR_ANIMATION_MS)
+            )
+            val contentColor by animateColorAsState(
+                targetValue = if (isSelected) accent else scheme.onSurfaceVariant,
+                animationSpec = tween(durationMillis = SELECTOR_ANIMATION_MS)
+            )
+
+            Box(
+                modifier = Modifier
+                    .then(itemModifier(option))
+                    .heightIn(min = 44.dp)
+                    .selectable(
+                        selected = isSelected,
+                        onClick = { onSelected(option) },
+                        role = Role.RadioButton
+                    )
+                    .padding(vertical = 4.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(containerColor)
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = label(option),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = contentColor,
+                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+    }
+}
+
 /**
  * Onglets texte légers avec indicateur inférieur.
  *

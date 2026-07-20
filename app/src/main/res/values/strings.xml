@@ -432,7 +432,7 @@
     <string name="detail_table_model_header">Modèle</string>
 
     <string name="local_ranking_summary_title">Meilleurs modèles locaux</string>
-    <string name="local_ranking_summary_subtitle">Selon l’historique observé pour cette ville</string>
+    <string name="local_ranking_summary_subtitle">Selon l’historique observé pour cette ville sur les 30 derniers jours</string>
     <string name="local_ranking_view_all">Voir le classement</string>
     <string name="local_ranking_sheet_title">Classement local</string>
     <string name="local_ranking_sheet_explanation">Les modèles sont classés par indice de fiabilité local, puis par erreur absolue moyenne en cas d’égalité.</string>

@@ -20,7 +20,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Air
+import androidx.compose.material.icons.outlined.Thermostat
+import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -36,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
@@ -49,6 +55,9 @@ import com.meteocompare.app.domain.model.ReliabilityLevel
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.ui.components.ModernTextTabs
 import com.meteocompare.app.ui.theme.confidenceColor
+import com.meteocompare.app.ui.theme.precipitationMetricAccent
+import com.meteocompare.app.ui.theme.temperatureMetricAccent
+import com.meteocompare.app.ui.theme.windMetricAccent
 import kotlin.math.abs
 
 internal const val TAG_LOCAL_RANKING_CARD = "local-ranking-card"
@@ -80,17 +89,17 @@ internal fun LocalModelRankingSummaryCard(
         Column(modifier = Modifier.padding(vertical = 4.dp)) {
             RankingWinnerRow(
                 ranking = rankings.temperature,
-                accent = MaterialTheme.colorScheme.error,
+                accent = temperatureMetricAccent(),
                 onClick = { onOpenRanking(BiasVariable.TEMPERATURE) }
             )
             RankingWinnerRow(
                 ranking = rankings.precipitation,
-                accent = MaterialTheme.colorScheme.primary,
+                accent = precipitationMetricAccent(),
                 onClick = { onOpenRanking(BiasVariable.PRECIPITATION) }
             )
             RankingWinnerRow(
                 ranking = rankings.wind,
-                accent = MaterialTheme.colorScheme.tertiary,
+                accent = windMetricAccent(),
                 onClick = { onOpenRanking(BiasVariable.WIND_SPEED) }
             )
             Column(
@@ -125,20 +134,10 @@ private fun RankingWinnerRow(
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .size(34.dp)
-                .clip(RoundedCornerShape(11.dp))
-                .background(accent.copy(alpha = 0.14f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = variableSymbol(ranking.variable),
-                style = MaterialTheme.typography.titleMedium,
-                color = accent,
-                fontWeight = FontWeight.Bold
-            )
-        }
+        RankingMetricVisual(
+            variable = ranking.variable,
+            accent = accent
+        )
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
@@ -157,6 +156,35 @@ private fun RankingWinnerRow(
         }
         if (winner != null) {
             RankingScoreBadge(score = winner.reliability.score)
+        }
+    }
+}
+
+@Composable
+private fun RankingMetricVisual(
+    variable: BiasVariable,
+    accent: Color
+) {
+    Box(
+        modifier = Modifier
+            .size(42.dp)
+            .clip(RoundedCornerShape(15.dp))
+            .background(accent.copy(alpha = 0.13f)),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(30.dp)
+                .clip(RoundedCornerShape(11.dp))
+                .background(accent.copy(alpha = 0.10f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = variableIcon(variable),
+                contentDescription = stringResource(variableLabelResId(variable)),
+                tint = accent,
+                modifier = Modifier.size(21.dp)
+            )
         }
     }
 }
@@ -447,15 +475,15 @@ private fun rankingUnit(variable: BiasVariable): String = when (variable) {
 
 @Composable
 private fun rankingVariableAccent(variable: BiasVariable): Color = when (variable) {
-    BiasVariable.TEMPERATURE -> MaterialTheme.colorScheme.error
-    BiasVariable.PRECIPITATION -> MaterialTheme.colorScheme.primary
-    BiasVariable.WIND_SPEED -> MaterialTheme.colorScheme.tertiary
+    BiasVariable.TEMPERATURE -> temperatureMetricAccent()
+    BiasVariable.PRECIPITATION -> precipitationMetricAccent()
+    BiasVariable.WIND_SPEED -> windMetricAccent()
 }
 
-private fun variableSymbol(variable: BiasVariable): String = when (variable) {
-    BiasVariable.TEMPERATURE -> "T"
-    BiasVariable.PRECIPITATION -> "P"
-    BiasVariable.WIND_SPEED -> "V"
+private fun variableIcon(variable: BiasVariable): ImageVector = when (variable) {
+    BiasVariable.TEMPERATURE -> Icons.Outlined.Thermostat
+    BiasVariable.PRECIPITATION -> Icons.Outlined.WaterDrop
+    BiasVariable.WIND_SPEED -> Icons.Outlined.Air
 }
 
 private fun variableLabelResId(variable: BiasVariable): Int = when (variable) {

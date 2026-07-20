@@ -5,6 +5,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -84,7 +85,7 @@ import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.usecase.DayConditionsRow
 import com.meteocompare.app.ui.components.AnimatedWeatherIcon
-import com.meteocompare.app.ui.components.ModernSlidingSelector
+import com.meteocompare.app.ui.components.ModernInlineSelector
 import com.meteocompare.app.ui.theme.confidenceColor
 import java.time.Instant
 import java.time.format.DateTimeFormatter
@@ -807,14 +808,15 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hourlyItems(
 /**
  * Sélecteur coulissant tonal "Par heure / Par jour".
  *
- * Le fond commun est volontairement discret et l'état actif est porté par un
- * unique indicateur animé, sans bordure ni ombre.
+ * Aucun fond commun : l'option inactive reste un simple texte et seule
+ * l'option active reçoit une capsule tonale, selon le rendu
+ * « Par heure   [ Par jour ] ».
  *
  * Ordre HOURLY-first plutôt que DAILY-first parce que dans l'app finale, la
  * lecture gauche→droite fait naturellement lire "par heure" comme la vue
  * détaillée qu'on active PLUS explicitement. Le sélectionné par défaut reste
- * DAILY (voir LoadedView), donc l'utilisateur voit initialement le curseur sur
- * la moitié droite — configuration cohérente avec "j'ai la vue synthétique par
+ * DAILY (voir LoadedView), donc l'utilisateur voit initialement la capsule sur
+ * l'option droite — configuration cohérente avec "j'ai la vue synthétique par
  * défaut, un tap à gauche pour zoomer sur l'heure".
  */
 @Composable
@@ -824,7 +826,7 @@ private fun DisplayModeToggle(
     modifier: Modifier = Modifier
 ) {
     val options = listOf(DisplayMode.HOURLY, DisplayMode.DAILY)
-    ModernSlidingSelector(
+    ModernInlineSelector(
         options = options,
         selected = mode,
         onSelected = onModeChange,
