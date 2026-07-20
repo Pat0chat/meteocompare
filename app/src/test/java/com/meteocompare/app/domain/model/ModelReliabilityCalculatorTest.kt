@@ -99,6 +99,9 @@ class ModelReliabilityCalculatorTest {
         assertEquals(0.5, rain.hitRate!!, 1e-9)
         assertEquals(0.5, rain.falseAlarmRate!!, 1e-9)
         assertEquals(0.5, rain.missedEventRate!!, 1e-9)
+        assertEquals(4, rain.hitCount)
+        assertEquals(4, rain.falseAlarmCount)
+        assertEquals(4, rain.missedEventCount)
         assertEquals(8, rain.observedWetDays)
         assertEquals(8, rain.forecastWetDays)
     }

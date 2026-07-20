@@ -27,6 +27,9 @@ data class PrecipitationReliability(
     val hitRate: Double?,
     val falseAlarmRate: Double?,
     val missedEventRate: Double?,
+    val hitCount: Int,
+    val falseAlarmCount: Int,
+    val missedEventCount: Int,
     val observedWetDays: Int,
     val forecastWetDays: Int
 )
@@ -292,6 +295,9 @@ object ModelReliabilityCalculator {
             hitRate = hitRate,
             falseAlarmRate = falseAlarmRate,
             missedEventRate = missedRate,
+            hitCount = hits,
+            falseAlarmCount = falseAlarms,
+            missedEventCount = misses,
             observedWetDays = observedWetDays,
             forecastWetDays = forecastWetDays
         )

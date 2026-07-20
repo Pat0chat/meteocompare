@@ -348,16 +348,12 @@
     <!-- Explainer opener, parameterized (model, verb, variable, days).
          E.g. EN: "GFS systematically overestimates temperature here over the last 30 days." -->
     <string name="bias_explainer_opener">%1$s systematically %2$s %3$s here over the last %4$d days.</string>
-    <!-- Explainer text for a CALIBRATED model (NOT_SIGNIFICANT). Single
-         positive sentence — replaces the misleading "systematically overestimates"
-         template that would otherwise fire for a genuinely well-behaved model. -->
     <string name="bias_explainer_calibrated">%1$s is close to reality on %2$s at this location. Over the last %3$d days, the mean deviation from observations stays within daily noise — no correction is needed to interpret its forecasts.</string>
 
     <!-- Stability interpretation — varies by significance -->
     <string name="bias_stability_high">The bias is consistent over the last 30 days.</string>
     <string name="bias_stability_moderate">The bias is visible but moderate.</string>
     <string name="bias_stability_not_significant">Deviation close to daily noise.</string>
-
 
     <!-- Local reliability dashboard — educational synthesis of bias tracking -->
     <string name="bias_reliability_title">Reliability dashboard</string>
@@ -406,10 +402,18 @@
 
     <string name="bias_reliability_rain_detection">Observed wet days detected</string>
     <string name="bias_reliability_rain_false_alarms">False rain alarms</string>
+    <string name="bias_reliability_rain_wet_days">Wet days</string>
     <string name="bias_reliability_rain_misses">Wet events missed</string>
     <string name="bias_reliability_not_available">Not available</string>
     <string name="bias_reliability_rain_samples">%1$d observed wet days · %2$d forecast</string>
+    <string name="bias_reliability_rain_detection_support">%1$d wet days detected out of %2$d observed</string>
+    <string name="bias_reliability_rain_false_alarms_support">%1$d false alarms out of %2$d forecast wet days</string>
+    <string name="bias_reliability_rain_misses_support">%1$d missed events out of %2$d observed wet days</string>
+    <string name="bias_reliability_rain_volume_support">Observed %1$d · forecast %2$d</string>
 
+    <string name="bias_reliability_balance_under_badge">%1$d%% below</string>
+    <string name="bias_reliability_balance_close_badge">%1$d%% close</string>
+    <string name="bias_reliability_balance_over_badge">%1$d%% above</string>
     <string name="bias_reliability_direction_balance">%1$d %% of days above · %2$d %% below</string>
     <string name="bias_reliability_sample_coverage">History used: %1$d days within a %2$d-day window.</string>
     <string name="bias_reliability_method_note">This index is a local educational guide, not an official model score. It depends on the city, variable and available period, and does not yet separate lead times such as day 1, day 3 or day 5. For precipitation, a day is considered wet from 0.5 mm.</string>

@@ -400,10 +400,18 @@
 
     <string name="bias_reliability_rain_detection">Jours pluvieux détectés</string>
     <string name="bias_reliability_rain_false_alarms">Fausses alertes pluie</string>
+    <string name="bias_reliability_rain_wet_days">Jours humides</string>
     <string name="bias_reliability_rain_misses">Épisodes pluvieux manqués</string>
     <string name="bias_reliability_not_available">Non disponible</string>
     <string name="bias_reliability_rain_samples">%1$d jours pluvieux observés · %2$d prévus</string>
+    <string name="bias_reliability_rain_detection_support">%1$d jours humides détectés sur %2$d observés</string>
+    <string name="bias_reliability_rain_false_alarms_support">%1$d jours annoncés à tort sur %2$d jours humides prévus</string>
+    <string name="bias_reliability_rain_misses_support">%1$d épisodes manqués sur %2$d jours humides observés</string>
+    <string name="bias_reliability_rain_volume_support">Observés %1$d · prévus %2$d</string>
 
+    <string name="bias_reliability_balance_under_badge">%1$d %% sous</string>
+    <string name="bias_reliability_balance_close_badge">%1$d %% proches</string>
+    <string name="bias_reliability_balance_over_badge">%1$d %% sur</string>
     <string name="bias_reliability_direction_balance">%1$d %% des jours au-dessus · %2$d %% au-dessous</string>
     <string name="bias_reliability_sample_coverage">Historique exploité : %1$d jours sur une fenêtre de %2$d jours.</string>
     <string name="bias_reliability_method_note">Cet indice est un repère local et pédagogique, pas une note officielle du modèle. Il dépend de la ville, de la variable, de la période disponible et ne mesure pas encore séparément les échéances J+1, J+3 ou J+5. Pour la pluie, un jour est considéré humide à partir de 0,5 mm.</string>
