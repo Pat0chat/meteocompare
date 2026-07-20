@@ -348,7 +348,7 @@
     <!-- Explainer opener, parameterized (model, verb, variable, days).
          E.g. EN: "GFS systematically overestimates temperature here over the last 30 days." -->
     <string name="bias_explainer_opener">%1$s systematically %2$s %3$s here over the last %4$d days.</string>
-    <string name="bias_explainer_calibrated">%1$s is close to reality on %2$s at this location. Over the last %3$d days, the mean deviation from observations stays within daily noise — no correction is needed to interpret its forecasts.</string>
+    <string name="bias_explainer_calibrated">%1$s is close to reality on %2$s at this location. Over the last %3$d days, the mean deviation from observations stays within daily noise.</string>
 
     <!-- Stability interpretation — varies by significance -->
     <string name="bias_stability_high">The bias is consistent over the last 30 days.</string>
@@ -367,7 +367,7 @@
     <string name="bias_reliability_level_limited">Limited</string>
 
     <string name="bias_reliability_summary">%1$s has a mean absolute error of %2$s for this city. %3$s</string>
-    <string name="bias_reliability_summary_calibrated">Signed bias remains small: positive and negative errors do not require a systematic correction.</string>
+    <string name="bias_reliability_summary_calibrated">Signed bias remains small.</string>
     <string name="bias_reliability_summary_over">A tendency to overestimate is still visible.</string>
     <string name="bias_reliability_summary_under">A tendency to underestimate is still visible.</string>
 
@@ -414,7 +414,7 @@
     <string name="bias_reliability_balance_under_badge">%1$d%% below</string>
     <string name="bias_reliability_balance_close_badge">%1$d%% close</string>
     <string name="bias_reliability_balance_over_badge">%1$d%% above</string>
-    <string name="bias_reliability_direction_balance">%1$d %% of days above · %2$d %% below</string>
+    <string name="bias_reliability_direction_balance">%1$d%% above · %2$d%% close · %3$d%% below</string>
     <string name="bias_reliability_sample_coverage">History used: %1$d days within a %2$d-day window.</string>
     <string name="bias_reliability_method_note">This index is a local educational guide, not an official model score. It depends on the city, variable and available period, and does not yet separate lead times such as day 1, day 3 or day 5. For precipitation, a day is considered wet from 0.5 mm.</string>
 

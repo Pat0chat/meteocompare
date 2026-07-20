@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -381,7 +383,12 @@ private fun ReliabilityMetricsGrid(selection: BiasSelection) {
     )
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Min),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
             ReliabilityMetricCard(
                 label = stringResource(R.string.bias_reliability_mae),
                 value = formatMeasure(reliability.meanAbsoluteError, reliability.variable),
@@ -401,7 +408,12 @@ private fun ReliabilityMetricsGrid(selection: BiasSelection) {
                 modifier = Modifier.weight(1f)
             )
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Min),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
             ReliabilityMetricCard(
                 label = stringResource(R.string.bias_reliability_close_days),
                 value = "${(reliability.withinToleranceRate * 100).roundToInt()} %",
@@ -435,7 +447,7 @@ private fun ReliabilityMetricCard(
     val container = accent.copy(alpha = 0.10f)
         .compositeOver(MaterialTheme.colorScheme.surfaceContainerLow)
     Card(
-        modifier = modifier,
+        modifier = modifier.fillMaxHeight(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = container)
     ) {
@@ -621,7 +633,12 @@ private fun PrecipitationDiagnosticsCard(stats: PrecipitationReliability) {
             modifier = Modifier.padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(IntrinsicSize.Min),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
                 RainMetricCard(
                     label = stringResource(R.string.bias_reliability_rain_detection),
                     value = stats.hitRate?.let { "${(it * 100).roundToInt()} %" }
@@ -646,7 +663,12 @@ private fun PrecipitationDiagnosticsCard(stats: PrecipitationReliability) {
                     modifier = Modifier.weight(1f)
                 )
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(IntrinsicSize.Min),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
                 RainMetricCard(
                     label = stringResource(R.string.bias_reliability_rain_misses),
                     value = stats.missedEventRate?.let { "${(it * 100).roundToInt()} %" }
@@ -695,7 +717,7 @@ private fun RainMetricCard(
     val container = accent.copy(alpha = 0.10f)
         .compositeOver(MaterialTheme.colorScheme.surfaceContainerHigh)
     Card(
-        modifier = modifier,
+        modifier = modifier.fillMaxHeight(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = container)
     ) {
@@ -736,7 +758,7 @@ private fun RainMetricCard(
 private fun BiasReadingCard(selection: BiasSelection) {
     val overAccent = MaterialTheme.colorScheme.error
     val underAccent = MaterialTheme.colorScheme.primary
-    val closeAccent = confidenceColor((selection.reliability.withinToleranceRate * 100).roundToInt())
+    val closeAccent = confidenceColor((selection.reliability.closeRate * 100).roundToInt())
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -748,9 +770,11 @@ private fun BiasReadingCard(selection: BiasSelection) {
             SheetBiasTitle(selection.bias)
             Spacer(Modifier.height(10.dp))
             DirectionBalanceBar(
-                underRate = selection.reliability.underestimateRate.toFloat(),
-                overRate = selection.reliability.overestimateRate.toFloat(),
+                underRate = selection.reliability.underToleranceUnderestimateRate.toFloat(),
+                closeRate = selection.reliability.closeRate.toFloat(),
+                overRate = selection.reliability.overToleranceOverestimateRate.toFloat(),
                 underAccent = underAccent,
+                closeAccent = closeAccent,
                 overAccent = overAccent
             )
             Spacer(Modifier.height(8.dp))
@@ -758,7 +782,7 @@ private fun BiasReadingCard(selection: BiasSelection) {
                 AccentBadge(
                     text = stringResource(
                         R.string.bias_reliability_balance_under_badge,
-                        (selection.reliability.underestimateRate * 100).roundToInt()
+                        (selection.reliability.underToleranceUnderestimateRate * 100).roundToInt()
                     ),
                     accent = underAccent
                 )
@@ -772,7 +796,7 @@ private fun BiasReadingCard(selection: BiasSelection) {
                 AccentBadge(
                     text = stringResource(
                         R.string.bias_reliability_balance_over_badge,
-                        (selection.reliability.overestimateRate * 100).roundToInt()
+                        (selection.reliability.overToleranceOverestimateRate * 100).roundToInt()
                     ),
                     accent = overAccent
                 )
@@ -781,8 +805,9 @@ private fun BiasReadingCard(selection: BiasSelection) {
             Text(
                 text = stringResource(
                     R.string.bias_reliability_direction_balance,
-                    (selection.reliability.overestimateRate * 100).roundToInt(),
-                    (selection.reliability.underestimateRate * 100).roundToInt()
+                    (selection.reliability.overToleranceOverestimateRate * 100).roundToInt(),
+                    (selection.reliability.closeRate * 100).roundToInt(),
+                    (selection.reliability.underToleranceUnderestimateRate * 100).roundToInt()
                 ),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -806,13 +831,16 @@ private fun BiasReadingCard(selection: BiasSelection) {
 @Composable
 private fun DirectionBalanceBar(
     underRate: Float,
+    closeRate: Float,
     overRate: Float,
     underAccent: Color,
+    closeAccent: Color,
     overAccent: Color
 ) {
-    val total = underRate + overRate
-    val underWeight = if (total > 0f) (underRate / total).coerceIn(0f, 1f) else 0f
-    val overWeight = if (total > 0f) (overRate / total).coerceIn(0f, 1f) else 0f
+    val total = (underRate + closeRate + overRate).coerceAtLeast(0.0001f)
+    val underWeight = (underRate / total).coerceIn(0f, 1f)
+    val closeWeight = (closeRate / total).coerceIn(0f, 1f)
+    val overWeight = (overRate / total).coerceIn(0f, 1f)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -827,6 +855,15 @@ private fun DirectionBalanceBar(
                     .fillMaxWidth()
                     .height(10.dp)
                     .background(underAccent)
+            )
+        }
+        if (closeWeight > 0f) {
+            Box(
+                modifier = Modifier
+                    .weight(closeWeight)
+                    .fillMaxWidth()
+                    .height(10.dp)
+                    .background(closeAccent)
             )
         }
         if (overWeight > 0f) {

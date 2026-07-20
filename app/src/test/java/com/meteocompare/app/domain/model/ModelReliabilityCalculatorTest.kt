@@ -80,6 +80,36 @@ class ModelReliabilityCalculatorTest {
         assertTrue(reliability.recentMeanAbsoluteError!! < reliability.previousMeanAbsoluteError!!)
     }
 
+
+    @Test
+    fun `repartition biais est disjointe entre sous proches et sur`() {
+        val samples = samples(20) { index ->
+            val observed = 10.0
+            val forecast = when {
+                index < 5 -> 7.0   // sous au-delà de la tolérance
+                index < 14 -> 10.8 // proche
+                else -> 13.0       // sur au-delà de la tolérance
+            }
+            forecast to observed
+        }
+
+        val reliability = ModelReliabilityCalculator.compute(
+            BiasVariable.TEMPERATURE,
+            samples
+        )!!
+
+        assertEquals(0.25, reliability.underToleranceUnderestimateRate, 1e-9)
+        assertEquals(0.45, reliability.closeRate, 1e-9)
+        assertEquals(0.30, reliability.overToleranceOverestimateRate, 1e-9)
+        assertEquals(
+            1.0,
+            reliability.underToleranceUnderestimateRate +
+                reliability.closeRate +
+                reliability.overToleranceOverestimateRate,
+            1e-9
+        )
+    }
+
     @Test
     fun `diagnostic pluie distingue detection fausse alerte et episode manque`() {
         val patterns = listOf(

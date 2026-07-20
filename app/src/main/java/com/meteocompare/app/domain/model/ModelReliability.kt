@@ -54,6 +54,9 @@ data class ModelReliability(
     val withinToleranceRate: Double,
     val overestimateRate: Double,
     val underestimateRate: Double,
+    val closeRate: Double,
+    val overToleranceOverestimateRate: Double,
+    val underToleranceUnderestimateRate: Double,
     val closeTolerance: Double,
     val sampleSize: Int,
     val windowDays: Int,
@@ -133,6 +136,11 @@ object ModelReliabilityCalculator {
             .toDouble() / errors.size
         val overestimateRate = errors.count { it > 0.0 }.toDouble() / errors.size
         val underestimateRate = errors.count { it < 0.0 }.toDouble() / errors.size
+        val closeRate = withinToleranceRate
+        val overToleranceOverestimateRate = errors.count { it > scale.closeTolerance }
+            .toDouble() / errors.size
+        val underToleranceUnderestimateRate = errors.count { it < -scale.closeTolerance }
+            .toDouble() / errors.size
 
         val accuracyScore = exponentialScore(mae, scale.maeScale)
         val calibrationScore = exponentialScore(abs(meanBias), scale.biasScale)
@@ -169,6 +177,9 @@ object ModelReliabilityCalculator {
             withinToleranceRate = withinToleranceRate,
             overestimateRate = overestimateRate,
             underestimateRate = underestimateRate,
+            closeRate = closeRate,
+            overToleranceOverestimateRate = overToleranceOverestimateRate,
+            underToleranceUnderestimateRate = underToleranceUnderestimateRate,
             closeTolerance = scale.closeTolerance,
             sampleSize = ordered.size,
             windowDays = windowDays,

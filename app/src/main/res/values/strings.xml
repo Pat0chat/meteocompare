@@ -345,13 +345,12 @@
     <string name="bias_significance_not_significant">Faible</string>
 
     <string name="bias_explainer_opener">%1$s %2$s systématiquement %3$s à cet endroit sur les %4$d derniers jours.</string>
-    <string name="bias_explainer_calibrated">%1$s est proche de la réalité sur %2$s à cet endroit. Sur les %3$d derniers jours, l\'écart moyen aux observations reste dans le bruit journalier — aucune correction n\'est nécessaire pour interpréter ses prévisions.</string>
+    <string name="bias_explainer_calibrated">%1$s est proche de la réalité sur %2$s à cet endroit. Sur les %3$d derniers jours, l\'écart moyen aux observations reste dans le bruit journalier.</string>
 
     <!-- Interprétation stabilité — varie selon la significativité -->
     <string name="bias_stability_high">Le biais est important sur les 30 derniers jours.</string>
     <string name="bias_stability_moderate">Le biais est visible mais modéré.</string>
     <string name="bias_stability_not_significant">Écart proche du bruit journalier.</string>
-
 
     <!-- Tableau de fiabilité local — synthèse pédagogique du suivi de biais -->
     <string name="bias_reliability_title">Tableau de fiabilité</string>
@@ -365,7 +364,7 @@
     <string name="bias_reliability_level_limited">Limitée</string>
 
     <string name="bias_reliability_summary">%1$s présente une erreur absolue moyenne de %2$s sur cette ville. %3$s</string>
-    <string name="bias_reliability_summary_calibrated">Le biais signé reste faible : les erreurs positives et négatives ne nécessitent pas de correction systématique.</string>
+    <string name="bias_reliability_summary_calibrated">Le biais signé reste faible.</string>
     <string name="bias_reliability_summary_over">Une tendance à la surestimation reste visible.</string>
     <string name="bias_reliability_summary_under">Une tendance à la sous-estimation reste visible.</string>
 
@@ -412,7 +411,7 @@
     <string name="bias_reliability_balance_under_badge">%1$d %% sous</string>
     <string name="bias_reliability_balance_close_badge">%1$d %% proches</string>
     <string name="bias_reliability_balance_over_badge">%1$d %% sur</string>
-    <string name="bias_reliability_direction_balance">%1$d %% des jours au-dessus · %2$d %% au-dessous</string>
+    <string name="bias_reliability_direction_balance">%1$d %% au-dessus · %2$d %% proches · %3$d %% au-dessous</string>
     <string name="bias_reliability_sample_coverage">Historique exploité : %1$d jours sur une fenêtre de %2$d jours.</string>
     <string name="bias_reliability_method_note">Cet indice est un repère local et pédagogique, pas une note officielle du modèle. Il dépend de la ville, de la variable, de la période disponible et ne mesure pas encore séparément les échéances J+1, J+3 ou J+5. Pour la pluie, un jour est considéré humide à partir de 0,5 mm.</string>
 
