@@ -191,7 +191,7 @@
     <string name="donations_dialog_title">Support development</string>
     <string name="donations_dialog_body">MeteoCompare is free with zero data collection, no analytics, no tracking, no ads. If you\'d like to support development:</string>
     <string name="donations_dialog_disclaimer">No privileges are granted to donors. The source code and the app stay identical for everyone.</string>
-    <string name="donations_liberapay_desc">Weekly contributions, friendly FOSS</string>
+    <string name="donations_liberapay_desc">Periodic contributions, friendly FOSS</string>
     <string name="donations_github_sponsors_desc">Monthly contributions via GitHub</string>
     <string name="donations_kofi_desc">One-off donation, "buy me a coffee"</string>
     <string name="donations_dialog_close">Close</string>
@@ -351,16 +351,69 @@
     <!-- Explainer text for a CALIBRATED model (NOT_SIGNIFICANT). Single
          positive sentence — replaces the misleading "systematically overestimates"
          template that would otherwise fire for a genuinely well-behaved model. -->
-    <string name="bias_explainer_calibrated">%1$s is well calibrated on %2$s at this location. Over the last %3$d days, the mean deviation from observations stays within daily noise — no correction is needed to interpret its forecasts.</string>
+    <string name="bias_explainer_calibrated">%1$s is close to reality on %2$s at this location. Over the last %3$d days, the mean deviation from observations stays within daily noise — no correction is needed to interpret its forecasts.</string>
 
     <!-- Stability interpretation — varies by significance -->
     <string name="bias_stability_high">The bias is consistent over the last 30 days.</string>
     <string name="bias_stability_moderate">The bias is visible but moderate.</string>
     <string name="bias_stability_not_significant">Deviation close to daily noise.</string>
 
-    <!-- Progress announcement of the "calibrating" chip. Visible text is "N/14"
-         (compact, universal). This string is a11y-only, %1$d = samples collected,
-         %2$d = threshold (typically 14). -->
+
+    <!-- Local reliability dashboard — educational synthesis of bias tracking -->
+    <string name="bias_reliability_title">Reliability dashboard</string>
+    <string name="bias_reliability_local_index">Local reliability index</string>
+    <string name="bias_reliability_score_suffix">/ 100</string>
+    <string name="bias_reliability_rank">Local rank %1$d / %2$d</string>
+    <string name="bias_reliability_score_explanation">Educational summary of absolute error, signed bias, consistency and history coverage.</string>
+    <string name="bias_reliability_level_excellent">Excellent</string>
+    <string name="bias_reliability_level_good">Good</string>
+    <string name="bias_reliability_level_fair">Fair</string>
+    <string name="bias_reliability_level_limited">Limited</string>
+
+    <string name="bias_reliability_summary">%1$s has a mean absolute error of %2$s for this city. %3$s</string>
+    <string name="bias_reliability_summary_calibrated">Signed bias remains small: positive and negative errors do not require a systematic correction.</string>
+    <string name="bias_reliability_summary_over">A tendency to overestimate is still visible.</string>
+    <string name="bias_reliability_summary_under">A tendency to underestimate is still visible.</string>
+
+    <string name="bias_reliability_section_performance">Local performance</string>
+    <string name="bias_reliability_section_history">Forecast versus observation</string>
+    <string name="bias_reliability_section_rain">Precipitation detection</string>
+    <string name="bias_reliability_section_bias">How to read the bias</string>
+
+    <string name="bias_reliability_mae">Mean absolute error</string>
+    <string name="bias_reliability_rmse_support">RMSE %1$s · penalizes large errors more</string>
+    <string name="bias_reliability_mean_bias">Signed bias</string>
+    <string name="bias_reliability_direction_calibrated">no systematic correction</string>
+    <string name="bias_reliability_direction_over">tends to overestimate</string>
+    <string name="bias_reliability_direction_under">tends to underestimate</string>
+    <string name="bias_reliability_close_days">Close days</string>
+    <string name="bias_reliability_close_days_support">error less than or equal to %1$s</string>
+    <string name="bias_reliability_variability">Variability</string>
+    <string name="bias_reliability_variability_support">spread of daily errors</string>
+
+    <string name="bias_reliability_recent_trend">Recent error trend</string>
+    <string name="bias_reliability_trend_improving">Improving</string>
+    <string name="bias_reliability_trend_stable">Stable</string>
+    <string name="bias_reliability_trend_declining">Declining</string>
+    <string name="bias_reliability_trend_insufficient">Not enough history</string>
+    <string name="bias_reliability_trend_values">%1$s → %2$s</string>
+
+    <string name="bias_reliability_baseline_title">Comparison with the multi-model mean</string>
+    <string name="bias_reliability_baseline_similar">Accuracy is similar to the mean</string>
+    <string name="bias_reliability_baseline_better">Error is %1$d %% lower</string>
+    <string name="bias_reliability_baseline_worse">Error is %1$d %% higher</string>
+    <string name="bias_reliability_baseline_values">This model: %1$s · mean: %2$s</string>
+
+    <string name="bias_reliability_rain_detection">Observed wet days detected</string>
+    <string name="bias_reliability_rain_false_alarms">False rain alarms</string>
+    <string name="bias_reliability_rain_misses">Wet events missed</string>
+    <string name="bias_reliability_not_available">Not available</string>
+    <string name="bias_reliability_rain_samples">%1$d observed wet days · %2$d forecast</string>
+
+    <string name="bias_reliability_direction_balance">%1$d %% of days above · %2$d %% below</string>
+    <string name="bias_reliability_sample_coverage">History used: %1$d days within a %2$d-day window.</string>
+    <string name="bias_reliability_method_note">This index is a local educational guide, not an official model score. It depends on the city, variable and available period, and does not yet separate lead times such as day 1, day 3 or day 5. For precipitation, a day is considered wet from 0.5 mm.</string>
+
     <string name="bias_chip_calibrating_progress_a11y">Calibrating: %1$d of %2$d samples collected</string>
 
     <!-- ─── CityCard home enrichment (v1.0: weather halo, 12h mini forecast, sunrise/sunset) ─── -->

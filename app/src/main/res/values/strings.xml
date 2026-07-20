@@ -190,7 +190,7 @@
     <string name="donations_dialog_title">Soutenir le développement</string>
     <string name="donations_dialog_body">MeteoCompare est gratuit, sans collecte de données, sans tracking, sans publicité. Si vous souhaitez soutenir le développement :</string>
     <string name="donations_dialog_disclaimer">Aucun privilège n\'est accordé aux donateurs. Le code source et l\'app restent identiques pour tout le monde.</string>
-    <string name="donations_liberapay_desc">Contributions hebdomadaires, friendly FOSS</string>
+    <string name="donations_liberapay_desc">Contributions périodiques, friendly FOSS</string>
     <string name="donations_github_sponsors_desc">Contributions mensuelles via GitHub</string>
     <string name="donations_kofi_desc">Don ponctuel « offre-moi un café »</string>
     <string name="donations_dialog_close">Fermer</string>
@@ -344,26 +344,70 @@
     <string name="bias_significance_moderate">Modérée</string>
     <string name="bias_significance_not_significant">Faible</string>
 
-    <!-- Texte explicatif — opener paramétré (modèle, verbe, variable, jours).
-         Ex FR : "GFS surestime systématiquement la température à cet endroit sur les 30 derniers jours." -->
     <string name="bias_explainer_opener">%1$s %2$s systématiquement %3$s à cet endroit sur les %4$d derniers jours.</string>
-    <!-- Texte de l\'explainer pour un modèle CALIBRÉ (NOT_SIGNIFICANT). Une
-         seule phrase, positive, qui ne parle plus de "systématiquement
-         surestime" — mensonger pour un modèle en fait bien calibré. -->
-    <string name="bias_explainer_calibrated">%1$s est calibré sur %2$s à cet endroit. Sur les %3$d derniers jours, l\'écart moyen aux observations reste dans le bruit journalier — aucune correction n\'est nécessaire pour interpréter ses prévisions.</string>
+    <string name="bias_explainer_calibrated">%1$s est proche de la réalité sur %2$s à cet endroit. Sur les %3$d derniers jours, l\'écart moyen aux observations reste dans le bruit journalier — aucune correction n\'est nécessaire pour interpréter ses prévisions.</string>
 
     <!-- Interprétation stabilité — varie selon la significativité -->
     <string name="bias_stability_high">Le biais est important sur les 30 derniers jours.</string>
     <string name="bias_stability_moderate">Le biais est visible mais modéré.</string>
     <string name="bias_stability_not_significant">Écart proche du bruit journalier.</string>
 
-    <!--
-        Progression du chip "en cours de calibration" — affichée sous le nom
-        de modèle dans les tableaux de biais quand < 14 samples sont collectés.
-        Le texte visible est "N/14" (compact, universel). Cette string couvre
-        UNIQUEMENT l'a11y : ce qu'un utilisateur TalkBack entend en focalisant
-        le chip. %1$d = nb de samples collectés, %2$d = seuil (typiquement 14).
-    -->
+
+    <!-- Tableau de fiabilité local — synthèse pédagogique du suivi de biais -->
+    <string name="bias_reliability_title">Tableau de fiabilité</string>
+    <string name="bias_reliability_local_index">Indice local de fiabilité</string>
+    <string name="bias_reliability_score_suffix">/ 100</string>
+    <string name="bias_reliability_rank">Rang local %1$d / %2$d</string>
+    <string name="bias_reliability_score_explanation">Synthèse pédagogique de l’erreur absolue, du biais, de la régularité et de la couverture de l’historique.</string>
+    <string name="bias_reliability_level_excellent">Excellente</string>
+    <string name="bias_reliability_level_good">Bonne</string>
+    <string name="bias_reliability_level_fair">Moyenne</string>
+    <string name="bias_reliability_level_limited">Limitée</string>
+
+    <string name="bias_reliability_summary">%1$s présente une erreur absolue moyenne de %2$s sur cette ville. %3$s</string>
+    <string name="bias_reliability_summary_calibrated">Le biais signé reste faible : les erreurs positives et négatives ne nécessitent pas de correction systématique.</string>
+    <string name="bias_reliability_summary_over">Une tendance à la surestimation reste visible.</string>
+    <string name="bias_reliability_summary_under">Une tendance à la sous-estimation reste visible.</string>
+
+    <string name="bias_reliability_section_performance">Performance locale</string>
+    <string name="bias_reliability_section_history">Prévision face à l’observation</string>
+    <string name="bias_reliability_section_rain">Détection des précipitations</string>
+    <string name="bias_reliability_section_bias">Comment interpréter le biais</string>
+
+    <string name="bias_reliability_mae">Erreur absolue moyenne</string>
+    <string name="bias_reliability_rmse_support">RMSE %1$s · pénalise davantage les gros écarts</string>
+    <string name="bias_reliability_mean_bias">Biais signé</string>
+    <string name="bias_reliability_direction_calibrated">pas de correction systématique</string>
+    <string name="bias_reliability_direction_over">tendance à surestimer</string>
+    <string name="bias_reliability_direction_under">tendance à sous-estimer</string>
+    <string name="bias_reliability_close_days">Jours proches</string>
+    <string name="bias_reliability_close_days_support">écart inférieur ou égal à %1$s</string>
+    <string name="bias_reliability_variability">Variabilité</string>
+    <string name="bias_reliability_variability_support">dispersion des erreurs journalières</string>
+
+    <string name="bias_reliability_recent_trend">Tendance récente de l’erreur</string>
+    <string name="bias_reliability_trend_improving">En amélioration</string>
+    <string name="bias_reliability_trend_stable">Stable</string>
+    <string name="bias_reliability_trend_declining">En dégradation</string>
+    <string name="bias_reliability_trend_insufficient">Pas assez de recul</string>
+    <string name="bias_reliability_trend_values">%1$s → %2$s</string>
+
+    <string name="bias_reliability_baseline_title">Comparaison à la moyenne multi-modèles</string>
+    <string name="bias_reliability_baseline_similar">Précision comparable à la moyenne</string>
+    <string name="bias_reliability_baseline_better">Erreur %1$d %% plus faible</string>
+    <string name="bias_reliability_baseline_worse">Erreur %1$d %% plus élevée</string>
+    <string name="bias_reliability_baseline_values">Ce modèle : %1$s · moyenne : %2$s</string>
+
+    <string name="bias_reliability_rain_detection">Jours pluvieux détectés</string>
+    <string name="bias_reliability_rain_false_alarms">Fausses alertes pluie</string>
+    <string name="bias_reliability_rain_misses">Épisodes pluvieux manqués</string>
+    <string name="bias_reliability_not_available">Non disponible</string>
+    <string name="bias_reliability_rain_samples">%1$d jours pluvieux observés · %2$d prévus</string>
+
+    <string name="bias_reliability_direction_balance">%1$d %% des jours au-dessus · %2$d %% au-dessous</string>
+    <string name="bias_reliability_sample_coverage">Historique exploité : %1$d jours sur une fenêtre de %2$d jours.</string>
+    <string name="bias_reliability_method_note">Cet indice est un repère local et pédagogique, pas une note officielle du modèle. Il dépend de la ville, de la variable, de la période disponible et ne mesure pas encore séparément les échéances J+1, J+3 ou J+5. Pour la pluie, un jour est considéré humide à partir de 0,5 mm.</string>
+
     <string name="bias_chip_calibrating_progress_a11y">En cours de calibration : %1$d échantillons sur %2$d collectés</string>
 
     <!-- ─── Enrichissement CityCard (v1.0 : halo météo, mini prévision 12h, sunrise/sunset) ─── -->

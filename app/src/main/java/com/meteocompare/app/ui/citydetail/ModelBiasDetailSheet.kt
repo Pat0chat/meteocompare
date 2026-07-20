@@ -1,12 +1,20 @@
 package com.meteocompare.app.ui.citydetail
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -14,7 +22,11 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -27,18 +39,28 @@ import com.meteocompare.app.domain.model.BiasDirection
 import com.meteocompare.app.domain.model.BiasSignificance
 import com.meteocompare.app.domain.model.BiasVariable
 import com.meteocompare.app.domain.model.ModelBias
+import com.meteocompare.app.domain.model.ModelReliability
+import com.meteocompare.app.domain.model.ModelReliabilityCalculator
+import com.meteocompare.app.domain.model.PrecipitationReliability
+import com.meteocompare.app.domain.model.ReliabilityLevel
+import com.meteocompare.app.domain.model.ReliabilityRank
+import com.meteocompare.app.domain.model.ReliabilityTrend
 import com.meteocompare.app.domain.model.WeatherModel
+import com.meteocompare.app.ui.theme.confidenceColor
+import kotlin.math.abs
+import kotlin.math.roundToInt
 
 /**
- * Bottom sheet Material 3 qui présente le détail d'un biais modèle × variable.
+ * Tableau de fiabilité local d'un modèle.
  *
- * Phase 1 UI (cette itération) : titre "sec" centré sur la donnée, grille de
- * stats, texte explicatif. Sparkline 30j en placeholder — remplacé Phase 1.5.
+ * La sheet ne se limite plus au biais signé : elle distingue désormais le sens
+ * de l'erreur (biais), son amplitude réellement ressentie (MAE/RMSE), sa
+ * régularité, la part de journées proches, l'évolution récente, le rang local
+ * et la comparaison à la moyenne multi-modèles. Pour la pluie, elle ajoute les
+ * détections, fausses alertes et événements manqués.
  *
- * Toutes les chaînes utilisateur passent par stringResource — la sheet est
- * pleinement localisée FR/EN. Formatage numérique via `String.format` sans
- * `.replace('.', ',')` forcé, donc le séparateur décimal suit la locale du
- * device (virgule en FR, point en EN).
+ * Le contenu est scrollable afin de rester utilisable en paysage et avec une
+ * grande taille de police.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,7 +70,7 @@ internal fun ModelBiasDetailSheet(
 ) {
     if (selection == null) return
 
-    val sheetState = rememberModalBottomSheetState()
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -57,13 +79,34 @@ internal fun ModelBiasDetailSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 22.dp)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp)
+                .navigationBarsPadding()
                 .padding(bottom = 24.dp)
         ) {
             SheetEyebrow(selection.model, selection.bias.variable, selection.bias.windowDays)
-            Spacer(Modifier.height(6.dp))
-            SheetTitle(selection.bias)
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.bias_reliability_title),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(Modifier.height(12.dp))
+            ReliabilityHero(selection)
+            Spacer(Modifier.height(10.dp))
+            ReliabilitySummary(selection)
+
+            SectionTitle(stringResource(R.string.bias_reliability_section_performance))
+            ReliabilityMetricsGrid(selection)
+            Spacer(Modifier.height(10.dp))
+            RecentTrendCard(selection.reliability)
+
+            selection.multiModelReliability?.let { baseline ->
+                Spacer(Modifier.height(10.dp))
+                MultiModelComparisonCard(selection.reliability, baseline)
+            }
+
+            SectionTitle(stringResource(R.string.bias_reliability_section_history))
             BiasSparkline(
                 forecast = selection.dailyForecast,
                 observation = selection.dailyObservation,
@@ -71,31 +114,78 @@ internal fun ModelBiasDetailSheet(
                 yDomainMin = selection.yDomainMin,
                 yDomainMax = selection.yDomainMax
             )
-            Spacer(Modifier.height(18.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            StatsGrid(selection.bias)
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+            selection.reliability.precipitation?.let { precipitation ->
+                SectionTitle(stringResource(R.string.bias_reliability_section_rain))
+                PrecipitationDiagnosticsCard(precipitation)
+            }
+
+            SectionTitle(stringResource(R.string.bias_reliability_section_bias))
+            BiasReadingCard(selection)
+
             Spacer(Modifier.height(16.dp))
-            Explainer(selection)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = stringResource(R.string.bias_reliability_method_note),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
 
-/** Paire modèle + biais que la sheet affiche. Immutable → stable pour Compose. */
-@androidx.compose.runtime.Immutable
+/** Données complètes nécessaires au tableau de fiabilité. */
+@Immutable
 internal data class BiasSelection(
     val model: WeatherModel,
     val bias: ModelBias,
-    // ── Données pour le sparkline ──
-    // Populated côté caller à l'ouverture de la sheet. Chronologique, index 0
-    // = J−(size−1), dernier index = aujourd'hui. Même taille des deux séries.
+    val reliability: ModelReliability,
+    val localRank: ReliabilityRank?,
+    val multiModelReliability: ModelReliability?,
     val dailyForecast: List<Double>,
     val dailyObservation: List<Double>,
-    // Bornes Y communes à tous les modèles de la même variable (calculées sur
-    // l'union des séries) — permet la comparaison visuelle inter-modèles.
     val yDomainMin: Double,
     val yDomainMax: Double
 )
+
+/** Construit de manière pure les données de la sheet pour un modèle donné. */
+internal fun buildBiasSelection(
+    model: WeatherModel,
+    variable: BiasVariable,
+    state: VariableBiasState
+): BiasSelection? {
+    val bias = state.biasByModel[model] ?: return null
+    val samples = state.historyByModel[model] ?: return null
+    val yMin = state.yDomainMin ?: return null
+    val yMax = state.yDomainMax ?: return null
+    val perDay = samples.distinctBy { it.targetDate }
+
+    val reliabilityByModel = state.historyByModel.mapNotNull { (candidate, history) ->
+        ModelReliabilityCalculator.compute(
+            variable = variable,
+            samples = history,
+            windowDays = bias.windowDays
+        )?.let { candidate to it }
+    }.toMap()
+    val reliability = reliabilityByModel[model] ?: return null
+
+    return BiasSelection(
+        model = model,
+        bias = bias,
+        reliability = reliability,
+        localRank = ModelReliabilityCalculator.rank(model, reliabilityByModel),
+        multiModelReliability = ModelReliabilityCalculator.computeMultiModelBaseline(
+            variable = variable,
+            historyByModel = state.historyByModel,
+            windowDays = bias.windowDays
+        ),
+        dailyForecast = perDay.map { it.forecast },
+        dailyObservation = perDay.map { it.observation },
+        yDomainMin = yMin,
+        yDomainMax = yMax
+    )
+}
 
 @Composable
 private fun SheetEyebrow(model: WeatherModel, variable: BiasVariable, windowDays: Int) {
@@ -113,29 +203,424 @@ private fun SheetEyebrow(model: WeatherModel, variable: BiasVariable, windowDays
     )
 }
 
-/**
- * Titre "sec direct centré sur la donnée" — décision produit validée.
- * La magnitude teintée selon la direction relie visuellement la sheet au chip
- * qui a été tapé. Prefix + suffix en stringResource pour permettre la
- * localisation FR/EN sans casser la mise en couleur du milieu.
- */
 @Composable
-private fun SheetTitle(bias: ModelBias) {
-    // Palette alignée sur celle du chip qui vient d'être tapé : neutre (gris)
-    // pour un modèle calibré, teintée warm/cold sinon. Sans cette symétrie,
-    // taper un chip gris ouvrirait une sheet dont le titre est teinté rouge
-    // ou bleu — dissonance visuelle, l'utilisateur croirait tout à coup que
-    // le modèle est problématique.
+private fun ReliabilityHero(selection: BiasSelection) {
+    val reliability = selection.reliability
+    val accent = when (reliability.level) {
+        ReliabilityLevel.EXCELLENT, ReliabilityLevel.GOOD -> confidenceColor(100)
+        ReliabilityLevel.FAIR -> confidenceColor(60)
+        ReliabilityLevel.LIMITED -> confidenceColor(20)
+    }
+    val container = accent.copy(alpha = 0.11f)
+        .compositeOver(MaterialTheme.colorScheme.surfaceContainerHigh)
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = container)
+    ) {
+        Column(modifier = Modifier.padding(18.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.bias_reliability_local_index),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text(
+                            text = reliability.score.toString(),
+                            style = MaterialTheme.typography.displaySmall,
+                            fontWeight = FontWeight.Bold,
+                            color = accent
+                        )
+                        Text(
+                            text = stringResource(R.string.bias_reliability_score_suffix),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 5.dp, start = 3.dp)
+                        )
+                    }
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = stringResource(reliabilityLevelResId(reliability.level)),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = accent
+                    )
+                    selection.localRank?.let { rank ->
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = stringResource(
+                                R.string.bias_reliability_rank,
+                                rank.rank,
+                                rank.modelCount
+                            ),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            ScoreBar(progress = reliability.score / 100f, accent = accent)
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.bias_reliability_score_explanation),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun ScoreBar(progress: Float, accent: androidx.compose.ui.graphics.Color) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(8.dp)
+            .clip(RoundedCornerShape(99.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(progress.coerceIn(0f, 1f))
+                .height(8.dp)
+                .clip(RoundedCornerShape(99.dp))
+                .background(accent)
+        )
+    }
+}
+
+@Composable
+private fun ReliabilitySummary(selection: BiasSelection) {
+    val error = formatMeasure(selection.reliability.meanAbsoluteError, selection.bias.variable)
+    val tailRes = when {
+        selection.bias.significance == BiasSignificance.NOT_SIGNIFICANT ->
+            R.string.bias_reliability_summary_calibrated
+        selection.bias.direction == BiasDirection.WARM ->
+            R.string.bias_reliability_summary_over
+        selection.bias.direction == BiasDirection.COLD ->
+            R.string.bias_reliability_summary_under
+        else -> R.string.bias_reliability_summary_calibrated
+    }
+    Text(
+        text = stringResource(
+            R.string.bias_reliability_summary,
+            selection.model.displayName,
+            error,
+            stringResource(tailRes)
+        ),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurface
+    )
+}
+
+@Composable
+private fun SectionTitle(text: String) {
+    Spacer(Modifier.height(22.dp))
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.SemiBold
+    )
+    Spacer(Modifier.height(10.dp))
+}
+
+@Composable
+private fun ReliabilityMetricsGrid(selection: BiasSelection) {
+    val reliability = selection.reliability
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            ReliabilityMetricCard(
+                label = stringResource(R.string.bias_reliability_mae),
+                value = formatMeasure(reliability.meanAbsoluteError, reliability.variable),
+                supporting = stringResource(
+                    R.string.bias_reliability_rmse_support,
+                    formatMeasure(reliability.rootMeanSquareError, reliability.variable)
+                ),
+                modifier = Modifier.weight(1f),
+                emphasized = true
+            )
+            ReliabilityMetricCard(
+                label = stringResource(R.string.bias_reliability_mean_bias),
+                value = formatBiasLabel(selection.bias),
+                supporting = stringResource(biasDirectionSupportResId(selection.bias)),
+                modifier = Modifier.weight(1f)
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            ReliabilityMetricCard(
+                label = stringResource(R.string.bias_reliability_close_days),
+                value = "${(reliability.withinToleranceRate * 100).roundToInt()} %",
+                supporting = stringResource(
+                    R.string.bias_reliability_close_days_support,
+                    formatMeasure(reliability.closeTolerance, reliability.variable)
+                ),
+                modifier = Modifier.weight(1f)
+            )
+            ReliabilityMetricCard(
+                label = stringResource(R.string.bias_reliability_variability),
+                value = formatMeasure(reliability.standardDeviation, reliability.variable),
+                supporting = stringResource(R.string.bias_reliability_variability_support),
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun ReliabilityMetricCard(
+    label: String,
+    value: String,
+    supporting: String,
+    modifier: Modifier = Modifier,
+    emphasized: Boolean = false
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        )
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(5.dp))
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleLarge,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = if (emphasized) FontWeight.Bold else FontWeight.SemiBold
+            )
+            Spacer(Modifier.height(3.dp))
+            Text(
+                text = supporting,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun RecentTrendCard(reliability: ModelReliability) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.bias_reliability_recent_trend),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(3.dp))
+                Text(
+                    text = stringResource(reliabilityTrendResId(reliability.trend)),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            val recentError = reliability.recentMeanAbsoluteError
+            val previousError = reliability.previousMeanAbsoluteError
+            if (recentError != null && previousError != null) {
+                Text(
+                    text = stringResource(
+                        R.string.bias_reliability_trend_values,
+                        formatMeasure(previousError, reliability.variable),
+                        formatMeasure(recentError, reliability.variable)
+                    ),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MultiModelComparisonCard(
+    selected: ModelReliability,
+    baseline: ModelReliability
+) {
+    val selectedMae = selected.meanAbsoluteError
+    val baselineMae = baseline.meanAbsoluteError
+    val deltaPercent = if (baselineMae > 0.0) {
+        ((selectedMae - baselineMae) / baselineMae * 100.0)
+    } else {
+        0.0
+    }
+    val comparisonText = when {
+        abs(deltaPercent) < 5.0 -> stringResource(R.string.bias_reliability_baseline_similar)
+        deltaPercent < 0.0 -> stringResource(
+            R.string.bias_reliability_baseline_better,
+            abs(deltaPercent).roundToInt()
+        )
+        else -> stringResource(
+            R.string.bias_reliability_baseline_worse,
+            abs(deltaPercent).roundToInt()
+        )
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        )
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Text(
+                text = stringResource(R.string.bias_reliability_baseline_title),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(5.dp))
+            Text(
+                text = comparisonText,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(Modifier.height(5.dp))
+            Text(
+                text = stringResource(
+                    R.string.bias_reliability_baseline_values,
+                    formatMeasure(selectedMae, selected.variable),
+                    formatMeasure(baselineMae, baseline.variable)
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun PrecipitationDiagnosticsCard(stats: PrecipitationReliability) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            RainMetricRow(
+                label = stringResource(R.string.bias_reliability_rain_detection),
+                value = stats.hitRate
+            )
+            RainMetricRow(
+                label = stringResource(R.string.bias_reliability_rain_false_alarms),
+                value = stats.falseAlarmRate
+            )
+            RainMetricRow(
+                label = stringResource(R.string.bias_reliability_rain_misses),
+                value = stats.missedEventRate
+            )
+            Text(
+                text = stringResource(
+                    R.string.bias_reliability_rain_samples,
+                    stats.observedWetDays,
+                    stats.forecastWetDays
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun RainMetricRow(label: String, value: Double?) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            text = value?.let { "${(it * 100).roundToInt()} %" }
+                ?: stringResource(R.string.bias_reliability_not_available),
+            style = MaterialTheme.typography.titleMedium,
+            fontFamily = FontFamily.Monospace,
+            fontWeight = FontWeight.SemiBold
+        )
+    }
+}
+
+@Composable
+private fun BiasReadingCard(selection: BiasSelection) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        )
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            SheetBiasTitle(selection.bias)
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = stringResource(
+                    R.string.bias_reliability_direction_balance,
+                    (selection.reliability.overestimateRate * 100).roundToInt(),
+                    (selection.reliability.underestimateRate * 100).roundToInt()
+                ),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(10.dp))
+            BiasExplainer(selection)
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = stringResource(
+                    R.string.bias_reliability_sample_coverage,
+                    selection.reliability.sampleSize,
+                    selection.reliability.windowDays
+                ),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+/** Titre chiffré du biais, désormais replacé dans une section explicative. */
+@Composable
+private fun SheetBiasTitle(bias: ModelBias) {
     val isCalibrated = bias.significance == BiasSignificance.NOT_SIGNIFICANT
     val palette = if (isCalibrated) {
         biasChipPalette(BiasDirection.NEUTRAL, pending = false)
     } else {
         biasChipPalette(bias.direction, pending = false)
     }
-    val magnitude = formatBiasLabel(bias)
     val prefix = stringResource(R.string.bias_sheet_title_prefix)
     val suffix = stringResource(R.string.bias_sheet_title_suffix)
-
     val annotated = buildAnnotatedString {
         append(prefix)
         append(" ")
@@ -145,175 +630,93 @@ private fun SheetTitle(bias: ModelBias) {
                 fontWeight = FontWeight.SemiBold,
                 fontFamily = FontFamily.Monospace
             )
-        ) { append(magnitude) }
+        ) { append(formatBiasLabel(bias)) }
         append(" ")
         append(suffix)
     }
+    Text(text = annotated, style = MaterialTheme.typography.titleMedium)
+}
 
+@Composable
+private fun BiasExplainer(selection: BiasSelection) {
+    val name = selection.model.displayName
+    if (selection.bias.significance == BiasSignificance.NOT_SIGNIFICANT) {
+        Text(
+            text = stringResource(
+                R.string.bias_explainer_calibrated,
+                name,
+                stringResource(sheetExplainerVariableResId(selection.bias.variable)),
+                selection.bias.windowDays
+            ),
+            style = MaterialTheme.typography.bodyMedium
+        )
+        return
+    }
+
+    val opener = stringResource(
+        R.string.bias_explainer_opener,
+        name,
+        stringResource(explainerVerbResId(selection.bias.direction)),
+        stringResource(sheetExplainerVariableResId(selection.bias.variable)),
+        selection.bias.windowDays
+    )
     Text(
-        text = annotated,
-        style = MaterialTheme.typography.headlineSmall,
-        lineHeight = MaterialTheme.typography.headlineSmall.lineHeight
+        text = "$opener ${stringResource(explainerStabilityResId(selection.bias.significance))}",
+        style = MaterialTheme.typography.bodyMedium
     )
 }
 
-/** Grille 2×2 des statistiques principales, style "instrument de mesure". */
-@Composable
-private fun StatsGrid(bias: ModelBias) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(20.dp)
-        ) {
-            StatCell(
-                label = stringResource(R.string.bias_stat_mean),
-                value = formatBiasLabel(bias),
-                emphasize = true,
-                modifier = Modifier.weight(1f)
-            )
-            StatCell(
-                label = stringResource(R.string.bias_stat_stddev),
-                value = "%.1f".format(bias.stdDev) + unitFor(bias.variable),
-                modifier = Modifier.weight(1f)
-            )
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(20.dp)
-        ) {
-            StatCell(
-                label = stringResource(R.string.bias_stat_sample_size),
-                value = stringResource(
-                    R.string.bias_stat_sample_size_value,
-                    bias.sampleSize,
-                    bias.windowDays
-                ),
-                modifier = Modifier.weight(1f)
-            )
-            StatCell(
-                label = stringResource(R.string.bias_stat_significance),
-                value = stringResource(significanceLabelResId(bias.significance)),
-                modifier = Modifier.weight(1f)
-            )
-        }
-    }
-}
+private fun formatMeasure(value: Double, variable: BiasVariable): String =
+    "%.1f".format(value) + unitFor(variable)
 
-private fun unitFor(v: BiasVariable): String = when (v) {
+private fun unitFor(variable: BiasVariable): String = when (variable) {
     BiasVariable.TEMPERATURE -> "°"
     BiasVariable.PRECIPITATION -> " mm"
     BiasVariable.WIND_SPEED -> " km/h"
 }
 
-@Composable
-private fun StatCell(
-    label: String,
-    value: String,
-    modifier: Modifier = Modifier,
-    emphasize: Boolean = false
-) {
-    Column(modifier = modifier) {
-        Text(
-            text = label.uppercase(),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = FontWeight.Medium
-        )
-        Spacer(Modifier.height(2.dp))
-        Text(
-            text = value,
-            style = MaterialTheme.typography.titleMedium,
-            fontFamily = FontFamily.Monospace,
-            fontWeight = if (emphasize) FontWeight.SemiBold else FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-    }
-}
-
-/**
- * Texte explicatif du "pourquoi" du biais.
- *
- * Deux chemins distincts :
- *
- * - **Biais significatif** — chemin historique : 2 paragraphes (opener +
- *   hint, puis stability). L'opener utilise le verbe directionnel
- *   ("surestime" / "sous-estime") pour dire ce que le modèle fait de mal
- *   et le hint dit comment le corriger mentalement.
- *
- * - **Calibré (NOT_SIGNIFICANT)** — chemin dédié : une seule phrase positive.
- *   L'ancien texte reprenait le verbe directionnel ("surestime") alors que
- *   le modèle est en fait calibré — mensonger et anxiogène pour rien.
- *   Le nouveau message assume que le petit écart existe (le titre le montre
- *   déjà chiffré) et communique le message important : c'est du bruit,
- *   aucune correction à faire.
- */
-@Composable
-private fun Explainer(selection: BiasSelection) {
-    val name = selection.model.displayName
-
-    if (selection.bias.significance == BiasSignificance.NOT_SIGNIFICANT) {
-        val variable = stringResource(sheetExplainerVariableResId(selection.bias.variable))
-        Text(
-            text = stringResource(
-                R.string.bias_explainer_calibrated,
-                name, variable, selection.bias.windowDays
-            ),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-            lineHeight = MaterialTheme.typography.bodyMedium.lineHeight
-        )
-        return
-    }
-
-    val verb = stringResource(explainerVerbResId(selection.bias.direction))
-    val variable = stringResource(sheetExplainerVariableResId(selection.bias.variable))
-    val opener = stringResource(
-        R.string.bias_explainer_opener,
-        name, verb, variable, selection.bias.windowDays
-    )
-    val stability = stringResource(explainerStabilityResId(selection.bias.significance))
-
-    Text(
-        text = "$opener $stability",
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurface,
-        lineHeight = MaterialTheme.typography.bodyMedium.lineHeight
-    )
-}
-
-// ─── Res id resolvers (pas @Composable, appelables depuis remember blocks) ──
-
-private fun sheetVariableLabelResId(v: BiasVariable): Int = when (v) {
-    BiasVariable.TEMPERATURE   -> R.string.bias_sheet_variable_temperature
+private fun sheetVariableLabelResId(variable: BiasVariable): Int = when (variable) {
+    BiasVariable.TEMPERATURE -> R.string.bias_sheet_variable_temperature
     BiasVariable.PRECIPITATION -> R.string.bias_sheet_variable_precipitation
-    BiasVariable.WIND_SPEED    -> R.string.bias_sheet_variable_wind_speed
+    BiasVariable.WIND_SPEED -> R.string.bias_sheet_variable_wind_speed
 }
 
-private fun sheetExplainerVariableResId(v: BiasVariable): Int = when (v) {
-    BiasVariable.TEMPERATURE   -> R.string.bias_variable_temperature
+private fun sheetExplainerVariableResId(variable: BiasVariable): Int = when (variable) {
+    BiasVariable.TEMPERATURE -> R.string.bias_variable_temperature
     BiasVariable.PRECIPITATION -> R.string.bias_variable_precipitation
-    BiasVariable.WIND_SPEED    -> R.string.bias_variable_wind_speed
+    BiasVariable.WIND_SPEED -> R.string.bias_variable_wind_speed
 }
 
-private fun significanceLabelResId(s: BiasSignificance): Int = when (s) {
-    BiasSignificance.HIGH             -> R.string.bias_significance_high
-    BiasSignificance.MODERATE         -> R.string.bias_significance_moderate
-    BiasSignificance.NOT_SIGNIFICANT  -> R.string.bias_significance_not_significant
-}
-
-private fun explainerVerbResId(d: BiasDirection): Int = when (d) {
-    BiasDirection.WARM    -> R.string.bias_verb_overestimates
-    BiasDirection.COLD    -> R.string.bias_verb_underestimates
+private fun explainerVerbResId(direction: BiasDirection): Int = when (direction) {
+    BiasDirection.WARM -> R.string.bias_verb_overestimates
+    BiasDirection.COLD -> R.string.bias_verb_underestimates
     BiasDirection.NEUTRAL -> R.string.bias_verb_neutral
 }
 
-private fun explainerStabilityResId(s: BiasSignificance): Int = when (s) {
-    BiasSignificance.HIGH             -> R.string.bias_stability_high
-    BiasSignificance.MODERATE         -> R.string.bias_stability_moderate
-    BiasSignificance.NOT_SIGNIFICANT  -> R.string.bias_stability_not_significant
+private fun explainerStabilityResId(significance: BiasSignificance): Int = when (significance) {
+    BiasSignificance.HIGH -> R.string.bias_stability_high
+    BiasSignificance.MODERATE -> R.string.bias_stability_moderate
+    BiasSignificance.NOT_SIGNIFICANT -> R.string.bias_stability_not_significant
+}
+
+private fun reliabilityLevelResId(level: ReliabilityLevel): Int = when (level) {
+    ReliabilityLevel.EXCELLENT -> R.string.bias_reliability_level_excellent
+    ReliabilityLevel.GOOD -> R.string.bias_reliability_level_good
+    ReliabilityLevel.FAIR -> R.string.bias_reliability_level_fair
+    ReliabilityLevel.LIMITED -> R.string.bias_reliability_level_limited
+}
+
+private fun reliabilityTrendResId(trend: ReliabilityTrend): Int = when (trend) {
+    ReliabilityTrend.IMPROVING -> R.string.bias_reliability_trend_improving
+    ReliabilityTrend.STABLE -> R.string.bias_reliability_trend_stable
+    ReliabilityTrend.DECLINING -> R.string.bias_reliability_trend_declining
+    ReliabilityTrend.INSUFFICIENT_DATA -> R.string.bias_reliability_trend_insufficient
+}
+
+private fun biasDirectionSupportResId(bias: ModelBias): Int = when {
+    bias.significance == BiasSignificance.NOT_SIGNIFICANT ->
+        R.string.bias_reliability_direction_calibrated
+    bias.direction == BiasDirection.WARM -> R.string.bias_reliability_direction_over
+    bias.direction == BiasDirection.COLD -> R.string.bias_reliability_direction_under
+    else -> R.string.bias_reliability_direction_calibrated
 }

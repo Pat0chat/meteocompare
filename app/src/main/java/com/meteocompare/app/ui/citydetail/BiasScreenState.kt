@@ -24,10 +24,12 @@ import com.meteocompare.app.domain.model.WeatherModel
  *   1. **Chips** — pour chaque `(variable, model)`, lire `biasByModel[model]`.
  *      `null` = pas de chip (pas assez de données OU biais non significatif —
  *      la deuxième condition est calculée dans le chip lui-même).
- *   2. **Sparkline** — à l'ouverture de la sheet, lire `historyByModel[model]`
- *      pour la variable sélectionnée. Contient les samples 30j dans l'ordre
- *      chronologique.
- *   3. **Axe Y du sparkline** — lire `yDomainMin` / `yDomainMax` pour la
+ *   2. **Tableau de fiabilité** — à l'ouverture de la sheet, utiliser
+ *      `historyByModel` pour calculer MAE, RMSE, jours proches, tendance,
+ *      rang local et référence multi-modèles.
+ *   3. **Sparkline** — lire `historyByModel[model]` pour la variable
+ *      sélectionnée. Contient les samples 30j dans l'ordre chronologique.
+ *   4. **Axe Y du sparkline** — lire `yDomainMin` / `yDomainMax` pour la
  *      variable sélectionnée. Bornes calculées sur l'union de tous les
  *      modèles, permettant la comparaison visuelle inter-modèles.
  *
@@ -60,8 +62,8 @@ data class BiasScreenState(
  *   = pas assez de données pour lui (< [ModelBias.MIN_SAMPLES_FOR_BIAS] samples
  *   après dédup). Le screen filtre côté chip sur significance != NOT_SIGNIFICANT.
  * @property historyByModel série 30j de samples par modèle, chronologique,
- *   dédupliqué par date (un point par jour, snapshot le plus récent). Utilisé
- *   par le sparkline dans la sheet de détail.
+ *   dédupliquée par date (un point par jour, snapshot le plus récent). Utilisée
+ *   par le sparkline et le tableau de fiabilité dans la sheet de détail.
  * @property yDomainMin borne inférieure de l'axe Y du sparkline pour CETTE
  *   variable. Physiquement clampée à 0 pour précip et vent, avec marge
  *   symétrique pour température. `null` si aucun sample n'est disponible.

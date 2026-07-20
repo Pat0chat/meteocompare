@@ -329,23 +329,10 @@ private fun LoadedView(
             com.meteocompare.app.domain.model.BiasVariable.PRECIPITATION -> biasState.precipitation
             com.meteocompare.app.domain.model.BiasVariable.WIND_SPEED    -> biasState.wind
         }
-        val bias = varState.biasByModel[model] ?: return@remember null
-        val samples = varState.historyByModel[model] ?: return@remember null
-        val yMin = varState.yDomainMin ?: return@remember null
-        val yMax = varState.yDomainMax ?: return@remember null
-
-        // Dédup par date : le repo peut renvoyer plusieurs snapshots par jour
-        // (un par issuedAt). Pour le sparkline on veut UN point par jour,
-        // le plus récent. `distinctBy` en itérant l'ordre DAO (date ASC,
-        // issuedAt DESC) garde exactement ça.
-        val perDay = samples.distinctBy { it.targetDate }
-        BiasSelection(
+        buildBiasSelection(
             model = model,
-            bias = bias,
-            dailyForecast = perDay.map { it.forecast },
-            dailyObservation = perDay.map { it.observation },
-            yDomainMin = yMin,
-            yDomainMax = yMax
+            variable = variable,
+            state = varState
         )
     }
 
