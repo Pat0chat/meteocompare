@@ -27,6 +27,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
@@ -197,6 +198,7 @@ internal fun CityListContent(
                 ) {
                     CityList(
                         items = uiState.items,
+                        isOnline = uiState.isOnline,
                         onCityClick = onCityClick,
                         onRemove = onRemoveCity,
                         onRetry = onRetry
@@ -210,6 +212,7 @@ internal fun CityListContent(
 @Composable
 internal fun CityList(
     items: List<CityCardState>,
+    isOnline: Boolean = true,
     onCityClick: (String) -> Unit,
     onRemove: (String) -> Unit,
     onRetry: (City) -> Unit
@@ -226,6 +229,12 @@ internal fun CityList(
         ),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        if (!isOnline) {
+            item(key = "offline-list-banner") {
+                OfflineCityListBanner()
+            }
+        }
+
         items(items, key = { it.city.id }) { state ->
             CityCard(
                 state = state,
@@ -239,6 +248,40 @@ internal fun CityList(
                     fadeOutSpec = tween(200)
                 )
             )
+        }
+    }
+}
+
+@Composable
+private fun OfflineCityListBanner() {
+    Surface(
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.62f),
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 11.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.Info,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.offline_data_title),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = stringResource(R.string.offline_list_message),
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
         }
     }
 }

@@ -2,6 +2,7 @@ package com.meteocompare.app.ui.citylist
 
 import app.cash.turbine.test
 import com.meteocompare.app.core.network.ApiResult
+import com.meteocompare.app.core.network.NetworkMonitor
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DailyForecast
@@ -75,11 +76,16 @@ class CityListViewModelTest {
     private val modelsFlow = MutableStateFlow(WeatherModel.MVP_SELECTION)
     private val refreshIntervalFlow = MutableStateFlow(RefreshInterval.DEFAULT)
     private val forecastUpdates = MutableSharedFlow<CityForecast>(extraBufferCapacity = 4)
+    private val onlineFlow = MutableStateFlow(true)
 
     private val cityRepo: CityRepository = mockk(relaxed = true) {
         coEvery { observeFavorites() } returns favoritesFlow
     }
     private val forecastRepo: ForecastRepository = mockk(relaxed = true)
+    private val networkMonitor: NetworkMonitor = mockk(relaxed = true) {
+        every { isOnline() } answers { onlineFlow.value }
+        every { observeOnline() } returns onlineFlow
+    }
     private val prefs: UserPreferencesRepository = mockk(relaxed = true) {
         coEvery { observeEnabledModels() } returns modelsFlow
         // observeRefreshInterval() est utilisé par le combine dans l'init du
@@ -101,6 +107,7 @@ class CityListViewModelTest {
         favoritesFlow.value = emptyList()
         modelsFlow.value = WeatherModel.MVP_SELECTION
         refreshIntervalFlow.value = RefreshInterval.DEFAULT
+        onlineFlow.value = true
         // Par défaut, getCityForecastStream renvoie un flow qui reste en cours.
         // Les tests qui veulent un résultat spécifique l'overrident AVANT
         // d'instancier la VM (sinon l'init de syncStreams capture l'ancien stub).
@@ -114,7 +121,7 @@ class CityListViewModelTest {
             /* ne rien émettre, ne pas terminer */
         }
         every { forecastRepo.observeForecastUpdates() } returns forecastUpdates
-        viewModel = CityListViewModel(cityRepo, forecastRepo, calculator, prefs, dispatcher)
+        viewModel = CityListViewModel(cityRepo, forecastRepo, networkMonitor, calculator, prefs, dispatcher)
     }
 
     @After
@@ -130,6 +137,17 @@ class CityListViewModelTest {
             val initial = awaitItem()
             assertTrue(initial.isEmpty)
             assertEquals(false, initial.isRefreshing)
+        }
+    }
+
+    @Test
+    fun `uiState - expose le mode hors connexion en temps reel`() = runTest(dispatcher) {
+        viewModel.uiState.test {
+            assertTrue(awaitItem().isOnline)
+            onlineFlow.value = false
+            var state = awaitItem()
+            while (state.isOnline) state = awaitItem()
+            assertEquals(false, state.isOnline)
         }
     }
 
@@ -158,7 +176,7 @@ class CityListViewModelTest {
         } returns flowOf(ApiResult.Success(forecast))
 
         // Nouvelle VM qui capturera le bon stub
-        val vm = CityListViewModel(cityRepo, forecastRepo, calculator, prefs, dispatcher)
+        val vm = CityListViewModel(cityRepo, forecastRepo, networkMonitor, calculator, prefs, dispatcher)
 
         vm.uiState.test {
             awaitItem() // initial vide
@@ -181,7 +199,7 @@ class CityListViewModelTest {
                 forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
             } returns flowOf(ApiResult.Error(RuntimeException("net"), "Pas de connexion"))
 
-            val vm = CityListViewModel(cityRepo, forecastRepo, calculator, prefs, dispatcher)
+            val vm = CityListViewModel(cityRepo, forecastRepo, networkMonitor, calculator, prefs, dispatcher)
 
             vm.uiState.test {
                 awaitItem()
@@ -209,7 +227,7 @@ class CityListViewModelTest {
                 forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
             } returns flowOf(ApiResult.Success(initial))
 
-            val vm = CityListViewModel(cityRepo, forecastRepo, calculator, prefs, dispatcher)
+            val vm = CityListViewModel(cityRepo, forecastRepo, networkMonitor, calculator, prefs, dispatcher)
 
             vm.uiState.test {
                 awaitItem()
@@ -261,7 +279,7 @@ class CityListViewModelTest {
                 forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
             } returns flowOf(ApiResult.Success(initial))
 
-            val vm = CityListViewModel(cityRepo, forecastRepo, calculator, prefs, dispatcher)
+            val vm = CityListViewModel(cityRepo, forecastRepo, networkMonitor, calculator, prefs, dispatcher)
 
             vm.uiState.test {
                 awaitItem()
@@ -337,7 +355,7 @@ class CityListViewModelTest {
             forecastRepo.refreshCityForecast(eq(paris), any(), any())
         } returns ApiResult.Error(RuntimeException("offline"), "Pas de connexion")
 
-        val vm = CityListViewModel(cityRepo, forecastRepo, calculator, prefs, dispatcher)
+        val vm = CityListViewModel(cityRepo, forecastRepo, networkMonitor, calculator, prefs, dispatcher)
         backgroundScope.launch { vm.uiState.collect {} }
         favoritesFlow.value = listOf(paris)
         vm.uiState.first {
@@ -390,7 +408,7 @@ class CityListViewModelTest {
             forecastRepo.refreshCityForecast(eq(paris), any(), any())
         } returns ApiResult.Success(freshForecast)
 
-        val vm = CityListViewModel(cityRepo, forecastRepo, calculator, prefs, dispatcher)
+        val vm = CityListViewModel(cityRepo, forecastRepo, networkMonitor, calculator, prefs, dispatcher)
 
         vm.uiState.test {
             awaitItem() // initial vide

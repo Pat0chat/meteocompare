@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
 import com.meteocompare.app.core.network.ApiResult
+import com.meteocompare.app.core.network.NetworkMonitor
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DailyForecast
@@ -64,11 +65,16 @@ class CityDetailViewModelTest {
     private val modelsFlow = MutableStateFlow(WeatherModel.MVP_SELECTION)
     private val refreshIntervalFlow = MutableStateFlow(RefreshInterval.DEFAULT)
     private val forecastUpdates = MutableSharedFlow<CityForecast>(extraBufferCapacity = 4)
+    private val onlineFlow = MutableStateFlow(true)
 
     private val cityRepo: CityRepository = mockk(relaxed = true) {
         coEvery { observeFavorites() } returns favoritesFlow
     }
     private val forecastRepo: ForecastRepository = mockk(relaxed = true)
+    private val networkMonitor: NetworkMonitor = mockk(relaxed = true) {
+        every { isOnline() } answers { onlineFlow.value }
+        every { observeOnline() } returns onlineFlow
+    }
     private val climateRepo: ClimateNormalsRepository = mockk(relaxed = true) {
         // Par défaut, normales en échec → loadedNormals reste null
         coEvery { getNormalsForCity(any()) } returns
@@ -99,6 +105,7 @@ class CityDetailViewModelTest {
             savedStateHandle = saved,
             cityRepository = cityRepo,
             forecastRepository = forecastRepo,
+            networkMonitor = networkMonitor,
             climateNormalsRepository = climateRepo,
             confidenceCalculator = calculator,
             userPreferences = prefs,
@@ -119,6 +126,7 @@ class CityDetailViewModelTest {
         favoritesFlow.value = listOf(paris)
         modelsFlow.value = WeatherModel.MVP_SELECTION
         refreshIntervalFlow.value = RefreshInterval.DEFAULT
+        onlineFlow.value = true
         // Par défaut, stream forecast ne fait rien (jamais terminé)
         coEvery {
             forecastRepo.getCityForecastStream(any(), any(), any(), any(), any())
@@ -129,6 +137,16 @@ class CityDetailViewModelTest {
     @After
     fun tearDown() {
         Dispatchers.resetMain()
+    }
+
+    @Test
+    fun `connectivite - expose les changements reseau`() = runTest(dispatcher) {
+        val vm = buildViewModel()
+        vm.isOnline.test {
+            assertTrue(awaitItem())
+            onlineFlow.value = false
+            assertEquals(false, awaitItem())
+        }
     }
 
     // ──────────────── Chargement initial ────────────────

@@ -69,7 +69,7 @@
     <!-- Section titles in city detail -->
     <string name="section_confidence_band">Inter-model forecast</string>
     <string name="section_temp_table">Temperatures</string>
-    <string name="section_temp_hourly">Hourly temperatures</string>
+    <string name="section_temp_hourly">Temperatures</string>
     <string name="section_precipitation">Precipitation</string>
     <string name="section_wind">10m mean wind</string>
     <string name="section_wind_hourly">10m mean wind</string>
@@ -459,4 +459,11 @@
     <string name="timeline_subtitle_hourly">Model consensus for the next few hours</string>
     <string name="timeline_subtitle_daily">Model consensus for the next few days</string>
     <string name="timeline_disagreement_hint">A red dot indicates strong disagreement between models</string>
+
+    <string name="section_state_expanded">Expanded</string>
+    <string name="section_state_collapsed">Collapsed</string>
+    <string name="offline_data_title">Offline mode</string>
+    <string name="offline_data_message">Data stored on this device · %1$s</string>
+    <string name="offline_data_age_unknown">Data age unavailable</string>
+    <string name="offline_list_message">The latest saved data remains available. Its age is shown on each city.</string>
 </resources>

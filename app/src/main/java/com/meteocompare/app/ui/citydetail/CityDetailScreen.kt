@@ -84,6 +84,8 @@ import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.usecase.DayConditionsRow
 import com.meteocompare.app.ui.components.AnimatedWeatherIcon
+import com.meteocompare.app.ui.components.CollapsibleSectionHeader
+import com.meteocompare.app.ui.components.OfflineDataBanner
 import com.meteocompare.app.ui.components.ModernInlineSelector
 import com.meteocompare.app.ui.components.ModernSectionSeparator
 import com.meteocompare.app.ui.theme.confidenceColor
@@ -104,6 +106,7 @@ fun CityDetailScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
+    val isOnline by viewModel.isOnline.collectAsStateWithLifecycle()
     val biasState by viewModel.biasState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     // Resources observables capturées hors de LaunchedEffect : contrairement à
@@ -134,6 +137,7 @@ fun CityDetailScreen(
     CityDetailContent(
         state = state,
         isRefreshing = isRefreshing,
+        isOnline = isOnline,
         biasState = biasState,
         snackbarHostState = snackbarHostState,
         onBack = onBack,
@@ -151,6 +155,7 @@ fun CityDetailScreen(
 internal fun CityDetailContent(
     state: CityDetailUiState,
     isRefreshing: Boolean,
+    isOnline: Boolean = true,
     biasState: BiasScreenState,
     snackbarHostState: SnackbarHostState,
     onBack: () -> Unit,
@@ -229,6 +234,7 @@ internal fun CityDetailContent(
                         dailyConditions = s.dailyConditions,
                         normals = s.normals,
                         fetchedAt = s.fetchedAt,
+                        isOnline = isOnline,
                         biasState = biasState,
                         padding = padding,
                         onConfidenceClick = onConfidenceClick
@@ -280,6 +286,7 @@ private fun LoadedView(
     dailyConditions: List<DayConditionsRow>,
     normals: Map<Int, DayNormals>?,
     fetchedAt: Instant?,
+    isOnline: Boolean,
     biasState: BiasScreenState,
     padding: PaddingValues,
     onConfidenceClick: (isoDate: String) -> Unit = {}
@@ -291,6 +298,15 @@ private fun LoadedView(
     var displayMode by rememberSaveable(stateSaver = DisplayMode.Saver) {
         mutableStateOf(DisplayMode.DAILY)
     }
+
+    // Sections indépendantes. rememberSaveable conserve les choix lors d'une
+    // rotation et lors des recompositions liées au thème ou à la langue.
+    var confidenceExpanded by rememberSaveable { mutableStateOf(true) }
+    var localRankingExpanded by rememberSaveable { mutableStateOf(true) }
+    var weatherExpanded by rememberSaveable { mutableStateOf(true) }
+    var temperatureExpanded by rememberSaveable { mutableStateOf(true) }
+    var precipitationExpanded by rememberSaveable { mutableStateOf(true) }
+    var windExpanded by rememberSaveable { mutableStateOf(true) }
 
     // ── Suivi de biais : sélection courante pour l'ouverture de la sheet ──
     // Persistance sur rotation : on sauvegarde uniquement L'IDENTIFIANT
@@ -373,6 +389,12 @@ private fun LoadedView(
             }
         }
 
+        if (!isOnline) {
+            item("offline_data_banner") {
+                OfflineDataBanner(fetchedAt = fetchedAt)
+            }
+        }
+
         // Bande de confiance horaire — TOUJOURS visible, au-dessus du toggle,
         // parce que c'est le différenciateur clé de l'app. Le composant
         // ConfidenceBandSection encapsule le sélecteur à 3 états (Température /
@@ -385,29 +407,39 @@ private fun LoadedView(
         // métrique sélectionnée est vide (métrique optionnelle du modèle).
         if (hourlyBands.size >= 2 || hourlyPrecipBands.size >= 2 || hourlyWindBands.size >= 2) {
             item("hourly_confidence") {
-                SectionTitle(stringResource(R.string.section_confidence_band))
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                    ),
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                ) {
-                    ConfidenceBandSection(
-                        tempBands = hourlyBands,
-                        precipBands = hourlyPrecipBands,
-                        windBands = hourlyWindBands,
-                        timezone = forecast.city.timezone,
-                        normals = normals
+                Column {
+                    CollapsibleSectionHeader(
+                        text = stringResource(R.string.section_confidence_band),
+                        expanded = confidenceExpanded,
+                        onToggle = { confidenceExpanded = !confidenceExpanded },
+                        modifier = Modifier.padding(horizontal = 8.dp)
                     )
+                    if (confidenceExpanded) {
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                            ),
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        ) {
+                            ConfidenceBandSection(
+                                tempBands = hourlyBands,
+                                precipBands = hourlyPrecipBands,
+                                windBands = hourlyWindBands,
+                                timezone = forecast.city.timezone,
+                                normals = normals
+                            )
+                        }
+                    }
                 }
             }
         }
 
         if (localRankings.hasAnyRanking) {
             item("local_model_ranking_summary") {
-                SectionTitle(stringResource(R.string.local_ranking_summary_title))
                 LocalModelRankingSummaryCard(
                     rankings = localRankings,
+                    expanded = localRankingExpanded,
+                    onExpandedChange = { localRankingExpanded = it },
                     onOpenRanking = { variable ->
                         localRankingVariableName = variable.name
                         highlightedRankingModelName = ""
@@ -461,6 +493,14 @@ private fun LoadedView(
         when (displayMode) {
             DisplayMode.HOURLY -> hourlyItems(
                 forecast = forecast,
+                weatherExpanded = weatherExpanded,
+                temperatureExpanded = temperatureExpanded,
+                precipitationExpanded = precipitationExpanded,
+                windExpanded = windExpanded,
+                onWeatherExpandedChange = { weatherExpanded = it },
+                onTemperatureExpandedChange = { temperatureExpanded = it },
+                onPrecipitationExpandedChange = { precipitationExpanded = it },
+                onWindExpandedChange = { windExpanded = it },
                 // Providers de biais : lambdas qui lisent le map courant du
                 // state. Chaque provider est stable tant que le map sous-jacent
                 // n'a pas changé (Compose recompose sinon).
@@ -495,6 +535,14 @@ private fun LoadedView(
             DisplayMode.DAILY -> dailyItems(
                 forecast = forecast,
                 dailyConditions = dailyConditions,
+                weatherExpanded = weatherExpanded,
+                temperatureExpanded = temperatureExpanded,
+                precipitationExpanded = precipitationExpanded,
+                windExpanded = windExpanded,
+                onWeatherExpandedChange = { weatherExpanded = it },
+                onTemperatureExpandedChange = { temperatureExpanded = it },
+                onPrecipitationExpandedChange = { precipitationExpanded = it },
+                onWindExpandedChange = { windExpanded = it },
                 normals = normals,
                 temperatureBiasProvider = { model -> biasState.temperature.biasByModel[model] },
                 precipitationBiasProvider = { model -> biasState.precipitation.biasByModel[model] },
@@ -585,60 +633,75 @@ private fun androidx.compose.foundation.lazy.LazyListScope.dailyItems(
     forecast: CityForecast,
     dailyConditions: List<DayConditionsRow>,
     normals: Map<Int, DayNormals>?,
-    // Providers de biais — même API que hourlyItems (Phase 1 UI). Le biais est
-    // conceptuellement identique en daily et en hourly (moyenné sur 30j, pas
-    // sur la journée courante), donc on branche exactement les mêmes providers.
-    temperatureBiasProvider: ((com.meteocompare.app.domain.model.WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
-    precipitationBiasProvider: ((com.meteocompare.app.domain.model.WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
-    windBiasProvider: ((com.meteocompare.app.domain.model.WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
-    // Providers de progression parallèles pour le CalibratingChip.
-    temperatureSampleCountProvider: ((com.meteocompare.app.domain.model.WeatherModel) -> Int)? = null,
-    precipitationSampleCountProvider: ((com.meteocompare.app.domain.model.WeatherModel) -> Int)? = null,
-    windSampleCountProvider: ((com.meteocompare.app.domain.model.WeatherModel) -> Int)? = null,
-    onBiasChipClick: ((com.meteocompare.app.domain.model.WeatherModel, com.meteocompare.app.domain.model.ModelBias) -> Unit)? = null
+    weatherExpanded: Boolean,
+    temperatureExpanded: Boolean,
+    precipitationExpanded: Boolean,
+    windExpanded: Boolean,
+    onWeatherExpandedChange: (Boolean) -> Unit,
+    onTemperatureExpandedChange: (Boolean) -> Unit,
+    onPrecipitationExpandedChange: (Boolean) -> Unit,
+    onWindExpandedChange: (Boolean) -> Unit,
+    temperatureBiasProvider: ((WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
+    precipitationBiasProvider: ((WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
+    windBiasProvider: ((WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
+    temperatureSampleCountProvider: ((WeatherModel) -> Int)? = null,
+    precipitationSampleCountProvider: ((WeatherModel) -> Int)? = null,
+    windSampleCountProvider: ((WeatherModel) -> Int)? = null,
+    onBiasChipClick: ((WeatherModel, com.meteocompare.app.domain.model.ModelBias) -> Unit)? = null
 ) {
-    // Matrice Jour × Modèle des conditions météo. On ne rend pas le bloc si
-    // aucune donnée — typiquement un cache pré-feature sans weather_code.
     if (dailyConditions.isNotEmpty()) {
         item("weather_by_model_daily") {
-            SectionTitle(stringResource(R.string.section_weather_by_model))
-            DetailTableCard {
-                WeatherByModelTable(
-                    rows = dailyConditions,
-                    modelOrder = forecast.availableModels,
-                    modifier = Modifier.padding(8.dp)
+            Column {
+                CollapsibleSectionHeader(
+                    text = stringResource(R.string.section_weather_by_model),
+                    expanded = weatherExpanded,
+                    onToggle = { onWeatherExpandedChange(!weatherExpanded) },
+                    modifier = Modifier.padding(horizontal = 8.dp)
                 )
+                if (weatherExpanded) {
+
+                    DetailTableCard {
+                        WeatherByModelTable(
+                            rows = dailyConditions,
+                            modelOrder = forecast.availableModels,
+                            modifier = Modifier.padding(8.dp)
+                        )
+                    }
+                    WeatherLegend()
+                }
             }
-            WeatherLegend()
         }
     }
 
-    // Note : le graphe TemperatureComparisonChart (min/max par modèle sur 7j)
-    // a été retiré — la bande de confiance horaire rendue en haut de page
-    // couvre le même besoin (comparaison inter-modèles sur l'horizon) de
-    // manière plus synthétique et plus lisible, sans le doublon visuel.
-
-    // Tableau fusionné max/min — coloration relative aux normales climatiques
-    // (rouge si > normale + 2°, bleu si < normale − 2°). Si normals == null,
-    // affichage neutre en attendant que les données historiques arrivent.
     item("temp_table_daily") {
-        SectionTitle(stringResource(R.string.section_temp_table))
-        DetailTableCard {
-            MinMaxForecastTable(
-                forecast = forecast,
-                normals = normals,
-                modelBiasProvider = temperatureBiasProvider,
-                sampleCountProvider = temperatureSampleCountProvider,
-                onBiasChipClick = onBiasChipClick,
-                modifier = Modifier.padding(8.dp)
+        Column {
+            CollapsibleSectionHeader(
+                text = stringResource(R.string.section_temp_table),
+                expanded = temperatureExpanded,
+                onToggle = { onTemperatureExpandedChange(!temperatureExpanded) },
+                modifier = Modifier.padding(horizontal = 8.dp)
             )
+            if (temperatureExpanded) {
+                DetailTableCard {
+                    MinMaxForecastTable(
+                        forecast = forecast,
+                        normals = normals,
+                        modelBiasProvider = temperatureBiasProvider,
+                        sampleCountProvider = temperatureSampleCountProvider,
+                        onBiasChipClick = onBiasChipClick,
+                        modifier = Modifier.padding(8.dp)
+                    )
+                }
+                MinMaxForecastLegend(normalsAvailable = normals != null)
+            }
         }
-        MinMaxForecastLegend(normalsAvailable = normals != null)
     }
 
     item("precip_table_daily") {
         ForecastSection(
             title = stringResource(R.string.section_precipitation),
+            expanded = precipitationExpanded,
+            onExpandedChange = onPrecipitationExpandedChange,
             forecast = forecast,
             extractor = { daily, idx -> daily.precipitationSum.getOrNull(idx) },
             formatter = { mm ->
@@ -655,24 +718,17 @@ private fun androidx.compose.foundation.lazy.LazyListScope.dailyItems(
     item("wind_table_daily") {
         ForecastSection(
             title = stringResource(R.string.section_wind),
+            expanded = windExpanded,
+            onExpandedChange = onWindExpandedChange,
             forecast = forecast,
             extractor = { daily, idx -> daily.windSpeedMax.getOrNull(idx) },
             formatter = { "${it.roundToInt()} km/h" },
             valueStyler = ::windStyle,
-            // Flèche de direction affichée uniquement si le vent MAX dépasse
-            // 5 km/h — en dessous, la direction est du bruit statistique
-            // (vent trop faible pour avoir une direction bien définie).
-            // Retourner null skip la flèche pour cette cellule.
             directionExtractor = { daily, idx ->
                 val speed = daily.windSpeedMax.getOrNull(idx)
                 if (speed == null || speed < 5.0) null
                 else daily.windDirection10mDominant.getOrNull(idx)
             },
-            // Cellule plus large que le défaut 64dp pour accommoder
-            // "↗ 120 km/h" (flèche 12dp + espace 2dp + valeur 3 chiffres + " km/h" ≈
-            // 70-72dp) sans wrap. 80dp donne 8dp de marge visuelle et évite
-            // aussi le retour à la ligne des valeurs à 2 chiffres qui étaient
-            // trop proches du bord droit.
             cellWidth = 80.dp,
             modelBiasProvider = windBiasProvider,
             sampleCountProvider = windSampleCountProvider,
@@ -682,139 +738,135 @@ private fun androidx.compose.foundation.lazy.LazyListScope.dailyItems(
     }
 }
 
-/**
- * Contenu du mode "par heure" — détail horaire sur la fin de la journée en cours.
- *
- * Ordre :
- *   1. matrice Heure × Modèle du temps
- *   2. table température horaire
- *   3. table précipitations horaires
- *   4. table vent horaire
- *
- * Pas de graphe de température ici — la bande de confiance horaire, rendue
- * hors du toggle au-dessus, joue déjà ce rôle et son horizon 7 jours donne
- * plus de contexte que ne le ferait un chart limité à la journée courante.
- */
+/** Contenu du mode par heure. Les trois familles de mesures se replient indépendamment. */
 private fun androidx.compose.foundation.lazy.LazyListScope.hourlyItems(
     forecast: CityForecast,
-    // Providers optionnels du biais par variable. Retour null pour un modèle
-    // donné = pas de chip (données insuffisantes ou biais non significatif).
-    // Passer null au niveau screen = feature désactivée pour cette variable.
-    temperatureBiasProvider: ((com.meteocompare.app.domain.model.WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
-    precipitationBiasProvider: ((com.meteocompare.app.domain.model.WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
-    windBiasProvider: ((com.meteocompare.app.domain.model.WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
-    // Providers de progression pour le CalibratingChip — un par variable,
-    // parallèles aux providers de biais. Le count vient de
-    // VariableBiasState.historyByModel[model].size qui reflète le nombre
-    // effectif de jours observés (dédupliqué par date).
-    temperatureSampleCountProvider: ((com.meteocompare.app.domain.model.WeatherModel) -> Int)? = null,
-    precipitationSampleCountProvider: ((com.meteocompare.app.domain.model.WeatherModel) -> Int)? = null,
-    windSampleCountProvider: ((com.meteocompare.app.domain.model.WeatherModel) -> Int)? = null,
-    // Callback pour ouvrir la sheet de détail. Signature :
-    // (modèle cliqué, biais correspondant — inclut sa variable via bias.variable).
-    // Le caller dispatche sur bias.variable pour peupler les données du sparkline.
-    onBiasChipClick: ((com.meteocompare.app.domain.model.WeatherModel, com.meteocompare.app.domain.model.ModelBias) -> Unit)? = null
+    weatherExpanded: Boolean,
+    temperatureExpanded: Boolean,
+    precipitationExpanded: Boolean,
+    windExpanded: Boolean,
+    onWeatherExpandedChange: (Boolean) -> Unit,
+    onTemperatureExpandedChange: (Boolean) -> Unit,
+    onPrecipitationExpandedChange: (Boolean) -> Unit,
+    onWindExpandedChange: (Boolean) -> Unit,
+    temperatureBiasProvider: ((WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
+    precipitationBiasProvider: ((WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
+    windBiasProvider: ((WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
+    temperatureSampleCountProvider: ((WeatherModel) -> Int)? = null,
+    precipitationSampleCountProvider: ((WeatherModel) -> Int)? = null,
+    windSampleCountProvider: ((WeatherModel) -> Int)? = null,
+    onBiasChipClick: ((WeatherModel, com.meteocompare.app.domain.model.ModelBias) -> Unit)? = null
 ) {
-    // Matrice Heure × Modèle des conditions météo. Conditions calculées inline
-    // dans le composant (via weather_code ou fallback précipitation). Aucun
-    // early-return côté LazyColumn : c'est le composant qui affichera "no data"
-    // si la fenêtre horaire est vide (rare — nécessiterait cache pré-feature).
     item("weather_by_model_hourly") {
-        SectionTitle(stringResource(R.string.section_weather_by_model))
-        DetailTableCard {
-            HourlyWeatherByModelTable(
-                forecast = forecast,
-                modifier = Modifier.padding(8.dp)
+        Column {
+            CollapsibleSectionHeader(
+                text = stringResource(R.string.section_weather_by_model),
+                expanded = weatherExpanded,
+                onToggle = { onWeatherExpandedChange(!weatherExpanded) },
+                modifier = Modifier.padding(horizontal = 8.dp)
             )
+            if (weatherExpanded) {
+                DetailTableCard {
+                    HourlyWeatherByModelTable(
+                        forecast = forecast,
+                        modifier = Modifier.padding(8.dp)
+                    )
+                }
+                WeatherLegend()
+            }
         }
-        WeatherLegend()
     }
 
-    // Table température horaire — pas de min/max ici (une seule valeur par
-    // heure), donc une simple table Heure × Modèle avec coloration absolue
-    // (canicule/gel), indépendante des normales climatiques journalières.
-    // La coloration passe par un HEATMAP (fond de cellule) — bien plus
-    // lisible sur une matrice 24×5 qu'une simple teinte de texte : les
-    // zones "chaudes" et "froides" ressortent visuellement d'un coup d'œil.
     item("temp_table_hourly") {
-        SectionTitle(stringResource(R.string.section_temp_hourly))
-        DetailTableCard {
-            HourlyForecastTable(
-                forecast = forecast,
-                valueExtractor = { hourly: HourlyForecast, idx ->
-                    hourly.temperature2m.getOrNull(idx)
-                },
-                valueFormatter = { "${it.roundToInt()}°" },
-                heatmapStyler = ::hourlyTemperatureHeatmap,
-                modelBiasProvider = temperatureBiasProvider,
-                sampleCountProvider = temperatureSampleCountProvider,
-                onBiasChipClick = onBiasChipClick,
-                modifier = Modifier.padding(8.dp)
+        Column {
+            CollapsibleSectionHeader(
+                text = stringResource(R.string.section_temp_hourly),
+                expanded = temperatureExpanded,
+                onToggle = { onTemperatureExpandedChange(!temperatureExpanded) },
+                modifier = Modifier.padding(horizontal = 8.dp)
             )
+            if (temperatureExpanded) {
+                DetailTableCard {
+                    HourlyForecastTable(
+                        forecast = forecast,
+                        valueExtractor = { hourly: HourlyForecast, idx ->
+                            hourly.temperature2m.getOrNull(idx)
+                        },
+                        valueFormatter = { "${it.roundToInt()}°" },
+                        heatmapStyler = ::hourlyTemperatureHeatmap,
+                        modelBiasProvider = temperatureBiasProvider,
+                        sampleCountProvider = temperatureSampleCountProvider,
+                        onBiasChipClick = onBiasChipClick,
+                        modifier = Modifier.padding(8.dp)
+                    )
+                }
+                HourlyTemperatureLegend()
+            }
         }
-        HourlyTemperatureLegend()
     }
 
     item("precip_table_hourly") {
-        SectionTitle(stringResource(R.string.section_precipitation))
-        DetailTableCard {
-            HourlyForecastTable(
-                forecast = forecast,
-                valueExtractor = { hourly: HourlyForecast, idx ->
-                    hourly.precipitation.getOrNull(idx)
-                },
-                // Unité "mm" explicite dans chaque cellule — cohérent avec
-                // le tableau vent ("km/h") et lève l'ambiguïté "0.5 = mm ?
-                // pouces ? probabilité ?" quand on scrolle vite en oubliant
-                // le titre de section. Reste sous 60dp même pour "15.4 mm"
-                // (7 caractères en labelSmall ≈ 42dp).
-                valueFormatter = { mm ->
-                    if (mm < 0.05) "0 mm" else "%.1f mm".format(mm)
-                },
-                heatmapStyler = ::hourlyPrecipitationHeatmap,
-                modelBiasProvider = precipitationBiasProvider,
-                sampleCountProvider = precipitationSampleCountProvider,
-                onBiasChipClick = onBiasChipClick,
-                modifier = Modifier.padding(8.dp)
+        Column {
+            CollapsibleSectionHeader(
+                text = stringResource(R.string.section_precipitation),
+                expanded = precipitationExpanded,
+                onToggle = { onPrecipitationExpandedChange(!precipitationExpanded) },
+                modifier = Modifier.padding(horizontal = 8.dp)
             )
+            if (precipitationExpanded) {
+                DetailTableCard {
+                    HourlyForecastTable(
+                        forecast = forecast,
+                        valueExtractor = { hourly: HourlyForecast, idx ->
+                            hourly.precipitation.getOrNull(idx)
+                        },
+                        valueFormatter = { mm ->
+                            if (mm < 0.05) "0 mm" else "%.1f mm".format(mm)
+                        },
+                        heatmapStyler = ::hourlyPrecipitationHeatmap,
+                        modelBiasProvider = precipitationBiasProvider,
+                        sampleCountProvider = precipitationSampleCountProvider,
+                        onBiasChipClick = onBiasChipClick,
+                        modifier = Modifier.padding(8.dp)
+                    )
+                }
+                HourlyPrecipitationLegend()
+            }
         }
-        HourlyPrecipitationLegend()
     }
 
     item("wind_table_hourly") {
-        SectionTitle(stringResource(R.string.section_wind_hourly))
-        DetailTableCard {
-            HourlyForecastTable(
-                forecast = forecast,
-                valueExtractor = { hourly: HourlyForecast, idx ->
-                    hourly.windSpeed10m.getOrNull(idx)
-                },
-                // Unité "km/h" explicite dans chaque cellule — cohérent avec
-                // le tableau daily et lève l'ambiguïté "24 = degrés ? nœuds ?
-                // km/h ?" quand on scrolle vite en oubliant le titre de section.
-                valueFormatter = { "${it.roundToInt()} km/h" },
-                heatmapStyler = ::hourlyWindHeatmap,
-                // Même règle qu'en daily : direction affichée uniquement au
-                // dessus de 5 km/h. Sous ce seuil la direction horaire est du
-                // bruit (variabilité forte, pas d'info exploitable).
-                directionExtractor = { hourly, idx ->
-                    val speed = hourly.windSpeed10m.getOrNull(idx)
-                    if (speed == null || speed < 5.0) null
-                    else hourly.windDirection10m.getOrNull(idx)
-                },
-                // Cellules plus larges que le défaut 60dp pour accommoder
-                // "↗ 120 km/h" (10dp flèche + 2dp espace + valeur + " km/h"
-                // ≈ 62-64dp). 76dp donne assez de marge, un peu moins que
-                // les 80dp du daily parce que la flèche horaire est plus
-                // petite (10dp vs 12dp) — même densité perçue à l'écran.
-                cellWidth = 76.dp,
-                modelBiasProvider = windBiasProvider,
-                sampleCountProvider = windSampleCountProvider,
-                onBiasChipClick = onBiasChipClick,
-                modifier = Modifier.padding(8.dp)
+        Column {
+            CollapsibleSectionHeader(
+                text = stringResource(R.string.section_wind_hourly),
+                expanded = windExpanded,
+                onToggle = { onWindExpandedChange(!windExpanded) },
+                modifier = Modifier.padding(horizontal = 8.dp)
             )
+            if (windExpanded) {
+                DetailTableCard {
+                    HourlyForecastTable(
+                        forecast = forecast,
+                        valueExtractor = { hourly: HourlyForecast, idx ->
+                            hourly.windSpeed10m.getOrNull(idx)
+                        },
+                        valueFormatter = { "${it.roundToInt()} km/h" },
+                        heatmapStyler = ::hourlyWindHeatmap,
+                        directionExtractor = { hourly, idx ->
+                            val speed = hourly.windSpeed10m.getOrNull(idx)
+                            if (speed == null || speed < 5.0) null
+                            else hourly.windDirection10m.getOrNull(idx)
+                        },
+                        cellWidth = 76.dp,
+                        modelBiasProvider = windBiasProvider,
+                        sampleCountProvider = windSampleCountProvider,
+                        onBiasChipClick = onBiasChipClick,
+                        modifier = Modifier.padding(8.dp)
+                    )
+                }
+                HourlyWindLegend()
+            }
         }
-        HourlyWindLegend()
     }
 }
 
@@ -1046,6 +1098,8 @@ private fun DetailTableCard(content: @Composable () -> Unit) {
 @Composable
 private fun ForecastSection(
     title: String,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
     forecast: CityForecast,
     extractor: (DailyForecast, Int) -> Double?,
     formatter: (Double) -> String,
@@ -1053,29 +1107,34 @@ private fun ForecastSection(
     directionExtractor: ((DailyForecast, Int) -> Int?)? = null,
     cellWidth: androidx.compose.ui.unit.Dp = 72.dp,
     legend: @Composable (() -> Unit)? = null,
-    // Providers de biais optionnels — passés tels-quels à ForecastTable.
-    modelBiasProvider: ((com.meteocompare.app.domain.model.WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
-    onBiasChipClick: ((com.meteocompare.app.domain.model.WeatherModel, com.meteocompare.app.domain.model.ModelBias) -> Unit)? = null,
-    // Provider de progression pour le CalibratingChip.
-    sampleCountProvider: ((com.meteocompare.app.domain.model.WeatherModel) -> Int)? = null
+    modelBiasProvider: ((WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
+    onBiasChipClick: ((WeatherModel, com.meteocompare.app.domain.model.ModelBias) -> Unit)? = null,
+    sampleCountProvider: ((WeatherModel) -> Int)? = null
 ) {
     Column {
-        SectionTitle(title)
-        DetailTableCard {
-            ForecastTable(
-                forecast = forecast,
-                valueExtractor = extractor,
-                valueFormatter = formatter,
-                valueStyler = valueStyler,
-                directionExtractor = directionExtractor,
-                cellWidth = cellWidth,
-                modelBiasProvider = modelBiasProvider,
-                onBiasChipClick = onBiasChipClick,
-                sampleCountProvider = sampleCountProvider,
-                modifier = Modifier.padding(8.dp)
-            )
+        CollapsibleSectionHeader(
+            text = title,
+            expanded = expanded,
+            onToggle = { onExpandedChange(!expanded) },
+            modifier = Modifier.padding(horizontal = 8.dp)
+        )
+        if (expanded) {
+            DetailTableCard {
+                ForecastTable(
+                    forecast = forecast,
+                    valueExtractor = extractor,
+                    valueFormatter = formatter,
+                    valueStyler = valueStyler,
+                    directionExtractor = directionExtractor,
+                    cellWidth = cellWidth,
+                    modelBiasProvider = modelBiasProvider,
+                    onBiasChipClick = onBiasChipClick,
+                    sampleCountProvider = sampleCountProvider,
+                    modifier = Modifier.padding(8.dp)
+                )
+            }
+            legend?.invoke()
         }
-        legend?.invoke()
     }
 }
 

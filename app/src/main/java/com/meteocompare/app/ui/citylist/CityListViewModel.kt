@@ -3,6 +3,7 @@ package com.meteocompare.app.ui.citylist
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.meteocompare.app.core.network.ApiResult
+import com.meteocompare.app.core.network.NetworkMonitor
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.RefreshInterval
@@ -45,6 +46,7 @@ import javax.inject.Inject
 class CityListViewModel @Inject constructor(
     private val cityRepository: CityRepository,
     private val forecastRepository: ForecastRepository,
+    private val networkMonitor: NetworkMonitor,
     private val confidenceCalculator: ConfidenceCalculator,
     private val userPreferences: UserPreferencesRepository,
     @param:DefaultDispatcher private val computationDispatcher: CoroutineDispatcher = Dispatchers.Default
@@ -52,6 +54,7 @@ class CityListViewModel @Inject constructor(
 
     private val forecastsById = MutableStateFlow<Map<String, ForecastState>>(emptyMap())
     private val _isRefreshing = MutableStateFlow(false)
+    private val _isOnline = MutableStateFlow(networkMonitor.isOnline())
 
     // Tracking des jobs de stream par cityId. Sert à les canceller proprement
     // quand une ville est retirée des favoris ou quand les modèles sélectionnés
@@ -76,8 +79,9 @@ class CityListViewModel @Inject constructor(
     val uiState: StateFlow<CityListUiState> = combine(
         cityRepository.observeFavorites(),
         forecastsById,
-        _isRefreshing
-    ) { cities, cache, refreshing ->
+        _isRefreshing,
+        _isOnline
+    ) { cities, cache, refreshing, online ->
         CityListUiState(
             items = cities.map { city ->
                 CityCardState(
@@ -85,7 +89,8 @@ class CityListViewModel @Inject constructor(
                     forecast = cache[city.id] ?: ForecastState.Loading
                 )
             },
-            isRefreshing = refreshing
+            isRefreshing = refreshing,
+            isOnline = online
         )
     }.stateIn(
         scope = viewModelScope,
@@ -133,6 +138,10 @@ class CityListViewModel @Inject constructor(
     )
 
     init {
+        viewModelScope.launch {
+            networkMonitor.observeOnline().collect { online -> _isOnline.value = online }
+        }
+
         // Le cœur : on combine favoris + modèles sélectionnés + intervalle.
         // Quand l'une de ces sources change, on réajuste les streams.
         //

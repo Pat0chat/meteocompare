@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.meteocompare.app.R
 import com.meteocompare.app.core.network.ApiResult
+import com.meteocompare.app.core.network.NetworkMonitor
 import com.meteocompare.app.domain.model.BiasSample
 import com.meteocompare.app.domain.model.BiasVariable
 import com.meteocompare.app.domain.model.City
@@ -72,6 +73,7 @@ class CityDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val cityRepository: CityRepository,
     private val forecastRepository: ForecastRepository,
+    private val networkMonitor: NetworkMonitor,
     private val climateNormalsRepository: ClimateNormalsRepository,
     private val confidenceCalculator: ConfidenceCalculator,
     private val userPreferences: UserPreferencesRepository,
@@ -89,6 +91,9 @@ class CityDetailViewModel @Inject constructor(
 
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
+    private val _isOnline = MutableStateFlow(networkMonitor.isOnline())
+    val isOnline: StateFlow<Boolean> = _isOnline.asStateFlow()
 
     // Channel des feedbacks refresh — capacity 1 + DROP_OLDEST : si l'utilisateur
     // spam le bouton refresh, on ne fait que montrer le dernier résultat plutôt
@@ -131,8 +136,16 @@ class CityDetailViewModel @Inject constructor(
         )
 
     init {
+        observeConnectivity()
         observeExternalForecastUpdates()
         loadInitial()
+    }
+
+    /** Met à jour la bannière hors connexion sans attendre un nouveau refresh. */
+    private fun observeConnectivity() {
+        viewModelScope.launch {
+            networkMonitor.observeOnline().collect { online -> _isOnline.value = online }
+        }
     }
 
     /**

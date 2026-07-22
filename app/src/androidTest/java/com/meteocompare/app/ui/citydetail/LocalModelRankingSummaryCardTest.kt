@@ -1,5 +1,9 @@
 package com.meteocompare.app.ui.citydetail
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -41,6 +45,34 @@ class LocalModelRankingSummaryCardTest {
         composeRule.onNodeWithText("ECMWF").assertIsDisplayed()
         composeRule.onNodeWithText("GFS").performClick()
         assertEquals(BiasVariable.PRECIPITATION, opened)
+    }
+
+
+    @Test
+    fun summary_header_collapses_and_hides_winners() {
+        val rankings = buildLocalModelRankings(
+            BiasScreenState(
+                temperature = state(WeatherModel.ECMWF, 0.4),
+                precipitation = state(WeatherModel.GFS, 0.3),
+                wind = state(WeatherModel.ICON_GLOBAL, 1.0)
+            )
+        )
+
+        composeRule.setContent {
+            MeteoCompareTheme {
+                var expanded by remember { mutableStateOf(true) }
+                LocalModelRankingSummaryCard(
+                    rankings = rankings,
+                    expanded = expanded,
+                    onExpandedChange = { expanded = it },
+                    onOpenRanking = {}
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("ECMWF").assertIsDisplayed()
+        composeRule.onNodeWithTag(TAG_LOCAL_RANKING_HEADER).performClick()
+        composeRule.onNodeWithText("ECMWF").assertDoesNotExist()
     }
 
     private fun state(model: WeatherModel, error: Double): VariableBiasState =

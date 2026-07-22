@@ -17,7 +17,8 @@ import java.time.LocalTime
  */
 data class CityListUiState(
     val items: List<CityCardState> = emptyList(),
-    val isRefreshing: Boolean = false
+    val isRefreshing: Boolean = false,
+    val isOnline: Boolean = true
 ) {
     val isEmpty: Boolean get() = items.isEmpty()
 }

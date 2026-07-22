@@ -2,47 +2,97 @@ package com.meteocompare.app.core.network
 
 import android.content.Context
 import android.net.ConnectivityManager
+import android.net.Network
 import android.net.NetworkCapabilities
+import android.net.NetworkRequest
+import android.os.Build
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Vérifie la connectivité réseau **avant** de lancer une requête réseau.
+ * Vérifie et observe la connectivité réseau avant de lancer une requête.
  *
- * Pourquoi pas attendre le timeout de Retrofit (30s par défaut) ?
- *   - L'utilisateur tape "Refresh", l'app gèle 30s, puis affiche une erreur.
- *     UX terrible. Surtout sur un refresh manuel où l'utilisateur sait
- *     parfois déjà qu'il est en mode avion.
- *   - Sur un refresh de plusieurs villes en parallèle, ça ferait 30s
- *     × N requêtes en latence avant que le `onRefreshAll` ne se termine.
- *
- * On lit `ConnectivityManager.getNetworkCapabilities()` qui retourne en quelques
- * microsecondes. Faux positif possible (le téléphone CROIT être connecté mais
- * le DNS est cassé, etc.) — auquel cas Retrofit prend le relais et timeout
- * normalement. Mais le cas commun (avion, hors couverture) est intercepté.
- *
- * Singleton parce que le ConnectivityManager est un service système : on n'a
- * pas besoin d'une instance par requête.
+ * [isOnline] sert aux chemins one-shot (repository, refresh manuel). Le flux
+ * [observeOnline] alimente l'interface en temps réel : lorsqu'un réseau validé
+ * disparaît, les écrans déjà ouverts peuvent signaler qu'ils affichent les
+ * données conservées dans Room au lieu de laisser croire qu'elles sont fraîches.
  */
 @Singleton
 class NetworkMonitor @Inject constructor(
     @param:ApplicationContext private val context: Context
 ) {
-    /**
-     * `true` si le device a au moins un réseau actif avec capacité Internet.
-     *
-     * Note : on vérifie [NetworkCapabilities.NET_CAPABILITY_INTERNET] et
-     * [NetworkCapabilities.NET_CAPABILITY_VALIDATED]. Validated = l'OS a
-     * vérifié qu'on a accès au vrai internet (pas juste un portail captif
-     * d'hôtel qui n'a pas été validé).
-     */
+    /** `true` quand Android voit un réseau actif disposant d'un accès Internet validé. */
     fun isOnline(): Boolean {
-        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE)
-            as? ConnectivityManager ?: return true // Fallback permissif si pas de service
-        val network = cm.activeNetwork ?: return false
-        val caps = cm.getNetworkCapabilities(network) ?: return false
-        return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-            caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+        val manager = connectivityManager() ?: return true
+        return manager.isValidatedInternetAvailable()
+    }
+
+    /**
+     * Flux chaud par souscription de l'état réseau courant.
+     *
+     * Une première valeur est émise immédiatement, puis chaque changement de
+     * réseau/capacités provoque une nouvelle lecture. [distinctUntilChanged]
+     * évite les recompositions lorsque plusieurs callbacks Android décrivent le
+     * même état logique.
+     */
+    fun observeOnline(): Flow<Boolean> = callbackFlow {
+        val manager = connectivityManager()
+        if (manager == null) {
+            trySend(true)
+            close()
+            return@callbackFlow
+        }
+
+        fun publish() {
+            trySend(manager.isValidatedInternetAvailable())
+        }
+
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) = publish()
+            override fun onLost(network: Network) = publish()
+            override fun onCapabilitiesChanged(
+                network: Network,
+                networkCapabilities: NetworkCapabilities
+            ) = publish()
+        }
+
+        publish()
+        val registered = runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                manager.registerDefaultNetworkCallback(callback)
+            } else {
+                manager.registerNetworkCallback(
+                    NetworkRequest.Builder()
+                        .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                        .build(),
+                    callback
+                )
+            }
+        }.isSuccess
+
+        if (!registered) {
+            // L'observation temps réel est un confort UI. La valeur initiale
+            // reste utilisable même si un environnement atypique refuse le callback.
+            close()
+        }
+
+        awaitClose {
+            if (registered) runCatching { manager.unregisterNetworkCallback(callback) }
+        }
+    }.distinctUntilChanged()
+
+    private fun connectivityManager(): ConnectivityManager? =
+        context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+
+    private fun ConnectivityManager.isValidatedInternetAvailable(): Boolean {
+        val network = activeNetwork ?: return false
+        val capabilities = getNetworkCapabilities(network) ?: return false
+        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
     }
 }

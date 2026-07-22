@@ -53,6 +53,7 @@ import com.meteocompare.app.domain.model.BiasVariable
 import com.meteocompare.app.domain.model.ModelReliability
 import com.meteocompare.app.domain.model.ReliabilityLevel
 import com.meteocompare.app.domain.model.WeatherModel
+import com.meteocompare.app.ui.components.CollapsibleSectionHeader
 import com.meteocompare.app.ui.components.ModernTextTabs
 import com.meteocompare.app.ui.theme.confidenceColor
 import com.meteocompare.app.ui.theme.precipitationMetricAccent
@@ -61,6 +62,7 @@ import com.meteocompare.app.ui.theme.windMetricAccent
 import kotlin.math.abs
 
 internal const val TAG_LOCAL_RANKING_CARD = "local-ranking-card"
+internal const val TAG_LOCAL_RANKING_HEADER = "local-ranking-header"
 internal const val TAG_LOCAL_RANKING_SHEET = "local-ranking-sheet"
 
 /**
@@ -72,7 +74,9 @@ internal const val TAG_LOCAL_RANKING_SHEET = "local-ranking-sheet"
 internal fun LocalModelRankingSummaryCard(
     rankings: LocalModelRankings,
     onOpenRanking: (BiasVariable) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    expanded: Boolean = true,
+    onExpandedChange: (Boolean) -> Unit = {}
 ) {
     if (!rankings.hasAnyRanking) return
 
@@ -86,34 +90,39 @@ internal fun LocalModelRankingSummaryCard(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow
         )
     ) {
-        Column(modifier = Modifier.padding(vertical = 4.dp)) {
-            RankingWinnerRow(
-                ranking = rankings.temperature,
-                accent = temperatureMetricAccent(),
-                onClick = { onOpenRanking(BiasVariable.TEMPERATURE) }
-            )
-            RankingWinnerRow(
-                ranking = rankings.precipitation,
-                accent = precipitationMetricAccent(),
-                onClick = { onOpenRanking(BiasVariable.PRECIPITATION) }
-            )
-            RankingWinnerRow(
-                ranking = rankings.wind,
-                accent = windMetricAccent(),
-                onClick = { onOpenRanking(BiasVariable.WIND_SPEED) }
-            )
-            Column(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = stringResource(R.string.local_ranking_summary_subtitle),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                TextButton(onClick = { onOpenRanking(rankings.firstAvailableVariable) }) {
-                    Text(stringResource(R.string.local_ranking_view_all))
+        Column(modifier = Modifier.padding(vertical = 7.dp)) {
+            CollapsibleSectionHeader(
+                text = stringResource(R.string.local_ranking_summary_title),
+                subtitle = stringResource(R.string.local_ranking_summary_subtitle),
+                expanded = expanded,
+                onToggle = { onExpandedChange(!expanded) },
+                modifier = Modifier
+                    .padding(horizontal = 2.dp)
+                    .testTag(TAG_LOCAL_RANKING_HEADER),
+                trailingContent = {
+                    TextButton(onClick = { onOpenRanking(rankings.firstAvailableVariable) }) {
+                        Text(stringResource(R.string.local_ranking_view_all))
+                    }
                 }
+            )
+
+            if (expanded) {
+                Spacer(Modifier.height(3.dp))
+                RankingWinnerRow(
+                    ranking = rankings.temperature,
+                    accent = temperatureMetricAccent(),
+                    onClick = { onOpenRanking(BiasVariable.TEMPERATURE) }
+                )
+                RankingWinnerRow(
+                    ranking = rankings.precipitation,
+                    accent = precipitationMetricAccent(),
+                    onClick = { onOpenRanking(BiasVariable.PRECIPITATION) }
+                )
+                RankingWinnerRow(
+                    ranking = rankings.wind,
+                    accent = windMetricAccent(),
+                    onClick = { onOpenRanking(BiasVariable.WIND_SPEED) }
+                )
             }
         }
     }

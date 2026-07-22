@@ -69,7 +69,7 @@
     <!-- Section titles in city detail -->
     <string name="section_confidence_band">Prévisions inter-modèles</string>
     <string name="section_temp_table">Températures</string>
-    <string name="section_temp_hourly">Températures par heure</string>
+    <string name="section_temp_hourly">Températures</string>
     <string name="section_precipitation">Précipitations</string>
     <!-- Vent : titres explicites pour clarifier "mean à 10m" (pas rafale). -->
     <string name="section_wind">Vent moyen à 10m</string>
@@ -456,4 +456,11 @@
     <string name="timeline_subtitle_hourly">Consensus des modèles pour les prochaines heures</string>
     <string name="timeline_subtitle_daily">Consensus des modèles pour les prochains jours</string>
     <string name="timeline_disagreement_hint">Un point rouge signale un désaccord marqué entre les modèles</string>
+
+    <string name="section_state_expanded">Déployée</string>
+    <string name="section_state_collapsed">Repliée</string>
+    <string name="offline_data_title">Mode hors connexion</string>
+    <string name="offline_data_message">Données conservées sur cet appareil · %1$s</string>
+    <string name="offline_data_age_unknown">Âge des données indisponible</string>
+    <string name="offline_list_message">Les dernières données enregistrées restent disponibles. Leur âge est indiqué dans chaque ville.</string>
 </resources>
