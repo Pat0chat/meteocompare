@@ -4,6 +4,7 @@ import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.domain.model.BiasSample
 import com.meteocompare.app.domain.model.BiasVariable
 import com.meteocompare.app.domain.model.City
+import com.meteocompare.app.domain.model.CityDetailSection
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DayNormals
 import com.meteocompare.app.domain.model.LanguagePreference
@@ -120,6 +121,8 @@ class FakeUserPreferencesRepository @Inject constructor() : UserPreferencesRepos
     private val theme = MutableStateFlow(ThemePreference.SYSTEM)
     private val language = MutableStateFlow(LanguagePreference.SYSTEM)
     private val refresh = MutableStateFlow(RefreshInterval.DEFAULT)
+    private val collapsedSectionsByCity =
+        ConcurrentHashMap<String, MutableStateFlow<Set<CityDetailSection>>>()
 
     override fun observeEnabledModels(): Flow<List<WeatherModel>> = models
     override suspend fun setEnabledModels(models: List<WeatherModel>) { this.models.value = models }
@@ -130,11 +133,32 @@ class FakeUserPreferencesRepository @Inject constructor() : UserPreferencesRepos
     override fun observeRefreshInterval(): Flow<RefreshInterval> = refresh
     override suspend fun setRefreshInterval(interval: RefreshInterval) { refresh.value = interval }
 
+    override fun observeCollapsedCityDetailSections(
+        cityId: String
+    ): Flow<Set<CityDetailSection>> = collapsedFlow(cityId)
+
+    override suspend fun setCityDetailSectionCollapsed(
+        cityId: String,
+        section: CityDetailSection,
+        collapsed: Boolean
+    ) {
+        val flow = collapsedFlow(cityId)
+        flow.value = if (collapsed) {
+            flow.value + section
+        } else {
+            flow.value - section
+        }
+    }
+
+    private fun collapsedFlow(cityId: String): MutableStateFlow<Set<CityDetailSection>> =
+        collapsedSectionsByCity.getOrPut(cityId) { MutableStateFlow(emptySet()) }
+
     fun reset() {
         models.value = WeatherModel.MVP_SELECTION
         theme.value = ThemePreference.SYSTEM
         language.value = LanguagePreference.SYSTEM
         refresh.value = RefreshInterval.DEFAULT
+        collapsedSectionsByCity.clear()
     }
 }
 

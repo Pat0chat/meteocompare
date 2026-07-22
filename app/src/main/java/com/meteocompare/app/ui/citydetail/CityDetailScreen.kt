@@ -72,6 +72,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.BiasVariable
+import com.meteocompare.app.domain.model.CityDetailSection
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.ConfidenceScore
 import com.meteocompare.app.domain.model.DailyForecast
@@ -108,6 +109,7 @@ fun CityDetailScreen(
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     val isOnline by viewModel.isOnline.collectAsStateWithLifecycle()
     val biasState by viewModel.biasState.collectAsStateWithLifecycle()
+    val collapsedSections by viewModel.collapsedSections.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     // Resources observables capturées hors de LaunchedEffect : contrairement à
     // LocalContext, LocalResources invalide la composition quand la locale ou
@@ -139,9 +141,11 @@ fun CityDetailScreen(
         isRefreshing = isRefreshing,
         isOnline = isOnline,
         biasState = biasState,
+        collapsedSections = collapsedSections,
         snackbarHostState = snackbarHostState,
         onBack = onBack,
         onRefresh = viewModel::refresh,
+        onSectionExpandedChange = viewModel::setSectionExpanded,
         onConfidenceClick = onConfidenceClick
     )
 }
@@ -157,9 +161,11 @@ internal fun CityDetailContent(
     isRefreshing: Boolean,
     isOnline: Boolean = true,
     biasState: BiasScreenState,
+    collapsedSections: Set<CityDetailSection> = emptySet(),
     snackbarHostState: SnackbarHostState,
     onBack: () -> Unit,
     onRefresh: () -> Unit,
+    onSectionExpandedChange: (CityDetailSection, Boolean) -> Unit = { _, _ -> },
     onConfidenceClick: (isoDate: String) -> Unit = {}
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
@@ -236,7 +242,9 @@ internal fun CityDetailContent(
                         fetchedAt = s.fetchedAt,
                         isOnline = isOnline,
                         biasState = biasState,
+                        collapsedSections = collapsedSections,
                         padding = padding,
+                        onSectionExpandedChange = onSectionExpandedChange,
                         onConfidenceClick = onConfidenceClick
                     )
                 }
@@ -288,7 +296,9 @@ private fun LoadedView(
     fetchedAt: Instant?,
     isOnline: Boolean,
     biasState: BiasScreenState,
+    collapsedSections: Set<CityDetailSection>,
     padding: PaddingValues,
+    onSectionExpandedChange: (CityDetailSection, Boolean) -> Unit,
     onConfidenceClick: (isoDate: String) -> Unit = {}
 ) {
     // Mode d'affichage piloté par le toggle sous la TodaySummaryCard.
@@ -299,14 +309,14 @@ private fun LoadedView(
         mutableStateOf(DisplayMode.DAILY)
     }
 
-    // Sections indépendantes. rememberSaveable conserve les choix lors d'une
-    // rotation et lors des recompositions liées au thème ou à la langue.
-    var confidenceExpanded by rememberSaveable { mutableStateOf(true) }
-    var localRankingExpanded by rememberSaveable { mutableStateOf(true) }
-    var weatherExpanded by rememberSaveable { mutableStateOf(true) }
-    var temperatureExpanded by rememberSaveable { mutableStateOf(true) }
-    var precipitationExpanded by rememberSaveable { mutableStateOf(true) }
-    var windExpanded by rememberSaveable { mutableStateOf(true) }
+    // Source de vérité persistante : une section est ouverte lorsqu'elle
+    // n'apparaît pas dans le Set DataStore de la ville courante.
+    val confidenceExpanded = CityDetailSection.CONFIDENCE !in collapsedSections
+    val localRankingExpanded = CityDetailSection.LOCAL_RANKING !in collapsedSections
+    val weatherExpanded = CityDetailSection.WEATHER !in collapsedSections
+    val temperatureExpanded = CityDetailSection.TEMPERATURE !in collapsedSections
+    val precipitationExpanded = CityDetailSection.PRECIPITATION !in collapsedSections
+    val windExpanded = CityDetailSection.WIND !in collapsedSections
 
     // ── Suivi de biais : sélection courante pour l'ouverture de la sheet ──
     // Persistance sur rotation : on sauvegarde uniquement L'IDENTIFIANT
@@ -411,7 +421,12 @@ private fun LoadedView(
                     CollapsibleSectionHeader(
                         text = stringResource(R.string.section_confidence_band),
                         expanded = confidenceExpanded,
-                        onToggle = { confidenceExpanded = !confidenceExpanded },
+                        onToggle = {
+                            onSectionExpandedChange(
+                                CityDetailSection.CONFIDENCE,
+                                !confidenceExpanded
+                            )
+                        },
                         modifier = Modifier.padding(horizontal = 8.dp)
                     )
                     if (confidenceExpanded) {
@@ -439,7 +454,9 @@ private fun LoadedView(
                 LocalModelRankingSummaryCard(
                     rankings = localRankings,
                     expanded = localRankingExpanded,
-                    onExpandedChange = { localRankingExpanded = it },
+                    onExpandedChange = { expanded ->
+                        onSectionExpandedChange(CityDetailSection.LOCAL_RANKING, expanded)
+                    },
                     onOpenRanking = { variable ->
                         localRankingVariableName = variable.name
                         highlightedRankingModelName = ""
@@ -497,10 +514,18 @@ private fun LoadedView(
                 temperatureExpanded = temperatureExpanded,
                 precipitationExpanded = precipitationExpanded,
                 windExpanded = windExpanded,
-                onWeatherExpandedChange = { weatherExpanded = it },
-                onTemperatureExpandedChange = { temperatureExpanded = it },
-                onPrecipitationExpandedChange = { precipitationExpanded = it },
-                onWindExpandedChange = { windExpanded = it },
+                onWeatherExpandedChange = { expanded ->
+                    onSectionExpandedChange(CityDetailSection.WEATHER, expanded)
+                },
+                onTemperatureExpandedChange = { expanded ->
+                    onSectionExpandedChange(CityDetailSection.TEMPERATURE, expanded)
+                },
+                onPrecipitationExpandedChange = { expanded ->
+                    onSectionExpandedChange(CityDetailSection.PRECIPITATION, expanded)
+                },
+                onWindExpandedChange = { expanded ->
+                    onSectionExpandedChange(CityDetailSection.WIND, expanded)
+                },
                 // Providers de biais : lambdas qui lisent le map courant du
                 // state. Chaque provider est stable tant que le map sous-jacent
                 // n'a pas changé (Compose recompose sinon).
@@ -539,10 +564,18 @@ private fun LoadedView(
                 temperatureExpanded = temperatureExpanded,
                 precipitationExpanded = precipitationExpanded,
                 windExpanded = windExpanded,
-                onWeatherExpandedChange = { weatherExpanded = it },
-                onTemperatureExpandedChange = { temperatureExpanded = it },
-                onPrecipitationExpandedChange = { precipitationExpanded = it },
-                onWindExpandedChange = { windExpanded = it },
+                onWeatherExpandedChange = { expanded ->
+                    onSectionExpandedChange(CityDetailSection.WEATHER, expanded)
+                },
+                onTemperatureExpandedChange = { expanded ->
+                    onSectionExpandedChange(CityDetailSection.TEMPERATURE, expanded)
+                },
+                onPrecipitationExpandedChange = { expanded ->
+                    onSectionExpandedChange(CityDetailSection.PRECIPITATION, expanded)
+                },
+                onWindExpandedChange = { expanded ->
+                    onSectionExpandedChange(CityDetailSection.WIND, expanded)
+                },
                 normals = normals,
                 temperatureBiasProvider = { model -> biasState.temperature.biasByModel[model] },
                 precipitationBiasProvider = { model -> biasState.precipitation.biasByModel[model] },

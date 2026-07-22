@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.meteocompare.app.di.IoDispatcher
+import com.meteocompare.app.domain.model.CityDetailSection
 import com.meteocompare.app.domain.model.LanguagePreference
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.ThemePreference
@@ -29,6 +30,8 @@ private val ENABLED_MODELS_KEY = stringSetPreferencesKey("enabled_models")
 private val THEME_PREFERENCE_KEY = stringPreferencesKey("theme_preference")
 private val LANGUAGE_PREFERENCE_KEY = stringPreferencesKey("language_preference")
 private val REFRESH_INTERVAL_KEY = stringPreferencesKey("refresh_interval")
+private val COLLAPSED_CITY_DETAIL_SECTIONS_KEY =
+    stringSetPreferencesKey("collapsed_city_detail_sections")
 
 @Singleton
 class UserPreferencesRepositoryImpl @Inject constructor(
@@ -109,4 +112,52 @@ class UserPreferencesRepositoryImpl @Inject constructor(
             }
             Unit
         }
+
+    override fun observeCollapsedCityDetailSections(
+        cityId: String
+    ): Flow<Set<CityDetailSection>> {
+        val cityPrefix = collapsedSectionPrefix(cityId)
+
+        return safePreferences.map { prefs ->
+            prefs[COLLAPSED_CITY_DETAIL_SECTIONS_KEY]
+                .orEmpty()
+                .asSequence()
+                .filter { encoded -> encoded.startsWith(cityPrefix) }
+                .mapNotNull { encoded ->
+                    val sectionName = encoded.removePrefix(cityPrefix)
+                    runCatching { CityDetailSection.valueOf(sectionName) }.getOrNull()
+                }
+                .toSet()
+        }.distinctUntilChanged()
+    }
+
+    override suspend fun setCityDetailSectionCollapsed(
+        cityId: String,
+        section: CityDetailSection,
+        collapsed: Boolean
+    ) = withContext(ioDispatcher) {
+        val encodedSection = collapsedSectionPrefix(cityId) + section.name
+
+        context.preferencesDataStore.edit { prefs ->
+            val current = prefs[COLLAPSED_CITY_DETAIL_SECTIONS_KEY]
+                .orEmpty()
+                .toMutableSet()
+
+            if (collapsed) {
+                current += encodedSection
+            } else {
+                current -= encodedSection
+            }
+
+            prefs[COLLAPSED_CITY_DETAIL_SECTIONS_KEY] = current.toSet()
+        }
+        Unit
+    }
+
+    /**
+     * Préfixe sans ambiguïté : la longueur du cityId empêche qu'une ville
+     * nommée "12" ne capture les préférences d'une ville "123".
+     */
+    private fun collapsedSectionPrefix(cityId: String): String =
+        "${cityId.length}:$cityId:"
 }

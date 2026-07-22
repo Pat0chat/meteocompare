@@ -7,8 +7,10 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.platform.app.InstrumentationRegistry
 import com.meteocompare.app.R
+import com.meteocompare.app.domain.model.CityDetailSection
 import com.meteocompare.app.domain.usecase.ConfidenceCalculator
 import com.meteocompare.app.domain.usecase.EqualWeighting
 import com.meteocompare.app.testutil.TestFixtures
@@ -110,5 +112,49 @@ class CityDetailContentTest {
         composeRule.onNodeWithTag(TAG_CONFIDENCE_BADGE, useUnmergedTree = true).performClick()
         assertEquals(TestFixtures.today.toString(), clickedDate)
         assertTrue(clickedDate != null)
+    }
+
+    @Test
+    fun collapsible_header_forwards_the_persistent_section_change() {
+        val forecast = TestFixtures.forecast()
+        val calculator = ConfidenceCalculator(EqualWeighting())
+        var changedSection: CityDetailSection? = null
+        var expandedValue: Boolean? = null
+
+        composeRule.setContent {
+            MeteoCompareTheme {
+                CityDetailContent(
+                    state = CityDetailUiState.Loaded(
+                        forecast = forecast,
+                        weeklyConfidence = calculator.weeklyConfidence(forecast),
+                        hourlyBands = calculator.hourlyTemperatureConfidence(forecast),
+                        hourlyPrecipBands = calculator.hourlyPrecipitationConfidence(forecast),
+                        hourlyWindBands = calculator.hourlyWindConfidence(forecast),
+                        currentTemp = calculator.currentTemperature(forecast),
+                        currentCondition = calculator.currentWeatherCondition(forecast),
+                        currentCloudCover = calculator.currentCloudCover(forecast),
+                        dailyConditions = calculator.dailyConditionsByModel(forecast),
+                        fetchedAt = forecast.fetchedAt
+                    ),
+                    isRefreshing = false,
+                    biasState = BiasScreenState.EMPTY,
+                    snackbarHostState = SnackbarHostState(),
+                    onBack = {},
+                    onRefresh = {},
+                    onSectionExpandedChange = { section, expanded ->
+                        changedSection = section
+                        expandedValue = expanded
+                    }
+                )
+            }
+        }
+
+        composeRule
+            .onNodeWithText(context.getString(R.string.section_confidence_band))
+            .performScrollTo()
+            .performClick()
+
+        assertEquals(CityDetailSection.CONFIDENCE, changedSection)
+        assertEquals(false, expandedValue)
     }
 }

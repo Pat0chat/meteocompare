@@ -10,6 +10,7 @@ import com.meteocompare.app.core.network.NetworkMonitor
 import com.meteocompare.app.domain.model.BiasSample
 import com.meteocompare.app.domain.model.BiasVariable
 import com.meteocompare.app.domain.model.City
+import com.meteocompare.app.domain.model.CityDetailSection
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DayNormals
 import com.meteocompare.app.domain.model.ModelBias
@@ -134,6 +135,19 @@ class CityDetailViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5_000L),
             initialValue = BiasScreenState.EMPTY
         )
+
+    /**
+     * Sections repliées, persistées dans DataStore séparément pour cette ville.
+     * Eagerly démarre la lecture dès la création du ViewModel afin de réduire le
+     * bref affichage des sections ouvertes lors d'un retour dans l'application.
+     */
+    val collapsedSections: StateFlow<Set<CityDetailSection>> =
+        userPreferences.observeCollapsedCityDetailSections(cityId)
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.Eagerly,
+                initialValue = emptySet()
+            )
 
     init {
         observeConnectivity()
@@ -295,6 +309,20 @@ class CityDetailViewModel @Inject constructor(
                     )
                 }
                 .collect { result -> applyResult(result) }
+        }
+    }
+
+    /**
+     * Enregistre immédiatement le nouvel état d'une section. Le repository
+     * réémet ensuite [collapsedSections], ce qui devient la source de vérité UI.
+     */
+    fun setSectionExpanded(section: CityDetailSection, expanded: Boolean) {
+        viewModelScope.launch {
+            userPreferences.setCityDetailSectionCollapsed(
+                cityId = cityId,
+                section = section,
+                collapsed = !expanded
+            )
         }
     }
 

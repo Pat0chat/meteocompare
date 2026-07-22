@@ -2,6 +2,7 @@ package com.meteocompare.app.data.preferences
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import com.meteocompare.app.domain.model.CityDetailSection
 import com.meteocompare.app.domain.model.LanguagePreference
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.ThemePreference
@@ -14,17 +15,23 @@ import org.junit.Before
 import org.junit.Test
 
 class UserPreferencesRepositoryImplTest {
+    private lateinit var context: Context
     private lateinit var repository: UserPreferencesRepositoryImpl
 
     @Before
     fun setUp() {
         runTest {
-            val context = ApplicationProvider.getApplicationContext<Context>()
+            context = ApplicationProvider.getApplicationContext()
             repository = UserPreferencesRepositoryImpl(context, Dispatchers.IO)
             repository.setEnabledModels(WeatherModel.MVP_SELECTION)
             repository.setThemePreference(ThemePreference.SYSTEM)
             repository.setLanguagePreference(LanguagePreference.SYSTEM)
             repository.setRefreshInterval(RefreshInterval.DEFAULT)
+            listOf("paris", "lyon").forEach { cityId ->
+                CityDetailSection.entries.forEach { section ->
+                    repository.setCityDetailSectionCollapsed(cityId, section, collapsed = false)
+                }
+            }
         }
     }
 
@@ -48,5 +55,52 @@ class UserPreferencesRepositoryImplTest {
     fun empty_model_selection_falls_back_to_product_defaults() = runTest {
         repository.setEnabledModels(emptyList())
         assertEquals(WeatherModel.MVP_SELECTION, repository.observeEnabledModels().first())
+    }
+
+    @Test
+    fun collapsed_city_detail_sections_round_trip_and_remain_city_specific() = runTest {
+        repository.setCityDetailSectionCollapsed(
+            cityId = "paris",
+            section = CityDetailSection.CONFIDENCE,
+            collapsed = true
+        )
+        repository.setCityDetailSectionCollapsed(
+            cityId = "paris",
+            section = CityDetailSection.WIND,
+            collapsed = true
+        )
+        repository.setCityDetailSectionCollapsed(
+            cityId = "lyon",
+            section = CityDetailSection.PRECIPITATION,
+            collapsed = true
+        )
+
+        assertEquals(
+            setOf(CityDetailSection.CONFIDENCE, CityDetailSection.WIND),
+            repository.observeCollapsedCityDetailSections("paris").first()
+        )
+        assertEquals(
+            setOf(CityDetailSection.PRECIPITATION),
+            repository.observeCollapsedCityDetailSections("lyon").first()
+        )
+
+        // Simule une recréation du repository après redémarrage du process :
+        // la nouvelle instance relit les mêmes valeurs depuis DataStore.
+        val recreatedRepository = UserPreferencesRepositoryImpl(context, Dispatchers.IO)
+        assertEquals(
+            setOf(CityDetailSection.CONFIDENCE, CityDetailSection.WIND),
+            recreatedRepository.observeCollapsedCityDetailSections("paris").first()
+        )
+
+        repository.setCityDetailSectionCollapsed(
+            cityId = "paris",
+            section = CityDetailSection.CONFIDENCE,
+            collapsed = false
+        )
+
+        assertEquals(
+            setOf(CityDetailSection.WIND),
+            repository.observeCollapsedCityDetailSections("paris").first()
+        )
     }
 }
