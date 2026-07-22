@@ -118,10 +118,10 @@ fun HourlyWeatherByModelTable(
     val currentHour = timestamps.first()
     val locale = LocalConfiguration.current.locales[0]
     val hourFmt = remember(locale) { DateTimeFormatter.ofPattern("HH'h'", locale) }
-    val modelWidth = 90.dp
-    val timeWidth = 72.dp
-    val headerHeight = 50.dp
-    val rowHeight = 48.dp
+    val modelWidth = 84.dp
+    val timeWidth = 68.dp
+    val headerHeight = 44.dp
+    val rowHeight = 46.dp
     val dayPrefixes = remember(timestamps, zone, locale) {
         var previous: java.time.LocalDate? = null
         timestamps.associateWith { ts ->
@@ -134,8 +134,16 @@ fun HourlyWeatherByModelTable(
         }
     }
 
-    Row(modifier = modifier.fillMaxWidth().detailTableFrame(palette)) {
-        Column(modifier = Modifier.width(modelWidth)) {
+    FrozenDetailTableLayout(
+        modelColumnWidth = modelWidth,
+        temporalColumnWidth = timeWidth,
+        temporalColumnCount = timestamps.size,
+        headerHeight = headerHeight,
+        rowHeight = rowHeight,
+        rowCount = models.size,
+        palette = palette,
+        modifier = modifier,
+        cornerHeader = {
             HeaderCell(
                 text = stringResource(R.string.detail_table_model_header),
                 width = modelWidth,
@@ -144,6 +152,23 @@ fun HourlyWeatherByModelTable(
                 palette = palette,
                 alignStart = true
             )
+        },
+        temporalHeaders = {
+            timestamps.forEachIndexed { timeIndex, ts ->
+                val isCurrent = ts == currentHour
+                val local = ts.atZone(zone)
+                TimeHeaderCell(
+                    hourText = local.format(hourFmt),
+                    dayPrefix = dayPrefixes[ts],
+                    width = timeWidth,
+                    height = headerHeight,
+                    background = palette.labelRowBackground(timeIndex, isCurrent),
+                    highlighted = isCurrent,
+                    palette = palette
+                )
+            }
+        },
+        modelRows = {
             models.forEachIndexed { modelIndex, model ->
                 HeaderCell(
                     text = model.displayName,
@@ -155,27 +180,11 @@ fun HourlyWeatherByModelTable(
                     alignStart = true
                 )
             }
-        }
-
-        VerticalDivider(
-            modifier = Modifier.height((headerHeight.value + rowHeight.value * models.size).dp),
-            color = palette.frozenDivider
-        )
-
-        Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
+        },
+        temporalColumns = {
             timestamps.forEachIndexed { timeIndex, ts ->
                 val isCurrent = ts == currentHour
-                val local = ts.atZone(zone)
                 Column(modifier = Modifier.width(timeWidth)) {
-                    TimeHeaderCell(
-                        hourText = local.format(hourFmt),
-                        dayPrefix = dayPrefixes[ts],
-                        width = timeWidth,
-                        height = headerHeight,
-                        background = palette.labelRowBackground(timeIndex, isCurrent),
-                        highlighted = isCurrent,
-                        palette = palette
-                    )
                     models.forEachIndexed { modelIndex, model ->
                         HourIconCell(
                             cell = cellsByTimestamp[ts]?.get(model),
@@ -187,7 +196,7 @@ fun HourlyWeatherByModelTable(
                 }
             }
         }
-    }
+    )
 }
 
 @Composable
@@ -208,8 +217,13 @@ private fun HeaderCell(
     ) {
         Text(
             text = text,
-            style = MaterialTheme.typography.labelMedium,
+            style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.SemiBold,
+            color = if (accentColor != null) {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            } else {
+                MaterialTheme.colorScheme.onSurface
+            },
             textAlign = if (alignStart) TextAlign.Start else TextAlign.Center,
             maxLines = 1,
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
@@ -244,7 +258,7 @@ private fun TimeHeaderCell(
         }
         Text(
             text = hourText,
-            style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"),
+            style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum"),
             fontWeight = if (highlighted) FontWeight.Bold else FontWeight.Medium,
             color = if (highlighted) palette.highlightedText else MaterialTheme.colorScheme.onSurface,
             maxLines = 1

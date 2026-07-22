@@ -2,17 +2,33 @@ package com.meteocompare.app.ui.citydetail
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.foundation.layout.offset
 
 /**
  * Palette visuelle commune aux tableaux de la page détail.
@@ -80,6 +96,111 @@ internal fun DetailTablePalette.labelRowBackground(index: Int, highlighted: Bool
         else -> frozenSurface
     }
 
+/** Nombre maximal de modèles visibles avant défilement vertical interne. */
+private const val MAX_VISIBLE_MODEL_ROWS = 7.0f
+
+/**
+ * Structure commune des tableaux détaillés.
+ *
+ * La ligne des dates/heures reste fixe pendant le défilement vertical des
+ * modèles. La colonne des modèles reste fixe pendant le défilement horizontal
+ * des échéances. Les deux axes sont indépendants et synchronisés visuellement.
+ */
+@Composable
+internal fun FrozenDetailTableLayout(
+    modelColumnWidth: Dp,
+    temporalColumnWidth: Dp,
+    temporalColumnCount: Int,
+    headerHeight: Dp,
+    rowHeight: Dp,
+    rowCount: Int,
+    palette: DetailTablePalette,
+    modifier: Modifier = Modifier,
+    cornerHeader: @Composable () -> Unit,
+    temporalHeaders: @Composable RowScope.() -> Unit,
+    modelRows: @Composable ColumnScope.() -> Unit,
+    temporalColumns: @Composable RowScope.() -> Unit
+) {
+    if (rowCount <= 0 || temporalColumnCount <= 0) return
+
+    val horizontalState = rememberScrollState()
+    val verticalState = rememberScrollState()
+    val temporalContentWidth = (temporalColumnWidth.value * temporalColumnCount).dp
+    val bodyContentHeight = (rowHeight.value * rowCount).dp
+    val bodyViewportHeight = minOf(
+        bodyContentHeight.value,
+        rowHeight.value * MAX_VISIBLE_MODEL_ROWS
+    ).dp
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .detailTableFrame(palette)
+    ) {
+        Row(modifier = Modifier.height(headerHeight)) {
+            Box(
+                modifier = Modifier
+                    .width(modelColumnWidth)
+                    .height(headerHeight)
+            ) {
+                cornerHeader()
+            }
+
+            VerticalDivider(
+                modifier = Modifier.height(headerHeight),
+                color = palette.frozenDivider
+            )
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(headerHeight)
+                    .clipToBounds()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .width(temporalContentWidth)
+                        .offset { IntOffset(-horizontalState.value, 0) }
+                ) {
+                    temporalHeaders()
+                }
+            }
+        }
+
+        Row(
+            modifier = Modifier
+                .height(bodyViewportHeight)
+                .verticalScroll(verticalState)
+        ) {
+            Column(
+                modifier = Modifier
+                    .width(modelColumnWidth)
+                    .height(bodyContentHeight),
+                content = modelRows
+            )
+
+            VerticalDivider(
+                modifier = Modifier.height(bodyContentHeight),
+                color = palette.frozenDivider
+            )
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(bodyContentHeight)
+                    .clipToBounds()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .height(bodyContentHeight)
+                        .horizontalScroll(horizontalState),
+                    content = temporalColumns
+                )
+            }
+        }
+    }
+}
+
 /** Encadrement arrondi et fin, sans modifier les dimensions internes. */
 internal fun Modifier.detailTableFrame(palette: DetailTablePalette): Modifier =
     clip(DetailTableShape)
@@ -88,7 +209,7 @@ internal fun Modifier.detailTableFrame(palette: DetailTablePalette): Modifier =
 
 /**
  * Fond et séparateur horizontal communs à toutes les cellules.
- * [accentColor] dessine un trait de 3 dp au bas des en-têtes de modèle.
+ * [accentColor] dessine un indicateur court et discret au bas des en-têtes de modèle.
  */
 internal fun Modifier.detailTableCell(
     backgroundColor: Color,
@@ -105,11 +226,25 @@ internal fun Modifier.detailTableCell(
                 strokeWidth = 0.5.dp.toPx()
             )
             if (accentColor != null) {
-                val accentHeight = 3.dp.toPx()
-                drawRect(
-                    color = accentColor,
-                    topLeft = androidx.compose.ui.geometry.Offset(0f, size.height - accentHeight),
-                    size = androidx.compose.ui.geometry.Size(size.width, accentHeight)
+                // Accent volontairement court et translucide : il permet
+                // d'identifier le modèle sans transformer tout l'en-tête en
+                // bande colorée dominante.
+                val accentHeight = 2.dp.toPx()
+                val horizontalInset = 10.dp.toPx()
+                drawRoundRect(
+                    color = accentColor.copy(alpha = 0.52f),
+                    topLeft = androidx.compose.ui.geometry.Offset(
+                        horizontalInset,
+                        size.height - accentHeight - 1.dp.toPx()
+                    ),
+                    size = androidx.compose.ui.geometry.Size(
+                        (size.width - horizontalInset * 2f).coerceAtLeast(0f),
+                        accentHeight
+                    ),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(
+                        accentHeight / 2f,
+                        accentHeight / 2f
+                    )
                 )
             }
         }

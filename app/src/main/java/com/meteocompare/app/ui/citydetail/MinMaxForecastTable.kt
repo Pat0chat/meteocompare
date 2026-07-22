@@ -71,14 +71,22 @@ fun MinMaxForecastTable(
     val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
     val today = remember { LocalDate.now() }
     val modelRowHeight = if (modelBiasProvider != null) 56.dp else 44.dp
-    val modelColumnWidth = if (modelBiasProvider != null) 100.dp else 90.dp
-    val dateColumnWidth = 88.dp
-    val headerHeight = 44.dp
+    val modelColumnWidth = if (modelBiasProvider != null) 94.dp else 84.dp
+    val dateColumnWidth = 82.dp
+    val headerHeight = 40.dp
     val locale = LocalConfiguration.current.locales[0]
     val formatter = remember(locale) { DateTimeFormatter.ofPattern("EEE d", locale) }
 
-    Row(modifier = modifier.fillMaxWidth().detailTableFrame(palette)) {
-        Column(modifier = Modifier.width(modelColumnWidth)) {
+    FrozenDetailTableLayout(
+        modelColumnWidth = modelColumnWidth,
+        temporalColumnWidth = dateColumnWidth,
+        temporalColumnCount = dates.size,
+        headerHeight = headerHeight,
+        rowHeight = modelRowHeight,
+        rowCount = models.size,
+        palette = palette,
+        modifier = modifier,
+        cornerHeader = {
             HeaderCellMM(
                 text = stringResource(R.string.detail_table_model_header),
                 background = palette.frozenHeaderSurface,
@@ -87,6 +95,21 @@ fun MinMaxForecastTable(
                 palette = palette,
                 alignStart = true
             )
+        },
+        temporalHeaders = {
+            dates.forEachIndexed { dateIndex, date ->
+                val isToday = date == today
+                HeaderCellMM(
+                    text = date.format(formatter).replaceFirstChar { it.uppercase() },
+                    background = palette.labelRowBackground(dateIndex, isToday),
+                    width = dateColumnWidth,
+                    height = headerHeight,
+                    palette = palette,
+                    highlighted = isToday
+                )
+            }
+        },
+        modelRows = {
             models.forEachIndexed { modelIndex, model ->
                 val bias = modelBiasProvider?.invoke(model)
                 val sampleCount = sampleCountProvider?.invoke(model)
@@ -107,25 +130,11 @@ fun MinMaxForecastTable(
                     alignStart = true
                 )
             }
-        }
-
-        VerticalDivider(
-            modifier = Modifier.height((headerHeight.value + modelRowHeight.value * models.size).dp),
-            color = palette.frozenDivider
-        )
-
-        Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
+        },
+        temporalColumns = {
             dates.forEachIndexed { dateIndex, date ->
                 val isToday = date == today
                 Column(modifier = Modifier.width(dateColumnWidth)) {
-                    HeaderCellMM(
-                        text = date.format(formatter).replaceFirstChar { it.uppercase() },
-                        background = palette.labelRowBackground(dateIndex, isToday),
-                        width = dateColumnWidth,
-                        height = headerHeight,
-                        palette = palette,
-                        highlighted = isToday
-                    )
                     models.forEachIndexed { modelIndex, model ->
                         val (maxV, minV) = maxMinAt(forecast, model, date)
                         val normal = normals?.get(DayNormals.key(date.monthValue, date.dayOfMonth))
@@ -145,7 +154,7 @@ fun MinMaxForecastTable(
                 }
             }
         }
-    }
+    )
 }
 
 @Composable
@@ -212,9 +221,13 @@ private fun HeaderCellMM(
     ) {
         Text(
             text = text,
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = if (highlighted) FontWeight.Bold else FontWeight.SemiBold,
-            color = if (highlighted) palette.highlightedText else MaterialTheme.colorScheme.onSurface,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = if (highlighted) FontWeight.Bold else FontWeight.Medium,
+            color = when {
+                highlighted -> palette.highlightedText
+                accentColor != null -> MaterialTheme.colorScheme.onSurfaceVariant
+                else -> MaterialTheme.colorScheme.onSurface
+            },
             textAlign = if (alignStart) TextAlign.Start else TextAlign.Center,
             maxLines = 1,
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis

@@ -68,7 +68,7 @@
 
     <!-- Section titles in city detail -->
     <string name="section_confidence_band">Inter-model forecast</string>
-    <string name="section_temp_table">Min / max temperatures</string>
+    <string name="section_temp_table">Temperatures</string>
     <string name="section_temp_hourly">Hourly temperatures</string>
     <string name="section_precipitation">Precipitation</string>
     <string name="section_wind">10m mean wind</string>
@@ -113,8 +113,6 @@
     <string name="widget_error_loading">Loading…</string>
     <string name="widget_error_city_gone">City\nremoved</string>
     <string name="widget_error_fetch">No\ndata</string>
-
-    <string name="forecast_tables_section">Detailed forecasts</string>
 
     <!-- Display-mode toggle (below the TodaySummaryCard) -->
     <string name="display_mode_hourly">Hourly</string>
@@ -455,4 +453,10 @@
     <string name="local_ranking_empty_body">At least 14 days of local history are required to rank models for this variable.</string>
     <string name="local_ranking_method_note">This ranking is local and educational. It depends on the city, variable and actual history available; it is not an official model assessment.</string>
     <string name="local_ranking_open_content_description">Open the local model ranking</string>
+
+    <string name="forecast_tables_section">Detailed forecasts</string>
+    <string name="timeline_title">Timeline overview</string>
+    <string name="timeline_subtitle_hourly">Model consensus for the next few hours</string>
+    <string name="timeline_subtitle_daily">Model consensus for the next few days</string>
+    <string name="timeline_disagreement_hint">A red dot indicates strong disagreement between models</string>
 </resources>

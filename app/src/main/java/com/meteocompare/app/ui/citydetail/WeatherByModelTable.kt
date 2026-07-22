@@ -59,13 +59,21 @@ fun WeatherByModelTable(
     val sortedModels = remember(modelOrder) { modelOrder.sortedByFamily() }
     val palette = detailTablePalette()
     val today = remember { LocalDate.now() }
-    val modelWidth = 90.dp
-    val dateWidth = 76.dp
-    val headerHeight = 44.dp
-    val rowHeight = 52.dp
+    val modelWidth = 84.dp
+    val dateWidth = 72.dp
+    val headerHeight = 40.dp
+    val rowHeight = 50.dp
 
-    Row(modifier = modifier.fillMaxWidth().detailTableFrame(palette)) {
-        Column(modifier = Modifier.width(modelWidth)) {
+    FrozenDetailTableLayout(
+        modelColumnWidth = modelWidth,
+        temporalColumnWidth = dateWidth,
+        temporalColumnCount = rows.size,
+        headerHeight = headerHeight,
+        rowHeight = rowHeight,
+        rowCount = sortedModels.size,
+        palette = palette,
+        modifier = modifier,
+        cornerHeader = {
             HeaderCell(
                 text = stringResource(R.string.detail_table_model_header),
                 background = palette.frozenHeaderSurface,
@@ -74,6 +82,21 @@ fun WeatherByModelTable(
                 palette = palette,
                 alignStart = true
             )
+        },
+        temporalHeaders = {
+            rows.forEachIndexed { dateIndex, row ->
+                val isToday = row.date == today
+                HeaderCell(
+                    text = formatDayLabel(row),
+                    background = palette.labelRowBackground(dateIndex, isToday),
+                    width = dateWidth,
+                    height = headerHeight,
+                    palette = palette,
+                    highlighted = isToday
+                )
+            }
+        },
+        modelRows = {
             sortedModels.forEachIndexed { modelIndex, model ->
                 HeaderCell(
                     text = model.displayName,
@@ -85,25 +108,11 @@ fun WeatherByModelTable(
                     alignStart = true
                 )
             }
-        }
-
-        VerticalDivider(
-            modifier = Modifier.height((headerHeight.value + rowHeight.value * sortedModels.size).dp),
-            color = palette.frozenDivider
-        )
-
-        Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
+        },
+        temporalColumns = {
             rows.forEachIndexed { dateIndex, row ->
                 val isToday = row.date == today
                 Column(modifier = Modifier.width(dateWidth)) {
-                    HeaderCell(
-                        text = formatDayLabel(row),
-                        background = palette.labelRowBackground(dateIndex, isToday),
-                        width = dateWidth,
-                        height = headerHeight,
-                        palette = palette,
-                        highlighted = isToday
-                    )
                     sortedModels.forEachIndexed { modelIndex, model ->
                         IconCell(
                             condition = row.byModel[model],
@@ -117,7 +126,7 @@ fun WeatherByModelTable(
                 }
             }
         }
-    }
+    )
 }
 
 @Composable
@@ -146,9 +155,13 @@ private fun HeaderCell(
     ) {
         Text(
             text = text,
-            style = if (accentColor != null) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelMedium,
-            fontWeight = if (highlighted) FontWeight.Bold else FontWeight.SemiBold,
-            color = if (highlighted) palette.highlightedText else MaterialTheme.colorScheme.onSurface,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = if (highlighted) FontWeight.Bold else FontWeight.Medium,
+            color = when {
+                highlighted -> palette.highlightedText
+                accentColor != null -> MaterialTheme.colorScheme.onSurfaceVariant
+                else -> MaterialTheme.colorScheme.onSurface
+            },
             textAlign = if (alignStart) TextAlign.Start else TextAlign.Center,
             maxLines = 1,
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis

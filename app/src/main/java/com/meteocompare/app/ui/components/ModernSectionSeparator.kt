@@ -22,12 +22,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
+/** Séparateur léger utilisé pour marquer une transition majeure dans un écran. */
 @Composable
 fun ModernSectionSeparator(
     @StringRes textRes: Int,
     modifier: Modifier = Modifier
 ) {
-    val text = stringResource(textRes)
     val scheme = MaterialTheme.colorScheme
     val lineColor = scheme.outlineVariant
     val accent = scheme.primary
@@ -39,7 +39,7 @@ fun ModernSectionSeparator(
         SeparatorLine(
             colors = listOf(
                 lineColor.copy(alpha = 0f),
-                lineColor.copy(alpha = 0.75f)
+                lineColor.copy(alpha = 0.72f)
             ),
             modifier = Modifier.weight(1f)
         )
@@ -49,15 +49,12 @@ fun ModernSectionSeparator(
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(999.dp))
-                .background(accent.copy(alpha = 0.09f))
-                .padding(
-                    horizontal = 12.dp,
-                    vertical = 6.dp
-                ),
+                .background(accent.copy(alpha = 0.08f))
+                .padding(horizontal = 12.dp, vertical = 5.dp),
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = text,
+                text = stringResource(textRes),
                 style = MaterialTheme.typography.labelMedium,
                 color = accent,
                 fontWeight = FontWeight.SemiBold,
@@ -69,7 +66,7 @@ fun ModernSectionSeparator(
 
         SeparatorLine(
             colors = listOf(
-                lineColor.copy(alpha = 0.75f),
+                lineColor.copy(alpha = 0.72f),
                 lineColor.copy(alpha = 0f)
             ),
             modifier = Modifier.weight(1f)
@@ -85,8 +82,6 @@ private fun SeparatorLine(
     Box(
         modifier = modifier
             .height(1.dp)
-            .background(
-                brush = Brush.horizontalGradient(colors)
-            )
+            .background(Brush.horizontalGradient(colors))
     )
 }

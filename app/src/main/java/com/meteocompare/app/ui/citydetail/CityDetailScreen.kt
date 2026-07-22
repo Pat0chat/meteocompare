@@ -437,6 +437,13 @@ private fun LoadedView(
             )
         }
 
+        item("simplified_timeline_${displayMode.name}") {
+            SimplifiedTimelineCard(
+                forecast = forecast,
+                mode = displayMode
+            )
+        }
+
         // Hint "historique en cours de collecte" — visible tant qu'aucun chip
         // n'est disponible sur AUCUNE variable pour AUCUN modèle. Une fois qu'un
         // premier ModelBias non-null émerge (14+ jours d'historique dans Room),

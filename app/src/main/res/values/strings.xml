@@ -68,7 +68,7 @@
 
     <!-- Section titles in city detail -->
     <string name="section_confidence_band">Prévisions inter-modèles</string>
-    <string name="section_temp_table">Températures min / max</string>
+    <string name="section_temp_table">Températures</string>
     <string name="section_temp_hourly">Températures par heure</string>
     <string name="section_precipitation">Précipitations</string>
     <!-- Vent : titres explicites pour clarifier "mean à 10m" (pas rafale). -->
@@ -114,8 +114,6 @@
     <string name="widget_error_loading">Chargement…</string>
     <string name="widget_error_city_gone">Ville\nsupprimée</string>
     <string name="widget_error_fetch">Pas de\ndonnées</string>
-
-    <string name="forecast_tables_section">Prévisions détaillées</string>
 
     <!-- Toggle mode d\'affichage (sous la TodaySummaryCard) -->
     <string name="display_mode_hourly">Par heure</string>
@@ -452,4 +450,10 @@
     <string name="local_ranking_empty_body">Au moins 14 jours d’historique local sont nécessaires pour classer les modèles sur cette variable.</string>
     <string name="local_ranking_method_note">Ce classement est local et pédagogique. Il dépend de la ville, de la variable et de la période réellement disponible ; il ne constitue pas une évaluation officielle des modèles.</string>
     <string name="local_ranking_open_content_description">Ouvrir le classement local des modèles</string>
+
+    <string name="forecast_tables_section">Prévisions détaillées</string>
+    <string name="timeline_title">Vue chronologique</string>
+    <string name="timeline_subtitle_hourly">Consensus des modèles pour les prochaines heures</string>
+    <string name="timeline_subtitle_daily">Consensus des modèles pour les prochains jours</string>
+    <string name="timeline_disagreement_hint">Un point rouge signale un désaccord marqué entre les modèles</string>
 </resources>

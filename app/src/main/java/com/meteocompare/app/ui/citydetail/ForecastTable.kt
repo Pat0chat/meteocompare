@@ -79,13 +79,21 @@ fun ForecastTable(
     val palette = detailTablePalette()
     val today = remember { LocalDate.now() }
     val modelRowHeight = if (modelBiasProvider != null) 56.dp else 40.dp
-    val modelColumnWidth = if (modelBiasProvider != null) 100.dp else 90.dp
-    val temporalHeaderHeight = 44.dp
+    val modelColumnWidth = if (modelBiasProvider != null) 94.dp else 84.dp
+    val temporalHeaderHeight = 40.dp
     val locale = LocalConfiguration.current.locales[0]
     val dayFormatter = remember(locale) { DateTimeFormatter.ofPattern("EEE d", locale) }
 
-    Row(modifier = modifier.fillMaxWidth().detailTableFrame(palette)) {
-        Column(modifier = Modifier.width(modelColumnWidth)) {
+    FrozenDetailTableLayout(
+        modelColumnWidth = modelColumnWidth,
+        temporalColumnWidth = cellWidth,
+        temporalColumnCount = dates.size,
+        headerHeight = temporalHeaderHeight,
+        rowHeight = modelRowHeight,
+        rowCount = models.size,
+        palette = palette,
+        modifier = modifier,
+        cornerHeader = {
             CornerHeaderCell(
                 text = stringResource(R.string.detail_table_model_header),
                 width = modelColumnWidth,
@@ -93,6 +101,21 @@ fun ForecastTable(
                 background = palette.frozenHeaderSurface,
                 palette = palette
             )
+        },
+        temporalHeaders = {
+            dates.forEachIndexed { dateIndex, date ->
+                val isToday = date == today
+                TemporalHeaderCell(
+                    text = date.format(dayFormatter).replaceFirstChar { it.uppercase() },
+                    width = cellWidth,
+                    height = temporalHeaderHeight,
+                    background = palette.labelRowBackground(dateIndex, isToday),
+                    highlighted = isToday,
+                    palette = palette
+                )
+            }
+        },
+        modelRows = {
             models.forEachIndexed { modelIndex, model ->
                 val bias = modelBiasProvider?.invoke(model)
                 val sampleCount = sampleCountProvider?.invoke(model)
@@ -111,25 +134,11 @@ fun ForecastTable(
                     sampleCount = sampleCount
                 )
             }
-        }
-
-        VerticalDivider(
-            modifier = Modifier.height((temporalHeaderHeight.value + modelRowHeight.value * models.size).dp),
-            color = palette.frozenDivider
-        )
-
-        Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
+        },
+        temporalColumns = {
             dates.forEachIndexed { dateIndex, date ->
                 val isToday = date == today
                 Column(modifier = Modifier.width(cellWidth)) {
-                    TemporalHeaderCell(
-                        text = date.format(dayFormatter).replaceFirstChar { it.uppercase() },
-                        width = cellWidth,
-                        height = temporalHeaderHeight,
-                        background = palette.labelRowBackground(dateIndex, isToday),
-                        highlighted = isToday,
-                        palette = palette
-                    )
                     models.forEachIndexed { modelIndex, model ->
                         val value = valueAt(forecast, model, date, valueExtractor)
                         val direction = directionExtractor?.let {
@@ -147,7 +156,7 @@ fun ForecastTable(
                 }
             }
         }
-    }
+    )
 }
 
 @Composable
@@ -165,8 +174,9 @@ private fun CornerHeaderCell(
     ) {
         Text(
             text = text,
-            style = MaterialTheme.typography.labelMedium,
+            style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1
         )
     }
@@ -195,8 +205,9 @@ private fun ModelRowHeaderCell(
     ) {
         Text(
             text = model.displayName,
-            style = MaterialTheme.typography.labelMedium,
+            style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
         )
@@ -223,8 +234,8 @@ private fun TemporalHeaderCell(
     ) {
         Text(
             text = text,
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = if (highlighted) FontWeight.Bold else FontWeight.SemiBold,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = if (highlighted) FontWeight.Bold else FontWeight.Medium,
             color = if (highlighted) palette.highlightedText else MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center,
             maxLines = 1
