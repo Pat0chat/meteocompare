@@ -295,6 +295,7 @@ Fait :
 - ✅ v1.1 — Refonte des widgets, ajout des icônes partagées, optimisation globale de l'application, correction de bugs
 - ✅ v1.2 — Amélioration des widgets, refonte des tableaux (thème et trie), couleurs de modèles par famille, optimisation énergétique (worker, requête, etc.), correction de bugs
 - ✅ v1.3 — Amélioration des widgets, amélioration visuelle de la page details, ajout du classement des modèles par localité, refonde de la page de biais, correction de bugs
+- ✅ v1.4 — Améliorations des tableaux, ajout d'une timeline, ajout des sections retractables, correction de bugs
 
 À venir :
 
