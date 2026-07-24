@@ -1,7 +1,6 @@
 package com.meteocompare.app.ui.citydetail
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -12,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -49,7 +49,6 @@ internal data class DetailTablePalette(
     val frozenHeaderSurface: Color,
     val highlightedSurface: Color,
     val highlightedFrozenSurface: Color,
-    val border: Color,
     val rowDivider: Color,
     val frozenDivider: Color,
     val highlightedText: Color
@@ -75,7 +74,6 @@ internal fun detailTablePalette(): DetailTablePalette {
         highlightedSurface = scheme.primary.copy(alpha = 0.13f).compositeOver(tableSurface),
         highlightedFrozenSurface = scheme.primary.copy(alpha = 0.18f)
             .compositeOver(frozenSurface),
-        border = scheme.outlineVariant.copy(alpha = 0.78f),
         rowDivider = scheme.outlineVariant.copy(alpha = 0.38f),
         frozenDivider = scheme.outline.copy(alpha = 0.42f),
         highlightedText = scheme.primary
@@ -125,6 +123,9 @@ internal fun FrozenDetailTableLayout(
 
     val horizontalState = rememberScrollState()
     val verticalState = rememberScrollState()
+    // L'en-tete n'est pas mesure dans un conteneur horizontalement scrollable.
+    // `requiredWidth` empeche donc Compose de le ramener a la largeur du viewport
+    // et conserve toutes les cellules de jours/heures hors ecran.
     val temporalContentWidth = (temporalColumnWidth.value * temporalColumnCount).dp
     val bodyContentHeight = (rowHeight.value * rowCount).dp
     val bodyViewportHeight = minOf(
@@ -159,7 +160,11 @@ internal fun FrozenDetailTableLayout(
             ) {
                 Row(
                     modifier = Modifier
-                        .width(temporalContentWidth)
+                        // Le corps est mesure avec une largeur horizontale non bornee,
+                        // alors que l'en-tete est place dans le viewport visible.
+                        // Forcer sa largeur reelle garantit que les colonnes situees
+                        // apres le premier ecran restent dessinees pendant le scroll.
+                        .requiredWidth(temporalContentWidth)
                         .offset { IntOffset(-horizontalState.value, 0) }
                 ) {
                     temporalHeaders()
@@ -205,7 +210,6 @@ internal fun FrozenDetailTableLayout(
 internal fun Modifier.detailTableFrame(palette: DetailTablePalette): Modifier =
     clip(DetailTableShape)
         .background(palette.tableSurface)
-        //.border(1.dp, palette.border, DetailTableShape)
 
 /**
  * Fond et séparateur horizontal communs à toutes les cellules.

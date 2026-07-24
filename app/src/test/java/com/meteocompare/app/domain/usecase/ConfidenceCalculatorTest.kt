@@ -7,6 +7,7 @@ import com.meteocompare.app.domain.model.DailyForecast
 import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.HourlyForecast
 import com.meteocompare.app.domain.model.PrecipitationConfidence
+import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -608,7 +609,7 @@ class ConfidenceCalculatorTest {
             )
         )
 
-        assertEquals(65, calculator.currentCloudCover(forecast))
+        assertEquals(65, calculator.currentCloudCover(forecast, now))
     }
 
     @Test
@@ -625,7 +626,7 @@ class ConfidenceCalculatorTest {
             )
         )
 
-        assertNull(calculator.currentCloudCover(forecast))
+        assertNull(calculator.currentCloudCover(forecast, now))
     }
 
     @Test
@@ -645,7 +646,7 @@ class ConfidenceCalculatorTest {
         )
 
         // (60 + 80) / 2 = 70, PAS (60 + 0 + 80) / 3 = 46.67
-        assertEquals(70, calculator.currentCloudCover(forecast))
+        assertEquals(70, calculator.currentCloudCover(forecast, now))
     }
 
     // ──────────────────── Vitesse du vent "maintenant" ────────────────────
@@ -663,7 +664,7 @@ class ConfidenceCalculatorTest {
             )
         )
 
-        assertEquals(15.0, calculator.currentWindSpeed(forecast)!!, 0.001)
+        assertEquals(15.0, calculator.currentWindSpeed(forecast, now)!!, 0.001)
     }
 
     @Test
@@ -680,7 +681,7 @@ class ConfidenceCalculatorTest {
             )
         )
 
-        assertNull(calculator.currentWindSpeed(forecast))
+        assertNull(calculator.currentWindSpeed(forecast, now))
     }
 
     @Test
@@ -699,8 +700,72 @@ class ConfidenceCalculatorTest {
         )
 
         // (12 + 18) / 2 = 15.0, PAS (12 + 0 + 18) / 3 = 10.0
-        assertEquals(15.0, calculator.currentWindSpeed(forecast)!!, 0.001)
+        assertEquals(15.0, calculator.currentWindSpeed(forecast, now)!!, 0.001)
     }
+
+    @Test
+    fun `current values reject an hourly cache that is too old`() {
+        val now = java.time.Instant.parse("2026-07-23T10:00:00Z")
+        val staleTimestamp = now.minusSeconds(5 * 24 * 60 * 60L)
+        val forecast = CityForecast(
+            city = paris,
+            seriesByModel = mapOf(
+                WeatherModel.GFS to hourlyOnlyCurrentSnapshot(
+                    timestamp = staleTimestamp,
+                    temperature = 18.0,
+                    weatherCode = 0,
+                    cloudCover = 10,
+                    windKmh = 12.0
+                )
+            )
+        )
+
+        assertNull(calculator.currentTemperature(forecast, now))
+        assertNull(calculator.currentWeatherCondition(forecast, now))
+        assertNull(calculator.currentCloudCover(forecast, now))
+        assertNull(calculator.currentWindSpeed(forecast, now))
+    }
+
+    @Test
+    fun `current values accept a recent hourly sample`() {
+        val now = java.time.Instant.parse("2026-07-23T10:00:00Z")
+        val forecast = CityForecast(
+            city = paris,
+            seriesByModel = mapOf(
+                WeatherModel.GFS to hourlyOnlyCurrentSnapshot(
+                    timestamp = now.minusSeconds(30 * 60L),
+                    temperature = 18.0,
+                    weatherCode = 61,
+                    cloudCover = 70,
+                    windKmh = 12.0
+                )
+            )
+        )
+
+        assertEquals(18.0, calculator.currentTemperature(forecast, now)!!, 0.001)
+        assertEquals(WeatherCondition.RAIN, calculator.currentWeatherCondition(forecast, now))
+        assertEquals(70, calculator.currentCloudCover(forecast, now))
+        assertEquals(12.0, calculator.currentWindSpeed(forecast, now)!!, 0.001)
+    }
+
+    private fun hourlyOnlyCurrentSnapshot(
+        timestamp: java.time.Instant,
+        temperature: Double,
+        weatherCode: Int,
+        cloudCover: Int,
+        windKmh: Double
+    ): ForecastSeries = ForecastSeries(
+        model = WeatherModel.GFS,
+        hourly = HourlyForecast(
+            timestamps = listOf(timestamp),
+            temperature2m = listOf(temperature),
+            precipitation = listOf(if (weatherCode in 51..99) 1.0 else 0.0),
+            windSpeed10m = listOf(windKmh),
+            weatherCode = listOf(weatherCode),
+            cloudCover = listOf(cloudCover)
+        ),
+        daily = emptyDaily()
+    )
 
     /**
      * Variante de [hourlyOnly] paramétrée sur windSpeed10m. Les autres variables

@@ -1,9 +1,8 @@
 package com.meteocompare.app.ui.citydetail
 
-import androidx.compose.foundation.border
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -20,15 +19,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Air
-import androidx.compose.material.icons.outlined.Thermostat
-import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -41,7 +34,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
@@ -53,7 +45,6 @@ import com.meteocompare.app.domain.model.BiasVariable
 import com.meteocompare.app.domain.model.ModelReliability
 import com.meteocompare.app.domain.model.ReliabilityLevel
 import com.meteocompare.app.domain.model.WeatherModel
-import com.meteocompare.app.ui.components.CollapsibleSectionHeader
 import com.meteocompare.app.ui.components.ModernTextTabs
 import com.meteocompare.app.ui.theme.confidenceColor
 import com.meteocompare.app.ui.theme.precipitationMetricAccent
@@ -61,142 +52,7 @@ import com.meteocompare.app.ui.theme.temperatureMetricAccent
 import com.meteocompare.app.ui.theme.windMetricAccent
 import kotlin.math.abs
 
-internal const val TAG_LOCAL_RANKING_CARD = "local-ranking-card"
-internal const val TAG_LOCAL_RANKING_HEADER = "local-ranking-header"
 internal const val TAG_LOCAL_RANKING_SHEET = "local-ranking-sheet"
-
-/**
- * Carte compacte placée dans la fiche ville. Elle expose immédiatement le
- * meilleur modèle local pour température, pluie et vent, sans obliger à ouvrir
- * un tableau détaillé. Chaque ligne ouvre la sheet sur la variable concernée.
- */
-@Composable
-internal fun LocalModelRankingSummaryCard(
-    rankings: LocalModelRankings,
-    onOpenRanking: (BiasVariable) -> Unit,
-    modifier: Modifier = Modifier,
-    expanded: Boolean = true,
-    onExpandedChange: (Boolean) -> Unit = {}
-) {
-    if (!rankings.hasAnyRanking) return
-
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .testTag(TAG_LOCAL_RANKING_CARD),
-        shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-        )
-    ) {
-        Column(modifier = Modifier.padding(vertical = 7.dp)) {
-            CollapsibleSectionHeader(
-                text = stringResource(R.string.local_ranking_summary_title),
-                subtitle = stringResource(R.string.local_ranking_summary_subtitle),
-                expanded = expanded,
-                onToggle = { onExpandedChange(!expanded) },
-                modifier = Modifier
-                    .padding(horizontal = 2.dp)
-                    .testTag(TAG_LOCAL_RANKING_HEADER),
-                trailingContent = {
-                    TextButton(onClick = { onOpenRanking(rankings.firstAvailableVariable) }) {
-                        Text(stringResource(R.string.local_ranking_view_all))
-                    }
-                }
-            )
-
-            if (expanded) {
-                Spacer(Modifier.height(3.dp))
-                RankingWinnerRow(
-                    ranking = rankings.temperature,
-                    accent = temperatureMetricAccent(),
-                    onClick = { onOpenRanking(BiasVariable.TEMPERATURE) }
-                )
-                RankingWinnerRow(
-                    ranking = rankings.precipitation,
-                    accent = precipitationMetricAccent(),
-                    onClick = { onOpenRanking(BiasVariable.PRECIPITATION) }
-                )
-                RankingWinnerRow(
-                    ranking = rankings.wind,
-                    accent = windMetricAccent(),
-                    onClick = { onOpenRanking(BiasVariable.WIND_SPEED) }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun RankingWinnerRow(
-    ranking: LocalVariableRanking,
-    accent: Color,
-    onClick: () -> Unit
-) {
-    val winner = ranking.winner
-    val enabled = winner != null
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        RankingMetricVisual(
-            variable = ranking.variable,
-            accent = accent
-        )
-        Spacer(Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = stringResource(variableLabelResId(ranking.variable)),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = winner?.model?.displayName
-                    ?: stringResource(R.string.local_ranking_not_available),
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-        if (winner != null) {
-            RankingScoreBadge(score = winner.reliability.score)
-        }
-    }
-}
-
-@Composable
-private fun RankingMetricVisual(
-    variable: BiasVariable,
-    accent: Color
-) {
-    Box(
-        modifier = Modifier
-            .size(42.dp)
-            .clip(RoundedCornerShape(15.dp))
-            .background(accent.copy(alpha = 0.13f)),
-        contentAlignment = Alignment.Center
-    ) {
-        Box(
-            modifier = Modifier
-                .size(30.dp)
-                .clip(RoundedCornerShape(11.dp))
-                .background(accent.copy(alpha = 0.10f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = variableIcon(variable),
-                contentDescription = stringResource(variableLabelResId(variable)),
-                tint = accent,
-                modifier = Modifier.size(21.dp)
-            )
-        }
-    }
-}
 
 /** Grand sheet de classement local, avec un onglet par variable. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -487,18 +343,6 @@ private fun rankingVariableAccent(variable: BiasVariable): Color = when (variabl
     BiasVariable.TEMPERATURE -> temperatureMetricAccent()
     BiasVariable.PRECIPITATION -> precipitationMetricAccent()
     BiasVariable.WIND_SPEED -> windMetricAccent()
-}
-
-private fun variableIcon(variable: BiasVariable): ImageVector = when (variable) {
-    BiasVariable.TEMPERATURE -> Icons.Outlined.Thermostat
-    BiasVariable.PRECIPITATION -> Icons.Outlined.WaterDrop
-    BiasVariable.WIND_SPEED -> Icons.Outlined.Air
-}
-
-private fun variableLabelResId(variable: BiasVariable): Int = when (variable) {
-    BiasVariable.TEMPERATURE -> R.string.local_ranking_temperature
-    BiasVariable.PRECIPITATION -> R.string.local_ranking_precipitation
-    BiasVariable.WIND_SPEED -> R.string.local_ranking_wind
 }
 
 private fun variableShortLabelResId(variable: BiasVariable): Int = when (variable) {

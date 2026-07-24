@@ -7,6 +7,8 @@ import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.core.network.NetworkMonitor
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityDetailSection
+import com.meteocompare.app.domain.model.CityDetailContentTab
+import com.meteocompare.app.domain.model.CityDetailViewMode
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DailyForecast
 import com.meteocompare.app.domain.model.ForecastSeries
@@ -66,6 +68,8 @@ class CityDetailViewModelTest {
     private val modelsFlow = MutableStateFlow(WeatherModel.MVP_SELECTION)
     private val refreshIntervalFlow = MutableStateFlow(RefreshInterval.DEFAULT)
     private val collapsedSectionsFlow = MutableStateFlow<Set<CityDetailSection>>(emptySet())
+    private val detailViewModeFlow = MutableStateFlow(CityDetailViewMode.DEFAULT)
+    private val detailContentTabFlow = MutableStateFlow(CityDetailContentTab.DEFAULT)
     private val forecastUpdates = MutableSharedFlow<CityForecast>(extraBufferCapacity = 4)
     private val onlineFlow = MutableStateFlow(true)
 
@@ -91,6 +95,8 @@ class CityDetailViewModelTest {
         // donc maxCacheAgeMs = 3600000 — les tests fonctionnent avec cette valeur).
         coEvery { observeRefreshInterval() } returns refreshIntervalFlow
         every { observeCollapsedCityDetailSections(any()) } returns collapsedSectionsFlow
+        every { observeCityDetailViewMode(any()) } returns detailViewModeFlow
+        every { observeCityDetailContentTab(any()) } returns detailContentTabFlow
     }
 
     // Context : on stub getString pour retourner des strings prévisibles.
@@ -130,6 +136,8 @@ class CityDetailViewModelTest {
         modelsFlow.value = WeatherModel.MVP_SELECTION
         refreshIntervalFlow.value = RefreshInterval.DEFAULT
         collapsedSectionsFlow.value = emptySet()
+        detailViewModeFlow.value = CityDetailViewMode.DEFAULT
+        detailContentTabFlow.value = CityDetailContentTab.DEFAULT
         onlineFlow.value = true
         // Par défaut, stream forecast ne fait rien (jamais terminé)
         coEvery {
@@ -194,6 +202,33 @@ class CityDetailViewModelTest {
                     section = CityDetailSection.PRECIPITATION,
                     collapsed = false
                 )
+            }
+        }
+
+
+    @Test
+    fun `detail preferences - expose et persiste le mode et l onglet`() =
+        runTest(dispatcher) {
+            val vm = buildViewModel()
+
+            vm.detailViewMode.test {
+                assertEquals(CityDetailViewMode.DAILY, awaitItem())
+                detailViewModeFlow.value = CityDetailViewMode.HOURLY
+                assertEquals(CityDetailViewMode.HOURLY, awaitItem())
+            }
+
+            vm.detailContentTab.test {
+                assertEquals(CityDetailContentTab.CONDITIONS, awaitItem())
+                detailContentTabFlow.value = CityDetailContentTab.WIND
+                assertEquals(CityDetailContentTab.WIND, awaitItem())
+            }
+
+            vm.setDetailViewMode(CityDetailViewMode.HOURLY)
+            coVerify { prefs.setCityDetailViewMode("1", CityDetailViewMode.HOURLY) }
+
+            vm.setDetailContentTab(CityDetailContentTab.PRECIPITATION)
+            coVerify {
+                prefs.setCityDetailContentTab("1", CityDetailContentTab.PRECIPITATION)
             }
         }
 
@@ -335,7 +370,7 @@ class CityDetailViewModelTest {
                     updated = awaitItem()
                 }
 
-                val loaded = updated
+                val loaded = updated as CityDetailUiState.Loaded
                 assertEquals(fetchedAt, loaded.fetchedAt)
                 assertEquals(31.0, loaded.currentTemp ?: Double.NaN, 0.001)
             }
@@ -376,7 +411,7 @@ class CityDetailViewModelTest {
                 while ((updated as? CityDetailUiState.Loaded)?.fetchedAt != refreshedAt) {
                     updated = awaitItem()
                 }
-                assertEquals(refreshedAt, (updated).fetchedAt)
+                assertEquals(refreshedAt, (updated as CityDetailUiState.Loaded).fetchedAt)
             }
 
             coVerify(exactly = 1) {

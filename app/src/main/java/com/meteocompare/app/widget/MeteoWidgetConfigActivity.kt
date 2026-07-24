@@ -663,24 +663,6 @@ private fun ConfidenceModeRow(
 }
 
 @Composable
-private fun ConfidenceMetricChip(label: String) {
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(MaterialTheme.colorScheme.secondaryContainer)
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSecondaryContainer,
-            fontWeight = FontWeight.Medium
-        )
-    }
-}
-
-@Composable
 private fun CityRow(city: City, selected: Boolean, onClick: () -> Unit) {
     Row(
         modifier = Modifier

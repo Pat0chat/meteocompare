@@ -18,8 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Air
 import androidx.compose.material.icons.outlined.WaterDrop
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -33,12 +32,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.meteocompare.app.R
-import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.ui.components.WeatherIconDecorative
 import com.meteocompare.app.ui.components.semanticTint
 import com.meteocompare.app.ui.theme.precipitationMetricAccent
 import com.meteocompare.app.ui.theme.windMetricAccent
-import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
 
@@ -50,34 +47,28 @@ import kotlin.math.roundToInt
  */
 @Composable
 internal fun SimplifiedTimelineCard(
-    forecast: CityForecast,
+    points: List<SimplifiedTimelinePoint>,
     mode: DisplayMode,
+    timezone: String?,
     modifier: Modifier = Modifier
 ) {
-    val points = remember(forecast, mode) {
-        buildSimplifiedTimeline(forecast, mode)
-    }
     if (points.isEmpty()) return
 
     val locale = LocalConfiguration.current.locales[0]
-    val zone = remember(forecast.city.timezone) {
-        runCatching { ZoneId.of(forecast.city.timezone ?: "UTC") }
-            .getOrDefault(ZoneId.of("UTC"))
-    }
+    val zone = remember(timezone) { resolveCityZone(timezone) }
     val hourFormatter = remember(locale) { DateTimeFormatter.ofPattern("HH'h'", locale) }
     val dayFormatter = remember(locale) { DateTimeFormatter.ofPattern("EEE d", locale) }
     val precipitationAccent = precipitationMetricAccent()
     val windAccent = windMetricAccent()
 
-    Card(
+    Surface(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.55f),
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp
     ) {
         Column(modifier = Modifier.padding(vertical = 14.dp)) {
             Column(modifier = Modifier.padding(horizontal = 16.dp)) {
@@ -221,7 +212,17 @@ private fun TimelinePointCard(
 
         TimelineMetric(
             icon = Icons.Outlined.WaterDrop,
-            value = point.precipitationPercent?.let { "$it%" } ?: "—",
+            value = when (point.precipitationSource) {
+                PrecipitationSignalSource.MODEL_PROBABILITY ->
+                    point.precipitationPercent?.let { "$it%" } ?: "—"
+                PrecipitationSignalSource.MODEL_AGREEMENT ->
+                    if (point.precipitationModelCount >= 2) {
+                        "${point.wetModelCount}/${point.precipitationModelCount}"
+                    } else {
+                        "—"
+                    }
+                null -> "—"
+            },
             tint = precipitationAccent
         )
         Spacer(Modifier.height(2.dp))

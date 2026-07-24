@@ -11,6 +11,8 @@ import com.meteocompare.app.domain.model.BiasSample
 import com.meteocompare.app.domain.model.BiasVariable
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityDetailSection
+import com.meteocompare.app.domain.model.CityDetailContentTab
+import com.meteocompare.app.domain.model.CityDetailViewMode
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DayNormals
 import com.meteocompare.app.domain.model.ModelBias
@@ -52,6 +54,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import java.time.Instant
 import javax.inject.Inject
 
 /**
@@ -147,6 +150,24 @@ class CityDetailViewModel @Inject constructor(
                 scope = viewModelScope,
                 started = SharingStarted.Eagerly,
                 initialValue = emptySet()
+            )
+
+    /** Dernier mode horaire/journalier choisi pour cette ville. */
+    val detailViewMode: StateFlow<CityDetailViewMode> =
+        userPreferences.observeCityDetailViewMode(cityId)
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.Eagerly,
+                initialValue = CityDetailViewMode.DEFAULT
+            )
+
+    /** Dernier onglet de comparaison détaillée choisi pour cette ville. */
+    val detailContentTab: StateFlow<CityDetailContentTab> =
+        userPreferences.observeCityDetailContentTab(cityId)
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.Eagerly,
+                initialValue = CityDetailContentTab.DEFAULT
             )
 
     init {
@@ -326,6 +347,18 @@ class CityDetailViewModel @Inject constructor(
         }
     }
 
+    fun setDetailViewMode(mode: CityDetailViewMode) {
+        viewModelScope.launch {
+            userPreferences.setCityDetailViewMode(cityId, mode)
+        }
+    }
+
+    fun setDetailContentTab(tab: CityDetailContentTab) {
+        viewModelScope.launch {
+            userPreferences.setCityDetailContentTab(cityId, tab)
+        }
+    }
+
     /**
      * Pull-to-refresh OU bouton refresh : force le réseau.
      *
@@ -405,12 +438,13 @@ class CityDetailViewModel @Inject constructor(
 
         val next = when (result) {
             is ApiResult.Success -> withContext(computationDispatcher) {
+                val calculationNow = Instant.now()
                 val weekly = confidenceCalculator.weeklyConfidence(result.data)
                 val hourly = confidenceCalculator.hourlyTemperatureConfidence(result.data)
                 val hourlyPrecip = confidenceCalculator.hourlyPrecipitationConfidence(result.data)
                 val hourlyWind = confidenceCalculator.hourlyWindConfidence(result.data)
-                val currentTemp = confidenceCalculator.currentTemperature(result.data)
-                val currentCondition = confidenceCalculator.currentWeatherCondition(result.data)
+                val currentTemp = confidenceCalculator.currentTemperature(result.data, calculationNow)
+                val currentCondition = confidenceCalculator.currentWeatherCondition(result.data, calculationNow)
                 val dailyConditions = confidenceCalculator.dailyConditionsByModel(result.data)
                 CityDetailUiState.Loaded(
                     forecast = result.data,
@@ -420,7 +454,7 @@ class CityDetailViewModel @Inject constructor(
                     hourlyWindBands = hourlyWind,
                     currentTemp = currentTemp,
                     currentCondition = currentCondition,
-                    currentCloudCover = confidenceCalculator.currentCloudCover(result.data),
+                    currentCloudCover = confidenceCalculator.currentCloudCover(result.data, calculationNow),
                     dailyConditions = dailyConditions,
                     normals = loadedNormals,
                     fetchedAt = result.data.fetchedAt

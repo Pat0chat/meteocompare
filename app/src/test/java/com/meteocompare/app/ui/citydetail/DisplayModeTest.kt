@@ -45,6 +45,13 @@ class DisplayModeTest {
     }
 
     @Test
+    fun `resolveCityZone falls back to UTC for invalid timezone`() {
+        assertEquals("UTC", resolveCityZone("not/a-timezone").id)
+        assertEquals("UTC", resolveCityZone(null).id)
+        assertEquals("Europe/Paris", resolveCityZone("Europe/Paris").id)
+    }
+
+    @Test
     fun `save uses name and not ordinal so reordering the enum stays safe`() {
         // Régression : si un jour on réordonne l'enum (HOURLY et DAILY swappés),
         // les bundles existants doivent continuer à restaurer la bonne valeur.

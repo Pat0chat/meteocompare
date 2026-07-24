@@ -1,0 +1,235 @@
+package com.meteocompare.app.ui.citydetail
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Air
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Thermostat
+import androidx.compose.material.icons.outlined.WaterDrop
+import androidx.compose.material.icons.outlined.WarningAmber
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import com.meteocompare.app.R
+import com.meteocompare.app.ui.theme.precipitationMetricAccent
+import com.meteocompare.app.ui.theme.temperatureMetricAccent
+import com.meteocompare.app.ui.theme.windMetricAccent
+import java.time.format.DateTimeFormatter
+
+@Composable
+internal fun ForecastInsightsSection(
+    insights: List<ForecastInsight>,
+    timezone: String?,
+    modifier: Modifier = Modifier
+) {
+    if (insights.isEmpty()) return
+
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(11.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.forecast_insights_title),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            insights.forEach { insight ->
+                ForecastInsightRow(insight = insight, timezone = timezone)
+            }
+        }
+    }
+}
+
+@Composable
+internal fun ForecastInsightInline(
+    insight: ForecastInsight,
+    timezone: String?,
+    modifier: Modifier = Modifier,
+    contentColor: Color = MaterialTheme.colorScheme.onSurfaceVariant
+) {
+    val visual = insightVisual(insight.kind)
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = visual.icon,
+            contentDescription = null,
+            tint = visual.color,
+            modifier = Modifier.size(17.dp)
+        )
+        Spacer(Modifier.width(7.dp))
+        Text(
+            text = forecastInsightText(insight, timezone),
+            style = MaterialTheme.typography.bodySmall,
+            color = contentColor,
+            maxLines = 2
+        )
+    }
+}
+
+@Composable
+private fun ForecastInsightRow(
+    insight: ForecastInsight,
+    timezone: String?
+) {
+    val visual = insightVisual(insight.kind)
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(34.dp)
+                .background(visual.color.copy(alpha = 0.11f), RoundedCornerShape(12.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = visual.icon,
+                contentDescription = null,
+                tint = visual.color,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+        Spacer(Modifier.width(11.dp))
+        Text(
+            text = forecastInsightText(insight, timezone),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+private data class InsightVisual(
+    val icon: ImageVector,
+    val color: Color
+)
+
+@Composable
+private fun insightVisual(kind: ForecastInsightKind): InsightVisual = when (kind) {
+    ForecastInsightKind.HIGH_AGREEMENT -> InsightVisual(
+        Icons.Outlined.CheckCircle,
+        MaterialTheme.colorScheme.primary
+    )
+    ForecastInsightKind.DISAGREEMENT -> InsightVisual(
+        Icons.Outlined.WarningAmber,
+        MaterialTheme.colorScheme.error
+    )
+    ForecastInsightKind.RAIN_LIKELY,
+    ForecastInsightKind.RAIN_UNCERTAIN -> InsightVisual(
+        Icons.Outlined.WaterDrop,
+        precipitationMetricAccent()
+    )
+    ForecastInsightKind.WIND_RISING -> InsightVisual(
+        Icons.Outlined.Air,
+        windMetricAccent()
+    )
+    ForecastInsightKind.TEMPERATURE_CHANGE -> InsightVisual(
+        Icons.Outlined.Thermostat,
+        temperatureMetricAccent()
+    )
+}
+
+@Composable
+private fun forecastInsightText(
+    insight: ForecastInsight,
+    timezone: String?
+): String {
+    val whenLabel = forecastPointLabel(insight.point, timezone)
+    return when (insight.kind) {
+        ForecastInsightKind.HIGH_AGREEMENT ->
+            stringResource(R.string.forecast_insight_high_agreement, whenLabel)
+        ForecastInsightKind.DISAGREEMENT ->
+            stringResource(R.string.forecast_insight_disagreement, whenLabel)
+        ForecastInsightKind.RAIN_LIKELY ->
+            when (insight.precipitationSource) {
+                PrecipitationSignalSource.MODEL_AGREEMENT -> stringResource(
+                    R.string.forecast_insight_rain_models_likely,
+                    insight.value ?: 0,
+                    insight.secondaryValue ?: 0,
+                    whenLabel
+                )
+                else -> stringResource(
+                    R.string.forecast_insight_rain_likely,
+                    insight.value ?: 0,
+                    whenLabel
+                )
+            }
+        ForecastInsightKind.RAIN_UNCERTAIN ->
+            when (insight.precipitationSource) {
+                PrecipitationSignalSource.MODEL_AGREEMENT -> stringResource(
+                    R.string.forecast_insight_rain_models_split,
+                    insight.value ?: 0,
+                    insight.secondaryValue ?: 0,
+                    whenLabel
+                )
+                else -> stringResource(
+                    R.string.forecast_insight_rain_uncertain,
+                    insight.value ?: 0,
+                    whenLabel
+                )
+            }
+        ForecastInsightKind.WIND_RISING ->
+            stringResource(
+                R.string.forecast_insight_wind_rising,
+                insight.secondaryValue ?: insight.value ?: 0,
+                whenLabel
+            )
+        ForecastInsightKind.TEMPERATURE_CHANGE -> {
+            val delta = insight.value ?: 0
+            if (delta >= 0) {
+                stringResource(R.string.forecast_insight_temperature_rising, delta, whenLabel)
+            } else {
+                stringResource(R.string.forecast_insight_temperature_falling, -delta, whenLabel)
+            }
+        }
+    }
+}
+
+@Composable
+private fun forecastPointLabel(
+    point: SimplifiedTimelinePoint?,
+    timezone: String?
+): String {
+    if (point == null) return stringResource(R.string.forecast_insight_soon)
+    val locale = LocalConfiguration.current.locales[0]
+    val zone = remember(timezone) { resolveCityZone(timezone) }
+    val hourFormatter = remember(locale) { DateTimeFormatter.ofPattern("HH'h'", locale) }
+    val dayFormatter = remember(locale) { DateTimeFormatter.ofPattern("EEEE", locale) }
+
+    return when {
+        point.instant != null -> point.instant.atZone(zone).format(hourFormatter)
+        point.date != null -> point.date.format(dayFormatter).replaceFirstChar { it.uppercase() }
+        else -> stringResource(R.string.forecast_insight_soon)
+    }
+}

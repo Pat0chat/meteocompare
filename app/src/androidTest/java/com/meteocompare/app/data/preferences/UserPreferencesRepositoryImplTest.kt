@@ -3,6 +3,8 @@ package com.meteocompare.app.data.preferences
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.meteocompare.app.domain.model.CityDetailSection
+import com.meteocompare.app.domain.model.CityDetailContentTab
+import com.meteocompare.app.domain.model.CityDetailViewMode
 import com.meteocompare.app.domain.model.LanguagePreference
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.ThemePreference
@@ -31,6 +33,8 @@ class UserPreferencesRepositoryImplTest {
                 CityDetailSection.entries.forEach { section ->
                     repository.setCityDetailSectionCollapsed(cityId, section, collapsed = false)
                 }
+                repository.setCityDetailViewMode(cityId, CityDetailViewMode.DEFAULT)
+                repository.setCityDetailContentTab(cityId, CityDetailContentTab.DEFAULT)
             }
         }
     }
@@ -103,4 +107,35 @@ class UserPreferencesRepositoryImplTest {
             repository.observeCollapsedCityDetailSections("paris").first()
         )
     }
+    @Test
+    fun city_detail_view_choices_round_trip_and_remain_city_specific() = runTest {
+        repository.setCityDetailViewMode("paris", CityDetailViewMode.HOURLY)
+        repository.setCityDetailContentTab("paris", CityDetailContentTab.PRECIPITATION)
+        repository.setCityDetailViewMode("lyon", CityDetailViewMode.DAILY)
+        repository.setCityDetailContentTab("lyon", CityDetailContentTab.WIND)
+
+        assertEquals(
+            CityDetailViewMode.HOURLY,
+            repository.observeCityDetailViewMode("paris").first()
+        )
+        assertEquals(
+            CityDetailContentTab.PRECIPITATION,
+            repository.observeCityDetailContentTab("paris").first()
+        )
+        assertEquals(
+            CityDetailViewMode.DAILY,
+            repository.observeCityDetailViewMode("lyon").first()
+        )
+        assertEquals(
+            CityDetailContentTab.WIND,
+            repository.observeCityDetailContentTab("lyon").first()
+        )
+
+        val recreatedRepository = UserPreferencesRepositoryImpl(context, Dispatchers.IO)
+        assertEquals(
+            CityDetailContentTab.PRECIPITATION,
+            recreatedRepository.observeCityDetailContentTab("paris").first()
+        )
+    }
+
 }

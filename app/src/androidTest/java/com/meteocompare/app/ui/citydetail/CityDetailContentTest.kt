@@ -150,7 +150,7 @@ class CityDetailContentTest {
         }
 
         composeRule
-            .onNodeWithText(context.getString(R.string.section_confidence_band))
+            .onNodeWithText(context.getString(R.string.local_reliability_title))
             .performScrollTo()
             .performClick()
 

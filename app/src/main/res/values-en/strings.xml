@@ -66,15 +66,6 @@
     <string name="models_unavailable">Models unavailable</string>
     <string name="no_daily_data">No daily data</string>
 
-    <!-- Section titles in city detail -->
-    <string name="section_confidence_band">Inter-model forecast</string>
-    <string name="section_temp_table">Temperatures</string>
-    <string name="section_temp_hourly">Temperatures</string>
-    <string name="section_precipitation">Precipitation</string>
-    <string name="section_wind">10m mean wind</string>
-    <string name="section_wind_hourly">10m mean wind</string>
-    <string name="section_weather_by_model">Weather</string>
-
     <!-- 3-state selector above the confidence band (Temp / Precip / Wind) -->
     <string name="metric_temperature">Temperature</string>
     <string name="metric_precipitation">Precipitation</string>
@@ -94,8 +85,6 @@
     <!-- Extra widget 4×2 forecast modes -->
     <string name="widget_config_forecast_mode_conf_all">Model confidence</string>
     <string name="widget_config_forecast_mode_conf_all_note">Shows temperature and rain confidence bands together over the same days.</string>
-    <string name="widget_confidence_combined_title">Model agreement</string>
-    <string name="widget_confidence_combined_hint" formatted="false">5 days · agreement %</string>
     <!-- Time anchors shown under the widget 4x2 confidence strip -->
     <string name="widget_confidence_now_short">Now</string>
 
@@ -192,7 +181,6 @@
     <string name="donations_dialog_body">MeteoCompare is free with zero data collection, no analytics, no tracking, no ads. If you\'d like to support development:</string>
     <string name="donations_dialog_disclaimer">No privileges are granted to donors. The source code and the app stay identical for everyone.</string>
     <string name="donations_liberapay_desc">Periodic contributions, friendly FOSS</string>
-    <string name="donations_github_sponsors_desc">Monthly contributions via GitHub</string>
     <string name="donations_kofi_desc">One-off donation, "buy me a coffee"</string>
     <string name="donations_dialog_close">Close</string>
 
@@ -333,18 +321,6 @@
     <string name="bias_sparkline_legend_observation">observation</string>
     <string name="bias_sparkline_legend_forecast">forecast</string>
 
-    <!-- Stats grid labels -->
-    <string name="bias_stat_mean">Mean deviation</string>
-    <string name="bias_stat_stddev">Std deviation</string>
-    <string name="bias_stat_sample_size">Days of data</string>
-    <string name="bias_stat_sample_size_value">%1$d / %2$d</string>
-    <string name="bias_stat_significance">Significance</string>
-
-    <!-- Significance labels (shown in the stats grid) -->
-    <string name="bias_significance_high">High</string>
-    <string name="bias_significance_moderate">Moderate</string>
-    <string name="bias_significance_not_significant">Low</string>
-
     <!-- Explainer opener, parameterized (model, verb, variable, days).
          E.g. EN: "GFS systematically overestimates temperature here over the last 30 days." -->
     <string name="bias_explainer_opener">%1$s systematically %2$s %3$s here over the last %4$d days.</string>
@@ -434,18 +410,12 @@
 
     <string name="detail_table_model_header">Model</string>
 
-    <string name="local_ranking_summary_title">Best local models</string>
-    <string name="local_ranking_summary_subtitle">Based on observed history for this city over the last 30 days</string>
     <string name="local_ranking_view_all">View ranking</string>
     <string name="local_ranking_sheet_title">Local ranking</string>
     <string name="local_ranking_sheet_explanation">Models are ranked by local reliability score, then by mean absolute error when scores are tied.</string>
-    <string name="local_ranking_temperature">Temperature</string>
-    <string name="local_ranking_precipitation">Precipitation</string>
-    <string name="local_ranking_wind">Wind</string>
     <string name="local_ranking_temperature_short">Temperature</string>
     <string name="local_ranking_precipitation_short">Rain</string>
     <string name="local_ranking_wind_short">Wind</string>
-    <string name="local_ranking_not_available">Not enough history</string>
     <string name="local_ranking_selected_model">Viewed model</string>
     <string name="local_ranking_standard_support">MAE %1$s · bias %2$s</string>
     <string name="local_ranking_rain_support">MAE %1$s · %2$d false alarms</string>
@@ -456,8 +426,8 @@
 
     <string name="forecast_tables_section">Detailed forecasts</string>
     <string name="timeline_title">Timeline overview</string>
-    <string name="timeline_subtitle_hourly">Model consensus for the next few hours</string>
-    <string name="timeline_subtitle_daily">Model consensus for the next few days</string>
+    <string name="timeline_subtitle_hourly">Summary of available models for the next few hours</string>
+    <string name="timeline_subtitle_daily">Summary of available models for the next few days</string>
     <string name="timeline_disagreement_hint">A red dot indicates strong disagreement between models</string>
 
     <string name="section_state_expanded">Expanded</string>
@@ -466,4 +436,31 @@
     <string name="offline_data_message">Data stored on this device · %1$s</string>
     <string name="offline_data_age_unknown">Data age unavailable</string>
     <string name="offline_list_message">The latest saved data remains available. Its age is shown on each city.</string>
+
+    <string name="offline_saved_data_age_inline">Offline · %1$s</string>
+    <string name="next_notable_event">Next signal</string>
+
+    <string name="forecast_insights_title">Key points</string>
+    <string name="forecast_insight_soon">soon</string>
+    <string name="forecast_insight_high_agreement">Models remain broadly aligned until %1$s.</string>
+    <string name="forecast_insight_disagreement">Models diverge more around %1$s.</string>
+    <string name="forecast_insight_rain_likely">%1$d%% chance of rain around %2$s.</string>
+    <string name="forecast_insight_rain_models_likely">%1$d of %2$d models forecast rain around %3$s.</string>
+    <string name="forecast_insight_rain_models_split">Models are split on rain around %3$s (%1$d of %2$d).</string>
+    <string name="forecast_insight_rain_uncertain">Rain chance remains uncertain (%1$d%%) around %2$s.</string>
+    <string name="forecast_insight_wind_rising">Wind increasing to around %1$d km/h by %2$s.</string>
+    <string name="forecast_insight_temperature_rising">A rise of about %1$d° is expected by %2$s.</string>
+    <string name="forecast_insight_temperature_falling">A drop of about %1$d° is expected by %2$s.</string>
+
+    <string name="local_reliability_title">Local reliability</string>
+    <string name="local_reliability_subtitle_with_confidence">%1$d%% confidence · %2$d models</string>
+    <string name="local_reliability_subtitle_models">%1$d models compared</string>
+    <string name="local_reliability_best_model">Best local model</string>
+
+    <string name="detail_tab_conditions">Conditions</string>
+    <string name="detail_tab_temperature">Temperature</string>
+    <string name="detail_tab_precipitation">Rain</string>
+    <string name="detail_tab_wind">Wind</string>
+    <string name="detail_no_data">No data available for this view.</string>
+
 </resources>

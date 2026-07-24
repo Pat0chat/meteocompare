@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -18,51 +19,56 @@ import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 
-class LocalModelRankingSummaryCardTest {
+class LocalReliabilitySectionTest {
     @get:Rule val composeRule = createComposeRule()
 
     @Test
     fun summary_displays_winners_and_opens_selected_variable() {
         var opened: BiasVariable? = null
-        val rankings = buildLocalModelRankings(
-            BiasScreenState(
-                temperature = state(WeatherModel.ECMWF, 0.4),
-                precipitation = state(WeatherModel.GFS, 0.3),
-                wind = state(WeatherModel.ICON_GLOBAL, 1.0)
-            )
-        )
+        val rankings = rankings()
 
         composeRule.setContent {
             MeteoCompareTheme {
-                LocalModelRankingSummaryCard(
+                LocalReliabilitySection(
+                    overallConfidencePercent = 84,
+                    modelCount = 3,
                     rankings = rankings,
+                    tempBands = emptyList(),
+                    precipBands = emptyList(),
+                    windBands = emptyList(),
+                    timezone = "Europe/Paris",
+                    normals = null,
+                    expanded = true,
+                    onExpandedChange = {},
                     onOpenRanking = { opened = it }
                 )
             }
         }
 
-        composeRule.onNodeWithTag(TAG_LOCAL_RANKING_CARD).assertIsDisplayed()
+        composeRule.onNodeWithTag(TAG_LOCAL_RELIABILITY_CARD).assertIsDisplayed()
+        composeRule.onNodeWithTag(TAG_LOCAL_RELIABILITY_DETAILS).assertIsDisplayed()
         composeRule.onNodeWithText("ECMWF").assertIsDisplayed()
         composeRule.onNodeWithText("GFS").performClick()
+
         assertEquals(BiasVariable.PRECIPITATION, opened)
     }
 
-
     @Test
-    fun summary_header_collapses_and_hides_winners() {
-        val rankings = buildLocalModelRankings(
-            BiasScreenState(
-                temperature = state(WeatherModel.ECMWF, 0.4),
-                precipitation = state(WeatherModel.GFS, 0.3),
-                wind = state(WeatherModel.ICON_GLOBAL, 1.0)
-            )
-        )
+    fun collapsing_hides_only_the_details_and_keeps_the_winners_summary() {
+        val rankings = rankings()
 
         composeRule.setContent {
             MeteoCompareTheme {
                 var expanded by remember { mutableStateOf(true) }
-                LocalModelRankingSummaryCard(
+                LocalReliabilitySection(
+                    overallConfidencePercent = 84,
+                    modelCount = 3,
                     rankings = rankings,
+                    tempBands = emptyList(),
+                    precipBands = emptyList(),
+                    windBands = emptyList(),
+                    timezone = "Europe/Paris",
+                    normals = null,
                     expanded = expanded,
                     onExpandedChange = { expanded = it },
                     onOpenRanking = {}
@@ -70,10 +76,19 @@ class LocalModelRankingSummaryCardTest {
             }
         }
 
+        composeRule.onNodeWithTag(TAG_LOCAL_RELIABILITY_DETAILS).assertIsDisplayed()
+        composeRule.onNodeWithTag(TAG_LOCAL_RELIABILITY_HEADER).performClick()
+        composeRule.onNodeWithTag(TAG_LOCAL_RELIABILITY_DETAILS).assertDoesNotExist()
         composeRule.onNodeWithText("ECMWF").assertIsDisplayed()
-        composeRule.onNodeWithTag(TAG_LOCAL_RANKING_HEADER).performClick()
-        composeRule.onNodeWithText("ECMWF").assertDoesNotExist()
     }
+
+    private fun rankings(): LocalModelRankings = buildLocalModelRankings(
+        BiasScreenState(
+            temperature = state(WeatherModel.ECMWF, 0.4),
+            precipitation = state(WeatherModel.GFS, 0.3),
+            wind = state(WeatherModel.ICON_GLOBAL, 1.0)
+        )
+    )
 
     private fun state(model: WeatherModel, error: Double): VariableBiasState =
         VariableBiasState(

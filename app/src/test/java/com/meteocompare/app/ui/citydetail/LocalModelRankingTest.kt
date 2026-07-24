@@ -73,6 +73,26 @@ class LocalModelRankingTest {
         assertEquals(BiasVariable.PRECIPITATION, rankings.firstAvailableVariable)
     }
 
+    @Test
+    fun `redirige le bouton global vers une variable réellement classée`() {
+        val rankings = buildLocalModelRankings(
+            BiasScreenState(
+                temperature = VariableBiasState.EMPTY,
+                precipitation = variableState(WeatherModel.GFS to samples(error = 0.5)),
+                wind = VariableBiasState.EMPTY
+            )
+        )
+
+        assertEquals(
+            BiasVariable.PRECIPITATION,
+            rankingVariableFor(BiasVariable.TEMPERATURE, rankings)
+        )
+        assertEquals(
+            BiasVariable.PRECIPITATION,
+            rankingVariableFor(BiasVariable.PRECIPITATION, rankings)
+        )
+    }
+
     private fun variableState(
         vararg histories: Pair<WeatherModel, List<BiasSample>>
     ): VariableBiasState = VariableBiasState(

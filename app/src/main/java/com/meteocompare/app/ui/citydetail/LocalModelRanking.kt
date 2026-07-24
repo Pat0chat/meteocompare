@@ -103,3 +103,20 @@ private fun buildLocalVariableRanking(
 }
 
 private const val DEFAULT_RANKING_WINDOW_DAYS = 30
+
+/**
+ * Variable à ouvrir depuis le bouton global du bloc fiabilité.
+ *
+ * Lorsque l'onglet actif possède un graphique mais pas encore assez
+ * d'historique pour un classement, on redirige vers la première variable qui
+ * dispose réellement d'un classement au lieu d'ouvrir une sheet vide.
+ */
+internal fun rankingVariableFor(
+    activeVariable: BiasVariable,
+    rankings: LocalModelRankings
+): BiasVariable =
+    if (rankings.forVariable(activeVariable).entries.isNotEmpty()) {
+        activeVariable
+    } else {
+        rankings.firstAvailableVariable
+    }

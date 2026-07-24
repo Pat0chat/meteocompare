@@ -8,6 +8,8 @@ import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.meteocompare.app.di.IoDispatcher
 import com.meteocompare.app.domain.model.CityDetailSection
+import com.meteocompare.app.domain.model.CityDetailContentTab
+import com.meteocompare.app.domain.model.CityDetailViewMode
 import com.meteocompare.app.domain.model.LanguagePreference
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.ThemePreference
@@ -32,6 +34,10 @@ private val LANGUAGE_PREFERENCE_KEY = stringPreferencesKey("language_preference"
 private val REFRESH_INTERVAL_KEY = stringPreferencesKey("refresh_interval")
 private val COLLAPSED_CITY_DETAIL_SECTIONS_KEY =
     stringSetPreferencesKey("collapsed_city_detail_sections")
+private val CITY_DETAIL_VIEW_MODES_KEY =
+    stringSetPreferencesKey("city_detail_view_modes")
+private val CITY_DETAIL_CONTENT_TABS_KEY =
+    stringSetPreferencesKey("city_detail_content_tabs")
 
 @Singleton
 class UserPreferencesRepositoryImpl @Inject constructor(
@@ -154,10 +160,72 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         Unit
     }
 
+
+    override fun observeCityDetailViewMode(cityId: String): Flow<CityDetailViewMode> =
+        observeCityChoice(
+            cityId = cityId,
+            key = CITY_DETAIL_VIEW_MODES_KEY,
+            default = CityDetailViewMode.DEFAULT,
+            parser = CityDetailViewMode::fromString
+        )
+
+    override suspend fun setCityDetailViewMode(
+        cityId: String,
+        mode: CityDetailViewMode
+    ) = setCityChoice(cityId, CITY_DETAIL_VIEW_MODES_KEY, mode.name)
+
+    override fun observeCityDetailContentTab(cityId: String): Flow<CityDetailContentTab> =
+        observeCityChoice(
+            cityId = cityId,
+            key = CITY_DETAIL_CONTENT_TABS_KEY,
+            default = CityDetailContentTab.DEFAULT,
+            parser = CityDetailContentTab::fromString
+        )
+
+    override suspend fun setCityDetailContentTab(
+        cityId: String,
+        tab: CityDetailContentTab
+    ) = setCityChoice(cityId, CITY_DETAIL_CONTENT_TABS_KEY, tab.name)
+
+    private fun <T> observeCityChoice(
+        cityId: String,
+        key: androidx.datastore.preferences.core.Preferences.Key<Set<String>>,
+        default: T,
+        parser: (String?) -> T
+    ): Flow<T> {
+        val prefix = cityPreferencePrefix(cityId)
+        return safePreferences.map { prefs ->
+            val encoded = prefs[key]
+                .orEmpty()
+                .firstOrNull { it.startsWith(prefix) }
+            if (encoded == null) default else parser(encoded.removePrefix(prefix))
+        }.distinctUntilChanged()
+    }
+
+    private suspend fun setCityChoice(
+        cityId: String,
+        key: androidx.datastore.preferences.core.Preferences.Key<Set<String>>,
+        value: String
+    ) = withContext(ioDispatcher) {
+        val prefix = cityPreferencePrefix(cityId)
+        context.preferencesDataStore.edit { prefs ->
+            val updated = prefs[key]
+                .orEmpty()
+                .filterNot { it.startsWith(prefix) }
+                .toMutableSet()
+            updated += prefix + value
+            prefs[key] = updated
+        }
+        Unit
+    }
+
     /**
      * Préfixe sans ambiguïté : la longueur du cityId empêche qu'une ville
      * nommée "12" ne capture les préférences d'une ville "123".
      */
-    private fun collapsedSectionPrefix(cityId: String): String =
+    private fun cityPreferencePrefix(cityId: String): String =
         "${cityId.length}:$cityId:"
+
+    private fun collapsedSectionPrefix(cityId: String): String =
+        cityPreferencePrefix(cityId)
 }
