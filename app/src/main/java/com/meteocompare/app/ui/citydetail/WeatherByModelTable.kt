@@ -75,8 +75,7 @@ fun WeatherByModelTable(
                 background = palette.frozenHeaderSurface,
                 width = modelWidth,
                 height = headerHeight,
-                palette = palette,
-                alignStart = true
+                palette = palette
             )
         },
         temporalHeaders = {
@@ -100,8 +99,7 @@ fun WeatherByModelTable(
                     width = modelWidth,
                     height = rowHeight,
                     palette = palette,
-                    accentColor = model.color(),
-                    alignStart = true
+                    accentColor = model.color()
                 )
             }
         },
@@ -140,14 +138,13 @@ private fun HeaderCell(
     height: Dp,
     palette: DetailTablePalette,
     accentColor: Color? = null,
-    highlighted: Boolean = false,
-    alignStart: Boolean = false
+    highlighted: Boolean = false
 ) {
     Box(
         modifier = Modifier.width(width).height(height)
             .detailTableCell(background, palette, accentColor)
-            .padding(horizontal = if (alignStart) 6.dp else 4.dp),
-        contentAlignment = if (alignStart) Alignment.CenterStart else Alignment.Center
+            .padding(horizontal = 4.dp),
+        contentAlignment = Alignment.Center
     ) {
         Text(
             text = text,
@@ -158,7 +155,7 @@ private fun HeaderCell(
                 accentColor != null -> MaterialTheme.colorScheme.onSurfaceVariant
                 else -> MaterialTheme.colorScheme.onSurface
             },
-            textAlign = if (alignStart) TextAlign.Start else TextAlign.Center,
+            textAlign = TextAlign.Center,
             maxLines = 1,
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
         )

@@ -108,8 +108,7 @@ fun HourlyForecastTable(
                 width = modelWidth,
                 height = headerHeight,
                 background = palette.frozenHeaderSurface,
-                palette = palette,
-                alignStart = true
+                palette = palette
             )
         },
         temporalHeaders = {
@@ -144,8 +143,7 @@ fun HourlyForecastTable(
                     bias = bias,
                     onBiasClick = chipClick,
                     showChipSlot = modelBiasProvider != null,
-                    sampleCount = sampleCount,
-                    alignStart = true
+                    sampleCount = sampleCount
                 )
             }
         },
@@ -197,14 +195,13 @@ private fun HourHeaderCell(
     bias: com.meteocompare.app.domain.model.ModelBias? = null,
     onBiasClick: (() -> Unit)? = null,
     showChipSlot: Boolean = false,
-    sampleCount: Int? = null,
-    alignStart: Boolean = false
+    sampleCount: Int? = null
 ) {
     Column(
         modifier = Modifier.width(width).height(height)
             .detailTableCell(background, palette, model?.color())
-            .padding(horizontal = if (alignStart) 6.dp else 3.dp, vertical = 4.dp),
-        horizontalAlignment = if (alignStart) Alignment.Start else Alignment.CenterHorizontally,
+            .padding(horizontal = 3.dp, vertical = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(
             2.dp, Alignment.CenterVertically
         )
@@ -218,7 +215,7 @@ private fun HourHeaderCell(
             } else {
                 MaterialTheme.colorScheme.onSurface
             },
-            textAlign = if (alignStart) TextAlign.Start else TextAlign.Center,
+            textAlign = TextAlign.Center,
             maxLines = 1,
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
         )

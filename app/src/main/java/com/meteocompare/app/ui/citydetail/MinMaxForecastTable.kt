@@ -92,8 +92,7 @@ fun MinMaxForecastTable(
                 background = palette.frozenHeaderSurface,
                 width = modelColumnWidth,
                 height = headerHeight,
-                palette = palette,
-                alignStart = true
+                palette = palette
             )
         },
         temporalHeaders = {
@@ -126,8 +125,7 @@ fun MinMaxForecastTable(
                     bias = bias,
                     onBiasClick = chipClick,
                     showChipSlot = modelBiasProvider != null,
-                    sampleCount = sampleCount,
-                    alignStart = true
+                    sampleCount = sampleCount
                 )
             }
         },
@@ -205,16 +203,15 @@ private fun HeaderCellMM(
     sampleCount: Int? = null,
     palette: DetailTablePalette,
     accentColor: Color? = null,
-    highlighted: Boolean = false,
-    alignStart: Boolean = false
+    highlighted: Boolean = false
 ) {
     Column(
         modifier = Modifier
             .width(width)
             .height(height)
             .detailTableCell(background, palette, accentColor)
-            .padding(vertical = 4.dp, horizontal = if (alignStart) 6.dp else 2.dp),
-        horizontalAlignment = if (alignStart) Alignment.Start else Alignment.CenterHorizontally,
+            .padding(vertical = 4.dp, horizontal = 2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(
             2.dp, Alignment.CenterVertically
         )
@@ -228,7 +225,7 @@ private fun HeaderCellMM(
                 accentColor != null -> MaterialTheme.colorScheme.onSurfaceVariant
                 else -> MaterialTheme.colorScheme.onSurface
             },
-            textAlign = if (alignStart) TextAlign.Start else TextAlign.Center,
+            textAlign = TextAlign.Center,
             maxLines = 1,
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
         )

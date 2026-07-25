@@ -146,8 +146,7 @@ fun HourlyWeatherByModelTable(
                 width = modelWidth,
                 height = headerHeight,
                 background = palette.frozenHeaderSurface,
-                palette = palette,
-                alignStart = true
+                palette = palette
             )
         },
         temporalHeaders = {
@@ -173,8 +172,7 @@ fun HourlyWeatherByModelTable(
                     height = rowHeight,
                     background = palette.labelRowBackground(modelIndex, false),
                     palette = palette,
-                    accentColor = model.color(),
-                    alignStart = true
+                    accentColor = model.color()
                 )
             }
         },
@@ -203,14 +201,13 @@ private fun HeaderCell(
     height: Dp,
     background: Color,
     palette: DetailTablePalette,
-    accentColor: Color? = null,
-    alignStart: Boolean = false
+    accentColor: Color? = null
 ) {
     Box(
         modifier = Modifier.width(width).height(height)
             .detailTableCell(background, palette, accentColor)
-            .padding(horizontal = if (alignStart) 6.dp else 4.dp),
-        contentAlignment = if (alignStart) Alignment.CenterStart else Alignment.Center
+            .padding(horizontal = 4.dp),
+        contentAlignment = Alignment.Center
     ) {
         Text(
             text = text,
@@ -221,7 +218,7 @@ private fun HeaderCell(
             } else {
                 MaterialTheme.colorScheme.onSurface
             },
-            textAlign = if (alignStart) TextAlign.Start else TextAlign.Center,
+            textAlign = TextAlign.Center,
             maxLines = 1,
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
         )

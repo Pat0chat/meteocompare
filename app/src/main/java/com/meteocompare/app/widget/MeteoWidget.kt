@@ -1864,7 +1864,9 @@ private fun ForecastItemCard(
 
         val hasCloud = item.cloudCoverPct != null
         val hasRain = item.precipProbabilityPct != null
-        val showPrecipConfidence = hasRain && item.precipConfidencePct != null && shouldShowForecastCardConfidence(profile)
+        val showForecastConfidence = hasRain &&
+                item.forecastConfidencePct != null &&
+                shouldShowForecastCardConfidence(profile)
         if (hasCloud || hasRain) {
             Spacer(GlanceModifier.height(if (profile == ForecastCardHeightProfile.DENSE) 1.dp else 2.dp))
             Column (
@@ -1876,7 +1878,7 @@ private fun ForecastItemCard(
                         foreground = onContainerMuted,
                         background = raisedSurface,
                         fontSize = detailSize,
-                        modifier = GlanceModifier.defaultWeight()
+                        modifier = GlanceModifier.fillMaxWidth()
                     )
                 }
                 if (hasCloud && hasRain) Spacer(GlanceModifier.height(4.dp))
@@ -1892,8 +1894,8 @@ private fun ForecastItemCard(
                             fontSize = detailSize,
                             modifier = GlanceModifier.fillMaxWidth()
                         )
-                        if (showPrecipConfidence) {
-                            val confidence = item.precipConfidencePct ?: 0
+                        if (showForecastConfidence) {
+                            val confidence = item.forecastConfidencePct ?: 0
                             Spacer(GlanceModifier.height(1.dp))
                             Text(
                                 text = ctx.getString(

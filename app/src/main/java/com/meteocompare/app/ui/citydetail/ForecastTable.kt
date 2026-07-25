@@ -170,13 +170,14 @@ private fun CornerHeaderCell(
     Box(
         modifier = Modifier.width(width).height(height)
             .detailTableCell(background, palette).padding(horizontal = 8.dp),
-        contentAlignment = Alignment.CenterStart
+        contentAlignment = Alignment.Center
     ) {
         Text(
             text = text,
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
             maxLines = 1
         )
     }
@@ -198,7 +199,7 @@ private fun ModelRowHeaderCell(
         modifier = Modifier.width(width).height(height)
             .detailTableCell(background, palette, model.color())
             .padding(horizontal = 6.dp, vertical = 4.dp),
-        horizontalAlignment = Alignment.Start,
+        horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(
             2.dp, Alignment.CenterVertically
         )
@@ -208,6 +209,7 @@ private fun ModelRowHeaderCell(
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
             maxLines = 1,
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
         )

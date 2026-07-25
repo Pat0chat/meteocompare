@@ -2,10 +2,13 @@ package com.meteocompare.app.widget
 
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityForecast
+import com.meteocompare.app.domain.model.ConfidenceScore
 import com.meteocompare.app.domain.model.DailyForecast
+import com.meteocompare.app.domain.model.DayConfidence
 import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.HourlyConfidenceBand
 import com.meteocompare.app.domain.model.HourlyForecast
+import com.meteocompare.app.domain.model.PrecipitationConfidence
 import com.meteocompare.app.domain.model.WeatherModel
 import java.time.Instant
 import java.time.LocalDate
@@ -162,7 +165,7 @@ class WidgetForecastSelectionTest {
     }
 
     @Test
-    fun `hourly attache la confiance pluie a lecheance exacte`() {
+    fun `hourly attache la confiance globale a lecheance exacte`() {
         val now = Instant.parse("2026-07-17T10:15:00Z")
         val timestamps = (1L..5L).map { now.plusSeconds(it * 3600) }
         val series = ForecastSeries(
@@ -176,17 +179,17 @@ class WidgetForecastSelectionTest {
             ),
             daily = emptyDaily()
         )
-        val bands = timestamps.mapIndexed { index, timestamp ->
-            HourlyConfidenceBand(
-                timestamp = timestamp,
-                meanValue = 0.5,
-                minValue = 0.2,
-                maxValue = 0.8,
-                stdDev = 0.1,
-                percent = 80 - index * 5,
-                modelCount = 2
-            )
+        fun bands(startPercent: Int) = timestamps.mapIndexed { index, timestamp ->
+            confidenceBand(timestamp, startPercent - index * 5, modelCount = 2)
         }
+        val confidence = WidgetForecastConfidence(
+            hourlyByTimestamp = hourlyForecastConfidenceByTimestamp(
+                temperatureBands = bands(90),
+                precipitationBands = bands(60),
+                windBands = bands(30),
+                totalModelCount = 2
+            )
+        )
 
         val items = buildForecasts(
             forecast = CityForecast(
@@ -199,87 +202,104 @@ class WidgetForecastSelectionTest {
             mode = ForecastMode.HOURLY,
             timezone = city.timezone,
             now = now,
-            precipitationConfidenceBands = bands
+            forecastConfidence = confidence
         )
 
-        assertEquals(listOf(80, 75, 70, 65, 60), items.map { it.precipConfidencePct })
+        assertEquals(listOf(60, 55, 50, 45, 40), items.map { it.forecastConfidencePct })
     }
 
     @Test
-    fun `daily confidence retient le quartile bas du jour`() {
-        val zone = java.time.ZoneId.of("Europe/Paris")
-        val date = LocalDate.of(2026, 7, 17)
-        val percents = listOf(20, 90, 90, 90)
-        val bands = percents.mapIndexed { hour, percent ->
-            HourlyConfidenceBand(
-                timestamp = date.atTime(8 + hour, 0).atZone(zone).toInstant(),
-                meanValue = 0.5,
-                minValue = 0.0,
-                maxValue = 1.0,
-                stdDev = 0.2,
-                percent = percent,
-                modelCount = 7
-            )
-        }
-
-        val byDate = dailyPrecipitationConfidenceByDate(
-            bands = bands,
-            zone = zone,
-            totalModelCount = 7
-        )
-
-        assertEquals(20, byDate[date])
-    }
-
-    @Test
-    fun `daily confidence ignore les heures deja passees du jour courant`() {
-        val zone = java.time.ZoneId.of("Europe/Paris")
-        val date = LocalDate.of(2026, 7, 17)
-        val bands = listOf(
-            8 to 10,
-            10 to 90,
-            12 to 90
-        ).map { (hour, percent) ->
-            HourlyConfidenceBand(
-                timestamp = date.atTime(hour, 0).atZone(zone).toInstant(),
-                meanValue = 0.5,
-                minValue = 0.0,
-                maxValue = 1.0,
-                stdDev = 0.2,
-                percent = percent,
-                modelCount = 7
-            )
-        }
-
-        val byDate = dailyPrecipitationConfidenceByDate(
-            bands = bands,
-            zone = zone,
-            totalModelCount = 7,
-            notBefore = date.atTime(9, 0).atZone(zone).toInstant()
-        )
-
-        assertEquals(90, byDate[date])
-    }
-
-    @Test
-    fun `hourly confidence penalise la disparition de modeles`() {
+    fun `hourly confiance globale exige au moins deux metriques`() {
         val timestamp = Instant.parse("2026-07-17T12:00:00Z")
-        val byTimestamp = hourlyPrecipitationConfidenceByTimestamp(
-            bands = listOf(
-                HourlyConfidenceBand(
-                    timestamp = timestamp,
-                    meanValue = 0.5,
-                    minValue = 0.0,
-                    maxValue = 1.0,
-                    stdDev = 0.1,
-                    percent = 90,
-                    modelCount = 2
-                )
-            ),
+        val byTimestamp = hourlyForecastConfidenceByTimestamp(
+            temperatureBands = listOf(confidenceBand(timestamp, 90)),
+            precipitationBands = emptyList(),
+            windBands = emptyList(),
+            totalModelCount = 2
+        )
+
+        assertTrue(byTimestamp.isEmpty())
+    }
+
+    @Test
+    fun `hourly confiance globale penalise la disparition de modeles`() {
+        val timestamp = Instant.parse("2026-07-17T12:00:00Z")
+        val byTimestamp = hourlyForecastConfidenceByTimestamp(
+            temperatureBands = listOf(confidenceBand(timestamp, 90, modelCount = 2)),
+            precipitationBands = emptyList(),
+            windBands = listOf(confidenceBand(timestamp, 90, modelCount = 2)),
             totalModelCount = 7
         )
 
         assertTrue((byTimestamp[timestamp] ?: 100) < 90)
+    }
+
+    @Test
+    fun `daily confiance globale combine temperature pluie et vent`() {
+        val date = LocalDate.of(2026, 7, 17)
+        val byDate = dailyForecastConfidenceByDate(
+            days = listOf(
+                DayConfidence(
+                    date = date,
+                    tempMax = confidenceScore(percent = 100),
+                    tempMin = confidenceScore(percent = 80),
+                    precipitation = PrecipitationConfidence.NoRain(
+                        percent = 40,
+                        modelCount = 2,
+                        maxAmountMm = 0.0
+                    ),
+                    windMax = confidenceScore(percent = 60)
+                )
+            ),
+            totalModelCount = 2
+        )
+
+        assertEquals(70, byDate[date])
+    }
+
+    @Test
+    fun `daily attache la confiance globale a la date exacte`() {
+        val dates = listOf(
+            LocalDate.of(2026, 7, 17),
+            LocalDate.of(2026, 7, 18)
+        )
+        val items = buildDailyForecasts(
+            daily = DailyForecast(
+                dates = dates,
+                tempMax = listOf(24.0, 25.0),
+                tempMin = listOf(15.0, 16.0),
+                precipitationSum = listOf(0.0, 1.0),
+                windSpeedMax = listOf(10.0, 12.0),
+                precipitationProbabilityMax = listOf(10, 40)
+            ),
+            hourly = emptyHourly(),
+            zone = java.time.ZoneId.of("Europe/Paris"),
+            forecastConfidenceByDate = mapOf(
+                dates[0] to 82,
+                dates[1] to 64
+            )
+        )
+
+        assertEquals(listOf(82, 64), items.map { it.forecastConfidencePct })
+    }
+
+    @Test
+    fun `daily confiance globale exige au moins deux composantes`() {
+        val date = LocalDate.of(2026, 7, 17)
+        val byDate = dailyForecastConfidenceByDate(
+            days = listOf(
+                DayConfidence(
+                    date = date,
+                    tempMax = confidenceScore(percent = 90),
+                    tempMin = null,
+                    precipitation = null,
+                    windMax = null
+                )
+            ),
+            totalModelCount = 2
+        )
+
+        assertTrue(byDate.isEmpty())
     }
 
     @Test
@@ -342,6 +362,32 @@ class WidgetForecastSelectionTest {
 
         assertTrue(buildHourlyForecasts(hourly, java.time.ZoneId.of("UTC"), now).isEmpty())
     }
+
+    private fun confidenceBand(
+        timestamp: Instant,
+        percent: Int,
+        modelCount: Int = 2
+    ) = HourlyConfidenceBand(
+        timestamp = timestamp,
+        meanValue = 0.5,
+        minValue = 0.0,
+        maxValue = 1.0,
+        stdDev = 0.1,
+        percent = percent,
+        modelCount = modelCount
+    )
+
+    private fun confidenceScore(
+        percent: Int,
+        modelCount: Int = 2
+    ) = ConfidenceScore(
+        percent = percent,
+        minValue = 0.0,
+        maxValue = 1.0,
+        meanValue = 0.5,
+        stdDev = 0.1,
+        modelCount = modelCount
+    )
 
     private fun emptyHourly() = HourlyForecast(
         timestamps = emptyList(),
