@@ -98,6 +98,7 @@ class CityDetailContentTest {
                         currentCondition = calculator.currentWeatherCondition(forecast),
                         currentCloudCover = calculator.currentCloudCover(forecast),
                         dailyConditions = calculator.dailyConditionsByModel(forecast),
+                        calculatedAt = TestFixtures.now,
                         fetchedAt = forecast.fetchedAt
                     ),
                     isRefreshing = false,
@@ -134,6 +135,7 @@ class CityDetailContentTest {
                         currentCondition = calculator.currentWeatherCondition(forecast),
                         currentCloudCover = calculator.currentCloudCover(forecast),
                         dailyConditions = calculator.dailyConditionsByModel(forecast),
+                        calculatedAt = TestFixtures.now,
                         fetchedAt = forecast.fetchedAt
                     ),
                     isRefreshing = false,

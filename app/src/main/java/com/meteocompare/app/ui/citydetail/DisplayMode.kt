@@ -1,6 +1,5 @@
 package com.meteocompare.app.ui.citydetail
 
-import androidx.compose.runtime.saveable.Saver
 import java.time.Instant
 import java.time.ZoneId
 
@@ -19,19 +18,7 @@ import java.time.ZoneId
  */
 enum class DisplayMode {
     HOURLY,
-    DAILY;
-
-    companion object {
-        /**
-         * Saver pour rememberSaveable — sérialise via [name] plutôt qu'ordinal,
-         * pour que la restauration reste correcte si on réordonne l'enum plus
-         * tard (ordinal 0/1 signifie "case 0/1", pas HOURLY/DAILY).
-         */
-        val Saver: Saver<DisplayMode, String> = Saver(
-            save = { it.name },
-            restore = { runCatching { valueOf(it) }.getOrDefault(DAILY) }
-        )
-    }
+    DAILY
 }
 
 /**
@@ -60,9 +47,13 @@ enum class DisplayMode {
 internal fun resolveCityZone(timezone: String?): ZoneId =
     runCatching { ZoneId.of(timezone ?: "UTC") }.getOrDefault(ZoneId.of("UTC"))
 
+/** Date civile correspondant à [now] dans le fuseau de la ville. */
+internal fun cityLocalDate(timezone: String?, now: Instant): java.time.LocalDate =
+    now.atZone(resolveCityZone(timezone)).toLocalDate()
+
 internal fun computeHourlyHorizon(
     timezone: String?,
-    now: Instant = Instant.now()
+    now: Instant
 ): Pair<Instant, Instant> {
     val zone = resolveCityZone(timezone)
     val nowLocal = now.atZone(zone)

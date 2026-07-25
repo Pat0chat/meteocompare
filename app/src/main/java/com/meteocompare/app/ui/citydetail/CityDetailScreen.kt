@@ -91,7 +91,6 @@ import com.meteocompare.app.ui.components.ModernInlineSelector
 import com.meteocompare.app.ui.components.ModernSectionSeparator
 import com.meteocompare.app.ui.theme.confidenceColor
 import java.time.Instant
-import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
 
@@ -250,6 +249,7 @@ internal fun CityDetailContent(
                         currentCloudCover = s.currentCloudCover,
                         dailyConditions = s.dailyConditions,
                         normals = s.normals,
+                        calculatedAt = s.calculatedAt,
                         fetchedAt = s.fetchedAt,
                         isOnline = isOnline,
                         biasState = biasState,
@@ -309,6 +309,7 @@ private fun LoadedView(
     currentCloudCover: Int?,
     dailyConditions: List<DayConditionsRow>,
     normals: Map<Int, DayNormals>?,
+    calculatedAt: Instant,
     fetchedAt: Instant?,
     isOnline: Boolean,
     biasState: BiasScreenState,
@@ -323,15 +324,15 @@ private fun LoadedView(
 ) {
     val displayMode = detailViewMode.toDisplayMode()
     val reliabilityExpanded = CityDetailSection.CONFIDENCE !in collapsedSections
-    val presentationNow = remember(forecast) { Instant.now() }
+    // Même instant que celui utilisé par le ViewModel pour les agrégats
+    // « maintenant » : résumé, chronologie et tableaux restent cohérents.
+    val presentationNow = calculatedAt
     val overviewTimeline = remember(forecast, presentationNow) {
         buildOverviewTimeline(forecast, presentationNow)
     }
     val insights = remember(overviewTimeline) { buildForecastInsights(overviewTimeline) }
     val cityToday = remember(forecast.city.timezone, presentationNow) {
-        val zone = runCatching { ZoneId.of(forecast.city.timezone ?: "UTC") }
-            .getOrDefault(ZoneId.of("UTC"))
-        presentationNow.atZone(zone).toLocalDate()
+        cityLocalDate(forecast.city.timezone, presentationNow)
     }
     val summaryDay = remember(weekly, cityToday) {
         weekly.firstOrNull { !it.date.isBefore(cityToday) } ?: weekly.lastOrNull()
@@ -509,6 +510,8 @@ private fun LoadedView(
             forecast = forecast,
             dailyConditions = dailyConditions,
             normals = normals,
+            presentationNow = presentationNow,
+            cityToday = cityToday,
             temperatureBiasProvider = { model -> biasState.temperature.biasByModel[model] },
             precipitationBiasProvider = { model -> biasState.precipitation.biasByModel[model] },
             windBiasProvider = { model -> biasState.wind.biasByModel[model] },
@@ -580,6 +583,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.detailedComparisonIte
     forecast: CityForecast,
     dailyConditions: List<DayConditionsRow>,
     normals: Map<Int, DayNormals>?,
+    presentationNow: Instant,
+    cityToday: java.time.LocalDate,
     temperatureBiasProvider: ((WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
     precipitationBiasProvider: ((WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
     windBiasProvider: ((WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
@@ -600,6 +605,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.detailedComparisonIte
                                 WeatherByModelTable(
                                     rows = dailyConditions,
                                     modelOrder = forecast.availableModels,
+                                    today = cityToday,
                                     modifier = Modifier.padding(8.dp)
                                 )
                             }
@@ -609,6 +615,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.detailedComparisonIte
                         DetailTableCard {
                             HourlyWeatherByModelTable(
                                 forecast = forecast,
+                                now = presentationNow,
                                 modifier = Modifier.padding(8.dp)
                             )
                         }
@@ -622,6 +629,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.detailedComparisonIte
                             MinMaxForecastTable(
                                 forecast = forecast,
                                 normals = normals,
+                                now = presentationNow,
                                 modelBiasProvider = temperatureBiasProvider,
                                 sampleCountProvider = temperatureSampleCountProvider,
                                 onBiasChipClick = onBiasChipClick,
@@ -633,6 +641,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.detailedComparisonIte
                         DetailTableCard {
                             HourlyForecastTable(
                                 forecast = forecast,
+                                now = presentationNow,
                                 valueExtractor = { hourly: HourlyForecast, idx ->
                                     hourly.temperature2m.getOrNull(idx)
                                 },
@@ -652,6 +661,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.detailedComparisonIte
                     if (mode == DisplayMode.DAILY) {
                         ForecastTableContent(
                             forecast = forecast,
+                            now = presentationNow,
                             extractor = { daily, idx -> daily.precipitationSum.getOrNull(idx) },
                             formatter = { mm ->
                                 if (mm < 0.05) "0" else "${"%.1f".format(mm)} mm"
@@ -666,6 +676,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.detailedComparisonIte
                         DetailTableCard {
                             HourlyForecastTable(
                                 forecast = forecast,
+                                now = presentationNow,
                                 valueExtractor = { hourly: HourlyForecast, idx ->
                                     hourly.precipitation.getOrNull(idx)
                                 },
@@ -687,6 +698,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.detailedComparisonIte
                     if (mode == DisplayMode.DAILY) {
                         ForecastTableContent(
                             forecast = forecast,
+                            now = presentationNow,
                             extractor = { daily, idx -> daily.windSpeedMax.getOrNull(idx) },
                             formatter = { "${it.roundToInt()} km/h" },
                             valueStyler = ::windStyle,
@@ -705,6 +717,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.detailedComparisonIte
                         DetailTableCard {
                             HourlyForecastTable(
                                 forecast = forecast,
+                                now = presentationNow,
                                 valueExtractor = { hourly: HourlyForecast, idx ->
                                     hourly.windSpeed10m.getOrNull(idx)
                                 },
@@ -751,6 +764,7 @@ private fun DetailTableCard(
 @Composable
 private fun ForecastTableContent(
     forecast: CityForecast,
+    now: Instant,
     extractor: (DailyForecast, Int) -> Double?,
     formatter: (Double) -> String,
     valueStyler: ((Double) -> ValueStyle?)? = null,
@@ -764,6 +778,7 @@ private fun ForecastTableContent(
     DetailTableCard {
         ForecastTable(
             forecast = forecast,
+            now = now,
             valueExtractor = extractor,
             valueFormatter = formatter,
             valueStyler = valueStyler,

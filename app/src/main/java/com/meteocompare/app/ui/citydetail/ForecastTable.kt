@@ -27,6 +27,7 @@ import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.model.sortedByFamily
 import com.meteocompare.app.ui.components.WindArrow
 import com.meteocompare.app.ui.theme.color
+import java.time.Instant
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -48,6 +49,7 @@ fun ForecastTable(
     forecast: CityForecast,
     valueExtractor: (DailyForecast, Int) -> Double?,
     valueFormatter: (Double) -> String,
+    now: Instant,
     modifier: Modifier = Modifier,
     valueStyler: ((Double) -> ValueStyle?)? = null,
     directionExtractor: ((DailyForecast, Int) -> Int?)? = null,
@@ -74,7 +76,9 @@ fun ForecastTable(
     }
 
     val palette = detailTablePalette()
-    val today = remember { LocalDate.now() }
+    val today = remember(forecast.city.timezone, now) {
+        cityLocalDate(forecast.city.timezone, now)
+    }
     val modelRowHeight = if (modelBiasProvider != null) 56.dp else 40.dp
     val modelColumnWidth = if (modelBiasProvider != null) 94.dp else 84.dp
     val temporalHeaderHeight = 40.dp
@@ -83,7 +87,6 @@ fun ForecastTable(
 
     FrozenDetailTableLayout(
         modelColumnWidth = modelColumnWidth,
-        temporalColumnWidth = cellWidth,
         temporalColumnCount = dates.size,
         headerHeight = temporalHeaderHeight,
         rowHeight = modelRowHeight,

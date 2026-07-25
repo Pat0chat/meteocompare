@@ -30,7 +30,6 @@ import com.meteocompare.app.ui.components.WeatherIconDecorative
 import com.meteocompare.app.ui.components.semanticTint
 import com.meteocompare.app.ui.theme.color
 import java.time.Instant
-import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle as JavaTextStyle
 
@@ -38,13 +37,14 @@ import java.time.format.TextStyle as JavaTextStyle
 @Composable
 fun HourlyWeatherByModelTable(
     forecast: CityForecast,
+    now: Instant,
     modifier: Modifier = Modifier
 ) {
     val zone = remember(forecast.city.timezone) {
-        runCatching { ZoneId.of(forecast.city.timezone ?: "UTC") }.getOrDefault(ZoneId.of("UTC"))
+        resolveCityZone(forecast.city.timezone)
     }
-    val (startHour, endExclusive) = remember(forecast) {
-        computeHourlyHorizon(forecast.city.timezone)
+    val (startHour, endExclusive) = remember(forecast.city.timezone, now) {
+        computeHourlyHorizon(forecast.city.timezone, now)
     }
     val timestamps = remember(forecast, startHour, endExclusive) {
         forecast.seriesByModel.values.flatMap { it.hourly.timestamps }.distinct().sorted()
@@ -111,7 +111,9 @@ fun HourlyWeatherByModelTable(
     }
 
     val palette = detailTablePalette()
-    val currentHour = timestamps.first()
+    // Ne pas surligner arbitrairement la première échéance disponible :
+    // si l'heure courante manque, aucune colonne ne doit prétendre être « maintenant ».
+    val currentHour = startHour
     val locale = LocalConfiguration.current.locales[0]
     val hourFmt = remember(locale) { DateTimeFormatter.ofPattern("HH'h'", locale) }
     val modelWidth = 84.dp
@@ -132,7 +134,6 @@ fun HourlyWeatherByModelTable(
 
     FrozenDetailTableLayout(
         modelColumnWidth = modelWidth,
-        temporalColumnWidth = timeWidth,
         temporalColumnCount = timestamps.size,
         headerHeight = headerHeight,
         rowHeight = rowHeight,

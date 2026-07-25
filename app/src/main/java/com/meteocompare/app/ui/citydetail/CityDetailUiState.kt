@@ -49,6 +49,8 @@ sealed interface CityDetailUiState {
         val currentCloudCover: Int? = null,
         val dailyConditions: List<DayConditionsRow> = emptyList(),
         val normals: Map<Int, DayNormals>? = null,
+        /** Instant unique utilisé pour calculer et présenter les agrégats « maintenant ». */
+        val calculatedAt: Instant,
         val fetchedAt: Instant? = null
     ) : CityDetailUiState
 

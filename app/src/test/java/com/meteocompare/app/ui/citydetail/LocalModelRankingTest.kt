@@ -2,7 +2,9 @@ package com.meteocompare.app.ui.citydetail
 
 import com.meteocompare.app.domain.model.BiasSample
 import com.meteocompare.app.domain.model.BiasVariable
+import com.meteocompare.app.domain.model.HourlyConfidenceBand
 import com.meteocompare.app.domain.model.WeatherModel
+import java.time.Instant
 import java.time.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -74,6 +76,42 @@ class LocalModelRankingTest {
     }
 
     @Test
+    fun `les onglets de fiabilite excluent les metriques sans graphique ni classement`() {
+        val rankings = buildLocalModelRankings(BiasScreenState.EMPTY)
+
+        assertEquals(
+            listOf(ConfidenceMetric.TEMPERATURE),
+            availableReliabilityMetrics(
+                rankings = rankings,
+                tempBands = confidenceBands(),
+                precipBands = emptyList(),
+                windBands = emptyList()
+            )
+        )
+    }
+
+    @Test
+    fun `les onglets de fiabilite combinent graphiques et classements disponibles`() {
+        val rankings = buildLocalModelRankings(
+            BiasScreenState(
+                temperature = VariableBiasState.EMPTY,
+                precipitation = variableState(WeatherModel.GFS to samples(error = 0.5)),
+                wind = VariableBiasState.EMPTY
+            )
+        )
+
+        assertEquals(
+            listOf(ConfidenceMetric.PRECIPITATION, ConfidenceMetric.WIND),
+            availableReliabilityMetrics(
+                rankings = rankings,
+                tempBands = emptyList(),
+                precipBands = emptyList(),
+                windBands = confidenceBands()
+            )
+        )
+    }
+
+    @Test
     fun `redirige le bouton global vers une variable réellement classée`() {
         val rankings = buildLocalModelRankings(
             BiasScreenState(
@@ -92,6 +130,27 @@ class LocalModelRankingTest {
             rankingVariableFor(BiasVariable.PRECIPITATION, rankings)
         )
     }
+
+    private fun confidenceBands(): List<HourlyConfidenceBand> = listOf(
+        HourlyConfidenceBand(
+            timestamp = Instant.parse("2026-01-01T00:00:00Z"),
+            meanValue = 10.0,
+            minValue = 9.0,
+            maxValue = 11.0,
+            stdDev = 1.0,
+            percent = 80,
+            modelCount = 2
+        ),
+        HourlyConfidenceBand(
+            timestamp = Instant.parse("2026-01-01T01:00:00Z"),
+            meanValue = 11.0,
+            minValue = 10.0,
+            maxValue = 12.0,
+            stdDev = 1.0,
+            percent = 80,
+            modelCount = 2
+        )
+    )
 
     private fun variableState(
         vararg histories: Pair<WeatherModel, List<BiasSample>>

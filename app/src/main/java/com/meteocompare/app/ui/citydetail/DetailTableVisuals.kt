@@ -106,7 +106,6 @@ private const val MAX_VISIBLE_MODEL_ROWS = 7.0f
 @Composable
 internal fun FrozenDetailTableLayout(
     modelColumnWidth: Dp,
-    temporalColumnWidth: Dp,
     temporalColumnCount: Int,
     headerHeight: Dp,
     rowHeight: Dp,
@@ -122,9 +121,10 @@ internal fun FrozenDetailTableLayout(
 
     val horizontalState = rememberScrollState()
     val verticalState = rememberScrollState()
-    // Largeur contractuelle commune aux en-tetes et aux colonnes de donnees.
-    // Elle borne aussi exactement le max de scroll du corps.
-    val temporalContentWidth = (temporalColumnWidth.value * temporalColumnCount).dp
+    // La largeur temporelle reste naturelle : les en-têtes et le corps sont
+    // composés avec les mêmes cellules de largeur fixe. Ne pas multiplier des
+    // valeurs Dp ici évite les écarts cumulés d'arrondi en pixels selon la
+    // densité (cause d'un décalage visible après plusieurs colonnes).
     val bodyContentHeight = (rowHeight.value * rowCount).dp
     val bodyViewportHeight = minOf(
         bodyContentHeight.value,
@@ -186,8 +186,7 @@ internal fun FrozenDetailTableLayout(
                 Row(
                     modifier = Modifier
                         .height(bodyContentHeight)
-                        .horizontalScroll(horizontalState)
-                        .width(temporalContentWidth),
+                        .horizontalScroll(horizontalState),
                     content = temporalColumns
                 )
             }
@@ -205,8 +204,9 @@ internal fun FrozenDetailTableLayout(
  *
  * Ce layout mesure explicitement la rangée sans borne horizontale puis la place
  * à l'origine du viewport avec exactement le même décalage en pixels que le
- * corps. La cellule d'en-tete et la colonne de données partagent ainsi la même
- * abscisse, quelle que soit la densité ou la largeur de l'écran.
+ * corps. En-têtes et valeurs gardent leur largeur naturelle, somme des cellules
+ * réellement mesurées : aucun arrondi Dp global ne peut dériver de l'arrondi de
+ * chaque colonne.
  */
 @Composable
 private fun SyncedTemporalHeaderViewport(

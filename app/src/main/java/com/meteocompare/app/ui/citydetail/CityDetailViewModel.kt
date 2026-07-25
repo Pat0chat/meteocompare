@@ -458,6 +458,7 @@ class CityDetailViewModel @Inject constructor(
                     currentCloudCover = confidenceCalculator.currentCloudCover(result.data, calculationNow),
                     dailyConditions = dailyConditions,
                     normals = loadedNormals,
+                    calculatedAt = calculationNow,
                     fetchedAt = result.data.fetchedAt
                 )
             }

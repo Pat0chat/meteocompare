@@ -30,6 +30,7 @@ import com.meteocompare.app.domain.model.DayNormals
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.model.sortedByFamily
 import com.meteocompare.app.ui.theme.color
+import java.time.Instant
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
@@ -42,6 +43,7 @@ private val CoolTempColor = Color(0xFF1E88E5)
 fun MinMaxForecastTable(
     forecast: CityForecast,
     normals: Map<Int, DayNormals>?,
+    now: Instant,
     modifier: Modifier = Modifier,
     modelBiasProvider: ((WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
     onBiasChipClick: ((WeatherModel, com.meteocompare.app.domain.model.ModelBias) -> Unit)? = null,
@@ -66,7 +68,9 @@ fun MinMaxForecastTable(
     val palette = detailTablePalette()
     val onSurface = MaterialTheme.colorScheme.onSurface
     val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
-    val today = remember { LocalDate.now() }
+    val today = remember(forecast.city.timezone, now) {
+        cityLocalDate(forecast.city.timezone, now)
+    }
     val modelRowHeight = if (modelBiasProvider != null) 56.dp else 44.dp
     val modelColumnWidth = if (modelBiasProvider != null) 94.dp else 84.dp
     val dateColumnWidth = 82.dp
@@ -76,7 +80,6 @@ fun MinMaxForecastTable(
 
     FrozenDetailTableLayout(
         modelColumnWidth = modelColumnWidth,
-        temporalColumnWidth = dateColumnWidth,
         temporalColumnCount = dates.size,
         headerHeight = headerHeight,
         rowHeight = modelRowHeight,

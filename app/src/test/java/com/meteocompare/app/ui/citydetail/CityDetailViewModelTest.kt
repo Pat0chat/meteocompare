@@ -276,6 +276,7 @@ class CityDetailViewModelTest {
             while (state !is CityDetailUiState.Loaded) state = awaitItem()
             assertEquals(paris, state.forecast.city)
             assertNotNull(state.currentTemp)
+            assertEquals(testNow, state.calculatedAt)
             // Pas de normales (stub renvoie error)
             assertEquals(null, state.normals)
         }

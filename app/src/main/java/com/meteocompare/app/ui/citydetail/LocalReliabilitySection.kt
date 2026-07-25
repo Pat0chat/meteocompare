@@ -74,21 +74,18 @@ internal fun LocalReliabilitySection(
     onOpenRanking: (BiasVariable) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val hasChart = tempBands.size >= 2 || precipBands.size >= 2 || windBands.size >= 2
-    if (!hasChart && !rankings.hasAnyRanking) return
+    val availableMetrics = remember(tempBands, precipBands, windBands, rankings) {
+        availableReliabilityMetrics(rankings, tempBands, precipBands, windBands)
+    }
+    if (availableMetrics.isEmpty()) return
 
-    val initialMetric = remember(tempBands, precipBands, windBands, rankings) {
-        when {
-            tempBands.size >= 2 || rankings.temperature.entries.isNotEmpty() ->
-                ConfidenceMetric.TEMPERATURE
-            precipBands.size >= 2 || rankings.precipitation.entries.isNotEmpty() ->
-                ConfidenceMetric.PRECIPITATION
-            else -> ConfidenceMetric.WIND
-        }
+    var savedMetric by rememberSaveable(stateSaver = ConfidenceMetric.Saver) {
+        mutableStateOf(availableMetrics.first())
     }
-    var metric by rememberSaveable(stateSaver = ConfidenceMetric.Saver) {
-        mutableStateOf(initialMetric)
-    }
+    // Une préférence restaurée peut viser une métrique qui n'est plus fournie
+    // par le jeu de modèles courant. Le rendu bascule alors vers la première
+    // métrique réellement disponible, sans afficher un faux écran vide.
+    val metric = savedMetric.takeIf { it in availableMetrics } ?: availableMetrics.first()
     val activeVariable = metric.toBiasVariable()
     val activeRanking = rankings.forVariable(activeVariable)
     val activeAccent = metricAccent(metric)
@@ -143,12 +140,13 @@ internal fun LocalReliabilitySection(
                     )
 
                     ReliabilityMetricTabs(
+                        options = availableMetrics,
                         selected = metric,
-                        onSelected = { metric = it },
+                        onSelected = { savedMetric = it },
                         modifier = Modifier.padding(horizontal = 14.dp)
                     )
 
-                    if (hasChart) {
+                    if (bands.size >= 2) {
                         HourlyConfidenceChart(
                             bands = bands,
                             metric = metric,
@@ -270,17 +268,11 @@ private fun ReliabilityWinnerCompact(
 
 @Composable
 private fun ReliabilityMetricTabs(
+    options: List<ConfidenceMetric>,
     selected: ConfidenceMetric,
     onSelected: (ConfidenceMetric) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val options = remember {
-        listOf(
-            ConfidenceMetric.TEMPERATURE,
-            ConfidenceMetric.PRECIPITATION,
-            ConfidenceMetric.WIND
-        )
-    }
     ModernTextTabs(
         options = options,
         selected = selected,

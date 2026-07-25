@@ -41,6 +41,7 @@ import java.time.format.DateTimeFormatter
 fun WeatherByModelTable(
     rows: List<DayConditionsRow>,
     modelOrder: List<WeatherModel>,
+    today: LocalDate,
     modifier: Modifier = Modifier
 ) {
     if (rows.isEmpty() || modelOrder.isEmpty()) {
@@ -55,7 +56,6 @@ fun WeatherByModelTable(
 
     val sortedModels = remember(modelOrder) { modelOrder.sortedByFamily() }
     val palette = detailTablePalette()
-    val today = remember { LocalDate.now() }
     val modelWidth = 84.dp
     val dateWidth = 72.dp
     val headerHeight = 40.dp
@@ -63,7 +63,6 @@ fun WeatherByModelTable(
 
     FrozenDetailTableLayout(
         modelColumnWidth = modelWidth,
-        temporalColumnWidth = dateWidth,
         temporalColumnCount = rows.size,
         headerHeight = headerHeight,
         rowHeight = rowHeight,
