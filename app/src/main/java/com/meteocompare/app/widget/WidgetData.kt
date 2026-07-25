@@ -5,6 +5,7 @@ import com.meteocompare.app.R
 import com.meteocompare.app.core.locale.applyPersistedLocale
 import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.domain.model.CityForecast
+import com.meteocompare.app.domain.model.HourlyConfidenceBand
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.usecase.ConfidenceCalculator
@@ -164,7 +165,16 @@ internal data class WidgetForecastItem(
     /** Couverture nuageuse de l'échéance, 0-100%. */
     val cloudCoverPct: Int? = null,
     /** Probabilité de précipitation de l'échéance, 0-100%. */
-    val precipProbabilityPct: Int? = null
+    val precipProbabilityPct: Int? = null,
+    /**
+     * Confiance inter-modèles sur la quantité de précipitations de l'échéance.
+     *
+     * Le score ne vient pas du modèle choisi pour illustrer la carte : il est
+     * calculé sur tous les modèles disponibles, puis pénalisé si seuls quelques
+     * modèles couvrent encore l'horizon. Null quand moins de deux modèles ont
+     * une donnée comparable — le widget ne fabrique alors aucune confiance.
+     */
+    val precipConfidencePct: Int? = null
 )
 
 /**
@@ -343,9 +353,23 @@ internal suspend fun loadWidgetData(
             // 5 items (HOURLY/DAILY), soit la mini bande de confiance
             // (CONFIDENCE_*), soit la mini prévision 12h (MINI_FORECAST_12H).
             // Les trois sont exclusifs — c'est ExtraLargeLayout qui aiguille.
-            val forecasts = if (forecastMode.isConfidenceBand() || forecastMode.isMiniForecast())
+            val precipitationConfidenceBands = if (
+                forecastMode == ForecastMode.HOURLY || forecastMode == ForecastMode.DAILY
+            ) {
+                calc.hourlyPrecipitationConfidence(forecast)
+            } else {
                 emptyList()
-            else buildForecasts(forecast, forecastMode, city.timezone)
+            }
+            val forecasts = if (forecastMode.isConfidenceBand() || forecastMode.isMiniForecast()) {
+                emptyList()
+            } else {
+                buildForecasts(
+                    forecast = forecast,
+                    mode = forecastMode,
+                    timezone = city.timezone,
+                    precipitationConfidenceBands = precipitationConfidenceBands
+                )
+            }
             val confidenceStrips = if (forecastMode.isConfidenceBand())
                 buildAllConfidenceStrips(localizedContext, forecast, calc)
             else emptyList()
@@ -438,10 +462,22 @@ internal fun buildForecasts(
     forecast: com.meteocompare.app.domain.model.CityForecast,
     mode: ForecastMode,
     timezone: String?,
-    now: java.time.Instant = java.time.Instant.now()
+    now: java.time.Instant = java.time.Instant.now(),
+    precipitationConfidenceBands: List<HourlyConfidenceBand> = emptyList()
 ): List<WidgetForecastItem> {
     val zone = runCatching { java.time.ZoneId.of(timezone ?: "UTC") }
         .getOrDefault(java.time.ZoneId.of("UTC"))
+    val totalModelCount = forecast.seriesByModel.size.coerceAtLeast(1)
+    val hourlyPrecipConfidence = hourlyPrecipitationConfidenceByTimestamp(
+        bands = precipitationConfidenceBands,
+        totalModelCount = totalModelCount
+    )
+    val dailyPrecipConfidence = dailyPrecipitationConfidenceByDate(
+        bands = precipitationConfidenceBands,
+        zone = zone,
+        totalModelCount = totalModelCount,
+        notBefore = now
+    )
 
     data class Candidate(
         val resolutionKm: Double,
@@ -473,8 +509,18 @@ internal fun buildForecasts(
      */
     val candidates = forecast.seriesByModel.entries.map { (model, series) ->
         val items = when (mode) {
-            ForecastMode.HOURLY -> buildHourlyForecasts(series.hourly, zone, now)
-            ForecastMode.DAILY -> buildDailyForecasts(series.daily, series.hourly, zone)
+            ForecastMode.HOURLY -> buildHourlyForecasts(
+                hourly = series.hourly,
+                zone = zone,
+                now = now,
+                precipitationConfidenceByTimestamp = hourlyPrecipConfidence
+            )
+            ForecastMode.DAILY -> buildDailyForecasts(
+                daily = series.daily,
+                hourly = series.hourly,
+                zone = zone,
+                precipitationConfidenceByDate = dailyPrecipConfidence
+            )
             ForecastMode.CONFIDENCE_ALL,
             ForecastMode.CONFIDENCE_TEMPERATURE,
             ForecastMode.CONFIDENCE_PRECIPITATION,
@@ -499,7 +545,8 @@ internal fun buildForecasts(
 internal fun buildHourlyForecasts(
     hourly: com.meteocompare.app.domain.model.HourlyForecast,
     zone: java.time.ZoneId,
-    now: java.time.Instant = java.time.Instant.now()
+    now: java.time.Instant = java.time.Instant.now(),
+    precipitationConfidenceByTimestamp: Map<java.time.Instant, Int> = emptyMap()
 ): List<WidgetForecastItem> {
     if (hourly.timestamps.isEmpty()) return emptyList()
     val startIdx = hourly.timestamps.indexOfFirst { it >= now }
@@ -525,7 +572,8 @@ internal fun buildHourlyForecasts(
             condition = condition,
             temp = temp,
             cloudCoverPct = hourly.cloudCover.getOrNull(i),
-            precipProbabilityPct = hourly.precipitationProbability.getOrNull(i)
+            precipProbabilityPct = hourly.precipitationProbability.getOrNull(i),
+            precipConfidencePct = precipitationConfidenceByTimestamp[ts]
         )
     }
 }
@@ -533,7 +581,8 @@ internal fun buildHourlyForecasts(
 internal fun buildDailyForecasts(
     daily: com.meteocompare.app.domain.model.DailyForecast,
     hourly: com.meteocompare.app.domain.model.HourlyForecast,
-    zone: java.time.ZoneId
+    zone: java.time.ZoneId,
+    precipitationConfidenceByDate: Map<java.time.LocalDate, Int> = emptyMap()
 ): List<WidgetForecastItem> {
     if (daily.dates.isEmpty()) return emptyList()
     val locale = java.util.Locale.getDefault()
@@ -556,10 +605,51 @@ internal fun buildDailyForecasts(
             condition = condition,
             temp = temp,
             cloudCoverPct = dailyCloudCoverPct(hourly, date, zone),
-            precipProbabilityPct = daily.precipitationProbabilityMax.getOrNull(i)
+            precipProbabilityPct = daily.precipitationProbabilityMax.getOrNull(i),
+            precipConfidencePct = precipitationConfidenceByDate[date]
         )
     }
 }
+
+/**
+ * Aligne la confiance pluie multi-modèles sur les échéances horaires exactes
+ * des cartes 5 heures. La pénalité de couverture évite d'afficher « 90 % »
+ * quand seuls deux modèles sur sept sont encore disponibles.
+ */
+internal fun hourlyPrecipitationConfidenceByTimestamp(
+    bands: List<HourlyConfidenceBand>,
+    totalModelCount: Int
+): Map<java.time.Instant, Int> = bands.associate { band ->
+    band.timestamp to conservativeConfidencePercent(
+        percents = listOf(band.percent),
+        contributingModels = band.modelCount,
+        totalModels = totalModelCount
+    )
+}
+
+/**
+ * Agrège les bandes pluie horaires par jour civil pour les cartes 5 jours.
+ * Le quartile bas protège contre une fenêtre très incertaine noyée dans une
+ * journée autrement stable, tandis que le plus petit nombre de contributeurs
+ * représente honnêtement la couverture la moins favorable du jour. Pour le
+ * jour courant, les heures déjà passées sont exclues via [notBefore].
+ */
+internal fun dailyPrecipitationConfidenceByDate(
+    bands: List<HourlyConfidenceBand>,
+    zone: java.time.ZoneId,
+    totalModelCount: Int,
+    notBefore: java.time.Instant? = null
+): Map<java.time.LocalDate, Int> = bands
+    .asSequence()
+    .filter { band -> notBefore == null || band.timestamp >= notBefore }
+    .groupBy { it.timestamp.atZone(zone).toLocalDate() }
+    .mapValues { (_, dayBands) ->
+        conservativeConfidencePercent(
+            percents = dayBands.map { it.percent },
+            contributingModels = dayBands.minOf { it.modelCount },
+            totalModels = totalModelCount
+        )
+    }
 
 /**
  * Couverture nuageuse moyenne d'une journée pour un modèle.

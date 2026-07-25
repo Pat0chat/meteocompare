@@ -1767,6 +1767,7 @@ private fun ForecastItemCard(
     emphasized: Boolean = false,
     modifier: GlanceModifier = GlanceModifier
 ) {
+    val ctx = LocalContext.current
     val night = LocalNightMode.current
     val profile = heightProfile ?: if (compact) {
         ForecastCardHeightProfile.DENSE
@@ -1863,6 +1864,7 @@ private fun ForecastItemCard(
 
         val hasCloud = item.cloudCoverPct != null
         val hasRain = item.precipProbabilityPct != null
+        val showPrecipConfidence = hasRain && item.precipConfidencePct != null && shouldShowForecastCardConfidence(profile)
         if (hasCloud || hasRain) {
             Spacer(GlanceModifier.height(if (profile == ForecastCardHeightProfile.DENSE) 1.dp else 2.dp))
             Column (
@@ -1879,13 +1881,34 @@ private fun ForecastItemCard(
                 }
                 if (hasCloud && hasRain) Spacer(GlanceModifier.height(4.dp))
                 item.precipProbabilityPct?.let { rain ->
-                    ForecastMetricChip(
-                        text = "☂ ${rain.coerceIn(0, 100)}%",
-                        foreground = onContainerMuted,
-                        background = precipSurface,
-                        fontSize = detailSize,
-                        modifier = GlanceModifier.defaultWeight()
-                    )
+                    Column(
+                        modifier = GlanceModifier.defaultWeight(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        ForecastMetricChip(
+                            text = "☂ ${rain.coerceIn(0, 100)}%",
+                            foreground = precipForeground,
+                            background = precipSurface,
+                            fontSize = detailSize,
+                            modifier = GlanceModifier.fillMaxWidth()
+                        )
+                        if (showPrecipConfidence) {
+                            val confidence = item.precipConfidencePct ?: 0
+                            Spacer(GlanceModifier.height(1.dp))
+                            Text(
+                                text = ctx.getString(
+                                    R.string.widget_forecast_confidence_short,
+                                    confidence.coerceIn(0, 100)
+                                ),
+                                style = TextStyle(
+                                    color = confidenceTextColor(confidence),
+                                    fontSize = detailSize,
+                                    fontWeight = FontWeight.Bold
+                                ),
+                                maxLines = 1
+                            )
+                        }
+                    }
                 }
             }
         }

@@ -15,6 +15,14 @@ class WidgetForecastCardLayoutTest {
     }
 
     @Test
+    fun `forecast confidence appears only with enough card height`() {
+        assertTrue(!shouldShowForecastCardConfidence(ForecastCardHeightProfile.DENSE))
+        assertTrue(!shouldShowForecastCardConfidence(ForecastCardHeightProfile.COMPACT))
+        assertTrue(shouldShowForecastCardConfidence(ForecastCardHeightProfile.COMFORTABLE))
+        assertTrue(shouldShowForecastCardConfidence(ForecastCardHeightProfile.EXPANDED))
+    }
+
+    @Test
     fun `forecast card boundaries are stable`() {
         assertEquals(ForecastCardHeightProfile.COMPACT, forecastCardHeightProfile(72f))
         assertEquals(ForecastCardHeightProfile.COMFORTABLE, forecastCardHeightProfile(102f))

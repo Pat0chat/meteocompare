@@ -4,6 +4,7 @@ import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DailyForecast
 import com.meteocompare.app.domain.model.ForecastSeries
+import com.meteocompare.app.domain.model.HourlyConfidenceBand
 import com.meteocompare.app.domain.model.HourlyForecast
 import com.meteocompare.app.domain.model.WeatherModel
 import java.time.Instant
@@ -158,6 +159,127 @@ class WidgetForecastSelectionTest {
         assertEquals(listOf(18.0, 19.0, 20.0, 21.0, 22.0), items.map { it.temp })
         assertEquals(listOf(25, 35, 45, 55, 65), items.map { it.cloudCoverPct })
         assertEquals(listOf(10, 20, 30, 40, 50), items.map { it.precipProbabilityPct })
+    }
+
+    @Test
+    fun `hourly attache la confiance pluie a lecheance exacte`() {
+        val now = Instant.parse("2026-07-17T10:15:00Z")
+        val timestamps = (1L..5L).map { now.plusSeconds(it * 3600) }
+        val series = ForecastSeries(
+            model = WeatherModel.GFS,
+            hourly = HourlyForecast(
+                timestamps = timestamps,
+                temperature2m = List(5) { 20.0 },
+                precipitation = List(5) { 0.5 },
+                windSpeed10m = List(5) { 8.0 },
+                precipitationProbability = listOf(10, 20, 30, 40, 50)
+            ),
+            daily = emptyDaily()
+        )
+        val bands = timestamps.mapIndexed { index, timestamp ->
+            HourlyConfidenceBand(
+                timestamp = timestamp,
+                meanValue = 0.5,
+                minValue = 0.2,
+                maxValue = 0.8,
+                stdDev = 0.1,
+                percent = 80 - index * 5,
+                modelCount = 2
+            )
+        }
+
+        val items = buildForecasts(
+            forecast = CityForecast(
+                city = city,
+                seriesByModel = linkedMapOf(
+                    WeatherModel.GFS to series,
+                    WeatherModel.ICON_EU to series.copy(model = WeatherModel.ICON_EU)
+                )
+            ),
+            mode = ForecastMode.HOURLY,
+            timezone = city.timezone,
+            now = now,
+            precipitationConfidenceBands = bands
+        )
+
+        assertEquals(listOf(80, 75, 70, 65, 60), items.map { it.precipConfidencePct })
+    }
+
+    @Test
+    fun `daily confidence retient le quartile bas du jour`() {
+        val zone = java.time.ZoneId.of("Europe/Paris")
+        val date = LocalDate.of(2026, 7, 17)
+        val percents = listOf(20, 90, 90, 90)
+        val bands = percents.mapIndexed { hour, percent ->
+            HourlyConfidenceBand(
+                timestamp = date.atTime(8 + hour, 0).atZone(zone).toInstant(),
+                meanValue = 0.5,
+                minValue = 0.0,
+                maxValue = 1.0,
+                stdDev = 0.2,
+                percent = percent,
+                modelCount = 7
+            )
+        }
+
+        val byDate = dailyPrecipitationConfidenceByDate(
+            bands = bands,
+            zone = zone,
+            totalModelCount = 7
+        )
+
+        assertEquals(20, byDate[date])
+    }
+
+    @Test
+    fun `daily confidence ignore les heures deja passees du jour courant`() {
+        val zone = java.time.ZoneId.of("Europe/Paris")
+        val date = LocalDate.of(2026, 7, 17)
+        val bands = listOf(
+            8 to 10,
+            10 to 90,
+            12 to 90
+        ).map { (hour, percent) ->
+            HourlyConfidenceBand(
+                timestamp = date.atTime(hour, 0).atZone(zone).toInstant(),
+                meanValue = 0.5,
+                minValue = 0.0,
+                maxValue = 1.0,
+                stdDev = 0.2,
+                percent = percent,
+                modelCount = 7
+            )
+        }
+
+        val byDate = dailyPrecipitationConfidenceByDate(
+            bands = bands,
+            zone = zone,
+            totalModelCount = 7,
+            notBefore = date.atTime(9, 0).atZone(zone).toInstant()
+        )
+
+        assertEquals(90, byDate[date])
+    }
+
+    @Test
+    fun `hourly confidence penalise la disparition de modeles`() {
+        val timestamp = Instant.parse("2026-07-17T12:00:00Z")
+        val byTimestamp = hourlyPrecipitationConfidenceByTimestamp(
+            bands = listOf(
+                HourlyConfidenceBand(
+                    timestamp = timestamp,
+                    meanValue = 0.5,
+                    minValue = 0.0,
+                    maxValue = 1.0,
+                    stdDev = 0.1,
+                    percent = 90,
+                    modelCount = 2
+                )
+            ),
+            totalModelCount = 7
+        )
+
+        assertTrue((byTimestamp[timestamp] ?: 100) < 90)
     }
 
     @Test

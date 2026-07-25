@@ -47,5 +47,6 @@
     <string name="widget_forecast_generic">Forecast</string>
     <string name="widget_forecast_confidence">Model confidence</string>
     <string name="widget_forecast_confidence_hint">agreement / models</string>
+    <string name="widget_forecast_confidence_short">Conf. %1$d%%</string>
 
 </resources>

@@ -124,7 +124,7 @@ internal object WidgetMiniForecastRenderer {
         val baseTempTextSize = min(
             rowHeight * metrics.tempTextFraction,
             columnWidth * metrics.tempWidthLimitFraction
-        ).coerceAtLeast(13f)
+        ).coerceAtLeast(11f)
         val basePrecipTextSize = min(
             rowHeight * metrics.precipTextFraction,
             columnWidth * metrics.precipWidthLimitFraction
@@ -233,7 +233,7 @@ internal object WidgetMiniForecastRenderer {
             canvas.drawText(
                 label,
                 centerX,
-                tempTop + tempZoneHeight * 0.29f,
+                tempTop + tempZoneHeight * metrics.timeBaselineFraction,
                 timePaint
             )
             val temperatureText = temp?.let { "${it.roundToInt()}°" } ?: "—"
@@ -248,7 +248,8 @@ internal object WidgetMiniForecastRenderer {
                 profile = profile
             )
             val tempFontMetrics = tempPaint.fontMetrics
-            val temperatureCenterY = tempTop + tempZoneHeight * 0.73f
+            val temperatureCenterY =
+                tempTop + tempZoneHeight * metrics.temperatureCenterFraction
             val temperatureBaseline = temperatureCenterY -
                 (tempFontMetrics.ascent + tempFontMetrics.descent) / 2f
 
@@ -374,45 +375,51 @@ internal object WidgetMiniForecastRenderer {
     private fun gridMetricsFor(profile: MiniForecastSizeProfile): GridMetrics = when (profile) {
         MiniForecastSizeProfile.COMPACT_2X2 -> GridMetrics(
             timeTextFraction = 0.105f,
-            tempTextFraction = 0.225f,
+            tempTextFraction = 0.195f,
             precipTextFraction = 0.105f,
             cellGapFraction = 0.08f,
             timeWidthLimitFraction = 0.24f,
-            tempWidthLimitFraction = 0.43f,
+            tempWidthLimitFraction = 0.38f,
             precipWidthLimitFraction = 0.22f,
-            conditionIconHeightFraction = 0.34f,
-            conditionIconWidthFraction = 0.25f,
-            conditionIconGapFraction = 0.035f,
+            conditionIconHeightFraction = 0.43f,
+            conditionIconWidthFraction = 0.33f,
+            conditionIconGapFraction = 0.025f,
+            timeBaselineFraction = 0.27f,
+            temperatureCenterFraction = 0.65f,
             highlightWidthFraction = 0.034f,
             highlightHeightFraction = 0.036f,
             highlightContentScale = 1.04f
         )
         MiniForecastSizeProfile.MEDIUM_3X2 -> GridMetrics(
             timeTextFraction = 0.112f,
-            tempTextFraction = 0.235f,
+            tempTextFraction = 0.205f,
             precipTextFraction = 0.11f,
             cellGapFraction = 0.10f,
             timeWidthLimitFraction = 0.25f,
-            tempWidthLimitFraction = 0.44f,
+            tempWidthLimitFraction = 0.39f,
             precipWidthLimitFraction = 0.23f,
-            conditionIconHeightFraction = 0.36f,
-            conditionIconWidthFraction = 0.27f,
-            conditionIconGapFraction = 0.04f,
+            conditionIconHeightFraction = 0.46f,
+            conditionIconWidthFraction = 0.35f,
+            conditionIconGapFraction = 0.028f,
+            timeBaselineFraction = 0.27f,
+            temperatureCenterFraction = 0.65f,
             highlightWidthFraction = 0.038f,
             highlightHeightFraction = 0.04f,
             highlightContentScale = 1.05f
         )
         MiniForecastSizeProfile.EXPANDED_4X2 -> GridMetrics(
             timeTextFraction = 0.12f,
-            tempTextFraction = 0.25f,
+            tempTextFraction = 0.215f,
             precipTextFraction = 0.115f,
             cellGapFraction = 0.12f,
             timeWidthLimitFraction = 0.26f,
-            tempWidthLimitFraction = 0.46f,
+            tempWidthLimitFraction = 0.40f,
             precipWidthLimitFraction = 0.24f,
-            conditionIconHeightFraction = 0.38f,
-            conditionIconWidthFraction = 0.29f,
-            conditionIconGapFraction = 0.045f,
+            conditionIconHeightFraction = 0.49f,
+            conditionIconWidthFraction = 0.37f,
+            conditionIconGapFraction = 0.03f,
+            timeBaselineFraction = 0.27f,
+            temperatureCenterFraction = 0.65f,
             highlightWidthFraction = 0.042f,
             highlightHeightFraction = 0.044f,
             highlightContentScale = 1.06f
@@ -430,6 +437,8 @@ internal object WidgetMiniForecastRenderer {
         val conditionIconHeightFraction: Float,
         val conditionIconWidthFraction: Float,
         val conditionIconGapFraction: Float,
+        val timeBaselineFraction: Float,
+        val temperatureCenterFraction: Float,
         val highlightWidthFraction: Float,
         val highlightHeightFraction: Float,
         val highlightContentScale: Float
@@ -437,6 +446,17 @@ internal object WidgetMiniForecastRenderer {
 
     internal fun upcomingHourHighlightScale(profile: MiniForecastSizeProfile): Float =
         gridMetricsFor(profile).highlightContentScale
+
+    internal fun temperatureTextFraction(profile: MiniForecastSizeProfile): Float =
+        gridMetricsFor(profile).tempTextFraction
+
+    internal fun conditionIconHeightFraction(profile: MiniForecastSizeProfile): Float =
+        gridMetricsFor(profile).conditionIconHeightFraction
+
+    internal fun timeToTemperatureVerticalGapFraction(
+        profile: MiniForecastSizeProfile
+    ): Float = gridMetricsFor(profile).temperatureCenterFraction -
+        gridMetricsFor(profile).timeBaselineFraction
 
     /** Rampe de couleurs froid → chaud commune à l'application et au widget. */
     internal fun temperatureHeatmapArgb(temp: Double): Int {

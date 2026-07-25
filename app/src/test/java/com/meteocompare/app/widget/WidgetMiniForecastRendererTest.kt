@@ -178,7 +178,7 @@ class WidgetMiniForecastRendererTest {
             profile = MiniForecastSizeProfile.MEDIUM_3X2
         )
 
-        assertTrue("L'icône doit être visible", layout.iconSizePx >= 7f)
+        assertTrue("L'icône agrandie doit rester clairement visible", layout.iconSizePx >= 16f)
         val textLeft = layout.textCenterX - textWidth / 2f
         val groupLeft = layout.iconLeftPx
         val groupRight = layout.textCenterX + textWidth / 2f
@@ -199,6 +199,27 @@ class WidgetMiniForecastRendererTest {
 
         assertEquals(0f, layout.iconSizePx, 0.001f)
         assertEquals(30f, layout.textCenterX, 0.001f)
+    }
+
+    @Test
+    fun `mini forecast privilegie davantage licone que la temperature`() {
+        MiniForecastSizeProfile.entries.forEach { profile ->
+            assertTrue(
+                "L'icône doit occuper une fraction supérieure au texte pour $profile",
+                WidgetMiniForecastRenderer.conditionIconHeightFraction(profile) >
+                    WidgetMiniForecastRenderer.temperatureTextFraction(profile)
+            )
+        }
+    }
+
+    @Test
+    fun `ligne condition temperature est rapprochee de lheure`() {
+        MiniForecastSizeProfile.entries.forEach { profile ->
+            assertTrue(
+                "Le gap vertical doit rester compact pour $profile",
+                WidgetMiniForecastRenderer.timeToTemperatureVerticalGapFraction(profile) <= 0.38f
+            )
+        }
     }
 
     // ─── Contrat public de render (bornes d'input) ───────────────────────

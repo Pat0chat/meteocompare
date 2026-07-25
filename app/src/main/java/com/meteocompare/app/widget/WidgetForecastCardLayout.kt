@@ -9,6 +9,20 @@ internal enum class ForecastCardHeightProfile {
 }
 
 /**
+ * L'information de confiance ajoute une seconde ligne sous la probabilité de
+ * pluie. Elle n'est affichée que lorsque la hauteur utile garantit qu'aucune
+ * icône, température ou métrique ne sera comprimée.
+ */
+internal fun shouldShowForecastCardConfidence(
+    profile: ForecastCardHeightProfile
+): Boolean = when (profile) {
+    ForecastCardHeightProfile.DENSE,
+    ForecastCardHeightProfile.COMPACT -> false
+    ForecastCardHeightProfile.COMFORTABLE,
+    ForecastCardHeightProfile.EXPANDED -> true
+}
+
+/**
  * Densité verticale des widgets sur une seule rangée (1×1 à 5×1).
  *
  * Les launchers ne donnent pas tous la même hauteur à une cellule. Les profils

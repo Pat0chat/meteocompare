@@ -81,5 +81,6 @@
     <string name="widget_forecast_generic">Prévisions</string>
     <string name="widget_forecast_confidence">Confiance des modèles</string>
     <string name="widget_forecast_confidence_hint">accord / modèles</string>
+    <string name="widget_forecast_confidence_short">Conf. %1$d%%</string>
 
 </resources>
