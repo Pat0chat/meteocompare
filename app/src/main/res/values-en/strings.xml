@@ -449,8 +449,10 @@
     <string name="forecast_insight_rain_models_split">Models are split on rain around %3$s (%1$d of %2$d).</string>
     <string name="forecast_insight_rain_uncertain">Rain chance remains uncertain (%1$d%%) around %2$s.</string>
     <string name="forecast_insight_wind_rising">Wind increasing to around %1$d km/h by %2$s.</string>
-    <string name="forecast_insight_temperature_rising">A rise of about %1$d° is expected by %2$s.</string>
-    <string name="forecast_insight_temperature_falling">A drop of about %1$d° is expected by %2$s.</string>
+    <string name="forecast_insight_temperature_rising">Between %1$s and %2$s, the temperature is expected to rise from about %3$d° to %4$d° (+%5$d°).</string>
+    <string name="forecast_insight_temperature_falling">Between %1$s and %2$s, the temperature is expected to fall from about %3$d° to %4$d° (−%5$d°).</string>
+    <string name="forecast_insight_temperature_rising_fallback">Compared with the first displayed time, about +%1$d° is expected by %2$s.</string>
+    <string name="forecast_insight_temperature_falling_fallback">Compared with the first displayed time, about −%1$d° is expected by %2$s.</string>
 
     <string name="local_reliability_title">Local reliability</string>
     <string name="local_reliability_subtitle_with_confidence">%1$d%% confidence · %2$d models</string>

@@ -47,6 +47,66 @@ class ForecastInsightsTest {
         assertEquals(1, insights.count { it.point == insights.first().point })
     }
 
+
+    @Test
+    fun `temperature insight exposes its comparison baseline and target`() {
+        val start = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-23T10:00:00Z"),
+            temperatureC = 18.2,
+            modelCount = 3,
+            temperatureModelCount = 3,
+            hasMultiModelEvidence = true,
+            isDivergent = false
+        )
+        val target = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-23T16:00:00Z"),
+            temperatureC = 25.1,
+            modelCount = 3,
+            temperatureModelCount = 3,
+            hasMultiModelEvidence = true,
+            isDivergent = false
+        )
+
+        val insight = buildForecastInsights(
+            OverviewTimeline(DisplayMode.HOURLY, listOf(start, target))
+        ).first { it.kind == ForecastInsightKind.TEMPERATURE_CHANGE }
+
+        assertEquals(start, insight.referencePoint)
+        assertEquals(target, insight.point)
+        assertEquals(18, insight.referenceValue)
+        assertEquals(25, insight.targetValue)
+        assertEquals(7, insight.value)
+    }
+
+
+    @Test
+    fun `falling temperature insight keeps the signed delta and both values`() {
+        val start = SimplifiedTimelinePoint(
+            date = LocalDate.of(2026, 7, 23),
+            tempMaxC = 27.8,
+            modelCount = 3,
+            temperatureModelCount = 3,
+            hasMultiModelEvidence = true,
+            isDivergent = false
+        )
+        val target = SimplifiedTimelinePoint(
+            date = LocalDate.of(2026, 7, 24),
+            tempMaxC = 19.9,
+            modelCount = 3,
+            temperatureModelCount = 3,
+            hasMultiModelEvidence = true,
+            isDivergent = false
+        )
+
+        val insight = buildForecastInsights(
+            OverviewTimeline(DisplayMode.DAILY, listOf(start, target))
+        ).first { it.kind == ForecastInsightKind.TEMPERATURE_CHANGE }
+
+        assertEquals(28, insight.referenceValue)
+        assertEquals(20, insight.targetValue)
+        assertEquals(-8, insight.value)
+    }
+
     @Test
     fun `a single model never produces a high agreement claim`() {
         val forecast = forecast(

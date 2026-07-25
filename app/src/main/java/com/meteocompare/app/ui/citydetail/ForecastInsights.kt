@@ -15,10 +15,18 @@ internal enum class ForecastInsightKind {
 /** Observation courte dérivée localement du consensus multi-modèles. */
 internal data class ForecastInsight(
     val kind: ForecastInsightKind,
+    /** Échéance concernée par le message. */
     val point: SimplifiedTimelinePoint? = null,
+    /** Valeur principale générique : pour la température, variation signée en degrés. */
     val value: Int? = null,
     val secondaryValue: Int? = null,
-    val precipitationSource: PrecipitationSignalSource? = null
+    val precipitationSource: PrecipitationSignalSource? = null,
+    /** Point de départ explicite des messages comparatifs, notamment la température. */
+    val referencePoint: SimplifiedTimelinePoint? = null,
+    /** Température de consensus arrondie au point de départ. */
+    val referenceValue: Int? = null,
+    /** Température de consensus arrondie à l'échéance cible. */
+    val targetValue: Int? = null
 )
 
 /**
@@ -85,14 +93,21 @@ internal fun buildForecastInsights(overview: OverviewTimeline): List<ForecastIns
             (point.temperatureC ?: point.tempMaxC)?.let { value -> point to value }
         }
         if (temperatures.size >= 2) {
-            val first = temperatures.first().second
-            val strongest = temperatures.maxByOrNull { (_, value) -> abs(value - first) }
-            val delta = strongest?.second?.minus(first)?.roundToInt() ?: 0
-            if (abs(delta) >= 6) {
+            val (referencePoint, referenceTemperature) = temperatures.first()
+            val strongest = temperatures.maxByOrNull { (_, value) ->
+                abs(value - referenceTemperature)
+            }
+            val targetPoint = strongest?.first
+            val targetTemperature = strongest?.second
+            val delta = targetTemperature?.minus(referenceTemperature)?.roundToInt() ?: 0
+            if (targetPoint != null && targetTemperature != null && abs(delta) >= 6) {
                 result += ForecastInsight(
                     kind = ForecastInsightKind.TEMPERATURE_CHANGE,
-                    point = strongest?.first,
-                    value = delta
+                    point = targetPoint,
+                    value = delta,
+                    referencePoint = referencePoint,
+                    referenceValue = referenceTemperature.roundToInt(),
+                    targetValue = targetTemperature.roundToInt()
                 )
             }
         }

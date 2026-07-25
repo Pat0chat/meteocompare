@@ -447,8 +447,10 @@
     <string name="forecast_insight_rain_models_split">Les modèles sont partagés sur la pluie vers %3$s (%1$d sur %2$d).</string>
     <string name="forecast_insight_rain_uncertain">Risque de pluie incertain (%1$d %%) vers %2$s.</string>
     <string name="forecast_insight_wind_rising">Vent en hausse, autour de %1$d km/h vers %2$s.</string>
-    <string name="forecast_insight_temperature_rising">Hausse d’environ %1$d° attendue vers %2$s.</string>
-    <string name="forecast_insight_temperature_falling">Baisse d’environ %1$d° attendue vers %2$s.</string>
+    <string name="forecast_insight_temperature_rising">Entre %1$s et %2$s, la température passerait d’environ %3$d° à %4$d° (+%5$d°).</string>
+    <string name="forecast_insight_temperature_falling">Entre %1$s et %2$s, la température passerait d’environ %3$d° à %4$d° (−%5$d°).</string>
+    <string name="forecast_insight_temperature_rising_fallback">Par rapport à la première échéance affichée, environ +%1$d° sont attendus d’ici %2$s.</string>
+    <string name="forecast_insight_temperature_falling_fallback">Par rapport à la première échéance affichée, environ −%1$d° sont attendus d’ici %2$s.</string>
 
     <string name="local_reliability_title">Fiabilité locale</string>
     <string name="local_reliability_subtitle_with_confidence">Confiance %1$d %% · %2$d modèles</string>

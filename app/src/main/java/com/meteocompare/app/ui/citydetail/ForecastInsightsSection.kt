@@ -207,13 +207,78 @@ private fun forecastInsightText(
             )
         ForecastInsightKind.TEMPERATURE_CHANGE -> {
             val delta = insight.value ?: 0
-            if (delta >= 0) {
-                stringResource(R.string.forecast_insight_temperature_rising, delta, whenLabel)
+            val (referenceLabel, targetLabel) = forecastComparisonLabels(
+                referencePoint = insight.referencePoint,
+                targetPoint = insight.point,
+                timezone = timezone
+            )
+            val referenceTemperature = insight.referenceValue
+            val targetTemperature = insight.targetValue
+
+            if (referenceTemperature == null || targetTemperature == null) {
+                // Compatibilité défensive avec un éventuel état ancien reconstruit sans
+                // les nouvelles valeurs explicites. Le texte reste compréhensible et
+                // indique clairement que la comparaison part de la première échéance.
+                if (delta >= 0) {
+                    stringResource(
+                        R.string.forecast_insight_temperature_rising_fallback,
+                        delta,
+                        targetLabel
+                    )
+                } else {
+                    stringResource(
+                        R.string.forecast_insight_temperature_falling_fallback,
+                        -delta,
+                        targetLabel
+                    )
+                }
+            } else if (delta >= 0) {
+                stringResource(
+                    R.string.forecast_insight_temperature_rising,
+                    referenceLabel,
+                    targetLabel,
+                    referenceTemperature,
+                    targetTemperature,
+                    delta
+                )
             } else {
-                stringResource(R.string.forecast_insight_temperature_falling, -delta, whenLabel)
+                stringResource(
+                    R.string.forecast_insight_temperature_falling,
+                    referenceLabel,
+                    targetLabel,
+                    referenceTemperature,
+                    targetTemperature,
+                    -delta
+                )
             }
         }
     }
+}
+
+@Composable
+private fun forecastComparisonLabels(
+    referencePoint: SimplifiedTimelinePoint?,
+    targetPoint: SimplifiedTimelinePoint?,
+    timezone: String?
+): Pair<String, String> {
+    val locale = LocalConfiguration.current.locales[0]
+    val zone = remember(timezone) { resolveCityZone(timezone) }
+    val crossDayFormatter = remember(locale) {
+        DateTimeFormatter.ofPattern("EEE HH'h'", locale)
+    }
+    val referenceInstant = referencePoint?.instant
+    val targetInstant = targetPoint?.instant
+    if (referenceInstant != null && targetInstant != null) {
+        val referenceDate = referenceInstant.atZone(zone).toLocalDate()
+        val targetDate = targetInstant.atZone(zone).toLocalDate()
+        if (referenceDate != targetDate) {
+            return referenceInstant.atZone(zone).format(crossDayFormatter) to
+                targetInstant.atZone(zone).format(crossDayFormatter)
+        }
+    }
+
+    return forecastPointLabel(referencePoint, timezone) to
+        forecastPointLabel(targetPoint, timezone)
 }
 
 @Composable
