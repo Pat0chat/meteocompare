@@ -39,6 +39,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import java.time.Clock
 import javax.inject.Inject
 
 @HiltViewModel
@@ -49,6 +50,7 @@ class CityListViewModel @Inject constructor(
     private val networkMonitor: NetworkMonitor,
     private val confidenceCalculator: ConfidenceCalculator,
     private val userPreferences: UserPreferencesRepository,
+    private val clock: Clock,
     @param:DefaultDispatcher private val computationDispatcher: CoroutineDispatcher = Dispatchers.Default
 ) : ViewModel() {
 
@@ -402,13 +404,13 @@ class CityListViewModel @Inject constructor(
                     zone = zone
                 )
 
-                val now = java.time.Instant.now()
+                val now = clock.instant()
                 val miniForecast = ForecastAggregates.next12h(result.data, now)
                 ForecastState.Loaded(
                     today = confidenceCalculator.dayConfidence(result.data, today),
-                    currentTemp = confidenceCalculator.currentTemperature(result.data),
-                    currentCondition = confidenceCalculator.currentWeatherCondition(result.data),
-                    currentCloudCover = confidenceCalculator.currentCloudCover(result.data),
+                    currentTemp = confidenceCalculator.currentTemperature(result.data, now),
+                    currentCondition = confidenceCalculator.currentWeatherCondition(result.data, now),
+                    currentCloudCover = confidenceCalculator.currentCloudCover(result.data, now),
                     fetchedAt = result.data.fetchedAt,
                     sourceModels = result.data.seriesByModel.keys + result.data.errors.keys,
                     next12hTemps = miniForecast.temperatures,

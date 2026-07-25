@@ -40,8 +40,10 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneOffset
 
 /**
  * Tests de [CityListViewModel].
@@ -68,6 +70,8 @@ import java.time.LocalDate
 class CityListViewModelTest {
 
     private val dispatcher = UnconfinedTestDispatcher()
+    private val testNow = Instant.parse("2026-06-28T12:00:00Z")
+    private val testClock = Clock.fixed(testNow, ZoneOffset.UTC)
 
     private val paris = City("1", "Paris", country = "France", latitude = 48.85, longitude = 2.35)
     private val lyon = City("2", "Lyon", country = "France", latitude = 45.75, longitude = 4.85)
@@ -121,7 +125,7 @@ class CityListViewModelTest {
             /* ne rien émettre, ne pas terminer */
         }
         every { forecastRepo.observeForecastUpdates() } returns forecastUpdates
-        viewModel = CityListViewModel(cityRepo, forecastRepo, networkMonitor, calculator, prefs, dispatcher)
+        viewModel = CityListViewModel(cityRepo, forecastRepo, networkMonitor, calculator, prefs, testClock, dispatcher)
     }
 
     @After
@@ -176,7 +180,7 @@ class CityListViewModelTest {
         } returns flowOf(ApiResult.Success(forecast))
 
         // Nouvelle VM qui capturera le bon stub
-        val vm = CityListViewModel(cityRepo, forecastRepo, networkMonitor, calculator, prefs, dispatcher)
+        val vm = CityListViewModel(cityRepo, forecastRepo, networkMonitor, calculator, prefs, testClock, dispatcher)
 
         vm.uiState.test {
             awaitItem() // initial vide
@@ -199,7 +203,7 @@ class CityListViewModelTest {
                 forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
             } returns flowOf(ApiResult.Error(RuntimeException("net"), "Pas de connexion"))
 
-            val vm = CityListViewModel(cityRepo, forecastRepo, networkMonitor, calculator, prefs, dispatcher)
+            val vm = CityListViewModel(cityRepo, forecastRepo, networkMonitor, calculator, prefs, testClock, dispatcher)
 
             vm.uiState.test {
                 awaitItem()
@@ -227,7 +231,7 @@ class CityListViewModelTest {
                 forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
             } returns flowOf(ApiResult.Success(initial))
 
-            val vm = CityListViewModel(cityRepo, forecastRepo, networkMonitor, calculator, prefs, dispatcher)
+            val vm = CityListViewModel(cityRepo, forecastRepo, networkMonitor, calculator, prefs, testClock, dispatcher)
 
             vm.uiState.test {
                 awaitItem()
@@ -279,7 +283,7 @@ class CityListViewModelTest {
                 forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
             } returns flowOf(ApiResult.Success(initial))
 
-            val vm = CityListViewModel(cityRepo, forecastRepo, networkMonitor, calculator, prefs, dispatcher)
+            val vm = CityListViewModel(cityRepo, forecastRepo, networkMonitor, calculator, prefs, testClock, dispatcher)
 
             vm.uiState.test {
                 awaitItem()
@@ -355,7 +359,7 @@ class CityListViewModelTest {
             forecastRepo.refreshCityForecast(eq(paris), any(), any())
         } returns ApiResult.Error(RuntimeException("offline"), "Pas de connexion")
 
-        val vm = CityListViewModel(cityRepo, forecastRepo, networkMonitor, calculator, prefs, dispatcher)
+        val vm = CityListViewModel(cityRepo, forecastRepo, networkMonitor, calculator, prefs, testClock, dispatcher)
         backgroundScope.launch { vm.uiState.collect {} }
         favoritesFlow.value = listOf(paris)
         vm.uiState.first {
@@ -408,7 +412,7 @@ class CityListViewModelTest {
             forecastRepo.refreshCityForecast(eq(paris), any(), any())
         } returns ApiResult.Success(freshForecast)
 
-        val vm = CityListViewModel(cityRepo, forecastRepo, networkMonitor, calculator, prefs, dispatcher)
+        val vm = CityListViewModel(cityRepo, forecastRepo, networkMonitor, calculator, prefs, testClock, dispatcher)
 
         vm.uiState.test {
             awaitItem() // initial vide
@@ -551,7 +555,7 @@ class CityListViewModelTest {
         model: WeatherModel = WeatherModel.AROME_FRANCE_HD
     ): CityForecast {
         val today = LocalDate.of(2026, 6, 28)
-        val now = Instant.parse("2026-06-28T12:00:00Z")
+        val now = testNow
         val daily = DailyForecast(
             dates = listOf(today),
             tempMax = listOf(dailyMaxTemp),

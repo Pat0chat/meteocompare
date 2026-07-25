@@ -22,6 +22,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -93,6 +94,7 @@ data class ModelValue(
 enum class VariableKind { TEMP_MAX, TEMP_MIN, PRECIPITATION, WIND_MAX }
 
 @HiltViewModel
+@OptIn(ExperimentalCoroutinesApi::class)
 class ConfidenceExplanationViewModel @Inject constructor(
     @param:ApplicationContext private val context: Context,
     savedStateHandle: SavedStateHandle,

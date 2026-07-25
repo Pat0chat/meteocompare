@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -25,10 +24,10 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.foundation.layout.offset
 
 /**
  * Palette visuelle commune aux tableaux de la page détail.
@@ -123,9 +122,8 @@ internal fun FrozenDetailTableLayout(
 
     val horizontalState = rememberScrollState()
     val verticalState = rememberScrollState()
-    // L'en-tete n'est pas mesure dans un conteneur horizontalement scrollable.
-    // `requiredWidth` empeche donc Compose de le ramener a la largeur du viewport
-    // et conserve toutes les cellules de jours/heures hors ecran.
+    // Largeur contractuelle commune aux en-tetes et aux colonnes de donnees.
+    // Elle borne aussi exactement le max de scroll du corps.
     val temporalContentWidth = (temporalColumnWidth.value * temporalColumnCount).dp
     val bodyContentHeight = (rowHeight.value * rowCount).dp
     val bodyViewportHeight = minOf(
@@ -152,24 +150,14 @@ internal fun FrozenDetailTableLayout(
                 color = palette.frozenDivider
             )
 
-            Box(
+            SyncedTemporalHeaderViewport(
+                scrollOffsetPx = horizontalState.value,
                 modifier = Modifier
                     .weight(1f)
                     .height(headerHeight)
-                    .clipToBounds()
-            ) {
-                Row(
-                    modifier = Modifier
-                        // Le corps est mesure avec une largeur horizontale non bornee,
-                        // alors que l'en-tete est place dans le viewport visible.
-                        // Forcer sa largeur reelle garantit que les colonnes situees
-                        // apres le premier ecran restent dessinees pendant le scroll.
-                        .requiredWidth(temporalContentWidth)
-                        .offset { IntOffset(-horizontalState.value, 0) }
-                ) {
-                    temporalHeaders()
-                }
-            }
+                    .clipToBounds(),
+                content = temporalHeaders
+            )
         }
 
         Row(
@@ -198,10 +186,46 @@ internal fun FrozenDetailTableLayout(
                 Row(
                     modifier = Modifier
                         .height(bodyContentHeight)
-                        .horizontalScroll(horizontalState),
+                        .horizontalScroll(horizontalState)
+                        .width(temporalContentWidth),
                     content = temporalColumns
                 )
             }
+        }
+    }
+}
+
+/**
+ * Viewport d'en-tete synchronise avec le scroll du corps du tableau.
+ *
+ * `requiredWidth` ne convient pas ici : lorsqu'un enfant force une largeur
+ * supérieure aux contraintes de son parent, Compose masque cette violation et
+ * centre par défaut l'enfant sur la largeur accordée. L'en-tete se retrouvait
+ * alors décalé par rapport aux colonnes du corps, surtout après un scroll.
+ *
+ * Ce layout mesure explicitement la rangée sans borne horizontale puis la place
+ * à l'origine du viewport avec exactement le même décalage en pixels que le
+ * corps. La cellule d'en-tete et la colonne de données partagent ainsi la même
+ * abscisse, quelle que soit la densité ou la largeur de l'écran.
+ */
+@Composable
+private fun SyncedTemporalHeaderViewport(
+    scrollOffsetPx: Int,
+    modifier: Modifier = Modifier,
+    content: @Composable RowScope.() -> Unit
+) {
+    Layout(
+        modifier = modifier,
+        content = { Row(content = content) }
+    ) { measurables, constraints ->
+        val row = measurables.single().measure(
+            constraints.copy(
+                minWidth = 0,
+                maxWidth = Constraints.Infinity
+            )
+        )
+        layout(constraints.maxWidth, constraints.maxHeight) {
+            row.placeRelative(x = -scrollOffsetPx, y = 0)
         }
     }
 }

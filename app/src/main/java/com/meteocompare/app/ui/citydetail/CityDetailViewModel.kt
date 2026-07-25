@@ -54,7 +54,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import java.time.Instant
+import java.time.Clock
 import javax.inject.Inject
 
 /**
@@ -83,6 +83,7 @@ class CityDetailViewModel @Inject constructor(
     private val userPreferences: UserPreferencesRepository,
     private val biasSampleRepository: BiasSampleRepository,
     private val computeBias: ComputeBiasUseCase,
+    private val clock: Clock,
     @param:DefaultDispatcher private val computationDispatcher: CoroutineDispatcher = Dispatchers.Default
 ) : ViewModel() {
 
@@ -438,7 +439,7 @@ class CityDetailViewModel @Inject constructor(
 
         val next = when (result) {
             is ApiResult.Success -> withContext(computationDispatcher) {
-                val calculationNow = Instant.now()
+                val calculationNow = clock.instant()
                 val weekly = confidenceCalculator.weeklyConfidence(result.data)
                 val hourly = confidenceCalculator.hourlyTemperatureConfidence(result.data)
                 val hourlyPrecip = confidenceCalculator.hourlyPrecipitationConfidence(result.data)

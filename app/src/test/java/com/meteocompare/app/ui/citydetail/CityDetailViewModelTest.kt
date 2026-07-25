@@ -42,8 +42,10 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneOffset
 
 /**
  * Tests de [CityDetailViewModel].
@@ -62,6 +64,8 @@ import java.time.LocalDate
 class CityDetailViewModelTest {
 
     private val dispatcher = UnconfinedTestDispatcher()
+    private val testNow = Instant.parse("2026-06-28T12:00:00Z")
+    private val testClock = Clock.fixed(testNow, ZoneOffset.UTC)
 
     private val paris = City("1", "Paris", country = "France", latitude = 48.85, longitude = 2.35)
     private val favoritesFlow = MutableStateFlow(listOf(paris))
@@ -125,6 +129,7 @@ class CityDetailViewModelTest {
             // testée ici (loadInitial, refresh, applyResult).
             biasSampleRepository = mockk(relaxed = true),
             computeBias = mockk(relaxed = true),
+            clock = testClock,
             computationDispatcher = dispatcher
         )
     }
@@ -370,7 +375,7 @@ class CityDetailViewModelTest {
                     updated = awaitItem()
                 }
 
-                val loaded = updated as CityDetailUiState.Loaded
+                val loaded = updated
                 assertEquals(fetchedAt, loaded.fetchedAt)
                 assertEquals(31.0, loaded.currentTemp ?: Double.NaN, 0.001)
             }
@@ -411,7 +416,7 @@ class CityDetailViewModelTest {
                 while ((updated as? CityDetailUiState.Loaded)?.fetchedAt != refreshedAt) {
                     updated = awaitItem()
                 }
-                assertEquals(refreshedAt, (updated as CityDetailUiState.Loaded).fetchedAt)
+                assertEquals(refreshedAt, updated.fetchedAt)
             }
 
             coVerify(exactly = 1) {
@@ -543,7 +548,7 @@ class CityDetailViewModelTest {
         temperature: Double = 20.0
     ): CityForecast {
         val today = LocalDate.of(2026, 6, 28)
-        val now = Instant.parse("2026-06-28T12:00:00Z")
+        val now = testNow
         val daily = DailyForecast(
             dates = listOf(today),
             tempMax = listOf(temperature + 2.0),
