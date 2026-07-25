@@ -1208,8 +1208,8 @@ private fun ExtraLargeLayout(
  * Mini-prévision 12 h pour les widgets hauts 2×2 à 5×2.
  *
  * Le bitmap répartit les douze heures sur deux lignes de six cellules. Chaque
- * cellule porte son heure, sa température, un accent thermique et le risque de
- * pluie. Le rendu utilise ainsi la hauteur des formats ×2 au lieu de laisser
+ * cellule porte son heure, sa température, la condition météo de consensus et
+ * le risque de pluie. Le rendu utilise ainsi la hauteur des formats ×2 au lieu de laisser
  * une bande étroite centrée dans un grand espace vide.
  */
 @Composable
@@ -1265,6 +1265,7 @@ private fun MiniForecastStrip(
         data.next12hTemps,
         data.next12hPrecipProb,
         data.next12hPrecipMm,
+        data.next12hConditions,
         timelineLabels,
         widthPx,
         heightPx,
@@ -1277,6 +1278,7 @@ private fun MiniForecastStrip(
             temps = data.next12hTemps,
             precipProbabilities = data.next12hPrecipProb,
             precipAmountsMm = data.next12hPrecipMm,
+            conditions = data.next12hConditions,
             precipColorArgb = precipColorArgb,
             textColorArgb = textColorArgb,
             timelineLabels = timelineLabels,

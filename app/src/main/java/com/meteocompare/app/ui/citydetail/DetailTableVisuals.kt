@@ -94,7 +94,7 @@ internal fun DetailTablePalette.labelRowBackground(index: Int, highlighted: Bool
     }
 
 /** Nombre maximal de modèles visibles avant défilement vertical interne. */
-private const val MAX_VISIBLE_MODEL_ROWS = 7.0f
+private const val MAX_VISIBLE_MODEL_ROWS = 9.0f
 
 /**
  * Structure commune des tableaux détaillés.

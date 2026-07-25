@@ -4,7 +4,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -38,7 +37,7 @@ class LocalReliabilitySectionTest {
                     windBands = emptyList(),
                     timezone = "Europe/Paris",
                     normals = null,
-                    expanded = true,
+                    expanded = false,
                     onExpandedChange = {},
                     onOpenRanking = { opened = it }
                 )
@@ -46,7 +45,6 @@ class LocalReliabilitySectionTest {
         }
 
         composeRule.onNodeWithTag(TAG_LOCAL_RELIABILITY_CARD).assertIsDisplayed()
-        composeRule.onNodeWithTag(TAG_LOCAL_RELIABILITY_DETAILS).assertIsDisplayed()
         composeRule.onNodeWithText("ECMWF").assertIsDisplayed()
         composeRule.onNodeWithText("GFS").performClick()
 

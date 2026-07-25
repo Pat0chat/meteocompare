@@ -96,11 +96,16 @@ internal data class WidgetData(
     val next12hPrecipProb: List<Int?> = emptyList(),
     /**
      * Quantités de précipitation horaires en millimètres, agrégées entre
-     * modèles et alignées sur [next12hTemps]. Elles pilotent la hauteur des
-     * barres pluie du mini-forecast, tandis que [next12hPrecipProb] pilote
-     * leur opacité.
+     * modèles et alignées sur [next12hTemps]. Avec [next12hPrecipProb], elles
+     * pilotent l'intensité de la bande pluie du mini-forecast.
      */
     val next12hPrecipMm: List<Double?> = emptyList(),
+    /**
+     * Condition météo de consensus pour chaque heure, alignée sur
+     * [next12hTemps]. Une valeur null signifie que les modèles ne fournissent
+     * pas assez d'information pour afficher honnêtement un pictogramme.
+     */
+    val next12hConditions: List<WeatherCondition?> = emptyList(),
     /**
      * Moment de la première heure de [next12hTemps] dans le fuseau de la
      * ville, pour produire les 12 libellés horaires de la grille.
@@ -114,7 +119,7 @@ internal data class WidgetData(
         /**
          * Constructeur d'états sans données (loading, erreur, non configuré) —
          * seuls [cityName] et [error] varient, tout le reste est null.
-         * Évite la répétition de 8 champs `null` dans chaque cas d'erreur.
+         * Évite la répétition des champs `null` dans chaque cas d'erreur.
          */
         fun empty(cityName: String? = null, error: WidgetError): WidgetData = WidgetData(
             cityName = cityName,
@@ -352,7 +357,11 @@ internal suspend fun loadWidgetData(
             // s'affichent en heure locale ville, pas device).
             val miniForecastNow = java.time.Instant.now()
             val miniForecast = if (forecastMode.isMiniForecast()) {
-                ForecastAggregates.next12h(forecast, miniForecastNow)
+                ForecastAggregates.next12h(
+                    forecast = forecast,
+                    now = miniForecastNow,
+                    includeConditions = true
+                )
             } else {
                 null
             }
@@ -385,6 +394,7 @@ internal suspend fun loadWidgetData(
                 next12hTemps = miniForecast?.temperatures.orEmpty(),
                 next12hPrecipProb = miniForecast?.precipitationProbabilities.orEmpty(),
                 next12hPrecipMm = miniForecast?.precipitationAmountsMm.orEmpty(),
+                next12hConditions = miniForecast?.conditions.orEmpty(),
                 hourlyStartTime = hourlyStartTime,
                 error = null
             )

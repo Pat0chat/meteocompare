@@ -147,6 +147,60 @@ class WidgetMiniForecastRendererTest {
     }
 
 
+
+    // ─── Icône de condition à côté de la température ────────────────────
+
+    @Test
+    fun `température reste centrée quand aucune condition nest disponible`() {
+        val layout = WidgetMiniForecastRenderer.temperatureContentLayout(
+            centerX = 50f,
+            cellWidthPx = 60f,
+            temperatureZoneHeightPx = 36f,
+            textWidthPx = 22f,
+            hasCondition = false,
+            profile = MiniForecastSizeProfile.COMPACT_2X2
+        )
+
+        assertEquals(0f, layout.iconSizePx, 0.001f)
+        assertEquals(50f, layout.textCenterX, 0.001f)
+    }
+
+    @Test
+    fun `icône et température forment un groupe centré`() {
+        val centerX = 50f
+        val textWidth = 22f
+        val layout = WidgetMiniForecastRenderer.temperatureContentLayout(
+            centerX = centerX,
+            cellWidthPx = 60f,
+            temperatureZoneHeightPx = 36f,
+            textWidthPx = textWidth,
+            hasCondition = true,
+            profile = MiniForecastSizeProfile.MEDIUM_3X2
+        )
+
+        assertTrue("L'icône doit être visible", layout.iconSizePx >= 7f)
+        val textLeft = layout.textCenterX - textWidth / 2f
+        val groupLeft = layout.iconLeftPx
+        val groupRight = layout.textCenterX + textWidth / 2f
+        assertEquals(centerX, (groupLeft + groupRight) / 2f, 0.001f)
+        assertTrue("L'icône doit rester à gauche du texte", layout.iconLeftPx < textLeft)
+    }
+
+    @Test
+    fun `cellule trop étroite masque licône sans décentrer la température`() {
+        val layout = WidgetMiniForecastRenderer.temperatureContentLayout(
+            centerX = 30f,
+            cellWidthPx = 24f,
+            temperatureZoneHeightPx = 18f,
+            textWidthPx = 21f,
+            hasCondition = true,
+            profile = MiniForecastSizeProfile.COMPACT_2X2
+        )
+
+        assertEquals(0f, layout.iconSizePx, 0.001f)
+        assertEquals(30f, layout.textCenterX, 0.001f)
+    }
+
     // ─── Contrat public de render (bornes d'input) ───────────────────────
 
     @Test(expected = IllegalArgumentException::class)
