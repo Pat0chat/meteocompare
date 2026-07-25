@@ -7,6 +7,8 @@ import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.core.network.NetworkMonitor
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityDetailSection
+import com.meteocompare.app.domain.model.CityDetailContentTab
+import com.meteocompare.app.domain.model.CityDetailViewMode
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DailyForecast
 import com.meteocompare.app.domain.model.ForecastSeries
@@ -40,8 +42,10 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneOffset
 
 /**
  * Tests de [CityDetailViewModel].
@@ -60,12 +64,16 @@ import java.time.LocalDate
 class CityDetailViewModelTest {
 
     private val dispatcher = UnconfinedTestDispatcher()
+    private val testNow = Instant.parse("2026-06-28T12:00:00Z")
+    private val testClock = Clock.fixed(testNow, ZoneOffset.UTC)
 
     private val paris = City("1", "Paris", country = "France", latitude = 48.85, longitude = 2.35)
     private val favoritesFlow = MutableStateFlow(listOf(paris))
     private val modelsFlow = MutableStateFlow(WeatherModel.MVP_SELECTION)
     private val refreshIntervalFlow = MutableStateFlow(RefreshInterval.DEFAULT)
     private val collapsedSectionsFlow = MutableStateFlow<Set<CityDetailSection>>(emptySet())
+    private val detailViewModeFlow = MutableStateFlow(CityDetailViewMode.DEFAULT)
+    private val detailContentTabFlow = MutableStateFlow(CityDetailContentTab.DEFAULT)
     private val forecastUpdates = MutableSharedFlow<CityForecast>(extraBufferCapacity = 4)
     private val onlineFlow = MutableStateFlow(true)
 
@@ -91,6 +99,8 @@ class CityDetailViewModelTest {
         // donc maxCacheAgeMs = 3600000 — les tests fonctionnent avec cette valeur).
         coEvery { observeRefreshInterval() } returns refreshIntervalFlow
         every { observeCollapsedCityDetailSections(any()) } returns collapsedSectionsFlow
+        every { observeCityDetailViewMode(any()) } returns detailViewModeFlow
+        every { observeCityDetailContentTab(any()) } returns detailContentTabFlow
     }
 
     // Context : on stub getString pour retourner des strings prévisibles.
@@ -119,6 +129,7 @@ class CityDetailViewModelTest {
             // testée ici (loadInitial, refresh, applyResult).
             biasSampleRepository = mockk(relaxed = true),
             computeBias = mockk(relaxed = true),
+            clock = testClock,
             computationDispatcher = dispatcher
         )
     }
@@ -130,6 +141,8 @@ class CityDetailViewModelTest {
         modelsFlow.value = WeatherModel.MVP_SELECTION
         refreshIntervalFlow.value = RefreshInterval.DEFAULT
         collapsedSectionsFlow.value = emptySet()
+        detailViewModeFlow.value = CityDetailViewMode.DEFAULT
+        detailContentTabFlow.value = CityDetailContentTab.DEFAULT
         onlineFlow.value = true
         // Par défaut, stream forecast ne fait rien (jamais terminé)
         coEvery {
@@ -197,6 +210,33 @@ class CityDetailViewModelTest {
             }
         }
 
+
+    @Test
+    fun `detail preferences - expose et persiste le mode et l onglet`() =
+        runTest(dispatcher) {
+            val vm = buildViewModel()
+
+            vm.detailViewMode.test {
+                assertEquals(CityDetailViewMode.DAILY, awaitItem())
+                detailViewModeFlow.value = CityDetailViewMode.HOURLY
+                assertEquals(CityDetailViewMode.HOURLY, awaitItem())
+            }
+
+            vm.detailContentTab.test {
+                assertEquals(CityDetailContentTab.CONDITIONS, awaitItem())
+                detailContentTabFlow.value = CityDetailContentTab.WIND
+                assertEquals(CityDetailContentTab.WIND, awaitItem())
+            }
+
+            vm.setDetailViewMode(CityDetailViewMode.HOURLY)
+            coVerify { prefs.setCityDetailViewMode("1", CityDetailViewMode.HOURLY) }
+
+            vm.setDetailContentTab(CityDetailContentTab.PRECIPITATION)
+            coVerify {
+                prefs.setCityDetailContentTab("1", CityDetailContentTab.PRECIPITATION)
+            }
+        }
+
     // ──────────────── Chargement initial ────────────────
 
     @Test
@@ -236,6 +276,7 @@ class CityDetailViewModelTest {
             while (state !is CityDetailUiState.Loaded) state = awaitItem()
             assertEquals(paris, state.forecast.city)
             assertNotNull(state.currentTemp)
+            assertEquals(testNow, state.calculatedAt)
             // Pas de normales (stub renvoie error)
             assertEquals(null, state.normals)
         }
@@ -376,7 +417,7 @@ class CityDetailViewModelTest {
                 while ((updated as? CityDetailUiState.Loaded)?.fetchedAt != refreshedAt) {
                     updated = awaitItem()
                 }
-                assertEquals(refreshedAt, (updated).fetchedAt)
+                assertEquals(refreshedAt, updated.fetchedAt)
             }
 
             coVerify(exactly = 1) {
@@ -508,7 +549,7 @@ class CityDetailViewModelTest {
         temperature: Double = 20.0
     ): CityForecast {
         val today = LocalDate.of(2026, 6, 28)
-        val now = Instant.parse("2026-06-28T12:00:00Z")
+        val now = testNow
         val daily = DailyForecast(
             dates = listOf(today),
             tempMax = listOf(temperature + 2.0),

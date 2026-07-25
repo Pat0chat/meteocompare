@@ -30,8 +30,7 @@ import com.meteocompare.app.R
  *   - Lien web vers le navigateur seulement, jamais de Play Billing
  *     (interdit par Google Play pour les apps non-charity).
  *   - Aucun privilège accordé aux donateurs — pas de "pro version".
- *   - Les URLs contiennent `USERNAME` placeholder — à remplacer par
- *     les vrais handles avant publication.
+ *   - Les liens pointent directement vers les profils officiels du projet.
  *
  * Les liens sont ouverts via Intent.ACTION_VIEW, ce qui permet à
  * l'utilisateur de choisir son navigateur (cohérent avec ses
@@ -67,12 +66,6 @@ fun DonationDialog(onDismiss: () -> Unit) {
                     onClick = { openUrl("https://liberapay.com/Pat0chat") }
                 )
                 HorizontalDivider()
-                //DonationPlatformRow(
-                //    name = "GitHub Sponsors",
-                //    description = stringResource(R.string.donations_github_sponsors_desc),
-                //    onClick = { openUrl("https://github.com/sponsors/Pat0chat") }
-                //)
-                //HorizontalDivider()
                 DonationPlatformRow(
                     name = "Ko-fi",
                     description = stringResource(R.string.donations_kofi_desc),

@@ -19,78 +19,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.WeatherCondition
 
 /**
- * Icône représentant une condition météo. Source unique de vérité pour le
- * mapping famille → icône Material — toute autre partie de l'UI doit utiliser
- * ce composable, jamais re-mapper localement, sinon on aura un soleil sur
- * l'écran liste et un nuage sur l'écran détail pour la même condition.
+ * Icône météo décorative pour les cellules et synthèses dont la sémantique
+ * complète est portée par le conteneur parent.
  *
- * @param condition Famille de temps à afficher. Si null (pas de donnée), on
- *        affiche un placeholder discret — utilisé tel quel dans la matrice
- *        Jour × Modèle où certaines cellules peuvent manquer.
- * @param size Taille de l'icône. Standard Material : 24dp en ligne, 40-48dp
- *        en hero. Pas de fillSize() automatique pour que les tableaux/cartes
- *        compactes gardent la maîtrise.
- * @param tint Couleur. `Color.Unspecified` déclenche l'utilisation de
- *        `LocalContentColor.current` — le contrat "hérite du thème" qu'on
- *        veut pour les familles neutres (nuageux, couvert, brouillard).
- *
- * ⚠ Piège Compose contourné ici : `Icon(tint = Color.Unspecified)` NE fait
- * PAS hériter de LocalContentColor. Ça signifie "aucun ColorFilter appliqué",
- * donc l'icône est rendue dans sa couleur native — noir pur pour les vecteurs
- * outlined. En thème sombre, ça donnait des nuages noirs sur fond noir dans
- * les tableaux. Le default value `LocalContentColor.current` du paramètre
- * `tint` d'Icon ne se déclenche QUE quand l'argument est OMIS. Passer
- * explicitement Unspecified court-circuite ce défaut. On résout donc à la
- * main ici avant de déléguer.
- */
-@Composable
-fun WeatherIcon(
-    condition: WeatherCondition?,
-    modifier: Modifier = Modifier,
-    size: Dp = 24.dp,
-    tint: Color = Color.Unspecified
-) {
-    if (condition == null) {
-        // Pas de donnée → on rend rien, plutôt qu'un point d'interrogation qui
-        // donnerait l'impression d'une erreur. Le caller décide d'afficher "—"
-        // ou un Spacer s'il a besoin d'occuper la place.
-        return
-    }
-    val resolvedTint = if (tint == Color.Unspecified) LocalContentColor.current else tint
-    // Cas spécial : PARTLY_CLOUDY n'est pas une simple ImageVector, on ne peut
-    // pas la retourner dans toIcon(). On rend directement le composite ici
-    // (soleil + nuage superposés). Contract descriptif préservé — on ne perd
-    // pas d'accessibilité par rapport à un Icon(condition.toIcon()).
-    if (condition == WeatherCondition.PARTLY_CLOUDY) {
-        PartlyCloudyIcon(
-            size = size,
-            modifier = modifier,
-            contentDescription = stringResource(R.string.weather_partly_cloudy)
-        )
-        return
-    }
-    Icon(
-        imageVector = condition.toIcon(),
-        contentDescription = stringResource(condition.descriptionRes()),
-        tint = resolvedTint,
-        modifier = modifier.size(size)
-    )
-}
-
-/**
- * Variante avec `contentDescription = null` — pour quand l'a11y est déjà
- * porté ailleurs (cellule de tableau dont la sémantique entière est sur la
- * Row parente, par exemple).
- *
- * Applique la même résolution `Unspecified → LocalContentColor` que
- * [WeatherIcon] pour la même raison — voir sa doc pour le détail.
+ * `Color.Unspecified` est résolu explicitement vers [LocalContentColor] :
+ * passer cette valeur directement à `Icon` désactiverait le filtre de couleur
+ * et pourrait rendre les vecteurs noirs en thème sombre.
  */
 @Composable
 fun WeatherIconDecorative(
@@ -102,7 +41,7 @@ fun WeatherIconDecorative(
     if (condition == null) return
     val resolvedTint = if (tint == Color.Unspecified) LocalContentColor.current else tint
     if (condition == WeatherCondition.PARTLY_CLOUDY) {
-        PartlyCloudyIcon(size = size, modifier = modifier, contentDescription = null)
+        PartlyCloudyIcon(size = size, modifier = modifier)
         return
     }
     Icon(
@@ -136,14 +75,11 @@ fun WeatherIconDecorative(
  *   - Détection thème via `surface.luminance() < 0.5f` — même pattern que
  *     HourlyConfidenceChart pour cohérence.
  *
- * @param contentDescription null pour usage décoratif (a11y portée ailleurs),
- *   ou une string à décrire pour usage stand-alone.
  */
 @Composable
 private fun PartlyCloudyIcon(
     size: Dp,
-    modifier: Modifier = Modifier,
-    contentDescription: String?
+    modifier: Modifier = Modifier
 ) {
     // Blue Grey 400 en clair (visible sur fond clair sans être quasi-noir),
     // Blue Grey 200 en sombre (assez lumineux pour rester lisible sur fond
@@ -159,7 +95,7 @@ private fun PartlyCloudyIcon(
         // du parent (partly-cloudy est intrinsèquement bi-color).
         Icon(
             imageVector = Icons.Outlined.WbSunny,
-            contentDescription = contentDescription,
+            contentDescription = null,
             tint = Color(0xFFFFA726),
             modifier = Modifier
                 .size(size * 0.60f)
@@ -225,7 +161,7 @@ private fun WeatherCondition.toIcon(): ImageVector = when (this) {
     // PARTLY_CLOUDY est routé vers PartlyCloudyIcon (composite bi-color) en
     // amont — cette branche ne devrait jamais s'exécuter en pratique. On la
     // garde totale avec WbCloudy comme filet de sécurité si quelqu'un appelle
-    // toIcon() directement (au lieu de passer par WeatherIcon composable).
+    // toIcon() directement (au lieu de passer par WeatherIconDecorative).
     WeatherCondition.PARTLY_CLOUDY -> Icons.Outlined.WbCloudy
     WeatherCondition.OVERCAST -> Icons.Outlined.WbCloudy
     WeatherCondition.FOG -> Icons.Outlined.Cloud
@@ -237,20 +173,4 @@ private fun WeatherCondition.toIcon(): ImageVector = when (this) {
     WeatherCondition.SNOW_SHOWERS -> Icons.Outlined.AcUnit
     WeatherCondition.THUNDERSTORM -> Icons.Outlined.Thunderstorm
     WeatherCondition.UNKNOWN -> Icons.Outlined.Cloud
-}
-
-private fun WeatherCondition.descriptionRes(): Int = when (this) {
-    WeatherCondition.CLEAR -> R.string.weather_clear
-    WeatherCondition.MAINLY_CLEAR -> R.string.weather_mainly_clear
-    WeatherCondition.PARTLY_CLOUDY -> R.string.weather_partly_cloudy
-    WeatherCondition.OVERCAST -> R.string.weather_overcast
-    WeatherCondition.FOG -> R.string.weather_fog
-    WeatherCondition.DRIZZLE -> R.string.weather_drizzle
-    WeatherCondition.RAIN -> R.string.weather_rain
-    WeatherCondition.FREEZING_RAIN -> R.string.weather_freezing_rain
-    WeatherCondition.SNOW -> R.string.weather_snow
-    WeatherCondition.RAIN_SHOWERS -> R.string.weather_rain_showers
-    WeatherCondition.SNOW_SHOWERS -> R.string.weather_snow_showers
-    WeatherCondition.THUNDERSTORM -> R.string.weather_thunderstorm
-    WeatherCondition.UNKNOWN -> R.string.weather_unknown
 }

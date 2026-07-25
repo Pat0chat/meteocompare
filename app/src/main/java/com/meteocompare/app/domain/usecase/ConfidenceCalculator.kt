@@ -97,13 +97,12 @@ class ConfidenceCalculator @Inject constructor(
      * Retourne null si aucun modèle n'a de donnée horaire disponible
      * (ne devrait jamais arriver en pratique sauf bug Open-Meteo).
      */
-    fun currentTemperature(forecast: CityForecast): Double? {
-        val now = Instant.now()
+    fun currentTemperature(
+        forecast: CityForecast,
+        now: Instant = Instant.now()
+    ): Double? {
         val samples = forecast.seriesByModel.mapNotNull { (model, series) ->
-            if (series.hourly.timestamps.isEmpty()) return@mapNotNull null
-            val idx = series.hourly.timestamps.indices.minBy { i ->
-                kotlin.math.abs(series.hourly.timestamps[i].epochSecond - now.epochSecond)
-            }
+            val idx = nearestCurrentIndex(series, now) ?: return@mapNotNull null
             val temp = series.hourly.temperature2m.getOrNull(idx) ?: return@mapNotNull null
             model to temp
         }
@@ -130,14 +129,13 @@ class ConfidenceCalculator @Inject constructor(
      * dit clair, un autre dit pluie, on garde pluie. C'est le côté tolérant aux
      * erreurs de prudence : mieux vaut afficher la pluie à tort que la cacher.
      */
-    fun currentWeatherCondition(forecast: CityForecast): WeatherCondition? {
-        val now = Instant.now()
+    fun currentWeatherCondition(
+        forecast: CityForecast,
+        now: Instant = Instant.now()
+    ): WeatherCondition? {
         val votes = mutableMapOf<WeatherCondition, Double>()
         forecast.seriesByModel.forEach { (model, series) ->
-            if (series.hourly.timestamps.isEmpty()) return@forEach
-            val idx = series.hourly.timestamps.indices.minBy { i ->
-                kotlin.math.abs(series.hourly.timestamps[i].epochSecond - now.epochSecond)
-            }
+            val idx = nearestCurrentIndex(series, now) ?: return@forEach
             // 1) Priorité au weather_code natif du modèle si dispo.
             // 2) Sinon, fallback empirique depuis les précipitations horaires —
             //    permet à AROME HD (qui n'expose pas weather_code) de contribuer
@@ -145,6 +143,7 @@ class ConfidenceCalculator @Inject constructor(
             //    jamais et son poids fort n'est pas utilisé.
             val code = series.hourly.weatherCode.getOrNull(idx)
             val condition = WeatherCondition.fromWmoCode(code)
+                ?.takeUnless { it == WeatherCondition.UNKNOWN }
                 ?: WeatherCondition.inferFromPrecipAndTemp(
                     precipMm = series.hourly.precipitation.getOrNull(idx),
                     tempMinC = series.hourly.temperature2m.getOrNull(idx)
@@ -154,13 +153,11 @@ class ConfidenceCalculator @Inject constructor(
         }
         if (votes.isEmpty()) return null
         val maxVote = votes.maxOf { it.value }
-        // Tie-breaker : on prend la condition la plus haute en ordinal — qui
-        // correspond à peu près au "plus sévère" dans l'ordre déclaré de l'enum
-        // (CLEAR=0 … THUNDERSTORM=11). Pas parfait mais raisonnable et
-        // déterministe vs un random sur les égalités.
+        // Tie-breaker conservateur et explicite. On n'utilise pas l'ordinal :
+        // UNKNOWN est déclaré en dernier et pourrait sinon gagner une égalité.
         return votes.filterValues { it == maxVote }
             .keys
-            .maxByOrNull { it.ordinal }
+            .maxByOrNull(::conditionSeverity)
     }
 
     /**
@@ -176,10 +173,12 @@ class ConfidenceCalculator @Inject constructor(
      * Retourne null si aucun modèle n'a de donnée cloud_cover à l'instant
      * courant — typique d'un cache pré-feature. L'UI omet alors le badge.
      */
-    fun currentCloudCover(forecast: CityForecast): Int? =
-        weightedMeanCurrentHourly(forecast) { series, idx ->
-            series.hourly.cloudCover.getOrNull(idx)
-        }
+    fun currentCloudCover(
+        forecast: CityForecast,
+        now: Instant = Instant.now()
+    ): Int? = weightedMeanCurrentHourly(forecast, now) { series, idx ->
+        series.hourly.cloudCover.getOrNull(idx)
+    }
 
     /**
      * Vitesse du vent "maintenant" — moyenne pondérée par résolution du
@@ -202,13 +201,12 @@ class ConfidenceCalculator @Inject constructor(
      * l'inlining est plus honnête que de convertir Int↔Double dans les deux
      * sens. Voir aussi [currentTemperature] pour le même choix.
      */
-    fun currentWindSpeed(forecast: CityForecast): Double? {
-        val now = Instant.now()
+    fun currentWindSpeed(
+        forecast: CityForecast,
+        now: Instant = Instant.now()
+    ): Double? {
         val samples = forecast.seriesByModel.mapNotNull { (model, series) ->
-            if (series.hourly.timestamps.isEmpty()) return@mapNotNull null
-            val idx = series.hourly.timestamps.indices.minBy { i ->
-                kotlin.math.abs(series.hourly.timestamps[i].epochSecond - now.epochSecond)
-            }
+            val idx = nearestCurrentIndex(series, now) ?: return@mapNotNull null
             val wind = series.hourly.windSpeed10m.getOrNull(idx) ?: return@mapNotNull null
             model to wind
         }
@@ -233,14 +231,11 @@ class ConfidenceCalculator @Inject constructor(
      */
     private fun weightedMeanCurrentHourly(
         forecast: CityForecast,
+        now: Instant,
         extractor: (ForecastSeries, Int) -> Int?
     ): Int? {
-        val now = Instant.now()
         val samples = forecast.seriesByModel.mapNotNull { (model, series) ->
-            if (series.hourly.timestamps.isEmpty()) return@mapNotNull null
-            val idx = series.hourly.timestamps.indices.minBy { i ->
-                kotlin.math.abs(series.hourly.timestamps[i].epochSecond - now.epochSecond)
-            }
+            val idx = nearestCurrentIndex(series, now) ?: return@mapNotNull null
             val value = extractor(series, idx) ?: return@mapNotNull null
             model to value.toDouble()
         }
@@ -249,6 +244,38 @@ class ConfidenceCalculator @Inject constructor(
         if (totalWeight == 0.0) return null
         val weightedSum = samples.sumOf { (model, v) -> v * weighting.weight(model) }
         return (weightedSum / totalWeight).roundToInt()
+    }
+
+    /**
+     * Index horaire le plus proche de [now], uniquement s'il représente encore
+     * réellement l'instant courant. Sans ce garde, un cache vieux de plusieurs
+     * jours pouvait afficher sa dernière valeur sous le libellé « Maintenant ».
+     */
+    private fun nearestCurrentIndex(series: ForecastSeries, now: Instant): Int? {
+        if (series.hourly.timestamps.isEmpty()) return null
+        val index = series.hourly.timestamps.indices.minBy { i ->
+            kotlin.math.abs(series.hourly.timestamps[i].epochSecond - now.epochSecond)
+        }
+        val distanceSeconds = kotlin.math.abs(
+            series.hourly.timestamps[index].epochSecond - now.epochSecond
+        )
+        return index.takeIf { distanceSeconds <= MAX_CURRENT_SAMPLE_DISTANCE_SECONDS }
+    }
+
+    private fun conditionSeverity(condition: WeatherCondition): Int = when (condition) {
+        WeatherCondition.CLEAR -> 0
+        WeatherCondition.MAINLY_CLEAR -> 1
+        WeatherCondition.PARTLY_CLOUDY -> 2
+        WeatherCondition.OVERCAST -> 3
+        WeatherCondition.FOG -> 4
+        WeatherCondition.DRIZZLE -> 5
+        WeatherCondition.RAIN_SHOWERS -> 6
+        WeatherCondition.RAIN -> 7
+        WeatherCondition.SNOW_SHOWERS -> 8
+        WeatherCondition.SNOW -> 9
+        WeatherCondition.FREEZING_RAIN -> 10
+        WeatherCondition.THUNDERSTORM -> 11
+        WeatherCondition.UNKNOWN -> -1
     }
 
     /**
@@ -695,6 +722,11 @@ class ConfidenceCalculator @Inject constructor(
             val WIND = Thresholds(tightStdDev = 2.0, wideStdDev = 12.0)
             val PRECIP = Thresholds(tightStdDev = 1.0, wideStdDev = 8.0)
         }
+    }
+
+    private companion object {
+        /** Une grille horaire fraîche doit rester à moins de 90 minutes de maintenant. */
+        const val MAX_CURRENT_SAMPLE_DISTANCE_SECONDS: Long = 90L * 60L
     }
 }
 

@@ -6,7 +6,9 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import java.time.Clock
 import javax.inject.Qualifier
+import javax.inject.Singleton
 
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
@@ -26,4 +28,8 @@ object DispatcherModule {
     @Provides
     @DefaultDispatcher
     fun provideDefault(): CoroutineDispatcher = Dispatchers.Default
+
+    @Provides
+    @Singleton
+    fun provideClock(): Clock = Clock.systemUTC()
 }

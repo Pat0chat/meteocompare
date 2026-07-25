@@ -1,7 +1,6 @@
 package com.meteocompare.app.ui.citydetail
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -9,10 +8,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -33,6 +30,7 @@ import com.meteocompare.app.domain.model.DayNormals
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.model.sortedByFamily
 import com.meteocompare.app.ui.theme.color
+import java.time.Instant
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
@@ -45,6 +43,7 @@ private val CoolTempColor = Color(0xFF1E88E5)
 fun MinMaxForecastTable(
     forecast: CityForecast,
     normals: Map<Int, DayNormals>?,
+    now: Instant,
     modifier: Modifier = Modifier,
     modelBiasProvider: ((WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
     onBiasChipClick: ((WeatherModel, com.meteocompare.app.domain.model.ModelBias) -> Unit)? = null,
@@ -69,7 +68,9 @@ fun MinMaxForecastTable(
     val palette = detailTablePalette()
     val onSurface = MaterialTheme.colorScheme.onSurface
     val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
-    val today = remember { LocalDate.now() }
+    val today = remember(forecast.city.timezone, now) {
+        cityLocalDate(forecast.city.timezone, now)
+    }
     val modelRowHeight = if (modelBiasProvider != null) 56.dp else 44.dp
     val modelColumnWidth = if (modelBiasProvider != null) 94.dp else 84.dp
     val dateColumnWidth = 82.dp
@@ -79,7 +80,6 @@ fun MinMaxForecastTable(
 
     FrozenDetailTableLayout(
         modelColumnWidth = modelColumnWidth,
-        temporalColumnWidth = dateColumnWidth,
         temporalColumnCount = dates.size,
         headerHeight = headerHeight,
         rowHeight = modelRowHeight,

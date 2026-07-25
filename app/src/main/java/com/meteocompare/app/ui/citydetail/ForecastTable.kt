@@ -1,6 +1,5 @@
 package com.meteocompare.app.ui.citydetail
 
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -8,10 +7,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -30,6 +27,7 @@ import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.model.sortedByFamily
 import com.meteocompare.app.ui.components.WindArrow
 import com.meteocompare.app.ui.theme.color
+import java.time.Instant
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -51,6 +49,7 @@ fun ForecastTable(
     forecast: CityForecast,
     valueExtractor: (DailyForecast, Int) -> Double?,
     valueFormatter: (Double) -> String,
+    now: Instant,
     modifier: Modifier = Modifier,
     valueStyler: ((Double) -> ValueStyle?)? = null,
     directionExtractor: ((DailyForecast, Int) -> Int?)? = null,
@@ -77,7 +76,9 @@ fun ForecastTable(
     }
 
     val palette = detailTablePalette()
-    val today = remember { LocalDate.now() }
+    val today = remember(forecast.city.timezone, now) {
+        cityLocalDate(forecast.city.timezone, now)
+    }
     val modelRowHeight = if (modelBiasProvider != null) 56.dp else 40.dp
     val modelColumnWidth = if (modelBiasProvider != null) 94.dp else 84.dp
     val temporalHeaderHeight = 40.dp
@@ -86,7 +87,6 @@ fun ForecastTable(
 
     FrozenDetailTableLayout(
         modelColumnWidth = modelColumnWidth,
-        temporalColumnWidth = cellWidth,
         temporalColumnCount = dates.size,
         headerHeight = temporalHeaderHeight,
         rowHeight = modelRowHeight,

@@ -66,16 +66,6 @@
     <string name="models_unavailable">Modèles indisponibles</string>
     <string name="no_daily_data">Pas de données journalières</string>
 
-    <!-- Section titles in city detail -->
-    <string name="section_confidence_band">Prévisions inter-modèles</string>
-    <string name="section_temp_table">Températures</string>
-    <string name="section_temp_hourly">Températures</string>
-    <string name="section_precipitation">Précipitations</string>
-    <!-- Vent : titres explicites pour clarifier "mean à 10m" (pas rafale). -->
-    <string name="section_wind">Vent moyen à 10m</string>
-    <string name="section_wind_hourly">Vent moyen à 10m</string>
-    <string name="section_weather_by_model">Temps</string>
-
     <!-- Sélecteur à 3 états au-dessus de la bande de confiance (T° / Pluie / Vent) -->
     <string name="metric_temperature">Température</string>
     <string name="metric_precipitation">Précipitations</string>
@@ -95,8 +85,6 @@
     <!-- Modes de prévision étendue supplémentaires du widget 4×2 -->
     <string name="widget_config_forecast_mode_conf_all">Confiance des modèles</string>
     <string name="widget_config_forecast_mode_conf_all_note">Affiche les accords des modèles sur la température et pluie.</string>
-    <string name="widget_confidence_combined_title">Accord des modèles</string>
-    <string name="widget_confidence_combined_hint" formatted="false">5 jours · % accord</string>
     <!-- Ancres temporelles affichées sous la mini bande de confiance du widget 4×2 -->
     <string name="widget_confidence_now_short">Auj.</string>
 
@@ -191,7 +179,6 @@
     <string name="donations_dialog_body">MeteoCompare est gratuit, sans collecte de données, sans tracking, sans publicité. Si vous souhaitez soutenir le développement :</string>
     <string name="donations_dialog_disclaimer">Aucun privilège n\'est accordé aux donateurs. Le code source et l\'app restent identiques pour tout le monde.</string>
     <string name="donations_liberapay_desc">Contributions périodiques, friendly FOSS</string>
-    <string name="donations_github_sponsors_desc">Contributions mensuelles via GitHub</string>
     <string name="donations_kofi_desc">Don ponctuel « offre-moi un café »</string>
     <string name="donations_dialog_close">Fermer</string>
 
@@ -332,18 +319,8 @@
     <string name="bias_sparkline_legend_observation">observation</string>
     <string name="bias_sparkline_legend_forecast">prévision</string>
 
-    <!-- Labels de la grille de statistiques -->
-    <string name="bias_stat_mean">Écart moyen</string>
-    <string name="bias_stat_stddev">Écart-type</string>
-    <string name="bias_stat_sample_size">Jours de données</string>
-    <string name="bias_stat_sample_size_value">%1$d / %2$d</string>
-    <string name="bias_stat_significance">Significativité</string>
-
-    <!-- Étiquettes de significativité (affichées dans la grille de stats) -->
-    <string name="bias_significance_high">Élevée</string>
-    <string name="bias_significance_moderate">Modérée</string>
-    <string name="bias_significance_not_significant">Faible</string>
-
+    <!-- Texte explicatif — opener paramétré (modèle, verbe, variable, jours).
+         Ex FR : "GFS surestime systématiquement la température à cet endroit sur les 30 derniers jours." -->
     <string name="bias_explainer_opener">%1$s %2$s systématiquement %3$s à cet endroit sur les %4$d derniers jours.</string>
     <string name="bias_explainer_calibrated">%1$s est proche de la réalité sur %2$s à cet endroit. Sur les %3$d derniers jours, l\'écart moyen aux observations reste dans le bruit journalier.</string>
 
@@ -431,18 +408,12 @@
 
     <string name="detail_table_model_header">Modèle</string>
 
-    <string name="local_ranking_summary_title">Meilleurs modèles locaux</string>
-    <string name="local_ranking_summary_subtitle">Selon l’historique observé pour cette ville sur les 30 derniers jours</string>
     <string name="local_ranking_view_all">Voir le classement</string>
     <string name="local_ranking_sheet_title">Classement local</string>
     <string name="local_ranking_sheet_explanation">Les modèles sont classés par indice de fiabilité local, puis par erreur absolue moyenne en cas d’égalité.</string>
-    <string name="local_ranking_temperature">Température</string>
-    <string name="local_ranking_precipitation">Précipitations</string>
-    <string name="local_ranking_wind">Vent</string>
     <string name="local_ranking_temperature_short">Température</string>
     <string name="local_ranking_precipitation_short">Pluie</string>
     <string name="local_ranking_wind_short">Vent</string>
-    <string name="local_ranking_not_available">Historique insuffisant</string>
     <string name="local_ranking_selected_model">Modèle consulté</string>
     <string name="local_ranking_standard_support">MAE %1$s · biais %2$s</string>
     <string name="local_ranking_rain_support">MAE %1$s · %2$d fausses alertes</string>
@@ -453,8 +424,8 @@
 
     <string name="forecast_tables_section">Prévisions détaillées</string>
     <string name="timeline_title">Vue chronologique</string>
-    <string name="timeline_subtitle_hourly">Consensus des modèles pour les prochaines heures</string>
-    <string name="timeline_subtitle_daily">Consensus des modèles pour les prochains jours</string>
+    <string name="timeline_subtitle_hourly">Synthèse des modèles disponibles pour les prochaines heures</string>
+    <string name="timeline_subtitle_daily">Synthèse des modèles disponibles pour les prochains jours</string>
     <string name="timeline_disagreement_hint">Un point rouge signale un désaccord marqué entre les modèles</string>
 
     <string name="section_state_expanded">Déployée</string>
@@ -463,4 +434,33 @@
     <string name="offline_data_message">Données conservées sur cet appareil · %1$s</string>
     <string name="offline_data_age_unknown">Âge des données indisponible</string>
     <string name="offline_list_message">Les dernières données enregistrées restent disponibles. Leur âge est indiqué dans chaque ville.</string>
+
+    <string name="offline_saved_data_age_inline">Hors connexion · %1$s</string>
+    <string name="next_notable_event">Prochain signal</string>
+
+    <string name="forecast_insights_title">À retenir</string>
+    <string name="forecast_insight_soon">bientôt</string>
+    <string name="forecast_insight_high_agreement">Les modèles restent globalement proches jusqu’à %1$s.</string>
+    <string name="forecast_insight_disagreement">Les modèles divergent davantage vers %1$s.</string>
+    <string name="forecast_insight_rain_likely">Risque de pluie de %1$d %% vers %2$s.</string>
+    <string name="forecast_insight_rain_models_likely">%1$d modèles sur %2$d prévoient de la pluie vers %3$s.</string>
+    <string name="forecast_insight_rain_models_split">Les modèles sont partagés sur la pluie vers %3$s (%1$d sur %2$d).</string>
+    <string name="forecast_insight_rain_uncertain">Risque de pluie incertain (%1$d %%) vers %2$s.</string>
+    <string name="forecast_insight_wind_rising">Vent en hausse, autour de %1$d km/h vers %2$s.</string>
+    <string name="forecast_insight_temperature_rising">Entre %1$s et %2$s, la température passerait d’environ %3$d° à %4$d° (+%5$d°).</string>
+    <string name="forecast_insight_temperature_falling">Entre %1$s et %2$s, la température passerait d’environ %3$d° à %4$d° (−%5$d°).</string>
+    <string name="forecast_insight_temperature_rising_fallback">Par rapport à la première échéance affichée, environ +%1$d° sont attendus d’ici %2$s.</string>
+    <string name="forecast_insight_temperature_falling_fallback">Par rapport à la première échéance affichée, environ −%1$d° sont attendus d’ici %2$s.</string>
+
+    <string name="local_reliability_title">Fiabilité locale</string>
+    <string name="local_reliability_subtitle_with_confidence">Confiance %1$d %% · %2$d modèles</string>
+    <string name="local_reliability_subtitle_models">%1$d modèles comparés</string>
+    <string name="local_reliability_best_model">Meilleur modèle local</string>
+
+    <string name="detail_tab_conditions">Conditions</string>
+    <string name="detail_tab_temperature">Température</string>
+    <string name="detail_tab_precipitation">Pluie</string>
+    <string name="detail_tab_wind">Vent</string>
+    <string name="detail_no_data">Aucune donnée disponible pour cette vue.</string>
+
 </resources>

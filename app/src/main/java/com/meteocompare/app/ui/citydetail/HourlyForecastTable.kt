@@ -1,6 +1,5 @@
 package com.meteocompare.app.ui.citydetail
 
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -8,10 +7,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -31,7 +28,6 @@ import com.meteocompare.app.domain.model.sortedByFamily
 import com.meteocompare.app.ui.components.WindArrow
 import com.meteocompare.app.ui.theme.color
 import java.time.Instant
-import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle as JavaTextStyle
 
@@ -41,6 +37,7 @@ fun HourlyForecastTable(
     forecast: CityForecast,
     valueExtractor: (HourlyForecast, Int) -> Double?,
     valueFormatter: (Double) -> String,
+    now: Instant,
     modifier: Modifier = Modifier,
     valueStyler: ((Double) -> ValueStyle?)? = null,
     heatmapStyler: ((Double) -> HeatmapCellStyle?)? = null,
@@ -51,10 +48,10 @@ fun HourlyForecastTable(
     sampleCountProvider: ((WeatherModel) -> Int)? = null
 ) {
     val zone = remember(forecast.city.timezone) {
-        runCatching { ZoneId.of(forecast.city.timezone ?: "UTC") }.getOrDefault(ZoneId.of("UTC"))
+        resolveCityZone(forecast.city.timezone)
     }
-    val (startHour, endExclusive) = remember(forecast) {
-        computeHourlyHorizon(forecast.city.timezone)
+    val (startHour, endExclusive) = remember(forecast.city.timezone, now) {
+        computeHourlyHorizon(forecast.city.timezone, now)
     }
     val timestamps = remember(forecast, startHour, endExclusive) {
         forecast.seriesByModel.values.flatMap { it.hourly.timestamps }.distinct().sorted()
@@ -75,7 +72,9 @@ fun HourlyForecastTable(
     }
 
     val palette = detailTablePalette()
-    val currentHour = timestamps.first()
+    // Ne pas surligner arbitrairement la première échéance disponible :
+    // si l'heure courante manque, aucune colonne ne doit prétendre être « maintenant ».
+    val currentHour = startHour
     val locale = LocalConfiguration.current.locales[0]
     val hourFmt = remember(locale) { DateTimeFormatter.ofPattern("HH'h'", locale) }
     val headerHeight = 44.dp
@@ -96,7 +95,6 @@ fun HourlyForecastTable(
 
     FrozenDetailTableLayout(
         modelColumnWidth = modelWidth,
-        temporalColumnWidth = cellWidth,
         temporalColumnCount = timestamps.size,
         headerHeight = headerHeight,
         rowHeight = modelRowHeight,

@@ -5,6 +5,7 @@ import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DailyForecast
 import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.HourlyForecast
+import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -30,20 +31,24 @@ class ForecastAggregatesTest {
             )
         )
 
-        val result = ForecastAggregates.next12h(forecast, now)
+        val result = ForecastAggregates.next12h(forecast, now, includeConditions = true)
 
         assertEquals(12, result.temperatures.size)
         assertEquals(12, result.precipitationProbabilities.size)
         assertEquals(12, result.precipitationAmountsMm.size)
+        assertEquals(12, result.conditions.size)
         assertEquals(15.0, result.temperatures[0] ?: error("temperature manquante"), 0.001)
         assertEquals(25.0, result.temperatures[1] ?: error("temperature manquante"), 0.001)
         assertEquals(30, result.precipitationProbabilities[0])
         assertEquals(50, result.precipitationProbabilities[1])
         assertEquals(0.3, result.precipitationAmountsMm[0] ?: error("pluie manquante"), 0.001)
         assertEquals(1.5, result.precipitationAmountsMm[1] ?: error("pluie manquante"), 0.001)
+        assertEquals(WeatherCondition.DRIZZLE, result.conditions[0])
+        assertEquals(WeatherCondition.RAIN_SHOWERS, result.conditions[1])
         assertNull(result.temperatures[2])
         assertNull(result.precipitationProbabilities[2])
         assertNull(result.precipitationAmountsMm[2])
+        assertNull(result.conditions[2])
     }
 
     @Test
@@ -59,22 +64,96 @@ class ForecastAggregatesTest {
             )
         )
 
-        val result = ForecastAggregates.next12h(forecast, now)
+        val result = ForecastAggregates.next12h(forecast, now, includeConditions = true)
 
         assertNull(result.temperatures.first())
         assertNull(result.precipitationProbabilities.first())
         assertNull(result.precipitationAmountsMm.first())
+        assertNull(result.conditions.first())
+    }
+
+
+    @Test
+    fun `calcul des conditions reste désactivé pour les consommateurs qui nen ont pas besoin`() {
+        val forecast = forecastOf(
+            WeatherModel.GFS to hourly(
+                temperatures = listOf(18.0),
+                precipitationProbabilities = listOf(0),
+                precipitationAmounts = listOf(0.0),
+                weatherCodes = listOf(0)
+            )
+        )
+
+        val result = ForecastAggregates.next12h(forecast, now)
+
+        assertEquals(emptyList<WeatherCondition?>(), result.conditions)
+    }
+
+    @Test
+    fun `condition horaire utilise le vote majoritaire des familles météo`() {
+        val forecast = forecastOf(
+            WeatherModel.GFS to hourly(
+                temperatures = listOf(18.0),
+                precipitationProbabilities = listOf(20),
+                precipitationAmounts = listOf(0.0),
+                weatherCodes = listOf(2)
+            ),
+            WeatherModel.ICON_GLOBAL to hourly(
+                temperatures = listOf(18.0),
+                precipitationProbabilities = listOf(20),
+                precipitationAmounts = listOf(0.0),
+                weatherCodes = listOf(2)
+            ),
+            WeatherModel.ECMWF to hourly(
+                temperatures = listOf(18.0),
+                precipitationProbabilities = listOf(70),
+                precipitationAmounts = listOf(1.0),
+                weatherCodes = listOf(61)
+            )
+        )
+
+        val result = ForecastAggregates.next12h(forecast, now, includeConditions = true)
+
+        assertEquals(WeatherCondition.PARTLY_CLOUDY, result.conditions.first())
+    }
+
+    @Test
+    fun `égalité de conditions privilégie le signal météo le plus prudent`() {
+        assertEquals(
+            WeatherCondition.RAIN,
+            ForecastAggregates.conditionConsensus(
+                listOf(WeatherCondition.CLEAR, WeatherCondition.RAIN)
+            )
+        )
+    }
+
+    @Test
+    fun `modèle sec sans weather code ne fabrique pas une icône de ciel clair`() {
+        val forecast = forecastOf(
+            WeatherModel.GFS to hourly(
+                temperatures = listOf(18.0),
+                precipitationProbabilities = listOf(null),
+                precipitationAmounts = listOf(0.0),
+                weatherCodes = listOf(null)
+            )
+        )
+
+        val result = ForecastAggregates.next12h(forecast, now, includeConditions = true)
+
+        assertNull(result.conditions.first())
     }
 
     private fun hourly(
         temperatures: List<Double?>,
         precipitationProbabilities: List<Int?>,
-        precipitationAmounts: List<Double?>
+        precipitationAmounts: List<Double?>,
+        weatherCodes: List<Int?> = List(temperatures.size) { null }
     ): HourlyForecast = HourlyForecast(
         timestamps = temperatures.indices.map { now.plusSeconds(it * 3_600L) },
         temperature2m = temperatures,
         precipitation = precipitationAmounts,
         windSpeed10m = List(temperatures.size) { null },
+        weatherCode = weatherCodes,
         precipitationProbability = precipitationProbabilities
     )
 

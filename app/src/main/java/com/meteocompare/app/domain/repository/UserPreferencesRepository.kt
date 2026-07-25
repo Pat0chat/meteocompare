@@ -1,6 +1,8 @@
 package com.meteocompare.app.domain.repository
 
 import com.meteocompare.app.domain.model.CityDetailSection
+import com.meteocompare.app.domain.model.CityDetailContentTab
+import com.meteocompare.app.domain.model.CityDetailViewMode
 import com.meteocompare.app.domain.model.LanguagePreference
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.ThemePreference
@@ -42,4 +44,13 @@ interface UserPreferencesRepository {
         section: CityDetailSection,
         collapsed: Boolean
     )
+
+    /** Dernière granularité consultée dans la comparaison détaillée de la ville. */
+    fun observeCityDetailViewMode(cityId: String): Flow<CityDetailViewMode>
+    suspend fun setCityDetailViewMode(cityId: String, mode: CityDetailViewMode)
+
+    /** Dernière famille de données consultée dans la comparaison détaillée. */
+    fun observeCityDetailContentTab(cityId: String): Flow<CityDetailContentTab>
+    suspend fun setCityDetailContentTab(cityId: String, tab: CityDetailContentTab)
 }
+

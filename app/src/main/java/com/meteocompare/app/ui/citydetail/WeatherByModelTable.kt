@@ -1,6 +1,5 @@
 package com.meteocompare.app.ui.citydetail
 
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,10 +10,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -44,6 +41,7 @@ import java.time.format.DateTimeFormatter
 fun WeatherByModelTable(
     rows: List<DayConditionsRow>,
     modelOrder: List<WeatherModel>,
+    today: LocalDate,
     modifier: Modifier = Modifier
 ) {
     if (rows.isEmpty() || modelOrder.isEmpty()) {
@@ -58,7 +56,6 @@ fun WeatherByModelTable(
 
     val sortedModels = remember(modelOrder) { modelOrder.sortedByFamily() }
     val palette = detailTablePalette()
-    val today = remember { LocalDate.now() }
     val modelWidth = 84.dp
     val dateWidth = 72.dp
     val headerHeight = 40.dp
@@ -66,7 +63,6 @@ fun WeatherByModelTable(
 
     FrozenDetailTableLayout(
         modelColumnWidth = modelWidth,
-        temporalColumnWidth = dateWidth,
         temporalColumnCount = rows.size,
         headerHeight = headerHeight,
         rowHeight = rowHeight,

@@ -5,6 +5,8 @@ import com.meteocompare.app.domain.model.BiasSample
 import com.meteocompare.app.domain.model.BiasVariable
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityDetailSection
+import com.meteocompare.app.domain.model.CityDetailContentTab
+import com.meteocompare.app.domain.model.CityDetailViewMode
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DayNormals
 import com.meteocompare.app.domain.model.LanguagePreference
@@ -123,6 +125,10 @@ class FakeUserPreferencesRepository @Inject constructor() : UserPreferencesRepos
     private val refresh = MutableStateFlow(RefreshInterval.DEFAULT)
     private val collapsedSectionsByCity =
         ConcurrentHashMap<String, MutableStateFlow<Set<CityDetailSection>>>()
+    private val viewModeByCity =
+        ConcurrentHashMap<String, MutableStateFlow<CityDetailViewMode>>()
+    private val contentTabByCity =
+        ConcurrentHashMap<String, MutableStateFlow<CityDetailContentTab>>()
 
     override fun observeEnabledModels(): Flow<List<WeatherModel>> = models
     override suspend fun setEnabledModels(models: List<WeatherModel>) { this.models.value = models }
@@ -153,12 +159,28 @@ class FakeUserPreferencesRepository @Inject constructor() : UserPreferencesRepos
     private fun collapsedFlow(cityId: String): MutableStateFlow<Set<CityDetailSection>> =
         collapsedSectionsByCity.getOrPut(cityId) { MutableStateFlow(emptySet()) }
 
+    override fun observeCityDetailViewMode(cityId: String): Flow<CityDetailViewMode> =
+        viewModeByCity.getOrPut(cityId) { MutableStateFlow(CityDetailViewMode.DEFAULT) }
+
+    override suspend fun setCityDetailViewMode(cityId: String, mode: CityDetailViewMode) {
+        viewModeByCity.getOrPut(cityId) { MutableStateFlow(CityDetailViewMode.DEFAULT) }.value = mode
+    }
+
+    override fun observeCityDetailContentTab(cityId: String): Flow<CityDetailContentTab> =
+        contentTabByCity.getOrPut(cityId) { MutableStateFlow(CityDetailContentTab.DEFAULT) }
+
+    override suspend fun setCityDetailContentTab(cityId: String, tab: CityDetailContentTab) {
+        contentTabByCity.getOrPut(cityId) { MutableStateFlow(CityDetailContentTab.DEFAULT) }.value = tab
+    }
+
     fun reset() {
         models.value = WeatherModel.MVP_SELECTION
         theme.value = ThemePreference.SYSTEM
         language.value = LanguagePreference.SYSTEM
         refresh.value = RefreshInterval.DEFAULT
         collapsedSectionsByCity.clear()
+        viewModeByCity.clear()
+        contentTabByCity.clear()
     }
 }
 

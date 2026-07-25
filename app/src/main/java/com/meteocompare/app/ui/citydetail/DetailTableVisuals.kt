@@ -1,7 +1,6 @@
 package com.meteocompare.app.ui.citydetail
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -25,10 +24,10 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.foundation.layout.offset
 
 /**
  * Palette visuelle commune aux tableaux de la page détail.
@@ -49,7 +48,6 @@ internal data class DetailTablePalette(
     val frozenHeaderSurface: Color,
     val highlightedSurface: Color,
     val highlightedFrozenSurface: Color,
-    val border: Color,
     val rowDivider: Color,
     val frozenDivider: Color,
     val highlightedText: Color
@@ -75,7 +73,6 @@ internal fun detailTablePalette(): DetailTablePalette {
         highlightedSurface = scheme.primary.copy(alpha = 0.13f).compositeOver(tableSurface),
         highlightedFrozenSurface = scheme.primary.copy(alpha = 0.18f)
             .compositeOver(frozenSurface),
-        border = scheme.outlineVariant.copy(alpha = 0.78f),
         rowDivider = scheme.outlineVariant.copy(alpha = 0.38f),
         frozenDivider = scheme.outline.copy(alpha = 0.42f),
         highlightedText = scheme.primary
@@ -97,7 +94,7 @@ internal fun DetailTablePalette.labelRowBackground(index: Int, highlighted: Bool
     }
 
 /** Nombre maximal de modèles visibles avant défilement vertical interne. */
-private const val MAX_VISIBLE_MODEL_ROWS = 7.0f
+private const val MAX_VISIBLE_MODEL_ROWS = 9.0f
 
 /**
  * Structure commune des tableaux détaillés.
@@ -109,7 +106,6 @@ private const val MAX_VISIBLE_MODEL_ROWS = 7.0f
 @Composable
 internal fun FrozenDetailTableLayout(
     modelColumnWidth: Dp,
-    temporalColumnWidth: Dp,
     temporalColumnCount: Int,
     headerHeight: Dp,
     rowHeight: Dp,
@@ -125,7 +121,10 @@ internal fun FrozenDetailTableLayout(
 
     val horizontalState = rememberScrollState()
     val verticalState = rememberScrollState()
-    val temporalContentWidth = (temporalColumnWidth.value * temporalColumnCount).dp
+    // La largeur temporelle reste naturelle : les en-têtes et le corps sont
+    // composés avec les mêmes cellules de largeur fixe. Ne pas multiplier des
+    // valeurs Dp ici évite les écarts cumulés d'arrondi en pixels selon la
+    // densité (cause d'un décalage visible après plusieurs colonnes).
     val bodyContentHeight = (rowHeight.value * rowCount).dp
     val bodyViewportHeight = minOf(
         bodyContentHeight.value,
@@ -151,20 +150,14 @@ internal fun FrozenDetailTableLayout(
                 color = palette.frozenDivider
             )
 
-            Box(
+            SyncedTemporalHeaderViewport(
+                scrollOffsetPx = horizontalState.value,
                 modifier = Modifier
                     .weight(1f)
                     .height(headerHeight)
-                    .clipToBounds()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .width(temporalContentWidth)
-                        .offset { IntOffset(-horizontalState.value, 0) }
-                ) {
-                    temporalHeaders()
-                }
-            }
+                    .clipToBounds(),
+                content = temporalHeaders
+            )
         }
 
         Row(
@@ -201,11 +194,46 @@ internal fun FrozenDetailTableLayout(
     }
 }
 
+/**
+ * Viewport d'en-tete synchronise avec le scroll du corps du tableau.
+ *
+ * `requiredWidth` ne convient pas ici : lorsqu'un enfant force une largeur
+ * supérieure aux contraintes de son parent, Compose masque cette violation et
+ * centre par défaut l'enfant sur la largeur accordée. L'en-tete se retrouvait
+ * alors décalé par rapport aux colonnes du corps, surtout après un scroll.
+ *
+ * Ce layout mesure explicitement la rangée sans borne horizontale puis la place
+ * à l'origine du viewport avec exactement le même décalage en pixels que le
+ * corps. En-têtes et valeurs gardent leur largeur naturelle, somme des cellules
+ * réellement mesurées : aucun arrondi Dp global ne peut dériver de l'arrondi de
+ * chaque colonne.
+ */
+@Composable
+private fun SyncedTemporalHeaderViewport(
+    scrollOffsetPx: Int,
+    modifier: Modifier = Modifier,
+    content: @Composable RowScope.() -> Unit
+) {
+    Layout(
+        modifier = modifier,
+        content = { Row(content = content) }
+    ) { measurables, constraints ->
+        val row = measurables.single().measure(
+            constraints.copy(
+                minWidth = 0,
+                maxWidth = Constraints.Infinity
+            )
+        )
+        layout(constraints.maxWidth, constraints.maxHeight) {
+            row.placeRelative(x = -scrollOffsetPx, y = 0)
+        }
+    }
+}
+
 /** Encadrement arrondi et fin, sans modifier les dimensions internes. */
 internal fun Modifier.detailTableFrame(palette: DetailTablePalette): Modifier =
     clip(DetailTableShape)
         .background(palette.tableSurface)
-        //.border(1.dp, palette.border, DetailTableShape)
 
 /**
  * Fond et séparateur horizontal communs à toutes les cellules.

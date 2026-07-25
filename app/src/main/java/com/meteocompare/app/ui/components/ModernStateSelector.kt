@@ -162,76 +162,44 @@ internal fun <T> ModernInlineSelector(
 
     Row(
         modifier = modifier.selectableGroup(),
-        horizontalArrangement = Arrangement.spacedBy(
-            space = 8.dp,
-            alignment = Alignment.CenterHorizontally
-        ),
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically
     ) {
         options.forEach { option ->
             val isSelected = option == selected
-
             val containerColor by animateColorAsState(
                 targetValue = if (isSelected) {
-                    accent
-                        .copy(alpha = 0.12f)
-                        .compositeOver(scheme.surfaceContainerLow)
+                    accent.copy(alpha = 0.11f).compositeOver(scheme.surfaceContainerLow)
                 } else {
                     Color.Transparent
                 },
-                animationSpec = tween(
-                    durationMillis = SELECTOR_ANIMATION_MS
-                ),
-                label = "displayModeContainer"
+                animationSpec = tween(durationMillis = SELECTOR_ANIMATION_MS)
             )
-
             val contentColor by animateColorAsState(
-                targetValue = if (isSelected) {
-                    accent
-                } else {
-                    scheme.onSurfaceVariant
-                },
-                animationSpec = tween(
-                    durationMillis = SELECTOR_ANIMATION_MS
-                ),
-                label = "displayModeContent"
+                targetValue = if (isSelected) accent else scheme.onSurfaceVariant,
+                animationSpec = tween(durationMillis = SELECTOR_ANIMATION_MS)
             )
 
             Box(
                 modifier = Modifier
                     .then(itemModifier(option))
-
-                    // Taille légèrement augmentée.
                     .heightIn(min = 48.dp)
-
-                    // Important : le clip doit être placé AVANT selectable.
-                    // Il contraint ainsi le ripple à la forme arrondie.
+                    // Le clip précède selectable : le ripple reste dans la capsule.
                     .clip(itemShape)
                     .background(containerColor)
                     .selectable(
                         selected = isSelected,
-                        onClick = {
-                            if (!isSelected) {
-                                onSelected(option)
-                            }
-                        },
+                        onClick = { onSelected(option) },
                         role = Role.RadioButton
                     )
-                    .padding(
-                        horizontal = 18.dp,
-                        vertical = 10.dp
-                    ),
+                    .padding(horizontal = 18.dp, vertical = 10.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = label(option),
                     style = MaterialTheme.typography.labelLarge,
                     color = contentColor,
-                    fontWeight = if (isSelected) {
-                        FontWeight.SemiBold
-                    } else {
-                        FontWeight.Medium
-                    },
+                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )

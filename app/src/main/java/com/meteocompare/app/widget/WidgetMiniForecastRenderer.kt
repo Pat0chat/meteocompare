@@ -5,6 +5,7 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Typeface
+import com.meteocompare.app.domain.model.WeatherCondition
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -72,7 +73,8 @@ internal fun miniForecastChartHeightDp(
  * Les douze échéances sont réparties sur deux lignes de six cellules. Chaque
  * cellule est désormais une vraie heatmap en deux zones :
  *
- *   - zone haute colorée selon la température absolue ;
+ *   - zone haute colorée selon la température absolue, avec la condition
+ *     météo de consensus placée à côté de la valeur ;
  *   - zone basse bleue dont l'opacité combine probabilité et cumul de pluie.
  *
  * Les valeurs restent au premier plan avec une couleur de texte calculée pour
@@ -91,6 +93,7 @@ internal object WidgetMiniForecastRenderer {
         temps: List<Double?>,
         precipProbabilities: List<Int?>,
         precipAmountsMm: List<Double?> = emptyList(),
+        conditions: List<WeatherCondition?> = emptyList(),
         precipColorArgb: Int,
         textColorArgb: Int,
         timelineLabels: List<String> = emptyList(),
@@ -103,6 +106,8 @@ internal object WidgetMiniForecastRenderer {
         val bitmap = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         val shapePaint = Paint(Paint.ANTI_ALIAS_FLAG)
+        val iconPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { isFilterBitmap = true }
+        val iconCache = mutableMapOf<Pair<WeatherCondition, Int>, Bitmap>()
 
         val outerPadding = (heightPx * 0.022f).coerceAtLeast(2f)
         val rowGap = (heightPx * 0.042f).coerceAtLeast(3f)
@@ -231,10 +236,38 @@ internal object WidgetMiniForecastRenderer {
                 tempTop + tempZoneHeight * 0.29f,
                 timePaint
             )
+            val temperatureText = temp?.let { "${it.roundToInt()}°" } ?: "—"
+            val condition = conditions.getOrNull(index)
+                ?.takeUnless { it == WeatherCondition.UNKNOWN }
+            val temperatureLine = temperatureContentLayout(
+                centerX = centerX,
+                cellWidthPx = right - left,
+                temperatureZoneHeightPx = tempZoneHeight,
+                textWidthPx = tempPaint.measureText(temperatureText),
+                hasCondition = condition != null,
+                profile = profile
+            )
+            val tempFontMetrics = tempPaint.fontMetrics
+            val temperatureCenterY = tempTop + tempZoneHeight * 0.73f
+            val temperatureBaseline = temperatureCenterY -
+                (tempFontMetrics.ascent + tempFontMetrics.descent) / 2f
+
+            if (condition != null && temperatureLine.iconSizePx > 0f) {
+                val iconSizePx = temperatureLine.iconSizePx.roundToInt().coerceAtLeast(1)
+                val iconBitmap = iconCache.getOrPut(condition to iconSizePx) {
+                    WidgetWeatherIconRenderer.render(condition, iconSizePx)
+                }
+                canvas.drawBitmap(
+                    iconBitmap,
+                    temperatureLine.iconLeftPx,
+                    temperatureCenterY - iconSizePx / 2f,
+                    iconPaint
+                )
+            }
             canvas.drawText(
-                temp?.let { "${it.roundToInt()}°" } ?: "—",
-                centerX,
-                tempTop + tempZoneHeight * 0.78f,
+                temperatureText,
+                temperatureLine.textCenterX,
+                temperatureBaseline,
                 tempPaint
             )
 
@@ -278,6 +311,62 @@ internal object WidgetMiniForecastRenderer {
         return bitmap
     }
 
+    /**
+     * Positionne l'icône et la température comme un groupe centré. Si la
+     * cellule est trop étroite, l'icône est supprimée et la valeur reste
+     * parfaitement centrée plutôt que d'être comprimée ou rognée.
+     */
+    internal fun temperatureContentLayout(
+        centerX: Float,
+        cellWidthPx: Float,
+        temperatureZoneHeightPx: Float,
+        textWidthPx: Float,
+        hasCondition: Boolean,
+        profile: MiniForecastSizeProfile
+    ): TemperatureContentLayout {
+        if (!hasCondition) {
+            return TemperatureContentLayout(
+                iconLeftPx = centerX,
+                iconSizePx = 0f,
+                textCenterX = centerX
+            )
+        }
+
+        val metrics = gridMetricsFor(profile)
+        val gapPx = (cellWidthPx * metrics.conditionIconGapFraction).coerceAtLeast(1f)
+        val requestedIconSize = min(
+            temperatureZoneHeightPx * metrics.conditionIconHeightFraction,
+            cellWidthPx * metrics.conditionIconWidthFraction
+        )
+        val availableIconSize = (cellWidthPx - textWidthPx - gapPx - 4f)
+            .coerceAtLeast(0f)
+        val iconSizePx = min(requestedIconSize, availableIconSize)
+            .takeIf { it >= 7f }
+            ?: 0f
+
+        if (iconSizePx == 0f) {
+            return TemperatureContentLayout(
+                iconLeftPx = centerX,
+                iconSizePx = 0f,
+                textCenterX = centerX
+            )
+        }
+
+        val groupWidth = iconSizePx + gapPx + textWidthPx
+        val groupLeft = centerX - groupWidth / 2f
+        return TemperatureContentLayout(
+            iconLeftPx = groupLeft,
+            iconSizePx = iconSizePx,
+            textCenterX = groupLeft + iconSizePx + gapPx + textWidthPx / 2f
+        )
+    }
+
+    internal data class TemperatureContentLayout(
+        val iconLeftPx: Float,
+        val iconSizePx: Float,
+        val textCenterX: Float
+    )
+
     /** Les 12 valeurs sont lisibles grâce à la grille 2 × 6. */
     internal fun visibleValueIndices(profile: MiniForecastSizeProfile): List<Int> =
         (0 until CELL_COUNT).toList()
@@ -291,6 +380,9 @@ internal object WidgetMiniForecastRenderer {
             timeWidthLimitFraction = 0.24f,
             tempWidthLimitFraction = 0.43f,
             precipWidthLimitFraction = 0.22f,
+            conditionIconHeightFraction = 0.34f,
+            conditionIconWidthFraction = 0.25f,
+            conditionIconGapFraction = 0.035f,
             highlightWidthFraction = 0.034f,
             highlightHeightFraction = 0.036f,
             highlightContentScale = 1.04f
@@ -303,6 +395,9 @@ internal object WidgetMiniForecastRenderer {
             timeWidthLimitFraction = 0.25f,
             tempWidthLimitFraction = 0.44f,
             precipWidthLimitFraction = 0.23f,
+            conditionIconHeightFraction = 0.36f,
+            conditionIconWidthFraction = 0.27f,
+            conditionIconGapFraction = 0.04f,
             highlightWidthFraction = 0.038f,
             highlightHeightFraction = 0.04f,
             highlightContentScale = 1.05f
@@ -315,6 +410,9 @@ internal object WidgetMiniForecastRenderer {
             timeWidthLimitFraction = 0.26f,
             tempWidthLimitFraction = 0.46f,
             precipWidthLimitFraction = 0.24f,
+            conditionIconHeightFraction = 0.38f,
+            conditionIconWidthFraction = 0.29f,
+            conditionIconGapFraction = 0.045f,
             highlightWidthFraction = 0.042f,
             highlightHeightFraction = 0.044f,
             highlightContentScale = 1.06f
@@ -329,6 +427,9 @@ internal object WidgetMiniForecastRenderer {
         val timeWidthLimitFraction: Float,
         val tempWidthLimitFraction: Float,
         val precipWidthLimitFraction: Float,
+        val conditionIconHeightFraction: Float,
+        val conditionIconWidthFraction: Float,
+        val conditionIconGapFraction: Float,
         val highlightWidthFraction: Float,
         val highlightHeightFraction: Float,
         val highlightContentScale: Float

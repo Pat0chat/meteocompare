@@ -18,7 +18,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -45,7 +44,6 @@ import androidx.compose.ui.unit.sp
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.DayNormals
 import com.meteocompare.app.domain.model.HourlyConfidenceBand
-import com.meteocompare.app.ui.components.ModernTextTabs
 import com.meteocompare.app.ui.theme.confidenceColor
 import com.meteocompare.app.ui.theme.precipitationMetricAccent
 import com.meteocompare.app.ui.theme.temperatureMetricAccent
@@ -53,8 +51,8 @@ import com.meteocompare.app.ui.theme.windMetricAccent
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
-import java.time.ZoneId
 import java.time.format.TextStyle as JavaTextStyle
+import java.time.ZoneId
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.roundToInt
@@ -76,94 +74,6 @@ private val ChartCanvasHeight = 300.dp
 // ─── Bornes du zoom ────────────────────────────────────────────────────────
 private const val MIN_VIEW_SPAN = 0.02f
 private const val MAX_VIEW_SPAN = 1.0f
-
-/**
- * Composant unique de bande de confiance avec sélecteur à 3 états.
- *
- * Encapsule le sélecteur à état (Température / Précipitations / Vent) et rend
- * le chart correspondant en dessous. C'est la wrapper à utiliser depuis
- * l'écran détail — il gère l'état de sélection en interne (rememberSaveable
- * pour survivre à la rotation).
- *
- * L'appelant fournit les 3 séries de bandes (précalculées côté ViewModel pour
- * que la transition entre métriques soit instantanée). Chaque série peut être
- * vide ; le chart affichera son placeholder "pas assez de données" localement.
- */
-@Composable
-fun ConfidenceBandSection(
-    tempBands: List<HourlyConfidenceBand>,
-    precipBands: List<HourlyConfidenceBand>,
-    windBands: List<HourlyConfidenceBand>,
-    timezone: String?,
-    normals: Map<Int, DayNormals>?,
-    modifier: Modifier = Modifier
-) {
-    var metric by rememberSaveable(stateSaver = ConfidenceMetric.Saver) {
-        mutableStateOf(ConfidenceMetric.TEMPERATURE)
-    }
-
-    Column(modifier = modifier) {
-        ConfidenceMetricSelector(
-            selected = metric,
-            onSelect = { metric = it },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 4.dp)
-        )
-
-        val bands = when (metric) {
-            ConfidenceMetric.TEMPERATURE -> tempBands
-            ConfidenceMetric.PRECIPITATION -> precipBands
-            ConfidenceMetric.WIND -> windBands
-        }
-        HourlyConfidenceChart(
-            bands = bands,
-            metric = metric,
-            timezone = timezone,
-            normals = normals
-        )
-    }
-}
-
-/**
- * Onglets de métrique — Température / Précipitations / Vent.
- *
- * Rendu sous forme d'onglets texte légers : aucun gros conteneur commun, seul
- * le libellé actif et un indicateur inférieur coloré signalent la métrique.
- */
-@Composable
-private fun ConfidenceMetricSelector(
-    selected: ConfidenceMetric,
-    onSelect: (ConfidenceMetric) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val options = listOf(
-        ConfidenceMetric.TEMPERATURE,
-        ConfidenceMetric.PRECIPITATION,
-        ConfidenceMetric.WIND
-    )
-    val accent = when (selected) {
-        ConfidenceMetric.TEMPERATURE -> temperatureMetricAccent()
-        ConfidenceMetric.PRECIPITATION -> precipitationMetricAccent()
-        ConfidenceMetric.WIND -> windMetricAccent()
-    }
-    ModernTextTabs(
-        options = options,
-        selected = selected,
-        onSelected = onSelect,
-        label = { metric ->
-            stringResource(
-                when (metric) {
-                    ConfidenceMetric.TEMPERATURE -> R.string.metric_temperature
-                    ConfidenceMetric.PRECIPITATION -> R.string.metric_precipitation
-                    ConfidenceMetric.WIND -> R.string.metric_wind
-                }
-            )
-        },
-        accent = accent,
-        modifier = modifier
-    )
-}
 
 /**
  * Graphique de bande de confiance horaire — supporte 3 métriques (température,
@@ -199,7 +109,7 @@ fun HourlyConfidenceChart(
         return
     }
 
-    val zone = remember(timezone) { ZoneId.of(timezone ?: "UTC") }
+    val zone = remember(timezone) { resolveCityZone(timezone) }
     val onSurface = MaterialTheme.colorScheme.onSurfaceVariant
     val gridColor = MaterialTheme.colorScheme.outlineVariant
     val meanLineColor = when (metric) {

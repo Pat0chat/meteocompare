@@ -1,9 +1,7 @@
 package com.meteocompare.app.ui.citydetail
 
-import androidx.compose.runtime.saveable.Saver
 import java.time.Instant
 import java.time.ZoneId
-import java.time.ZonedDateTime
 
 /**
  * Mode d'affichage des tableaux et graphes de la page détail :
@@ -20,19 +18,7 @@ import java.time.ZonedDateTime
  */
 enum class DisplayMode {
     HOURLY,
-    DAILY;
-
-    companion object {
-        /**
-         * Saver pour rememberSaveable — sérialise via [name] plutôt qu'ordinal,
-         * pour que la restauration reste correcte si on réordonne l'enum plus
-         * tard (ordinal 0/1 signifie "case 0/1", pas HOURLY/DAILY).
-         */
-        val Saver: Saver<DisplayMode, String> = Saver(
-            save = { it.name },
-            restore = { runCatching { valueOf(it) }.getOrDefault(DAILY) }
-        )
-    }
+    DAILY
 }
 
 /**
@@ -58,9 +44,19 @@ enum class DisplayMode {
  * la fenêtre reste cohérente en interne même si elle est un peu décalée en
  * apparence. Priorité : ne jamais crasher pour un timezone mal formé.
  */
-internal fun computeHourlyHorizon(timezone: String?): Pair<Instant, Instant> {
-    val zone = runCatching { ZoneId.of(timezone ?: "UTC") }.getOrDefault(ZoneId.of("UTC"))
-    val nowLocal = ZonedDateTime.now(zone)
+internal fun resolveCityZone(timezone: String?): ZoneId =
+    runCatching { ZoneId.of(timezone ?: "UTC") }.getOrDefault(ZoneId.of("UTC"))
+
+/** Date civile correspondant à [now] dans le fuseau de la ville. */
+internal fun cityLocalDate(timezone: String?, now: Instant): java.time.LocalDate =
+    now.atZone(resolveCityZone(timezone)).toLocalDate()
+
+internal fun computeHourlyHorizon(
+    timezone: String?,
+    now: Instant
+): Pair<Instant, Instant> {
+    val zone = resolveCityZone(timezone)
+    val nowLocal = now.atZone(zone)
     val startHour = nowLocal
         .withMinute(0).withSecond(0).withNano(0)
         .toInstant()
@@ -76,3 +72,15 @@ internal fun computeHourlyHorizon(timezone: String?): Pair<Instant, Instant> {
         .toInstant()
     return startHour to endExclusive
 }
+
+internal fun com.meteocompare.app.domain.model.CityDetailViewMode.toDisplayMode(): DisplayMode =
+    when (this) {
+        com.meteocompare.app.domain.model.CityDetailViewMode.HOURLY -> DisplayMode.HOURLY
+        com.meteocompare.app.domain.model.CityDetailViewMode.DAILY -> DisplayMode.DAILY
+    }
+
+internal fun DisplayMode.toPreference(): com.meteocompare.app.domain.model.CityDetailViewMode =
+    when (this) {
+        DisplayMode.HOURLY -> com.meteocompare.app.domain.model.CityDetailViewMode.HOURLY
+        DisplayMode.DAILY -> com.meteocompare.app.domain.model.CityDetailViewMode.DAILY
+    }
