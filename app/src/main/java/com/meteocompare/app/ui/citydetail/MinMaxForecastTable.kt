@@ -71,10 +71,10 @@ fun MinMaxForecastTable(
     val today = remember(forecast.city.timezone, now) {
         cityLocalDate(forecast.city.timezone, now)
     }
-    val modelRowHeight = if (modelBiasProvider != null) 56.dp else 44.dp
-    val modelColumnWidth = if (modelBiasProvider != null) 94.dp else 84.dp
-    val dateColumnWidth = 82.dp
-    val headerHeight = 40.dp
+    val modelRowHeight = DetailTableDimensions.rowHeight
+    val modelColumnWidth = DetailTableDimensions.modelColumnWidth
+    val dateColumnWidth = DetailTableDimensions.temporalColumnWidth
+    val headerHeight = DetailTableDimensions.headerHeight
     val locale = LocalConfiguration.current.locales[0]
     val formatter = remember(locale) { DateTimeFormatter.ofPattern("EEE d", locale) }
 
@@ -198,7 +198,7 @@ private fun HeaderCellMM(
     text: String,
     background: Color,
     width: androidx.compose.ui.unit.Dp,
-    height: androidx.compose.ui.unit.Dp = 40.dp,
+    height: androidx.compose.ui.unit.Dp,
     bias: com.meteocompare.app.domain.model.ModelBias? = null,
     onBiasClick: (() -> Unit)? = null,
     showChipSlot: Boolean = false,
@@ -282,7 +282,7 @@ private fun MinMaxCell(
                 }
             }
         }
-        Text(text = display, style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"))
+        Text(text = display, style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"))
     }
 }
 

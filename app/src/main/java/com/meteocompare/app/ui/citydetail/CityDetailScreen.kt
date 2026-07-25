@@ -707,7 +707,6 @@ private fun androidx.compose.foundation.lazy.LazyListScope.detailedComparisonIte
                                 if (speed == null || speed < 5.0) null
                                 else daily.windDirection10mDominant.getOrNull(idx)
                             },
-                            cellWidth = 80.dp,
                             modelBiasProvider = windBiasProvider,
                             sampleCountProvider = windSampleCountProvider,
                             onBiasChipClick = onBiasChipClick,
@@ -728,7 +727,6 @@ private fun androidx.compose.foundation.lazy.LazyListScope.detailedComparisonIte
                                     if (speed == null || speed < 5.0) null
                                     else hourly.windDirection10m.getOrNull(idx)
                                 },
-                                cellWidth = 76.dp,
                                 modelBiasProvider = windBiasProvider,
                                 sampleCountProvider = windSampleCountProvider,
                                 onBiasChipClick = onBiasChipClick,
@@ -769,7 +767,6 @@ private fun ForecastTableContent(
     formatter: (Double) -> String,
     valueStyler: ((Double) -> ValueStyle?)? = null,
     directionExtractor: ((DailyForecast, Int) -> Int?)? = null,
-    cellWidth: androidx.compose.ui.unit.Dp = 72.dp,
     legend: @Composable (() -> Unit)? = null,
     modelBiasProvider: ((WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
     onBiasChipClick: ((WeatherModel, com.meteocompare.app.domain.model.ModelBias) -> Unit)? = null,
@@ -783,7 +780,6 @@ private fun ForecastTableContent(
             valueFormatter = formatter,
             valueStyler = valueStyler,
             directionExtractor = directionExtractor,
-            cellWidth = cellWidth,
             modelBiasProvider = modelBiasProvider,
             onBiasChipClick = onBiasChipClick,
             sampleCountProvider = sampleCountProvider,

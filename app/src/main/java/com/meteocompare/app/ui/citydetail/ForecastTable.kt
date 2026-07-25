@@ -53,7 +53,6 @@ fun ForecastTable(
     modifier: Modifier = Modifier,
     valueStyler: ((Double) -> ValueStyle?)? = null,
     directionExtractor: ((DailyForecast, Int) -> Int?)? = null,
-    cellWidth: Dp = 72.dp,
     modelBiasProvider: ((WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
     onBiasChipClick: ((WeatherModel, com.meteocompare.app.domain.model.ModelBias) -> Unit)? = null,
     sampleCountProvider: ((WeatherModel) -> Int)? = null
@@ -79,9 +78,10 @@ fun ForecastTable(
     val today = remember(forecast.city.timezone, now) {
         cityLocalDate(forecast.city.timezone, now)
     }
-    val modelRowHeight = if (modelBiasProvider != null) 56.dp else 40.dp
-    val modelColumnWidth = if (modelBiasProvider != null) 94.dp else 84.dp
-    val temporalHeaderHeight = 40.dp
+    val modelRowHeight = DetailTableDimensions.rowHeight
+    val modelColumnWidth = DetailTableDimensions.modelColumnWidth
+    val temporalHeaderHeight = DetailTableDimensions.headerHeight
+    val cellWidth = DetailTableDimensions.temporalColumnWidth
     val locale = LocalConfiguration.current.locales[0]
     val dayFormatter = remember(locale) { DateTimeFormatter.ofPattern("EEE d", locale) }
 
@@ -258,10 +258,10 @@ private fun ValueCell(
     ) {
         if (directionDegrees != null) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                WindArrow(directionDegrees = directionDegrees, size = 12.dp)
+                WindArrow(directionDegrees = directionDegrees, size = 10.dp)
                 Text(
                     text = text,
-                    style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"),
+                    style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"),
                     color = style?.color ?: Color.Unspecified,
                     fontWeight = style?.fontWeight,
                     modifier = Modifier.padding(start = 2.dp)
@@ -270,7 +270,7 @@ private fun ValueCell(
         } else {
             Text(
                 text = text,
-                style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"),
+                style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"),
                 color = style?.color ?: Color.Unspecified,
                 fontWeight = style?.fontWeight
             )

@@ -64,6 +64,69 @@ class FrozenDetailTableLayoutTest {
         assertAligned(5)
     }
 
+    @Test
+    fun shared_geometry_contract_keeps_headers_and_cells_identical() {
+        composeRule.setContent {
+            MeteoCompareTheme {
+                val palette = detailTablePalette()
+                FrozenDetailTableLayout(
+                    modelColumnWidth = DetailTableDimensions.modelColumnWidth,
+                    temporalColumnCount = 1,
+                    headerHeight = DetailTableDimensions.headerHeight,
+                    rowHeight = DetailTableDimensions.rowHeight,
+                    rowCount = 1,
+                    palette = palette,
+                    modifier = Modifier.width(320.dp),
+                    cornerHeader = {
+                        Box(
+                            Modifier
+                                .width(DetailTableDimensions.modelColumnWidth)
+                                .height(DetailTableDimensions.headerHeight)
+                                .testTag("corner")
+                        )
+                    },
+                    temporalHeaders = {
+                        Box(
+                            Modifier
+                                .width(DetailTableDimensions.temporalColumnWidth)
+                                .height(DetailTableDimensions.headerHeight)
+                                .testTag("temporal-header")
+                        )
+                    },
+                    modelRows = {
+                        Box(
+                            Modifier
+                                .width(DetailTableDimensions.modelColumnWidth)
+                                .height(DetailTableDimensions.rowHeight)
+                                .testTag("model-cell")
+                        )
+                    },
+                    temporalColumns = {
+                        Column(Modifier.width(DetailTableDimensions.temporalColumnWidth)) {
+                            Box(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height(DetailTableDimensions.rowHeight)
+                                    .testTag("value-cell")
+                            )
+                        }
+                    }
+                )
+            }
+        }
+
+        val corner = composeRule.onNodeWithTag("corner").fetchSemanticsNode().boundsInRoot
+        val temporalHeader = composeRule.onNodeWithTag("temporal-header")
+            .fetchSemanticsNode().boundsInRoot
+        val modelCell = composeRule.onNodeWithTag("model-cell").fetchSemanticsNode().boundsInRoot
+        val valueCell = composeRule.onNodeWithTag("value-cell").fetchSemanticsNode().boundsInRoot
+
+        assertEquals(corner.height, temporalHeader.height, 1f)
+        assertEquals(modelCell.height, valueCell.height, 1f)
+        assertEquals(temporalHeader.width, valueCell.width, 1f)
+        assertEquals(corner.width, modelCell.width, 1f)
+    }
+
     private fun assertAligned(index: Int) {
         val header = composeRule.onNodeWithTag("header-$index").fetchSemanticsNode().boundsInRoot
         val value = composeRule.onNodeWithTag("value-$index").fetchSemanticsNode().boundsInRoot

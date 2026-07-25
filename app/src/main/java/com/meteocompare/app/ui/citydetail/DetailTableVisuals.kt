@@ -55,6 +55,25 @@ internal data class DetailTablePalette(
 
 internal val DetailTableShape = RoundedCornerShape(14.dp)
 
+/**
+ * Contrat dimensionnel unique des tableaux détaillés.
+ *
+ * Toutes les vues Conditions, Température, Précipitations et Vent utilisent
+ * exactement ces dimensions, en mode horaire comme quotidien. Le passage
+ * d'un onglet à l'autre ne provoque donc plus de variation de largeur de la
+ * colonne des modèles, de largeur des échéances ou de hauteur des lignes.
+ *
+ * La hauteur de ligne est dimensionnée pour le cas le plus exigeant : le nom
+ * du modèle accompagné de son chip de calibration/fiabilité. Les tableaux de
+ * conditions conservent volontairement la même hauteur même sans ce chip.
+ */
+internal object DetailTableDimensions {
+    val modelColumnWidth = 94.dp
+    val temporalColumnWidth = 80.dp
+    val headerHeight = 44.dp
+    val rowHeight = 56.dp
+}
+
 @Composable
 internal fun detailTablePalette(): DetailTablePalette {
     val scheme = MaterialTheme.colorScheme

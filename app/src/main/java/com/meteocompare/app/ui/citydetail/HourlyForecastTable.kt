@@ -42,7 +42,6 @@ fun HourlyForecastTable(
     valueStyler: ((Double) -> ValueStyle?)? = null,
     heatmapStyler: ((Double) -> HeatmapCellStyle?)? = null,
     directionExtractor: ((HourlyForecast, Int) -> Int?)? = null,
-    cellWidth: Dp = 72.dp,
     modelBiasProvider: ((WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
     onBiasChipClick: ((WeatherModel, com.meteocompare.app.domain.model.ModelBias) -> Unit)? = null,
     sampleCountProvider: ((WeatherModel) -> Int)? = null
@@ -77,9 +76,10 @@ fun HourlyForecastTable(
     val currentHour = startHour
     val locale = LocalConfiguration.current.locales[0]
     val hourFmt = remember(locale) { DateTimeFormatter.ofPattern("HH'h'", locale) }
-    val headerHeight = 44.dp
-    val modelRowHeight = if (modelBiasProvider != null) 56.dp else 38.dp
-    val modelWidth = if (modelBiasProvider != null) 94.dp else 84.dp
+    val headerHeight = DetailTableDimensions.headerHeight
+    val modelRowHeight = DetailTableDimensions.rowHeight
+    val modelWidth = DetailTableDimensions.modelColumnWidth
+    val cellWidth = DetailTableDimensions.temporalColumnWidth
 
     val dayPrefixes = remember(timestamps, zone, locale) {
         var previous: java.time.LocalDate? = null

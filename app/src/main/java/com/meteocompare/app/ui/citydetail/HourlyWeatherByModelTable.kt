@@ -116,10 +116,10 @@ fun HourlyWeatherByModelTable(
     val currentHour = startHour
     val locale = LocalConfiguration.current.locales[0]
     val hourFmt = remember(locale) { DateTimeFormatter.ofPattern("HH'h'", locale) }
-    val modelWidth = 84.dp
-    val timeWidth = 68.dp
-    val headerHeight = 44.dp
-    val rowHeight = 46.dp
+    val modelWidth = DetailTableDimensions.modelColumnWidth
+    val timeWidth = DetailTableDimensions.temporalColumnWidth
+    val headerHeight = DetailTableDimensions.headerHeight
+    val rowHeight = DetailTableDimensions.rowHeight
     val dayPrefixes = remember(timestamps, zone, locale) {
         var previous: java.time.LocalDate? = null
         timestamps.associateWith { ts ->

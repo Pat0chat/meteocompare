@@ -56,10 +56,10 @@ fun WeatherByModelTable(
 
     val sortedModels = remember(modelOrder) { modelOrder.sortedByFamily() }
     val palette = detailTablePalette()
-    val modelWidth = 84.dp
-    val dateWidth = 72.dp
-    val headerHeight = 40.dp
-    val rowHeight = 50.dp
+    val modelWidth = DetailTableDimensions.modelColumnWidth
+    val dateWidth = DetailTableDimensions.temporalColumnWidth
+    val headerHeight = DetailTableDimensions.headerHeight
+    val rowHeight = DetailTableDimensions.rowHeight
 
     FrozenDetailTableLayout(
         modelColumnWidth = modelWidth,
