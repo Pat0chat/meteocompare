@@ -65,6 +65,44 @@ class SimplifiedTimelineCardTest {
     }
 
     @Test
+    fun agreement_badge_uses_a_compact_percentage_instead_of_a_localized_label() {
+        val point = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-26T16:00:00Z"),
+            temperatureC = 22.0,
+            modelCount = 3,
+            temperatureModelCount = 3,
+            hasMultiModelEvidence = true,
+            consensusPercent = 82,
+            consensusLevel = ModelConsensusLevel.HIGH
+        )
+
+        composeRule.setContent {
+            MeteoCompareTheme {
+                Surface {
+                    SimplifiedTimelineCard(
+                        points = listOf(point),
+                        mode = DisplayMode.HOURLY,
+                        timezone = "Europe/Paris"
+                    )
+                }
+            }
+        }
+
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val agreementLabel = context.getString(R.string.timeline_consensus_high)
+        val expected = context.getString(
+            R.string.timeline_consensus_accessibility,
+            agreementLabel,
+            82
+        )
+        composeRule.onNodeWithTag(TAG_TIMELINE_CONSENSUS_BADGE)
+            .assertIsDisplayed()
+            .assertContentDescriptionEquals(expected)
+        composeRule.onNodeWithText("82%").assertIsDisplayed()
+        composeRule.onNodeWithText(agreementLabel).assertDoesNotExist()
+    }
+
+    @Test
     fun first_future_point_keeps_its_real_hour_instead_of_now() {
         val point = SimplifiedTimelinePoint(
             instant = Instant.parse("2026-07-26T16:00:00Z"),

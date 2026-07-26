@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Air
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.Thermostat
 import androidx.compose.material.icons.outlined.WarningAmber
@@ -437,80 +438,81 @@ private fun ConsensusBadge(point: SimplifiedTimelinePoint) {
     } else {
         null
     }
+    val agreementContentDescription = point.consensusPercent?.let { percent ->
+        stringResource(
+            R.string.timeline_consensus_accessibility,
+            agreementLabel,
+            percent
+        )
+    } ?: agreementLabel
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         color = color.copy(alpha = 0.09f)
     ) {
-        Column(
-            modifier = Modifier
-                .heightIn(min = CONSENSUS_BADGE_MIN_HEIGHT)
-                .padding(horizontal = 5.dp, vertical = 4.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
+        if (hasDisagreement && reasonContentDescription != null) {
             Row(
+                modifier = Modifier
+                    .heightIn(min = CONSENSUS_BADGE_MIN_HEIGHT)
+                    .padding(horizontal = 4.dp, vertical = 5.dp)
+                    .testTag(TAG_TIMELINE_DIVERGENCE_REASON)
+                    .semantics {
+                        contentDescription = reasonContentDescription
+                    },
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
-                if (hasDisagreement) {
+                Icon(
+                    imageVector = Icons.Outlined.WarningAmber,
+                    contentDescription = null,
+                    tint = color,
+                    modifier = Modifier.size(13.dp)
+                )
+                Spacer(Modifier.width(4.dp))
+                reasonItems.forEachIndexed { index, (reason, icon, _) ->
+                    if (index > 0) Spacer(Modifier.width(4.dp))
                     Icon(
-                        imageVector = Icons.Outlined.WarningAmber,
+                        imageVector = icon,
                         contentDescription = null,
                         tint = color,
-                        modifier = Modifier.size(11.dp)
+                        modifier = Modifier
+                            .size(12.dp)
+                            .testTag(divergenceIconTag(reason))
                     )
-                    Spacer(Modifier.width(3.dp))
                 }
-                Text(
-                    text = if (hasDisagreement) {
-                        stringResource(R.string.timeline_disagreement_badge)
-                    } else {
-                        agreementLabel
-                    },
-                    style = MaterialTheme.typography.labelSmall,
-                    color = color,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = if (hasDisagreement) 1 else 2,
-                    overflow = TextOverflow.Clip,
-                    textAlign = TextAlign.Center
-                )
             }
-
-            if (reasonItems.isNotEmpty() && reasonContentDescription != null) {
-                Row(
-                    modifier = Modifier
-                        .padding(top = 2.dp)
-                        .testTag(TAG_TIMELINE_DIVERGENCE_REASON)
-                        .semantics {
-                            contentDescription = reasonContentDescription
-                        },
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    reasonItems.forEachIndexed { index, (reason, icon, _) ->
-                        if (index > 0) Spacer(Modifier.width(6.dp))
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = null,
-                            tint = color,
-                            modifier = Modifier
-                                .size(14.dp)
-                                .testTag(divergenceIconTag(reason))
-                        )
-                    }
-                }
-            } else if (hasDisagreement) {
+        } else {
+            Row(
+                modifier = Modifier
+                    .heightIn(min = CONSENSUS_BADGE_MIN_HEIGHT)
+                    .padding(horizontal = 6.dp, vertical = 5.dp)
+                    .testTag(TAG_TIMELINE_CONSENSUS_BADGE)
+                    .semantics {
+                        contentDescription = agreementContentDescription
+                    },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    imageVector = when (displayLevel) {
+                        ModelConsensusLevel.HIGH,
+                        ModelConsensusLevel.MEDIUM -> Icons.Outlined.CheckCircle
+                        ModelConsensusLevel.LOW,
+                        null -> Icons.Outlined.WarningAmber
+                    },
+                    contentDescription = null,
+                    tint = color,
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(Modifier.width(4.dp))
                 Text(
-                    text = stringResource(R.string.timeline_divergence_multiple),
+                    text = point.consensusPercent?.let { "$it%" } ?: "—",
                     style = MaterialTheme.typography.labelSmall,
                     color = color,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
-                    overflow = TextOverflow.Clip,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.testTag(TAG_TIMELINE_DIVERGENCE_REASON)
+                    textAlign = TextAlign.Center
                 )
             }
         }
@@ -559,9 +561,10 @@ private fun divergenceIconTag(reason: DivergenceReason): String = when (reason) 
 internal const val TAG_SIMPLIFIED_TIMELINE = "simplified_timeline"
 internal const val TAG_TIMELINE_POINT_FOCUSED = "timeline_point_focused"
 internal const val TAG_TIMELINE_DIVERGENCE_REASON = "timeline_divergence_reason"
+internal const val TAG_TIMELINE_CONSENSUS_BADGE = "timeline_consensus_badge"
 internal const val TAG_TIMELINE_DIVERGENCE_ICON_RAIN = "timeline_divergence_icon_rain"
 internal const val TAG_TIMELINE_DIVERGENCE_ICON_WIND = "timeline_divergence_icon_wind"
 private const val TAG_TIMELINE_POINT_PREFIX = "timeline_point_"
 private val TIMELINE_CARD_WIDTH = 108.dp
-private val CONSENSUS_BADGE_MIN_HEIGHT = 44.dp
+private val CONSENSUS_BADGE_MIN_HEIGHT = 32.dp
 private const val FOCUS_HIGHLIGHT_MILLIS = 1_800L

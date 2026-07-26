@@ -429,7 +429,7 @@
     <string name="timeline_title_daily">Next few days</string>
     <string name="timeline_subtitle_hourly">Model consensus · tap an item above to locate it here</string>
     <string name="timeline_subtitle_daily">Consensus of available models for the next few days</string>
-    <string name="timeline_disagreement_hint">The badge icons identify the variables on which models disagree</string>
+    <string name="timeline_disagreement_hint">Agreement is shown as a percentage. When models disagree, icons identify the affected variables</string>
     <string name="timeline_now">Now</string>
     <string name="timeline_today">Today</string>
     <string name="timeline_tomorrow">Tomorrow</string>
@@ -440,8 +440,7 @@
     <string name="timeline_consensus_medium">Medium agreement</string>
     <string name="timeline_consensus_low">Low agreement</string>
     <string name="timeline_consensus_limited">Limited comparison</string>
-    <string name="timeline_disagreement_badge">Disagreement</string>
-    <string name="timeline_divergence_multiple">Several parameters</string>
+    <string name="timeline_consensus_accessibility">%1$s: %2$d%%</string>
     <string name="timeline_divergence_rain">Rain</string>
     <string name="timeline_divergence_wind">Wind</string>
     <string name="timeline_divergence_temperature">Temp.</string>
