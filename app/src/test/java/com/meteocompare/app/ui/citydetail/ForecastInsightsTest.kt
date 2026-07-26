@@ -56,7 +56,6 @@ class ForecastInsightsTest {
             modelCount = 3,
             temperatureModelCount = 3,
             hasMultiModelEvidence = true,
-            isDivergent = false
         )
         val target = SimplifiedTimelinePoint(
             instant = Instant.parse("2026-07-23T16:00:00Z"),
@@ -64,7 +63,6 @@ class ForecastInsightsTest {
             modelCount = 3,
             temperatureModelCount = 3,
             hasMultiModelEvidence = true,
-            isDivergent = false
         )
 
         val insight = buildForecastInsights(
@@ -87,7 +85,6 @@ class ForecastInsightsTest {
             modelCount = 3,
             temperatureModelCount = 3,
             hasMultiModelEvidence = true,
-            isDivergent = false
         )
         val target = SimplifiedTimelinePoint(
             date = LocalDate.of(2026, 7, 24),
@@ -95,7 +92,6 @@ class ForecastInsightsTest {
             modelCount = 3,
             temperatureModelCount = 3,
             hasMultiModelEvidence = true,
-            isDivergent = false
         )
 
         val insight = buildForecastInsights(
@@ -169,6 +165,36 @@ class ForecastInsightsTest {
 
         assertTrue(insights.any { it.kind == ForecastInsightKind.RAIN_UNCERTAIN })
         assertFalse(insights.any { it.kind == ForecastInsightKind.DISAGREEMENT })
+    }
+
+
+    @Test
+    fun `likely rain does not hide a separate nearby rain disagreement`() {
+        val likelyRain = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-23T16:00:00Z"),
+            precipitationPercent = 85,
+            precipitationSource = PrecipitationSignalSource.MODEL_PROBABILITY,
+            precipitationModelCount = 3,
+            wetModelCount = 3,
+            modelCount = 3,
+            hasMultiModelEvidence = true
+        )
+        val rainDisagreement = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-23T17:00:00Z"),
+            precipitationPercent = 20,
+            precipitationSource = PrecipitationSignalSource.MODEL_PROBABILITY,
+            precipitationModelCount = 3,
+            modelCount = 3,
+            hasMultiModelEvidence = true,
+            divergenceReasons = setOf(DivergenceReason.PRECIPITATION)
+        )
+
+        val insights = buildForecastInsights(
+            OverviewTimeline(DisplayMode.HOURLY, listOf(likelyRain, rainDisagreement))
+        )
+
+        assertTrue(insights.any { it.kind == ForecastInsightKind.RAIN_LIKELY })
+        assertTrue(insights.any { it.kind == ForecastInsightKind.DISAGREEMENT })
     }
 
     @Test

@@ -53,6 +53,7 @@ import com.meteocompare.app.ui.components.WeatherIconDecorative
 import com.meteocompare.app.ui.components.semanticTint
 import com.meteocompare.app.ui.theme.precipitationMetricAccent
 import com.meteocompare.app.ui.theme.windMetricAccent
+import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.delay
@@ -72,12 +73,15 @@ internal fun SimplifiedTimelineCard(
     timezone: String?,
     modifier: Modifier = Modifier,
     focusPoint: SimplifiedTimelinePoint? = null,
-    focusRequestId: Int = 0
+    focusRequestId: Int = 0,
+    now: Instant = Instant.now()
 ) {
     if (points.isEmpty()) return
 
     val locale = LocalConfiguration.current.locales[0]
     val zone = remember(timezone) { resolveCityZone(timezone) }
+    val today = remember(timezone, now) { cityLocalDate(timezone, now) }
+    val currentHour = remember(timezone, now) { computeHourlyHorizon(timezone, now).first }
     val hourFormatter = remember(locale) { DateTimeFormatter.ofPattern("HH'h'", locale) }
     val dayFormatter = remember(locale) { DateTimeFormatter.ofPattern("EEE d", locale) }
     val precipitationAccent = precipitationMetricAccent()
@@ -153,7 +157,9 @@ internal fun SimplifiedTimelineCard(
                         mode = mode,
                         zone = zone,
                         hourFormatter = hourFormatter,
-                        dayFormatter = dayFormatter
+                        dayFormatter = dayFormatter,
+                        today = today,
+                        currentHour = currentHour
                     )
                     TimelinePointCard(
                         point = point,
@@ -204,15 +210,16 @@ private fun timelineLabels(
     mode: DisplayMode,
     zone: ZoneId,
     hourFormatter: DateTimeFormatter,
-    dayFormatter: DateTimeFormatter
+    dayFormatter: DateTimeFormatter,
+    today: java.time.LocalDate,
+    currentHour: Instant
 ): TimelineLabels {
     if (mode == DisplayMode.DAILY) {
         val date = point.date
-        val firstDate = points.firstOrNull()?.date
         val label = when {
             date == null -> "—"
-            index == 0 -> stringResource(R.string.timeline_today)
-            firstDate != null && date == firstDate.plusDays(1) -> stringResource(R.string.timeline_tomorrow)
+            date == today -> stringResource(R.string.timeline_today)
+            date == today.plusDays(1) -> stringResource(R.string.timeline_tomorrow)
             else -> date.format(dayFormatter).replaceFirstChar { it.uppercase() }
         }
         return TimelineLabels(label, null)
@@ -221,14 +228,13 @@ private fun timelineLabels(
     val zoned = point.instant?.atZone(zone)
     val currentDate = zoned?.toLocalDate()
     val previousDate = points.getOrNull(index - 1)?.instant?.atZone(zone)?.toLocalDate()
-    val firstDate = points.firstOrNull()?.instant?.atZone(zone)?.toLocalDate()
     val dayLabel = when {
-        index == 0 || currentDate == null || currentDate == previousDate -> null
-        firstDate != null && currentDate == firstDate.plusDays(1) -> stringResource(R.string.timeline_tomorrow)
+        currentDate == null || currentDate == previousDate || currentDate == today -> null
+        currentDate == today.plusDays(1) -> stringResource(R.string.timeline_tomorrow)
         else -> currentDate.format(dayFormatter).replaceFirstChar { it.uppercase() }
     }
     val timeLabel = when {
-        index == 0 -> stringResource(R.string.timeline_now)
+        point.instant == currentHour -> stringResource(R.string.timeline_now)
         zoned != null -> zoned.format(hourFormatter)
         else -> "—"
     }
@@ -381,7 +387,7 @@ private fun precipitationSourceLabel(point: SimplifiedTimelinePoint): String = w
 @Composable
 private fun ConsensusBadge(point: SimplifiedTimelinePoint) {
     val reasons = orderedDivergenceReasons(point.divergenceReasons)
-    val hasDisagreement = point.isDivergent || reasons.isNotEmpty()
+    val hasDisagreement = reasons.isNotEmpty()
     // Un désaccord ciblé ne doit jamais être masqué par une bonne moyenne sur
     // les autres variables : on rabaisse visuellement « élevé » à « moyen ».
     val displayLevel = when {

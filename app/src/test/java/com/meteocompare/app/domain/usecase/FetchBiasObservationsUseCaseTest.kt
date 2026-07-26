@@ -112,4 +112,79 @@ class FetchBiasObservationsUseCaseTest {
             repository.recordObservation(city.id, BiasVariable.WIND_SPEED, any(), any())
         }
     }
+
+    @Test
+    fun `le delta repart de la variable la moins à jour`() = runTest {
+        coEvery {
+            repository.latestObservationDate(city.id, BiasVariable.TEMPERATURE)
+        } returns LocalDate.of(2026, 7, 14)
+        coEvery {
+            repository.latestObservationDate(city.id, BiasVariable.PRECIPITATION)
+        } returns LocalDate.of(2026, 7, 10)
+        coEvery {
+            repository.latestObservationDate(city.id, BiasVariable.WIND_SPEED)
+        } returns LocalDate.of(2026, 7, 13)
+        coEvery {
+            api.archive(any(), any(), any(), any(), any(), any(), any(), any())
+        } returns emptyArchive()
+
+        useCase(city, today)
+
+        coVerify(exactly = 1) {
+            api.archive(
+                latitude = city.latitude,
+                longitude = city.longitude,
+                startDate = "2026-07-11",
+                endDate = "2026-07-14",
+                daily = any(),
+                timezone = any(),
+                windSpeedUnit = any(),
+                precipitationUnit = any()
+            )
+        }
+    }
+
+    @Test
+    fun `une variable jamais enregistrée réactive la fenêtre bootstrap`() = runTest {
+        coEvery {
+            repository.latestObservationDate(city.id, BiasVariable.TEMPERATURE)
+        } returns LocalDate.of(2026, 7, 14)
+        coEvery {
+            repository.latestObservationDate(city.id, BiasVariable.PRECIPITATION)
+        } returns null
+        coEvery {
+            repository.latestObservationDate(city.id, BiasVariable.WIND_SPEED)
+        } returns LocalDate.of(2026, 7, 14)
+        coEvery {
+            api.archive(any(), any(), any(), any(), any(), any(), any(), any())
+        } returns emptyArchive()
+
+        useCase(city, today)
+
+        coVerify(exactly = 1) {
+            api.archive(
+                latitude = city.latitude,
+                longitude = city.longitude,
+                startDate = "2026-06-15",
+                endDate = "2026-07-14",
+                daily = any(),
+                timezone = any(),
+                windSpeedUnit = any(),
+                precipitationUnit = any()
+            )
+        }
+    }
+
+    private fun emptyArchive() = ArchiveResponseDto(
+        latitude = city.latitude,
+        longitude = city.longitude,
+        timezone = "Europe/Paris",
+        daily = ArchiveDailyDto(
+            time = emptyList(),
+            tempMax = emptyList(),
+            tempMin = emptyList(),
+            precipSum = emptyList(),
+            windSpeedMax = emptyList()
+        )
+    )
 }

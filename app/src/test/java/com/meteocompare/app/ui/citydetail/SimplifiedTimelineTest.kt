@@ -10,6 +10,7 @@ import com.meteocompare.app.domain.model.WeatherModel
 import java.time.Instant
 import java.time.LocalDate
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -115,6 +116,43 @@ class SimplifiedTimelineTest {
         assertEquals(0, point.precipitationPercent)
         assertEquals(0, point.wetModelCount)
         assertEquals(3, point.precipitationModelCount)
+    }
+
+
+    @Test
+    fun `sparse probability coverage cannot create a rain disagreement`() {
+        val models = listOf(
+            WeatherModel.GFS,
+            WeatherModel.ECMWF,
+            WeatherModel.ICON_GLOBAL,
+            WeatherModel.ICON_EU,
+            WeatherModel.GEM_GLOBAL
+        )
+        val forecast = CityForecast(
+            city = paris,
+            seriesByModel = models.mapIndexed { index, model ->
+                model to series(
+                    model = model,
+                    date = today,
+                    min = 10.0 + index,
+                    max = 20.0 + index,
+                    rain = 0.0,
+                    probability = when (index) {
+                        0 -> 0
+                        1 -> 100
+                        else -> null
+                    },
+                    wind = 10.0 + index,
+                    weatherCode = 0
+                )
+            }.toMap()
+        )
+
+        val point = buildSimplifiedTimeline(forecast, DisplayMode.DAILY, now).single()
+
+        assertEquals(PrecipitationSignalSource.MODEL_AGREEMENT, point.precipitationSource)
+        assertEquals(0, point.precipitationPercent)
+        assertFalse(DivergenceReason.PRECIPITATION in point.divergenceReasons)
     }
 
     @Test

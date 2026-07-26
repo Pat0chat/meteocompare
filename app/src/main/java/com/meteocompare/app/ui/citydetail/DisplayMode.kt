@@ -1,6 +1,7 @@
 package com.meteocompare.app.ui.citydetail
 
 import java.time.Instant
+import com.meteocompare.app.core.util.resolveZoneOrUtc
 import java.time.ZoneId
 
 /**
@@ -33,8 +34,7 @@ enum class DisplayMode {
  * évite les fenêtres anormalement longues ou courtes lors d'un changement
  * d'heure tout en conservant exactement 24 échéances horaires possibles.
  */
-internal fun resolveCityZone(timezone: String?): ZoneId =
-    runCatching { ZoneId.of(timezone ?: "UTC") }.getOrDefault(ZoneId.of("UTC"))
+internal fun resolveCityZone(timezone: String?): ZoneId = resolveZoneOrUtc(timezone)
 
 /** Date civile correspondant à [now] dans le fuseau de la ville. */
 internal fun cityLocalDate(timezone: String?, now: Instant): java.time.LocalDate =

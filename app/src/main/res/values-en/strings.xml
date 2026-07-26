@@ -425,7 +425,6 @@
     <string name="local_ranking_open_content_description">Open the local model ranking</string>
 
     <string name="forecast_tables_section">Detailed forecasts</string>
-    <string name="timeline_title">Timeline overview</string>
     <string name="timeline_title_hourly">Next 24 hours</string>
     <string name="timeline_title_daily">Next few days</string>
     <string name="timeline_subtitle_hourly">Model consensus · tap an item above to locate it here</string>
@@ -440,7 +439,6 @@
     <string name="timeline_consensus_high">High agreement</string>
     <string name="timeline_consensus_medium">Medium agreement</string>
     <string name="timeline_consensus_low">Low agreement</string>
-    <string name="timeline_consensus_low_reason">Low · %1$s</string>
     <string name="timeline_consensus_limited">Limited comparison</string>
     <string name="timeline_disagreement_badge">Disagreement</string>
     <string name="timeline_divergence_multiple">Several parameters</string>
@@ -487,14 +485,6 @@
     <string name="forecast_insight_detail_wind_rising">Consensus rises from about %1$d to %2$d km/h.</string>
     <string name="forecast_insight_title_temperature_rising">Temperature rising sharply</string>
     <string name="forecast_insight_title_temperature_falling">Temperature falling sharply</string>
-    <string name="forecast_insight_soon">soon</string>
-    <string name="forecast_insight_high_agreement">Models remain broadly aligned until %1$s.</string>
-    <string name="forecast_insight_disagreement">Models diverge more around %1$s.</string>
-    <string name="forecast_insight_rain_likely">%1$d%% chance of rain around %2$s.</string>
-    <string name="forecast_insight_rain_models_likely">%1$d of %2$d models forecast rain around %3$s.</string>
-    <string name="forecast_insight_rain_models_split">Models are split on rain around %3$s (%1$d of %2$d).</string>
-    <string name="forecast_insight_rain_uncertain">Rain chance remains uncertain (%1$d%%) around %2$s.</string>
-    <string name="forecast_insight_wind_rising">Wind increasing to around %1$d km/h by %2$s.</string>
     <string name="forecast_insight_temperature_rising">Between %1$s and %2$s, the temperature is expected to rise from about %3$d° to %4$d° (+%5$d°).</string>
     <string name="forecast_insight_temperature_falling">Between %1$s and %2$s, the temperature is expected to fall from about %3$d° to %4$d° (−%5$d°).</string>
     <string name="forecast_insight_temperature_rising_fallback">Compared with the first displayed time, about +%1$d° is expected by %2$s.</string>

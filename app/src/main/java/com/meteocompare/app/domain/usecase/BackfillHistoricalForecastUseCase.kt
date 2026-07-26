@@ -1,5 +1,6 @@
 package com.meteocompare.app.domain.usecase
 
+import com.meteocompare.app.core.util.localDateIn
 import com.meteocompare.app.data.remote.HistoricalForecastApi
 import com.meteocompare.app.di.IoDispatcher
 import com.meteocompare.app.domain.model.BiasVariable
@@ -13,7 +14,7 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.doubleOrNull
-import java.time.Instant
+import java.time.Clock
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
@@ -39,15 +40,15 @@ import javax.inject.Singleton
  *
  * ## Idempotence
  *
- * Vérifie [BiasSampleRepository.countPastForecastSamples] pour chaque modèle.
+ * Vérifie [BiasSampleRepository.countPastForecastDays] pour chaque modèle.
  * Les modèles déjà suffisamment couverts sont exclus de l'appel ; un modèle
  * activé récemment reste backfillé même si la ville possède déjà l'historique
  * des autres familles. Coût du no-op : une petite requête SQL par modèle.
  *
  * ## Sémantique du `issuedAt`
  *
- * Pour les rows backfillées on utilise `Instant.now()` — "moment où on a
- * appris cette valeur historique". Aucun conflit possible avec les rows
+ * Pour les rows backfillées on utilise l'horloge injectée — « moment où on a
+ * appris cette valeur historique ». Aucun conflit possible avec les rows
  * snapshottées organiquement puisque celles-ci sont pour du futur, jamais du
  * passé. La PK composite reste unique.
  *
@@ -67,7 +68,8 @@ import javax.inject.Singleton
 class BackfillHistoricalForecastUseCase @Inject constructor(
     private val historicalApi: HistoricalForecastApi,
     private val biasRepository: BiasSampleRepository,
-    @param:IoDispatcher private val io: CoroutineDispatcher
+    @param:IoDispatcher private val io: CoroutineDispatcher,
+    private val clock: Clock = Clock.systemUTC()
 ) {
 
     /**
@@ -82,7 +84,7 @@ class BackfillHistoricalForecastUseCase @Inject constructor(
     suspend operator fun invoke(
         city: City,
         models: List<WeatherModel>,
-        today: LocalDate = LocalDate.now()
+        today: LocalDate = clock.instant().localDateIn(city.timezone)
     ): Int = withContext(io) {
         if (models.isEmpty()) return@withContext 0
 
@@ -90,7 +92,7 @@ class BackfillHistoricalForecastUseCase @Inject constructor(
         // backfillé même si les autres modèles de la ville ont déjà assez de
         // samples passés.
         val modelsToBackfill = models.filter { model ->
-            biasRepository.countPastForecastSamples(city.id, model, today) < SKIP_THRESHOLD
+            biasRepository.countPastForecastDays(city.id, model, today) < SKIP_THRESHOLD
         }
         if (modelsToBackfill.isEmpty()) return@withContext 0
 
@@ -116,7 +118,7 @@ class BackfillHistoricalForecastUseCase @Inject constructor(
             runCatching { LocalDate.parse(s, ISO_DATE) }.getOrNull()
         }
 
-        val issuedAt = Instant.now()
+        val issuedAt = clock.instant()
         val records = ArrayList<ForecastBiasRecord>(modelsToBackfill.size * dates.size * 3)
 
         for (model in modelsToBackfill) {
@@ -178,7 +180,7 @@ class BackfillHistoricalForecastUseCase @Inject constructor(
 
         /**
          * Seuil de skip. Si la ville a déjà autant de forecast passées, on
-         * considère le backfill inutile. Bas volontairement : 5 rows =
+         * considère le backfill inutile. Bas volontairement : 5 jours =
          * "quelques jours ont déjà été snapshottés organiquement", pas la
          * peine de forcer un fetch supplémentaire.
          */

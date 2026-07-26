@@ -36,10 +36,9 @@ import kotlinx.serialization.json.intOrNull
  * `precipitation_probability` par exemple).
  *
  * ─── Détection d'échec par modèle ────────────────────────────────────────
- * Un modèle qui n'a répondu à AUCUNE variable temporelle (typiquement hors
- * de sa zone de couverture) donnera un [ForecastResponseDto] avec un
- * `hourly.temperature_2m` entièrement null OU absent. C'est l'appelant qui
- * décide comment traiter ce cas — voir [hasNoUsableData] pour un helper.
+ * Un modèle qui n'a répondu à AUCUNE température alignée sur une échéance
+ * horaire ou journalière (typiquement hors de sa zone de couverture) est
+ * considéré inexploitable. Voir [hasNoUsableData].
  *
  * ─── Robustesse ───────────────────────────────────────────────────────────
  * On force la lecture des tableaux à travers [asNullableDoubles] /
@@ -93,18 +92,43 @@ object BatchedForecastSplitter {
     }
 
     /**
-     * Vrai si la série retournée pour ce modèle est totalement inexploitable :
-     * pas de température horaire du tout. Sert à filtrer les modèles pour
-     * lesquels Open-Meteo a envoyé la structure mais aucune valeur (typiquement
-     * modèle régional hors de sa zone de couverture, cf. AROME hors France).
-     *
-     * Choix de la température comme indicateur : c'est la variable présente
-     * dans tous les modèles utilisés par l'app. Si elle est vide/entièrement
-     * null, aucune vue de l'app ne peut afficher quoi que ce soit d'utile.
+     * Vrai si la série retournée pour ce modèle est totalement inexploitable.
+     * Une réponse daily valide reste utile même si l'API omet exceptionnellement
+     * l'horaire ; on ne filtre donc le modèle que si aucune température horaire
+     * ou journalière n'est disponible avec une échéance alignée.
      */
     private fun hasNoUsableData(dto: ForecastResponseDto): Boolean {
-        val temps = dto.hourly?.temperature2m
-        return temps.isNullOrEmpty() || temps.all { it == null }
+        val hasHourlyTemperature = hasAlignedValue(
+            times = dto.hourly?.time,
+            values = dto.hourly?.temperature2m
+        )
+        val hasDailyMaximum = hasAlignedValue(
+            times = dto.daily?.time,
+            values = dto.daily?.temperature2mMax
+        )
+        val hasDailyMinimum = hasAlignedValue(
+            times = dto.daily?.time,
+            values = dto.daily?.temperature2mMin
+        )
+        return !hasHourlyTemperature && !hasDailyMaximum && !hasDailyMinimum
+    }
+
+    /**
+     * Une valeur n'est exploitable que si elle possède une échéance au même
+     * index. Cette vérification évite de conserver un modèle dont l'API aurait
+     * renvoyé un tableau de valeurs sans axe temporel correspondant : le
+     * mapper l'éliminerait ensuite entièrement, mais le modèle serait malgré
+     * tout compté à tort comme disponible.
+     */
+    private fun hasAlignedValue(
+        times: List<String>?,
+        values: List<Double?>?
+    ): Boolean {
+        if (times.isNullOrEmpty() || values.isNullOrEmpty()) return false
+        val alignedSize = minOf(times.size, values.size)
+        return (0 until alignedSize).any { index ->
+            times[index].isNotBlank() && values[index] != null
+        }
     }
 
     // ────────────────── Reconstruction des DTOs hourly / daily ──────────────────

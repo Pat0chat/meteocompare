@@ -14,6 +14,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
 import javax.inject.Inject
@@ -38,32 +39,33 @@ import javax.inject.Singleton
  * `@IoDispatcher`) pour éviter qu'un appelant qui aurait oublié n'exécute
  * l'insertion sur Main.
  *
- * **Fenêtre "asOf = today"** : la borne haute de la requête utilise
- * `LocalDate.now().toEpochDay()` — le use case aval refiltrera avec sa
- * propre `asOf` en test, donc pas de couplage. En production, la source
- * commune de "maintenant" est [LocalDate.now] et personne ne le change.
+ * **Fenêtre d'observation explicite** : l'appelant fournit la date civile
+ * `asOf` de la ville. Room et le calcul statistique travaillent ainsi sur la
+ * même fenêtre, sans dépendre du fuseau du terminal.
  */
 @Singleton
 class BiasSampleRepositoryImpl @Inject constructor(
     private val dao: BiasSampleDao,
-    @param:IoDispatcher private val io: CoroutineDispatcher
+    @param:IoDispatcher private val io: CoroutineDispatcher,
+    private val clock: Clock
 ) : BiasSampleRepository {
 
     override fun observeSamples(
         cityId: String,
         model: WeatherModel,
         variable: BiasVariable,
+        asOf: LocalDate,
         windowDays: Int
     ): Flow<List<BiasSample>> {
         require(windowDays > 0) { "windowDays must be positive, got $windowDays" }
-        val today = LocalDate.now().toEpochDay()
-        val start = today - windowDays
+        val end = asOf.toEpochDay()
+        val start = end - windowDays
         return dao.observeJoinedSamples(
             cityId = cityId,
             modelKey = model.name,
             variable = variable.name,
             startEpochDay = start,
-            endEpochDay = today
+            endEpochDay = end
         ).map { rows ->
             rows.map { row ->
                 BiasSample(
@@ -121,7 +123,7 @@ class BiasSampleRepositoryImpl @Inject constructor(
                 variable = variable.name,
                 targetDateEpochDay = targetDate.toEpochDay(),
                 value = value,
-                fetchedAtEpochMs = Instant.now().toEpochMilli()
+                fetchedAtEpochMs = clock.instant().toEpochMilli()
             )
         )
     }
@@ -146,12 +148,12 @@ class BiasSampleRepositoryImpl @Inject constructor(
         dao.getLatestObservationEpochDay(cityId, variable.name)?.let(LocalDate::ofEpochDay)
     }
 
-    override suspend fun countPastForecastSamples(
+    override suspend fun countPastForecastDays(
         cityId: String,
         model: WeatherModel,
         beforeDate: LocalDate
     ): Int = withContext(io) {
-        dao.countPastForecastSamples(cityId, model.apiKey, beforeDate.toEpochDay())
+        dao.countPastForecastDays(cityId, model.name, beforeDate.toEpochDay())
     }
 
     override suspend fun purgeOlderThan(beforeDate: LocalDate) = withContext(io) {

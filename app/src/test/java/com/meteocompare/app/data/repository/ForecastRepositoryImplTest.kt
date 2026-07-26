@@ -33,6 +33,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.io.IOException
+import java.time.Clock
 
 /**
  * Tests du [ForecastRepositoryImpl] en mode BATCHED (post-optimisation
@@ -103,6 +104,7 @@ class ForecastRepositoryImplTest {
             // pas testé ici, on veut juste que le constructeur soit satisfait
             // et que le fetch principal ne soit pas perturbé.
             snapshotForecast = mockk(relaxed = true),
+            clock = Clock.systemUTC(),
             context = context,
             ioDispatcher = kotlinx.coroutines.Dispatchers.Unconfined,
             computationDispatcher = kotlinx.coroutines.Dispatchers.Unconfined
@@ -707,13 +709,6 @@ class ForecastRepositoryImplTest {
         val callCount = java.util.concurrent.atomic.AtomicInteger(0)
         val perModelCallCount = java.util.concurrent.ConcurrentHashMap<String, Int>()
 
-        override suspend fun getForecast(
-            latitude: Double, longitude: Double, models: String,
-            hourly: String, daily: String, timezone: String,
-            forecastDays: Int, windSpeedUnit: String,
-            temperatureUnit: String, precipitationUnit: String
-        ): ForecastResponseDto = error("Not used by batched code path")
-
         override suspend fun getForecastBatched(
             latitude: Double, longitude: Double, models: String,
             hourly: String, daily: String, timezone: String,
@@ -742,6 +737,7 @@ class ForecastRepositoryImplTest {
             cacheDao = mockk(relaxed = true),
             json = json,
             networkMonitor = networkMonitor,
+            clock = Clock.systemUTC(),
             context = context,
             ioDispatcher = kotlinx.coroutines.Dispatchers.Unconfined,
             computationDispatcher = kotlinx.coroutines.Dispatchers.Unconfined,
@@ -819,6 +815,29 @@ class ForecastRepositoryImplTest {
         repo.refreshCityForecast(paris, models)
 
         assertEquals(2, fakeApi.callCount.get())
+    }
+
+
+    @Test
+    fun `coalescing - horizons demandes equivalents partagent le meme fetch`() = runTest {
+        val fakeApi = GatedForecastApi(
+            batchedResponseWith(modelsWithData = listOf(WeatherModel.GFS))
+        )
+        val repo = repositoryWith(fakeApi)
+        val models = listOf(WeatherModel.GFS)
+
+        coroutineScope {
+            val a = async { repo.refreshCityForecast(paris, models, forecastDays = 16) }
+            val b = async { repo.refreshCityForecast(paris, models, forecastDays = 30) }
+
+            yield(); yield()
+
+            fakeApi.release()
+            a.await()
+            b.await()
+        }
+
+        assertEquals(1, fakeApi.callCount.get())
     }
 
     @Test

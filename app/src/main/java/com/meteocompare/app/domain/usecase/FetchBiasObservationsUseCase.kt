@@ -1,5 +1,6 @@
 package com.meteocompare.app.domain.usecase
 
+import com.meteocompare.app.core.util.localDateIn
 import com.meteocompare.app.data.remote.ClimateArchiveApi
 import com.meteocompare.app.di.IoDispatcher
 import com.meteocompare.app.domain.model.BiasVariable
@@ -8,7 +9,7 @@ import com.meteocompare.app.domain.repository.BiasSampleRepository
 import com.meteocompare.app.domain.repository.ObservationBiasRecord
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
-import java.time.Instant
+import java.time.Clock
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
@@ -22,13 +23,14 @@ import javax.inject.Singleton
  *
  * L'endpoint archive Open-Meteo est cher (~10-50ko par ville pour 30 jours).
  * On minimise le trafic :
- *   1. Lecture de [BiasSampleRepository.latestObservationDate] pour la
- *      variable ancre (température — les 3 variables sont fetchées en 1
- *      requête donc leur latestObservationDate est identique en régime).
+ *   1. Lecture de [BiasSampleRepository.latestObservationDate] pour chacune
+ *      des trois variables. La date la plus ancienne est l'ancre du delta :
+ *      une série partiellement absente lors d'un précédent fetch est ainsi
+ *      retentée au lieu d'être définitivement masquée par la température.
  *   2. Calcul de la fenêtre `[start, end]` :
  *      - `end = today - 1` (hier — l'archive n'a pas encore la journée en
  *        cours).
- *      - `start = min(latest + 1, end - MAX_BOOTSTRAP + 1)` — on borne
+ *      - `start = max(latest + 1, end - MAX_BOOTSTRAP + 1)` — on borne
  *        supérieurement pour ne pas fetcher 6 mois d'un coup si l'utilisateur
  *        n'a pas ouvert l'app depuis longtemps.
  *   3. Si `start > end` → rien à fetcher, retour immédiat.
@@ -62,7 +64,8 @@ import javax.inject.Singleton
 class FetchBiasObservationsUseCase @Inject constructor(
     private val archiveApi: ClimateArchiveApi,
     private val biasRepository: BiasSampleRepository,
-    @param:IoDispatcher private val io: CoroutineDispatcher
+    @param:IoDispatcher private val io: CoroutineDispatcher,
+    private val clock: Clock = Clock.systemUTC()
 ) {
 
     /**
@@ -72,14 +75,24 @@ class FetchBiasObservationsUseCase @Inject constructor(
      */
     suspend operator fun invoke(
         city: City,
-        today: LocalDate = LocalDate.now()
+        today: LocalDate = clock.instant().localDateIn(city.timezone)
     ): Int = withContext(io) {
         val end = today.minusDays(1) // hier — l'archive n'a pas aujourd'hui
-        val latest = biasRepository.latestObservationDate(city.id, BiasVariable.TEMPERATURE)
+        val latestDates = BiasVariable.entries.map { variable ->
+            biasRepository.latestObservationDate(city.id, variable)
+        }
+        // Si une variable n'a encore aucune observation, on reboucle sur la
+        // fenêtre bootstrap. Sinon on repart après la plus ancienne des trois
+        // dates, afin de combler les trous d'une série partielle.
+        val latestCompleteDate = latestDates
+            .takeIf { dates -> dates.all { it != null } }
+            ?.filterNotNull()
+            ?.minOrNull()
 
         val requestedStart = when {
-            latest == null -> end.minusDays((MAX_BOOTSTRAP_DAYS - 1).toLong()) // bootstrap
-            else -> latest.plusDays(1)
+            latestCompleteDate == null ->
+                end.minusDays((MAX_BOOTSTRAP_DAYS - 1).toLong()) // bootstrap
+            else -> latestCompleteDate.plusDays(1)
         }
         // Cap supérieur : jamais plus de MAX_BOOTSTRAP jours en une passe,
         // même si l'app n'a pas été ouverte depuis longtemps.
@@ -101,7 +114,7 @@ class FetchBiasObservationsUseCase @Inject constructor(
 
         // Chaque série est lue indépendamment. Toutes les lignes sont ensuite
         // persistées en une transaction Room pour éviter 30 × 3 transactions.
-        val fetchedAt = Instant.now()
+        val fetchedAt = clock.instant()
         val records = ArrayList<ObservationBiasRecord>(timeStrs.size * 3)
         var recordedDays = 0
         for (i in timeStrs.indices) {

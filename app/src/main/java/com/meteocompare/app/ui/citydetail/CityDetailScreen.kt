@@ -467,7 +467,8 @@ private fun LoadedView(
                     mode = overviewTimeline.mode,
                     timezone = forecast.city.timezone,
                     focusPoint = focusedTimelinePoint,
-                    focusRequestId = timelineFocusRequestId
+                    focusRequestId = timelineFocusRequestId,
+                    now = presentationNow
                 )
             }
         }

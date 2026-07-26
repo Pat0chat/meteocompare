@@ -5,6 +5,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.test.platform.app.InstrumentationRegistry
 import com.meteocompare.app.R
 import com.meteocompare.app.ui.theme.MeteoCompareTheme
@@ -61,5 +62,34 @@ class SimplifiedTimelineCardTest {
             .assertIsDisplayed()
         composeRule.onNodeWithTag(TAG_TIMELINE_DIVERGENCE_ICON_WIND)
             .assertIsDisplayed()
+    }
+
+    @Test
+    fun first_future_point_keeps_its_real_hour_instead_of_now() {
+        val point = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-26T16:00:00Z"),
+            temperatureC = 22.0,
+            modelCount = 2,
+            temperatureModelCount = 2,
+            hasMultiModelEvidence = true
+        )
+        val now = Instant.parse("2026-07-26T12:20:00Z")
+
+        composeRule.setContent {
+            MeteoCompareTheme {
+                Surface {
+                    SimplifiedTimelineCard(
+                        points = listOf(point),
+                        mode = DisplayMode.HOURLY,
+                        timezone = "UTC",
+                        now = now
+                    )
+                }
+            }
+        }
+
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        composeRule.onNodeWithText("16h").assertIsDisplayed()
+        composeRule.onNodeWithText(context.getString(R.string.timeline_now)).assertDoesNotExist()
     }
 }

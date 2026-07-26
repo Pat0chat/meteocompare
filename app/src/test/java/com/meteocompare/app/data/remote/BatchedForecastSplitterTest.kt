@@ -224,10 +224,30 @@ class BatchedForecastSplitterTest {
         )
 
         val split = BatchedForecastSplitter.split(response, listOf(WeatherModel.GFS))
-        // Pas d'hourly.temperature_2m → filtré comme "no usable data"
-        // (invariant de hasNoUsableData : sans température horaire, l'UI ne peut
-        // rien afficher d'utile de toute façon)
-        assertTrue("Sans hourly.temperature, le modèle est filtré", split.isEmpty())
+        assertEquals(setOf(WeatherModel.GFS), split.keys)
+        assertNull(split.getValue(WeatherModel.GFS).hourly)
+        assertEquals(listOf(24.0), split.getValue(WeatherModel.GFS).daily?.temperature2mMax)
+    }
+
+    @Test
+    fun `valeurs sans axe temporel aligne - modele filtre`() {
+        val response = json.decodeFromString<BatchedForecastResponseDto>(
+            """{
+              "latitude": 0.0, "longitude": 0.0, "timezone": "UTC",
+              "hourly": {
+                "time": [],
+                "temperature_2m_gfs_seamless": [20.0]
+              },
+              "daily": {
+                "time": [null],
+                "temperature_2m_max_gfs_seamless": [24.0]
+              }
+            }"""
+        )
+
+        val split = BatchedForecastSplitter.split(response, listOf(WeatherModel.GFS))
+
+        assertTrue(split.isEmpty())
     }
 
     @Test

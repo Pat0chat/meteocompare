@@ -5,7 +5,6 @@ import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.WeatherCondition
 import java.time.Instant
 import java.time.LocalDate
-import java.time.ZoneId
 import kotlin.math.ceil
 import kotlin.math.roundToInt
 
@@ -60,11 +59,15 @@ internal data class SimplifiedTimelinePoint(
     val consensusPercent: Int? = null,
     val consensusLevel: ModelConsensusLevel? = null,
     /** Variables qui dépassent les seuils de divergence. */
-    val divergenceReasons: Set<DivergenceReason> = emptySet(),
-    /** Désaccord spécifiquement lié à la pluie, conservé pour la logique d'insights. */
-    val isRainDivergent: Boolean = DivergenceReason.PRECIPITATION in divergenceReasons,
-    val isDivergent: Boolean = divergenceReasons.isNotEmpty()
-)
+    val divergenceReasons: Set<DivergenceReason> = emptySet()
+) {
+    /** Dérivés de la source unique [divergenceReasons], donc jamais incohérents. */
+    val isRainDivergent: Boolean
+        get() = DivergenceReason.PRECIPITATION in divergenceReasons
+
+    val isDivergent: Boolean
+        get() = divergenceReasons.isNotEmpty()
+}
 
 internal fun buildSimplifiedTimeline(
     forecast: CityForecast,
@@ -100,7 +103,7 @@ private fun buildDailyTimeline(
     forecast: CityForecast,
     now: Instant
 ): List<SimplifiedTimelinePoint> {
-    val zone = safeZone(forecast.city.timezone)
+    val zone = resolveCityZone(forecast.city.timezone)
     val today = now.atZone(zone).toLocalDate()
     val indexed = forecast.seriesByModel.values.map(::indexDailySnapshots)
     val dates = indexed
@@ -202,7 +205,7 @@ private fun timelinePoint(
     val topConditionCount = conditionCounts.values.maxOrNull() ?: 0
     val consensusCondition = conditionCounts.entries
         .filter { it.value == topConditionCount }
-        .maxByOrNull { conditionSeverity(it.key) }
+        .maxByOrNull { it.key.severityRank }
         ?.key
     val conditionAgreement = if (conditions.size >= 2) {
         topConditionCount * 100.0 / conditions.size
@@ -256,10 +259,15 @@ private fun timelinePoint(
         else -> maxOf(spread(minTemperatures), spread(maxTemperatures))
     }
     val windSpread = spread(winds)
-    val probabilitySpread = if (probabilities.size < 2) 0.0
-    else (probabilities.maxOrNull()!! - probabilities.minOrNull()!!).toDouble()
+    val probabilitySpread = spread(probabilities.map(Int::toDouble))
     val splitRain = wetShare != null && wetShare in 30.0..70.0
-    val isRainDivergent = probabilitySpread > 50.0 || splitRain
+    // Une forte dispersion de probabilités n'est représentative que lorsque
+    // la couverture est suffisante. Sinon l'interface affiche et évalue le
+    // vote déterministe des modèles disponibles.
+    val isRainDivergent = when {
+        hasRobustProbabilityCoverage -> probabilitySpread > 50.0
+        else -> splitRain
+    }
 
     val divergenceReasons = buildSet {
         if (conditionDivergent) add(DivergenceReason.CONDITION)
@@ -286,7 +294,9 @@ private fun timelinePoint(
         }
         if (winds.size >= 2) add(spreadAgreementScore(windSpread, 40.0))
         when {
-            probabilities.size >= 2 -> add((100.0 - probabilitySpread).coerceIn(0.0, 100.0))
+            hasRobustProbabilityCoverage -> {
+                add((100.0 - probabilitySpread).coerceIn(0.0, 100.0))
+            }
             wetShare != null -> add(maxOf(wetShare, 100.0 - wetShare))
         }
         conditionAgreement?.let(::add)
@@ -327,9 +337,7 @@ private fun timelinePoint(
         hasMultiModelEvidence = hasMultiModelEvidence,
         consensusPercent = consensusPercent,
         consensusLevel = consensusLevel,
-        divergenceReasons = divergenceReasons,
-        isRainDivergent = isRainDivergent,
-        isDivergent = divergenceReasons.isNotEmpty()
+        divergenceReasons = divergenceReasons
     )
 }
 
@@ -348,29 +356,6 @@ private fun spread(values: List<Double>): Double {
     if (values.size < 2) return 0.0
     return (values.maxOrNull() ?: 0.0) - (values.minOrNull() ?: 0.0)
 }
-
-/**
- * Classement conservateur utilisé seulement pour départager deux catégories
- * ayant reçu exactement le même nombre de votes. UNKNOWN est volontairement
- * absent et filtré avant le vote.
- */
-private fun conditionSeverity(condition: WeatherCondition): Int = when (condition) {
-    WeatherCondition.CLEAR -> 0
-    WeatherCondition.MAINLY_CLEAR -> 1
-    WeatherCondition.PARTLY_CLOUDY -> 2
-    WeatherCondition.OVERCAST -> 3
-    WeatherCondition.FOG -> 4
-    WeatherCondition.DRIZZLE -> 5
-    WeatherCondition.RAIN_SHOWERS -> 6
-    WeatherCondition.RAIN -> 7
-    WeatherCondition.SNOW_SHOWERS -> 8
-    WeatherCondition.SNOW -> 9
-    WeatherCondition.FREEZING_RAIN -> 10
-    WeatherCondition.THUNDERSTORM -> 11
-    WeatherCondition.UNKNOWN -> -1
-}
-
-private fun safeZone(timezone: String?): ZoneId = resolveCityZone(timezone)
 
 /**
  * Sélectionne au plus [maxPoints] échéances pour l'affichage sans perdre les
@@ -478,10 +463,7 @@ internal data class OverviewTimeline(
     val mode: DisplayMode,
     val analysisPoints: List<SimplifiedTimelinePoint>,
     val displayPoints: List<SimplifiedTimelinePoint> = selectTimelinePoints(analysisPoints)
-) {
-    /** Alias conservé pour les appels plus anciens ; correspond désormais aux cartes affichées. */
-    val points: List<SimplifiedTimelinePoint> get() = displayPoints
-}
+)
 
 internal fun buildOverviewTimeline(
     forecast: CityForecast,

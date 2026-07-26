@@ -58,8 +58,8 @@ import kotlin.math.sqrt
  * @param samples la liste des observations couplées prévision/réalité pour
  *   cette variable, sur les [windowDays] jours précédant [asOf] (exclus).
  * @param asOf la "date de calcul" — les samples strictement dans la fenêtre
- *   `[asOf - windowDays, asOf)` sont conservés. Par défaut = today (LocalDate.now).
- *   Passer une valeur explicite en test pour la reproductibilité.
+ *   `[asOf - windowDays, asOf)` sont conservés. La date doit être fournie
+ *   explicitement par l'appelant dans le fuseau métier de la ville.
  * @param windowDays taille de la fenêtre glissante en jours. 30 par défaut
  *   (choix produit sweet spot fraîcheur/stabilité), paramétrable pour les
  *   tests et pour un futur réglage.
@@ -70,7 +70,7 @@ class ComputeBiasUseCase @Inject constructor() {
     operator fun invoke(
         variable: BiasVariable,
         samples: List<BiasSample>,
-        asOf: LocalDate = LocalDate.now(),
+        asOf: LocalDate,
         windowDays: Int = 30
     ): ModelBias? {
         require(windowDays > 0) { "windowDays must be positive, got $windowDays" }

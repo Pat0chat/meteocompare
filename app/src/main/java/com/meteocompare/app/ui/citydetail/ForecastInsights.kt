@@ -25,7 +25,7 @@ internal enum class ForecastInsightLevel {
 internal data class ForecastInsight(
     val kind: ForecastInsightKind,
     val level: ForecastInsightLevel = ForecastInsightLevel.INFO,
-    /** Plus la valeur est élevée, plus l'insight doit remonter dans la carte. */
+    /** Départage les doublons et les messages portant sur la même échéance. */
     val priority: Int = 0,
     /** Échéance concernée par le message. */
     val point: SimplifiedTimelinePoint? = null,
@@ -276,8 +276,14 @@ private fun removeNearbyDuplicates(
     val withoutRedundantDisagreement = candidates.filterNot { candidate ->
         if (candidate.kind != ForecastInsightKind.DISAGREEMENT) return@filterNot false
         specifics.any { specific ->
+            val reason = specificReason(specific.kind)
             pointsAreNear(candidate.point, specific.point, mode) &&
-                specificReason(specific.kind)?.let { it in candidate.divergenceReasons } == true
+                reason != null &&
+                reason in candidate.divergenceReasons &&
+                // Un message météo précis n'absorbe le désaccord générique que
+                // s'il exprime lui-même cette divergence. « Pluie probable »
+                // ne doit pas masquer un désaccord pluie distinct juste après.
+                reason in specific.divergenceReasons
         }
     }
 

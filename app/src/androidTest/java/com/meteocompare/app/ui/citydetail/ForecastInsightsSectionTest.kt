@@ -21,14 +21,12 @@ class ForecastInsightsSectionTest {
             precipitationModelCount = 3,
             precipitationSource = PrecipitationSignalSource.MODEL_PROBABILITY,
             hasMultiModelEvidence = true,
-            isDivergent = false
         )
         val secondPoint = SimplifiedTimelinePoint(
             instant = Instant.parse("2026-07-26T19:00:00Z"),
             windKmh = 35.0,
             windModelCount = 3,
             hasMultiModelEvidence = true,
-            isDivergent = false
         )
 
         composeRule.setContent {
