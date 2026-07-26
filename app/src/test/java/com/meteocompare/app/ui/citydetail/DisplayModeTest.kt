@@ -30,11 +30,11 @@ class DisplayModeTest {
     }
 
     @Test
-    fun `hourly horizon starts at the current city hour and ends at local midnight`() {
+    fun `hourly horizon starts at the current city hour and spans 24 hours`() {
         val now = Instant.parse("2026-07-24T18:37:20Z")
         val (start, endExclusive) = computeHourlyHorizon("Europe/Paris", now)
 
         assertEquals(Instant.parse("2026-07-24T18:00:00Z"), start)
-        assertEquals(Instant.parse("2026-07-24T22:00:00Z"), endExclusive)
+        assertEquals(Instant.parse("2026-07-25T18:00:00Z"), endExclusive)
     }
 }

@@ -18,6 +18,21 @@ internal enum class PrecipitationSignalSource {
     MODEL_AGREEMENT
 }
 
+/** Variable principalement responsable d'un désaccord entre les modèles. */
+internal enum class DivergenceReason {
+    TEMPERATURE,
+    PRECIPITATION,
+    WIND,
+    CONDITION
+}
+
+/** Niveau synthétique d'accord multi-modèles à une échéance. */
+internal enum class ModelConsensusLevel {
+    HIGH,
+    MEDIUM,
+    LOW
+}
+
 /** Point synthétique d'une chronologie de consensus multi-modèles. */
 internal data class SimplifiedTimelinePoint(
     val instant: Instant? = null,
@@ -25,6 +40,9 @@ internal data class SimplifiedTimelinePoint(
     val temperatureC: Double? = null,
     val tempMinC: Double? = null,
     val tempMaxC: Double? = null,
+    /** Étendue de la température principale entre les modèles à cette échéance. */
+    val temperatureMinAcrossModels: Double? = null,
+    val temperatureMaxAcrossModels: Double? = null,
     val precipitationPercent: Int? = null,
     val precipitationSource: PrecipitationSignalSource? = null,
     val precipitationModelCount: Int = 0,
@@ -32,15 +50,20 @@ internal data class SimplifiedTimelinePoint(
     val windKmh: Double? = null,
     val condition: WeatherCondition? = null,
     /** Nombre de modèles ayant fourni au moins une valeur exploitable à cette échéance. */
-    val modelCount: Int,
+    val modelCount: Int = 0,
     val temperatureModelCount: Int = 0,
     val windModelCount: Int = 0,
     val conditionModelCount: Int = 0,
     /** Vrai uniquement si au moins deux modèles partagent une même métrique. */
-    val hasMultiModelEvidence: Boolean,
-    /** Désaccord spécifiquement lié à la pluie, distinct des autres variables. */
-    val isRainDivergent: Boolean = false,
-    val isDivergent: Boolean
+    val hasMultiModelEvidence: Boolean = false,
+    /** Score synthétique d'accord, calculé seulement à partir de métriques comparables. */
+    val consensusPercent: Int? = null,
+    val consensusLevel: ModelConsensusLevel? = null,
+    /** Variables qui dépassent les seuils de divergence. */
+    val divergenceReasons: Set<DivergenceReason> = emptySet(),
+    /** Désaccord spécifiquement lié à la pluie, conservé pour la logique d'insights. */
+    val isRainDivergent: Boolean = DivergenceReason.PRECIPITATION in divergenceReasons,
+    val isDivergent: Boolean = divergenceReasons.isNotEmpty()
 )
 
 internal fun buildSimplifiedTimeline(
@@ -58,20 +81,16 @@ private fun buildHourlyTimeline(
 ): List<SimplifiedTimelinePoint> {
     val (startHour, endExclusive) = computeHourlyHorizon(forecast.city.timezone, now)
     val indexed = forecast.seriesByModel.values.map(::indexHourlySnapshots)
-    val all = indexed
+    val timestamps = indexed
         .flatMap { it.keys }
         .distinct()
         .sorted()
         .filter { it >= startHour && it < endExclusive }
 
-    val candidates = all.take(MAX_HOURLY_CANDIDATES)
-    val sampled = if (candidates.size <= MAX_TIMELINE_POINTS) {
-        candidates
-    } else {
-        candidates.filterIndexed { index, _ -> index % 2 == 0 }.take(MAX_TIMELINE_POINTS)
-    }
-
-    return sampled.mapNotNull { timestamp ->
+    // L'analyse conserve toutes les échéances de la fenêtre. La réduction à
+    // huit cartes est faite ensuite par selectTimelinePoints(), en tenant compte
+    // des événements importants et des insights retenus.
+    return timestamps.mapNotNull { timestamp ->
         val snapshots = indexed.mapNotNull { it[timestamp] }
         timelinePoint(timestamp = timestamp, date = null, snapshots = snapshots, hourly = true)
     }
@@ -242,10 +261,12 @@ private fun timelinePoint(
     val splitRain = wetShare != null && wetShare in 30.0..70.0
     val isRainDivergent = probabilitySpread > 50.0 || splitRain
 
-    val isDivergent = conditionDivergent ||
-        temperatureSpread > (if (hourly) 4.0 else 5.0) ||
-        windSpread > 20.0 ||
-        isRainDivergent
+    val divergenceReasons = buildSet {
+        if (conditionDivergent) add(DivergenceReason.CONDITION)
+        if (temperatureSpread > (if (hourly) 4.0 else 5.0)) add(DivergenceReason.TEMPERATURE)
+        if (windSpread > 20.0) add(DivergenceReason.WIND)
+        if (isRainDivergent) add(DivergenceReason.PRECIPITATION)
+    }
 
     val temperatureModelCount = if (hourly) temperatures.size
     else maxOf(minTemperatures.size, maxTemperatures.size)
@@ -259,12 +280,40 @@ private fun timelinePoint(
         conditions.size
     ).any { it >= 2 }
 
+    val consensusScores = buildList {
+        if (temperatureModelCount >= 2) {
+            add(spreadAgreementScore(temperatureSpread, if (hourly) 8.0 else 10.0))
+        }
+        if (winds.size >= 2) add(spreadAgreementScore(windSpread, 40.0))
+        when {
+            probabilities.size >= 2 -> add((100.0 - probabilitySpread).coerceIn(0.0, 100.0))
+            wetShare != null -> add(maxOf(wetShare, 100.0 - wetShare))
+        }
+        conditionAgreement?.let(::add)
+    }
+    val consensusPercent = consensusScores
+        .takeIf { it.isNotEmpty() }
+        ?.average()
+        ?.roundToInt()
+        ?.coerceIn(0, 100)
+    val consensusLevel = consensusPercent?.let {
+        when {
+            it >= 75 -> ModelConsensusLevel.HIGH
+            it >= 50 -> ModelConsensusLevel.MEDIUM
+            else -> ModelConsensusLevel.LOW
+        }
+    }
+
+    val primaryTemperatureValues = if (hourly) temperatures else maxTemperatures
+
     return SimplifiedTimelinePoint(
         instant = timestamp,
         date = date,
         temperatureC = median(temperatures),
         tempMinC = median(minTemperatures),
         tempMaxC = median(maxTemperatures),
+        temperatureMinAcrossModels = primaryTemperatureValues.minOrNull(),
+        temperatureMaxAcrossModels = primaryTemperatureValues.maxOrNull(),
         precipitationPercent = precipitationPercent,
         precipitationSource = precipitationSource,
         precipitationModelCount = precipitationModelCount,
@@ -276,10 +325,16 @@ private fun timelinePoint(
         windModelCount = winds.size,
         conditionModelCount = conditions.size,
         hasMultiModelEvidence = hasMultiModelEvidence,
+        consensusPercent = consensusPercent,
+        consensusLevel = consensusLevel,
+        divergenceReasons = divergenceReasons,
         isRainDivergent = isRainDivergent,
-        isDivergent = isDivergent
+        isDivergent = divergenceReasons.isNotEmpty()
     )
 }
+
+private fun spreadAgreementScore(spread: Double, zeroAgreementSpread: Double): Double =
+    (100.0 - (spread / zeroAgreementSpread * 100.0)).coerceIn(0.0, 100.0)
 
 private fun median(values: List<Double>): Double? {
     if (values.isEmpty()) return null
@@ -317,11 +372,116 @@ private fun conditionSeverity(condition: WeatherCondition): Int = when (conditio
 
 private fun safeZone(timezone: String?): ZoneId = resolveCityZone(timezone)
 
-/** Chronologie principale : privilégie les prochaines heures, avec repli sur 7 jours. */
+/**
+ * Sélectionne au plus [maxPoints] échéances pour l'affichage sans perdre les
+ * événements importants. Les points requis (par exemple ceux des insights)
+ * passent avant les événements automatiques, puis la liste est complétée par
+ * des jalons régulièrement espacés afin de préserver la continuité temporelle.
+ */
+internal fun selectTimelinePoints(
+    points: List<SimplifiedTimelinePoint>,
+    maxPoints: Int = MAX_TIMELINE_POINTS,
+    requiredPoints: List<SimplifiedTimelinePoint> = emptyList()
+): List<SimplifiedTimelinePoint> {
+    if (points.size <= maxPoints) return points.sortedBy(::timelineSortKey)
+    if (maxPoints <= 0) return emptyList()
+
+    val ordered = points.sortedBy(::timelineSortKey)
+    val selected = linkedSetOf<SimplifiedTimelinePoint>()
+
+    fun add(point: SimplifiedTimelinePoint?) {
+        if (point != null && selected.size < maxPoints) selected += point
+    }
+
+    add(ordered.first())
+    add(ordered.last())
+
+    requiredPoints
+        .mapNotNull { required -> nearestTimelinePoint(required, ordered) }
+        .sortedBy(::timelineSortKey)
+        .forEach(::add)
+
+    val precipitationTransitions = ordered.zipWithNext()
+        .mapNotNull { (before, after) ->
+            val wasWet = (before.precipitationPercent ?: 0) >= DISPLAY_RAIN_THRESHOLD_PERCENT
+            val becomesWet = (after.precipitationPercent ?: 0) >= DISPLAY_RAIN_THRESHOLD_PERCENT
+            after.takeIf { wasWet != becomesWet }
+        }
+    precipitationTransitions.forEach(::add)
+
+    add(ordered.firstOrNull { it.isDivergent })
+    add(ordered.maxByOrNull { it.windKmh ?: Double.NEGATIVE_INFINITY })
+
+    val temperaturePoints = ordered.filter { (it.temperatureC ?: it.tempMaxC) != null }
+    add(temperaturePoints.minByOrNull { it.temperatureC ?: it.tempMaxC ?: Double.POSITIVE_INFINITY })
+    add(temperaturePoints.maxByOrNull { it.temperatureC ?: it.tempMaxC ?: Double.NEGATIVE_INFINITY })
+
+    ordered.zipWithNext()
+        .mapNotNull { (before, after) -> after.takeIf { before.condition != after.condition } }
+        .forEach(::add)
+
+    // Complète les trous avec des jalons répartis sur toute la fenêtre.
+    if (selected.size < maxPoints) {
+        for (slot in 1 until maxPoints - 1) {
+            val index = ((ordered.lastIndex.toDouble() * slot) / (maxPoints - 1))
+                .roundToInt()
+                .coerceIn(0, ordered.lastIndex)
+            add(ordered[index])
+        }
+    }
+
+    // Dernier remplissage séquentiel pour les séries irrégulières ou les doublons.
+    ordered.forEach(::add)
+
+    return selected.sortedBy(::timelineSortKey)
+}
+
+private fun nearestTimelinePoint(
+    required: SimplifiedTimelinePoint,
+    points: List<SimplifiedTimelinePoint>
+): SimplifiedTimelinePoint? {
+    points.firstOrNull { sameTimelinePoint(it, required) }?.let { return it }
+    return points.minByOrNull { point ->
+        when {
+            required.instant != null && point.instant != null ->
+                kotlin.math.abs(point.instant.toEpochMilli() - required.instant.toEpochMilli())
+            required.date != null && point.date != null ->
+                kotlin.math.abs(point.date.toEpochDay() - required.date.toEpochDay())
+            else -> Long.MAX_VALUE
+        }
+    }
+}
+
+internal fun sameTimelinePoint(
+    first: SimplifiedTimelinePoint,
+    second: SimplifiedTimelinePoint
+): Boolean = when {
+    first.instant != null || second.instant != null -> first.instant == second.instant
+    first.date != null || second.date != null -> first.date == second.date
+    else -> first === second
+}
+
+internal fun timelinePointKey(point: SimplifiedTimelinePoint): String = when {
+    point.instant != null -> "instant:${point.instant.toEpochMilli()}"
+    point.date != null -> "date:${point.date}"
+    else -> "point:${point.hashCode()}"
+}
+
+private fun timelineSortKey(point: SimplifiedTimelinePoint): Long = when {
+    point.instant != null -> point.instant.toEpochMilli()
+    point.date != null -> point.date.toEpochDay() * MILLIS_PER_DAY
+    else -> Long.MAX_VALUE
+}
+
+/** Chronologie principale : 24 heures glissantes, avec repli sur 7 jours. */
 internal data class OverviewTimeline(
     val mode: DisplayMode,
-    val points: List<SimplifiedTimelinePoint>
-)
+    val analysisPoints: List<SimplifiedTimelinePoint>,
+    val displayPoints: List<SimplifiedTimelinePoint> = selectTimelinePoints(analysisPoints)
+) {
+    /** Alias conservé pour les appels plus anciens ; correspond désormais aux cartes affichées. */
+    val points: List<SimplifiedTimelinePoint> get() = displayPoints
+}
 
 internal fun buildOverviewTimeline(
     forecast: CityForecast,
@@ -329,17 +489,24 @@ internal fun buildOverviewTimeline(
 ): OverviewTimeline {
     val hourly = buildSimplifiedTimeline(forecast, DisplayMode.HOURLY, now)
     return if (hourly.size >= 2) {
-        OverviewTimeline(DisplayMode.HOURLY, hourly)
-    } else {
         OverviewTimeline(
-            DisplayMode.DAILY,
-            buildSimplifiedTimeline(forecast, DisplayMode.DAILY, now)
+            mode = DisplayMode.HOURLY,
+            analysisPoints = hourly,
+            displayPoints = selectTimelinePoints(hourly)
+        )
+    } else {
+        val daily = buildSimplifiedTimeline(forecast, DisplayMode.DAILY, now)
+        OverviewTimeline(
+            mode = DisplayMode.DAILY,
+            analysisPoints = daily,
+            displayPoints = selectTimelinePoints(daily)
         )
     }
 }
 
-private const val MAX_HOURLY_CANDIDATES = 16
 private const val MAX_TIMELINE_POINTS = 8
 private const val MAX_DAILY_POINTS = 7
+private const val DISPLAY_RAIN_THRESHOLD_PERCENT = 50
 private const val HOURLY_RAIN_THRESHOLD_MM = 0.1
 private const val DAILY_RAIN_THRESHOLD_MM = 0.2
+private const val MILLIS_PER_DAY = 86_400_000L

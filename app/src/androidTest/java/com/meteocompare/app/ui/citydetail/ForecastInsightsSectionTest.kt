@@ -2,7 +2,6 @@ package com.meteocompare.app.ui.citydetail
 
 import androidx.compose.material3.Surface
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.fetchSemanticsNode
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import com.meteocompare.app.ui.theme.MeteoCompareTheme

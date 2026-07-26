@@ -1,0 +1,65 @@
+package com.meteocompare.app.ui.citydetail
+
+import androidx.compose.material3.Surface
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertContentDescriptionEquals
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.test.platform.app.InstrumentationRegistry
+import com.meteocompare.app.R
+import com.meteocompare.app.ui.theme.MeteoCompareTheme
+import java.time.Instant
+import org.junit.Rule
+import org.junit.Test
+
+class SimplifiedTimelineCardTest {
+    @get:Rule val composeRule = createComposeRule()
+
+    @Test
+    fun disagreement_badge_keeps_the_affected_metric_visible() {
+        val point = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-26T16:00:00Z"),
+            temperatureC = 22.0,
+            precipitationPercent = 50,
+            precipitationModelCount = 3,
+            windKmh = 18.0,
+            modelCount = 3,
+            temperatureModelCount = 3,
+            windModelCount = 3,
+            hasMultiModelEvidence = true,
+            consensusPercent = 35,
+            consensusLevel = ModelConsensusLevel.LOW,
+            divergenceReasons = setOf(
+                DivergenceReason.PRECIPITATION,
+                DivergenceReason.WIND
+            )
+        )
+
+        composeRule.setContent {
+            MeteoCompareTheme {
+                Surface {
+                    SimplifiedTimelineCard(
+                        points = listOf(point),
+                        mode = DisplayMode.HOURLY,
+                        timezone = "Europe/Paris"
+                    )
+                }
+            }
+        }
+
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val rainLabel = context.getString(R.string.timeline_divergence_rain)
+        val windLabel = context.getString(R.string.timeline_divergence_wind)
+        val expected = context.getString(
+            R.string.timeline_divergence_variables_accessibility,
+            "$rainLabel, $windLabel"
+        )
+        composeRule.onNodeWithTag(TAG_TIMELINE_DIVERGENCE_REASON)
+            .assertIsDisplayed()
+            .assertContentDescriptionEquals(expected)
+        composeRule.onNodeWithTag(TAG_TIMELINE_DIVERGENCE_ICON_RAIN)
+            .assertIsDisplayed()
+        composeRule.onNodeWithTag(TAG_TIMELINE_DIVERGENCE_ICON_WIND)
+            .assertIsDisplayed()
+    }
+}

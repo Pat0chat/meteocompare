@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -331,6 +332,25 @@ private fun LoadedView(
         buildOverviewTimeline(forecast, presentationNow)
     }
     val insights = remember(overviewTimeline) { buildForecastInsights(overviewTimeline) }
+    val timelineDisplayPoints = remember(overviewTimeline, insights) {
+        selectTimelinePoints(
+            points = overviewTimeline.analysisPoints,
+            requiredPoints = insights.mapNotNull(ForecastInsight::point)
+        )
+    }
+    var focusedTimelinePoint by remember(overviewTimeline) {
+        mutableStateOf<SimplifiedTimelinePoint?>(null)
+    }
+    var timelineFocusRequestId by remember(overviewTimeline) { mutableStateOf(0) }
+    val contentListState = rememberLazyListState()
+    val timelineItemIndex = 1 +
+        (if (insights.isNotEmpty()) 1 else 0) +
+        (if (!isOnline) 1 else 0)
+    LaunchedEffect(timelineFocusRequestId) {
+        if (timelineFocusRequestId > 0) {
+            contentListState.animateScrollToItem(timelineItemIndex)
+        }
+    }
     val cityToday = remember(forecast.city.timezone, presentationNow) {
         cityLocalDate(forecast.city.timezone, presentationNow)
     }
@@ -397,6 +417,7 @@ private fun LoadedView(
     }
 
     LazyColumn(
+        state = contentListState,
         modifier = Modifier.fillMaxSize().testTag(TAG_DETAIL_LOADED),
         contentPadding = PaddingValues(
             top = padding.calculateTopPadding(),
@@ -423,7 +444,12 @@ private fun LoadedView(
             item("forecast_insights") {
                 ForecastInsightsSection(
                     insights = insights,
-                    timezone = forecast.city.timezone
+                    timezone = forecast.city.timezone,
+                    referencePoint = overviewTimeline.analysisPoints.firstOrNull(),
+                    onInsightClick = { insight ->
+                        focusedTimelinePoint = insight.point
+                        timelineFocusRequestId += 1
+                    }
                 )
             }
         }
@@ -434,12 +460,14 @@ private fun LoadedView(
             }
         }
 
-        if (overviewTimeline.points.isNotEmpty()) {
+        if (timelineDisplayPoints.isNotEmpty()) {
             item("simplified_timeline_overview") {
                 SimplifiedTimelineCard(
-                    points = overviewTimeline.points,
+                    points = timelineDisplayPoints,
                     mode = overviewTimeline.mode,
-                    timezone = forecast.city.timezone
+                    timezone = forecast.city.timezone,
+                    focusPoint = focusedTimelinePoint,
+                    focusRequestId = timelineFocusRequestId
                 )
             }
         }

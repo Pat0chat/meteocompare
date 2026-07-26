@@ -19,6 +19,36 @@ class SimplifiedTimelineTest {
     private val today = LocalDate.of(2026, 7, 23)
 
     @Test
+    fun `hourly analysis keeps the full 24 hour window while overview displays at most eight points`() {
+        val timestamps = List(24) { index -> now.plusSeconds(index * 3600L) }
+        val hourlySeries = ForecastSeries(
+            model = WeatherModel.GFS,
+            hourly = HourlyForecast(
+                timestamps = timestamps,
+                temperature2m = List(24) { 18.0 + it / 4.0 },
+                precipitation = List(24) { if (it in 9..11) 1.0 else 0.0 },
+                windSpeed10m = List(24) { if (it == 16) 45.0 else 12.0 },
+                weatherCode = List(24) { if (it in 9..11) 61 else 1 }
+            ),
+            daily = DailyForecast(
+                dates = emptyList(),
+                tempMax = emptyList(),
+                tempMin = emptyList(),
+                precipitationSum = emptyList(),
+                windSpeedMax = emptyList()
+            )
+        )
+        val forecast = CityForecast(paris, mapOf(WeatherModel.GFS to hourlySeries))
+
+        val analysis = buildSimplifiedTimeline(forecast, DisplayMode.HOURLY, now)
+        val overview = buildOverviewTimeline(forecast, now)
+
+        assertEquals(24, analysis.size)
+        assertEquals(24, overview.analysisPoints.size)
+        assertTrue(overview.displayPoints.size <= 8)
+    }
+
+    @Test
     fun `daily timeline uses medians and flags strong disagreement`() {
         val forecast = CityForecast(
             city = paris,

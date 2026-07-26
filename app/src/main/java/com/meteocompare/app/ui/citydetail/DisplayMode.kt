@@ -8,8 +8,8 @@ import java.time.ZoneId
  *
  *   - [DAILY]  : granularité par jour sur ~7 jours. Vue synthétique historique,
  *                rapide à scanner "quel temps globalement cette semaine ?".
- *   - [HOURLY] : granularité par heure de "maintenant" jusqu'à la fin de la
- *                journée en cours (0-24h). Sert quand on planifie une activité
+ *   - [HOURLY] : granularité par heure sur un horizon glissant de 24 heures.
+ *                Sert quand on planifie une activité
  *                précise "à quelle heure va-t-il pleuvoir aujourd'hui ?".
  *
  * Le mode par défaut est [DAILY] — c'est la vue historique et la plus adaptée
@@ -22,27 +22,16 @@ enum class DisplayMode {
 }
 
 /**
- * Fenêtre horaire à afficher en mode "par heure" : de l'heure courante
- * (arrondie à l'heure pleine dans le fuseau de la ville) jusqu'à la fin de la
- * journée en cours (exclu : début du lendemain, à minuit locale).
+ * Fenêtre horaire glissante utilisée par les tableaux et la chronologie : de
+ * l'heure courante arrondie dans le fuseau de la ville jusqu'à 24 heures plus
+ * tard. L'horizon reste ainsi utile le soir et traverse naturellement minuit.
  *
  * Filtrer avec `timestamp >= start && timestamp < endExclusive`.
  *
- * Trade-off : borner à la fin du jour courant plutôt qu'à J+1 limite la table
- * à 24 lignes MAX (à 00:00) — souvent bien moins (à 18:00 il ne reste que 6
- * heures). C'est un compromis délibéré : on préfère une vue compacte sur les
- * prochaines heures utiles qu'un tableau interminable qui noie l'utilisateur.
- * Pour voir plus loin, on repasse en mode daily.
- *
- * Le fuseau de la ville est essentiel — un utilisateur à Paris consultant la
- * météo de Sydney veut voir "les heures qui restent à Sydney aujourd'hui",
- * pas dans son propre fuseau (ce qui décalerait les heures affichées vs le
- * reste des écrans — TodaySummaryCard, bande de confiance — qui utilisent le
- * fuseau de la ville).
- *
- * Si le timezone est invalide ou null, on retombe silencieusement sur UTC —
- * la fenêtre reste cohérente en interne même si elle est un peu décalée en
- * apparence. Priorité : ne jamais crasher pour un timezone mal formé.
+ * Le calcul porte sur 24 heures réelles à partir de l'heure locale courante.
+ * Le fuseau de la ville ne sert qu'à choisir l'heure de départ affichée ; cela
+ * évite les fenêtres anormalement longues ou courtes lors d'un changement
+ * d'heure tout en conservant exactement 24 échéances horaires possibles.
  */
 internal fun resolveCityZone(timezone: String?): ZoneId =
     runCatching { ZoneId.of(timezone ?: "UTC") }.getOrDefault(ZoneId.of("UTC"))
@@ -56,22 +45,15 @@ internal fun computeHourlyHorizon(
     now: Instant
 ): Pair<Instant, Instant> {
     val zone = resolveCityZone(timezone)
-    val nowLocal = now.atZone(zone)
-    val startHour = nowLocal
-        .withMinute(0).withSecond(0).withNano(0)
+    val startHour = now.atZone(zone)
+        .withMinute(0)
+        .withSecond(0)
+        .withNano(0)
         .toInstant()
-    // "jusqu'à la fin de la journée en cours" = minuit locale du jour suivant
-    // comme borne exclusive supérieure. Avec `plusDays(1)` sur la date courante,
-    // on obtient le début du lendemain — c'est la 1re heure du jour d'après,
-    // exclue par le filtre `< endExclusive`, donc la dernière heure affichée
-    // est 23h du jour courant.
-    val endExclusive = nowLocal
-        .toLocalDate()
-        .plusDays(1)
-        .atStartOfDay(zone)
-        .toInstant()
-    return startHour to endExclusive
+    return startHour to startHour.plusSeconds(HOURLY_HORIZON_SECONDS)
 }
+
+private const val HOURLY_HORIZON_SECONDS = 24L * 60L * 60L
 
 internal fun com.meteocompare.app.domain.model.CityDetailViewMode.toDisplayMode(): DisplayMode =
     when (this) {

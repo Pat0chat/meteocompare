@@ -108,6 +108,139 @@ class ForecastInsightsTest {
     }
 
     @Test
+    fun `insights use all analysis points even when the display list omits the event`() {
+        val start = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-23T10:00:00Z"),
+            windKmh = 10.0,
+            windModelCount = 3,
+            modelCount = 3,
+            hasMultiModelEvidence = true
+        )
+        val hiddenWindPeak = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-23T11:00:00Z"),
+            windKmh = 48.0,
+            windModelCount = 3,
+            modelCount = 3,
+            hasMultiModelEvidence = true
+        )
+        val displayedEnd = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-23T12:00:00Z"),
+            windKmh = 12.0,
+            windModelCount = 3,
+            modelCount = 3,
+            hasMultiModelEvidence = true
+        )
+        val overview = OverviewTimeline(
+            mode = DisplayMode.HOURLY,
+            analysisPoints = listOf(start, hiddenWindPeak, displayedEnd),
+            displayPoints = listOf(start, displayedEnd)
+        )
+
+        val insight = buildForecastInsights(overview)
+            .first { it.kind == ForecastInsightKind.WIND_RISING }
+
+        assertEquals(hiddenWindPeak, insight.point)
+    }
+
+    @Test
+    fun `specific rain insight absorbs nearby generic rain disagreement`() {
+        val rainPoint = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-23T10:00:00Z"),
+            precipitationPercent = 55,
+            precipitationSource = PrecipitationSignalSource.MODEL_PROBABILITY,
+            precipitationModelCount = 3,
+            modelCount = 3,
+            hasMultiModelEvidence = true,
+            divergenceReasons = setOf(DivergenceReason.PRECIPITATION)
+        )
+        val nearbyDisagreement = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-23T11:00:00Z"),
+            precipitationPercent = 20,
+            precipitationSource = PrecipitationSignalSource.MODEL_PROBABILITY,
+            precipitationModelCount = 3,
+            modelCount = 3,
+            hasMultiModelEvidence = true,
+            divergenceReasons = setOf(DivergenceReason.PRECIPITATION)
+        )
+
+        val insights = buildForecastInsights(
+            OverviewTimeline(DisplayMode.HOURLY, listOf(rainPoint, nearbyDisagreement))
+        )
+
+        assertTrue(insights.any { it.kind == ForecastInsightKind.RAIN_UNCERTAIN })
+        assertFalse(insights.any { it.kind == ForecastInsightKind.DISAGREEMENT })
+    }
+
+    @Test
+    fun `insights are ordered from nearest to farthest even when the later event is more severe`() {
+        val start = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-23T10:00:00Z"),
+            temperatureC = 18.0,
+            temperatureModelCount = 3,
+            modelCount = 3,
+            hasMultiModelEvidence = true
+        )
+        val warm = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-23T14:00:00Z"),
+            temperatureC = 25.0,
+            temperatureModelCount = 3,
+            modelCount = 3,
+            hasMultiModelEvidence = true
+        )
+        val storm = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-23T17:00:00Z"),
+            temperatureC = 22.0,
+            temperatureModelCount = 3,
+            precipitationPercent = 90,
+            precipitationSource = PrecipitationSignalSource.MODEL_PROBABILITY,
+            precipitationModelCount = 3,
+            condition = com.meteocompare.app.domain.model.WeatherCondition.THUNDERSTORM,
+            modelCount = 3,
+            hasMultiModelEvidence = true
+        )
+
+        val insights = buildForecastInsights(
+            OverviewTimeline(DisplayMode.HOURLY, listOf(start, warm, storm))
+        )
+
+        assertEquals(ForecastInsightKind.TEMPERATURE_CHANGE, insights.first().kind)
+        assertEquals(ForecastInsightKind.RAIN_LIKELY, insights.last().kind)
+        assertEquals(ForecastInsightLevel.ALERT, insights.last().level)
+    }
+
+    @Test
+    fun `agreement insight is suppressed when a later point contains disagreement`() {
+        val stablePoints = (0..2).map { index ->
+            SimplifiedTimelinePoint(
+                instant = now.plusSeconds(index * 3600L),
+                temperatureC = 20.0 + index,
+                modelCount = 3,
+                temperatureModelCount = 3,
+                hasMultiModelEvidence = true,
+                consensusPercent = 85,
+                consensusLevel = ModelConsensusLevel.HIGH
+            )
+        }
+        val laterDisagreement = SimplifiedTimelinePoint(
+            instant = now.plusSeconds(3 * 3600L),
+            temperatureC = 24.0,
+            modelCount = 3,
+            temperatureModelCount = 3,
+            hasMultiModelEvidence = true,
+            consensusPercent = 35,
+            consensusLevel = ModelConsensusLevel.LOW,
+            divergenceReasons = setOf(DivergenceReason.TEMPERATURE)
+        )
+
+        val insights = buildForecastInsights(
+            OverviewTimeline(DisplayMode.HOURLY, stablePoints + laterDisagreement)
+        )
+
+        assertTrue(insights.any { it.kind == ForecastInsightKind.DISAGREEMENT })
+        assertFalse(insights.any { it.kind == ForecastInsightKind.HIGH_AGREEMENT })
+    }
+
+    @Test
     fun `a single model never produces a high agreement claim`() {
         val forecast = forecast(
             probabilityByModel = listOf(5),
