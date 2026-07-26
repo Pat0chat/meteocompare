@@ -436,7 +436,6 @@
     <string name="offline_list_message">Les dernières données enregistrées restent disponibles. Leur âge est indiqué dans chaque ville.</string>
 
     <string name="offline_saved_data_age_inline">Hors connexion · %1$s</string>
-    <string name="next_notable_event">Prochain signal</string>
 
     <string name="forecast_insights_title">À retenir</string>
     <string name="forecast_insight_soon">bientôt</string>

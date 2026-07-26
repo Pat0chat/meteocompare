@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -48,7 +49,8 @@ internal fun ForecastInsightsSection(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp),
+            .padding(horizontal = 16.dp)
+            .testTag(TAG_FORECAST_INSIGHTS_SECTION),
         shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.surfaceContainerLow
     ) {
@@ -62,68 +64,72 @@ internal fun ForecastInsightsSection(
                 fontWeight = FontWeight.SemiBold
             )
 
-            insights.forEach { insight ->
-                ForecastInsightRow(insight = insight, timezone = timezone)
+            insights.forEachIndexed { index, insight ->
+                ForecastInsightRow(
+                    insight = insight,
+                    timezone = timezone,
+                    isHighlighted = index == 0
+                )
             }
         }
     }
 }
 
 @Composable
-internal fun ForecastInsightInline(
-    insight: ForecastInsight,
-    timezone: String?,
-    modifier: Modifier = Modifier,
-    contentColor: Color = MaterialTheme.colorScheme.onSurfaceVariant
-) {
-    val visual = insightVisual(insight.kind)
-    Row(
-        modifier = modifier,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = visual.icon,
-            contentDescription = null,
-            tint = visual.color,
-            modifier = Modifier.size(17.dp)
-        )
-        Spacer(Modifier.width(7.dp))
-        Text(
-            text = forecastInsightText(insight, timezone),
-            style = MaterialTheme.typography.bodySmall,
-            color = contentColor,
-            maxLines = 2
-        )
-    }
-}
-
-@Composable
 private fun ForecastInsightRow(
     insight: ForecastInsight,
-    timezone: String?
+    timezone: String?,
+    isHighlighted: Boolean
 ) {
     val visual = insightVisual(insight.kind)
+    val iconContainerSize = if (isHighlighted) 40.dp else 34.dp
+    val iconSize = if (isHighlighted) 21.dp else 18.dp
+
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (isHighlighted) {
+                    Modifier
+                        .background(
+                            color = visual.color.copy(alpha = 0.08f),
+                            shape = RoundedCornerShape(14.dp)
+                        )
+                        .padding(horizontal = 12.dp, vertical = 11.dp)
+                } else {
+                    Modifier
+                }
+            )
+            .testTag(
+                if (isHighlighted) {
+                    TAG_FORECAST_INSIGHT_PRIMARY
+                } else {
+                    TAG_FORECAST_INSIGHT_SECONDARY
+                }
+            ),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             modifier = Modifier
-                .size(34.dp)
-                .background(visual.color.copy(alpha = 0.11f), RoundedCornerShape(12.dp)),
+                .size(iconContainerSize)
+                .background(
+                    visual.color.copy(alpha = if (isHighlighted) 0.16f else 0.11f),
+                    RoundedCornerShape(if (isHighlighted) 14.dp else 12.dp)
+                ),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = visual.icon,
                 contentDescription = null,
                 tint = visual.color,
-                modifier = Modifier.size(18.dp)
+                modifier = Modifier.size(iconSize)
             )
         }
-        Spacer(Modifier.width(11.dp))
+        Spacer(Modifier.width(if (isHighlighted) 12.dp else 11.dp))
         Text(
             text = forecastInsightText(insight, timezone),
             style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (isHighlighted) FontWeight.SemiBold else FontWeight.Normal,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.weight(1f)
         )
@@ -298,3 +304,7 @@ private fun forecastPointLabel(
         else -> stringResource(R.string.forecast_insight_soon)
     }
 }
+
+internal const val TAG_FORECAST_INSIGHTS_SECTION = "forecast_insights_section"
+internal const val TAG_FORECAST_INSIGHT_PRIMARY = "forecast_insight_primary"
+internal const val TAG_FORECAST_INSIGHT_SECONDARY = "forecast_insight_secondary"

@@ -337,13 +337,6 @@ private fun LoadedView(
     val summaryDay = remember(weekly, cityToday) {
         weekly.firstOrNull { !it.date.isBefore(cityToday) } ?: weekly.lastOrNull()
     }
-    val notableInsight = remember(insights) {
-        insights.firstOrNull { it.kind != ForecastInsightKind.HIGH_AGREEMENT }
-    }
-    val supportingInsights = remember(insights, notableInsight) {
-        if (notableInsight == null) insights else insights.filterNot { it == notableInsight }
-    }
-
     // ── Suivi de biais : sélection courante pour l'ouverture de la sheet ──
     // Persistance sur rotation : on sauvegarde uniquement L'IDENTIFIANT
     // (deux noms d'enum) via deux String nativement saveable — la vraie
@@ -421,9 +414,16 @@ private fun LoadedView(
                     currentCloudCover = currentCloudCover,
                     fetchedAt = fetchedAt,
                     isOnline = isOnline,
-                    nextInsight = notableInsight,
-                    timezone = forecast.city.timezone,
                     onConfidenceClick = { onConfidenceClick(today.date.toString()) }
+                )
+            }
+        }
+
+        if (insights.isNotEmpty()) {
+            item("forecast_insights") {
+                ForecastInsightsSection(
+                    insights = insights,
+                    timezone = forecast.city.timezone
                 )
             }
         }
@@ -439,15 +439,6 @@ private fun LoadedView(
                 SimplifiedTimelineCard(
                     points = overviewTimeline.points,
                     mode = overviewTimeline.mode,
-                    timezone = forecast.city.timezone
-                )
-            }
-        }
-
-        if (supportingInsights.isNotEmpty()) {
-            item("forecast_insights") {
-                ForecastInsightsSection(
-                    insights = supportingInsights,
                     timezone = forecast.city.timezone
                 )
             }
@@ -1011,8 +1002,6 @@ internal fun TodaySummaryCard(
     currentCloudCover: Int? = null,
     fetchedAt: Instant? = null,
     isOnline: Boolean = true,
-    nextInsight: ForecastInsight? = null,
-    timezone: String? = null,
     onConfidenceClick: () -> Unit = {}
 ) {
     // Description unifiée pour TalkBack qui résume toutes les valeurs.
@@ -1159,27 +1148,6 @@ internal fun TodaySummaryCard(
                 VariableRow(stringResource(R.string.var_wind_max), it, " km/h")
             }
 
-            if (nextInsight != null) {
-                Spacer(Modifier.height(12.dp))
-                HorizontalDivider(
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.14f)
-                )
-                Spacer(Modifier.height(10.dp))
-                Column {
-                    Text(
-                        text = stringResource(R.string.next_notable_event),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.72f)
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    ForecastInsightInline(
-                        insight = nextInsight,
-                        timezone = timezone,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                }
-            }
         }
     }
 }

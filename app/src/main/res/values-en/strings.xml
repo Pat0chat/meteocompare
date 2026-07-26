@@ -438,7 +438,6 @@
     <string name="offline_list_message">The latest saved data remains available. Its age is shown on each city.</string>
 
     <string name="offline_saved_data_age_inline">Offline · %1$s</string>
-    <string name="next_notable_event">Next signal</string>
 
     <string name="forecast_insights_title">Key points</string>
     <string name="forecast_insight_soon">soon</string>
