@@ -454,6 +454,18 @@
 
     <string name="offline_saved_data_age_inline">Hors connexion · %1$s</string>
 
+    <plurals name="forecast_insights_count">
+        <item quantity="one">%d point clé</item>
+        <item quantity="other">%d points clés</item>
+    </plurals>
+    <plurals name="forecast_insights_models">
+        <item quantity="one">%d modèle</item>
+        <item quantity="other">%d modèles</item>
+    </plurals>
+    <string name="forecast_insights_subtitle_hourly">Synthèse des 24 prochaines heures · %1$s</string>
+    <string name="forecast_insights_subtitle_daily">Synthèse des prochains jours · %1$s</string>
+    <string name="forecast_insights_subtitle_generic">Synthèse des évolutions et incertitudes des modèles</string>
+    <string name="forecast_insights_timeline_hint">Touchez un point pour le retrouver dans la chronologie.</string>
     <string name="forecast_insights_title">À retenir</string>
     <string name="forecast_insight_level_alert">Attention</string>
     <string name="forecast_insight_level_watch">À surveiller</string>
@@ -461,6 +473,19 @@
     <string name="forecast_insight_level_positive">Prévision stable</string>
     <string name="forecast_insight_title_high_agreement">Modèles globalement alignés</string>
     <string name="forecast_insight_detail_high_agreement">Les prochaines échéances présentent peu de dispersion entre les modèles.</string>
+    <string name="forecast_insight_title_weather_worsening">Dégradation du temps</string>
+    <string name="forecast_insight_title_weather_change">Changement de temps</string>
+    <string name="forecast_insight_title_weather_improving">Amélioration du temps</string>
+    <string name="forecast_insight_detail_weather_change">Le scénario dominant passerait de %1$s à %2$s.</string>
+    <string name="forecast_insight_metric_consensus">%1$d %% d’accord</string>
+    <string name="forecast_insight_metric_probability">%1$d %%</string>
+    <string name="forecast_insight_metric_model_ratio">%1$d/%2$d modèles</string>
+    <string name="forecast_insight_metric_wind">%1$d km/h</string>
+    <string name="forecast_insight_metric_wind_delta_positive">+%1$d km/h</string>
+    <string name="forecast_insight_metric_wind_delta_negative">−%1$d km/h</string>
+    <string name="forecast_insight_metric_temperature_delta_positive">+%1$d°</string>
+    <string name="forecast_insight_metric_temperature_delta_negative">−%1$d°</string>
+    <string name="forecast_insight_metric_temperature_range">%1$d° → %2$d°</string>
     <string name="forecast_insight_title_disagreement">Prévision incertaine</string>
     <string name="forecast_insight_title_disagreement_rain">Désaccord sur la pluie</string>
     <string name="forecast_insight_title_disagreement_wind">Désaccord sur le vent</string>

@@ -5,6 +5,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,9 +17,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Air
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.Thermostat
 import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.material.icons.outlined.WarningAmber
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -30,12 +34,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.meteocompare.app.R
+import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.ui.theme.precipitationMetricAccent
 import com.meteocompare.app.ui.theme.temperatureMetricAccent
 import com.meteocompare.app.ui.theme.windMetricAccent
@@ -46,6 +52,7 @@ internal fun ForecastInsightsSection(
     insights: List<ForecastInsight>,
     timezone: String?,
     modifier: Modifier = Modifier,
+    modelCount: Int? = null,
     referencePoint: SimplifiedTimelinePoint? = null,
     onInsightClick: ((ForecastInsight) -> Unit)? = null
 ) {
@@ -63,10 +70,9 @@ internal fun ForecastInsightsSection(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
             verticalArrangement = Arrangement.spacedBy(11.dp)
         ) {
-            Text(
-                text = stringResource(R.string.forecast_insights_title),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
+            ForecastInsightsHeader(
+                insights = insights,
+                availableModelCount = modelCount
             )
 
             insights.forEachIndexed { index, insight ->
@@ -78,10 +84,98 @@ internal fun ForecastInsightsSection(
                     onClick = onInsightClick?.let { callback -> { callback(insight) } }
                 )
             }
+
+            if (onInsightClick != null) {
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
+                )
+                Text(
+                    text = stringResource(R.string.forecast_insights_timeline_hint),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag(TAG_FORECAST_INSIGHTS_TIMELINE_HINT)
+                )
+            }
         }
     }
 }
 
+@Composable
+private fun ForecastInsightsHeader(
+    insights: List<ForecastInsight>,
+    availableModelCount: Int?
+) {
+    val modelCount = availableModelCount
+        ?.takeIf { it > 0 }
+        ?: (insights.maxOfOrNull { it.point?.modelCount ?: 0 } ?: 0)
+    val hasHourlyPoint = insights.any { it.point?.instant != null }
+    val hasDailyPoint = insights.any { it.point?.date != null }
+    val modelsLabel = if (modelCount > 0) {
+        pluralStringResource(
+            R.plurals.forecast_insights_models,
+            modelCount,
+            modelCount
+        )
+    } else {
+        null
+    }
+    val subtitle = when {
+        modelsLabel == null -> stringResource(R.string.forecast_insights_subtitle_generic)
+        hasHourlyPoint -> stringResource(
+            R.string.forecast_insights_subtitle_hourly,
+            modelsLabel
+        )
+        hasDailyPoint -> stringResource(
+            R.string.forecast_insights_subtitle_daily,
+            modelsLabel
+        )
+        else -> stringResource(R.string.forecast_insights_subtitle_generic)
+    }
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = stringResource(R.string.forecast_insights_title),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .padding(top = 2.dp)
+                    .testTag(TAG_FORECAST_INSIGHTS_SUMMARY)
+            )
+        }
+
+        Surface(
+            shape = RoundedCornerShape(50),
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.09f)
+        ) {
+            Text(
+                text = pluralStringResource(
+                    R.plurals.forecast_insights_count,
+                    insights.size,
+                    insights.size
+                ),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                maxLines = 1
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ForecastInsightRow(
     insight: ForecastInsight,
@@ -92,6 +186,7 @@ private fun ForecastInsightRow(
 ) {
     val visual = insightVisual(insight)
     val presentation = forecastInsightPresentation(insight, timezone, referencePoint)
+    val metrics = forecastInsightMetrics(insight)
     val iconContainerSize = if (isHighlighted) 42.dp else 36.dp
     val iconSize = if (isHighlighted) 22.dp else 19.dp
     val shape = RoundedCornerShape(if (isHighlighted) 15.dp else 13.dp)
@@ -203,6 +298,20 @@ private fun ForecastInsightRow(
                     overflow = TextOverflow.Ellipsis
                 )
             }
+
+            if (metrics.isNotEmpty()) {
+                FlowRow(
+                    modifier = Modifier
+                        .padding(top = 7.dp)
+                        .testTag(TAG_FORECAST_INSIGHT_METRICS),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(5.dp)
+                ) {
+                    metrics.forEach { metric ->
+                        InsightMetricChip(metric = metric, color = visual.color)
+                    }
+                }
+            }
         }
     }
 }
@@ -222,6 +331,221 @@ private fun InsightTimeChip(time: String, color: Color) {
             maxLines = 1
         )
     }
+}
+
+private data class InsightMetric(
+    val icon: ImageVector,
+    val text: String? = null,
+    val contentDescription: String? = null,
+    val testTag: String? = null
+)
+
+@Composable
+private fun forecastInsightMetrics(insight: ForecastInsight): List<InsightMetric> {
+    val point = insight.point
+    return when (insight.kind) {
+        ForecastInsightKind.HIGH_AGREEMENT -> buildList {
+            point?.consensusPercent?.let { percent ->
+                add(
+                    InsightMetric(
+                        icon = Icons.Outlined.CheckCircle,
+                        text = stringResource(R.string.forecast_insight_metric_consensus, percent)
+                    )
+                )
+            }
+            addModelCountMetric(point?.modelCount)?.let(::add)
+        }
+        ForecastInsightKind.DISAGREEMENT -> buildList {
+            insight.divergenceReasons.forEach { reason ->
+                add(
+                    InsightMetric(
+                        icon = divergenceReasonIcon(reason),
+                        contentDescription = divergenceReasonLabel(reason),
+                        testTag = "${TAG_FORECAST_INSIGHT_REASON_PREFIX}${reason.name.lowercase()}"
+                    )
+                )
+            }
+            point?.consensusPercent?.let { percent ->
+                add(
+                    InsightMetric(
+                        icon = Icons.Outlined.WarningAmber,
+                        text = stringResource(R.string.forecast_insight_metric_consensus, percent)
+                    )
+                )
+            }
+        }
+        ForecastInsightKind.RAIN_LIKELY,
+        ForecastInsightKind.RAIN_UNCERTAIN -> buildList {
+            when (insight.precipitationSource) {
+                PrecipitationSignalSource.MODEL_PROBABILITY -> insight.value?.let { probability ->
+                    add(
+                        InsightMetric(
+                            icon = Icons.Outlined.WaterDrop,
+                            text = stringResource(
+                                R.string.forecast_insight_metric_probability,
+                                probability
+                            )
+                        )
+                    )
+                }
+                PrecipitationSignalSource.MODEL_AGREEMENT -> {
+                    val wetModels = insight.value
+                    val totalModels = insight.secondaryValue
+                    if (wetModels != null && totalModels != null) {
+                        add(
+                            InsightMetric(
+                                icon = Icons.Outlined.WaterDrop,
+                                text = stringResource(
+                                    R.string.forecast_insight_metric_model_ratio,
+                                    wetModels,
+                                    totalModels
+                                )
+                            )
+                        )
+                    }
+                }
+                null -> Unit
+            }
+            if (insight.precipitationSource == PrecipitationSignalSource.MODEL_PROBABILITY) {
+                addModelCountMetric(insight.secondaryValue)?.let(::add)
+            }
+        }
+        ForecastInsightKind.WEATHER_CHANGE -> buildList {
+            insight.targetCondition?.let { condition ->
+                add(
+                    InsightMetric(
+                        icon = Icons.Outlined.Cloud,
+                        text = weatherConditionLabel(condition)
+                    )
+                )
+            }
+            addModelCountMetric(point?.conditionModelCount)?.let(::add)
+        }
+        ForecastInsightKind.WIND_RISING -> buildList {
+            val baseline = insight.value
+            val target = insight.secondaryValue
+            target?.let { targetWind ->
+                add(
+                    InsightMetric(
+                        icon = Icons.Outlined.Air,
+                        text = stringResource(R.string.forecast_insight_metric_wind, targetWind)
+                    )
+                )
+            }
+            if (baseline != null && target != null && target != baseline) {
+                val delta = target - baseline
+                add(
+                    InsightMetric(
+                        icon = Icons.Outlined.Air,
+                        text = stringResource(
+                            if (delta >= 0) {
+                                R.string.forecast_insight_metric_wind_delta_positive
+                            } else {
+                                R.string.forecast_insight_metric_wind_delta_negative
+                            },
+                            kotlin.math.abs(delta)
+                        )
+                    )
+                )
+            }
+        }
+        ForecastInsightKind.TEMPERATURE_CHANGE -> buildList {
+            val delta = insight.value
+            delta?.let { value ->
+                add(
+                    InsightMetric(
+                        icon = Icons.Outlined.Thermostat,
+                        text = stringResource(
+                            if (value >= 0) {
+                                R.string.forecast_insight_metric_temperature_delta_positive
+                            } else {
+                                R.string.forecast_insight_metric_temperature_delta_negative
+                            },
+                            kotlin.math.abs(value)
+                        )
+                    )
+                )
+            }
+            val reference = insight.referenceValue
+            val target = insight.targetValue
+            if (reference != null && target != null) {
+                add(
+                    InsightMetric(
+                        icon = Icons.Outlined.Thermostat,
+                        text = stringResource(
+                            R.string.forecast_insight_metric_temperature_range,
+                            reference,
+                            target
+                        )
+                    )
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun addModelCountMetric(modelCount: Int?): InsightMetric? {
+    val count = modelCount?.takeIf { it > 0 } ?: return null
+    return InsightMetric(
+        icon = Icons.Outlined.CheckCircle,
+        text = pluralStringResource(
+            R.plurals.forecast_insights_models,
+            count,
+            count
+        )
+    )
+}
+
+@Composable
+private fun InsightMetricChip(metric: InsightMetric, color: Color) {
+    Surface(
+        modifier = metric.testTag?.let { tag -> Modifier.testTag(tag) } ?: Modifier,
+        shape = RoundedCornerShape(50),
+        color = color.copy(alpha = 0.085f)
+    ) {
+        Row(
+            modifier = Modifier.padding(
+                horizontal = if (metric.text == null) 7.dp else 8.dp,
+                vertical = 4.dp
+            ),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(
+                imageVector = metric.icon,
+                contentDescription = metric.contentDescription,
+                tint = color,
+                modifier = Modifier.size(14.dp)
+            )
+            metric.text?.let { text ->
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = color,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun divergenceReasonLabel(reason: DivergenceReason): String = stringResource(
+    when (reason) {
+        DivergenceReason.PRECIPITATION -> R.string.timeline_divergence_rain
+        DivergenceReason.WIND -> R.string.timeline_divergence_wind
+        DivergenceReason.TEMPERATURE -> R.string.timeline_divergence_temperature
+        DivergenceReason.CONDITION -> R.string.timeline_divergence_condition
+    }
+)
+
+private fun divergenceReasonIcon(reason: DivergenceReason): ImageVector = when (reason) {
+    DivergenceReason.PRECIPITATION -> Icons.Outlined.WaterDrop
+    DivergenceReason.WIND -> Icons.Outlined.Air
+    DivergenceReason.TEMPERATURE -> Icons.Outlined.Thermostat
+    DivergenceReason.CONDITION -> Icons.Outlined.Cloud
 }
 
 private data class InsightVisual(
@@ -250,6 +574,10 @@ private fun insightVisual(insight: ForecastInsight): InsightVisual {
         ForecastInsightKind.RAIN_UNCERTAIN -> InsightVisual(
             Icons.Outlined.WaterDrop,
             if (insight.level == ForecastInsightLevel.ALERT) levelColor else precipitationMetricAccent()
+        )
+        ForecastInsightKind.WEATHER_CHANGE -> InsightVisual(
+            Icons.Outlined.Cloud,
+            levelColor
         )
         ForecastInsightKind.WIND_RISING -> InsightVisual(
             Icons.Outlined.Air,
@@ -296,6 +624,35 @@ private fun forecastInsightPresentation(
             detail = rainDetail(insight, uncertain = true),
             timeLabel = timeLabel
         )
+        ForecastInsightKind.WEATHER_CHANGE -> {
+            val referenceCondition = insight.referenceCondition
+            val targetCondition = insight.targetCondition
+            val improves = referenceCondition != null && targetCondition != null &&
+                targetCondition.severityRank < referenceCondition.severityRank
+            val locale = LocalConfiguration.current.locales[0]
+            ForecastInsightPresentation(
+                title = stringResource(
+                    when {
+                        improves -> R.string.forecast_insight_title_weather_improving
+                        insight.level == ForecastInsightLevel.INFO ->
+                            R.string.forecast_insight_title_weather_change
+                        else -> R.string.forecast_insight_title_weather_worsening
+                    }
+                ),
+                detail = if (referenceCondition != null && targetCondition != null) {
+                    stringResource(
+                        R.string.forecast_insight_detail_weather_change,
+                        weatherConditionLabel(referenceCondition)
+                            .replaceFirstChar { it.lowercase(locale) },
+                        weatherConditionLabel(targetCondition)
+                            .replaceFirstChar { it.lowercase(locale) }
+                    )
+                } else {
+                    null
+                },
+                timeLabel = timeLabel
+            )
+        }
         ForecastInsightKind.WIND_RISING -> ForecastInsightPresentation(
             title = stringResource(R.string.forecast_insight_title_wind_rising),
             detail = stringResource(
@@ -376,6 +733,25 @@ private fun rainDetail(insight: ForecastInsight, uncertain: Boolean): String =
         )
         null -> stringResource(R.string.forecast_insight_detail_rain_generic)
     }
+
+@Composable
+private fun weatherConditionLabel(condition: WeatherCondition): String = stringResource(
+    when (condition) {
+        WeatherCondition.CLEAR -> R.string.weather_clear
+        WeatherCondition.MAINLY_CLEAR -> R.string.weather_mainly_clear
+        WeatherCondition.PARTLY_CLOUDY -> R.string.weather_partly_cloudy
+        WeatherCondition.OVERCAST -> R.string.weather_overcast
+        WeatherCondition.FOG -> R.string.weather_fog
+        WeatherCondition.DRIZZLE -> R.string.weather_drizzle
+        WeatherCondition.RAIN -> R.string.weather_rain
+        WeatherCondition.FREEZING_RAIN -> R.string.weather_freezing_rain
+        WeatherCondition.SNOW -> R.string.weather_snow
+        WeatherCondition.RAIN_SHOWERS -> R.string.weather_rain_showers
+        WeatherCondition.SNOW_SHOWERS -> R.string.weather_snow_showers
+        WeatherCondition.THUNDERSTORM -> R.string.weather_thunderstorm
+        WeatherCondition.UNKNOWN -> R.string.weather_unknown
+    }
+)
 
 @Composable
 private fun disagreementTitle(reasons: Set<DivergenceReason>): String = stringResource(
@@ -473,5 +849,9 @@ private fun forecastPointLabel(
 }
 
 internal const val TAG_FORECAST_INSIGHTS_SECTION = "forecast_insights_section"
+internal const val TAG_FORECAST_INSIGHTS_SUMMARY = "forecast_insights_summary"
+internal const val TAG_FORECAST_INSIGHTS_TIMELINE_HINT = "forecast_insights_timeline_hint"
 internal const val TAG_FORECAST_INSIGHT_PRIMARY = "forecast_insight_primary"
 internal const val TAG_FORECAST_INSIGHT_SECONDARY = "forecast_insight_secondary"
+internal const val TAG_FORECAST_INSIGHT_METRICS = "forecast_insight_metrics"
+internal const val TAG_FORECAST_INSIGHT_REASON_PREFIX = "forecast_insight_reason_"

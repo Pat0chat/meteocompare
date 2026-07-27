@@ -445,6 +445,7 @@ private fun LoadedView(
                 ForecastInsightsSection(
                     insights = insights,
                     timezone = forecast.city.timezone,
+                    modelCount = forecast.availableModels.size,
                     referencePoint = overviewTimeline.analysisPoints.firstOrNull(),
                     onInsightClick = { insight ->
                         focusedTimelinePoint = insight.point

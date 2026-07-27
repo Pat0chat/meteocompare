@@ -1,8 +1,10 @@
 package com.meteocompare.app.ui.citydetail
 
 import androidx.compose.material3.Surface
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import com.meteocompare.app.ui.theme.MeteoCompareTheme
 import java.time.Instant
@@ -20,12 +22,14 @@ class ForecastInsightsSectionTest {
             precipitationPercent = 60,
             precipitationModelCount = 3,
             precipitationSource = PrecipitationSignalSource.MODEL_PROBABILITY,
+            modelCount = 3,
             hasMultiModelEvidence = true,
         )
         val secondPoint = SimplifiedTimelinePoint(
             instant = Instant.parse("2026-07-26T19:00:00Z"),
             windKmh = 35.0,
             windModelCount = 3,
+            modelCount = 3,
             hasMultiModelEvidence = true,
         )
 
@@ -38,23 +42,29 @@ class ForecastInsightsSectionTest {
                                 kind = ForecastInsightKind.RAIN_UNCERTAIN,
                                 point = firstPoint,
                                 value = 60,
+                                secondaryValue = 3,
                                 precipitationSource = PrecipitationSignalSource.MODEL_PROBABILITY
                             ),
                             ForecastInsight(
                                 kind = ForecastInsightKind.WIND_RISING,
                                 point = secondPoint,
+                                value = 12,
                                 secondaryValue = 35
                             )
                         ),
-                        timezone = "Europe/Paris"
+                        timezone = "Europe/Paris",
+                        onInsightClick = {}
                     )
                 }
             }
         }
 
         composeRule.onNodeWithTag(TAG_FORECAST_INSIGHTS_SECTION).assertIsDisplayed()
+        composeRule.onNodeWithTag(TAG_FORECAST_INSIGHTS_SUMMARY).assertIsDisplayed()
+        composeRule.onNodeWithTag(TAG_FORECAST_INSIGHTS_TIMELINE_HINT).assertIsDisplayed()
         composeRule.onNodeWithTag(TAG_FORECAST_INSIGHT_PRIMARY).assertIsDisplayed()
         composeRule.onNodeWithTag(TAG_FORECAST_INSIGHT_SECONDARY).assertIsDisplayed()
+        composeRule.onAllNodesWithTag(TAG_FORECAST_INSIGHT_METRICS).assertCountEquals(2)
 
         val primaryHeight = composeRule
             .onNodeWithTag(TAG_FORECAST_INSIGHT_PRIMARY)
@@ -66,5 +76,45 @@ class ForecastInsightsSectionTest {
             .boundsInRoot.height
 
         assertTrue(primaryHeight > secondaryHeight)
+    }
+
+
+    @Test
+    fun disagreement_metrics_keep_all_affected_variables_visible() {
+        val point = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-26T15:00:00Z"),
+            modelCount = 3,
+            hasMultiModelEvidence = true,
+            consensusPercent = 35,
+            divergenceReasons = setOf(
+                DivergenceReason.PRECIPITATION,
+                DivergenceReason.WIND
+            )
+        )
+
+        composeRule.setContent {
+            MeteoCompareTheme {
+                Surface {
+                    ForecastInsightsSection(
+                        insights = listOf(
+                            ForecastInsight(
+                                kind = ForecastInsightKind.DISAGREEMENT,
+                                level = ForecastInsightLevel.WATCH,
+                                point = point,
+                                divergenceReasons = point.divergenceReasons
+                            )
+                        ),
+                        timezone = "Europe/Paris"
+                    )
+                }
+            }
+        }
+
+        composeRule.onNodeWithTag(
+            "${TAG_FORECAST_INSIGHT_REASON_PREFIX}precipitation"
+        ).assertIsDisplayed()
+        composeRule.onNodeWithTag(
+            "${TAG_FORECAST_INSIGHT_REASON_PREFIX}wind"
+        ).assertIsDisplayed()
     }
 }

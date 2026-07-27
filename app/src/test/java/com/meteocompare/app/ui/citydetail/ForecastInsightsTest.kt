@@ -5,6 +5,7 @@ import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DailyForecast
 import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.HourlyForecast
+import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
 import java.time.Instant
 import java.time.LocalDate
@@ -279,6 +280,134 @@ class ForecastInsightsTest {
 
         assertFalse(insights.any { it.kind == ForecastInsightKind.HIGH_AGREEMENT })
         assertFalse(insights.any { it.kind == ForecastInsightKind.DISAGREEMENT })
+    }
+
+    @Test
+    fun `positive weather change never evicts three actionable signals`() {
+        val points = listOf(
+            SimplifiedTimelinePoint(
+                instant = Instant.parse("2026-07-23T10:00:00Z"),
+                temperatureC = 20.0,
+                temperatureModelCount = 3,
+                precipitationPercent = 80,
+                precipitationSource = PrecipitationSignalSource.MODEL_PROBABILITY,
+                precipitationModelCount = 3,
+                windKmh = 10.0,
+                windModelCount = 3,
+                condition = WeatherCondition.RAIN,
+                conditionModelCount = 3,
+                modelCount = 3,
+                hasMultiModelEvidence = true
+            ),
+            SimplifiedTimelinePoint(
+                instant = Instant.parse("2026-07-23T11:00:00Z"),
+                temperatureC = 21.0,
+                temperatureModelCount = 3,
+                precipitationPercent = 5,
+                precipitationSource = PrecipitationSignalSource.MODEL_PROBABILITY,
+                precipitationModelCount = 3,
+                windKmh = 12.0,
+                windModelCount = 3,
+                condition = WeatherCondition.CLEAR,
+                conditionModelCount = 3,
+                modelCount = 3,
+                hasMultiModelEvidence = true
+            ),
+            SimplifiedTimelinePoint(
+                instant = Instant.parse("2026-07-23T13:00:00Z"),
+                temperatureC = 22.0,
+                temperatureModelCount = 3,
+                precipitationPercent = 5,
+                precipitationSource = PrecipitationSignalSource.MODEL_PROBABILITY,
+                precipitationModelCount = 3,
+                windKmh = 35.0,
+                windModelCount = 3,
+                condition = WeatherCondition.CLEAR,
+                conditionModelCount = 3,
+                modelCount = 3,
+                hasMultiModelEvidence = true
+            ),
+            SimplifiedTimelinePoint(
+                instant = Instant.parse("2026-07-23T17:00:00Z"),
+                temperatureC = 28.0,
+                temperatureModelCount = 3,
+                precipitationPercent = 5,
+                precipitationSource = PrecipitationSignalSource.MODEL_PROBABILITY,
+                precipitationModelCount = 3,
+                windKmh = 20.0,
+                windModelCount = 3,
+                condition = WeatherCondition.CLEAR,
+                conditionModelCount = 3,
+                modelCount = 3,
+                hasMultiModelEvidence = true
+            )
+        )
+
+        val insights = buildForecastInsights(
+            OverviewTimeline(DisplayMode.HOURLY, points)
+        )
+
+        assertEquals(3, insights.size)
+        assertTrue(insights.any { it.kind == ForecastInsightKind.RAIN_LIKELY })
+        assertTrue(insights.any { it.kind == ForecastInsightKind.WIND_RISING })
+        assertTrue(insights.any { it.kind == ForecastInsightKind.TEMPERATURE_CHANGE })
+        assertFalse(insights.any { it.kind == ForecastInsightKind.WEATHER_CHANGE })
+    }
+
+    @Test
+    fun `meaningful weather change is surfaced with its baseline and target`() {
+        val clear = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-23T10:00:00Z"),
+            condition = WeatherCondition.CLEAR,
+            conditionModelCount = 3,
+            modelCount = 3,
+            hasMultiModelEvidence = true
+        )
+        val fog = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-23T13:00:00Z"),
+            condition = WeatherCondition.FOG,
+            conditionModelCount = 3,
+            modelCount = 3,
+            hasMultiModelEvidence = true
+        )
+
+        val insight = buildForecastInsights(
+            OverviewTimeline(DisplayMode.HOURLY, listOf(clear, fog))
+        ).first { it.kind == ForecastInsightKind.WEATHER_CHANGE }
+
+        assertEquals(clear, insight.referencePoint)
+        assertEquals(fog, insight.point)
+        assertEquals(WeatherCondition.CLEAR, insight.referenceCondition)
+        assertEquals(WeatherCondition.FOG, insight.targetCondition)
+        assertEquals(ForecastInsightLevel.WATCH, insight.level)
+    }
+
+    @Test
+    fun `explicit rain signal absorbs a nearby weather change to rain`() {
+        val clear = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-23T10:00:00Z"),
+            condition = WeatherCondition.CLEAR,
+            conditionModelCount = 3,
+            modelCount = 3,
+            hasMultiModelEvidence = true
+        )
+        val rain = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-23T12:00:00Z"),
+            condition = WeatherCondition.RAIN,
+            conditionModelCount = 3,
+            precipitationPercent = 80,
+            precipitationSource = PrecipitationSignalSource.MODEL_PROBABILITY,
+            precipitationModelCount = 3,
+            modelCount = 3,
+            hasMultiModelEvidence = true
+        )
+
+        val insights = buildForecastInsights(
+            OverviewTimeline(DisplayMode.HOURLY, listOf(clear, rain))
+        )
+
+        assertTrue(insights.any { it.kind == ForecastInsightKind.RAIN_LIKELY })
+        assertFalse(insights.any { it.kind == ForecastInsightKind.WEATHER_CHANGE })
     }
 
     private fun forecast(

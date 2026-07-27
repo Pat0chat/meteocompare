@@ -10,6 +10,7 @@ internal enum class ForecastInsightKind {
     DISAGREEMENT,
     RAIN_LIKELY,
     RAIN_UNCERTAIN,
+    WEATHER_CHANGE,
     WIND_RISING,
     TEMPERATURE_CHANGE
 }
@@ -39,6 +40,9 @@ internal data class ForecastInsight(
     val referenceValue: Int? = null,
     /** Température de consensus arrondie à l'échéance cible. */
     val targetValue: Int? = null,
+    /** Conditions dominantes avant et après un changement météo notable. */
+    val referenceCondition: WeatherCondition? = null,
+    val targetCondition: WeatherCondition? = null,
     /** Causes explicites lorsqu'un message synthétise un désaccord. */
     val divergenceReasons: Set<DivergenceReason> = point?.divergenceReasons.orEmpty()
 )
@@ -80,6 +84,8 @@ internal fun buildForecastInsights(overview: OverviewTimeline): List<ForecastIns
             priority = 88 + rainIntensity(point) - urgencyPenalty(point, points)
         )
     }
+
+    buildWeatherChangeInsight(points)?.let(candidates::add)
 
     val windPoints = points.filter { it.windKmh != null && it.windModelCount >= 2 }
     val firstWindPoint = windPoints.firstOrNull()
@@ -178,17 +184,7 @@ internal fun buildForecastInsights(overview: OverviewTimeline): List<ForecastIns
         )
     }
 
-    val grouped = removeNearbyDuplicates(candidates, overview.mode)
-    val nonPositive = grouped.filterNot { it.level == ForecastInsightLevel.POSITIVE }
-    val eligible = if (nonPositive.isEmpty()) {
-        grouped
-    } else {
-        // Le message positif peut compléter deux signaux utiles, mais ne doit
-        // jamais prendre leur place dans une carte limitée à trois éléments.
-        nonPositive + grouped.filter { it.level == ForecastInsightLevel.POSITIVE }
-    }
-
-    return eligible
+    val chronological = removeNearbyDuplicates(candidates, overview.mode)
         .distinctBy { it.kind }
         // « À retenir » se lit comme une mini-chronologie : l'événement le plus
         // proche doit toujours apparaître avant les échéances plus lointaines.
@@ -199,8 +195,120 @@ internal fun buildForecastInsights(overview: OverviewTimeline): List<ForecastIns
                 .thenByDescending { insightLevelWeight(it.level) }
                 .thenByDescending { it.priority }
         )
-        .take(MAX_INSIGHTS)
+
+    val nonPositive = chronological.filterNot { it.level == ForecastInsightLevel.POSITIVE }
+    if (nonPositive.size >= MAX_INSIGHTS) return nonPositive.take(MAX_INSIGHTS)
+
+    // Les messages positifs enrichissent la synthèse seulement lorsqu'il reste
+    // de la place. Ils ne peuvent donc pas évincer un signal à surveiller.
+    val positiveSlots = MAX_INSIGHTS - nonPositive.size
+    val selected = nonPositive + chronological
+        .filter { it.level == ForecastInsightLevel.POSITIVE }
+        .take(positiveSlots)
+    return selected.sortedWith(
+        compareBy<ForecastInsight> { pointIndex(it.point, points) }
+            .thenByDescending { insightLevelWeight(it.level) }
+            .thenByDescending { it.priority }
+    )
 }
+
+private fun buildWeatherChangeInsight(
+    points: List<SimplifiedTimelinePoint>
+): ForecastInsight? {
+    val conditionPoints = points.filter { point ->
+        point.conditionModelCount >= 2 &&
+            point.condition != null &&
+            point.condition != WeatherCondition.UNKNOWN
+    }
+    if (conditionPoints.size < 2) return null
+
+    val referencePoint = conditionPoints.first()
+    val referenceCondition = referencePoint.condition ?: return null
+    val targetPoint = conditionPoints.drop(1).firstOrNull { point ->
+        val target = point.condition ?: return@firstOrNull false
+        isMeaningfulConditionChange(referenceCondition, target)
+    } ?: return null
+    val targetCondition = targetPoint.condition ?: return null
+    val severityDelta = targetCondition.severityRank - referenceCondition.severityRank
+    val improves = severityDelta < 0
+    val level = when {
+        targetCondition in SEVERE_CONDITIONS -> ForecastInsightLevel.ALERT
+        improves -> ForecastInsightLevel.POSITIVE
+        targetCondition in DISRUPTIVE_CONDITIONS -> ForecastInsightLevel.WATCH
+        else -> ForecastInsightLevel.INFO
+    }
+
+    return ForecastInsight(
+        kind = ForecastInsightKind.WEATHER_CHANGE,
+        level = level,
+        priority = 68 + abs(severityDelta) * 3 - urgencyPenalty(targetPoint, points),
+        point = targetPoint,
+        referencePoint = referencePoint,
+        referenceCondition = referenceCondition,
+        targetCondition = targetCondition,
+        divergenceReasons = targetPoint.divergenceReasons
+    )
+}
+
+private fun isMeaningfulConditionChange(
+    reference: WeatherCondition,
+    target: WeatherCondition
+): Boolean {
+    if (reference == target) return false
+    val referenceFamily = reference.conditionFamily()
+    val targetFamily = target.conditionFamily()
+    if (referenceFamily == targetFamily) return false
+
+    val precipitationTransition =
+        referenceFamily in PRECIPITATING_FAMILIES || targetFamily in PRECIPITATING_FAMILIES
+    val visibilityTransition =
+        referenceFamily == WeatherConditionFamily.FOG || targetFamily == WeatherConditionFamily.FOG
+    val severeTransition = reference in SEVERE_CONDITIONS || target in SEVERE_CONDITIONS
+    return precipitationTransition || visibilityTransition || severeTransition ||
+        abs(target.severityRank - reference.severityRank) >= 3
+}
+
+private enum class WeatherConditionFamily {
+    FAIR, CLOUDY, FOG, WET, WINTRY, STORM
+}
+
+private fun WeatherCondition.conditionFamily(): WeatherConditionFamily = when (this) {
+    WeatherCondition.CLEAR,
+    WeatherCondition.MAINLY_CLEAR,
+    WeatherCondition.PARTLY_CLOUDY -> WeatherConditionFamily.FAIR
+    WeatherCondition.OVERCAST -> WeatherConditionFamily.CLOUDY
+    WeatherCondition.FOG -> WeatherConditionFamily.FOG
+    WeatherCondition.DRIZZLE,
+    WeatherCondition.RAIN,
+    WeatherCondition.RAIN_SHOWERS -> WeatherConditionFamily.WET
+    WeatherCondition.FREEZING_RAIN,
+    WeatherCondition.SNOW,
+    WeatherCondition.SNOW_SHOWERS -> WeatherConditionFamily.WINTRY
+    WeatherCondition.THUNDERSTORM -> WeatherConditionFamily.STORM
+    WeatherCondition.UNKNOWN -> WeatherConditionFamily.CLOUDY
+}
+
+private val PRECIPITATING_FAMILIES = setOf(
+    WeatherConditionFamily.WET,
+    WeatherConditionFamily.WINTRY,
+    WeatherConditionFamily.STORM
+)
+
+private val SEVERE_CONDITIONS = setOf(
+    WeatherCondition.FREEZING_RAIN,
+    WeatherCondition.THUNDERSTORM
+)
+
+private val DISRUPTIVE_CONDITIONS = setOf(
+    WeatherCondition.FOG,
+    WeatherCondition.DRIZZLE,
+    WeatherCondition.RAIN,
+    WeatherCondition.FREEZING_RAIN,
+    WeatherCondition.SNOW,
+    WeatherCondition.RAIN_SHOWERS,
+    WeatherCondition.SNOW_SHOWERS,
+    WeatherCondition.THUNDERSTORM
+)
 
 private fun isUncertainRainPoint(point: SimplifiedTimelinePoint): Boolean {
     val signal = point.precipitationPercent ?: return false
@@ -287,8 +395,21 @@ private fun removeNearbyDuplicates(
         }
     }
 
+    val withoutRedundantWeatherChange = withoutRedundantDisagreement.filterNot { candidate ->
+        if (candidate.kind != ForecastInsightKind.WEATHER_CHANGE) return@filterNot false
+        val targetIsWet = candidate.targetCondition
+            ?.conditionFamily()
+            ?.let { it in PRECIPITATING_FAMILIES } == true
+        targetIsWet && specifics.any { specific ->
+            specific.kind in setOf(
+                ForecastInsightKind.RAIN_LIKELY,
+                ForecastInsightKind.RAIN_UNCERTAIN
+            ) && pointsAreNear(candidate.point, specific.point, mode)
+        }
+    }
+
     val result = mutableListOf<ForecastInsight>()
-    withoutRedundantDisagreement
+    withoutRedundantWeatherChange
         .sortedByDescending { it.priority }
         .forEach { candidate ->
             val sameFamilyNearby = result.indexOfFirst { existing ->
@@ -308,6 +429,7 @@ private fun insightFamily(kind: ForecastInsightKind): String = when (kind) {
     ForecastInsightKind.RAIN_LIKELY,
     ForecastInsightKind.RAIN_UNCERTAIN -> "rain"
     ForecastInsightKind.DISAGREEMENT -> "disagreement"
+    ForecastInsightKind.WEATHER_CHANGE -> "weather"
     ForecastInsightKind.WIND_RISING -> "wind"
     ForecastInsightKind.TEMPERATURE_CHANGE -> "temperature"
     ForecastInsightKind.HIGH_AGREEMENT -> "agreement"
@@ -316,6 +438,7 @@ private fun insightFamily(kind: ForecastInsightKind): String = when (kind) {
 private fun specificReason(kind: ForecastInsightKind): DivergenceReason? = when (kind) {
     ForecastInsightKind.RAIN_LIKELY,
     ForecastInsightKind.RAIN_UNCERTAIN -> DivergenceReason.PRECIPITATION
+    ForecastInsightKind.WEATHER_CHANGE -> DivergenceReason.CONDITION
     ForecastInsightKind.WIND_RISING -> DivergenceReason.WIND
     ForecastInsightKind.TEMPERATURE_CHANGE -> DivergenceReason.TEMPERATURE
     ForecastInsightKind.HIGH_AGREEMENT,
