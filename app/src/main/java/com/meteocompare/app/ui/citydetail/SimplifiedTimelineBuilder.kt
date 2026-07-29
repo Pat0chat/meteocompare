@@ -461,8 +461,7 @@ private fun timelineSortKey(point: SimplifiedTimelinePoint): Long = when {
 /** Chronologie principale : 24 heures glissantes, avec repli sur 7 jours. */
 internal data class OverviewTimeline(
     val mode: DisplayMode,
-    val analysisPoints: List<SimplifiedTimelinePoint>,
-    val displayPoints: List<SimplifiedTimelinePoint> = selectTimelinePoints(analysisPoints)
+    val analysisPoints: List<SimplifiedTimelinePoint>
 )
 
 internal fun buildOverviewTimeline(
@@ -473,15 +472,13 @@ internal fun buildOverviewTimeline(
     return if (hourly.size >= 2) {
         OverviewTimeline(
             mode = DisplayMode.HOURLY,
-            analysisPoints = hourly,
-            displayPoints = selectTimelinePoints(hourly)
+            analysisPoints = hourly
         )
     } else {
         val daily = buildSimplifiedTimeline(forecast, DisplayMode.DAILY, now)
         OverviewTimeline(
             mode = DisplayMode.DAILY,
-            analysisPoints = daily,
-            displayPoints = selectTimelinePoints(daily)
+            analysisPoints = daily
         )
     }
 }

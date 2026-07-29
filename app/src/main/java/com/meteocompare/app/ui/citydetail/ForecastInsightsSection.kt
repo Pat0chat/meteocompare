@@ -134,44 +134,20 @@ private fun ForecastInsightsHeader(
         else -> stringResource(R.string.forecast_insights_subtitle_generic)
     }
 
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.Top,
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = stringResource(R.string.forecast_insights_title),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier
-                    .padding(top = 2.dp)
-                    .testTag(TAG_FORECAST_INSIGHTS_SUMMARY)
-            )
-        }
-
-        Surface(
-            shape = RoundedCornerShape(50),
-            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.09f)
-        ) {
-            Text(
-                text = pluralStringResource(
-                    R.plurals.forecast_insights_count,
-                    insights.size,
-                    insights.size
-                ),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
-                maxLines = 1
-            )
-        }
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = stringResource(R.string.forecast_insights_title),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold
+        )
+        Text(
+            text = subtitle,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .padding(top = 2.dp)
+                .testTag(TAG_FORECAST_INSIGHTS_SUMMARY)
+        )
     }
 }
 
@@ -345,7 +321,7 @@ private fun forecastInsightMetrics(insight: ForecastInsight): List<InsightMetric
     val point = insight.point
     return when (insight.kind) {
         ForecastInsightKind.HIGH_AGREEMENT -> buildList {
-            point?.consensusPercent?.let { percent ->
+            (insight.value ?: point?.consensusPercent)?.let { percent ->
                 add(
                     InsightMetric(
                         icon = Icons.Outlined.CheckCircle,
@@ -353,7 +329,6 @@ private fun forecastInsightMetrics(insight: ForecastInsight): List<InsightMetric
                     )
                 )
             }
-            addModelCountMetric(point?.modelCount)?.let(::add)
         }
         ForecastInsightKind.DISAGREEMENT -> buildList {
             insight.divergenceReasons.forEach { reason ->
@@ -377,16 +352,32 @@ private fun forecastInsightMetrics(insight: ForecastInsight): List<InsightMetric
         ForecastInsightKind.RAIN_LIKELY,
         ForecastInsightKind.RAIN_UNCERTAIN -> buildList {
             when (insight.precipitationSource) {
-                PrecipitationSignalSource.MODEL_PROBABILITY -> insight.value?.let { probability ->
-                    add(
-                        InsightMetric(
-                            icon = Icons.Outlined.WaterDrop,
-                            text = stringResource(
-                                R.string.forecast_insight_metric_probability,
-                                probability
+                PrecipitationSignalSource.MODEL_PROBABILITY -> {
+                    (insight.targetValue ?: insight.value)?.let { probability ->
+                        add(
+                            InsightMetric(
+                                icon = Icons.Outlined.WaterDrop,
+                                text = stringResource(
+                                    R.string.forecast_insight_metric_probability,
+                                    probability
+                                )
                             )
                         )
-                    )
+                        val contributors = insight.secondaryValue
+                        val available = point?.modelCount
+                        if (contributors != null && available != null && contributors < available) {
+                            add(
+                                InsightMetric(
+                                    icon = Icons.Outlined.CheckCircle,
+                                    text = stringResource(
+                                        R.string.forecast_insight_metric_coverage,
+                                        contributors,
+                                        available
+                                    )
+                                )
+                            )
+                        }
+                    }
                 }
                 PrecipitationSignalSource.MODEL_AGREEMENT -> {
                     val wetModels = insight.value
@@ -406,22 +397,9 @@ private fun forecastInsightMetrics(insight: ForecastInsight): List<InsightMetric
                 }
                 null -> Unit
             }
-            if (insight.precipitationSource == PrecipitationSignalSource.MODEL_PROBABILITY) {
-                addModelCountMetric(insight.secondaryValue)?.let(::add)
-            }
         }
-        ForecastInsightKind.WEATHER_CHANGE -> buildList {
-            insight.targetCondition?.let { condition ->
-                add(
-                    InsightMetric(
-                        icon = Icons.Outlined.Cloud,
-                        text = weatherConditionLabel(condition)
-                    )
-                )
-            }
-            addModelCountMetric(point?.conditionModelCount)?.let(::add)
-        }
-        ForecastInsightKind.WIND_RISING -> buildList {
+        ForecastInsightKind.WEATHER_CHANGE -> emptyList()
+        ForecastInsightKind.WIND_EVENT -> buildList {
             val baseline = insight.value
             val target = insight.secondaryValue
             target?.let { targetWind ->
@@ -482,19 +460,6 @@ private fun forecastInsightMetrics(insight: ForecastInsight): List<InsightMetric
             }
         }
     }
-}
-
-@Composable
-private fun addModelCountMetric(modelCount: Int?): InsightMetric? {
-    val count = modelCount?.takeIf { it > 0 } ?: return null
-    return InsightMetric(
-        icon = Icons.Outlined.CheckCircle,
-        text = pluralStringResource(
-            R.plurals.forecast_insights_models,
-            count,
-            count
-        )
-    )
 }
 
 @Composable
@@ -572,14 +537,18 @@ private fun insightVisual(insight: ForecastInsight): InsightVisual {
         )
         ForecastInsightKind.RAIN_LIKELY,
         ForecastInsightKind.RAIN_UNCERTAIN -> InsightVisual(
-            Icons.Outlined.WaterDrop,
-            if (insight.level == ForecastInsightLevel.ALERT) levelColor else precipitationMetricAccent()
+            icon = precipitationInsightIcon(insight.targetCondition),
+            color = if (insight.level == ForecastInsightLevel.ALERT) {
+                levelColor
+            } else {
+                precipitationMetricAccent()
+            }
         )
         ForecastInsightKind.WEATHER_CHANGE -> InsightVisual(
             Icons.Outlined.Cloud,
             levelColor
         )
-        ForecastInsightKind.WIND_RISING -> InsightVisual(
+        ForecastInsightKind.WIND_EVENT -> InsightVisual(
             Icons.Outlined.Air,
             if (insight.level == ForecastInsightLevel.ALERT) levelColor else windMetricAccent()
         )
@@ -603,6 +572,10 @@ private fun forecastInsightPresentation(
     referencePoint: SimplifiedTimelinePoint?
 ): ForecastInsightPresentation {
     val timeLabel = forecastPointLabel(insight.point, referencePoint, timezone)
+    val endLabel = insight.endPoint
+        ?.takeUnless { end -> insight.point?.let { sameTimelinePoint(it, end) } == true }
+        ?.let { end -> forecastPointLabel(end, referencePoint, timezone) }
+
     return when (insight.kind) {
         ForecastInsightKind.HIGH_AGREEMENT -> ForecastInsightPresentation(
             title = stringResource(R.string.forecast_insight_title_high_agreement),
@@ -610,18 +583,30 @@ private fun forecastInsightPresentation(
             timeLabel = timeLabel
         )
         ForecastInsightKind.DISAGREEMENT -> ForecastInsightPresentation(
-            title = disagreementTitle(insight.divergenceReasons),
-            detail = disagreementDetail(insight.divergenceReasons),
+            title = if (insight.divergenceReasons.size >= 2) {
+                stringResource(R.string.forecast_insight_title_disagreement_multiple)
+            } else {
+                disagreementTitle(insight.divergenceReasons)
+            },
+            detail = if (insight.divergenceReasons.size >= 2) {
+                stringResource(R.string.forecast_insight_detail_disagreement_multiple)
+            } else {
+                disagreementDetail(insight.divergenceReasons)
+            },
             timeLabel = timeLabel
         )
         ForecastInsightKind.RAIN_LIKELY -> ForecastInsightPresentation(
-            title = stringResource(R.string.forecast_insight_title_rain_likely),
-            detail = rainDetail(insight, uncertain = false),
+            title = likelyPrecipitationTitle(insight),
+            detail = likelyPrecipitationDetail(insight, endLabel),
             timeLabel = timeLabel
         )
         ForecastInsightKind.RAIN_UNCERTAIN -> ForecastInsightPresentation(
             title = stringResource(R.string.forecast_insight_title_rain_uncertain),
-            detail = rainDetail(insight, uncertain = true),
+            detail = if (insight.isPersistent && endLabel != null) {
+                stringResource(R.string.forecast_insight_detail_rain_uncertain_persistent, endLabel)
+            } else {
+                stringResource(R.string.forecast_insight_detail_rain_uncertain_short)
+            },
             timeLabel = timeLabel
         )
         ForecastInsightKind.WEATHER_CHANGE -> {
@@ -629,23 +614,13 @@ private fun forecastInsightPresentation(
             val targetCondition = insight.targetCondition
             val improves = referenceCondition != null && targetCondition != null &&
                 targetCondition.severityRank < referenceCondition.severityRank
-            val locale = LocalConfiguration.current.locales[0]
             ForecastInsightPresentation(
-                title = stringResource(
-                    when {
-                        improves -> R.string.forecast_insight_title_weather_improving
-                        insight.level == ForecastInsightLevel.INFO ->
-                            R.string.forecast_insight_title_weather_change
-                        else -> R.string.forecast_insight_title_weather_worsening
-                    }
-                ),
+                title = weatherChangeTitle(targetCondition, improves, insight.level),
                 detail = if (referenceCondition != null && targetCondition != null) {
                     stringResource(
-                        R.string.forecast_insight_detail_weather_change,
-                        weatherConditionLabel(referenceCondition)
-                            .replaceFirstChar { it.lowercase(locale) },
+                        R.string.forecast_insight_detail_weather_transition,
+                        weatherConditionLabel(referenceCondition),
                         weatherConditionLabel(targetCondition)
-                            .replaceFirstChar { it.lowercase(locale) }
                     )
                 } else {
                     null
@@ -653,58 +628,108 @@ private fun forecastInsightPresentation(
                 timeLabel = timeLabel
             )
         }
-        ForecastInsightKind.WIND_RISING -> ForecastInsightPresentation(
-            title = stringResource(R.string.forecast_insight_title_wind_rising),
-            detail = stringResource(
-                R.string.forecast_insight_detail_wind_rising,
-                insight.value ?: 0,
-                insight.secondaryValue ?: insight.value ?: 0
-            ),
-            timeLabel = timeLabel
-        )
+        ForecastInsightKind.WIND_EVENT -> {
+            val baseline = insight.value
+            val target = insight.secondaryValue
+            val delta = if (baseline != null && target != null) target - baseline else 0
+            ForecastInsightPresentation(
+                title = stringResource(
+                    when {
+                        (target ?: 0) >= 60 -> R.string.forecast_insight_title_wind_very_strong
+                        delta >= 15 -> R.string.forecast_insight_title_wind_rising
+                        else -> R.string.forecast_insight_title_wind_strong
+                    }
+                ),
+                detail = stringResource(
+                    when {
+                        delta >= 15 -> R.string.forecast_insight_detail_wind_rising_short
+                        insight.isPersistent -> R.string.forecast_insight_detail_wind_strong
+                        else -> R.string.forecast_insight_detail_wind_peak
+                    }
+                ),
+                timeLabel = timeLabel
+            )
+        }
         ForecastInsightKind.TEMPERATURE_CHANGE -> {
             val delta = insight.value ?: 0
-            val (referenceLabel, targetLabel) = forecastComparisonLabels(
-                referencePoint = insight.referencePoint,
-                targetPoint = insight.point,
-                timezone = timezone
-            )
-            val referenceTemperature = insight.referenceValue
-            val targetTemperature = insight.targetValue
             ForecastInsightPresentation(
                 title = stringResource(
                     if (delta >= 0) R.string.forecast_insight_title_temperature_rising
                     else R.string.forecast_insight_title_temperature_falling
                 ),
-                detail = when {
-                    referenceTemperature == null || targetTemperature == null -> stringResource(
-                        if (delta >= 0) R.string.forecast_insight_temperature_rising_fallback
-                        else R.string.forecast_insight_temperature_falling_fallback,
-                        kotlin.math.abs(delta),
-                        targetLabel
-                    )
-                    delta >= 0 -> stringResource(
-                        R.string.forecast_insight_temperature_rising,
-                        referenceLabel,
-                        targetLabel,
-                        referenceTemperature,
-                        targetTemperature,
-                        delta
-                    )
-                    else -> stringResource(
-                        R.string.forecast_insight_temperature_falling,
-                        referenceLabel,
-                        targetLabel,
-                        referenceTemperature,
-                        targetTemperature,
-                        -delta
-                    )
-                },
+                detail = stringResource(R.string.forecast_insight_detail_temperature_change),
                 timeLabel = timeLabel
             )
         }
     }
 }
+
+private fun precipitationInsightIcon(condition: WeatherCondition?): ImageVector = when (condition) {
+    WeatherCondition.THUNDERSTORM,
+    WeatherCondition.FREEZING_RAIN -> Icons.Outlined.WarningAmber
+    WeatherCondition.SNOW,
+    WeatherCondition.SNOW_SHOWERS -> Icons.Outlined.Cloud
+    else -> Icons.Outlined.WaterDrop
+}
+
+@Composable
+private fun likelyPrecipitationTitle(insight: ForecastInsight): String = stringResource(
+    when (insight.targetCondition) {
+        WeatherCondition.THUNDERSTORM -> R.string.forecast_insight_title_weather_thunderstorm
+        WeatherCondition.FREEZING_RAIN -> R.string.forecast_insight_title_weather_freezing_rain
+        WeatherCondition.SNOW,
+        WeatherCondition.SNOW_SHOWERS -> R.string.forecast_insight_title_weather_snow
+        else -> if (insight.isStrengtheningRainSignal) {
+            R.string.forecast_insight_title_rain_strengthening
+        } else {
+            R.string.forecast_insight_title_rain_likely
+        }
+    }
+)
+
+@Composable
+private fun likelyPrecipitationDetail(
+    insight: ForecastInsight,
+    endLabel: String?
+): String = when (insight.targetCondition) {
+    WeatherCondition.THUNDERSTORM ->
+        stringResource(R.string.forecast_insight_detail_rain_thunderstorm)
+    WeatherCondition.FREEZING_RAIN ->
+        stringResource(R.string.forecast_insight_detail_rain_freezing)
+    WeatherCondition.SNOW,
+    WeatherCondition.SNOW_SHOWERS ->
+        stringResource(R.string.forecast_insight_detail_rain_snow)
+    else -> when {
+        insight.isStrengtheningRainSignal -> stringResource(
+            R.string.forecast_insight_detail_rain_strengthening
+        )
+        insight.isPersistent && endLabel != null -> stringResource(
+            R.string.forecast_insight_detail_rain_persistent,
+            endLabel
+        )
+        else -> stringResource(R.string.forecast_insight_detail_rain_likely_short)
+    }
+}
+
+@Composable
+private fun weatherChangeTitle(
+    targetCondition: WeatherCondition?,
+    improves: Boolean,
+    level: ForecastInsightLevel
+): String = stringResource(
+    when {
+        targetCondition == WeatherCondition.FOG -> R.string.forecast_insight_title_weather_fog
+        targetCondition == WeatherCondition.THUNDERSTORM ->
+            R.string.forecast_insight_title_weather_thunderstorm
+        targetCondition == WeatherCondition.FREEZING_RAIN ->
+            R.string.forecast_insight_title_weather_freezing_rain
+        targetCondition in setOf(WeatherCondition.SNOW, WeatherCondition.SNOW_SHOWERS) ->
+            R.string.forecast_insight_title_weather_snow
+        improves -> R.string.forecast_insight_title_weather_improving
+        level == ForecastInsightLevel.INFO -> R.string.forecast_insight_title_weather_change
+        else -> R.string.forecast_insight_title_weather_worsening
+    }
+)
 
 @Composable
 private fun insightLevelLabel(level: ForecastInsightLevel): String = stringResource(
@@ -716,23 +741,6 @@ private fun insightLevelLabel(level: ForecastInsightLevel): String = stringResou
     }
 )
 
-@Composable
-private fun rainDetail(insight: ForecastInsight, uncertain: Boolean): String =
-    when (insight.precipitationSource) {
-        PrecipitationSignalSource.MODEL_PROBABILITY -> stringResource(
-            if (uncertain) R.string.forecast_insight_detail_rain_probability_uncertain
-            else R.string.forecast_insight_detail_rain_probability,
-            insight.value ?: 0,
-            insight.secondaryValue ?: 0
-        )
-        PrecipitationSignalSource.MODEL_AGREEMENT -> stringResource(
-            if (uncertain) R.string.forecast_insight_detail_rain_models_uncertain
-            else R.string.forecast_insight_detail_rain_models,
-            insight.value ?: 0,
-            insight.secondaryValue ?: 0
-        )
-        null -> stringResource(R.string.forecast_insight_detail_rain_generic)
-    }
 
 @Composable
 private fun weatherConditionLabel(condition: WeatherCondition): String = stringResource(
@@ -783,31 +791,6 @@ private fun primaryDivergenceReason(reasons: Set<DivergenceReason>): DivergenceR
         DivergenceReason.CONDITION
     ).firstOrNull { it in reasons }
 
-@Composable
-private fun forecastComparisonLabels(
-    referencePoint: SimplifiedTimelinePoint?,
-    targetPoint: SimplifiedTimelinePoint?,
-    timezone: String?
-): Pair<String, String> {
-    val locale = LocalConfiguration.current.locales[0]
-    val zone = remember(timezone) { resolveCityZone(timezone) }
-    val crossDayFormatter = remember(locale) {
-        DateTimeFormatter.ofPattern("EEE HH'h'", locale)
-    }
-    val referenceInstant = referencePoint?.instant
-    val targetInstant = targetPoint?.instant
-    if (referenceInstant != null && targetInstant != null) {
-        val referenceDate = referenceInstant.atZone(zone).toLocalDate()
-        val targetDate = targetInstant.atZone(zone).toLocalDate()
-        if (referenceDate != targetDate) {
-            return referenceInstant.atZone(zone).format(crossDayFormatter) to
-                targetInstant.atZone(zone).format(crossDayFormatter)
-        }
-    }
-
-    return forecastPointLabel(referencePoint, null, timezone).orEmpty() to
-        forecastPointLabel(targetPoint, null, timezone).orEmpty()
-}
 
 @Composable
 private fun forecastPointLabel(

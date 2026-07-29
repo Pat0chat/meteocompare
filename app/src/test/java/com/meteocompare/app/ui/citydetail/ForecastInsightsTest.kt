@@ -59,7 +59,7 @@ class ForecastInsightsTest {
             hasMultiModelEvidence = true,
         )
         val target = SimplifiedTimelinePoint(
-            instant = Instant.parse("2026-07-23T16:00:00Z"),
+            instant = Instant.parse("2026-07-23T14:00:00Z"),
             temperatureC = 25.1,
             modelCount = 3,
             temperatureModelCount = 3,
@@ -129,12 +129,11 @@ class ForecastInsightsTest {
         )
         val overview = OverviewTimeline(
             mode = DisplayMode.HOURLY,
-            analysisPoints = listOf(start, hiddenWindPeak, displayedEnd),
-            displayPoints = listOf(start, displayedEnd)
+            analysisPoints = listOf(start, hiddenWindPeak, displayedEnd)
         )
 
         val insight = buildForecastInsights(overview)
-            .first { it.kind == ForecastInsightKind.WIND_RISING }
+            .first { it.kind == ForecastInsightKind.WIND_EVENT }
 
         assertEquals(hiddenWindPeak, insight.point)
     }
@@ -349,7 +348,7 @@ class ForecastInsightsTest {
 
         assertEquals(3, insights.size)
         assertTrue(insights.any { it.kind == ForecastInsightKind.RAIN_LIKELY })
-        assertTrue(insights.any { it.kind == ForecastInsightKind.WIND_RISING })
+        assertTrue(insights.any { it.kind == ForecastInsightKind.WIND_EVENT })
         assertTrue(insights.any { it.kind == ForecastInsightKind.TEMPERATURE_CHANGE })
         assertFalse(insights.any { it.kind == ForecastInsightKind.WEATHER_CHANGE })
     }
@@ -370,9 +369,12 @@ class ForecastInsightsTest {
             modelCount = 3,
             hasMultiModelEvidence = true
         )
+        val persistentFog = fog.copy(
+            instant = Instant.parse("2026-07-23T14:00:00Z")
+        )
 
         val insight = buildForecastInsights(
-            OverviewTimeline(DisplayMode.HOURLY, listOf(clear, fog))
+            OverviewTimeline(DisplayMode.HOURLY, listOf(clear, fog, persistentFog))
         ).first { it.kind == ForecastInsightKind.WEATHER_CHANGE }
 
         assertEquals(clear, insight.referencePoint)
@@ -408,6 +410,453 @@ class ForecastInsightsTest {
 
         assertTrue(insights.any { it.kind == ForecastInsightKind.RAIN_LIKELY })
         assertFalse(insights.any { it.kind == ForecastInsightKind.WEATHER_CHANGE })
+    }
+
+    @Test
+    fun `isolated moderate rain signal is ignored`() {
+        val points = listOf(
+            SimplifiedTimelinePoint(
+                instant = Instant.parse("2026-07-23T10:00:00Z"),
+                precipitationPercent = 10,
+                precipitationSource = PrecipitationSignalSource.MODEL_PROBABILITY,
+                precipitationModelCount = 3,
+                modelCount = 3,
+                hasMultiModelEvidence = true
+            ),
+            SimplifiedTimelinePoint(
+                instant = Instant.parse("2026-07-23T11:00:00Z"),
+                precipitationPercent = 72,
+                precipitationSource = PrecipitationSignalSource.MODEL_PROBABILITY,
+                precipitationModelCount = 3,
+                modelCount = 3,
+                hasMultiModelEvidence = true
+            ),
+            SimplifiedTimelinePoint(
+                instant = Instant.parse("2026-07-23T12:00:00Z"),
+                precipitationPercent = 10,
+                precipitationSource = PrecipitationSignalSource.MODEL_PROBABILITY,
+                precipitationModelCount = 3,
+                modelCount = 3,
+                hasMultiModelEvidence = true
+            )
+        )
+
+        val insights = buildForecastInsights(OverviewTimeline(DisplayMode.HOURLY, points))
+
+        assertFalse(insights.any {
+            it.kind == ForecastInsightKind.RAIN_LIKELY ||
+                it.kind == ForecastInsightKind.RAIN_UNCERTAIN
+        })
+    }
+
+    @Test
+    fun `strengthening rain episode produces one concise rain insight`() {
+        val points = listOf(40, 55, 80, 85).mapIndexed { index, probability ->
+            SimplifiedTimelinePoint(
+                instant = Instant.parse("2026-07-23T10:00:00Z").plusSeconds(index * 3600L),
+                precipitationPercent = probability,
+                precipitationSource = PrecipitationSignalSource.MODEL_PROBABILITY,
+                precipitationModelCount = 3,
+                modelCount = 3,
+                hasMultiModelEvidence = true
+            )
+        }
+
+        val rainInsights = buildForecastInsights(
+            OverviewTimeline(DisplayMode.HOURLY, points)
+        ).filter {
+            it.kind == ForecastInsightKind.RAIN_LIKELY ||
+                it.kind == ForecastInsightKind.RAIN_UNCERTAIN
+        }
+
+        assertEquals(1, rainInsights.size)
+        val insight = rainInsights.single()
+        assertEquals(ForecastInsightKind.RAIN_LIKELY, insight.kind)
+        assertEquals(40, insight.referenceValue)
+        assertEquals(85, insight.targetValue)
+        assertTrue(insight.isStrengtheningRainSignal)
+        assertTrue(insight.isPersistent)
+    }
+
+    @Test
+    fun `transient hourly condition change is ignored`() {
+        val clear = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-23T10:00:00Z"),
+            condition = WeatherCondition.CLEAR,
+            conditionModelCount = 3,
+            modelCount = 3,
+            hasMultiModelEvidence = true
+        )
+        val briefFog = clear.copy(
+            instant = Instant.parse("2026-07-23T11:00:00Z"),
+            condition = WeatherCondition.FOG
+        )
+        val clearAgain = clear.copy(
+            instant = Instant.parse("2026-07-23T12:00:00Z")
+        )
+
+        val insights = buildForecastInsights(
+            OverviewTimeline(DisplayMode.HOURLY, listOf(clear, briefFog, clearAgain))
+        )
+
+        assertFalse(insights.any { it.kind == ForecastInsightKind.WEATHER_CHANGE })
+    }
+
+    @Test
+    fun `temperature insight selects the sharper later transition`() {
+        val points = listOf(
+            SimplifiedTimelinePoint(
+                instant = Instant.parse("2026-07-23T10:00:00Z"),
+                temperatureC = 18.0,
+                temperatureModelCount = 3,
+                modelCount = 3,
+                hasMultiModelEvidence = true
+            ),
+            SimplifiedTimelinePoint(
+                instant = Instant.parse("2026-07-23T14:00:00Z"),
+                temperatureC = 26.0,
+                temperatureModelCount = 3,
+                modelCount = 3,
+                hasMultiModelEvidence = true
+            ),
+            SimplifiedTimelinePoint(
+                instant = Instant.parse("2026-07-23T17:00:00Z"),
+                temperatureC = 19.0,
+                temperatureModelCount = 3,
+                modelCount = 3,
+                hasMultiModelEvidence = true
+            )
+        )
+
+        val insight = buildForecastInsights(
+            OverviewTimeline(DisplayMode.HOURLY, points)
+        ).first { it.kind == ForecastInsightKind.TEMPERATURE_CHANGE }
+
+        assertEquals(points[1], insight.referencePoint)
+        assertEquals(points[2], insight.point)
+        assertEquals(-7, insight.value)
+    }
+
+    @Test
+    fun `already strong wind is surfaced without requiring a large rise`() {
+        val points = listOf(48.0, 50.0, 47.0).mapIndexed { index, wind ->
+            SimplifiedTimelinePoint(
+                instant = Instant.parse("2026-07-23T10:00:00Z").plusSeconds(index * 3600L),
+                windKmh = wind,
+                windModelCount = 3,
+                modelCount = 3,
+                hasMultiModelEvidence = true
+            )
+        }
+
+        val insight = buildForecastInsights(
+            OverviewTimeline(DisplayMode.HOURLY, points)
+        ).first { it.kind == ForecastInsightKind.WIND_EVENT }
+
+        assertEquals(48, insight.value)
+        assertEquals(50, insight.secondaryValue)
+        assertEquals(ForecastInsightLevel.WATCH, insight.level)
+    }
+
+    @Test
+    fun `later alert is retained ahead of lower value information`() {
+        val points = listOf(
+            SimplifiedTimelinePoint(
+                instant = Instant.parse("2026-07-23T10:00:00Z"),
+                temperatureC = 18.0,
+                temperatureModelCount = 3,
+                windKmh = 10.0,
+                windModelCount = 3,
+                modelCount = 3,
+                hasMultiModelEvidence = true
+            ),
+            SimplifiedTimelinePoint(
+                instant = Instant.parse("2026-07-23T11:00:00Z"),
+                temperatureC = 20.0,
+                temperatureModelCount = 3,
+                windKmh = 12.0,
+                windModelCount = 3,
+                consensusPercent = 45,
+                consensusLevel = ModelConsensusLevel.LOW,
+                divergenceReasons = setOf(DivergenceReason.CONDITION),
+                modelCount = 3,
+                hasMultiModelEvidence = true
+            ),
+            SimplifiedTimelinePoint(
+                instant = Instant.parse("2026-07-23T13:00:00Z"),
+                temperatureC = 26.0,
+                temperatureModelCount = 3,
+                windKmh = 32.0,
+                windModelCount = 3,
+                modelCount = 3,
+                hasMultiModelEvidence = true
+            ),
+            SimplifiedTimelinePoint(
+                instant = Instant.parse("2026-07-23T18:00:00Z"),
+                temperatureC = 22.0,
+                temperatureModelCount = 3,
+                precipitationPercent = 90,
+                precipitationSource = PrecipitationSignalSource.MODEL_PROBABILITY,
+                precipitationModelCount = 3,
+                condition = WeatherCondition.THUNDERSTORM,
+                conditionModelCount = 3,
+                modelCount = 3,
+                hasMultiModelEvidence = true
+            )
+        )
+
+        val insights = buildForecastInsights(OverviewTimeline(DisplayMode.HOURLY, points))
+
+        assertTrue(insights.any {
+            it.kind == ForecastInsightKind.RAIN_LIKELY &&
+                it.level == ForecastInsightLevel.ALERT
+        })
+        assertTrue(insights.size <= 3)
+    }
+
+    @Test
+    fun `later severe rain episode wins over earlier weak uncertainty`() {
+        val points = listOf(
+            SimplifiedTimelinePoint(
+                instant = Instant.parse("2026-07-23T10:00:00Z"),
+                precipitationPercent = 40,
+                precipitationSource = PrecipitationSignalSource.MODEL_PROBABILITY,
+                precipitationModelCount = 3,
+                modelCount = 3,
+                hasMultiModelEvidence = true
+            ),
+            SimplifiedTimelinePoint(
+                instant = Instant.parse("2026-07-23T11:00:00Z"),
+                precipitationPercent = 45,
+                precipitationSource = PrecipitationSignalSource.MODEL_PROBABILITY,
+                precipitationModelCount = 3,
+                modelCount = 3,
+                hasMultiModelEvidence = true
+            ),
+            SimplifiedTimelinePoint(
+                instant = Instant.parse("2026-07-23T18:00:00Z"),
+                precipitationPercent = 90,
+                precipitationSource = PrecipitationSignalSource.MODEL_PROBABILITY,
+                precipitationModelCount = 3,
+                condition = WeatherCondition.THUNDERSTORM,
+                conditionModelCount = 3,
+                modelCount = 3,
+                hasMultiModelEvidence = true
+            )
+        )
+
+        val rainInsight = buildForecastInsights(
+            OverviewTimeline(DisplayMode.HOURLY, points)
+        ).first {
+            it.kind == ForecastInsightKind.RAIN_LIKELY ||
+                it.kind == ForecastInsightKind.RAIN_UNCERTAIN
+        }
+
+        assertEquals(ForecastInsightKind.RAIN_LIKELY, rainInsight.kind)
+        assertEquals(points.last(), rainInsight.point)
+        assertEquals(ForecastInsightLevel.ALERT, rainInsight.level)
+    }
+
+    @Test
+    fun `generic agreement is only used as a fallback`() {
+        val points = listOf(48.0, 50.0, 47.0).mapIndexed { index, wind ->
+            SimplifiedTimelinePoint(
+                instant = Instant.parse("2026-07-23T10:00:00Z").plusSeconds(index * 3600L),
+                windKmh = wind,
+                windModelCount = 3,
+                modelCount = 3,
+                hasMultiModelEvidence = true,
+                consensusPercent = 85,
+                consensusLevel = ModelConsensusLevel.HIGH
+            )
+        }
+
+        val insights = buildForecastInsights(OverviewTimeline(DisplayMode.HOURLY, points))
+
+        assertTrue(insights.any { it.kind == ForecastInsightKind.WIND_EVENT })
+        assertFalse(insights.any { it.kind == ForecastInsightKind.HIGH_AGREEMENT })
+    }
+
+    @Test
+    fun `condition persistence does not bridge a large hourly gap`() {
+        val clear = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-23T10:00:00Z"),
+            condition = WeatherCondition.CLEAR,
+            conditionModelCount = 3,
+            modelCount = 3,
+            hasMultiModelEvidence = true
+        )
+        val fog = clear.copy(
+            instant = Instant.parse("2026-07-23T13:00:00Z"),
+            condition = WeatherCondition.FOG
+        )
+        val distantFog = fog.copy(
+            instant = Instant.parse("2026-07-23T16:00:00Z")
+        )
+
+        val insights = buildForecastInsights(
+            OverviewTimeline(DisplayMode.HOURLY, listOf(clear, fog, distantFog))
+        )
+
+        assertFalse(insights.any { it.kind == ForecastInsightKind.WEATHER_CHANGE })
+    }
+
+    @Test
+    fun `wind persistence does not bridge missing hours`() {
+        val first = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-23T10:00:00Z"),
+            windKmh = 48.0,
+            windModelCount = 3,
+            modelCount = 3,
+            hasMultiModelEvidence = true
+        )
+        val distantPeak = first.copy(
+            instant = Instant.parse("2026-07-23T14:00:00Z"),
+            windKmh = 50.0
+        )
+
+        val insight = buildForecastInsights(
+            OverviewTimeline(DisplayMode.HOURLY, listOf(first, distantPeak))
+        ).first { it.kind == ForecastInsightKind.WIND_EVENT }
+
+        assertFalse(insight.isPersistent)
+    }
+
+    @Test
+    fun `strongest disagreement episode is selected`() {
+        val weak = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-23T10:00:00Z"),
+            modelCount = 3,
+            hasMultiModelEvidence = true,
+            consensusPercent = 45,
+            consensusLevel = ModelConsensusLevel.LOW,
+            divergenceReasons = setOf(DivergenceReason.TEMPERATURE)
+        )
+        val stable = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-23T11:00:00Z"),
+            modelCount = 3,
+            hasMultiModelEvidence = true,
+            consensusPercent = 80,
+            consensusLevel = ModelConsensusLevel.HIGH
+        )
+        val strong = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-23T16:00:00Z"),
+            modelCount = 3,
+            hasMultiModelEvidence = true,
+            consensusPercent = 20,
+            consensusLevel = ModelConsensusLevel.LOW,
+            divergenceReasons = setOf(
+                DivergenceReason.PRECIPITATION,
+                DivergenceReason.WIND
+            )
+        )
+
+        val insight = buildForecastInsights(
+            OverviewTimeline(DisplayMode.HOURLY, listOf(weak, stable, strong))
+        ).first { it.kind == ForecastInsightKind.DISAGREEMENT }
+
+        assertEquals(strong, insight.point)
+        assertEquals(ForecastInsightLevel.ALERT, insight.level)
+    }
+
+    @Test
+    fun `specialized precipitation insight points to the thunderstorm hour`() {
+        val rainStart = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-23T16:00:00Z"),
+            precipitationPercent = 95,
+            precipitationSource = PrecipitationSignalSource.MODEL_PROBABILITY,
+            precipitationModelCount = 3,
+            condition = WeatherCondition.RAIN,
+            conditionModelCount = 3,
+            modelCount = 3,
+            hasMultiModelEvidence = true
+        )
+        val storm = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-23T18:00:00Z"),
+            precipitationPercent = 80,
+            precipitationSource = PrecipitationSignalSource.MODEL_PROBABILITY,
+            precipitationModelCount = 3,
+            condition = WeatherCondition.THUNDERSTORM,
+            conditionModelCount = 3,
+            modelCount = 3,
+            hasMultiModelEvidence = true
+        )
+
+        val insight = buildForecastInsights(
+            OverviewTimeline(DisplayMode.HOURLY, listOf(rainStart, storm))
+        ).first { it.kind == ForecastInsightKind.RAIN_LIKELY }
+
+        assertEquals(storm, insight.point)
+        assertEquals(WeatherCondition.THUNDERSTORM, insight.targetCondition)
+        assertEquals(80, insight.targetValue)
+        assertEquals(ForecastInsightLevel.ALERT, insight.level)
+    }
+
+    @Test
+    fun `weather transition uses the immediately preceding condition`() {
+        val overcast = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-23T10:00:00Z"),
+            condition = WeatherCondition.OVERCAST,
+            conditionModelCount = 3,
+            modelCount = 3,
+            hasMultiModelEvidence = true
+        )
+        val clear = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-23T11:00:00Z"),
+            condition = WeatherCondition.CLEAR,
+            conditionModelCount = 3,
+            modelCount = 3,
+            hasMultiModelEvidence = true
+        )
+        val fog = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-23T12:00:00Z"),
+            condition = WeatherCondition.FOG,
+            conditionModelCount = 3,
+            modelCount = 3,
+            hasMultiModelEvidence = true
+        )
+        val persistentFog = fog.copy(instant = Instant.parse("2026-07-23T13:00:00Z"))
+
+        val insight = buildForecastInsights(
+            OverviewTimeline(DisplayMode.HOURLY, listOf(overcast, clear, fog, persistentFog))
+        ).first { it.kind == ForecastInsightKind.WEATHER_CHANGE }
+
+        assertEquals(clear, insight.referencePoint)
+        assertEquals(WeatherCondition.CLEAR, insight.referenceCondition)
+        assertEquals(WeatherCondition.FOG, insight.targetCondition)
+    }
+
+    @Test
+    fun `wind rise uses the recent local minimum as its baseline`() {
+        val initiallyStrong = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-23T10:00:00Z"),
+            windKmh = 40.0,
+            windModelCount = 3,
+            modelCount = 3,
+            hasMultiModelEvidence = true
+        )
+        val lull = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-23T12:00:00Z"),
+            windKmh = 12.0,
+            windModelCount = 3,
+            modelCount = 3,
+            hasMultiModelEvidence = true
+        )
+        val peak = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-23T14:00:00Z"),
+            windKmh = 46.0,
+            windModelCount = 3,
+            modelCount = 3,
+            hasMultiModelEvidence = true
+        )
+
+        val insight = buildForecastInsights(
+            OverviewTimeline(DisplayMode.HOURLY, listOf(initiallyStrong, lull, peak))
+        ).first { it.kind == ForecastInsightKind.WIND_EVENT }
+
+        assertEquals(lull, insight.referencePoint)
+        assertEquals(12, insight.value)
+        assertEquals(46, insight.secondaryValue)
     }
 
     private fun forecast(

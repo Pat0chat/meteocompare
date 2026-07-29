@@ -46,7 +46,7 @@ class SimplifiedTimelineTest {
 
         assertEquals(24, analysis.size)
         assertEquals(24, overview.analysisPoints.size)
-        assertTrue(overview.displayPoints.size <= 8)
+        assertTrue(selectTimelinePoints(overview.analysisPoints).size <= 8)
     }
 
     @Test

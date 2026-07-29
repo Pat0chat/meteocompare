@@ -6,6 +6,10 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.test.platform.app.InstrumentationRegistry
+import com.meteocompare.app.R
+import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.ui.theme.MeteoCompareTheme
 import java.time.Instant
 import org.junit.Assert.assertTrue
@@ -46,7 +50,7 @@ class ForecastInsightsSectionTest {
                                 precipitationSource = PrecipitationSignalSource.MODEL_PROBABILITY
                             ),
                             ForecastInsight(
-                                kind = ForecastInsightKind.WIND_RISING,
+                                kind = ForecastInsightKind.WIND_EVENT,
                                 point = secondPoint,
                                 value = 12,
                                 secondaryValue = 35
@@ -77,7 +81,6 @@ class ForecastInsightsSectionTest {
 
         assertTrue(primaryHeight > secondaryHeight)
     }
-
 
     @Test
     fun disagreement_metrics_keep_all_affected_variables_visible() {
@@ -117,4 +120,51 @@ class ForecastInsightsSectionTest {
             "${TAG_FORECAST_INSIGHT_REASON_PREFIX}wind"
         ).assertIsDisplayed()
     }
+    @Test
+    fun severe_precipitation_uses_the_specific_condition_wording() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val point = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-26T18:00:00Z"),
+            precipitationPercent = 80,
+            precipitationModelCount = 3,
+            precipitationSource = PrecipitationSignalSource.MODEL_PROBABILITY,
+            condition = WeatherCondition.THUNDERSTORM,
+            conditionModelCount = 3,
+            modelCount = 3,
+            hasMultiModelEvidence = true
+        )
+
+        composeRule.setContent {
+            MeteoCompareTheme {
+                Surface {
+                    ForecastInsightsSection(
+                        insights = listOf(
+                            ForecastInsight(
+                                kind = ForecastInsightKind.RAIN_LIKELY,
+                                level = ForecastInsightLevel.ALERT,
+                                point = point,
+                                value = 80,
+                                secondaryValue = 3,
+                                targetValue = 80,
+                                targetCondition = WeatherCondition.THUNDERSTORM,
+                                precipitationSource = PrecipitationSignalSource.MODEL_PROBABILITY
+                            )
+                        ),
+                        timezone = "Europe/Paris"
+                    )
+                }
+            }
+        }
+
+        composeRule.onNodeWithText(
+            context.getString(R.string.forecast_insight_title_weather_thunderstorm)
+        ).assertIsDisplayed()
+        composeRule.onNodeWithText(
+            context.getString(R.string.forecast_insight_title_rain_likely)
+        ).assertDoesNotExist()
+        composeRule.onNodeWithText(
+            context.getString(R.string.forecast_insight_metric_probability, 80)
+        ).assertIsDisplayed()
+    }
+
 }
