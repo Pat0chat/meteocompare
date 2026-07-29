@@ -130,4 +130,40 @@ class SimplifiedTimelineCardTest {
         composeRule.onNodeWithText("16h").assertIsDisplayed()
         composeRule.onNodeWithText(context.getString(R.string.timeline_now)).assertDoesNotExist()
     }
+
+    @Test
+    fun variable_intervals_are_shown_between_selected_key_times() {
+        val points = listOf(
+            SimplifiedTimelinePoint(
+                instant = Instant.parse("2026-07-26T10:00:00Z"),
+                temperatureC = 20.0,
+                modelCount = 2,
+                temperatureModelCount = 2,
+                hasMultiModelEvidence = true
+            ),
+            SimplifiedTimelinePoint(
+                instant = Instant.parse("2026-07-26T14:00:00Z"),
+                temperatureC = 24.0,
+                modelCount = 2,
+                temperatureModelCount = 2,
+                hasMultiModelEvidence = true
+            )
+        )
+
+        composeRule.setContent {
+            MeteoCompareTheme {
+                Surface {
+                    SimplifiedTimelineCard(
+                        points = points,
+                        mode = DisplayMode.HOURLY,
+                        timezone = "UTC",
+                        now = Instant.parse("2026-07-26T10:20:00Z")
+                    )
+                }
+            }
+        }
+
+        composeRule.onNodeWithText("+4 h").assertIsDisplayed()
+    }
+
 }

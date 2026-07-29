@@ -2,6 +2,7 @@ package com.meteocompare.app.ui.citydetail
 
 import com.meteocompare.app.domain.model.WeatherCondition
 import java.time.Duration
+import java.time.ZoneId
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -75,7 +76,7 @@ internal fun buildForecastInsights(overview: OverviewTimeline): List<ForecastIns
         buildWeatherChangeInsight(points, overview.mode)?.let(::add)
         buildWindInsight(points, overview.mode)?.let(::add)
         buildDisagreementInsight(points, overview.mode)?.let(::add)
-        buildTemperatureInsight(points, overview.mode)?.let(::add)
+        buildTemperatureInsight(points, overview.mode, overview.timezone)?.let(::add)
         buildAgreementInsight(points, overview.mode)?.let(::add)
     }
 
@@ -368,13 +369,15 @@ private fun buildDisagreementInsight(
 
 private fun buildTemperatureInsight(
     points: List<SimplifiedTimelinePoint>,
-    mode: DisplayMode
+    mode: DisplayMode,
+    timezone: String?
 ): ForecastInsight? {
     val temperatures = points.mapNotNull { point ->
         if (point.temperatureModelCount < 2) return@mapNotNull null
         (point.temperatureC ?: point.tempMaxC)?.let { value -> point to value }
     }
     if (temperatures.size < 2) return null
+    val zone = resolveCityZone(timezone)
 
     data class Transition(
         val referencePoint: SimplifiedTimelinePoint,
@@ -382,7 +385,8 @@ private fun buildTemperatureInsight(
         val targetPoint: SimplifiedTimelinePoint,
         val targetTemperature: Double,
         val delta: Double,
-        val score: Double
+        val score: Double,
+        val followsExpectedDiurnalCycle: Boolean
     )
 
     val transitions = buildList {
@@ -390,21 +394,33 @@ private fun buildTemperatureInsight(
             temperatures.drop(startIndex + 1).forEach { (targetPoint, targetTemperature) ->
                 val delta = targetTemperature - startTemperature
                 val absoluteDelta = abs(delta)
-                val score = when (mode) {
+                val (score, followsExpectedCycle) = when (mode) {
                     DisplayMode.HOURLY -> {
                         val startInstant = startPoint.instant ?: return@forEach
                         val targetInstant = targetPoint.instant ?: return@forEach
                         val hours = Duration.between(startInstant, targetInstant).toMinutes() / 60.0
                         if (hours <= 0.0 || hours > MAX_TEMPERATURE_WINDOW_HOURS) return@forEach
                         val rate = absoluteDelta / hours
-                        if (
-                            absoluteDelta < HOURLY_TEMPERATURE_CHANGE_THRESHOLD_C ||
-                            (rate < MIN_TEMPERATURE_RATE_C_PER_HOUR &&
-                                absoluteDelta < VERY_LARGE_TEMPERATURE_CHANGE_C)
-                        ) {
-                            return@forEach
+                        val followsCycle = followsExpectedDiurnalTemperatureCycle(
+                            start = startInstant,
+                            target = targetInstant,
+                            delta = delta,
+                            zone = zone
+                        )
+                        val isRelevant = if (followsCycle) {
+                            // Une hausse matinale ou une baisse en soirée est le cycle normal.
+                            // Elle ne devient un insight que si elle est exceptionnellement brutale.
+                            absoluteDelta >= EXCEPTIONAL_DIURNAL_CHANGE_C &&
+                                hours <= EXCEPTIONAL_DIURNAL_MAX_HOURS &&
+                                rate >= EXCEPTIONAL_DIURNAL_RATE_C_PER_HOUR
+                        } else {
+                            absoluteDelta >= HOURLY_TEMPERATURE_CHANGE_THRESHOLD_C &&
+                                (rate >= MIN_TEMPERATURE_RATE_C_PER_HOUR ||
+                                    absoluteDelta >= VERY_LARGE_TEMPERATURE_CHANGE_C)
                         }
-                        rate * 100.0 + absoluteDelta * 5.0
+                        if (!isRelevant) return@forEach
+                        val cyclePenalty = if (followsCycle) DIURNAL_CYCLE_SCORE_PENALTY else 0.0
+                        (rate * 100.0 + absoluteDelta * 5.0 - cyclePenalty) to followsCycle
                     }
                     DisplayMode.DAILY -> {
                         val startDate = startPoint.date ?: return@forEach
@@ -412,7 +428,7 @@ private fun buildTemperatureInsight(
                         val days = targetDate.toEpochDay() - startDate.toEpochDay()
                         if (days <= 0 || days > MAX_TEMPERATURE_WINDOW_DAYS) return@forEach
                         if (absoluteDelta < DAILY_TEMPERATURE_CHANGE_THRESHOLD_C) return@forEach
-                        absoluteDelta * 20.0 / days
+                        (absoluteDelta * 20.0 / days) to false
                     }
                 }
                 add(
@@ -422,7 +438,8 @@ private fun buildTemperatureInsight(
                         targetPoint = targetPoint,
                         targetTemperature = targetTemperature,
                         delta = delta,
-                        score = score
+                        score = score,
+                        followsExpectedDiurnalCycle = followsExpectedCycle
                     )
                 )
             }
@@ -438,7 +455,9 @@ private fun buildTemperatureInsight(
 
     return ForecastInsight(
         kind = ForecastInsightKind.TEMPERATURE_CHANGE,
-        level = if (abs(roundedDelta) >= 9) ForecastInsightLevel.WATCH else ForecastInsightLevel.INFO,
+        level = if (
+            abs(roundedDelta) >= 9 && !strongest.followsExpectedDiurnalCycle
+        ) ForecastInsightLevel.WATCH else ForecastInsightLevel.INFO,
         priority = 56 + abs(roundedDelta) * 2 - urgencyPenalty(strongest.targetPoint, points),
         point = strongest.targetPoint,
         value = roundedDelta,
@@ -447,6 +466,34 @@ private fun buildTemperatureInsight(
         targetValue = strongest.targetTemperature.roundToInt(),
         divergenceReasons = strongest.targetPoint.divergenceReasons
     )
+}
+
+
+private fun followsExpectedDiurnalTemperatureCycle(
+    start: java.time.Instant,
+    target: java.time.Instant,
+    delta: Double,
+    zone: ZoneId
+): Boolean {
+    if (delta == 0.0) return false
+    val localStart = start.atZone(zone)
+    val localTarget = target.atZone(zone)
+    val startHour = localStart.hour
+    val targetHour = localTarget.hour
+    val dayDistance = localTarget.toLocalDate().toEpochDay() - localStart.toLocalDate().toEpochDay()
+
+    return if (delta > 0.0) {
+        // Réchauffement habituel du lever du jour au milieu/fin d'après-midi.
+        dayDistance == 0L && startHour in EXPECTED_WARMING_START_HOUR..EXPECTED_WARMING_END_HOUR &&
+            targetHour <= EXPECTED_WARMING_TARGET_MAX_HOUR
+    } else {
+        // Refroidissement habituel de l'après-midi à la nuit, y compris après minuit.
+        when (dayDistance) {
+            0L -> startHour >= EXPECTED_COOLING_START_HOUR || targetHour <= EXPECTED_COOLING_END_HOUR
+            1L -> startHour >= EXPECTED_COOLING_START_HOUR && targetHour <= EXPECTED_COOLING_END_HOUR
+            else -> false
+        }
+    }
 }
 
 private fun buildAgreementInsight(
@@ -886,3 +933,12 @@ private const val VERY_LARGE_TEMPERATURE_CHANGE_C = 9.0
 private const val MIN_TEMPERATURE_RATE_C_PER_HOUR = 1.5
 private const val MAX_TEMPERATURE_WINDOW_HOURS = 8.0
 private const val MAX_TEMPERATURE_WINDOW_DAYS = 2L
+private const val EXCEPTIONAL_DIURNAL_CHANGE_C = 10.0
+private const val EXCEPTIONAL_DIURNAL_MAX_HOURS = 3.0
+private const val EXCEPTIONAL_DIURNAL_RATE_C_PER_HOUR = 3.0
+private const val DIURNAL_CYCLE_SCORE_PENALTY = 180.0
+private const val EXPECTED_WARMING_START_HOUR = 4
+private const val EXPECTED_WARMING_END_HOUR = 14
+private const val EXPECTED_WARMING_TARGET_MAX_HOUR = 17
+private const val EXPECTED_COOLING_START_HOUR = 14
+private const val EXPECTED_COOLING_END_HOUR = 8

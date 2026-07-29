@@ -50,7 +50,7 @@ class ForecastInsightsTest {
 
 
     @Test
-    fun `temperature insight exposes its comparison baseline and target`() {
+    fun `routine morning warming is not promoted as an insight`() {
         val start = SimplifiedTimelinePoint(
             instant = Instant.parse("2026-07-23T10:00:00Z"),
             temperatureC = 18.2,
@@ -66,15 +66,63 @@ class ForecastInsightsTest {
             hasMultiModelEvidence = true,
         )
 
+        val insights = buildForecastInsights(
+            OverviewTimeline(DisplayMode.HOURLY, listOf(start, target), timezone = "UTC")
+        )
+
+        assertFalse(insights.any { it.kind == ForecastInsightKind.TEMPERATURE_CHANGE })
+    }
+
+    @Test
+    fun `routine evening cooling is not promoted as an insight`() {
+        val start = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-23T16:00:00Z"),
+            temperatureC = 26.0,
+            modelCount = 3,
+            temperatureModelCount = 3,
+            hasMultiModelEvidence = true,
+        )
+        val target = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-23T22:00:00Z"),
+            temperatureC = 18.0,
+            modelCount = 3,
+            temperatureModelCount = 3,
+            hasMultiModelEvidence = true,
+        )
+
+        val insights = buildForecastInsights(
+            OverviewTimeline(DisplayMode.HOURLY, listOf(start, target), timezone = "UTC")
+        )
+
+        assertFalse(insights.any { it.kind == ForecastInsightKind.TEMPERATURE_CHANGE })
+    }
+
+    @Test
+    fun `rapid cooling against the daytime cycle remains visible`() {
+        val start = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-23T10:00:00Z"),
+            temperatureC = 25.2,
+            modelCount = 3,
+            temperatureModelCount = 3,
+            hasMultiModelEvidence = true,
+        )
+        val target = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-23T12:00:00Z"),
+            temperatureC = 18.1,
+            modelCount = 3,
+            temperatureModelCount = 3,
+            hasMultiModelEvidence = true,
+        )
+
         val insight = buildForecastInsights(
-            OverviewTimeline(DisplayMode.HOURLY, listOf(start, target))
+            OverviewTimeline(DisplayMode.HOURLY, listOf(start, target), timezone = "UTC")
         ).first { it.kind == ForecastInsightKind.TEMPERATURE_CHANGE }
 
         assertEquals(start, insight.referencePoint)
         assertEquals(target, insight.point)
-        assertEquals(18, insight.referenceValue)
-        assertEquals(25, insight.targetValue)
-        assertEquals(7, insight.value)
+        assertEquals(25, insight.referenceValue)
+        assertEquals(18, insight.targetValue)
+        assertEquals(-7, insight.value)
     }
 
 
@@ -201,14 +249,14 @@ class ForecastInsightsTest {
     fun `insights are ordered from nearest to farthest even when the later event is more severe`() {
         val start = SimplifiedTimelinePoint(
             instant = Instant.parse("2026-07-23T10:00:00Z"),
-            temperatureC = 18.0,
+            temperatureC = 25.0,
             temperatureModelCount = 3,
             modelCount = 3,
             hasMultiModelEvidence = true
         )
-        val warm = SimplifiedTimelinePoint(
-            instant = Instant.parse("2026-07-23T14:00:00Z"),
-            temperatureC = 25.0,
+        val nearTemperatureDrop = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-23T12:00:00Z"),
+            temperatureC = 18.0,
             temperatureModelCount = 3,
             modelCount = 3,
             hasMultiModelEvidence = true
@@ -226,7 +274,7 @@ class ForecastInsightsTest {
         )
 
         val insights = buildForecastInsights(
-            OverviewTimeline(DisplayMode.HOURLY, listOf(start, warm, storm))
+            OverviewTimeline(DisplayMode.HOURLY, listOf(start, nearTemperatureDrop, storm))
         )
 
         assertEquals(ForecastInsightKind.TEMPERATURE_CHANGE, insights.first().kind)
@@ -282,7 +330,7 @@ class ForecastInsightsTest {
     }
 
     @Test
-    fun `positive weather change never evicts three actionable signals`() {
+    fun `routine daytime warming does not consume an insight slot`() {
         val points = listOf(
             SimplifiedTimelinePoint(
                 instant = Instant.parse("2026-07-23T10:00:00Z"),
@@ -346,10 +394,10 @@ class ForecastInsightsTest {
             OverviewTimeline(DisplayMode.HOURLY, points)
         )
 
-        assertEquals(3, insights.size)
+        assertEquals(2, insights.size)
         assertTrue(insights.any { it.kind == ForecastInsightKind.RAIN_LIKELY })
         assertTrue(insights.any { it.kind == ForecastInsightKind.WIND_EVENT })
-        assertTrue(insights.any { it.kind == ForecastInsightKind.TEMPERATURE_CHANGE })
+        assertFalse(insights.any { it.kind == ForecastInsightKind.TEMPERATURE_CHANGE })
         assertFalse(insights.any { it.kind == ForecastInsightKind.WEATHER_CHANGE })
     }
 
@@ -513,14 +561,14 @@ class ForecastInsightsTest {
                 hasMultiModelEvidence = true
             ),
             SimplifiedTimelinePoint(
-                instant = Instant.parse("2026-07-23T14:00:00Z"),
+                instant = Instant.parse("2026-07-23T13:00:00Z"),
                 temperatureC = 26.0,
                 temperatureModelCount = 3,
                 modelCount = 3,
                 hasMultiModelEvidence = true
             ),
             SimplifiedTimelinePoint(
-                instant = Instant.parse("2026-07-23T17:00:00Z"),
+                instant = Instant.parse("2026-07-23T14:00:00Z"),
                 temperatureC = 19.0,
                 temperatureModelCount = 3,
                 modelCount = 3,

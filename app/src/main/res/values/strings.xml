@@ -425,12 +425,15 @@
     <string name="forecast_tables_section">Prévisions détaillées</string>
     <string name="timeline_title_hourly">Prochaines 24 heures</string>
     <string name="timeline_title_daily">Prochains jours</string>
-    <string name="timeline_subtitle_hourly">Consensus des modèles · touchez un élément ci-dessus pour le localiser</string>
+    <string name="timeline_subtitle_hourly">Événements clés et repères sur 24 h · intervalles variables</string>
     <string name="timeline_subtitle_daily">Consensus des modèles disponibles pour les prochains jours</string>
     <string name="timeline_disagreement_hint">Accord affiché en pourcentage. En cas de désaccord, les icônes indiquent les variables concernées</string>
     <string name="timeline_now">Maintenant</string>
     <string name="timeline_today">Aujourd’hui</string>
     <string name="timeline_tomorrow">Demain</string>
+    <string name="timeline_gap_hours">+%1$d h</string>
+    <string name="timeline_gap_minutes">+%1$d min</string>
+    <string name="timeline_gap_days">+%1$d j</string>
     <string name="timeline_tomorrow_at">Demain · %1$s</string>
     <string name="timeline_precip_probability_source">médiane</string>
     <string name="timeline_precip_models_source">%1$d/%2$d modèles</string>

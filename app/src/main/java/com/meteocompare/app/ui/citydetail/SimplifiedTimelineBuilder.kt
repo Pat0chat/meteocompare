@@ -461,7 +461,9 @@ private fun timelineSortKey(point: SimplifiedTimelinePoint): Long = when {
 /** Chronologie principale : 24 heures glissantes, avec repli sur 7 jours. */
 internal data class OverviewTimeline(
     val mode: DisplayMode,
-    val analysisPoints: List<SimplifiedTimelinePoint>
+    val analysisPoints: List<SimplifiedTimelinePoint>,
+    /** Fuseau local utilisé pour distinguer les variations météo du cycle jour/nuit. */
+    val timezone: String? = null
 )
 
 internal fun buildOverviewTimeline(
@@ -472,13 +474,15 @@ internal fun buildOverviewTimeline(
     return if (hourly.size >= 2) {
         OverviewTimeline(
             mode = DisplayMode.HOURLY,
-            analysisPoints = hourly
+            analysisPoints = hourly,
+            timezone = forecast.city.timezone
         )
     } else {
         val daily = buildSimplifiedTimeline(forecast, DisplayMode.DAILY, now)
         OverviewTimeline(
             mode = DisplayMode.DAILY,
-            analysisPoints = daily
+            analysisPoints = daily,
+            timezone = forecast.city.timezone
         )
     }
 }
