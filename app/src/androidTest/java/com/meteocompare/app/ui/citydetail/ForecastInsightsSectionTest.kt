@@ -12,6 +12,7 @@ import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.ui.theme.MeteoCompareTheme
 import java.time.Instant
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -119,7 +120,21 @@ class ForecastInsightsSectionTest {
         composeRule.onNodeWithTag(
             "${TAG_FORECAST_INSIGHT_REASON_PREFIX}wind"
         ).assertIsDisplayed()
+        composeRule.onNodeWithTag(TAG_FORECAST_INSIGHT_CONSENSUS).assertIsDisplayed()
+
+        val reasonBounds = composeRule
+            .onNodeWithTag("${TAG_FORECAST_INSIGHT_REASON_PREFIX}precipitation")
+            .fetchSemanticsNode()
+            .boundsInRoot
+        val consensusBounds = composeRule
+            .onNodeWithTag(TAG_FORECAST_INSIGHT_CONSENSUS)
+            .fetchSemanticsNode()
+            .boundsInRoot
+
+        assertEquals(consensusBounds.height, reasonBounds.height, 0.5f)
+        assertEquals(reasonBounds.height, reasonBounds.width, 0.5f)
     }
+
     @Test
     fun severe_precipitation_uses_the_specific_condition_wording() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext

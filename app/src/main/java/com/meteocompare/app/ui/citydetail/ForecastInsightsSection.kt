@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -344,7 +345,8 @@ private fun forecastInsightMetrics(insight: ForecastInsight): List<InsightMetric
                 add(
                     InsightMetric(
                         icon = Icons.Outlined.WarningAmber,
-                        text = stringResource(R.string.forecast_insight_metric_consensus, percent)
+                        text = stringResource(R.string.forecast_insight_metric_consensus, percent),
+                        testTag = TAG_FORECAST_INSIGHT_CONSENSUS
                     )
                 )
             }
@@ -464,15 +466,18 @@ private fun forecastInsightMetrics(insight: ForecastInsight): List<InsightMetric
 
 @Composable
 private fun InsightMetricChip(metric: InsightMetric, color: Color) {
+    val chipModifier = Modifier
+        .defaultMinSize(minWidth = 28.dp, minHeight = 28.dp)
+        .then(metric.testTag?.let { tag -> Modifier.testTag(tag) } ?: Modifier)
+
     Surface(
-        modifier = metric.testTag?.let { tag -> Modifier.testTag(tag) } ?: Modifier,
+        modifier = chipModifier,
         shape = RoundedCornerShape(50),
         color = color.copy(alpha = 0.085f)
     ) {
         Row(
             modifier = Modifier.padding(
-                horizontal = if (metric.text == null) 7.dp else 8.dp,
-                vertical = 4.dp
+                horizontal = if (metric.text == null) 7.dp else 8.dp
             ),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -838,3 +843,4 @@ internal const val TAG_FORECAST_INSIGHT_PRIMARY = "forecast_insight_primary"
 internal const val TAG_FORECAST_INSIGHT_SECONDARY = "forecast_insight_secondary"
 internal const val TAG_FORECAST_INSIGHT_METRICS = "forecast_insight_metrics"
 internal const val TAG_FORECAST_INSIGHT_REASON_PREFIX = "forecast_insight_reason_"
+internal const val TAG_FORECAST_INSIGHT_CONSENSUS = "forecast_insight_consensus"
