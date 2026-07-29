@@ -54,7 +54,6 @@ import com.meteocompare.app.ui.components.WeatherIconDecorative
 import com.meteocompare.app.ui.components.semanticTint
 import com.meteocompare.app.ui.theme.precipitationMetricAccent
 import com.meteocompare.app.ui.theme.windMetricAccent
-import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -201,7 +200,7 @@ internal fun SimplifiedTimelineCard(
 
 private data class TimelineLabels(
     val timeLabel: String,
-    /** Jour éventuel et écart depuis la carte précédente : la sélection est événementielle. */
+    /** Jour affiché uniquement lors d’un changement de date. */
     val contextLabel: String?
 )
 
@@ -225,7 +224,7 @@ private fun timelineLabels(
             date == today.plusDays(1) -> stringResource(R.string.timeline_tomorrow)
             else -> date.format(dayFormatter).replaceFirstChar { it.uppercase() }
         }
-        return TimelineLabels(label, timelineGapLabel(index, points, mode))
+        return TimelineLabels(label, null)
     }
 
     val zoned = point.instant?.atZone(zone)
@@ -236,43 +235,13 @@ private fun timelineLabels(
         currentDate == today.plusDays(1) -> stringResource(R.string.timeline_tomorrow)
         else -> currentDate.format(dayFormatter).replaceFirstChar { it.uppercase() }
     }
-    val gapLabel = timelineGapLabel(index, points, mode)
-    val contextLabel = listOfNotNull(dayLabel, gapLabel).joinToString(" · ").ifBlank { null }
+    val contextLabel = dayLabel
     val timeLabel = when {
         point.instant == currentHour -> stringResource(R.string.timeline_now)
         zoned != null -> zoned.format(hourFormatter)
         else -> "—"
     }
     return TimelineLabels(timeLabel, contextLabel)
-}
-
-@Composable
-private fun timelineGapLabel(
-    index: Int,
-    points: List<SimplifiedTimelinePoint>,
-    mode: DisplayMode
-): String? {
-    if (index <= 0) return null
-    val previous = points.getOrNull(index - 1) ?: return null
-    val current = points.getOrNull(index) ?: return null
-    return when (mode) {
-        DisplayMode.HOURLY -> {
-            val previousInstant = previous.instant ?: return null
-            val currentInstant = current.instant ?: return null
-            val minutes = Duration.between(previousInstant, currentInstant).toMinutes()
-            if (minutes <= 0) null else if (minutes % 60L == 0L) {
-                stringResource(R.string.timeline_gap_hours, minutes / 60L)
-            } else {
-                stringResource(R.string.timeline_gap_minutes, minutes)
-            }
-        }
-        DisplayMode.DAILY -> {
-            val previousDate = previous.date ?: return null
-            val currentDate = current.date ?: return null
-            val days = currentDate.toEpochDay() - previousDate.toEpochDay()
-            if (days <= 1) null else stringResource(R.string.timeline_gap_days, days)
-        }
-    }
 }
 
 @Composable

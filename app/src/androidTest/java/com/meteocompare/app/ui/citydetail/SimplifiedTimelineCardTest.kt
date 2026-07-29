@@ -132,18 +132,18 @@ class SimplifiedTimelineCardTest {
     }
 
     @Test
-    fun variable_intervals_are_shown_between_selected_key_times() {
+    fun key_times_use_absolute_labels_without_relative_gap() {
         val points = listOf(
             SimplifiedTimelinePoint(
-                instant = Instant.parse("2026-07-26T10:00:00Z"),
+                instant = Instant.parse("2026-07-26T22:00:00Z"),
                 temperatureC = 20.0,
                 modelCount = 2,
                 temperatureModelCount = 2,
                 hasMultiModelEvidence = true
             ),
             SimplifiedTimelinePoint(
-                instant = Instant.parse("2026-07-26T14:00:00Z"),
-                temperatureC = 24.0,
+                instant = Instant.parse("2026-07-27T02:00:00Z"),
+                temperatureC = 18.0,
                 modelCount = 2,
                 temperatureModelCount = 2,
                 hasMultiModelEvidence = true
@@ -157,13 +157,16 @@ class SimplifiedTimelineCardTest {
                         points = points,
                         mode = DisplayMode.HOURLY,
                         timezone = "UTC",
-                        now = Instant.parse("2026-07-26T10:20:00Z")
+                        now = Instant.parse("2026-07-26T22:20:00Z")
                     )
                 }
             }
         }
 
-        composeRule.onNodeWithText("+4 h").assertIsDisplayed()
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        composeRule.onNodeWithText("+4 h").assertDoesNotExist()
+        composeRule.onNodeWithText(context.getString(R.string.timeline_tomorrow)).assertIsDisplayed()
+        composeRule.onNodeWithText("02h").assertIsDisplayed()
     }
 
 }
