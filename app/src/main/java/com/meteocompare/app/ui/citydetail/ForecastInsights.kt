@@ -23,6 +23,47 @@ internal enum class ForecastInsightLevel {
     POSITIVE
 }
 
+
+internal enum class ForecastEventKind {
+    PRECIPITATION,
+    WIND,
+    TEMPERATURE,
+    WEATHER_TRANSITION,
+    UNCERTAINTY,
+    STABLE
+}
+
+internal data class ForecastEventEvidence(
+    val metric: ForecastMetric? = null,
+    val consensus: MetricConsensus? = null,
+    val availableModelCount: Int = 0,
+    val contributingModelCount: Int = 0,
+    val wetModelCount: Int = 0,
+    val medianValue: Double? = null,
+    val minimumValue: Double? = null,
+    val maximumValue: Double? = null,
+    val probabilityMinimum: Int? = null,
+    val probabilityMaximum: Int? = null,
+    val divergenceReasons: Set<DivergenceReason> = emptySet()
+)
+
+/**
+ * Événement météo indépendant de sa formulation. La détection, la sélection
+ * éditoriale et le rendu de la timeline partagent ainsi la même source.
+ */
+internal data class ForecastEvent(
+    val kind: ForecastEventKind,
+    val impact: ForecastInsightLevel,
+    val priority: Int,
+    val startPoint: SimplifiedTimelinePoint,
+    val peakPoint: SimplifiedTimelinePoint = startPoint,
+    val endPoint: SimplifiedTimelinePoint? = null,
+    val evidence: ForecastEventEvidence = ForecastEventEvidence(),
+    val condition: WeatherCondition? = null,
+    /** Charge utile conservée pour la couche éditoriale. */
+    val sourceInsight: ForecastInsight? = null
+)
+
 /** Observation courte dérivée localement du consensus multi-modèles. */
 internal data class ForecastInsight(
     val kind: ForecastInsightKind,
@@ -49,7 +90,9 @@ internal data class ForecastInsight(
     val referenceCondition: WeatherCondition? = null,
     val targetCondition: WeatherCondition? = null,
     /** Causes explicites lorsqu'un message synthétise un désaccord. */
-    val divergenceReasons: Set<DivergenceReason> = point?.divergenceReasons.orEmpty()
+    val divergenceReasons: Set<DivergenceReason> = point?.divergenceReasons.orEmpty(),
+    /** Événement structuré à l'origine du message. */
+    val event: ForecastEvent? = null
 ) {
     val isPersistent: Boolean
         get() = eventPointCount >= 2 && point != null && endPoint != null &&
@@ -67,7 +110,317 @@ internal data class ForecastInsight(
  * intenses, puis la sélection garantit qu'un signal important plus lointain
  * n'est pas évincé par une évolution mineure plus proche.
  */
-internal fun buildForecastInsights(overview: OverviewTimeline): List<ForecastInsight> {
+internal fun detectForecastEvents(overview: OverviewTimeline): List<ForecastEvent> {
+    val points = overview.analysisPoints.sortedBy(::insightSortKey)
+    if (points.isEmpty()) return emptyList()
+
+    val legacy = buildLegacyForecastInsights(overview)
+        .filter(::isEditoriallyUsefulInsight)
+    val specific = legacy.filterNot { it.kind == ForecastInsightKind.DISAGREEMENT }
+        .map { insight -> enrichEventEvidence(forecastEventFromInsight(insight), points) }
+        .toMutableList()
+    if (specific.none { it.kind == ForecastEventKind.TEMPERATURE }) {
+        buildTemperatureThresholdEvent(points)?.let(specific::add)
+    }
+    val disagreements = legacy.filter { it.kind == ForecastInsightKind.DISAGREEMENT }
+
+    disagreements.forEach { disagreement ->
+        val point = disagreement.point ?: return@forEach
+        val nearbyIndex = specific.indexOfFirst { event ->
+            event.kind != ForecastEventKind.STABLE &&
+                eventNearPoint(event, point, overview.mode) &&
+                eventCoveredReasons(event).intersect(disagreement.divergenceReasons).isNotEmpty()
+        }
+        if (nearbyIndex >= 0) {
+            val current = specific[nearbyIndex]
+            specific[nearbyIndex] = current.copy(
+                evidence = current.evidence.copy(
+                    divergenceReasons = current.evidence.divergenceReasons +
+                        disagreement.divergenceReasons
+                )
+            )
+        } else {
+            specific += enrichEventEvidence(forecastEventFromInsight(disagreement), points)
+        }
+    }
+
+    return specific
+        .distinctBy { event -> event.kind to timelinePointKey(event.startPoint) }
+        .sortedWith(
+            compareBy<ForecastEvent> { insightSortKey(it.startPoint) }
+                .thenByDescending { insightLevelWeight(it.impact) }
+                .thenByDescending(ForecastEvent::priority)
+        )
+}
+
+internal fun buildForecastInsights(overview: OverviewTimeline): List<ForecastInsight> =
+    buildForecastInsights(detectForecastEvents(overview))
+
+internal fun buildForecastInsights(events: List<ForecastEvent>): List<ForecastInsight> =
+    selectMostRelevantEvents(events).map { event ->
+        val source = requireNotNull(event.sourceInsight)
+        source.copy(
+            level = event.impact,
+            priority = event.priority,
+            point = event.peakPoint,
+            endPoint = event.endPoint,
+            divergenceReasons = event.evidence.divergenceReasons,
+            event = event
+        )
+    }
+
+private fun selectMostRelevantEvents(events: List<ForecastEvent>): List<ForecastEvent> {
+    val concrete = events.filter { it.kind != ForecastEventKind.STABLE }
+    val candidates = if (concrete.isNotEmpty()) concrete else events
+    return candidates
+        .sortedWith(
+            compareByDescending<ForecastEvent> { insightLevelWeight(it.impact) }
+                .thenByDescending(ForecastEvent::priority)
+                .thenBy { insightSortKey(it.startPoint) }
+        )
+        .take(MAX_INSIGHTS)
+        .sortedBy { insightSortKey(it.startPoint) }
+}
+
+private fun buildTemperatureThresholdEvent(
+    points: List<SimplifiedTimelinePoint>
+): ForecastEvent? {
+    val temperaturePoints = points.filter {
+        it.temperatureModelCount >= 2 && (it.temperatureC ?: it.tempMaxC) != null
+    }
+    val pair = temperaturePoints.zipWithNext().firstOrNull { (before, after) ->
+        val start = before.temperatureC ?: before.tempMaxC ?: return@firstOrNull false
+        val target = after.temperatureC ?: after.tempMaxC ?: return@firstOrNull false
+        (start > 0.0 && target <= 0.0) ||
+            (start < 30.0 && target >= 30.0) ||
+            target <= -3.0 || target >= 35.0
+    } ?: return null
+    val (reference, targetPoint) = pair
+    val referenceTemperature = reference.temperatureC ?: reference.tempMaxC ?: return null
+    val targetTemperature = targetPoint.temperatureC ?: targetPoint.tempMaxC ?: return null
+    val referenceValue = referenceTemperature.roundToInt()
+    val targetValue = targetTemperature.roundToInt()
+    val level = if (targetValue <= -3 || targetValue >= 35) {
+        ForecastInsightLevel.ALERT
+    } else {
+        ForecastInsightLevel.WATCH
+    }
+    val source = ForecastInsight(
+        kind = ForecastInsightKind.TEMPERATURE_CHANGE,
+        level = level,
+        priority = 88 + kotlin.math.abs(targetValue - referenceValue),
+        point = targetPoint,
+        referencePoint = reference,
+        referenceValue = referenceValue,
+        targetValue = targetValue,
+        value = targetValue - referenceValue,
+        divergenceReasons = targetPoint.divergenceReasons
+    )
+    return forecastEventFromInsight(source)
+}
+
+private fun isEditoriallyUsefulInsight(insight: ForecastInsight): Boolean {
+    if (insight.kind != ForecastInsightKind.TEMPERATURE_CHANGE) return true
+    val start = insight.referenceValue ?: return false
+    val target = insight.targetValue ?: return false
+    val crossesFreeze = (start > 0 && target <= 0) || target <= -3
+    val crossesHeat = (start < 30 && target >= 30) || target >= 35
+    val hasTemperatureUncertainty = DivergenceReason.TEMPERATURE in insight.divergenceReasons
+    val unusualShift = insight.level == ForecastInsightLevel.WATCH && kotlin.math.abs(target - start) >= 7
+    return crossesFreeze || crossesHeat || hasTemperatureUncertainty || unusualShift
+}
+
+private fun forecastEventFromInsight(insight: ForecastInsight): ForecastEvent {
+    val point = requireNotNull(insight.point)
+    val metric = when (insight.kind) {
+        ForecastInsightKind.RAIN_LIKELY,
+        ForecastInsightKind.RAIN_UNCERTAIN -> ForecastMetric.PRECIPITATION
+        ForecastInsightKind.WIND_EVENT -> ForecastMetric.WIND
+        ForecastInsightKind.TEMPERATURE_CHANGE -> ForecastMetric.TEMPERATURE
+        ForecastInsightKind.WEATHER_CHANGE -> ForecastMetric.CONDITION
+        ForecastInsightKind.DISAGREEMENT -> primaryDivergenceMetric(insight.divergenceReasons)
+        ForecastInsightKind.HIGH_AGREEMENT -> null
+    }
+    val kind = when (insight.kind) {
+        ForecastInsightKind.RAIN_LIKELY,
+        ForecastInsightKind.RAIN_UNCERTAIN -> ForecastEventKind.PRECIPITATION
+        ForecastInsightKind.WIND_EVENT -> ForecastEventKind.WIND
+        ForecastInsightKind.TEMPERATURE_CHANGE -> ForecastEventKind.TEMPERATURE
+        ForecastInsightKind.WEATHER_CHANGE -> ForecastEventKind.WEATHER_TRANSITION
+        ForecastInsightKind.DISAGREEMENT -> ForecastEventKind.UNCERTAINTY
+        ForecastInsightKind.HIGH_AGREEMENT -> ForecastEventKind.STABLE
+    }
+    val consensus = metric?.let(point::consensusFor)
+    val evidence = ForecastEventEvidence(
+        metric = metric,
+        consensus = consensus,
+        availableModelCount = point.modelCount,
+        contributingModelCount = consensus?.modelCount ?: when (metric) {
+            ForecastMetric.PRECIPITATION -> point.precipitationModelCount
+            ForecastMetric.WIND -> point.windModelCount
+            ForecastMetric.TEMPERATURE -> point.temperatureModelCount
+            ForecastMetric.CONDITION -> point.conditionModelCount
+            null -> point.modelCount
+        },
+        wetModelCount = point.wetModelCount,
+        medianValue = when (metric) {
+            ForecastMetric.PRECIPITATION -> point.precipitationMm
+            ForecastMetric.WIND -> point.windKmh
+            ForecastMetric.TEMPERATURE -> point.temperatureC ?: point.tempMaxC
+            else -> null
+        },
+        minimumValue = when (metric) {
+            ForecastMetric.PRECIPITATION -> point.precipitationMinAcrossModelsMm
+            ForecastMetric.WIND -> point.windMinAcrossModels
+            ForecastMetric.TEMPERATURE -> point.temperatureMinAcrossModels
+            else -> consensus?.minimum
+        },
+        maximumValue = when (metric) {
+            ForecastMetric.PRECIPITATION -> point.precipitationMaxAcrossModelsMm
+            ForecastMetric.WIND -> point.windMaxAcrossModels
+            ForecastMetric.TEMPERATURE -> point.temperatureMaxAcrossModels
+            else -> consensus?.maximum
+        },
+        probabilityMinimum = point.precipitationProbabilityMin,
+        probabilityMaximum = point.precipitationProbabilityMax,
+        divergenceReasons = insight.divergenceReasons
+    )
+    return ForecastEvent(
+        kind = kind,
+        impact = insight.level,
+        priority = insight.priority,
+        startPoint = insight.referencePoint ?: point,
+        peakPoint = point,
+        endPoint = insight.endPoint,
+        evidence = evidence,
+        condition = insight.targetCondition ?: point.condition,
+        sourceInsight = insight
+    )
+}
+
+private fun enrichEventEvidence(
+    event: ForecastEvent,
+    points: List<SimplifiedTimelinePoint>
+): ForecastEvent {
+    val window = points.filter { point -> pointInsideEventWindow(point, event) }
+        .ifEmpty { listOf(event.peakPoint) }
+    val metric = event.evidence.metric
+    val consensus = metric?.let { selectedMetric ->
+        window.mapNotNull { it.consensusFor(selectedMetric) }
+            .minByOrNull(MetricConsensus::percent)
+    } ?: event.evidence.consensus
+    val evidence = when (metric) {
+        ForecastMetric.PRECIPITATION -> event.evidence.copy(
+            consensus = consensus,
+            availableModelCount = window.maxOfOrNull(SimplifiedTimelinePoint::modelCount) ?: 0,
+            contributingModelCount = consensus?.modelCount
+                ?: window.maxOfOrNull(SimplifiedTimelinePoint::precipitationModelCount) ?: 0,
+            wetModelCount = window.maxOfOrNull(SimplifiedTimelinePoint::wetModelCount) ?: 0,
+            medianValue = window.mapNotNull(SimplifiedTimelinePoint::precipitationMm)
+                .takeIf { it.isNotEmpty() }?.sum(),
+            minimumValue = window.mapNotNull(SimplifiedTimelinePoint::precipitationMinAcrossModelsMm)
+                .takeIf { it.isNotEmpty() }?.sum(),
+            maximumValue = window.mapNotNull(SimplifiedTimelinePoint::precipitationMaxAcrossModelsMm)
+                .takeIf { it.isNotEmpty() }?.sum(),
+            probabilityMinimum = window.mapNotNull(SimplifiedTimelinePoint::precipitationProbabilityMin)
+                .minOrNull(),
+            probabilityMaximum = window.mapNotNull(SimplifiedTimelinePoint::precipitationProbabilityMax)
+                .maxOrNull(),
+            divergenceReasons = event.evidence.divergenceReasons +
+                window.flatMap(SimplifiedTimelinePoint::divergenceReasons)
+        )
+        ForecastMetric.WIND -> event.evidence.copy(
+            consensus = consensus,
+            availableModelCount = window.maxOfOrNull(SimplifiedTimelinePoint::modelCount) ?: 0,
+            contributingModelCount = consensus?.modelCount
+                ?: window.maxOfOrNull(SimplifiedTimelinePoint::windModelCount) ?: 0,
+            medianValue = window.mapNotNull(SimplifiedTimelinePoint::windKmh).maxOrNull(),
+            minimumValue = window.mapNotNull(SimplifiedTimelinePoint::windMinAcrossModels).minOrNull(),
+            maximumValue = window.mapNotNull(SimplifiedTimelinePoint::windMaxAcrossModels).maxOrNull(),
+            divergenceReasons = event.evidence.divergenceReasons +
+                window.flatMap(SimplifiedTimelinePoint::divergenceReasons)
+        )
+        ForecastMetric.TEMPERATURE -> event.evidence.copy(
+            consensus = consensus,
+            availableModelCount = window.maxOfOrNull(SimplifiedTimelinePoint::modelCount) ?: 0,
+            contributingModelCount = consensus?.modelCount
+                ?: window.maxOfOrNull(SimplifiedTimelinePoint::temperatureModelCount) ?: 0,
+            medianValue = event.peakPoint.temperatureC ?: event.peakPoint.tempMaxC,
+            minimumValue = window.mapNotNull(SimplifiedTimelinePoint::temperatureMinAcrossModels).minOrNull(),
+            maximumValue = window.mapNotNull(SimplifiedTimelinePoint::temperatureMaxAcrossModels).maxOrNull(),
+            divergenceReasons = event.evidence.divergenceReasons +
+                window.flatMap(SimplifiedTimelinePoint::divergenceReasons)
+        )
+        ForecastMetric.CONDITION -> event.evidence.copy(
+            consensus = consensus,
+            availableModelCount = window.maxOfOrNull(SimplifiedTimelinePoint::modelCount) ?: 0,
+            contributingModelCount = consensus?.modelCount
+                ?: window.maxOfOrNull(SimplifiedTimelinePoint::conditionModelCount) ?: 0,
+            divergenceReasons = event.evidence.divergenceReasons +
+                window.flatMap(SimplifiedTimelinePoint::divergenceReasons)
+        )
+        null -> event.evidence.copy(
+            divergenceReasons = event.evidence.divergenceReasons +
+                window.flatMap(SimplifiedTimelinePoint::divergenceReasons)
+        )
+    }
+    return event.copy(evidence = evidence)
+}
+
+private fun pointInsideEventWindow(
+    point: SimplifiedTimelinePoint,
+    event: ForecastEvent
+): Boolean = when {
+    point.instant != null && event.startPoint.instant != null -> {
+        val end = event.endPoint?.instant ?: event.peakPoint.instant ?: event.startPoint.instant
+        !point.instant.isBefore(event.startPoint.instant) && !point.instant.isAfter(end)
+    }
+    point.date != null && event.startPoint.date != null -> {
+        val end = event.endPoint?.date ?: event.peakPoint.date ?: event.startPoint.date
+        !point.date.isBefore(event.startPoint.date) && !point.date.isAfter(end)
+    }
+    else -> sameTimelinePoint(point, event.peakPoint)
+}
+
+private fun primaryDivergenceMetric(reasons: Set<DivergenceReason>): ForecastMetric? = when {
+    DivergenceReason.PRECIPITATION in reasons -> ForecastMetric.PRECIPITATION
+    DivergenceReason.WIND in reasons -> ForecastMetric.WIND
+    DivergenceReason.TEMPERATURE in reasons -> ForecastMetric.TEMPERATURE
+    DivergenceReason.CONDITION in reasons -> ForecastMetric.CONDITION
+    else -> null
+}
+
+private fun eventCoveredReasons(event: ForecastEvent): Set<DivergenceReason> = buildSet {
+    addAll(event.evidence.divergenceReasons)
+    when (event.evidence.metric) {
+        ForecastMetric.PRECIPITATION -> add(DivergenceReason.PRECIPITATION)
+        ForecastMetric.WIND -> add(DivergenceReason.WIND)
+        ForecastMetric.TEMPERATURE -> add(DivergenceReason.TEMPERATURE)
+        ForecastMetric.CONDITION -> add(DivergenceReason.CONDITION)
+        null -> Unit
+    }
+}
+
+private fun eventNearPoint(
+    event: ForecastEvent,
+    point: SimplifiedTimelinePoint,
+    mode: DisplayMode
+): Boolean {
+    return when (mode) {
+        DisplayMode.HOURLY -> {
+            val a = event.peakPoint.instant ?: return false
+            val b = point.instant ?: return false
+            kotlin.math.abs(Duration.between(a, b).toHours()) <= 2
+        }
+        DisplayMode.DAILY -> {
+            val a = event.peakPoint.date ?: return false
+            val b = point.date ?: return false
+            kotlin.math.abs(a.toEpochDay() - b.toEpochDay()) <= 1
+        }
+    }
+}
+
+private fun buildLegacyForecastInsights(overview: OverviewTimeline): List<ForecastInsight> {
     val points = overview.analysisPoints.sortedBy(::insightSortKey)
     if (points.isEmpty()) return emptyList()
 

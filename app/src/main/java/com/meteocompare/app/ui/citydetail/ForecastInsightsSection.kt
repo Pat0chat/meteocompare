@@ -47,6 +47,7 @@ import com.meteocompare.app.ui.theme.precipitationMetricAccent
 import com.meteocompare.app.ui.theme.temperatureMetricAccent
 import com.meteocompare.app.ui.theme.windMetricAccent
 import java.time.format.DateTimeFormatter
+import kotlin.math.roundToInt
 
 @Composable
 internal fun ForecastInsightsSection(
@@ -76,17 +77,24 @@ internal fun ForecastInsightsSection(
                 availableModelCount = modelCount
             )
 
-            insights.forEachIndexed { index, insight ->
-                ForecastInsightRow(
-                    insight = insight,
-                    timezone = timezone,
-                    referencePoint = referencePoint,
-                    isHighlighted = index == 0,
-                    onClick = onInsightClick?.let { callback -> { callback(insight) } }
-                )
+            val stableOnly = insights.size == 1 &&
+                insights.first().kind == ForecastInsightKind.HIGH_AGREEMENT
+            if (stableOnly) {
+                StableInsightRow(insight = insights.first())
+            } else {
+                insights.forEach { insight ->
+                    ForecastInsightRow(
+                        insight = insight,
+                        timezone = timezone,
+                        referencePoint = referencePoint,
+                        isHighlighted = insight.level == ForecastInsightLevel.ALERT,
+                        isWatch = insight.level == ForecastInsightLevel.WATCH,
+                        onClick = onInsightClick?.let { callback -> { callback(insight) } }
+                    )
+                }
             }
 
-            if (onInsightClick != null) {
+            if (onInsightClick != null && !stableOnly) {
                 HorizontalDivider(
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
                 )
@@ -159,11 +167,13 @@ private fun ForecastInsightRow(
     timezone: String?,
     referencePoint: SimplifiedTimelinePoint?,
     isHighlighted: Boolean,
+    isWatch: Boolean,
     onClick: (() -> Unit)?
 ) {
     val visual = insightVisual(insight)
     val presentation = forecastInsightPresentation(insight, timezone, referencePoint)
     val metrics = forecastInsightMetrics(insight)
+    val isEmphasized = isHighlighted || isWatch
     val iconContainerSize = if (isHighlighted) 42.dp else 36.dp
     val iconSize = if (isHighlighted) 22.dp else 19.dp
     val shape = RoundedCornerShape(if (isHighlighted) 15.dp else 13.dp)
@@ -172,10 +182,10 @@ private fun ForecastInsightRow(
         modifier = Modifier
             .fillMaxWidth()
             .then(
-                if (isHighlighted) {
-                    Modifier.background(visual.color.copy(alpha = 0.09f), shape)
-                } else {
-                    Modifier
+                when {
+                    isHighlighted -> Modifier.background(visual.color.copy(alpha = 0.10f), shape)
+                    isWatch -> Modifier.background(visual.color.copy(alpha = 0.045f), shape)
+                    else -> Modifier
                 }
             )
             .then(
@@ -186,8 +196,8 @@ private fun ForecastInsightRow(
                 }
             )
             .padding(
-                horizontal = if (isHighlighted) 12.dp else 2.dp,
-                vertical = if (isHighlighted) 12.dp else 4.dp
+                horizontal = if (isEmphasized) 12.dp else 2.dp,
+                vertical = if (isHighlighted) 12.dp else if (isWatch) 9.dp else 4.dp
             )
             .testTag(
                 if (isHighlighted) TAG_FORECAST_INSIGHT_PRIMARY
@@ -199,7 +209,7 @@ private fun ForecastInsightRow(
             modifier = Modifier
                 .size(iconContainerSize)
                 .background(
-                    visual.color.copy(alpha = if (isHighlighted) 0.17f else 0.11f),
+                    visual.color.copy(alpha = if (isEmphasized) 0.17f else 0.11f),
                     RoundedCornerShape(if (isHighlighted) 14.dp else 12.dp)
                 ),
             contentAlignment = Alignment.Center
@@ -212,10 +222,10 @@ private fun ForecastInsightRow(
             )
         }
 
-        Spacer(Modifier.width(if (isHighlighted) 12.dp else 11.dp))
+        Spacer(Modifier.width(if (isEmphasized) 12.dp else 11.dp))
 
         Column(modifier = Modifier.weight(1f)) {
-            if (isHighlighted) {
+            if (isEmphasized) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -271,7 +281,7 @@ private fun ForecastInsightRow(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 2.dp),
-                    maxLines = if (isHighlighted) 3 else 2,
+                    maxLines = if (isEmphasized) 3 else 2,
                     overflow = TextOverflow.Ellipsis
                 )
             }
@@ -289,6 +299,38 @@ private fun ForecastInsightRow(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun StableInsightRow(insight: ForecastInsight) {
+    val visual = insightVisual(insight)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp)
+            .testTag(TAG_FORECAST_INSIGHT_STABLE),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.CheckCircle,
+            contentDescription = null,
+            tint = visual.color,
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = stringResource(R.string.forecast_insight_title_stable_compact),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = stringResource(R.string.forecast_insight_detail_stable_compact),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -341,7 +383,7 @@ private fun forecastInsightMetrics(insight: ForecastInsight): List<InsightMetric
                     )
                 )
             }
-            point?.consensusPercent?.let { percent ->
+            (insight.event?.evidence?.consensus?.percent ?: point?.consensusPercent)?.let { percent ->
                 add(
                     InsightMetric(
                         icon = Icons.Outlined.WarningAmber,
@@ -353,8 +395,23 @@ private fun forecastInsightMetrics(insight: ForecastInsight): List<InsightMetric
         }
         ForecastInsightKind.RAIN_LIKELY,
         ForecastInsightKind.RAIN_UNCERTAIN -> buildList {
-            when (insight.precipitationSource) {
-                PrecipitationSignalSource.MODEL_PROBABILITY -> {
+            val evidence = insight.event?.evidence
+            val probabilityMin = evidence?.probabilityMinimum
+            val probabilityMax = evidence?.probabilityMaximum
+            when {
+                probabilityMin != null && probabilityMax != null && probabilityMax - probabilityMin >= 10 -> {
+                    add(
+                        InsightMetric(
+                            icon = Icons.Outlined.WaterDrop,
+                            text = stringResource(
+                                R.string.forecast_insight_metric_probability_range,
+                                probabilityMin,
+                                probabilityMax
+                            )
+                        )
+                    )
+                }
+                insight.precipitationSource == PrecipitationSignalSource.MODEL_PROBABILITY -> {
                     (insight.targetValue ?: insight.value)?.let { probability ->
                         add(
                             InsightMetric(
@@ -365,9 +422,68 @@ private fun forecastInsightMetrics(insight: ForecastInsight): List<InsightMetric
                                 )
                             )
                         )
-                        val contributors = insight.secondaryValue
-                        val available = point?.modelCount
-                        if (contributors != null && available != null && contributors < available) {
+                    }
+                }
+                insight.precipitationSource == PrecipitationSignalSource.MODEL_AGREEMENT -> {
+                    val wetModels = evidence?.wetModelCount ?: insight.value
+                    val totalModels = evidence?.contributingModelCount ?: insight.secondaryValue
+                    if (wetModels != null && totalModels != null && totalModels > 0) {
+                        add(
+                            InsightMetric(
+                                icon = Icons.Outlined.WaterDrop,
+                                text = stringResource(
+                                    R.string.forecast_insight_metric_model_ratio,
+                                    wetModels,
+                                    totalModels
+                                )
+                            )
+                        )
+                    }
+                }
+            }
+            val rainConsensus = evidence?.consensus
+            if (rainConsensus != null && (rainConsensus.isDivergent || rainConsensus.percent < 75)) {
+                add(
+                    InsightMetric(
+                        icon = Icons.Outlined.WarningAmber,
+                        text = stringResource(
+                            R.string.forecast_insight_metric_consensus,
+                            rainConsensus.percent
+                        )
+                    )
+                )
+            } else {
+                val minimumMm = evidence?.minimumValue
+                val maximumMm = evidence?.maximumValue
+                val medianMm = evidence?.medianValue
+                when {
+                    minimumMm != null && maximumMm != null && maximumMm - minimumMm >= 1.0 -> {
+                        add(
+                            InsightMetric(
+                                icon = Icons.Outlined.WaterDrop,
+                                text = stringResource(
+                                    R.string.forecast_insight_metric_precipitation_range,
+                                    minimumMm,
+                                    maximumMm
+                                )
+                            )
+                        )
+                    }
+                    medianMm != null && medianMm >= 0.2 -> {
+                        add(
+                            InsightMetric(
+                                icon = Icons.Outlined.WaterDrop,
+                                text = stringResource(
+                                    R.string.forecast_insight_metric_precipitation,
+                                    medianMm
+                                )
+                            )
+                        )
+                    }
+                    else -> {
+                        val contributors = evidence?.contributingModelCount ?: insight.secondaryValue
+                        val available = evidence?.availableModelCount ?: point?.modelCount
+                        if (contributors != null && available != null && contributors in 1 until available) {
                             add(
                                 InsightMetric(
                                     icon = Icons.Outlined.CheckCircle,
@@ -381,30 +497,22 @@ private fun forecastInsightMetrics(insight: ForecastInsight): List<InsightMetric
                         }
                     }
                 }
-                PrecipitationSignalSource.MODEL_AGREEMENT -> {
-                    val wetModels = insight.value
-                    val totalModels = insight.secondaryValue
-                    if (wetModels != null && totalModels != null) {
-                        add(
-                            InsightMetric(
-                                icon = Icons.Outlined.WaterDrop,
-                                text = stringResource(
-                                    R.string.forecast_insight_metric_model_ratio,
-                                    wetModels,
-                                    totalModels
-                                )
-                            )
-                        )
-                    }
-                }
-                null -> Unit
             }
         }
         ForecastInsightKind.WEATHER_CHANGE -> emptyList()
         ForecastInsightKind.WIND_EVENT -> buildList {
-            val baseline = insight.value
-            val target = insight.secondaryValue
-            target?.let { targetWind ->
+            val evidence = insight.event?.evidence
+            val min = evidence?.minimumValue?.roundToInt()
+            val max = evidence?.maximumValue?.roundToInt()
+            val target = insight.secondaryValue ?: evidence?.medianValue?.roundToInt()
+            if (min != null && max != null && max - min >= 8) {
+                add(
+                    InsightMetric(
+                        icon = Icons.Outlined.Air,
+                        text = stringResource(R.string.forecast_insight_metric_wind_range, min, max)
+                    )
+                )
+            } else target?.let { targetWind ->
                 add(
                     InsightMetric(
                         icon = Icons.Outlined.Air,
@@ -412,51 +520,51 @@ private fun forecastInsightMetrics(insight: ForecastInsight): List<InsightMetric
                     )
                 )
             }
-            if (baseline != null && target != null && target != baseline) {
-                val delta = target - baseline
+            evidence?.consensus?.takeIf { it.isDivergent || it.percent < 75 }?.let { consensus ->
                 add(
                     InsightMetric(
-                        icon = Icons.Outlined.Air,
-                        text = stringResource(
-                            if (delta >= 0) {
-                                R.string.forecast_insight_metric_wind_delta_positive
-                            } else {
-                                R.string.forecast_insight_metric_wind_delta_negative
-                            },
-                            kotlin.math.abs(delta)
-                        )
+                        icon = Icons.Outlined.WarningAmber,
+                        text = stringResource(R.string.forecast_insight_metric_consensus, consensus.percent)
                     )
                 )
             }
         }
         ForecastInsightKind.TEMPERATURE_CHANGE -> buildList {
-            val delta = insight.value
-            delta?.let { value ->
+            val evidence = insight.event?.evidence
+            val min = evidence?.minimumValue?.roundToInt()
+            val max = evidence?.maximumValue?.roundToInt()
+            if (min != null && max != null && max - min >= 2) {
                 add(
                     InsightMetric(
                         icon = Icons.Outlined.Thermostat,
                         text = stringResource(
-                            if (value >= 0) {
-                                R.string.forecast_insight_metric_temperature_delta_positive
-                            } else {
-                                R.string.forecast_insight_metric_temperature_delta_negative
-                            },
-                            kotlin.math.abs(value)
+                            R.string.forecast_insight_metric_temperature_scenarios,
+                            min,
+                            max
                         )
                     )
                 )
+            } else {
+                val reference = insight.referenceValue
+                val target = insight.targetValue
+                if (reference != null && target != null) {
+                    add(
+                        InsightMetric(
+                            icon = Icons.Outlined.Thermostat,
+                            text = stringResource(
+                                R.string.forecast_insight_metric_temperature_range,
+                                reference,
+                                target
+                            )
+                        )
+                    )
+                }
             }
-            val reference = insight.referenceValue
-            val target = insight.targetValue
-            if (reference != null && target != null) {
+            evidence?.consensus?.takeIf { it.isDivergent || it.percent < 75 }?.let { consensus ->
                 add(
                     InsightMetric(
-                        icon = Icons.Outlined.Thermostat,
-                        text = stringResource(
-                            R.string.forecast_insight_metric_temperature_range,
-                            reference,
-                            target
-                        )
+                        icon = Icons.Outlined.WarningAmber,
+                        text = stringResource(R.string.forecast_insight_metric_consensus, consensus.percent)
                     )
                 )
             }
@@ -610,7 +718,7 @@ private fun forecastInsightPresentation(
             detail = if (insight.isPersistent && endLabel != null) {
                 stringResource(R.string.forecast_insight_detail_rain_uncertain_persistent, endLabel)
             } else {
-                stringResource(R.string.forecast_insight_detail_rain_uncertain_short)
+                stringResource(R.string.forecast_insight_detail_rain_fused_uncertainty)
             },
             timeLabel = timeLabel
         )
@@ -657,12 +765,27 @@ private fun forecastInsightPresentation(
         }
         ForecastInsightKind.TEMPERATURE_CHANGE -> {
             val delta = insight.value ?: 0
+            val target = insight.targetValue
+            val hasUncertainty = DivergenceReason.TEMPERATURE in insight.divergenceReasons
             ForecastInsightPresentation(
                 title = stringResource(
-                    if (delta >= 0) R.string.forecast_insight_title_temperature_rising
-                    else R.string.forecast_insight_title_temperature_falling
+                    when {
+                        target != null && target <= 0 -> R.string.forecast_insight_title_temperature_frost
+                        target != null && target >= 35 -> R.string.forecast_insight_title_temperature_extreme_heat
+                        target != null && target >= 30 -> R.string.forecast_insight_title_temperature_heat
+                        hasUncertainty -> R.string.forecast_insight_title_temperature_uncertain
+                        delta < 0 -> R.string.forecast_insight_title_temperature_unusual_cooling
+                        else -> R.string.forecast_insight_title_temperature_unusual_warming
+                    }
                 ),
-                detail = stringResource(R.string.forecast_insight_detail_temperature_change),
+                detail = stringResource(
+                    when {
+                        target != null && target <= 0 -> R.string.forecast_insight_detail_temperature_frost
+                        target != null && target >= 30 -> R.string.forecast_insight_detail_temperature_heat
+                        hasUncertainty -> R.string.forecast_insight_detail_temperature_uncertain
+                        else -> R.string.forecast_insight_detail_temperature_unusual
+                    }
+                ),
                 timeLabel = timeLabel
             )
         }
@@ -696,23 +819,31 @@ private fun likelyPrecipitationTitle(insight: ForecastInsight): String = stringR
 private fun likelyPrecipitationDetail(
     insight: ForecastInsight,
     endLabel: String?
-): String = when (insight.targetCondition) {
-    WeatherCondition.THUNDERSTORM ->
-        stringResource(R.string.forecast_insight_detail_rain_thunderstorm)
-    WeatherCondition.FREEZING_RAIN ->
-        stringResource(R.string.forecast_insight_detail_rain_freezing)
-    WeatherCondition.SNOW,
-    WeatherCondition.SNOW_SHOWERS ->
-        stringResource(R.string.forecast_insight_detail_rain_snow)
-    else -> when {
-        insight.isStrengtheningRainSignal -> stringResource(
-            R.string.forecast_insight_detail_rain_strengthening
-        )
-        insight.isPersistent && endLabel != null -> stringResource(
-            R.string.forecast_insight_detail_rain_persistent,
-            endLabel
-        )
-        else -> stringResource(R.string.forecast_insight_detail_rain_likely_short)
+): String {
+    val uncertain = DivergenceReason.PRECIPITATION in insight.divergenceReasons ||
+        insight.event?.evidence?.consensus?.isDivergent == true
+    return when (insight.targetCondition) {
+        WeatherCondition.THUNDERSTORM ->
+            stringResource(
+                if (uncertain) R.string.forecast_insight_detail_rain_thunderstorm_uncertain
+                else R.string.forecast_insight_detail_rain_thunderstorm
+            )
+        WeatherCondition.FREEZING_RAIN ->
+            stringResource(R.string.forecast_insight_detail_rain_freezing)
+        WeatherCondition.SNOW,
+        WeatherCondition.SNOW_SHOWERS ->
+            stringResource(R.string.forecast_insight_detail_rain_snow)
+        else -> when {
+            uncertain -> stringResource(R.string.forecast_insight_detail_rain_fused_uncertainty)
+            insight.isStrengtheningRainSignal -> stringResource(
+                R.string.forecast_insight_detail_rain_strengthening
+            )
+            insight.isPersistent && endLabel != null -> stringResource(
+                R.string.forecast_insight_detail_rain_persistent,
+                endLabel
+            )
+            else -> stringResource(R.string.forecast_insight_detail_rain_likely_short)
+        }
     }
 }
 
@@ -840,6 +971,7 @@ internal const val TAG_FORECAST_INSIGHTS_SECTION = "forecast_insights_section"
 internal const val TAG_FORECAST_INSIGHTS_SUMMARY = "forecast_insights_summary"
 internal const val TAG_FORECAST_INSIGHTS_TIMELINE_HINT = "forecast_insights_timeline_hint"
 internal const val TAG_FORECAST_INSIGHT_PRIMARY = "forecast_insight_primary"
+internal const val TAG_FORECAST_INSIGHT_STABLE = "forecast_insight_stable"
 internal const val TAG_FORECAST_INSIGHT_SECONDARY = "forecast_insight_secondary"
 internal const val TAG_FORECAST_INSIGHT_METRICS = "forecast_insight_metrics"
 internal const val TAG_FORECAST_INSIGHT_REASON_PREFIX = "forecast_insight_reason_"

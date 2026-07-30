@@ -425,7 +425,7 @@
     <string name="forecast_tables_section">Prévisions détaillées</string>
     <string name="timeline_title_hourly">Prochaines 24 heures</string>
     <string name="timeline_title_daily">Prochains jours</string>
-    <string name="timeline_subtitle_hourly">Sélection des moments clés sur les prochaines 24 h</string>
+    <string name="timeline_subtitle_hourly">Repères toutes les 3 h · les marqueurs signalent les événements clés</string>
     <string name="timeline_subtitle_daily">Consensus des modèles disponibles pour les prochains jours</string>
     <string name="timeline_disagreement_hint">Accord affiché en pourcentage. En cas de désaccord, les icônes indiquent les variables concernées</string>
     <string name="timeline_now">Maintenant</string>
@@ -531,4 +531,28 @@
     <string name="detail_tab_wind">Vent</string>
     <string name="detail_no_data">Aucune donnée disponible pour cette vue.</string>
 
+    <string name="forecast_insight_title_stable_compact">Rien de notable sur les prochaines 24 h</string>
+    <string name="forecast_insight_detail_stable_compact">Les modèles restent globalement cohérents.</string>
+    <string name="forecast_insight_metric_probability_range">%1$d–%2$d %%</string>
+    <string name="forecast_insight_metric_wind_range">%1$d–%2$d km/h</string>
+    <string name="forecast_insight_metric_temperature_scenarios">%1$d–%2$d°</string>
+    <string name="forecast_insight_detail_rain_fused_uncertainty">Un épisode ressort, mais son intensité ou son horaire varie selon les modèles.</string>
+    <string name="forecast_insight_detail_rain_thunderstorm_uncertain">Le risque orageux ressort, avec un horaire encore incertain.</string>
+    <string name="forecast_insight_title_temperature_frost">Risque de gel</string>
+    <string name="forecast_insight_title_temperature_heat">Chaleur marquée</string>
+    <string name="forecast_insight_title_temperature_extreme_heat">Très forte chaleur</string>
+    <string name="forecast_insight_title_temperature_uncertain">Température incertaine</string>
+    <string name="forecast_insight_title_temperature_unusual_cooling">Refroidissement inhabituel</string>
+    <string name="forecast_insight_title_temperature_unusual_warming">Réchauffement inhabituel</string>
+    <string name="forecast_insight_detail_temperature_frost">La température pourrait atteindre ou passer sous 0°.</string>
+    <string name="forecast_insight_detail_temperature_heat">Un seuil de chaleur notable pourrait être atteint.</string>
+    <string name="forecast_insight_detail_temperature_uncertain">Les scénarios présentent une plage de températures importante.</string>
+    <string name="forecast_insight_detail_temperature_unusual">Variation atypique pour cette période de la journée.</string>
+    <string name="forecast_insight_metric_precipitation">%1$.1f mm</string>
+    <string name="forecast_insight_metric_precipitation_range">%1$.1f–%2$.1f mm</string>
+    <string name="timeline_event_marker_precipitation">Événement pluie</string>
+    <string name="timeline_event_marker_wind">Événement vent</string>
+    <string name="timeline_event_marker_temperature">Événement température</string>
+    <string name="timeline_event_marker_weather">Changement météo</string>
+    <string name="timeline_event_marker_uncertainty">Prévision incertaine</string>
 </resources>

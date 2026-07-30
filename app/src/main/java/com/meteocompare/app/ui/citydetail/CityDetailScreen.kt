@@ -331,12 +331,10 @@ private fun LoadedView(
     val overviewTimeline = remember(forecast, presentationNow) {
         buildOverviewTimeline(forecast, presentationNow)
     }
-    val insights = remember(overviewTimeline) { buildForecastInsights(overviewTimeline) }
-    val timelineDisplayPoints = remember(overviewTimeline, insights) {
-        selectTimelinePoints(
-            points = overviewTimeline.analysisPoints,
-            requiredPoints = insights.mapNotNull(ForecastInsight::point)
-        )
+    val forecastEvents = remember(overviewTimeline) { detectForecastEvents(overviewTimeline) }
+    val insights = remember(forecastEvents) { buildForecastInsights(forecastEvents) }
+    val timelineDisplayPoints = remember(overviewTimeline) {
+        selectRegularTimelinePoints(overviewTimeline.analysisPoints)
     }
     var focusedTimelinePoint by remember(overviewTimeline) {
         mutableStateOf<SimplifiedTimelinePoint?>(null)
@@ -465,6 +463,7 @@ private fun LoadedView(
             item("simplified_timeline_overview") {
                 SimplifiedTimelineCard(
                     points = timelineDisplayPoints,
+                    events = forecastEvents,
                     mode = overviewTimeline.mode,
                     timezone = forecast.city.timezone,
                     focusPoint = focusedTimelinePoint,

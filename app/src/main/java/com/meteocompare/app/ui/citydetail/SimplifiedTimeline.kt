@@ -27,6 +27,7 @@ import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.Thermostat
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material.icons.outlined.WaterDrop
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -70,6 +71,7 @@ import kotlin.math.roundToInt
 @Composable
 internal fun SimplifiedTimelineCard(
     points: List<SimplifiedTimelinePoint>,
+    events: List<ForecastEvent> = emptyList(),
     mode: DisplayMode,
     timezone: String?,
     modifier: Modifier = Modifier,
@@ -93,7 +95,7 @@ internal fun SimplifiedTimelineCard(
 
     LaunchedEffect(focusRequestId, focusPoint, points) {
         if (focusRequestId <= 0 || focusPoint == null) return@LaunchedEffect
-        val index = points.indexOfFirst { sameTimelinePoint(it, focusPoint) }
+        val index = nearestTimelineDisplayIndex(points, focusPoint)
         if (index < 0) return@LaunchedEffect
         val key = timelinePointKey(points[index])
         listState.animateScrollToItem(index)
@@ -144,7 +146,7 @@ internal fun SimplifiedTimelineCard(
                 state = listState,
                 modifier = Modifier.fillMaxWidth(),
                 contentPadding = PaddingValues(horizontal = 10.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalArrangement = Arrangement.spacedBy(0.dp),
                 flingBehavior = snapFlingBehavior
             ) {
                 itemsIndexed(
@@ -162,16 +164,37 @@ internal fun SimplifiedTimelineCard(
                         today = today,
                         currentHour = currentHour
                     )
-                    TimelinePointCard(
+                    val slotEvents = eventsAssignedToPoint(
                         point = point,
-                        mode = mode,
-                        label = labels.timeLabel,
-                        contextLabel = labels.contextLabel,
-                        precipitationAccent = precipitationAccent,
-                        windAccent = windAccent,
-                        isFirst = index == 0,
-                        isFocused = highlightedKey == timelinePointKey(point)
+                        displayPoints = points,
+                        events = events
                     )
+                    Column(
+                        modifier = Modifier.width(TIMELINE_CARD_WIDTH),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        TimelineEventRulerSegment(
+                            events = slotEvents,
+                            showStartCap = index == 0,
+                            showEndCap = index == points.lastIndex
+                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 3.dp)
+                        ) {
+                            TimelinePointCard(
+                                point = point,
+                                mode = mode,
+                                label = labels.timeLabel,
+                                contextLabel = labels.contextLabel,
+                                precipitationAccent = precipitationAccent,
+                                windAccent = windAccent,
+                                isFirst = index == 0,
+                                isFocused = highlightedKey == timelinePointKey(point)
+                            )
+                        }
+                    }
                 }
             }
 
@@ -196,6 +219,130 @@ internal fun SimplifiedTimelineCard(
             }
         }
     }
+}
+
+@Composable
+private fun TimelineEventRulerSegment(
+    events: List<ForecastEvent>,
+    showStartCap: Boolean,
+    showEndCap: Boolean
+) {
+    val markerLabels = mutableListOf<String>()
+    for (event in events.take(MAX_MARKERS_PER_SLOT)) {
+        markerLabels += eventMarkerLabel(event)
+    }
+    val markerDescription = markerLabels.joinToString(", ")
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(EVENT_RULER_HEIGHT)
+            .semantics(mergeDescendants = true) {
+                if (markerDescription.isNotBlank()) contentDescription = markerDescription
+            }
+            .testTag(TAG_TIMELINE_EVENT_RULER),
+        contentAlignment = Alignment.Center
+    ) {
+        HorizontalDivider(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    start = if (showStartCap) TIMELINE_RULER_EDGE_INSET else 0.dp,
+                    end = if (showEndCap) TIMELINE_RULER_EDGE_INSET else 0.dp
+                ),
+            thickness = 1.dp,
+            color = MaterialTheme.colorScheme.outlineVariant
+        )
+        if (events.isNotEmpty()) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(3.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.testTag(TAG_TIMELINE_EVENT_MARKER)
+            ) {
+                events.take(MAX_MARKERS_PER_SLOT).forEach { event ->
+                    val color = eventMarkerColor(event)
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = color,
+                        modifier = Modifier.size(18.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = eventMarkerIcon(event),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.surface,
+                                modifier = Modifier.size(11.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        } else {
+            Box(
+                modifier = Modifier
+                    .size(5.dp)
+                    .background(
+                        MaterialTheme.colorScheme.outlineVariant,
+                        RoundedCornerShape(50)
+                    )
+            )
+        }
+    }
+}
+
+@Composable
+private fun eventMarkerLabel(event: ForecastEvent): String = stringResource(
+    when (event.kind) {
+        ForecastEventKind.PRECIPITATION -> R.string.timeline_event_marker_precipitation
+        ForecastEventKind.WIND -> R.string.timeline_event_marker_wind
+        ForecastEventKind.TEMPERATURE -> R.string.timeline_event_marker_temperature
+        ForecastEventKind.WEATHER_TRANSITION -> R.string.timeline_event_marker_weather
+        ForecastEventKind.UNCERTAINTY -> R.string.timeline_event_marker_uncertainty
+        ForecastEventKind.STABLE -> R.string.forecast_insight_title_stable_compact
+    }
+)
+
+@Composable
+private fun eventMarkerColor(event: ForecastEvent): Color = when (event.impact) {
+    ForecastInsightLevel.ALERT -> MaterialTheme.colorScheme.error
+    ForecastInsightLevel.WATCH -> MaterialTheme.colorScheme.tertiary
+    ForecastInsightLevel.INFO -> MaterialTheme.colorScheme.secondary
+    ForecastInsightLevel.POSITIVE -> MaterialTheme.colorScheme.primary
+}
+
+private fun eventMarkerIcon(event: ForecastEvent) = when (event.kind) {
+    ForecastEventKind.PRECIPITATION -> Icons.Outlined.WaterDrop
+    ForecastEventKind.WIND -> Icons.Outlined.Air
+    ForecastEventKind.TEMPERATURE -> Icons.Outlined.Thermostat
+    ForecastEventKind.WEATHER_TRANSITION -> Icons.Outlined.Cloud
+    ForecastEventKind.UNCERTAINTY -> Icons.Outlined.WarningAmber
+    ForecastEventKind.STABLE -> Icons.Outlined.CheckCircle
+}
+
+private fun eventsAssignedToPoint(
+    point: SimplifiedTimelinePoint,
+    displayPoints: List<SimplifiedTimelinePoint>,
+    events: List<ForecastEvent>
+): List<ForecastEvent> = events.filter { event ->
+    val nearest = displayPoints.minByOrNull { candidate ->
+        timelineDistance(candidate, event.peakPoint)
+    }
+    nearest != null && sameTimelinePoint(nearest, point) && event.kind != ForecastEventKind.STABLE
+}
+
+private fun nearestTimelineDisplayIndex(
+    points: List<SimplifiedTimelinePoint>,
+    target: SimplifiedTimelinePoint
+): Int = points.indices.minByOrNull { index -> timelineDistance(points[index], target) } ?: -1
+
+private fun timelineDistance(
+    first: SimplifiedTimelinePoint,
+    second: SimplifiedTimelinePoint
+): Long = when {
+    first.instant != null && second.instant != null ->
+        kotlin.math.abs(first.instant.toEpochMilli() - second.instant.toEpochMilli())
+    first.date != null && second.date != null ->
+        kotlin.math.abs(first.date.toEpochDay() - second.date.toEpochDay()) * 86_400_000L
+    else -> Long.MAX_VALUE
 }
 
 private data class TimelineLabels(
@@ -265,7 +412,7 @@ private fun TimelinePointCard(
 
     Column(
         modifier = Modifier
-            .width(TIMELINE_CARD_WIDTH)
+            .fillMaxWidth()
             .background(background, shape)
             .border(1.dp, borderColor, shape)
             .padding(horizontal = 7.dp, vertical = 8.dp)
@@ -561,6 +708,8 @@ private fun divergenceIconTag(reason: DivergenceReason): String = when (reason) 
 }
 
 internal const val TAG_SIMPLIFIED_TIMELINE = "simplified_timeline"
+internal const val TAG_TIMELINE_EVENT_RULER = "timeline_event_ruler"
+internal const val TAG_TIMELINE_EVENT_MARKER = "timeline_event_marker"
 internal const val TAG_TIMELINE_POINT_FOCUSED = "timeline_point_focused"
 internal const val TAG_TIMELINE_DIVERGENCE_REASON = "timeline_divergence_reason"
 internal const val TAG_TIMELINE_CONSENSUS_BADGE = "timeline_consensus_badge"
@@ -568,5 +717,8 @@ internal const val TAG_TIMELINE_DIVERGENCE_ICON_RAIN = "timeline_divergence_icon
 internal const val TAG_TIMELINE_DIVERGENCE_ICON_WIND = "timeline_divergence_icon_wind"
 private const val TAG_TIMELINE_POINT_PREFIX = "timeline_point_"
 private val TIMELINE_CARD_WIDTH = 108.dp
+private val EVENT_RULER_HEIGHT = 24.dp
+private val TIMELINE_RULER_EDGE_INSET = 54.dp
+private const val MAX_MARKERS_PER_SLOT = 4
 private val CONSENSUS_BADGE_MIN_HEIGHT = 32.dp
 private const val FOCUS_HIGHLIGHT_MILLIS = 1_800L

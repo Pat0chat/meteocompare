@@ -1,71 +1,66 @@
 package com.meteocompare.app.ui.citydetail
 
-import com.meteocompare.app.domain.model.WeatherCondition
 import java.time.Instant
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TimelineSelectionTest {
 
     @Test
-    fun `event selection keeps rain transitions wind peak temperature extrema and disagreement`() {
+    fun `hourly timeline uses stable three hour intervals`() {
         val start = Instant.parse("2026-07-23T10:00:00Z")
         val points = List(24) { index ->
-            SimplifiedTimelinePoint(
-                instant = start.plusSeconds(index * 3600L),
-                temperatureC = when (index) {
-                    5 -> 11.0
-                    14 -> 31.0
-                    else -> 18.0 + index / 3.0
-                },
-                precipitationPercent = if (index in 7..10) 75 else 10,
-                precipitationSource = PrecipitationSignalSource.MODEL_PROBABILITY,
-                precipitationModelCount = 3,
-                windKmh = if (index == 16) 55.0 else 12.0,
-                condition = if (index in 7..10) WeatherCondition.RAIN else WeatherCondition.CLEAR,
-                modelCount = 3,
-                temperatureModelCount = 3,
-                windModelCount = 3,
-                hasMultiModelEvidence = true,
-                divergenceReasons = if (index == 9) {
-                    setOf(DivergenceReason.PRECIPITATION)
-                } else {
-                    emptySet()
-                }
-            )
+            SimplifiedTimelinePoint(instant = start.plusSeconds(index * 3_600L))
         }
 
-        val selected = selectTimelinePoints(points)
+        val selected = selectRegularTimelinePoints(points)
 
-        assertTrue(selected.size <= 8)
-        assertTrue(points[7] in selected) // début de pluie
-        assertTrue(points[11] in selected) // fin de pluie
-        assertTrue(points[16] in selected) // pic de vent
-        assertTrue(points[5] in selected) // minimum de température
-        assertTrue(points[14] in selected) // maximum de température
-        assertTrue(points[9] in selected) // désaccord
-        assertEquals(points.first(), selected.first())
-        assertEquals(points.last(), selected.last())
+        assertEquals(8, selected.size)
+        assertEquals(
+            listOf(0L, 3L, 6L, 9L, 12L, 15L, 18L, 21L),
+            selected.map { (it.instant!!.epochSecond - start.epochSecond) / 3_600L }
+        )
     }
 
     @Test
-    fun `required insight point is retained even when regular sampling would skip it`() {
+    fun `events no longer alter the regular grid`() {
         val start = Instant.parse("2026-07-23T10:00:00Z")
         val points = List(24) { index ->
-            SimplifiedTimelinePoint(
-                instant = start.plusSeconds(index * 3600L),
-                temperatureC = 20.0,
-                modelCount = 3,
-                temperatureModelCount = 3,
-                hasMultiModelEvidence = true
-            )
+            SimplifiedTimelinePoint(instant = start.plusSeconds(index * 3_600L))
         }
-        val required = points[13]
+        val eventPoint = points[13]
 
-        val selected = selectTimelinePoints(points, requiredPoints = listOf(required))
+        val selected = selectRegularTimelinePoints(points)
 
-        assertTrue(required in selected)
-        assertTrue(selected.size <= 8)
+        assertFalse(eventPoint in selected)
+        assertEquals(points[12], selected[4])
+        assertEquals(points[15], selected[5])
+    }
+
+    @Test
+    fun `missing exact slot produces an empty regular placeholder`() {
+        val start = Instant.parse("2026-07-23T10:00:00Z")
+        val points = listOf(0L, 3L, 6L, 11L, 12L, 15L, 18L, 21L).map { hour ->
+            SimplifiedTimelinePoint(instant = start.plusSeconds(hour * 3_600L))
+        }
+
+        val selected = selectRegularTimelinePoints(points)
+
+        assertTrue(points[3] !in selected)
+        assertEquals(listOf(0L, 3L, 6L, 9L, 12L, 15L, 18L, 21L), selected.map {
+            (it.instant!!.epochSecond - start.epochSecond) / 3_600L
+        })
+        assertEquals(null, selected[3].temperatureC)
+    }
+
+    @Test
+    fun `daily timeline remains chronological and capped`() {
+        val points = (0..9).map { day ->
+            SimplifiedTimelinePoint(date = java.time.LocalDate.of(2026, 7, 23).plusDays(day.toLong()))
+        }
+
+        assertEquals(points.take(8), selectRegularTimelinePoints(points))
     }
 }

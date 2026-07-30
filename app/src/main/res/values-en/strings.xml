@@ -427,7 +427,7 @@
     <string name="forecast_tables_section">Detailed forecasts</string>
     <string name="timeline_title_hourly">Next 24 hours</string>
     <string name="timeline_title_daily">Next few days</string>
-    <string name="timeline_subtitle_hourly">A selection of key moments over the next 24 hours</string>
+    <string name="timeline_subtitle_hourly">3-hour reference points · markers show key events</string>
     <string name="timeline_subtitle_daily">Consensus of available models for the next few days</string>
     <string name="timeline_disagreement_hint">Agreement is shown as a percentage. When models disagree, icons identify the affected variables</string>
     <string name="timeline_now">Now</string>
@@ -533,4 +533,28 @@
     <string name="detail_tab_wind">Wind</string>
     <string name="detail_no_data">No data available for this view.</string>
 
+    <string name="forecast_insight_title_stable_compact">Nothing notable over the next 24 hours</string>
+    <string name="forecast_insight_detail_stable_compact">Models remain broadly consistent.</string>
+    <string name="forecast_insight_metric_probability_range">%1$d–%2$d%%</string>
+    <string name="forecast_insight_metric_wind_range">%1$d–%2$d km/h</string>
+    <string name="forecast_insight_metric_temperature_scenarios">%1$d–%2$d°</string>
+    <string name="forecast_insight_detail_rain_fused_uncertainty">An episode stands out, but its intensity or timing varies across models.</string>
+    <string name="forecast_insight_detail_rain_thunderstorm_uncertain">A thunderstorm risk stands out, with timing still uncertain.</string>
+    <string name="forecast_insight_title_temperature_frost">Frost risk</string>
+    <string name="forecast_insight_title_temperature_heat">Notable heat</string>
+    <string name="forecast_insight_title_temperature_extreme_heat">Very high heat</string>
+    <string name="forecast_insight_title_temperature_uncertain">Uncertain temperature</string>
+    <string name="forecast_insight_title_temperature_unusual_cooling">Unusual cooling</string>
+    <string name="forecast_insight_title_temperature_unusual_warming">Unusual warming</string>
+    <string name="forecast_insight_detail_temperature_frost">Temperatures could reach or fall below 0°.</string>
+    <string name="forecast_insight_detail_temperature_heat">A notable heat threshold may be reached.</string>
+    <string name="forecast_insight_detail_temperature_uncertain">Model scenarios show a wide temperature range.</string>
+    <string name="forecast_insight_detail_temperature_unusual">An unusual change for this time of day.</string>
+    <string name="forecast_insight_metric_precipitation">%1$.1f mm</string>
+    <string name="forecast_insight_metric_precipitation_range">%1$.1f–%2$.1f mm</string>
+    <string name="timeline_event_marker_precipitation">Rain event</string>
+    <string name="timeline_event_marker_wind">Wind event</string>
+    <string name="timeline_event_marker_temperature">Temperature event</string>
+    <string name="timeline_event_marker_weather">Weather change</string>
+    <string name="timeline_event_marker_uncertainty">Uncertain forecast</string>
 </resources>

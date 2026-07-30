@@ -46,7 +46,7 @@ class SimplifiedTimelineTest {
 
         assertEquals(24, analysis.size)
         assertEquals(24, overview.analysisPoints.size)
-        assertTrue(selectTimelinePoints(overview.analysisPoints).size <= 8)
+        assertTrue(selectRegularTimelinePoints(overview.analysisPoints).size <= 8)
     }
 
     @Test
@@ -85,6 +85,10 @@ class SimplifiedTimelineTest {
         assertEquals(WeatherCondition.RAIN, point.condition)
         assertEquals(3, point.modelCount)
         assertTrue(point.isDivergent)
+        assertEquals(3, point.consensusFor(ForecastMetric.TEMPERATURE)?.modelCount)
+        assertEquals(3, point.consensusFor(ForecastMetric.PRECIPITATION)?.modelCount)
+        assertEquals(3, point.consensusFor(ForecastMetric.WIND)?.modelCount)
+        assertTrue(point.consensusFor(ForecastMetric.PRECIPITATION)?.isDivergent == true)
     }
 
     @Test

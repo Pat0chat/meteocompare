@@ -13,7 +13,6 @@ import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.ui.theme.MeteoCompareTheme
 import java.time.Instant
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -21,155 +20,94 @@ class ForecastInsightsSectionTest {
     @get:Rule val composeRule = createComposeRule()
 
     @Test
-    fun first_insight_is_highlighted_in_the_single_section() {
-        val firstPoint = SimplifiedTimelinePoint(
-            instant = Instant.parse("2026-07-26T15:00:00Z"),
-            precipitationPercent = 60,
-            precipitationModelCount = 3,
-            precipitationSource = PrecipitationSignalSource.MODEL_PROBABILITY,
-            modelCount = 3,
-            hasMultiModelEvidence = true,
+    fun alert_is_emphasized_even_when_it_is_not_the_first_message() {
+        val watch = insight(
+            kind = ForecastInsightKind.WIND_EVENT,
+            hour = 2,
+            level = ForecastInsightLevel.WATCH,
+            value = 12,
+            secondary = 45
         )
-        val secondPoint = SimplifiedTimelinePoint(
-            instant = Instant.parse("2026-07-26T19:00:00Z"),
-            windKmh = 35.0,
-            windModelCount = 3,
-            modelCount = 3,
-            hasMultiModelEvidence = true,
+        val alert = insight(
+            kind = ForecastInsightKind.RAIN_LIKELY,
+            hour = 6,
+            level = ForecastInsightLevel.ALERT,
+            value = 90,
+            secondary = 4,
+            condition = WeatherCondition.THUNDERSTORM
         )
 
-        composeRule.setContent {
-            MeteoCompareTheme {
-                Surface {
-                    ForecastInsightsSection(
-                        insights = listOf(
-                            ForecastInsight(
-                                kind = ForecastInsightKind.RAIN_UNCERTAIN,
-                                point = firstPoint,
-                                value = 60,
-                                secondaryValue = 3,
-                                precipitationSource = PrecipitationSignalSource.MODEL_PROBABILITY
-                            ),
-                            ForecastInsight(
-                                kind = ForecastInsightKind.WIND_EVENT,
-                                point = secondPoint,
-                                value = 12,
-                                secondaryValue = 35
-                            )
-                        ),
-                        timezone = "Europe/Paris",
-                        onInsightClick = {}
-                    )
-                }
-            }
-        }
+        setContent(listOf(watch, alert))
 
-        composeRule.onNodeWithTag(TAG_FORECAST_INSIGHTS_SECTION).assertIsDisplayed()
-        composeRule.onNodeWithTag(TAG_FORECAST_INSIGHTS_SUMMARY).assertIsDisplayed()
-        composeRule.onNodeWithTag(TAG_FORECAST_INSIGHTS_TIMELINE_HINT).assertIsDisplayed()
-        composeRule.onNodeWithTag(TAG_FORECAST_INSIGHT_PRIMARY).assertIsDisplayed()
-        composeRule.onNodeWithTag(TAG_FORECAST_INSIGHT_SECONDARY).assertIsDisplayed()
-        composeRule.onAllNodesWithTag(TAG_FORECAST_INSIGHT_METRICS).assertCountEquals(2)
-
-        val primaryHeight = composeRule
-            .onNodeWithTag(TAG_FORECAST_INSIGHT_PRIMARY)
-            .fetchSemanticsNode()
-            .boundsInRoot.height
-        val secondaryHeight = composeRule
-            .onNodeWithTag(TAG_FORECAST_INSIGHT_SECONDARY)
-            .fetchSemanticsNode()
-            .boundsInRoot.height
-
-        assertTrue(primaryHeight > secondaryHeight)
+        composeRule.onAllNodesWithTag(TAG_FORECAST_INSIGHT_PRIMARY).assertCountEquals(1)
+        composeRule.onAllNodesWithTag(TAG_FORECAST_INSIGHT_SECONDARY).assertCountEquals(1)
+        composeRule.onNodeWithText(
+            InstrumentationRegistry.getInstrumentation().targetContext.getString(
+                R.string.forecast_insight_title_weather_thunderstorm
+            )
+        ).assertIsDisplayed()
     }
 
     @Test
-    fun disagreement_metrics_keep_all_affected_variables_visible() {
-        val point = SimplifiedTimelinePoint(
-            instant = Instant.parse("2026-07-26T15:00:00Z"),
-            modelCount = 3,
-            hasMultiModelEvidence = true,
-            consensusPercent = 35,
-            divergenceReasons = setOf(
-                DivergenceReason.PRECIPITATION,
-                DivergenceReason.WIND
-            )
+    fun stable_state_uses_the_lightweight_row() {
+        val stable = insight(
+            kind = ForecastInsightKind.HIGH_AGREEMENT,
+            hour = 3,
+            level = ForecastInsightLevel.POSITIVE,
+            value = 88
         )
 
-        composeRule.setContent {
-            MeteoCompareTheme {
-                Surface {
-                    ForecastInsightsSection(
-                        insights = listOf(
-                            ForecastInsight(
-                                kind = ForecastInsightKind.DISAGREEMENT,
-                                level = ForecastInsightLevel.WATCH,
-                                point = point,
-                                divergenceReasons = point.divergenceReasons
-                            )
-                        ),
-                        timezone = "Europe/Paris"
-                    )
-                }
-            }
-        }
+        setContent(listOf(stable))
 
-        composeRule.onNodeWithTag(
-            "${TAG_FORECAST_INSIGHT_REASON_PREFIX}precipitation"
-        ).assertIsDisplayed()
-        composeRule.onNodeWithTag(
-            "${TAG_FORECAST_INSIGHT_REASON_PREFIX}wind"
-        ).assertIsDisplayed()
-        composeRule.onNodeWithTag(TAG_FORECAST_INSIGHT_CONSENSUS).assertIsDisplayed()
+        composeRule.onNodeWithTag(TAG_FORECAST_INSIGHT_STABLE).assertIsDisplayed()
+        composeRule.onNodeWithTag(TAG_FORECAST_INSIGHT_PRIMARY).assertDoesNotExist()
+        composeRule.onNodeWithTag(TAG_FORECAST_INSIGHTS_TIMELINE_HINT).assertDoesNotExist()
+    }
+
+    @Test
+    fun disagreement_metric_pills_keep_identical_dimensions() {
+        val point = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-26T15:00:00Z"),
+            modelCount = 4,
+            hasMultiModelEvidence = true,
+            consensusPercent = 35,
+            divergenceReasons = setOf(DivergenceReason.PRECIPITATION, DivergenceReason.WIND)
+        )
+        val disagreement = ForecastInsight(
+            kind = ForecastInsightKind.DISAGREEMENT,
+            level = ForecastInsightLevel.WATCH,
+            point = point,
+            divergenceReasons = point.divergenceReasons
+        )
+
+        setContent(listOf(disagreement), clickable = false)
 
         val reasonBounds = composeRule
             .onNodeWithTag("${TAG_FORECAST_INSIGHT_REASON_PREFIX}precipitation")
-            .fetchSemanticsNode()
-            .boundsInRoot
+            .assertIsDisplayed()
+            .fetchSemanticsNode().boundsInRoot
         val consensusBounds = composeRule
             .onNodeWithTag(TAG_FORECAST_INSIGHT_CONSENSUS)
-            .fetchSemanticsNode()
-            .boundsInRoot
+            .assertIsDisplayed()
+            .fetchSemanticsNode().boundsInRoot
 
         assertEquals(consensusBounds.height, reasonBounds.height, 0.5f)
         assertEquals(reasonBounds.height, reasonBounds.width, 0.5f)
     }
 
     @Test
-    fun severe_precipitation_uses_the_specific_condition_wording() {
+    fun severe_precipitation_uses_specific_wording() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val point = SimplifiedTimelinePoint(
-            instant = Instant.parse("2026-07-26T18:00:00Z"),
-            precipitationPercent = 80,
-            precipitationModelCount = 3,
-            precipitationSource = PrecipitationSignalSource.MODEL_PROBABILITY,
-            condition = WeatherCondition.THUNDERSTORM,
-            conditionModelCount = 3,
-            modelCount = 3,
-            hasMultiModelEvidence = true
+        val alert = insight(
+            kind = ForecastInsightKind.RAIN_LIKELY,
+            hour = 7,
+            level = ForecastInsightLevel.ALERT,
+            value = 80,
+            secondary = 4,
+            condition = WeatherCondition.THUNDERSTORM
         )
 
-        composeRule.setContent {
-            MeteoCompareTheme {
-                Surface {
-                    ForecastInsightsSection(
-                        insights = listOf(
-                            ForecastInsight(
-                                kind = ForecastInsightKind.RAIN_LIKELY,
-                                level = ForecastInsightLevel.ALERT,
-                                point = point,
-                                value = 80,
-                                secondaryValue = 3,
-                                targetValue = 80,
-                                targetCondition = WeatherCondition.THUNDERSTORM,
-                                precipitationSource = PrecipitationSignalSource.MODEL_PROBABILITY
-                            )
-                        ),
-                        timezone = "Europe/Paris"
-                    )
-                }
-            }
-        }
+        setContent(listOf(alert), clickable = false)
 
         composeRule.onNodeWithText(
             context.getString(R.string.forecast_insight_title_weather_thunderstorm)
@@ -177,9 +115,52 @@ class ForecastInsightsSectionTest {
         composeRule.onNodeWithText(
             context.getString(R.string.forecast_insight_title_rain_likely)
         ).assertDoesNotExist()
-        composeRule.onNodeWithText(
-            context.getString(R.string.forecast_insight_metric_probability, 80)
-        ).assertIsDisplayed()
     }
 
+    private fun setContent(insights: List<ForecastInsight>, clickable: Boolean = true) {
+        composeRule.setContent {
+            MeteoCompareTheme {
+                Surface {
+                    ForecastInsightsSection(
+                        insights = insights,
+                        timezone = "Europe/Paris",
+                        onInsightClick = if (clickable) ({}) else null
+                    )
+                }
+            }
+        }
+    }
+
+    private fun insight(
+        kind: ForecastInsightKind,
+        hour: Int,
+        level: ForecastInsightLevel,
+        value: Int? = null,
+        secondary: Int? = null,
+        condition: WeatherCondition? = null
+    ): ForecastInsight {
+        val point = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-26T10:00:00Z").plusSeconds(hour * 3_600L),
+            precipitationPercent = value,
+            precipitationSource = if (kind in setOf(
+                    ForecastInsightKind.RAIN_LIKELY,
+                    ForecastInsightKind.RAIN_UNCERTAIN
+                )) PrecipitationSignalSource.MODEL_PROBABILITY else null,
+            precipitationModelCount = secondary ?: 0,
+            windKmh = secondary?.toDouble(),
+            condition = condition,
+            modelCount = 4,
+            hasMultiModelEvidence = true
+        )
+        return ForecastInsight(
+            kind = kind,
+            level = level,
+            point = point,
+            value = value,
+            secondaryValue = secondary,
+            targetValue = value,
+            targetCondition = condition,
+            precipitationSource = point.precipitationSource
+        )
+    }
 }

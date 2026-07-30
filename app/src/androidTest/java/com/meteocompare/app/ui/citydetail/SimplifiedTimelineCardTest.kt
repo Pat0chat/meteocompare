@@ -169,4 +169,51 @@ class SimplifiedTimelineCardTest {
         composeRule.onNodeWithText("02h").assertIsDisplayed()
     }
 
+    @Test
+    fun event_is_shown_on_the_ruler_without_changing_regular_points() {
+        val start = Instant.parse("2026-07-26T12:00:00Z")
+        val points = listOf(0L, 3L, 6L).map { offset ->
+            SimplifiedTimelinePoint(
+                instant = start.plusSeconds(offset * 3_600L),
+                temperatureC = 20.0,
+                modelCount = 3,
+                temperatureModelCount = 3,
+                hasMultiModelEvidence = true
+            )
+        }
+        val eventPoint = SimplifiedTimelinePoint(
+            instant = start.plusSeconds(4 * 3_600L),
+            precipitationPercent = 80,
+            precipitationModelCount = 3,
+            modelCount = 3,
+            hasMultiModelEvidence = true
+        )
+        val event = ForecastEvent(
+            kind = ForecastEventKind.PRECIPITATION,
+            impact = ForecastInsightLevel.WATCH,
+            priority = 80,
+            startPoint = eventPoint,
+            peakPoint = eventPoint
+        )
+
+        composeRule.setContent {
+            MeteoCompareTheme {
+                Surface {
+                    SimplifiedTimelineCard(
+                        points = points,
+                        events = listOf(event),
+                        mode = DisplayMode.HOURLY,
+                        timezone = "UTC",
+                        now = start.minusSeconds(2 * 3_600L)
+                    )
+                }
+            }
+        }
+
+        composeRule.onNodeWithTag(TAG_TIMELINE_EVENT_MARKER).assertIsDisplayed()
+        composeRule.onNodeWithText("12h").assertIsDisplayed()
+        composeRule.onNodeWithText("15h").assertIsDisplayed()
+        composeRule.onNodeWithText("18h").assertIsDisplayed()
+    }
+
 }
