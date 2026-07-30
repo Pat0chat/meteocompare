@@ -17,6 +17,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import com.meteocompare.app.BuildConfig
 import com.meteocompare.app.core.util.runSuspendCatching
 import com.meteocompare.app.domain.model.RefreshInterval
 import dagger.hilt.android.EntryPointAccessors
@@ -300,7 +301,9 @@ internal class WidgetRefreshWorker(
             return@withLock if (receiverLookupFailures == WidgetReceivers.All.size) {
                 Result.retry()
             } else {
-                android.util.Log.d(WIDGET_LOG_TAG, "No live widgets to refresh")
+                if (BuildConfig.DEBUG) {
+                    android.util.Log.d(WIDGET_LOG_TAG, "No live widgets to refresh")
+                }
                 Result.success()
             }
         }
@@ -409,11 +412,13 @@ internal class WidgetRefreshWorker(
             return@withLock Result.retry()
         }
 
-        android.util.Log.d(
-            WIDGET_LOG_TAG,
-            "Widget refresh completed: live=${liveWidgetIds.size}, " +
-                "updated=$updatedCount, skipped=$skippedCount, failed=$failedCount"
-        )
+        if (BuildConfig.DEBUG) {
+            android.util.Log.d(
+                WIDGET_LOG_TAG,
+                "Widget refresh completed: live=${liveWidgetIds.size}, " +
+                    "updated=$updatedCount, skipped=$skippedCount, failed=$failedCount"
+            )
+        }
 
         // Une panne isolée ne doit pas refaire tout le lot. En revanche, si
         // aucun widget vivant n'a pu être actualisé, demander un retry avec

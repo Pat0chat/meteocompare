@@ -197,8 +197,8 @@ internal data class WidgetColorOption(
  * fatigue de décision. Un color picker HSV complet serait techniquement
  * possible mais ajouterait beaucoup d'UI et d'états sans amener de valeur
  * — 9 presets couvrent 90% des besoins raisonnables. Les 10% restants
- * (bleu très spécifique, teinte pantone d'entreprise) restent en TODO si
- * demande utilisateur.
+ * (bleu très spécifique, teinte Pantone d'entreprise) restent volontairement
+ * hors périmètre tant qu'aucun besoin utilisateur n'est identifié.
  *
  * Note : les Ints ARGB sont exprimés avec `0xFF` en byte alpha — c'est
  * l'opacité de la couleur BASE. L'opacité utilisateur ([OpacityPctKey])

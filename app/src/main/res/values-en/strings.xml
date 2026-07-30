@@ -484,10 +484,6 @@
     <string name="forecast_insight_metric_model_ratio">%1$d/%2$d models</string>
     <string name="forecast_insight_metric_coverage">%1$d/%2$d models</string>
     <string name="forecast_insight_metric_wind">%1$d km/h</string>
-    <string name="forecast_insight_metric_wind_delta_positive">+%1$d km/h</string>
-    <string name="forecast_insight_metric_wind_delta_negative">−%1$d km/h</string>
-    <string name="forecast_insight_metric_temperature_delta_positive">+%1$d°</string>
-    <string name="forecast_insight_metric_temperature_delta_negative">−%1$d°</string>
     <string name="forecast_insight_metric_temperature_range">%1$d° → %2$d°</string>
     <string name="forecast_insight_title_disagreement">Uncertain forecast</string>
     <string name="forecast_insight_title_disagreement_multiple">Highly uncertain forecast</string>
@@ -510,7 +506,6 @@
     <string name="forecast_insight_detail_rain_thunderstorm">A thunderstorm scenario stands out clearly.</string>
     <string name="forecast_insight_detail_rain_freezing">A freezing-rain risk stands out clearly.</string>
     <string name="forecast_insight_detail_rain_snow">A snow scenario stands out clearly.</string>
-    <string name="forecast_insight_detail_rain_uncertain_short">Scenarios remain split.</string>
     <string name="forecast_insight_detail_rain_uncertain_persistent">Uncertainty persists until %1$s.</string>
     <string name="forecast_insight_title_wind_rising">Wind increasing noticeably</string>
     <string name="forecast_insight_title_wind_strong">Sustained wind</string>
@@ -518,9 +513,6 @@
     <string name="forecast_insight_detail_wind_rising_short">A peak develops quickly.</string>
     <string name="forecast_insight_detail_wind_strong">Levels remain elevated across several time steps.</string>
     <string name="forecast_insight_detail_wind_peak">A marked peak is expected.</string>
-    <string name="forecast_insight_title_temperature_rising">Temperatures rising quickly</string>
-    <string name="forecast_insight_title_temperature_falling">Temperatures falling quickly</string>
-    <string name="forecast_insight_detail_temperature_change">A marked change over a short period.</string>
 
     <string name="local_reliability_title">Local reliability</string>
     <string name="local_reliability_subtitle_with_confidence">%1$d%% confidence · %2$d models</string>

@@ -236,7 +236,7 @@ private fun TimelineEventRulerSegment(
         modifier = Modifier
             .fillMaxWidth()
             .height(EVENT_RULER_HEIGHT)
-            .semantics(mergeDescendants = true) {
+            .semantics {
                 if (markerDescription.isNotBlank()) contentDescription = markerDescription
             }
             .testTag(TAG_TIMELINE_EVENT_RULER),

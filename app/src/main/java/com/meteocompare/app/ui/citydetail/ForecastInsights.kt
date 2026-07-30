@@ -23,7 +23,6 @@ internal enum class ForecastInsightLevel {
     POSITIVE
 }
 
-
 internal enum class ForecastEventKind {
     PRECIPITATION,
     WIND,
@@ -48,8 +47,8 @@ internal data class ForecastEventEvidence(
 )
 
 /**
- * Événement météo indépendant de sa formulation. La détection, la sélection
- * éditoriale et le rendu de la timeline partagent ainsi la même source.
+ * Événement météo structuré partagé par la sélection éditoriale et la timeline.
+ * [insightSeed] conserve uniquement les paramètres nécessaires au message final.
  */
 internal data class ForecastEvent(
     val kind: ForecastEventKind,
@@ -60,8 +59,8 @@ internal data class ForecastEvent(
     val endPoint: SimplifiedTimelinePoint? = null,
     val evidence: ForecastEventEvidence = ForecastEventEvidence(),
     val condition: WeatherCondition? = null,
-    /** Charge utile conservée pour la couche éditoriale. */
-    val sourceInsight: ForecastInsight? = null
+    /** Graine de présentation, enrichie après la sélection des événements. */
+    val insightSeed: ForecastInsight? = null
 )
 
 /** Observation courte dérivée localement du consensus multi-modèles. */
@@ -114,15 +113,15 @@ internal fun detectForecastEvents(overview: OverviewTimeline): List<ForecastEven
     val points = overview.analysisPoints.sortedBy(::insightSortKey)
     if (points.isEmpty()) return emptyList()
 
-    val legacy = buildLegacyForecastInsights(overview)
+    val candidateInsights = buildCandidateInsights(overview)
         .filter(::isEditoriallyUsefulInsight)
-    val specific = legacy.filterNot { it.kind == ForecastInsightKind.DISAGREEMENT }
+    val specific = candidateInsights.filterNot { it.kind == ForecastInsightKind.DISAGREEMENT }
         .map { insight -> enrichEventEvidence(forecastEventFromInsight(insight), points) }
         .toMutableList()
     if (specific.none { it.kind == ForecastEventKind.TEMPERATURE }) {
         buildTemperatureThresholdEvent(points)?.let(specific::add)
     }
-    val disagreements = legacy.filter { it.kind == ForecastInsightKind.DISAGREEMENT }
+    val disagreements = candidateInsights.filter { it.kind == ForecastInsightKind.DISAGREEMENT }
 
     disagreements.forEach { disagreement ->
         val point = disagreement.point ?: return@forEach
@@ -158,7 +157,7 @@ internal fun buildForecastInsights(overview: OverviewTimeline): List<ForecastIns
 
 internal fun buildForecastInsights(events: List<ForecastEvent>): List<ForecastInsight> =
     selectMostRelevantEvents(events).map { event ->
-        val source = requireNotNull(event.sourceInsight)
+        val source = requireNotNull(event.insightSeed)
         source.copy(
             level = event.impact,
             priority = event.priority,
@@ -208,7 +207,7 @@ private fun buildTemperatureThresholdEvent(
     val source = ForecastInsight(
         kind = ForecastInsightKind.TEMPERATURE_CHANGE,
         level = level,
-        priority = 88 + kotlin.math.abs(targetValue - referenceValue),
+        priority = 88 + abs(targetValue - referenceValue),
         point = targetPoint,
         referencePoint = reference,
         referenceValue = referenceValue,
@@ -226,7 +225,7 @@ private fun isEditoriallyUsefulInsight(insight: ForecastInsight): Boolean {
     val crossesFreeze = (start > 0 && target <= 0) || target <= -3
     val crossesHeat = (start < 30 && target >= 30) || target >= 35
     val hasTemperatureUncertainty = DivergenceReason.TEMPERATURE in insight.divergenceReasons
-    val unusualShift = insight.level == ForecastInsightLevel.WATCH && kotlin.math.abs(target - start) >= 7
+    val unusualShift = insight.level == ForecastInsightLevel.WATCH && abs(target - start) >= 7
     return crossesFreeze || crossesHeat || hasTemperatureUncertainty || unusualShift
 }
 
@@ -294,7 +293,7 @@ private fun forecastEventFromInsight(insight: ForecastInsight): ForecastEvent {
         endPoint = insight.endPoint,
         evidence = evidence,
         condition = insight.targetCondition ?: point.condition,
-        sourceInsight = insight
+        insightSeed = insight
     )
 }
 
@@ -410,17 +409,17 @@ private fun eventNearPoint(
         DisplayMode.HOURLY -> {
             val a = event.peakPoint.instant ?: return false
             val b = point.instant ?: return false
-            kotlin.math.abs(Duration.between(a, b).toHours()) <= 2
+            abs(Duration.between(a, b).toHours()) <= 2
         }
         DisplayMode.DAILY -> {
             val a = event.peakPoint.date ?: return false
             val b = point.date ?: return false
-            kotlin.math.abs(a.toEpochDay() - b.toEpochDay()) <= 1
+            abs(a.toEpochDay() - b.toEpochDay()) <= 1
         }
     }
 }
 
-private fun buildLegacyForecastInsights(overview: OverviewTimeline): List<ForecastInsight> {
+private fun buildCandidateInsights(overview: OverviewTimeline): List<ForecastInsight> {
     val points = overview.analysisPoints.sortedBy(::insightSortKey)
     if (points.isEmpty()) return emptyList()
 

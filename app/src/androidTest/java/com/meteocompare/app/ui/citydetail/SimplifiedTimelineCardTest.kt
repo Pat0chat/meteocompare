@@ -1,9 +1,11 @@
 package com.meteocompare.app.ui.citydetail
 
 import androidx.compose.material3.Surface
-import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertContentDescriptionEquals
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.test.platform.app.InstrumentationRegistry
@@ -210,6 +212,7 @@ class SimplifiedTimelineCardTest {
             }
         }
 
+        composeRule.onAllNodesWithTag(TAG_TIMELINE_EVENT_MARKER).assertCountEquals(1)
         composeRule.onNodeWithTag(TAG_TIMELINE_EVENT_MARKER).assertIsDisplayed()
         composeRule.onNodeWithText("12h").assertIsDisplayed()
         composeRule.onNodeWithText("15h").assertIsDisplayed()
