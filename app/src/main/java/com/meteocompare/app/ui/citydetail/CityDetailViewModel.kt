@@ -333,9 +333,11 @@ class CityDetailViewModel @Inject constructor(
             }
             cityTimezone.value = city.timezone
 
-            // Les normales sont indépendantes du jeu de modèles météo : une
-            // seule lecture suffit pour toute la durée de vie de cette page.
-            launchNormalsLoad(city)
+            // Les normales sont indépendantes du jeu de modèles météo, mais leur
+            // premier calcul peut télécharger dix années d'archives. On attend le
+            // premier forecast exploitable avant de les lancer afin de donner la
+            // priorité au contenu principal et à sa première frame.
+            var normalsStarted = false
 
             // La page peut rester vivante dans la back stack pendant un passage
             // par Settings. Modèles et intervalle doivent donc être observés,
@@ -359,7 +361,13 @@ class CityDetailViewModel @Inject constructor(
                         maxCacheAgeMs = maxCacheAgeMs
                     )
                 }
-                .collect { result -> applyResult(result) }
+                .collect { result ->
+                    applyResult(result)
+                    if (!normalsStarted && result is ApiResult.Success) {
+                        normalsStarted = true
+                        launchNormalsLoad(city)
+                    }
+                }
         }
     }
 

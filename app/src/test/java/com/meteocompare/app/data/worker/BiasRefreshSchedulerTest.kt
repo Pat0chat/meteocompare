@@ -90,6 +90,10 @@ class BiasRefreshSchedulerTest {
             org.junit.Assert.assertTrue(
                 request.workSpec.input.getBoolean(BiasRefreshScheduler.KICKOFF_INPUT_KEY, false)
             )
+            assertEquals(
+                BiasRefreshScheduler.KICKOFF_INITIAL_DELAY_MS,
+                request.workSpec.initialDelay
+            )
         }
     }
 }

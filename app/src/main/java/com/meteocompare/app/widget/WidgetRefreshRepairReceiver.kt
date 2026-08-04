@@ -7,6 +7,10 @@ import android.content.Intent
 import android.util.Log
 import com.meteocompare.app.BuildConfig
 import com.meteocompare.app.data.worker.BiasRefreshScheduler
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 /**
  * Répare la planification après redémarrage ou remplacement de l'APK.
@@ -23,32 +27,43 @@ class WidgetRefreshRepairReceiver : BroadcastReceiver() {
         ) return
 
         val appContext = context.applicationContext
-        val isAppReplacement = intent.action == Intent.ACTION_MY_PACKAGE_REPLACED
+        val action = intent.action
+        val pendingResult = goAsync()
 
-        if (isAppReplacement) {
-            BiasRefreshScheduler.updateAfterAppReplacement(appContext)
-        }
+        // BroadcastReceiver.onReceive s'exécute sur Main. WorkManager et le
+        // garde SharedPreferences peuvent effectuer des I/O : on termine la
+        // réparation dans la fenêtre goAsync plutôt que de bloquer le receiver.
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            try {
+                runCatching {
+                    val isAppReplacement = action == Intent.ACTION_MY_PACKAGE_REPLACED
 
-        val hasWidgets = runCatching {
-            WidgetReceivers.anyAlive(
-                appContext,
-                AppWidgetManager.getInstance(appContext)
-            )
-        }.getOrElse { error ->
-            Log.w("MeteoCompare/Widget", "Unable to repair widget scheduling", error)
-            false
-        }
+                    if (isAppReplacement) {
+                        BiasRefreshScheduler.updateAfterAppReplacement(appContext)
+                    }
 
-        if (hasWidgets) {
-            if (BuildConfig.DEBUG) {
-                Log.d("MeteoCompare/Widget", "Repairing widget refresh after ${intent.action}")
+                    val hasWidgets = WidgetReceivers.anyAlive(
+                        appContext,
+                        AppWidgetManager.getInstance(appContext)
+                    )
+
+                    if (hasWidgets) {
+                        if (BuildConfig.DEBUG) {
+                            Log.d("MeteoCompare/Widget", "Repairing widget refresh after $action")
+                        }
+                        if (isAppReplacement) {
+                            WidgetRefreshScheduler.updateAfterAppReplacement(appContext)
+                        } else {
+                            WidgetRefreshScheduler.schedule(appContext)
+                        }
+                        WidgetRefreshScheduler.triggerImmediateRefresh(appContext)
+                    }
+                }.onFailure { error ->
+                    Log.w("MeteoCompare/Widget", "Unable to repair background scheduling", error)
+                }
+            } finally {
+                pendingResult.finish()
             }
-            if (isAppReplacement) {
-                WidgetRefreshScheduler.updateAfterAppReplacement(appContext)
-            } else {
-                WidgetRefreshScheduler.schedule(appContext)
-            }
-            WidgetRefreshScheduler.triggerImmediateRefresh(appContext)
         }
     }
 }

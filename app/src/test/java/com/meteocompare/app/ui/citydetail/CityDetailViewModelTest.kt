@@ -34,6 +34,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
@@ -246,6 +247,32 @@ class CityDetailViewModelTest {
             assertEquals(CityDetailUiState.Loading, awaitItem())
         }
     }
+
+    @Test
+    fun `loadInitial - normales ne demarrent pas avant un forecast exploitable`() =
+        runTest(dispatcher) {
+            buildViewModel()
+            runCurrent()
+
+            coVerify(exactly = 0) { climateRepo.getNormalsForCity(any()) }
+        }
+
+    @Test
+    fun `loadInitial - normales demarrent une seule fois apres le premier succes`() =
+        runTest(dispatcher) {
+            val forecast = buildForecast(paris)
+            coEvery {
+                forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
+            } returns flowOf(
+                ApiResult.Success(forecast),
+                ApiResult.Success(forecast.copy(fetchedAt = forecast.fetchedAt?.plusSeconds(60)))
+            )
+
+            buildViewModel()
+            runCurrent()
+
+            coVerify(exactly = 1) { climateRepo.getNormalsForCity(eq(paris)) }
+        }
 
     @Test
     fun `loadInitial - ville inconnue dans les favoris → Error`() = runTest(dispatcher) {

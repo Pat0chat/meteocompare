@@ -8,7 +8,8 @@ import java.util.concurrent.TimeUnit
  * refaire un cycle historique complet alors qu'un cycle vient de réussir.
  *
  * Le periodic quotidien reste la source de vérité. Cette petite préférence
- * n'est lue que depuis le thread du Worker, jamais sur le thread principal.
+ * est lue depuis un Worker ou depuis l'initialisation applicative déportée
+ * sur Dispatchers.IO, jamais sur le thread principal.
  */
 internal object BiasRefreshRunGate {
     private const val PREFS_NAME = "meteocompare_background_refresh"

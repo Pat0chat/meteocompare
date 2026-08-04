@@ -92,7 +92,9 @@ object BiasRefreshScheduler {
      *
      * 2. **OneTimeWorkRequest** (kickoff conditionnel) — pour que la première
      *    référence devenue vérifiable n'attende pas la fenêtre du periodic
-     *    (potentiellement jusqu'à 24h). [ExistingWorkPolicy.KEEP] pour l'idempotence :
+     *    (potentiellement jusqu'à 24h). Un bref délai initial laisse le premier
+     *    rendu de l'application terminer avant le housekeeping. [ExistingWorkPolicy.KEEP]
+     *    assure l'idempotence :
      *    Le scheduler consulte d'abord un garde local de fraîcheur de 20 h ;
      *    il n'enqueue donc rien pendant cette période. KEEP déduplique aussi
      *    un éventuel kickoff déjà en attente ou actif.
@@ -214,12 +216,12 @@ object BiasRefreshScheduler {
         )
 
         if (enqueueKickoff) {
-            // Kickoff immédiat pour ne pas attendre 24h avant le premier cycle.
-            // Le worker applique un garde de 20 h aux kickoffs terminés. Le
-            // premier lancement reste immédiat, mais les ouvertures suivantes ne
-            // dépassent pas une lecture de préférence locale.
+            // Kickoff différé brièvement pour ne pas concurrencer le premier
+            // rendu Compose, tout en restant très loin de l'attente potentielle
+            // de 24 h du periodic. Le worker applique ensuite le garde de 20 h.
             val kickoff = OneTimeWorkRequestBuilder<BiasRefreshWorker>()
                 .setInputData(workDataOf(KICKOFF_INPUT_KEY to true))
+                .setInitialDelay(KICKOFF_INITIAL_DELAY_MS, TimeUnit.MILLISECONDS)
                 .setConstraints(constraints)
                 .setBackoffCriteria(
                     BackoffPolicy.EXPONENTIAL,
@@ -245,6 +247,7 @@ object BiasRefreshScheduler {
     internal const val KICKOFF_INPUT_KEY: String = "bias_refresh_kickoff"
     internal const val MANUAL_INPUT_KEY: String = "bias_refresh_manual"
 
+    internal const val KICKOFF_INITIAL_DELAY_MS: Long = 60_000L
     internal const val PER_CITY_OPERATION_TIMEOUT_MS: Long = 45_000L
 
     /**

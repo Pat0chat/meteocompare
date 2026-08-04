@@ -9,6 +9,10 @@ import com.meteocompare.app.data.worker.BiasRefreshScheduler
 import com.meteocompare.app.widget.WidgetReceivers
 import com.meteocompare.app.widget.WidgetRefreshScheduler
 import dagger.hilt.android.HiltAndroidApp
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 /**
  * Application Hilt racine.
@@ -34,6 +38,8 @@ import dagger.hilt.android.HiltAndroidApp
  */
 @HiltAndroidApp
 class MeteoCompareApplication : Application() {
+    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     override fun onCreate() {
         super.onCreate()
 
@@ -64,20 +70,39 @@ class MeteoCompareApplication : Application() {
             )
         }
 
-        BiasRefreshScheduler.schedule(this)
+        // Les gardes de fraîcheur utilisent SharedPreferences et WorkManager
+        // peut consulter sa base interne. Ces opérations ne participent pas au
+        // premier rendu : les exécuter sur IO évite toute lecture disque sur
+        // Main et réduit la contention pendant la première frame Compose.
+        applicationScope.launch {
+            runCatching {
+                BiasRefreshScheduler.schedule(this@MeteoCompareApplication)
+            }.onFailure { error ->
+                Log.w("MeteoCompare/BiasWorker", "Unable to schedule bias refresh", error)
+            }
 
-        // Garantit la présence du travail sans remplacer une planification
-        // déjà valide. La policy UPDATE est réservée à MY_PACKAGE_REPLACED.
-        // On ne programme rien quand aucun widget n'est réellement posé.
-        val hasWidgets = runCatching {
-            WidgetReceivers.anyAlive(this, AppWidgetManager.getInstance(this))
-        }.getOrElse { error ->
-            // Un launcher constructeur ne doit jamais pouvoir faire échouer le
-            // démarrage complet de l'application. Le prochain onUpdate du
-            // provider ou la prochaine ouverture réparera la planification.
-            Log.w("MeteoCompare/Widget", "Unable to inspect installed widgets", error)
-            false
+            // Garantit la présence du travail sans remplacer une planification
+            // déjà valide. La policy UPDATE est réservée à MY_PACKAGE_REPLACED.
+            // On ne programme rien quand aucun widget n'est réellement posé.
+            val hasWidgets = runCatching {
+                WidgetReceivers.anyAlive(
+                    this@MeteoCompareApplication,
+                    AppWidgetManager.getInstance(this@MeteoCompareApplication)
+                )
+            }.getOrElse { error ->
+                // Un launcher constructeur ne doit jamais pouvoir faire échouer le
+                // démarrage complet de l'application. Le prochain onUpdate du
+                // provider ou la prochaine ouverture réparera la planification.
+                Log.w("MeteoCompare/Widget", "Unable to inspect installed widgets", error)
+                false
+            }
+            if (hasWidgets) {
+                runCatching {
+                    WidgetRefreshScheduler.schedule(this@MeteoCompareApplication)
+                }.onFailure { error ->
+                    Log.w("MeteoCompare/Widget", "Unable to schedule widget refresh", error)
+                }
+            }
         }
-        if (hasWidgets) WidgetRefreshScheduler.schedule(this)
     }
 }
