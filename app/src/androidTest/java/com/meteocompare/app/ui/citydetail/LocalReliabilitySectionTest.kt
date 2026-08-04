@@ -91,7 +91,10 @@ class LocalReliabilitySectionTest {
     private fun state(model: WeatherModel, error: Double): VariableBiasState =
         VariableBiasState(
             biasByModel = emptyMap(),
-            historyByModel = mapOf(model to samples(error)),
+            historyByModel = mapOf(
+                model to samples(error),
+                WeatherModel.ARPEGE_EUROPE to samples(error + 2.0)
+            ),
             yDomainMin = null,
             yDomainMax = null
         )

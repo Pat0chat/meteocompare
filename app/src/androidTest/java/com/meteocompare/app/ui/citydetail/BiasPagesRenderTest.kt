@@ -5,6 +5,7 @@ import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.platform.app.InstrumentationRegistry
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.BiasSample
@@ -13,7 +14,6 @@ import com.meteocompare.app.domain.model.ModelBias
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.ui.theme.MeteoCompareTheme
 import java.time.LocalDate
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -68,13 +68,15 @@ class BiasPagesRenderTest {
     @Test
     fun variable_bias_page_displays_same_rank_score_and_common_sample_set() {
         val state = variableState()
-        val selection = buildBiasSelection(
-            model = WeatherModel.GFS,
-            variable = BiasVariable.TEMPERATURE,
-            state = state
+        val selection = requireNotNull(
+            buildBiasSelection(
+                model = WeatherModel.GFS,
+                variable = BiasVariable.TEMPERATURE,
+                state = state
+            )
         )
-        assertNotNull(selection)
-        selection!!
+
+        val localRank = requireNotNull(selection.localRank)
 
         composeRule.setContent {
             MeteoCompareTheme {
@@ -89,8 +91,8 @@ class BiasPagesRenderTest {
         composeRule.onNodeWithText(
             context.getString(
                 R.string.bias_reliability_rank,
-                selection.localRank!!.rank,
-                selection.localRank!!.modelCount
+                localRank.rank,
+                localRank.modelCount
             )
         ).assertIsDisplayed()
         composeRule.onNodeWithText(formatBiasLabel(selection.bias)).assertIsDisplayed()
@@ -100,11 +102,13 @@ class BiasPagesRenderTest {
     @Test
     fun precipitation_page_displays_rain_diagnostics_and_mm_bias() {
         val state = variableState(BiasVariable.PRECIPITATION)
-        val selection = buildBiasSelection(
-            model = WeatherModel.GFS,
-            variable = BiasVariable.PRECIPITATION,
-            state = state
-        )!!
+        val selection = requireNotNull(
+            buildBiasSelection(
+                model = WeatherModel.GFS,
+                variable = BiasVariable.PRECIPITATION,
+                state = state
+            )
+        )
 
         composeRule.setContent {
             MeteoCompareTheme {
@@ -114,18 +118,24 @@ class BiasPagesRenderTest {
 
         composeRule.onNodeWithText(
             context.getString(R.string.bias_reliability_section_rain)
-        ).assertIsDisplayed()
-        composeRule.onNodeWithText(formatBiasLabel(selection.bias)).assertIsDisplayed()
+        )
+            .performScrollTo()
+            .assertIsDisplayed()
+        composeRule.onNodeWithText(formatBiasLabel(selection.bias))
+            .performScrollTo()
+            .assertIsDisplayed()
     }
 
     @Test
     fun wind_page_displays_wind_score_and_bias() {
         val state = variableState(BiasVariable.WIND_SPEED)
-        val selection = buildBiasSelection(
-            model = WeatherModel.GFS,
-            variable = BiasVariable.WIND_SPEED,
-            state = state
-        )!!
+        val selection = requireNotNull(
+            buildBiasSelection(
+                model = WeatherModel.GFS,
+                variable = BiasVariable.WIND_SPEED,
+                state = state
+            )
+        )
 
         composeRule.setContent {
             MeteoCompareTheme {

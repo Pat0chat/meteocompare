@@ -261,7 +261,6 @@ private fun RankingScoreBadge(score: Int, model: WeatherModel) {
     val accent = confidenceColor(score)
     Box(
         modifier = Modifier
-            .testTag(localRankingScoreTag(model))
             .clip(RoundedCornerShape(999.dp))
             .background(accent.copy(alpha = 0.15f))
             .padding(horizontal = 9.dp, vertical = 5.dp)
@@ -271,7 +270,8 @@ private fun RankingScoreBadge(score: Int, model: WeatherModel) {
             style = MaterialTheme.typography.labelLarge,
             color = accent,
             fontWeight = FontWeight.Bold,
-            fontFamily = FontFamily.Monospace
+            fontFamily = FontFamily.Monospace,
+            modifier = Modifier.testTag(localRankingScoreTag(model))
         )
     }
 }
