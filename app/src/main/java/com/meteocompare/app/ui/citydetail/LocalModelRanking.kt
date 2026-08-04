@@ -1,10 +1,14 @@
 package com.meteocompare.app.ui.citydetail
 
 import androidx.compose.runtime.Immutable
+import com.meteocompare.app.domain.model.BiasSample
 import com.meteocompare.app.domain.model.BiasVariable
+import com.meteocompare.app.domain.model.ModelBias
 import com.meteocompare.app.domain.model.ModelReliability
 import com.meteocompare.app.domain.model.ModelReliabilityCalculator
 import com.meteocompare.app.domain.model.WeatherModel
+import java.time.Instant
+import java.time.LocalDate
 
 /** Une ligne du classement local pour une variable météo. */
 @Immutable
@@ -51,9 +55,11 @@ internal data class LocalModelRankings(
 }
 
 /**
- * Construit les classements à partir des mêmes échantillons que le biais sheet.
- * Le tri suit le contrat du tableau de fiabilité : score décroissant, puis MAE
- * croissante et enfin nom du modèle pour stabiliser les égalités.
+ * Construit les classements à partir de journées strictement comparables.
+ *
+ * Tous les modèles d'un classement sont évalués sur le même ensemble de dates.
+ * On choisit le plus grand groupe possédant au moins quatorze dates communes,
+ * puis on trie par score décroissant, MAE croissante et nom d'affichage.
  */
 internal fun buildLocalModelRankings(state: BiasScreenState): LocalModelRankings =
     LocalModelRankings(
@@ -71,11 +77,13 @@ internal fun buildLocalModelRankings(state: BiasScreenState): LocalModelRankings
         )
     )
 
-private fun buildLocalVariableRanking(
+internal fun buildLocalVariableRanking(
     variable: BiasVariable,
-    state: VariableBiasState
+    state: VariableBiasState,
+    comparableHistories: Map<WeatherModel, List<BiasSample>> =
+        comparableHistoriesForRanking(state.historyByModel)
 ): LocalVariableRanking {
-    val reliabilities = state.historyByModel.mapNotNull { (model, samples) ->
+    val reliabilities = comparableHistories.mapNotNull { (model, samples) ->
         val windowDays = state.biasByModel[model]?.windowDays ?: DEFAULT_RANKING_WINDOW_DAYS
         ModelReliabilityCalculator.compute(
             variable = variable,
@@ -102,14 +110,82 @@ private fun buildLocalVariableRanking(
     )
 }
 
+/**
+ * Retourne le plus grand groupe de modèles comparable sur au moins 14 dates.
+ *
+ * Les doublons sont normalisés en gardant la capture la plus récente. Un rang
+ * nécessite au moins deux modèles : un modèle seul conserve sa page de biais,
+ * mais aucun rang artificiel 1/1 n'est affiché.
+ */
+internal fun comparableHistoriesForRanking(
+    historyByModel: Map<WeatherModel, List<BiasSample>>,
+    minimumSamples: Int = ModelBias.MIN_SAMPLES_FOR_BIAS
+): Map<WeatherModel, List<BiasSample>> {
+    require(minimumSamples > 0) { "minimumSamples must be positive" }
+
+    val normalized = historyByModel
+        .mapValues { (_, history) -> normalizeHistory(history) }
+        .filterValues { it.size >= minimumSamples }
+    if (normalized.size < MIN_MODELS_FOR_RANKING) return emptyMap()
+
+    val models = normalized.keys.sortedBy(WeatherModel::name)
+    for (cohortSize in models.size downTo MIN_MODELS_FOR_RANKING) {
+        val candidates = combinations(models, cohortSize).mapNotNull { cohort ->
+            val commonDates = cohort
+                .map { model ->
+                    normalized.getValue(model).mapTo(linkedSetOf(), BiasSample::targetDate)
+                }
+                .reduce { common, dates -> common.apply { retainAll(dates) } }
+            if (commonDates.size < minimumSamples) null else ComparableCohort(cohort, commonDates)
+        }
+        val best = candidates.sortedWith(
+            compareByDescending<ComparableCohort> { it.commonDates.size }
+                .thenBy { cohort -> cohort.models.joinToString("|") { it.name } }
+        ).firstOrNull() ?: continue
+
+        return best.models.associateWith { model ->
+            normalized.getValue(model).filter { it.targetDate in best.commonDates }
+        }
+    }
+    return emptyMap()
+}
+
+private data class ComparableCohort(
+    val models: List<WeatherModel>,
+    val commonDates: Set<LocalDate>
+)
+
+private fun normalizeHistory(history: List<BiasSample>): List<BiasSample> = history
+    .groupBy(BiasSample::targetDate)
+    .values
+    .mapNotNull { sameDate -> sameDate.maxByOrNull { it.issuedAt ?: Instant.MIN } }
+    .sortedBy(BiasSample::targetDate)
+
+private fun <T> combinations(values: List<T>, size: Int): Sequence<List<T>> = sequence {
+    if (size <= 0 || size > values.size) return@sequence
+    val selected = ArrayList<T>(size)
+
+    suspend fun SequenceScope<List<T>>.visit(start: Int) {
+        if (selected.size == size) {
+            yield(selected.toList())
+            return
+        }
+        val remaining = size - selected.size
+        for (index in start..values.size - remaining) {
+            selected += values[index]
+            visit(index + 1)
+            selected.removeAt(selected.lastIndex)
+        }
+    }
+
+    visit(0)
+}
+
 private const val DEFAULT_RANKING_WINDOW_DAYS = 30
+private const val MIN_MODELS_FOR_RANKING = 2
 
 /**
  * Variable à ouvrir depuis le bouton global du bloc fiabilité.
- *
- * Lorsque l'onglet actif possède un graphique mais pas encore assez
- * d'historique pour un classement, on redirige vers la première variable qui
- * dispose réellement d'un classement au lieu d'ouvrir une sheet vide.
  */
 internal fun rankingVariableFor(
     activeVariable: BiasVariable,

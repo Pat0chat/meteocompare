@@ -53,6 +53,12 @@ import com.meteocompare.app.ui.theme.windMetricAccent
 import kotlin.math.abs
 
 internal const val TAG_LOCAL_RANKING_SHEET = "local-ranking-sheet"
+internal const val TAG_LOCAL_RANKING_ROW_PREFIX = "local-ranking-row-"
+internal const val TAG_LOCAL_RANKING_SCORE_PREFIX = "local-ranking-score-"
+internal fun localRankingRowTag(model: WeatherModel): String =
+    TAG_LOCAL_RANKING_ROW_PREFIX + model.name
+internal fun localRankingScoreTag(model: WeatherModel): String =
+    TAG_LOCAL_RANKING_SCORE_PREFIX + model.name
 
 /** Grand sheet de classement local, avec un onglet par variable. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -170,6 +176,7 @@ private fun RankingModelRow(
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .testTag(localRankingRowTag(entry.model))
             .padding(horizontal = 16.dp, vertical = 5.dp),
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = container),
@@ -212,7 +219,7 @@ private fun RankingModelRow(
             }
             Spacer(Modifier.width(10.dp))
             Column(horizontalAlignment = Alignment.End) {
-                RankingScoreBadge(score = entry.reliability.score)
+                RankingScoreBadge(score = entry.reliability.score, model = entry.model)
                 Spacer(Modifier.height(4.dp))
                 Text(
                     text = stringResource(reliabilityLevelResId(entry.reliability.level)),
@@ -250,10 +257,11 @@ private fun RankingPositionBadge(rank: Int, accent: Color) {
 }
 
 @Composable
-private fun RankingScoreBadge(score: Int) {
+private fun RankingScoreBadge(score: Int, model: WeatherModel) {
     val accent = confidenceColor(score)
     Box(
         modifier = Modifier
+            .testTag(localRankingScoreTag(model))
             .clip(RoundedCornerShape(999.dp))
             .background(accent.copy(alpha = 0.15f))
             .padding(horizontal = 9.dp, vertical = 5.dp)

@@ -68,6 +68,13 @@ class BiasRefreshSchedulerTest {
         )
     }
 
+
+    @Test
+    fun `le bootstrap manuel couvre vingt et un jours et le quotidien trois jours`() {
+        assertEquals(21, BiasRefreshScheduler.historyLookbackDays(isManual = true))
+        assertEquals(3, BiasRefreshScheduler.historyLookbackDays(isManual = false))
+    }
+
     @Test
     fun `le kickoff reste unique avec KEEP dans les deux chemins`() {
         val workNames = mutableListOf<String>()

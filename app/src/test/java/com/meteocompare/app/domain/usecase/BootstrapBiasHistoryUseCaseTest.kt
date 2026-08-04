@@ -62,12 +62,16 @@ class BootstrapBiasHistoryUseCaseTest {
                 wind = { _, hour -> 20.0 + hour }
             )
 
-        val result = useCase(city, listOf(WeatherModel.GFS), today)
+        val result = useCase(city, listOf(WeatherModel.GFS), today, requestedDays = 14)
 
         assertEquals(14, result.coveredDays)
         assertEquals(1, result.coveredModels)
         assertEquals(42, result.forecastRecords)
         assertEquals(42, records.captured.size)
+        assertEquals(14, result.sampleCount(WeatherModel.GFS, BiasVariable.TEMPERATURE))
+        assertEquals(14, result.sampleCount(WeatherModel.GFS, BiasVariable.PRECIPITATION))
+        assertEquals(14, result.sampleCount(WeatherModel.GFS, BiasVariable.WIND_SPEED))
+        assertEquals(1, result.forecastReadyModels(BiasVariable.TEMPERATURE))
 
         val lastTarget = today.minusDays(1)
         assertEquals(
@@ -95,6 +99,36 @@ class BootstrapBiasHistoryUseCaseTest {
             assertEquals(
                 record.targetDate.minusDays(1),
                 record.issuedAt.atZone(ZoneId.of(city.timezone)).toLocalDate()
+            )
+        }
+    }
+
+
+    @Test
+    fun `bootstrap demande trois semaines par défaut et conserve quatorze jours valides`() = runTest {
+        val records = slot<List<ForecastBiasRecord>>()
+        coEvery { repository.recordForecasts(capture(records)) } returns Unit
+        val response = response(
+            model = WeatherModel.GFS,
+            days = 21,
+            temperature = { day, hour -> if (day < 7) null else hour.toDouble() },
+            precipitation = { day, _ -> if (day < 7) null else 0.5 },
+            wind = { day, hour -> if (day < 7) null else 20.0 + hour }
+        )
+        coEvery {
+            api.getPreviousDayOne(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        } returns response
+
+        val result = useCase(city, listOf(WeatherModel.GFS), today)
+
+        assertEquals(21, result.requestedDays)
+        assertEquals(14, result.coveredDays)
+        assertEquals(42, result.forecastRecords)
+        assertEquals(14, result.sampleCount(WeatherModel.GFS, BiasVariable.TEMPERATURE))
+        coVerify(exactly = 1) {
+            api.getPreviousDayOne(
+                any(), any(), any(), any(), city.timezone!!,
+                "2026-07-14", "2026-08-03", any(), any(), any()
             )
         }
     }

@@ -4,17 +4,16 @@ import androidx.room.Entity
 import androidx.room.Index
 
 /**
- * Une prévision J+1 capturée = un couple `(cityId, modelKey, variable)`
+ * Une prévision Previous Runs J+1 = un couple `(cityId, modelKey, variable)`
  * prévoyant une valeur pour un `targetDate`, enregistré pour une journée
  * locale d'émission représentée par `issuedAtEpochMs`.
  *
  * ## Clé primaire
  *
  * Composite sur les 5 champs métier. Le suivi actuel ne conserve que J+1 :
- * [com.meteocompare.app.domain.usecase.SnapshotForecastUseCase] normalise
- * `issuedAtEpochMs` au début de la journée locale. Plusieurs ouvertures le
- * même jour remplacent donc la même ligne via `REPLACE`, tandis que deux
- * journées d'émission distinctes restent auditables séparément.
+ * [com.meteocompare.app.domain.usecase.BootstrapBiasHistoryUseCase] écrit les
+ * valeurs Previous Runs à échéance fixe J+1 et normalise `issuedAtEpochMs` au
+ * début de la veille locale. Les rechargements quotidiens sont idempotents.
  *
  * ## Index
  *
@@ -45,7 +44,7 @@ data class ForecastSampleEntity(
     val variable: String,
     /** LocalDate.toEpochDay() du jour prévu. */
     val targetDateEpochDay: Long,
-    /** Début UTC de la journée locale pendant laquelle la prévision a été capturée. */
+    /** Début UTC de la veille locale correspondant à l’échéance fixe J+1. */
     val issuedAtEpochMs: Long,
     /** Valeur prévue dans l'unité naturelle de la variable (°C, mm, km/h). */
     val value: Double

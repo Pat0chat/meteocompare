@@ -27,12 +27,12 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -48,15 +48,17 @@ import com.meteocompare.app.domain.model.BiasSignificance
 import com.meteocompare.app.domain.model.BiasVariable
 import com.meteocompare.app.domain.model.ModelBias
 import com.meteocompare.app.domain.model.ModelReliability
-import com.meteocompare.app.domain.model.ModelReliabilityCalculator
 import com.meteocompare.app.domain.model.PrecipitationReliability
 import com.meteocompare.app.domain.model.ReliabilityLevel
-import com.meteocompare.app.domain.model.ReliabilityRank
 import com.meteocompare.app.domain.model.ReliabilityTrend
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.ui.theme.confidenceColor
 import kotlin.math.abs
 import kotlin.math.roundToInt
+
+
+internal const val TAG_MODEL_BIAS_DETAIL_SHEET = "model-bias-detail-sheet"
+internal const val TAG_MODEL_BIAS_SCORE = "model-bias-score"
 
 /**
  * Tableau de fiabilité local d'un modèle.
@@ -88,6 +90,7 @@ internal fun ModelBiasDetailSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .testTag(TAG_MODEL_BIAS_DETAIL_SHEET)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
                 .navigationBarsPadding()
@@ -145,58 +148,6 @@ internal fun ModelBiasDetailSheet(
             )
         }
     }
-}
-
-/** Données complètes nécessaires au tableau de fiabilité. */
-@Immutable
-internal data class BiasSelection(
-    val model: WeatherModel,
-    val bias: ModelBias,
-    val reliability: ModelReliability,
-    val localRank: ReliabilityRank?,
-    val multiModelReliability: ModelReliability?,
-    val dailyForecast: List<Double>,
-    val dailyObservation: List<Double>,
-    val yDomainMin: Double,
-    val yDomainMax: Double
-)
-
-/** Construit de manière pure les données de la sheet pour un modèle donné. */
-internal fun buildBiasSelection(
-    model: WeatherModel,
-    variable: BiasVariable,
-    state: VariableBiasState
-): BiasSelection? {
-    val bias = state.biasByModel[model] ?: return null
-    val samples = state.historyByModel[model] ?: return null
-    val yMin = state.yDomainMin ?: return null
-    val yMax = state.yDomainMax ?: return null
-    val perDay = samples.distinctBy { it.targetDate }
-
-    val reliabilityByModel = state.historyByModel.mapNotNull { (candidate, history) ->
-        ModelReliabilityCalculator.compute(
-            variable = variable,
-            samples = history,
-            windowDays = bias.windowDays
-        )?.let { candidate to it }
-    }.toMap()
-    val reliability = reliabilityByModel[model] ?: return null
-
-    return BiasSelection(
-        model = model,
-        bias = bias,
-        reliability = reliability,
-        localRank = ModelReliabilityCalculator.rank(model, reliabilityByModel),
-        multiModelReliability = ModelReliabilityCalculator.computeMultiModelBaseline(
-            variable = variable,
-            historyByModel = state.historyByModel,
-            windowDays = bias.windowDays
-        ),
-        dailyForecast = perDay.map { it.forecast },
-        dailyObservation = perDay.map { it.observation },
-        yDomainMin = yMin,
-        yDomainMax = yMax
-    )
 }
 
 @Composable
@@ -257,6 +208,7 @@ private fun ReliabilityHero(
                                 text = reliability.score.toString(),
                                 style = MaterialTheme.typography.displaySmall,
                                 fontWeight = FontWeight.Bold,
+                                modifier = Modifier.testTag(TAG_MODEL_BIAS_SCORE),
                                 color = accent
                             )
                             Text(

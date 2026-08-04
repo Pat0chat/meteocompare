@@ -47,7 +47,7 @@
     <string name="settings_about_data_source">Weather data provided by Open-Meteo (open-meteo.com).</string>
     <string name="settings_about_models_credit">Models: AROME and ARPEGE by Météo-France, ICON by DWD, GFS and HRRR by NOAA, ECMWF and AIFS by the European Centre, UKMO by the UK Met Office, GEM by Environment Canada, MET Nordic by MET Norway, HARMONIE by KNMI, ACCESS by the Bureau of Meteorology (Australia), GRAPES by CMA (China).</string>
     <string name="settings_bias_refresh_title">Bias tracking</string>
-    <string name="settings_bias_refresh_desc">Downloads up to 14 days of archived forecasts at a fixed D+1 lead time for enabled models, then their weather references, for your favorite cities. Models without available archives will continue calibrating over time.</string>
+    <string name="settings_bias_refresh_desc">Downloads up to 3 weeks of archived forecasts at a fixed D+1 lead time to obtain at least 14 common valid days for enabled models, then their weather references, for your favorite cities. Models without available archives will continue calibrating over time.</string>
     <string name="settings_bias_refresh_action">Initialize or update</string>
     <string name="settings_bias_refresh_queued">Update started. Available archived days will be processed in the background; some models may still require gradual collection.</string>
     <string name="settings_privacy_title">Privacy</string>
@@ -412,7 +412,7 @@
 
     <string name="local_ranking_view_all">View ranking</string>
     <string name="local_ranking_sheet_title">Local ranking</string>
-    <string name="local_ranking_sheet_explanation">Models are ranked by local reliability score, then by mean absolute error when scores are tied.</string>
+    <string name="local_ranking_sheet_explanation">Models are compared on the same common dates, then ranked by local reliability score and mean absolute error when scores are tied.</string>
     <string name="local_ranking_temperature_short">Max temp</string>
     <string name="local_ranking_precipitation_short">Rain total</string>
     <string name="local_ranking_wind_short">Max wind</string>
@@ -420,8 +420,8 @@
     <string name="local_ranking_standard_support">MAE %1$s · bias %2$s</string>
     <string name="local_ranking_rain_support">MAE %1$s · %2$d false alarms</string>
     <string name="local_ranking_empty_title">Ranking unavailable</string>
-    <string name="local_ranking_empty_body">At least 14 days of local history are required to rank models for this variable.</string>
-    <string name="local_ranking_method_note">This ranking is local and educational. It depends on the city, variable and actual history available; it is not an official model assessment.</string>
+    <string name="local_ranking_empty_body">At least two models with 14 common days are required to rank this variable.</string>
+    <string name="local_ranking_method_note">This ranking is local and educational. Only models with at least 14 common dates are compared, so every rank is based on exactly the same days. It is not an official model assessment.</string>
     <string name="local_ranking_open_content_description">Open the local model ranking</string>
 
     <string name="forecast_tables_section">Detailed forecasts</string>

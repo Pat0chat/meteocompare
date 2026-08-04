@@ -22,9 +22,9 @@ import java.time.LocalDate
  * @param observation la valeur historique de référence fournie par l'archive
  *   Open-Meteo. Elle provient de jeux de données de réanalyse et ne doit pas
  *   être présentée comme une mesure de station exacte au point demandé.
- * @param issuedAt marqueur de la journée locale pendant laquelle la prévision
- *   a été capturée. Le collecteur de production le normalise au début du jour
- *   pour que les refreshs successifs remplacent le même snapshot J+1. `null`
+ * @param issuedAt marqueur de la journée locale d'émission de la prévision
+ *   Previous Runs. Le collecteur le normalise au début de la veille locale
+ *   pour que les rafraîchissements successifs remplacent la même ligne J+1. `null`
  *   reste accepté pour les tests et données synthétiques.
  *
  * `@Immutable` pour rester stable Compose — les listes de [BiasSample] sont

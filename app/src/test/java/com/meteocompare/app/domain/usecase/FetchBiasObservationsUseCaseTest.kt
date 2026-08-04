@@ -28,7 +28,8 @@ class FetchBiasObservationsUseCaseTest {
         name = "Paris",
         country = "France",
         latitude = 48.85,
-        longitude = 2.35
+        longitude = 2.35,
+        timezone = "Europe/Paris"
     )
     private val today = LocalDate.of(2026, 7, 15)
 
@@ -147,7 +148,7 @@ class FetchBiasObservationsUseCaseTest {
                 startDate = "2026-07-11",
                 endDate = "2026-07-14",
                 daily = any(),
-                timezone = any(),
+                timezone = "Europe/Paris",
                 windSpeedUnit = any(),
                 precipitationUnit = any()
             )
@@ -172,7 +173,7 @@ class FetchBiasObservationsUseCaseTest {
                 startDate = "2026-06-15",
                 endDate = "2026-07-14",
                 daily = any(),
-                timezone = any(),
+                timezone = "Europe/Paris",
                 windSpeedUnit = any(),
                 precipitationUnit = any()
             )

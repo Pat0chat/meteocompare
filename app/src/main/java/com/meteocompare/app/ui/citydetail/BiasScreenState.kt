@@ -62,7 +62,7 @@ data class BiasScreenState(
  *   = pas assez de données pour lui (< [ModelBias.MIN_SAMPLES_FOR_BIAS] samples
  *   après dédup). Le screen filtre côté chip sur significance != NOT_SIGNIFICANT.
  * @property historyByModel série 30j de samples par modèle, chronologique,
- *   dédupliquée par date (un point par jour, snapshot le plus récent). Utilisée
+ *   dédupliquée par date (un point Previous Runs J+1 par jour). Utilisée
  *   par le sparkline et le tableau de fiabilité dans la sheet de détail.
  * @property yDomainMin borne inférieure de l'axe Y du sparkline pour CETTE
  *   variable. Physiquement clampée à 0 pour précip et vent, avec marge

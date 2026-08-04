@@ -15,6 +15,7 @@ import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.meteocompare.app.BuildConfig
 import com.meteocompare.app.core.util.runSuspendCatching
+import com.meteocompare.app.domain.model.BiasVariable
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
@@ -25,58 +26,20 @@ import java.util.concurrent.TimeUnit
 /**
  * Rafraîchissement quotidien des données de suivi de biais.
  *
- * Le cycle automatique reste léger ; le cycle manuel ajoute un bootstrap :
- *   1. **Bootstrap J+1 manuel** — télécharger jusqu'à 14 jours de prévisions
- *      à échéance fixe via Previous Runs pour les modèles activés.
- *   2. **Fetch delta des observations** — pour chaque ville favorite, appeler
- *      [com.meteocompare.app.domain.usecase.FetchBiasObservationsUseCase]
- *      qui interroge Open-Meteo archive et remplit `observation_samples`
- *      pour les jours manquants depuis le dernier fetch.
- *   3. **Housekeeping bias** — purger les samples au-delà de 35 jours pour
- *      maintenir la DB dans un budget contrôlé (fenêtre glissante 30j +
- *      5j de marge).
- *   4. **Housekeeping forecast cache** — purger les entrées de `forecast_cache`
- *      au-delà de 7 jours. Ce cache sert de fallback offline "dernière
- *      donnée connue" ; au-delà d'une semaine c'est de la donnée périmée
- *      qui n'a plus d'utilité même pour l'affichage offline (l'utilisateur
- *      qui rouvre l'app après 7 jours attend une prévision fraîche).
+ * Tous les cycles utilisent la même source à échéance fixe :
+ *   1. **Prévisions J+1** — le cycle quotidien recharge un delta de 3 jours
+ *      depuis Previous Runs ; le cycle manuel initialise jusqu'à 21 jours.
+ *      Les scores ne mélangent donc jamais des horizons dépendant de l'heure
+ *      d'ouverture de l'application.
+ *   2. **Références historiques** — l'archive Open-Meteo complète les jours
+ *      vérifiables manquants pour les trois variables.
+ *   3. **Housekeeping** — purge des samples au-delà de 35 jours et du cache
+ *      forecast au-delà de 7 jours.
  *
- * ## Ce qui n'est PAS fait ici
- *
- * Le snapshot des prévisions courantes n'est PAS géré par ce worker. Il est
- * piggybacké sur les fetch utilisateur (voir
- * [com.meteocompare.app.domain.usecase.SnapshotForecastUseCase]) — chaque fois
- * qu'un utilisateur ouvre une ville ou refresh, le forecast frais est
- * automatiquement snapshotté. Le worker ne refait pas ce fetch courant ; le
- * bouton manuel peut seulement compléter l'historique passé avec Previous Runs.
- *
- * Les `climate_normals_cache` ne sont PAS purgés — c'est un dataset stable
- * de ~366 rows par ville (moyennes 10 ans par jour de l'année), qui ne
- * change qu'aux migrations rares côté Open-Meteo. La croissance est bornée
- * par le nombre de villes favorites, aucun besoin de nettoyage.
- *
- * ## Cadence
- *
- * Une fois par jour, contrainte `NetworkType.CONNECTED`. Ne tourne pas si
- * pas de réseau — WorkManager retentera automatiquement à la prochaine
- * connexion (contrainte satisfaite → job dispatché).
- *
- * `flexTimeInterval = 6h` : la fenêtre flexible de 6 h laisse WorkManager choisir un moment
- * compatible avec les contraintes et le regroupement système. Le traitement
- * rétrospectif ne dépend pas d'une heure exacte.
- *
- * ## Politique d'erreurs
- *
- * Une erreur sur UNE ville ne fait pas échouer le worker global — on skip
- * et on continue. La ville sera retentée au cycle suivant. Une erreur
- * catastrophique (repo inaccessible) → `Result.retry` pour laisser
- * WorkManager retenter avec backoff exponentiel.
- *
- * Les deux purges (biais + cache prévisionnel) sont protégées séparément :
- * un échec de l'une ne bloque pas l'autre, et le worker
- * retourne toujours SUCCESS après ces étapes (les fetches ont réussi, le
- * cleanup est du bonus).
+ * Une fois par jour, avec réseau disponible et batterie non faible. Les
+ * opérations sont idempotentes et bornées par des timeouts.
  */
+
 object BiasRefreshScheduler {
 
     private const val WORK_NAME = "meteocompare_bias_refresh"
@@ -250,6 +213,12 @@ object BiasRefreshScheduler {
     internal const val MANUAL_INPUT_KEY: String = "bias_refresh_manual"
 
     internal const val KICKOFF_INITIAL_DELAY_MS: Long = 60_000L
+    internal const val MANUAL_LOOKBACK_DAYS: Int = 21
+    internal const val AUTOMATIC_LOOKBACK_DAYS: Int = 3
+
+    internal fun historyLookbackDays(isManual: Boolean): Int =
+        if (isManual) MANUAL_LOOKBACK_DAYS else AUTOMATIC_LOOKBACK_DAYS
+
     internal const val PER_CITY_OPERATION_TIMEOUT_MS: Long = 75_000L
 
     /**
@@ -348,26 +317,31 @@ internal class BiasRefreshWorker(
         // sera pas marqué comme cycle de collecte réussi. Sinon un kickoff lancé
         // avant l'ajout de la première ville bloquerait les prochains kickoffs
         // pendant 20 h alors qu'aucune donnée de biais n'a été collectée.
-        if (favorites.isEmpty() && BuildConfig.DEBUG) {
-            Log.d(LOG_TAG, "Bias refresh has no favorite city; housekeeping only")
+        if (favorites.isEmpty()) {
+            if (BuildConfig.DEBUG) {
+                Log.d(LOG_TAG, "Bias refresh has no favorite city; housekeeping only")
+            }
+            if (isManual) return@withLock Result.failure()
         }
 
-
-        val enabledModels = if (isManual) {
+        val enabledModels = if (favorites.isEmpty()) {
+            emptyList()
+        } else {
             runSuspendCatching {
                 entry.userPreferencesRepository().observeEnabledModels().first()
             }.getOrElse { error ->
-                Log.w(LOG_TAG, "Cannot read enabled models for manual bias bootstrap", error)
+                Log.w(LOG_TAG, "Cannot read enabled models for bias refresh", error)
                 return@withLock Result.retry()
             }
-        } else {
-            emptyList()
+        }
+        if (isManual && enabledModels.isEmpty()) {
+            Log.w(LOG_TAG, "Manual bias bootstrap aborted: no enabled model")
+            return@withLock Result.failure()
         }
 
-        // Chaque opération réseau ET le cycle global sont bornés.
-        // Le chemin manuel commence par un bootstrap Previous Runs J+1, puis
-        // télécharge les références correspondantes. Les cycles automatiques
-        // conservent le mode léger : références manquantes + housekeeping.
+        // Tous les cycles rechargent des prévisions Previous Runs J+1 avant
+        // leurs références. Le manuel prend 21 jours ; le quotidien se limite
+        // à 3 jours pour rester idempotent et peu coûteux.
         val citySuccesses = withTimeoutOrNull(BiasRefreshScheduler.WORK_BUDGET_MS) {
             var successes = 0
             for (city in favorites) {
@@ -375,21 +349,45 @@ internal class BiasRefreshWorker(
                     BiasRefreshScheduler.PER_CITY_OPERATION_TIMEOUT_MS
                 ) {
                     runSuspendCatching {
-                        val bootstrap = if (isManual) {
-                            bootstrapHistory(city, enabledModels)
-                        } else {
+                        val bootstrap = if (enabledModels.isEmpty()) {
                             null
+                        } else {
+                            bootstrapHistory(
+                                city = city,
+                                models = enabledModels,
+                                requestedDays = BiasRefreshScheduler.historyLookbackDays(isManual)
+                            )
+                        }
+                        if (bootstrap != null && !bootstrap.hasUsableData) {
+                            error("Previous Runs returned no usable J+1 sample for city=${city.id}")
                         }
                         val referenceDays = fetchObs(city)
                         if (BuildConfig.DEBUG) {
                             if (bootstrap != null) {
                                 Log.d(
                                     LOG_TAG,
-                                    "Manual bias bootstrap city=${city.id}: " +
+                                    (if (isManual) "Manual bias bootstrap" else "Daily fixed-lead refresh") +
+                                        " city=${city.id}: " +
                                         "models=${bootstrap.coveredModels}/${enabledModels.size}, " +
                                         "days=${bootstrap.coveredDays}/${bootstrap.requestedDays}, " +
                                         "forecastRecords=${bootstrap.forecastRecords}, " +
-                                        "referenceDays=$referenceDays"
+                                        "referenceDays=$referenceDays" +
+                                        if (isManual) {
+                                            ", forecastReady=" +
+                                                "T${bootstrap.forecastReadyModels(BiasVariable.TEMPERATURE)}/" +
+                                                "P${bootstrap.forecastReadyModels(BiasVariable.PRECIPITATION)}/" +
+                                                "W${bootstrap.forecastReadyModels(BiasVariable.WIND_SPEED)}, " +
+                                                "coverage=" + bootstrap.coverageByModel.entries
+                                                    .sortedBy { it.key.name }
+                                                    .joinToString(";") { (model, counts) ->
+                                                        "${model.name}:" +
+                                                            "T${counts[BiasVariable.TEMPERATURE] ?: 0}/" +
+                                                            "P${counts[BiasVariable.PRECIPITATION] ?: 0}/" +
+                                                            "W${counts[BiasVariable.WIND_SPEED] ?: 0}"
+                                                    }
+                                        } else {
+                                            ""
+                                        }
                                 )
                             } else {
                                 Log.d(

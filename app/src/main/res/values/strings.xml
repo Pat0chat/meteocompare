@@ -47,7 +47,7 @@
     <string name="settings_about_data_source">Données météo fournies par Open-Meteo (open-meteo.com).</string>
     <string name="settings_about_models_credit">Modèles : AROME et ARPEGE par Météo-France, ICON par DWD, GFS et HRRR par NOAA, ECMWF et AIFS par le Centre Européen, UKMO par le UK Met Office, GEM par Environnement Canada, MET Nordic par MET Norway, HARMONIE par KNMI, ACCESS par le Bureau of Meteorology (Australie), GRAPES par le CMA (Chine).</string>
     <string name="settings_bias_refresh_title">Suivi des biais</string>
-    <string name="settings_bias_refresh_desc">Télécharge jusqu’à 14 jours de prévisions archivées à échéance fixe J+1 pour les modèles activés, puis leurs références météo, pour vos villes favorites. Les modèles sans archive disponible continueront à se calibrer au fil des jours.</string>
+    <string name="settings_bias_refresh_desc">Télécharge jusqu’à 3 semaines de prévisions archivées à échéance fixe J+1 afin d’obtenir au moins 14 jours valides communs pour les modèles activés, puis leurs références météo, pour vos villes favorites. Les modèles sans archive disponible continueront à se calibrer au fil des jours.</string>
     <string name="settings_bias_refresh_action">Initialiser ou mettre à jour</string>
     <string name="settings_bias_refresh_queued">Mise à jour lancée. Les jours archivés disponibles seront traités en arrière-plan ; certains modèles peuvent nécessiter une collecte progressive.</string>
     <string name="settings_privacy_title">Confidentialité</string>
@@ -410,7 +410,7 @@
 
     <string name="local_ranking_view_all">Voir le classement</string>
     <string name="local_ranking_sheet_title">Classement local</string>
-    <string name="local_ranking_sheet_explanation">Les modèles sont classés par indice de fiabilité local, puis par erreur absolue moyenne en cas d’égalité.</string>
+    <string name="local_ranking_sheet_explanation">Les modèles sont comparés sur les mêmes dates communes, puis classés par indice de fiabilité local et par erreur absolue moyenne en cas d’égalité.</string>
     <string name="local_ranking_temperature_short">T° max</string>
     <string name="local_ranking_precipitation_short">Cumul pluie</string>
     <string name="local_ranking_wind_short">Vent max</string>
@@ -418,8 +418,8 @@
     <string name="local_ranking_standard_support">MAE %1$s · biais %2$s</string>
     <string name="local_ranking_rain_support">MAE %1$s · %2$d fausses alertes</string>
     <string name="local_ranking_empty_title">Classement indisponible</string>
-    <string name="local_ranking_empty_body">Au moins 14 jours d’historique local sont nécessaires pour classer les modèles sur cette variable.</string>
-    <string name="local_ranking_method_note">Ce classement est local et pédagogique. Il dépend de la ville, de la variable et de la période réellement disponible ; il ne constitue pas une évaluation officielle des modèles.</string>
+    <string name="local_ranking_empty_body">Au moins deux modèles disposant de 14 jours communs sont nécessaires pour établir un classement sur cette variable.</string>
+    <string name="local_ranking_method_note">Ce classement est local et pédagogique. Seuls les modèles disposant d’au moins 14 dates communes sont comparés, afin que chaque rang repose sur exactement les mêmes journées. Il ne constitue pas une évaluation officielle des modèles.</string>
     <string name="local_ranking_open_content_description">Ouvrir le classement local des modèles</string>
 
     <string name="forecast_tables_section">Prévisions détaillées</string>

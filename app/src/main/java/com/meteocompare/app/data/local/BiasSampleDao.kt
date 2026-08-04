@@ -29,7 +29,7 @@ interface BiasSampleDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertForecast(sample: ForecastSampleEntity)
 
-    /** Une transaction Room pour le snapshot J+1 de tous les modèles. */
+    /** Une transaction Room pour les prévisions Previous Runs J+1 de tous les modèles. */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertForecasts(samples: List<ForecastSampleEntity>)
 
@@ -52,12 +52,13 @@ interface BiasSampleDao {
      *
      * INNER JOIN — on n'émet que les jours pour lesquels ON A LES DEUX :
      * une prévision sans référence (jour futur ou archive pas encore
-     * récupérée) n'entre pas dans le calcul de biais, et une prévision qu'on
-     * n'a jamais snapshotté ne peut pas devenir un jour de biais.
+     * récupérée) n'entre pas dans le calcul de biais, et un jour sans prévision Previous Runs J+1 ne peut pas devenir un
+     * jour de biais.
      *
      * L'ORDER BY `issuedAtEpochMs DESC` reste défensif pour les anciennes
      * bases qui peuvent contenir plusieurs captures du même `targetDate`.
-     * Le repository sélectionne ensuite strictement la capture émise la veille.
+     * Le repository sélectionne ensuite strictement la prévision Previous Runs
+     * à échéance fixe J+1, émise la veille locale.
      *
      * Bornes de la fenêtre : `[startEpochDay, endEpochDay)`. Semi-ouverte
      * pour matcher la sémantique du use case (asOf exclu).

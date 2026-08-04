@@ -23,9 +23,9 @@ import java.time.LocalDate
  * tables et émet la liste des couples (prévision, référence historique) dès qu'un des
  * deux côtés change. C'est ce que consomme [ComputeBiasUseCase].
  *
- * Les méthodes "write" sont appelées par la couche fetch (repository
- * forecasts existant pour snapshotter ce qui est déjà en mémoire, et le
- * worker archive-fetch pour les références historiques rétrospectives).
+ * Les méthodes "write" sont appelées par le worker de suivi : Previous Runs
+ * alimente les prévisions à échéance fixe J+1, puis l’archive historique
+ * fournit les références observées correspondantes.
  *
  * ## Rétention
  *
@@ -84,7 +84,8 @@ interface BiasSampleRepository {
     /**
      * Persiste un forecast pour [targetDate]. En production, [issuedAt] sert
      * de marqueur de journée locale d'émission plutôt que d'horodatage exact :
-     * les refreshs successifs d'une même journée remplacent le snapshot J+1.
+     * les rechargements successifs de la même série Previous Runs remplacent
+     * idempotemment la prévision J+1 de cette journée.
      *
      * La clé (city, model, variable, targetDate, issuedAt) est idempotente ;
      * une nouvelle valeur portant la même clé remplace l'ancienne.
@@ -141,8 +142,8 @@ interface BiasSampleRepository {
     }
 
     /**
-     * Première date passée ou présente qui possède au moins une prévision
-     * capturée, mais pas encore sa référence historique correspondante.
+     * Première date passée ou présente qui possède au moins une prévision J+1 archivée, mais pas encore sa
+     * référence historique correspondante.
      *
      * Retourne `null` quand aucune donnée n'est vérifiable ou lorsque toutes
      * les références nécessaires jusqu'à [upToDate] sont déjà en base.

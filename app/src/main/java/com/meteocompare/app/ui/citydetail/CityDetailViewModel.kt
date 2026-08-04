@@ -237,8 +237,8 @@ class CityDetailViewModel @Inject constructor(
      *
      * Le combine émet dès qu'UN des flows amont change. Non-problematique
      * en pratique : Room ne re-émet que sur écriture dans la table, et les
-     * écritures sont rares (une par refresh forecast + une par cycle
-     * worker). Coût par émission : quelques ms pour 7 modèles.
+     * écritures sont rares (bootstrap manuel ou cycle quotidien Previous Runs).
+     * Coût par émission : quelques ms pour 7 modèles.
      */
     private fun observeVariableBiasState(
         models: List<WeatherModel>,

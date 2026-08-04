@@ -7,6 +7,7 @@ import com.meteocompare.app.domain.model.WeatherModel
 import java.time.Instant
 import java.time.LocalDate
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -15,7 +16,7 @@ class LocalModelRankingTest {
     private val start = LocalDate.of(2026, 1, 1)
 
     @Test
-    fun `classe chaque variable independamment`() {
+    fun `classe chaque variable independamment sur les mêmes dates`() {
         val state = BiasScreenState(
             temperature = variableState(
                 WeatherModel.GFS to samples(error = 2.0),
@@ -37,10 +38,11 @@ class LocalModelRankingTest {
         assertEquals(WeatherModel.GFS, rankings.precipitation.winner?.model)
         assertEquals(WeatherModel.ECMWF, rankings.wind.winner?.model)
         assertEquals(listOf(1, 2), rankings.temperature.entries.map { it.rank })
+        rankings.temperature.entries.forEach { assertEquals(30, it.reliability.sampleSize) }
     }
 
     @Test
-    fun `ignore les modeles sans historique suffisant`() {
+    fun `un seul modèle éligible ne produit pas de rang 1 sur 1`() {
         val state = BiasScreenState(
             temperature = variableState(
                 WeatherModel.GFS to samples(error = 0.5, count = 30),
@@ -52,27 +54,75 @@ class LocalModelRankingTest {
 
         val rankings = buildLocalModelRankings(state)
 
-        assertEquals(1, rankings.temperature.entries.size)
-        assertEquals(WeatherModel.GFS, rankings.temperature.winner?.model)
-        assertTrue(rankings.hasAnyRanking)
-        assertEquals(BiasVariable.TEMPERATURE, rankings.firstAvailableVariable)
+        assertTrue(rankings.temperature.entries.isEmpty())
+        assertFalse(rankings.hasAnyRanking)
     }
 
     @Test
-    fun `choisit la premiere variable disponible pour ouvrir la sheet`() {
+    fun `un modèle excellent sur des dates disjointes est exclu du classement`() {
+        val common = LocalDate.of(2026, 1, 1)
+        val state = variableState(
+            WeatherModel.GFS to samples(error = 1.0, count = 14, firstDate = common),
+            WeatherModel.ECMWF to samples(error = 2.0, count = 14, firstDate = common),
+            WeatherModel.ICON_GLOBAL to samples(
+                error = 0.0,
+                count = 14,
+                firstDate = LocalDate.of(2026, 3, 1)
+            )
+        )
+
+        val ranking = buildLocalVariableRanking(BiasVariable.TEMPERATURE, state)
+
+        assertEquals(listOf(WeatherModel.GFS, WeatherModel.ECMWF), ranking.entries.map { it.model })
+        assertTrue(ranking.entries.all { it.reliability.sampleSize == 14 })
+    }
+
+    @Test
+    fun `sélectionne le plus grand groupe de modèles avec quatorze dates communes`() {
+        val common = LocalDate.of(2026, 1, 1)
+        val state = variableState(
+            WeatherModel.GFS to samples(error = 1.0, count = 15, firstDate = common),
+            WeatherModel.ECMWF to samples(error = 0.5, count = 14, firstDate = common.plusDays(1)),
+            WeatherModel.ICON_GLOBAL to samples(error = 1.5, count = 14, firstDate = common.plusDays(1)),
+            WeatherModel.ARPEGE_EUROPE to samples(
+                error = 0.0,
+                count = 14,
+                firstDate = LocalDate.of(2026, 4, 1)
+            )
+        )
+
+        val comparable = comparableHistoriesForRanking(state.historyByModel)
+        val ranking = buildLocalVariableRanking(BiasVariable.TEMPERATURE, state, comparable)
+
+        assertEquals(
+            setOf(WeatherModel.GFS, WeatherModel.ECMWF, WeatherModel.ICON_GLOBAL),
+            comparable.keys
+        )
+        assertTrue(comparable.values.all { it.size == 14 })
+        assertEquals(3, ranking.entries.size)
+    }
+
+    @Test
+    fun `choisit la premiere variable réellement classable pour ouvrir la sheet`() {
         val state = BiasScreenState(
             temperature = VariableBiasState.EMPTY,
             precipitation = variableState(
-                WeatherModel.GFS to samples(error = 0.5)
+                WeatherModel.GFS to samples(error = 0.5),
+                WeatherModel.ECMWF to samples(error = 1.0)
             ),
             wind = variableState(
-                WeatherModel.ECMWF to samples(error = 1.0)
+                WeatherModel.ECMWF to samples(error = 1.0),
+                WeatherModel.GFS to samples(error = 2.0)
             )
         )
 
         val rankings = buildLocalModelRankings(state)
 
         assertEquals(BiasVariable.PRECIPITATION, rankings.firstAvailableVariable)
+        assertEquals(
+            BiasVariable.PRECIPITATION,
+            rankingVariableFor(BiasVariable.TEMPERATURE, rankings)
+        )
     }
 
     @Test
@@ -91,11 +141,14 @@ class LocalModelRankingTest {
     }
 
     @Test
-    fun `les onglets de fiabilite combinent graphiques et classements disponibles`() {
+    fun `les onglets combinent graphiques et classements disponibles`() {
         val rankings = buildLocalModelRankings(
             BiasScreenState(
                 temperature = VariableBiasState.EMPTY,
-                precipitation = variableState(WeatherModel.GFS to samples(error = 0.5)),
+                precipitation = variableState(
+                    WeatherModel.GFS to samples(error = 0.5),
+                    WeatherModel.ECMWF to samples(error = 1.0)
+                ),
                 wind = VariableBiasState.EMPTY
             )
         )
@@ -108,26 +161,6 @@ class LocalModelRankingTest {
                 precipBands = emptyList(),
                 windBands = confidenceBands()
             )
-        )
-    }
-
-    @Test
-    fun `redirige le bouton global vers une variable réellement classée`() {
-        val rankings = buildLocalModelRankings(
-            BiasScreenState(
-                temperature = VariableBiasState.EMPTY,
-                precipitation = variableState(WeatherModel.GFS to samples(error = 0.5)),
-                wind = VariableBiasState.EMPTY
-            )
-        )
-
-        assertEquals(
-            BiasVariable.PRECIPITATION,
-            rankingVariableFor(BiasVariable.TEMPERATURE, rankings)
-        )
-        assertEquals(
-            BiasVariable.PRECIPITATION,
-            rankingVariableFor(BiasVariable.PRECIPITATION, rankings)
         )
     }
 
@@ -161,13 +194,16 @@ class LocalModelRankingTest {
         yDomainMax = null
     )
 
-    private fun samples(error: Double, count: Int = 30): List<BiasSample> =
-        List(count) { index ->
-            val observed = 10.0 + (index % 3)
-            BiasSample(
-                targetDate = start.plusDays(index.toLong()),
-                forecast = observed + error,
-                observation = observed
-            )
-        }
+    private fun samples(
+        error: Double,
+        count: Int = 30,
+        firstDate: LocalDate = start
+    ): List<BiasSample> = List(count) { index ->
+        val observed = 10.0 + (index % 3)
+        BiasSample(
+            targetDate = firstDate.plusDays(index.toLong()),
+            forecast = observed + error,
+            observation = observed
+        )
+    }
 }

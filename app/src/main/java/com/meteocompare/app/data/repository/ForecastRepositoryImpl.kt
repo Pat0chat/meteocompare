@@ -20,7 +20,6 @@ import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.repository.ForecastRepository
-import com.meteocompare.app.domain.usecase.SnapshotForecastUseCase
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -84,7 +83,6 @@ class ForecastRepositoryImpl @Inject constructor(
     private val cacheDao: ForecastCacheDao,
     private val json: Json,
     private val networkMonitor: NetworkMonitor,
-    private val snapshotForecast: SnapshotForecastUseCase,
     private val clock: Clock,
     @param:ApplicationContext private val context: Context,
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
@@ -519,19 +517,6 @@ class ForecastRepositoryImpl @Inject constructor(
                 errors = errors,
                 fetchedAt = Instant.ofEpochMilli(now)
             )
-            // Piggyback : chaque fetch réseau réussi alimente aussi l'historique
-            // de suivi de biais. runSuspendCatching pour être défensif — un bug dans
-            // le snapshot use case ne doit JAMAIS faire échouer le refresh
-            // utilisateur (dégradation gracieuse : l'user voit son forecast
-            // frais, on perd juste un point d'historique de biais).
-            runSuspendCatching { snapshotForecast(fresh) }
-                .onFailure { error ->
-                    android.util.Log.w(
-                        LOG_TAG,
-                        "Bias snapshot failed for city=${city.id}; forecast remains usable",
-                        error
-                    )
-                }
 
             ApiResult.Success(fresh)
         }

@@ -31,17 +31,32 @@ data class BiasHistoryBootstrapResult(
     val requestedDays: Int,
     val coveredDays: Int,
     val coveredModels: Int,
-    val forecastRecords: Int
-)
+    val forecastRecords: Int,
+    val coverageByModel: Map<WeatherModel, Map<BiasVariable, Int>> = emptyMap()
+) {
+    val hasUsableData: Boolean get() = forecastRecords > 0
+
+    fun sampleCount(model: WeatherModel, variable: BiasVariable): Int =
+        coverageByModel[model]?.get(variable) ?: 0
+
+    /**
+     * Nombre de modèles ayant au moins 14 prévisions valides pour la variable.
+     * Les références et les dates communes sont vérifiées ensuite par Room et
+     * le moteur de classement.
+     */
+    fun forecastReadyModels(variable: BiasVariable): Int = coverageByModel.count { (_, coverage) ->
+        (coverage[variable] ?: 0) >= ModelBias.MIN_SAMPLES_FOR_BIAS
+    }
+}
 
 /**
- * Initialise immédiatement le suivi de biais avec des prévisions historiques
- * à échéance fixe J+1.
+ * Initialise ou actualise le suivi de biais avec des prévisions historiques à
+ * échéance fixe J+1.
  *
  * L'API Previous Runs fournit des séries horaires `_previous_day1`. Le use case
  * les agrège dans les mêmes grandeurs quotidiennes que le forecast courant :
  * température maximale, cumul des précipitations et vent maximal. Les lignes
- * produites ont le même schéma Room que les snapshots organiques ; la suite du
+ * produites utilisent le schéma Room unique du suivi J+1 ; la suite du
  * pipeline (références, JOIN, calcul des biais et classement) reste unique.
  */
 @Singleton
@@ -56,7 +71,7 @@ class BootstrapBiasHistoryUseCase @Inject constructor(
         city: City,
         models: List<WeatherModel>,
         today: LocalDate = clock.instant().localDateIn(city.timezone),
-        requestedDays: Int = ModelBias.MIN_SAMPLES_FOR_BIAS
+        requestedDays: Int = DEFAULT_BOOTSTRAP_LOOKBACK_DAYS
     ): BiasHistoryBootstrapResult = withContext(io) {
         require(requestedDays > 0) { "requestedDays must be positive" }
         if (models.isEmpty()) {
@@ -87,8 +102,9 @@ class BootstrapBiasHistoryUseCase @Inject constructor(
         )
         val coveredDates = linkedSetOf<LocalDate>()
         val coveredModels = linkedSetOf<WeatherModel>()
+        val coverageByModel = linkedMapOf<WeatherModel, MutableMap<BiasVariable, Int>>()
         val singleModelMode = models.size == 1
-        val zone = resolveZoneOrUtc(response.timezone)
+        val zone = resolveZoneOrUtc(city.timezone ?: response.timezone)
 
         for (model in models) {
             val temperature = hourly.lookupSeries(
@@ -125,18 +141,21 @@ class BootstrapBiasHistoryUseCase @Inject constructor(
                     records += ForecastBiasRecord(
                         city.id, model, BiasVariable.TEMPERATURE, date, issuedAt, value
                     )
+                    coverageByModel.increment(model, BiasVariable.TEMPERATURE)
                     addedForModelDay = true
                 }
                 values.precipitationSum(expectedHours)?.let { value ->
                     records += ForecastBiasRecord(
                         city.id, model, BiasVariable.PRECIPITATION, date, issuedAt, value
                     )
+                    coverageByModel.increment(model, BiasVariable.PRECIPITATION)
                     addedForModelDay = true
                 }
                 values.windMax(expectedHours)?.let { value ->
                     records += ForecastBiasRecord(
                         city.id, model, BiasVariable.WIND_SPEED, date, issuedAt, value
                     )
+                    coverageByModel.increment(model, BiasVariable.WIND_SPEED)
                     addedForModelDay = true
                 }
 
@@ -152,7 +171,8 @@ class BootstrapBiasHistoryUseCase @Inject constructor(
             requestedDays = requestedDays,
             coveredDays = coveredDates.size,
             coveredModels = coveredModels.size,
-            forecastRecords = records.size
+            forecastRecords = records.size,
+            coverageByModel = coverageByModel.mapValues { (_, coverage) -> coverage.toMap() }
         )
     }
 
@@ -210,6 +230,12 @@ class BootstrapBiasHistoryUseCase @Inject constructor(
     }
 
     companion object {
+        /**
+         * Trois semaines sont demandées pour atteindre plus souvent le seuil
+         * de 14 journées valides malgré quelques trous d'archives modèle.
+         */
+        internal const val DEFAULT_BOOTSTRAP_LOOKBACK_DAYS = 21
+
         private const val KEY_TIME = "time"
         private const val MIN_EXPECTED_HOURS = 18
         private const val MIN_COVERAGE_RATIO = 0.75
@@ -220,6 +246,15 @@ class BootstrapBiasHistoryUseCase @Inject constructor(
                 validCount >= MIN_EXPECTED_HOURS &&
                 validCount.toDouble() / expectedCount >= MIN_COVERAGE_RATIO
     }
+}
+
+
+private fun MutableMap<WeatherModel, MutableMap<BiasVariable, Int>>.increment(
+    model: WeatherModel,
+    variable: BiasVariable
+) {
+    val coverage = getOrPut(model) { linkedMapOf() }
+    coverage[variable] = (coverage[variable] ?: 0) + 1
 }
 
 private fun JsonObject.lookupSeries(
