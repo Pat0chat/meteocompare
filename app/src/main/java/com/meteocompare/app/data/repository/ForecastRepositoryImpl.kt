@@ -53,7 +53,7 @@ import javax.inject.Singleton
  *  ┌──────────────────────────────────────────────────────────────────────┐
  *  │  getCityForecastStream(city, forceRefresh=false, maxCacheAgeMs=null) │
  *  │                                                                       │
- *  │   1. Lecture cache (synchrone, ~1 ms par modèle)                     │
+ *  │   1. Lecture des entrées de cache disponibles                     │
  *  │   2. Si cache existe → emit Success(cached) immédiatement            │
  *  │   3. Si maxCacheAgeMs != null ET cache plus récent → RETURN          │
  *  │      (économie batterie/data : le user vient d'ouvrir l'app 2 min    │
@@ -70,15 +70,12 @@ import javax.inject.Singleton
  *
  * ─── Batching multi-modèles ──────────────────────────────────────────────
  * Open-Meteo supporte le multi-modèles en une seule requête HTTPS (variables
- * suffixées). Le fetch de N modèles = 1 seul appel réseau et 1 seul handshake
- * TLS. La réponse est décomposée par [BatchedForecastSplitter] en un DTO par
- * modèle, qui est ensuite mappé et caché indépendamment (format de cache
- * inchangé — chaque modèle a toujours sa propre ligne Room).
+ * suffixées). La réponse est décomposée par [BatchedForecastSplitter] en un DTO
+ * par modèle, puis chaque série est mappée et cachée indépendamment.
  *
- * Le re-parsing du JSON au read est délibérément accepté plutôt que de
- * cacher des ForecastSeries pré-parsés. Raison : le JSON brut est sérialisable
- * sans custom serializer (que des primitifs), et le coût (~1 ms × N modèles)
- * est invisible à l'utilisateur.
+ * Le JSON brut reste en cache pour éviter de coupler le schéma Room aux types
+ * métier contenant Instant et LocalDate. Le parsing est déplacé sur le
+ * dispatcher de calcul.
  */
 @Singleton
 class ForecastRepositoryImpl @Inject constructor(
@@ -96,11 +93,9 @@ class ForecastRepositoryImpl @Inject constructor(
 
     // ── Coalescing des fetch réseau concurrents ───────────────────────────
     //
-    // Problème observé : au cold start, plusieurs souscripteurs indépendants
-    // du même flow pour une même ville coexistent (CityListVM + CityDetailVM
-    // + ConfidenceExplanationVM + widget composition Glance). Chaque flow
-    // étant cold, chaque subscriber déclenchait son propre `fetchAndCache`
-    // → N requêtes HTTPS pour la même donnée en < 500ms.
+    // Plusieurs souscripteurs indépendants du même flow peuvent coexister
+    // pour une ville (liste, détail, explication, widget). Comme le flow est
+    // cold, ils déclencheraient chacun `fetchAndCache` sans coalescing.
     //
     // Fix : registre des fetches en vol par clé (city, models, forecastDays).
     // Un subscriber qui arrive alors qu'une fetch est déjà en cours pour la
@@ -216,9 +211,8 @@ class ForecastRepositoryImpl @Inject constructor(
         // ── Étape 2 : court-circuit si le cache est "assez frais" ──
         //
         // Économie batterie/data quand l'utilisateur ouvre l'app plusieurs
-        // fois dans une courte fenêtre. Sans ce garde, chaque cold start
-        // déclenche 5 requêtes réseau parallèles vers Open-Meteo — inutile
-        // si on vient de rafraîchir il y a 3 minutes.
+        // fois dans une courte fenêtre : un cache complet et assez récent
+        // évite un nouveau fetch.
         //
         // On garde la sécurité "cache pré-feature sans fetchedAt" : si
         // cachedFetchedAtMs est null (donnée cache antérieure à l'ajout du
@@ -376,12 +370,8 @@ class ForecastRepositoryImpl @Inject constructor(
     /**
      * Fetch batched multi-modèles (1 requête HTTPS) + écriture cache.
      *
-     * ─── Historique ─────────────────────────────────────────────────────
-     * Version antérieure : N appels HTTPS parallèles via `coroutineScope +
-     * async`. Fonctionnel mais coûteux :
-     * N handshakes TLS + N wakeups radio + retry par modèle. Remplacé par
-     * l'appel batched — voir [OpenMeteoApi.getForecastBatched] pour la
-     * justification.
+     * Le fetch batched partage un axe temporel et une réponse réseau pour tous
+     * les modèles demandés. Voir [OpenMeteoApi.getForecastBatched].
      *
      * ─── Fraîcheur d'horodatage ──────────────────────────────────────────
      * Tous les modèles reçoivent le même `now` en cache — c'est LA valeur

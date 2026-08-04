@@ -11,8 +11,7 @@ import androidx.room.Entity
  *     custom serializers kotlinx.
  *   - On reste découplé du modèle métier — si on enrichit ForecastSeries
  *     avec de nouveaux champs, on n'invalide pas le cache existant.
- *
- * Le re-parsing au read est négligeable (~1 ms par modèle).
+ * Le re-parsing est exécuté hors du thread principal.
  */
 @Entity(
     tableName = "forecast_cache",

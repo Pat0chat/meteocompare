@@ -48,7 +48,23 @@ class FetchBiasObservationsUseCaseTest {
             biasRepository = repository,
             io = Dispatchers.Unconfined
         )
-        coEvery { repository.latestObservationDate(any(), any()) } returns null
+        coEvery {
+            repository.earliestMissingReferenceDate(any(), any())
+        } returns today.minusDays(30)
+    }
+
+
+    @Test
+    fun `aucune prévision capturée ne déclenche aucun appel archive`() = runTest {
+        coEvery {
+            repository.earliestMissingReferenceDate(city.id, today.minusDays(1))
+        } returns null
+
+        assertEquals(0, useCase(city, today))
+
+        coVerify(exactly = 0) {
+            api.archive(any(), any(), any(), any(), any(), any(), any(), any())
+        }
     }
 
     @Test
@@ -114,16 +130,10 @@ class FetchBiasObservationsUseCaseTest {
     }
 
     @Test
-    fun `le delta repart de la variable la moins à jour`() = runTest {
+    fun `la première référence manquante pilote le début du delta`() = runTest {
         coEvery {
-            repository.latestObservationDate(city.id, BiasVariable.TEMPERATURE)
-        } returns LocalDate.of(2026, 7, 14)
-        coEvery {
-            repository.latestObservationDate(city.id, BiasVariable.PRECIPITATION)
-        } returns LocalDate.of(2026, 7, 10)
-        coEvery {
-            repository.latestObservationDate(city.id, BiasVariable.WIND_SPEED)
-        } returns LocalDate.of(2026, 7, 13)
+            repository.earliestMissingReferenceDate(city.id, today.minusDays(1))
+        } returns LocalDate.of(2026, 7, 11)
         coEvery {
             api.archive(any(), any(), any(), any(), any(), any(), any(), any())
         } returns emptyArchive()
@@ -145,16 +155,10 @@ class FetchBiasObservationsUseCaseTest {
     }
 
     @Test
-    fun `une variable jamais enregistrée réactive la fenêtre bootstrap`() = runTest {
+    fun `une référence ancienne manquante est bornée à trente jours`() = runTest {
         coEvery {
-            repository.latestObservationDate(city.id, BiasVariable.TEMPERATURE)
-        } returns LocalDate.of(2026, 7, 14)
-        coEvery {
-            repository.latestObservationDate(city.id, BiasVariable.PRECIPITATION)
-        } returns null
-        coEvery {
-            repository.latestObservationDate(city.id, BiasVariable.WIND_SPEED)
-        } returns LocalDate.of(2026, 7, 14)
+            repository.earliestMissingReferenceDate(city.id, today.minusDays(1))
+        } returns today.minusDays(60)
         coEvery {
             api.archive(any(), any(), any(), any(), any(), any(), any(), any())
         } returns emptyArchive()
@@ -172,6 +176,19 @@ class FetchBiasObservationsUseCaseTest {
                 windSpeedUnit = any(),
                 precipitationUnit = any()
             )
+        }
+    }
+
+    @Test
+    fun `toutes les références complètes évitent l'appel archive`() = runTest {
+        coEvery {
+            repository.earliestMissingReferenceDate(city.id, today.minusDays(1))
+        } returns null
+
+        assertEquals(0, useCase(city, today))
+
+        coVerify(exactly = 0) {
+            api.archive(any(), any(), any(), any(), any(), any(), any(), any())
         }
     }
 

@@ -9,9 +9,9 @@ import retrofit2.http.Query
  *
  * Endpoint : https://archive-api.open-meteo.com/v1/archive
  *
- * Limites de gratuité : 10 000 req/jour (partagées avec les autres endpoints
- * Open-Meteo). Un fetch de normales = 1 requête pour ~10 ans de données, ce
- * qui reste très en dessous du quota.
+ * Un fetch de normales regroupe environ dix ans de données dans une seule
+ * requête. Les conditions d'usage et quotas dépendent de l'offre Open-Meteo
+ * courante et ne sont volontairement pas figés dans le code.
  *
  * ─── Variables demandées ─────────────────────────────────────────────────
  * On demande 4 variables daily : temp_max, temp_min, precipitation_sum,

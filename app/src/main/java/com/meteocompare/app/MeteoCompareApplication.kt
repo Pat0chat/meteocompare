@@ -20,7 +20,7 @@ import dagger.hilt.android.HiltAndroidApp
  *
  * ## Workers planifiés ici
  *
- * - [BiasRefreshScheduler] — fetch delta quotidien des observations pour le
+ * - [BiasRefreshScheduler] — fetch delta quotidien des références historiques pour le
  *   feature "suivi de biais" (chip sous les noms de modèle dans CityDetail).
  *   Les démarrages ordinaires utilisent `ExistingPeriodicWorkPolicy.KEEP` :
  *   le travail existant est conservé sans annulation/replanification.

@@ -10,6 +10,14 @@ import kotlin.math.abs
  * un modèle peut être bien calibré en température mais surestimer la pluie.
  * D'où la clé (variable) systématiquement présente dans [ModelBias].
  */
+/**
+ * Variables quotidiennes réellement vérifiées par le suivi local.
+ *
+ * Les noms sont historiques et volontairement stables pour la persistance :
+ * - [TEMPERATURE] = température maximale quotidienne à 2 m (°C) ;
+ * - [PRECIPITATION] = cumul quotidien de précipitations (mm/jour) ;
+ * - [WIND_SPEED] = vitesse maximale quotidienne du vent à 10 m (km/h).
+ */
 enum class BiasVariable { TEMPERATURE, PRECIPITATION, WIND_SPEED }
 
 /**
@@ -37,8 +45,8 @@ enum class BiasSignificance { NOT_SIGNIFICANT, MODERATE, HIGH }
 /**
  * Biais moyen d'un modèle sur une fenêtre glissante, pour UNE variable.
  *
- * Calculé côté domaine à partir de l'historique forecast × observation (voir
- * ComputeBiasUseCase, à venir Phase 2). Pré-calculé — *jamais* recalculé au
+ * Calculé côté domaine à partir des prévisions J+1 et de la référence
+ * historique correspondante. Pré-calculé — *jamais* recalculé au
  * moment du render UI.
  *
  * Contrat d'existence :
@@ -55,8 +63,8 @@ enum class BiasSignificance { NOT_SIGNIFICANT, MODERATE, HIGH }
  * tick.
  *
  * @param variable la grandeur sur laquelle le biais est calculé.
- * @param meanBias moyenne signée de (forecast - observation) sur la fenêtre,
- *   dans l'unité de la variable (°C, mm/h, km/h).
+ * @param meanBias moyenne signée de (prévision - référence) sur la fenêtre,
+ *   dans l'unité journalière de la variable (°C, mm/jour, km/h).
  * @param stdDev écart-type des mêmes différences journalières. Sert au calcul
  *   de significativité (rapport bias/stdev — un biais consistant vs noise).
  * @param sampleSize nombre de jours de données effectivement disponibles dans
@@ -133,15 +141,15 @@ data class ModelBias(
  *
  * Règle retenue : **|bias| absolu ET |bias|/stdev en ratio**, avec des seuils
  * calibrés PAR VARIABLE (les unités et magnitudes de bruit varient — 1 °C
- * n'est pas du tout la même chose que 1 mm/h ou 1 km/h). Deux conditions
+ * n'est pas du tout la même chose que 1 mm/jour ou 1 km/h). Deux conditions
  * doivent être remplies simultanément pour monter en gamme :
  *   - le biais doit être "gros" en absolu (pertinence pratique)
  *   - le biais doit être "consistant" par rapport au bruit (pertinence
  *     statistique)
  *
- * Seuils choisis empiriquement à partir de l'ordre de grandeur des biais
- * observés sur Open-Meteo / stations Météo-France (à réviser quand on aura
- * plus de données réelles Phase 3).
+ * Seuils produit heuristiques, exprimés dans les unités réellement stockées.
+ * Ils ne constituent pas un test statistique officiel et devront être recalibrés
+ * sur un corpus de vérification plus large.
  */
 object BiasSignificanceRule {
 
@@ -168,10 +176,12 @@ object BiasSignificanceRule {
         moderateRatio = 0.5, highRatio = 1.0
     )
 
-    // Précipitations : ordre mm/h. Un biais de 0,1 mm/h sur 30j = 2,4 mm
-    // cumulés/jour, déjà perceptible dans les totaux. 0,5 mm/h = très gros.
+    // Précipitations : cumul journalier en mm/jour. Les anciennes valeurs
+    // 0,1 / 0,5 provenaient à tort d'une interprétation en mm/h et rendaient
+    // presque tout petit écart quotidien significatif. 0,5 mm/jour reste
+    // visible sur une série, 2 mm/jour représente un biais de cumul marqué.
     internal val PRECIPITATION_THRESHOLDS = Thresholds(
-        moderateAbs = 0.1, highAbs = 0.5,
+        moderateAbs = 0.5, highAbs = 2.0,
         moderateRatio = 0.5, highRatio = 1.0
     )
 

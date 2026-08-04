@@ -41,27 +41,36 @@ class BiasSampleDaoTest {
     }
 
     @Test
-    fun latest_count_and_purge_respect_boundaries() = runTest {
+    fun missing_reference_query_detects_internal_gaps_and_respects_upper_bound() = runTest {
         dao.insertForecast(ForecastSampleEntity("paris", "GFS", "WIND_SPEED", 10L, 1L, 20.0))
-        // Même date, autre variable et autre run : le garde de backfill doit
-        // compter un JOUR, pas trois rows techniques.
         dao.insertForecast(ForecastSampleEntity("paris", "GFS", "TEMPERATURE", 10L, 1L, 18.0))
-        dao.insertForecast(ForecastSampleEntity("paris", "GFS", "WIND_SPEED", 10L, 2L, 21.0))
         dao.insertForecast(ForecastSampleEntity("paris", "GFS", "WIND_SPEED", 20L, 2L, 21.0))
-        dao.insertForecast(ForecastSampleEntity("paris", "ICON_EU", "WIND_SPEED", 10L, 1L, 22.0))
+        dao.insertForecast(ForecastSampleEntity("paris", "GFS", "WIND_SPEED", 30L, 3L, 22.0))
+        dao.insertObservation(ObservationSampleEntity("paris", "WIND_SPEED", 20L, 20.0, 2L))
+        dao.insertObservation(ObservationSampleEntity("paris", "TEMPERATURE", 10L, 17.0, 2L))
+
+        // Le vent du jour 10 manque encore, malgré une référence plus récente au jour 20.
+        assertEquals(10L, dao.getEarliestMissingReferenceEpochDay("paris", 20L))
+        // Le forecast futur au jour 30 n'entre pas encore dans la recherche.
+        assertEquals(null, dao.getEarliestMissingReferenceEpochDay("paris", 9L))
+
+        dao.insertObservation(ObservationSampleEntity("paris", "WIND_SPEED", 10L, 19.0, 3L))
+        assertEquals(null, dao.getEarliestMissingReferenceEpochDay("paris", 20L))
+        assertEquals(30L, dao.getEarliestMissingReferenceEpochDay("paris", 30L))
+    }
+
+    @Test
+    fun purge_respects_boundaries() = runTest {
+        dao.insertForecast(ForecastSampleEntity("paris", "GFS", "WIND_SPEED", 10L, 1L, 20.0))
+        dao.insertForecast(ForecastSampleEntity("paris", "GFS", "WIND_SPEED", 20L, 2L, 21.0))
         dao.insertObservation(ObservationSampleEntity("paris", "WIND_SPEED", 10L, 19.0, 1L))
         dao.insertObservation(ObservationSampleEntity("paris", "WIND_SPEED", 20L, 20.0, 2L))
-
-        assertEquals(20L, dao.getLatestObservationEpochDay("paris", "WIND_SPEED"))
-        assertEquals(1, dao.countPastForecastDays("paris", "GFS", 20L))
-        assertEquals(1, dao.countPastForecastDays("paris", "ICON_EU", 20L))
 
         dao.purgeForecastsBefore(20L)
         dao.purgeObservationsBefore(20L)
         val rows = dao.observeJoinedSamples("paris", "GFS", "WIND_SPEED", 0L, 30L).first()
         assertEquals(1, rows.size)
         assertEquals(20L, rows.single().targetDateEpochDay)
-        assertTrue(dao.countPastForecastDays("paris", "GFS", 20L) == 0)
     }
 
     @Test

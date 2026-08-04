@@ -16,13 +16,13 @@ import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
 /**
- * Calculateur d'indice de confiance multi-modèles.
+ * Calculateur d'indice d'accord multi-modèles.
  *
  * Principe :
  *   - Pour chaque variable continue (température, vent), agrège les prédictions
  *     de tous les modèles disponibles pour un même instant/jour.
  *   - Calcule moyenne et écart-type **pondérés** par [ModelWeightingStrategy].
- *   - Convertit l'écart-type en pourcentage de confiance via des seuils calibrés
+ *   - Convertit l'écart-type en pourcentage d'accord via des seuils heuristiques
  *     par variable (cf. [Thresholds]).
  *   - Cas spécial pluie : agreement binaire + spread sur l'intensité.
  *
@@ -91,8 +91,9 @@ class ConfidenceCalculator @Inject constructor(
      * l'heure 14:00 est dans le passé (1h) et 15:00 dans le futur (30min) — on
      * prend la plus proche en valeur absolue.
      *
-     * Pondération identique aux autres calculs (1/√résolution par défaut) :
-     * AROME HD pèse plus que GFS pour les localisations en France.
+     * La stratégie de production donne le même poids à chaque modèle. Une
+     * pondération différente ne serait justifiée qu'avec un backtest par zone,
+     * variable et échéance.
      *
      * Retourne null si aucun modèle n'a de donnée horaire disponible
      * (ne devrait jamais arriver en pratique sauf bug Open-Meteo).
@@ -114,7 +115,7 @@ class ConfidenceCalculator @Inject constructor(
     }
 
     /**
-     * Condition météo "maintenant" — vote pondéré par résolution sur la famille
+     * Condition météo "maintenant" — vote selon la stratégie de pondération sur la famille
      * de code WMO la plus voisine de l'instant courant.
      *
      * Pourquoi un vote majoritaire et non une "moyenne" comme la température :
@@ -161,7 +162,7 @@ class ConfidenceCalculator @Inject constructor(
     }
 
     /**
-     * Couverture nuageuse "maintenant" — moyenne pondérée par résolution
+     * Couverture nuageuse "maintenant" — moyenne selon la stratégie de pondération
      * du cloud_cover horaire à l'instant courant.
      *
      * Utilisée pour afficher le "% nuageux" sur les cards home et
@@ -181,7 +182,7 @@ class ConfidenceCalculator @Inject constructor(
     }
 
     /**
-     * Vitesse du vent "maintenant" — moyenne pondérée par résolution du
+     * Vitesse du vent "maintenant" — moyenne selon la stratégie de pondération du
      * wind_speed_10m horaire à l'instant courant, en km/h (unité fournie par
      * l'API via `wind_speed_unit=kmh`).
      *
@@ -429,7 +430,7 @@ class ConfidenceCalculator @Inject constructor(
     )
 
     /**
-     * Bandes de confiance horaires sur les précipitations (mm/heure).
+     * Bandes de confiance horaires sur les précipitations (mm sur l’heureeure).
      *
      * Utilise le même modèle mathématique que la température : moyenne pondérée,
      * min/max, écart-type converti en %. Les seuils tight/wide sont ceux de

@@ -23,7 +23,7 @@ class WeatherConditionTest {
 
     @Before
     fun setUp() {
-        calculator = ConfidenceCalculator(InverseSqrtResolutionWeighting())
+        calculator = ConfidenceCalculator(EqualWeighting())
     }
 
     // ─── WMO code mapping ────────────────────────────────────────────────────

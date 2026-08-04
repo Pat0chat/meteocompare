@@ -5,9 +5,9 @@ package com.meteocompare.app.domain.model
  *
  * @property apiKey Identifiant du modèle dans le paramètre `&models=` de l'API.
  * @property displayName Nom court affiché dans l'UI.
- * @property resolutionKm Résolution horizontale native du modèle (en kilomètres).
- *           Utilisé pour pondérer le calcul d'indice de confiance — plus la résolution
- *           est fine, plus le modèle est fiable à courte échéance sur sa zone de couverture.
+ * @property resolutionKm Résolution horizontale native du modèle (en kilomètres),
+ *           affichée comme métadonnée. Elle ne sert pas de score de qualité : une
+ *           maille plus fine ne garantit pas à elle seule un meilleur forecast.
  * @property maxForecastDays Horizon de prévision typique du modèle.
  * @property coverage Zone de couverture (utile pour filtrer selon la position de la ville).
  * @property family Institution qui produit le modèle. Utilisé pour regrouper l'affichage
@@ -82,7 +82,7 @@ enum class WeatherModel(
         apiKey = "ecmwf_ifs025",
         displayName = "ECMWF",
         resolutionKm = 25.0,
-        maxForecastDays = 10,
+        maxForecastDays = 15,
         coverage = Coverage.GLOBAL,
         family = ModelFamily.ECMWF
     ),
@@ -96,9 +96,9 @@ enum class WeatherModel(
     /**
      * UK Met Office — modèle global déterministe.
      *
-     * Ajout éditorial : c'est le 3ᵉ grand modèle occidental aux côtés de GFS
-     * (NOAA) et ECMWF. Quand GFS et ECMWF divergent, UKMO sert souvent
-     * d'arbitre. Score de vérification historiquement très bon sur l'Europe.
+     * Ajoute une source indépendante aux côtés de GFS et ECMWF. L'application
+     * le traite comme un scénario supplémentaire, sans lui attribuer a priori
+     * un rôle d'arbitre ni un skill supérieur.
      */
     UKMO_GLOBAL(
         apiKey = "ukmo_global_deterministic_10km",
@@ -112,16 +112,15 @@ enum class WeatherModel(
     /**
      * ECMWF AIFS — modèle de prévision par intelligence artificielle.
      *
-     * Ajout éditorial fort : AIFS est entraîné par graph neural network sur
-     * les réanalyses ERA5, sans résoudre explicitement les équations
-     * d'évolution atmosphérique. C'est la rupture méthodologique majeure de
-     * la décennie en météo.
+     * Modèle de prévision fondé sur l'apprentissage automatique, proposé comme
+     * scénario distinct de l'IFS physique. La comparaison ne lui attribue pas
+     * de poids supérieur sans backtest local vérifié.
      */
     ECMWF_AIFS(
         apiKey = "ecmwf_aifs025_single",
         displayName = "AIFS",
-        resolutionKm = 25.0,
-        maxForecastDays = 10,
+        resolutionKm = 28.0,
+        maxForecastDays = 15,
         coverage = Coverage.GLOBAL,
         family = ModelFamily.ECMWF
     ),
@@ -162,27 +161,25 @@ enum class WeatherModel(
     /**
      * NCEP HRRR CONUS — modèle rapid-refresh de la NOAA sur les USA (3 km).
      *
-     * Pendant américain d'AROME HD : c'est LA référence haute-résolution pour
-     * un utilisateur en Amérique du Nord. Rafraîchi toutes les heures (au lieu
-     * de 6h pour la plupart des modèles), donc particulièrement utile pour la
-     * convection estivale. Coverage limitée à la CONUS — hors zone, l'API
-     * retourne des NaN et le modèle est simplement absent des cellules.
+     * Modèle régional haute résolution limité aux États-Unis continentaux.
+     * Hors zone, Open-Meteo ne renvoie pas de série exploitable et le splitter
+     * l'exclut des modèles disponibles.
      */
     HRRR_CONUS(
         apiKey = "ncep_hrrr_conus",
         displayName = "HRRR",
         resolutionKm = 3.0,
         maxForecastDays = 2,
-        coverage = Coverage.GLOBAL,
+        coverage = Coverage.UNITED_STATES,
         family = ModelFamily.NOAA
     ),
 
     /**
      * MET Norway Nordic — modèle 1 km sur la Scandinavie et l'Arctique.
      *
-     * Résolution la plus fine du catalogue Open-Meteo pour la région nord.
-     * Pertinent pour les utilisateurs en Norvège, Suède, Finlande, Danemark,
-     * Islande — remplace avantageusement ICON-EU dans ces zones.
+     * Modèle régional 1 km pour la Norvège, la Suède, le Danemark et la
+     * Finlande. Il complète les modèles européens sans présumer d'un avantage
+     * systématique de skill.
      */
     METNO_NORDIC(
         apiKey = "metno_nordic",
@@ -205,22 +202,19 @@ enum class WeatherModel(
         apiKey = "knmi_harmonie_arome_europe",
         displayName = "HARMONIE",
         resolutionKm = 5.5,
-        maxForecastDays = 2,
+        maxForecastDays = 3,
         coverage = Coverage.EUROPE,
         family = ModelFamily.KNMI
     ),
 
     /**
-     * BOM ACCESS-G — modèle global du Bureau of Meteorology australien (12 km).
-     *
-     * Utile pour l'hémisphère sud (Australie, Nouvelle-Zélande, Océanie) où
-     * les modèles occidentaux ont un skill moindre. Ajoute aussi une 5ᵉ source
-     * dans le pool global pour la comparaison inter-modèles.
+     * BOM ACCESS-G — modèle global du Bureau of Meteorology australien (15 km).
+     * Ajoute une source institutionnelle indépendante à la comparaison globale.
      */
     BOM_ACCESS(
         apiKey = "bom_access_global",
         displayName = "BOM",
-        resolutionKm = 12.0,
+        resolutionKm = 15.0,
         maxForecastDays = 10,
         coverage = Coverage.GLOBAL,
         family = ModelFamily.BOM
@@ -229,9 +223,8 @@ enum class WeatherModel(
     /**
      * CMA GRAPES Global — modèle global du China Meteorological Administration.
      *
-     * Diversifie encore les sources : ajoute une 5ᵉ institution non-occidentale
-     * au pool (avec BOM). Coverage globale mais skill particulièrement bon
-     * sur l'Asie de l'Est. Résolution native ~15 km — comparable à GEM.
+     * Diversifie les sources avec un scénario global d'environ 15 km. Aucun
+     * avantage régional n'est supposé sans mesure de vérification dédiée.
      */
     CMA_GRAPES(
         apiKey = "cma_grapes_global",
@@ -272,7 +265,7 @@ enum class WeatherModel(
  * L'ordre déclaré correspond à un tri de "plus local" → "plus étendu" —
  * exploité par [WeatherModel.entries.sortedBy { it.coverage.ordinal }].
  */
-enum class Coverage { FRANCE, EUROPE, GLOBAL }
+enum class Coverage { FRANCE, EUROPE, UNITED_STATES, GLOBAL }
 
 /**
  * Institution productrice du modèle. Utilisé pour :

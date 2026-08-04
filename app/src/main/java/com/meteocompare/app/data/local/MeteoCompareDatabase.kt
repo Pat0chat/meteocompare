@@ -23,9 +23,10 @@ import androidx.room.RoomDatabase
  * Précédent (v3) : ajout de `precipMeanNormal`, `windMeanNormal` sur
  * `climate_normals`.
  *
- * Comme pour toutes les versions antérieures : tout le state pérenne est
- * dans DataStore (favoris, modèles activés, préférences), pas dans Room.
- * La DB n'a que du cache.
+ * Les préférences et favoris restent dans DataStore. Room contient des données
+ * dérivées et reconstruisibles, mais le suivi J+1 demande jusqu'à 14 jours pour
+ * retrouver sa profondeur après une recréation : une migration explicite reste
+ * préférable avant toute future évolution de schéma en production.
  */
 @Database(
     entities = [

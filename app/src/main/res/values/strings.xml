@@ -10,7 +10,7 @@
     <string name="action_cancel">Annuler</string>
 
     <!-- ─── Widget homescreen ────────────────────────────────────────── -->
-    <string name="widget_description">Météo actuelle d\'une ville favorite avec indice de confiance multi-modèles.</string>
+    <string name="widget_description">Météo actuelle d\'une ville favorite avec indice d\'accord entre modèles.</string>
     <string name="widget_config_title">Configurer le widget</string>
     <string name="widget_config_subtitle">Choisissez la ville affichée et l\'opacité du fond.</string>
     <string name="widget_config_pick_city">Ville affichée</string>
@@ -40,18 +40,18 @@
     <string name="refresh_interval_manual">Manuel</string>
 
     <string name="settings_models_title">Modèles météo</string>
-    <string name="settings_models_desc">Choisissez les modèles à comparer. Plus de modèles = plus de précision sur la confiance, mais plus de requêtes.</string>
+    <string name="settings_models_desc">Choisissez les modèles à comparer. Plus de modèles rendent la comparaison plus représentative, mais augmentent le volume de données et les calculs.</string>
     <string name="settings_models_min_warning">Au moins un modèle doit rester activé.</string>
     <string name="settings_about_title">À propos</string>
     <string name="settings_about_version">Version %s</string>
     <string name="settings_about_data_source">Données météo fournies par Open-Meteo (open-meteo.com).</string>
     <string name="settings_about_models_credit">Modèles : AROME et ARPEGE par Météo-France, ICON par DWD, GFS et HRRR par NOAA, ECMWF et AIFS par le Centre Européen, UKMO par le UK Met Office, GEM par Environnement Canada, MET Nordic par MET Norway, HARMONIE par KNMI, ACCESS par le Bureau of Meteorology (Australie), GRAPES par le CMA (Chine).</string>
     <string name="settings_bias_refresh_title">Suivi des biais</string>
-    <string name="settings_bias_refresh_desc">Lance exceptionnellement la collecte des prévisions historiques et des observations pour vos villes favorites. La cadence quotidienne normale reste inchangée ; le travail attendra un réseau disponible et une batterie suffisante.</string>
-    <string name="settings_bias_refresh_action">Mettre à jour les biais maintenant</string>
-    <string name="settings_bias_refresh_queued">Mise à jour planifiée. Les indicateurs apparaîtront dès qu’au moins 14 jours communs seront disponibles.</string>
+    <string name="settings_bias_refresh_desc">Met à jour les données historiques de référence pour vos villes favorites. Le suivi compare uniquement les prévisions enregistrées la veille (J+1) ; les indicateurs apparaissent après 14 jours correspondants.</string>
+    <string name="settings_bias_refresh_action">Mettre à jour les références</string>
+    <string name="settings_bias_refresh_queued">Mise à jour planifiée. Les indicateurs J+1 apparaîtront après au moins 14 jours correspondants.</string>
     <string name="settings_privacy_title">Confidentialité</string>
-    <string name="settings_privacy_body">Cette application ne collecte aucune donnée personnelle. Aucun analytics, aucun tracking, aucune publicité. Vos favoris et préférences restent sur votre appareil.</string>
+    <string name="settings_privacy_body">Cette application n’utilise ni analytics, ni suivi publicitaire, ni publicité. Les recherches de lieux et les prévisions sont envoyées à Open-Meteo avec la localité ou ses coordonnées. Vos favoris et préférences sont stockés localement et peuvent être inclus dans la sauvegarde ou le transfert Android si cette fonction est activée.</string>
     <string name="theme_system">Système</string>
     <string name="theme_light">Clair</string>
     <string name="theme_dark">Sombre</string>
@@ -62,7 +62,7 @@
     <!-- Today summary -->
     <string name="models_analysed_one">%d modèle analysé</string>
     <string name="models_analysed_many">%d modèles analysés</string>
-    <string name="confidence_badge_percent">%d %% de confiance</string>
+    <string name="confidence_badge_percent">%d %% d\'accord</string>
     <string name="models_unavailable">Modèles indisponibles</string>
     <string name="no_daily_data">Pas de données journalières</string>
 
@@ -83,7 +83,7 @@
     <string name="chart_normals_legend_wind">Vent moyen 10 ans</string>
 
     <!-- Modes de prévision étendue supplémentaires du widget 4×2 -->
-    <string name="widget_config_forecast_mode_conf_all">Confiance des modèles</string>
+    <string name="widget_config_forecast_mode_conf_all">Accord des modèles</string>
     <string name="widget_config_forecast_mode_conf_all_note">Affiche les accords des modèles sur la température et pluie.</string>
     <!-- Ancres temporelles affichées sous la mini bande de confiance du widget 4×2 -->
     <string name="widget_confidence_now_short">Auj.</string>
@@ -122,8 +122,8 @@
 
     <!-- Chart messages -->
     <string name="chart_not_enough_data">Pas assez de données pour calculer une bande</string>
-    <string name="chart_confidence_band_desc">Plus la bande s\'élargit, plus les modèles divergent. La couleur indique le niveau de confiance.</string>
-    <string name="chart_confidence_now">Confiance maintenant : %d%%</string>
+    <string name="chart_confidence_band_desc">Plus la bande s\'élargit, plus les modèles divergent. La couleur indique leur niveau d\'accord.</string>
+    <string name="chart_confidence_now">Accord : %d%%</string>
     <string name="chart_confidence_ahead">à J+%1$d : %2$d%%</string>
 
     <!-- Precipitation legend (feminine — la pluie) -->
@@ -176,30 +176,30 @@
     <!-- Donations -->
     <string name="action_support_dev">Soutenir le développement</string>
     <string name="donations_dialog_title">Soutenir le développement</string>
-    <string name="donations_dialog_body">MeteoCompare est gratuit, sans collecte de données, sans tracking, sans publicité. Si vous souhaitez soutenir le développement :</string>
+    <string name="donations_dialog_body">MeteoCompare est gratuit, sans analytics, sans suivi publicitaire et sans publicité. Si vous souhaitez soutenir le développement :</string>
     <string name="donations_dialog_disclaimer">Aucun privilège n\'est accordé aux donateurs. Le code source et l\'app restent identiques pour tout le monde.</string>
     <string name="donations_liberapay_desc">Contributions périodiques, friendly FOSS</string>
     <string name="donations_kofi_desc">Don ponctuel « offre-moi un café »</string>
     <string name="donations_dialog_close">Fermer</string>
 
     <!-- Accessibility descriptions (lus par TalkBack) -->
-    <string name="a11y_confidence_high">Confiance haute</string>
-    <string name="a11y_confidence_medium">Confiance moyenne</string>
-    <string name="a11y_confidence_low">Confiance faible</string>
-    <string name="a11y_open_confidence_explanation">Confiance %d %%, ouvrir l\'explication détaillée</string>
+    <string name="a11y_confidence_high">Accord élevé</string>
+    <string name="a11y_confidence_medium">Accord moyen</string>
+    <string name="a11y_confidence_low">Accord faible</string>
+    <string name="a11y_open_confidence_explanation">%d %% d\'accord entre modèles, ouvrir l\'explication détaillée</string>
     <string name="a11y_temp_single">%d degrés</string>
     <string name="a11y_temp_range">entre %1$d et %2$d degrés</string>
     <string name="a11y_temp_with_confidence">%1$s, %2$s, %3$d pourcent</string>
-    <string name="a11y_no_rain">Pas de pluie attendue, confiance %d pourcent</string>
-    <string name="a11y_rain">Pluie attendue, entre %1$d et %2$d millimètres, confiance %3$d pourcent</string>
+    <string name="a11y_no_rain">Pas de pluie attendue, accord %d pourcent</string>
+    <string name="a11y_rain">Pluie attendue, entre %1$d et %2$d millimètres, accord %3$d pourcent</string>
     <string name="a11y_models_divided">Modèles divisés sur la pluie, %1$d sur %2$d prédisent la pluie</string>
     <string name="a11y_city_loading">Chargement des prévisions.</string>
     <string name="a11y_city_error">Erreur : %1$s.</string>
     <string name="a11y_now_temp">Maintenant %d degrés</string>
     <string name="a11y_temperature_prefix">Température</string>
-    <string name="a11y_overall_confidence">Confiance globale %d pourcent</string>
+    <string name="a11y_overall_confidence">Accord global %d pourcent</string>
     <string name="a11y_hourly_empty">Graphique vide, données insuffisantes</string>
-    <string name="a11y_hourly_template">Bande de confiance horaire sur %1$d jours. Température moyenne %2$d degrés à l\'heure actuelle, %3$d degrés à la fin de l\'horizon. Divergence entre modèles %4$s. Confiance %5$d pourcent maintenant, %6$d pourcent à J plus %1$d.</string>
+    <string name="a11y_hourly_template">Bande d\'accord horaire sur %1$d jours. Température moyenne %2$d degrés à l\'heure actuelle, %3$d degrés à la fin de l\'horizon. Divergence entre modèles %4$s. Accord %5$d pourcent maintenant, %6$d pourcent à J plus %1$d.</string>
     <string name="a11y_divergence_strong">qui augmente fortement</string>
     <string name="a11y_divergence_increasing">qui augmente</string>
     <string name="a11y_divergence_stable">globalement stable</string>
@@ -210,12 +210,12 @@
     <string name="a11y_wind_max_label">Vent moyen à 10m</string>
     <string name="a11y_kmh_unit">kilomètres par heure</string>
 
-    <!-- ─── "Pourquoi cette confiance ?" ─────────────────────────────────── -->
-    <string name="confidence_explanation_title">Pourquoi cette confiance ?</string>
+    <!-- ─── "Pourquoi cet accord ?" ─────────────────────────────────── -->
+    <string name="confidence_explanation_title">Pourquoi cet accord ?</string>
     <string name="confidence_explanation_invalid_date">Date invalide</string>
-    <string name="confidence_overall_label">Confiance globale</string>
-    <string name="confidence_verdict_high">Les modèles convergent fortement. Les valeurs affichées dans le résumé sont très probablement les bonnes.</string>
-    <string name="confidence_verdict_medium">Les modèles ne sont qu\'en partie d\'accord. Garder un œil sur l\'évolution dans les prochaines heures.</string>
+    <string name="confidence_overall_label">Accord global</string>
+    <string name="confidence_verdict_high">Les modèles convergent fortement. Cela décrit leur cohérence, sans garantir l\'issue observée.</string>
+    <string name="confidence_verdict_medium">Les modèles ne sont qu\'en partie d\'accord. Les valeurs exactes restent incertaines.</string>
     <string name="confidence_verdict_low">Les modèles divergent fortement. Les valeurs précises sont à prendre avec précaution.</string>
 
     <!-- Bandeau récapitulatif (en haut de chaque carte variable) -->
@@ -233,17 +233,17 @@
     <string name="confidence_model_resolution">résolution %s</string>
 
     <!-- Phrases d\'interprétation finales (par carte) -->
-    <string name="confidence_interp_high">Excellent accord entre modèles : l\'écart est dans la marge de bruit numérique attendue à cette échéance.</string>
-    <string name="confidence_interp_medium">Accord modéré. L\'écart reflète des choix de paramétrisation différents entre modèles ; la valeur réelle se situera probablement vers la moyenne.</string>
-    <string name="confidence_interp_low">Désaccord significatif. À cette échéance, les modèles haute-résolution ne fournissent plus de données et ceux qui restent ont des biais différents.</string>
-    <string name="confidence_interp_precip_dry">Aucun modèle ne détecte de système précipitant. C\'est l\'un des verdicts les plus fiables que l\'ensemble puisse rendre.</string>
-    <string name="confidence_interp_precip_rain">Tous voient de la pluie, mais l\'intensité dépend du modèle. Les modèles fine-résolution captent mieux les noyaux convectifs.</string>
+    <string name="confidence_interp_high">Accord inter-modèles élevé : les scénarios sont proches à cette échéance.</string>
+    <string name="confidence_interp_medium">Accord modéré : les scénarios diffèrent et la moyenne n\'est qu\'un repère central.</string>
+    <string name="confidence_interp_low">Désaccord significatif : les scénarios disponibles sont dispersés à cette échéance.</string>
+    <string name="confidence_interp_precip_dry">Aucun modèle disponible ne prévoit de précipitation à cette échéance.</string>
+    <string name="confidence_interp_precip_rain">Tous les modèles disponibles prévoient de la pluie, avec des intensités différentes.</string>
     <string name="confidence_interp_precip_divided">Désaccord typique des situations de transition (front, averses isolées). À surveiller au prochain run.</string>
 
     <!-- Section éducative -->
     <string name="confidence_section_why">Pourquoi les modèles diffèrent ?</string>
     <string name="confidence_why_resolution_body">La résolution d\'un modèle est la taille de chaque maille de calcul. Plus elle est fine, mieux le modèle capte les phénomènes locaux comme les averses convectives, les effets de relief ou les brises côtières. Mais cela a un coût : les modèles très haute-résolution sont coûteux à faire tourner et leur horizon de prévision est court.</string>
-    <string name="confidence_why_resolution_tip">Repère utile : à 24-48 h en France, AROME HD (1,5 km) capte des détails que GFS (13 km) ou ECMWF (25 km) ne voient pas. Au-delà de 2-3 jours, les modèles globaux reprennent le dessus parce qu\'ils représentent mieux la circulation atmosphérique de grande échelle.</string>
+    <string name="confidence_why_resolution_tip">Repère utile : les modèles régionaux décrivent davantage de détails locaux à courte échéance, tandis que les modèles globaux couvrent des horizons plus longs. Une maille plus fine ne garantit pas à elle seule une meilleure prévision.</string>
 
     <!-- ─── Icônes de temps (descriptions a11y) ─────────────────────────── -->
     <string name="weather_clear">Ciel clair</string>
@@ -285,26 +285,26 @@
     <string name="bias_verb_neutral">reste calibré sur</string>
 
     <!-- Variables météo, article inclus (contexte "surestime LA température") -->
-    <string name="bias_variable_temperature">la température</string>
-    <string name="bias_variable_precipitation">les précipitations</string>
-    <string name="bias_variable_wind_speed">le vent</string>
+    <string name="bias_variable_temperature">la température maximale</string>
+    <string name="bias_variable_precipitation">le cumul de précipitations</string>
+    <string name="bias_variable_wind_speed">le vent maximal</string>
 
     <!-- Eyebrow de la sheet: "GFS · Biais température · 30 jours" -->
     <string name="bias_sheet_eyebrow">%1$s  ·  %2$s  ·  %3$d jours</string>
-    <string name="bias_sheet_variable_temperature">Biais température</string>
-    <string name="bias_sheet_variable_precipitation">Biais précipitations</string>
-    <string name="bias_sheet_variable_wind_speed">Biais vent</string>
+    <string name="bias_sheet_variable_temperature">Biais température maximale</string>
+    <string name="bias_sheet_variable_precipitation">Biais cumul de pluie</string>
+    <string name="bias_sheet_variable_wind_speed">Biais vent maximal</string>
 
     <!-- Titre "sec" de la sheet, découpé en prefix + magnitude (colorée) + suffix.
          La magnitude est concaténée entre les deux via AnnotatedString.
          Espace en fin du prefix / début du suffix pour espacer correctement. -->
     <string name="bias_sheet_title_prefix">Écart moyen </string>
-    <string name="bias_sheet_title_suffix"> par rapport à l\'observation.</string>
+    <string name="bias_sheet_title_suffix"> par rapport à la référence historique.</string>
 
     <!-- Hint affiché quand aucun chip de biais n\'est encore disponible pour la
          ville (première utilisation OU l\'app n\'a pas encore fetché l\'historique).
          Disparaît dès qu\'au moins un chip devient significatif. -->
-    <string name="bias_history_collecting">Historique de biais en cours de collecte. Les indicateurs par modèle apparaîtront dans les prochains jours.</string>
+    <string name="bias_history_collecting">Historique J+1 en cours de collecte. Les indicateurs par modèle apparaîtront après 14 jours correspondants.</string>
 
     <!-- Description a11y du chip "en cours de calibration" (< 14 samples). -->
     <string name="bias_chip_calibrating_content_description">Suivi de biais en cours pour ce modèle : pas encore assez de données historiques pour évaluer sa précision.</string>
@@ -316,13 +316,13 @@
     <string name="bias_sparkline_label_today">Aujourd\'hui</string>
 
     <!-- Mini-légende sous le sparkline : quelle ligne est quelle courbe. -->
-    <string name="bias_sparkline_legend_observation">observation</string>
+    <string name="bias_sparkline_legend_observation">référence historique</string>
     <string name="bias_sparkline_legend_forecast">prévision</string>
 
     <!-- Texte explicatif — opener paramétré (modèle, verbe, variable, jours).
          Ex FR : "GFS surestime systématiquement la température à cet endroit sur les 30 derniers jours." -->
     <string name="bias_explainer_opener">%1$s %2$s systématiquement %3$s à cet endroit sur les %4$d derniers jours.</string>
-    <string name="bias_explainer_calibrated">%1$s est proche de la réalité sur %2$s à cet endroit. Sur les %3$d derniers jours, l\'écart moyen aux observations reste dans le bruit journalier.</string>
+    <string name="bias_explainer_calibrated">%1$s reste proche de la référence historique sur %2$s à cet endroit. Sur les %3$d derniers jours J+1 disponibles, l\'écart moyen reste dans le bruit journalier.</string>
 
     <!-- Interprétation stabilité — varie selon la significativité -->
     <string name="bias_stability_high">Le biais est important sur les 30 derniers jours.</string>
@@ -330,11 +330,11 @@
     <string name="bias_stability_not_significant">Écart proche du bruit journalier.</string>
 
     <!-- Tableau de fiabilité local — synthèse pédagogique du suivi de biais -->
-    <string name="bias_reliability_title">Tableau de fiabilité</string>
+    <string name="bias_reliability_title">Fiabilité locale J+1</string>
     <string name="bias_reliability_local_index">Indice local de fiabilité</string>
     <string name="bias_reliability_score_suffix">/ 100</string>
     <string name="bias_reliability_rank">Rang local %1$d / %2$d</string>
-    <string name="bias_reliability_score_explanation">Synthèse pédagogique de l’erreur absolue, du biais, de la régularité et de la couverture de l’historique.</string>
+    <string name="bias_reliability_score_explanation">Synthèse pédagogique des prévisions enregistrées la veille, comparées aux données historiques de référence Open-Meteo.</string>
     <string name="bias_reliability_level_excellent">Excellente</string>
     <string name="bias_reliability_level_good">Bonne</string>
     <string name="bias_reliability_level_fair">Moyenne</string>
@@ -346,7 +346,7 @@
     <string name="bias_reliability_summary_under">Une tendance à la sous-estimation reste visible.</string>
 
     <string name="bias_reliability_section_performance">Performance locale</string>
-    <string name="bias_reliability_section_history">Prévision face à l’observation</string>
+    <string name="bias_reliability_section_history">Prévision face à la référence</string>
     <string name="bias_reliability_section_rain">Détection des précipitations</string>
     <string name="bias_reliability_section_bias">Comment interpréter le biais</string>
 
@@ -379,18 +379,18 @@
     <string name="bias_reliability_rain_wet_days">Jours humides</string>
     <string name="bias_reliability_rain_misses">Épisodes pluvieux manqués</string>
     <string name="bias_reliability_not_available">Non disponible</string>
-    <string name="bias_reliability_rain_samples">%1$d jours pluvieux observés · %2$d prévus</string>
-    <string name="bias_reliability_rain_detection_support">%1$d jours humides détectés sur %2$d observés</string>
+    <string name="bias_reliability_rain_samples">%1$d jours pluvieux dans la référence · %2$d prévus</string>
+    <string name="bias_reliability_rain_detection_support">%1$d jours humides détectés sur %2$d dans la référence</string>
     <string name="bias_reliability_rain_false_alarms_support">%1$d jours annoncés à tort sur %2$d jours humides prévus</string>
-    <string name="bias_reliability_rain_misses_support">%1$d épisodes manqués sur %2$d jours humides observés</string>
-    <string name="bias_reliability_rain_volume_support">Observés %1$d · prévus %2$d</string>
+    <string name="bias_reliability_rain_misses_support">%1$d épisodes manqués sur %2$d jours humides de référence</string>
+    <string name="bias_reliability_rain_volume_support">Référence %1$d · prévus %2$d</string>
 
     <string name="bias_reliability_balance_under_badge">%1$d %% sous</string>
     <string name="bias_reliability_balance_close_badge">%1$d %% proches</string>
     <string name="bias_reliability_balance_over_badge">%1$d %% sur</string>
     <string name="bias_reliability_direction_balance">%1$d %% au-dessus · %2$d %% proches · %3$d %% au-dessous</string>
     <string name="bias_reliability_sample_coverage">Historique exploité : %1$d jours sur une fenêtre de %2$d jours.</string>
-    <string name="bias_reliability_method_note">Cet indice est un repère local et pédagogique, pas une note officielle du modèle. Il dépend de la ville, de la variable, de la période disponible et ne mesure pas encore séparément les échéances J+1, J+3 ou J+5. Pour la pluie, un jour est considéré humide à partir de 0,5 mm.</string>
+    <string name="bias_reliability_method_note">Cet indice est un repère local et pédagogique, pas une note officielle du modèle. Il compare les prévisions J+1 capturées la veille à une référence historique Open-Meteo pour la température maximale quotidienne, le cumul quotidien de précipitations et le vent maximal quotidien à 10 m, et non à une station au point exact. Il dépend de la ville, de la variable et de la période disponible. Pour la pluie, un jour est considéré humide à partir de 0,5 mm.</string>
 
     <string name="bias_chip_calibrating_progress_a11y">En cours de calibration : %1$d échantillons sur %2$d collectés</string>
 
@@ -411,9 +411,9 @@
     <string name="local_ranking_view_all">Voir le classement</string>
     <string name="local_ranking_sheet_title">Classement local</string>
     <string name="local_ranking_sheet_explanation">Les modèles sont classés par indice de fiabilité local, puis par erreur absolue moyenne en cas d’égalité.</string>
-    <string name="local_ranking_temperature_short">Température</string>
-    <string name="local_ranking_precipitation_short">Pluie</string>
-    <string name="local_ranking_wind_short">Vent</string>
+    <string name="local_ranking_temperature_short">T° max</string>
+    <string name="local_ranking_precipitation_short">Cumul pluie</string>
+    <string name="local_ranking_wind_short">Vent max</string>
     <string name="local_ranking_selected_model">Modèle consulté</string>
     <string name="local_ranking_standard_support">MAE %1$s · biais %2$s</string>
     <string name="local_ranking_rain_support">MAE %1$s · %2$d fausses alertes</string>
@@ -513,7 +513,7 @@
     <string name="forecast_insight_detail_wind_peak">Un pic marqué est attendu.</string>
 
     <string name="local_reliability_title">Fiabilité locale</string>
-    <string name="local_reliability_subtitle_with_confidence">Confiance %1$d %% · %2$d modèles</string>
+    <string name="local_reliability_subtitle_with_confidence">%1$d %% d\'accord · %2$d modèles</string>
     <string name="local_reliability_subtitle_models">%1$d modèles comparés</string>
     <string name="local_reliability_best_model">Meilleur modèle local</string>
 
@@ -547,4 +547,9 @@
     <string name="timeline_event_marker_temperature">Événement température</string>
     <string name="timeline_event_marker_weather">Changement météo</string>
     <string name="timeline_event_marker_uncertainty">Prévision incertaine</string>
+    <string name="model_coverage_france">France</string>
+    <string name="model_coverage_europe">Europe</string>
+    <string name="model_coverage_united_states">États-Unis</string>
+    <string name="model_coverage_global">Monde</string>
+    <string name="model_metadata">%1$s · %2$d j</string>
 </resources>

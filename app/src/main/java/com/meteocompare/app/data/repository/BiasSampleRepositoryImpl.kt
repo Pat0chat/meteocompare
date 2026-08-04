@@ -10,6 +10,7 @@ import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.repository.BiasSampleRepository
 import com.meteocompare.app.domain.repository.ForecastBiasRecord
 import com.meteocompare.app.domain.repository.ObservationBiasRecord
+import com.meteocompare.app.domain.usecase.selectPreviousDaySamples
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -55,6 +56,7 @@ class BiasSampleRepositoryImpl @Inject constructor(
         model: WeatherModel,
         variable: BiasVariable,
         asOf: LocalDate,
+        timezone: String?,
         windowDays: Int
     ): Flow<List<BiasSample>> {
         require(windowDays > 0) { "windowDays must be positive, got $windowDays" }
@@ -71,8 +73,11 @@ class BiasSampleRepositoryImpl @Inject constructor(
                 BiasSample(
                     targetDate = LocalDate.ofEpochDay(row.targetDateEpochDay),
                     forecast = row.forecast,
-                    observation = row.observation
+                    observation = row.observation,
+                    issuedAt = Instant.ofEpochMilli(row.issuedAtEpochMs)
                 )
+            }.let { samples ->
+                if (timezone == null) samples else selectPreviousDaySamples(samples, timezone)
             }
         }
     }
@@ -141,19 +146,14 @@ class BiasSampleRepositoryImpl @Inject constructor(
         })
     }
 
-    override suspend fun latestObservationDate(
+    override suspend fun earliestMissingReferenceDate(
         cityId: String,
-        variable: BiasVariable
+        upToDate: LocalDate
     ): LocalDate? = withContext(io) {
-        dao.getLatestObservationEpochDay(cityId, variable.name)?.let(LocalDate::ofEpochDay)
-    }
-
-    override suspend fun countPastForecastDays(
-        cityId: String,
-        model: WeatherModel,
-        beforeDate: LocalDate
-    ): Int = withContext(io) {
-        dao.countPastForecastDays(cityId, model.name, beforeDate.toEpochDay())
+        dao.getEarliestMissingReferenceEpochDay(
+            cityId = cityId,
+            upToEpochDay = upToDate.toEpochDay()
+        )?.let(LocalDate::ofEpochDay)
     }
 
     override suspend fun purgeOlderThan(beforeDate: LocalDate) = withContext(io) {

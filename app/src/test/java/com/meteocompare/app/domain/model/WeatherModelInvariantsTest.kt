@@ -18,9 +18,8 @@ import org.junit.Test
  *   - Toutes les displayName sont uniques (sinon deux lignes indistinguables
  *     dans la liste settings et les charts)
  *   - Les modèles France sont produits par Météo-France (invariant métier)
- *   - MVP_SELECTION reste raisonnable en taille (max 10 modèles pour ne pas
- *     surcharger le trafic réseau du 1er lancement — chaque modèle = 1
- *     requête HTTP au forecast)
+ *   - MVP_SELECTION reste raisonnable en taille (max 10 modèles pour limiter
+ *     le volume de la réponse batched et le coût de mapping/cache)
  *   - MVP_SELECTION couvre au moins 1 modèle par grande catégorie de zone
  *     pour donner du sens à la comparaison inter-modèles dès le 1er lancement
  */
@@ -83,8 +82,8 @@ class WeatherModelInvariantsTest {
 
     @Test
     fun `MVP_SELECTION - taille raisonnable`() {
-        // Borne haute : 10 modèles → 10 requêtes HTTP au 1er lancement.
-        // Au-delà, l'expérience initiale se dégrade (charge réseau, batterie).
+        // Borne haute : l'appel réseau reste batched, mais chaque modèle ajoute
+        // des séries à télécharger, parser, stocker et agréger.
         assertTrue(
             "MVP_SELECTION est trop grosse : ${WeatherModel.MVP_SELECTION.size} modèles",
             WeatherModel.MVP_SELECTION.size in 3..10
@@ -122,4 +121,18 @@ class WeatherModelInvariantsTest {
             assertTrue(it.displayName.isNotBlank())
         }
     }
+    @Test
+    fun `HRRR est classé États-Unis et non global`() {
+        assertEquals(Coverage.UNITED_STATES, WeatherModel.HRRR_CONUS.coverage)
+    }
+
+    @Test
+    fun `métadonnées modèles critiques restent cohérentes`() {
+        assertEquals(15, WeatherModel.ECMWF.maxForecastDays)
+        assertEquals(15, WeatherModel.ECMWF_AIFS.maxForecastDays)
+        assertEquals(28.0, WeatherModel.ECMWF_AIFS.resolutionKm, 0.0)
+        assertEquals(3, WeatherModel.KNMI_HARMONIE_EU.maxForecastDays)
+        assertEquals(15.0, WeatherModel.BOM_ACCESS.resolutionKm, 0.0)
+    }
+
 }

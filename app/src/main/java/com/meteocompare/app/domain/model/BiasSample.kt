@@ -1,14 +1,15 @@
 package com.meteocompare.app.domain.model
 
 import androidx.compose.runtime.Immutable
+import java.time.Instant
 import java.time.LocalDate
 
 /**
- * Un couple (prévision, observation) pour un jour cible donné — brique
+ * Un couple (prévision, référence historique) pour un jour cible donné — brique
  * élémentaire du calcul de biais.
  *
  * Un [BiasSample] représente : "pour la journée [targetDate], le modèle avait
- * prévu [forecast] et la réalité mesurée est [observation]". La différence
+ * prévu [forecast] et la référence historique vaut [observation]". La différence
  * signée `forecast - observation` est le biais journalier ; agrégée sur ≥14
  * jours, on obtient un [ModelBias].
  *
@@ -18,8 +19,13 @@ import java.time.LocalDate
  *   future pondération temporelle (weight = 1/age), (c) faciliter le debug.
  * @param forecast la valeur prévue par le modèle pour cette date, dans l'unité
  *   naturelle de la variable (°C, mm, km/h).
- * @param observation la valeur réellement mesurée (via archive-api Open-Meteo,
- *   qui expose des observations issues des stations et de la réanalyse ERA5).
+ * @param observation la valeur historique de référence fournie par l'archive
+ *   Open-Meteo. Elle provient de jeux de données de réanalyse et ne doit pas
+ *   être présentée comme une mesure de station exacte au point demandé.
+ * @param issuedAt marqueur de la journée locale pendant laquelle la prévision
+ *   a été capturée. Le collecteur de production le normalise au début du jour
+ *   pour que les refreshs successifs remplacent le même snapshot J+1. `null`
+ *   reste accepté pour les tests et données synthétiques.
  *
  * `@Immutable` pour rester stable Compose — les listes de [BiasSample] sont
  * passées à des composables (repo Flow → UI).
@@ -28,7 +34,8 @@ import java.time.LocalDate
 data class BiasSample(
     val targetDate: LocalDate,
     val forecast: Double,
-    val observation: Double
+    val observation: Double,
+    val issuedAt: Instant? = null
 ) {
     /** Biais journalier signé : positif = le modèle a surestimé. */
     val dailyBias: Double get() = forecast - observation

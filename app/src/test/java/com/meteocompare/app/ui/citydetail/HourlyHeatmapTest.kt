@@ -195,7 +195,7 @@ class HourlyHeatmapTest {
 
     @Test
     fun `precipitation - dry bin returns null strictly below 0_05 mm`() {
-        // Le seuil 0.05 mm/h ≈ zéro effectif (bruit de mesure des modèles).
+        // Le seuil 0.05 mm sur l’heure ≈ zéro effectif (bruit de mesure des modèles).
         assertNull("0 mm doit être null (sec)", hourlyPrecipitationHeatmap(0.0))
         assertNull("0.049 mm doit être null (< seuil)", hourlyPrecipitationHeatmap(0.049))
         assertNull("mm négatif = null aussi (défensif)", hourlyPrecipitationHeatmap(-1.0))
@@ -233,7 +233,7 @@ class HourlyHeatmapTest {
             BinCase(9.99,  P9,  "9.99 mm"),
             // ≥ 10
             BinCase(10.0,  P10, "10 mm pile — déluge"),
-            BinCase(50.0,  P10, "50 mm/h — pluie diluvienne")
+            BinCase(50.0,  P10, "50 mm sur l’heure — pluie diluvienne")
         )
         cases.forEach { case ->
             assertHeatmapStyle(
@@ -323,7 +323,7 @@ class HourlyHeatmapTest {
         // Les couleurs les plus sombres de chaque palette doivent avoir du
         // texte blanc. Avec le seuil WCAG 0.179, ce sont uniquement :
         //  - temp : polaire #0D47A1 et très froid #1565C0
-        //  - precip : bins ≥ 5 mm/h (#1976D2 et plus foncé)
+        //  - precip : bins ≥ 5 mm sur l’heure (#1976D2 et plus foncé)
         //  - wind : ouragan #C62828
         val darkStyles = listOf(
             hourlyTemperatureHeatmap(-20.0),      // TEMP_POLAR
@@ -403,7 +403,7 @@ class HourlyHeatmapTest {
         val luminances = samples.map { hourlyPrecipitationHeatmap(it)!!.background.luminance() }
         for (i in 1 until luminances.size) {
             assertTrue(
-                "luminance doit décroître entre ${samples[i-1]} et ${samples[i]} mm/h " +
+                "luminance doit décroître entre ${samples[i-1]} et ${samples[i]} mm sur l’heure " +
                         "(vu ${luminances[i-1]} → ${luminances[i]})",
                 luminances[i] < luminances[i - 1]
             )

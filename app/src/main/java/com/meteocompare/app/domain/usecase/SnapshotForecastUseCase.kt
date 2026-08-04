@@ -1,6 +1,7 @@
 package com.meteocompare.app.domain.usecase
 
 import com.meteocompare.app.core.util.localDateIn
+import com.meteocompare.app.core.util.resolveZoneOrUtc
 import com.meteocompare.app.domain.model.BiasVariable
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.repository.BiasSampleRepository
@@ -26,31 +27,30 @@ import javax.inject.Singleton
  *
  * Contrepartie : si l'utilisateur n'ouvre pas l'app pendant 3 jours, on
  * manque 3 jours de snapshots pour ce modèle. Le worker quotidien de
- * [FetchBiasObservationsUseCase] fetchera quand même les observations
- * rétrospectivement, mais sans forecast correspondant → le JOIN INNER dans
- * la DAO filtrera ces jours, et le calcul de biais tournera avec moins de
- * samples. Acceptable dégradation gracieuse.
+ * [FetchBiasObservationsUseCase] ne téléchargera la référence historique
+ * que pour les jours réellement couverts par un snapshot. Sans prévision
+ * correspondante, aucun couple ne peut entrer dans le calcul : la fiabilité
+ * dispose simplement de moins de jours, sans fabriquer de donnée.
  *
  * ## Idempotence
  *
  * `recordForecast` utilise `OnConflictStrategy.REPLACE` sur la PK composite
- * `(cityId, modelKey, variable, targetDate, issuedAt)`. Deux refresh
- * successifs au sein de la même milliseconde (issuedAt identique) écrasent
- * — cas théorique impossible en pratique (la latence HTTP est ≫ ms). Deux
- * refresh à des ms différentes créent deux snapshots côte à côte, sans
- * conflit et sans perte.
+ * `(cityId, modelKey, variable, targetDate, issuedAt)`. Ici [issuedAt] est
+ * normalisé au début de la journée locale : tous les refreshs d'une même
+ * journée remplacent donc le même snapshot J+1. Cette clé stable borne le
+ * stockage sans perdre l'échéance de comparaison retenue.
  *
- * ## Sur quels jours snapshotter
+ * ## Horizon vérifié
  *
- * Tous les jours présents dans [CityForecast.daily.dates] — l'API renvoie
- * typiquement 7 jours. Les jours futurs seront rejoignables avec des
- * observations quand ils passeront dans le passé (via
- * [FetchBiasObservationsUseCase]).
+ * Le suivi de fiabilité compare uniquement la prévision du lendemain (J+1).
+ * Mélanger une prévision faite le jour même avec une prévision à J+5 rendrait
+ * le score impossible à interpréter. Pour chaque refresh, seule la date
+ * [today] + 1 est donc enregistrée.
  *
- * Filtrage : on snapshotte les jours dans la fenêtre `[today - 35, today + 10]`
- * pour se prémunir contre un modèle qui renverrait des dates aberrantes (bug
- * de parsing, ancien cache pré-Instant). La marge haute large (+10) accepte
- * les modèles avec un long horizon.
+ * L'instant de clé est normalisé au début de la journée locale d'émission.
+ * Les refreshs successifs de la même journée remplacent ainsi la même ligne
+ * Room : trois valeurs par modèle et par jour au maximum, sans croissance liée
+ * au nombre d'ouvertures de l'application.
  *
  * ## Robustesse
  *
@@ -67,8 +67,9 @@ class SnapshotForecastUseCase @Inject constructor(
 
     /**
      * @param forecast le résultat frais de `refreshCityForecast`.
-     * @param issuedAt l'instant du snapshot. Par défaut, utilise l'horloge
-     *   injectée afin de rester reproductible en test.
+     * @param issuedAt instant du refresh. Il sert à déterminer la journée
+     *   locale d'émission ; la clé persistée est ensuite normalisée au début
+     *   de cette journée. Par défaut, utilise l'horloge injectée.
      * @param today date civile de référence dans le fuseau de la ville. Elle
      *   est dérivée de [issuedAt] pour éviter un décalage autour de minuit.
      */
@@ -78,39 +79,34 @@ class SnapshotForecastUseCase @Inject constructor(
         today: LocalDate = issuedAt.localDateIn(forecast.city.timezone)
     ) {
         val cityId = forecast.city.id
-        // Fenêtre de sanité : rejette les dates aberrantes qui pourraient venir
-        // d'un cache corrompu ou d'un futur bug de parsing.
-        val minDay = today.minusDays(35).toEpochDay()
-        val maxDay = today.plusDays(10).toEpochDay()
+        val targetDay = today.plusDays(1)
+        val issueDayMarker = today
+            .atStartOfDay(resolveZoneOrUtc(forecast.city.timezone))
+            .toInstant()
 
-        val records = ArrayList<ForecastBiasRecord>(forecast.seriesByModel.size * 21)
+        val records = ArrayList<ForecastBiasRecord>(forecast.seriesByModel.size * 3)
         for ((model, series) in forecast.seriesByModel) {
             val daily = series.daily
-            val dates = daily.dates
+            val index = daily.dates.indexOf(targetDay)
+            if (index < 0) continue
 
-            for (i in dates.indices) {
-                val date = dates[i]
-                val epochDay = date.toEpochDay()
-                if (epochDay !in minDay..maxDay) continue
-
-                // Chaque variable est indépendante. Un cache ancien, un modèle
-                // partiel ou une série tronquée ne doit pas faire perdre les
-                // autres valeurs valides du même jour.
-                daily.tempMax.getOrNull(i)?.let { value ->
-                    records += ForecastBiasRecord(
-                        cityId, model, BiasVariable.TEMPERATURE, date, issuedAt, value
-                    )
-                }
-                daily.precipitationSum.getOrNull(i)?.let { value ->
-                    records += ForecastBiasRecord(
-                        cityId, model, BiasVariable.PRECIPITATION, date, issuedAt, value
-                    )
-                }
-                daily.windSpeedMax.getOrNull(i)?.let { value ->
-                    records += ForecastBiasRecord(
-                        cityId, model, BiasVariable.WIND_SPEED, date, issuedAt, value
-                    )
-                }
+            // Chaque variable est indépendante. Un cache ancien, un modèle
+            // partiel ou une série tronquée ne doit pas faire perdre les
+            // autres valeurs valides du même jour.
+            daily.tempMax.getOrNull(index)?.let { value ->
+                records += ForecastBiasRecord(
+                    cityId, model, BiasVariable.TEMPERATURE, targetDay, issueDayMarker, value
+                )
+            }
+            daily.precipitationSum.getOrNull(index)?.let { value ->
+                records += ForecastBiasRecord(
+                    cityId, model, BiasVariable.PRECIPITATION, targetDay, issueDayMarker, value
+                )
+            }
+            daily.windSpeedMax.getOrNull(index)?.let { value ->
+                records += ForecastBiasRecord(
+                    cityId, model, BiasVariable.WIND_SPEED, targetDay, issueDayMarker, value
+                )
             }
         }
         biasRepository.recordForecasts(records)

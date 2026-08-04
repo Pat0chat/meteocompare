@@ -3,7 +3,6 @@ package com.meteocompare.app.di
 import com.meteocompare.app.BuildConfig
 import com.meteocompare.app.data.remote.ClimateArchiveApi
 import com.meteocompare.app.data.remote.GeocodingApi
-import com.meteocompare.app.data.remote.HistoricalForecastApi
 import com.meteocompare.app.data.remote.OpenMeteoApi
 import dagger.Module
 import dagger.Provides
@@ -31,10 +30,6 @@ annotation class GeocodingRetrofit
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
 annotation class ArchiveRetrofit
-
-@Qualifier
-@Retention(AnnotationRetention.BINARY)
-annotation class HistoricalForecastRetrofit
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -109,19 +104,6 @@ object NetworkModule {
             .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
             .build()
 
-    @Provides
-    @Singleton
-    @HistoricalForecastRetrofit
-    fun provideHistoricalForecastRetrofit(client: OkHttpClient, json: Json): Retrofit =
-        Retrofit.Builder()
-            // historical-forecast-api : ce que chaque MODÈLE avait prévu à
-            // une date passée. Distinct de l'archive (observations mesurées).
-            // Utilisé uniquement pour le backfill au premier lancement du
-            // suivi de biais — un seul appel par ville, jamais réutilisé.
-            .baseUrl("https://historical-forecast-api.open-meteo.com/")
-            .client(client)
-            .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
-            .build()
 
     @Provides
     @Singleton
@@ -138,10 +120,4 @@ object NetworkModule {
     fun provideClimateArchiveApi(@ArchiveRetrofit retrofit: Retrofit): ClimateArchiveApi =
         retrofit.create(ClimateArchiveApi::class.java)
 
-    @Provides
-    @Singleton
-    fun provideHistoricalForecastApi(
-        @HistoricalForecastRetrofit retrofit: Retrofit
-    ): HistoricalForecastApi =
-        retrofit.create(HistoricalForecastApi::class.java)
 }

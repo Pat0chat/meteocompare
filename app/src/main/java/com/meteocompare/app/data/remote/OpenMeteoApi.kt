@@ -17,25 +17,12 @@ import retrofit2.http.Query
  *                          une réponse ne contenant qu'un modèle.
  *
  * ─── Pourquoi batcher ? ─────────────────────────────────────────────────
- * L'app compare N modèles météo (N = 7 par défaut, jusqu'à 17 configurables).
- * Sans batching, un refresh = N requêtes HTTPS parallèles :
+ * L'app compare plusieurs modèles météo. Le mode batched regroupe leurs
+ * variables dans une seule réponse HTTP, ce qui réduit le nombre de connexions,
+ * simplifie la cohérence temporelle et évite un retry indépendant par modèle.
  *
- *   - N handshakes TLS (~50-200 ms chacun)
- *   - N wakeups radio cellulaire → coût batterie non négligeable sur 3G/4G
- *   - N points de panne indépendants (retry par modèle) ET N timeouts
- *     séquentiels si le serveur est lent
- *
- * Avec batching, un refresh = 1 requête HTTPS :
- *
- *   - 1 seul handshake TLS
- *   - 1 seul wakeup radio (idéal pour la batterie)
- *   - Réponse "tout ou rien" : plus simple, cohérent, et Open-Meteo est
- *     conçu pour ce mode (variables suffixées natives)
- *
- * Contrepartie : perte de granularité de retry (on ne peut plus réessayer
- * juste GFS si GFS a échoué). Acceptable car Open-Meteo répond 200 + null
- * pour un modèle indisponible plutôt qu'une erreur HTTP → [BatchedForecastSplitter]
- * filtre ces "modèles vides" et laisse le reste passer.
+ * Contrepartie : la granularité de retry est globale. Le splitter tolère les
+ * séries vides ou partielles et conserve les modèles réellement exploitables.
  */
 interface OpenMeteoApi {
 

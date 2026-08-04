@@ -155,11 +155,10 @@ internal object WidgetRefreshScheduler {
                     // ce qui arrive fréquemment en journée. Symptôme visible :
                     // widget qui n'évolue plus (12h/13h toujours affichés à 14h).
                     //
-                    // Le coût du tick est négligeable (~10 ms CPU, souvent
-                    // cache-only), et le fetch réseau est de toute façon
-                    // court-circuité par `maxCacheAgeMs`. Rendre le tick
-                    // inconditionnel restaure la fiabilité de l'affichage à
-                    // un coût battery marginal — le bon compromis.
+                    // Le tick est généralement cache-only et le fetch réseau
+                    // reste court-circuité par `maxCacheAgeMs`. Son coût réel
+                    // dépend toutefois du launcher et doit être surveillé avec
+                    // Battery Historian / Macrobenchmark sur un build release.
                     .build()
             )
             // En cas de panne persistante du launcher ou de Glance, ne pas
@@ -227,6 +226,7 @@ internal object WidgetRefreshScheduler {
     /** Overload testable : voir [schedule] pour la justification. */
     internal fun cancel(workManager: WorkManager) {
         workManager.cancelUniqueWork(WORK_NAME)
+        workManager.cancelUniqueWork(IMMEDIATE_WORK_NAME)
     }
 
     /**

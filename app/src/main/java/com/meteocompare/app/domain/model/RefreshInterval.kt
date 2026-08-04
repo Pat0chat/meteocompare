@@ -28,11 +28,11 @@ import java.time.Duration
  *  - Chaque palier a une motivation :
  *      · MINUTES_15 : fréquence par défaut du système Android — assez frais
  *        pour un widget de bureau consulté toutes les 30 min.
- *      · MINUTES_30 : ancien défaut (avant WorkManager), les prévisions
- *        Open-Meteo sont republiées ~toutes les heures donc 30 min garantit
- *        d'attraper la nouvelle version rapidement.
- *      · HOUR_1 : défaut retenu — matches la cadence de publication des
- *        modèles Open-Meteo, sans gaspiller de requêtes entre deux runs.
+ *      · MINUTES_30 : compromis plus réactif que le défaut. Les modèles ont
+ *        des cadences de publication différentes ; ce palier ne garantit pas
+ *        qu'un nouveau run soit disponible à chaque passage.
+ *      · HOUR_1 : défaut retenu — offre un bon compromis entre fraîcheur perçue et consommation, sans
+ *        supposer que tous les modèles publient au même rythme.
  *      · HOURS_3 / HOURS_6 : profil "économie de batterie", accepté quand
  *        on regarde la météo une ou deux fois par jour.
  *      · MANUAL : aucune requête périodique ; un premier chargement sans
@@ -59,8 +59,8 @@ enum class RefreshInterval(val duration: Duration) {
 
     companion object {
         /**
-         * Défaut : 1 heure. Cadence de publication des modèles météo Open-Meteo,
-         * bon compromis batterie/fraîcheur pour la majorité des utilisateurs.
+         * Défaut : 1 heure. Compromis batterie/fraîcheur ; ce n'est pas la
+         * cadence native de tous les modèles, qui varie selon le fournisseur.
          */
         val DEFAULT = HOUR_1
 

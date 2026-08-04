@@ -563,7 +563,11 @@ private fun CompactModelRow(
         )
         Spacer(Modifier.size(8.dp))
         Text(
-            text = "${formatResolution(model.resolutionKm)} · ${model.maxForecastDays} j",
+            text = stringResource(
+                R.string.model_metadata,
+                formatResolution(model.resolutionKm),
+                model.maxForecastDays
+            ),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.weight(1f)
@@ -587,11 +591,15 @@ private fun CompactModelRow(
 private fun formatResolution(km: Double): String =
     if (km < 10.0) "%.1f km".format(km) else "${km.toInt()} km"
 
-private fun coverageLabel(coverage: Coverage): String = when (coverage) {
-    Coverage.FRANCE -> "France"
-    Coverage.EUROPE -> "Europe"
-    Coverage.GLOBAL -> "Monde"
-}
+@Composable
+private fun coverageLabel(coverage: Coverage): String = stringResource(
+    when (coverage) {
+        Coverage.FRANCE -> R.string.model_coverage_france
+        Coverage.EUROPE -> R.string.model_coverage_europe
+        Coverage.UNITED_STATES -> R.string.model_coverage_united_states
+        Coverage.GLOBAL -> R.string.model_coverage_global
+    }
+)
 
 /** Sélecteur de mode de tri des modèles. */
 @Composable

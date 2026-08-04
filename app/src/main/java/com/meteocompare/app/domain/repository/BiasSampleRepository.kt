@@ -20,12 +20,12 @@ import java.time.LocalDate
  * ## API surface
  *
  * Une seule méthode "read" côté UI : [observeSamples]. Elle joint les deux
- * tables et émet la liste des couples (forecast, observation) dès qu'un des
+ * tables et émet la liste des couples (prévision, référence historique) dès qu'un des
  * deux côtés change. C'est ce que consomme [ComputeBiasUseCase].
  *
  * Les méthodes "write" sont appelées par la couche fetch (repository
  * forecasts existant pour snapshotter ce qui est déjà en mémoire, et le
- * worker archive-fetch pour les observations rétrospectives).
+ * worker archive-fetch pour les références historiques rétrospectives).
  *
  * ## Rétention
  *
@@ -50,7 +50,7 @@ data class ForecastBiasRecord(
     val value: Double
 )
 
-/** Lot d'observations de biais prêt à persister en une transaction. */
+/** Lot de références historiques prêt à persister en une transaction. */
 data class ObservationBiasRecord(
     val cityId: String,
     val variable: BiasVariable,
@@ -62,31 +62,32 @@ data class ObservationBiasRecord(
 interface BiasSampleRepository {
 
     /**
-     * Flow des samples couplés (forecast, observation) pour une
+     * Flow des samples couplés (prévision, référence historique) pour une
      * (ville, modèle, variable) donnée, restreints à la fenêtre de
      * [windowDays] jours précédant [asOf]. Émet à chaque changement de l'une
      * ou l'autre table.
      *
-     * Ordre : par `targetDate` croissante puis `issuedAt` DÉCROISSANTE — de
-     * sorte qu'une éventuelle déduplication en aval (`ComputeBiasUseCase`)
-     * conserve le forecast le plus récent pour chaque jour.
+     * En production, [timezone] permet de ne conserver que la dernière
+     * prévision enregistrée la veille civile de chaque jour cible. Tous les
+     * modèles sont ainsi comparés sur un horizon homogène J+1, au lieu de
+     * mélanger des prévisions faites le jour même et plusieurs jours avant.
      */
     fun observeSamples(
         cityId: String,
         model: WeatherModel,
         variable: BiasVariable,
         asOf: LocalDate,
+        timezone: String? = null,
         windowDays: Int = 30
     ): Flow<List<BiasSample>>
 
     /**
-     * Persiste un forecast qu'un modèle a émis à l'instant [issuedAt] pour
-     * la date [targetDate].
+     * Persiste un forecast pour [targetDate]. En production, [issuedAt] sert
+     * de marqueur de journée locale d'émission plutôt que d'horodatage exact :
+     * les refreshs successifs d'une même journée remplacent le snapshot J+1.
      *
-     * Idempotent sur la clé (city, model, variable, targetDate, issuedAt) —
-     * un même snapshot ré-inséré est un no-op. C'est le fetch layer qui
-     * appelle après avoir refreshi le forecast et validé qu'il faut le
-     * conserver historiquement.
+     * La clé (city, model, variable, targetDate, issuedAt) est idempotente ;
+     * une nouvelle valeur portant la même clé remplace l'ancienne.
      */
     suspend fun recordForecast(
         cityId: String,
@@ -116,9 +117,9 @@ interface BiasSampleRepository {
     }
 
     /**
-     * Persiste une observation pour [targetDate]. Idempotent sur
-     * (city, variable, targetDate) — écrase silencieusement (une nouvelle
-     * mesure ERA5 remplace la précédente pour la même date).
+     * Persiste une référence historique pour [targetDate]. Idempotent sur
+     * (city, variable, targetDate) — une réponse plus récente remplace la
+     * précédente pour la même date.
      */
     suspend fun recordObservation(
         cityId: String,
@@ -127,7 +128,7 @@ interface BiasSampleRepository {
         value: Double
     )
 
-    /** Variante batch des observations, avec fallback compatible. */
+    /** Variante batch des références historiques, avec fallback compatible. */
     suspend fun recordObservations(records: List<ObservationBiasRecord>) {
         records.forEach { record ->
             recordObservation(
@@ -140,32 +141,21 @@ interface BiasSampleRepository {
     }
 
     /**
-     * Retourne la date la plus récente pour laquelle on a déjà une observation
-     * de [variable] dans la ville [cityId]. Utilisé par le worker fetch pour
-     * calculer le delta à récupérer depuis l'archive (`[latest + 1, yesterday]`).
+     * Première date passée ou présente qui possède au moins une prévision
+     * capturée, mais pas encore sa référence historique correspondante.
      *
-     * `null` si aucune observation n'est encore stockée (première utilisation).
+     * Retourne `null` quand aucune donnée n'est vérifiable ou lorsque toutes
+     * les références nécessaires jusqu'à [upToDate] sont déjà en base.
      */
-    suspend fun latestObservationDate(
+    suspend fun earliestMissingReferenceDate(
         cityId: String,
-        variable: BiasVariable
+        upToDate: LocalDate
     ): LocalDate?
-
-    /**
-     * Nombre de dates passées distinctes couvertes par au moins un snapshot pour un modèle précis. Le garde
-     * doit être par modèle : activer un nouveau modèle ne doit pas être bloqué
-     * par l'historique déjà présent pour les autres familles.
-     */
-    suspend fun countPastForecastDays(
-        cityId: String,
-        model: WeatherModel,
-        beforeDate: LocalDate
-    ): Int
 
     /**
      * Housekeeping : supprime tous les samples (forecasts et observations)
      * antérieurs à [beforeDate]. Appelé une fois par jour par le worker de
-     * refresh pour maintenir la DB dans un budget de ~35 jours de données.
+     * refresh pour maintenir la DB dans un budget de 35 jours de données.
      */
     suspend fun purgeOlderThan(beforeDate: LocalDate)
 }

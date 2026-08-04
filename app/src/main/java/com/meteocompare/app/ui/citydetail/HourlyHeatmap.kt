@@ -63,7 +63,7 @@ internal fun contrastingContentColor(background: Color): Color =
 //  et "chaque saut de couleur reste identifiable comme un signal". À 20+ bins,
 //  les couleurs adjacentes se confondent et on perd l'avantage cognitif de la
 //  granularité. À 5 bins (version précédente), le dégradé est trop grossier
-//  pour distinguer p.ex. "pluie faible" (1 mm/h) de "pluie soutenue" (3 mm/h)
+//  pour distinguer p.ex. "pluie faible" (1 mm sur l’heure) de "pluie soutenue" (3 mm sur l’heure)
 //  qui tomberaient dans le même bin.
 //
 //  Pourquoi une palette différente des tableaux daily :
@@ -77,7 +77,7 @@ internal fun contrastingContentColor(background: Color): Color =
 //  Pourquoi des seuils quasi-logarithmiques pour la pluie (0.05, 0.1, 0.2,
 //  0.5, 1, 2, 3, 5, 7, 10) :
 //  la perception d'intensité de pluie est logarithmique — la différence
-//  entre 0.1 et 0.5 mm/h est plus sensible que celle entre 8 et 10.
+//  entre 0.1 et 0.5 mm sur l’heure est plus sensible que celle entre 8 et 10.
 
 /**
  * Heatmap de la température horaire.
@@ -125,11 +125,11 @@ internal fun hourlyTemperatureHeatmap(celsius: Double): HeatmapCellStyle = when 
 }
 
 /**
- * Heatmap des précipitations horaires en mm/h.
+ * Heatmap des précipitations horaires en mm sur l’heure.
  *
  * 10 paliers colorés + 1 palier neutre (retour null pour le sec) :
  *
- *   | Palier | Bornes (mm/h) | Couleur   | Sémantique              |
+ *   | Palier | Bornes (mm sur l’heure) | Couleur   | Sémantique              |
  *   |--------|---------------|-----------|-------------------------|
  *   | (null) | < 0.05        | —         | sec (cellule neutre)    |
  *   | 1      | [0.05, 0.1)   | #E3F2FD   | bruine à peine visible  |
@@ -156,7 +156,7 @@ internal fun hourlyTemperatureHeatmap(celsius: Double): HeatmapCellStyle = when 
  * (accessibilité daltonisme). Les seuils suivent une progression
  * quasi-logarithmique (0.05, 0.1, 0.2, 0.5, 1, 2, 3, 5, 7, 10) car la
  * perception "il pleut plus" est logarithmique — la différence entre 0.1 et
- * 0.5 mm/h est plus sensible que celle entre 8 et 10.
+ * 0.5 mm sur l’heure est plus sensible que celle entre 8 et 10.
  */
 internal fun hourlyPrecipitationHeatmap(mm: Double): HeatmapCellStyle? = when {
     mm < 0.05 -> null

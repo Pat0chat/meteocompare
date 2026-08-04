@@ -141,9 +141,9 @@ class CityDetailViewModel @Inject constructor(
         userPreferences.observeEnabledModels(),
         cityTimezone
     ) { models, timezone ->
-        models to clock.instant().localDateIn(timezone)
-    }.flatMapLatest { (models, asOf) ->
-        observeBiasScreenState(models, asOf)
+        Triple(models, timezone, clock.instant().localDateIn(timezone))
+    }.flatMapLatest { (models, timezone, asOf) ->
+        observeBiasScreenState(models, timezone, asOf)
     }
         .stateIn(
             scope = viewModelScope,
@@ -220,13 +220,14 @@ class CityDetailViewModel @Inject constructor(
      */
     private fun observeBiasScreenState(
         models: List<WeatherModel>,
+        timezone: String?,
         asOf: LocalDate
     ): Flow<BiasScreenState> {
         if (models.isEmpty()) return flowOf(BiasScreenState.EMPTY)
         return combine(
-            observeVariableBiasState(models, BiasVariable.TEMPERATURE, asOf),
-            observeVariableBiasState(models, BiasVariable.PRECIPITATION, asOf),
-            observeVariableBiasState(models, BiasVariable.WIND_SPEED, asOf)
+            observeVariableBiasState(models, BiasVariable.TEMPERATURE, timezone, asOf),
+            observeVariableBiasState(models, BiasVariable.PRECIPITATION, timezone, asOf),
+            observeVariableBiasState(models, BiasVariable.WIND_SPEED, timezone, asOf)
         ) { t, p, w -> BiasScreenState(temperature = t, precipitation = p, wind = w) }
     }
 
@@ -242,6 +243,7 @@ class CityDetailViewModel @Inject constructor(
     private fun observeVariableBiasState(
         models: List<WeatherModel>,
         variable: BiasVariable,
+        timezone: String?,
         asOf: LocalDate
     ): Flow<VariableBiasState> {
         val perModelFlows: List<Flow<Pair<WeatherModel, List<BiasSample>>>> = models.map { model ->
@@ -250,6 +252,7 @@ class CityDetailViewModel @Inject constructor(
                 model = model,
                 variable = variable,
                 asOf = asOf,
+                timezone = timezone,
                 windowDays = BIAS_WINDOW_DAYS
             ).map { samples -> model to samples }
         }

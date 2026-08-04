@@ -25,8 +25,10 @@ object DatabaseModule {
             MeteoCompareDatabase::class.java,
             "meteocompare.db"
         )
-            // Pas de migration pour le MVP — c'est un cache, on accepte les wipes
-            // lors d'un changement de schéma. Pas de donnée critique.
+            // Compatibilité historique : les versions publiées utilisent encore
+            // une recréation destructive si aucune migration n'est fournie.
+            // À ne pas reproduire lors du prochain bump : le suivi J+1 est
+            // reconstructible, mais demande jusqu'à 14 jours pour redevenir utile.
             // dropAllTables = true : sémantique identique au comportement legacy
             // (drop-and-recreate). Room 2.7+ demande le paramètre explicite pour
             // clarifier qu'on accepte de perdre AUSSI les tables non listées

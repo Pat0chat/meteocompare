@@ -3,12 +3,11 @@ package com.meteocompare.app.data.worker
 import com.meteocompare.app.data.local.ForecastCacheDao
 import com.meteocompare.app.domain.repository.BiasSampleRepository
 import com.meteocompare.app.domain.repository.CityRepository
-import com.meteocompare.app.domain.repository.UserPreferencesRepository
-import com.meteocompare.app.domain.usecase.BackfillHistoricalForecastUseCase
 import com.meteocompare.app.domain.usecase.FetchBiasObservationsUseCase
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import java.time.Clock
 
 /**
  * Bridge Hilt → [BiasRefreshWorker]. Un CoroutineWorker n'est PAS une
@@ -29,9 +28,8 @@ import dagger.hilt.components.SingletonComponent
 internal interface BiasRefreshEntryPoint {
     fun cityRepository(): CityRepository
     fun biasSampleRepository(): BiasSampleRepository
-    fun userPreferencesRepository(): UserPreferencesRepository
     fun fetchBiasObservationsUseCase(): FetchBiasObservationsUseCase
-    fun backfillHistoricalForecastUseCase(): BackfillHistoricalForecastUseCase
+    fun clock(): Clock
 
     /**
      * Exposé pour le housekeeping quotidien du cache forecast — voir

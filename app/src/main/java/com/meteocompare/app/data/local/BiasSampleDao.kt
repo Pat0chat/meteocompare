@@ -23,43 +23,41 @@ interface BiasSampleDao {
 
     /**
      * Idempotent sur la clé composite. REPLACE plutôt que IGNORE parce que si
-     * un même `(issuedAtEpochMs, ...)` est réinséré, c'est vraisemblablement
-     * une nouvelle valeur (bug côté fetch, ou modèle qui a changé sa valeur
-     * pour une même issuedAt — cas théorique) — on prend la plus fraîche.
+     * une même clé de journée d'émission est réinsérée, le refresh le plus
+     * récent de cette journée doit remplacer la valeur précédente.
      */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertForecast(sample: ForecastSampleEntity)
 
-    /** Une transaction Room pour tout un snapshot/backfill. */
+    /** Une transaction Room pour le snapshot J+1 de tous les modèles. */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertForecasts(samples: List<ForecastSampleEntity>)
 
     /**
-     * REPLACE pour supporter les révisions rétroactives ERA5 (l'archive
-     * Open-Meteo peut mettre à jour une observation d'il y a quelques jours
-     * quand la réanalyse est raffinée).
+     * REPLACE pour accepter une éventuelle révision rétroactive de la
+     * référence historique Open-Meteo.
      */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertObservation(sample: ObservationSampleEntity)
 
-    /** Une transaction Room pour tout un delta d'observations. */
+    /** Une transaction Room pour tout un delta de références historiques. */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertObservations(samples: List<ObservationSampleEntity>)
 
     // ─── Lectures ─────────────────────────────────────────────────────────
 
     /**
-     * Requête cœur du feature : joint forecast et observation par (cityId,
+     * Requête cœur du feature : joint prévision et référence historique par (cityId,
      * variable, targetDate) et filtre sur la fenêtre glissante fournie.
      *
      * INNER JOIN — on n'émet que les jours pour lesquels ON A LES DEUX :
-     * un forecast sans observation (jour futur ou observation pas encore
-     * fetchée) n'entre pas dans le calcul de biais, et un forecast qu'on
+     * une prévision sans référence (jour futur ou archive pas encore
+     * récupérée) n'entre pas dans le calcul de biais, et une prévision qu'on
      * n'a jamais snapshotté ne peut pas devenir un jour de biais.
      *
-     * L'ORDER BY `issuedAtEpochMs DESC` en second critère garantit que si
-     * plusieurs snapshots existent pour le même `targetDate`, le plus récent
-     * arrive en tête — le `ComputeBiasUseCase.dedupByDate` gardera celui-là.
+     * L'ORDER BY `issuedAtEpochMs DESC` reste défensif pour les anciennes
+     * bases qui peuvent contenir plusieurs captures du même `targetDate`.
+     * Le repository sélectionne ensuite strictement la capture émise la veille.
      *
      * Bornes de la fenêtre : `[startEpochDay, endEpochDay)`. Semi-ouverte
      * pour matcher la sémantique du use case (asOf exclu).
@@ -72,7 +70,8 @@ interface BiasSampleDao {
         SELECT
           f.targetDateEpochDay AS targetDateEpochDay,
           f.value              AS forecast,
-          o.value              AS observation
+          o.value              AS observation,
+          f.issuedAtEpochMs    AS issuedAtEpochMs
         FROM forecast_samples f
         INNER JOIN observation_samples o
           ON f.cityId            = o.cityId
@@ -95,38 +94,30 @@ interface BiasSampleDao {
     ): Flow<List<BiasSampleRow>>
 
     /**
-     * Latest observed date for delta fetch. `MAX` renvoie null si aucune
-     * observation n'existe pour la clé (première utilisation).
+     * Première date cible possédant une prévision mais aucune référence
+     * historique correspondante, toutes variables confondues.
+     *
+     * Le LEFT JOIN détecte aussi les trous internes : une référence manquante
+     * au milieu d'une série n'est pas masquée par une date plus récente déjà
+     * présente. `upToEpochDay` exclut les prévisions encore futures.
      */
     @Query(
         """
-        SELECT MAX(targetDateEpochDay)
-        FROM observation_samples
-        WHERE cityId = :cityId AND variable = :variable
+        SELECT MIN(f.targetDateEpochDay)
+        FROM forecast_samples f
+        LEFT JOIN observation_samples o
+          ON f.cityId = o.cityId
+          AND f.variable = o.variable
+          AND f.targetDateEpochDay = o.targetDateEpochDay
+        WHERE f.cityId = :cityId
+          AND f.targetDateEpochDay <= :upToEpochDay
+          AND o.targetDateEpochDay IS NULL
         """
     )
-    suspend fun getLatestObservationEpochDay(cityId: String, variable: String): Long?
-
-    /**
-     * Compte les jours distincts de forecast dont la date cible est
-     * **strictement dans le passé** par rapport à [beforeEpochDay]. Sert au
-     * garde d'idempotence du backfill. Le `DISTINCT` empêche les trois
-     * variables et plusieurs runs d'une même journée de gonfler ce compteur.
-     */
-    @Query(
-        """
-        SELECT COUNT(DISTINCT targetDateEpochDay)
-        FROM forecast_samples
-        WHERE cityId = :cityId
-          AND modelKey = :modelKey
-          AND targetDateEpochDay < :beforeEpochDay
-        """
-    )
-    suspend fun countPastForecastDays(
+    suspend fun getEarliestMissingReferenceEpochDay(
         cityId: String,
-        modelKey: String,
-        beforeEpochDay: Long
-    ): Int
+        upToEpochDay: Long
+    ): Long?
 
     // ─── Housekeeping ─────────────────────────────────────────────────────
 
@@ -155,5 +146,6 @@ interface BiasSampleDao {
 data class BiasSampleRow(
     val targetDateEpochDay: Long,
     val forecast: Double,
-    val observation: Double
+    val observation: Double,
+    val issuedAtEpochMs: Long
 )

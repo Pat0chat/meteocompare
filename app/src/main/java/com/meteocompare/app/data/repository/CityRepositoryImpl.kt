@@ -55,7 +55,8 @@ class CityRepositoryImpl @Inject constructor(
 
     override suspend fun searchCities(query: String): ApiResult<List<City>> =
         withContext(ioDispatcher) {
-            if (query.length < 2) {
+            val normalizedQuery = query.trim()
+            if (normalizedQuery.length < 2) {
                 return@withContext ApiResult.Success(emptyList())
             }
             // Court-circuit hors-ligne — évite un timeout 30s sur chaque keystroke
@@ -67,7 +68,11 @@ class CityRepositoryImpl @Inject constructor(
                 )
             }
             apiCall(context) {
-                geocodingApi.search(name = query)
+                val locale = context.resources.configuration.locales[0]
+                geocodingApi.search(
+                    name = normalizedQuery,
+                    language = locale.language.takeIf { it.isNotBlank() } ?: "en"
+                )
                     .results
                     .orEmpty()
                     .map { it.toDomain() }

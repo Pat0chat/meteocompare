@@ -4,6 +4,7 @@ import android.content.Context
 import com.meteocompare.app.R
 import com.meteocompare.app.core.locale.applyPersistedLocale
 import com.meteocompare.app.core.network.ApiResult
+import com.meteocompare.app.core.util.localDateIn
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DayConfidence
 import com.meteocompare.app.domain.model.HourlyConfidenceBand
@@ -279,13 +280,10 @@ internal sealed class WidgetError {
  *   4. Calcule les agrégats via ConfidenceCalculator (mêmes helpers que l'app).
  *
  * ─── Économie batterie/data via maxCacheAgeMs ────────────────────────────
- * L'ancien code fetchait TOUJOURS le réseau, même si le cache était vieux
- * de quelques secondes. Sur un widget rafraîchi toutes les 15 min par
- * WorkManager, cela signifiait 5 requêtes réseau × 4 modèles × 4 fois par
- * heure = 80 requêtes/heure, dont la grande majorité renvoient les mêmes
- * données que le cache. Le passage `maxCacheAgeMs = interval` élimine ce
- * gaspillage : si le cache est plus jeune que l'intervalle utilisateur, on
- * réutilise juste le cache sans requête réseau.
+ * Le passage `maxCacheAgeMs = interval` évite un fetch à chaque tick du
+ * worker : si le cache est plus jeune que l'intervalle utilisateur, le widget
+ * le réutilise sans requête réseau. Le repository conserve par ailleurs un
+ * fetch batched pour tous les modèles activés.
  *
  * Pour MANUAL, tout cache existant est considéré frais. Un premier chargement
  * peut toutefois amorcer le cache s'il est vide ; après cela, seul un refresh
@@ -331,8 +329,8 @@ internal suspend fun loadWidgetData(
     // défaut `WeatherModel.MVP_SELECTION`, qui pouvait différer de la
     // sélection app — résultat : deux entrées de cache disjointes (les clés
     // Room sont (cityId, modelKey), donc un modèle absent d'un côté n'est
-    // pas réutilisable par l'autre), et deux requêtes HTTPS parallèles au
-    // cold start alors qu'une seule aurait pu servir aux deux consommateurs.
+    // pas réutilisable par l'autre), et des fetches distincts alors qu'une
+    // seule réponse batched peut servir aux deux consommateurs.
     // Avec `enabledModels`, app et widget écrivent/lisent EXACTEMENT les
     // mêmes lignes de cache → le premier à démarrer sert le second.
     val enabledModels = prefsRepo.observeEnabledModels().first()
@@ -351,10 +349,10 @@ internal suspend fun loadWidgetData(
         is ApiResult.Success -> withContext(Dispatchers.Default) {
             val forecast = result.data
             val calc = entry.confidenceCalculator()
-            val today = forecast.seriesByModel.values
-                .firstOrNull()?.daily?.dates?.firstOrNull()
-            val dayConf = today?.let { calc.dayConfidence(forecast, it) }
-            val precipitation = dayConf?.precipitation
+            val currentInstant = java.time.Instant.now()
+            val today = currentInstant.localDateIn(city.timezone)
+            val dayConf = calc.dayConfidence(forecast, today)
+            val precipitation = dayConf.precipitation
             val rainConfidence = precipitation as?
                 com.meteocompare.app.domain.model.PrecipitationConfidence.Rain
             val precipAmountMm = when (precipitation) {
@@ -399,11 +397,12 @@ internal suspend fun loadWidgetData(
                     forecast = forecast,
                     mode = forecastMode,
                     timezone = city.timezone,
+                    now = currentInstant,
                     forecastConfidence = forecastConfidence
                 )
             }
             val confidenceStrips = if (forecastMode.isConfidenceBand())
-                buildAllConfidenceStrips(localizedContext, forecast, calc)
+                buildAllConfidenceStrips(localizedContext, forecast, calc, currentInstant)
             else emptyList()
 
             // ─── Mini forecast 12h (nouveau mode) ─────────────────────────
@@ -411,7 +410,7 @@ internal suspend fun loadWidgetData(
             // dans le widget que dans la card home. hourlyStartTime = maintenant
             // tronqué à l'heure, dans le fuseau de la ville (les ancres
             // s'affichent en heure locale ville, pas device).
-            val miniForecastNow = java.time.Instant.now()
+            val miniForecastNow = currentInstant
             val valueWidgetData = if (includeValueSnapshot) {
                 buildWidgetValueSnapshot(
                     context = localizedContext,
@@ -444,15 +443,15 @@ internal suspend fun loadWidgetData(
 
             WidgetData(
                 cityName = city.name,
-                currentTemp = calc.currentTemperature(forecast),
-                currentCondition = calc.currentWeatherCondition(forecast),
-                tempMax = dayConf?.tempMax?.meanValue,
-                tempMin = dayConf?.tempMin?.meanValue,
-                confidencePct = dayConf?.overallPercent,
+                currentTemp = calc.currentTemperature(forecast, currentInstant),
+                currentCondition = calc.currentWeatherCondition(forecast, currentInstant),
+                tempMax = dayConf.tempMax?.meanValue,
+                tempMin = dayConf.tempMin?.meanValue,
+                confidencePct = dayConf.overallPercent,
                 precipMm = precipAmountMm,
                 precipConfidencePct = rainConfidence?.percent,
-                currentCloudCover = calc.currentCloudCover(forecast),
-                currentWindSpeedKmh = calc.currentWindSpeed(forecast),
+                currentCloudCover = calc.currentCloudCover(forecast, currentInstant),
+                currentWindSpeedKmh = calc.currentWindSpeed(forecast, currentInstant),
                 forecastMode = forecastMode.normalized(),
                 forecasts = forecasts,
                 confidenceStrips = confidenceStrips,
@@ -497,10 +496,9 @@ internal suspend fun <T> Flow<T>.awaitWidgetTerminalEmission(): T? = lastOrNull(
  *
  * On construit les cinq cartes de chaque modèle et on classe les candidats
  * selon les données réellement exploitables : cinq échéances complètes,
- * présence d'une condition météo, puis résolution spatiale. Ce choix évite de
- * sélectionner AROME HD pour cinq jours alors que son horizon utile n'en couvre
- * que deux, tout en continuant à privilégier les modèles fins quand ils sont
- * effectivement complets.
+ * présence des détails utiles, puis ordre stable des modèles activés. Ce choix
+ * évite de traiter la résolution spatiale comme un score de qualité et empêche
+ * de sélectionner un modèle régional dont l'horizon utile est incomplet.
  */
 internal fun buildForecasts(
     forecast: com.meteocompare.app.domain.model.CityForecast,
@@ -513,7 +511,7 @@ internal fun buildForecasts(
         .getOrDefault(java.time.ZoneId.of("UTC"))
 
     data class Candidate(
-        val resolutionKm: Double,
+        val stableOrder: Int,
         val items: List<WidgetForecastItem>
     ) {
         val visibleItems: List<WidgetForecastItem> = items.take(5)
@@ -536,11 +534,11 @@ internal fun buildForecasts(
      *
      * On construit désormais les cinq cartes réelles de chaque modèle, puis on
      * choisit d'abord un candidat COMPLET. À complétude égale, on favorise les
-     * cartes qui possèdent aussi une condition météo, puis la résolution la plus
-     * fine. Si aucun modèle ne couvre les cinq échéances, on prend celui qui
+     * cartes qui possèdent le plus de détails utiles, puis l'ordre stable du
+     * modèle. Si aucun modèle ne couvre les cinq échéances, on prend celui qui
      * fournit le plus de températures utiles, sans masquer les données disponibles.
      */
-    val candidates = forecast.seriesByModel.entries.map { (model, series) ->
+    val candidates = forecast.seriesByModel.entries.mapIndexed { stableOrder, (model, series) ->
         val items = when (mode) {
             ForecastMode.HOURLY -> buildHourlyForecasts(
                 hourly = series.hourly,
@@ -560,7 +558,7 @@ internal fun buildForecasts(
             ForecastMode.CONFIDENCE_WIND,
             ForecastMode.MINI_FORECAST_12H -> emptyList()
         }
-        Candidate(model.resolutionKm, items)
+        Candidate(stableOrder, items)
     }.filter { it.visibleItems.isNotEmpty() }
 
     val best = candidates.minWithOrNull(
@@ -569,7 +567,7 @@ internal fun buildForecasts(
             .thenByDescending { it.detailCount }
             .thenByDescending { it.temperatureCount }
             .thenByDescending { it.conditionCount }
-            .thenBy { it.resolutionKm }
+            .thenBy { it.stableOrder }
     ) ?: return emptyList()
 
     return best.visibleItems
@@ -786,17 +784,19 @@ internal fun dailyCloudCoverPct(
 private fun buildAllConfidenceStrips(
     context: Context,
     forecast: CityForecast,
-    calc: ConfidenceCalculator
+    calc: ConfidenceCalculator,
+    now: java.time.Instant
 ): List<WidgetConfidenceStrip> = listOfNotNull(
-    buildConfidenceStrip(context, forecast, ForecastMode.CONFIDENCE_TEMPERATURE, calc),
-    buildConfidenceStrip(context, forecast, ForecastMode.CONFIDENCE_PRECIPITATION, calc)
+    buildConfidenceStrip(context, forecast, ForecastMode.CONFIDENCE_TEMPERATURE, calc, now),
+    buildConfidenceStrip(context, forecast, ForecastMode.CONFIDENCE_PRECIPITATION, calc, now)
 )
 
 private fun buildConfidenceStrip(
     context: Context,
     forecast: CityForecast,
     mode: ForecastMode,
-    calc: ConfidenceCalculator
+    calc: ConfidenceCalculator,
+    now: java.time.Instant
 ): WidgetConfidenceStrip? {
     val bands = when (mode) {
         ForecastMode.CONFIDENCE_TEMPERATURE -> calc.hourlyTemperatureConfidence(forecast)
@@ -815,7 +815,6 @@ private fun buildConfidenceStrip(
     // Le widget répond à la question "à partir de maintenant" : les heures
     // déjà passées ne doivent pas relever artificiellement (ou abaisser) la
     // confiance du jour courant.
-    val now = java.time.Instant.now()
     val futureBands = bands.filter { it.timestamp >= now }
     if (futureBands.size < 2) return null
 
@@ -830,7 +829,7 @@ private fun buildConfidenceStrip(
 
     // Cinq jours correspondent au nombre de colonnes affichées sur les
     // widgets 4×2 et 5×2. Les formats plus petits en montrent un sous-ensemble.
-    val today = java.time.LocalDate.now(zone)
+    val today = now.atZone(zone).toLocalDate()
     val nowShortLabel = context.getString(R.string.widget_confidence_now_short)
     val totalModels = forecast.seriesByModel.size.coerceAtLeast(1)
     val buckets = byDay.entries.take(5).map { (date, dayBands) ->

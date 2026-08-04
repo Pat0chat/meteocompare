@@ -22,19 +22,18 @@ import org.junit.Test
 class BiasSampleRepositoryImplTest {
 
     @Test
-    fun `past sample count uses the same enum key as forecast storage`() = runTest {
+    fun `earliest missing reference date is mapped from epoch day`() = runTest {
         val dao = mockk<BiasSampleDao>()
         val date = LocalDate.of(2026, 7, 24)
+        val upToDate = LocalDate.of(2026, 7, 25)
         coEvery {
-            dao.countPastForecastDays("paris", WeatherModel.GFS.name, date.toEpochDay())
-        } returns 7
+            dao.getEarliestMissingReferenceEpochDay("paris", upToDate.toEpochDay())
+        } returns date.toEpochDay()
         val repository = repository(dao)
 
-        val count = repository.countPastForecastDays("paris", WeatherModel.GFS, date)
-
-        assertEquals(7, count)
+        assertEquals(date, repository.earliestMissingReferenceDate("paris", upToDate))
         coVerify(exactly = 1) {
-            dao.countPastForecastDays("paris", WeatherModel.GFS.name, date.toEpochDay())
+            dao.getEarliestMissingReferenceEpochDay("paris", upToDate.toEpochDay())
         }
     }
 

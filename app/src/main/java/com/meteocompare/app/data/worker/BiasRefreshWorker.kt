@@ -20,13 +20,12 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
-import java.time.LocalDate
 import java.util.concurrent.TimeUnit
 
 /**
  * Rafraîchissement quotidien des données de suivi de biais.
  *
- * Trois responsabilités par cycle :
+ * Deux responsabilités de collecte et une de maintenance par cycle :
  *   1. **Fetch delta des observations** — pour chaque ville favorite, appeler
  *      [com.meteocompare.app.domain.usecase.FetchBiasObservationsUseCase]
  *      qui interroge Open-Meteo archive et remplit `observation_samples`
@@ -60,10 +59,9 @@ import java.util.concurrent.TimeUnit
  * pas de réseau — WorkManager retentera automatiquement à la prochaine
  * connexion (contrainte satisfaite → job dispatché).
  *
- * `flexTimeInterval = 6h` : WorkManager peut décaler le job de ±6h autour
- * de son slot quotidien pour regrouper avec d'autres jobs système et
- * économiser la batterie. Pour du fetch d'archive météo qui n'a aucune
- * urgence horaire, c'est optimal.
+ * `flexTimeInterval = 6h` : la fenêtre flexible de 6 h laisse WorkManager choisir un moment
+ * compatible avec les contraintes et le regroupement système. Le traitement
+ * rétrospectif ne dépend pas d'une heure exacte.
  *
  * ## Politique d'erreurs
  *
@@ -92,21 +90,25 @@ object BiasRefreshScheduler {
      *    pas interrompre/replanifier un travail déjà valide. UPDATE est réservé
      *    au remplacement de l'APK via [updateAfterAppReplacement].
      *
-     * 2. **OneTimeWorkRequest** (kickoff immédiat) — pour que le premier fetch
-     *    d'observations n'attende pas la première fenêtre système du periodic
+     * 2. **OneTimeWorkRequest** (kickoff conditionnel) — pour que la première
+     *    référence devenue vérifiable n'attende pas la fenêtre du periodic
      *    (potentiellement jusqu'à 24h). [ExistingWorkPolicy.KEEP] pour l'idempotence :
-     *    à chaque démarrage on essaie d'enqueue, mais si un kickoff est déjà en
-     *    cours WorkManager ignore le doublon. Une fois terminé, le worker
-     *    applique en plus un garde de fraîcheur de 20 h uniquement aux
-     *    kickoffs, afin qu'une ouverture d'app ne relance pas le réseau.
+     *    Le scheduler consulte d'abord un garde local de fraîcheur de 20 h ;
+     *    il n'enqueue donc rien pendant cette période. KEEP déduplique aussi
+     *    un éventuel kickoff déjà en attente ou actif.
      *    Le periodic quotidien n'est jamais filtré par ce garde.
      *
      * À appeler depuis [com.meteocompare.app.MeteoCompareApplication.onCreate].
      */
     fun schedule(context: Context) {
+        val appContext = context.applicationContext
         enqueue(
-            workManager = WorkManager.getInstance(context.applicationContext),
-            periodicPolicy = ExistingPeriodicWorkPolicy.KEEP
+            workManager = WorkManager.getInstance(appContext),
+            periodicPolicy = ExistingPeriodicWorkPolicy.KEEP,
+            enqueueKickoff = BiasRefreshRunGate.shouldRun(
+                appContext,
+                BiasRefreshRunGate.KICKOFF_MIN_INTERVAL_MS
+            )
         )
     }
 
@@ -116,9 +118,14 @@ object BiasRefreshScheduler {
      * les interruptions WorkManager inutiles.
      */
     fun updateAfterAppReplacement(context: Context) {
+        val appContext = context.applicationContext
         enqueue(
-            workManager = WorkManager.getInstance(context.applicationContext),
-            periodicPolicy = ExistingPeriodicWorkPolicy.UPDATE
+            workManager = WorkManager.getInstance(appContext),
+            periodicPolicy = ExistingPeriodicWorkPolicy.UPDATE,
+            enqueueKickoff = BiasRefreshRunGate.shouldRun(
+                appContext,
+                BiasRefreshRunGate.KICKOFF_MIN_INTERVAL_MS
+            )
         )
     }
 
@@ -165,17 +172,18 @@ object BiasRefreshScheduler {
 
     /** Overload testable du chemin normal KEEP. */
     internal fun schedule(workManager: WorkManager) {
-        enqueue(workManager, ExistingPeriodicWorkPolicy.KEEP)
+        enqueue(workManager, ExistingPeriodicWorkPolicy.KEEP, enqueueKickoff = true)
     }
 
     /** Overload testable du chemin de migration UPDATE. */
     internal fun updateAfterAppReplacement(workManager: WorkManager) {
-        enqueue(workManager, ExistingPeriodicWorkPolicy.UPDATE)
+        enqueue(workManager, ExistingPeriodicWorkPolicy.UPDATE, enqueueKickoff = true)
     }
 
     private fun enqueue(
         workManager: WorkManager,
-        periodicPolicy: ExistingPeriodicWorkPolicy
+        periodicPolicy: ExistingPeriodicWorkPolicy,
+        enqueueKickoff: Boolean
     ) {
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
@@ -185,9 +193,9 @@ object BiasRefreshScheduler {
         // Croisière quotidienne.
         val periodic = PeriodicWorkRequestBuilder<BiasRefreshWorker>(
             repeatInterval = 24, repeatIntervalTimeUnit = TimeUnit.HOURS,
-            // Flex 6h → WorkManager peut décaler ±6h autour du slot pour
-            // regrouper avec d'autres jobs système. Zéro contrainte de
-            // ponctualité pour du fetch météo rétrospectif.
+            // Fenêtre flexible de 6 h : WorkManager choisit l'exécution dans
+            // cette fenêtre selon les contraintes et les opportunités de
+            // regroupement. Le traitement rétrospectif n'est pas urgent.
             flexTimeInterval = 6, flexTimeIntervalUnit = TimeUnit.HOURS
         )
             .setConstraints(constraints)
@@ -205,26 +213,28 @@ object BiasRefreshScheduler {
             periodic
         )
 
-        // Kickoff immédiat pour ne pas attendre 24h avant le premier cycle.
-        // Le worker applique un garde de 20 h aux kickoffs terminés. Le
-        // premier lancement reste immédiat, mais les ouvertures suivantes ne
-        // dépassent pas une lecture de préférence locale.
-        val kickoff = OneTimeWorkRequestBuilder<BiasRefreshWorker>()
-            .setInputData(workDataOf(KICKOFF_INPUT_KEY to true))
-            .setConstraints(constraints)
-            .setBackoffCriteria(
-                BackoffPolicy.EXPONENTIAL,
-                1,
-                TimeUnit.HOURS
-            )
-            .addTag(WORK_TAG)
-            .build()
+        if (enqueueKickoff) {
+            // Kickoff immédiat pour ne pas attendre 24h avant le premier cycle.
+            // Le worker applique un garde de 20 h aux kickoffs terminés. Le
+            // premier lancement reste immédiat, mais les ouvertures suivantes ne
+            // dépassent pas une lecture de préférence locale.
+            val kickoff = OneTimeWorkRequestBuilder<BiasRefreshWorker>()
+                .setInputData(workDataOf(KICKOFF_INPUT_KEY to true))
+                .setConstraints(constraints)
+                .setBackoffCriteria(
+                    BackoffPolicy.EXPONENTIAL,
+                    1,
+                    TimeUnit.HOURS
+                )
+                .addTag(WORK_TAG)
+                .build()
 
-        workManager.enqueueUniqueWork(
-            KICKOFF_WORK_NAME,
-            ExistingWorkPolicy.KEEP,
-            kickoff
-        )
+            workManager.enqueueUniqueWork(
+                KICKOFF_WORK_NAME,
+                ExistingWorkPolicy.KEEP,
+                kickoff
+            )
+        }
     }
 
     /**
@@ -276,10 +286,9 @@ internal class BiasRefreshWorker(
     override suspend fun doWork(): Result = RUN_MUTEX.withLock {
         val ctx = applicationContext
 
-        // schedule() tente volontairement de garantir un kickoff à chaque
-        // création de process. Une fois ce kickoff terminé, KEEP n'empêche pas
-        // un nouveau one-shot lors d'une ouverture ultérieure. Ce garde léger
-        // évite alors tout accès Hilt/Room/réseau pendant 20 h.
+        // Défense en profondeur : le scheduler filtre déjà les kickoffs récents,
+        // mais un travail resté en file ou restauré par WorkManager peut encore
+        // démarrer. Ce garde évite alors tout accès Hilt/Room/réseau pendant 20 h.
         val isKickoff = inputData.getBoolean(
             BiasRefreshScheduler.KICKOFF_INPUT_KEY,
             false
@@ -290,8 +299,8 @@ internal class BiasRefreshWorker(
         )
 
         // Une demande manuelle contourne la garde longue de 20 h, mais pas
-        // l'anti-répétition court : après un cycle réussi, relancer le même
-        // backfill quelques secondes plus tard ne peut produire aucune donnée
+        // l'anti-répétition court : après un cycle réussi, relancer la même
+        // collecte quelques secondes plus tard ne peut produire aucune donnée
         // supplémentaire et gaspillerait réseau et batterie. KEEP couvre les
         // taps pendant ENQUEUED/RUNNING ; ce garde couvre les taps après SUCCESS.
         val minIntervalMs = when {
@@ -321,9 +330,8 @@ internal class BiasRefreshWorker(
 
         val cityRepo = entry.cityRepository()
         val biasRepo = entry.biasSampleRepository()
-        val userPrefs = entry.userPreferencesRepository()
         val fetchObs = entry.fetchBiasObservationsUseCase()
-        val backfill = entry.backfillHistoricalForecastUseCase()
+        val clock = entry.clock()
 
         // Snapshot one-shot des favorites + modèles activés — pas besoin
         // d'écouter les Flow (le worker ne vit que le temps d'un cycle).
@@ -338,32 +346,12 @@ internal class BiasRefreshWorker(
             Log.d(LOG_TAG, "Bias refresh has no favorite city; housekeeping only")
         }
 
-        val enabledModels = runSuspendCatching { userPrefs.observeEnabledModels().first() }
-            .getOrDefault(emptyList())
 
         // Chaque opération réseau ET le cycle global sont bornés.
         // `withTimeoutOrNull` distingue le timeout local d'une vraie annulation
         // du worker : une annulation externe continue de se propager, tandis
         // qu'un serveur lent ne laisse pas un job monopoliser le process.
         val observationSuccesses = withTimeoutOrNull(BiasRefreshScheduler.WORK_BUDGET_MS) {
-            for (city in favorites) {
-                val result = withTimeoutOrNull(
-                    BiasRefreshScheduler.PER_CITY_OPERATION_TIMEOUT_MS
-                ) {
-                    runSuspendCatching { backfill(city, enabledModels) }
-                }
-                when {
-                    result == null -> Log.w(
-                        LOG_TAG,
-                        "Historical forecast backfill timed out for city=${city.id}"
-                    )
-                    result.isFailure -> Log.w(
-                        LOG_TAG,
-                        "Historical forecast backfill failed for city=${city.id}",
-                        result.exceptionOrNull()
-                    )
-                }
-            }
 
             var successes = 0
             for (city in favorites) {
@@ -400,7 +388,8 @@ internal class BiasRefreshWorker(
         // Housekeeping bias : purge les samples > RETENTION_DAYS.
         runSuspendCatching {
             biasRepo.purgeOlderThan(
-                LocalDate.now().minusDays(BiasRefreshScheduler.RETENTION_DAYS)
+                clock.instant().atZone(java.time.ZoneOffset.UTC).toLocalDate()
+                    .minusDays(BiasRefreshScheduler.RETENTION_DAYS)
             )
         }.onFailure { Log.w(LOG_TAG, "Bias sample cleanup failed", it) }
 
@@ -414,7 +403,7 @@ internal class BiasRefreshWorker(
         // à une ligne par couple (ville, modèle). Le volume reste faible ; un
         // index supplémentaire ne justifierait pas une migration destructive.
         runSuspendCatching {
-            val cutoffMs = java.time.Instant.now()
+            val cutoffMs = clock.instant()
                 .minus(BiasRefreshScheduler.FORECAST_CACHE_RETENTION_DAYS, java.time.temporal.ChronoUnit.DAYS)
                 .toEpochMilli()
             entry.forecastCacheDao().deleteOlderThan(cutoffMs)

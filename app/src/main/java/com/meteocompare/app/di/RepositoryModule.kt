@@ -10,7 +10,7 @@ import com.meteocompare.app.domain.repository.CityRepository
 import com.meteocompare.app.domain.repository.ClimateNormalsRepository
 import com.meteocompare.app.domain.repository.ForecastRepository
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
-import com.meteocompare.app.domain.usecase.InverseSqrtResolutionWeighting
+import com.meteocompare.app.domain.usecase.EqualWeighting
 import com.meteocompare.app.domain.usecase.ModelWeightingStrategy
 import dagger.Binds
 import dagger.Module
@@ -50,5 +50,5 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
-    abstract fun bindWeightingStrategy(impl: InverseSqrtResolutionWeighting): ModelWeightingStrategy
+    abstract fun bindWeightingStrategy(impl: EqualWeighting): ModelWeightingStrategy
 }

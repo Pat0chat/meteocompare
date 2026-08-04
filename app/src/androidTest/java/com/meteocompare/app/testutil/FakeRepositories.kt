@@ -198,6 +198,7 @@ class FakeBiasSampleRepository @Inject constructor() : BiasSampleRepository {
         model: WeatherModel,
         variable: BiasVariable,
         asOf: LocalDate,
+        timezone: String?,
         windowDays: Int
     ): Flow<List<BiasSample>> = flowOf(emptyList())
 
@@ -217,11 +218,9 @@ class FakeBiasSampleRepository @Inject constructor() : BiasSampleRepository {
         value: Double
     ) = Unit
 
-    override suspend fun latestObservationDate(cityId: String, variable: BiasVariable): LocalDate? = null
-    override suspend fun countPastForecastDays(
+    override suspend fun earliestMissingReferenceDate(
         cityId: String,
-        model: WeatherModel,
-        beforeDate: LocalDate
-    ): Int = 0
+        upToDate: LocalDate
+    ): LocalDate? = null
     override suspend fun purgeOlderThan(beforeDate: LocalDate) = Unit
 }

@@ -4,22 +4,17 @@ import androidx.room.Entity
 import androidx.room.Index
 
 /**
- * Une prévision historique = un couple `(cityId, modelKey, variable)` prévoyant
- * une valeur pour un `targetDate`, snapshottée à un `issuedAtEpochMs` donné.
+ * Une prévision J+1 capturée = un couple `(cityId, modelKey, variable)`
+ * prévoyant une valeur pour un `targetDate`, enregistré pour une journée
+ * locale d'émission représentée par `issuedAtEpochMs`.
  *
  * ## Clé primaire
  *
- * Composite sur les 5 champs métier : deux snapshots successifs du même
- * modèle pour la même date (typique — une prévision issue le J−2 et une
- * autre issue le J−1 pour la même journée J) sont conservés côte à côte.
- * Le use case dédupliquera au moment du calcul en gardant le plus récent
- * (ordre `issuedAtEpochMs DESC` dans la requête).
- *
- * On garde plusieurs snapshots plutôt que d'écraser :
- *   1. Debug / audit : voir la trajectoire des prévisions successives d'un
- *      modèle avant le jour J est utile en Phase 3+ pour analyser sa dérive.
- *   2. Robustesse à un race : deux workers concurrent qui recordent la même
- *      cible ne s'écrasent pas mutuellement.
+ * Composite sur les 5 champs métier. Le suivi actuel ne conserve que J+1 :
+ * [com.meteocompare.app.domain.usecase.SnapshotForecastUseCase] normalise
+ * `issuedAtEpochMs` au début de la journée locale. Plusieurs ouvertures le
+ * même jour remplacent donc la même ligne via `REPLACE`, tandis que deux
+ * journées d'émission distinctes restent auditables séparément.
  *
  * ## Index
  *
@@ -50,7 +45,7 @@ data class ForecastSampleEntity(
     val variable: String,
     /** LocalDate.toEpochDay() du jour prévu. */
     val targetDateEpochDay: Long,
-    /** Instant.toEpochMilli() du moment où la prévision a été enregistrée. */
+    /** Début UTC de la journée locale pendant laquelle la prévision a été capturée. */
     val issuedAtEpochMs: Long,
     /** Valeur prévue dans l'unité naturelle de la variable (°C, mm, km/h). */
     val value: Double

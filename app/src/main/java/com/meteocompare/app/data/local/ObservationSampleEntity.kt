@@ -4,21 +4,22 @@ import androidx.room.Entity
 import androidx.room.Index
 
 /**
- * Une observation historique = valeur réelle mesurée pour un `targetDate`
- * dans une ville, pour une variable donnée.
+ * Une référence météorologique historique pour un `targetDate`, une ville
+ * et une variable. La table conserve son nom historique `observation_samples`
+ * pour compatibilité de schéma, mais la valeur provient de l'archive
+ * Open-Meteo et n'est pas une mesure de station au point exact.
  *
  * ## Clé primaire
  *
  * Composite `(cityId, variable, targetDateEpochDay)` — une seule vérité par
  * jour par variable. Un ré-enregistrement pour la même clé écrase (via
- * `OnConflictStrategy.REPLACE`) : si l'archive Open-Meteo révise ses valeurs
- * de réanalyse ERA5 rétrospectivement (rare mais possible), on met à jour
- * silencieusement.
+ * `OnConflictStrategy.REPLACE`) : si la référence historique Open-Meteo est révisée
+ * rétrospectivement, la valeur locale est mise à jour.
  *
  * ## Différence de modèle vs forecast_samples
  *
- * Pas de `issuedAt` — l'observation est un fait figé (pas une prévision qui
- * évolue). `fetchedAtEpochMs` sert uniquement au debug pour tracer quand la
+ * Pas de `issuedAt` — la référence est associée au jour validé, pas à un run
+ * de prévision. `fetchedAtEpochMs` sert uniquement au debug pour tracer quand la
  * ligne a été insérée en cache, jamais pour la logique métier.
  *
  * ## Index

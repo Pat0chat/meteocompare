@@ -561,36 +561,6 @@ class ConfidenceCalculatorTest {
         return CityForecast(city = paris, seriesByModel = series)
     }
 
-    // ──────────────────── Pondération ────────────────────
-
-    @Test
-    fun `pondération - InverseSqrtResolution donne plus de poids à AROME HD`() {
-        val weighted = ConfidenceCalculator(InverseSqrtResolutionWeighting())
-
-        // 4 modèles à 22°, AROME HD à 18° → la moyenne pondérée doit être tirée vers 18
-        val forecast = buildForecast(
-            tempMaxByModel = mapOf(
-                WeatherModel.AROME_FRANCE_HD to 18.0, // weight ≈ 0.82
-                WeatherModel.ARPEGE_EUROPE to 22.0,   // weight ≈ 0.30
-                WeatherModel.ICON_EU to 22.0,         // weight ≈ 0.38
-                WeatherModel.GFS to 22.0,             // weight ≈ 0.28
-                WeatherModel.ECMWF to 22.0            // weight ≈ 0.20
-            )
-        )
-
-        val weightedMean = weighted.dayConfidence(forecast, today).tempMax!!.meanValue
-        val equalMean = calculator.dayConfidence(forecast, today).tempMax!!.meanValue
-
-        // Moyenne arithmétique : (18 + 22*4) / 5 = 21.2
-        assertEquals(21.2, equalMean, 0.01)
-
-        // Moyenne pondérée : tirée vers 18 car AROME HD pèse plus
-        assertTrue(
-            "Weighted mean ($weightedMean) should be < equal mean ($equalMean)",
-            weightedMean < equalMean
-        )
-    }
-
     // ──────────────────── Couverture nuageuse "maintenant" ────────────────────
 
     @Test

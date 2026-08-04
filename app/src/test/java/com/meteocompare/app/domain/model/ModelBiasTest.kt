@@ -163,26 +163,26 @@ class ModelBiasTest {
     // ─── Règle pragmatique : précipitations ──────────────────────────────
 
     @Test
-    fun `precipitation - very small bias below 0_1 is NOT_SIGNIFICANT`() {
+    fun `precipitation - small daily bias below 0_5 is NOT_SIGNIFICANT`() {
         val sig = BiasSignificanceRule.classify(
-            BiasVariable.PRECIPITATION, meanBias = 0.05, stdDev = 0.02, sampleSize = 30
+            BiasVariable.PRECIPITATION, meanBias = 0.3, stdDev = 0.1, sampleSize = 30
         )
         assertEquals(BiasSignificance.NOT_SIGNIFICANT, sig)
     }
 
     @Test
-    fun `precipitation - 0_15 with tight sd is MODERATE`() {
-        // |0.15| >= 0.1 AND ratio 0.15/0.1 = 1.5 >= 0.5 → MODERATE.
+    fun `precipitation - 0_8 mm per day with tight sd is MODERATE`() {
+        // |0.8| >= 0.5 AND ratio 0.8/0.5 = 1.6 >= 0.5 → MODERATE.
         val sig = BiasSignificanceRule.classify(
-            BiasVariable.PRECIPITATION, meanBias = 0.15, stdDev = 0.1, sampleSize = 25
+            BiasVariable.PRECIPITATION, meanBias = 0.8, stdDev = 0.5, sampleSize = 25
         )
         assertEquals(BiasSignificance.MODERATE, sig)
     }
 
     @Test
-    fun `precipitation - 0_8 with tight sd is HIGH`() {
+    fun `precipitation - 2_5 mm per day with tight sd is HIGH`() {
         val sig = BiasSignificanceRule.classify(
-            BiasVariable.PRECIPITATION, meanBias = 0.8, stdDev = 0.5, sampleSize = 25
+            BiasVariable.PRECIPITATION, meanBias = 2.5, stdDev = 1.0, sampleSize = 25
         )
         assertEquals(BiasSignificance.HIGH, sig)
     }

@@ -905,12 +905,12 @@ private fun HourlyTemperatureLegend() {
 /**
  * Légende du tableau précipitations horaire en mode heatmap.
  *
- * 10 paliers colorés (le palier "sec" < 0.05 mm/h n'apparaît pas dans la
+ * 10 paliers colorés (le palier "sec" < 0.05 mm sur l’heure n'apparaît pas dans la
  * légende car les cellules sèches sont NEUTRES — sans couleur — dans la
  * heatmap. La légende ne montre que ce qui EST coloré.)
  *
  * Progression bleu clair → bleu profond, seuils quasi-logarithmiques
- * (0.05 → 10 mm/h) pour refléter la perception logarithmique d'intensité de
+ * (0.05 → 10 mm sur l’heure) pour refléter la perception logarithmique d'intensité de
  * pluie. Unité "mm" sur le dernier tick uniquement, pour identifier la
  * grandeur sans encombrer.
  */
@@ -1478,7 +1478,7 @@ private fun windStyle(kmh: Double): ValueStyle? = when {
  *
  * Cas d'affichage :
  *   - Première utilisation, avant que le worker n'ait fetché l'observation
- *     historique et/ou le backfill historical-forecast n'ait tourné.
+ *     J+1 n'ait accumulé assez de jours correspondants.
  *   - Cas dégénéré où toutes les variables × modèles sont classées
  *     NOT_SIGNIFICANT (peu probable mais possible avec des modèles très
  *     calibrés — dans ce cas le hint sur-communique un peu, tradeoff accepté).

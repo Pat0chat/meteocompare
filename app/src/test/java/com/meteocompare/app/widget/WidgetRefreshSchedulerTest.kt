@@ -197,13 +197,19 @@ class WidgetRefreshSchedulerTest {
         // Si on faisait `workManager.cancelAllWork()`, on cancellerait aussi
         // les workers des OTHER features (par exemple un futur job de sync
         // des favoris). Le contrat de `cancel` est ciblé.
-        val nameSlot = slot<String>()
-        every { workManager.cancelUniqueWork(capture(nameSlot)) } returns mockk(relaxed = true)
+        val names = mutableListOf<String>()
+        every { workManager.cancelUniqueWork(capture(names)) } returns mockk(relaxed = true)
 
         WidgetRefreshScheduler.cancel(workManager)
 
-        verify(exactly = 1) { workManager.cancelUniqueWork(any()) }
-        assertEquals(WidgetRefreshScheduler.TESTABLE_WORK_NAME, nameSlot.captured)
+        verify(exactly = 2) { workManager.cancelUniqueWork(any()) }
+        assertEquals(
+            setOf(
+                WidgetRefreshScheduler.TESTABLE_WORK_NAME,
+                WidgetRefreshScheduler.TESTABLE_IMMEDIATE_WORK_NAME
+            ),
+            names.toSet()
+        )
     }
 
     @Test
@@ -213,12 +219,12 @@ class WidgetRefreshSchedulerTest {
         // job continue à tourner indéfiniment. Ce test relie les deux
         // symboliquement.
         val scheduleName = slot<String>()
-        val cancelName = slot<String>()
+        val cancelNames = mutableListOf<String>()
         every {
             workManager.enqueueUniquePeriodicWork(capture(scheduleName), any(), any())
         } returns mockk(relaxed = true)
         every {
-            workManager.cancelUniqueWork(capture(cancelName))
+            workManager.cancelUniqueWork(capture(cancelNames))
         } returns mockk(relaxed = true)
 
         WidgetRefreshScheduler.schedule(workManager)
@@ -227,7 +233,7 @@ class WidgetRefreshSchedulerTest {
         assertEquals(
             "schedule() et cancel() doivent utiliser le même nom unique",
             scheduleName.captured,
-            cancelName.captured
+            cancelNames.first { it == WidgetRefreshScheduler.TESTABLE_WORK_NAME }
         )
     }
 }
