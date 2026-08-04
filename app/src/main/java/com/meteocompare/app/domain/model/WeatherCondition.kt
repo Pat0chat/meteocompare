@@ -34,6 +34,28 @@ enum class WeatherCondition {
     THUNDERSTORM,
     UNKNOWN;
 
+    /**
+     * Rang conservateur utilisé pour départager un vote catégoriel à égalité.
+     * Une condition potentiellement plus gênante gagne sur une condition
+     * bénigne afin de ne pas minimiser un signal météo partagé.
+     */
+    val severityRank: Int
+        get() = when (this) {
+            CLEAR -> 0
+            MAINLY_CLEAR -> 1
+            PARTLY_CLOUDY -> 2
+            OVERCAST -> 3
+            FOG -> 4
+            DRIZZLE -> 5
+            RAIN_SHOWERS -> 6
+            RAIN -> 7
+            SNOW_SHOWERS -> 8
+            SNOW -> 9
+            FREEZING_RAIN -> 10
+            THUNDERSTORM -> 11
+            UNKNOWN -> -1
+        }
+
     companion object {
         /** Renvoie la famille de temps pour un code WMO. `null` → pas de donnée. */
         fun fromWmoCode(code: Int?): WeatherCondition? = when (code) {

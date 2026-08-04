@@ -122,7 +122,7 @@
             android:gravity="center_horizontal"
             android:padding="4dp"
             android:background="@drawable/widget_preview_surface_bg">
-            <View
+            <TextView
                 android:layout_width="match_parent"
                 android:layout_height="3dp"
                 android:layout_marginBottom="2dp"
@@ -141,7 +141,7 @@
             android:gravity="center_horizontal"
             android:padding="4dp"
             android:background="@drawable/widget_preview_surface_bg">
-            <View
+            <TextView
                 android:layout_width="match_parent"
                 android:layout_height="3dp"
                 android:layout_marginBottom="2dp"
@@ -160,7 +160,7 @@
             android:gravity="center_horizontal"
             android:padding="4dp"
             android:background="@drawable/widget_preview_surface_bg">
-            <View
+            <TextView
                 android:layout_width="match_parent"
                 android:layout_height="3dp"
                 android:layout_marginBottom="2dp"
@@ -179,7 +179,7 @@
             android:gravity="center_horizontal"
             android:padding="4dp"
             android:background="@drawable/widget_preview_surface_bg">
-            <View
+            <TextView
                 android:layout_width="match_parent"
                 android:layout_height="3dp"
                 android:layout_marginBottom="2dp"
@@ -197,7 +197,7 @@
             android:gravity="center_horizontal"
             android:padding="4dp"
             android:background="@drawable/widget_preview_surface_bg">
-            <View
+            <TextView
                 android:layout_width="match_parent"
                 android:layout_height="3dp"
                 android:layout_marginBottom="2dp"

@@ -49,4 +49,32 @@
     <string name="widget_forecast_confidence_hint">agreement / models</string>
     <string name="widget_forecast_confidence_short">Conf. %1$d%%</string>
 
+
+    <!-- MeteoCompare editorial widget -->
+    <string name="widget_label_insight">4×2 Key insight</string>
+    <string name="widget_description_insight">The most useful weather signal and its level of model agreement.</string>
+    <string name="widget_config_insight_horizon_note">The Key insight widget always analyses the next 24 hours.</string>
+    <string name="widget_config_insight_horizon">Next 24 hours</string>
+    <string name="widget_config_insight_horizon_descr">The main signal and its uncertainty are refreshed automatically.</string>
+    <string name="widget_value_models">%1$d models</string>
+    <string name="widget_value_now">Now</string>
+    <string name="widget_value_next">Next forecast</string>
+    <string name="widget_value_hour">%1$02d:00</string>
+    <string name="widget_value_temperature_range">%1$d–%2$d°</string>
+    <string name="widget_value_probability_range">%1$d–%2$d%%</string>
+    <string name="widget_value_precip_range">%1$.1f–%2$.1f mm</string>
+    <string name="widget_value_wind_range">%1$d–%2$d km/h</string>
+    <string name="widget_value_detail_range_consensus">%1$s · %2$d%% agreement</string>
+    <plurals name="widget_value_detail_range_models">
+        <item quantity="one">%1$s · %2$d model</item>
+        <item quantity="other">%1$s · %2$d models</item>
+    </plurals>
+    <string name="widget_value_detail_consensus">%1$d%% agreement between models</string>
+    <string name="widget_value_metric_temperature">Temperature</string>
+    <string name="widget_value_metric_precipitation">Rain</string>
+    <string name="widget_value_metric_wind">Wind</string>
+    <string name="widget_value_agreement_short">%1$d%%</string>
+    <string name="widget_value_no_comparison">Comparison unavailable</string>
+    <string name="widget_value_open_app">Open MeteoCompare</string>
+
 </resources>

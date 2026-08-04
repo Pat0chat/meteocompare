@@ -17,6 +17,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import com.meteocompare.app.BuildConfig
 import com.meteocompare.app.core.util.runSuspendCatching
 import com.meteocompare.app.domain.model.RefreshInterval
 import dagger.hilt.android.EntryPointAccessors
@@ -300,13 +301,14 @@ internal class WidgetRefreshWorker(
             return@withLock if (receiverLookupFailures == WidgetReceivers.All.size) {
                 Result.retry()
             } else {
-                android.util.Log.d(WIDGET_LOG_TAG, "No live widgets to refresh")
+                if (BuildConfig.DEBUG) {
+                    android.util.Log.d(WIDGET_LOG_TAG, "No live widgets to refresh")
+                }
                 Result.success()
             }
         }
 
         val glanceManager = GlanceAppWidgetManager(ctx)
-        val widget = MeteoWidget()
         val now = System.currentTimeMillis()
         val forceRefresh = inputData.getBoolean(
             WidgetRefreshScheduler.FORCE_REFRESH_KEY,
@@ -360,7 +362,12 @@ internal class WidgetRefreshWorker(
                         // widget. Glance doit recréer puis renvoyer les RemoteViews.
                         // Sans cet appel explicite certains launchers restent figés.
                         try {
-                            widget.update(ctx, glanceId)
+                            val providerClassName = appWidgetManager
+                                .getAppWidgetInfo(appWidgetId)
+                                ?.provider
+                                ?.className
+                            glanceWidgetForProviderClassName(providerClassName)
+                                .update(ctx, glanceId)
                         } catch (error: Throwable) {
                             // Le tick a déjà été écrit pour déclencher la composition.
                             // Si l'envoi RemoteViews échoue, restaurer uniquement le
@@ -409,11 +416,13 @@ internal class WidgetRefreshWorker(
             return@withLock Result.retry()
         }
 
-        android.util.Log.d(
-            WIDGET_LOG_TAG,
-            "Widget refresh completed: live=${liveWidgetIds.size}, " +
-                "updated=$updatedCount, skipped=$skippedCount, failed=$failedCount"
-        )
+        if (BuildConfig.DEBUG) {
+            android.util.Log.d(
+                WIDGET_LOG_TAG,
+                "Widget refresh completed: live=${liveWidgetIds.size}, " +
+                    "updated=$updatedCount, skipped=$skippedCount, failed=$failedCount"
+            )
+        }
 
         // Une panne isolée ne doit pas refaire tout le lot. En revanche, si
         // aucun widget vivant n'a pu être actualisé, demander un retry avec

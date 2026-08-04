@@ -56,7 +56,7 @@ data class ObservationBiasRecord(
     val variable: BiasVariable,
     val targetDate: LocalDate,
     val value: Double,
-    val fetchedAt: Instant = Instant.now()
+    val fetchedAt: Instant
 )
 
 interface BiasSampleRepository {
@@ -64,8 +64,8 @@ interface BiasSampleRepository {
     /**
      * Flow des samples couplés (forecast, observation) pour une
      * (ville, modèle, variable) donnée, restreints à la fenêtre de
-     * [windowDays] jours précédant [LocalDate.now]. Émet à chaque changement
-     * de l'une ou l'autre table.
+     * [windowDays] jours précédant [asOf]. Émet à chaque changement de l'une
+     * ou l'autre table.
      *
      * Ordre : par `targetDate` croissante puis `issuedAt` DÉCROISSANTE — de
      * sorte qu'une éventuelle déduplication en aval (`ComputeBiasUseCase`)
@@ -75,6 +75,7 @@ interface BiasSampleRepository {
         cityId: String,
         model: WeatherModel,
         variable: BiasVariable,
+        asOf: LocalDate,
         windowDays: Int = 30
     ): Flow<List<BiasSample>>
 
@@ -151,11 +152,11 @@ interface BiasSampleRepository {
     ): LocalDate?
 
     /**
-     * Nombre de snapshots forecast passés pour un modèle précis. Le garde
+     * Nombre de dates passées distinctes couvertes par au moins un snapshot pour un modèle précis. Le garde
      * doit être par modèle : activer un nouveau modèle ne doit pas être bloqué
      * par l'historique déjà présent pour les autres familles.
      */
-    suspend fun countPastForecastSamples(
+    suspend fun countPastForecastDays(
         cityId: String,
         model: WeatherModel,
         beforeDate: LocalDate

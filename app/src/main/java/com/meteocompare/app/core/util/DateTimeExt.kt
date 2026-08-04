@@ -15,6 +15,24 @@ private val OPEN_METEO_HOURLY_FORMAT: DateTimeFormatter =
     DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm")
 
 /**
+ * Résout un fuseau métier en privilégiant celui de la ville et en retombant
+ * explicitement sur UTC lorsque la valeur est absente ou invalide.
+ *
+ * Ce helper est volontairement distinct de [parseOpenMeteoTime] : le parsing
+ * d'une réponse API reste strict et renvoie `null` si le fuseau fourni par le
+ * serveur est invalide, tandis que les calculs d'interface et de planification
+ * ont besoin d'un repli déterministe.
+ */
+fun resolveZoneOrUtc(timezone: String?): ZoneId =
+    timezone
+        ?.let { runCatching { ZoneId.of(it) }.getOrNull() }
+        ?: ZoneId.of("UTC")
+
+/** Date civile de cet instant dans le fuseau métier demandé. */
+fun Instant.localDateIn(timezone: String?): LocalDate =
+    atZone(resolveZoneOrUtc(timezone)).toLocalDate()
+
+/**
  * Parse une heure Open-Meteo en [Instant] absolu en utilisant la [timezone]
  * retournée par la même réponse API.
  *

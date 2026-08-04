@@ -5,6 +5,7 @@ import com.meteocompare.app.R
 import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.core.network.NetworkMonitor
 import com.meteocompare.app.core.network.apiCall
+import com.meteocompare.app.core.util.localDateIn
 import com.meteocompare.app.data.local.ClimateNormalDao
 import com.meteocompare.app.data.local.ClimateNormalEntity
 import com.meteocompare.app.data.remote.ClimateArchiveApi
@@ -19,6 +20,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.IOException
+import java.time.Clock
 import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -46,6 +48,7 @@ class ClimateNormalsRepositoryImpl @Inject constructor(
     private val dao: ClimateNormalDao,
     private val networkMonitor: NetworkMonitor,
     @param:ApplicationContext private val context: Context,
+    private val clock: Clock,
     @param:IoDispatcher private val io: CoroutineDispatcher,
     @param:DefaultDispatcher private val computation: CoroutineDispatcher = Dispatchers.Default
 ) : ClimateNormalsRepository {
@@ -127,7 +130,8 @@ class ClimateNormalsRepositoryImpl @Inject constructor(
             val cached = dao.getForCity(city.id)
             if (cached.isNotEmpty()) {
                 val oldest = dao.getOldestComputedAt(city.id) ?: 0L
-                val isFresh = (System.currentTimeMillis() - oldest) < CACHE_FRESHNESS_MS
+                val ageMs = clock.millis() - oldest
+                val isFresh = ageMs >= 0L && ageMs < CACHE_FRESHNESS_MS
                 if (isFresh) {
                     return@withContext ApiResult.Success(cached.map { it.toDomain() })
                 }
@@ -145,7 +149,7 @@ class ClimateNormalsRepositoryImpl @Inject constructor(
                 }
             }
 
-            val today = LocalDate.now()
+            val today = clock.instant().localDateIn(city.timezone)
             val endDate = today.withDayOfYear(1).minusDays(1) // 31 déc N-1
             val startDate = endDate.minusYears(YEARS_OF_HISTORY.toLong() - 1)
                 .withDayOfYear(1)                              // 1 jan N-10
@@ -169,7 +173,7 @@ class ClimateNormalsRepositoryImpl @Inject constructor(
                 }
                 is ApiResult.Success -> {
                     val normals = withContext(computation) { aggregate(result.data) }
-                    val now = System.currentTimeMillis()
+                    val now = clock.millis()
                     val entities = normals.map { it.toEntity(city.id, now) }
                     dao.replaceForCity(city.id, entities)
                     ApiResult.Success(normals)

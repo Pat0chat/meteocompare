@@ -298,6 +298,8 @@ Fait :
 - ✅ v1.4 — Améliorations des tableaux, ajout d'une timeline, ajout des sections retractables, correction de bugs
 - ✅ v1.5 — Refonte de la page "city details", amélioration du widget mini forecast, correction de bugs
 - ✅ v1.5.1 — Uniformisation des tableaux, amélioration des tailles texte / icône dans les widgets, correction de bugs
+- ✅ v1.6 — Section chronologie et "A retenir", correction de bugs
+- ✅ v1.6.1 — Amélioration des sections chronologie et "A retenir", ajout d'un widget "A retenir", correction de bugs
 
 À venir :
 

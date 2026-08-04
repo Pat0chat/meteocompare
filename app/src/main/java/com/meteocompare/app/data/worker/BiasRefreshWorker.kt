@@ -13,6 +13,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import com.meteocompare.app.BuildConfig
 import com.meteocompare.app.core.util.runSuspendCatching
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.flow.first
@@ -303,14 +304,16 @@ internal class BiasRefreshWorker(
             }
         }
         if (!BiasRefreshRunGate.shouldRun(ctx, minIntervalMs)) {
-            Log.d(
-                LOG_TAG,
-                when {
-                    isManual -> "Bias manual refresh skipped: a successful cycle is still fresh"
-                    isKickoff -> "Bias kickoff skipped: a successful daily cycle is still fresh"
-                    else -> "Bias periodic skipped: a kickoff completed recently"
-                }
-            )
+            if (BuildConfig.DEBUG) {
+                Log.d(
+                    LOG_TAG,
+                    when {
+                        isManual -> "Bias manual refresh skipped: a successful cycle is still fresh"
+                        isKickoff -> "Bias kickoff skipped: a successful daily cycle is still fresh"
+                        else -> "Bias periodic skipped: a kickoff completed recently"
+                    }
+                )
+            }
             return@withLock Result.success()
         }
 
@@ -331,7 +334,7 @@ internal class BiasRefreshWorker(
         // sera pas marqué comme cycle de collecte réussi. Sinon un kickoff lancé
         // avant l'ajout de la première ville bloquerait les prochains kickoffs
         // pendant 20 h alors qu'aucune donnée de biais n'a été collectée.
-        if (favorites.isEmpty()) {
+        if (favorites.isEmpty() && BuildConfig.DEBUG) {
             Log.d(LOG_TAG, "Bias refresh has no favorite city; housekeeping only")
         }
 

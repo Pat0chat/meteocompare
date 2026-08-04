@@ -5,6 +5,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.meteocompare.app.R
+import com.meteocompare.app.core.util.localDateIn
 import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.core.network.NetworkMonitor
 import com.meteocompare.app.domain.model.BiasSample
@@ -55,6 +56,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.time.Clock
+import java.time.LocalDate
 import javax.inject.Inject
 
 /**
@@ -94,6 +96,9 @@ class CityDetailViewModel @Inject constructor(
     private val _state = MutableStateFlow<CityDetailUiState>(CityDetailUiState.Loading)
     val state: StateFlow<CityDetailUiState> = _state.asStateFlow()
 
+    /** Fuseau de la ville courante, source de vérité des fenêtres calendaires. */
+    private val cityTimezone = MutableStateFlow<String?>(null)
+
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
@@ -132,8 +137,14 @@ class CityDetailViewModel @Inject constructor(
     //
     // État initial vide — l'UI n'affiche simplement pas de chip tant que
     // Room n'a pas émis. Aucun placeholder à gérer.
-    val biasState: StateFlow<BiasScreenState> = userPreferences.observeEnabledModels()
-        .flatMapLatest { models -> observeBiasScreenState(models) }
+    val biasState: StateFlow<BiasScreenState> = combine(
+        userPreferences.observeEnabledModels(),
+        cityTimezone
+    ) { models, timezone ->
+        models to clock.instant().localDateIn(timezone)
+    }.flatMapLatest { (models, asOf) ->
+        observeBiasScreenState(models, asOf)
+    }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000L),
@@ -207,12 +218,15 @@ class CityDetailViewModel @Inject constructor(
      * Pour chacune des 3 variables : lance un [observeVariableBiasState]
      * dédié, puis combine les 3 en un [BiasScreenState] agrégé.
      */
-    private fun observeBiasScreenState(models: List<WeatherModel>): Flow<BiasScreenState> {
+    private fun observeBiasScreenState(
+        models: List<WeatherModel>,
+        asOf: LocalDate
+    ): Flow<BiasScreenState> {
         if (models.isEmpty()) return flowOf(BiasScreenState.EMPTY)
         return combine(
-            observeVariableBiasState(models, BiasVariable.TEMPERATURE),
-            observeVariableBiasState(models, BiasVariable.PRECIPITATION),
-            observeVariableBiasState(models, BiasVariable.WIND_SPEED)
+            observeVariableBiasState(models, BiasVariable.TEMPERATURE, asOf),
+            observeVariableBiasState(models, BiasVariable.PRECIPITATION, asOf),
+            observeVariableBiasState(models, BiasVariable.WIND_SPEED, asOf)
         ) { t, p, w -> BiasScreenState(temperature = t, precipitation = p, wind = w) }
     }
 
@@ -227,16 +241,27 @@ class CityDetailViewModel @Inject constructor(
      */
     private fun observeVariableBiasState(
         models: List<WeatherModel>,
-        variable: BiasVariable
+        variable: BiasVariable,
+        asOf: LocalDate
     ): Flow<VariableBiasState> {
         val perModelFlows: List<Flow<Pair<WeatherModel, List<BiasSample>>>> = models.map { model ->
-            biasSampleRepository.observeSamples(cityId, model, variable, windowDays = BIAS_WINDOW_DAYS)
-                .map { samples -> model to samples }
+            biasSampleRepository.observeSamples(
+                cityId = cityId,
+                model = model,
+                variable = variable,
+                asOf = asOf,
+                windowDays = BIAS_WINDOW_DAYS
+            ).map { samples -> model to samples }
         }
         return combine(perModelFlows) { pairs ->
             val historyByModel: Map<WeatherModel, List<BiasSample>> = pairs.toMap()
             val biasByModel: Map<WeatherModel, ModelBias?> = historyByModel.mapValues { (_, samples) ->
-                computeBias(variable, samples)
+                computeBias(
+                    variable = variable,
+                    samples = samples,
+                    asOf = asOf,
+                    windowDays = BIAS_WINDOW_DAYS
+                )
             }
             val yDomain = computeYDomain(historyByModel, variable)
             VariableBiasState(
@@ -303,6 +328,7 @@ class CityDetailViewModel @Inject constructor(
                 )
                 return@launch
             }
+            cityTimezone.value = city.timezone
 
             // Les normales sont indépendantes du jeu de modèles météo : une
             // seule lecture suffit pour toute la durée de vie de cette page.

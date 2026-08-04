@@ -40,6 +40,6 @@
     android:widgetCategory="home_screen"
     android:widgetFeatures="reconfigurable"
     android:configure="com.meteocompare.app.widget.MeteoWidgetConfigActivity"
-    android:previewImage="@mipmap/ic_launcher"
+    android:previewImage="@drawable/widget_preview_fallback_4x2"
     android:previewLayout="@layout/widget_preview_large"
     android:description="@string/widget_description" />

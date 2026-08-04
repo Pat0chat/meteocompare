@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -330,20 +331,30 @@ private fun LoadedView(
     val overviewTimeline = remember(forecast, presentationNow) {
         buildOverviewTimeline(forecast, presentationNow)
     }
-    val insights = remember(overviewTimeline) { buildForecastInsights(overviewTimeline) }
+    val forecastEvents = remember(overviewTimeline) { detectForecastEvents(overviewTimeline) }
+    val insights = remember(forecastEvents) { buildForecastInsights(forecastEvents) }
+    val timelineDisplayPoints = remember(overviewTimeline) {
+        selectRegularTimelinePoints(overviewTimeline.analysisPoints)
+    }
+    var focusedTimelinePoint by remember(overviewTimeline) {
+        mutableStateOf<SimplifiedTimelinePoint?>(null)
+    }
+    var timelineFocusRequestId by remember(overviewTimeline) { mutableStateOf(0) }
+    val contentListState = rememberLazyListState()
+    val timelineItemIndex = 1 +
+        (if (insights.isNotEmpty()) 1 else 0) +
+        (if (!isOnline) 1 else 0)
+    LaunchedEffect(timelineFocusRequestId) {
+        if (timelineFocusRequestId > 0) {
+            contentListState.animateScrollToItem(timelineItemIndex)
+        }
+    }
     val cityToday = remember(forecast.city.timezone, presentationNow) {
         cityLocalDate(forecast.city.timezone, presentationNow)
     }
     val summaryDay = remember(weekly, cityToday) {
         weekly.firstOrNull { !it.date.isBefore(cityToday) } ?: weekly.lastOrNull()
     }
-    val notableInsight = remember(insights) {
-        insights.firstOrNull { it.kind != ForecastInsightKind.HIGH_AGREEMENT }
-    }
-    val supportingInsights = remember(insights, notableInsight) {
-        if (notableInsight == null) insights else insights.filterNot { it == notableInsight }
-    }
-
     // ── Suivi de biais : sélection courante pour l'ouverture de la sheet ──
     // Persistance sur rotation : on sauvegarde uniquement L'IDENTIFIANT
     // (deux noms d'enum) via deux String nativement saveable — la vraie
@@ -404,6 +415,7 @@ private fun LoadedView(
     }
 
     LazyColumn(
+        state = contentListState,
         modifier = Modifier.fillMaxSize().testTag(TAG_DETAIL_LOADED),
         contentPadding = PaddingValues(
             top = padding.calculateTopPadding(),
@@ -421,9 +433,22 @@ private fun LoadedView(
                     currentCloudCover = currentCloudCover,
                     fetchedAt = fetchedAt,
                     isOnline = isOnline,
-                    nextInsight = notableInsight,
-                    timezone = forecast.city.timezone,
                     onConfidenceClick = { onConfidenceClick(today.date.toString()) }
+                )
+            }
+        }
+
+        if (insights.isNotEmpty()) {
+            item("forecast_insights") {
+                ForecastInsightsSection(
+                    insights = insights,
+                    timezone = forecast.city.timezone,
+                    modelCount = forecast.availableModels.size,
+                    referencePoint = overviewTimeline.analysisPoints.firstOrNull(),
+                    onInsightClick = { insight ->
+                        focusedTimelinePoint = insight.point
+                        timelineFocusRequestId += 1
+                    }
                 )
             }
         }
@@ -434,21 +459,16 @@ private fun LoadedView(
             }
         }
 
-        if (overviewTimeline.points.isNotEmpty()) {
+        if (timelineDisplayPoints.isNotEmpty()) {
             item("simplified_timeline_overview") {
                 SimplifiedTimelineCard(
-                    points = overviewTimeline.points,
+                    points = timelineDisplayPoints,
+                    events = forecastEvents,
                     mode = overviewTimeline.mode,
-                    timezone = forecast.city.timezone
-                )
-            }
-        }
-
-        if (supportingInsights.isNotEmpty()) {
-            item("forecast_insights") {
-                ForecastInsightsSection(
-                    insights = supportingInsights,
-                    timezone = forecast.city.timezone
+                    timezone = forecast.city.timezone,
+                    focusPoint = focusedTimelinePoint,
+                    focusRequestId = timelineFocusRequestId,
+                    now = presentationNow
                 )
             }
         }
@@ -1011,8 +1031,6 @@ internal fun TodaySummaryCard(
     currentCloudCover: Int? = null,
     fetchedAt: Instant? = null,
     isOnline: Boolean = true,
-    nextInsight: ForecastInsight? = null,
-    timezone: String? = null,
     onConfidenceClick: () -> Unit = {}
 ) {
     // Description unifiée pour TalkBack qui résume toutes les valeurs.
@@ -1159,27 +1177,6 @@ internal fun TodaySummaryCard(
                 VariableRow(stringResource(R.string.var_wind_max), it, " km/h")
             }
 
-            if (nextInsight != null) {
-                Spacer(Modifier.height(12.dp))
-                HorizontalDivider(
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.14f)
-                )
-                Spacer(Modifier.height(10.dp))
-                Column {
-                    Text(
-                        text = stringResource(R.string.next_notable_event),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.72f)
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    ForecastInsightInline(
-                        insight = nextInsight,
-                        timezone = timezone,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                }
-            }
         }
     }
 }

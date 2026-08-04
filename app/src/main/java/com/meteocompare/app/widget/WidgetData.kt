@@ -115,6 +115,12 @@ internal data class WidgetData(
      * MINI_FORECAST_12H.
      */
     val hourlyStartTime: java.time.LocalDateTime? = null,
+    /** Synthèse éditoriale la plus utile issue des événements multi-modèles. */
+    val keyInsight: WidgetKeyInsight? = null,
+    /** Instantané comparatif par variable pour les widgets à valeur ajoutée. */
+    val comparisonSnapshot: WidgetComparisonSnapshot? = null,
+    /** Nombre de modèles effectivement présents dans le forecast chargé. */
+    val modelCount: Int = 0,
     val error: WidgetError?
 ) {
     companion object {
@@ -137,6 +143,9 @@ internal data class WidgetData(
             forecastMode = null,
             forecasts = emptyList(),
             confidenceStrips = emptyList(),
+            keyInsight = null,
+            comparisonSnapshot = null,
+            modelCount = 0,
             error = error
         )
 
@@ -285,7 +294,8 @@ internal sealed class WidgetError {
 internal suspend fun loadWidgetData(
     context: Context,
     cityId: String?,
-    forecastMode: ForecastMode
+    forecastMode: ForecastMode,
+    includeValueSnapshot: Boolean = false
 ): WidgetData {
     if (cityId == null) return WidgetData.NotConfigured
 
@@ -402,6 +412,15 @@ internal suspend fun loadWidgetData(
             // tronqué à l'heure, dans le fuseau de la ville (les ancres
             // s'affichent en heure locale ville, pas device).
             val miniForecastNow = java.time.Instant.now()
+            val valueWidgetData = if (includeValueSnapshot) {
+                buildWidgetValueSnapshot(
+                    context = localizedContext,
+                    forecast = forecast,
+                    now = miniForecastNow
+                )
+            } else {
+                WidgetValueSnapshot(keyInsight = null, comparison = null)
+            }
             val miniForecast = if (forecastMode.isMiniForecast()) {
                 ForecastAggregates.next12h(
                     forecast = forecast,
@@ -442,6 +461,9 @@ internal suspend fun loadWidgetData(
                 next12hPrecipMm = miniForecast?.precipitationAmountsMm.orEmpty(),
                 next12hConditions = miniForecast?.conditions.orEmpty(),
                 hourlyStartTime = hourlyStartTime,
+                keyInsight = valueWidgetData.keyInsight,
+                comparisonSnapshot = valueWidgetData.comparison,
+                modelCount = forecast.seriesByModel.size,
                 error = null
             )
         }

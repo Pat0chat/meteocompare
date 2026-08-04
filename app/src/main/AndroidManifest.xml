@@ -83,8 +83,8 @@
             Le widget expose la météo courante d'une ville favorite sur
             l'écran d'accueil.
 
-            ─── Pourquoi 9 receivers ? ──────────────────────────────────
-            Chaque <receiver> = une entrée dans le picker de widgets Android.
+            ─── Pourquoi 9 receivers de taille + 1 éditorial ? ───────────────────────────────────
+            Chaque <receiver> = une entrée dans le picker de widgets Android. Les neuf premiers couvrent les tailles du widget météo adaptatif ; un provider 4×2 supplémentaire porte la proposition éditoriale « À retenir ».
             Certains launchers (Pixel 9a et Samsung récents) n'exposent
             typiquement que ~3 tailles par provider dans leur picker et ne
             proposent pas de resize post-drop pour tous les widgets. Pour
@@ -236,6 +236,21 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/meteocompare_widget_info_5x2" />
+        </receiver>
+
+        <!-- ═══ Widget éditorial MeteoCompare ══════════════════════════ -->
+
+        <!-- Signal principal + contexte multi-modèles -->
+        <receiver
+            android:name=".widget.MeteoInsightWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_label_insight">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/meteocompare_widget_info_insight" />
         </receiver>
 
         <!--

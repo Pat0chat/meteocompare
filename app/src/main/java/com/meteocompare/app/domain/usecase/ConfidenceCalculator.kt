@@ -157,7 +157,7 @@ class ConfidenceCalculator @Inject constructor(
         // UNKNOWN est déclaré en dernier et pourrait sinon gagner une égalité.
         return votes.filterValues { it == maxVote }
             .keys
-            .maxByOrNull(::conditionSeverity)
+            .maxByOrNull { it.severityRank }
     }
 
     /**
@@ -262,21 +262,6 @@ class ConfidenceCalculator @Inject constructor(
         return index.takeIf { distanceSeconds <= MAX_CURRENT_SAMPLE_DISTANCE_SECONDS }
     }
 
-    private fun conditionSeverity(condition: WeatherCondition): Int = when (condition) {
-        WeatherCondition.CLEAR -> 0
-        WeatherCondition.MAINLY_CLEAR -> 1
-        WeatherCondition.PARTLY_CLOUDY -> 2
-        WeatherCondition.OVERCAST -> 3
-        WeatherCondition.FOG -> 4
-        WeatherCondition.DRIZZLE -> 5
-        WeatherCondition.RAIN_SHOWERS -> 6
-        WeatherCondition.RAIN -> 7
-        WeatherCondition.SNOW_SHOWERS -> 8
-        WeatherCondition.SNOW -> 9
-        WeatherCondition.FREEZING_RAIN -> 10
-        WeatherCondition.THUNDERSTORM -> 11
-        WeatherCondition.UNKNOWN -> -1
-    }
 
     /**
      * Tableau Jour × Modèle des conditions météo journalières.

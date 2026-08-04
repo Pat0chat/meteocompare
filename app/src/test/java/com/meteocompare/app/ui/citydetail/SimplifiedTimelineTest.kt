@@ -10,6 +10,7 @@ import com.meteocompare.app.domain.model.WeatherModel
 import java.time.Instant
 import java.time.LocalDate
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -17,6 +18,36 @@ class SimplifiedTimelineTest {
 
     private val now = Instant.parse("2026-07-23T10:00:00Z")
     private val today = LocalDate.of(2026, 7, 23)
+
+    @Test
+    fun `hourly analysis keeps the full 24 hour window while overview displays at most eight points`() {
+        val timestamps = List(24) { index -> now.plusSeconds(index * 3600L) }
+        val hourlySeries = ForecastSeries(
+            model = WeatherModel.GFS,
+            hourly = HourlyForecast(
+                timestamps = timestamps,
+                temperature2m = List(24) { 18.0 + it / 4.0 },
+                precipitation = List(24) { if (it in 9..11) 1.0 else 0.0 },
+                windSpeed10m = List(24) { if (it == 16) 45.0 else 12.0 },
+                weatherCode = List(24) { if (it in 9..11) 61 else 1 }
+            ),
+            daily = DailyForecast(
+                dates = emptyList(),
+                tempMax = emptyList(),
+                tempMin = emptyList(),
+                precipitationSum = emptyList(),
+                windSpeedMax = emptyList()
+            )
+        )
+        val forecast = CityForecast(paris, mapOf(WeatherModel.GFS to hourlySeries))
+
+        val analysis = buildSimplifiedTimeline(forecast, DisplayMode.HOURLY, now)
+        val overview = buildOverviewTimeline(forecast, now)
+
+        assertEquals(24, analysis.size)
+        assertEquals(24, overview.analysisPoints.size)
+        assertTrue(selectRegularTimelinePoints(overview.analysisPoints).size <= 8)
+    }
 
     @Test
     fun `daily timeline uses medians and flags strong disagreement`() {
@@ -54,6 +85,10 @@ class SimplifiedTimelineTest {
         assertEquals(WeatherCondition.RAIN, point.condition)
         assertEquals(3, point.modelCount)
         assertTrue(point.isDivergent)
+        assertEquals(3, point.consensusFor(ForecastMetric.TEMPERATURE)?.modelCount)
+        assertEquals(3, point.consensusFor(ForecastMetric.PRECIPITATION)?.modelCount)
+        assertEquals(3, point.consensusFor(ForecastMetric.WIND)?.modelCount)
+        assertTrue(point.consensusFor(ForecastMetric.PRECIPITATION)?.isDivergent == true)
     }
 
     @Test
@@ -85,6 +120,43 @@ class SimplifiedTimelineTest {
         assertEquals(0, point.precipitationPercent)
         assertEquals(0, point.wetModelCount)
         assertEquals(3, point.precipitationModelCount)
+    }
+
+
+    @Test
+    fun `sparse probability coverage cannot create a rain disagreement`() {
+        val models = listOf(
+            WeatherModel.GFS,
+            WeatherModel.ECMWF,
+            WeatherModel.ICON_GLOBAL,
+            WeatherModel.ICON_EU,
+            WeatherModel.GEM_GLOBAL
+        )
+        val forecast = CityForecast(
+            city = paris,
+            seriesByModel = models.mapIndexed { index, model ->
+                model to series(
+                    model = model,
+                    date = today,
+                    min = 10.0 + index,
+                    max = 20.0 + index,
+                    rain = 0.0,
+                    probability = when (index) {
+                        0 -> 0
+                        1 -> 100
+                        else -> null
+                    },
+                    wind = 10.0 + index,
+                    weatherCode = 0
+                )
+            }.toMap()
+        )
+
+        val point = buildSimplifiedTimeline(forecast, DisplayMode.DAILY, now).single()
+
+        assertEquals(PrecipitationSignalSource.MODEL_AGREEMENT, point.precipitationSource)
+        assertEquals(0, point.precipitationPercent)
+        assertFalse(DivergenceReason.PRECIPITATION in point.divergenceReasons)
     }
 
     @Test

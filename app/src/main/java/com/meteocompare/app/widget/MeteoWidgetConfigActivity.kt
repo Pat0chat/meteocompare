@@ -124,6 +124,13 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
             return
         }
 
+        val providerClassName = runCatching {
+            AppWidgetManager.getInstance(this)
+                .getAppWidgetInfo(widgetId)
+                ?.provider
+                ?.className
+        }.getOrNull()
+
         // Par défaut RESULT_CANCELED — si l'user quitte sans valider, le
         // système supprime le widget de l'écran (comportement standard).
         setResult(Activity.RESULT_CANCELED)
@@ -131,6 +138,7 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
         setContent {
             MeteoCompareTheme {
                 WidgetConfigScreen(
+                    insightMode = isInsightWidgetProvider(providerClassName),
                     onSave = { cityId, opacityPct, forecastMode, bgColorArgb, textColorArgb ->
                         persistAndFinish(
                             widgetId = widgetId,
@@ -221,8 +229,12 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
                 }
             }
 
-            // 2. Force le widget à re-render avec les nouvelles prefs.
-            MeteoWidget().update(appCtx, glanceId)
+            // 2. Force le BON widget à re-render avec les nouvelles prefs.
+            val awm = AppWidgetManager.getInstance(appCtx)
+            val providerClassName = runCatching {
+                awm.getAppWidgetInfo(widgetId)?.provider?.className
+            }.getOrNull()
+            glanceWidgetForProviderClassName(providerClassName).update(appCtx, glanceId)
 
             // 3. Broadcast APPWIDGET_UPDATE ciblé sur notre widgetId. Traité
             //    par le receiver du widget après setResult+finish. Le receiver
@@ -236,12 +248,10 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
             //    — un widget Large recevrait le broadcast mais celui-ci ne le
             //    "connaît" pas au sens système. On lit AppWidgetProviderInfo
             //    pour récupérer le nom du provider réel de CE widgetId.
-            val awm = AppWidgetManager.getInstance(appCtx)
-            val providerClassName = runCatching {
-                awm.getAppWidgetInfo(widgetId)?.provider?.className
-            }.getOrNull() ?: MeteoWidgetReceiver::class.java.name
+            val resolvedProviderClassName = providerClassName
+                ?: MeteoWidgetReceiver::class.java.name
             val refreshIntent = Intent().apply {
-                setClassName(appCtx.packageName, providerClassName)
+                setClassName(appCtx.packageName, resolvedProviderClassName)
                 action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
                 putExtra(
                     AppWidgetManager.EXTRA_APPWIDGET_IDS,
@@ -280,6 +290,7 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
 
 @Composable
 private fun WidgetConfigScreen(
+    insightMode: Boolean,
     onSave: (cityId: String, opacityPct: Int, forecastMode: ForecastMode,
              bgColorArgb: Int?, textColorArgb: Int?) -> Unit,
     onCancel: () -> Unit
@@ -497,20 +508,21 @@ private fun WidgetConfigScreen(
 
         Spacer(Modifier.height(24.dp))
 
-        // ─── Section mode de prévision étendue ────────────────────
-        // Utilisé par les widgets sur deux lignes. Quatre options exposées :
-        //   HOURLY / DAILY : jusqu'à 5 prévisions sur les formats 4×2 et 5×2
-        //   CONFIDENCE_ALL : deux bandes synchronisées (température et pluie)
-        // Les modes confidence répliquent au format widget la feature de
-        // l'écran détail. Utile pour les users qui aiment scanner "quand
-        // la prévision se dégrade cette semaine".
+        // ─── Section horizon / mode de prévision ─────────────────────
+        // Le squelette de configuration reste identique pour tous les widgets.
+        // Le widget « À retenir » utilise volontairement un horizon fixe de
+        // 24 heures : afficher les modes sans effet serait trompeur. On garde
+        // donc la même section, avec une ligne explicative non interactive.
         Text(
             text = stringResource(R.string.widget_config_forecast_mode),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Medium
         )
         Text(
-            text = stringResource(R.string.widget_config_forecast_mode_note),
+            text = stringResource(
+                if (insightMode) R.string.widget_config_insight_horizon_note
+                else R.string.widget_config_forecast_mode_note
+            ),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -521,32 +533,36 @@ private fun WidgetConfigScreen(
                 containerColor = MaterialTheme.colorScheme.surfaceContainerLow
             )
         ) {
-            ForecastModeRow(
-                selected = forecastMode == ForecastMode.HOURLY,
-                tag = "$TAG_WIDGET_MODE${ForecastMode.HOURLY.name}",
-                labelRes = R.string.widget_config_forecast_mode_hourly,
-                descrRes = R.string.widget_config_forecast_mode_hourly_descr,
-                onClick = { forecastMode = ForecastMode.HOURLY }
-            )
-            ForecastModeRow(
-                selected = forecastMode == ForecastMode.DAILY,
-                tag = "$TAG_WIDGET_MODE${ForecastMode.DAILY.name}",
-                labelRes = R.string.widget_config_forecast_mode_daily,
-                descrRes = R.string.widget_config_forecast_mode_daily_descr,
-                onClick = { forecastMode = ForecastMode.DAILY }
-            )
-            ForecastModeRow(
-                selected = forecastMode == ForecastMode.MINI_FORECAST_12H,
-                tag = "$TAG_WIDGET_MODE${ForecastMode.MINI_FORECAST_12H.name}",
-                labelRes = R.string.widget_config_forecast_mode_mini_12h,
-                descrRes = R.string.widget_config_forecast_mode_mini_12h_descr,
-                onClick = { forecastMode = ForecastMode.MINI_FORECAST_12H }
-            )
-            ConfidenceModeRow(
-                selected = forecastMode.normalized() == ForecastMode.CONFIDENCE_ALL,
-                tag = "$TAG_WIDGET_MODE${ForecastMode.CONFIDENCE_ALL.name}",
-                onClick = { forecastMode = ForecastMode.CONFIDENCE_ALL }
-            )
+            if (insightMode) {
+                FixedInsightHorizonRow()
+            } else {
+                ForecastModeRow(
+                    selected = forecastMode == ForecastMode.HOURLY,
+                    tag = "$TAG_WIDGET_MODE${ForecastMode.HOURLY.name}",
+                    labelRes = R.string.widget_config_forecast_mode_hourly,
+                    descrRes = R.string.widget_config_forecast_mode_hourly_descr,
+                    onClick = { forecastMode = ForecastMode.HOURLY }
+                )
+                ForecastModeRow(
+                    selected = forecastMode == ForecastMode.DAILY,
+                    tag = "$TAG_WIDGET_MODE${ForecastMode.DAILY.name}",
+                    labelRes = R.string.widget_config_forecast_mode_daily,
+                    descrRes = R.string.widget_config_forecast_mode_daily_descr,
+                    onClick = { forecastMode = ForecastMode.DAILY }
+                )
+                ForecastModeRow(
+                    selected = forecastMode == ForecastMode.MINI_FORECAST_12H,
+                    tag = "$TAG_WIDGET_MODE${ForecastMode.MINI_FORECAST_12H.name}",
+                    labelRes = R.string.widget_config_forecast_mode_mini_12h,
+                    descrRes = R.string.widget_config_forecast_mode_mini_12h_descr,
+                    onClick = { forecastMode = ForecastMode.MINI_FORECAST_12H }
+                )
+                ConfidenceModeRow(
+                    selected = forecastMode.normalized() == ForecastMode.CONFIDENCE_ALL,
+                    tag = "$TAG_WIDGET_MODE${ForecastMode.CONFIDENCE_ALL.name}",
+                    onClick = { forecastMode = ForecastMode.CONFIDENCE_ALL }
+                )
+            }
         }
 
         Spacer(Modifier.height(24.dp))
@@ -575,6 +591,37 @@ private fun WidgetConfigScreen(
             ) {
                 Text(stringResource(R.string.widget_config_save))
             }
+        }
+    }
+}
+
+@Composable
+internal fun FixedInsightHorizonRow() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag(TAG_WIDGET_INSIGHT_HORIZON)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        RadioButton(
+            selected = true,
+            enabled = false,
+            onClick = null
+        )
+        Spacer(Modifier.width(8.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = stringResource(R.string.widget_config_insight_horizon),
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(Modifier.height(3.dp))
+            Text(
+                text = stringResource(R.string.widget_config_insight_horizon_descr),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -834,5 +881,6 @@ internal const val TAG_WIDGET_CONFIG_ROOT = "widget_config_root"
 internal const val TAG_WIDGET_CITY = "widget_city_"
 internal const val TAG_WIDGET_OPACITY = "widget_opacity"
 internal const val TAG_WIDGET_MODE = "widget_mode_"
+internal const val TAG_WIDGET_INSIGHT_HORIZON = "widget_insight_horizon"
 internal const val TAG_WIDGET_SAVE = "widget_save"
 internal const val TAG_WIDGET_CANCEL = "widget_cancel"

@@ -40,6 +40,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import java.io.IOException
+import java.time.Clock
 import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -87,6 +88,7 @@ class ForecastRepositoryImpl @Inject constructor(
     private val json: Json,
     private val networkMonitor: NetworkMonitor,
     private val snapshotForecast: SnapshotForecastUseCase,
+    private val clock: Clock,
     @param:ApplicationContext private val context: Context,
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     @param:DefaultDispatcher private val computationDispatcher: CoroutineDispatcher = Dispatchers.Default
@@ -138,7 +140,18 @@ class ForecastRepositoryImpl @Inject constructor(
      * les mêmes modèles dans un ordre différent doivent partager la fetch).
      */
     private fun cacheKey(city: City, models: List<WeatherModel>, forecastDays: Int): String =
-        "${city.id}|${models.map { it.name }.sorted().joinToString(",")}|$forecastDays"
+        "${city.id}|${models.map { it.name }.sorted().joinToString(",")}|" +
+            effectiveForecastDays(models, forecastDays)
+
+    private fun effectiveForecastDays(
+        models: List<WeatherModel>,
+        requestedForecastDays: Int
+    ): Int {
+        val requested = requestedForecastDays.coerceAtLeast(1)
+        return models.maxOfOrNull(WeatherModel::maxForecastDays)
+            ?.coerceAtMost(requested)
+            ?: requested
+    }
 
     /**
      * Version coalescée de [fetchAndCache]. Voir le KDoc du registre pour le
@@ -213,7 +226,7 @@ class ForecastRepositoryImpl @Inject constructor(
         // user coincé sur du cache très vieux.
         if (!forceRefresh && maxCacheAgeMs != null && hasCached && cacheComplete &&
             cachedFetchedAtMs != null) {
-            val ageMs = System.currentTimeMillis() - cachedFetchedAtMs
+            val ageMs = clock.millis() - cachedFetchedAtMs
             if (ageMs in 0..maxCacheAgeMs) {
                 // Cache assez récent, on n'appelle même pas fetchAndCache.
                 return@flow
@@ -365,7 +378,7 @@ class ForecastRepositoryImpl @Inject constructor(
      *
      * ─── Historique ─────────────────────────────────────────────────────
      * Version antérieure : N appels HTTPS parallèles via `coroutineScope +
-     * async` (voir [OpenMeteoApi.getForecast]). Fonctionnel mais coûteux :
+     * async`. Fonctionnel mais coûteux :
      * N handshakes TLS + N wakeups radio + retry par modèle. Remplacé par
      * l'appel batched — voir [OpenMeteoApi.getForecastBatched] pour la
      * justification.
@@ -396,15 +409,14 @@ class ForecastRepositoryImpl @Inject constructor(
             )
         }
 
-        val now = System.currentTimeMillis()
+        val now = clock.millis()
 
         // ── Requête batched ────────────────────────────────────────────
         // Une seule ligne = un seul appel HTTPS. `forecast_days` prend la
         // valeur max sur les modèles demandés — les modèles à horizon plus
         // court retournent null au-delà, ce que le mapper gère (aligne les
         // listes de valeurs sur les timestamps, pad avec null si absent).
-        val effectiveForecastDays = models.maxOf { it.maxForecastDays }
-            .coerceAtMost(forecastDays.coerceAtLeast(1))
+        val effectiveForecastDays = effectiveForecastDays(models, forecastDays)
 
         // Log explicite pour vérifier en debug que le batching fonctionne
         // comme prévu. Filtrable par `adb logcat -s MeteoCompare/Net`,
@@ -523,6 +535,13 @@ class ForecastRepositoryImpl @Inject constructor(
             // utilisateur (dégradation gracieuse : l'user voit son forecast
             // frais, on perd juste un point d'historique de biais).
             runSuspendCatching { snapshotForecast(fresh) }
+                .onFailure { error ->
+                    android.util.Log.w(
+                        LOG_TAG,
+                        "Bias snapshot failed for city=${city.id}; forecast remains usable",
+                        error
+                    )
+                }
 
             ApiResult.Success(fresh)
         }

@@ -108,21 +108,21 @@ interface BiasSampleDao {
     suspend fun getLatestObservationEpochDay(cityId: String, variable: String): Long?
 
     /**
-     * Compte les samples forecast dont la date cible est **strictement dans
-     * le passé** par rapport à [beforeEpochDay]. Sert au check d'idempotence
-     * du backfill : si on a déjà quelques rows de forecast passé pour une
-     * ville et un modèle, inutile de refaire l'appel historical-forecast.
+     * Compte les jours distincts de forecast dont la date cible est
+     * **strictement dans le passé** par rapport à [beforeEpochDay]. Sert au
+     * garde d'idempotence du backfill. Le `DISTINCT` empêche les trois
+     * variables et plusieurs runs d'une même journée de gonfler ce compteur.
      */
     @Query(
         """
-        SELECT COUNT(*)
+        SELECT COUNT(DISTINCT targetDateEpochDay)
         FROM forecast_samples
         WHERE cityId = :cityId
           AND modelKey = :modelKey
           AND targetDateEpochDay < :beforeEpochDay
         """
     )
-    suspend fun countPastForecastSamples(
+    suspend fun countPastForecastDays(
         cityId: String,
         modelKey: String,
         beforeEpochDay: Long

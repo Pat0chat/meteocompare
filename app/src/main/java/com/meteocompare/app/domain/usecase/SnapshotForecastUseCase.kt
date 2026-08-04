@@ -1,9 +1,11 @@
 package com.meteocompare.app.domain.usecase
 
+import com.meteocompare.app.core.util.localDateIn
 import com.meteocompare.app.domain.model.BiasVariable
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.repository.BiasSampleRepository
 import com.meteocompare.app.domain.repository.ForecastBiasRecord
+import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
 import javax.inject.Inject
@@ -59,20 +61,21 @@ import javax.inject.Singleton
  */
 @Singleton
 class SnapshotForecastUseCase @Inject constructor(
-    private val biasRepository: BiasSampleRepository
+    private val biasRepository: BiasSampleRepository,
+    private val clock: Clock = Clock.systemUTC()
 ) {
 
     /**
      * @param forecast le résultat frais de `refreshCityForecast`.
-     * @param issuedAt l'instant du snapshot. Défaut = [Instant.now]. Passer
-     *   explicitement en test pour la reproductibilité.
-     * @param today la date "aujourd'hui" pour le filtrage de la fenêtre.
-     *   Défaut = [LocalDate.now]. Test-friendly comme [issuedAt].
+     * @param issuedAt l'instant du snapshot. Par défaut, utilise l'horloge
+     *   injectée afin de rester reproductible en test.
+     * @param today date civile de référence dans le fuseau de la ville. Elle
+     *   est dérivée de [issuedAt] pour éviter un décalage autour de minuit.
      */
     suspend operator fun invoke(
         forecast: CityForecast,
-        issuedAt: Instant = Instant.now(),
-        today: LocalDate = LocalDate.now()
+        issuedAt: Instant = clock.instant(),
+        today: LocalDate = issuedAt.localDateIn(forecast.city.timezone)
     ) {
         val cityId = forecast.city.id
         // Fenêtre de sanité : rejette les dates aberrantes qui pourraient venir

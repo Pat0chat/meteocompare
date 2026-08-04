@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import com.meteocompare.app.BuildConfig
 import com.meteocompare.app.data.worker.BiasRefreshScheduler
 
 /**
@@ -39,7 +40,9 @@ class WidgetRefreshRepairReceiver : BroadcastReceiver() {
         }
 
         if (hasWidgets) {
-            Log.d("MeteoCompare/Widget", "Repairing widget refresh after ${intent.action}")
+            if (BuildConfig.DEBUG) {
+                Log.d("MeteoCompare/Widget", "Repairing widget refresh after ${intent.action}")
+            }
             if (isAppReplacement) {
                 WidgetRefreshScheduler.updateAfterAppReplacement(appContext)
             } else {

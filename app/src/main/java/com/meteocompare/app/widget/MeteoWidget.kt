@@ -1895,7 +1895,7 @@ private fun ForecastItemCard(
                             modifier = GlanceModifier.fillMaxWidth()
                         )
                         if (showForecastConfidence) {
-                            val confidence = item.forecastConfidencePct ?: 0
+                            val confidence = item.forecastConfidencePct
                             Spacer(GlanceModifier.height(1.dp))
                             Text(
                                 text = ctx.getString(

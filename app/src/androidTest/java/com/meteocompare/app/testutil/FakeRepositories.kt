@@ -197,6 +197,7 @@ class FakeBiasSampleRepository @Inject constructor() : BiasSampleRepository {
         cityId: String,
         model: WeatherModel,
         variable: BiasVariable,
+        asOf: LocalDate,
         windowDays: Int
     ): Flow<List<BiasSample>> = flowOf(emptyList())
 
@@ -217,7 +218,7 @@ class FakeBiasSampleRepository @Inject constructor() : BiasSampleRepository {
     ) = Unit
 
     override suspend fun latestObservationDate(cityId: String, variable: BiasVariable): LocalDate? = null
-    override suspend fun countPastForecastSamples(
+    override suspend fun countPastForecastDays(
         cityId: String,
         model: WeatherModel,
         beforeDate: LocalDate

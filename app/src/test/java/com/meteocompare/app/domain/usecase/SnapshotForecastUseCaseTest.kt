@@ -15,7 +15,9 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.Clock
 import java.time.Instant
+import java.time.ZoneOffset
 import java.time.LocalDate
 
 /**
@@ -213,6 +215,52 @@ class SnapshotForecastUseCaseTest {
         assertEquals(first, secondHalf)
     }
 
+
+    @Test
+    fun `default sanity date is derived from the city timezone`() = runTest {
+        val instant = Instant.parse("2026-07-23T23:30:00Z")
+        val localToday = LocalDate.of(2026, 7, 24)
+        val targetAtLocalUpperBound = localToday.plusDays(10)
+        val localRepo = FakeBiasSampleRepository()
+        val localUseCase = SnapshotForecastUseCase(
+            localRepo,
+            Clock.fixed(instant, ZoneOffset.UTC)
+        )
+        val forecast = CityForecast(
+            city = City(
+                id = "kiritimati",
+                name = "Kiritimati",
+                latitude = 1.87,
+                longitude = -157.43,
+                country = "Kiribati",
+                timezone = "Pacific/Kiritimati"
+            ),
+            seriesByModel = mapOf(
+                WeatherModel.GFS to ForecastSeries(
+                    model = WeatherModel.GFS,
+                    hourly = HourlyForecast(
+                        timestamps = emptyList(),
+                        temperature2m = emptyList(),
+                        precipitation = emptyList(),
+                        windSpeed10m = emptyList()
+                    ),
+                    daily = dailyOf(
+                        dates = listOf(targetAtLocalUpperBound),
+                        tempMax = listOf(28.0),
+                        precip = listOf(0.0),
+                        wind = listOf(12.0)
+                    )
+                )
+            )
+        )
+
+        localUseCase(forecast)
+
+        assertEquals(3, localRepo.forecastRecords.size)
+        assertTrue(localRepo.forecastRecords.all { it.targetDate == targetAtLocalUpperBound })
+        assertTrue(localRepo.forecastRecords.all { it.issuedAt == instant })
+    }
+
     // ─── Cas dégénérés ────────────────────────────────────────────────────
 
     @Test
@@ -293,6 +341,7 @@ class SnapshotForecastUseCaseTest {
             cityId: String,
             model: WeatherModel,
             variable: BiasVariable,
+            asOf: LocalDate,
             windowDays: Int
         ): Flow<List<BiasSample>> = flowOf(emptyList())
 
@@ -304,7 +353,7 @@ class SnapshotForecastUseCaseTest {
             cityId: String, variable: BiasVariable
         ) = error("Not expected in SnapshotForecastUseCase tests")
 
-        override suspend fun countPastForecastSamples(
+        override suspend fun countPastForecastDays(
             cityId: String, model: WeatherModel, beforeDate: LocalDate
         ) = error("Not expected in SnapshotForecastUseCase tests")
 
