@@ -25,15 +25,17 @@ import java.util.concurrent.TimeUnit
 /**
  * Rafraîchissement quotidien des données de suivi de biais.
  *
- * Deux responsabilités de collecte et une de maintenance par cycle :
- *   1. **Fetch delta des observations** — pour chaque ville favorite, appeler
+ * Le cycle automatique reste léger ; le cycle manuel ajoute un bootstrap :
+ *   1. **Bootstrap J+1 manuel** — télécharger jusqu'à 14 jours de prévisions
+ *      à échéance fixe via Previous Runs pour les modèles activés.
+ *   2. **Fetch delta des observations** — pour chaque ville favorite, appeler
  *      [com.meteocompare.app.domain.usecase.FetchBiasObservationsUseCase]
  *      qui interroge Open-Meteo archive et remplit `observation_samples`
  *      pour les jours manquants depuis le dernier fetch.
- *   2. **Housekeeping bias** — purger les samples au-delà de 35 jours pour
+ *   3. **Housekeeping bias** — purger les samples au-delà de 35 jours pour
  *      maintenir la DB dans un budget contrôlé (fenêtre glissante 30j +
  *      5j de marge).
- *   3. **Housekeeping forecast cache** — purger les entrées de `forecast_cache`
+ *   4. **Housekeeping forecast cache** — purger les entrées de `forecast_cache`
  *      au-delà de 7 jours. Ce cache sert de fallback offline "dernière
  *      donnée connue" ; au-delà d'une semaine c'est de la donnée périmée
  *      qui n'a plus d'utilité même pour l'affichage offline (l'utilisateur
@@ -45,8 +47,8 @@ import java.util.concurrent.TimeUnit
  * piggybacké sur les fetch utilisateur (voir
  * [com.meteocompare.app.domain.usecase.SnapshotForecastUseCase]) — chaque fois
  * qu'un utilisateur ouvre une ville ou refresh, le forecast frais est
- * automatiquement snapshotté. Le worker ne s'occupe QUE des observations
- * rétrospectives et des purges.
+ * automatiquement snapshotté. Le worker ne refait pas ce fetch courant ; le
+ * bouton manuel peut seulement compléter l'historique passé avec Previous Runs.
  *
  * Les `climate_normals_cache` ne sont PAS purgés — c'est un dataset stable
  * de ~366 rows par ville (moyennes 10 ans par jour de l'année), qui ne
@@ -138,8 +140,8 @@ object BiasRefreshScheduler {
      * automatiques. Il contourne uniquement la garde temporelle de 20 h afin
      * que l'utilisateur puisse initialiser les biais après avoir ajouté ses
      * premières villes. KEEP déduplique les taps pendant que le travail est
-     * en attente ou actif ; le worker applique ensuite un anti-répétition de
-     * 30 minutes après un cycle réussi.
+     * en attente ou actif. Une nouvelle action explicite reste possible après
+     * la fin du cycle, même si un cycle automatique récent a réussi.
      */
     fun triggerManualRefresh(context: Context) {
         triggerManualRefresh(
@@ -248,7 +250,7 @@ object BiasRefreshScheduler {
     internal const val MANUAL_INPUT_KEY: String = "bias_refresh_manual"
 
     internal const val KICKOFF_INITIAL_DELAY_MS: Long = 60_000L
-    internal const val PER_CITY_OPERATION_TIMEOUT_MS: Long = 45_000L
+    internal const val PER_CITY_OPERATION_TIMEOUT_MS: Long = 75_000L
 
     /**
      * Budget global inférieur à la fenêtre d'exécution habituelle d'un worker.
@@ -301,32 +303,32 @@ internal class BiasRefreshWorker(
             false
         )
 
-        // Une demande manuelle contourne la garde longue de 20 h, mais pas
-        // l'anti-répétition court : après un cycle réussi, relancer la même
-        // collecte quelques secondes plus tard ne peut produire aucune donnée
-        // supplémentaire et gaspillerait réseau et batterie. KEEP couvre les
-        // taps pendant ENQUEUED/RUNNING ; ce garde couvre les taps après SUCCESS.
-        val minIntervalMs = when {
-            isManual -> BiasRefreshRunGate.MANUAL_MIN_INTERVAL_MS
-            isKickoff -> BiasRefreshRunGate.KICKOFF_MIN_INTERVAL_MS
-            else -> {
+        // Une action explicite de l'utilisateur ne doit jamais être bloquée par
+        // le timestamp d'un cycle automatique : le cycle précédent a pu ne faire
+        // que du housekeeping, alors que le bouton doit initialiser l'historique
+        // J+1 via Previous Runs. ExistingWorkPolicy.KEEP déduplique déjà les taps
+        // tant que le travail manuel est en attente ou actif.
+        if (!isManual) {
+            val minIntervalMs = if (isKickoff) {
+                BiasRefreshRunGate.KICKOFF_MIN_INTERVAL_MS
+            } else {
                 // Le periodic reste quotidien. Ce garde court ne sert qu'à éviter
                 // un doublon si un kickoff vient de réussir juste avant sa fenêtre.
                 BiasRefreshRunGate.PERIODIC_MIN_INTERVAL_MS
             }
-        }
-        if (!BiasRefreshRunGate.shouldRun(ctx, minIntervalMs)) {
-            if (BuildConfig.DEBUG) {
-                Log.d(
-                    LOG_TAG,
-                    when {
-                        isManual -> "Bias manual refresh skipped: a successful cycle is still fresh"
-                        isKickoff -> "Bias kickoff skipped: a successful daily cycle is still fresh"
-                        else -> "Bias periodic skipped: a kickoff completed recently"
-                    }
-                )
+            if (!BiasRefreshRunGate.shouldRun(ctx, minIntervalMs)) {
+                if (BuildConfig.DEBUG) {
+                    Log.d(
+                        LOG_TAG,
+                        if (isKickoff) {
+                            "Bias kickoff skipped: a successful daily cycle is still fresh"
+                        } else {
+                            "Bias periodic skipped: a kickoff completed recently"
+                        }
+                    )
+                }
+                return@withLock Result.success()
             }
-            return@withLock Result.success()
         }
 
         val entry = EntryPointAccessors.fromApplication(ctx, BiasRefreshEntryPoint::class.java)
@@ -334,6 +336,7 @@ internal class BiasRefreshWorker(
         val cityRepo = entry.cityRepository()
         val biasRepo = entry.biasSampleRepository()
         val fetchObs = entry.fetchBiasObservationsUseCase()
+        val bootstrapHistory = entry.bootstrapBiasHistoryUseCase()
         val clock = entry.clock()
 
         // Snapshot one-shot des favorites + modèles activés — pas besoin
@@ -350,28 +353,63 @@ internal class BiasRefreshWorker(
         }
 
 
-        // Chaque opération réseau ET le cycle global sont bornés.
-        // `withTimeoutOrNull` distingue le timeout local d'une vraie annulation
-        // du worker : une annulation externe continue de se propager, tandis
-        // qu'un serveur lent ne laisse pas un job monopoliser le process.
-        val observationSuccesses = withTimeoutOrNull(BiasRefreshScheduler.WORK_BUDGET_MS) {
+        val enabledModels = if (isManual) {
+            runSuspendCatching {
+                entry.userPreferencesRepository().observeEnabledModels().first()
+            }.getOrElse { error ->
+                Log.w(LOG_TAG, "Cannot read enabled models for manual bias bootstrap", error)
+                return@withLock Result.retry()
+            }
+        } else {
+            emptyList()
+        }
 
+        // Chaque opération réseau ET le cycle global sont bornés.
+        // Le chemin manuel commence par un bootstrap Previous Runs J+1, puis
+        // télécharge les références correspondantes. Les cycles automatiques
+        // conservent le mode léger : références manquantes + housekeeping.
+        val citySuccesses = withTimeoutOrNull(BiasRefreshScheduler.WORK_BUDGET_MS) {
             var successes = 0
             for (city in favorites) {
                 val result = withTimeoutOrNull(
                     BiasRefreshScheduler.PER_CITY_OPERATION_TIMEOUT_MS
                 ) {
-                    runSuspendCatching { fetchObs(city) }
+                    runSuspendCatching {
+                        val bootstrap = if (isManual) {
+                            bootstrapHistory(city, enabledModels)
+                        } else {
+                            null
+                        }
+                        val referenceDays = fetchObs(city)
+                        if (BuildConfig.DEBUG) {
+                            if (bootstrap != null) {
+                                Log.d(
+                                    LOG_TAG,
+                                    "Manual bias bootstrap city=${city.id}: " +
+                                        "models=${bootstrap.coveredModels}/${enabledModels.size}, " +
+                                        "days=${bootstrap.coveredDays}/${bootstrap.requestedDays}, " +
+                                        "forecastRecords=${bootstrap.forecastRecords}, " +
+                                        "referenceDays=$referenceDays"
+                                )
+                            } else {
+                                Log.d(
+                                    LOG_TAG,
+                                    "Bias reference refresh city=${city.id}: referenceDays=$referenceDays"
+                                )
+                            }
+                        }
+                        bootstrap to referenceDays
+                    }
                 }
                 when {
                     result?.isSuccess == true -> successes++
                     result == null -> Log.w(
                         LOG_TAG,
-                        "Observation refresh timed out for city=${city.id}"
+                        "Bias refresh timed out for city=${city.id}"
                     )
                     else -> Log.w(
                         LOG_TAG,
-                        "Observation refresh failed for city=${city.id}",
+                        "Bias refresh failed for city=${city.id}",
                         result.exceptionOrNull()
                     )
                 }
@@ -384,7 +422,7 @@ internal class BiasRefreshWorker(
 
         // Si toutes les villes ont échoué, signaler retry plutôt qu'un faux
         // SUCCESS. WorkManager appliquera son backoff sans boucle active.
-        if (favorites.isNotEmpty() && observationSuccesses == 0) {
+        if (favorites.isNotEmpty() && citySuccesses == 0) {
             return@withLock Result.retry()
         }
 

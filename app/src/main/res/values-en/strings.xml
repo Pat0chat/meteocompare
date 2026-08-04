@@ -47,9 +47,9 @@
     <string name="settings_about_data_source">Weather data provided by Open-Meteo (open-meteo.com).</string>
     <string name="settings_about_models_credit">Models: AROME and ARPEGE by Météo-France, ICON by DWD, GFS and HRRR by NOAA, ECMWF and AIFS by the European Centre, UKMO by the UK Met Office, GEM by Environment Canada, MET Nordic by MET Norway, HARMONIE by KNMI, ACCESS by the Bureau of Meteorology (Australia), GRAPES by CMA (China).</string>
     <string name="settings_bias_refresh_title">Bias tracking</string>
-    <string name="settings_bias_refresh_desc">Updates historical reference data for your favorite cities. Tracking only compares forecasts captured the previous day (D+1); indicators appear after 14 matching days.</string>
-    <string name="settings_bias_refresh_action">Update reference data</string>
-    <string name="settings_bias_refresh_queued">Update scheduled. D+1 indicators will appear once at least 14 matching days are available.</string>
+    <string name="settings_bias_refresh_desc">Downloads up to 14 days of archived forecasts at a fixed D+1 lead time for enabled models, then their weather references, for your favorite cities. Models without available archives will continue calibrating over time.</string>
+    <string name="settings_bias_refresh_action">Initialize or update</string>
+    <string name="settings_bias_refresh_queued">Update started. Available archived days will be processed in the background; some models may still require gradual collection.</string>
     <string name="settings_privacy_title">Privacy</string>
     <string name="settings_privacy_body">This app uses no analytics, advertising tracking, or ads. Place searches and forecasts are sent to Open-Meteo with the location or its coordinates. Favorites and preferences are stored locally and may be included in Android backup or device transfer when that feature is enabled.</string>
     <string name="theme_system">System</string>

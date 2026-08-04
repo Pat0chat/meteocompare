@@ -3,6 +3,8 @@ package com.meteocompare.app.data.worker
 import com.meteocompare.app.data.local.ForecastCacheDao
 import com.meteocompare.app.domain.repository.BiasSampleRepository
 import com.meteocompare.app.domain.repository.CityRepository
+import com.meteocompare.app.domain.repository.UserPreferencesRepository
+import com.meteocompare.app.domain.usecase.BootstrapBiasHistoryUseCase
 import com.meteocompare.app.domain.usecase.FetchBiasObservationsUseCase
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
@@ -29,6 +31,8 @@ internal interface BiasRefreshEntryPoint {
     fun cityRepository(): CityRepository
     fun biasSampleRepository(): BiasSampleRepository
     fun fetchBiasObservationsUseCase(): FetchBiasObservationsUseCase
+    fun bootstrapBiasHistoryUseCase(): BootstrapBiasHistoryUseCase
+    fun userPreferencesRepository(): UserPreferencesRepository
     fun clock(): Clock
 
     /**

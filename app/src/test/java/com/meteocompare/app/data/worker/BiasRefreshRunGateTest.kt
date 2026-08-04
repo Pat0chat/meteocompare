@@ -40,25 +40,6 @@ class BiasRefreshRunGateTest {
     }
 
     @Test
-    fun `refresh manuel est bloque pendant trente minutes apres un succes`() {
-        val last = 1_000L
-        assertFalse(
-            BiasRefreshRunGate.shouldRun(
-                last,
-                last + BiasRefreshRunGate.MANUAL_MIN_INTERVAL_MS - 1L,
-                BiasRefreshRunGate.MANUAL_MIN_INTERVAL_MS
-            )
-        )
-        assertTrue(
-            BiasRefreshRunGate.shouldRun(
-                last,
-                last + BiasRefreshRunGate.MANUAL_MIN_INTERVAL_MS,
-                BiasRefreshRunGate.MANUAL_MIN_INTERVAL_MS
-            )
-        )
-    }
-
-    @Test
     fun `periodic proche du kickoff est ignore sans bloquer le cycle journalier`() {
         val last = 1_000L
         assertFalse(

@@ -11,7 +11,7 @@ import java.time.Instant
  * le fuseau de la ville, sont éligibles. Lorsqu'une ville a été rafraîchie
  * plusieurs fois cette veille, la dernière prévision est conservée. Cette
  * règle évite de mélanger dans un même score des horizons très différents et
- * exclut aussi les anciens backfills historiques appris après coup.
+ * exclut aussi les anciens backfills sans échéance de prévision homogène.
  */
 fun selectPreviousDaySamples(
     samples: List<BiasSample>,

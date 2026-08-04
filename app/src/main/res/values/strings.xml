@@ -47,9 +47,9 @@
     <string name="settings_about_data_source">Données météo fournies par Open-Meteo (open-meteo.com).</string>
     <string name="settings_about_models_credit">Modèles : AROME et ARPEGE par Météo-France, ICON par DWD, GFS et HRRR par NOAA, ECMWF et AIFS par le Centre Européen, UKMO par le UK Met Office, GEM par Environnement Canada, MET Nordic par MET Norway, HARMONIE par KNMI, ACCESS par le Bureau of Meteorology (Australie), GRAPES par le CMA (Chine).</string>
     <string name="settings_bias_refresh_title">Suivi des biais</string>
-    <string name="settings_bias_refresh_desc">Met à jour les données historiques de référence pour vos villes favorites. Le suivi compare uniquement les prévisions enregistrées la veille (J+1) ; les indicateurs apparaissent après 14 jours correspondants.</string>
-    <string name="settings_bias_refresh_action">Mettre à jour les références</string>
-    <string name="settings_bias_refresh_queued">Mise à jour planifiée. Les indicateurs J+1 apparaîtront après au moins 14 jours correspondants.</string>
+    <string name="settings_bias_refresh_desc">Télécharge jusqu’à 14 jours de prévisions archivées à échéance fixe J+1 pour les modèles activés, puis leurs références météo, pour vos villes favorites. Les modèles sans archive disponible continueront à se calibrer au fil des jours.</string>
+    <string name="settings_bias_refresh_action">Initialiser ou mettre à jour</string>
+    <string name="settings_bias_refresh_queued">Mise à jour lancée. Les jours archivés disponibles seront traités en arrière-plan ; certains modèles peuvent nécessiter une collecte progressive.</string>
     <string name="settings_privacy_title">Confidentialité</string>
     <string name="settings_privacy_body">Cette application n’utilise ni analytics, ni suivi publicitaire, ni publicité. Les recherches de lieux et les prévisions sont envoyées à Open-Meteo avec la localité ou ses coordonnées. Vos favoris et préférences sont stockés localement et peuvent être inclus dans la sauvegarde ou le transfert Android si cette fonction est activée.</string>
     <string name="theme_system">Système</string>

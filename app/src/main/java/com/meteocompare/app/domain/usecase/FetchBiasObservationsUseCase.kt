@@ -26,8 +26,8 @@ import javax.inject.Singleton
  *   1. Lecture de [BiasSampleRepository.earliestMissingReferenceDate]. La
  *      requête Room repère le premier forecast passé sans référence, y compris
  *      un trou interne au milieu d'une série.
- *   2. Tant qu'aucune prévision organique n'est vérifiable, aucun appel archive
- *      n'est effectué.
+ *   2. Tant qu'aucune prévision J+1 (snapshot organique ou bootstrap
+ *      Previous Runs) n'est vérifiable, aucun appel archive n'est effectué.
  *   3. La fenêtre est bornée à 30 jours maximum et se termine hier.
  *   4. Un seul appel HTTP couvre les 3 variables (l'API archive prend
  *      `daily=temperature_2m_max,precipitation_sum,wind_speed_10m_max` en une
@@ -35,9 +35,10 @@ import javax.inject.Singleton
  *
  * ## Bootstrap
  *
- * Première utilisation : aucune prévision passée n'existe encore, donc le
- * use case retourne immédiatement sans réseau. La collecte commence seulement
- * quand une prévision J+1 capturée est devenue vérifiable.
+ * Première utilisation sans bootstrap : aucune prévision passée n'existe
+ * encore, donc le use case retourne immédiatement sans réseau. Le bouton des
+ * réglages peut d'abord insérer des prévisions J+1 archivées via
+ * [BootstrapBiasHistoryUseCase], puis ce use case récupère leurs références.
  *
  * ## Robustesse
  *
@@ -139,8 +140,8 @@ class FetchBiasObservationsUseCase @Inject constructor(
         /**
          * Nombre max de jours à fetcher en une passe. Aligné sur la fenêtre du
          * biais (30) : au premier lancement, on remplit exactement ce qu'il
-         * faut pour un calcul complet lorsque 14 prévisions J+1 organiques ont été
-         * accumulées.
+         * faut pour un calcul complet lorsque 14 prévisions J+1 ont été
+         * accumulées, par bootstrap ou par collecte organique.
          */
         private const val MAX_BOOTSTRAP_DAYS = 30
 
