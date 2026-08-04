@@ -138,7 +138,7 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
         setContent {
             MeteoCompareTheme {
                 WidgetConfigScreen(
-                    showForecastMode = !isEditorialWidgetProvider(providerClassName),
+                    insightMode = isInsightWidgetProvider(providerClassName),
                     onSave = { cityId, opacityPct, forecastMode, bgColorArgb, textColorArgb ->
                         persistAndFinish(
                             widgetId = widgetId,
@@ -290,7 +290,7 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
 
 @Composable
 private fun WidgetConfigScreen(
-    showForecastMode: Boolean,
+    insightMode: Boolean,
     onSave: (cityId: String, opacityPct: Int, forecastMode: ForecastMode,
              bgColorArgb: Int?, textColorArgb: Int?) -> Unit,
     onCancel: () -> Unit
@@ -506,33 +506,36 @@ private fun WidgetConfigScreen(
             onSelect = { textColorArgb = it }
         )
 
-        if (showForecastMode) {
-            Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(24.dp))
 
-            // ─── Section mode de prévision étendue ────────────────────
-            // Utilisé par les widgets sur deux lignes. Quatre options exposées :
-            //   HOURLY / DAILY : jusqu'à 5 prévisions sur les formats 4×2 et 5×2
-            //   CONFIDENCE_ALL : deux bandes synchronisées (température et pluie)
-            // Les modes confidence répliquent au format widget la feature de
-            // l'écran détail. Utile pour les users qui aiment scanner "quand
-            // la prévision se dégrade cette semaine".
-            Text(
-                text = stringResource(R.string.widget_config_forecast_mode),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Medium
+        // ─── Section horizon / mode de prévision ─────────────────────
+        // Le squelette de configuration reste identique pour tous les widgets.
+        // Le widget « À retenir » utilise volontairement un horizon fixe de
+        // 24 heures : afficher les modes sans effet serait trompeur. On garde
+        // donc la même section, avec une ligne explicative non interactive.
+        Text(
+            text = stringResource(R.string.widget_config_forecast_mode),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Medium
+        )
+        Text(
+            text = stringResource(
+                if (insightMode) R.string.widget_config_insight_horizon_note
+                else R.string.widget_config_forecast_mode_note
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(8.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
             )
-            Text(
-                text = stringResource(R.string.widget_config_forecast_mode_note),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(Modifier.height(8.dp))
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                )
-            ) {
+        ) {
+            if (insightMode) {
+                FixedInsightHorizonRow()
+            } else {
                 ForecastModeRow(
                     selected = forecastMode == ForecastMode.HOURLY,
                     tag = "$TAG_WIDGET_MODE${ForecastMode.HOURLY.name}",
@@ -560,7 +563,6 @@ private fun WidgetConfigScreen(
                     onClick = { forecastMode = ForecastMode.CONFIDENCE_ALL }
                 )
             }
-
         }
 
         Spacer(Modifier.height(24.dp))
@@ -589,6 +591,37 @@ private fun WidgetConfigScreen(
             ) {
                 Text(stringResource(R.string.widget_config_save))
             }
+        }
+    }
+}
+
+@Composable
+internal fun FixedInsightHorizonRow() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag(TAG_WIDGET_INSIGHT_HORIZON)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        RadioButton(
+            selected = true,
+            enabled = false,
+            onClick = null
+        )
+        Spacer(Modifier.width(8.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = stringResource(R.string.widget_config_insight_horizon),
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(Modifier.height(3.dp))
+            Text(
+                text = stringResource(R.string.widget_config_insight_horizon_descr),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -848,5 +881,6 @@ internal const val TAG_WIDGET_CONFIG_ROOT = "widget_config_root"
 internal const val TAG_WIDGET_CITY = "widget_city_"
 internal const val TAG_WIDGET_OPACITY = "widget_opacity"
 internal const val TAG_WIDGET_MODE = "widget_mode_"
+internal const val TAG_WIDGET_INSIGHT_HORIZON = "widget_insight_horizon"
 internal const val TAG_WIDGET_SAVE = "widget_save"
 internal const val TAG_WIDGET_CANCEL = "widget_cancel"

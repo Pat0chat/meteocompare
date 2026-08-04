@@ -51,21 +51,11 @@ import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.ui.citydetail.ForecastInsightLevel
 import kotlin.math.roundToInt
 
-internal enum class ValueWidgetKind {
-    KEY_INSIGHT,
-    MODEL_CONSENSUS
-}
-
-internal class MeteoInsightWidget : MeteoValueWidget(ValueWidgetKind.KEY_INSIGHT)
-internal class MeteoConsensusWidget : MeteoValueWidget(ValueWidgetKind.MODEL_CONSENSUS)
-
 /**
- * Hôte commun aux deux nouveaux widgets. Il partage exactement les mêmes
- * préférences de ville, couleur et rafraîchissement que le widget historique.
+ * Widget éditorial « À retenir ». Il partage les mêmes préférences de ville,
+ * couleur et rafraîchissement que le widget historique.
  */
-internal open class MeteoValueWidget(
-    private val kind: ValueWidgetKind
-) : GlanceAppWidget() {
+internal class MeteoInsightWidget : GlanceAppWidget() {
 
     override val sizeMode = SizeMode.Exact
     override val stateDefinition = PreferencesGlanceStateDefinition
@@ -87,8 +77,8 @@ internal open class MeteoValueWidget(
                 )
             }
             LaunchedEffect(cityId, refreshTick) {
-                // Les widgets éditoriaux reposent toujours sur l'horizon horaire.
-                // Le choix 5h/5j du widget historique ne modifie pas leur sens.
+                // Le widget éditorial repose toujours sur un horizon horaire de 24 h.
+                // L'écran de configuration l'indique explicitement comme horizon fixe.
                 data = loadWidgetData(
                     context = appContext,
                     cityId = cityId,
@@ -99,8 +89,7 @@ internal open class MeteoValueWidget(
 
             CompositionLocalProvider(LocalContext provides appContext) {
                 GlanceTheme {
-                    ValueWidgetContent(
-                        kind = kind,
+                    InsightWidgetContent(
                         data = data,
                         opacityPct = opacityPct,
                         customBackgroundArgb = customBackground,
@@ -120,13 +109,11 @@ private data class ValueWidgetColors(
     val raisedSurface: ColorProvider,
     val accent: ColorProvider,
     val warning: ColorProvider,
-    val positive: ColorProvider,
-    val night: Boolean
+    val positive: ColorProvider
 )
 
 @Composable
-private fun ValueWidgetContent(
-    kind: ValueWidgetKind,
+private fun InsightWidgetContent(
     data: WidgetData,
     opacityPct: Int,
     customBackgroundArgb: Int?,
@@ -150,10 +137,7 @@ private fun ValueWidgetContent(
             .padding(horizontal = if (compact) 12.dp else 16.dp, vertical = 12.dp)
     ) {
         when (data.error) {
-            null -> when (kind) {
-                ValueWidgetKind.KEY_INSIGHT -> InsightWidgetLayout(data, colors, compact)
-                ValueWidgetKind.MODEL_CONSENSUS -> ConsensusWidgetLayout(data, colors, compact)
-            }
+            null -> InsightWidgetLayout(data, colors, compact)
             else -> ValueWidgetError(data, colors, compact)
         }
     }
@@ -181,8 +165,7 @@ private fun valueWidgetColors(
         raisedSurface = ColorProvider(baseText.copy(alpha = if (night) 0.16f else 0.115f)),
         accent = ColorProvider(if (night) Color(0xFF8EAFFF) else Color(0xFF315DA8)),
         warning = ColorProvider(if (night) Color(0xFFFFC46B) else Color(0xFF9A5A00)),
-        positive = ColorProvider(if (night) Color(0xFF8ED6A0) else Color(0xFF237A3B)),
-        night = night
+        positive = ColorProvider(if (night) Color(0xFF8ED6A0) else Color(0xFF237A3B))
     )
 }
 
@@ -255,7 +238,7 @@ private fun InsightWidgetLayout(
                 Spacer(GlanceModifier.height(8.dp))
                 Row(modifier = GlanceModifier.fillMaxWidth()) {
                     metrics.forEachIndexed { index, metric ->
-                        ConsensusMiniPill(metric, colors, GlanceModifier.defaultWeight())
+                        MetricConsensusPill(metric, colors, GlanceModifier.defaultWeight())
                         if (index != metrics.lastIndex) Spacer(GlanceModifier.width(6.dp))
                     }
                 }
@@ -334,95 +317,6 @@ private fun InsightSurface(
 }
 
 @Composable
-private fun ConsensusWidgetLayout(
-    data: WidgetData,
-    colors: ValueWidgetColors,
-    compact: Boolean
-) {
-    val context = LocalContext.current
-    val snapshot = data.comparisonSnapshot
-    Column(modifier = GlanceModifier.fillMaxSize()) {
-        ValueWidgetHeader(
-            title = data.cityName.orEmpty(),
-            trailing = snapshot?.atLabel,
-            colors = colors
-        )
-        Spacer(GlanceModifier.height(if (compact) 7.dp else 9.dp))
-
-        Row(
-            modifier = GlanceModifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            ValueWeatherGlyph(data.currentCondition, if (compact) 32 else 38)
-            Spacer(GlanceModifier.width(7.dp))
-            Text(
-                text = data.currentTemp?.let { "${it.roundToInt()}°" } ?: "—",
-                style = TextStyle(
-                    color = colors.foreground,
-                    fontSize = if (compact) 24.sp else 29.sp,
-                    fontWeight = FontWeight.Bold
-                ),
-                maxLines = 1
-            )
-            Spacer(GlanceModifier.width(9.dp))
-            Column(modifier = GlanceModifier.defaultWeight()) {
-                Text(
-                    text = context.getString(R.string.widget_value_consensus_title),
-                    style = TextStyle(
-                        color = colors.foreground,
-                        fontSize = if (compact) 10.sp else 12.sp,
-                        fontWeight = FontWeight.Bold
-                    ),
-                    maxLines = 1
-                )
-                Text(
-                    text = context.getString(
-                        R.string.widget_value_models,
-                        snapshot?.modelCount ?: data.modelCount
-                    ),
-                    style = TextStyle(color = colors.muted, fontSize = 9.sp),
-                    maxLines = 1
-                )
-            }
-            snapshot?.overallConsensusPercent?.let { percent ->
-                LargeConsensusPill(percent, colors)
-            }
-        }
-
-        Spacer(GlanceModifier.height(if (compact) 7.dp else 10.dp))
-        val metrics = snapshot?.metrics.orEmpty().take(3)
-        if (metrics.isEmpty()) {
-            Box(
-                modifier = GlanceModifier
-                    .fillMaxWidth()
-                    .defaultWeight()
-                    .background(colors.surface)
-                    .cornerRadius(16.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = context.getString(R.string.widget_value_no_comparison),
-                    style = TextStyle(color = colors.muted, fontSize = 11.sp),
-                    maxLines = 1
-                )
-            }
-        } else {
-            Row(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
-                metrics.forEachIndexed { index, metric ->
-                    MetricCard(
-                        metric = metric,
-                        colors = colors,
-                        compact = compact,
-                        modifier = GlanceModifier.defaultWeight()
-                    )
-                    if (index != metrics.lastIndex) Spacer(GlanceModifier.width(if (compact) 5.dp else 7.dp))
-                }
-            }
-        }
-    }
-}
-
-@Composable
 private fun ValueWidgetHeader(
     title: String,
     trailing: String?,
@@ -457,74 +351,7 @@ private fun ValueWidgetHeader(
 }
 
 @Composable
-private fun MetricCard(
-    metric: WidgetMetricSnapshot,
-    colors: ValueWidgetColors,
-    compact: Boolean,
-    modifier: GlanceModifier
-) {
-    val context = LocalContext.current
-    val accent = if (metric.divergent) colors.warning else colors.accent
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(colors.surface)
-            .cornerRadius(16.dp)
-            .padding(horizontal = if (compact) 6.dp else 8.dp, vertical = 7.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = GlanceModifier
-                .width(if (compact) 27.dp else 31.dp)
-                .height(if (compact) 27.dp else 31.dp)
-                .background(accent)
-                .cornerRadius(16.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Image(
-                provider = ImageProvider(metricIconRes(metric.type)),
-                contentDescription = context.getString(metricLabelRes(metric.type)),
-                modifier = GlanceModifier.width(17.dp).height(17.dp)
-            )
-        }
-        Spacer(GlanceModifier.height(4.dp))
-        Text(
-            text = metric.primaryValue,
-            style = TextStyle(
-                color = colors.foreground,
-                fontSize = if (compact) 10.sp else 12.sp,
-                fontWeight = FontWeight.Bold
-            ),
-            maxLines = 1
-        )
-        metric.rangeValue?.let { range ->
-            Text(
-                text = range,
-                style = TextStyle(color = colors.muted, fontSize = 8.sp),
-                maxLines = 1
-            )
-        }
-        metric.consensusPercent?.let { percent ->
-            Text(
-                text = context.getString(
-                    R.string.widget_value_agreement_models_short,
-                    percent,
-                    metric.modelCount
-                ),
-                style = TextStyle(
-                    color = if (metric.divergent) colors.warning else colors.positive,
-                    fontSize = 8.sp,
-                    fontWeight = FontWeight.Bold
-                ),
-                maxLines = 1
-            )
-        }
-    }
-}
-
-@Composable
-private fun ConsensusMiniPill(
+private fun MetricConsensusPill(
     metric: WidgetMetricSnapshot,
     colors: ValueWidgetColors,
     modifier: GlanceModifier
@@ -553,29 +380,6 @@ private fun ConsensusMiniPill(
                 fontSize = 8.sp,
                 fontWeight = FontWeight.Bold
             ),
-            maxLines = 1
-        )
-    }
-}
-
-@Composable
-private fun LargeConsensusPill(percent: Int, colors: ValueWidgetColors) {
-    val context = LocalContext.current
-    val tone = when {
-        percent >= 80 -> colors.positive
-        percent >= 55 -> colors.accent
-        else -> colors.warning
-    }
-    Box(
-        modifier = GlanceModifier
-            .background(colors.raisedSurface)
-            .cornerRadius(13.dp)
-            .padding(horizontal = 8.dp, vertical = 5.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = context.getString(R.string.widget_value_agreement_short, percent),
-            style = TextStyle(color = tone, fontSize = 11.sp, fontWeight = FontWeight.Bold),
             maxLines = 1
         )
     }

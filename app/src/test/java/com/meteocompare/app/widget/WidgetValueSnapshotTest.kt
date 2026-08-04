@@ -47,18 +47,13 @@ class WidgetValueSnapshotTest {
     }
 
     @Test
-    fun `le resolver retourne les deux widgets specialises`() {
+    fun `le resolver retourne le widget insight specialise`() {
         assertTrue(
             glanceWidgetForProviderClassName(MeteoInsightWidgetReceiver::class.java.name) is
                 MeteoInsightWidget
         )
-        assertTrue(
-            glanceWidgetForProviderClassName(MeteoConsensusWidgetReceiver::class.java.name) is
-                MeteoConsensusWidget
-        )
         assertTrue(glanceWidgetForProviderClassName(null) is MeteoWidget)
-        assertTrue(isEditorialWidgetProvider(MeteoInsightWidgetReceiver::class.java.name))
-        assertTrue(isEditorialWidgetProvider(MeteoConsensusWidgetReceiver::class.java.name))
-        assertTrue(!isEditorialWidgetProvider(MeteoWidgetReceiver4x2::class.java.name))
+        assertTrue(isInsightWidgetProvider(MeteoInsightWidgetReceiver::class.java.name))
+        assertTrue(!isInsightWidgetProvider(MeteoWidgetReceiver4x2::class.java.name))
     }
 }

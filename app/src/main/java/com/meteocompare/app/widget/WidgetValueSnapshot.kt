@@ -46,17 +46,13 @@ internal enum class WidgetMetricType {
 
 internal data class WidgetMetricSnapshot(
     val type: WidgetMetricType,
-    val primaryValue: String,
-    val rangeValue: String?,
     val consensusPercent: Int?,
-    val modelCount: Int,
     val divergent: Boolean
 )
 
 internal data class WidgetComparisonSnapshot(
     val atLabel: String,
     val overallConsensusPercent: Int?,
-    val modelCount: Int,
     val metrics: List<WidgetMetricSnapshot>
 )
 
@@ -66,8 +62,8 @@ internal data class WidgetValueSnapshot(
 )
 
 /**
- * Construit les deux vues à valeur ajoutée du widget depuis la même chaîne
- * d'agrégation que CityDetail : points multi-modèles -> événements -> insights.
+ * Construit le signal éditorial et ses indicateurs compacts depuis la même
+ * chaîne d'agrégation que CityDetail : points multi-modèles -> événements -> insights.
  */
 internal fun buildWidgetValueSnapshot(
     context: Context,
@@ -309,63 +305,24 @@ private fun SimplifiedTimelinePoint.toWidgetComparisonSnapshot(
     now: Instant
 ): WidgetComparisonSnapshot {
     val metrics = buildList {
-        val temperature = temperatureC ?: tempMaxC
-        if (temperature != null) {
+        if (temperatureC != null || tempMaxC != null) {
             val consensus = consensusFor(ForecastMetric.TEMPERATURE)
             add(
                 WidgetMetricSnapshot(
                     type = WidgetMetricType.TEMPERATURE,
-                    primaryValue = context.getString(
-                        R.string.widget_value_temperature,
-                        temperature.roundToInt()
-                    ),
-                    rangeValue = rangeLabel(
-                        context,
-                        WidgetMetricType.TEMPERATURE,
-                        temperatureMinAcrossModels,
-                        temperatureMaxAcrossModels
-                    ),
                     consensusPercent = consensus?.percent,
-                    modelCount = consensus?.modelCount ?: temperatureModelCount,
                     divergent = consensus?.isDivergent == true ||
                         DivergenceReason.TEMPERATURE in divergenceReasons
                 )
             )
         }
 
-        val rainProbability = precipitationPercent
-        val rainAmount = precipitationMm
-            ?.takeIf { it > 0.0 }
-            ?.let { (it * 10).roundToInt() / 10.0 }
-        if (rainProbability != null || rainAmount != null) {
+        if (precipitationPercent != null || precipitationMm != null) {
             val consensus = consensusFor(ForecastMetric.PRECIPITATION)
-            val primary = if (rainProbability != null) {
-                context.getString(R.string.widget_value_percent, rainProbability)
-            } else {
-                context.getString(R.string.widget_value_precip, requireNotNull(rainAmount))
-            }
-            val probabilityRange = if (
-                precipitationProbabilityMin != null && precipitationProbabilityMax != null &&
-                precipitationProbabilityMin != precipitationProbabilityMax
-            ) {
-                context.getString(
-                    R.string.widget_value_probability_range,
-                    precipitationProbabilityMin,
-                    precipitationProbabilityMax
-                )
-            } else null
             add(
                 WidgetMetricSnapshot(
                     type = WidgetMetricType.PRECIPITATION,
-                    primaryValue = primary,
-                    rangeValue = probabilityRange ?: rangeLabel(
-                        context,
-                        WidgetMetricType.PRECIPITATION,
-                        precipitationMinAcrossModelsMm,
-                        precipitationMaxAcrossModelsMm
-                    ),
                     consensusPercent = consensus?.percent,
-                    modelCount = consensus?.modelCount ?: precipitationModelCount,
                     divergent = consensus?.isDivergent == true ||
                         DivergenceReason.PRECIPITATION in divergenceReasons
                 )
@@ -377,18 +334,7 @@ private fun SimplifiedTimelinePoint.toWidgetComparisonSnapshot(
             add(
                 WidgetMetricSnapshot(
                     type = WidgetMetricType.WIND,
-                    primaryValue = context.getString(
-                        R.string.widget_value_wind,
-                        windKmh.roundToInt()
-                    ),
-                    rangeValue = rangeLabel(
-                        context,
-                        WidgetMetricType.WIND,
-                        windMinAcrossModels,
-                        windMaxAcrossModels
-                    ),
                     consensusPercent = consensus?.percent,
-                    modelCount = consensus?.modelCount ?: windModelCount,
                     divergent = consensus?.isDivergent == true ||
                         DivergenceReason.WIND in divergenceReasons
                 )
@@ -399,7 +345,6 @@ private fun SimplifiedTimelinePoint.toWidgetComparisonSnapshot(
     return WidgetComparisonSnapshot(
         atLabel = comparisonTimeLabel(context, overview, this, now),
         overallConsensusPercent = consensusPercent,
-        modelCount = modelCount,
         metrics = metrics
     )
 }
@@ -424,38 +369,6 @@ private fun comparisonTimeLabel(
     DisplayMode.DAILY -> point.date?.format(
         DateTimeFormatter.ofPattern("EEE d", currentLocale(context))
     ) ?: context.getString(R.string.widget_value_next)
-}
-
-private fun rangeLabel(
-    context: Context,
-    type: WidgetMetricType,
-    minimum: Double?,
-    maximum: Double?
-): String? {
-    if (minimum == null || maximum == null) return null
-    if (abs(maximum - minimum) < when (type) {
-            WidgetMetricType.TEMPERATURE -> 1.0
-            WidgetMetricType.PRECIPITATION -> 0.2
-            WidgetMetricType.WIND -> 2.0
-        }
-    ) return null
-    return when (type) {
-        WidgetMetricType.TEMPERATURE -> context.getString(
-            R.string.widget_value_temperature_range,
-            minimum.roundToInt(),
-            maximum.roundToInt()
-        )
-        WidgetMetricType.PRECIPITATION -> context.getString(
-            R.string.widget_value_precip_range,
-            minimum,
-            maximum
-        )
-        WidgetMetricType.WIND -> context.getString(
-            R.string.widget_value_wind_range,
-            minimum.roundToInt(),
-            maximum.roundToInt()
-        )
-    }
 }
 
 private fun primaryDivergenceReason(reasons: Set<DivergenceReason>): DivergenceReason? =

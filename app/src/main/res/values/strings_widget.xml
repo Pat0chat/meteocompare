@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
     Strings supplémentaires liées au widget : palettes de couleurs, labels
-    des 9 variantes de tailles, section colors de la config activity.
+    des variantes de tailles, section colors de la config activity.
 
     ─── Pourquoi un fichier séparé ? ───────────────────────────────
     Le strings.xml principal est déjà volumineux. Ajouter les ~25 clés
@@ -84,20 +84,16 @@
     <string name="widget_forecast_confidence_short">Conf. %1$d%%</string>
 
 
-    <!-- Widgets éditoriaux MeteoCompare -->
+    <!-- Widget éditorial MeteoCompare -->
     <string name="widget_label_insight">4×2 À retenir</string>
-    <string name="widget_label_consensus">4×2 Consensus</string>
     <string name="widget_description_insight">Le signal météo le plus utile et son niveau d’accord entre modèles.</string>
-    <string name="widget_description_consensus">Comparaison compacte des scénarios de température, pluie et vent.</string>
-    <string name="widget_value_consensus_title">Consensus des modèles</string>
+    <string name="widget_config_insight_horizon_note">Le widget À retenir analyse toujours les 24 prochaines heures.</string>
+    <string name="widget_config_insight_horizon">Prochaines 24 heures</string>
+    <string name="widget_config_insight_horizon_descr">Le signal principal et son incertitude sont recalculés automatiquement.</string>
     <string name="widget_value_models">%1$d modèles</string>
     <string name="widget_value_now">Maintenant</string>
     <string name="widget_value_next">Prochaine échéance</string>
     <string name="widget_value_hour">%1$02d h</string>
-    <string name="widget_value_temperature">%1$d°</string>
-    <string name="widget_value_percent">%1$d %%</string>
-    <string name="widget_value_precip">%1$.1f mm</string>
-    <string name="widget_value_wind">%1$d km/h</string>
     <string name="widget_value_temperature_range">%1$d–%2$d°</string>
     <string name="widget_value_probability_range">%1$d–%2$d %%</string>
     <string name="widget_value_precip_range">%1$.1f–%2$.1f mm</string>
@@ -111,7 +107,6 @@
     <string name="widget_value_metric_temperature">Température</string>
     <string name="widget_value_metric_precipitation">Pluie</string>
     <string name="widget_value_metric_wind">Vent</string>
-    <string name="widget_value_agreement_models_short">%1$d %% · %2$d m</string>
     <string name="widget_value_agreement_short">%1$d %%</string>
     <string name="widget_value_no_comparison">Comparaison indisponible</string>
     <string name="widget_value_open_app">Ouvrir MeteoCompare</string>

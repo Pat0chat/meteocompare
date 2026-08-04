@@ -11,24 +11,20 @@ import androidx.glance.appwidget.GlanceAppWidgetReceiver
  * Le système Android appelle ce receiver pour les événements de lifecycle du
  * widget : ajout, resize, suppression, mise à jour périodique.
  *
- * ─── Multi-provider (11 receivers au total) ─────────────────────────────
- * Dix autres receivers frères existent pour exposer différentes tailles
+ * ─── Multi-provider (10 receivers au total) ─────────────────────────────
+ * Neuf autres receivers frères existent pour exposer différentes tailles
  * cible dans le picker de widgets — voir le docblock du manifest pour la
  * justification (compatibilité Pixel/Samsung launchers, launchers sans
  * resize). Liste complète dans [WidgetReceivers.All].
  *
- * Tous les receivers partagent :
- *   - Le MÊME [GlanceAppWidget] ([MeteoWidget]) pour le rendu. Le layout
- *     s'adapte à la taille réelle via SizeMode.Exact — pas besoin de
- *     variantes de composable par taille.
- *   - Le MÊME lifecycle WorkManager tick (voir [WidgetRefreshScheduler]).
- *   - La MÊME activité de configuration.
- *   - La MÊME plage de resize (min 1×1, max 5×2). Voir docblock d'un XML
- *     provider (par ex. `meteocompare_widget_info.xml`) pour la
- *     justification des dimensions homogènes.
+ * Tous les receivers partagent le même lifecycle WorkManager, les mêmes
+ * préférences et la même activité de configuration. Les neuf variantes de
+ * taille utilisent [MeteoWidget] avec un dimensionnement exact ; le receiver éditorial
+ * remplace uniquement le rendu par [MeteoInsightWidget].
  *
- * La seule différence est la target size dans la meta-data XML et
- * l'entrée dans le picker.
+ * Les providers de taille ne diffèrent que par leurs dimensions et leur aperçu
+ * dans le picker. Le provider « À retenir » garde sa proposition éditoriale
+ * propre tout en restant dans le même pipeline de configuration et de refresh.
  *
  * ─── Lifecycle WorkManager ────────────────────────────────────────────
  *   - onEnabled  : PREMIER widget ajouté pour CE receiver → programme le
@@ -109,7 +105,7 @@ open class MeteoWidgetReceiver : GlanceAppWidgetReceiver() {
 }
 
 /**
- * Variante MINI — cible 1×1. Les 8 receivers ci-dessous n'ajoutent aucun
+ * Variante MINI — cible 1×1. Les receivers ci-dessous n'ajoutent aucun
  * comportement propre : ils héritent TOUT de [MeteoWidgetReceiver]. Leur
  * unique raison d'être est d'être une entrée séparée dans le manifest, ce
  * qui crée une entrée séparée dans le picker de widgets Android.
@@ -171,11 +167,6 @@ class MeteoInsightWidgetReceiver : MeteoWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = MeteoInsightWidget()
 }
 
-/** Widget comparatif centré sur le consensus propre à chaque variable. */
-class MeteoConsensusWidgetReceiver : MeteoWidgetReceiver() {
-    override val glanceAppWidget: GlanceAppWidget = MeteoConsensusWidget()
-}
-
 /**
  * Résout le bon GlanceAppWidget depuis le provider Android réel. Utilisé par
  * la configuration et le worker pour ne jamais pousser un RemoteViews d'une
@@ -185,13 +176,11 @@ internal fun glanceWidgetForProviderClassName(providerClassName: String?): Glanc
     providerClassName
 ) {
     MeteoInsightWidgetReceiver::class.java.name -> MeteoInsightWidget()
-    MeteoConsensusWidgetReceiver::class.java.name -> MeteoConsensusWidget()
     else -> MeteoWidget()
 }
 
-internal fun isEditorialWidgetProvider(providerClassName: String?): Boolean =
-    providerClassName == MeteoInsightWidgetReceiver::class.java.name ||
-        providerClassName == MeteoConsensusWidgetReceiver::class.java.name
+internal fun isInsightWidgetProvider(providerClassName: String?): Boolean =
+    providerClassName == MeteoInsightWidgetReceiver::class.java.name
 
 /**
  * Registre central des receivers de widget MeteoCompare.
@@ -229,8 +218,7 @@ internal object WidgetReceivers {
         MeteoWidgetReceiver3x2::class.java,       // 3×2
         MeteoWidgetReceiver4x2::class.java,       // 4×2
         MeteoWidgetReceiver5x2::class.java,       // 5×2
-        MeteoInsightWidgetReceiver::class.java,   // 4×2 éditorial
-        MeteoConsensusWidgetReceiver::class.java  // 4×2 consensus
+        MeteoInsightWidgetReceiver::class.java    // 4×2 éditorial
     )
 
     /**

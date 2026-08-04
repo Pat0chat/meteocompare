@@ -51,8 +51,7 @@ class WidgetReceiversRegistryTest {
         MeteoWidgetReceiver3x2::class.java,
         MeteoWidgetReceiver4x2::class.java,
         MeteoWidgetReceiver5x2::class.java,
-        MeteoInsightWidgetReceiver::class.java,
-        MeteoConsensusWidgetReceiver::class.java
+        MeteoInsightWidgetReceiver::class.java
     )
 
     @Test
