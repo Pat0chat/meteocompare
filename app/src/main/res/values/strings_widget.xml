@@ -83,4 +83,37 @@
     <string name="widget_forecast_confidence_hint">accord / modèles</string>
     <string name="widget_forecast_confidence_short">Conf. %1$d%%</string>
 
+
+    <!-- Widgets éditoriaux MeteoCompare -->
+    <string name="widget_label_insight">4×2 À retenir</string>
+    <string name="widget_label_consensus">4×2 Consensus</string>
+    <string name="widget_description_insight">Le signal météo le plus utile et son niveau d’accord entre modèles.</string>
+    <string name="widget_description_consensus">Comparaison compacte des scénarios de température, pluie et vent.</string>
+    <string name="widget_value_consensus_title">Consensus des modèles</string>
+    <string name="widget_value_models">%1$d modèles</string>
+    <string name="widget_value_now">Maintenant</string>
+    <string name="widget_value_next">Prochaine échéance</string>
+    <string name="widget_value_hour">%1$02d h</string>
+    <string name="widget_value_temperature">%1$d°</string>
+    <string name="widget_value_percent">%1$d %%</string>
+    <string name="widget_value_precip">%1$.1f mm</string>
+    <string name="widget_value_wind">%1$d km/h</string>
+    <string name="widget_value_temperature_range">%1$d–%2$d°</string>
+    <string name="widget_value_probability_range">%1$d–%2$d %%</string>
+    <string name="widget_value_precip_range">%1$.1f–%2$.1f mm</string>
+    <string name="widget_value_wind_range">%1$d–%2$d km/h</string>
+    <string name="widget_value_detail_range_consensus">%1$s · %2$d %% d’accord</string>
+    <plurals name="widget_value_detail_range_models">
+        <item quantity="one">%1$s · %2$d modèle</item>
+        <item quantity="other">%1$s · %2$d modèles</item>
+    </plurals>
+    <string name="widget_value_detail_consensus">%1$d %% d’accord entre modèles</string>
+    <string name="widget_value_metric_temperature">Température</string>
+    <string name="widget_value_metric_precipitation">Pluie</string>
+    <string name="widget_value_metric_wind">Vent</string>
+    <string name="widget_value_agreement_models_short">%1$d %% · %2$d m</string>
+    <string name="widget_value_agreement_short">%1$d %%</string>
+    <string name="widget_value_no_comparison">Comparaison indisponible</string>
+    <string name="widget_value_open_app">Ouvrir MeteoCompare</string>
+
 </resources>

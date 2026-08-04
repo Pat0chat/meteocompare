@@ -83,8 +83,8 @@
             Le widget expose la météo courante d'une ville favorite sur
             l'écran d'accueil.
 
-            ─── Pourquoi 9 receivers ? ──────────────────────────────────
-            Chaque <receiver> = une entrée dans le picker de widgets Android.
+            ─── Pourquoi 9 receivers de taille + 2 éditoriaux ? ──────────────────────────────────
+            Chaque <receiver> = une entrée dans le picker de widgets Android. Les neuf premiers couvrent les tailles du widget météo adaptatif ; deux providers 4×2 supplémentaires portent une proposition éditoriale distincte.
             Certains launchers (Pixel 9a et Samsung récents) n'exposent
             typiquement que ~3 tailles par provider dans leur picker et ne
             proposent pas de resize post-drop pour tous les widgets. Pour
@@ -236,6 +236,36 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/meteocompare_widget_info_5x2" />
+        </receiver>
+
+
+
+        <!-- ═══ Widgets éditoriaux MeteoCompare ═════════════════════════ -->
+
+        <!-- Signal principal + contexte de consensus -->
+        <receiver
+            android:name=".widget.MeteoInsightWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_label_insight">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/meteocompare_widget_info_insight" />
+        </receiver>
+
+        <!-- Comparaison des scénarios par variable -->
+        <receiver
+            android:name=".widget.MeteoConsensusWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_label_consensus">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/meteocompare_widget_info_consensus" />
         </receiver>
 
         <!--

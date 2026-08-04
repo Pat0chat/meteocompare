@@ -10,7 +10,7 @@ import org.junit.Assert.assertTrue
  * `onDisabled`.
  *
  * ─── Ce qu'on protège ici ────────────────────────────────────────────
- * Depuis l'ajout des variantes de taille (9 receivers coexistants), les
+ * Depuis l'ajout des variantes de taille (11 receivers coexistants), les
  * callbacks système `onDisabled` sont appelés PAR RECEIVER — pas
  * globalement. Cas critique :
  *
@@ -96,7 +96,7 @@ class MeteoWidgetReceiverTest {
     }
 
     @Test
-    fun `anyAliveWith - scanne LES 9 receivers du registry, aucun ne doit être zappé`() {
+    fun `anyAliveWith - scanne LES 11 receivers du registry, aucun ne doit être zappé`() {
         // Test paramétré : pour CHAQUE receiver du registry, on simule
         // "seul ce receiver a un widget" et on vérifie que le check
         // retourne true. Si demain quelqu'un oublie d'inclure une nouvelle
@@ -114,7 +114,7 @@ class MeteoWidgetReceiverTest {
     @Test
     fun `anyAliveWith - court-circuite dès qu'un receiver vivant est trouvé`() {
         // Optimisation subtile : `All.any(...)` short-circuit sur le premier
-        // true. Sur un utilisateur avec 9 widgets, on ne veut PAS interroger
+        // true. Sur un utilisateur avec 11 widgets, on ne veut PAS interroger
         // les 9 launcher-ids pour rien. Ce test vérifie qu'on n'appelle pas
         // le lookup au-delà du premier true.
         var callsAfterFirstAlive = 0
@@ -135,7 +135,7 @@ class MeteoWidgetReceiverTest {
         )
     }
     @Test
-    fun `liveWidgetIdsWith - fusionne les neuf providers et deduplique les ids`() {
+    fun `liveWidgetIdsWith - fusionne les onze providers et deduplique les ids`() {
         val first = WidgetReceivers.All.first()
         val second = WidgetReceivers.All[1]
 

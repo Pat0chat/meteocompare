@@ -11,8 +11,8 @@ import androidx.glance.appwidget.GlanceAppWidgetReceiver
  * Le système Android appelle ce receiver pour les événements de lifecycle du
  * widget : ajout, resize, suppression, mise à jour périodique.
  *
- * ─── Multi-provider (9 receivers au total) ─────────────────────────────
- * Huit autres receivers frères existent pour exposer différentes tailles
+ * ─── Multi-provider (11 receivers au total) ─────────────────────────────
+ * Dix autres receivers frères existent pour exposer différentes tailles
  * cible dans le picker de widgets — voir le docblock du manifest pour la
  * justification (compatibilité Pixel/Samsung launchers, launchers sans
  * resize). Liste complète dans [WidgetReceivers.All].
@@ -166,6 +166,33 @@ class MeteoWidgetReceiver4x2 : MeteoWidgetReceiver()
  */
 class MeteoWidgetReceiver5x2 : MeteoWidgetReceiver()
 
+/** Widget éditorial centré sur le signal principal « À retenir ». */
+class MeteoInsightWidgetReceiver : MeteoWidgetReceiver() {
+    override val glanceAppWidget: GlanceAppWidget = MeteoInsightWidget()
+}
+
+/** Widget comparatif centré sur le consensus propre à chaque variable. */
+class MeteoConsensusWidgetReceiver : MeteoWidgetReceiver() {
+    override val glanceAppWidget: GlanceAppWidget = MeteoConsensusWidget()
+}
+
+/**
+ * Résout le bon GlanceAppWidget depuis le provider Android réel. Utilisé par
+ * la configuration et le worker pour ne jamais pousser un RemoteViews d'une
+ * autre famille de widget sur le même AppWidgetId.
+ */
+internal fun glanceWidgetForProviderClassName(providerClassName: String?): GlanceAppWidget = when (
+    providerClassName
+) {
+    MeteoInsightWidgetReceiver::class.java.name -> MeteoInsightWidget()
+    MeteoConsensusWidgetReceiver::class.java.name -> MeteoConsensusWidget()
+    else -> MeteoWidget()
+}
+
+internal fun isEditorialWidgetProvider(providerClassName: String?): Boolean =
+    providerClassName == MeteoInsightWidgetReceiver::class.java.name ||
+        providerClassName == MeteoConsensusWidgetReceiver::class.java.name
+
 /**
  * Registre central des receivers de widget MeteoCompare.
  *
@@ -201,7 +228,9 @@ internal object WidgetReceivers {
         MeteoWidgetReceiver2x2::class.java,       // 2×2
         MeteoWidgetReceiver3x2::class.java,       // 3×2
         MeteoWidgetReceiver4x2::class.java,       // 4×2
-        MeteoWidgetReceiver5x2::class.java        // 5×2
+        MeteoWidgetReceiver5x2::class.java,       // 5×2
+        MeteoInsightWidgetReceiver::class.java,   // 4×2 éditorial
+        MeteoConsensusWidgetReceiver::class.java  // 4×2 consensus
     )
 
     /**

@@ -309,7 +309,6 @@ internal class WidgetRefreshWorker(
         }
 
         val glanceManager = GlanceAppWidgetManager(ctx)
-        val widget = MeteoWidget()
         val now = System.currentTimeMillis()
         val forceRefresh = inputData.getBoolean(
             WidgetRefreshScheduler.FORCE_REFRESH_KEY,
@@ -363,7 +362,12 @@ internal class WidgetRefreshWorker(
                         // widget. Glance doit recréer puis renvoyer les RemoteViews.
                         // Sans cet appel explicite certains launchers restent figés.
                         try {
-                            widget.update(ctx, glanceId)
+                            val providerClassName = appWidgetManager
+                                .getAppWidgetInfo(appWidgetId)
+                                ?.provider
+                                ?.className
+                            glanceWidgetForProviderClassName(providerClassName)
+                                .update(ctx, glanceId)
                         } catch (error: Throwable) {
                             // Le tick a déjà été écrit pour déclencher la composition.
                             // Si l'envoi RemoteViews échoue, restaurer uniquement le
