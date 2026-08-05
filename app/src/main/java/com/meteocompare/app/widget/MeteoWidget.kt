@@ -1273,7 +1273,20 @@ private fun TwelveHourForecastStrip(
         textColorArgb,
         profile
     ) {
-        if (data.forecastMode?.isHeatmapChartForecast() == true) {
+        if (data.forecastMode?.isModernHeatmapChartForecast() == true) {
+            WidgetHeatmapTrendForecastRenderer.render(
+                widthPx = widthPx,
+                heightPx = heightPx,
+                temps = data.next12hTemps,
+                precipProbabilities = data.next12hPrecipProb,
+                precipAmountsMm = data.next12hPrecipMm,
+                conditions = data.next12hConditions,
+                precipColorArgb = precipColorArgb,
+                textColorArgb = textColorArgb,
+                timelineLabels = timelineLabels,
+                profile = profile
+            )
+        } else if (data.forecastMode?.isHeatmapChartForecast() == true) {
             WidgetHeatmapForecastRenderer.render(
                 widthPx = widthPx,
                 heightPx = heightPx,

@@ -406,7 +406,9 @@
     <string name="widget_config_forecast_mode_mini_12h">Mini prévision 12 heures</string>
     <string name="widget_config_forecast_mode_mini_12h_descr">Affiche les prévisions température et précipitation des 12 prochaines heures</string>
     <string name="widget_config_forecast_mode_heatmap_12h">Heatmap 12 heures</string>
-    <string name="widget_config_forecast_mode_heatmap_12h_descr">Affiche une heatmap 12 h plus graphique avec tendance température et pluie</string>
+    <string name="widget_config_forecast_mode_heatmap_12h_descr">Affiche une heatmap 12 h avec icônes météo, températures et pluie</string>
+    <string name="widget_config_forecast_mode_heatmap_trend_12h">Heatmap tendance 12 heures</string>
+    <string name="widget_config_forecast_mode_heatmap_trend_12h_descr">Affiche une version plus moderne avec icônes météo et courbe de tendance accentuée</string>
 
     <string name="detail_table_model_header">Modèle</string>
 

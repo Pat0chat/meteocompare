@@ -134,7 +134,12 @@ internal enum class ForecastMode {
      * Même pipeline de données que [MINI_FORECAST_12H], mais rendu plus
      * compact et plus “chart”.
      */
-    HEATMAP_CHART_12H
+    HEATMAP_CHART_12H,
+    /**
+     * Variante encore plus graphique : heatmap + icônes météo + courbe de
+     * tendance plus marquée pour un rendu plus moderne.
+     */
+    HEATMAP_TREND_12H
 }
 
 /**
@@ -149,7 +154,8 @@ internal fun ForecastMode.isConfidenceBand(): Boolean = when (this) {
     ForecastMode.HOURLY,
     ForecastMode.DAILY,
     ForecastMode.MINI_FORECAST_12H,
-    ForecastMode.HEATMAP_CHART_12H -> false
+    ForecastMode.HEATMAP_CHART_12H,
+    ForecastMode.HEATMAP_TREND_12H -> false
 }
 
 /**
@@ -173,7 +179,10 @@ internal fun ForecastMode.isMiniForecast(): Boolean =
     this == ForecastMode.MINI_FORECAST_12H
 
 internal fun ForecastMode.isHeatmapChartForecast(): Boolean =
-    this == ForecastMode.HEATMAP_CHART_12H
+    this == ForecastMode.HEATMAP_CHART_12H || this == ForecastMode.HEATMAP_TREND_12H
+
+internal fun ForecastMode.isModernHeatmapChartForecast(): Boolean =
+    this == ForecastMode.HEATMAP_TREND_12H
 
 /** Les deux variantes 12 h partagent le même pipeline de données + bitmap. */
 internal fun ForecastMode.usesTwelveHourBitmapForecast(): Boolean =

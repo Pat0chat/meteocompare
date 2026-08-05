@@ -139,6 +139,14 @@ internal object WidgetHeatmapForecastRenderer {
             if (index in anchorIndices) {
                 val contentColor = if (temp == null) withAlpha(textColorArgb, 0xD8)
                 else WidgetMiniForecastRenderer.heatmapContentColorArgb(tempColor)
+                drawConditionIcon(
+                    canvas = canvas,
+                    condition = conditions.getOrNull(index),
+                    centerX = centerX,
+                    top = tempTop + tempBandHeight * 0.04f,
+                    bandHeight = tempBandHeight,
+                    profile = profile
+                )
                 valuePaint.color = contentColor
                 val tempLabel = temp?.let { "${it.roundToInt()}°" } ?: "—"
                 val labelBaseline = tempBottom - (tempBandHeight * 0.14f)
@@ -226,6 +234,24 @@ internal object WidgetHeatmapForecastRenderer {
         val usableTop = top + (bottom - top) * 0.14f
         val usableBottom = bottom - (bottom - top) * 0.22f
         return (usableBottom - ((usableBottom - usableTop) * clamped).toFloat())
+    }
+
+    private fun drawConditionIcon(
+        canvas: Canvas,
+        condition: WeatherCondition?,
+        centerX: Float,
+        top: Float,
+        bandHeight: Float,
+        profile: MiniForecastSizeProfile
+    ) {
+        if (condition == null) return
+        val iconSize = when (profile) {
+            MiniForecastSizeProfile.COMPACT_2X2 -> (bandHeight * 0.17f)
+            MiniForecastSizeProfile.MEDIUM_3X2 -> (bandHeight * 0.19f)
+            MiniForecastSizeProfile.EXPANDED_4X2 -> (bandHeight * 0.20f)
+        }.roundToInt().coerceAtLeast(12)
+        val bitmap = WidgetWeatherIconRenderer.render(condition, iconSize)
+        canvas.drawBitmap(bitmap, centerX - iconSize / 2f, top, null)
     }
 
     private fun withAlpha(color: Int, alpha: Int): Int =

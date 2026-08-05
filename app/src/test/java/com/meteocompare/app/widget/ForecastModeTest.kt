@@ -60,13 +60,17 @@ class ForecastModeTest {
         assertFalse(ForecastMode.CONFIDENCE_PRECIPITATION.isMiniForecast())
         assertFalse(ForecastMode.CONFIDENCE_WIND.isMiniForecast())
         assertFalse(ForecastMode.HEATMAP_CHART_12H.isMiniForecast())
+        assertFalse(ForecastMode.HEATMAP_TREND_12H.isMiniForecast())
     }
 
     @Test
     fun `helpers 12h bitmap reconnaissent mini et heatmap`() {
         assertTrue(ForecastMode.MINI_FORECAST_12H.usesTwelveHourBitmapForecast())
         assertTrue(ForecastMode.HEATMAP_CHART_12H.usesTwelveHourBitmapForecast())
+        assertTrue(ForecastMode.HEATMAP_TREND_12H.usesTwelveHourBitmapForecast())
         assertTrue(ForecastMode.HEATMAP_CHART_12H.isHeatmapChartForecast())
+        assertTrue(ForecastMode.HEATMAP_TREND_12H.isHeatmapChartForecast())
+        assertTrue(ForecastMode.HEATMAP_TREND_12H.isModernHeatmapChartForecast())
         assertFalse(ForecastMode.HOURLY.usesTwelveHourBitmapForecast())
         assertFalse(ForecastMode.MINI_FORECAST_12H.isHeatmapChartForecast())
     }
@@ -75,7 +79,8 @@ class ForecastModeTest {
     fun `partition exhaustive de l'enum en groupes disjoints`() {
         // Verrouille l'invariant "chaque mode appartient à EXACTEMENT UN groupe" :
         //   - CONFIDENCE_ALL + 3 valeurs historiques : 4 modes
-        //   - vues bitmap 12 h : 2 modes
+        //   - mini forecast : 1 mode
+        //   - heatmaps 12 h : 2 modes
         //   - Forecast discret (HOURLY, DAILY) : 2 modes
         // Un futur ajout d'enum sans classification tombera ici — soit dans
         // le total, soit dans "aucun groupe / plusieurs groupes".
@@ -98,7 +103,7 @@ class ForecastModeTest {
         // Comptages spécifiques
         assertEquals("Confidence : 1 mode combiné + 3 valeurs historiques", 4, confidenceCount)
         assertEquals("Mini forecast : 1 (MINI_FORECAST_12H)", 1, miniCount)
-        assertEquals("Heatmap chart : 1 (HEATMAP_CHART_12H)", 1, heatmapCount)
+        assertEquals("Heatmap charts : 2", 2, heatmapCount)
         assertEquals("Forecast discret : 2 (HOURLY, DAILY)", 2, discreteCount)
     }
 }

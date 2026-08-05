@@ -89,7 +89,7 @@ internal data class WidgetData(
     /**
      * Températures agrégées 12h à partir de "maintenant" pour les deux rendus
      * bitmap 2-row (modes [ForecastMode.MINI_FORECAST_12H] et
-     * [ForecastMode.HEATMAP_CHART_12H]). Vide dans tous
+     * [ForecastMode.HEATMAP_CHART_12H] et [ForecastMode.HEATMAP_TREND_12H]). Vide dans tous
      * les autres modes — le rendu du widget n'invoque pas le renderer bitmap.
      */
     val next12hTemps: List<Double?> = emptyList(),
@@ -366,7 +366,7 @@ internal suspend fun loadWidgetData(
 
             // Selon le mode utilisateur, on alimente soit la ligne de prévisions
             // 5 items (HOURLY/DAILY), soit la mini bande de confiance
-            // (CONFIDENCE_*), soit l'une des vues 12 h bitmap (MINI_FORECAST_12H / HEATMAP_CHART_12H).
+            // (CONFIDENCE_*), soit l'une des vues 12 h bitmap (MINI_FORECAST_12H / HEATMAP_CHART_12H / HEATMAP_TREND_12H).
             // Les trois sont exclusifs — c'est ExtraLargeLayout qui aiguille.
             //
             // La confiance placée sous la probabilité de pluie est GLOBALE :
@@ -558,7 +558,8 @@ internal fun buildForecasts(
             ForecastMode.CONFIDENCE_PRECIPITATION,
             ForecastMode.CONFIDENCE_WIND,
             ForecastMode.MINI_FORECAST_12H,
-            ForecastMode.HEATMAP_CHART_12H -> emptyList()
+            ForecastMode.HEATMAP_CHART_12H,
+            ForecastMode.HEATMAP_TREND_12H -> emptyList()
         }
         Candidate(stableOrder, items)
     }.filter { it.visibleItems.isNotEmpty() }
@@ -867,7 +868,8 @@ private fun buildConfidenceStrip(
         ForecastMode.DAILY,
         ForecastMode.CONFIDENCE_ALL,
         ForecastMode.MINI_FORECAST_12H,
-        ForecastMode.HEATMAP_CHART_12H -> return null
+        ForecastMode.HEATMAP_CHART_12H,
+        ForecastMode.HEATMAP_TREND_12H -> return null
     }
 
     return WidgetConfidenceStrip(
