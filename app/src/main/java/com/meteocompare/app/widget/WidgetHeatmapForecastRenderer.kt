@@ -139,13 +139,16 @@ internal object WidgetHeatmapForecastRenderer {
             if (index in anchorIndices) {
                 val contentColor = if (temp == null) withAlpha(textColorArgb, 0xD8)
                 else WidgetMiniForecastRenderer.heatmapContentColorArgb(tempColor)
-                drawConditionIcon(
+                drawConditionBadge(
                     canvas = canvas,
                     condition = conditions.getOrNull(index),
                     centerX = centerX,
                     top = tempTop + tempBandHeight * 0.04f,
                     bandHeight = tempBandHeight,
-                    profile = profile
+                    profile = profile,
+                    textColorArgb = textColorArgb,
+                    accentColorArgb = tempColor,
+                    isCurrent = isCurrent
                 )
                 valuePaint.color = contentColor
                 val tempLabel = temp?.let { "${it.roundToInt()}°" } ?: "—"
@@ -236,13 +239,16 @@ internal object WidgetHeatmapForecastRenderer {
         return (usableBottom - ((usableBottom - usableTop) * clamped).toFloat())
     }
 
-    private fun drawConditionIcon(
+    private fun drawConditionBadge(
         canvas: Canvas,
         condition: WeatherCondition?,
         centerX: Float,
         top: Float,
         bandHeight: Float,
-        profile: MiniForecastSizeProfile
+        profile: MiniForecastSizeProfile,
+        textColorArgb: Int,
+        accentColorArgb: Int,
+        isCurrent: Boolean
     ) {
         if (condition == null) return
         val iconSize = when (profile) {
@@ -250,8 +256,27 @@ internal object WidgetHeatmapForecastRenderer {
             MiniForecastSizeProfile.MEDIUM_3X2 -> (bandHeight * 0.19f)
             MiniForecastSizeProfile.EXPANDED_4X2 -> (bandHeight * 0.20f)
         }.roundToInt().coerceAtLeast(12)
+        val badgeWidth = (iconSize * 1.55f).coerceAtLeast(iconSize + 8f)
+        val badgeHeight = (iconSize * 1.28f).coerceAtLeast(iconSize + 6f)
+        val left = centerX - badgeWidth / 2f
+        val rect = RectF(left, top, left + badgeWidth, top + badgeHeight)
+
+        val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.FILL
+            color = if (isCurrent) withAlpha(0xFFFFFFFF.toInt(), 0xD6) else withAlpha(0xFFFFFFFF.toInt(), 0xBC)
+        }
+        val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeWidth = if (isCurrent) 2.2f else 1.6f
+            color = if (isCurrent) withAlpha(accentColorArgb, 0x88) else withAlpha(textColorArgb, 0x34)
+        }
+        canvas.drawRoundRect(rect, badgeHeight / 2f, badgeHeight / 2f, fillPaint)
+        canvas.drawRoundRect(rect, badgeHeight / 2f, badgeHeight / 2f, strokePaint)
+
         val bitmap = WidgetWeatherIconRenderer.render(condition, iconSize)
-        canvas.drawBitmap(bitmap, centerX - iconSize / 2f, top, null)
+        val iconLeft = centerX - iconSize / 2f
+        val iconTop = top + (badgeHeight - iconSize) / 2f
+        canvas.drawBitmap(bitmap, iconLeft, iconTop, null)
     }
 
     private fun withAlpha(color: Int, alpha: Int): Int =
