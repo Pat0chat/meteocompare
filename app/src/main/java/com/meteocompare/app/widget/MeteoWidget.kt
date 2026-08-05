@@ -943,7 +943,7 @@ private fun CompactTallLayout(
                 showHeader = showPanelHeader
             )
 
-            data.next12hTemps.isNotEmpty() -> MiniForecastStrip(
+            data.next12hTemps.isNotEmpty() -> TwelveHourForecastStrip(
                 data = data,
                 softSurface = softSurface,
                 compact = true,
@@ -1169,7 +1169,7 @@ private fun ExtraLargeLayout(
                 bucketCount = itemCount,
                 showHeader = showPanelHeader
             )
-            hasMiniForecast -> MiniForecastStrip(
+            hasMiniForecast -> TwelveHourForecastStrip(
                 data = data,
                 softSurface = softSurface,
                 compact = compactHeight,
@@ -1213,7 +1213,7 @@ private fun ExtraLargeLayout(
  * une bande étroite centrée dans un grand espace vide.
  */
 @Composable
-private fun MiniForecastStrip(
+private fun TwelveHourForecastStrip(
     data: WidgetData,
     softSurface: ColorProvider,
     compact: Boolean,
@@ -1262,6 +1262,7 @@ private fun MiniForecastStrip(
     } ?: List(12) { offset -> "+${offset}h" }
 
     val bitmap = remember(
+        data.forecastMode,
         data.next12hTemps,
         data.next12hPrecipProb,
         data.next12hPrecipMm,
@@ -1272,18 +1273,33 @@ private fun MiniForecastStrip(
         textColorArgb,
         profile
     ) {
-        WidgetMiniForecastRenderer.render(
-            widthPx = widthPx,
-            heightPx = heightPx,
-            temps = data.next12hTemps,
-            precipProbabilities = data.next12hPrecipProb,
-            precipAmountsMm = data.next12hPrecipMm,
-            conditions = data.next12hConditions,
-            precipColorArgb = precipColorArgb,
-            textColorArgb = textColorArgb,
-            timelineLabels = timelineLabels,
-            profile = profile
-        )
+        if (data.forecastMode.isHeatmapChartForecast()) {
+            WidgetHeatmapForecastRenderer.render(
+                widthPx = widthPx,
+                heightPx = heightPx,
+                temps = data.next12hTemps,
+                precipProbabilities = data.next12hPrecipProb,
+                precipAmountsMm = data.next12hPrecipMm,
+                conditions = data.next12hConditions,
+                precipColorArgb = precipColorArgb,
+                textColorArgb = textColorArgb,
+                timelineLabels = timelineLabels,
+                profile = profile
+            )
+        } else {
+            WidgetMiniForecastRenderer.render(
+                widthPx = widthPx,
+                heightPx = heightPx,
+                temps = data.next12hTemps,
+                precipProbabilities = data.next12hPrecipProb,
+                precipAmountsMm = data.next12hPrecipMm,
+                conditions = data.next12hConditions,
+                precipColorArgb = precipColorArgb,
+                textColorArgb = textColorArgb,
+                timelineLabels = timelineLabels,
+                profile = profile
+            )
+        }
     }
 
     Column(
@@ -1895,7 +1911,7 @@ private fun ForecastItemCard(
                             modifier = GlanceModifier.fillMaxWidth()
                         )
                         if (showForecastConfidence) {
-                            val confidence = item.forecastConfidencePct
+                            val confidence = item.forecastConfidencePct ?: 0
                             Spacer(GlanceModifier.height(1.dp))
                             Text(
                                 text = ctx.getString(

@@ -557,6 +557,13 @@ private fun WidgetConfigScreen(
                     descrRes = R.string.widget_config_forecast_mode_mini_12h_descr,
                     onClick = { forecastMode = ForecastMode.MINI_FORECAST_12H }
                 )
+                ForecastModeRow(
+                    selected = forecastMode == ForecastMode.HEATMAP_CHART_12H,
+                    tag = "$TAG_WIDGET_MODE${ForecastMode.HEATMAP_CHART_12H.name}",
+                    labelRes = R.string.widget_config_forecast_mode_heatmap_12h,
+                    descrRes = R.string.widget_config_forecast_mode_heatmap_12h_descr,
+                    onClick = { forecastMode = ForecastMode.HEATMAP_CHART_12H }
+                )
                 ConfidenceModeRow(
                     selected = forecastMode.normalized() == ForecastMode.CONFIDENCE_ALL,
                     tag = "$TAG_WIDGET_MODE${ForecastMode.CONFIDENCE_ALL.name}",

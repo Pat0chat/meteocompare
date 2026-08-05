@@ -407,6 +407,8 @@
     <!-- New extended forecast mode for widgets 3x2/4x2/5x2: 12h heatmap bitmap + time anchors. -->
     <string name="widget_config_forecast_mode_mini_12h">12-hour mini forecast</string>
     <string name="widget_config_forecast_mode_mini_12h_descr">Displays temperature and precipitation forecasts for the next 12 hours.</string>
+    <string name="widget_config_forecast_mode_heatmap_12h">12-hour heatmap chart</string>
+    <string name="widget_config_forecast_mode_heatmap_12h_descr">Displays a more graphical 12-hour heatmap with temperature trend and rain intensity.</string>
 
     <string name="detail_table_model_header">Model</string>
 

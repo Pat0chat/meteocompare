@@ -405,6 +405,8 @@
     <!-- Nouveau mode de prévision étendue pour widgets 3×2/4×2/5×2 : bitmap heatmap 12h + ancres horaires. -->
     <string name="widget_config_forecast_mode_mini_12h">Mini prévision 12 heures</string>
     <string name="widget_config_forecast_mode_mini_12h_descr">Affiche les prévisions température et précipitation des 12 prochaines heures</string>
+    <string name="widget_config_forecast_mode_heatmap_12h">Heatmap 12 heures</string>
+    <string name="widget_config_forecast_mode_heatmap_12h_descr">Affiche une heatmap 12 h plus graphique avec tendance température et pluie</string>
 
     <string name="detail_table_model_header">Modèle</string>
 

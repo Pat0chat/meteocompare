@@ -87,8 +87,9 @@ internal data class WidgetData(
      */
     val confidenceStrips: List<WidgetConfidenceStrip> = emptyList(),
     /**
-     * Températures agrégées 12h à partir de "maintenant" pour la mini prévision
-     * du widget 2-row (mode [ForecastMode.MINI_FORECAST_12H]). Vide dans tous
+     * Températures agrégées 12h à partir de "maintenant" pour les deux rendus
+     * bitmap 2-row (modes [ForecastMode.MINI_FORECAST_12H] et
+     * [ForecastMode.HEATMAP_CHART_12H]). Vide dans tous
      * les autres modes — le rendu du widget n'invoque pas le renderer bitmap.
      */
     val next12hTemps: List<Double?> = emptyList(),
@@ -113,7 +114,7 @@ internal data class WidgetData(
      * Moment de la première heure de [next12hTemps] dans le fuseau de la
      * ville, pour produire les 12 libellés horaires de la grille.
      * Null si la ville n'a pas de fuseau connu ou si le mode n'est pas
-     * MINI_FORECAST_12H.
+     * MINI_FORECAST_12H ou [ForecastMode.HEATMAP_CHART_12H].
      */
     val hourlyStartTime: java.time.LocalDateTime? = null,
     /** Synthèse éditoriale la plus utile issue des événements multi-modèles. */
@@ -365,7 +366,7 @@ internal suspend fun loadWidgetData(
 
             // Selon le mode utilisateur, on alimente soit la ligne de prévisions
             // 5 items (HOURLY/DAILY), soit la mini bande de confiance
-            // (CONFIDENCE_*), soit la mini prévision 12h (MINI_FORECAST_12H).
+            // (CONFIDENCE_*), soit l'une des vues 12 h bitmap (MINI_FORECAST_12H / HEATMAP_CHART_12H).
             // Les trois sont exclusifs — c'est ExtraLargeLayout qui aiguille.
             //
             // La confiance placée sous la probabilité de pluie est GLOBALE :
@@ -390,7 +391,7 @@ internal suspend fun loadWidgetData(
                 )
                 else -> WidgetForecastConfidence.Empty
             }
-            val forecasts = if (forecastMode.isConfidenceBand() || forecastMode.isMiniForecast()) {
+            val forecasts = if (forecastMode.isConfidenceBand() || forecastMode.usesTwelveHourBitmapForecast()) {
                 emptyList()
             } else {
                 buildForecasts(
@@ -420,7 +421,7 @@ internal suspend fun loadWidgetData(
             } else {
                 WidgetValueSnapshot(keyInsight = null, comparison = null)
             }
-            val miniForecast = if (forecastMode.isMiniForecast()) {
+            val miniForecast = if (forecastMode.usesTwelveHourBitmapForecast()) {
                 ForecastAggregates.next12h(
                     forecast = forecast,
                     now = miniForecastNow,
@@ -556,7 +557,8 @@ internal fun buildForecasts(
             ForecastMode.CONFIDENCE_TEMPERATURE,
             ForecastMode.CONFIDENCE_PRECIPITATION,
             ForecastMode.CONFIDENCE_WIND,
-            ForecastMode.MINI_FORECAST_12H -> emptyList()
+            ForecastMode.MINI_FORECAST_12H,
+            ForecastMode.HEATMAP_CHART_12H -> emptyList()
         }
         Candidate(stableOrder, items)
     }.filter { it.visibleItems.isNotEmpty() }
@@ -864,7 +866,8 @@ private fun buildConfidenceStrip(
         ForecastMode.HOURLY,
         ForecastMode.DAILY,
         ForecastMode.CONFIDENCE_ALL,
-        ForecastMode.MINI_FORECAST_12H -> return null
+        ForecastMode.MINI_FORECAST_12H,
+        ForecastMode.HEATMAP_CHART_12H -> return null
     }
 
     return WidgetConfidenceStrip(

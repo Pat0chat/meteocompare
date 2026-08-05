@@ -127,7 +127,14 @@ internal enum class ForecastMode {
      * Rendu via Bitmap ([WidgetMiniForecastRenderer]). Uniquement pertinent
      * pour les widgets 2-row (2×2, 3×2, 4×2, 5×2).
      */
-    MINI_FORECAST_12H
+    MINI_FORECAST_12H,
+    /**
+     * Variante plus graphique de la vue 12 h : deux bandes heatmap
+     * synchronisées (température / pluie) avec un tracé de tendance.
+     * Même pipeline de données que [MINI_FORECAST_12H], mais rendu plus
+     * compact et plus “chart”.
+     */
+    HEATMAP_CHART_12H
 }
 
 /**
@@ -139,7 +146,10 @@ internal fun ForecastMode.isConfidenceBand(): Boolean = when (this) {
     ForecastMode.CONFIDENCE_TEMPERATURE,
     ForecastMode.CONFIDENCE_PRECIPITATION,
     ForecastMode.CONFIDENCE_WIND -> true
-    ForecastMode.HOURLY, ForecastMode.DAILY, ForecastMode.MINI_FORECAST_12H -> false
+    ForecastMode.HOURLY,
+    ForecastMode.DAILY,
+    ForecastMode.MINI_FORECAST_12H,
+    ForecastMode.HEATMAP_CHART_12H -> false
 }
 
 /**
@@ -161,6 +171,13 @@ internal fun ForecastMode.normalized(): ForecastMode = when (this) {
  */
 internal fun ForecastMode.isMiniForecast(): Boolean =
     this == ForecastMode.MINI_FORECAST_12H
+
+internal fun ForecastMode.isHeatmapChartForecast(): Boolean =
+    this == ForecastMode.HEATMAP_CHART_12H
+
+/** Les deux variantes 12 h partagent le même pipeline de données + bitmap. */
+internal fun ForecastMode.usesTwelveHourBitmapForecast(): Boolean =
+    isMiniForecast() || isHeatmapChartForecast()
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  Palette de couleurs proposée dans la config activity
