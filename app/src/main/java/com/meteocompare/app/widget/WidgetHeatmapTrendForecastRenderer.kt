@@ -50,11 +50,6 @@ internal object WidgetHeatmapTrendForecastRenderer {
         val anchors = WidgetHeatmapForecastRenderer.anchorIndices(profile)
 
         val panelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
-        val gridPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            style = Paint.Style.STROKE
-            color = withAlpha(textColorArgb, 0x18)
-            strokeWidth = (heightPx * 0.004f).coerceAtLeast(1f)
-        }
         val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             textAlign = Paint.Align.CENTER
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
@@ -75,15 +70,21 @@ internal object WidgetHeatmapTrendForecastRenderer {
             }.coerceAtMost(columnWidth * 0.46f)
         }
 
-        val surfaceRect = RectF(outerPadding * 0.25f, tempTop, widthPx - outerPadding * 0.25f, precipBottom)
-        panelPaint.color = withAlpha(textColorArgb, 0x0F)
-        canvas.drawRoundRect(surfaceRect, 16f, 16f, panelPaint)
-
         val tempValues = temps.filterNotNull()
         val minTemp = tempValues.minOrNull() ?: 0.0
         val maxTemp = tempValues.maxOrNull() ?: 1.0
         val padded = WidgetHeatmapForecastRenderer.paddedTemperatureRange(minTemp, maxTemp)
         val plotPoints = mutableListOf<Pair<Float, Float>>()
+        val curveTopRatio = WidgetHeatmapForecastRenderer.temperatureCurveTopRatio(profile)
+        val temperatureLabelBaseline = tempBottom -
+                tempBandHeight * WidgetHeatmapForecastRenderer.temperatureLabelBottomInsetRatio(profile)
+        val curveBottomRatio = WidgetHeatmapForecastRenderer.temperatureCurveBottomRatio(
+            bandHeightPx = tempBandHeight,
+            labelBaselineRelativePx = temperatureLabelBaseline - tempTop,
+            labelAscentPx = valuePaint.fontMetrics.ascent,
+            maxPointRadiusPx = 5.4f,
+            usableTopRatio = curveTopRatio
+        )
 
         for (index in 0 until CELL_COUNT) {
             val left = outerPadding + index * columnWidth + slotInset
@@ -107,7 +108,15 @@ internal object WidgetHeatmapTrendForecastRenderer {
             }
 
             val tempY = temp?.let {
-                WidgetHeatmapForecastRenderer.normalizedTemperatureY(it, padded.first, padded.second, tempTop, tempBottom)
+                WidgetHeatmapForecastRenderer.normalizedTemperatureY(
+                    temperature = it,
+                    minTemp = padded.first,
+                    maxTemp = padded.second,
+                    top = tempTop,
+                    bottom = tempBottom,
+                    usableTopRatio = curveTopRatio,
+                    usableBottomRatio = curveBottomRatio
+                )
             } ?: ((tempTop + tempBottom) / 2f)
             plotPoints += centerX to tempY
 
@@ -116,7 +125,7 @@ internal object WidgetHeatmapTrendForecastRenderer {
                     canvas = canvas,
                     condition = conditions.getOrNull(index),
                     centerX = centerX,
-                    top = tempTop + tempBandHeight * 0.03f,
+                    top = tempTop + tempBandHeight * 0.05f,
                     bandHeight = tempBandHeight,
                     profile = profile,
                     textColorArgb = textColorArgb,
@@ -125,7 +134,12 @@ internal object WidgetHeatmapTrendForecastRenderer {
                 )
                 val contentColor = if (temp == null) withAlpha(textColorArgb, 0xD8) else WidgetMiniForecastRenderer.heatmapContentColorArgb(tempColor)
                 valuePaint.color = contentColor
-                canvas.drawText(temp?.let { "${it.roundToInt()}°" } ?: "—", centerX, tempBottom - tempBandHeight * 0.13f, valuePaint)
+                canvas.drawText(
+                    temp?.let { "${it.roundToInt()}°" } ?: "—",
+                    centerX,
+                    temperatureLabelBaseline,
+                    valuePaint
+                )
             }
 
             val precipProb = precipProbabilities.getOrNull(index)?.coerceIn(0, 100)
@@ -142,11 +156,6 @@ internal object WidgetHeatmapTrendForecastRenderer {
                 val hourLabel = timelineLabels.getOrNull(index) ?: "+${index}h"
                 canvas.drawText(hourLabel, centerX, axisY + labelAreaHeight * 0.55f, labelPaint)
             }
-
-            if (index < CELL_COUNT - 1) {
-                val x = outerPadding + (index + 1) * columnWidth
-                canvas.drawLine(x, tempTop + 6f, x, precipBottom - 4f, gridPaint)
-            }
         }
 
         val haloPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -154,9 +163,9 @@ internal object WidgetHeatmapTrendForecastRenderer {
             strokeCap = Paint.Cap.ROUND
             strokeJoin = Paint.Join.ROUND
             strokeWidth = when (profile) {
-                MiniForecastSizeProfile.COMPACT_2X2 -> 5.8f
-                MiniForecastSizeProfile.MEDIUM_3X2 -> 6.6f
-                MiniForecastSizeProfile.EXPANDED_4X2 -> 7.2f
+                MiniForecastSizeProfile.COMPACT_2X2 -> 4.0f
+                MiniForecastSizeProfile.MEDIUM_3X2 -> 4.8f
+                MiniForecastSizeProfile.EXPANDED_4X2 -> 5.6f
             }
             color = withAlpha(0xFFFFFFFF.toInt(), 0x40)
         }
@@ -165,16 +174,16 @@ internal object WidgetHeatmapTrendForecastRenderer {
             strokeCap = Paint.Cap.ROUND
             strokeJoin = Paint.Join.ROUND
             strokeWidth = when (profile) {
-                MiniForecastSizeProfile.COMPACT_2X2 -> 3.0f
-                MiniForecastSizeProfile.MEDIUM_3X2 -> 3.6f
-                MiniForecastSizeProfile.EXPANDED_4X2 -> 4.2f
+                MiniForecastSizeProfile.COMPACT_2X2 -> 2.0f
+                MiniForecastSizeProfile.MEDIUM_3X2 -> 2.6f
+                MiniForecastSizeProfile.EXPANDED_4X2 -> 3.2f
             }
             color = 0xFFFFFFFF.toInt()
         }
         val pointFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
         val pointRingPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
-            strokeWidth = 1.8f
+            strokeWidth = 1.5f
             color = withAlpha(textColorArgb, 0x55)
         }
         plotPoints.zipWithNext().forEach { (a, b) ->
@@ -227,9 +236,9 @@ internal object WidgetHeatmapTrendForecastRenderer {
             color = if (isCurrent) withAlpha(accentColorArgb, 0x90) else withAlpha(textColorArgb, 0x3D)
         }
         val glowRect = RectF(rect.left - 1.5f, rect.top - 1.5f, rect.right + 1.5f, rect.bottom + 1.5f)
-        canvas.drawRoundRect(glowRect, badgeHeight / 2f, badgeHeight / 2f, glowPaint)
-        canvas.drawRoundRect(rect, badgeHeight / 2f, badgeHeight / 2f, fillPaint)
-        canvas.drawRoundRect(rect, badgeHeight / 2f, badgeHeight / 2f, strokePaint)
+        /*canvas.drawRoundRect(glowRect, badgeHeight / 2f, badgeHeight / 2f, glowPaint)*/
+        /*canvas.drawRoundRect(rect, badgeHeight / 2f, badgeHeight / 2f, fillPaint)*/
+        /*canvas.drawRoundRect(rect, badgeHeight / 2f, badgeHeight / 2f, strokePaint)*/
 
         val bitmap = WidgetWeatherIconRenderer.render(condition, iconSize)
         val iconLeft = centerX - iconSize / 2f

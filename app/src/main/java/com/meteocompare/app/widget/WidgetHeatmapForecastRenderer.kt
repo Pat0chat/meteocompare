@@ -84,9 +84,9 @@ internal object WidgetHeatmapForecastRenderer {
         val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
             strokeWidth = when (profile) {
-                MiniForecastSizeProfile.COMPACT_2X2 -> 2.6f
-                MiniForecastSizeProfile.MEDIUM_3X2 -> 3.0f
-                MiniForecastSizeProfile.EXPANDED_4X2 -> 3.4f
+                MiniForecastSizeProfile.COMPACT_2X2 -> 2.0f
+                MiniForecastSizeProfile.MEDIUM_3X2 -> 2.6f
+                MiniForecastSizeProfile.EXPANDED_4X2 -> 3.2f
             }
             color = withAlpha(textColorArgb, 0xE0)
             strokeCap = Paint.Cap.ROUND
@@ -96,13 +96,6 @@ internal object WidgetHeatmapForecastRenderer {
             style = Paint.Style.FILL
         }
         val cardRect = RectF()
-
-        // Fonds de panneaux
-        cardRect.set(0f + outerPadding * 0.25f, tempTop, widthPx - outerPadding * 0.25f, tempBottom)
-        canvas.drawRoundRect(cardRect, 14f, 14f, panelPaint)
-        cardRect.set(0f + outerPadding * 0.25f, precipTop, widthPx - outerPadding * 0.25f, precipBottom)
-        canvas.drawRoundRect(cardRect, 12f, 12f, panelPaint)
-
         val tempValues = temps.filterNotNull()
         val minTemp = tempValues.minOrNull() ?: 0.0
         val maxTemp = tempValues.maxOrNull() ?: 1.0
@@ -110,6 +103,15 @@ internal object WidgetHeatmapForecastRenderer {
         val anchorIndices = anchorIndices(profile)
         val slotInset = (columnWidth * 0.07f).coerceAtLeast(1f)
         val plotPoints = mutableListOf<Pair<Float, Float>>()
+        val curveTopRatio = temperatureCurveTopRatio(profile)
+        val temperatureLabelBaseline = tempBottom - tempBandHeight * temperatureLabelBottomInsetRatio(profile)
+        val curveBottomRatio = temperatureCurveBottomRatio(
+            bandHeightPx = tempBandHeight,
+            labelBaselineRelativePx = temperatureLabelBaseline - tempTop,
+            labelAscentPx = valuePaint.fontMetrics.ascent,
+            maxPointRadiusPx = 4.6f,
+            usableTopRatio = curveTopRatio
+        )
 
         for (index in 0 until CELL_COUNT) {
             val left = outerPadding + index * columnWidth + slotInset
@@ -132,7 +134,17 @@ internal object WidgetHeatmapForecastRenderer {
                 panelPaint.style = Paint.Style.FILL
             }
 
-            val tempY = temp?.let { normalizedTemperatureY(it, padded.first, padded.second, tempTop, tempBottom) }
+            val tempY = temp?.let {
+                normalizedTemperatureY(
+                    temperature = it,
+                    minTemp = padded.first,
+                    maxTemp = padded.second,
+                    top = tempTop,
+                    bottom = tempBottom,
+                    usableTopRatio = curveTopRatio,
+                    usableBottomRatio = curveBottomRatio
+                )
+            }
                 ?: ((tempTop + tempBottom) / 2f)
             plotPoints += centerX to tempY
 
@@ -143,7 +155,7 @@ internal object WidgetHeatmapForecastRenderer {
                     canvas = canvas,
                     condition = conditions.getOrNull(index),
                     centerX = centerX,
-                    top = tempTop + tempBandHeight * 0.04f,
+                    top = tempTop + tempBandHeight * 0.05f,
                     bandHeight = tempBandHeight,
                     profile = profile,
                     textColorArgb = textColorArgb,
@@ -152,8 +164,12 @@ internal object WidgetHeatmapForecastRenderer {
                 )
                 valuePaint.color = contentColor
                 val tempLabel = temp?.let { "${it.roundToInt()}°" } ?: "—"
-                val labelBaseline = tempBottom - (tempBandHeight * 0.14f)
-                canvas.drawText(tempLabel, centerX, labelBaseline, valuePaint)
+                canvas.drawText(
+                    tempLabel,
+                    centerX,
+                    temperatureLabelBaseline,
+                    valuePaint
+                )
             }
 
             // Bande pluie
@@ -185,12 +201,6 @@ internal object WidgetHeatmapForecastRenderer {
                 labelPaint.color = if (isCurrent) withAlpha(textColorArgb, 0xFF) else withAlpha(textColorArgb, 0xD0)
                 val hourLabel = timelineLabels.getOrNull(index) ?: "+${index}h"
                 canvas.drawText(hourLabel, centerX, axisY + labelAreaHeight * 0.55f, labelPaint)
-            }
-
-            // Lignes guides verticales discrètes
-            if (index < CELL_COUNT - 1) {
-                val x = outerPadding + (index + 1) * columnWidth
-                canvas.drawLine(x, tempTop + 6f, x, precipBottom - 4f, gridPaint)
             }
         }
 
@@ -231,12 +241,60 @@ internal object WidgetHeatmapForecastRenderer {
         minTemp: Double,
         maxTemp: Double,
         top: Float,
-        bottom: Float
+        bottom: Float,
+        usableTopRatio: Float = 0.14f,
+        usableBottomRatio: Float = 0.22f
     ): Float {
         val clamped = ((temperature - minTemp) / (maxTemp - minTemp)).coerceIn(0.0, 1.0)
-        val usableTop = top + (bottom - top) * 0.14f
-        val usableBottom = bottom - (bottom - top) * 0.22f
-        return (usableBottom - ((usableBottom - usableTop) * clamped).toFloat())
+        val height = bottom - top
+        val usableTop = top + height * usableTopRatio
+        // Protection supplémentaire pour les très petits widgets : même si les
+        // réserves haut/bas se croisent après arrondi, la courbe garde au moins
+        // un pixel de hauteur et ne descend jamais dans la zone des valeurs.
+        val requestedBottom = bottom - height * usableBottomRatio
+        val usableBottom = requestedBottom.coerceAtLeast(usableTop + 1f)
+        return usableBottom - ((usableBottom - usableTop) * clamped).toFloat()
+    }
+
+    internal fun temperatureCurveTopRatio(profile: MiniForecastSizeProfile): Float = when (profile) {
+        MiniForecastSizeProfile.COMPACT_2X2 -> 0.42f
+        MiniForecastSizeProfile.MEDIUM_3X2 -> 0.40f
+        MiniForecastSizeProfile.EXPANDED_4X2 -> 0.37f
+    }
+
+    internal fun temperatureLabelBottomInsetRatio(
+        profile: MiniForecastSizeProfile
+    ): Float = when (profile) {
+        MiniForecastSizeProfile.COMPACT_2X2 -> 0.08f
+        MiniForecastSizeProfile.MEDIUM_3X2 -> 0.09f
+        MiniForecastSizeProfile.EXPANDED_4X2 -> 0.10f
+    }
+
+    /**
+     * Réserve dynamiquement la zone basse du texte de température.
+     *
+     * La borne inférieure de la courbe est placée au-dessus du haut réel des
+     * glyphes, avec une marge qui inclut le rayon maximal des points. Le clamp
+     * conserve malgré tout une hauteur minimale de courbe sur les widgets très
+     * compacts.
+     */
+    internal fun temperatureCurveBottomRatio(
+        bandHeightPx: Float,
+        labelBaselineRelativePx: Float,
+        labelAscentPx: Float,
+        maxPointRadiusPx: Float,
+        usableTopRatio: Float
+    ): Float {
+        if (bandHeightPx <= 0f) return 0.30f
+        val labelTopPx = labelBaselineRelativePx + labelAscentPx
+        val visualGapPx = maxOf(2f, bandHeightPx * 0.035f)
+        val requestedCurveBottomPx = labelTopPx - maxPointRadiusPx - visualGapPx
+        val minimumCurveHeightPx = maxOf(1f, bandHeightPx * 0.10f)
+        val minimumBottomPx = bandHeightPx * usableTopRatio + minimumCurveHeightPx
+        val safeCurveBottomPx = requestedCurveBottomPx.coerceAtLeast(minimumBottomPx)
+        val ratio = 1f - safeCurveBottomPx / bandHeightPx
+        val maximumRatio = (1f - usableTopRatio - 0.10f).coerceAtLeast(0.12f)
+        return ratio.coerceIn(0.22f, maximumRatio)
     }
 
     private fun drawConditionBadge(
@@ -270,8 +328,8 @@ internal object WidgetHeatmapForecastRenderer {
             strokeWidth = if (isCurrent) 2.2f else 1.6f
             color = if (isCurrent) withAlpha(accentColorArgb, 0x88) else withAlpha(textColorArgb, 0x34)
         }
-        canvas.drawRoundRect(rect, badgeHeight / 2f, badgeHeight / 2f, fillPaint)
-        canvas.drawRoundRect(rect, badgeHeight / 2f, badgeHeight / 2f, strokePaint)
+        /*canvas.drawRoundRect(rect, badgeHeight / 2f, badgeHeight / 2f, fillPaint)
+        canvas.drawRoundRect(rect, badgeHeight / 2f, badgeHeight / 2f, strokePaint)*/
 
         val bitmap = WidgetWeatherIconRenderer.render(condition, iconSize)
         val iconLeft = centerX - iconSize / 2f
