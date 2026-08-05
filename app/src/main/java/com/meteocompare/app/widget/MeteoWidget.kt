@@ -1273,7 +1273,7 @@ private fun TwelveHourForecastStrip(
         textColorArgb,
         profile
     ) {
-        if (data.forecastMode.isHeatmapChartForecast()) {
+        if (data.forecastMode?.isHeatmapChartForecast() == true) {
             WidgetHeatmapForecastRenderer.render(
                 widthPx = widthPx,
                 heightPx = heightPx,
