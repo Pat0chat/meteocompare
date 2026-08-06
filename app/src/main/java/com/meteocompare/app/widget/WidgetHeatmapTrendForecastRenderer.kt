@@ -33,14 +33,14 @@ internal object WidgetHeatmapTrendForecastRenderer {
         val bitmap = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
 
-        val outerPadding = (heightPx * 0.05f).coerceAtLeast(4f)
-        val rowGap = (heightPx * 0.07f).coerceAtLeast(5f)
-        val axisGap = (heightPx * 0.045f).coerceAtLeast(3f)
-        val labelAreaHeight = (heightPx * 0.16f).coerceAtLeast(11f)
+        val outerPadding = (heightPx * 0.02f).coerceAtLeast(1.0f)
+        val rowGap = (heightPx * 0.02f).coerceAtLeast(1.5f)
+        val axisGap = (heightPx * 0.025f).coerceAtLeast(2f)
+        val labelAreaHeight = (heightPx * 0.12f).coerceAtLeast(8f)
         val usableWidth = widthPx - outerPadding * 2f
         val columnWidth = usableWidth / CELL_COUNT
-        val tempBandHeight = ((heightPx - outerPadding * 2f - rowGap - axisGap - labelAreaHeight) * 0.60f).coerceAtLeast(heightPx * 0.30f)
-        val precipBandHeight = (heightPx - outerPadding * 2f - rowGap - axisGap - labelAreaHeight - tempBandHeight).coerceAtLeast(heightPx * 0.13f)
+        val tempBandHeight = ((heightPx - outerPadding * 2f - rowGap - axisGap - labelAreaHeight) * 0.64f).coerceAtLeast(heightPx * 0.55f)
+        val precipBandHeight = (heightPx - outerPadding * 2f - rowGap - axisGap - labelAreaHeight - tempBandHeight).coerceAtLeast(heightPx * 0.05f)
         val tempTop = outerPadding
         val tempBottom = tempTop + tempBandHeight
         val precipTop = tempBottom + rowGap
@@ -54,20 +54,20 @@ internal object WidgetHeatmapTrendForecastRenderer {
             textAlign = Paint.Align.CENTER
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             textSize = when (profile) {
-                MiniForecastSizeProfile.COMPACT_2X2 -> 9f
-                MiniForecastSizeProfile.MEDIUM_3X2 -> 10f
-                MiniForecastSizeProfile.EXPANDED_4X2 -> 11f
-            }.coerceAtMost(columnWidth * 0.42f)
+                MiniForecastSizeProfile.COMPACT_2X2 -> 12f
+                MiniForecastSizeProfile.MEDIUM_3X2 -> 13f
+                MiniForecastSizeProfile.EXPANDED_4X2 -> 16f
+            }.coerceAtMost(columnWidth * 0.55f)
             color = withAlpha(textColorArgb, 0xD8)
         }
         val valuePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             textAlign = Paint.Align.CENTER
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             textSize = when (profile) {
-                MiniForecastSizeProfile.COMPACT_2X2 -> 10f
-                MiniForecastSizeProfile.MEDIUM_3X2 -> 11f
-                MiniForecastSizeProfile.EXPANDED_4X2 -> 12f
-            }.coerceAtMost(columnWidth * 0.46f)
+                MiniForecastSizeProfile.COMPACT_2X2 -> 12f
+                MiniForecastSizeProfile.MEDIUM_3X2 -> 13f
+                MiniForecastSizeProfile.EXPANDED_4X2 -> 16f
+            }.coerceAtMost(columnWidth * 0.65f)
         }
 
         val tempValues = temps.filterNotNull()
@@ -102,7 +102,6 @@ internal object WidgetHeatmapTrendForecastRenderer {
             if (isCurrent) {
                 panelPaint.style = Paint.Style.STROKE
                 panelPaint.color = withAlpha(textColorArgb, 0x5E)
-                panelPaint.strokeWidth = 2.4f
                 canvas.drawRoundRect(tempRect, 11f, 11f, panelPaint)
                 panelPaint.style = Paint.Style.FILL
             }
@@ -127,10 +126,7 @@ internal object WidgetHeatmapTrendForecastRenderer {
                     centerX = centerX,
                     top = tempTop + tempBandHeight * 0.05f,
                     bandHeight = tempBandHeight,
-                    profile = profile,
-                    textColorArgb = textColorArgb,
-                    accentColorArgb = tempColor,
-                    isCurrent = isCurrent
+                    profile = profile
                 )
                 val contentColor = if (temp == null) withAlpha(textColorArgb, 0xD8) else WidgetMiniForecastRenderer.heatmapContentColorArgb(tempColor)
                 valuePaint.color = contentColor
@@ -206,40 +202,16 @@ internal object WidgetHeatmapTrendForecastRenderer {
         centerX: Float,
         top: Float,
         bandHeight: Float,
-        profile: MiniForecastSizeProfile,
-        textColorArgb: Int,
-        accentColorArgb: Int,
-        isCurrent: Boolean
+        profile: MiniForecastSizeProfile
     ) {
         if (condition == null) return
         val iconSize = when (profile) {
-            MiniForecastSizeProfile.COMPACT_2X2 -> (bandHeight * 0.19f)
-            MiniForecastSizeProfile.MEDIUM_3X2 -> (bandHeight * 0.21f)
-            MiniForecastSizeProfile.EXPANDED_4X2 -> (bandHeight * 0.22f)
+            MiniForecastSizeProfile.COMPACT_2X2 -> (bandHeight * 0.23f)
+            MiniForecastSizeProfile.MEDIUM_3X2 -> (bandHeight * 0.25f)
+            MiniForecastSizeProfile.EXPANDED_4X2 -> (bandHeight * 0.26f)
         }.roundToInt().coerceAtLeast(12)
-        val badgeWidth = (iconSize * 1.72f).coerceAtLeast(iconSize + 10f)
+
         val badgeHeight = (iconSize * 1.30f).coerceAtLeast(iconSize + 7f)
-        val left = centerX - badgeWidth / 2f
-        val rect = RectF(left, top, left + badgeWidth, top + badgeHeight)
-
-        val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            style = Paint.Style.FILL
-            color = if (isCurrent) withAlpha(accentColorArgb, 0x32) else withAlpha(textColorArgb, 0x18)
-        }
-        val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            style = Paint.Style.FILL
-            color = if (isCurrent) withAlpha(0xFFFFFFFF.toInt(), 0xE2) else withAlpha(0xFFFFFFFF.toInt(), 0xCA)
-        }
-        val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            style = Paint.Style.STROKE
-            strokeWidth = if (isCurrent) 2.4f else 1.8f
-            color = if (isCurrent) withAlpha(accentColorArgb, 0x90) else withAlpha(textColorArgb, 0x3D)
-        }
-        val glowRect = RectF(rect.left - 1.5f, rect.top - 1.5f, rect.right + 1.5f, rect.bottom + 1.5f)
-        /*canvas.drawRoundRect(glowRect, badgeHeight / 2f, badgeHeight / 2f, glowPaint)*/
-        /*canvas.drawRoundRect(rect, badgeHeight / 2f, badgeHeight / 2f, fillPaint)*/
-        /*canvas.drawRoundRect(rect, badgeHeight / 2f, badgeHeight / 2f, strokePaint)*/
-
         val bitmap = WidgetWeatherIconRenderer.render(condition, iconSize)
         val iconLeft = centerX - iconSize / 2f
         val iconTop = top + (badgeHeight - iconSize) / 2f

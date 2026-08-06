@@ -39,8 +39,8 @@ android {
         applicationId = "com.meteocompare.app"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 18
-        versionName = "1.6.1"
+        versionCode = 21
+        versionName = "1.6.4"
         testInstrumentationRunner = "com.meteocompare.app.HiltTestRunner"
         vectorDrawables { useSupportLibrary = true }
     }
