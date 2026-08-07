@@ -2,14 +2,17 @@ package com.meteocompare.app.ui.citylist
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -26,7 +29,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
 /**
- * Duo lever/coucher du soleil affiché en haut à droite de chaque CityCard.
+ * Duo lever/coucher du soleil affiché sous l'identité de chaque CityCard.
  *
  * ─── Formatage HH:mm sensible à la locale ──────────────────────────────────
  * Utilise [DateTimeFormatter.ofLocalizedTime] en SHORT → HH:mm (24h) en FR,
@@ -69,40 +72,44 @@ internal fun SunTimesRow(
     val sunsetText = sunset?.format(formatter) ?: "—"
     val a11yLabel = stringResource(R.string.sun_times_a11y, sunriseText, sunsetText)
 
-    Row(
+    Surface(
         modifier = modifier
             .testTag(TAG_SUN_TIMES_ROW)
             .semantics {
                 contentDescription = a11yLabel
             },
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
+        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.68f),
+        shape = RoundedCornerShape(12.dp)
     ) {
-        // Icônes 12dp = 3× plus petites que l'icône météo principale (42dp).
-        // Volontairement discrètes pour ne pas rivaliser avec la temp du jour.
-        Icon(
-            imageVector = Icons.Filled.WbSunny,
-            contentDescription = null,
-            tint = iconTint,
-            modifier = Modifier.size(12.dp)
-        )
-        Text(
-            text = sunriseText,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(Modifier.width(6.dp))
-        Icon(
-            imageVector = Icons.Filled.Bedtime,
-            contentDescription = null,
-            tint = iconTint,
-            modifier = Modifier.size(12.dp)
-        )
-        Text(
-            text = sunsetText,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Filled.WbSunny,
+                contentDescription = null,
+                tint = iconTint,
+                modifier = Modifier.size(13.dp)
+            )
+            Text(
+                text = sunriseText,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.width(5.dp))
+            Icon(
+                imageVector = Icons.Filled.Bedtime,
+                contentDescription = null,
+                tint = iconTint,
+                modifier = Modifier.size(13.dp)
+            )
+            Text(
+                text = sunsetText,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 

@@ -9,17 +9,16 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -37,6 +36,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.Air
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.LocationCity
 import androidx.compose.material.icons.outlined.Thermostat
@@ -55,6 +55,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -67,12 +68,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
@@ -163,9 +166,31 @@ internal fun CityListContent(
     onRefresh: () -> Unit
 ) {
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.app_name)) },
+                title = {
+                    Column {
+                        Text(
+                            text = stringResource(R.string.app_name),
+                            fontWeight = FontWeight.Bold
+                        )
+                        if (!uiState.isEmpty) {
+                            Text(
+                                text = pluralStringResource(
+                                    R.plurals.home_locations_followed,
+                                    uiState.items.size,
+                                    uiState.items.size
+                                ),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLowest
+                ),
                 actions = {
                     IconButton(
                         onClick = onDonateClick,
@@ -234,13 +259,29 @@ internal fun CityList(
             .fillMaxSize()
             .testTag(TAG_CITY_LIST),
         contentPadding = PaddingValues(
-            top = 8.dp,
-            bottom = 96.dp, // espace pour le FAB
+            top = 10.dp,
+            bottom = 104.dp, // espace pour le FAB
             start = 16.dp,
             end = 16.dp
         ),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
+        item(key = "home-list-heading") {
+            Column(modifier = Modifier.padding(horizontal = 2.dp, vertical = 2.dp)) {
+                Text(
+                    text = stringResource(R.string.home_locations_title),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = stringResource(R.string.home_locations_subtitle),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
         if (!isOnline) {
             item(key = "offline-list-banner") {
                 OfflineCityListBanner()
@@ -307,20 +348,16 @@ internal fun CityCard(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Description sémantique consolidée pour TalkBack : on remplace l'annonce
-    // fragmentée (chaque texte/icône à part) par un résumé fluide qui inclut
-    // la ville, les valeurs et le niveau de confiance.
     val resources = LocalResources.current
     val a11yDescription = com.meteocompare.app.ui.accessibility.A11yFormatter
         .cityCardDescription(resources, state)
-    val isDark = isSystemInDarkTheme()
-    // ─── Halo latéral météo-adaptatif ────────────────────────────────────
-    // Couleur dérivée de la condition courante quand disponible. Loading /
-    // Error → neutre (on ne connaît pas le temps qu'il fait, on ne bluffe pas).
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val loaded = state.forecast as? ForecastState.Loaded
     val accentColor = WeatherAccent.of(
-        condition = (state.forecast as? ForecastState.Loaded)?.currentCondition,
+        condition = loaded?.currentCondition,
         isDark = isDark
     )
+
     Card(
         onClick = onClick,
         modifier = modifier
@@ -330,101 +367,58 @@ internal fun CityCard(
                 contentDescription = a11yDescription
                 role = Role.Button
             },
+        shape = RoundedCornerShape(28.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-        )
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        // Row parente avec `IntrinsicSize.Min` : sans ça, le Box.fillMaxHeight()
-        // de la barre latérale ne trouve pas de hauteur définie (parent en
-        // wrap_content). Avec IntrinsicSize.Min, la Row prend la hauteur de son
-        // plus grand enfant (le Column contenu), et la barre latérale peut
-        // s'étirer verticalement.
-        Row(modifier = Modifier.height(IntrinsicSize.Min)) {
-            // Barre d'accent 4dp — subtile mais non-négligeable. Clippée
-            // automatiquement par le shape rounded du Card, donc les coins
-            // haut-gauche et bas-gauche sont arrondis pour épouser la card.
-            Box(
-                modifier = Modifier
-                    .width(4.dp)
-                    .fillMaxHeight()
-                    .background(accentColor)
+        // Trait supérieur météo : plus léger qu'une barre latérale et plus
+        // cohérent avec les grandes cartes Material 3 arrondies.
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(3.dp)
+                .background(accentColor)
+        )
+
+        Column(modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp)) {
+            CityCardHeader(
+                city = state.city,
+                sunrise = loaded?.sunrise,
+                sunset = loaded?.sunset,
+                onRemove = onRemove
             )
-            Column(modifier = Modifier.padding(16.dp).weight(1f)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.Bottom
-                        ) {
-                            Text(
-                                text = state.city.name,
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Spacer(Modifier.width(10.dp))
-                            val subtitle = state.city.admin1 ?: state.city.country
-                            if (subtitle.isNotBlank()) {
-                                Text(
-                                    text = subtitle,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(bottom = 2.dp)
-                                )
-                            }
-                        }
-                        // SunTimes n'est affiché QUE si la card est Loaded ET
-                        // qu'on a au moins une valeur (sunrise OU sunset). En
-                        // Loading/Error on ne pollue pas avec du "—".
-                        val loaded = state.forecast as? ForecastState.Loaded
-                        if (loaded != null && (loaded.sunrise != null || loaded.sunset != null)) {
-                            SunTimesRow(
-                                sunrise = loaded.sunrise,
-                                sunset = loaded.sunset,
-                                modifier = Modifier.padding(end = 2.dp)
-                            )
-                        }
-                    }
-                    Column(horizontalAlignment = Alignment.End) {
-                        CityCardMenu(onRemove = onRemove)
+
+            Spacer(Modifier.height(14.dp))
+
+            AnimatedContent(
+                targetState = state.forecast,
+                transitionSpec = { fadeIn(tween(260)) togetherWith fadeOut(tween(220)) },
+                label = "forecast-state",
+                contentKey = {
+                    when (it) {
+                        ForecastState.Loading -> "loading"
+                        is ForecastState.Loaded -> "loaded"
+                        is ForecastState.Error -> "error"
                     }
                 }
-
-                Spacer(Modifier.height(5.dp))
-
-                // AnimatedContent entre les états du forecast.
-                // La cible utilise une clé type-stable (le simpleName de la classe),
-                // pas l'objet lui-même, pour que le Loaded(today=A) →
-                // Loaded(today=B) ne soit pas vu comme un changement d'état.
-                AnimatedContent(
-                    targetState = state.forecast,
-                    transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(300)) },
-                    label = "forecast-state",
-                    contentKey = {
-                        when (it) {
-                            ForecastState.Loading -> "loading"
-                            is ForecastState.Loaded -> "loaded"
-                            is ForecastState.Error -> "error"
-                        }
-                    }
-                ) { forecast ->
-                    when (forecast) {
-                        ForecastState.Loading -> CityCardLoading()
-                        is ForecastState.Loaded -> CityCardLoaded(
-                            today = forecast.today,
-                            currentTemp = forecast.currentTemp,
-                            currentCondition = forecast.currentCondition,
-                            currentCloudCover = forecast.currentCloudCover,
-                            fetchedAt = forecast.fetchedAt,
-                            next12hTemps = forecast.next12hTemps,
-                            next12hPrecipProb = forecast.next12hPrecipProb,
-                            next12hScenarios = forecast.next12hScenarios,
-                            hourlyStartTime = forecast.hourlyStartTime
-                        )
-                        is ForecastState.Error -> CityCardError(forecast.message, onRetry)
-                    }
+            ) { forecast ->
+                when (forecast) {
+                    ForecastState.Loading -> CityCardLoading()
+                    is ForecastState.Loaded -> CityCardLoaded(
+                        today = forecast.today,
+                        currentTemp = forecast.currentTemp,
+                        currentCondition = forecast.currentCondition,
+                        currentCloudCover = forecast.currentCloudCover,
+                        fetchedAt = forecast.fetchedAt,
+                        next12hTemps = forecast.next12hTemps,
+                        next12hPrecipProb = forecast.next12hPrecipProb,
+                        next12hScenarios = forecast.next12hScenarios,
+                        hourlyStartTime = forecast.hourlyStartTime,
+                        accentColor = accentColor
+                    )
+                    is ForecastState.Error -> CityCardError(forecast.message, onRetry)
                 }
             }
         }
@@ -432,35 +426,101 @@ internal fun CityCard(
 }
 
 @Composable
-private fun CityCardLoading() {
-    // Skeleton : 3 boxes shimmer alignées comme les futures valeurs réelles.
+private fun CityCardHeader(
+    city: City,
+    sunrise: java.time.LocalTime?,
+    sunset: java.time.LocalTime?,
+    onRemove: () -> Unit
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.Top
     ) {
-        ShimmerBox(modifier = Modifier.size(width = 72.dp, height = 22.dp))
-        ShimmerBox(modifier = Modifier.size(width = 56.dp, height = 22.dp))
-        ShimmerBox(modifier = Modifier.size(width = 48.dp, height = 24.dp), cornerRadius = 8.dp)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = city.name,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            val subtitle = city.admin1 ?: city.country
+            if (subtitle.isNotBlank()) {
+                Spacer(Modifier.height(1.dp))
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            if (sunrise != null || sunset != null) {
+                Spacer(Modifier.height(6.dp))
+                SunTimesRow(sunrise = sunrise, sunset = sunset)
+            }
+        }
+
+        CityCardMenu(onRemove = onRemove)
+    }
+}
+
+@Composable
+private fun CityCardLoading() {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        ShimmerBox(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(112.dp),
+            cornerRadius = 22.dp
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            repeat(3) {
+                ShimmerBox(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(72.dp),
+                    cornerRadius = 18.dp
+                )
+            }
+        }
     }
 }
 
 @Composable
 private fun CityCardError(message: String, onRetry: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
+    Surface(
+        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.62f),
+        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+        shape = RoundedCornerShape(18.dp)
     ) {
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.error,
-            modifier = Modifier.weight(1f)
-        )
-        TextButton(onClick = onRetry) {
-            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
-            Spacer(Modifier.width(4.dp))
-            Text(stringResource(R.string.action_retry))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.Info,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(Modifier.width(10.dp))
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.weight(1f)
+            )
+            TextButton(onClick = onRetry) {
+                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(4.dp))
+                Text(stringResource(R.string.action_retry))
+            }
         }
     }
 }
@@ -475,66 +535,67 @@ private fun CityCardLoaded(
     next12hTemps: List<Double?>,
     next12hPrecipProb: List<Int?>,
     next12hScenarios: List<WeatherScenario>,
-    hourlyStartTime: java.time.LocalDateTime?
+    hourlyStartTime: java.time.LocalDateTime?,
+    accentColor: Color
 ) {
-    // Column pour empiler la Row de valeurs + la mini prévision 12h + le
-    // caption de fraîcheur. Ordre choisi de haut en bas :
-    //   1. Valeurs primaires (temp/precip/confidence) — le "coup d'œil"
-    //   2. Mini prévision 12h — le "et après ?" contextuel
-    //   3. Caption "il y a X" — la fraîcheur, discrète
-    // Sans ce Column, la caption viendrait s'aligner dans la Row et casserait
-    // l'alignement des trois blocs.
     Column {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            TemperatureSummary(
-                currentTemp = currentTemp,
-                tempMax = today.tempMax,
-                currentCondition = currentCondition,
-                currentCloudCover = currentCloudCover
-            )
-            PrecipitationSummary(precip = today.precipitation)
-            ConfidenceBadge(percent = today.overallPercent)
-        }
+        CurrentWeatherHero(
+            currentTemp = currentTemp,
+            currentCondition = currentCondition,
+            currentCloudCover = currentCloudCover,
+            agreementPercent = today.overallPercent,
+            accentColor = accentColor
+        )
 
-        // Mini prévision 12h — n'apparaît QUE si on a au moins une temperature
-        // exploitable. Sur un cache pré-feature (listes vides), on saute
-        // silencieusement plutôt que d'afficher un rectangle vide.
+        Spacer(Modifier.height(10.dp))
+
+        TodayMetricGrid(today = today)
+
         if (next12hTemps.any { it != null }) {
             Spacer(Modifier.height(10.dp))
-            MiniForecastStrip(
-                hourlyTemps = next12hTemps,
-                hourlyPrecipProb = next12hPrecipProb,
-                startTime = hourlyStartTime
-            )
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                shape = RoundedCornerShape(20.dp),
+                border = BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
+                )
+            ) {
+                Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
+                    Text(
+                        text = stringResource(R.string.home_next_12h_title),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = stringResource(R.string.home_next_12h_subtitle),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    MiniForecastStrip(
+                        hourlyTemps = next12hTemps,
+                        hourlyPrecipProb = next12hPrecipProb,
+                        startTime = hourlyStartTime
+                    )
+                }
+            }
         }
 
-        // Les scénarios restent repliés par défaut : la Home conserve son
-        // format compact, mais l'utilisateur peut comprendre le désaccord sans
-        // ouvrir la page de détail. Un seul modèle ne suffit pas à former une
-        // comparaison, donc on masque la section dans ce cas.
         if (next12hScenarios.isNotEmpty() &&
             next12hScenarios.first().totalModelCount >= 2
         ) {
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(10.dp))
             HomeWeatherScenarios(scenarios = next12hScenarios)
         }
 
-        // Caption "mis à jour il y a X" — placé en bas à droite de la card,
-        // discret pour ne pas rivaliser avec les valeurs primaires. Le texte
-        // se recalcule tout seul au fil du temps via rememberFormattedLastUpdated
-        // (LaunchedEffect qui re-tick), donc laisser la home ouverte 5 minutes
-        // ne laisse pas apparaître un "à l'instant" mensonger.
         if (fetchedAt != null) {
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(10.dp))
             Text(
                 text = com.meteocompare.app.ui.components
                     .rememberFormattedLastUpdated(fetchedAt),
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
                 modifier = Modifier
                     .fillMaxWidth()
                     .wrapContentWidth(Alignment.End)
@@ -544,6 +605,253 @@ private fun CityCardLoaded(
 }
 
 @Composable
+private fun CurrentWeatherHero(
+    currentTemp: Double?,
+    currentCondition: WeatherCondition?,
+    currentCloudCover: Int?,
+    agreementPercent: Int?,
+    accentColor: Color
+) {
+    Surface(
+        color = accentColor.copy(
+            alpha = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) 0.16f else 0.10f
+        ),
+        shape = RoundedCornerShape(22.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (currentCondition != null) {
+                AnimatedWeatherIcon(
+                    condition = currentCondition,
+                    size = 62.dp,
+                    animated = false,
+                    tint = Color.Unspecified
+                )
+            } else {
+                Icon(
+                    Icons.Outlined.Thermostat,
+                    contentDescription = null,
+                    modifier = Modifier.size(46.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Spacer(Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = currentTemp?.let { "${it.roundToInt()}°" } ?: "—",
+                    style = MaterialTheme.typography.displaySmall,
+                    fontWeight = FontWeight.Bold
+                )
+
+                currentCondition?.let {
+                    Text(
+                        text = weatherConditionLabel(it),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
+                if (currentCloudCover != null) {
+                    Text(
+                        text = stringResource(R.string.home_cloud_cover, currentCloudCover),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            if (agreementPercent != null) {
+                HomeAgreementBadge(percent = agreementPercent)
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeAgreementBadge(percent: Int) {
+    val color = confidenceColor(percent)
+    Surface(
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(1.dp, color.copy(alpha = 0.28f))
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = stringResource(R.string.home_agreement_label),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = "$percent%",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = color
+            )
+        }
+    }
+}
+
+@Composable
+private fun TodayMetricGrid(today: DayConfidence) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        HomeMetricTile(
+            icon = Icons.Outlined.Thermostat,
+            label = stringResource(R.string.home_metric_max_temperature),
+            value = formatConfidenceScore(today.tempMax),
+            modifier = Modifier.weight(1f)
+        )
+
+        val precipPresentation = precipitationPresentation(today.precipitation)
+        HomeMetricTile(
+            icon = Icons.Outlined.WaterDrop,
+            label = stringResource(R.string.home_metric_rain),
+            value = precipPresentation.first,
+            supporting = precipPresentation.second,
+            modifier = Modifier.weight(1f)
+        )
+
+        HomeMetricTile(
+            icon = Icons.Outlined.Air,
+            label = stringResource(R.string.home_metric_wind),
+            value = formatWindScore(today.windMax),
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+@Composable
+private fun HomeMetricTile(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    supporting: String? = null
+) {
+    Surface(
+        modifier = modifier,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.72f),
+        shape = RoundedCornerShape(18.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Spacer(Modifier.width(5.dp))
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Spacer(Modifier.height(5.dp))
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (supporting != null) {
+                Spacer(Modifier.height(1.dp))
+                Text(
+                    text = supporting,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+private fun formatConfidenceScore(score: ConfidenceScore?): String {
+    if (score == null) return "—"
+    return if (score.spread <= 1.0) {
+        "${score.meanValue.roundToInt()}°"
+    } else {
+        "${score.minValue.roundToInt()}-${score.maxValue.roundToInt()}°"
+    }
+}
+
+private fun formatWindScore(score: ConfidenceScore?): String {
+    if (score == null) return "—"
+    return if (score.spread <= 2.0) {
+        "${score.meanValue.roundToInt()} km/h"
+    } else {
+        "${score.minValue.roundToInt()}-${score.maxValue.roundToInt()} km/h"
+    }
+}
+
+@Composable
+private fun precipitationPresentation(
+    precip: PrecipitationConfidence?
+): Pair<String, String?> = when (precip) {
+    null -> "—" to null
+    is PrecipitationConfidence.NoRain ->
+        stringResource(R.string.precip_dry) to null
+    is PrecipitationConfidence.Rain -> {
+        val value = if (precip.minMm.roundToInt() == precip.maxMm.roundToInt()) {
+            "${precip.meanMm.roundToInt()} mm"
+        } else {
+            "${precip.minMm.roundToInt()}-${precip.maxMm.roundToInt()} mm"
+        }
+        value to null
+    }
+    is PrecipitationConfidence.Divided -> {
+        val value = if (precip.rainMinMm.roundToInt() == precip.rainMaxMm.roundToInt()) {
+            "${precip.rainMeanMm.roundToInt()} mm"
+        } else {
+            "${precip.rainMinMm.roundToInt()}-${precip.rainMaxMm.roundToInt()} mm"
+        }
+        value to stringResource(
+            R.string.precip_divided,
+            precip.modelsForRain,
+            precip.modelCount
+        )
+    }
+}
+
+@Composable
+private fun weatherConditionLabel(condition: WeatherCondition): String = stringResource(
+    when (condition) {
+        WeatherCondition.CLEAR -> R.string.weather_clear
+        WeatherCondition.MAINLY_CLEAR -> R.string.weather_mainly_clear
+        WeatherCondition.PARTLY_CLOUDY -> R.string.weather_partly_cloudy
+        WeatherCondition.OVERCAST -> R.string.weather_overcast
+        WeatherCondition.FOG -> R.string.weather_fog
+        WeatherCondition.DRIZZLE -> R.string.weather_drizzle
+        WeatherCondition.RAIN -> R.string.weather_rain
+        WeatherCondition.FREEZING_RAIN -> R.string.weather_freezing_rain
+        WeatherCondition.SNOW -> R.string.weather_snow
+        WeatherCondition.RAIN_SHOWERS -> R.string.weather_rain_showers
+        WeatherCondition.SNOW_SHOWERS -> R.string.weather_snow_showers
+        WeatherCondition.THUNDERSTORM -> R.string.weather_thunderstorm
+        WeatherCondition.UNKNOWN -> R.string.weather_unknown
+    }
+)
+
+@Composable
 private fun HomeWeatherScenarios(
     scenarios: List<WeatherScenario>
 ) {
@@ -551,23 +859,43 @@ private fun HomeWeatherScenarios(
     val totalModels = scenarios.firstOrNull()?.totalModelCount ?: return
 
     Surface(
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        shape = MaterialTheme.shapes.medium
+        color = MaterialTheme.colorScheme.surfaceContainerLowest,
+        shape = RoundedCornerShape(20.dp),
+        border = BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
+        )
     ) {
         Column {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { expanded = !expanded }
-                    .padding(horizontal = 12.dp, vertical = 9.dp),
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+                ) {
+                    Text(
+                        text = "≈",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    )
+                }
+
+                Spacer(Modifier.width(10.dp))
+
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = stringResource(R.string.home_scenarios_title),
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.SemiBold
                     )
+                    Spacer(Modifier.height(1.dp))
                     Text(
                         text = "${pluralStringResource(R.plurals.home_scenarios_count, scenarios.size, scenarios.size)} · " +
                             pluralStringResource(R.plurals.home_scenarios_models, totalModels, totalModels),
@@ -575,18 +903,27 @@ private fun HomeWeatherScenarios(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Icon(
-                    imageVector = if (expanded) {
-                        Icons.Default.KeyboardArrowUp
-                    } else {
-                        Icons.Default.KeyboardArrowDown
-                    },
-                    contentDescription = stringResource(
-                        if (expanded) R.string.home_scenarios_hide
-                        else R.string.home_scenarios_show
-                    ),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh
+                ) {
+                    Icon(
+                        imageVector = if (expanded) {
+                            Icons.Default.KeyboardArrowUp
+                        } else {
+                            Icons.Default.KeyboardArrowDown
+                        },
+                        contentDescription = stringResource(
+                            if (expanded) R.string.home_scenarios_hide
+                            else R.string.home_scenarios_show
+                        ),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .padding(5.dp)
+                            .size(20.dp)
+                    )
+                }
             }
 
             AnimatedVisibility(
@@ -595,14 +932,21 @@ private fun HomeWeatherScenarios(
                 exit = shrinkVertically() + fadeOut()
             ) {
                 Column(
-                    modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 11.dp),
+                    modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(
-                        text = stringResource(R.string.home_scenarios_explainer),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Surface(
+                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.home_scenarios_explainer),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp)
+                        )
+                    }
+
                     scenarios.forEachIndexed { index, scenario ->
                         HomeWeatherScenarioRow(
                             scenario = scenario,
@@ -620,33 +964,56 @@ private fun HomeWeatherScenarioRow(
     scenario: WeatherScenario,
     rank: Int
 ) {
-    Row(
+    val representativeCondition = scenarioRepresentativeCondition(scenario.kind)
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.Top
+        color = if (rank == 0) {
+            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.36f)
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.62f)
+        },
+        shape = RoundedCornerShape(16.dp)
     ) {
-        val representativeCondition = scenarioRepresentativeCondition(scenario.kind)
-        if (representativeCondition != null) {
-            AnimatedWeatherIcon(
-                condition = representativeCondition,
-                size = 32.dp,
-                animated = false,
-                tint = Color.Unspecified
-            )
-            Spacer(Modifier.width(8.dp))
-        }
+        Row(
+            modifier = Modifier.padding(horizontal = 11.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (representativeCondition != null) {
+                AnimatedWeatherIcon(
+                    condition = representativeCondition,
+                    size = 36.dp,
+                    animated = false,
+                    tint = Color.Unspecified
+                )
+                Spacer(Modifier.width(9.dp))
+            }
 
-        Column(modifier = Modifier.weight(1f)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = weatherScenarioTitle(scenario),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = if (rank == 0) FontWeight.SemiBold else FontWeight.Medium,
-                    modifier = Modifier.weight(1f)
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
-                Spacer(Modifier.width(8.dp))
+
+                val metrics = weatherScenarioMetrics(scenario)
+                if (metrics.isNotEmpty()) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = metrics.joinToString(" · "),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Spacer(Modifier.width(8.dp))
+
+            Surface(
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
+                shape = RoundedCornerShape(12.dp)
+            ) {
                 Text(
                     text = stringResource(
                         R.string.forecast_insight_metric_model_ratio,
@@ -654,17 +1021,9 @@ private fun HomeWeatherScenarioRow(
                         scenario.totalModelCount
                     ),
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            val metrics = weatherScenarioMetrics(scenario)
-            if (metrics.isNotEmpty()) {
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = metrics.joinToString(" · "),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
                 )
             }
         }
@@ -757,177 +1116,6 @@ private fun weatherScenarioMetrics(scenario: WeatherScenario): List<String> {
         }
 
         gustMetric?.let(::add)
-    }
-}
-
-@Composable
-private fun TemperatureSummary(
-    currentTemp: Double?,
-    tempMax: ConfidenceScore?,
-    currentCondition: WeatherCondition?,
-    currentCloudCover: Int? = null
-) {
-    // Affichage : icône temps + grosse temp actuelle + petite "↑ max" en dessous.
-    // L'icône précède la température parce que le temps qu'il fait (soleil/
-    // pluie/orage) est l'info la plus immédiate pour un utilisateur qui scrolle
-    // sa liste de villes — il identifie en 100ms s'il faut prendre un parapluie.
-    // Si pas de current dispo (cas dégénéré), on retombe sur l'ancien affichage
-    // de la max seule pour rester utile.
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        if (currentCondition != null) {
-            // Tinted via la couleur sémantique — sur la liste on a 4-6 cards
-            // visibles, des icônes colorées font ressortir d'un coup les
-            // villes "où il pleut" sans avoir à lire chaque ligne.
-            // Taille 42dp (vs 24dp avant) : avec 24dp l'icône faisait pâle
-            // face au titre de la ville en titleLarge à côté ; 32dp lui donne
-            // assez de présence pour qu'on la repère d'un balayage du pouce.
-            val showCloudBadge = currentCloudCover != null &&
-                    (currentCondition == WeatherCondition.PARTLY_CLOUDY ||
-                            currentCondition == WeatherCondition.OVERCAST)
-            // Colonne icône + badge % nuage éventuel. Le badge n'apparaît que
-            // pour les conditions cloudy/overcast (il n'a pas de sens pour
-            // "clair" ou "pluie") ET si on a une valeur cloud_cover réelle
-            // (pas de bidouillage). Sans badge → l'icône reste seule et le
-            // layout Row à côté ne bouge pas (Column avec seul enfant = taille
-            // de l'icône, comme avant).
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                // La liste peut afficher plusieurs villes simultanément. Une
-                // animation infinie par carte maintiendrait le rendu GPU/CPU
-                // actif tant que l'écran reste ouvert. On garde ici le dessin
-                // statique et la transition ponctuelle de condition ; l'icône
-                // animée complète reste réservée à l'écran détail.
-                AnimatedWeatherIcon(
-                    condition = currentCondition,
-                    size = 50.dp,
-                    animated = false,
-                    tint = Color.Unspecified
-                )
-                if (showCloudBadge) {
-                    Text(
-                        text = "${currentCloudCover}%",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-            Spacer(Modifier.width(8.dp))
-        } else {
-            // Fallback : si on n'a pas de code météo (cache pré-feature), on
-            // garde le thermomètre pour ne pas casser la composition Row.
-            Icon(
-                Icons.Outlined.Thermostat,
-                contentDescription = null,
-                modifier = Modifier.size(20.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(Modifier.width(4.dp))
-        }
-        if (currentTemp != null) {
-            Column {
-                Text(
-                    text = "${currentTemp.roundToInt()}°",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    // start padding = largeur visuelle approximative de "↑ "
-                    // en labelSmall — sans, le digit "2" de "20°" était à x=0
-                    // tandis que le digit "2" de "↑ 22-24°" était décalé à
-                    // droite, donc les chiffres ne s'alignaient pas
-                    // verticalement. 10dp recale visuellement les deux lignes
-                    // sur leur PREMIER CHIFFRE plutôt que sur leur début de
-                    // texte. Le 10dp est calibré empiriquement (Roboto / sp
-                    // par défaut) — c'est typographique, pas paramétré.
-                    modifier = Modifier.padding(start = 10.dp)
-                )
-                if (tempMax != null) {
-                    // Format intervalle si les modèles divergent significativement,
-                    // sinon valeur unique. Le seuil 1°C correspond à du bruit
-                    // d'arrondi — au-delà, c'est de la vraie incertitude qu'on
-                    // veut surfacer (c'est le différenciateur de l'app).
-                    val maxText = if (tempMax.spread <= 1.0) {
-                        "${tempMax.meanValue.roundToInt()}°"
-                    } else {
-                        "${tempMax.minValue.roundToInt()}-${tempMax.maxValue.roundToInt()}°"
-                    }
-                    Text(
-                        text = "↑ $maxText",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        } else if (tempMax != null) {
-            val text = if (tempMax.spread <= 1.0) {
-                "${tempMax.meanValue.roundToInt()}°"
-            } else {
-                "${tempMax.minValue.roundToInt()}-${tempMax.maxValue.roundToInt()}°"
-            }
-            Text(text, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
-        } else {
-            Text("—", style = MaterialTheme.typography.titleMedium)
-        }
-    }
-}
-
-@Composable
-private fun PrecipitationSummary(precip: PrecipitationConfidence?) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(
-            Icons.Outlined.WaterDrop,
-            contentDescription = null,
-            modifier = Modifier.size(20.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(Modifier.width(4.dp))
-        when (precip) {
-            is PrecipitationConfidence.Divided -> {
-                val amount = if (precip.rainMinMm.roundToInt() == precip.rainMaxMm.roundToInt()) {
-                    "${precip.rainMeanMm.roundToInt()} mm"
-                } else {
-                    "${precip.rainMinMm.roundToInt()}-${precip.rainMaxMm.roundToInt()} mm"
-                }
-                Column {
-                    Text(amount, style = MaterialTheme.typography.bodyLarge)
-                    Text(
-                        text = stringResource(
-                            R.string.precip_divided,
-                            precip.modelsForRain,
-                            precip.modelCount
-                        ),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-            else -> {
-                val text = when (precip) {
-                    null -> "—"
-                    is PrecipitationConfidence.NoRain -> stringResource(R.string.precip_dry)
-                    is PrecipitationConfidence.Rain ->
-                        "${precip.minMm.roundToInt()}-${precip.maxMm.roundToInt()} mm"
-                    is PrecipitationConfidence.Divided -> error("handled above")
-                }
-                Text(text, style = MaterialTheme.typography.bodyLarge)
-            }
-        }
-    }
-}
-
-@Composable
-private fun ConfidenceBadge(percent: Int?) {
-    if (percent == null) return
-    val color = confidenceColor(percent)
-    Surface(
-        color = color.copy(alpha = 0.15f),
-        modifier = Modifier.clip(MaterialTheme.shapes.small)
-    ) {
-        Text(
-            text = "$percent%",
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.SemiBold,
-            color = color,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-        )
     }
 }
 

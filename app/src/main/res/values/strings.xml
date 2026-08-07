@@ -560,6 +560,20 @@
     <string name="model_coverage_united_states">États-Unis</string>
     <string name="model_coverage_global">Monde</string>
     <string name="model_metadata">%1$s · %2$d j</string>
+    <!-- Home modernisée -->
+    <string name="home_locations_title">Mes localités</string>
+    <string name="home_locations_subtitle">La météo et l’accord des modèles en un coup d’œil</string>
+    <plurals name="home_locations_followed">
+        <item quantity="one">%d localité suivie</item>
+        <item quantity="other">%d localités suivies</item>
+    </plurals>
+    <string name="home_next_12h_title">Prochaines 12 h</string>
+    <string name="home_next_12h_subtitle">Évolution de la température · risque de pluie</string>
+    <string name="home_cloud_cover">Nuages %d %%</string>
+    <string name="home_agreement_label">Accord</string>
+    <string name="home_metric_max_temperature">Max.</string>
+    <string name="home_metric_rain">Pluie</string>
+    <string name="home_metric_wind">Vent</string>
     <!-- Scénarios météo repliables sur la Home -->
     <string name="home_scenarios_title">Scénarios · prochaines 12 h</string>
     <plurals name="home_scenarios_count">

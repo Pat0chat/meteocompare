@@ -4,13 +4,12 @@ import androidx.compose.ui.graphics.Color
 import com.meteocompare.app.domain.model.WeatherCondition
 
 /**
- * Mapping [WeatherCondition] → couleur d'accent utilisée pour la barre latérale
- * de chaque `CityCard` sur la liste des villes.
+ * Mapping [WeatherCondition] → couleur d'accent utilisée pour le liseré supérieur
+ * et les surfaces météo de chaque `CityCard` sur la liste des villes.
  *
  * ─── Rôle produit ─────────────────────────────────────────────────────────
  * Un utilisateur qui scrolle sa home doit pouvoir repérer d'un coup d'œil
- * "où il pleut / où il fait beau" sans lire les valeurs numériques. Une barre
- * verticale colorée à gauche de la card sert de code visuel :
+ * "où il pleut / où il fait beau" sans lire les valeurs numériques. Un accent coloré discret sur la card sert de code visuel :
  *   - warm (jaune/orange) = beau
  *   - froide (bleu) = pluie
  *   - saturée (rouge) = alerte (orage)
@@ -28,7 +27,7 @@ import com.meteocompare.app.domain.model.WeatherCondition
  * sont éclaircies pour ne pas se fondre dans le fond sombre.
  *
  * ─── Ce qui N'EST PAS ici ─────────────────────────────────────────────────
- * Cette palette est utilisée UNIQUEMENT pour la barre latérale de card. Les
+ * Cette palette est utilisée pour les accents météo de la CityCard. Les
  * icônes météo (WeatherIconDecorative) ont leur propre tint sémantique
  * (`semanticTint()`), volontairement différent : l'icône traduit la nature
  * du phénomène (goutte bleue pour pluie), la barre traduit un jugement
@@ -77,7 +76,7 @@ internal object WeatherAccent {
     // ─── Palette (privée, exposée uniquement via `of`) ─────────────────────
     // Chaque paire light/dark est ajustée pour un ratio de contraste raisonnable
     // sur le surface color Material 3 par défaut. On ne vise pas WCAG AA sur
-    // une barre décorative 4dp — elle sert de signal, pas de texte — mais
+    // un accent décoratif — il sert de signal, pas de texte — mais
     // elle doit rester perceptible sur les 2 thèmes.
 
     // Beau temps — amber saturé, chaud
