@@ -265,22 +265,6 @@ internal fun CityList(
         ),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        item(key = "home-list-heading") {
-            Column(modifier = Modifier.padding(horizontal = 2.dp, vertical = 2.dp)) {
-                Text(
-                    text = stringResource(R.string.home_locations_title),
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = stringResource(R.string.home_locations_subtitle),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-
         if (!isOnline) {
             item(key = "offline-list-banner") {
                 OfflineCityListBanner()
@@ -389,7 +373,7 @@ internal fun CityCard(
                 onRemove = onRemove
             )
 
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(10.dp))
 
             AnimatedContent(
                 targetState = state.forecast,
@@ -436,28 +420,33 @@ private fun CityCardHeader(
         verticalAlignment = Alignment.Top
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = city.name,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-
-            val subtitle = city.admin1 ?: city.country
-            if (subtitle.isNotBlank()) {
-                Spacer(Modifier.height(1.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Bottom
+            ) {
                 Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = city.name,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+                Spacer(Modifier.width(12.dp))
+                val subtitle = city.admin1 ?: city.country
+                if (subtitle.isNotBlank()) {
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(bottom = 3.dp)
+                    )
+                }
             }
 
             if (sunrise != null || sunset != null) {
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(4.dp))
                 SunTimesRow(sunrise = sunrise, sunset = sunset)
             }
         }
@@ -543,43 +532,15 @@ private fun CityCardLoaded(
             currentCondition = currentCondition,
             currentCloudCover = currentCloudCover,
             agreementPercent = today.overallPercent,
-            accentColor = accentColor
+            accentColor = accentColor,
+            hourlyTemps = next12hTemps,
+            hourlyPrecipProb = next12hPrecipProb,
+            startTime = hourlyStartTime
         )
 
         Spacer(Modifier.height(10.dp))
 
         TodayMetricGrid(today = today)
-
-        if (next12hTemps.any { it != null }) {
-            Spacer(Modifier.height(10.dp))
-            Surface(
-                color = MaterialTheme.colorScheme.surfaceContainerLowest,
-                shape = RoundedCornerShape(20.dp),
-                border = BorderStroke(
-                    1.dp,
-                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
-                )
-            ) {
-                Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
-                    Text(
-                        text = stringResource(R.string.home_next_12h_title),
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Text(
-                        text = stringResource(R.string.home_next_12h_subtitle),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    MiniForecastStrip(
-                        hourlyTemps = next12hTemps,
-                        hourlyPrecipProb = next12hPrecipProb,
-                        startTime = hourlyStartTime
-                    )
-                }
-            }
-        }
 
         if (next12hScenarios.isNotEmpty() &&
             next12hScenarios.first().totalModelCount >= 2
@@ -597,7 +558,7 @@ private fun CityCardLoaded(
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .wrapContentWidth(Alignment.End)
+                    .wrapContentWidth(Alignment.CenterHorizontally)
             )
         }
     }
@@ -609,7 +570,10 @@ private fun CurrentWeatherHero(
     currentCondition: WeatherCondition?,
     currentCloudCover: Int?,
     agreementPercent: Int?,
-    accentColor: Color
+    accentColor: Color,
+    hourlyTemps: List<Double?>,
+    hourlyPrecipProb: List<Int?>,
+    startTime: java.time.LocalDateTime?
 ) {
     Surface(
         color = accentColor.copy(
@@ -617,56 +581,67 @@ private fun CurrentWeatherHero(
         ),
         shape = RoundedCornerShape(22.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (currentCondition != null) {
-                AnimatedWeatherIcon(
-                    condition = currentCondition,
-                    size = 62.dp,
-                    animated = false,
-                    tint = Color.Unspecified
-                )
-            } else {
-                Icon(
-                    Icons.Outlined.Thermostat,
-                    contentDescription = null,
-                    modifier = Modifier.size(46.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Spacer(Modifier.width(12.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = currentTemp?.let { "${it.roundToInt()}°" } ?: "—",
-                    style = MaterialTheme.typography.displaySmall,
-                    fontWeight = FontWeight.Bold
-                )
-
-                currentCondition?.let {
-                    Text(
-                        text = weatherConditionLabel(it),
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium
+        Column (modifier = Modifier.padding(horizontal = 20.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (currentCondition != null) {
+                    AnimatedWeatherIcon(
+                        condition = currentCondition,
+                        size = 62.dp,
+                        animated = true,
+                        tint = Color.Unspecified
+                    )
+                } else {
+                    Icon(
+                        Icons.Outlined.Thermostat,
+                        contentDescription = null,
+                        modifier = Modifier.size(46.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
-                if (currentCloudCover != null) {
+                Spacer(Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = stringResource(R.string.home_cloud_cover, currentCloudCover),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = currentTemp?.let { "${it.roundToInt()}°" } ?: "—",
+                        style = MaterialTheme.typography.displaySmall,
+                        fontWeight = FontWeight.Bold
                     )
+
+                    currentCondition?.let {
+                        Text(
+                            text = weatherConditionLabel(it),
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+
+                    if (currentCloudCover != null) {
+                        Text(
+                            text = stringResource(R.string.home_cloud_cover, currentCloudCover),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                if (agreementPercent != null) {
+                    HomeAgreementBadge(percent = agreementPercent)
                 }
             }
 
-            if (agreementPercent != null) {
-                HomeAgreementBadge(percent = agreementPercent)
+            if (hourlyTemps.any { it != null }) {
+                MiniForecastStrip(
+                    hourlyTemps = hourlyTemps,
+                    hourlyPrecipProb = hourlyPrecipProb,
+                    startTime = startTime
+                )
+                Spacer(Modifier.height(10.dp))
             }
         }
     }
@@ -707,7 +682,6 @@ private fun TodayMetricGrid(today: DayConfidence) {
     ) {
         HomeMetricTile(
             icon = Icons.Outlined.Thermostat,
-            label = stringResource(R.string.home_metric_max_temperature),
             value = formatConfidenceScore(today.tempMax),
             modifier = Modifier.weight(1f)
         )
@@ -715,7 +689,6 @@ private fun TodayMetricGrid(today: DayConfidence) {
         val precipPresentation = precipitationPresentation(today.precipitation)
         HomeMetricTile(
             icon = Icons.Outlined.WaterDrop,
-            label = stringResource(R.string.home_metric_rain),
             value = precipPresentation.first,
             supporting = precipPresentation.second,
             modifier = Modifier.weight(1f)
@@ -723,7 +696,6 @@ private fun TodayMetricGrid(today: DayConfidence) {
 
         HomeMetricTile(
             icon = Icons.Outlined.Air,
-            label = stringResource(R.string.home_metric_wind),
             value = formatWindScore(today.windMax),
             modifier = Modifier.weight(1f)
         )
@@ -733,7 +705,6 @@ private fun TodayMetricGrid(today: DayConfidence) {
 @Composable
 private fun HomeMetricTile(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
     value: String,
     modifier: Modifier = Modifier,
     supporting: String? = null
@@ -743,7 +714,8 @@ private fun HomeMetricTile(
         color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.72f),
         shape = RoundedCornerShape(18.dp)
     ) {
-        Column(
+        Row(
+            horizontalArrangement = Arrangement.Center,
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -753,32 +725,26 @@ private fun HomeMetricTile(
                     modifier = Modifier.size(16.dp),
                     tint = MaterialTheme.colorScheme.primary
                 )
-                Spacer(Modifier.width(5.dp))
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
             }
-            Spacer(Modifier.height(5.dp))
-            Text(
-                text = value,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            if (supporting != null) {
-                Spacer(Modifier.height(1.dp))
+            Spacer(Modifier.width(4.dp))
+            Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = supporting,
+                    text = value,
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+                if (supporting != null) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = supporting,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
         }
     }
@@ -858,7 +824,7 @@ private fun HomeWeatherScenarios(
     val totalModels = scenarios.firstOrNull()?.totalModelCount ?: return
 
     Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerLowest,
+        color = MaterialTheme.colorScheme.surfaceContainerLowest.copy(alpha = 0.50f),
         shape = RoundedCornerShape(20.dp),
         border = BorderStroke(
             1.dp,
@@ -934,18 +900,6 @@ private fun HomeWeatherScenarios(
                     modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f),
-                        shape = RoundedCornerShape(14.dp)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.home_scenarios_explainer),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp)
-                        )
-                    }
-
                     scenarios.forEachIndexed { index, scenario ->
                         HomeWeatherScenarioRow(
                             scenario = scenario,
@@ -974,7 +928,7 @@ private fun HomeWeatherScenarioRow(
         shape = RoundedCornerShape(16.dp)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 11.dp, vertical = 10.dp),
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (representativeCondition != null) {
@@ -988,13 +942,33 @@ private fun HomeWeatherScenarioRow(
             }
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = weatherScenarioTitle(scenario),
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = if (rank == 0) FontWeight.SemiBold else FontWeight.Medium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = weatherScenarioTitle(scenario),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = if (rank == 0) FontWeight.SemiBold else FontWeight.Medium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(Modifier.width(8.dp))
+
+                    Surface(
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.64f),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text(
+                            text = stringResource(
+                                R.string.forecast_insight_metric_model_ratio,
+                                scenario.modelCount,
+                                scenario.totalModelCount
+                            ),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+                        )
+                    }
+                }
 
                 val metrics = weatherScenarioMetrics(scenario)
                 if (metrics.isNotEmpty()) {
@@ -1005,25 +979,6 @@ private fun HomeWeatherScenarioRow(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-            }
-
-            Spacer(Modifier.width(8.dp))
-
-            Surface(
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text(
-                    text = stringResource(
-                        R.string.forecast_insight_metric_model_ratio,
-                        scenario.modelCount,
-                        scenario.totalModelCount
-                    ),
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
-                )
             }
         }
     }

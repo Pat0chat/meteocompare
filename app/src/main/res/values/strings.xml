@@ -564,19 +564,12 @@
     <string name="model_horizon_days_decimal">%1$.1f j</string>
     <string name="model_horizon_hours">%1$d h</string>
     <!-- Home modernisée -->
-    <string name="home_locations_title">Mes localités</string>
-    <string name="home_locations_subtitle">La météo et l’accord des modèles en un coup d’œil</string>
     <plurals name="home_locations_followed">
         <item quantity="one">%d localité suivie</item>
         <item quantity="other">%d localités suivies</item>
     </plurals>
-    <string name="home_next_12h_title">Prochaines 12 h</string>
-    <string name="home_next_12h_subtitle">Évolution de la température · risque de pluie</string>
     <string name="home_cloud_cover">Nuages %d %%</string>
     <string name="home_agreement_label">Accord</string>
-    <string name="home_metric_max_temperature">Max.</string>
-    <string name="home_metric_rain">Pluie</string>
-    <string name="home_metric_wind">Vent</string>
     <!-- Scénarios météo repliables sur la Home -->
     <string name="home_scenarios_title">Scénarios · prochaines 12 h</string>
     <plurals name="home_scenarios_count">
@@ -588,12 +581,11 @@
         <item quantity="other">%d modèles</item>
     </plurals>
     <string name="home_scenario_gust_short">raf. %1$s</string>
-    <string name="home_scenarios_explainer">Regroupement des modèles disponibles, pas une probabilité.</string>
     <string name="home_scenarios_show">Afficher les scénarios météo</string>
     <string name="home_scenarios_hide">Masquer les scénarios météo</string>
     <string name="home_scenario_clear">Sec et plutôt dégagé</string>
     <string name="home_scenario_variable_sky">Sec avec ciel variable</string>
-    <string name="home_scenario_dry_unspecified">Sec, ciel non renseigné</string>
+    <string name="home_scenario_dry_unspecified">Sec, condition non renseigné</string>
     <string name="home_scenario_overcast">Sec et plutôt couvert</string>
     <string name="home_scenario_showers_early">Averses en début de période</string>
     <string name="home_scenario_showers_middle">Averses au fil des heures</string>

@@ -566,19 +566,12 @@
     <string name="model_horizon_days_decimal">%1$.1f d</string>
     <string name="model_horizon_hours">%1$d h</string>
     <!-- Modernized Home -->
-    <string name="home_locations_title">My locations</string>
-    <string name="home_locations_subtitle">Weather and model agreement at a glance</string>
     <plurals name="home_locations_followed">
         <item quantity="one">%d location followed</item>
         <item quantity="other">%d locations followed</item>
     </plurals>
-    <string name="home_next_12h_title">Next 12 h</string>
-    <string name="home_next_12h_subtitle">Temperature trend · rain risk</string>
     <string name="home_cloud_cover">Cloud cover %d%%</string>
     <string name="home_agreement_label">Agreement</string>
-    <string name="home_metric_max_temperature">Max.</string>
-    <string name="home_metric_rain">Rain</string>
-    <string name="home_metric_wind">Wind</string>
     <!-- Collapsible weather scenarios on Home -->
     <string name="home_scenarios_title">Scenarios · next 12 h</string>
     <plurals name="home_scenarios_count">
@@ -590,7 +583,6 @@
         <item quantity="other">%d models</item>
     </plurals>
     <string name="home_scenario_gust_short">gusts %1$s</string>
-    <string name="home_scenarios_explainer">Grouping of available models, not a probability.</string>
     <string name="home_scenarios_show">Show weather scenarios</string>
     <string name="home_scenarios_hide">Hide weather scenarios</string>
     <string name="home_scenario_clear">Dry and mostly clear</string>
