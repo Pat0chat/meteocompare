@@ -7,6 +7,7 @@ import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.core.network.NetworkMonitor
 import com.meteocompare.app.core.network.toUserMessage
 import com.meteocompare.app.core.util.runSuspendCatching
+import com.meteocompare.app.core.util.validZoneOrNull
 import com.meteocompare.app.data.local.ForecastCacheDao
 import com.meteocompare.app.data.local.ForecastCacheEntity
 import com.meteocompare.app.data.mapper.ForecastMapper
@@ -301,7 +302,11 @@ class ForecastRepositoryImpl @Inject constructor(
         models: List<WeatherModel>
     ): CachedForecast? = withContext(ioDispatcher) {
         val entries = cacheDao.getForCity(city.id)
-        val modelByApiKey = models.associateBy(WeatherModel::apiKey)
+        val modelByApiKey = buildMap {
+            models.forEach { model ->
+                model.compatibleApiKeys.forEach { key -> put(key, model) }
+            }
+        }
         val cachedModels = withContext(computationDispatcher) {
             entries.mapNotNull { entry ->
                 val model = modelByApiKey[entry.modelKey] ?: return@mapNotNull null
@@ -310,7 +315,8 @@ class ForecastRepositoryImpl @Inject constructor(
                         fetchedAtMs = entry.fetchedAtEpochMs,
                         model = model,
                         series = null,
-                        knownUnavailable = true
+                        knownUnavailable = true,
+                        timezone = null
                     )
                 } else {
                     runCatching {
@@ -319,11 +325,19 @@ class ForecastRepositoryImpl @Inject constructor(
                             fetchedAtMs = entry.fetchedAtEpochMs,
                             model = model,
                             series = mapper.toSeries(model, dto),
-                            knownUnavailable = false
+                            knownUnavailable = false,
+                            timezone = dto.timezone
                         )
                     }.getOrNull()
                 }
             }
+                // Une clé API peut changer au fil du temps (ex. GEM). Si une
+                // ancienne et une nouvelle clé coexistent dans Room, elles
+                // désignent le même modèle métier : la ligne la plus récente
+                // doit être l'unique source de vérité, indépendamment de
+                // l'ordre de retour SQL.
+                .groupBy(CachedModelEntry::model)
+                .map { (_, candidates) -> candidates.maxBy(CachedModelEntry::fetchedAtMs) }
         }
         if (cachedModels.isEmpty()) return@withContext null
 
@@ -343,7 +357,7 @@ class ForecastRepositoryImpl @Inject constructor(
         // Une entrée corrompue est ignorée et ne doit pas influencer la date
         // affichée. Les marqueurs d'indisponibilité valides participent en
         // revanche à la fraîcheur : ils évitent de re-questionner toutes les
-        // 15 minutes un modèle régional connu hors zone.
+        // 15 minutes un modèle momentanément ou structurellement indisponible.
         // La fraîcheur du lot est celle de son entrée LA PLUS ANCIENNE, pas
         // de la plus récente. Sinon l'ajout d'un nouveau modèle pouvait rendre
         // le cache "frais" grâce à un autre modèle récent et empêcher le fetch
@@ -353,7 +367,9 @@ class ForecastRepositoryImpl @Inject constructor(
 
         CachedForecast(
             forecast = CityForecast(
-                city = city,
+                city = city.withApiTimezoneFallback(
+                    cachedModels.asSequence().mapNotNull(CachedModelEntry::timezone).firstOrNull()
+                ),
                 seriesByModel = seriesByModel,
                 errors = unavailableModels.associateWith {
                     context.getString(R.string.error_model_out_of_range)
@@ -377,10 +393,11 @@ class ForecastRepositoryImpl @Inject constructor(
      *
      * ─── Erreurs par modèle ──────────────────────────────────────────────
      * Le splitter filtre déjà les modèles pour lesquels Open-Meteo n'a
-     * renvoyé aucune donnée exploitable (typiquement hors de leur zone de
-     * couverture). Ces modèles apparaissent dans [CityForecast.errors] avec
-     * un message localisé "hors zone" — l'UI peut choisir de les grisage
-     * plutôt que masquer.
+     * renvoyé aucune donnée exploitable. La cause n'est pas déduite ici :
+     * hors couverture, horizon non fourni ou indisponibilité temporaire sont
+     * indistinguables dans une réponse partielle. [CityForecast.errors] reste
+     * donc volontairement neutre et l'UI peut griser le modèle plutôt que
+     * l'interpréter comme une conclusion géographique.
      */
     private suspend fun fetchAndCache(
         city: City,
@@ -461,9 +478,9 @@ class ForecastRepositoryImpl @Inject constructor(
         val cacheEntries = processed.cacheEntries
         val errors = mutableMapOf<WeatherModel, String>()
 
-        // Modèles demandés mais absents du split → filtrés par le splitter
-        // (données inexploitables). Reportés au caller pour affichage
-        // discret ("modèle hors zone").
+        // Modèles demandés mais absents du split → données inexploitables.
+        // La réponse ne permet pas de distinguer hors couverture, horizon
+        // absent et incident ponctuel : le message utilisateur reste neutre.
         val missingModels = models - perModelDtos.keys
         for (model in missingModels) {
             errors[model] = context.getString(R.string.error_model_out_of_range)
@@ -474,7 +491,7 @@ class ForecastRepositoryImpl @Inject constructor(
         // absents, sans toucher aux modèles non demandés par ce caller.
         // Les absences connues sont conservées sous forme de marqueurs légers :
         // le cache reste complet pendant l'intervalle utilisateur et les widgets
-        // ne refont pas une requête toutes les 15 minutes pour un modèle hors zone.
+        // ne refont pas une requête toutes les 15 minutes pour une absence inchangée.
         // Si aucun modèle n'est exploitable, on conserve le cache précédent :
         // le refresh est un échec complet et ne doit pas détruire le fallback.
         if (cacheEntries.isNotEmpty()) {
@@ -489,7 +506,13 @@ class ForecastRepositoryImpl @Inject constructor(
             runSuspendCatching {
                 cacheDao.replaceRequestedModels(
                     cityId = city.id,
-                    requestedModelKeys = models.map { it.apiKey },
+                    // Inclut les anciennes clés reconnues afin qu'un
+                    // refresh migre naturellement le cache vers la clé
+                    // canonique et ne laisse pas deux lignes pour un même
+                    // modèle logique.
+                    requestedModelKeys = models
+                        .flatMap { it.compatibleApiKeys }
+                        .distinct(),
                     entities = persistedEntries,
                     incomingFetchedAtEpochMs = now
                 )
@@ -503,8 +526,8 @@ class ForecastRepositoryImpl @Inject constructor(
         }
 
         if (successes.isEmpty()) {
-            // TOUS les modèles demandés ont retourné vide — probablement
-            // hors de leur zone de couverture. On surface une seule erreur
+            // TOUS les modèles demandés ont retourné vide. La réponse batched ne
+            // permet pas d’attribuer une cause certaine ; on surface une seule erreur
             // au lieu d'un CityForecast vide avec N erreurs individuelles.
             ApiResult.Error(
                 IllegalStateException("No usable model in batched response"),
@@ -512,7 +535,7 @@ class ForecastRepositoryImpl @Inject constructor(
             )
         } else {
             val fresh = CityForecast(
-                city = city,
+                city = city.withApiTimezoneFallback(batched.timezone),
                 seriesByModel = successes,
                 errors = errors,
                 fetchedAt = Instant.ofEpochMilli(now)
@@ -532,7 +555,8 @@ class ForecastRepositoryImpl @Inject constructor(
         val fetchedAtMs: Long,
         val model: WeatherModel,
         val series: ForecastSeries?,
-        val knownUnavailable: Boolean
+        val knownUnavailable: Boolean,
+        val timezone: String?
     )
 
     private data class ProcessedForecast(
@@ -540,6 +564,18 @@ class ForecastRepositoryImpl @Inject constructor(
         val series: Map<WeatherModel, ForecastSeries>,
         val cacheEntries: List<ForecastCacheEntity>
     )
+
+    /**
+     * Le geocoder fournit normalement un fuseau IANA, mais les favoris anciens
+     * peuvent ne pas l'avoir. La réponse Forecast API (`timezone=auto`) devient
+     * alors la source de secours afin que les heures locales ne retombent pas
+     * silencieusement sur UTC. Un fuseau explicite valide du favori reste prioritaire.
+     */
+    private fun City.withApiTimezoneFallback(apiTimezone: String?): City {
+        if (validZoneOrNull(timezone) != null) return this
+        val fallback = validZoneOrNull(apiTimezone)?.id ?: return this
+        return copy(timezone = fallback)
+    }
 
     companion object {
         /**

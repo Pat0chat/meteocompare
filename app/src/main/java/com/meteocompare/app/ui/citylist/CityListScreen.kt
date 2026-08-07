@@ -65,7 +65,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
@@ -99,7 +99,6 @@ import com.meteocompare.app.ui.theme.confidenceColor
 import com.meteocompare.app.ui.theme.MeteoCompareTheme
 import java.time.LocalDate
 import java.text.NumberFormat
-import java.util.Locale
 import kotlin.math.roundToInt
 
 // ============================================================================
@@ -898,7 +897,7 @@ private fun HomeWeatherScenarios(
                     Spacer(Modifier.height(1.dp))
                     Text(
                         text = "${pluralStringResource(R.plurals.home_scenarios_count, scenarios.size, scenarios.size)} · " +
-                            pluralStringResource(R.plurals.home_scenarios_models, totalModels, totalModels),
+                                pluralStringResource(R.plurals.home_scenarios_models, totalModels, totalModels),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1069,6 +1068,13 @@ private fun scenarioRepresentativeCondition(kind: WeatherScenarioKind): WeatherC
 
 @Composable
 private fun weatherScenarioMetrics(scenario: WeatherScenario): List<String> {
+    val platformLocale = LocalLocale.current.platformLocale
+    val precipitationFormatter = remember(platformLocale) {
+        NumberFormat.getNumberInstance(platformLocale).apply {
+            maximumFractionDigits = 1
+            minimumFractionDigits = 0
+        }
+    }
     val gustMin = scenario.gustMinKmh
     val gustMax = scenario.gustMaxKmh
     val gustMetric = if (gustMin != null && gustMax != null) {
@@ -1096,12 +1102,8 @@ private fun weatherScenarioMetrics(scenario: WeatherScenario): List<String> {
         val rainMin = scenario.precipitationMinMm
         val rainMax = scenario.precipitationMaxMm
         if (rainMax != null && rainMax >= 0.05) {
-            val formatter = NumberFormat.getNumberInstance(Locale.getDefault()).apply {
-                maximumFractionDigits = 1
-                minimumFractionDigits = 0
-            }
-            val minText = formatter.format(rainMin ?: 0.0)
-            val maxText = formatter.format(rainMax)
+            val minText = precipitationFormatter.format(rainMin ?: 0.0)
+            val maxText = precipitationFormatter.format(rainMax)
             add(if ((rainMin ?: 0.0).let { kotlin.math.abs(it - rainMax) } < 0.05) {
                 "🌧 $maxText mm"
             } else {

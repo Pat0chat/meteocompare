@@ -43,6 +43,7 @@ import org.junit.Test
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.ZoneOffset
 
 /**
@@ -544,6 +545,85 @@ class CityListViewModelTest {
             while (state.error == null) state = awaitItem()
             assertEquals("Pas de connexion", state.error)
             assertTrue(state.results.isEmpty())
+        }
+    }
+
+    @Test
+    fun `cache ancien sans date du jour nest pas presente comme prevision daujourdhui`() = runTest(dispatcher) {
+        val yesterday = LocalDate.of(2026, 6, 27)
+        val stale = CityForecast(
+            city = paris,
+            seriesByModel = mapOf(
+                WeatherModel.GFS to ForecastSeries(
+                    model = WeatherModel.GFS,
+                    hourly = HourlyForecast(
+                        timestamps = listOf(testNow.minusSeconds(24 * 3600)),
+                        temperature2m = listOf(18.0),
+                        precipitation = listOf(0.0),
+                        windSpeed10m = listOf(5.0)
+                    ),
+                    daily = DailyForecast(
+                        dates = listOf(yesterday),
+                        tempMax = listOf(22.0),
+                        tempMin = listOf(14.0),
+                        precipitationSum = listOf(0.0),
+                        windSpeedMax = listOf(10.0)
+                    )
+                )
+            )
+        )
+        coEvery {
+            forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
+        } returns flowOf(ApiResult.Success(stale))
+        val vm = CityListViewModel(cityRepo, forecastRepo, networkMonitor, calculator, prefs, testClock, dispatcher)
+
+        vm.uiState.test {
+            awaitItem()
+            favoritesFlow.value = listOf(paris)
+            var state = awaitItem()
+            while (state.items.firstOrNull()?.forecast !is ForecastState.Error) state = awaitItem()
+            assertTrue((state.items.first().forecast as ForecastState.Error).message.contains("aujourd"))
+        }
+    }
+
+    @Test
+    fun `heure de depart mini forecast suit le slot reel et non le plancher de now`() = runTest(dispatcher) {
+        val lateNow = Instant.parse("2026-06-28T12:56:00Z")
+        val lateClock = Clock.fixed(lateNow, ZoneOffset.UTC)
+        val daily = DailyForecast(
+            dates = listOf(LocalDate.of(2026, 6, 28)),
+            tempMax = listOf(24.0),
+            tempMin = listOf(16.0),
+            precipitationSum = listOf(0.0),
+            windSpeedMax = listOf(10.0)
+        )
+        val forecast = CityForecast(
+            city = paris,
+            seriesByModel = mapOf(
+                WeatherModel.GFS to ForecastSeries(
+                    model = WeatherModel.GFS,
+                    hourly = HourlyForecast(
+                        timestamps = listOf(Instant.parse("2026-06-28T13:00:00Z")),
+                        temperature2m = listOf(22.0),
+                        precipitation = listOf(0.0),
+                        windSpeed10m = listOf(8.0)
+                    ),
+                    daily = daily
+                )
+            )
+        )
+        coEvery {
+            forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
+        } returns flowOf(ApiResult.Success(forecast))
+        val vm = CityListViewModel(cityRepo, forecastRepo, networkMonitor, calculator, prefs, lateClock, dispatcher)
+
+        vm.uiState.test {
+            awaitItem()
+            favoritesFlow.value = listOf(paris)
+            var state = awaitItem()
+            while (state.items.firstOrNull()?.forecast !is ForecastState.Loaded) state = awaitItem()
+            val loaded = state.items.first().forecast as ForecastState.Loaded
+            assertEquals(LocalDateTime.of(2026, 6, 28, 13, 0), loaded.hourlyStartTime)
         }
     }
 

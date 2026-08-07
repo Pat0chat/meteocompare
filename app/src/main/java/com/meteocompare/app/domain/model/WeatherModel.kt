@@ -8,7 +8,12 @@ package com.meteocompare.app.domain.model
  * @property resolutionKm Résolution horizontale native du modèle (en kilomètres),
  *           affichée comme métadonnée. Elle ne sert pas de score de qualité : une
  *           maille plus fine ne garantit pas à elle seule un meilleur forecast.
- * @property maxForecastDays Horizon de prévision typique du modèle.
+ * @property maxForecastDays Nombre entier de jours utilisé pour borner la
+ *           requête Forecast API. Pour un horizon natif partiel (ex. ~2,5 j),
+ *           cette valeur est le plafond entier permettant de récupérer toute
+ *           la série ; elle n'est pas une promesse d'heures complètes.
+ * @property forecastHorizonHours Horizon natif indicatif documenté, utilisé uniquement
+ *           pour l'affichage. [maxForecastDays] reste le plafond de requête entier.
  * @property coverage Zone de couverture (utile pour filtrer selon la position de la ville).
  * @property family Institution qui produit le modèle. Utilisé pour regrouper l'affichage
  *           dans la page Settings ("tous les modèles de Météo-France ensemble") et pour
@@ -20,23 +25,29 @@ enum class WeatherModel(
     val resolutionKm: Double,
     val maxForecastDays: Int,
     val coverage: Coverage,
-    val family: ModelFamily
+    val family: ModelFamily,
+    /** Anciennes clés/alias acceptés uniquement pour relire prefs et caches existants. */
+    val apiKeyAliases: Set<String> = emptySet(),
+    /** Horizon natif indicatif, distinct du plafond entier utilisé par `forecast_days`. */
+    val forecastHorizonHours: Int = maxForecastDays * 24
 ) {
     AROME_FRANCE_HD(
         apiKey = "meteofrance_arome_france_hd",
         displayName = "AROME HD",
         resolutionKm = 1.5,
-        maxForecastDays = 2,
+        maxForecastDays = 3,
         coverage = Coverage.FRANCE,
-        family = ModelFamily.METEO_FRANCE
+        family = ModelFamily.METEO_FRANCE,
+        forecastHorizonHours = 51
     ),
     AROME_FRANCE(
         apiKey = "meteofrance_arome_france",
         displayName = "AROME",
         resolutionKm = 2.5,
-        maxForecastDays = 2,
+        maxForecastDays = 3,
         coverage = Coverage.FRANCE,
-        family = ModelFamily.METEO_FRANCE
+        family = ModelFamily.METEO_FRANCE,
+        forecastHorizonHours = 51
     ),
     ARPEGE_EUROPE(
         apiKey = "meteofrance_arpege_europe",
@@ -63,20 +74,26 @@ enum class WeatherModel(
         family = ModelFamily.DWD
     ),
     ICON_GLOBAL(
-        apiKey = "icon_seamless",
+        apiKey = "icon_global",
         displayName = "ICON",
-        resolutionKm = 13.0,
-        maxForecastDays = 7,
+        resolutionKm = 11.0,
+        maxForecastDays = 8,
         coverage = Coverage.GLOBAL,
-        family = ModelFamily.DWD
+        family = ModelFamily.DWD,
+        forecastHorizonHours = 180,
+        // Ancienne version de l'app demandait le "seamless" DWD, qui peut
+        // basculer vers ICON-EU / ICON-D2 selon la position. Le modèle nommé
+        // ICON Global doit rester une source globale distincte d'ICON-EU.
+        apiKeyAliases = setOf("icon_seamless")
     ),
     GFS(
-        apiKey = "gfs_seamless",
+        apiKey = "ncep_gfs_seamless",
         displayName = "GFS",
         resolutionKm = 13.0,
         maxForecastDays = 16,
         coverage = Coverage.GLOBAL,
-        family = ModelFamily.NOAA
+        family = ModelFamily.NOAA,
+        apiKeyAliases = setOf("gfs_seamless")
     ),
     ECMWF(
         apiKey = "ecmwf_ifs025",
@@ -119,7 +136,7 @@ enum class WeatherModel(
     ECMWF_AIFS(
         apiKey = "ecmwf_aifs025_single",
         displayName = "AIFS",
-        resolutionKm = 28.0,
+        resolutionKm = 25.0,
         maxForecastDays = 15,
         coverage = Coverage.GLOBAL,
         family = ModelFamily.ECMWF
@@ -130,12 +147,13 @@ enum class WeatherModel(
      * Diversifie les sources ; profil de biais distinct des modèles européens.
      */
     GEM_GLOBAL(
-        apiKey = "gem_global",
+        apiKey = "cmc_gem_gdps",
         displayName = "GEM",
         resolutionKm = 15.0,
         maxForecastDays = 10,
         coverage = Coverage.GLOBAL,
-        family = ModelFamily.ECCC
+        family = ModelFamily.ECCC,
+        apiKeyAliases = setOf("gem_global")
     ),
 
     /**
@@ -187,7 +205,8 @@ enum class WeatherModel(
         resolutionKm = 1.0,
         maxForecastDays = 3,
         coverage = Coverage.EUROPE,
-        family = ModelFamily.METNO
+        family = ModelFamily.METNO,
+        forecastHorizonHours = 60
     ),
 
     /**
@@ -204,7 +223,8 @@ enum class WeatherModel(
         resolutionKm = 5.5,
         maxForecastDays = 3,
         coverage = Coverage.EUROPE,
-        family = ModelFamily.KNMI
+        family = ModelFamily.KNMI,
+        forecastHorizonHours = 60
     ),
 
     /**
@@ -223,17 +243,23 @@ enum class WeatherModel(
     /**
      * CMA GRAPES Global — modèle global du China Meteorological Administration.
      *
-     * Diversifie les sources avec un scénario global d'environ 15 km. Aucun
+     * Diversifie les sources avec un scénario global d'environ 13 km. Aucun
      * avantage régional n'est supposé sans mesure de vérification dédiée.
      */
     CMA_GRAPES(
         apiKey = "cma_grapes_global",
         displayName = "CMA",
-        resolutionKm = 15.0,
+        resolutionKm = 13.0,
         maxForecastDays = 10,
         coverage = Coverage.GLOBAL,
         family = ModelFamily.CMA
     );
+
+    /** Clé courante ou alias historique/canonique accepté en lecture. */
+    fun matchesApiKey(key: String): Boolean = key == apiKey || key in apiKeyAliases
+
+    /** Toutes les clés reconnues pour relire une réponse/cache existant. */
+    val compatibleApiKeys: Set<String> get() = apiKeyAliases + apiKey
 
     companion object {
         /**
@@ -255,6 +281,10 @@ enum class WeatherModel(
             UKMO_GLOBAL,
             ECMWF_AIFS
         )
+
+        /** Résout une clé stockée/cache vers le modèle correspondant. */
+        fun fromApiKey(key: String): WeatherModel? =
+            entries.firstOrNull { it.matchesApiKey(key) }
     }
 }
 

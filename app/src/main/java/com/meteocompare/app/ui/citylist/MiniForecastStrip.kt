@@ -17,6 +17,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -25,7 +26,6 @@ import androidx.compose.ui.unit.dp
 import com.meteocompare.app.R
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 import kotlin.math.roundToInt
 
 /**
@@ -90,11 +90,12 @@ internal fun MiniForecastStrip(
     // "3 PM". Pour les autres, "h a" donne "3 PM".
     val context = LocalContext.current
     val is24 = remember { android.text.format.DateFormat.is24HourFormat(context) }
-    val hourFormatter = remember(is24) {
+    val platformLocale = LocalLocale.current.platformLocale
+    val hourFormatter = remember(is24, platformLocale) {
         // "H'h'" → "15h" / "0h"  (FR-friendly, sans zero padding)
         // "h a" → "3 PM" / "12 AM"
         val pattern = if (is24) "H'h'" else "h a"
-        DateTimeFormatter.ofPattern(pattern, Locale.getDefault())
+        DateTimeFormatter.ofPattern(pattern, platformLocale)
     }
 
     Column(modifier = modifier.fillMaxWidth()) {

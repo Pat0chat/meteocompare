@@ -143,6 +143,34 @@ class ForecastAggregatesTest {
         assertNull(result.conditions.first())
     }
 
+    @Test
+    fun `startInstant correspond au premier slot reellement echantillonne`() {
+        val lateNow = Instant.parse("2026-07-15T12:56:00Z")
+        val forecast = CityForecast(
+            city = City(
+                id = "1", name = "Paris", country = "France",
+                latitude = 48.85, longitude = 2.35, timezone = "Europe/Paris"
+            ),
+            seriesByModel = mapOf(
+                WeatherModel.GFS to ForecastSeries(
+                    model = WeatherModel.GFS,
+                    hourly = HourlyForecast(
+                        timestamps = listOf(Instant.parse("2026-07-15T13:00:00Z")),
+                        temperature2m = listOf(19.0),
+                        precipitation = listOf(0.0),
+                        windSpeed10m = listOf(5.0)
+                    ),
+                    daily = DailyForecast(emptyList(), emptyList(), emptyList(), emptyList(), emptyList())
+                )
+            )
+        )
+
+        val result = ForecastAggregates.next12h(forecast, lateNow)
+
+        assertEquals(Instant.parse("2026-07-15T13:00:00Z"), result.startInstant)
+        assertEquals(19.0, result.temperatures.first() ?: error("temperature manquante"), 0.001)
+    }
+
     private fun hourly(
         temperatures: List<Double?>,
         precipitationProbabilities: List<Int?>,

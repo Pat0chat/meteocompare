@@ -76,11 +76,11 @@
     <string name="model_sort_family">Famille</string>
     <string name="model_sort_finesse">Finesse</string>
 
-    <!-- Légende du trait pointillé "normale 10 ans" sur les graphes confidence -->
-    <string name="chart_normals_legend_temp_max">Normale max 10 ans</string>
-    <string name="chart_normals_legend_temp_min">Normale min 10 ans</string>
+    <!-- Légende des repères historiques ERA5 sur 10 ans -->
+    <string name="chart_normals_legend_temp_max">Repère max 10 ans</string>
+    <string name="chart_normals_legend_temp_min">Repère min 10 ans</string>
     <string name="chart_normals_legend_precip">Pluie moyenne 10 ans</string>
-    <string name="chart_normals_legend_wind">Vent moyen 10 ans</string>
+    <string name="chart_normals_legend_wind">Repère vent max 10 ans</string>
 
     <!-- Modes de prévision étendue supplémentaires du widget 4×2 -->
     <string name="widget_config_forecast_mode_conf_all">Accord des modèles</string>
@@ -139,14 +139,14 @@
     <string name="wind_legend_storm">tempête</string>
 
     <!-- Min/max table legend -->
-    <string name="temp_legend_above_normal">&gt; normale 10 ans + 2°</string>
-    <string name="temp_legend_below_normal">&lt; normale 10 ans − 2°</string>
+    <string name="temp_legend_above_normal">&gt; repère 10 ans + 2°</string>
+    <string name="temp_legend_below_normal">&lt; repère 10 ans − 2°</string>
 
     <!-- Variable labels (today summary) -->
     <string name="var_temp_max">Température max</string>
     <string name="var_temp_min">Température min</string>
-    <string name="var_wind_max">Vent moyen à 10m</string>
-    <string name="var_wind_gust_max">Rafales max à 10m</string>
+    <string name="var_wind_max">Vent max à 10 m</string>
+    <string name="var_wind_gust_max">Rafales max à 10 m</string>
     <string name="var_precipitation">Précipitations</string>
 
     <!-- Refresh feedback -->
@@ -157,8 +157,8 @@
     <string name="error_timeout">Délai d\'attente dépassé</string>
     <string name="error_server">Erreur serveur (HTTP %d)</string>
     <string name="error_unknown">Erreur inconnue</string>
-    <string name="error_model_out_of_range">Ce modèle ne couvre pas cette ville</string>
-    <string name="error_no_model_available">Aucun modèle ne couvre cette ville</string>
+    <string name="error_model_out_of_range">Données indisponibles pour ce modèle</string>
+    <string name="error_no_model_available">Aucune donnée modèle disponible pour cette ville</string>
     <string name="city_not_found_in_favorites">Ville non trouvée dans les favoris</string>
 
     <!-- Empty / loading states -->
@@ -208,7 +208,7 @@
     <string name="a11y_today_summary_many">Résumé d\'aujourd\'hui, %d modèles analysés</string>
     <string name="a11y_temp_max_label">Température max</string>
     <string name="a11y_temp_min_label">Température min</string>
-    <string name="a11y_wind_max_label">Vent moyen à 10m</string>
+    <string name="a11y_wind_max_label">Vent max à 10 m</string>
     <string name="a11y_kmh_unit">kilomètres par heure</string>
 
     <!-- ─── "Pourquoi cet accord ?" ─────────────────────────────────── -->
@@ -270,7 +270,7 @@
     <string name="weather_legend_thunderstorm">Orage</string>
     <!-- Note expliquant les % sous les icônes du tableau du temps par modèle -->
     <string name="weather_legend_percent_note" formatted="false">Le % sous une icône = couverture nuageuse (nuageux/couvert) ou probabilité de pluie (pluie/neige/orage).</string>
-    <string name="weather_legend_inferred_note">Icône atténuée = condition inférée depuis les autres modèles.</string>
+    <string name="weather_legend_inferred_note">Icône atténuée = condition dérivée des variables de ce modèle.</string>
 
     <!-- ============================================================
          Suivi de biais par modèle — Phase 1 UI
@@ -335,7 +335,7 @@
     <string name="bias_reliability_local_index">Indice local de fiabilité</string>
     <string name="bias_reliability_score_suffix">/ 100</string>
     <string name="bias_reliability_rank">Rang local %1$d / %2$d</string>
-    <string name="bias_reliability_score_explanation">Synthèse pédagogique des prévisions enregistrées la veille, comparées aux données historiques de référence Open-Meteo.</string>
+    <string name="bias_reliability_score_explanation">Synthèse pédagogique des prévisions enregistrées la veille, comparées à une réanalyse historique Open-Meteo.</string>
     <string name="bias_reliability_level_excellent">Excellente</string>
     <string name="bias_reliability_level_good">Bonne</string>
     <string name="bias_reliability_level_fair">Moyenne</string>
@@ -391,7 +391,7 @@
     <string name="bias_reliability_balance_over_badge">%1$d %% sur</string>
     <string name="bias_reliability_direction_balance">%1$d %% au-dessus · %2$d %% proches · %3$d %% au-dessous</string>
     <string name="bias_reliability_sample_coverage">Historique exploité : %1$d jours sur une fenêtre de %2$d jours.</string>
-    <string name="bias_reliability_method_note">Cet indice est un repère local et pédagogique, pas une note officielle du modèle. Il compare les prévisions J+1 capturées la veille à une référence historique Open-Meteo pour la température maximale quotidienne, le cumul quotidien de précipitations et le vent maximal quotidien à 10 m, et non à une station au point exact. Il dépend de la ville, de la variable et de la période disponible. Pour la pluie, un jour est considéré humide à partir de 0,5 mm.</string>
+    <string name="bias_reliability_method_note">Cet indice est un repère local et pédagogique, pas une note officielle du modèle. Il compare les prévisions J+1 capturées la veille à une réanalyse historique Open-Meteo pour la température maximale quotidienne, le cumul quotidien de précipitations et le vent maximal quotidien à 10 m, et non à une station au point exact. Il dépend de la ville, de la variable et de la période disponible. Pour la pluie, un jour est considéré humide à partir de 0,5 mm.</string>
 
     <string name="bias_chip_calibrating_progress_a11y">En cours de calibration : %1$d échantillons sur %2$d collectés</string>
 
@@ -441,7 +441,7 @@
     <string name="timeline_precip_models_source">%1$d/%2$d modèles</string>
     <string name="timeline_wind_gust">Raf. %1$d km/h</string>
     <string name="wind_gust_abbreviation">R</string>
-    <string name="wind_table_legend">Vent moyen · R = rafales · km/h</string>
+    <string name="wind_table_legend">Vent à 10 m · R = rafales · km/h</string>
     <string name="timeline_consensus_high">Accord élevé</string>
     <string name="timeline_consensus_medium">Accord moyen</string>
     <string name="timeline_consensus_low">Accord faible</string>
@@ -559,7 +559,10 @@
     <string name="model_coverage_europe">Europe</string>
     <string name="model_coverage_united_states">États-Unis</string>
     <string name="model_coverage_global">Monde</string>
-    <string name="model_metadata">%1$s · %2$d j</string>
+    <string name="model_metadata">%1$s · %2$s</string>
+    <string name="model_horizon_days">%1$d j</string>
+    <string name="model_horizon_days_decimal">%1$.1f j</string>
+    <string name="model_horizon_hours">%1$d h</string>
     <!-- Home modernisée -->
     <string name="home_locations_title">Mes localités</string>
     <string name="home_locations_subtitle">La météo et l’accord des modèles en un coup d’œil</string>

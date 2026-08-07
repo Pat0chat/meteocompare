@@ -38,9 +38,8 @@ data class HourlyForecast(
      */
     val windDirection10m: List<Int?> = emptyList(),
     /**
-     * Probabilité de précipitation sur l'heure, 0-100%. Non renseignée par
-     * tous les modèles (AROME HD notamment) — vide dans ce cas, l'UI omet
-     * alors la mention "60%" sur les icônes pluie.
+     * Probabilité de précipitation sur l'heure, 0-100%. Peut être absente
+     * selon le modèle, l'horizon ou un ancien cache ; l'UI l'omet alors.
      */
     val precipitationProbability: List<Int?> = emptyList(),
     /**
@@ -48,7 +47,10 @@ data class HourlyForecast(
      * ou cache antérieur à la feature.
      */
     val cloudCover: List<Int?> = emptyList(),
-    /** Rafales de vent à 10 m en km/h. Vide si absentes ou cache antérieur. */
+    /**
+     * Rafales à 10 m en km/h : maximum observé/prévu sur l'heure précédente
+     * selon la sémantique Open-Meteo. Vide si absent ou cache antérieur.
+     */
     val windGusts10m: List<Double?> = emptyList()
 ) {
     val size: Int get() = timestamps.size
@@ -71,8 +73,8 @@ data class DailyForecast(
     /** Code météo WMO 4677 — défaut empty pour les caches antérieurs. */
     val weatherCode: List<Int?> = emptyList(),
     /**
-     * Direction dominante du vent sur la journée, en degrés météorologiques.
-     * Agrégée par Open-Meteo via une moyenne pondérée par la vitesse.
+     * Direction dominante du vent sur la journée, en degrés météorologiques,
+     * telle que fournie par Open-Meteo.
      */
     val windDirection10mDominant: List<Int?> = emptyList(),
     /**
@@ -86,8 +88,8 @@ data class DailyForecast(
     /** Lever/coucher du soleil fournis par Open-Meteo, convertis en instants absolus. */
     val sunrise: List<Instant?> = emptyList(),
     val sunset: List<Instant?> = emptyList()
-    // Note : cloud_cover_mean n'existe pas côté API en daily — on agrège
-    // depuis les heures dans ConfidenceCalculator quand nécessaire.
+    // Note : cloud_cover_mean n'est pas demandé côté Forecast API en daily —
+    // l'application agrège la couverture horaire du même jour si nécessaire.
 ) {
     val size: Int get() = dates.size
 }

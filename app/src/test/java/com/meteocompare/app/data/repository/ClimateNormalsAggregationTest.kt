@@ -150,6 +150,45 @@ class ClimateNormalsAggregationTest {
     }
 
     @Test
+    fun `valeurs physiques invalides sont ignorees dans les normales`() {
+        val response = ArchiveResponseDto(
+            latitude = 48.85,
+            longitude = 2.35,
+            timezone = "Europe/Paris",
+            daily = ArchiveDailyDto(
+                time = listOf("2022-06-15", "2023-06-15", "2024-06-15"),
+                tempMax = listOf(25.0, Double.NaN, 27.0),
+                tempMin = listOf(15.0, 16.0, 17.0),
+                precipSum = listOf(2.0, -3.0, 4.0),
+                windSpeedMax = listOf(20.0, -10.0, 30.0)
+            )
+        )
+
+        val result = ClimateNormalsRepositoryImpl.aggregate(response).single()
+
+        // La paire thermique NaN est entièrement exclue pour 2023.
+        assertEquals(26.0, result.tempMaxNormal, 0.001)
+        assertEquals(16.0, result.tempMinNormal, 0.001)
+        // Pluie/vent négatifs ne deviennent jamais des normales artificiellement basses.
+        assertEquals(3.0, result.precipMeanNormal!!, 0.001)
+        assertEquals(25.0, result.windMeanNormal!!, 0.001)
+    }
+
+    @Test
+    fun `source des normales est une reanalyse ERA5 stable`() {
+        assertEquals("era5", ClimateNormalsRepositoryImpl.NORMALS_REANALYSIS_MODEL)
+    }
+
+    @Test
+    fun `cache ERA5 utilise un namespace distinct du cache legacy`() {
+        assertEquals("era5-v1", ClimateNormalsRepositoryImpl.CLIMATE_CACHE_NAMESPACE)
+        assertEquals(
+            "era5-v1:paris",
+            ClimateNormalsRepositoryImpl.cacheCityId("paris")
+        )
+    }
+
+    @Test
     fun `date malformee est ignoree sans interrompre le lot`() {
         val response = ArchiveResponseDto(
             latitude = 48.85,

@@ -5,6 +5,7 @@ import com.meteocompare.app.R
 import com.meteocompare.app.core.locale.applyPersistedLocale
 import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.core.util.localDateIn
+import com.meteocompare.app.core.util.resolveZoneOrUtc
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DayConfidence
 import com.meteocompare.app.domain.model.HourlyConfidenceBand
@@ -167,7 +168,7 @@ internal data class WidgetData(
  * n'ait qu'à afficher.
  *
  * `condition`/`temp` : nullables — un modèle peut fournir la température
- * mais pas le weather_code (AROME HD notamment). L'UI dégrade en cascade :
+ * mais pas le weather_code (réponse partielle ou ancien cache). L'UI dégrade en cascade :
  * icône si dispo, sinon rien.
  */
 internal data class WidgetForecastItem(
@@ -407,10 +408,9 @@ internal suspend fun loadWidgetData(
             else emptyList()
 
             // ─── Mini forecast 12h (nouveau mode) ─────────────────────────
-            // Réutilise l'agrégateur de la home pour la cohérence : mêmes valeurs
-            // dans le widget que dans la card home. hourlyStartTime = maintenant
-            // tronqué à l'heure, dans le fuseau de la ville (les ancres
-            // s'affichent en heure locale ville, pas device).
+            // Réutilise l'agrégateur de la Home : mêmes valeurs ET même
+            // échéance de départ. L'heure affichée vient du slot réellement
+            // échantillonné, pas d'un simple arrondi indépendant côté widget.
             val miniForecastNow = currentInstant
             val valueWidgetData = if (includeValueSnapshot) {
                 buildWidgetValueSnapshot(
@@ -431,13 +431,9 @@ internal suspend fun loadWidgetData(
                 null
             }
             val hourlyStartTime = if (miniForecast != null) {
-                val zone = runCatching {
-                    java.time.ZoneId.of(city.timezone ?: "UTC")
-                }.getOrDefault(java.time.ZoneId.of("UTC"))
-                miniForecastNow
-                    .atZone(zone)
+                miniForecast.startInstant
+                    .atZone(resolveZoneOrUtc(city.timezone))
                     .toLocalDateTime()
-                    .truncatedTo(java.time.temporal.ChronoUnit.HOURS)
             } else {
                 null
             }
@@ -508,8 +504,7 @@ internal fun buildForecasts(
     now: java.time.Instant = java.time.Instant.now(),
     forecastConfidence: WidgetForecastConfidence = WidgetForecastConfidence.Empty
 ): List<WidgetForecastItem> {
-    val zone = runCatching { java.time.ZoneId.of(timezone ?: "UTC") }
-        .getOrDefault(java.time.ZoneId.of("UTC"))
+    val zone = resolveZoneOrUtc(timezone)
 
     data class Candidate(
         val stableOrder: Int,
@@ -591,7 +586,7 @@ internal fun buildHourlyForecasts(
     return (startIdx until minOf(startIdx + 5, hourly.timestamps.size)).map { i ->
         val ts = hourly.timestamps[i]
         val label = ts.atZone(zone).format(formatter)
-        // Priorité au weather_code natif. Si absent (AROME HD notamment),
+        // Priorité au weather_code natif. Si absent (réponse partielle ou ancien cache),
         // fallback sur l'inférence précipitation/température.
         val code = hourly.weatherCode.getOrNull(i)
         val precip = hourly.precipitation.getOrNull(i)
@@ -809,9 +804,7 @@ private fun buildConfidenceStrip(
     }
     if (bands.size < 2) return null
 
-    val zone = runCatching {
-        java.time.ZoneId.of(forecast.city.timezone)
-    }.getOrDefault(java.time.ZoneId.systemDefault())
+    val zone = resolveZoneOrUtc(forecast.city.timezone)
     val locale = context.resources.configuration.locales[0]
         ?: java.util.Locale.getDefault()
 

@@ -1,5 +1,6 @@
 package com.meteocompare.app.widget
 
+import com.meteocompare.app.core.util.resolveZoneOrUtc
 import android.content.Context
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.CityForecast
@@ -379,9 +380,7 @@ private fun primaryDivergenceReason(reasons: Set<DivergenceReason>): DivergenceR
         DivergenceReason.CONDITION
     ).firstOrNull { it in reasons }
 
-private fun resolveWidgetZone(timezone: String?): ZoneId = runCatching {
-    ZoneId.of(timezone ?: "UTC")
-}.getOrDefault(ZoneId.of("UTC"))
+private fun resolveWidgetZone(timezone: String?): ZoneId = resolveZoneOrUtc(timezone)
 
 private fun currentLocale(context: Context): Locale =
     context.resources.configuration.locales[0]

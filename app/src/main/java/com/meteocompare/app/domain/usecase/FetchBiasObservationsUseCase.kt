@@ -1,5 +1,6 @@
 package com.meteocompare.app.domain.usecase
 
+import com.meteocompare.app.core.util.apiTimezoneOrAuto
 import com.meteocompare.app.core.util.localDateIn
 import com.meteocompare.app.data.remote.ClimateArchiveApi
 import com.meteocompare.app.di.IoDispatcher
@@ -17,7 +18,8 @@ import javax.inject.Singleton
 
 /**
  * Récupère les données historiques de référence manquantes pour une ville et les
- * enregistre dans le repo de biais.
+ * enregistre dans le repo de biais. La référence Open-Meteo est une réanalyse
+ * (observations assimilées + modélisation), pas une mesure de station au point exact.
  *
  * ## Stratégie delta
  *
@@ -93,7 +95,7 @@ class FetchBiasObservationsUseCase @Inject constructor(
             longitude = city.longitude,
             startDate = cappedStart.format(ISO_DATE),
             endDate = end.format(ISO_DATE),
-            timezone = city.timezone ?: "auto"
+            timezone = apiTimezoneOrAuto(city.timezone)
         )
 
         val timeStrs = response.daily.time
@@ -114,19 +116,19 @@ class FetchBiasObservationsUseCase @Inject constructor(
             if (date < cappedStart || date > end) continue
             var recordedForDate = false
 
-            tempMax.getOrNull(i)?.let { value ->
+            tempMax.getOrNull(i)?.takeIf(Double::isFinite)?.let { value ->
                 records += ObservationBiasRecord(
                     city.id, BiasVariable.TEMPERATURE, date, value, fetchedAt
                 )
                 recordedForDate = true
             }
-            precipSum?.getOrNull(i)?.let { value ->
+            precipSum?.getOrNull(i)?.takeIf { it.isFinite() && it >= 0.0 }?.let { value ->
                 records += ObservationBiasRecord(
                     city.id, BiasVariable.PRECIPITATION, date, value, fetchedAt
                 )
                 recordedForDate = true
             }
-            windMax?.getOrNull(i)?.let { value ->
+            windMax?.getOrNull(i)?.takeIf { it.isFinite() && it >= 0.0 }?.let { value ->
                 records += ObservationBiasRecord(
                     city.id, BiasVariable.WIND_SPEED, date, value, fetchedAt
                 )

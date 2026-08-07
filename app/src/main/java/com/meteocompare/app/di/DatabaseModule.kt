@@ -28,7 +28,8 @@ object DatabaseModule {
             // Compatibilité historique : les versions publiées utilisent encore
             // une recréation destructive si aucune migration n'est fournie.
             // À ne pas reproduire lors du prochain bump : le suivi J+1 est
-            // reconstructible, mais demande jusqu'à 14 jours pour redevenir utile.
+            // reconstructible, mais peut perdre temporairement de la profondeur si
+            // les archives J+1 nécessaires au bootstrap ne sont pas disponibles.
             // dropAllTables = true : sémantique identique au comportement legacy
             // (drop-and-recreate). Room 2.7+ demande le paramètre explicite pour
             // clarifier qu'on accepte de perdre AUSSI les tables non listées

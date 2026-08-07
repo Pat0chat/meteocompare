@@ -7,7 +7,6 @@ import com.meteocompare.app.domain.model.WeatherScenario
 import com.meteocompare.app.domain.model.WeatherScenarioKind
 import com.meteocompare.app.domain.model.WeatherScenarioTiming
 import java.time.Instant
-import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
@@ -22,7 +21,6 @@ import kotlin.math.roundToInt
 object WeatherScenarioBuilder {
 
     private const val HOUR_COUNT = 12
-    private const val MAX_TIME_DELTA_SECONDS = 30L * 60L
     private const val WET_THRESHOLD_MM = 0.10
 
     fun next12h(
@@ -32,8 +30,9 @@ object WeatherScenarioBuilder {
     ): List<WeatherScenario> {
         if (maxScenarios <= 0) return emptyList()
 
+        val startInstant = HourlySampling.anchor(forecast, now)
         val modelSummaries = forecast.seriesByModel.values.mapNotNull { series ->
-            summarizeModel(series, now)
+            summarizeModel(series, startInstant)
         }
         if (modelSummaries.isEmpty()) return emptyList()
 
@@ -59,13 +58,12 @@ object WeatherScenarioBuilder {
         return grouped.take(keptCount) + remainder.toOtherScenario(totalModelCount)
     }
 
-    private fun summarizeModel(series: ForecastSeries, now: Instant): ModelScenario? {
+    private fun summarizeModel(series: ForecastSeries, startInstant: Instant): ModelScenario? {
         val samples = buildList {
             repeat(HOUR_COUNT) { offset ->
-                val target = now.plusSeconds(offset * 3_600L)
-                val index = series.hourly.timestamps.nearestIndex(target) ?: return@repeat
-                val delta = abs(series.hourly.timestamps[index].epochSecond - target.epochSecond)
-                if (delta > MAX_TIME_DELTA_SECONDS) return@repeat
+                val target = startInstant.plusSeconds(offset * 3_600L)
+                val index = with(HourlySampling) { series.hourly.timestamps.nearestIndex(target) } ?: return@repeat
+                if (!HourlySampling.isCloseEnough(series.hourly.timestamps[index], target)) return@repeat
 
                 add(
                     Sample(
@@ -128,7 +126,7 @@ object WeatherScenarioBuilder {
             temperatureMinC = temperatures.minOrNull(),
             temperatureMaxC = temperatures.maxOrNull(),
             precipitationTotalMm = totalPrecip,
-            cloudCoverMeanPercent = clouds.medianInt(),
+            cloudCoverMedianPercent = clouds.medianInt(),
             gustMaxKmh = gusts.maxOrNull()
         )
     }
@@ -182,8 +180,8 @@ object WeatherScenarioBuilder {
         temperatureMaxC = mapNotNull { it.temperatureMaxC }.maxOrNull(),
         precipitationMinMm = mapNotNull { it.precipitationTotalMm }.minOrNull(),
         precipitationMaxMm = mapNotNull { it.precipitationTotalMm }.maxOrNull(),
-        cloudCoverMinPercent = mapNotNull { it.cloudCoverMeanPercent }.minOrNull(),
-        cloudCoverMaxPercent = mapNotNull { it.cloudCoverMeanPercent }.maxOrNull(),
+        cloudCoverMinPercent = mapNotNull { it.cloudCoverMedianPercent }.minOrNull(),
+        cloudCoverMaxPercent = mapNotNull { it.cloudCoverMedianPercent }.maxOrNull(),
         gustMinKmh = mapNotNull { it.gustMaxKmh }.minOrNull(),
         gustMaxKmh = mapNotNull { it.gustMaxKmh }.maxOrNull()
     )
@@ -197,8 +195,8 @@ object WeatherScenarioBuilder {
         temperatureMaxC = mapNotNull { it.temperatureMaxC }.maxOrNull(),
         precipitationMinMm = mapNotNull { it.precipitationTotalMm }.minOrNull(),
         precipitationMaxMm = mapNotNull { it.precipitationTotalMm }.maxOrNull(),
-        cloudCoverMinPercent = mapNotNull { it.cloudCoverMeanPercent }.minOrNull(),
-        cloudCoverMaxPercent = mapNotNull { it.cloudCoverMeanPercent }.maxOrNull(),
+        cloudCoverMinPercent = mapNotNull { it.cloudCoverMedianPercent }.minOrNull(),
+        cloudCoverMaxPercent = mapNotNull { it.cloudCoverMedianPercent }.maxOrNull(),
         gustMinKmh = mapNotNull { it.gustMaxKmh }.minOrNull(),
         gustMaxKmh = mapNotNull { it.gustMaxKmh }.maxOrNull()
     )
@@ -214,7 +212,7 @@ object WeatherScenarioBuilder {
         val temperatureMinC: Double?,
         val temperatureMaxC: Double?,
         val precipitationTotalMm: Double?,
-        val cloudCoverMeanPercent: Int?,
+        val cloudCoverMedianPercent: Int?,
         val gustMaxKmh: Double?
     )
 
@@ -260,24 +258,5 @@ object WeatherScenarioBuilder {
         else ((this[middle - 1] + this[middle]) / 2.0).roundToInt()
     }
 
-    private fun List<Instant>.nearestIndex(target: Instant): Int? {
-        if (isEmpty()) return null
-        val result = binarySearch(target)
-        if (result >= 0) return result
 
-        val insertionPoint = -result - 1
-        return when (insertionPoint) {
-            0 -> 0
-            size -> lastIndex
-            else -> {
-                val before = this[insertionPoint - 1]
-                val after = this[insertionPoint]
-                if (target.epochSecond - before.epochSecond <= after.epochSecond - target.epochSecond) {
-                    insertionPoint - 1
-                } else {
-                    insertionPoint
-                }
-            }
-        }
-    }
 }

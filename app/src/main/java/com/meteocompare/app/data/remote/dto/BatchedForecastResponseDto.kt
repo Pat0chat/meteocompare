@@ -8,8 +8,8 @@ import kotlinx.serialization.json.JsonObject
  *
  * ─── Différence avec [ForecastResponseDto] ─────────────────────────────
  * Quand plusieurs modèles sont demandés, Open-Meteo suffixe CHAQUE variable
- * par la clé du modèle correspondant, tout en gardant l'axe des temps unifié
- * (aligné à l'heure UTC pleine, partagé par tous les modèles).
+ * par la clé du modèle correspondant, tout en gardant un axe des temps unifié
+ * dans le fuseau demandé (`timezone=auto` en production), partagé par les modèles.
  *
  * Exemple pour `?models=arome_france_hd,arpege_europe` :
  * ```json

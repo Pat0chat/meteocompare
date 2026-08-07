@@ -3,11 +3,12 @@ package com.meteocompare.app.domain.util
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.WeatherCondition
 import java.time.Instant
-import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /** Résultat agrégé utilisé par la liste des villes et le mini-forecast widget. */
 internal data class Next12hForecast(
+    /** Première échéance réellement visée par les listes ci-dessous. */
+    val startInstant: Instant,
     val temperatures: List<Double?>,
     val precipitationProbabilities: List<Int?>,
     val precipitationAmountsMm: List<Double?>,
@@ -25,7 +26,6 @@ internal data class Next12hForecast(
 internal object ForecastAggregates {
 
     private const val HOUR_COUNT = 12
-    private const val MAX_TIME_DELTA_SECONDS = 30L * 60L
 
     /**
      * Agrège température, quantité de pluie, probabilité de précipitation et
@@ -49,8 +49,9 @@ internal object ForecastAggregates {
             null
         }
 
+        val startInstant = HourlySampling.anchor(forecast, now)
         repeat(HOUR_COUNT) { hourOffset ->
-            val target = now.plusSeconds(hourOffset * 3_600L)
+            val target = startInstant.plusSeconds(hourOffset * 3_600L)
             val temperatureValues = ArrayList<Double>(forecast.seriesByModel.size)
             val precipitationValues = ArrayList<Int>(forecast.seriesByModel.size)
             val precipitationAmountValues = ArrayList<Double>(forecast.seriesByModel.size)
@@ -62,9 +63,8 @@ internal object ForecastAggregates {
 
             forecast.seriesByModel.values.forEach { series ->
                 val timestamps = series.hourly.timestamps
-                val index = timestamps.nearestIndex(target) ?: return@forEach
-                val deltaSeconds = abs(timestamps[index].epochSecond - target.epochSecond)
-                if (deltaSeconds > MAX_TIME_DELTA_SECONDS) return@forEach
+                val index = with(HourlySampling) { timestamps.nearestIndex(target) } ?: return@forEach
+                if (!HourlySampling.isCloseEnough(timestamps[index], target)) return@forEach
 
                 series.hourly.temperature2m.getOrNull(index)?.let(temperatureValues::add)
                 series.hourly.precipitationProbability.getOrNull(index)
@@ -73,9 +73,9 @@ internal object ForecastAggregates {
                 precipitation?.let(precipitationAmountValues::add)
 
                 // Les codes WMO sont catégoriels : on vote par famille, sans
-                // jamais moyenner les codes numériques. Quand un modèle ne
-                // fournit pas weather_code (AROME HD), on ne l'invente pas :
-                // il contribue seulement si pluie/neige peut être inférée.
+                // jamais moyenner les codes numériques. Si le code manque
+                // (réponse partielle/ancien cache), on n'infère que depuis
+                // les précipitations et la température du même modèle.
                 if (conditionValues != null) {
                     val condition = WeatherCondition
                         .fromWmoCode(series.hourly.weatherCode.getOrNull(index))
@@ -102,6 +102,7 @@ internal object ForecastAggregates {
         }
 
         return Next12hForecast(
+            startInstant = startInstant,
             temperatures = temperatures,
             precipitationProbabilities = precipitationProbabilities,
             precipitationAmountsMm = precipitationAmountsMm,
@@ -125,28 +126,4 @@ internal object ForecastAggregates {
     }
 
 
-    /** Renvoie l'index de l'instant le plus proche dans une liste triée. */
-    private fun List<Instant>.nearestIndex(target: Instant): Int? {
-        if (isEmpty()) return null
-
-        val result = binarySearch(target)
-        if (result >= 0) return result
-
-        val insertionPoint = -result - 1
-        return when (insertionPoint) {
-            0 -> 0
-            size -> lastIndex
-            else -> {
-                val before = this[insertionPoint - 1]
-                val after = this[insertionPoint]
-                if (target.epochSecond - before.epochSecond <=
-                    after.epochSecond - target.epochSecond
-                ) {
-                    insertionPoint - 1
-                } else {
-                    insertionPoint
-                }
-            }
-        }
-    }
 }

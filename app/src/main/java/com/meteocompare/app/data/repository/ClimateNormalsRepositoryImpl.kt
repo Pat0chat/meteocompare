@@ -29,7 +29,7 @@ import javax.inject.Singleton
  * Stratégie identique à la version antérieure :
  *
  *   1. Cache local Room. Si fresh (< 180 jours), retourne directement.
- *   2. Sinon, fetch 10 années d'archives Open-Meteo (~3650 lignes daily).
+ *   2. Sinon, fetch 10 années de réanalyse ERA5 Open-Meteo (~3650 lignes daily).
  *   3. Agrégation locale : pour chaque (month, day), moyenne sur les années
  *      où la donnée existe.
  *   4. Persiste dans Room et retourne.
@@ -56,6 +56,17 @@ class ClimateNormalsRepositoryImpl @Inject constructor(
     companion object {
         private const val YEARS_OF_HISTORY = 10
         private const val CACHE_FRESHNESS_MS = 180L * 24L * 60L * 60L * 1000L // 180 jours
+        /** Série homogène pour une référence climatique : évite le Best Match multi-datasets. */
+        internal const val NORMALS_REANALYSIS_MODEL = "era5"
+        /**
+         * Namespace logique du cache climatique. Il donne une provenance aux
+         * lignes sans modifier le schéma Room : les anciens caches « Best Match »
+         * restent sous `cityId`, les nouveaux sous `era5-v1:<cityId>`.
+         */
+        internal const val CLIMATE_CACHE_NAMESPACE = "era5-v1"
+
+        internal fun cacheCityId(cityId: String): String =
+            "$CLIMATE_CACHE_NAMESPACE:$cityId"
 
         /**
          * Agrégation : pour chaque (month, day) rencontré dans la série, moyenne
@@ -87,22 +98,26 @@ class ClimateNormalsRepositoryImpl @Inject constructor(
                 // Température : max et min forment une paire. Une année sans
                 // cette paire ne contribue pas à la normale thermique, mais ne
                 // doit pas empêcher pluie/vent de contribuer indépendamment.
-                val tempMax = response.daily.tempMax.getOrNull(i)
-                val tempMin = response.daily.tempMin.getOrNull(i)
+                val tempMax = response.daily.tempMax.getOrNull(i)?.takeIf(Double::isFinite)
+                val tempMin = response.daily.tempMin.getOrNull(i)?.takeIf(Double::isFinite)
                 if (tempMax != null && tempMin != null) {
                     acc.sumMax += tempMax
                     acc.sumMin += tempMin
                     acc.nTemp += 1
                 }
 
-                response.daily.precipSum?.getOrNull(i)?.let {
-                    acc.sumPrecip += it
-                    acc.nPrecip += 1
-                }
-                response.daily.windSpeedMax?.getOrNull(i)?.let {
-                    acc.sumWind += it
-                    acc.nWind += 1
-                }
+                response.daily.precipSum?.getOrNull(i)
+                    ?.takeIf { it.isFinite() && it >= 0.0 }
+                    ?.let {
+                        acc.sumPrecip += it
+                        acc.nPrecip += 1
+                    }
+                response.daily.windSpeedMax?.getOrNull(i)
+                    ?.takeIf { it.isFinite() && it >= 0.0 }
+                    ?.let {
+                        acc.sumWind += it
+                        acc.nWind += 1
+                    }
             }
 
             return byMonthDay.entries
@@ -126,10 +141,14 @@ class ClimateNormalsRepositoryImpl @Inject constructor(
 
     override suspend fun getNormalsForCity(city: City): ApiResult<List<DayNormals>> =
         withContext(io) {
-            // 1. Vérifie le cache
-            val cached = dao.getForCity(city.id)
+            // 1. Vérifie d'abord le cache ERA5 versionné. Les lignes des
+            // versions précédentes utilisaient directement `city.id` et sont
+            // volontairement exclues du calcul de fraîcheur : leur source
+            // « Best Match » n'est pas homogène sur 10 ans.
+            val cacheId = cacheCityId(city.id)
+            val cached = dao.getForCity(cacheId)
             if (cached.isNotEmpty()) {
-                val oldest = dao.getOldestComputedAt(city.id) ?: 0L
+                val oldest = dao.getOldestComputedAt(cacheId) ?: 0L
                 val ageMs = clock.millis() - oldest
                 val isFresh = ageMs >= 0L && ageMs < CACHE_FRESHNESS_MS
                 if (isFresh) {
@@ -137,10 +156,16 @@ class ClimateNormalsRepositoryImpl @Inject constructor(
                 }
             }
 
+            // Ancien cache sans provenance : il ne peut jamais être considéré
+            // « frais » par cette version, mais reste un fallback de disponibilité
+            // si le réseau est absent ou si la réanalyse ne répond pas.
+            val legacyCached = if (cached.isEmpty()) dao.getForCity(city.id) else emptyList()
+            val fallbackCache = cached.ifEmpty { legacyCached }
+
             // 2. Cache absent ou stale → fetch + agrégation
             if (!networkMonitor.isOnline()) {
-                return@withContext if (cached.isNotEmpty()) {
-                    ApiResult.Success(cached.map { it.toDomain() })
+                return@withContext if (fallbackCache.isNotEmpty()) {
+                    ApiResult.Success(fallbackCache.map { it.toDomain() })
                 } else {
                     ApiResult.Error(
                         IOException("No network"),
@@ -159,14 +184,15 @@ class ClimateNormalsRepositoryImpl @Inject constructor(
                     latitude = city.latitude,
                     longitude = city.longitude,
                     startDate = startDate.toString(),
-                    endDate = endDate.toString()
+                    endDate = endDate.toString(),
+                    models = NORMALS_REANALYSIS_MODEL
                 )
             }
 
             when (result) {
                 is ApiResult.Error -> {
-                    if (cached.isNotEmpty()) {
-                        ApiResult.Success(cached.map { it.toDomain() })
+                    if (fallbackCache.isNotEmpty()) {
+                        ApiResult.Success(fallbackCache.map { it.toDomain() })
                     } else {
                         result
                     }
@@ -174,8 +200,11 @@ class ClimateNormalsRepositoryImpl @Inject constructor(
                 is ApiResult.Success -> {
                     val normals = withContext(computation) { aggregate(result.data) }
                     val now = clock.millis()
-                    val entities = normals.map { it.toEntity(city.id, now) }
-                    dao.replaceForCity(city.id, entities)
+                    val entities = normals.map { it.toEntity(cacheId, now) }
+                    dao.replaceForCity(cacheId, entities)
+                    // Une fois la source ERA5 matérialisée, l'ancien cache sans
+                    // provenance n'a plus de rôle de fallback et peut être purgé.
+                    if (legacyCached.isNotEmpty()) dao.deleteForCity(city.id)
                     ApiResult.Success(normals)
                 }
             }

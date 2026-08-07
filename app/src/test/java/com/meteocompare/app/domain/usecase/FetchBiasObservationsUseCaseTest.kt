@@ -131,6 +131,27 @@ class FetchBiasObservationsUseCaseTest {
     }
 
     @Test
+    fun `references physiques invalides ne sont pas persistees`() = runTest {
+        coEvery {
+            api.archive(any(), any(), any(), any(), any(), any(), any(), any())
+        } returns ArchiveResponseDto(
+            latitude = city.latitude,
+            longitude = city.longitude,
+            timezone = "Europe/Paris",
+            daily = ArchiveDailyDto(
+                time = listOf("2026-07-14"),
+                tempMax = listOf(Double.NaN),
+                tempMin = listOf(15.0),
+                precipSum = listOf(-1.0),
+                windSpeedMax = listOf(-5.0)
+            )
+        )
+
+        assertEquals(0, useCase(city, today))
+        coVerify(exactly = 0) { repository.recordObservation(any(), any(), any(), any()) }
+    }
+
+    @Test
     fun `la première référence manquante pilote le début du delta`() = runTest {
         coEvery {
             repository.earliestMissingReferenceDate(city.id, today.minusDays(1))

@@ -11,7 +11,7 @@ import retrofit2.http.Query
  *
  *   [getForecastBatched] : un ou plusieurs modèles dans une seule requête HTTP.
  *                          Les variables peuvent être suffixées par la clé du
- *                          modèle (`temperature_2m_gfs_seamless`) et sont
+ *                          modèle (`temperature_2m_ncep_gfs_seamless`) et sont
  *                          décomposées côté domaine par [BatchedForecastSplitter].
  *                          Le splitter gère également le repli non suffixé pour
  *                          une réponse ne contenant qu'un modèle.
@@ -33,14 +33,13 @@ interface OpenMeteoApi {
      * modèle demandé.
      *
      * @param models Liste des clés de modèles Open-Meteo séparées par des
-     *   virgules. Exemple : `"arome_france_hd,arpege_europe,gfs_seamless"`.
+     *   virgules. Exemple : `"meteofrance_arome_france_hd,ecmwf_ifs025,ncep_gfs_seamless"`.
      *   Construite depuis `WeatherModel.entries.joinToString(",") { it.apiKey }`.
      *
-     * @param forecastDays Horizon commun à tous les modèles. Il faut passer
-     *   `models.maxOf { it.maxForecastDays }` (borné par le forecastDays voulu
-     *   côté UI) sinon les modèles à long horizon (GFS 16j, ECMWF 10j) sont
-     *   tronqués. Les modèles à horizon plus court (AROME HD 2j) retournent
-     *   simplement null au-delà, ce que le mapper gère déjà proprement.
+     * @param forecastDays Horizon commun demandé. Le repository le borne à
+     *   l'horizon maximal utile parmi les modèles sélectionnés et au besoin du
+     *   caller. Les modèles plus courts peuvent renvoyer des valeurs absentes
+     *   en fin de grille, que le mapper conserve comme null sans décalage.
      */
     @GET("v1/forecast")
     suspend fun getForecastBatched(

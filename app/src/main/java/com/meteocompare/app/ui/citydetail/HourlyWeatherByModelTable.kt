@@ -56,40 +56,25 @@ fun HourlyWeatherByModelTable(
 
     val cellsByTimestamp: Map<Instant, Map<WeatherModel, HourCellData>> =
         remember(forecast, timestamps) {
-            val medianCloudByTs: Map<Instant, Double> = buildMap {
-                for (ts in timestamps) {
-                    val values = forecast.seriesByModel.mapNotNull { (_, series) ->
-                        val i = series.hourly.timestamps.indexOf(ts)
-                        if (i < 0) null else series.hourly.cloudCover.getOrNull(i)
-                    }
-                    if (values.isNotEmpty()) {
-                        val sorted = values.sorted()
-                        put(
-                            ts,
-                            if (sorted.size % 2 == 1) sorted[sorted.size / 2].toDouble()
-                            else (sorted[sorted.size / 2 - 1] + sorted[sorted.size / 2]) / 2.0
-                        )
-                    }
-                }
-            }
-
             timestamps.associateWith { ts ->
                 forecast.seriesByModel.mapNotNull { (model, series) ->
                     val idx = series.hourly.timestamps.indexOf(ts)
                     if (idx < 0) return@mapNotNull null
-                    var inferred = false
-                    var condition = WeatherCondition.fromWmoCode(series.hourly.weatherCode.getOrNull(idx))
+
+                    val direct = WeatherCondition
+                        .fromWmoCode(series.hourly.weatherCode.getOrNull(idx))
+                        ?.takeUnless { it == WeatherCondition.UNKNOWN }
+                    val inferred = direct == null
+                    val condition = direct
                         ?: WeatherCondition.inferFromPrecipAndTemp(
                             precipMm = series.hourly.precipitation.getOrNull(idx),
                             tempMinC = series.hourly.temperature2m.getOrNull(idx)
                         )
-                    if (condition == null) {
-                        medianCloudByTs[ts]?.let {
-                            condition = WeatherCondition.fromCloudCover(it)
-                            inferred = true
-                        }
-                    }
-                    if (condition == null) return@mapNotNull null
+                        ?: series.hourly.cloudCover.getOrNull(idx)
+                            ?.takeIf { it in 0..100 }
+                            ?.let { WeatherCondition.fromCloudCover(it.toDouble()) }
+                        ?: return@mapNotNull null
+
                     model to HourCellData(
                         condition = condition,
                         precipProbability = series.hourly.precipitationProbability.getOrNull(idx),
@@ -265,11 +250,9 @@ private data class HourCellData(
     val precipProbability: Int?,
     val cloudCover: Int?,
     /**
-     * `true` si la [condition] provient du 3e fallback (médiane peer-consensus
-     * de cloud_cover), et pas de la prédiction propre du modèle. L'UI utilise
-     * ce flag pour appliquer un alpha réduit — voir [HourIconCell].
-     * Défaut à false : les paths (1) weather_code natif et (2) fallback
-     * précipitation restent des prédictions propres du modèle.
+     * `true` si la [condition] a été dérivée localement depuis les variables
+     * du même modèle (précip/temp ou cloud_cover), faute de code WMO direct.
+     * L'UI l'atténue légèrement pour rendre cette provenance visible.
      */
     val isInferred: Boolean = false
 )
@@ -289,7 +272,7 @@ private fun HourIconCell(
         contentAlignment = Alignment.Center
     ) {
         if (cell == null) {
-            // Modèle sans donnée pour cette heure (typique : AROME HD ne
+            // Modèle sans donnée pour cette heure (typique : un modèle régional ne
             // couvre que J+0 à J+2, colonnes vides au-delà). Tiret discret
             // pour que la cellule reste reconnaissable comme cellule.
             Text(

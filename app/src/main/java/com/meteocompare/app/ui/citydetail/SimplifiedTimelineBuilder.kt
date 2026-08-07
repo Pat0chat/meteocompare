@@ -3,6 +3,7 @@ package com.meteocompare.app.ui.citydetail
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.WeatherCondition
+import com.meteocompare.app.domain.util.dailyCloudCoverMean
 import java.time.Instant
 import java.time.LocalDate
 import kotlin.math.ceil
@@ -219,7 +220,7 @@ private fun indexDailySnapshots(
         val max = series.daily.tempMax.getOrNull(index)
         val precipitation = series.daily.precipitationSum.getOrNull(index)
         val probability = series.daily.precipitationProbabilityMax.getOrNull(index)
-        val cloudCover = dailyCloudCoverMean(series, date, zone)
+        val cloudCover = series.dailyCloudCoverMean(date, zone)
         val wind = series.daily.windSpeedMax.getOrNull(index)
         val windGust = series.daily.windGustsMax.getOrNull(index)
         val nativeCondition = WeatherCondition.fromWmoCode(series.daily.weatherCode.getOrNull(index))
@@ -465,21 +466,6 @@ private fun timelinePoint(
         divergenceReasons = divergenceReasons
     )
 
-}
-
-/** Moyenne journalière de cloud_cover pour un modèle, alignée sur le jour local. */
-private fun dailyCloudCoverMean(
-    series: ForecastSeries,
-    date: LocalDate,
-    zone: java.time.ZoneId
-): Int? {
-    if (series.hourly.cloudCover.isEmpty()) return null
-    val values = series.hourly.timestamps.indices.mapNotNull { index ->
-        val timestamp = series.hourly.timestamps.getOrNull(index) ?: return@mapNotNull null
-        if (timestamp.atZone(zone).toLocalDate() != date) return@mapNotNull null
-        series.hourly.cloudCover.getOrNull(index)
-    }
-    return values.takeIf { it.isNotEmpty() }?.average()?.roundToInt()
 }
 
 private fun spreadAgreementScore(spread: Double, zeroAgreementSpread: Double): Double =

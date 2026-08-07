@@ -524,7 +524,7 @@ private fun ModelGroupHeader(text: String) {
  * grossi à 17 modèles (débordement inévitable sinon).
  *
  * ─── Format des méta ───────────────────────────────────────────────────
- * "1.5 km · 2 j" — résolution + horizon. La zone n'est plus dupliquée sur
+ * "1.5 km · 51 h" ou "11 km · 4 j" — résolution + horizon natif. La zone n'est plus dupliquée sur
  * chaque ligne car elle est déjà portée par le header de groupe en mode ZONE.
  * En mode FAMILLE ou FINESSE, l'utilisateur peut inférer la zone depuis le
  * nom du modèle ("EU" dans "ICON-EU", etc.) — trade-off acceptable pour la
@@ -566,7 +566,7 @@ private fun CompactModelRow(
             text = stringResource(
                 R.string.model_metadata,
                 formatResolution(model.resolutionKm),
-                model.maxForecastDays
+                formatForecastHorizon(model.forecastHorizonHours)
             ),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -590,6 +590,14 @@ private fun CompactModelRow(
  */
 private fun formatResolution(km: Double): String =
     if (km < 10.0) "%.1f km".format(km) else "${km.toInt()} km"
+
+/** Horizon natif affiché sans le confondre avec le `forecast_days` entier de l'API. */
+@Composable
+private fun formatForecastHorizon(hours: Int): String = when {
+    hours % 24 == 0 -> stringResource(R.string.model_horizon_days, hours / 24)
+    hours % 12 == 0 -> stringResource(R.string.model_horizon_days_decimal, hours / 24.0)
+    else -> stringResource(R.string.model_horizon_hours, hours)
+}
 
 @Composable
 private fun coverageLabel(coverage: Coverage): String = stringResource(

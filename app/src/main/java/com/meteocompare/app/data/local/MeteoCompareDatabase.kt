@@ -15,18 +15,18 @@ import androidx.room.RoomDatabase
  *     secondes).
  *   - Normales climatiques perdues → re-fetchées à la première consultation
  *     d'une ville (une requête archive de ~3650 lignes).
- *   - Historique de biais tout neuf → aucun chip n'apparaîtra tant que 14+
- *     jours ne se seront pas écoulés depuis le premier refresh. Convention
- *     produit acceptée : l'absence de chip signifie déjà "pas assez de
- *     recul".
+ *   - Historique de biais perdu → le bootstrap J+1 peut reconstruire jusqu'à
+ *     3 semaines d'historique au prochain rafraîchissement si les archives du
+ *     modèle sont disponibles ; sinon la profondeur se reconstitue au fil des jours.
  *
  * Précédent (v3) : ajout de `precipMeanNormal`, `windMeanNormal` sur
  * `climate_normals`.
  *
  * Les préférences et favoris restent dans DataStore. Room contient des données
- * dérivées et reconstruisibles, mais le suivi J+1 demande jusqu'à 14 jours pour
- * retrouver sa profondeur après une recréation : une migration explicite reste
- * préférable avant toute future évolution de schéma en production.
+ * dérivées et reconstruisibles, mais une recréation peut coûter du réseau et
+ * perdre temporairement de la profondeur J+1 si certaines archives ne sont pas
+ * disponibles : une migration explicite reste préférable pour toute future
+ * évolution de schéma en production.
  */
 @Database(
     entities = [

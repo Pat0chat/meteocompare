@@ -333,7 +333,7 @@ class CityDetailViewModel @Inject constructor(
             }
             cityTimezone.value = city.timezone
 
-            // Les normales sont indépendantes du jeu de modèles météo, mais leur
+            // Les repères historiques sont indépendantes du jeu de modèles météo, mais leur
             // premier calcul peut télécharger dix années d'archives. On attend le
             // premier forecast exploitable avant de les lancer afin de donner la
             // priorité au contenu principal et à sa première frame.
@@ -440,7 +440,7 @@ class CityDetailViewModel @Inject constructor(
                 loadedNormals = byKey
                 // Patch le state existant : si on est déjà en Loaded, on
                 // remplace .normals. Sinon (Loading/Error), on n'altère pas
-                // — les normales seules sans forecast n'ont pas de sens.
+                // — les repères historiques seules sans forecast n'ont pas de sens.
                 _state.update { current ->
                     if (current is CityDetailUiState.Loaded) current.copy(normals = byKey)
                     else current

@@ -3,26 +3,19 @@ package com.meteocompare.app.data.local
 import androidx.room.Entity
 
 /**
- * Cache local des normales climatiques d'une ville.
+ * Cache local des repères calendaires ERA5 sur 10 ans d'une ville.
  *
  * Clé primaire composite (cityId, month, day) : une ligne par jour-de-l'année.
- * 366 lignes par ville en théorie (avec Feb 29 si la ville est polaire et a
- * des observations significatives).
+ * Jusqu'à 366 lignes par ville (29 février inclus lorsqu'il existe dans la
+ * fenêtre historique et que la paire thermique est exploitable).
  *
- * `computedAt` est utilisé pour invalider le cache après ~6 mois (les normales
- * changent à l'échelle décennale, un refresh semestriel est très conservateur).
+ * `computedAt` invalide le cache après ~6 mois. La série reste un repère
+ * produit sur une fenêtre glissante de 10 années complètes, pas une normale WMO.
  *
- * `precipMeanNormal` et `windMeanNormal` sont NULLABLES pour rétro-compatibilité
- * avec un cache issu de la v2 de la DB (qui ne contenait que les températures).
- * Room ajoute automatiquement les colonnes en migration si on bump la version —
- * les anciennes lignes auront simplement NULL sur ces champs jusqu'au prochain
- * refresh (déclenché après 180 jours de staleness du cache existant).
- *
- * Note migration : cf. [MeteoCompareDatabase] pour la stratégie de version
- * bump. On préfère laisser Room recréer la table plutôt que d'écrire un
- * `ALTER TABLE ADD COLUMN` manuel — les normales se re-fetchent à la première
- * consultation d'une ville, coût acceptable, et on évite le risque de bugs
- * de migration silencieux sur un modèle domaine encore jeune.
+ * `precipMeanNormal` et `windMeanNormal` sont NULLABLES pour tolérer un cache
+ * ancien ou une réponse d'archive partielle. Room ne modifie jamais un schéma
+ * automatiquement sans migration/auto-migration déclarée : la stratégie de
+ * versionnement effective est documentée dans [MeteoCompareDatabase].
  */
 @Entity(
     tableName = "climate_normals",
@@ -36,7 +29,7 @@ data class ClimateNormalEntity(
     val tempMinNormal: Double,
     /** Précipitation moyenne journalière (mm/jour). Nullable — cf. docblock classe. */
     val precipMeanNormal: Double? = null,
-    /** Vent moyen à 10m (km/h, max journalier moyenné). Nullable — cf. docblock classe. */
+    /** Moyenne calendaire du maximum journalier du vent à 10 m (km/h). Nullable — cf. docblock classe. */
     val windMeanNormal: Double? = null,
     /** Epoch millis du dernier fetch agrégé. */
     val computedAt: Long

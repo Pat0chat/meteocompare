@@ -5,13 +5,18 @@ import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.DayNormals
 
 /**
- * Source des normales climatiques pour une ville.
+ * Source des repères météorologiques calendaires pour une ville.
+ *
+ * Le nom historique `ClimateNormalsRepository` est conservé pour éviter un
+ * renommage transversal sans valeur fonctionnelle, mais les valeurs produites
+ * ne sont pas des « normales climatiques » WMO sur 30 ans : le repository
+ * agrège 10 années complètes de réanalyse ERA5, jour du calendrier par jour.
  *
  * Contrat :
- *   - Renvoie 366 [DayNormals] (un par jour-de-l'année y compris 29 février)
- *   - Cache à long terme : les normales évoluent extrêmement lentement
- *   - Première requête réseau lourde (~30 ans × 365 jours) → background acceptable
- *   - Réponses suivantes : cache uniquement
+ *   - Renvoie les [DayNormals] disponibles par couple mois/jour (jusqu'à 366).
+ *   - Cache long terme (180 jours dans l'implémentation actuelle).
+ *   - Premier calcul : un fetch ERA5 d'environ 10 ans puis agrégation locale.
+ *   - Réponses suivantes : cache tant qu'il reste frais, ou fallback cache hors ligne.
  */
 interface ClimateNormalsRepository {
     suspend fun getNormalsForCity(city: City): ApiResult<List<DayNormals>>

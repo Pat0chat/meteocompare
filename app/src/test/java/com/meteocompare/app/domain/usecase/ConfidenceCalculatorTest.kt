@@ -203,6 +203,33 @@ class ConfidenceCalculatorTest {
         assertEquals(0, (precip as PrecipitationConfidence.Divided).percent)
     }
 
+    @Test
+    fun `pluie - division respecte une strategie de ponderation personnalisee`() {
+        val weightedCalculator = ConfidenceCalculator(object : ModelWeightingStrategy {
+            override fun weight(model: WeatherModel): Double = when (model) {
+                WeatherModel.AROME_FRANCE_HD -> 3.0
+                else -> 1.0
+            }
+        })
+        val forecast = buildForecast(
+            precipByModel = mapOf(
+                WeatherModel.AROME_FRANCE_HD to 3.0,
+                WeatherModel.ICON_EU to 2.0,
+                WeatherModel.GFS to 0.0,
+                WeatherModel.ECMWF to 0.0
+            )
+        )
+
+        val precip = weightedCalculator.dayConfidence(forecast, today).precipitation
+        assertTrue(precip is PrecipitationConfidence.Divided)
+        precip as PrecipitationConfidence.Divided
+        // Poids pluie = 4, sec = 2 => majorité pondérée 2/3 => 33 %.
+        assertEquals(33, precip.percent)
+        // L'UI conserve toutefois les comptes bruts, pas des pseudo-modèles pondérés.
+        assertEquals(2, precip.modelsForRain)
+        assertEquals(2, precip.modelsAgainstRain)
+    }
+
     // ──────────────────── Alignement par date ────────────────────
 
     @Test

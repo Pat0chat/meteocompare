@@ -74,9 +74,9 @@ class BatchedForecastSplitterTest {
               "timezone": "Europe/Paris",
               "hourly": {
                 "time": ["2026-06-23T00:00","2026-06-23T01:00"],
-                "temperature_2m_gfs_seamless":  [20.0, 21.5],
+                "temperature_2m_ncep_gfs_seamless":  [20.0, 21.5],
                 "temperature_2m_ecmwf_ifs025":  [19.5, 21.0],
-                "precipitation_gfs_seamless":   [0.0, 0.2],
+                "precipitation_ncep_gfs_seamless":   [0.0, 0.2],
                 "precipitation_ecmwf_ifs025":   [0.0, 0.1]
               }
             }"""
@@ -100,7 +100,7 @@ class BatchedForecastSplitterTest {
               "latitude": 0.0, "longitude": 0.0, "timezone": "UTC",
               "hourly": {
                 "time": ["2026-06-23T00:00","2026-06-23T01:00","2026-06-23T02:00"],
-                "temperature_2m_gfs_seamless":  [20.0, 21.0, 22.0],
+                "temperature_2m_ncep_gfs_seamless":  [20.0, 21.0, 22.0],
                 "temperature_2m_ecmwf_ifs025":  [19.0, 20.0, 21.0]
               }
             }"""
@@ -124,16 +124,16 @@ class BatchedForecastSplitterTest {
               "latitude": 48.85, "longitude": 2.35, "timezone": "Europe/Paris",
               "hourly": {
                 "time": ["2026-07-23T12:00"],
-                "temperature_2m_gfs_seamless": [25.0],
+                "temperature_2m_ncep_gfs_seamless": [25.0],
                 "temperature_2m_ecmwf_ifs025": [24.0],
-                "wind_gusts_10m_gfs_seamless": [52.0],
+                "wind_gusts_10m_ncep_gfs_seamless": [52.0],
                 "wind_gusts_10m_ecmwf_ifs025": [48.0]
               },
               "daily": {
                 "time": ["2026-07-23"],
-                "temperature_2m_max_gfs_seamless": [28.0],
+                "temperature_2m_max_ncep_gfs_seamless": [28.0],
                 "temperature_2m_max_ecmwf_ifs025": [27.0],
-                "wind_gusts_10m_max_gfs_seamless": [64.0],
+                "wind_gusts_10m_max_ncep_gfs_seamless": [64.0],
                 "wind_gusts_10m_max_ecmwf_ifs025": [59.0],
                 "sunrise": ["2026-07-23T06:12"],
                 "sunset": ["2026-07-23T21:39"]
@@ -162,7 +162,7 @@ class BatchedForecastSplitterTest {
               "latitude": 0.0, "longitude": 0.0, "timezone": "UTC",
               "hourly": {
                 "time": ["2026-06-23T00:00"],
-                "temperature_2m_gfs_seamless": [20.0]
+                "temperature_2m_ncep_gfs_seamless": [20.0]
               }
             }"""
         )
@@ -184,7 +184,7 @@ class BatchedForecastSplitterTest {
               "latitude": 0.0, "longitude": 0.0, "timezone": "UTC",
               "hourly": {
                 "time": ["2026-06-23T00:00","2026-06-23T01:00"],
-                "temperature_2m_gfs_seamless":         [20.0, 21.0],
+                "temperature_2m_ncep_gfs_seamless":         [20.0, 21.0],
                 "temperature_2m_meteofrance_arome_france_hd": [null, null]
               }
             }"""
@@ -210,7 +210,7 @@ class BatchedForecastSplitterTest {
               "latitude": 0.0, "longitude": 0.0, "timezone": "UTC",
               "hourly": {
                 "time": ["2026-06-23T00:00","2026-06-23T01:00","2026-06-23T02:00"],
-                "temperature_2m_gfs_seamless": [20.0, null, 21.0]
+                "temperature_2m_ncep_gfs_seamless": [20.0, null, 21.0]
               }
             }"""
         )
@@ -229,7 +229,7 @@ class BatchedForecastSplitterTest {
               "latitude": 0.0, "longitude": 0.0, "timezone": "UTC",
               "hourly": {
                 "time": ["2026-06-23T00:00", null, "2026-06-23T02:00"],
-                "temperature_2m_gfs_seamless": [20.0, 99.0, 22.0]
+                "temperature_2m_ncep_gfs_seamless": [20.0, 99.0, 22.0]
               }
             }"""
         )
@@ -253,7 +253,7 @@ class BatchedForecastSplitterTest {
               "latitude": 0.0, "longitude": 0.0, "timezone": "UTC",
               "daily": {
                 "time": ["2026-06-23"],
-                "temperature_2m_max_gfs_seamless": [24.0]
+                "temperature_2m_max_ncep_gfs_seamless": [24.0]
               }
             }"""
         )
@@ -271,11 +271,11 @@ class BatchedForecastSplitterTest {
               "latitude": 0.0, "longitude": 0.0, "timezone": "UTC",
               "hourly": {
                 "time": [],
-                "temperature_2m_gfs_seamless": [20.0]
+                "temperature_2m_ncep_gfs_seamless": [20.0]
               },
               "daily": {
                 "time": [null],
-                "temperature_2m_max_gfs_seamless": [24.0]
+                "temperature_2m_max_ncep_gfs_seamless": [24.0]
               }
             }"""
         )
@@ -293,8 +293,8 @@ class BatchedForecastSplitterTest {
               "latitude": 0.0, "longitude": 0.0, "timezone": "UTC",
               "hourly": {
                 "time": ["2026-06-23T00:00"],
-                "temperature_2m_gfs_seamless": [20.0],
-                "precipitation_gfs_seamless": [0.0],
+                "temperature_2m_ncep_gfs_seamless": [20.0],
+                "precipitation_ncep_gfs_seamless": [0.0],
                 "temperature_2m_meteofrance_arome_france_hd": [21.5]
               }
             }"""
@@ -312,4 +312,57 @@ class BatchedForecastSplitterTest {
         val gfs = split.getValue(WeatherModel.GFS)
         assertEquals(listOf(0.0), gfs.hourly?.precipitation)
     }
+    @Test
+    fun `GEM accepte la cle canonique actuelle et ancien suffixe en compatibilite`() {
+        val canonical = json.decodeFromString<BatchedForecastResponseDto>(
+            """{
+              "latitude": 0.0, "longitude": 0.0, "timezone": "UTC",
+              "hourly": {
+                "time": ["2026-06-23T00:00"],
+                "temperature_2m_cmc_gem_gdps": [17.0]
+              }
+            }"""
+        )
+        val legacy = json.decodeFromString<BatchedForecastResponseDto>(
+            """{
+              "latitude": 0.0, "longitude": 0.0, "timezone": "UTC",
+              "hourly": {
+                "time": ["2026-06-23T00:00"],
+                "temperature_2m_gem_global": [18.0]
+              }
+            }"""
+        )
+
+        assertEquals(
+            listOf(17.0),
+            BatchedForecastSplitter.split(canonical, listOf(WeatherModel.GEM_GLOBAL))
+                .getValue(WeatherModel.GEM_GLOBAL).hourly?.temperature2m
+        )
+        assertEquals(
+            listOf(18.0),
+            BatchedForecastSplitter.split(legacy, listOf(WeatherModel.GEM_GLOBAL))
+                .getValue(WeatherModel.GEM_GLOBAL).hourly?.temperature2m
+        )
+    }
+
+    @Test
+    fun `entiers encodes en nombre decimal exact restent lisibles`() {
+        val response = json.decodeFromString<BatchedForecastResponseDto>(
+            """{
+              "latitude": 0.0, "longitude": 0.0, "timezone": "UTC",
+              "hourly": {
+                "time": ["2026-06-23T00:00"],
+                "temperature_2m_ncep_gfs_seamless": [20.0],
+                "cloud_cover_ncep_gfs_seamless": [55.0],
+                "weather_code_ncep_gfs_seamless": [2.0]
+              }
+            }"""
+        )
+
+        val dto = BatchedForecastSplitter.split(response, listOf(WeatherModel.GFS))
+            .getValue(WeatherModel.GFS)
+        assertEquals(listOf(55), dto.hourly?.cloudCover)
+        assertEquals(listOf(2), dto.hourly?.weatherCode)
+    }
+
 }

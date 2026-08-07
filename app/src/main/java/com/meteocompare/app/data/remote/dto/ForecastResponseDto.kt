@@ -4,11 +4,11 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * Réponse de `/v1/forecast?models=<single>`.
+ * Réponse normalisée pour UN modèle météo.
  *
- * En appelant l'API avec UN seul modèle dans `&models=`, les champs ne sont
- * PAS suffixés par le nom du modèle (ex: `temperature_2m` plutôt que
- * `temperature_2m_icon_seamless`). C'est ce qui permet ce DTO simple.
+ * En production, elle est reconstruite depuis la réponse batched par
+ * `BatchedForecastSplitter`, puis sérialisée telle quelle dans le cache Room.
+ * Elle reste aussi compatible avec une réponse Open-Meteo mono-modèle non suffixée.
  */
 @Serializable
 data class ForecastResponseDto(
@@ -37,14 +37,14 @@ data class HourlyDto(
     // ─── Champs ajoutés pour enrichir l'UI ──────────────────────────────────
     // Tous nullables (défaut null) pour la SAME raison que weather_code : ne
     // pas invalider les caches existants ni bloquer si un modèle ne fournit
-    // pas la variable (typiquement AROME HD sur precipitation_probability).
+    // pas la variable (selon le modèle ou le produit demandé).
     @SerialName("wind_direction_10m")
     val windDirection10m: List<Int?>? = null,
     @SerialName("precipitation_probability")
     val precipitationProbability: List<Int?>? = null,
     @SerialName("cloud_cover")
     val cloudCover: List<Int?>? = null,
-    /** Rafale maximale instantanée à 10 m pour l'échéance, en unité vent demandée. */
+    /** Maximum des rafales à 10 m sur l’heure précédente, en unité vent demandée. */
     @SerialName("wind_gusts_10m")
     val windGusts10m: List<Double?>? = null
 )
@@ -62,9 +62,7 @@ data class DailyDto(
     val windSpeed10mMax: List<Double?>? = null,
     @SerialName("weather_code")
     val weatherCode: List<Int?>? = null,
-    // Direction dominante du vent sur la journée (Open-Meteo agrège via une
-    // moyenne pondérée par la vitesse, ce qu'on veut : les directions des
-    // heures de vent fort comptent plus que celles des heures calmes).
+    // Direction dominante du vent sur la journée telle que renvoyée par Open-Meteo.
     @SerialName("wind_direction_10m_dominant")
     val windDirection10mDominant: List<Int?>? = null,
     // Probabilité de précipitation MAX de la journée. On prend le max plutôt
@@ -79,6 +77,6 @@ data class DailyDto(
     /** Heures astronomiques locales renvoyées par Open-Meteo (ISO 8601 local). */
     val sunrise: List<String?>? = null,
     val sunset: List<String?>? = null
-    // Note : pas de cloud_cover_mean en daily côté API — on l'agrège dans le
-    // domaine à partir des heures diurnes (voir ConfidenceCalculator).
+    // Note : pas de cloud_cover_mean demandé en daily Forecast API — on l'agrège
+    // dans le domaine à partir des valeurs horaires du même jour.
 )

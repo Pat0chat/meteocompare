@@ -12,6 +12,8 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.intOrNull
+import kotlin.math.abs
+import kotlin.math.roundToInt
 
 /**
  * Décompose une réponse batched multi-modèles en un [ForecastResponseDto]
@@ -31,9 +33,8 @@ import kotlinx.serialization.json.intOrNull
  *   2. `V` si N == 1       → non-suffixé (mode single-modèle historique)
  *
  * Sinon la variable est considérée absente pour ce modèle → liste vide dans
- * le DTO reconstruit, ce que le mapper interprète comme "modèle sans cette
- * variable" (comportement identique à AROME HD qui manque
- * `precipitation_probability` par exemple).
+ * le DTO reconstruit, ce que le mapper interprète comme "variable absente
+ * pour cette série" (ancien cache, horizon/zone limitée ou champ omis).
  *
  * ─── Détection d'échec par modèle ────────────────────────────────────────
  * Un modèle qui n'a répondu à AUCUNE température alignée sur une échéance
@@ -140,7 +141,7 @@ object BatchedForecastSplitter {
         sharedTime: List<String>
     ): HourlyDto? {
         if (json == null) return null
-        val get = variableGetter(json, model.apiKey, singleModelMode)
+        val get = variableGetter(json, model, singleModelMode)
         return HourlyDto(
             time = sharedTime,
             temperature2m = get.doubles(HourlyVar.TEMPERATURE_2M),
@@ -161,7 +162,7 @@ object BatchedForecastSplitter {
         sharedTime: List<String>
     ): DailyDto? {
         if (json == null) return null
-        val get = variableGetter(json, model.apiKey, singleModelMode)
+        val get = variableGetter(json, model, singleModelMode)
         return DailyDto(
             time = sharedTime,
             temperature2mMax = get.doubles(DailyVar.TEMPERATURE_2M_MAX),
@@ -189,11 +190,13 @@ object BatchedForecastSplitter {
      */
     private class VariableGetter(
         private val json: JsonObject,
-        private val apiKey: String,
+        private val apiKeys: List<String>,
         private val singleModelMode: Boolean
     ) {
         private fun lookup(baseKey: String, allowSharedFallback: Boolean = false): JsonElement? {
-            json[baseKey + "_" + apiKey]?.let { return it }
+            apiKeys.forEach { apiKey ->
+                json[baseKey + "_" + apiKey]?.let { return it }
+            }
             // Fallback single-modèle : Open-Meteo omet le suffixe quand un
             // seul modèle est demandé (compat historique de leur API).
             if (singleModelMode || allowSharedFallback) json[baseKey]?.let { return it }
@@ -210,8 +213,12 @@ object BatchedForecastSplitter {
             lookup(baseKey, allowSharedFallback)?.asNullableStrings()
     }
 
-    private fun variableGetter(json: JsonObject, apiKey: String, singleModelMode: Boolean) =
-        VariableGetter(json, apiKey, singleModelMode)
+    private fun variableGetter(json: JsonObject, model: WeatherModel, singleModelMode: Boolean) =
+        VariableGetter(
+            json = json,
+            apiKeys = listOf(model.apiKey) + model.apiKeyAliases,
+            singleModelMode = singleModelMode
+        )
 
     // ────────────────── Helpers de coercition JsonElement → List ────────────────
 
@@ -250,7 +257,12 @@ object BatchedForecastSplitter {
         (this as? JsonArray)?.map { element ->
             when (element) {
                 is JsonNull -> null
-                is JsonPrimitive -> element.intOrNull
+                is JsonPrimitive -> element.intOrNull ?: element.doubleOrNull?.let { value ->
+                    if (value.isFinite() &&
+                        value in Int.MIN_VALUE.toDouble()..Int.MAX_VALUE.toDouble() &&
+                        abs(value - value.roundToInt()) < 1e-9
+                    ) value.roundToInt() else null
+                }
                 else -> null
             }
         }.orEmpty()

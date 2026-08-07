@@ -274,7 +274,7 @@ class WeatherConditionTest {
 
     @Test
     fun `dailyConditionsByModel infers condition from precipitation when weather_code missing`() {
-        // Scénario réel : AROME HD n'expose pas weather_code, seulement les
+        // Cas de compatibilité : réponse partielle / ancien cache sans weather_code, avec les
         // variables physiques. Sur un jour pluvieux, le fallback doit fournir
         // RAIN pour qu'AROME HD apparaisse dans la matrice avec les autres.
         val today = LocalDate.of(2026, 6, 30)
@@ -287,7 +287,7 @@ class WeatherConditionTest {
                 tempMin = listOf(12.0),
                 precipitationSum = listOf(8.0), // pluvieux
                 windSpeedMax = listOf(15.0),
-                weatherCode = emptyList() // AROME HD n'expose pas
+                weatherCode = emptyList() // champ absent du cache/réponse
             )
         )
         val gfs = ForecastSeries(
@@ -315,7 +315,7 @@ class WeatherConditionTest {
         assertEquals(WeatherCondition.RAIN, rows[0].byModel[WeatherModel.GFS])
     }
 
-    // ─── fromCloudCover — dernier fallback peer-consensus ───────────────────
+    // ─── fromCloudCover — fallback local au même modèle ───────────────────
 
     @Test
     fun `fromCloudCover renvoie CLEAR sous 15 pourcent`() {
@@ -325,7 +325,6 @@ class WeatherConditionTest {
 
     @Test
     fun `fromCloudCover renvoie MAINLY_CLEAR entre 15 et 40 pourcent`() {
-        // Borne inférieure : 15% pile bascule sur MAINLY_CLEAR
         assertEquals(WeatherCondition.MAINLY_CLEAR, WeatherCondition.fromCloudCover(15.0))
         assertEquals(WeatherCondition.MAINLY_CLEAR, WeatherCondition.fromCloudCover(30.0))
         assertEquals(WeatherCondition.MAINLY_CLEAR, WeatherCondition.fromCloudCover(39.99))
@@ -333,9 +332,6 @@ class WeatherConditionTest {
 
     @Test
     fun `fromCloudCover renvoie PARTLY_CLOUDY entre 40 et 70 pourcent`() {
-        // Bande RESSERRÉE à 30 points — plus le fourre-tout hérité des
-        // seuils WMO théoriques. Le seul "vraiment partly cloudy" est
-        // ici 40-70% (le ciel où soleil et nuages coexistent visiblement).
         assertEquals(WeatherCondition.PARTLY_CLOUDY, WeatherCondition.fromCloudCover(40.0))
         assertEquals(WeatherCondition.PARTLY_CLOUDY, WeatherCondition.fromCloudCover(55.0))
         assertEquals(WeatherCondition.PARTLY_CLOUDY, WeatherCondition.fromCloudCover(69.99))
@@ -349,15 +345,9 @@ class WeatherConditionTest {
     }
 
     @Test
-    fun `dailyConditionsByModel infère AROME HD sur jour sec depuis le consensus peer cloud_cover`() {
-        // Scénario réel : AROME HD sur un jour SEC (précip = 0), sans
-        // weather_code. Les deux premiers fallbacks échouent — le 3e
-        // (médiane peer-consensus) doit prendre le relais et marquer la
-        // cellule comme inférée.
+    fun `dailyConditionsByModel infere le ciel depuis le cloud cover du meme modele`() {
         val today = LocalDate.of(2026, 6, 30)
         val startOfDay = today.atStartOfDay(java.time.ZoneOffset.UTC).toInstant()
-        // 3 heures diurnes avec cloud_cover ~ 60% chacune (fenêtre PARTLY_CLOUDY,
-        // largement > 31.25% pour ne pas être MAINLY_CLEAR).
         val hourlyTs = listOf(
             startOfDay.plusSeconds(9 * 3600),
             startOfDay.plusSeconds(13 * 3600),
@@ -365,23 +355,12 @@ class WeatherConditionTest {
         )
         val aromeHd = ForecastSeries(
             model = WeatherModel.AROME_FRANCE_HD,
-            hourly = emptyHourly(),
-            daily = DailyForecast(
-                dates = listOf(today),
-                tempMax = listOf(22.0),
-                tempMin = listOf(14.0),
-                precipitationSum = listOf(0.0), // sec
-                windSpeedMax = listOf(10.0),
-                weatherCode = emptyList() // AROME HD n'expose pas
-            )
-        )
-        val gfs = ForecastSeries(
-            model = WeatherModel.GFS,
             hourly = HourlyForecast(
                 timestamps = hourlyTs,
                 temperature2m = listOf(18.0, 22.0, 20.0),
                 precipitation = listOf(0.0, 0.0, 0.0),
                 windSpeed10m = listOf(5.0, 5.0, 5.0),
+                weatherCode = emptyList(),
                 cloudCover = listOf(60, 60, 60)
             ),
             daily = DailyForecast(
@@ -390,38 +369,21 @@ class WeatherConditionTest {
                 tempMin = listOf(14.0),
                 precipitationSum = listOf(0.0),
                 windSpeedMax = listOf(10.0),
-                weatherCode = listOf(2) // partly cloudy explicite pour GFS
+                weatherCode = emptyList()
             )
         )
-        val forecast = CityForecast(
-            paris,
-            mapOf(WeatherModel.AROME_FRANCE_HD to aromeHd, WeatherModel.GFS to gfs)
-        )
+        val forecast = CityForecast(paris, mapOf(WeatherModel.AROME_FRANCE_HD to aromeHd))
 
-        val rows = calculator.dailyConditionsByModel(forecast)
-        assertEquals(1, rows.size)
-        val row = rows[0]
-        // AROME HD : infére depuis la médiane peer (GFS seul contribue 60%) → PARTLY_CLOUDY
+        val row = calculator.dailyConditionsByModel(forecast).single()
         assertEquals(WeatherCondition.PARTLY_CLOUDY, row.byModel[WeatherModel.AROME_FRANCE_HD])
-        // GFS : condition depuis son propre weather_code, PAS inférée
-        assertEquals(WeatherCondition.PARTLY_CLOUDY, row.byModel[WeatherModel.GFS])
-        // Marquage inférence : SEUL AROME HD doit être marqué
-        assertTrue(
-            "AROME HD doit être dans inferredByModel",
-            WeatherModel.AROME_FRANCE_HD in row.inferredByModel
-        )
-        assertTrue(
-            "GFS ne doit PAS être dans inferredByModel (sa condition vient de son propre code)",
-            WeatherModel.GFS !in row.inferredByModel
-        )
+        assertTrue(WeatherModel.AROME_FRANCE_HD in row.inferredByModel)
+        assertEquals(60, row.extrasByModel[WeatherModel.AROME_FRANCE_HD]?.cloudCoverMean)
     }
 
     @Test
-    fun `dailyConditionsByModel n'infère PAS quand aucun peer n'a de cloud_cover`() {
-        // Cas dégénéré : AROME HD seul sans weather_code sur jour sec.
-        // Le 3e fallback n'a rien à consulter → la cellule reste absente
-        // (comportement existant préservé, on n'INVENTE rien).
+    fun `dailyConditionsByModel ne copie jamais le cloud cover des autres modeles`() {
         val today = LocalDate.of(2026, 6, 30)
+        val start = today.atStartOfDay(java.time.ZoneOffset.UTC).toInstant()
         val aromeHd = ForecastSeries(
             model = WeatherModel.AROME_FRANCE_HD,
             hourly = emptyHourly(),
@@ -434,11 +396,31 @@ class WeatherConditionTest {
                 weatherCode = emptyList()
             )
         )
-        val forecast = CityForecast(paris, mapOf(WeatherModel.AROME_FRANCE_HD to aromeHd))
+        val gfs = ForecastSeries(
+            model = WeatherModel.GFS,
+            hourly = HourlyForecast(
+                timestamps = listOf(start.plusSeconds(12 * 3600)),
+                temperature2m = listOf(21.0),
+                precipitation = listOf(0.0),
+                windSpeed10m = listOf(8.0),
+                cloudCover = listOf(95)
+            ),
+            daily = DailyForecast(
+                dates = listOf(today),
+                tempMax = listOf(22.0),
+                tempMin = listOf(14.0),
+                precipitationSum = listOf(0.0),
+                windSpeedMax = listOf(10.0),
+                weatherCode = listOf(3)
+            )
+        )
+        val row = calculator.dailyConditionsByModel(
+            CityForecast(paris, mapOf(WeatherModel.AROME_FRANCE_HD to aromeHd, WeatherModel.GFS to gfs))
+        ).single()
 
-        val rows = calculator.dailyConditionsByModel(forecast)
-        // Ligne vide → filtrée par le .filter { it.byModel.isNotEmpty() } final
-        assertTrue("Sans peer, rien à inférer : ligne skippée", rows.isEmpty())
+        assertNull(row.byModel[WeatherModel.AROME_FRANCE_HD])
+        assertEquals(WeatherCondition.OVERCAST, row.byModel[WeatherModel.GFS])
+        assertTrue(WeatherModel.AROME_FRANCE_HD !in row.inferredByModel)
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────────

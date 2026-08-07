@@ -128,6 +128,24 @@ class ForecastRepositoryImplTest {
     }
 
     @Test
+    fun `timezone API devient le fallback pour un favori ancien sans fuseau`() = runTest {
+        coEvery {
+            api.getForecastBatched(
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any()
+            )
+        } returns batchedResponseWith(modelsWithData = listOf(WeatherModel.GFS))
+
+        val result = repository.refreshCityForecast(
+            city = paris,
+            models = listOf(WeatherModel.GFS)
+        )
+
+        assertTrue(result is ApiResult.Success)
+        result as ApiResult.Success
+        assertEquals("Europe/Paris", result.data.city.timezone)
+    }
+
+    @Test
     fun `fetch automatique de stream ne publie pas de signal UI`() = runTest {
         coEvery {
             api.getForecastBatched(
@@ -190,7 +208,7 @@ class ForecastRepositoryImplTest {
         runTest {
             // ICON_EU répond (données suffixées présentes), GFS n'a rien —
             // simulateur d'une réponse batched où Open-Meteo n'a pas de
-            // données pour un modèle (hors zone ou downtime individuel).
+            // données pour un modèle (hors couverture, horizon ou incident individuel).
             coEvery {
                 api.getForecastBatched(
                     any(), any(), any(), any(), any(), any(), any(), any(), any(), any()
@@ -241,7 +259,7 @@ class ForecastRepositoryImplTest {
         coVerify(exactly = 1) {
             cacheDao.replaceRequestedModels(eq(paris.id), any(), any(), any())
         }
-        assertEquals(listOf(WeatherModel.GFS.apiKey), requestedKeys.captured)
+        assertEquals(WeatherModel.GFS.compatibleApiKeys, requestedKeys.captured.toSet())
         assertEquals(1, entries.captured.size)
         assertEquals("1", entries.captured.single().cityId)
         assertEquals(WeatherModel.GFS.apiKey, entries.captured.single().modelKey)
@@ -275,8 +293,8 @@ class ForecastRepositoryImplTest {
 
             assertTrue(result is ApiResult.Success)
             assertEquals(
-                listOf(WeatherModel.ICON_EU.apiKey, WeatherModel.GFS.apiKey),
-                requestedKeys.captured
+                WeatherModel.ICON_EU.compatibleApiKeys + WeatherModel.GFS.compatibleApiKeys,
+                requestedKeys.captured.toSet()
             )
             assertEquals(
                 setOf(WeatherModel.ICON_EU.apiKey, WeatherModel.GFS.apiKey),
@@ -289,7 +307,7 @@ class ForecastRepositoryImplTest {
 
             // Le marqueur négatif rend le cache complet pendant l'intervalle :
             // rouvrir l'écran ou exécuter un tick widget ne doit pas rappeler
-            // l'API immédiatement pour le même modèle hors zone.
+            // l'API immédiatement pour la même absence inchangée.
             coEvery { cacheDao.getForCity(paris.id) } returns entries.captured
             val cached = repository.getCityForecastStream(
                 city = paris,
@@ -360,6 +378,49 @@ class ForecastRepositoryImplTest {
         assertEquals("Should emit cache + fresh", 2, emissions.size)
         assertTrue(emissions[0] is ApiResult.Success)
         assertTrue(emissions[1] is ApiResult.Success)
+    }
+
+    @Test
+    fun `cache avec ancienne et nouvelle cle - garde seulement la ligne la plus recente`() = runTest {
+        val now = System.currentTimeMillis()
+        val oldDto = sampleDto.copy(
+            hourly = sampleDto.hourly?.copy(temperature2m = listOf(10.0))
+        )
+        val newDto = sampleDto.copy(
+            hourly = sampleDto.hourly?.copy(temperature2m = listOf(22.0))
+        )
+        coEvery { cacheDao.getForCity(paris.id) } returns listOf(
+            ForecastCacheEntity(
+                cityId = paris.id,
+                modelKey = "gem_global",
+                fetchedAtEpochMs = now - 30_000L,
+                responseJson = json.encodeToString(ForecastResponseDto.serializer(), oldDto)
+            ),
+            ForecastCacheEntity(
+                cityId = paris.id,
+                modelKey = WeatherModel.GEM_GLOBAL.apiKey,
+                fetchedAtEpochMs = now - 5_000L,
+                responseJson = json.encodeToString(ForecastResponseDto.serializer(), newDto)
+            )
+        )
+
+        val emissions = repository.getCityForecastStream(
+            city = paris,
+            models = listOf(WeatherModel.GEM_GLOBAL),
+            maxCacheAgeMs = 60 * 60 * 1000L
+        ).toList()
+
+        assertEquals(1, emissions.size)
+        val cached = (emissions.single() as ApiResult.Success).data
+        val cachedTemperature = cached.seriesByModel
+            .getValue(WeatherModel.GEM_GLOBAL)
+            .hourly
+            .temperature2m
+            .first()
+        assertEquals(22.0, requireNotNull(cachedTemperature), 0.001)
+        coVerify(exactly = 0) {
+            api.getForecastBatched(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        }
     }
 
     @Test
@@ -608,7 +669,7 @@ class ForecastRepositoryImplTest {
         )
 
         assertEquals(
-            "gfs_seamless,ecmwf_ifs025,icon_eu",
+            "ncep_gfs_seamless,ecmwf_ifs025,icon_eu",
             modelsParam.captured
         )
     }
@@ -616,8 +677,8 @@ class ForecastRepositoryImplTest {
     @Test
     fun `refresh - forecast_days pris au max des modèles bornée par forecastDays voulu`() =
         runTest {
-            // AROME_FRANCE_HD.maxForecastDays = 2 (limite), GFS = 16, forecastDays voulu = 5.
-            // Attendu : effectiveForecastDays = min(max(2, 16), 5) = 5.
+            // AROME_FRANCE_HD.maxForecastDays = 3 (51 h natives), GFS = 16, forecastDays voulu = 5.
+            // Attendu : effectiveForecastDays = min(max(3, 16), 5) = 5.
             // Ce test verrouille l'algo : envoyer forecast_days=16 gaspillerait
             // du réseau (GFS a 16 j de data mais UI n'affiche que 5), et
             // envoyer forecast_days=2 tronquerait GFS et ECMWF prématurément.

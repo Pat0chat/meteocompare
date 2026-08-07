@@ -1,6 +1,8 @@
 package com.meteocompare.app.domain.usecase
 
+import com.meteocompare.app.core.util.apiTimezoneOrAuto
 import com.meteocompare.app.core.util.localDateIn
+import com.meteocompare.app.core.util.validZoneOrNull
 import com.meteocompare.app.core.util.resolveZoneOrUtc
 import com.meteocompare.app.data.remote.PreviousRunsApi
 import com.meteocompare.app.data.remote.dto.PreviousRunsResponseDto
@@ -84,7 +86,7 @@ class BootstrapBiasHistoryUseCase @Inject constructor(
             latitude = city.latitude,
             longitude = city.longitude,
             models = models.joinToString(",", transform = WeatherModel::apiKey),
-            timezone = city.timezone ?: "auto",
+            timezone = apiTimezoneOrAuto(city.timezone),
             startDate = startDate.format(ISO_DATE),
             endDate = endDate.format(ISO_DATE)
         )
@@ -104,7 +106,7 @@ class BootstrapBiasHistoryUseCase @Inject constructor(
         val coveredModels = linkedSetOf<WeatherModel>()
         val coverageByModel = linkedMapOf<WeatherModel, MutableMap<BiasVariable, Int>>()
         val singleModelMode = models.size == 1
-        val zone = resolveZoneOrUtc(city.timezone ?: response.timezone)
+        val zone = validZoneOrNull(city.timezone) ?: resolveZoneOrUtc(response.timezone)
 
         for (model in models) {
             val temperature = hourly.lookupSeries(
@@ -127,8 +129,9 @@ class BootstrapBiasHistoryUseCase @Inject constructor(
             for (entry in timeline) {
                 val accumulator = accumulators.getOrPut(entry.date, ::DailyAccumulator)
                 temperature.getOrNull(entry.sourceIndex)?.finiteOrNull()?.let(accumulator::addTemperature)
-                precipitation.getOrNull(entry.sourceIndex)?.finiteOrNull()?.let(accumulator::addPrecipitation)
-                wind.getOrNull(entry.sourceIndex)?.finiteOrNull()?.let(accumulator::addWind)
+                precipitation.getOrNull(entry.sourceIndex)?.nonNegativeFiniteOrNull()
+                    ?.let(accumulator::addPrecipitation)
+                wind.getOrNull(entry.sourceIndex)?.nonNegativeFiniteOrNull()?.let(accumulator::addWind)
             }
 
             for ((date, values) in accumulators) {
@@ -211,7 +214,7 @@ class BootstrapBiasHistoryUseCase @Inject constructor(
 
         fun addPrecipitation(value: Double) {
             precipitationCount++
-            precipitationSum += value.coerceAtLeast(0.0)
+            precipitationSum += value
         }
 
         fun addWind(value: Double) {
@@ -264,9 +267,11 @@ private fun JsonObject.lookupSeries(
 ): List<Double?> {
     val leadKey = "${baseKey}_previous_day1"
     val candidates = buildList {
-        add("${leadKey}_${model.apiKey}")
-        // Défense contre une éventuelle variante de suffixage côté serveur.
-        add("${baseKey}_${model.apiKey}_previous_day1")
+        (listOf(model.apiKey) + model.apiKeyAliases).forEach { apiKey ->
+            add("${leadKey}_${apiKey}")
+            // Certaines réponses historiques ont suffixé le modèle avant le lead.
+            add("${baseKey}_${apiKey}_previous_day1")
+        }
         if (singleModelMode) add(leadKey)
     }
     return candidates.firstNotNullOfOrNull { key -> this[key]?.asNullableDoubles() }
@@ -291,3 +296,6 @@ private fun JsonElement.asNullableDoubles(): List<Double?> =
     }.orEmpty()
 
 private fun Double?.finiteOrNull(): Double? = this?.takeIf(Double::isFinite)
+
+private fun Double?.nonNegativeFiniteOrNull(): Double? =
+    this?.takeIf { it.isFinite() && it >= 0.0 }

@@ -76,11 +76,11 @@
     <string name="model_sort_family">Family</string>
     <string name="model_sort_finesse">Resolution</string>
 
-    <!-- Legend for the "10-year normal" dashed line on confidence charts -->
-    <string name="chart_normals_legend_temp_max">10-year max normal</string>
-    <string name="chart_normals_legend_temp_min">10-year min normal</string>
+    <!-- Legend for 10-year ERA5 historical references -->
+    <string name="chart_normals_legend_temp_max">10-year max reference</string>
+    <string name="chart_normals_legend_temp_min">10-year min reference</string>
     <string name="chart_normals_legend_precip">10-year mean rainfall</string>
-    <string name="chart_normals_legend_wind">10-year mean wind</string>
+    <string name="chart_normals_legend_wind">10-year max-wind reference</string>
 
     <!-- Extra widget 4×2 forecast modes -->
     <string name="widget_config_forecast_mode_conf_all">Model agreement</string>
@@ -141,14 +141,14 @@
     <string name="wind_legend_storm">storm</string>
 
     <!-- Min/max table legend -->
-    <string name="temp_legend_above_normal">&gt; 10-year normal + 2°</string>
-    <string name="temp_legend_below_normal">&lt; 10-year normal − 2°</string>
+    <string name="temp_legend_above_normal">&gt; 10-year reference + 2°</string>
+    <string name="temp_legend_below_normal">&lt; 10-year reference − 2°</string>
 
     <!-- Variable labels (today summary) -->
     <string name="var_temp_max">Max temperature</string>
     <string name="var_temp_min">Min temperature</string>
-    <string name="var_wind_max">10m mean wind</string>
-    <string name="var_wind_gust_max">Max 10m gusts</string>
+    <string name="var_wind_max">10 m max wind</string>
+    <string name="var_wind_gust_max">Max 10 m gusts</string>
     <string name="var_precipitation">Precipitation</string>
 
     <!-- Refresh feedback -->
@@ -159,8 +159,8 @@
     <string name="error_timeout">Request timed out</string>
     <string name="error_server">Server error (HTTP %d)</string>
     <string name="error_unknown">Unknown error</string>
-    <string name="error_model_out_of_range">This model does not cover this city</string>
-    <string name="error_no_model_available">No model covers this city</string>
+    <string name="error_model_out_of_range">Data unavailable for this model</string>
+    <string name="error_no_model_available">No model data available for this city</string>
     <string name="city_not_found_in_favorites">City not found in favorites</string>
 
     <!-- Empty / loading states -->
@@ -210,7 +210,7 @@
     <string name="a11y_today_summary_many">Today\'s summary, %d models analysed</string>
     <string name="a11y_temp_max_label">Max temperature</string>
     <string name="a11y_temp_min_label">Min temperature</string>
-    <string name="a11y_wind_max_label">10m mean wind</string>
+    <string name="a11y_wind_max_label">10 m max wind</string>
     <string name="a11y_kmh_unit">kilometers per hour</string>
 
     <!-- ─── "Why this agreement?" ───────────────────────────────────────── -->
@@ -272,7 +272,7 @@
     <string name="weather_legend_thunderstorm">Thunderstorm</string>
     <!-- Note explaining the % badges under icons in the weather-by-model table -->
     <string name="weather_legend_percent_note" formatted="false">The % under an icon = cloud cover (cloudy/overcast) or precipitation probability (rain/snow/thunderstorm).</string>
-    <string name="weather_legend_inferred_note">Dimmed icon = condition inferred from other models.</string>
+    <string name="weather_legend_inferred_note">Dimmed icon = condition derived from this model’s variables.</string>
 
 
     <!-- ============================================================
@@ -337,7 +337,7 @@
     <string name="bias_reliability_local_index">Local reliability index</string>
     <string name="bias_reliability_score_suffix">/ 100</string>
     <string name="bias_reliability_rank">Local rank %1$d / %2$d</string>
-    <string name="bias_reliability_score_explanation">Educational summary of forecasts captured the previous day, compared with Open-Meteo historical reference data.</string>
+    <string name="bias_reliability_score_explanation">Educational summary of forecasts captured the previous day, compared with Open-Meteo historical reanalysis data.</string>
     <string name="bias_reliability_level_excellent">Excellent</string>
     <string name="bias_reliability_level_good">Good</string>
     <string name="bias_reliability_level_fair">Fair</string>
@@ -393,7 +393,7 @@
     <string name="bias_reliability_balance_over_badge">%1$d%% above</string>
     <string name="bias_reliability_direction_balance">%1$d%% above · %2$d%% close · %3$d%% below</string>
     <string name="bias_reliability_sample_coverage">History used: %1$d days within a %2$d-day window.</string>
-    <string name="bias_reliability_method_note">This index is a local educational guide, not an official model score. It compares D+1 forecasts captured the previous day with an Open-Meteo historical reference for daily maximum temperature, daily precipitation total, and daily maximum 10 m wind, not with a station at the exact point. It depends on the city, variable, and available period. For precipitation, a day is considered wet from 0.5 mm.</string>
+    <string name="bias_reliability_method_note">This index is a local educational guide, not an official model score. It compares D+1 forecasts captured the previous day with Open-Meteo historical reanalysis for daily maximum temperature, daily precipitation total, and daily maximum 10 m wind, not with a station at the exact point. It depends on the city, variable, and available period. For precipitation, a day is considered wet from 0.5 mm.</string>
 
     <string name="bias_chip_calibrating_progress_a11y">Calibrating: %1$d of %2$d samples collected</string>
 
@@ -443,7 +443,7 @@
     <string name="timeline_precip_models_source">%1$d/%2$d models</string>
     <string name="timeline_wind_gust">Gust %1$d km/h</string>
     <string name="wind_gust_abbreviation">G</string>
-    <string name="wind_table_legend">Mean wind · G = gusts · km/h</string>
+    <string name="wind_table_legend">10 m wind · G = gusts · km/h</string>
     <string name="timeline_consensus_high">High agreement</string>
     <string name="timeline_consensus_medium">Medium agreement</string>
     <string name="timeline_consensus_low">Low agreement</string>
@@ -561,7 +561,10 @@
     <string name="model_coverage_europe">Europe</string>
     <string name="model_coverage_united_states">United States</string>
     <string name="model_coverage_global">Global</string>
-    <string name="model_metadata">%1$s · %2$d d</string>
+    <string name="model_metadata">%1$s · %2$s</string>
+    <string name="model_horizon_days">%1$d d</string>
+    <string name="model_horizon_days_decimal">%1$.1f d</string>
+    <string name="model_horizon_hours">%1$d h</string>
     <!-- Modernized Home -->
     <string name="home_locations_title">My locations</string>
     <string name="home_locations_subtitle">Weather and model agreement at a glance</string>

@@ -77,33 +77,19 @@ enum class WeatherCondition {
         }
 
         /**
-         * Fallback empirique quand un modèle ne fournit pas `weather_code`.
-         *
-         * Cas d'usage principal : **AROME HD**. La documentation Open-Meteo
-         * explique noir sur blanc que "AROME France HD has the same model area,
-         * but at higher resolution with a smaller selection of weather variables"
-         * — `weather_code` fait partie des variables non exposées, sacrifiées
-         * au profit de la résolution 1.5 km. Sans ce fallback, la colonne AROME
-         * HD dans le tableau Jour × Modèle est entièrement vide, ce que les
-         * utilisateurs interprètent (à raison) comme un bug.
+         * Fallback empirique lorsqu'un code WMO manque dans une réponse partielle
+         * ou un ancien cache. Il n'utilise que les variables du MÊME modèle.
          *
          * Règles :
-         *   - Précip >= 5 mm → RAIN (SNOW si temp min <= 0°C)
+         *   - Précip >= 5 mm → RAIN (SNOW si temp <= 0°C)
          *   - Précip >= 1 mm → RAIN_SHOWERS (ou SNOW_SHOWERS)
-         *   - Précip >= 0.1 mm → DRIZZLE (ou SNOW_SHOWERS si gel)
-         *   - Précip == 0 → null (impossible de distinguer clair vs couvert
-         *     sans donnée de couverture nuageuse, qu'AROME HD n'expose pas non
-         *     plus). Le tableau affiche "—" dans ce cas.
-         *
-         * Trade-off assumé : on privilégie l'HONNÊTETÉ sur la complétude —
-         * mieux vaut ne rien afficher qu'inventer "il fait beau" faute de
-         * donnée. Sur les jours secs, les autres modèles fournissent l'info.
-         * Sur les jours pluvieux (les plus importants à surfacer), le fallback
-         * fait le boulot.
+         *   - Précip >= 0.1 mm → DRIZZLE (ou SNOW_SHOWERS)
+         *   - Précip < 0.1 mm → null : pluie/température seules ne permettent
+         *     pas de distinguer honnêtement ciel clair et ciel couvert.
          *
          * @param precipMm cumul de précipitations sur la fenêtre (mm)
-         * @param tempMinC température minimale sur la fenêtre (°C), pour
-         *   distinguer pluie/neige. Si null, on suppose > 0°C.
+         * @param tempMinC température représentative/minimale (°C), utilisée
+         *   uniquement pour distinguer pluie/neige.
          */
         fun inferFromPrecipAndTemp(precipMm: Double?, tempMinC: Double?): WeatherCondition? {
             if (precipMm == null) return null
@@ -117,56 +103,14 @@ enum class WeatherCondition {
         }
 
         /**
-         * Fallback ULTIME : dérive une famille "ciel non pluvieux" depuis un
-         * pourcentage de couverture nuageuse.
+         * Dérive une famille de ciel non pluvieux depuis une couverture
+         * nuageuse 0-100 %. Le caller doit utiliser la couverture du MÊME
+         * modèle et signaler qu'il s'agit d'une interprétation, pas d'un code
+         * WMO journalier fourni tel quel.
          *
-         * Utilisé UNIQUEMENT en dernier recours quand un modèle n'expose ni
-         * weather_code ni précipitation exploitable, à partir de la MÉDIANE
-         * des cloud_cover des modèles PEERS à ce (jour, lieu). Cas typique :
-         * AROME HD sur un jour sec — sa colonne restait "—" faute de moyen
-         * de dériver l'état du ciel. Voir
-         * [com.meteocompare.app.domain.usecase.ConfidenceCalculator.dailyConditionsByModel].
-         *
-         * ## Signalement à l'utilisateur
-         *
-         * Le caller DOIT signaler visuellement à l'utilisateur qu'une condition
-         * a été inférée depuis les peers (pas la prédiction propre du modèle) —
-         * typiquement via `Modifier.alpha(0.55f)` sur la cellule. Sans ce
-         * marqueur on trahirait la philosophie "on annote, on ne modifie
-         * jamais la donnée brute".
-         *
-         * ## Ne renvoie QUE 4 valeurs
-         *
-         * Les 4 familles "ciel non pluvieux" mappées sur les codes WMO 0-3 :
-         *   - < 15%  → CLEAR         (ciel dégagé, quelques cirrus au plus)
-         *   - < 40%  → MAINLY_CLEAR  (majoritairement clair avec quelques nuages)
-         *   - < 70%  → PARTLY_CLOUDY (nuages significatifs mais soleil visible)
-         *   - sinon  → OVERCAST      (ciel couvert)
-         *
-         * ## Choix des seuils — leçon apprise
-         *
-         * Une première version utilisait les MIDPOINTS entre les octas WMO
-         * théoriques (6.25 / 31.25 / 81.25). Théoriquement rigoureux mais
-         * défectueux en pratique : la médiane inter-modèles (5+ peers avec
-         * bonne concordance) tape presque toujours dans le milieu, résultat
-         * ~80% des cellules AROME HD ressortaient en PARTLY_CLOUDY. Trop de
-         * fausse variabilité collapse en une seule catégorie.
-         *
-         * Cette version élargit délibérément CLEAR/MAINLY_CLEAR/OVERCAST et
-         * comprime PARTLY_CLOUDY à sa bande "vraiment mi-ciel" (40-70%). Les
-         * seuils correspondent mieux à la perception humaine :
-         *   - "il fait beau" ↔ < 15% de couverture
-         *   - "en majorité dégagé" ↔ 15-40%
-         *   - "mitigé" ↔ 40-70% (le seul cas où PARTLY_CLOUDY est vraiment vrai)
-         *   - "gris/couvert" ↔ ≥ 70%
-         *
-         * ## Pas de RAIN / FOG / THUNDERSTORM
-         *
-         * Ces conditions demandent d'autres variables (précipitation,
-         * humidité, potentiel convectif) qu'on ne sait pas dériver de la
-         * seule couverture nuageuse. Utiliser cette méthode pour un cas
-         * non-pluvieux uniquement (le caller garantit ça — précip a déjà
-         * été essayée avant).
+         * Seuils pédagogiques : <15 CLEAR, <40 MAINLY_CLEAR, <70
+         * PARTLY_CLOUDY, sinon OVERCAST. Cette méthode ne déduit jamais pluie,
+         * brouillard ou orage de la seule nébulosité.
          */
         fun fromCloudCover(cloudCoverPct: Double): WeatherCondition = when {
             cloudCoverPct < 15.0 -> CLEAR

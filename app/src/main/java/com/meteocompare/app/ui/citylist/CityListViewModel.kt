@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.core.network.NetworkMonitor
+import com.meteocompare.app.core.util.resolveZoneOrUtc
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.RefreshInterval
@@ -386,19 +387,19 @@ class CityListViewModel @Inject constructor(
         result: ApiResult<CityForecast>
     ): ForecastState = withContext(computationDispatcher) { when (result) {
         is ApiResult.Success -> {
-            val today = result.data.seriesByModel.values
-                .firstOrNull()?.daily?.dates?.firstOrNull()
-            if (today != null) {
+            val now = clock.instant()
+            // Le repository complète le fuseau depuis `timezone=auto` si un
+            // favori legacy ne l'avait pas. Utiliser la ville du forecast évite
+            // alors de retomber à tort sur UTC pour la Home.
+            val forecastCity = result.data.city
+            val zone = resolveZoneOrUtc(forecastCity.timezone)
+            val today = now.atZone(zone).toLocalDate()
+            val hasToday = result.data.seriesByModel.values.any { today in it.daily.dates }
+            if (hasToday) {
                 // ─── Sunrise/sunset : API Open-Meteo en priorité ───────────
-                // Les heures astronomiques sont maintenant demandées dans le
-                // même appel forecast que les variables météo. Cela évite les
-                // écarts du calcul local simplifié et ne coûte aucune requête
-                // réseau supplémentaire. Le calcul NOAA historique reste un
-                // fallback utile pour un ancien cache qui ne contient pas encore
-                // sunrise/sunset ou une réponse partielle de l'API.
-                val zone = runCatching {
-                    java.time.ZoneId.of(city.timezone ?: "UTC")
-                }.getOrDefault(java.time.ZoneId.of("UTC"))
+                // Les heures astronomiques sont demandées dans le même appel
+                // forecast. Le calcul NOAA local reste uniquement un secours
+                // pour un ancien cache ou une réponse partielle.
 
                 val sunriseFromApi = result.data.seriesByModel.values
                     .asSequence()
@@ -416,8 +417,8 @@ class CityListViewModel @Inject constructor(
                     .firstOrNull()
                 val fallbackSun = if (sunriseFromApi == null || sunsetFromApi == null) {
                     com.meteocompare.app.domain.util.SolarTimes.compute(
-                        latitude = city.latitude,
-                        longitude = city.longitude,
+                        latitude = forecastCity.latitude,
+                        longitude = forecastCity.longitude,
                         date = today,
                         zone = zone
                     )
@@ -427,7 +428,6 @@ class CityListViewModel @Inject constructor(
                 val sunrise = sunriseFromApi?.atZone(zone)?.toLocalTime() ?: fallbackSun?.sunrise
                 val sunset = sunsetFromApi?.atZone(zone)?.toLocalTime() ?: fallbackSun?.sunset
 
-                val now = clock.instant()
                 val miniForecast = ForecastAggregates.next12h(result.data, now)
                 val scenarios = WeatherScenarioBuilder.next12h(result.data, now)
                 ForecastState.Loaded(
@@ -440,17 +440,16 @@ class CityListViewModel @Inject constructor(
                     next12hTemps = miniForecast.temperatures,
                     next12hPrecipProb = miniForecast.precipitationProbabilities,
                     next12hScenarios = scenarios,
-                    // Même instant de référence que les agrégats ci-dessus :
-                    // les valeurs et les labels horaires restent alignés.
-                    hourlyStartTime = now
+                    // L'agrégateur expose l'échéance réellement échantillonnée
+                    // (ex. 13:00 à 12:56), donc le label ne peut plus dériver.
+                    hourlyStartTime = miniForecast.startInstant
                         .atZone(zone)
-                        .toLocalDateTime()
-                        .truncatedTo(java.time.temporal.ChronoUnit.HOURS),
+                        .toLocalDateTime(),
                     sunrise = sunrise,
                     sunset = sunset
                 )
             } else {
-                ForecastState.Error("Aucune donnée journalière reçue")
+                ForecastState.Error("Aucune donnée de prévision pour aujourd’hui")
             }
         }
         is ApiResult.Error -> ForecastState.Error(result.message)

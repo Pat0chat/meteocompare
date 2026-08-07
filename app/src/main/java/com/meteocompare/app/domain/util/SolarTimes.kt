@@ -8,6 +8,7 @@ import kotlin.math.PI
 import kotlin.math.acos
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlin.math.roundToLong
 
 /**
  * Résultat d'un calcul de sunrise/sunset pour une position et une date.
@@ -39,9 +40,9 @@ data class SunTimes(
  * ─── Précision du fallback ─────────────────────────────────────────────────
  * Formule "vraie" avec équation du temps, déclinaison solaire, correction de
  * réfraction atmosphérique (élévation −0.833° pour l'horizon apparent, standard
- * astronomique). Précision typique : ±1 minute pour latitudes < 60°.
- * Pas d'inputs sur l'altitude — pour un utilisateur météo, ±1 min à ±100m
- * d'altitude est négligeable.
+ * astronomique). C'est une approximation de secours : altitude, relief local
+ * et conditions atmosphériques réelles ne sont pas modélisés. L'heure API
+ * reste donc prioritaire dès qu'elle est disponible.
  *
  * ─── Cas dégénérés ─────────────────────────────────────────────────────────
  * `acos(x)` requiert x ∈ [-1, 1]. Aux latitudes extrêmes en été/hiver, le
@@ -152,18 +153,14 @@ object SolarTimes {
         date: LocalDate,
         zone: ZoneId
     ): LocalTime {
-        // Normaliser dans [0, 1440) pour gérer les cas où le calcul déborde
-        // (ex. sunrise "négatif" à cause d'un fuseau très est, ou sunset > 24h
-        // à l'ouest). Le modulo 1440 renvoie l'heure du même jour local qui
-        // physiquement correspond.
-        val normalized = ((minutesFromUtcMidnight % 1440.0) + 1440.0) % 1440.0
-        val hoursUtc = (normalized / 60.0).toInt()
-        val minsUtc = (normalized % 60.0).toInt()
-        val secsUtc = ((normalized * 60.0) % 60.0).toInt().coerceIn(0, 59)
-
-        return date.atTime(hoursUtc, minsUtc, secsUtc)
-            .atZone(ZoneOffset.UTC)
-            .withZoneSameInstant(zone)
+        // On conserve volontairement le débordement de jour UTC : un lever
+        // peut correspondre à la veille UTC dans les fuseaux très à l'est.
+        // Un modulo 24 h perdrait cette information avant la résolution DST.
+        val secondsFromUtcMidnight = (minutesFromUtcMidnight * 60.0).roundToLong()
+        return date.atStartOfDay(ZoneOffset.UTC)
+            .toInstant()
+            .plusSeconds(secondsFromUtcMidnight)
+            .atZone(zone)
             .toLocalTime()
     }
 }

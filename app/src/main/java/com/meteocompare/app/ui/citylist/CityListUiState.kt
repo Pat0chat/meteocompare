@@ -34,9 +34,8 @@ sealed interface ForecastState {
     /**
      * @param currentTemp moyenne pondérée des modèles à l'heure la plus proche
      *   de maintenant. Null si aucune donnée horaire dispo.
-     * @param currentCondition famille de temps actuelle (mode pondéré par
-     *   résolution). Null si aucun modèle ne fournit weather_code — typique-
-     *   ment un cache antérieur à la feature.
+     * @param currentCondition famille de temps actuelle (vote selon la
+     *   stratégie de pondération configurée). Null si aucun signal exploitable.
      * @param currentCloudCover couverture nuageuse "maintenant" (0-100),
      *   agrégée entre modèles. Alimente le badge "70% couvert" sur la CityCard
      *   quand la condition courante est cloudy/overcast. Null si non disponible
@@ -45,7 +44,8 @@ sealed interface ForecastState {
      *   réseau. Null quand la donnée provient d'un cache pré-feature — la
      *   CityCard omet alors le caption "il y a X".
      * @param next12hTemps températures agrégées entre modèles pour les 12
-     *   prochaines heures (index 0 = heure actuelle, index 11 = +11h). Alimente
+     *   prochaines échéances horaires (index 0 = heure locale la plus proche,
+     *   index 11 = +11h). Alimente
      *   [MiniForecastStrip]. Peut contenir des null pour les heures manquantes
      *   (fin de fenêtre pour AROME HD par exemple).
      * @param next12hPrecipProb probabilités de précipitation agrégées (0-100)

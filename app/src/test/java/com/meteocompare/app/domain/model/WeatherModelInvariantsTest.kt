@@ -130,9 +130,35 @@ class WeatherModelInvariantsTest {
     fun `métadonnées modèles critiques restent cohérentes`() {
         assertEquals(15, WeatherModel.ECMWF.maxForecastDays)
         assertEquals(15, WeatherModel.ECMWF_AIFS.maxForecastDays)
-        assertEquals(28.0, WeatherModel.ECMWF_AIFS.resolutionKm, 0.0)
+        assertEquals(25.0, WeatherModel.ECMWF_AIFS.resolutionKm, 0.0)
         assertEquals(3, WeatherModel.KNMI_HARMONIE_EU.maxForecastDays)
         assertEquals(15.0, WeatherModel.BOM_ACCESS.resolutionKm, 0.0)
+        assertEquals(13.0, WeatherModel.CMA_GRAPES.resolutionKm, 0.0)
+        assertEquals(11.0, WeatherModel.ICON_GLOBAL.resolutionKm, 0.0)
+        assertEquals(51, WeatherModel.AROME_FRANCE_HD.forecastHorizonHours)
+        assertEquals(3, WeatherModel.AROME_FRANCE_HD.maxForecastDays)
+        assertEquals(180, WeatherModel.ICON_GLOBAL.forecastHorizonHours)
+        assertEquals(60, WeatherModel.METNO_NORDIC.forecastHorizonHours)
+    }
+
+    @Test
+    fun `aliases api restent compatibles sans collision entre modèles`() {
+        val owners = mutableMapOf<String, WeatherModel>()
+        WeatherModel.entries.forEach { model ->
+            model.compatibleApiKeys.forEach { key ->
+                val previous = owners.putIfAbsent(key, model)
+                assertTrue(
+                    "Clé API compatible $key partagée par $previous et $model",
+                    previous == null || previous == model
+                )
+            }
+        }
+        assertEquals(WeatherModel.GEM_GLOBAL, WeatherModel.fromApiKey("gem_global"))
+        assertEquals(WeatherModel.GEM_GLOBAL, WeatherModel.fromApiKey("cmc_gem_gdps"))
+        assertEquals(WeatherModel.GFS, WeatherModel.fromApiKey("gfs_seamless"))
+        assertEquals(WeatherModel.GFS, WeatherModel.fromApiKey("ncep_gfs_seamless"))
+        assertEquals(WeatherModel.ICON_GLOBAL, WeatherModel.fromApiKey("icon_seamless"))
+        assertEquals(WeatherModel.ICON_GLOBAL, WeatherModel.fromApiKey("icon_global"))
     }
 
 }

@@ -152,6 +152,27 @@ class BootstrapBiasHistoryUseCaseTest {
     }
 
     @Test
+    fun `valeurs negatives de pluie et vent sont ignorees au lieu detre corrigees`() = runTest {
+        val records = slot<List<ForecastBiasRecord>>()
+        coEvery { repository.recordForecasts(capture(records)) } returns Unit
+        coEvery { api.getPreviousDayOne(any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returns
+            response(
+                model = WeatherModel.GFS,
+                days = 1,
+                temperature = { _, hour -> 10.0 + hour },
+                precipitation = { _, _ -> -1.0 },
+                wind = { _, _ -> -5.0 }
+            )
+
+        val result = useCase(city, listOf(WeatherModel.GFS), today, requestedDays = 1)
+
+        assertEquals(1, result.forecastRecords)
+        assertEquals(BiasVariable.TEMPERATURE, records.captured.single().variable)
+        assertEquals(0, result.sampleCount(WeatherModel.GFS, BiasVariable.PRECIPITATION))
+        assertEquals(0, result.sampleCount(WeatherModel.GFS, BiasVariable.WIND_SPEED))
+    }
+
+    @Test
     fun `jour incomplet est ignoré sans fabriquer un cumul partiel`() = runTest {
         coEvery { api.getPreviousDayOne(any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returns
             response(

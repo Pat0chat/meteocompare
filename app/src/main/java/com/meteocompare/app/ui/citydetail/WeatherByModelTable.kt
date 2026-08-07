@@ -179,7 +179,7 @@ private fun IconCell(
         contentAlignment = Alignment.Center
     ) {
         if (condition == null) {
-            // Modèle sans donnée pour ce jour (typique : AROME HD ne couvre
+            // Modèle sans donnée pour ce jour (typique : un modèle régional ne couvre
             // que J+0 à J+2 — colonnes "vides" au-delà). On affiche un tiret
             // discret pour que la cellule reste reconnaissable comme une
             // cellule (pas comme un trou de layout).
@@ -278,7 +278,7 @@ internal fun WeatherLegend() {
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
         )
         // Note d'inférence : couronne le marquage alpha 0.35 sur les cellules
-        // dont la condition vient du peer-consensus. Sans cette note, un
+        // dont la condition a été dérivée de variables du même modèle. Sans cette note, un
         // utilisateur qui remarque une cellule "grisée" ne peut pas savoir
         // qu'il s'agit d'une inférence (il pensera à un bug d'affichage).
         // Un petit exemple visuel inline (icône + alpha) pour ancrer la

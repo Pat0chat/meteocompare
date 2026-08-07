@@ -9,8 +9,8 @@ import androidx.compose.runtime.saveable.Saver
  *     de l'app — c'est celle qui a toujours été rendue avant l'ajout du
  *     sélecteur à 3 états.
  *   - [PRECIPITATION] : précipitations en mm sur l’heure. La bande représente
- *     l'amplitude min/max des modèles ; le trait pointillé "normale 10 ans"
- *     est aplati car les normales sont journalières.
+ *     l'amplitude min/max des modèles ; le trait pointillé "repère historique 10 ans"
+ *     est aplati car les repères historiques sont journalières.
  *   - [WIND] : vent moyen à 10m en km/h (pas les rafales — cf. section_wind).
  *
  * Le [Saver] permet de survivre à la rotation et au dark-mode toggle. On

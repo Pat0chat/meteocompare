@@ -24,9 +24,17 @@ private val OPEN_METEO_HOURLY_FORMAT: DateTimeFormatter =
  * ont besoin d'un repli déterministe.
  */
 fun resolveZoneOrUtc(timezone: String?): ZoneId =
+    validZoneOrNull(timezone) ?: ZoneId.of("UTC")
+
+/** Retourne un fuseau IANA valide ou null, sans accepter la pseudo-valeur API `auto`. */
+fun validZoneOrNull(timezone: String?): ZoneId? =
     timezone
+        ?.takeIf { it.isNotBlank() }
         ?.let { runCatching { ZoneId.of(it) }.getOrNull() }
-        ?: ZoneId.of("UTC")
+
+/** Valeur à envoyer à Open-Meteo : fuseau IANA valide, sinon résolution serveur `auto`. */
+fun apiTimezoneOrAuto(timezone: String?): String =
+    validZoneOrNull(timezone)?.id ?: "auto"
 
 /** Date civile de cet instant dans le fuseau métier demandé. */
 fun Instant.localDateIn(timezone: String?): LocalDate =
@@ -46,6 +54,40 @@ fun parseOpenMeteoTime(time: String, timezone: String): Instant? = try {
     null
 } catch (e: java.time.zone.ZoneRulesException) {
     null
+}
+
+
+/**
+ * Parse une timeline locale Open-Meteo sans écraser l'heure répétée lors du
+ * passage à l'heure d'hiver.
+ *
+ * Une chaîne ISO locale ne porte pas son offset. Quand les règles du fuseau
+ * proposent deux offsets (par ex. deux occurrences de 02:00), on choisit le
+ * premier instant strictement postérieur au précédent. Ainsi une suite
+ * `01:00, 02:00, 02:00, 03:00` reste strictement chronologique. Une heure
+ * locale inexistante pendant le saut de printemps est rejetée (`null`) au lieu
+ * d'être silencieusement décalée par `LocalDateTime.atZone()`.
+ */
+fun parseOpenMeteoTimeline(times: List<String>, timezone: String): List<Instant?> {
+    val zone = runCatching { ZoneId.of(timezone) }.getOrNull()
+        ?: return List(times.size) { null }
+    var previous: Instant? = null
+
+    return times.map { raw ->
+        val local = runCatching { LocalDateTime.parse(raw, OPEN_METEO_HOURLY_FORMAT) }
+            .getOrNull() ?: return@map null
+        val offsets = zone.rules.getValidOffsets(local)
+        if (offsets.isEmpty()) return@map null
+
+        val candidates = offsets
+            .map { offset -> local.atOffset(offset).toInstant() }
+            .sorted()
+        val chosen = previous
+            ?.let { last -> candidates.firstOrNull { it > last } }
+            ?: candidates.firstOrNull()
+        if (chosen != null) previous = chosen
+        chosen
+    }
 }
 
 /**

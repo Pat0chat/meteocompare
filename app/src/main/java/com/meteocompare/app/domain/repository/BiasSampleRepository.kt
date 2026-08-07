@@ -13,7 +13,7 @@ import java.time.LocalDate
  *   - **Forecasts historiques** : quel modèle a prévu quoi, pour quel jour,
  *     enregistré à quel moment. Clé fonctionnelle : (city, model, variable,
  *     targetDate, issuedAt).
- *   - **Observations historiques** : la valeur réellement mesurée pour un
+ *   - **Références historiques** : valeur issue de la réanalyse Open-Meteo pour un
  *     jour donné, une variable donnée, dans une ville donnée. Clé :
  *     (city, variable, targetDate).
  *
@@ -25,7 +25,7 @@ import java.time.LocalDate
  *
  * Les méthodes "write" sont appelées par le worker de suivi : Previous Runs
  * alimente les prévisions à échéance fixe J+1, puis l’archive historique
- * fournit les références observées correspondantes.
+ * fournit les références de réanalyse correspondantes.
  *
  * ## Rétention
  *

@@ -66,7 +66,7 @@ private val ChartContentEnd = ChartCanvasPadding + ChartRightAxisPad
 /**
  * Hauteur du canevas de dessin. Bumpée à 300 dp (vs 260 précédemment) pour
  * donner plus d'amplitude verticale à la bande — utile pour distinguer les
- * traits pointillés "normale 10 ans" (max + min en T°) qui sont proches à
+ * traits pointillés "repère historique 10 ans" (max + min en T°) qui sont proches à
  * l'échelle du chart et qui pouvaient se confondre visuellement.
  */
 private val ChartCanvasHeight = 300.dp
@@ -77,19 +77,19 @@ private const val MAX_VIEW_SPAN = 1.0f
 
 /**
  * Graphique de bande de confiance horaire — supporte 3 métriques (température,
- * précipitation, vent) et un overlay optionnel de normales 10 ans.
+ * précipitation, vent) et un overlay optionnel de repères historiques 10 ans.
  *
  * Interactions :
  *   - Pinch à 2 doigts : zoom horizontal (le 1 doigt reste passthrough pour
  *     laisser la LazyColumn scroller).
  *   - Double-tap : reset zoom.
  *
- * Overlay normales :
+ * Overlay des repères historiques :
  *   - Température : 2 traits pointillés (min et max 10 ans) qui varient jour
  *     par jour — rendus comme step-function le long de l'axe X.
  *   - Précipitations : 1 trait pointillé (précipitation moyenne journalière).
  *   - Vent : 1 trait pointillé (vent moyen journalier).
- *   Les normales manquantes (nullables sur [DayNormals]) sont simplement skipées.
+ *   Les repères historiques manquantes (nullables sur [DayNormals]) sont simplement skipées.
  */
 @Composable
 fun HourlyConfidenceChart(
@@ -126,7 +126,7 @@ fun HourlyConfidenceChart(
     val bandFillAlpha = if (isDarkTheme) 0.40f else 0.28f
     val timelineStripAlpha = if (isDarkTheme) 0.85f else 0.7f
 
-    // Palette dédiée aux traits pointillés "normale 10 ans" — sémantique
+    // Palette dédiée aux traits pointillés "repère historique 10 ans" — sémantique
     // par métrique. Le vent reprend exactement l'accent de l'onglet Vent. Les
     // couleurs sont sélectionnées par [normalsPalette] pour rester lisibles
     // sur les deux thèmes (variantes brighter en dark mode).
@@ -137,7 +137,7 @@ fun HourlyConfidenceChart(
     val lastTs = bands.last().timestamp
     val totalSeconds = Duration.between(firstTs, lastTs).seconds.coerceAtLeast(1L)
 
-    // ─── Bornes Y — intègrent les normales quand présentes ────────────────
+    // ─── Bornes Y — intègrent les repères historiques quand présentes ────────────────
     // Mémorisées avec `remember(bands, metric, normals, zone)` : le calcul
     // itère toutes les bandes (~168 items) + tous les jours-de-l'année
     // couverts, chaque recomposition (theme swap, zoom, resize) refaisait
@@ -156,7 +156,7 @@ fun HourlyConfidenceChart(
             allValues += it.minValue
             allValues += it.maxValue
         }
-        // Sinon un jour très pluvieux/venteux dans les normales sortirait de
+        // Sinon un jour très pluvieux/venteux dans les repères historiques sortirait de
         // la fenêtre visible ; on étend les bornes pour garder les traits
         // pointillés à l'écran.
         if (normals != null) {
@@ -408,10 +408,10 @@ fun HourlyConfidenceChart(
                 drawPath(path = segmentPath, color = segmentColor)
             }
 
-            // ─── Traits pointillés "normale 10 ans" ──────────────────────
+            // ─── Traits pointillés "repère historique 10 ans" ──────────────────────
             // Rendus AVANT la ligne moyenne pour que celle-ci reste au-dessus
             // (l'œil identifie mean = "notre estimation la plus probable" ;
-            // les normales sont un contexte historique).
+            // les repères historiques sont un contexte historique).
             if (normals != null) {
                 drawNormalsOverlay(
                     bands = bands,
@@ -454,9 +454,9 @@ fun HourlyConfidenceChart(
 }
 
 /**
- * Overlay des normales 10 ans en step-function le long de l'axe X.
+ * Overlay des repères historiques 10 ans en step-function le long de l'axe X.
  *
- * Les normales sont journalières mais l'axe est horaire → chaque jour rendu
+ * Les repères historiques sont journalières mais l'axe est horaire → chaque jour rendu
  * comme un segment horizontal (constant sur les 24 h) qui saute à la valeur
  * suivante à minuit local. C'est visuellement plus honnête qu'une
  * interpolation linéaire entre jours, qui ferait croire à une variation
@@ -581,12 +581,12 @@ private fun hasNormalsForMetric(
 }
 
 /**
- * Légende compacte des normales 10 ans — un pastille + label par trait rendu.
+ * Légende compacte des repères historiques 10 ans — un pastille + label par trait rendu.
  * On la rend seulement quand des normales sont effectivement affichées
  * (voir [hasNormalsForMetric]).
  */
 /**
- * Palette de couleurs des traits pointillés "normale 10 ans" du chart.
+ * Palette de couleurs des traits pointillés "repère historique 10 ans" du chart.
  *
  * Assignation sémantique par métrique — voir le docblock de
  * [drawNormalsOverlay] pour la justification :
@@ -641,7 +641,7 @@ private fun normalsPalette(isDarkTheme: Boolean): NormalsPalette {
 }
 
 /**
- * Légende compacte des normales 10 ans — un tiret coloré + label par trait
+ * Légende compacte des repères historiques 10 ans — un tiret coloré + label par trait
  * effectivement rendu :
  *   - TEMPERATURE : deux lignes (max rouge + min bleu)
  *   - PRECIPITATION / WIND : une seule ligne

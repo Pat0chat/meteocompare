@@ -8,6 +8,8 @@ import com.meteocompare.app.domain.model.HourlyConfidenceBand
 import com.meteocompare.app.domain.model.PrecipitationConfidence
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
+import com.meteocompare.app.domain.util.dailyCloudCoverMean
+import com.meteocompare.app.domain.util.resolveDailyCondition
 import java.time.Instant
 import java.time.LocalDate
 import javax.inject.Inject
@@ -31,7 +33,7 @@ import kotlin.math.sqrt
  *     car c'est ce que l'UI affiche dans le résumé ville. L'extension aux séries
  *     horaires viendra avec les graphiques détaillés.
  *   - L'alignement entre modèles se fait **par date explicite** (pas par index),
- *     car AROME HD ne va que 2 jours quand GFS va 16 — les positions ne correspondent
+ *     car les modèles régionaux ont un horizon bien plus court que GFS — les positions ne correspondent
  *     pas forcément aux mêmes jours.
  */
 @Singleton
@@ -108,9 +110,8 @@ class ConfidenceCalculator @Inject constructor(
             model to temp
         }
         if (samples.isEmpty()) return null
-        val totalWeight = samples.sumOf { (model, _) -> weighting.weight(model) }
-        if (totalWeight == 0.0) return null
-        val weightedSum = samples.sumOf { (model, temp) -> temp * weighting.weight(model) }
+        val totalWeight = samples.sumOf { (model, _) -> safeWeight(model) }
+        val weightedSum = samples.sumOf { (model, temp) -> temp * safeWeight(model) }
         return weightedSum / totalWeight
     }
 
@@ -137,11 +138,10 @@ class ConfidenceCalculator @Inject constructor(
         val votes = mutableMapOf<WeatherCondition, Double>()
         forecast.seriesByModel.forEach { (model, series) ->
             val idx = nearestCurrentIndex(series, now) ?: return@forEach
-            // 1) Priorité au weather_code natif du modèle si dispo.
-            // 2) Sinon, fallback empirique depuis les précipitations horaires —
-            //    permet à AROME HD (qui n'expose pas weather_code) de contribuer
-            //    au vote quand il pleut. Sans ce fallback, AROME HD ne vote
-            //    jamais et son poids fort n'est pas utilisé.
+            // 1) Priorité au weather_code du modèle si disponible.
+            // 2) Sinon, fallback strictement local au même modèle depuis
+            //    précipitations + température. Aucun signal d'un peer n'est
+            //    injecté dans la prédiction de ce modèle.
             val code = series.hourly.weatherCode.getOrNull(idx)
             val condition = WeatherCondition.fromWmoCode(code)
                 ?.takeUnless { it == WeatherCondition.UNKNOWN }
@@ -150,7 +150,7 @@ class ConfidenceCalculator @Inject constructor(
                     tempMinC = series.hourly.temperature2m.getOrNull(idx)
                 )
                 ?: return@forEach
-            votes.merge(condition, weighting.weight(model), Double::plus)
+            votes.merge(condition, safeWeight(model), Double::plus)
         }
         if (votes.isEmpty()) return null
         val maxVote = votes.maxOf { it.value }
@@ -212,9 +212,8 @@ class ConfidenceCalculator @Inject constructor(
             model to wind
         }
         if (samples.isEmpty()) return null
-        val totalWeight = samples.sumOf { (model, _) -> weighting.weight(model) }
-        if (totalWeight == 0.0) return null
-        val weightedSum = samples.sumOf { (model, w) -> w * weighting.weight(model) }
+        val totalWeight = samples.sumOf { (model, _) -> safeWeight(model) }
+        val weightedSum = samples.sumOf { (model, w) -> w * safeWeight(model) }
         return weightedSum / totalWeight
     }
 
@@ -241,9 +240,8 @@ class ConfidenceCalculator @Inject constructor(
             model to value.toDouble()
         }
         if (samples.isEmpty()) return null
-        val totalWeight = samples.sumOf { (model, _) -> weighting.weight(model) }
-        if (totalWeight == 0.0) return null
-        val weightedSum = samples.sumOf { (model, v) -> v * weighting.weight(model) }
+        val totalWeight = samples.sumOf { (model, _) -> safeWeight(model) }
+        val weightedSum = samples.sumOf { (model, v) -> v * safeWeight(model) }
         return (weightedSum / totalWeight).roundToInt()
     }
 
@@ -277,41 +275,11 @@ class ConfidenceCalculator @Inject constructor(
      * laisser l'utilisateur voir le désaccord — l'agrégation l'occulterait.
      */
     fun dailyConditionsByModel(forecast: CityForecast): List<DayConditionsRow> {
-        val zone = runCatching {
-            java.time.ZoneId.of(forecast.city.timezone ?: "UTC")
-        }.getOrDefault(java.time.ZoneId.of("UTC"))
-
+        val zone = com.meteocompare.app.core.util.resolveZoneOrUtc(forecast.city.timezone)
         val allDates = forecast.seriesByModel.values
             .flatMap { it.daily.dates }
             .distinct()
             .sorted()
-
-        // Pré-calcul : médiane inter-modèles de cloud_cover_mean par date.
-        // Utilisé plus bas comme 3e fallback (ultime) pour dériver une
-        // condition sans-précipitation quand un modèle n'expose ni
-        // weather_code ni précip exploitable — cas AROME HD sur jour sec.
-        //
-        // Choix de la MÉDIANE (pas moyenne) : robuste aux outliers d'un
-        // modèle isolé qui verrait le ciel très différemment des autres.
-        // Sur 5+ modèles européens standards à ce niveau d'accord habituel,
-        // la médiane approche de très près la moyenne.
-        val medianCloudByDate: Map<java.time.LocalDate, Double> = buildMap {
-            for (date in allDates) {
-                val values = forecast.seriesByModel.mapNotNull { (_, series) ->
-                    if (series.daily.dates.indexOf(date) < 0) null
-                    else computeDailyCloudCoverMean(series, date, zone)
-                }
-                if (values.isNotEmpty()) {
-                    val sorted = values.sorted()
-                    val median = if (sorted.size % 2 == 1) {
-                        sorted[sorted.size / 2].toDouble()
-                    } else {
-                        (sorted[sorted.size / 2 - 1] + sorted[sorted.size / 2]) / 2.0
-                    }
-                    put(date, median)
-                }
-            }
-        }
 
         return allDates.map { date ->
             val byModel = mutableMapOf<WeatherModel, WeatherCondition>()
@@ -321,38 +289,15 @@ class ConfidenceCalculator @Inject constructor(
             forecast.seriesByModel.forEach { (model, series) ->
                 val idx = series.daily.dates.indexOf(date)
                 if (idx < 0) return@forEach
-                // Priorité au weather_code — sémantique la plus précise.
-                // Fallback précipitation-based pour les modèles sans code
-                // (AROME HD notamment).
-                //
-                // 3e fallback (nouveau) : médiane des cloud_cover des peers.
-                // Kick in uniquement quand les deux premiers ont échoué —
-                // typiquement AROME HD sur jour sec. Ce n'est PLUS la
-                // prédiction propre du modèle, donc on l'enregistre dans
-                // `inferredModels` pour que l'UI puisse le signaler (alpha
-                // réduit sur la cellule).
-                val code = series.daily.weatherCode.getOrNull(idx)
-                var condition = WeatherCondition.fromWmoCode(code)
-                    ?: WeatherCondition.inferFromPrecipAndTemp(
-                        precipMm = series.daily.precipitationSum.getOrNull(idx),
-                        tempMinC = series.daily.tempMin.getOrNull(idx)
-                    )
-                if (condition == null) {
-                    val medianCloud = medianCloudByDate[date]
-                    if (medianCloud != null) {
-                        condition = WeatherCondition.fromCloudCover(medianCloud)
-                        inferredModels += model
-                    }
-                }
-                if (condition == null) return@forEach
-                byModel[model] = condition
 
-                // ─── Extras : probabilité de pluie max + couverture nuageuse ──
-                // Inchangé. Notamment, on n'ajoute PAS medianCloud dans les
-                // extras — ce serait mensonger (ça n'est pas la couverture
-                // nuageuse de CE modèle mais des peers).
+                series.resolveDailyCondition(date, zone)?.let { resolved ->
+                    byModel[model] = resolved.condition
+                    if (resolved.inferred) inferredModels += model
+                }
+
                 val precipProb = series.daily.precipitationProbabilityMax.getOrNull(idx)
-                val cloudMean = computeDailyCloudCoverMean(series, date, zone)
+                    ?.takeIf { it in 0..100 }
+                val cloudMean = series.dailyCloudCoverMean(date, zone)
                 if (precipProb != null || cloudMean != null) {
                     extrasByModel[model] = DayCellExtras(
                         precipProbabilityMax = precipProb,
@@ -368,41 +313,6 @@ class ConfidenceCalculator @Inject constructor(
                 inferredByModel = inferredModels
             )
         }.filter { it.byModel.isNotEmpty() }
-        // Skip les jours sans aucun code disponible — ça arrive avec un cache
-        // antérieur à la feature (weather_code = empty list). Plutôt que
-        // d'afficher une ligne entière de "—", on masque la ligne et l'UI
-        // n'affiche pas le tableau si la liste finale est vide.
-    }
-
-    /**
-     * Moyenne de la couverture nuageuse sur la journée [date] pour la série [series].
-     *
-     * Filtre les heures dont le timestamp — converti dans le fuseau [zone] —
-     * appartient à cette date, puis calcule la moyenne des cloud_cover non-nulles.
-     * Retourne null si aucune donnée exploitable (série sans cloud_cover, ou
-     * jour hors horizon du modèle).
-     *
-     * Choix de la MOYENNE plutôt que d'un cloud_cover_mean qui existerait à
-     * l'API : Open-Meteo n'expose pas cette agrégation en daily, on la calcule
-     * donc côté client. On considère TOUTES les heures (pas de filtre "diurne"
-     * 6h-20h) : afficher "70% couvert" pour un jour vraiment couvert 24/24
-     * doit rester représentatif ; filtrer les heures nocturnes complexifie sans
-     * ajouter de valeur perçue.
-     */
-    private fun computeDailyCloudCoverMean(
-        series: ForecastSeries,
-        date: java.time.LocalDate,
-        zone: java.time.ZoneId
-    ): Int? {
-        if (series.hourly.cloudCover.isEmpty()) return null
-        val values = mutableListOf<Int>()
-        series.hourly.timestamps.forEachIndexed { i, ts ->
-            val local = ts.atZone(zone).toLocalDate()
-            if (local == date) {
-                series.hourly.cloudCover.getOrNull(i)?.let { values += it }
-            }
-        }
-        return if (values.isEmpty()) null else values.average().roundToInt()
     }
 
     /**
@@ -430,7 +340,7 @@ class ConfidenceCalculator @Inject constructor(
     )
 
     /**
-     * Bandes de confiance horaires sur les précipitations (mm sur l’heureeure).
+     * Bandes d'accord horaires sur les précipitations (mm sur l'heure précédente).
      *
      * Utilise le même modèle mathématique que la température : moyenne pondérée,
      * min/max, écart-type converti en %. Les seuils tight/wide sont ceux de
@@ -457,8 +367,8 @@ class ConfidenceCalculator @Inject constructor(
      * Bandes de confiance horaires sur le vent à 10m (km/h).
      *
      * Attention : c'est le vent moyen à 10m, pas les rafales. Les seuils sont
-     * ceux de [Thresholds.WIND] (calibrés sur des divergences inter-modèles
-     * de 2-12 km/h).
+     * ceux de [Thresholds.WIND] (heuristique produit : accord serré vers 2 km/h
+     * d'écart-type, divergence forte vers 12 km/h).
      */
     fun hourlyWindConfidence(
         forecast: CityForecast,
@@ -508,7 +418,7 @@ class ConfidenceCalculator @Inject constructor(
             if (samples.size < 2) return@mapNotNull null
 
             val weighted = samples.map { (model, value) ->
-                WeightedSample(value, weighting.weight(model))
+                WeightedSample(value, safeWeight(model))
             }
             val stats = computeWeightedStats(weighted)
             val percent = stdDevToConfidence(
@@ -541,7 +451,7 @@ class ConfidenceCalculator @Inject constructor(
     ): ConfidenceScore? {
         if (samples.size < 2) return null  // pas de "confiance" possible avec un seul modèle
 
-        val weighted = samples.map { (model, value) -> WeightedSample(value, weighting.weight(model)) }
+        val weighted = samples.map { (model, value) -> WeightedSample(value, safeWeight(model)) }
         val stats = computeWeightedStats(weighted)
 
         val percent = stdDevToConfidence(
@@ -592,7 +502,7 @@ class ConfidenceCalculator @Inject constructor(
             // Cas 2 : tout le monde d'accord — pluie. La confiance dépend du spread sur l'intensité.
             dryModels.isEmpty() -> {
                 val weighted = rainModels.map { (model, value) ->
-                    WeightedSample(value, weighting.weight(model))
+                    WeightedSample(value, safeWeight(model))
                 }
                 val stats = computeWeightedStats(weighted)
                 val percent = stdDevToConfidence(
@@ -611,17 +521,19 @@ class ConfidenceCalculator @Inject constructor(
 
             // Cas 3 : désaccord binaire — c'est le cas le plus incertain.
             else -> {
-                // % d'agreement = max(rain, dry) / total. Toujours ≥ 50%.
-                // On le ramène sur l'échelle [0..100] : un 60/40 split est faiblement informatif.
-                val agreement = maxOf(rainModels.size, dryModels.size).toDouble() / total
-                // 50/50 → 0% confiance, 100/0 → 100% confiance.
-                // roundToInt (pas toInt) : (3/5 - 0.5) * 200 vaut 19.999...
-                // en double à cause de l'imprécision flottante, et un toInt
-                // tronquerait à 19 au lieu du 20 mathématiquement correct.
+                // L'accord binaire suit la même stratégie de pondération que les
+                // autres agrégats. Avec EqualWeighting (production actuelle),
+                // cela reste exactement le ratio de modèles. Ce calcul évite
+                // une incohérence future si une stratégie backtestée est ajoutée.
+                val rainWeight = rainModels.sumOf { (model, _) -> safeWeight(model) }
+                val dryWeight = dryModels.sumOf { (model, _) -> safeWeight(model) }
+                val agreement = maxOf(rainWeight, dryWeight) / (rainWeight + dryWeight)
+                // 50/50 → 0% d'accord, 100/0 → 100%. Le nombre de modèles
+                // affiché reste un compte brut, distinct du poids statistique.
                 val percent = ((agreement - 0.5) * 200).roundToInt().coerceIn(0, 100)
                 val rainStats = computeWeightedStats(
                     rainModels.map { (model, value) ->
-                        WeightedSample(value, weighting.weight(model))
+                        WeightedSample(value, safeWeight(model))
                     }
                 )
                 PrecipitationConfidence.Divided(
@@ -648,6 +560,13 @@ class ConfidenceCalculator @Inject constructor(
         val max: Double
     )
 
+    /** Défense du contrat de [ModelWeightingStrategy] contre NaN, zéro ou poids négatif. */
+    private fun safeWeight(model: WeatherModel): Double = weighting.weight(model).also { weight ->
+        require(weight.isFinite() && weight > 0.0) {
+            "Model weight must be finite and > 0 for ${model.name}: $weight"
+        }
+    }
+
     /**
      * Moyenne et écart-type pondérés.
      *
@@ -661,6 +580,7 @@ class ConfidenceCalculator @Inject constructor(
      */
     private fun computeWeightedStats(samples: List<WeightedSample>): WeightedStats {
         require(samples.isNotEmpty())
+        require(samples.all { it.value.isFinite() && it.weight.isFinite() && it.weight > 0.0 })
         val totalWeight = samples.sumOf { it.weight }
         val mean = samples.sumOf { it.value * it.weight } / totalWeight
         val variance = samples.sumOf { it.weight * (it.value - mean) * (it.value - mean) } / totalWeight
@@ -673,8 +593,8 @@ class ConfidenceCalculator @Inject constructor(
     }
 
     /**
-     * Convertit un écart-type en pourcentage de confiance via interpolation
-     * linéaire entre deux seuils calibrés par variable.
+     * Convertit un écart-type en indice d'accord 0-100 via interpolation
+     * linéaire entre deux seuils heuristiques par variable.
      *
      * - σ ≤ tight → 100% (modèles très alignés)
      * - σ ≥ wide  → 0%   (divergence forte)
@@ -688,19 +608,17 @@ class ConfidenceCalculator @Inject constructor(
     }
 
     /**
-     * Seuils calibrés par variable.
+     * Seuils heuristiques de lisibilité par variable.
      *
-     * Calibration empirique basée sur l'observation des écarts inter-modèles
-     * typiques aux échéances 24-72h sur l'Europe :
+     * Ils transforment un spread inter-modèles en un indicateur pédagogique
+     * monotone. Ce ne sont ni des probabilités, ni des seuils de skill validés
+     * scientifiquement, ni une calibration ECMWF. Ils devront être remplacés
+     * ou recalibrés à partir d'un corpus de vérification local par variable et
+     * échéance si l'application veut un jour annoncer une fiabilité prédictive.
      *
-     * - **Température** : σ ≈ 0.5°C en accord très serré, σ ≈ 3°C en divergence forte.
-     *   Référence : spread des ensembles ECMWF ENS à J+3.
-     *
-     * - **Vent** : plus naturellement variable que la température. σ ≈ 2 km/h en accord,
-     *   σ ≈ 12 km/h en divergence.
-     *
-     * - **Pluie** (sur cas où tous prédisent pluie) : σ ≈ 1 mm en accord, σ ≈ 8 mm en divergence.
-     *   La pluie convective notamment a des écarts inter-modèles très importants.
+     * - Température : 0,5°C = accord très serré ; 3°C = divergence forte.
+     * - Vent à 10 m : 2 km/h = accord très serré ; 12 km/h = divergence forte.
+     * - Pluie (si tous prévoient pluie) : 1 mm = accord serré ; 8 mm = divergence forte.
      */
     private data class Thresholds(val tightStdDev: Double, val wideStdDev: Double) {
         companion object {
@@ -722,7 +640,7 @@ class ConfidenceCalculator @Inject constructor(
  * Au niveau fichier (pas imbriquée dans `ConfidenceCalculator`) pour pouvoir
  * être référencée depuis le ViewModel et l'UI sans avoir à importer la classe
  * englobante. `byModel` peut contenir < N entrées si certains modèles n'ont
- * pas fourni de code pour ce jour (cas d'un horizon dépassé pour AROME HD).
+ * pas fourni de code pour ce jour (cas d'un horizon régional dépassé).
  */
 data class DayConditionsRow(
     val date: LocalDate,
@@ -737,14 +655,12 @@ data class DayConditionsRow(
     val extrasByModel: Map<WeatherModel, DayCellExtras> = emptyMap(),
 
     /**
-     * Modèles dont la condition affichée provient de l'INFÉRENCE peer-consensus
-     * (médiane des cloud_cover des autres modèles), et pas de leur propre
-     * prédiction. Cas typique : AROME HD sur un jour sec, où la seule variable
-     * "sky" qu'on peut lui attribuer vient du consensus des peers.
+     * Modèles dont la condition affichée est DÉRIVÉE de leurs propres variables
+     * (codes horaires, précip/temp ou couverture nuageuse), faute de code WMO
+     * journalier exploitable. Aucune donnée d'un autre modèle n'est injectée.
      *
-     * L'UI DOIT signaler visuellement ces cellules (typiquement alpha réduit)
-     * pour rester honnête avec l'utilisateur — cohérent avec la philosophie
-     * "on annote, on ne modifie jamais la donnée brute d'un modèle".
+     * L'UI signale ces cellules (typiquement alpha réduit) afin de distinguer
+     * une valeur WMO directe d'une interprétation locale et transparente.
      *
      * Défaut vide pour rétro-compat des tests + du cache pré-feature.
      */
