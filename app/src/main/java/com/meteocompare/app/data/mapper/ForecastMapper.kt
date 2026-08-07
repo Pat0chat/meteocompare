@@ -40,7 +40,8 @@ class ForecastMapper @Inject constructor() {
                 weatherCode = alignNonNullTimesInt(times, h.weatherCode),
                 windDirection10m = alignNonNullTimesInt(times, h.windDirection10m),
                 precipitationProbability = alignNonNullTimesInt(times, h.precipitationProbability),
-                cloudCover = alignNonNullTimesInt(times, h.cloudCover)
+                cloudCover = alignNonNullTimesInt(times, h.cloudCover),
+                windGusts10m = alignNonNullTimes(times, h.windGusts10m)
             )
         } ?: HourlyForecast(
             timestamps = emptyList(),
@@ -50,7 +51,8 @@ class ForecastMapper @Inject constructor() {
             weatherCode = emptyList(),
             windDirection10m = emptyList(),
             precipitationProbability = emptyList(),
-            cloudCover = emptyList()
+            cloudCover = emptyList(),
+            windGusts10m = emptyList()
         )
 
         val daily = dto.daily?.let { d ->
@@ -63,7 +65,10 @@ class ForecastMapper @Inject constructor() {
                 windSpeedMax = alignNonNullDates(dates, d.windSpeed10mMax),
                 weatherCode = alignNonNullDatesInt(dates, d.weatherCode),
                 windDirection10mDominant = alignNonNullDatesInt(dates, d.windDirection10mDominant),
-                precipitationProbabilityMax = alignNonNullDatesInt(dates, d.precipitationProbabilityMax)
+                precipitationProbabilityMax = alignNonNullDatesInt(dates, d.precipitationProbabilityMax),
+                windGustsMax = alignNonNullDates(dates, d.windGusts10mMax),
+                sunrise = alignNonNullDatesInstants(dates, d.sunrise, tz),
+                sunset = alignNonNullDatesInstants(dates, d.sunset, tz)
             )
         } ?: DailyForecast(
             dates = emptyList(),
@@ -73,7 +78,10 @@ class ForecastMapper @Inject constructor() {
             windSpeedMax = emptyList(),
             weatherCode = emptyList(),
             windDirection10mDominant = emptyList(),
-            precipitationProbabilityMax = emptyList()
+            precipitationProbabilityMax = emptyList(),
+            windGustsMax = emptyList(),
+            sunrise = emptyList(),
+            sunset = emptyList()
         )
 
         return ForecastSeries(model = model, hourly = hourly, daily = daily)
@@ -134,6 +142,21 @@ class ForecastMapper @Inject constructor() {
         return dates.indices
             .filter { index -> dates[index] != null }
             .map { index -> values.getOrNull(index) }
+    }
+
+    private fun alignNonNullDatesInstants(
+        dates: List<LocalDate?>,
+        values: List<String?>?,
+        timezone: String
+    ): List<Instant?> {
+        if (values == null) {
+            return List(dates.count { it != null }) { null }
+        }
+        return dates.indices
+            .filter { index -> dates[index] != null }
+            .map { index ->
+                values.getOrNull(index)?.let { parseOpenMeteoTime(it, timezone) }
+            }
     }
 }
 

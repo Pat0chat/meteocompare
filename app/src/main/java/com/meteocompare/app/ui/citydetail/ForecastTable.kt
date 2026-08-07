@@ -52,6 +52,8 @@ fun ForecastTable(
     now: Instant,
     modifier: Modifier = Modifier,
     valueStyler: ((Double) -> ValueStyle?)? = null,
+    secondaryValueExtractor: ((DailyForecast, Int) -> Double?)? = null,
+    secondaryValueFormatter: ((Double) -> String)? = null,
     directionExtractor: ((DailyForecast, Int) -> Int?)? = null,
     modelBiasProvider: ((WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
     onBiasChipClick: ((WeatherModel, com.meteocompare.app.domain.model.ModelBias) -> Unit)? = null,
@@ -141,11 +143,17 @@ fun ForecastTable(
                 Column(modifier = Modifier.width(cellWidth)) {
                     models.forEachIndexed { modelIndex, model ->
                         val value = valueAt(forecast, model, date, valueExtractor)
+                        val secondaryValue = secondaryValueExtractor?.let {
+                            valueAt(forecast, model, date, it)
+                        }
                         val direction = directionExtractor?.let {
                             directionAt(forecast, model, date, it)
                         }
                         ValueCell(
                             text = value?.let(valueFormatter) ?: "—",
+                            secondaryText = secondaryValue?.let {
+                                secondaryValueFormatter?.invoke(it) ?: it.toString()
+                            },
                             style = value?.let { valueStyler?.invoke(it) },
                             background = palette.dataRowBackground(modelIndex, isToday),
                             directionDegrees = direction,
@@ -248,6 +256,7 @@ private fun TemporalHeaderCell(
 @Composable
 private fun ValueCell(
     text: String,
+    secondaryText: String?,
     style: ValueStyle?,
     background: Color,
     directionDegrees: Int? = null,
@@ -258,24 +267,27 @@ private fun ValueCell(
         modifier = Modifier.fillMaxWidth().height(height).detailTableCell(background, palette),
         contentAlignment = Alignment.Center
     ) {
-        if (directionDegrees != null) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (directionDegrees != null) {
                 WindArrow(directionDegrees = directionDegrees, size = 10.dp)
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = text,
                     style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"),
                     color = style?.color ?: Color.Unspecified,
                     fontWeight = style?.fontWeight,
-                    modifier = Modifier.padding(start = 2.dp)
+                    modifier = Modifier.padding(start = if (directionDegrees != null) 2.dp else 0.dp)
                 )
+                secondaryText?.let { secondary ->
+                    Text(
+                        text = secondary,
+                        style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum"),
+                        color = style?.color ?: MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1
+                    )
+                }
             }
-        } else {
-            Text(
-                text = text,
-                style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"),
-                color = style?.color ?: Color.Unspecified,
-                fontWeight = style?.fontWeight
-            )
         }
     }
 }

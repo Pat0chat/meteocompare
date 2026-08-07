@@ -47,7 +47,9 @@ data class HourlyForecast(
      * Couverture nuageuse totale, 0-100%. Vide si non fourni par le modèle
      * ou cache antérieur à la feature.
      */
-    val cloudCover: List<Int?> = emptyList()
+    val cloudCover: List<Int?> = emptyList(),
+    /** Rafales de vent à 10 m en km/h. Vide si absentes ou cache antérieur. */
+    val windGusts10m: List<Double?> = emptyList()
 ) {
     val size: Int get() = timestamps.size
 }
@@ -63,7 +65,7 @@ data class DailyForecast(
     /**
      * Vitesse maximale du vent MOYEN sur la journée à 10m en km/h.
      * IMPORTANT : c'est le max des vents horaires moyens, PAS les rafales
-     * (`wind_gusts_10m_max` côté API — non demandé actuellement).
+     * (`wind_gusts_10m_max` est stocké séparément dans [windGustsMax]).
      */
     val windSpeedMax: List<Double?>,
     /** Code météo WMO 4677 — défaut empty pour les caches antérieurs. */
@@ -78,9 +80,14 @@ data class DailyForecast(
      * max journalier plutôt que la moyenne — le signal utile est "y a-t-il
      * un pic de risque de pluie", pas "quelle est la valeur moyenne".
      */
-    val precipitationProbabilityMax: List<Int?> = emptyList()
+    val precipitationProbabilityMax: List<Int?> = emptyList(),
+    /** Rafale maximale de la journée à 10 m en km/h. */
+    val windGustsMax: List<Double?> = emptyList(),
+    /** Lever/coucher du soleil fournis par Open-Meteo, convertis en instants absolus. */
+    val sunrise: List<Instant?> = emptyList(),
+    val sunset: List<Instant?> = emptyList()
     // Note : cloud_cover_mean n'existe pas côté API en daily — on agrège
-    // depuis les heures diurnes dans ConfidenceCalculator quand nécessaire.
+    // depuis les heures dans ConfidenceCalculator quand nécessaire.
 ) {
     val size: Int get() = dates.size
 }

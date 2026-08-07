@@ -715,6 +715,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.detailedComparisonIte
                 }
 
                 CityDetailContentTab.WIND -> {
+                    val gustAbbreviation = stringResource(R.string.wind_gust_abbreviation)
                     if (mode == DisplayMode.DAILY) {
                         ForecastTableContent(
                             forecast = forecast,
@@ -722,6 +723,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.detailedComparisonIte
                             extractor = { daily, idx -> daily.windSpeedMax.getOrNull(idx) },
                             formatter = { "${it.roundToInt()} km/h" },
                             valueStyler = ::windStyle,
+                            secondaryExtractor = { daily, idx -> daily.windGustsMax.getOrNull(idx) },
+                            secondaryFormatter = { "$gustAbbreviation ${it.roundToInt()}" },
                             directionExtractor = { daily, idx ->
                                 val speed = daily.windSpeedMax.getOrNull(idx)
                                 if (speed == null || speed < 5.0) null
@@ -742,6 +745,10 @@ private fun androidx.compose.foundation.lazy.LazyListScope.detailedComparisonIte
                                 },
                                 valueFormatter = { "${it.roundToInt()} km/h" },
                                 heatmapStyler = ::hourlyWindHeatmap,
+                                secondaryValueExtractor = { hourly: HourlyForecast, idx ->
+                                    hourly.windGusts10m.getOrNull(idx)
+                                },
+                                secondaryValueFormatter = { "$gustAbbreviation ${it.roundToInt()}" },
                                 directionExtractor = { hourly, idx ->
                                     val speed = hourly.windSpeed10m.getOrNull(idx)
                                     if (speed == null || speed < 5.0) null
@@ -786,6 +793,8 @@ private fun ForecastTableContent(
     extractor: (DailyForecast, Int) -> Double?,
     formatter: (Double) -> String,
     valueStyler: ((Double) -> ValueStyle?)? = null,
+    secondaryExtractor: ((DailyForecast, Int) -> Double?)? = null,
+    secondaryFormatter: ((Double) -> String)? = null,
     directionExtractor: ((DailyForecast, Int) -> Int?)? = null,
     legend: @Composable (() -> Unit)? = null,
     modelBiasProvider: ((WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
@@ -799,6 +808,8 @@ private fun ForecastTableContent(
             valueExtractor = extractor,
             valueFormatter = formatter,
             valueStyler = valueStyler,
+            secondaryValueExtractor = secondaryExtractor,
+            secondaryValueFormatter = secondaryFormatter,
             directionExtractor = directionExtractor,
             modelBiasProvider = modelBiasProvider,
             onBiasChipClick = onBiasChipClick,
@@ -940,17 +951,20 @@ private fun HourlyPrecipitationLegend() {
  */
 @Composable
 private fun HourlyWindLegend() {
-    HeatmapGradientLegend(
-        colors = listOf(
-            Color(0xFFFFF9C4), Color(0xFFFFF176), Color(0xFFFFEB3B),
-            Color(0xFFFFCA28), Color(0xFFFFB74D), Color(0xFFFF9800),
-            Color(0xFFFB8C00), Color(0xFFF57C00), Color(0xFFE64A19),
-            Color(0xFFC62828)
-        ),
-        tickLabels = listOf(
-            "20", "30", "40", "50", "60", "70", "80", "90", "100", "≥120 km/h"
+    Column {
+        HeatmapGradientLegend(
+            colors = listOf(
+                Color(0xFFFFF9C4), Color(0xFFFFF176), Color(0xFFFFEB3B),
+                Color(0xFFFFCA28), Color(0xFFFFB74D), Color(0xFFFF9800),
+                Color(0xFFFB8C00), Color(0xFFF57C00), Color(0xFFE64A19),
+                Color(0xFFC62828)
+            ),
+            tickLabels = listOf(
+                "20", "30", "40", "50", "60", "70", "80", "90", "100", "≥120 km/h"
+            )
         )
-    )
+        WindGustLegendHint()
+    }
 }
 
 /**
@@ -1369,13 +1383,26 @@ private fun PrecipitationLegend() {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun WindLegend() {
-    LegendChipsRow(
-        chips = listOf(
-            Color(0xFFFFB74D) to stringResource(R.string.wind_legend_light),
-            Color(0xFFFB8C00) to stringResource(R.string.wind_legend_moderate),
-            Color(0xFFE64A19) to stringResource(R.string.wind_legend_strong),
-            Color(0xFFC62828) to stringResource(R.string.wind_legend_storm)
+    Column {
+        LegendChipsRow(
+            chips = listOf(
+                Color(0xFFFFB74D) to stringResource(R.string.wind_legend_light),
+                Color(0xFFFB8C00) to stringResource(R.string.wind_legend_moderate),
+                Color(0xFFE64A19) to stringResource(R.string.wind_legend_strong),
+                Color(0xFFC62828) to stringResource(R.string.wind_legend_storm)
+            )
         )
+        WindGustLegendHint()
+    }
+}
+
+@Composable
+private fun WindGustLegendHint() {
+    Text(
+        text = stringResource(R.string.wind_table_legend),
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
     )
 }
 

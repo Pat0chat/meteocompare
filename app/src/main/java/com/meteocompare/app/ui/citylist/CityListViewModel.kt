@@ -388,21 +388,43 @@ class CityListViewModel @Inject constructor(
             val today = result.data.seriesByModel.values
                 .firstOrNull()?.daily?.dates?.firstOrNull()
             if (today != null) {
-                // ─── Sunrise/sunset via calcul local NOAA ─────────────────
-                // Résout automatiquement le fuseau : le champ `city.timezone`
-                // peut être null si l'utilisateur a ajouté la ville avant que
-                // le geocoder ne renvoie le fuseau — on retombe alors sur UTC
-                // (safe fallback : l'heure sera à ±quelques h de la réalité,
-                // mais mieux que crasher).
+                // ─── Sunrise/sunset : API Open-Meteo en priorité ───────────
+                // Les heures astronomiques sont maintenant demandées dans le
+                // même appel forecast que les variables météo. Cela évite les
+                // écarts du calcul local simplifié et ne coûte aucune requête
+                // réseau supplémentaire. Le calcul NOAA historique reste un
+                // fallback utile pour un ancien cache qui ne contient pas encore
+                // sunrise/sunset ou une réponse partielle de l'API.
                 val zone = runCatching {
                     java.time.ZoneId.of(city.timezone ?: "UTC")
                 }.getOrDefault(java.time.ZoneId.of("UTC"))
-                val sun = com.meteocompare.app.domain.util.SolarTimes.compute(
-                    latitude = city.latitude,
-                    longitude = city.longitude,
-                    date = today,
-                    zone = zone
-                )
+
+                val sunriseFromApi = result.data.seriesByModel.values
+                    .asSequence()
+                    .mapNotNull { series ->
+                        val index = series.daily.dates.indexOf(today)
+                        if (index < 0) null else series.daily.sunrise.getOrNull(index)
+                    }
+                    .firstOrNull()
+                val sunsetFromApi = result.data.seriesByModel.values
+                    .asSequence()
+                    .mapNotNull { series ->
+                        val index = series.daily.dates.indexOf(today)
+                        if (index < 0) null else series.daily.sunset.getOrNull(index)
+                    }
+                    .firstOrNull()
+                val fallbackSun = if (sunriseFromApi == null || sunsetFromApi == null) {
+                    com.meteocompare.app.domain.util.SolarTimes.compute(
+                        latitude = city.latitude,
+                        longitude = city.longitude,
+                        date = today,
+                        zone = zone
+                    )
+                } else {
+                    null
+                }
+                val sunrise = sunriseFromApi?.atZone(zone)?.toLocalTime() ?: fallbackSun?.sunrise
+                val sunset = sunsetFromApi?.atZone(zone)?.toLocalTime() ?: fallbackSun?.sunset
 
                 val now = clock.instant()
                 val miniForecast = ForecastAggregates.next12h(result.data, now)
@@ -421,8 +443,8 @@ class CityListViewModel @Inject constructor(
                         .atZone(zone)
                         .toLocalDateTime()
                         .truncatedTo(java.time.temporal.ChronoUnit.HOURS),
-                    sunrise = sun.sunrise,
-                    sunset = sun.sunset
+                    sunrise = sunrise,
+                    sunset = sunset
                 )
             } else {
                 ForecastState.Error("Aucune donnée journalière reçue")

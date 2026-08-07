@@ -43,7 +43,10 @@ data class HourlyDto(
     @SerialName("precipitation_probability")
     val precipitationProbability: List<Int?>? = null,
     @SerialName("cloud_cover")
-    val cloudCover: List<Int?>? = null
+    val cloudCover: List<Int?>? = null,
+    /** Rafale maximale instantanée à 10 m pour l'échéance, en unité vent demandée. */
+    @SerialName("wind_gusts_10m")
+    val windGusts10m: List<Double?>? = null
 )
 
 @Serializable
@@ -69,7 +72,13 @@ data class DailyDto(
     // du jour à haut risque de pluie", pas "quelle est la probabilité moyenne
     // à toute heure".
     @SerialName("precipitation_probability_max")
-    val precipitationProbabilityMax: List<Int?>? = null
+    val precipitationProbabilityMax: List<Int?>? = null,
+    /** Rafale maximale de la journée à 10 m. */
+    @SerialName("wind_gusts_10m_max")
+    val windGusts10mMax: List<Double?>? = null,
+    /** Heures astronomiques locales renvoyées par Open-Meteo (ISO 8601 local). */
+    val sunrise: List<String?>? = null,
+    val sunset: List<String?>? = null
     // Note : pas de cloud_cover_mean en daily côté API — on l'agrège dans le
     // domaine à partir des heures diurnes (voir ConfidenceCalculator).
 )

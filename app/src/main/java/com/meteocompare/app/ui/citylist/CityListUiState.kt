@@ -55,8 +55,9 @@ sealed interface ForecastState {
      *   les ancres horaires sous la strip ("15h ... 21h ... 03h"). Null si
      *   la ville n'a pas de fuseau connu ou si le cache est pré-feature.
      * @param sunrise heure de lever du soleil pour la ville aujourd'hui, dans
-     *   son fuseau. Null en région polaire (nuit continue) ou si la position
-     *   de la ville est manquante. Cf. [com.meteocompare.app.domain.util.SolarTimes].
+     *   son fuseau. Provient en priorité d'Open-Meteo ; le calcul local
+     *   [com.meteocompare.app.domain.util.SolarTimes] sert de fallback pour les
+     *   anciens caches/réponses partielles. Null en région polaire.
      * @param sunset heure de coucher, mêmes contraintes que [sunrise].
      */
     data class Loaded(

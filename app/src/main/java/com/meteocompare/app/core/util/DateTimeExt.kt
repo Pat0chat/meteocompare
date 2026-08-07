@@ -12,7 +12,7 @@ import java.time.format.DateTimeParseException
  * Exemple : "2026-06-23T15:00" (heure locale, pas de timezone offset).
  */
 private val OPEN_METEO_HOURLY_FORMAT: DateTimeFormatter =
-    DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm")
+    DateTimeFormatter.ISO_LOCAL_DATE_TIME
 
 /**
  * Résout un fuseau métier en privilégiant celui de la ville et en retombant

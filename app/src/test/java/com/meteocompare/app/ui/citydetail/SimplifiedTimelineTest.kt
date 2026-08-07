@@ -29,7 +29,9 @@ class SimplifiedTimelineTest {
                 temperature2m = List(24) { 18.0 + it / 4.0 },
                 precipitation = List(24) { if (it in 9..11) 1.0 else 0.0 },
                 windSpeed10m = List(24) { if (it == 16) 45.0 else 12.0 },
-                weatherCode = List(24) { if (it in 9..11) 61 else 1 }
+                weatherCode = List(24) { if (it in 9..11) 61 else 1 },
+                cloudCover = List(24) { if (it in 9..11) 90 else 35 },
+                windGusts10m = List(24) { if (it == 16) 72.0 else 25.0 }
             ),
             daily = DailyForecast(
                 dates = emptyList(),
@@ -47,6 +49,8 @@ class SimplifiedTimelineTest {
         assertEquals(24, analysis.size)
         assertEquals(24, overview.analysisPoints.size)
         assertTrue(selectRegularTimelinePoints(overview.analysisPoints).size <= 8)
+        assertEquals(35, analysis.first().cloudCoverPercent)
+        assertEquals(25.0, analysis.first().windGustKmh!!, 0.001)
     }
 
     @Test

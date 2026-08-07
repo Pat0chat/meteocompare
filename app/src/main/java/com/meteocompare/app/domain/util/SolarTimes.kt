@@ -23,20 +23,20 @@ data class SunTimes(
 )
 
 /**
- * Calcul local de sunrise/sunset via la formule NOAA solar calculator
+ * Calcul local de secours de sunrise/sunset via la formule NOAA solar calculator
  * (https://gml.noaa.gov/grad/solcalc/calcdetails.html).
  *
- * ─── Pourquoi calcul local plutôt que via l'API ───────────────────────────
- * Open-Meteo renvoie ces valeurs si on ajoute `sunrise,sunset` aux variables
- * daily, mais ça imposerait de toucher le layer réseau + DTO + mapping
- * (4 fichiers modifiés) pour une info qui ne dépend que de (lat, lon, date).
- * Le calcul local est :
+ * ─── Rôle actuel ──────────────────────────────────────────────────────────
+ * La source principale de l'application est désormais `sunrise,sunset`
+ * renvoyé par Open-Meteo dans le même appel batched que les prévisions. Ce
+ * calcul local est conservé pour les anciens caches et réponses partielles.
+ * Il reste :
  *   - **Pur** : ne dépend d'aucun runtime Android → testable en JVM brut
  *   - **Instantané** : ~50 opérations flottantes, aucun I/O
  *   - **Sans permission** : la position vient de la ville favorite, déjà stockée
  *   - **Robuste offline** : marche même sans réseau
  *
- * ─── Précision ─────────────────────────────────────────────────────────────
+ * ─── Précision du fallback ─────────────────────────────────────────────────
  * Formule "vraie" avec équation du temps, déclinaison solaire, correction de
  * réfraction atmosphérique (élévation −0.833° pour l'horizon apparent, standard
  * astronomique). Précision typique : ±1 minute pour latitudes < 60°.

@@ -148,6 +148,7 @@
     <string name="var_temp_max">Max temperature</string>
     <string name="var_temp_min">Min temperature</string>
     <string name="var_wind_max">10m mean wind</string>
+    <string name="var_wind_gust_max">Max 10m gusts</string>
     <string name="var_precipitation">Precipitation</string>
 
     <!-- Refresh feedback -->
@@ -440,6 +441,9 @@
     <string name="timeline_tomorrow_at">Tomorrow · %1$s</string>
     <string name="timeline_precip_probability_source">median</string>
     <string name="timeline_precip_models_source">%1$d/%2$d models</string>
+    <string name="timeline_wind_gust">Gust %1$d km/h</string>
+    <string name="wind_gust_abbreviation">G</string>
+    <string name="wind_table_legend">Mean wind · G = gusts · km/h</string>
     <string name="timeline_consensus_high">High agreement</string>
     <string name="timeline_consensus_medium">Medium agreement</string>
     <string name="timeline_consensus_low">Low agreement</string>

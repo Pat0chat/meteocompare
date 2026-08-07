@@ -500,10 +500,29 @@ private fun TimelinePointCard(
         )
 
         TimelineMetric(
+            icon = Icons.Outlined.Cloud,
+            value = point.cloudCoverPercent?.let { "$it%" } ?: "—",
+            tint = MaterialTheme.colorScheme.secondary
+        )
+
+        TimelineMetric(
             icon = Icons.Outlined.Air,
             value = point.windKmh?.let { "${it.roundToInt()} km/h" } ?: "—",
             tint = windAccent
         )
+        if (point.windGustKmh != null) {
+            Text(
+                text = stringResource(
+                    R.string.timeline_wind_gust,
+                    point.windGustKmh.roundToInt()
+                ),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
+            )
+        } else {
+            Spacer(Modifier.height(16.dp))
+        }
 
         Spacer(Modifier.height(6.dp))
         ConsensusBadge(point)

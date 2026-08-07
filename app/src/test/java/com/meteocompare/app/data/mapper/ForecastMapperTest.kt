@@ -4,6 +4,7 @@ import com.meteocompare.app.data.remote.dto.DailyDto
 import com.meteocompare.app.data.remote.dto.ForecastResponseDto
 import com.meteocompare.app.data.remote.dto.HourlyDto
 import com.meteocompare.app.domain.model.WeatherModel
+import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -126,5 +127,33 @@ class ForecastMapperTest {
         assertEquals(0, series.hourly.size)
         assertEquals(1, series.daily.size)
         assertEquals(listOf(25.0), series.daily.tempMax)
+    }
+
+    @Test
+    fun `maps wind gusts and astronomical sun times`() {
+        val dto = ForecastResponseDto(
+            latitude = 48.85,
+            longitude = 2.35,
+            timezone = "Europe/Paris",
+            hourly = HourlyDto(
+                time = listOf("2026-07-23T12:00"),
+                temperature2m = listOf(25.0),
+                windGusts10m = listOf(48.0)
+            ),
+            daily = DailyDto(
+                time = listOf("2026-07-23"),
+                temperature2mMax = listOf(28.0),
+                windGusts10mMax = listOf(61.0),
+                sunrise = listOf("2026-07-23T06:12"),
+                sunset = listOf("2026-07-23T21:39")
+            )
+        )
+
+        val series = mapper.toSeries(WeatherModel.GFS, dto)
+
+        assertEquals(listOf(48.0), series.hourly.windGusts10m)
+        assertEquals(listOf(61.0), series.daily.windGustsMax)
+        assertEquals(Instant.parse("2026-07-23T04:12:00Z"), series.daily.sunrise.single())
+        assertEquals(Instant.parse("2026-07-23T19:39:00Z"), series.daily.sunset.single())
     }
 }

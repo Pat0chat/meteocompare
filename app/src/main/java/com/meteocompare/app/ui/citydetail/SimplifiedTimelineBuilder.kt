@@ -75,9 +75,19 @@ internal data class SimplifiedTimelinePoint(
     /** Plage de probabilités lorsque plusieurs modèles la fournissent. */
     val precipitationProbabilityMin: Int? = null,
     val precipitationProbabilityMax: Int? = null,
+    /** Couverture nuageuse médiane entre modèles, 0-100%. */
+    val cloudCoverPercent: Int? = null,
+    val cloudCoverMinAcrossModels: Int? = null,
+    val cloudCoverMaxAcrossModels: Int? = null,
+    val cloudCoverModelCount: Int = 0,
     val windKmh: Double? = null,
     val windMinAcrossModels: Double? = null,
     val windMaxAcrossModels: Double? = null,
+    /** Rafale médiane entre modèles à l'échéance (ou maximum journalier). */
+    val windGustKmh: Double? = null,
+    val windGustMinAcrossModels: Double? = null,
+    val windGustMaxAcrossModels: Double? = null,
+    val windGustModelCount: Int = 0,
     val condition: WeatherCondition? = null,
     /** Nombre de modèles ayant fourni au moins une valeur exploitable à cette échéance. */
     val modelCount: Int = 0,
@@ -139,7 +149,7 @@ private fun buildDailyTimeline(
 ): List<SimplifiedTimelinePoint> {
     val zone = resolveCityZone(forecast.city.timezone)
     val today = now.atZone(zone).toLocalDate()
-    val indexed = forecast.seriesByModel.values.map(::indexDailySnapshots)
+    val indexed = forecast.seriesByModel.values.map { series -> indexDailySnapshots(series, zone) }
     val dates = indexed
         .flatMap { it.keys }
         .distinct()
@@ -161,12 +171,15 @@ private data class TimelineSnapshot(
     val tempMax: Double?,
     val precipitation: Double?,
     val precipitationProbability: Int?,
+    val cloudCover: Int?,
     val wind: Double?,
+    val windGust: Double?,
     val condition: WeatherCondition?
 ) {
     val hasAnyValue: Boolean
         get() = temperature != null || tempMin != null || tempMax != null ||
-            precipitation != null || precipitationProbability != null || wind != null ||
+            precipitation != null || precipitationProbability != null || cloudCover != null ||
+            wind != null || windGust != null ||
             (condition != null && condition != WeatherCondition.UNKNOWN)
 }
 
@@ -175,7 +188,9 @@ private fun indexHourlySnapshots(series: ForecastSeries): Map<Instant, TimelineS
         val temperature = series.hourly.temperature2m.getOrNull(index)
         val precipitation = series.hourly.precipitation.getOrNull(index)
         val probability = series.hourly.precipitationProbability.getOrNull(index)
+        val cloudCover = series.hourly.cloudCover.getOrNull(index)
         val wind = series.hourly.windSpeed10m.getOrNull(index)
+        val windGust = series.hourly.windGusts10m.getOrNull(index)
         val nativeCondition = WeatherCondition.fromWmoCode(series.hourly.weatherCode.getOrNull(index))
             ?.takeUnless { it == WeatherCondition.UNKNOWN }
         val condition = nativeCondition
@@ -186,20 +201,27 @@ private fun indexHourlySnapshots(series: ForecastSeries): Map<Instant, TimelineS
             tempMax = null,
             precipitation = precipitation,
             precipitationProbability = probability,
+            cloudCover = cloudCover,
             wind = wind,
+            windGust = windGust,
             condition = condition
         )
         if (snapshot.hasAnyValue) put(timestamp, snapshot)
     }
 }
 
-private fun indexDailySnapshots(series: ForecastSeries): Map<LocalDate, TimelineSnapshot> = buildMap {
+private fun indexDailySnapshots(
+    series: ForecastSeries,
+    zone: java.time.ZoneId
+): Map<LocalDate, TimelineSnapshot> = buildMap {
     series.daily.dates.forEachIndexed { index, date ->
         val min = series.daily.tempMin.getOrNull(index)
         val max = series.daily.tempMax.getOrNull(index)
         val precipitation = series.daily.precipitationSum.getOrNull(index)
         val probability = series.daily.precipitationProbabilityMax.getOrNull(index)
+        val cloudCover = dailyCloudCoverMean(series, date, zone)
         val wind = series.daily.windSpeedMax.getOrNull(index)
+        val windGust = series.daily.windGustsMax.getOrNull(index)
         val nativeCondition = WeatherCondition.fromWmoCode(series.daily.weatherCode.getOrNull(index))
             ?.takeUnless { it == WeatherCondition.UNKNOWN }
         val condition = nativeCondition
@@ -210,7 +232,9 @@ private fun indexDailySnapshots(series: ForecastSeries): Map<LocalDate, Timeline
             tempMax = max,
             precipitation = precipitation,
             precipitationProbability = probability,
+            cloudCover = cloudCover,
             wind = wind,
+            windGust = windGust,
             condition = condition
         )
         if (snapshot.hasAnyValue) put(date, snapshot)
@@ -231,7 +255,9 @@ private fun timelinePoint(
     val maxTemperatures = meaningful.mapNotNull { it.tempMax }
     val precipitationValues = meaningful.mapNotNull { it.precipitation }
     val probabilities = meaningful.mapNotNull { it.precipitationProbability }
+    val cloudCovers = meaningful.mapNotNull { it.cloudCover }
     val winds = meaningful.mapNotNull { it.wind }
+    val windGusts = meaningful.mapNotNull { it.windGust }
     val conditions = meaningful.mapNotNull { it.condition }
         .filterNot { it == WeatherCondition.UNKNOWN }
 
@@ -416,9 +442,17 @@ private fun timelinePoint(
         precipitationMaxAcrossModelsMm = precipitationValues.maxOrNull(),
         precipitationProbabilityMin = probabilities.minOrNull(),
         precipitationProbabilityMax = probabilities.maxOrNull(),
+        cloudCoverPercent = median(cloudCovers.map(Int::toDouble))?.roundToInt()?.coerceIn(0, 100),
+        cloudCoverMinAcrossModels = cloudCovers.minOrNull(),
+        cloudCoverMaxAcrossModels = cloudCovers.maxOrNull(),
+        cloudCoverModelCount = cloudCovers.size,
         windKmh = median(winds),
         windMinAcrossModels = winds.minOrNull(),
         windMaxAcrossModels = winds.maxOrNull(),
+        windGustKmh = median(windGusts),
+        windGustMinAcrossModels = windGusts.minOrNull(),
+        windGustMaxAcrossModels = windGusts.maxOrNull(),
+        windGustModelCount = windGusts.size,
         condition = consensusCondition,
         modelCount = meaningful.size,
         temperatureModelCount = temperatureModelCount,
@@ -431,6 +465,21 @@ private fun timelinePoint(
         divergenceReasons = divergenceReasons
     )
 
+}
+
+/** Moyenne journalière de cloud_cover pour un modèle, alignée sur le jour local. */
+private fun dailyCloudCoverMean(
+    series: ForecastSeries,
+    date: LocalDate,
+    zone: java.time.ZoneId
+): Int? {
+    if (series.hourly.cloudCover.isEmpty()) return null
+    val values = series.hourly.timestamps.indices.mapNotNull { index ->
+        val timestamp = series.hourly.timestamps.getOrNull(index) ?: return@mapNotNull null
+        if (timestamp.atZone(zone).toLocalDate() != date) return@mapNotNull null
+        series.hourly.cloudCover.getOrNull(index)
+    }
+    return values.takeIf { it.isNotEmpty() }?.average()?.roundToInt()
 }
 
 private fun spreadAgreementScore(spread: Double, zeroAgreementSpread: Double): Double =

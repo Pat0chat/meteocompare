@@ -41,6 +41,8 @@ fun HourlyForecastTable(
     modifier: Modifier = Modifier,
     valueStyler: ((Double) -> ValueStyle?)? = null,
     heatmapStyler: ((Double) -> HeatmapCellStyle?)? = null,
+    secondaryValueExtractor: ((HourlyForecast, Int) -> Double?)? = null,
+    secondaryValueFormatter: ((Double) -> String)? = null,
     directionExtractor: ((HourlyForecast, Int) -> Int?)? = null,
     modelBiasProvider: ((WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
     onBiasChipClick: ((WeatherModel, com.meteocompare.app.domain.model.ModelBias) -> Unit)? = null,
@@ -153,6 +155,9 @@ fun HourlyForecastTable(
                 Column(modifier = Modifier.width(cellWidth)) {
                     models.forEachIndexed { modelIndex, model ->
                         val value = valueAt(forecast, model, ts, valueExtractor)
+                        val secondaryValue = secondaryValueExtractor?.let {
+                            valueAt(forecast, model, ts, it)
+                        }
                         val direction = directionExtractor?.let {
                             directionAt(forecast, model, ts, it)
                         }
@@ -171,6 +176,9 @@ fun HourlyForecastTable(
                         }
                         HourValueCell(
                             text = value?.let(valueFormatter) ?: "—",
+                            secondaryText = secondaryValue?.let {
+                                secondaryValueFormatter?.invoke(it) ?: it.toString()
+                            },
                             style = textStyle,
                             background = background,
                             directionDegrees = direction,
@@ -264,6 +272,7 @@ private fun TimeHeaderCell(
 @Composable
 private fun HourValueCell(
     text: String,
+    secondaryText: String?,
     style: ValueStyle?,
     background: Color,
     directionDegrees: Int? = null,
@@ -274,24 +283,27 @@ private fun HourValueCell(
         modifier = Modifier.fillMaxWidth().height(height).detailTableCell(background, palette),
         contentAlignment = Alignment.Center
     ) {
-        if (directionDegrees != null) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (directionDegrees != null) {
                 WindArrow(directionDegrees = directionDegrees, size = 10.dp)
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = text,
                     style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"),
                     color = style?.color ?: Color.Unspecified,
                     fontWeight = style?.fontWeight,
-                    modifier = Modifier.padding(start = 2.dp)
+                    modifier = Modifier.padding(start = if (directionDegrees != null) 2.dp else 0.dp)
                 )
+                secondaryText?.let { secondary ->
+                    Text(
+                        text = secondary,
+                        style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum"),
+                        color = style?.color ?: MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1
+                    )
+                }
             }
-        } else {
-            Text(
-                text = text,
-                style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"),
-                color = style?.color ?: Color.Unspecified,
-                fontWeight = style?.fontWeight
-            )
         }
     }
 }

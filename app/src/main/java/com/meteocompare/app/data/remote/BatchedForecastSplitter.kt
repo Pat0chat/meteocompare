@@ -149,7 +149,8 @@ object BatchedForecastSplitter {
             weatherCode = get.ints(HourlyVar.WEATHER_CODE),
             windDirection10m = get.ints(HourlyVar.WIND_DIRECTION_10M),
             precipitationProbability = get.ints(HourlyVar.PRECIPITATION_PROBABILITY),
-            cloudCover = get.ints(HourlyVar.CLOUD_COVER)
+            cloudCover = get.ints(HourlyVar.CLOUD_COVER),
+            windGusts10m = get.doubles(HourlyVar.WIND_GUSTS_10M)
         )
     }
 
@@ -169,7 +170,13 @@ object BatchedForecastSplitter {
             windSpeed10mMax = get.doubles(DailyVar.WIND_SPEED_10M_MAX),
             weatherCode = get.ints(DailyVar.WEATHER_CODE),
             windDirection10mDominant = get.ints(DailyVar.WIND_DIRECTION_10M_DOMINANT),
-            precipitationProbabilityMax = get.ints(DailyVar.PRECIPITATION_PROBABILITY_MAX)
+            precipitationProbabilityMax = get.ints(DailyVar.PRECIPITATION_PROBABILITY_MAX),
+            windGusts10mMax = get.doubles(DailyVar.WIND_GUSTS_10M_MAX),
+            // sunrise/sunset sont astronomiques et peuvent être renvoyés sans
+            // suffixe même dans une réponse multi-modèles. On accepte donc
+            // explicitement le champ partagé en fallback.
+            sunrise = get.strings(DailyVar.SUNRISE, allowSharedFallback = true),
+            sunset = get.strings(DailyVar.SUNSET, allowSharedFallback = true)
         )
     }
 
@@ -185,11 +192,11 @@ object BatchedForecastSplitter {
         private val apiKey: String,
         private val singleModelMode: Boolean
     ) {
-        private fun lookup(baseKey: String): JsonElement? {
+        private fun lookup(baseKey: String, allowSharedFallback: Boolean = false): JsonElement? {
             json[baseKey + "_" + apiKey]?.let { return it }
             // Fallback single-modèle : Open-Meteo omet le suffixe quand un
             // seul modèle est demandé (compat historique de leur API).
-            if (singleModelMode) json[baseKey]?.let { return it }
+            if (singleModelMode || allowSharedFallback) json[baseKey]?.let { return it }
             return null
         }
 
@@ -198,6 +205,9 @@ object BatchedForecastSplitter {
 
         fun ints(baseKey: String): List<Int?>? =
             lookup(baseKey)?.asNullableInts()
+
+        fun strings(baseKey: String, allowSharedFallback: Boolean = false): List<String?>? =
+            lookup(baseKey, allowSharedFallback)?.asNullableStrings()
     }
 
     private fun variableGetter(json: JsonObject, apiKey: String, singleModelMode: Boolean) =
@@ -245,6 +255,15 @@ object BatchedForecastSplitter {
             }
         }.orEmpty()
 
+    private fun JsonElement.asNullableStrings(): List<String?> =
+        (this as? JsonArray)?.map { element ->
+            when (element) {
+                is JsonNull -> null
+                is JsonPrimitive -> element.takeIf(JsonPrimitive::isString)?.content
+                else -> null
+            }
+        }.orEmpty()
+
     // ────────────────── Noms des variables (constantes de scope) ────────────────
 
     private object HourlyVar {
@@ -253,6 +272,7 @@ object BatchedForecastSplitter {
         const val WIND_SPEED_10M = "wind_speed_10m"
         const val WEATHER_CODE = "weather_code"
         const val WIND_DIRECTION_10M = "wind_direction_10m"
+        const val WIND_GUSTS_10M = "wind_gusts_10m"
         const val PRECIPITATION_PROBABILITY = "precipitation_probability"
         const val CLOUD_COVER = "cloud_cover"
     }
@@ -262,8 +282,11 @@ object BatchedForecastSplitter {
         const val TEMPERATURE_2M_MIN = "temperature_2m_min"
         const val PRECIPITATION_SUM = "precipitation_sum"
         const val WIND_SPEED_10M_MAX = "wind_speed_10m_max"
+        const val WIND_GUSTS_10M_MAX = "wind_gusts_10m_max"
         const val WEATHER_CODE = "weather_code"
         const val WIND_DIRECTION_10M_DOMINANT = "wind_direction_10m_dominant"
         const val PRECIPITATION_PROBABILITY_MAX = "precipitation_probability_max"
+        const val SUNRISE = "sunrise"
+        const val SUNSET = "sunset"
     }
 }

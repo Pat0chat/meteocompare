@@ -146,6 +146,7 @@
     <string name="var_temp_max">Température max</string>
     <string name="var_temp_min">Température min</string>
     <string name="var_wind_max">Vent moyen à 10m</string>
+    <string name="var_wind_gust_max">Rafales max à 10m</string>
     <string name="var_precipitation">Précipitations</string>
 
     <!-- Refresh feedback -->
@@ -438,6 +439,9 @@
     <string name="timeline_tomorrow_at">Demain · %1$s</string>
     <string name="timeline_precip_probability_source">médiane</string>
     <string name="timeline_precip_models_source">%1$d/%2$d modèles</string>
+    <string name="timeline_wind_gust">Raf. %1$d km/h</string>
+    <string name="wind_gust_abbreviation">R</string>
+    <string name="wind_table_legend">Vent moyen · R = rafales · km/h</string>
     <string name="timeline_consensus_high">Accord élevé</string>
     <string name="timeline_consensus_medium">Accord moyen</string>
     <string name="timeline_consensus_low">Accord faible</string>
