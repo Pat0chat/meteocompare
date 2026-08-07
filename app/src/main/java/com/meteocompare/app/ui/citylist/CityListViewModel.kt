@@ -14,6 +14,7 @@ import com.meteocompare.app.domain.repository.ForecastRepository
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
 import com.meteocompare.app.domain.usecase.ConfidenceCalculator
 import com.meteocompare.app.domain.util.ForecastAggregates
+import com.meteocompare.app.domain.util.WeatherScenarioBuilder
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineStart
@@ -428,6 +429,7 @@ class CityListViewModel @Inject constructor(
 
                 val now = clock.instant()
                 val miniForecast = ForecastAggregates.next12h(result.data, now)
+                val scenarios = WeatherScenarioBuilder.next12h(result.data, now)
                 ForecastState.Loaded(
                     today = confidenceCalculator.dayConfidence(result.data, today),
                     currentTemp = confidenceCalculator.currentTemperature(result.data, now),
@@ -437,6 +439,7 @@ class CityListViewModel @Inject constructor(
                     sourceModels = result.data.seriesByModel.keys + result.data.errors.keys,
                     next12hTemps = miniForecast.temperatures,
                     next12hPrecipProb = miniForecast.precipitationProbabilities,
+                    next12hScenarios = scenarios,
                     // Même instant de référence que les agrégats ci-dessus :
                     // les valeurs et les labels horaires restent alignés.
                     hourlyStartTime = now

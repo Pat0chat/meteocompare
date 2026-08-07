@@ -4,6 +4,7 @@ import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.DayConfidence
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
+import com.meteocompare.app.domain.model.WeatherScenario
 import java.time.Instant
 import java.time.LocalTime
 
@@ -71,6 +72,8 @@ sealed interface ForecastState {
         // ─── Nouveautés pour la home enrichie ────────────────────────────
         val next12hTemps: List<Double?> = emptyList(),
         val next12hPrecipProb: List<Int?> = emptyList(),
+        /** Regroupement pédagogique des modèles sur les 12 prochaines heures. */
+        val next12hScenarios: List<WeatherScenario> = emptyList(),
         val hourlyStartTime: java.time.LocalDateTime? = null,
         val sunrise: LocalTime? = null,
         val sunset: LocalTime? = null

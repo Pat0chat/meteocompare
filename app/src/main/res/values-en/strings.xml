@@ -562,4 +562,35 @@
     <string name="model_coverage_united_states">United States</string>
     <string name="model_coverage_global">Global</string>
     <string name="model_metadata">%1$s · %2$d d</string>
+    <!-- Collapsible weather scenarios on Home -->
+    <string name="home_scenarios_title">Scenarios · next 12 h</string>
+    <plurals name="home_scenarios_count">
+        <item quantity="one">%d scenario</item>
+        <item quantity="other">%d scenarios</item>
+    </plurals>
+    <plurals name="home_scenarios_models">
+        <item quantity="one">%d model</item>
+        <item quantity="other">%d models</item>
+    </plurals>
+    <string name="home_scenario_gust_short">gusts %1$s</string>
+    <string name="home_scenarios_explainer">Grouping of available models, not a probability.</string>
+    <string name="home_scenarios_show">Show weather scenarios</string>
+    <string name="home_scenarios_hide">Hide weather scenarios</string>
+    <string name="home_scenario_clear">Dry and mostly clear</string>
+    <string name="home_scenario_variable_sky">Dry with variable cloud</string>
+    <string name="home_scenario_dry_unspecified">Dry, sky condition unavailable</string>
+    <string name="home_scenario_overcast">Dry and mostly overcast</string>
+    <string name="home_scenario_showers_early">Showers early in the period</string>
+    <string name="home_scenario_showers_middle">Showers over the next hours</string>
+    <string name="home_scenario_showers_late">Showers later</string>
+    <string name="home_scenario_showers_throughout">Persistent showers</string>
+    <string name="home_scenario_rain_early">Rain mainly early</string>
+    <string name="home_scenario_rain_middle">Rain over the next hours</string>
+    <string name="home_scenario_rain_late">Rain mainly later</string>
+    <string name="home_scenario_rain_throughout">Persistent rain</string>
+    <string name="home_scenario_snow">Snow scenario</string>
+    <string name="home_scenario_freezing_rain">Freezing rain risk</string>
+    <string name="home_scenario_thunderstorm">Thunderstorm scenario</string>
+    <string name="home_scenario_other">Other variants</string>
+
 </resources>

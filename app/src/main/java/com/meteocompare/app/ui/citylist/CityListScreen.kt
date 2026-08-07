@@ -1,12 +1,16 @@
 package com.meteocompare.app.ui.citylist
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,6 +32,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
@@ -69,6 +75,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -79,12 +86,17 @@ import com.meteocompare.app.domain.model.ConfidenceScore
 import com.meteocompare.app.domain.model.DayConfidence
 import com.meteocompare.app.domain.model.PrecipitationConfidence
 import com.meteocompare.app.domain.model.WeatherCondition
+import com.meteocompare.app.domain.model.WeatherScenario
+import com.meteocompare.app.domain.model.WeatherScenarioKind
+import com.meteocompare.app.domain.model.WeatherScenarioTiming
 import com.meteocompare.app.ui.components.AnimatedWeatherIcon
 import com.meteocompare.app.ui.components.ShimmerBox
 import com.meteocompare.app.ui.settings.DonationDialog
 import com.meteocompare.app.ui.theme.confidenceColor
 import com.meteocompare.app.ui.theme.MeteoCompareTheme
 import java.time.LocalDate
+import java.text.NumberFormat
+import java.util.Locale
 import kotlin.math.roundToInt
 
 // ============================================================================
@@ -408,6 +420,7 @@ internal fun CityCard(
                             fetchedAt = forecast.fetchedAt,
                             next12hTemps = forecast.next12hTemps,
                             next12hPrecipProb = forecast.next12hPrecipProb,
+                            next12hScenarios = forecast.next12hScenarios,
                             hourlyStartTime = forecast.hourlyStartTime
                         )
                         is ForecastState.Error -> CityCardError(forecast.message, onRetry)
@@ -461,6 +474,7 @@ private fun CityCardLoaded(
     fetchedAt: java.time.Instant?,
     next12hTemps: List<Double?>,
     next12hPrecipProb: List<Int?>,
+    next12hScenarios: List<WeatherScenario>,
     hourlyStartTime: java.time.LocalDateTime?
 ) {
     // Column pour empiler la Row de valeurs + la mini prévision 12h + le
@@ -498,6 +512,17 @@ private fun CityCardLoaded(
             )
         }
 
+        // Les scénarios restent repliés par défaut : la Home conserve son
+        // format compact, mais l'utilisateur peut comprendre le désaccord sans
+        // ouvrir la page de détail. Un seul modèle ne suffit pas à former une
+        // comparaison, donc on masque la section dans ce cas.
+        if (next12hScenarios.isNotEmpty() &&
+            next12hScenarios.first().totalModelCount >= 2
+        ) {
+            Spacer(Modifier.height(8.dp))
+            HomeWeatherScenarios(scenarios = next12hScenarios)
+        }
+
         // Caption "mis à jour il y a X" — placé en bas à droite de la card,
         // discret pour ne pas rivaliser avec les valeurs primaires. Le texte
         // se recalcule tout seul au fil du temps via rememberFormattedLastUpdated
@@ -515,6 +540,223 @@ private fun CityCardLoaded(
                     .wrapContentWidth(Alignment.End)
             )
         }
+    }
+}
+
+@Composable
+private fun HomeWeatherScenarios(
+    scenarios: List<WeatherScenario>
+) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    val totalModels = scenarios.firstOrNull()?.totalModelCount ?: return
+
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        shape = MaterialTheme.shapes.medium
+    ) {
+        Column {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = !expanded }
+                    .padding(horizontal = 12.dp, vertical = 9.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.home_scenarios_title),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = "${pluralStringResource(R.plurals.home_scenarios_count, scenarios.size, scenarios.size)} · " +
+                            pluralStringResource(R.plurals.home_scenarios_models, totalModels, totalModels),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Icon(
+                    imageVector = if (expanded) {
+                        Icons.Default.KeyboardArrowUp
+                    } else {
+                        Icons.Default.KeyboardArrowDown
+                    },
+                    contentDescription = stringResource(
+                        if (expanded) R.string.home_scenarios_hide
+                        else R.string.home_scenarios_show
+                    ),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            AnimatedVisibility(
+                visible = expanded,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                Column(
+                    modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 11.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.home_scenarios_explainer),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    scenarios.forEachIndexed { index, scenario ->
+                        HomeWeatherScenarioRow(
+                            scenario = scenario,
+                            rank = index
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeWeatherScenarioRow(
+    scenario: WeatherScenario,
+    rank: Int
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Top
+    ) {
+        val representativeCondition = scenarioRepresentativeCondition(scenario.kind)
+        if (representativeCondition != null) {
+            AnimatedWeatherIcon(
+                condition = representativeCondition,
+                size = 32.dp,
+                animated = false,
+                tint = Color.Unspecified
+            )
+            Spacer(Modifier.width(8.dp))
+        }
+
+        Column(modifier = Modifier.weight(1f)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = weatherScenarioTitle(scenario),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = if (rank == 0) FontWeight.SemiBold else FontWeight.Medium,
+                    modifier = Modifier.weight(1f)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = stringResource(
+                        R.string.forecast_insight_metric_model_ratio,
+                        scenario.modelCount,
+                        scenario.totalModelCount
+                    ),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            val metrics = weatherScenarioMetrics(scenario)
+            if (metrics.isNotEmpty()) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = metrics.joinToString(" · "),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun weatherScenarioTitle(scenario: WeatherScenario): String = when (scenario.kind) {
+    WeatherScenarioKind.CLEAR -> stringResource(R.string.home_scenario_clear)
+    WeatherScenarioKind.VARIABLE_SKY -> stringResource(R.string.home_scenario_variable_sky)
+    WeatherScenarioKind.OVERCAST -> stringResource(R.string.home_scenario_overcast)
+    WeatherScenarioKind.DRY_UNSPECIFIED -> stringResource(R.string.home_scenario_dry_unspecified)
+    WeatherScenarioKind.SHOWERS -> when (scenario.timing) {
+        WeatherScenarioTiming.EARLY -> stringResource(R.string.home_scenario_showers_early)
+        WeatherScenarioTiming.LATE -> stringResource(R.string.home_scenario_showers_late)
+        WeatherScenarioTiming.THROUGHOUT -> stringResource(R.string.home_scenario_showers_throughout)
+        else -> stringResource(R.string.home_scenario_showers_middle)
+    }
+    WeatherScenarioKind.RAIN -> when (scenario.timing) {
+        WeatherScenarioTiming.EARLY -> stringResource(R.string.home_scenario_rain_early)
+        WeatherScenarioTiming.LATE -> stringResource(R.string.home_scenario_rain_late)
+        WeatherScenarioTiming.THROUGHOUT -> stringResource(R.string.home_scenario_rain_throughout)
+        else -> stringResource(R.string.home_scenario_rain_middle)
+    }
+    WeatherScenarioKind.SNOW -> stringResource(R.string.home_scenario_snow)
+    WeatherScenarioKind.FREEZING_RAIN -> stringResource(R.string.home_scenario_freezing_rain)
+    WeatherScenarioKind.THUNDERSTORM -> stringResource(R.string.home_scenario_thunderstorm)
+    WeatherScenarioKind.OTHER -> stringResource(R.string.home_scenario_other)
+}
+
+private fun scenarioRepresentativeCondition(kind: WeatherScenarioKind): WeatherCondition? = when (kind) {
+    WeatherScenarioKind.CLEAR -> WeatherCondition.CLEAR
+    WeatherScenarioKind.VARIABLE_SKY -> WeatherCondition.PARTLY_CLOUDY
+    WeatherScenarioKind.OVERCAST -> WeatherCondition.OVERCAST
+    WeatherScenarioKind.DRY_UNSPECIFIED -> null
+    WeatherScenarioKind.SHOWERS -> WeatherCondition.RAIN_SHOWERS
+    WeatherScenarioKind.RAIN -> WeatherCondition.RAIN
+    WeatherScenarioKind.SNOW -> WeatherCondition.SNOW
+    WeatherScenarioKind.FREEZING_RAIN -> WeatherCondition.FREEZING_RAIN
+    WeatherScenarioKind.THUNDERSTORM -> WeatherCondition.THUNDERSTORM
+    WeatherScenarioKind.OTHER -> null
+}
+
+@Composable
+private fun weatherScenarioMetrics(scenario: WeatherScenario): List<String> {
+    val gustMin = scenario.gustMinKmh
+    val gustMax = scenario.gustMaxKmh
+    val gustMetric = if (gustMin != null && gustMax != null) {
+        val value = if (gustMin.roundToInt() == gustMax.roundToInt()) {
+            "${gustMax.roundToInt()} km/h"
+        } else {
+            "${gustMin.roundToInt()}–${gustMax.roundToInt()} km/h"
+        }
+        "💨 " + stringResource(R.string.home_scenario_gust_short, value)
+    } else {
+        null
+    }
+
+    return buildList {
+        val tempMin = scenario.temperatureMinC
+        val tempMax = scenario.temperatureMaxC
+        if (tempMin != null && tempMax != null) {
+            add(if (tempMin.roundToInt() == tempMax.roundToInt()) {
+                "🌡 ${tempMin.roundToInt()}°"
+            } else {
+                "🌡 ${tempMin.roundToInt()}–${tempMax.roundToInt()}°"
+            })
+        }
+
+        val rainMin = scenario.precipitationMinMm
+        val rainMax = scenario.precipitationMaxMm
+        if (rainMax != null && rainMax >= 0.05) {
+            val formatter = NumberFormat.getNumberInstance(Locale.getDefault()).apply {
+                maximumFractionDigits = 1
+                minimumFractionDigits = 0
+            }
+            val minText = formatter.format(rainMin ?: 0.0)
+            val maxText = formatter.format(rainMax)
+            add(if ((rainMin ?: 0.0).let { kotlin.math.abs(it - rainMax) } < 0.05) {
+                "🌧 $maxText mm"
+            } else {
+                "🌧 $minText–$maxText mm"
+            })
+        }
+
+        val cloudMin = scenario.cloudCoverMinPercent
+        val cloudMax = scenario.cloudCoverMaxPercent
+        if (cloudMin != null && cloudMax != null) {
+            add(if (cloudMin == cloudMax) "☁ $cloudMax%" else "☁ $cloudMin–$cloudMax%")
+        }
+
+        gustMetric?.let(::add)
     }
 }
 

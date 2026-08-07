@@ -560,4 +560,35 @@
     <string name="model_coverage_united_states">États-Unis</string>
     <string name="model_coverage_global">Monde</string>
     <string name="model_metadata">%1$s · %2$d j</string>
+    <!-- Scénarios météo repliables sur la Home -->
+    <string name="home_scenarios_title">Scénarios · prochaines 12 h</string>
+    <plurals name="home_scenarios_count">
+        <item quantity="one">%d scénario</item>
+        <item quantity="other">%d scénarios</item>
+    </plurals>
+    <plurals name="home_scenarios_models">
+        <item quantity="one">%d modèle</item>
+        <item quantity="other">%d modèles</item>
+    </plurals>
+    <string name="home_scenario_gust_short">raf. %1$s</string>
+    <string name="home_scenarios_explainer">Regroupement des modèles disponibles, pas une probabilité.</string>
+    <string name="home_scenarios_show">Afficher les scénarios météo</string>
+    <string name="home_scenarios_hide">Masquer les scénarios météo</string>
+    <string name="home_scenario_clear">Sec et plutôt dégagé</string>
+    <string name="home_scenario_variable_sky">Sec avec ciel variable</string>
+    <string name="home_scenario_dry_unspecified">Sec, ciel non renseigné</string>
+    <string name="home_scenario_overcast">Sec et plutôt couvert</string>
+    <string name="home_scenario_showers_early">Averses en début de période</string>
+    <string name="home_scenario_showers_middle">Averses au fil des heures</string>
+    <string name="home_scenario_showers_late">Averses plus tard</string>
+    <string name="home_scenario_showers_throughout">Averses persistantes</string>
+    <string name="home_scenario_rain_early">Pluie surtout au début</string>
+    <string name="home_scenario_rain_middle">Pluie au fil des heures</string>
+    <string name="home_scenario_rain_late">Pluie surtout plus tard</string>
+    <string name="home_scenario_rain_throughout">Pluie durable</string>
+    <string name="home_scenario_snow">Scénario neigeux</string>
+    <string name="home_scenario_freezing_rain">Risque de pluie verglaçante</string>
+    <string name="home_scenario_thunderstorm">Scénario orageux</string>
+    <string name="home_scenario_other">Autres variantes</string>
+
 </resources>
