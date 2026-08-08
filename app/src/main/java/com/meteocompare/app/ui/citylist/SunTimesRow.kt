@@ -78,11 +78,10 @@ internal fun SunTimesRow(
             .semantics {
                 contentDescription = a11yLabel
             },
-        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.68f),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.00f),
         shape = RoundedCornerShape(12.dp)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {

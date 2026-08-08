@@ -365,15 +365,13 @@ internal fun CityCard(
                 .background(accentColor)
         )
 
-        Column(modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp)) {
+        Column(modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp)) {
             CityCardHeader(
                 city = state.city,
                 sunrise = loaded?.sunrise,
                 sunset = loaded?.sunset,
                 onRemove = onRemove
             )
-
-            Spacer(Modifier.height(10.dp))
 
             AnimatedContent(
                 targetState = state.forecast,
@@ -413,46 +411,61 @@ private fun CityCardHeader(
     city: City,
     sunrise: java.time.LocalTime?,
     sunset: java.time.LocalTime?,
-    onRemove: () -> Unit
+    onRemove: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.Top
+    Surface(
+        modifier = modifier,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.72f),
+        shape = RoundedCornerShape(18.dp)
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Bottom
-            ) {
-                Text(
-                    text = city.name,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(Modifier.width(12.dp))
-                val subtitle = city.admin1 ?: city.country
-                if (subtitle.isNotBlank()) {
+        Row(
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp).fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Bottom
+                ) {
+                    Spacer(Modifier.width(8.dp))
                     Text(
-                        text = subtitle,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        text = city.name,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(bottom = 3.dp)
+                        overflow = TextOverflow.Ellipsis
                     )
+
+                    Spacer(Modifier.width(12.dp))
+                    val subtitle = city.country
+                    if (subtitle.isNotBlank()) {
+                        Text(
+                            text = subtitle,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(bottom = 2.dp)
+                        )
+                    }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Bottom
+                ) {
+                    if (sunrise != null || sunset != null) {
+                        Spacer(Modifier.width(6.dp))
+                        SunTimesRow(sunrise = sunrise, sunset = sunset)
+                    }
                 }
             }
 
-            if (sunrise != null || sunset != null) {
-                Spacer(Modifier.height(4.dp))
-                SunTimesRow(sunrise = sunrise, sunset = sunset)
-            }
+            CityCardMenu(onRemove = onRemove)
         }
-
-        CityCardMenu(onRemove = onRemove)
     }
+
+    Spacer(Modifier.height(10.dp))
 }
 
 @Composable
@@ -581,7 +594,7 @@ private fun CurrentWeatherHero(
         ),
         shape = RoundedCornerShape(22.dp)
     ) {
-        Column (modifier = Modifier.padding(horizontal = 20.dp)) {
+        Column (modifier = Modifier.padding(horizontal = 12.dp)) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -609,7 +622,7 @@ private fun CurrentWeatherHero(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = currentTemp?.let { "${it.roundToInt()}°" } ?: "—",
-                        style = MaterialTheme.typography.displaySmall,
+                        style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
 
