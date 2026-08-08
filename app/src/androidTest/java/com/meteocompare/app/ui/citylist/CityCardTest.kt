@@ -37,7 +37,7 @@ class CityCardTest {
     fun loading_card_displays_city_identity() {
         render(ForecastState.Loading)
         composeRule.onNodeWithText(TestFixtures.paris.name, useUnmergedTree = true).assertIsDisplayed()
-        composeRule.onNodeWithText(TestFixtures.paris.country!!, useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText(TestFixtures.paris.country, useUnmergedTree = true).assertIsDisplayed()
     }
 
     @Test
