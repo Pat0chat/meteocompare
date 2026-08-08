@@ -82,9 +82,6 @@ internal fun LocalReliabilitySection(
     var savedMetric by rememberSaveable(stateSaver = ConfidenceMetric.Saver) {
         mutableStateOf(availableMetrics.first())
     }
-    // Une préférence restaurée peut viser une métrique qui n'est plus fournie
-    // par le jeu de modèles courant. Le rendu bascule alors vers la première
-    // métrique réellement disponible, sans afficher un faux écran vide.
     val metric = savedMetric.takeIf { it in availableMetrics } ?: availableMetrics.first()
     val activeVariable = metric.toBiasVariable()
     val activeRanking = rankings.forVariable(activeVariable)
@@ -102,7 +99,7 @@ internal fun LocalReliabilitySection(
             .testTag(TAG_LOCAL_RELIABILITY_CARD),
         shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.55f)
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {

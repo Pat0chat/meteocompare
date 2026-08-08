@@ -66,7 +66,7 @@ internal fun ForecastInsightsSection(
             .padding(horizontal = 16.dp)
             .testTag(TAG_FORECAST_INSIGHTS_SECTION),
         shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLow
+        color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.55f)
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),

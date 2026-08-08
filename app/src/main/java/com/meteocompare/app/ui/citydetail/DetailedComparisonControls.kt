@@ -19,7 +19,7 @@ import com.meteocompare.app.ui.theme.precipitationMetricAccent
 import com.meteocompare.app.ui.theme.temperatureMetricAccent
 import com.meteocompare.app.ui.theme.windMetricAccent
 
-/** Barre compacte destinée à rester collée pendant la lecture du tableau. */
+/** Contrôles de la comparaison détaillée. */
 @Composable
 internal fun DetailedComparisonControls(
     mode: DisplayMode,
@@ -30,24 +30,22 @@ internal fun DetailedComparisonControls(
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.97f),
-        tonalElevation = 2.dp,
-        shadowElevation = 1.dp
+        color = MaterialTheme.colorScheme.surfaceContainerLowest.copy(alpha = 0.55f)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 7.dp, bottom = 8.dp)
+                .padding(top = 2.dp, bottom = 2.dp)
         ) {
             DisplayModeToggle(
                 mode = mode,
                 onModeChange = onModeChange
             )
-            Spacer(Modifier.height(5.dp))
+            Spacer(Modifier.height(2.dp))
             DetailContentTabs(
                 selected = selectedTab,
                 onSelected = onTabChange,
-                modifier = Modifier.padding(horizontal = 10.dp)
+                modifier = Modifier.padding(horizontal = 12.dp)
             )
         }
     }

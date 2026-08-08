@@ -6,6 +6,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -27,8 +28,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.outlined.Air
+import androidx.compose.material.icons.outlined.Thermostat
+import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -36,7 +40,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LargeTopAppBar
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
@@ -57,12 +61,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalResources
@@ -90,7 +94,11 @@ import com.meteocompare.app.ui.components.AnimatedWeatherIcon
 import com.meteocompare.app.ui.components.OfflineDataBanner
 import com.meteocompare.app.ui.components.ModernInlineSelector
 import com.meteocompare.app.ui.components.ModernSectionSeparator
+import com.meteocompare.app.ui.citylist.WeatherAccent
 import com.meteocompare.app.ui.theme.confidenceColor
+import com.meteocompare.app.ui.theme.precipitationMetricAccent
+import com.meteocompare.app.ui.theme.temperatureMetricAccent
+import com.meteocompare.app.ui.theme.windMetricAccent
 import java.time.Instant
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
@@ -179,26 +187,42 @@ internal fun CityDetailContent(
     onDetailContentTabChange: (CityDetailContentTab) -> Unit = {},
     onConfidenceClick: (isoDate: String) -> Unit = {}
 ) {
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-
     Scaffold(
-        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
         topBar = {
-            LargeTopAppBar(
+            TopAppBar(
                 title = {
-                    val title = (state as? CityDetailUiState.Loaded)?.forecast?.city?.name
-                        ?: stringResource(R.string.title_detail_fallback)
-                    Text(title)
+                    val loaded = state as? CityDetailUiState.Loaded
+                    Column {
+                        Text(
+                            text = loaded?.forecast?.city?.name
+                                ?: stringResource(R.string.title_detail_fallback),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1
+                        )
+                        loaded?.forecast?.city?.let { city ->
+                            val subtitle = city.country
+                            if (subtitle.isNotBlank()) {
+                                Text(
+                                    text = subtitle,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                    }
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.nav_back))
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.nav_back)
+                        )
                     }
                 },
                 actions = {
-                    // Pendant le refresh : on désactive le bouton (évite double-tap
-                    // qui spammerait le réseau) ET on remplace l'icône par un
-                    // spinner. C'est le feedback visuel immédiat "ton tap a été pris".
                     IconButton(onClick = onRefresh, enabled = !isRefreshing) {
                         if (isRefreshing) {
                             CircularProgressIndicator(
@@ -206,11 +230,17 @@ internal fun CityDetailContent(
                                 strokeWidth = 2.dp
                             )
                         } else {
-                            Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.action_refresh))
+                            Icon(
+                                Icons.Default.Refresh,
+                                contentDescription = stringResource(R.string.action_refresh)
+                            )
                         }
                     }
                 },
-                scrollBehavior = scrollBehavior
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest
+                )
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
@@ -341,9 +371,11 @@ private fun LoadedView(
     }
     var timelineFocusRequestId by remember(overviewTimeline) { mutableStateOf(0) }
     val contentListState = rememberLazyListState()
+    val hasAnalysisContent = insights.isNotEmpty() || timelineDisplayPoints.isNotEmpty()
     val timelineItemIndex = 1 +
-        (if (insights.isNotEmpty()) 1 else 0) +
-        (if (!isOnline) 1 else 0)
+        (if (!isOnline) 1 else 0) +
+        (if (hasAnalysisContent) 1 else 0) +
+        (if (insights.isNotEmpty()) 1 else 0)
     LaunchedEffect(timelineFocusRequestId) {
         if (timelineFocusRequestId > 0) {
             contentListState.animateScrollToItem(timelineItemIndex)
@@ -423,6 +455,12 @@ private fun LoadedView(
         ),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
+        if (!isOnline) {
+            item("offline_data_banner") {
+                OfflineDataBanner(fetchedAt = fetchedAt)
+            }
+        }
+
         item("today_summary") {
             summaryDay?.let { today ->
                 TodaySummaryCard(
@@ -450,12 +488,6 @@ private fun LoadedView(
                         timelineFocusRequestId += 1
                     }
                 )
-            }
-        }
-
-        if (!isOnline) {
-            item("offline_data_banner") {
-                OfflineDataBanner(fetchedAt = fetchedAt)
             }
         }
 
@@ -775,8 +807,8 @@ private fun DetailTableCard(
     val palette = detailTablePalette()
 
     Card(
-        modifier = Modifier.padding(horizontal = 14.dp),
-        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier.padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = palette.tableSurface
         ),
@@ -1047,20 +1079,25 @@ internal fun TodaySummaryCard(
     isOnline: Boolean = true,
     onConfidenceClick: () -> Unit = {}
 ) {
-    // Description unifiée pour TalkBack qui résume toutes les valeurs.
-    // On préfixe par "Maintenant X°" si dispo — c'est l'info la plus utile
-    // au premier abord pour quelqu'un qui ouvre l'app.
     val resources = LocalResources.current
     val baseDescription = com.meteocompare.app.ui.accessibility.A11yFormatter
         .todaySummaryDescription(resources, today, modelCount)
     val a11yDescription = if (currentTemp != null) {
         resources.getString(R.string.a11y_now_temp, currentTemp.roundToInt()) + ". $baseDescription"
     } else baseDescription
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val weatherAccent = WeatherAccent.of(currentCondition, isDark)
+    val dateLocale = LocalConfiguration.current.locales[0]
+    val longDateFmt = remember(dateLocale) {
+        DateTimeFormatter.ofPattern("EEEE d MMMM", dateLocale)
+    }
 
     Card(
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
         ),
+        shape = RoundedCornerShape(22.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
@@ -1068,194 +1105,338 @@ internal fun TodaySummaryCard(
                 contentDescription = a11yDescription
             }
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(3.dp)
+                .background(weatherAccent)
+        )
+        Column(modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top
             ) {
-                Column {
-                    // Formatter ré-créé via remember(locale) — sinon le top-level
-                    // val resterait sur la locale initiale du process pour toute
-                    // sa vie. Pattern "EEEE d MMMM" en FR donne "lundi 1 janvier",
-                    // en EN donne "Monday 1 January".
-                    val dateLocale = LocalConfiguration.current.locales[0]
-                    val longDateFmt = remember(dateLocale) {
-                        DateTimeFormatter.ofPattern("EEEE d MMMM", dateLocale)
-                    }
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = today.date.format(longDateFmt)
-                            .replaceFirstChar { it.uppercase() },
+                        text = today.date.format(longDateFmt).replaceFirstChar { it.uppercase() },
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                        fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        text = if (modelCount > 1)
+                        text = if (modelCount > 1) {
                             stringResource(R.string.models_analysed_many, modelCount)
-                        else
-                            stringResource(R.string.models_analysed_one, modelCount),
+                        } else {
+                            stringResource(R.string.models_analysed_one, modelCount)
+                        },
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    if (fetchedAt != null) {
-                        Spacer(Modifier.height(3.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(6.dp)
-                                    .background(
-                                        color = if (isOnline) {
-                                            MaterialTheme.colorScheme.primary
-                                        } else {
-                                            MaterialTheme.colorScheme.error
-                                        },
-                                        shape = androidx.compose.foundation.shape.CircleShape
-                                    )
-                            )
-                            Spacer(Modifier.width(6.dp))
-                            Text(
-                                text = if (isOnline) {
-                                    com.meteocompare.app.ui.components
-                                        .rememberFormattedLastUpdated(fetchedAt)
-                                } else {
-                                    stringResource(
-                                        R.string.offline_saved_data_age_inline,
-                                        com.meteocompare.app.ui.components
-                                            .rememberFormattedLastUpdated(fetchedAt)
-                                    )
-                                },
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.72f)
-                            )
-                        }
-                    }
                 }
-                today.overallPercent?.let { ConfidenceBadge(it, onClick = onConfidenceClick) }
-            }
 
-            // Température "maintenant" — bloc principal en grand. Placé entre
-            // le titre et les détails parce que c'est l'info de premier plan
-            // que les utilisateurs cherchent en ouvrant l'app. Si pas dispo,
-            // on saute simplement ce bloc (le layout reste cohérent).
-            if (currentTemp != null) {
-                Spacer(Modifier.height(12.dp))
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Text(
-                        text = "${currentTemp.roundToInt()}°",
-                        style = MaterialTheme.typography.displayMedium,
-                        fontWeight = FontWeight.Light,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                    if (currentCondition != null) {
-                        Spacer(Modifier.width(24.dp))
-                        val showCloudBadge = currentCloudCover != null &&
-                            (currentCondition == WeatherCondition.PARTLY_CLOUDY ||
-                                currentCondition == WeatherCondition.OVERCAST)
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.padding(bottom = 2.dp)
-                        ) {
-                            AnimatedWeatherIcon(
-                                condition = currentCondition,
-                                size = 60.dp,
-                                animated = true,
-                                motionScale = 2.0f,
-                                tint = Color.Unspecified
-                            )
-                            if (showCloudBadge) {
-                                Text(
-                                    text = "${currentCloudCover}%",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Medium,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                                        .copy(alpha = 0.75f)
-                                )
-                            }
-                        }
-                    }
+                if (fetchedAt != null) {
+                    DataFreshnessPill(fetchedAt = fetchedAt, isOnline = isOnline)
                 }
             }
 
             Spacer(Modifier.height(12.dp))
 
-            VariableRow(stringResource(R.string.var_temp_max), today.tempMax, "°")
-            today.tempMin?.let {
-                Spacer(Modifier.height(4.dp))
-                VariableRow(stringResource(R.string.var_temp_min), it, "°")
-            }
-            Spacer(Modifier.height(4.dp))
-            PrecipRow(today.precipitation)
-            today.windMax?.let {
-                Spacer(Modifier.height(4.dp))
-                VariableRow(stringResource(R.string.var_wind_max), it, " km/h")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .background(
+                            weatherAccent.copy(alpha = if (isDark) 0.14f else 0.08f),
+                            RoundedCornerShape(20.dp)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (currentCondition != null) {
+                        AnimatedWeatherIcon(
+                            condition = currentCondition,
+                            size = 56.dp,
+                            animated = true,
+                            motionScale = 2.0f,
+                            tint = Color.Unspecified
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Outlined.Thermostat,
+                            contentDescription = null,
+                            tint = weatherAccent,
+                            modifier = Modifier.size(38.dp)
+                        )
+                    }
+                }
+
+                Spacer(Modifier.width(16.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = currentTemp?.let { "${it.roundToInt()}°" } ?: "—",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Medium
+                    )
+                    currentCondition?.let { condition ->
+                        Text(
+                            text = detailWeatherConditionLabel(condition),
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    if (currentCloudCover != null) {
+                        Text(
+                            text = stringResource(R.string.home_cloud_cover, currentCloudCover),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                today.overallPercent?.let { percent ->
+                    ConfidenceBadge(percent, onClick = onConfidenceClick)
+                }
             }
 
+            Spacer(Modifier.height(16.dp))
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
+            )
+            DetailMetricGrid(today = today)
         }
     }
 }
 
 @Composable
-private fun VariableRow(label: String, score: ConfidenceScore?, unit: String) {
-    if (score == null) return
+private fun DataFreshnessPill(
+    fetchedAt: Instant,
+    isOnline: Boolean
+) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        modifier = Modifier.padding(start = 10.dp, top = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onPrimaryContainer
+            text = if (isOnline) {
+                com.meteocompare.app.ui.components.rememberFormattedLastUpdated(fetchedAt)
+            } else {
+                stringResource(
+                    R.string.offline_saved_data_age_inline,
+                    com.meteocompare.app.ui.components.rememberFormattedLastUpdated(fetchedAt)
+                )
+            },
+            style = MaterialTheme.typography.labelSmall,
+            color = if (isOnline) {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            } else {
+                MaterialTheme.colorScheme.error
+            },
+            maxLines = 1
         )
-        val text = if (score.spread <= 1.0) {
-            "${score.meanValue.roundToInt()}$unit"
-        } else {
-            "${score.minValue.roundToInt()}-${score.maxValue.roundToInt()}$unit"
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = text,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
+        Spacer(Modifier.width(6.dp))
+        Box(
+            modifier = Modifier
+                .size(6.dp)
+                .background(
+                    color = if (isOnline) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.error
+                    },
+                    shape = androidx.compose.foundation.shape.CircleShape
+                )
+        )
+    }
+}
+
+@Composable
+private fun DetailMetricGrid(today: DayConfidence) {
+    val hasTemperature = today.tempMax != null || today.tempMin != null
+    val hasWeather = today.precipitation != null || today.windMax != null
+
+    if (hasTemperature) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            today.tempMax?.let { score ->
+                DetailMetricTile(
+                    label = stringResource(R.string.var_temp_max),
+                    value = scoreValue(score, "°"),
+                    confidence = score.percent,
+                    accent = temperatureMetricAccent(),
+                    icon = Icons.Outlined.Thermostat,
+                    modifier = Modifier.weight(1f)
+                )
+            } ?: Spacer(Modifier.weight(1f))
+
+            Box(
+                modifier = Modifier
+                    .width(1.dp)
+                    .height(44.dp)
+                    .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.42f))
             )
-            Spacer(Modifier.width(8.dp))
-            ConfidencePill(score.percent)
+
+            today.tempMin?.let { score ->
+                DetailMetricTile(
+                    label = stringResource(R.string.var_temp_min),
+                    value = scoreValue(score, "°"),
+                    confidence = score.percent,
+                    accent = temperatureMetricAccent(),
+                    icon = Icons.Outlined.Thermostat,
+                    modifier = Modifier.weight(1f)
+                )
+            } ?: Spacer(Modifier.weight(1f))
+        }
+    }
+
+    if (hasTemperature && hasWeather) {
+        HorizontalDivider(
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.42f)
+        )
+    }
+
+    if (hasWeather) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            today.precipitation?.let { precipitation ->
+                DetailMetricTile(
+                    label = stringResource(R.string.var_precipitation),
+                    value = precipitationValue(precipitation),
+                    confidence = precipitation.percent,
+                    accent = precipitationMetricAccent(),
+                    icon = Icons.Outlined.WaterDrop,
+                    modifier = Modifier.weight(1f)
+                )
+            } ?: Spacer(Modifier.weight(1f))
+
+            Box(
+                modifier = Modifier
+                    .width(1.dp)
+                    .height(44.dp)
+                    .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.42f))
+            )
+
+            today.windMax?.let { score ->
+                DetailMetricTile(
+                    label = stringResource(R.string.var_wind_max),
+                    value = scoreValue(score, " km/h"),
+                    confidence = score.percent,
+                    accent = windMetricAccent(),
+                    icon = Icons.Outlined.Air,
+                    modifier = Modifier.weight(1f)
+                )
+            } ?: Spacer(Modifier.weight(1f))
         }
     }
 }
 
 @Composable
-private fun PrecipRow(precip: PrecipitationConfidence?) {
-    if (precip == null) return
+private fun DetailMetricTile(
+    label: String,
+    value: String,
+    confidence: Int,
+    accent: Color,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    modifier: Modifier = Modifier
+) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        modifier = modifier.padding(horizontal = 10.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = stringResource(R.string.var_precipitation),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onPrimaryContainer
-        )
-        val text = when (precip) {
-            is PrecipitationConfidence.NoRain -> stringResource(R.string.precip_dry)
-            is PrecipitationConfidence.Rain ->
-                "${precip.minMm.roundToInt()}-${precip.maxMm.roundToInt()} mm"
-            is PrecipitationConfidence.Divided ->
-                stringResource(R.string.precip_divided, precip.modelsForRain, precip.modelCount)
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = text,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
             )
-            Spacer(Modifier.width(8.dp))
-            ConfidencePill(precip.percent)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = accent,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1
+                )
+            }
         }
+        Spacer(Modifier.width(6.dp))
+        ConfidencePill(confidence)
+    }
+}
+
+private fun scoreValue(score: ConfidenceScore, unit: String): String =
+    if (score.spread <= 1.0) {
+        "${score.meanValue.roundToInt()}$unit"
+    } else {
+        "${score.minValue.roundToInt()}-${score.maxValue.roundToInt()}$unit"
+    }
+
+@Composable
+private fun precipitationValue(precipitation: PrecipitationConfidence): String = when (precipitation) {
+    is PrecipitationConfidence.NoRain -> stringResource(R.string.precip_dry)
+    is PrecipitationConfidence.Rain ->
+        "${precipitation.minMm.roundToInt()}-${precipitation.maxMm.roundToInt()} mm"
+    is PrecipitationConfidence.Divided -> stringResource(
+        R.string.precip_divided,
+        precipitation.modelsForRain,
+        precipitation.modelCount
+    )
+}
+
+@Composable
+private fun detailWeatherConditionLabel(condition: WeatherCondition): String = stringResource(
+    when (condition) {
+        WeatherCondition.CLEAR -> R.string.weather_clear
+        WeatherCondition.MAINLY_CLEAR -> R.string.weather_mainly_clear
+        WeatherCondition.PARTLY_CLOUDY -> R.string.weather_partly_cloudy
+        WeatherCondition.OVERCAST -> R.string.weather_overcast
+        WeatherCondition.FOG -> R.string.weather_fog
+        WeatherCondition.DRIZZLE -> R.string.weather_drizzle
+        WeatherCondition.RAIN -> R.string.weather_rain
+        WeatherCondition.FREEZING_RAIN -> R.string.weather_freezing_rain
+        WeatherCondition.SNOW -> R.string.weather_snow
+        WeatherCondition.RAIN_SHOWERS -> R.string.weather_rain_showers
+        WeatherCondition.SNOW_SHOWERS -> R.string.weather_snow_showers
+        WeatherCondition.THUNDERSTORM -> R.string.weather_thunderstorm
+        WeatherCondition.UNKNOWN -> R.string.weather_unknown
+    }
+)
+
+@Composable
+private fun DetailSectionHeader(
+    title: String,
+    subtitle: String,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 18.dp, vertical = 2.dp)
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold
+        )
+        Spacer(Modifier.height(3.dp))
+        Text(
+            text = subtitle,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
@@ -1286,43 +1467,42 @@ private fun ConfidencePill(percent: Int) {
 
 @Composable
 private fun ConfidenceBadge(percent: Int, onClick: () -> Unit = {}) {
-    // confidenceColor() renvoie une couleur calibrée pour le thème :
-    //   - clair : foncée → bon contraste avec le texte `surface` (clair)
-    //   - sombre : pastel claire → bon contraste avec le texte `surface` (foncé)
-    // En gardant le texte sur `surface`, on a un duo couleur/texte qui
-    // s'inverse correctement entre les deux thèmes.
     val color = confidenceColor(percent)
-    // Modifier.clickable plutôt que Surface(onClick=) : la surcharge onClick
-    // de Surface est marquée @ExperimentalMaterial3Api dans certaines
-    // versions du BOM, et on évite de propager l'opt-in pour si peu. On
-    // garde le ripple natif via clickable(role=Button) qui le configure
-    // automatiquement. La chevron Arrow signale visuellement le tap.
     val a11yLabel = stringResource(R.string.a11y_open_confidence_explanation, percent)
     Surface(
-        color = color,
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
+        shape = RoundedCornerShape(18.dp),
         modifier = Modifier
-            .clip(MaterialTheme.shapes.small)
             .clickable(role = Role.Button, onClick = onClick)
             .semantics { contentDescription = a11yLabel }
             .testTag(TAG_CONFIDENCE_BADGE)
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+            .padding(horizontal = 7.dp, vertical = 6.dp),
+        border = BorderStroke(1.dp, color.copy(alpha = 0.28f))
+    ){
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = stringResource(R.string.confidence_badge_percent, percent),
-                style = MaterialTheme.typography.labelLarge,
+                text = "$percent%",
+                style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.surface
+                color = color
             )
-            Spacer(Modifier.width(4.dp))
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                contentDescription = null, // décoratif — la sémantique est sur Surface
-                tint = MaterialTheme.colorScheme.surface,
-                modifier = Modifier.size(14.dp)
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = stringResource(R.string.home_agreement_label),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.width(2.dp))
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(12.dp)
+                )
+            }
         }
     }
 }
