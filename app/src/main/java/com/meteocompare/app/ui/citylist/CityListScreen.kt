@@ -416,7 +416,7 @@ private fun CityCardHeader(
     modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.padding(start = 12.dp).fillMaxWidth(),
         verticalAlignment = Alignment.Top
     ) {
         Column(modifier = Modifier.weight(1f)) {

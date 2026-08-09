@@ -6,10 +6,15 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 
-/** Accent sémantique partagé pour la température dans les contrôles et visuels. */
+/** Accent sémantique partagé pour la température max dans les contrôles et visuels. */
 @Composable
 @ReadOnlyComposable
 fun temperatureMetricAccent(): Color = MaterialTheme.colorScheme.error
+
+/** Accent sémantique partagé pour la température min dans les contrôles et visuels. */
+@Composable
+@ReadOnlyComposable
+fun temperatureMinMetricAccent(): Color = Color(0xFF1565C0)
 
 /**
  * Bleu météo plus franc que le `primary` Material You.

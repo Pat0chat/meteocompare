@@ -98,6 +98,7 @@ import com.meteocompare.app.ui.citylist.WeatherAccent
 import com.meteocompare.app.ui.theme.confidenceColor
 import com.meteocompare.app.ui.theme.precipitationMetricAccent
 import com.meteocompare.app.ui.theme.temperatureMetricAccent
+import com.meteocompare.app.ui.theme.temperatureMinMetricAccent
 import com.meteocompare.app.ui.theme.windMetricAccent
 import java.time.Instant
 import java.time.format.DateTimeFormatter
@@ -1285,7 +1286,7 @@ private fun DetailMetricGrid(today: DayConfidence) {
                     label = stringResource(R.string.var_temp_min),
                     value = scoreValue(score, "°"),
                     confidence = score.percent,
-                    accent = temperatureMetricAccent(),
+                    accent = temperatureMinMetricAccent(),
                     icon = Icons.Outlined.Thermostat,
                     modifier = Modifier.weight(1f)
                 )

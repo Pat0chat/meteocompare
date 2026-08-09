@@ -146,16 +146,14 @@ private fun ForecastInsightsHeader(
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = stringResource(R.string.forecast_insights_title),
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold
         )
         Text(
             text = subtitle,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier
-                .padding(top = 2.dp)
-                .testTag(TAG_FORECAST_INSIGHTS_SUMMARY)
+            modifier = Modifier.testTag(TAG_FORECAST_INSIGHTS_SUMMARY)
         )
     }
 }

@@ -73,7 +73,7 @@ fun CollapsibleSectionHeader(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = text,
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis

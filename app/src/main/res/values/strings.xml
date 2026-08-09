@@ -425,14 +425,14 @@
     <string name="local_ranking_empty_title">Classement indisponible</string>
     <string name="local_ranking_empty_body">Au moins deux modèles disposant de 14 jours communs sont nécessaires pour établir un classement sur cette variable.</string>
     <string name="local_ranking_method_note">Ce classement est local et pédagogique. Seuls les modèles disposant d’au moins 14 dates communes sont comparés, afin que chaque rang repose sur exactement les mêmes journées. Il ne constitue pas une évaluation officielle des modèles.</string>
-    <string name="local_ranking_open_content_description">Ouvrir le classement local des modèles</string>
+    <string name="local_ranking_open_content_description">Ouvrir le classement local des modèles.</string>
 
     <string name="forecast_tables_section">Prévisions détaillées</string>
     <string name="timeline_title_hourly">Prochaines 24 heures</string>
     <string name="timeline_title_daily">Prochains jours</string>
-    <string name="timeline_subtitle_hourly">Repères toutes les 3 h · les marqueurs signalent les événements clés</string>
-    <string name="timeline_subtitle_daily">Consensus des modèles disponibles pour les prochains jours</string>
-    <string name="timeline_disagreement_hint">Accord affiché en pourcentage. En cas de désaccord, les icônes indiquent les variables concernées</string>
+    <string name="timeline_subtitle_hourly">Repères toutes les 3 h · les marqueurs signalent les événements clés.</string>
+    <string name="timeline_subtitle_daily">Consensus des modèles disponibles pour les prochains jours.</string>
+    <string name="timeline_disagreement_hint">Accord affiché en pourcentage. En cas de désaccord, les icônes indiquent les variables concernées.</string>
     <string name="timeline_now">Maintenant</string>
     <string name="timeline_today">Aujourd’hui</string>
     <string name="timeline_tomorrow">Demain</string>
