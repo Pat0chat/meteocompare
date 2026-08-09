@@ -98,6 +98,9 @@ import com.meteocompare.app.ui.components.ShimmerBox
 import com.meteocompare.app.ui.settings.DonationDialog
 import com.meteocompare.app.ui.theme.confidenceColor
 import com.meteocompare.app.ui.theme.MeteoCompareTheme
+import com.meteocompare.app.ui.theme.precipitationMetricAccent
+import com.meteocompare.app.ui.theme.temperatureMetricAccent
+import com.meteocompare.app.ui.theme.windMetricAccent
 import java.time.LocalDate
 import java.text.NumberFormat
 import kotlin.math.roundToInt
@@ -697,7 +700,8 @@ private fun TodayMetricGrid(today: DayConfidence) {
             label = stringResource(R.string.var_temp_max),
             icon = Icons.Outlined.Thermostat,
             value = formatConfidenceScore(today.tempMax),
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
+            tint = temperatureMetricAccent()
         )
         HomeMetricDivider()
         HomeMetricTile(
@@ -705,14 +709,16 @@ private fun TodayMetricGrid(today: DayConfidence) {
             icon = Icons.Outlined.WaterDrop,
             value = precipPresentation.first,
             supporting = precipPresentation.second,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
+            tint = precipitationMetricAccent()
         )
         HomeMetricDivider()
         HomeMetricTile(
             label = stringResource(R.string.var_wind_max),
             icon = Icons.Outlined.Air,
             value = formatWindScore(today.windMax),
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
+            tint = windMetricAccent()
         )
     }
 }
@@ -733,49 +739,43 @@ private fun HomeMetricTile(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     value: String,
     modifier: Modifier = Modifier,
-    supporting: String? = null
+    supporting: String? = null,
+    tint: Color
 ) {
     Column(
         modifier = modifier.padding(horizontal = 10.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-
-        Spacer(Modifier.height(4.dp))
-
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                modifier = Modifier.size(15.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                modifier = Modifier.size(16.dp),
+                tint = tint
             )
 
             Spacer(Modifier.width(5.dp))
 
-            Text(
-                text = value,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-
-            if (supporting != null) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
                 Text(
-                    text = supporting,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = value,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+
+                if (supporting != null) {
+                    Text(
+                        text = supporting,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
         }
     }
