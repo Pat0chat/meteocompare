@@ -109,6 +109,25 @@ class ConfidenceCalculatorTest {
         assertNull(calculator.dayConfidence(forecast, today).tempMax)
     }
 
+    @Test
+    fun `rafales - agrege le maximum journalier entre modeles`() {
+        val forecast = buildForecast(
+            windGustMaxByModel = mapOf(
+                WeatherModel.AROME_FRANCE_HD to 38.0,
+                WeatherModel.ICON_EU to 42.0,
+                WeatherModel.GFS to 40.0
+            )
+        )
+
+        val gust = calculator.dayConfidence(forecast, today).windGustMax
+
+        assertNotNull(gust)
+        assertEquals(38.0, gust!!.minValue, 0.001)
+        assertEquals(42.0, gust.maxValue, 0.001)
+        assertEquals(40.0, gust.meanValue, 0.001)
+        assertEquals(3, gust.modelCount)
+    }
+
     // ──────────────────── Pluie ────────────────────
 
     @Test
@@ -816,10 +835,11 @@ class ConfidenceCalculatorTest {
         tempMinByModel: Map<WeatherModel, Double> = emptyMap(),
         precipByModel: Map<WeatherModel, Double> = emptyMap(),
         windMaxByModel: Map<WeatherModel, Double> = emptyMap(),
+        windGustMaxByModel: Map<WeatherModel, Double> = emptyMap(),
         dates: List<LocalDate> = listOf(today)
     ): CityForecast {
         val allModels = (tempMaxByModel.keys + tempMinByModel.keys +
-            precipByModel.keys + windMaxByModel.keys).distinct()
+            precipByModel.keys + windMaxByModel.keys + windGustMaxByModel.keys).distinct()
 
         val series = allModels.associateWith { model ->
             ForecastSeries(
@@ -830,7 +850,8 @@ class ConfidenceCalculatorTest {
                     tempMax = dates.map { tempMaxByModel[model] },
                     tempMin = dates.map { tempMinByModel[model] },
                     precipitationSum = dates.map { precipByModel[model] },
-                    windSpeedMax = dates.map { windMaxByModel[model] }
+                    windSpeedMax = dates.map { windMaxByModel[model] },
+                    windGustsMax = dates.map { windGustMaxByModel[model] }
                 )
             )
         }

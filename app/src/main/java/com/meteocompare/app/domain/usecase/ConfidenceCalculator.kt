@@ -68,6 +68,12 @@ class ConfidenceCalculator @Inject constructor(
                 },
                 thresholds = Thresholds.WIND
             ),
+            windGustMax = continuousConfidence(
+                samples = modelsAtDate.mapNotNull { (model, series, idx) ->
+                    series.daily.windGustsMax.getOrNull(idx)?.let { model to it }
+                },
+                thresholds = Thresholds.WIND
+            ),
             precipitation = precipitationConfidence(
                 samples = modelsAtDate.mapNotNull { (model, series, idx) ->
                     series.daily.precipitationSum.getOrNull(idx)?.let { model to it }

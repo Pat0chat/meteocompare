@@ -62,6 +62,29 @@ class CityCardTest {
     }
 
     @Test
+    fun loaded_card_displays_gusts_with_wind_information() {
+        render(
+            ForecastState.Loaded(
+                DayConfidence(
+                    date = TestFixtures.today,
+                    tempMax = null,
+                    tempMin = null,
+                    precipitation = null,
+                    windMax = ConfidenceScore(80, 14.0, 18.0, 16.0, 1.5, 5),
+                    windGustMax = ConfidenceScore(75, 30.0, 38.0, 34.0, 2.8, 5)
+                ),
+                currentTemp = null
+            )
+        )
+
+        composeRule.onNodeWithText("14-18 km/h", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText(
+            context.getString(R.string.home_scenario_gust_short, "30-38 km/h"),
+            useUnmergedTree = true
+        ).assertIsDisplayed()
+    }
+
+    @Test
     fun loaded_card_formats_divided_precipitation() {
         render(
             ForecastState.Loaded(

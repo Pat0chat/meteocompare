@@ -72,6 +72,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.meteocompare.app.R
@@ -1256,7 +1257,7 @@ private fun DataFreshnessPill(
 @Composable
 private fun DetailMetricGrid(today: DayConfidence) {
     val hasTemperature = today.tempMax != null || today.tempMin != null
-    val hasWeather = today.precipitation != null || today.windMax != null
+    val hasWeather = today.precipitation != null || today.windMax != null || today.windGustMax != null
 
     if (hasTemperature) {
         Row(
@@ -1323,11 +1324,21 @@ private fun DetailMetricGrid(today: DayConfidence) {
                     .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.42f))
             )
 
-            today.windMax?.let { score ->
+            val windScore = today.windMax ?: today.windGustMax
+            windScore?.let { score ->
+                val isGustOnly = today.windMax == null
                 DetailMetricTile(
-                    label = stringResource(R.string.var_wind_max),
+                    label = stringResource(
+                        if (isGustOnly) R.string.var_wind_gust_max else R.string.var_wind_max
+                    ),
                     value = scoreValue(score, " km/h"),
                     confidence = score.percent,
+                    supporting = if (isGustOnly) null else today.windGustMax?.let { gust ->
+                        stringResource(
+                            R.string.home_scenario_gust_short,
+                            scoreValue(gust, " km/h")
+                        )
+                    },
                     accent = windMetricAccent(),
                     icon = Icons.Outlined.Air,
                     modifier = Modifier.weight(1f)
@@ -1344,7 +1355,8 @@ private fun DetailMetricTile(
     confidence: Int,
     accent: Color,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    supporting: String? = null
 ) {
     Row(
         modifier = modifier.padding(horizontal = 10.dp, vertical = 12.dp),
@@ -1370,6 +1382,15 @@ private fun DetailMetricTile(
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1
+                )
+            }
+            if (supporting != null) {
+                Text(
+                    text = supporting,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }

@@ -34,7 +34,8 @@ class TodaySummaryCardTest {
                 tempMax = ConfidenceScore(85, 21.0, 24.0, 22.5, 0.8, 5),
                 tempMin = ConfidenceScore(78, 14.0, 17.0, 15.5, 1.0, 5),
                 precipitation = PrecipitationConfidence.NoRain(100, 5, 0.0),
-                windMax = ConfidenceScore(72, 12.0, 18.0, 15.0, 2.5, 5)
+                windMax = ConfidenceScore(72, 12.0, 18.0, 15.0, 2.5, 5),
+                windGustMax = ConfidenceScore(68, 28.0, 36.0, 32.0, 3.2, 5)
             )
         )
 
@@ -43,6 +44,10 @@ class TodaySummaryCardTest {
         composeRule.onNodeWithText(context.getString(R.string.var_temp_min), useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText(context.getString(R.string.var_precipitation), useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText(context.getString(R.string.var_wind_max), useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText(
+            context.getString(R.string.home_scenario_gust_short, "28-36 km/h"),
+            useUnmergedTree = true
+        ).assertIsDisplayed()
         composeRule.onNodeWithText(context.getString(R.string.precip_dry), useUnmergedTree = true).assertIsDisplayed()
     }
 

@@ -88,6 +88,14 @@ object A11yFormatter {
                         temperatureDescription(resources, it)
                 }
                 f.today.precipitation?.let { parts += precipitationDescription(resources, it) }
+                f.today.windMax?.let {
+                    parts += resources.getString(R.string.a11y_wind_max_label) + " " +
+                        windDescription(resources, it)
+                }
+                f.today.windGustMax?.let {
+                    parts += resources.getString(R.string.var_wind_gust_max) + " " +
+                        windDescription(resources, it)
+                }
                 f.today.overallPercent?.let { parts += resources.getString(R.string.a11y_overall_confidence, it) }
                 "$base. " + parts.joinToString(". ") + "."
             }
@@ -152,13 +160,20 @@ object A11yFormatter {
         }
         today.precipitation?.let { parts += precipitationDescription(resources, it) }
         today.windMax?.let {
-            // Vent : on remplace "degrés" par "kilomètres par heure" dans la description.
-            // Hack utilitaire pour ne pas dupliquer toute la logique de format pour une seule unité.
-            val degUnit = resources.getString(R.string.a11y_temp_single, 0).removePrefix("0 ")
-            val kmhUnit = resources.getString(R.string.a11y_kmh_unit)
             parts += resources.getString(R.string.a11y_wind_max_label) + " " +
-                temperatureDescription(resources, it).replace(degUnit, kmhUnit)
+                windDescription(resources, it)
+        }
+        today.windGustMax?.let {
+            parts += resources.getString(R.string.var_wind_gust_max) + " " +
+                windDescription(resources, it)
         }
         return parts.joinToString(". ") + "."
+    }
+
+    /** Même présentation que la température, avec l'unité km/h. */
+    private fun windDescription(resources: Resources, score: ConfidenceScore): String {
+        val degUnit = resources.getString(R.string.a11y_temp_single, 0).removePrefix("0 ")
+        val kmhUnit = resources.getString(R.string.a11y_kmh_unit)
+        return temperatureDescription(resources, score).replace(degUnit, kmhUnit)
     }
 }

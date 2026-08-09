@@ -717,6 +717,12 @@ private fun TodayMetricGrid(today: DayConfidence) {
             label = stringResource(R.string.var_wind_max),
             icon = Icons.Outlined.Air,
             value = formatWindScore(today.windMax),
+            supporting = today.windGustMax?.let { gust ->
+                stringResource(
+                    R.string.home_scenario_gust_short,
+                    formatWindScore(gust)
+                )
+            },
             modifier = Modifier.weight(1f),
             tint = windMetricAccent()
         )
