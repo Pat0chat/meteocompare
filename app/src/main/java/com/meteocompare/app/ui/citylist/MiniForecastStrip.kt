@@ -15,6 +15,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLocale
@@ -23,6 +26,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.meteocompare.app.R
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -35,9 +39,9 @@ import kotlin.math.roundToInt
  *   - des marqueurs de précipitation (dots bleus sous la bande)
  *
  * ─── Design ────────────────────────────────────────────────────────────────
- * Hauteur totale : 24dp. Assez petit pour tenir en bas d'une card sans
- * concurrencer les valeurs principales (temp, précipitation, badge de
- * confiance), assez grand pour distinguer 12 cellules horizontales à l'œil.
+ * Hauteur totale : 30dp. Assez petit pour tenir en bas d'une card tout en
+ * gardant assez de hauteur pour afficher la température dans chaque barre,
+ * sans concurrencer les valeurs principales de la card.
  *
  * Chaque heure occupe `width / 12` — les cellules sont donc adaptatives à la
  * largeur disponible. Sur un écran classique 360dp de contenu utile
@@ -46,10 +50,9 @@ import kotlin.math.roundToInt
  *
  * ─── Encodage visuel ───────────────────────────────────────────────────────
  * **Température** : chaque heure = un rectangle de couleur, hauteur
- * proportionnelle à la temp normalisée dans la fenêtre 12h de cette card
- * (min → 20%, max → 100%). Couleur : rampe froid (bleu) → chaud (rouge) via
- * une palette 4-arrêts (bleu, cyan, orange, rouge) — la même famille que la
- * heatmap détail, en plus petit.
+ * proportionnelle à la temp normalisée dans la fenêtre 12h de cette card.
+ * La valeur arrondie (ex. 18°) est dessinée au centre de chaque barre avec
+ * un contraste automatique noir/blanc selon la couleur de fond.
  *
  * **Précipitation** : dot au bas de la cellule si la proba dépasse 30%.
  * Rayon 1.5-2.5dp selon l'intensité (plus la proba est forte, plus le dot
@@ -67,7 +70,7 @@ import kotlin.math.roundToInt
  *     fin vide (mieux que "extrapoler" une donnée qu'on n'a pas)
  *   - Si toutes les temps sont null : ne dessine que les dots précip et
  *     retourne — pas de division par zéro sur (max−min)
- *   - Si min == max : hauteur uniforme à 60% + couleur uniforme au milieu de
+ *   - Si min == max : hauteur uniforme à ~73% + couleur uniforme au milieu de
  *     la rampe
  */
 @Composable
@@ -102,7 +105,7 @@ internal fun MiniForecastStrip(
         Canvas(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(24.dp)
+                .height(30.dp)
                 .testTag(TAG_MINI_FORECAST_STRIP)
                 .semantics { contentDescription = a11yLabel }
         ) {
@@ -110,8 +113,18 @@ internal fun MiniForecastStrip(
             val cellCount = 12
             val cellWidth = size.width / cellCount
             val cellGap = with(density) { 1.dp.toPx() }
-            val barMaxHeight = size.height * 0.7f
-            val dotRow = size.height * 0.9f
+            val barMaxHeight = size.height * 0.76f
+            val dotRow = size.height * 0.92f
+            val labelTextSizePx = with(density) { 8.sp.toPx() }
+            val labelPaint = android.graphics.Paint().apply {
+                isAntiAlias = true
+                textSize = labelTextSizePx
+                textAlign = android.graphics.Paint.Align.CENTER
+                typeface = android.graphics.Typeface.create(
+                    android.graphics.Typeface.DEFAULT,
+                    android.graphics.Typeface.BOLD
+                )
+            }
 
             // Normalisation de la temp sur la fenêtre affichée. On ne prend que
             // les 12 premières valeurs (défensif : liste plus longue = on tronque,
@@ -131,12 +144,35 @@ internal fun MiniForecastStrip(
                 } else {
                     0.5 // cas dégénéré min==max → hauteur milieu
                 }
-                val barHeight = (barMaxHeight * (0.3f + 0.7f * normalized)).toFloat()
+                // 45% minimum : garantit assez de hauteur pour le libellé "18°".
+                val barHeight = (barMaxHeight * (0.45f + 0.55f * normalized)).toFloat()
                 val x = i * cellWidth
+                val barTop = barMaxHeight - barHeight
+                val barColor = temperatureHeatmapColor(temp)
+
                 drawRect(
-                    color = temperatureHeatmapColor(temp),
-                    topLeft = Offset(x + cellGap / 2f, barMaxHeight - barHeight),
+                    color = barColor,
+                    topLeft = Offset(x + cellGap / 2f, barTop),
                     size = Size(cellWidth - cellGap, barHeight)
+                )
+
+                // Température centrée dans chaque barre. Le contraste est calculé
+                // depuis la luminance du fond pour rester lisible en dark/light.
+                val labelColor = if (barColor.luminance() > 0.52f) {
+                    Color.Black.copy(alpha = 0.78f)
+                } else {
+                    Color.White
+                }
+                labelPaint.color = labelColor.toArgb()
+                val metrics = labelPaint.fontMetrics
+                val labelBaseline = barTop +
+                        (barHeight - metrics.ascent - metrics.descent) / 2f
+
+                drawContext.canvas.nativeCanvas.drawText(
+                    "${temp.roundToInt()}°",
+                    x + cellWidth / 2f,
+                    labelBaseline,
+                    labelPaint
                 )
             }
 
