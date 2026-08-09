@@ -193,7 +193,7 @@
     <string name="a11y_temp_with_confidence">%1$s, %2$s, %3$d pourcent</string>
     <string name="a11y_no_rain">Pas de pluie attendue, accord %d pourcent</string>
     <string name="a11y_rain">Pluie attendue, entre %1$d et %2$d millimètres, accord %3$d pourcent</string>
-    <string name="a11y_models_divided">Modèles divisés sur la pluie, %1$d sur %2$d prédisent la pluie</string>
+    <string name="a11y_models_divided">Modèles divisés sur la pluie, %1$d sur %2$d prédisent la pluie, entre %3$d et %4$d millimètres</string>
     <string name="a11y_city_loading">Chargement des prévisions.</string>
     <string name="a11y_city_error">Erreur : %1$s.</string>
     <string name="a11y_now_temp">Maintenant %d degrés</string>

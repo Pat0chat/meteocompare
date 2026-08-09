@@ -195,7 +195,7 @@
     <string name="a11y_temp_with_confidence">%1$s, %2$s, %3$d percent</string>
     <string name="a11y_no_rain">No rain expected, agreement %d percent</string>
     <string name="a11y_rain">Rain expected, between %1$d and %2$d millimeters, agreement %3$d percent</string>
-    <string name="a11y_models_divided">Models divided on rain, %1$d out of %2$d predict rain</string>
+    <string name="a11y_models_divided">Models divided on rain, %1$d out of %2$d predict rain, between %3$d and %4$d millimeters</string>
     <string name="a11y_city_loading">Loading forecasts.</string>
     <string name="a11y_city_error">Error: %1$s.</string>
     <string name="a11y_now_temp">Now %d degrees</string>

@@ -65,7 +65,13 @@ object A11yFormatter {
                 precip.percent
             )
         is PrecipitationConfidence.Divided ->
-            resources.getString(R.string.a11y_models_divided, precip.modelsForRain, precip.modelCount)
+            resources.getString(
+                R.string.a11y_models_divided,
+                precip.modelsForRain,
+                precip.modelCount,
+                precip.rainMinMm.roundToInt(),
+                precip.rainMaxMm.roundToInt()
+            )
     }
 
     fun cityCardDescription(resources: Resources, state: CityCardState): String {

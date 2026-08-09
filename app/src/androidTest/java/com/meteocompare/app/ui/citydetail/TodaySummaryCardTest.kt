@@ -106,5 +106,6 @@ class TodaySummaryCardTest {
             context.getString(R.string.precip_divided, 3, 5),
             useUnmergedTree = true
         ).assertIsDisplayed()
+        composeRule.onNodeWithText("2-3 mm", useUnmergedTree = true).assertIsDisplayed()
     }
 }

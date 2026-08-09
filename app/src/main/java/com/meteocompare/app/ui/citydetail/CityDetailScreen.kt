@@ -1311,6 +1311,7 @@ private fun DetailMetricGrid(today: DayConfidence) {
                     label = stringResource(R.string.var_precipitation),
                     value = precipitationValue(precipitation),
                     confidence = precipitation.percent,
+                    supporting = precipitationSupportingValue(precipitation),
                     accent = precipitationMetricAccent(),
                     icon = Icons.Outlined.WaterDrop,
                     modifier = Modifier.weight(1f)
@@ -1417,6 +1418,21 @@ private fun precipitationValue(precipitation: PrecipitationConfidence): String =
         precipitation.modelCount
     )
 }
+
+private fun precipitationSupportingValue(precipitation: PrecipitationConfidence): String? =
+    when (precipitation) {
+        is PrecipitationConfidence.Divided -> {
+            val min = precipitation.rainMinMm.roundToInt()
+            val max = precipitation.rainMaxMm.roundToInt()
+            if (min == max) {
+                "${precipitation.rainMeanMm.roundToInt()} mm"
+            } else {
+                "$min-$max mm"
+            }
+        }
+        is PrecipitationConfidence.NoRain,
+        is PrecipitationConfidence.Rain -> null
+    }
 
 @Composable
 private fun detailWeatherConditionLabel(condition: WeatherCondition): String = stringResource(
