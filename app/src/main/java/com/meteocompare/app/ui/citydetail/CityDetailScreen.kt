@@ -1417,31 +1417,6 @@ private fun detailWeatherConditionLabel(condition: WeatherCondition): String = s
 )
 
 @Composable
-private fun DetailSectionHeader(
-    title: String,
-    subtitle: String,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 18.dp, vertical = 2.dp)
-    ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold
-        )
-        Spacer(Modifier.height(3.dp))
-        Text(
-            text = subtitle,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-}
-
-@Composable
 private fun ConfidencePill(percent: Int) {
     // Pattern badge plein (couleur de confiance solide + texte `surface`)
     // identique au gros badge en haut à droite de la carte. La version
