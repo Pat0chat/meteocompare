@@ -50,7 +50,7 @@ class TodaySummaryCardTest {
         ).assertIsDisplayed()
         composeRule.onNodeWithText(context.getString(R.string.precip_dry), useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText(
-            context.getString(R.string.metric_confidence_high, 85),
+            context.getString(R.string.metric_agreement, 85),
             useUnmergedTree = true
         ).assertIsDisplayed()
     }
