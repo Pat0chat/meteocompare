@@ -57,6 +57,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -95,6 +96,8 @@ import com.meteocompare.app.domain.model.WeatherScenarioKind
 import com.meteocompare.app.domain.model.WeatherScenarioTiming
 import com.meteocompare.app.ui.components.AnimatedWeatherIcon
 import com.meteocompare.app.ui.components.ShimmerBox
+import com.meteocompare.app.ui.components.WeatherMetric
+import com.meteocompare.app.ui.components.WeatherMetricLayout
 import com.meteocompare.app.ui.settings.DonationDialog
 import com.meteocompare.app.ui.theme.confidenceColor
 import com.meteocompare.app.ui.theme.MeteoCompareTheme
@@ -543,8 +546,6 @@ private fun CityCardLoaded(
             startTime = hourlyStartTime
         )
 
-        Spacer(Modifier.height(10.dp))
-
         TodayMetricGrid(today = today)
 
         if (next12hScenarios.isNotEmpty() &&
@@ -685,151 +686,157 @@ private fun HomeAgreementBadge(percent: Int) {
 
 @Composable
 private fun TodayMetricGrid(today: DayConfidence) {
-    val precipPresentation = precipitationPresentation(today.precipitation)
-
-    HorizontalDivider(
-        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
+    val temperature = temperatureMetricPresentation(today.tempMax)
+    val precipitation = precipitationMetricPresentation(today.precipitation)
+    val primaryWind = today.windMax ?: today.windGustMax
+    val gustOnly = today.windMax == null && today.windGustMax != null
+    val wind = windMetricPresentation(
+        score = primaryWind,
+        gust = if (gustOnly) null else today.windGustMax
     )
-    Row(
+
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(top = 8.dp, bottom = 2.dp),
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.52f)
     ) {
-        HomeMetricTile(
-            label = stringResource(R.string.var_temp_max),
-            icon = Icons.Outlined.Thermostat,
-            value = formatConfidenceScore(today.tempMax),
-            modifier = Modifier.weight(1f),
-            tint = temperatureMetricAccent()
-        )
-        HomeMetricDivider()
-        HomeMetricTile(
-            label = stringResource(R.string.var_precipitation),
-            icon = Icons.Outlined.WaterDrop,
-            value = precipPresentation.first,
-            supporting = precipPresentation.second,
-            modifier = Modifier.weight(1f),
-            tint = precipitationMetricAccent()
-        )
-        HomeMetricDivider()
-        HomeMetricTile(
-            label = stringResource(R.string.var_wind_max),
-            icon = Icons.Outlined.Air,
-            value = formatWindScore(today.windMax),
-            supporting = today.windGustMax?.let { gust ->
-                stringResource(
-                    R.string.home_scenario_gust_short,
-                    formatWindScore(gust)
-                )
-            },
-            modifier = Modifier.weight(1f),
-            tint = windMetricAccent()
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 6.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            WeatherMetric(
+                label = stringResource(R.string.metric_home_temperature),
+                icon = Icons.Outlined.Thermostat,
+                value = temperature.value,
+                unit = temperature.unit,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 5.dp),
+                accent = temperatureMetricAccent(),
+                layout = WeatherMetricLayout.Compact
+            )
+
+            VerticalDivider(
+                modifier = Modifier
+                    .height(46.dp)
+                    .align(Alignment.CenterVertically),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
+            )
+
+            WeatherMetric(
+                label = stringResource(R.string.metric_home_precipitation),
+                icon = Icons.Outlined.WaterDrop,
+                value = precipitation.value,
+                unit = precipitation.unit,
+                supporting = precipitation.supporting,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 5.dp),
+                accent = precipitationMetricAccent(),
+                layout = WeatherMetricLayout.Compact
+            )
+
+            VerticalDivider(
+                modifier = Modifier
+                    .height(46.dp)
+                    .align(Alignment.CenterVertically),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
+            )
+
+            WeatherMetric(
+                label = stringResource(
+                    if (gustOnly) R.string.metric_home_gusts else R.string.metric_home_wind
+                ),
+                icon = Icons.Outlined.Air,
+                value = wind.value,
+                unit = wind.unit,
+                supporting = wind.supporting,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 5.dp),
+                accent = windMetricAccent(),
+                layout = WeatherMetricLayout.Compact
+            )
+        }
+    }
+}
+
+private data class MetricPresentation(
+    val value: String,
+    val unit: String? = null,
+    val supporting: String? = null
+)
+
+private fun temperatureMetricPresentation(score: ConfidenceScore?): MetricPresentation {
+    if (score == null) return MetricPresentation(value = "—")
+    val value = if (score.spread <= 1.0) {
+        score.meanValue.roundToInt().toString()
+    } else {
+        "${score.minValue.roundToInt()}–${score.maxValue.roundToInt()}"
+    }
+    return MetricPresentation(value = value, unit = "°")
+}
+
+private fun windValue(score: ConfidenceScore?): String {
+    if (score == null) return "—"
+    return if (score.spread <= 2.0) {
+        score.meanValue.roundToInt().toString()
+    } else {
+        "${score.minValue.roundToInt()}–${score.maxValue.roundToInt()}"
     }
 }
 
 @Composable
-private fun HomeMetricDivider() {
-    Box(
-        modifier = Modifier
-            .width(1.dp)
-            .height(36.dp)
-            .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f))
+private fun windMetricPresentation(
+    score: ConfidenceScore?,
+    gust: ConfidenceScore?
+): MetricPresentation {
+    if (score == null) return MetricPresentation(value = "—")
+    return MetricPresentation(
+        value = windValue(score),
+        unit = "km/h",
+        supporting = gust?.let {
+            stringResource(
+                R.string.metric_gust_supporting,
+                it.maxValue.roundToInt().toString()
+            )
+        }
     )
 }
 
 @Composable
-private fun HomeMetricTile(
-    label: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    value: String,
-    modifier: Modifier = Modifier,
-    supporting: String? = null,
-    tint: Color
-) {
-    Column(
-        modifier = modifier.padding(horizontal = 10.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(16.dp),
-                tint = tint
-            )
-
-            Spacer(Modifier.width(5.dp))
-
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = value,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                if (supporting != null) {
-                    Text(
-                        text = supporting,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-        }
-    }
-}
-
-private fun formatConfidenceScore(score: ConfidenceScore?): String {
-    if (score == null) return "—"
-    return if (score.spread <= 1.0) {
-        "${score.meanValue.roundToInt()}°"
-    } else {
-        "${score.minValue.roundToInt()}-${score.maxValue.roundToInt()}°"
-    }
-}
-
-private fun formatWindScore(score: ConfidenceScore?): String {
-    if (score == null) return "—"
-    return if (score.spread <= 2.0) {
-        "${score.meanValue.roundToInt()} km/h"
-    } else {
-        "${score.minValue.roundToInt()}-${score.maxValue.roundToInt()} km/h"
-    }
-}
-
-@Composable
-private fun precipitationPresentation(
+private fun precipitationMetricPresentation(
     precip: PrecipitationConfidence?
-): Pair<String, String?> = when (precip) {
-    null -> "—" to null
+): MetricPresentation = when (precip) {
+    null -> MetricPresentation(value = "—")
     is PrecipitationConfidence.NoRain ->
-        stringResource(R.string.precip_dry) to null
+        MetricPresentation(value = stringResource(R.string.precip_dry))
     is PrecipitationConfidence.Rain -> {
         val value = if (precip.minMm.roundToInt() == precip.maxMm.roundToInt()) {
-            "${precip.meanMm.roundToInt()} mm"
+            precip.meanMm.roundToInt().toString()
         } else {
-            "${precip.minMm.roundToInt()}-${precip.maxMm.roundToInt()} mm"
+            "${precip.minMm.roundToInt()}–${precip.maxMm.roundToInt()}"
         }
-        value to null
+        MetricPresentation(value = value, unit = "mm")
     }
     is PrecipitationConfidence.Divided -> {
         val value = if (precip.rainMinMm.roundToInt() == precip.rainMaxMm.roundToInt()) {
-            "${precip.rainMeanMm.roundToInt()} mm"
+            precip.rainMeanMm.roundToInt().toString()
         } else {
-            "${precip.rainMinMm.roundToInt()}-${precip.rainMaxMm.roundToInt()} mm"
+            "${precip.rainMinMm.roundToInt()}–${precip.rainMaxMm.roundToInt()}"
         }
-        value to stringResource(
-            R.string.precip_divided,
-            precip.modelsForRain,
-            precip.modelCount
+        MetricPresentation(
+            value = value,
+            unit = "mm",
+            supporting = stringResource(
+                R.string.metric_precip_models_short,
+                precip.modelsForRain,
+                precip.modelCount
+            )
         )
     }
 }
@@ -861,9 +868,6 @@ private fun HomeWeatherScenarios(
     val totalModels = scenarios.firstOrNull()?.totalModelCount ?: return
 
     Column {
-        HorizontalDivider(
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
-        )
         Row(
             modifier = Modifier
                 .fillMaxWidth()

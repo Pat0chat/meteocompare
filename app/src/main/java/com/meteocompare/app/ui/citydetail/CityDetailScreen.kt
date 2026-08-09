@@ -72,7 +72,6 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.meteocompare.app.R
@@ -92,6 +91,8 @@ import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.usecase.DayConditionsRow
 import com.meteocompare.app.ui.components.AnimatedWeatherIcon
+import com.meteocompare.app.ui.components.WeatherMetric
+import com.meteocompare.app.ui.components.WeatherMetricLayout
 import com.meteocompare.app.ui.components.OfflineDataBanner
 import com.meteocompare.app.ui.components.ModernInlineSelector
 import com.meteocompare.app.ui.components.ModernSectionSeparator
@@ -1205,7 +1206,7 @@ internal fun TodaySummaryCard(
 
             Spacer(Modifier.height(16.dp))
             HorizontalDivider(
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.32f)
             )
             DetailMetricGrid(today = today)
         }
@@ -1259,180 +1260,159 @@ private fun DetailMetricGrid(today: DayConfidence) {
     val hasTemperature = today.tempMax != null || today.tempMin != null
     val hasWeather = today.precipitation != null || today.windMax != null || today.windGustMax != null
 
-    if (hasTemperature) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            today.tempMax?.let { score ->
-                DetailMetricTile(
-                    label = stringResource(R.string.var_temp_max),
-                    value = scoreValue(score, "°"),
-                    confidence = score.percent,
-                    accent = temperatureMetricAccent(),
-                    icon = Icons.Outlined.Thermostat,
-                    modifier = Modifier.weight(1f)
-                )
-            } ?: Spacer(Modifier.weight(1f))
-
-            Box(
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 18.dp)
+    ) {
+        if (hasTemperature) {
+            Row(
                 modifier = Modifier
-                    .width(1.dp)
-                    .height(44.dp)
-                    .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.42f))
-            )
+                    .fillMaxWidth()
+                    .padding(vertical = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                today.tempMin?.let { score ->
+                    WeatherMetric(
+                        label = stringResource(R.string.var_temp_min),
+                        value = detailScoreValue(score),
+                        unit = "°",
+                        confidence = score.percent,
+                        accent = temperatureMinMetricAccent(),
+                        icon = Icons.Outlined.Thermostat,
+                        modifier = Modifier.weight(1f),
+                        layout = WeatherMetricLayout.Editorial
+                    )
+                } ?: Spacer(Modifier.weight(1f))
 
-            today.tempMin?.let { score ->
-                DetailMetricTile(
-                    label = stringResource(R.string.var_temp_min),
-                    value = scoreValue(score, "°"),
-                    confidence = score.percent,
-                    accent = temperatureMinMetricAccent(),
-                    icon = Icons.Outlined.Thermostat,
-                    modifier = Modifier.weight(1f)
-                )
-            } ?: Spacer(Modifier.weight(1f))
+                today.tempMax?.let { score ->
+                    WeatherMetric(
+                        label = stringResource(R.string.var_temp_max),
+                        value = detailScoreValue(score),
+                        unit = "°",
+                        confidence = score.percent,
+                        accent = temperatureMetricAccent(),
+                        icon = Icons.Outlined.Thermostat,
+                        modifier = Modifier.weight(1f),
+                        layout = WeatherMetricLayout.Editorial
+                    )
+                } ?: Spacer(Modifier.weight(1f))
+            }
+        }
+
+        if (hasTemperature && hasWeather) {
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 12.dp),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.30f)
+            )
+        }
+
+        if (hasWeather) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                today.precipitation?.let { precipitation ->
+                    val presentation = detailPrecipitationPresentation(precipitation)
+                    WeatherMetric(
+                        label = stringResource(R.string.var_precipitation),
+                        value = presentation.value,
+                        unit = presentation.unit,
+                        confidence = precipitation.percent,
+                        supporting = presentation.supporting,
+                        accent = precipitationMetricAccent(),
+                        icon = Icons.Outlined.WaterDrop,
+                        modifier = Modifier.weight(1f),
+                        layout = WeatherMetricLayout.Editorial
+                    )
+                } ?: Spacer(Modifier.weight(1f))
+
+                val windScore = today.windMax ?: today.windGustMax
+                windScore?.let { score ->
+                    val isGustOnly = today.windMax == null
+                    WeatherMetric(
+                        label = stringResource(
+                            if (isGustOnly) R.string.metric_detail_gusts else R.string.metric_detail_wind
+                        ),
+                        value = detailScoreValue(score, windTolerance = true),
+                        unit = "km/h",
+                        confidence = score.percent,
+                        supporting = if (isGustOnly) null else today.windGustMax?.let { gust ->
+                            stringResource(
+                                R.string.metric_gust_detail,
+                                detailScoreValue(gust, windTolerance = true)
+                            )
+                        },
+                        accent = windMetricAccent(),
+                        icon = Icons.Outlined.Air,
+                        modifier = Modifier.weight(1f),
+                        layout = WeatherMetricLayout.Editorial
+                    )
+                } ?: Spacer(Modifier.weight(1f))
+            }
         }
     }
+}
 
-    if (hasTemperature && hasWeather) {
-        HorizontalDivider(
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.42f)
+private data class DetailMetricPresentation(
+    val value: String,
+    val unit: String? = null,
+    val supporting: String? = null
+)
+
+private fun detailScoreValue(
+    score: ConfidenceScore,
+    windTolerance: Boolean = false
+): String {
+    val singleValueThreshold = if (windTolerance) 2.0 else 1.0
+    return if (score.spread <= singleValueThreshold) {
+        score.meanValue.roundToInt().toString()
+    } else {
+        "${score.minValue.roundToInt()}–${score.maxValue.roundToInt()}"
+    }
+}
+
+@Composable
+private fun detailPrecipitationPresentation(
+    precipitation: PrecipitationConfidence
+): DetailMetricPresentation = when (precipitation) {
+    is PrecipitationConfidence.NoRain ->
+        DetailMetricPresentation(value = stringResource(R.string.precip_dry))
+
+    is PrecipitationConfidence.Rain -> {
+        val min = precipitation.minMm.roundToInt()
+        val max = precipitation.maxMm.roundToInt()
+        val value = if (min == max) {
+            precipitation.meanMm.roundToInt().toString()
+        } else {
+            "$min–$max"
+        }
+        DetailMetricPresentation(value = value, unit = "mm")
+    }
+
+    is PrecipitationConfidence.Divided -> {
+        val min = precipitation.rainMinMm.roundToInt()
+        val max = precipitation.rainMaxMm.roundToInt()
+        val value = if (min == max) {
+            precipitation.rainMeanMm.roundToInt().toString()
+        } else {
+            "$min–$max"
+        }
+        DetailMetricPresentation(
+            value = value,
+            unit = "mm",
+            supporting = stringResource(
+                R.string.metric_precip_models_rain,
+                precipitation.modelsForRain,
+                precipitation.modelCount
+            )
         )
     }
-
-    if (hasWeather) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            today.precipitation?.let { precipitation ->
-                DetailMetricTile(
-                    label = stringResource(R.string.var_precipitation),
-                    value = precipitationValue(precipitation),
-                    confidence = precipitation.percent,
-                    supporting = precipitationSupportingValue(precipitation),
-                    accent = precipitationMetricAccent(),
-                    icon = Icons.Outlined.WaterDrop,
-                    modifier = Modifier.weight(1f)
-                )
-            } ?: Spacer(Modifier.weight(1f))
-
-            Box(
-                modifier = Modifier
-                    .width(1.dp)
-                    .height(44.dp)
-                    .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.42f))
-            )
-
-            val windScore = today.windMax ?: today.windGustMax
-            windScore?.let { score ->
-                val isGustOnly = today.windMax == null
-                DetailMetricTile(
-                    label = stringResource(
-                        if (isGustOnly) R.string.var_wind_gust_max else R.string.var_wind_max
-                    ),
-                    value = scoreValue(score, " km/h"),
-                    confidence = score.percent,
-                    supporting = if (isGustOnly) null else today.windGustMax?.let { gust ->
-                        stringResource(
-                            R.string.home_scenario_gust_short,
-                            scoreValue(gust, " km/h")
-                        )
-                    },
-                    accent = windMetricAccent(),
-                    icon = Icons.Outlined.Air,
-                    modifier = Modifier.weight(1f)
-                )
-            } ?: Spacer(Modifier.weight(1f))
-        }
-    }
 }
-
-@Composable
-private fun DetailMetricTile(
-    label: String,
-    value: String,
-    confidence: Int,
-    accent: Color,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    modifier: Modifier = Modifier,
-    supporting: String? = null
-) {
-    Row(
-        modifier = modifier.padding(horizontal = 10.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1
-            )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = accent,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(Modifier.width(4.dp))
-                Text(
-                    text = value,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1
-                )
-            }
-            if (supporting != null) {
-                Text(
-                    text = supporting,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
-        Spacer(Modifier.width(6.dp))
-        ConfidencePill(confidence)
-    }
-}
-
-private fun scoreValue(score: ConfidenceScore, unit: String): String =
-    if (score.spread <= 1.0) {
-        "${score.meanValue.roundToInt()}$unit"
-    } else {
-        "${score.minValue.roundToInt()}-${score.maxValue.roundToInt()}$unit"
-    }
-
-@Composable
-private fun precipitationValue(precipitation: PrecipitationConfidence): String = when (precipitation) {
-    is PrecipitationConfidence.NoRain -> stringResource(R.string.precip_dry)
-    is PrecipitationConfidence.Rain ->
-        "${precipitation.minMm.roundToInt()}-${precipitation.maxMm.roundToInt()} mm"
-    is PrecipitationConfidence.Divided -> stringResource(
-        R.string.precip_divided,
-        precipitation.modelsForRain,
-        precipitation.modelCount
-    )
-}
-
-private fun precipitationSupportingValue(precipitation: PrecipitationConfidence): String? =
-    when (precipitation) {
-        is PrecipitationConfidence.Divided -> {
-            val min = precipitation.rainMinMm.roundToInt()
-            val max = precipitation.rainMaxMm.roundToInt()
-            if (min == max) {
-                "${precipitation.rainMeanMm.roundToInt()} mm"
-            } else {
-                "$min-$max mm"
-            }
-        }
-        is PrecipitationConfidence.NoRain,
-        is PrecipitationConfidence.Rain -> null
-    }
 
 @Composable
 private fun detailWeatherConditionLabel(condition: WeatherCondition): String = stringResource(
@@ -1452,31 +1432,6 @@ private fun detailWeatherConditionLabel(condition: WeatherCondition): String = s
         WeatherCondition.UNKNOWN -> R.string.weather_unknown
     }
 )
-
-@Composable
-private fun ConfidencePill(percent: Int) {
-    // Pattern badge plein (couleur de confiance solide + texte `surface`)
-    // identique au gros badge en haut à droite de la carte. La version
-    // précédente utilisait un fond tinté à 20% : sur un `primaryContainer`
-    // (lui-même coloré), ça donnait un wash très subtil qui se confondait
-    // visuellement avec le fond, surtout en thème sombre. Le solide garantit
-    // un contraste minimum AAA quel que soit le container de la carte parente
-    // (primaryContainer, surfaceContainer, etc.) — la confiance fait partie
-    // des infos qu'on veut LIRE d'un coup d'œil, pas deviner.
-    val color = confidenceColor(percent)
-    Surface(
-        color = color,
-        modifier = Modifier.clip(MaterialTheme.shapes.extraSmall)
-    ) {
-        Text(
-            text = "$percent%",
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.surface,
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-        )
-    }
-}
 
 @Composable
 private fun ConfidenceBadge(percent: Int, onClick: () -> Unit = {}) {

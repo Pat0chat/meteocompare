@@ -43,12 +43,16 @@ class TodaySummaryCardTest {
         composeRule.onNodeWithText(context.getString(R.string.var_temp_max), useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText(context.getString(R.string.var_temp_min), useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText(context.getString(R.string.var_precipitation), useUnmergedTree = true).assertIsDisplayed()
-        composeRule.onNodeWithText(context.getString(R.string.var_wind_max), useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText(context.getString(R.string.metric_detail_wind), useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText(
-            context.getString(R.string.home_scenario_gust_short, "28-36 km/h"),
+            context.getString(R.string.metric_gust_detail, "28–36"),
             useUnmergedTree = true
         ).assertIsDisplayed()
         composeRule.onNodeWithText(context.getString(R.string.precip_dry), useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText(
+            context.getString(R.string.metric_confidence_high, 85),
+            useUnmergedTree = true
+        ).assertIsDisplayed()
     }
 
     @Test
@@ -66,7 +70,7 @@ class TodaySummaryCardTest {
         composeRule.onNodeWithText(context.getString(R.string.var_temp_max), useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText(context.getString(R.string.var_temp_min), useUnmergedTree = true).assertDoesNotExist()
         composeRule.onNodeWithText(context.getString(R.string.var_precipitation), useUnmergedTree = true).assertDoesNotExist()
-        composeRule.onNodeWithText(context.getString(R.string.var_wind_max), useUnmergedTree = true).assertDoesNotExist()
+        composeRule.onNodeWithText(context.getString(R.string.metric_detail_wind), useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test
@@ -80,7 +84,7 @@ class TodaySummaryCardTest {
                 windMax = null
             )
         )
-        composeRule.onNodeWithText("2-6 mm", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("2–6", useUnmergedTree = true).assertIsDisplayed()
     }
 
     @Test
@@ -102,10 +106,10 @@ class TodaySummaryCardTest {
                 windMax = null
             )
         )
+        composeRule.onNodeWithText("2–3", useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText(
-            context.getString(R.string.precip_divided, 3, 5),
+            context.getString(R.string.metric_precip_models_rain, 3, 5),
             useUnmergedTree = true
         ).assertIsDisplayed()
-        composeRule.onNodeWithText("2-3 mm", useUnmergedTree = true).assertIsDisplayed()
     }
 }

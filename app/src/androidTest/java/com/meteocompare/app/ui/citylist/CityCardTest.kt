@@ -54,7 +54,7 @@ class CityCardTest {
                 currentTemp = null
             )
         )
-        composeRule.onNodeWithText("21-24°", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("21–24", useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText(
             context.getString(R.string.precip_dry),
             useUnmergedTree = true
@@ -77,9 +77,9 @@ class CityCardTest {
             )
         )
 
-        composeRule.onNodeWithText("14-18 km/h", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("14–18", useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText(
-            context.getString(R.string.home_scenario_gust_short, "30-38 km/h"),
+            context.getString(R.string.metric_gust_supporting, "38"),
             useUnmergedTree = true
         ).assertIsDisplayed()
     }
@@ -106,9 +106,9 @@ class CityCardTest {
                 currentTemp = null
             )
         )
-        composeRule.onNodeWithText("2-3 mm", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("2–3", useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText(
-            context.getString(R.string.precip_divided, 3, 5),
+            context.getString(R.string.metric_precip_models_short, 3, 5),
             useUnmergedTree = true
         ).assertIsDisplayed()
     }
@@ -127,7 +127,7 @@ class CityCardTest {
                 currentTemp = null
             )
         )
-        composeRule.onNodeWithText("22°", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("22", useUnmergedTree = true).assertIsDisplayed()
     }
 
     @Test

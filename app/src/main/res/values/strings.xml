@@ -169,6 +169,21 @@
     <string name="action_more_options">Options</string>
     <string name="precip_dry">Sec</string>
     <string name="precip_divided">%1$d/%2$d modèles ⚠</string>
+    <string name="metric_home_temperature">Température</string>
+    <string name="metric_home_precipitation">Précipitations</string>
+    <string name="metric_home_wind">Vent</string>
+    <string name="metric_home_gusts">Rafales</string>
+    <string name="metric_agreement">Accord %1$d %%</string>
+    <string name="metric_precip_if_rain">%1$s si pluie</string>
+    <string name="metric_gust_supporting">Raf. %1$s</string>
+    <string name="metric_precip_models_short">%1$d/%2$d modèles</string>
+    <string name="metric_precip_models_rain">%1$d modèles sur %2$d</string>
+    <string name="metric_gust_detail">Rafales %1$s km/h</string>
+    <string name="metric_detail_wind">Vent</string>
+    <string name="metric_detail_gusts">Rafales</string>
+    <string name="metric_confidence_high">Élevée · %1$d %%</string>
+    <string name="metric_confidence_medium">Moyenne · %1$d %%</string>
+    <string name="metric_confidence_low">Faible · %1$d %%</string>
 
     <!-- Add city sheet -->
     <string name="search_city_placeholder">Rechercher une ville…</string>

@@ -74,7 +74,7 @@ class CityListContentTest {
             }
         }
         composeRule.onNodeWithTag("$TAG_CITY_CARD${TestFixtures.lyon.id}").assertIsDisplayed().performClick()
-        composeRule.onNodeWithText("25-27°", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("25–27", useUnmergedTree = true).assertIsDisplayed()
         assertEquals(TestFixtures.lyon.id, selectedId)
     }
 }
