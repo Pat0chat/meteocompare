@@ -189,6 +189,10 @@
     <string name="metric_confidence_high">Élevée · %1$d %%</string>
     <string name="metric_confidence_medium">Moyenne · %1$d %%</string>
     <string name="metric_confidence_low">Faible · %1$d %%</string>
+    <string name="metric_summary_average">Moyenne des modèles</string>
+    <string name="metric_summary_range">Plage %1$s</string>
+    <string name="metric_summary_range_and_spread">Plage %1$s · écart %2$s</string>
+    <string name="metric_summary_max_model_precip">Max modèle %1$.1f mm</string>
 
     <!-- Add city sheet -->
     <string name="search_city_placeholder">Rechercher une ville…</string>

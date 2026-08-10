@@ -42,6 +42,10 @@ class TodaySummaryCardTest {
         composeRule.onNodeWithText(context.getString(R.string.models_analysed_many, 5), useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText(context.getString(R.string.var_temp_max), useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText(context.getString(R.string.var_temp_min), useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText(
+            context.getString(R.string.metric_summary_range_and_spread, "14–17°", "3°"),
+            useUnmergedTree = true
+        ).assertIsDisplayed()
         composeRule.onNodeWithText(context.getString(R.string.var_precipitation), useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText(context.getString(R.string.metric_detail_wind), useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText(
@@ -87,7 +91,10 @@ class TodaySummaryCardTest {
                 windMax = null
             )
         )
-        composeRule.onNodeWithText("2–6", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText(
+            context.getString(R.string.metric_summary_range, "2–6 mm"),
+            useUnmergedTree = true
+        ).assertIsDisplayed()
     }
 
     @Test
@@ -109,9 +116,12 @@ class TodaySummaryCardTest {
                 windMax = null
             )
         )
-        composeRule.onNodeWithText("2–3", useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText(
-            context.getString(R.string.metric_precip_models_rain, 3, 5),
+            context.getString(R.string.metric_precip_if_rain, "2–3 mm"),
+            useUnmergedTree = true
+        ).assertIsDisplayed()
+        composeRule.onNodeWithText(
+            context.getString(R.string.confidence_precip_divided, 3, 5),
             useUnmergedTree = true
         ).assertIsDisplayed()
     }

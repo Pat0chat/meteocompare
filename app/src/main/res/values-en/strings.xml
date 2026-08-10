@@ -191,6 +191,10 @@
     <string name="metric_confidence_high">High · %1$d%%</string>
     <string name="metric_confidence_medium">Medium · %1$d%%</string>
     <string name="metric_confidence_low">Low · %1$d%%</string>
+    <string name="metric_summary_average">Model average</string>
+    <string name="metric_summary_range">Range %1$s</string>
+    <string name="metric_summary_range_and_spread">Range %1$s · spread %2$s</string>
+    <string name="metric_summary_max_model_precip">Highest model %1$.1f mm</string>
 
     <!-- Add city sheet -->
     <string name="search_city_placeholder">Search for a city…</string>
