@@ -3,11 +3,13 @@ package com.meteocompare.app.ui.citydetail
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -19,12 +21,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.Air
+import androidx.compose.material.icons.outlined.Cloud
+import androidx.compose.material.icons.outlined.Thermostat
+import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -35,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -49,16 +54,16 @@ import com.meteocompare.app.ui.theme.windMetricAccent
 private const val CONTROL_ANIMATION_MS = 160
 
 /**
- * Navigation contextuelle des prévisions détaillées.
+ * En-tête de navigation de la surface « prévisions détaillées ».
  *
- * La granularité est volontairement traitée comme un réglage secondaire :
- * un simple libellé ouvre un menu ponctuel. La variable est la seule vraie
- * navigation persistante. Les accents météo restent distincts, mais ne sont
- * utilisés que sur l'onglet actif afin de conserver une interface légère.
+ * La granularité (heure/jour) reste un réglage secondaire sous la forme d'un
+ * petit bouton. La variable reste la navigation principale. Les icônes sont
+ * volontairement neutres au repos et prennent uniquement la couleur d'accent
+ * de leur variable lorsque l'onglet correspondant est sélectionné.
  *
- * Le composant sert de stickyHeader ; sa couleur est donc identique au fond de
- * la page pour qu'il paraisse intégré au contenu avant de devenir fonctionnel
- * au scroll.
+ * Le composant ne dessine pas sa propre Surface : il est intégré à la Surface
+ * englobante de la section détaillée, au même niveau que le tableau et sa
+ * légende. Cela évite l'effet « widget dans le widget ».
  */
 @Composable
 internal fun DetailedComparisonControls(
@@ -68,56 +73,47 @@ internal fun DetailedComparisonControls(
     onTabChange: (CityDetailContentTab) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val scheme = MaterialTheme.colorScheme
-
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        color = scheme.surfaceContainerLowest,
-        tonalElevation = 0.dp,
-        shadowElevation = 0.dp
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(top = 12.dp, bottom = 4.dp)
     ) {
-        Column(Modifier.fillMaxWidth()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(44.dp)
-                    .padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = stringResource(R.string.forecast_tables_section),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = scheme.onSurface,
-                    maxLines = 1
-                )
-
-                DisplayModeMenu(
-                    mode = mode,
-                    onModeChange = onModeChange
-                )
-            }
-
-            DetailContentTabs(
-                selected = selectedTab,
-                onSelected = onTabChange,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = stringResource(R.string.forecast_tables_section),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1
             )
 
-            HorizontalDivider(
-                thickness = 1.dp,
-                color = scheme.outlineVariant.copy(alpha = 0.28f)
+            DisplayModeMenu(
+                mode = mode,
+                onModeChange = onModeChange
             )
         }
+
+        Spacer(Modifier.height(8.dp))
+
+        DetailContentTabs(
+            selected = selectedTab,
+            onSelected = onTabChange,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp)
+        )
     }
 }
 
 /**
- * Réglage discret de granularité. Aucun rail ni capsule permanente : le mode
- * courant est simplement présenté comme une action contextuelle.
+ * Petit bouton de granularité : plus explicite qu'un simple libellé cliquable,
+ * sans revenir à la lourdeur d'un segmented control permanent.
  */
 @Composable
 private fun DisplayModeMenu(
@@ -127,31 +123,39 @@ private fun DisplayModeMenu(
 ) {
     var expanded by remember { mutableStateOf(false) }
     val scheme = MaterialTheme.colorScheme
+    val shape = RoundedCornerShape(10.dp)
 
     Box(modifier = modifier) {
         Row(
             modifier = Modifier
-                .clip(RoundedCornerShape(8.dp))
+                .height(34.dp)
+                .clip(shape)
+                .background(scheme.surfaceContainerHigh.copy(alpha = 0.72f))
+                .border(
+                    width = 1.dp,
+                    color = scheme.outlineVariant.copy(alpha = 0.55f),
+                    shape = shape
+                )
                 .clickable(
                     role = Role.Button,
                     onClick = { expanded = true }
                 )
-                .padding(start = 8.dp, end = 4.dp, top = 7.dp, bottom = 7.dp),
+                .padding(start = 10.dp, end = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(2.dp)
+            horizontalArrangement = Arrangement.spacedBy(3.dp)
         ) {
             Text(
                 text = stringResource(mode.labelRes),
                 style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Medium,
-                color = scheme.onSurfaceVariant,
+                fontWeight = FontWeight.SemiBold,
+                color = scheme.onSurface,
                 maxLines = 1
             )
             Icon(
                 imageVector = Icons.Default.KeyboardArrowDown,
                 contentDescription = null,
                 tint = scheme.onSurfaceVariant,
-                modifier = Modifier.size(18.dp)
+                modifier = Modifier.size(17.dp)
             )
         }
 
@@ -226,8 +230,12 @@ private fun DetailContentTab(
 ) {
     val scheme = MaterialTheme.colorScheme
     val accent = tabAccent(tab)
-    val contentColor by animateColorAsState(
+    val textColor by animateColorAsState(
         targetValue = if (selected) accent else scheme.onSurfaceVariant,
+        animationSpec = tween(CONTROL_ANIMATION_MS)
+    )
+    val iconColor by animateColorAsState(
+        targetValue = if (selected) accent else scheme.onSurfaceVariant.copy(alpha = 0.58f),
         animationSpec = tween(CONTROL_ANIMATION_MS)
     )
     val indicatorColor by animateColorAsState(
@@ -237,7 +245,7 @@ private fun DetailContentTab(
 
     Box(
         modifier = modifier
-            .height(42.dp)
+            .height(44.dp)
             .selectable(
                 selected = selected,
                 onClick = onClick,
@@ -245,20 +253,32 @@ private fun DetailContentTab(
             ),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = stringResource(tab.labelRes),
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-            color = contentColor,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(horizontal = 3.dp)
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.padding(horizontal = 2.dp)
+        ) {
+            Icon(
+                imageVector = tab.icon,
+                contentDescription = null,
+                tint = iconColor,
+                modifier = Modifier.size(15.dp)
+            )
+            Spacer(Modifier.width(4.dp))
+            Text(
+                text = stringResource(tab.labelRes),
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                color = textColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
 
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .width(30.dp)
+                .width(28.dp)
                 .height(2.dp)
                 .clip(RoundedCornerShape(99.dp))
                 .background(indicatorColor)
@@ -273,6 +293,14 @@ private fun tabAccent(tab: CityDetailContentTab): Color = when (tab) {
     CityDetailContentTab.PRECIPITATION -> precipitationMetricAccent()
     CityDetailContentTab.WIND -> windMetricAccent()
 }
+
+private val CityDetailContentTab.icon: ImageVector
+    get() = when (this) {
+        CityDetailContentTab.CONDITIONS -> Icons.Outlined.Cloud
+        CityDetailContentTab.TEMPERATURE -> Icons.Outlined.Thermostat
+        CityDetailContentTab.PRECIPITATION -> Icons.Outlined.WaterDrop
+        CityDetailContentTab.WIND -> Icons.Outlined.Air
+    }
 
 private val CityDetailContentTab.labelRes: Int
     get() = when (this) {

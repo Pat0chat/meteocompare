@@ -5,7 +5,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -328,7 +327,6 @@ private fun ErrorView(message: String, onRetry: () -> Unit, padding: PaddingValu
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun LoadedView(
     forecast: CityForecast,
@@ -533,48 +531,42 @@ private fun LoadedView(
             }
         }
 
-        stickyHeader("detailed_comparison_controls") {
-            DetailedComparisonControls(
-                mode = displayMode,
-                selectedTab = detailContentTab,
-                onModeChange = { onDetailViewModeChange(it.toPreference()) },
-                onTabChange = onDetailContentTabChange
-            )
-        }
-
         val hasAnyBias =
             biasState.temperature.biasByModel.values.any { it != null } ||
             biasState.precipitation.biasByModel.values.any { it != null } ||
             biasState.wind.biasByModel.values.any { it != null }
-        if (!hasAnyBias && detailContentTab != CityDetailContentTab.CONDITIONS) {
-            item("bias_history_hint") { BiasHistoryHint() }
-        }
 
-        detailedComparisonItem(
-            mode = displayMode,
-            tab = detailContentTab,
-            forecast = forecast,
-            dailyConditions = dailyConditions,
-            normals = normals,
-            presentationNow = presentationNow,
-            cityToday = cityToday,
-            temperatureBiasProvider = { model -> biasState.temperature.biasByModel[model] },
-            precipitationBiasProvider = { model -> biasState.precipitation.biasByModel[model] },
-            windBiasProvider = { model -> biasState.wind.biasByModel[model] },
-            temperatureSampleCountProvider = { model ->
-                biasState.temperature.historyByModel[model]?.size ?: 0
-            },
-            precipitationSampleCountProvider = { model ->
-                biasState.precipitation.historyByModel[model]?.size ?: 0
-            },
-            windSampleCountProvider = { model ->
-                biasState.wind.historyByModel[model]?.size ?: 0
-            },
-            onBiasChipClick = { model, bias ->
-                selectedModelName = model.name
-                selectedVariableName = bias.variable.name
-            }
-        )
+        item("detailed_forecast_section") {
+            DetailedForecastSection(
+                mode = displayMode,
+                tab = detailContentTab,
+                forecast = forecast,
+                dailyConditions = dailyConditions,
+                normals = normals,
+                presentationNow = presentationNow,
+                cityToday = cityToday,
+                showBiasHistoryHint = !hasAnyBias &&
+                    detailContentTab != CityDetailContentTab.CONDITIONS,
+                onModeChange = { onDetailViewModeChange(it.toPreference()) },
+                onTabChange = onDetailContentTabChange,
+                temperatureBiasProvider = { model -> biasState.temperature.biasByModel[model] },
+                precipitationBiasProvider = { model -> biasState.precipitation.biasByModel[model] },
+                windBiasProvider = { model -> biasState.wind.biasByModel[model] },
+                temperatureSampleCountProvider = { model ->
+                    biasState.temperature.historyByModel[model]?.size ?: 0
+                },
+                precipitationSampleCountProvider = { model ->
+                    biasState.precipitation.historyByModel[model]?.size ?: 0
+                },
+                windSampleCountProvider = { model ->
+                    biasState.wind.historyByModel[model]?.size ?: 0
+                },
+                onBiasChipClick = { model, bias ->
+                    selectedModelName = model.name
+                    selectedVariableName = bias.variable.name
+                }
+            )
+        }
 
         if (forecast.errors.isNotEmpty()) {
             item("errors") { PartialErrorsSection(forecast.errors) }
@@ -623,7 +615,79 @@ private fun LoadedView(
 //  Comparaison détaillée : une seule famille de données à la fois
 // ============================================================================
 
-private fun androidx.compose.foundation.lazy.LazyListScope.detailedComparisonItem(
+@Composable
+private fun DetailedForecastSection(
+    mode: DisplayMode,
+    tab: CityDetailContentTab,
+    forecast: CityForecast,
+    dailyConditions: List<DayConditionsRow>,
+    normals: Map<Int, DayNormals>?,
+    presentationNow: Instant,
+    cityToday: java.time.LocalDate,
+    showBiasHistoryHint: Boolean,
+    onModeChange: (DisplayMode) -> Unit,
+    onTabChange: (CityDetailContentTab) -> Unit,
+    temperatureBiasProvider: ((WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
+    precipitationBiasProvider: ((WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
+    windBiasProvider: ((WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
+    temperatureSampleCountProvider: ((WeatherModel) -> Int)? = null,
+    precipitationSampleCountProvider: ((WeatherModel) -> Int)? = null,
+    windSampleCountProvider: ((WeatherModel) -> Int)? = null,
+    onBiasChipClick: ((WeatherModel, com.meteocompare.app.domain.model.ModelBias) -> Unit)? = null
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.55f),
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp
+    ) {
+        Column(modifier = Modifier.padding(bottom = 12.dp)) {
+            DetailedComparisonControls(
+                mode = mode,
+                selectedTab = tab,
+                onModeChange = onModeChange,
+                onTabChange = onTabChange
+            )
+
+            HorizontalDivider(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                thickness = 1.dp,
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.30f)
+            )
+
+            if (showBiasHistoryHint) {
+                BiasHistoryHint(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                )
+            } else {
+                Spacer(Modifier.height(8.dp))
+            }
+
+            DetailedComparisonContent(
+                mode = mode,
+                tab = tab,
+                forecast = forecast,
+                dailyConditions = dailyConditions,
+                normals = normals,
+                presentationNow = presentationNow,
+                cityToday = cityToday,
+                temperatureBiasProvider = temperatureBiasProvider,
+                precipitationBiasProvider = precipitationBiasProvider,
+                windBiasProvider = windBiasProvider,
+                temperatureSampleCountProvider = temperatureSampleCountProvider,
+                precipitationSampleCountProvider = precipitationSampleCountProvider,
+                windSampleCountProvider = windSampleCountProvider,
+                onBiasChipClick = onBiasChipClick
+            )
+        }
+    }
+}
+
+@Composable
+private fun DetailedComparisonContent(
     mode: DisplayMode,
     tab: CityDetailContentTab,
     forecast: CityForecast,
@@ -639,155 +703,153 @@ private fun androidx.compose.foundation.lazy.LazyListScope.detailedComparisonIte
     windSampleCountProvider: ((WeatherModel) -> Int)? = null,
     onBiasChipClick: ((WeatherModel, com.meteocompare.app.domain.model.ModelBias) -> Unit)? = null
 ) {
-    item("detail_${mode.name}_${tab.name}") {
-        Column {
-            when (tab) {
-                CityDetailContentTab.CONDITIONS -> {
-                    if (mode == DisplayMode.DAILY) {
-                        if (dailyConditions.isEmpty()) {
-                            DetailedEmptyState()
-                        } else {
-                            DetailTableCard {
-                                WeatherByModelTable(
-                                    rows = dailyConditions,
-                                    modelOrder = forecast.availableModels,
-                                    today = cityToday,
-                                    modifier = Modifier.padding(8.dp)
-                                )
-                            }
-                            WeatherLegend()
-                        }
+    Column {
+        when (tab) {
+            CityDetailContentTab.CONDITIONS -> {
+                if (mode == DisplayMode.DAILY) {
+                    if (dailyConditions.isEmpty()) {
+                        DetailedEmptyState()
                     } else {
                         DetailTableCard {
-                            HourlyWeatherByModelTable(
-                                forecast = forecast,
-                                now = presentationNow,
+                            WeatherByModelTable(
+                                rows = dailyConditions,
+                                modelOrder = forecast.availableModels,
+                                today = cityToday,
                                 modifier = Modifier.padding(8.dp)
                             )
                         }
                         WeatherLegend()
                     }
-                }
-
-                CityDetailContentTab.TEMPERATURE -> {
-                    if (mode == DisplayMode.DAILY) {
-                        DetailTableCard {
-                            MinMaxForecastTable(
-                                forecast = forecast,
-                                normals = normals,
-                                now = presentationNow,
-                                modelBiasProvider = temperatureBiasProvider,
-                                sampleCountProvider = temperatureSampleCountProvider,
-                                onBiasChipClick = onBiasChipClick,
-                                modifier = Modifier.padding(8.dp)
-                            )
-                        }
-                        MinMaxForecastLegend(normalsAvailable = normals != null)
-                    } else {
-                        DetailTableCard {
-                            HourlyForecastTable(
-                                forecast = forecast,
-                                now = presentationNow,
-                                valueExtractor = { hourly: HourlyForecast, idx ->
-                                    hourly.temperature2m.getOrNull(idx)
-                                },
-                                valueFormatter = { "${it.roundToInt()}°" },
-                                heatmapStyler = ::hourlyTemperatureHeatmap,
-                                modelBiasProvider = temperatureBiasProvider,
-                                sampleCountProvider = temperatureSampleCountProvider,
-                                onBiasChipClick = onBiasChipClick,
-                                modifier = Modifier.padding(8.dp)
-                            )
-                        }
-                        HourlyTemperatureLegend()
-                    }
-                }
-
-                CityDetailContentTab.PRECIPITATION -> {
-                    if (mode == DisplayMode.DAILY) {
-                        ForecastTableContent(
+                } else {
+                    DetailTableCard {
+                        HourlyWeatherByModelTable(
                             forecast = forecast,
                             now = presentationNow,
-                            extractor = { daily, idx -> daily.precipitationSum.getOrNull(idx) },
-                            formatter = { mm ->
-                                if (mm < 0.05) "0" else "${"%.1f".format(mm)} mm"
+                            modifier = Modifier.padding(8.dp)
+                        )
+                    }
+                    WeatherLegend()
+                }
+            }
+
+            CityDetailContentTab.TEMPERATURE -> {
+                if (mode == DisplayMode.DAILY) {
+                    DetailTableCard {
+                        MinMaxForecastTable(
+                            forecast = forecast,
+                            normals = normals,
+                            now = presentationNow,
+                            modelBiasProvider = temperatureBiasProvider,
+                            sampleCountProvider = temperatureSampleCountProvider,
+                            onBiasChipClick = onBiasChipClick,
+                            modifier = Modifier.padding(8.dp)
+                        )
+                    }
+                    MinMaxForecastLegend(normalsAvailable = normals != null)
+                } else {
+                    DetailTableCard {
+                        HourlyForecastTable(
+                            forecast = forecast,
+                            now = presentationNow,
+                            valueExtractor = { hourly: HourlyForecast, idx ->
+                                hourly.temperature2m.getOrNull(idx)
                             },
-                            valueStyler = ::precipitationStyle,
+                            valueFormatter = { "${it.roundToInt()}°" },
+                            heatmapStyler = ::hourlyTemperatureHeatmap,
+                            modelBiasProvider = temperatureBiasProvider,
+                            sampleCountProvider = temperatureSampleCountProvider,
+                            onBiasChipClick = onBiasChipClick,
+                            modifier = Modifier.padding(8.dp)
+                        )
+                    }
+                    HourlyTemperatureLegend()
+                }
+            }
+
+            CityDetailContentTab.PRECIPITATION -> {
+                if (mode == DisplayMode.DAILY) {
+                    ForecastTableContent(
+                        forecast = forecast,
+                        now = presentationNow,
+                        extractor = { daily, idx -> daily.precipitationSum.getOrNull(idx) },
+                        formatter = { mm ->
+                            if (mm < 0.05) "0" else "${"%.1f".format(mm)} mm"
+                        },
+                        valueStyler = ::precipitationStyle,
+                        modelBiasProvider = precipitationBiasProvider,
+                        sampleCountProvider = precipitationSampleCountProvider,
+                        onBiasChipClick = onBiasChipClick,
+                        legend = { PrecipitationLegend() }
+                    )
+                } else {
+                    DetailTableCard {
+                        HourlyForecastTable(
+                            forecast = forecast,
+                            now = presentationNow,
+                            valueExtractor = { hourly: HourlyForecast, idx ->
+                                hourly.precipitation.getOrNull(idx)
+                            },
+                            valueFormatter = { mm ->
+                                if (mm < 0.05) "0 mm" else "%.1f mm".format(mm)
+                            },
+                            heatmapStyler = ::hourlyPrecipitationHeatmap,
                             modelBiasProvider = precipitationBiasProvider,
                             sampleCountProvider = precipitationSampleCountProvider,
                             onBiasChipClick = onBiasChipClick,
-                            legend = { PrecipitationLegend() }
+                            modifier = Modifier.padding(8.dp)
                         )
-                    } else {
-                        DetailTableCard {
-                            HourlyForecastTable(
-                                forecast = forecast,
-                                now = presentationNow,
-                                valueExtractor = { hourly: HourlyForecast, idx ->
-                                    hourly.precipitation.getOrNull(idx)
-                                },
-                                valueFormatter = { mm ->
-                                    if (mm < 0.05) "0 mm" else "%.1f mm".format(mm)
-                                },
-                                heatmapStyler = ::hourlyPrecipitationHeatmap,
-                                modelBiasProvider = precipitationBiasProvider,
-                                sampleCountProvider = precipitationSampleCountProvider,
-                                onBiasChipClick = onBiasChipClick,
-                                modifier = Modifier.padding(8.dp)
-                            )
-                        }
-                        HourlyPrecipitationLegend()
                     }
+                    HourlyPrecipitationLegend()
                 }
+            }
 
-                CityDetailContentTab.WIND -> {
-                    val gustAbbreviation = stringResource(R.string.wind_gust_abbreviation)
-                    if (mode == DisplayMode.DAILY) {
-                        ForecastTableContent(
+            CityDetailContentTab.WIND -> {
+                val gustAbbreviation = stringResource(R.string.wind_gust_abbreviation)
+                if (mode == DisplayMode.DAILY) {
+                    ForecastTableContent(
+                        forecast = forecast,
+                        now = presentationNow,
+                        extractor = { daily, idx -> daily.windSpeedMax.getOrNull(idx) },
+                        formatter = { "${it.roundToInt()} km/h" },
+                        valueStyler = ::windStyle,
+                        secondaryExtractor = { daily, idx -> daily.windGustsMax.getOrNull(idx) },
+                        secondaryFormatter = { "$gustAbbreviation ${it.roundToInt()}" },
+                        directionExtractor = { daily, idx ->
+                            val speed = daily.windSpeedMax.getOrNull(idx)
+                            if (speed == null || speed < 5.0) null
+                            else daily.windDirection10mDominant.getOrNull(idx)
+                        },
+                        modelBiasProvider = windBiasProvider,
+                        sampleCountProvider = windSampleCountProvider,
+                        onBiasChipClick = onBiasChipClick,
+                        legend = { WindLegend() }
+                    )
+                } else {
+                    DetailTableCard {
+                        HourlyForecastTable(
                             forecast = forecast,
                             now = presentationNow,
-                            extractor = { daily, idx -> daily.windSpeedMax.getOrNull(idx) },
-                            formatter = { "${it.roundToInt()} km/h" },
-                            valueStyler = ::windStyle,
-                            secondaryExtractor = { daily, idx -> daily.windGustsMax.getOrNull(idx) },
-                            secondaryFormatter = { "$gustAbbreviation ${it.roundToInt()}" },
-                            directionExtractor = { daily, idx ->
-                                val speed = daily.windSpeedMax.getOrNull(idx)
+                            valueExtractor = { hourly: HourlyForecast, idx ->
+                                hourly.windSpeed10m.getOrNull(idx)
+                            },
+                            valueFormatter = { "${it.roundToInt()} km/h" },
+                            heatmapStyler = ::hourlyWindHeatmap,
+                            secondaryValueExtractor = { hourly, idx ->
+                                hourly.windGusts10m.getOrNull(idx)
+                            },
+                            secondaryValueFormatter = { "$gustAbbreviation ${it.roundToInt()}" },
+                            directionExtractor = { hourly, idx ->
+                                val speed = hourly.windSpeed10m.getOrNull(idx)
                                 if (speed == null || speed < 5.0) null
-                                else daily.windDirection10mDominant.getOrNull(idx)
+                                else hourly.windDirection10m.getOrNull(idx)
                             },
                             modelBiasProvider = windBiasProvider,
                             sampleCountProvider = windSampleCountProvider,
                             onBiasChipClick = onBiasChipClick,
-                            legend = { WindLegend() }
+                            modifier = Modifier.padding(8.dp)
                         )
-                    } else {
-                        DetailTableCard {
-                            HourlyForecastTable(
-                                forecast = forecast,
-                                now = presentationNow,
-                                valueExtractor = { hourly: HourlyForecast, idx ->
-                                    hourly.windSpeed10m.getOrNull(idx)
-                                },
-                                valueFormatter = { "${it.roundToInt()} km/h" },
-                                heatmapStyler = ::hourlyWindHeatmap,
-                                secondaryValueExtractor = { hourly: HourlyForecast, idx ->
-                                    hourly.windGusts10m.getOrNull(idx)
-                                },
-                                secondaryValueFormatter = { "$gustAbbreviation ${it.roundToInt()}" },
-                                directionExtractor = { hourly, idx ->
-                                    val speed = hourly.windSpeed10m.getOrNull(idx)
-                                    if (speed == null || speed < 5.0) null
-                                    else hourly.windDirection10m.getOrNull(idx)
-                                },
-                                modelBiasProvider = windBiasProvider,
-                                sampleCountProvider = windSampleCountProvider,
-                                onBiasChipClick = onBiasChipClick,
-                                modifier = Modifier.padding(8.dp)
-                            )
-                        }
-                        HourlyWindLegend()
                     }
+                    HourlyWindLegend()
                 }
             }
         }
@@ -798,15 +860,13 @@ private fun androidx.compose.foundation.lazy.LazyListScope.detailedComparisonIte
 private fun DetailTableCard(
     content: @Composable () -> Unit
 ) {
-    val palette = detailTablePalette()
-
-    Card(
-        modifier = Modifier.padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = palette.tableSurface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    // La section détaillée possède désormais sa propre Surface englobante.
+    // Le tableau conserve uniquement son cadre interne (DetailTableShape),
+    // sans ajouter une seconde Card visuelle.
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp)
     ) {
         content()
     }
@@ -1604,37 +1664,31 @@ private fun windStyle(kmh: Double): ValueStyle? = when {
  *     NOT_SIGNIFICANT (peu probable mais possible avec des modèles très
  *     calibrés — dans ce cas le hint sur-communique un peu, tradeoff accepté).
  *
- * Design : Card à surface `surfaceContainerLow`, icône info, texte muted.
- * Reprend le vocabulaire du reste de l'app (Card 16dp de marge horizontale,
- * même padding interne que les sections météo).
+ * Design : bandeau tonal léger intégré directement dans la Surface des
+ * prévisions détaillées, sans Card imbriquée supplémentaire.
  */
 @Composable
-private fun BiasHistoryHint() {
-    androidx.compose.material3.Card(
-        colors = androidx.compose.material3.CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-        ),
-        modifier = Modifier.padding(horizontal = 16.dp)
+private fun BiasHistoryHint(modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.48f))
+            .padding(horizontal = 14.dp, vertical = 11.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        androidx.compose.foundation.layout.Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp)
-        ) {
-            androidx.compose.material3.Icon(
-                imageVector = androidx.compose.material.icons.Icons.Filled.Info,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(18.dp)
-            )
-            Text(
-                text = stringResource(R.string.bias_history_collecting),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
+        Icon(
+            imageVector = Icons.Filled.Info,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(18.dp)
+        )
+        Text(
+            text = stringResource(R.string.bias_history_collecting),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 

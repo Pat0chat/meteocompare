@@ -3,6 +3,7 @@ package com.meteocompare.app.core.locale
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.meteocompare.app.MainActivity
+import com.meteocompare.app.R
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
@@ -45,6 +46,23 @@ class LocaleUtilsTest {
         assertEquals("en", Locale.getDefault().language)
     }
 
+
+    @Test
+    fun persisted_language_localizes_detailed_forecast_title() {
+        persistLocalePreference(context, "fr")
+        val french = applyPersistedLocale(context)
+        assertEquals(
+            "Prévisions détaillées",
+            french.getString(R.string.forecast_tables_section)
+        )
+
+        persistLocalePreference(context, "en")
+        val english = applyPersistedLocale(context)
+        assertEquals(
+            "Detailed forecasts",
+            english.getString(R.string.forecast_tables_section)
+        )
+    }
 
     @Test
     fun persisted_language_updates_memory_cache_immediately() {
