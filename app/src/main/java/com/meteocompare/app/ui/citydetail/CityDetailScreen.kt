@@ -1274,8 +1274,7 @@ private fun DetailMetricGrid(today: DayConfidence) {
         if (hasTemperature) {
             Row(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 2.dp),
+                    .fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(24.dp),
                 verticalAlignment = Alignment.Top
             ) {
@@ -1317,8 +1316,7 @@ private fun DetailMetricGrid(today: DayConfidence) {
         if (hasWeather) {
             Row(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 2.dp),
+                    .fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(24.dp),
                 verticalAlignment = Alignment.Top
             ) {
