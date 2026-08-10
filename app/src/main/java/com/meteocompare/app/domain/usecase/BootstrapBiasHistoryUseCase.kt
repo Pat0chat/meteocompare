@@ -5,7 +5,6 @@ import com.meteocompare.app.core.util.localDateIn
 import com.meteocompare.app.core.util.validZoneOrNull
 import com.meteocompare.app.core.util.resolveZoneOrUtc
 import com.meteocompare.app.data.remote.PreviousRunsApi
-import com.meteocompare.app.data.remote.dto.PreviousRunsResponseDto
 import com.meteocompare.app.di.IoDispatcher
 import com.meteocompare.app.domain.model.BiasVariable
 import com.meteocompare.app.domain.model.City

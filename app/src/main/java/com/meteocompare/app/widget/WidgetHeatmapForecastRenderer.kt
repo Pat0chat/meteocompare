@@ -7,7 +7,6 @@ import android.graphics.RectF
 import android.graphics.Typeface
 import com.meteocompare.app.domain.model.WeatherCondition
 import kotlin.math.max
-import kotlin.math.min
 import kotlin.math.roundToInt
 
 /**
