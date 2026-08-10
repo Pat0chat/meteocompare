@@ -28,6 +28,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.meteocompare.app.R
+import com.meteocompare.app.ui.components.temperatureHeatmapColor
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
@@ -231,51 +232,6 @@ internal fun MiniForecastStrip(
         }
     }
 }
-
-/**
- * Rampe de couleurs pour la température. 4 arrêts calibrés pour couvrir la
- * plage courante en climat tempéré européen (-10°C → 40°C). Interpolation
- * linéaire entre arrêts.
- *
- * Rationale des seuils :
- *   - < 0°C : froid glacial → bleu profond
- *   - 0-15°C : frais → cyan/vert
- *   - 15-25°C : tempéré → jaune-orangé
- *   - > 25°C : chaud → orange saturé → rouge
- *
- * Volontairement plus "sobre" que la heatmap du detail screen, qui elle
- * pousse des saturations agressives pour la lisibilité à grande échelle.
- * Ici on est en petit format, la subtilité prime.
- */
-private fun temperatureHeatmapColor(temp: Double): Color {
-    val stops = listOf(
-        -10.0 to Color(0xFF1976D2), // bleu profond
-        5.0 to Color(0xFF4FC3F7),   // cyan clair
-        15.0 to Color(0xFF81C784),  // vert doux
-        22.0 to Color(0xFFFFB74D),  // orange chaud
-        30.0 to Color(0xFFEF5350),  // rouge saturé
-        40.0 to Color(0xFFB71C1C)   // rouge sombre (caniculaire)
-    )
-    if (temp <= stops.first().first) return stops.first().second
-    if (temp >= stops.last().first) return stops.last().second
-
-    for (i in 0 until stops.size - 1) {
-        val (t1, c1) = stops[i]
-        val (t2, c2) = stops[i + 1]
-        if (temp in t1..t2) {
-            val f = ((temp - t1) / (t2 - t1)).toFloat()
-            return Color(
-                red = lerp(c1.red, c2.red, f),
-                green = lerp(c1.green, c2.green, f),
-                blue = lerp(c1.blue, c2.blue, f),
-                alpha = 1f
-            )
-        }
-    }
-    return stops.last().second
-}
-
-private fun lerp(a: Float, b: Float, f: Float): Float = a + (b - a) * f
 
 @Composable
 private fun buildA11yLabel(

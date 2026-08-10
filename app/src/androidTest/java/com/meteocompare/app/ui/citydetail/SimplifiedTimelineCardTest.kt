@@ -219,4 +219,40 @@ class SimplifiedTimelineCardTest {
         composeRule.onNodeWithText("18h").assertIsDisplayed()
     }
 
+    @Test
+    fun timeline_uses_temperature_heatmap_and_precipitation_intensity_marker() {
+        val point = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-26T16:00:00Z"),
+            temperatureC = 28.0,
+            temperatureMinAcrossModels = 26.0,
+            temperatureMaxAcrossModels = 30.0,
+            precipitationPercent = 80,
+            precipitationSource = PrecipitationSignalSource.MODEL_AGREEMENT,
+            precipitationModelCount = 5,
+            wetModelCount = 4,
+            modelCount = 5,
+            temperatureModelCount = 5,
+            hasMultiModelEvidence = true,
+            consensusPercent = 76,
+            consensusLevel = ModelConsensusLevel.MEDIUM
+        )
+
+        composeRule.setContent {
+            MeteoCompareTheme {
+                Surface {
+                    SimplifiedTimelineCard(
+                        points = listOf(point),
+                        mode = DisplayMode.HOURLY,
+                        timezone = "UTC"
+                    )
+                }
+            }
+        }
+
+        composeRule.onNodeWithTag(TAG_TIMELINE_HEATMAP_BAND).assertIsDisplayed()
+        composeRule.onNodeWithTag(TAG_TIMELINE_PRECIP_HEAT_DOT).assertIsDisplayed()
+        composeRule.onNodeWithText("28°").assertIsDisplayed()
+        composeRule.onNodeWithText("26–30°").assertIsDisplayed()
+    }
+
 }

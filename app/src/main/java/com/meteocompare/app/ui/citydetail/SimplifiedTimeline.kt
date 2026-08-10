@@ -2,7 +2,6 @@ package com.meteocompare.app.ui.citydetail
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,13 +11,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Air
@@ -39,20 +38,26 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.meteocompare.app.R
 import com.meteocompare.app.ui.components.WeatherIconDecorative
 import com.meteocompare.app.ui.components.semanticTint
+import com.meteocompare.app.ui.components.blendedHeatmapColor
+import com.meteocompare.app.ui.components.temperatureHeatmapColor
 import com.meteocompare.app.ui.theme.precipitationMetricAccent
 import com.meteocompare.app.ui.theme.windMetricAccent
 import java.time.Instant
@@ -65,7 +70,7 @@ import kotlin.math.roundToInt
  * Vue chronologique légère placée avant les tableaux détaillés.
  *
  * Les valeurs principales sont des médianes multi-modèles. Les plages et le
- * badge d'accord rendent la dispersion visible sans remplacer les tableaux.
+ * indicateur d'accord rendent la dispersion visible sans remplacer les tableaux.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -109,7 +114,7 @@ internal fun SimplifiedTimelineCard(
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
             .testTag(TAG_SIMPLIFIED_TIMELINE),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.55f),
         tonalElevation = 0.dp,
         shadowElevation = 0.dp
@@ -169,32 +174,18 @@ internal fun SimplifiedTimelineCard(
                         displayPoints = points,
                         events = events
                     )
-                    Column(
-                        modifier = Modifier.width(TIMELINE_CARD_WIDTH),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        TimelineEventRulerSegment(
-                            events = slotEvents,
-                            showStartCap = index == 0,
-                            showEndCap = index == points.lastIndex
-                        )
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 3.dp)
-                        ) {
-                            TimelinePointCard(
-                                point = point,
-                                mode = mode,
-                                label = labels.timeLabel,
-                                contextLabel = labels.contextLabel,
-                                precipitationAccent = precipitationAccent,
-                                windAccent = windAccent,
-                                isFirst = index == 0,
-                                isFocused = highlightedKey == timelinePointKey(point)
-                            )
-                        }
-                    }
+                    TimelinePointColumn(
+                        point = point,
+                        mode = mode,
+                        label = labels.timeLabel,
+                        contextLabel = labels.contextLabel,
+                        events = slotEvents,
+                        precipitationAccent = precipitationAccent,
+                        windAccent = windAccent,
+                        isFirst = index == 0,
+                        isLast = index == points.lastIndex,
+                        isFocused = highlightedKey == timelinePointKey(point)
+                    )
                 }
             }
 
@@ -392,37 +383,57 @@ private fun timelineLabels(
 }
 
 @Composable
-private fun TimelinePointCard(
+private fun TimelinePointColumn(
     point: SimplifiedTimelinePoint,
     mode: DisplayMode,
     label: String,
     contextLabel: String?,
+    events: List<ForecastEvent>,
     precipitationAccent: Color,
     windAccent: Color,
     isFirst: Boolean,
+    isLast: Boolean,
     isFocused: Boolean
 ) {
-    val shape = RoundedCornerShape(14.dp)
-    val background = when {
-        isFocused -> MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
-        isFirst -> MaterialTheme.colorScheme.primary.copy(alpha = 0.07f)
-        else -> Color.Transparent
+    val separatorColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.28f)
+    val focusColor = MaterialTheme.colorScheme.primary
+    val pointTag = if (isFocused) {
+        TAG_TIMELINE_POINT_FOCUSED
+    } else {
+        "${TAG_TIMELINE_POINT_PREFIX}${timelinePointKey(point)}"
     }
-    val borderColor = if (isFocused) MaterialTheme.colorScheme.primary else Color.Transparent
 
     Column(
         modifier = Modifier
-            .fillMaxWidth()
-            .background(background, shape)
-            .border(1.dp, borderColor, shape)
-            .padding(horizontal = 7.dp, vertical = 8.dp)
-            .testTag(
-                if (isFocused) TAG_TIMELINE_POINT_FOCUSED
-                else "${TAG_TIMELINE_POINT_PREFIX}${timelinePointKey(point)}"
-            ),
+            .width(TIMELINE_COLUMN_WIDTH)
+            .background(
+                if (isFocused) focusColor.copy(alpha = 0.045f) else Color.Transparent
+            )
+            .drawBehind {
+                if (isFocused) {
+                    drawLine(
+                        color = focusColor.copy(alpha = 0.20f),
+                        start = Offset(size.width / 2f, 0f),
+                        end = Offset(size.width / 2f, size.height),
+                        strokeWidth = 1.5.dp.toPx()
+                    )
+                }
+                if (!isLast) {
+                    drawLine(
+                        color = separatorColor,
+                        start = Offset(size.width, EVENT_RULER_HEIGHT.toPx() + 36.dp.toPx()),
+                        end = Offset(size.width, size.height - 8.dp.toPx()),
+                        strokeWidth = 1.dp.toPx()
+                    )
+                }
+            }
+            .testTag(pointTag),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Box(modifier = Modifier.heightIn(min = 17.dp), contentAlignment = Alignment.Center) {
+        Box(
+            modifier = Modifier.height(17.dp),
+            contentAlignment = Alignment.Center
+        ) {
             contextLabel?.let {
                 Text(
                     text = it,
@@ -447,56 +458,48 @@ private fun TimelinePointCard(
             maxLines = 1
         )
 
-        Spacer(Modifier.height(5.dp))
-
-        point.condition?.let {
-            WeatherIconDecorative(
-                condition = it,
-                size = 28.dp,
-                tint = it.semanticTint()
-            )
-        } ?: Spacer(Modifier.height(28.dp))
-
-        Spacer(Modifier.height(4.dp))
-
-        Text(
-            text = when (mode) {
-                DisplayMode.HOURLY -> point.temperatureC?.let { "${it.roundToInt()}°" } ?: "—"
-                DisplayMode.DAILY -> {
-                    val min = point.tempMinC?.roundToInt()?.toString() ?: "—"
-                    val max = point.tempMaxC?.roundToInt()?.toString() ?: "—"
-                    "$min° / $max°"
-                }
-            },
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 1
+        TimelineEventRulerSegment(
+            events = events,
+            showStartCap = isFirst,
+            showEndCap = isLast
         )
 
-        val temperatureRange = temperatureRangeLabel(point, mode)
-        Box(modifier = Modifier.height(16.dp), contentAlignment = Alignment.Center) {
-            temperatureRange?.let {
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1
+        Box(
+            modifier = Modifier.height(34.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            point.condition?.let {
+                WeatherIconDecorative(
+                    condition = it,
+                    size = 29.dp,
+                    tint = it.semanticTint()
                 )
-            }
+            } ?: Text(
+                text = "—",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
+
+        TemperatureHeatmapBand(
+            point = point,
+            mode = mode,
+            isFirst = isFirst,
+            isLast = isLast
+        )
+
+        PrecipitationHeatIndicator(
+            probability = point.precipitationPercent,
+            accent = precipitationAccent
+        )
 
         TimelineMetric(
             icon = Icons.Outlined.WaterDrop,
             value = point.precipitationPercent?.let { "$it%" } ?: "—",
             tint = precipitationAccent
         )
-        Text(
-            text = precipitationSourceLabel(point),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.height(16.dp)
+        TimelineSupportingText(
+            text = precipitationSourceLabel(point).ifBlank { "—" }
         )
 
         TimelineMetric(
@@ -510,22 +513,158 @@ private fun TimelinePointCard(
             value = point.windKmh?.let { "${it.roundToInt()} km/h" } ?: "—",
             tint = windAccent
         )
-        if (point.windGustKmh != null) {
-            Text(
-                text = stringResource(
-                    R.string.timeline_wind_gust,
-                    point.windGustKmh.roundToInt()
-                ),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1
-            )
-        } else {
-            Spacer(Modifier.height(16.dp))
-        }
+        TimelineSupportingText(
+            text = point.windGustKmh?.let {
+                stringResource(R.string.timeline_wind_gust, it.roundToInt())
+            } ?: "—"
+        )
 
         Spacer(Modifier.height(6.dp))
-        ConsensusBadge(point)
+        TimelineConsensus(point)
+        Spacer(Modifier.height(8.dp))
+    }
+}
+
+@Composable
+private fun TemperatureHeatmapBand(
+    point: SimplifiedTimelinePoint,
+    mode: DisplayMode,
+    isFirst: Boolean,
+    isLast: Boolean
+) {
+    val surface = MaterialTheme.colorScheme.surfaceContainerLow
+    val noData = MaterialTheme.colorScheme.surfaceVariant
+    val heatStrength = 0.54f
+
+    val rawTopColor: Color
+    val rawBottomColor: Color
+    val representative: Color
+    when (mode) {
+        DisplayMode.HOURLY -> {
+            val temp = point.temperatureC
+            val raw = temp?.let(::temperatureHeatmapColor) ?: noData
+            rawTopColor = raw
+            rawBottomColor = raw
+            representative = blendedHeatmapColor(surface, raw, heatStrength)
+        }
+        DisplayMode.DAILY -> {
+            val high = point.tempMaxC
+            val low = point.tempMinC
+            val top = high?.let(::temperatureHeatmapColor)
+                ?: low?.let(::temperatureHeatmapColor)
+                ?: noData
+            val bottom = low?.let(::temperatureHeatmapColor)
+                ?: high?.let(::temperatureHeatmapColor)
+                ?: noData
+            rawTopColor = top
+            rawBottomColor = bottom
+            val midpointTemp = when {
+                high != null && low != null -> (high + low) / 2.0
+                high != null -> high
+                low != null -> low
+                else -> null
+            }
+            representative = midpointTemp?.let {
+                blendedHeatmapColor(surface, temperatureHeatmapColor(it), heatStrength)
+            } ?: noData
+        }
+    }
+
+    val topColor = blendedHeatmapColor(surface, rawTopColor, heatStrength)
+    val bottomColor = blendedHeatmapColor(surface, rawBottomColor, heatStrength)
+    val contentColor = if (representative.luminance() > 0.54f) {
+        Color.Black.copy(alpha = 0.82f)
+    } else {
+        Color.White.copy(alpha = 0.94f)
+    }
+    val shape = RoundedCornerShape(
+        topStart = if (isFirst) 12.dp else 0.dp,
+        topEnd = if (isLast) 12.dp else 0.dp,
+        bottomEnd = if (isLast) 12.dp else 0.dp,
+        bottomStart = if (isFirst) 12.dp else 0.dp
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(46.dp)
+            .clip(shape)
+            .background(Brush.verticalGradient(listOf(topColor, bottomColor)))
+            .testTag(TAG_TIMELINE_HEATMAP_BAND),
+        contentAlignment = Alignment.Center
+    ) {
+        when (mode) {
+            DisplayMode.HOURLY -> {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = point.temperatureC?.let { "${it.roundToInt()}°" } ?: "—",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = contentColor,
+                        maxLines = 1
+                    )
+                    temperatureRangeLabel(point, mode)?.let { range ->
+                        Text(
+                            text = range,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = contentColor.copy(alpha = 0.82f),
+                            maxLines = 1
+                        )
+                    }
+                }
+            }
+            DisplayMode.DAILY -> {
+                val high = point.tempMaxC?.roundToInt()?.let { "$it°" } ?: "—"
+                val low = point.tempMinC?.roundToInt()?.let { "$it°" } ?: "—"
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = high,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = contentColor,
+                        maxLines = 1
+                    )
+                    Text(
+                        text = low,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Medium,
+                        color = contentColor.copy(alpha = 0.84f),
+                        maxLines = 1
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PrecipitationHeatIndicator(
+    probability: Int?,
+    accent: Color
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        val value = probability?.coerceIn(0, 100)
+        if (value != null && value >= 30) {
+            val fraction = ((value - 30) / 70f).coerceIn(0f, 1f)
+            val dotSize = (4f + 4f * fraction).dp
+            Box(
+                modifier = Modifier
+                    .size(dotSize)
+                    .background(
+                        color = accent.copy(alpha = 0.55f + 0.40f * fraction),
+                        shape = CircleShape
+                    )
+                    .testTag(TAG_TIMELINE_PRECIP_HEAT_DOT)
+            )
+        }
     }
 }
 
@@ -554,11 +693,9 @@ private fun precipitationSourceLabel(point: SimplifiedTimelinePoint): String = w
 }
 
 @Composable
-private fun ConsensusBadge(point: SimplifiedTimelinePoint) {
+private fun TimelineConsensus(point: SimplifiedTimelinePoint) {
     val reasons = orderedDivergenceReasons(point.divergenceReasons)
     val hasDisagreement = reasons.isNotEmpty()
-    // Un désaccord ciblé ne doit jamais être masqué par une bonne moyenne sur
-    // les autres variables : on rabaisse visuellement « élevé » à « moyen ».
     val displayLevel = when {
         hasDisagreement && point.consensusLevel == ModelConsensusLevel.HIGH ->
             ModelConsensusLevel.MEDIUM
@@ -598,6 +735,13 @@ private fun ConsensusBadge(point: SimplifiedTimelinePoint) {
             )
         }
     }
+    val agreementContentDescription = point.consensusPercent?.let { percent ->
+        stringResource(
+            R.string.timeline_consensus_accessibility,
+            agreementLabel,
+            percent
+        )
+    } ?: agreementLabel
     val reasonContentDescription = if (reasonItems.isNotEmpty()) {
         stringResource(
             R.string.timeline_divergence_variables_accessibility,
@@ -606,82 +750,58 @@ private fun ConsensusBadge(point: SimplifiedTimelinePoint) {
     } else {
         null
     }
-    val agreementContentDescription = point.consensusPercent?.let { percent ->
-        stringResource(
-            R.string.timeline_consensus_accessibility,
-            agreementLabel,
-            percent
-        )
-    } ?: agreementLabel
 
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        color = color.copy(alpha = 0.09f)
+    Row(
+        modifier = Modifier.height(26.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center
     ) {
+        Row(
+            modifier = Modifier
+                .testTag(TAG_TIMELINE_CONSENSUS_BADGE)
+                .semantics { contentDescription = agreementContentDescription },
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(7.dp)
+                    .background(color, CircleShape)
+            )
+            Spacer(Modifier.width(4.dp))
+            Text(
+                text = point.consensusPercent?.let { "$it%" } ?: "—",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1
+            )
+        }
+
         if (hasDisagreement && reasonContentDescription != null) {
+            Spacer(Modifier.width(5.dp))
             Row(
                 modifier = Modifier
-                    .heightIn(min = CONSENSUS_BADGE_MIN_HEIGHT)
-                    .padding(horizontal = 4.dp, vertical = 5.dp)
                     .testTag(TAG_TIMELINE_DIVERGENCE_REASON)
-                    .semantics {
-                        contentDescription = reasonContentDescription
-                    },
+                    .semantics { contentDescription = reasonContentDescription },
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
+                horizontalArrangement = Arrangement.spacedBy(3.dp)
             ) {
                 Icon(
                     imageVector = Icons.Outlined.WarningAmber,
                     contentDescription = null,
                     tint = color,
-                    modifier = Modifier.size(13.dp)
+                    modifier = Modifier.size(12.dp)
                 )
-                Spacer(Modifier.width(4.dp))
-                reasonItems.forEachIndexed { index, (reason, icon, _) ->
-                    if (index > 0) Spacer(Modifier.width(4.dp))
+                reasonItems.forEach { (reason, icon, _) ->
                     Icon(
                         imageVector = icon,
                         contentDescription = null,
                         tint = color,
                         modifier = Modifier
-                            .size(12.dp)
+                            .size(11.dp)
                             .testTag(divergenceIconTag(reason))
                     )
                 }
-            }
-        } else {
-            Row(
-                modifier = Modifier
-                    .heightIn(min = CONSENSUS_BADGE_MIN_HEIGHT)
-                    .padding(horizontal = 6.dp, vertical = 5.dp)
-                    .testTag(TAG_TIMELINE_CONSENSUS_BADGE)
-                    .semantics {
-                        contentDescription = agreementContentDescription
-                    },
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
-            ) {
-                Icon(
-                    imageVector = when (displayLevel) {
-                        ModelConsensusLevel.HIGH,
-                        ModelConsensusLevel.MEDIUM -> Icons.Outlined.CheckCircle
-                        ModelConsensusLevel.LOW,
-                        null -> Icons.Outlined.WarningAmber
-                    },
-                    contentDescription = null,
-                    tint = color,
-                    modifier = Modifier.size(14.dp)
-                )
-                Spacer(Modifier.width(4.dp))
-                Text(
-                    text = point.consensusPercent?.let { "$it%" } ?: "—",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = color,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    textAlign = TextAlign.Center
-                )
             }
         }
     }
@@ -702,19 +822,42 @@ private fun TimelineMetric(
     value: String,
     tint: Color
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        modifier = Modifier.height(20.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
             tint = tint,
             modifier = Modifier.size(12.dp)
         )
-        Spacer(Modifier.width(3.dp))
+        Spacer(Modifier.width(4.dp))
         Text(
             text = value,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = FontWeight.Medium,
             maxLines = 1
+        )
+    }
+}
+
+@Composable
+private fun TimelineSupportingText(text: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(18.dp)
+            .padding(horizontal = 4.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.82f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }
@@ -734,10 +877,11 @@ internal const val TAG_TIMELINE_DIVERGENCE_REASON = "timeline_divergence_reason"
 internal const val TAG_TIMELINE_CONSENSUS_BADGE = "timeline_consensus_badge"
 internal const val TAG_TIMELINE_DIVERGENCE_ICON_RAIN = "timeline_divergence_icon_rain"
 internal const val TAG_TIMELINE_DIVERGENCE_ICON_WIND = "timeline_divergence_icon_wind"
+internal const val TAG_TIMELINE_HEATMAP_BAND = "timeline_heatmap_band"
+internal const val TAG_TIMELINE_PRECIP_HEAT_DOT = "timeline_precip_heat_dot"
 private const val TAG_TIMELINE_POINT_PREFIX = "timeline_point_"
-private val TIMELINE_CARD_WIDTH = 108.dp
+private val TIMELINE_COLUMN_WIDTH = 112.dp
 private val EVENT_RULER_HEIGHT = 24.dp
-private val TIMELINE_RULER_EDGE_INSET = 54.dp
+private val TIMELINE_RULER_EDGE_INSET = 56.dp
 private const val MAX_MARKERS_PER_SLOT = 4
-private val CONSENSUS_BADGE_MIN_HEIGHT = 32.dp
 private const val FOCUS_HIGHLIGHT_MILLIS = 1_800L
