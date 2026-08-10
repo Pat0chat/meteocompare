@@ -327,6 +327,14 @@ private fun ErrorView(message: String, onRetry: () -> Unit, padding: PaddingValu
     }
 }
 
+internal fun simplifiedTimelineItemIndex(
+    isOnline: Boolean,
+    hasInsights: Boolean
+): Int = (if (isOnline) 0 else 1) + 1 + (if (hasInsights) 1 else 0)
+
+internal fun insightTimelineTarget(insight: ForecastInsight): SimplifiedTimelinePoint? =
+    insight.point ?: insight.event?.peakPoint ?: insight.referencePoint
+
 @Composable
 private fun LoadedView(
     forecast: CityForecast,
@@ -362,19 +370,46 @@ private fun LoadedView(
     }
     val forecastEvents = remember(overviewTimeline) { detectForecastEvents(overviewTimeline) }
     val insights = remember(forecastEvents) { buildForecastInsights(forecastEvents) }
-    val timelineDisplayPoints = remember(overviewTimeline) {
-        selectRegularTimelinePoints(overviewTimeline.analysisPoints)
+    val hourlyTimelinePoints = remember(forecast, presentationNow) {
+        buildSimplifiedTimeline(forecast, DisplayMode.HOURLY, presentationNow)
+    }
+    val dailyTimelinePoints = remember(forecast, presentationNow) {
+        buildSimplifiedTimeline(forecast, DisplayMode.DAILY, presentationNow)
+    }
+    val timelineAvailableModes = remember(hourlyTimelinePoints, dailyTimelinePoints) {
+        listOfNotNull(
+            DisplayMode.HOURLY.takeIf { hourlyTimelinePoints.isNotEmpty() },
+            DisplayMode.DAILY.takeIf { dailyTimelinePoints.isNotEmpty() }
+        ).toSet()
+    }
+    var timelineMode by remember(overviewTimeline) { mutableStateOf(overviewTimeline.mode) }
+    val timelineAnalysisPoints = when (timelineMode) {
+        DisplayMode.HOURLY -> hourlyTimelinePoints
+        DisplayMode.DAILY -> dailyTimelinePoints
+    }
+    val timelineEvents = remember(timelineMode, timelineAnalysisPoints, forecast.city.timezone) {
+        detectForecastEvents(
+            OverviewTimeline(
+                mode = timelineMode,
+                analysisPoints = timelineAnalysisPoints,
+                timezone = forecast.city.timezone
+            )
+        )
+    }
+    val timelineDisplayPoints = remember(timelineAnalysisPoints) {
+        selectRegularTimelinePoints(timelineAnalysisPoints)
     }
     var focusedTimelinePoint by remember(overviewTimeline) {
         mutableStateOf<SimplifiedTimelinePoint?>(null)
     }
     var timelineFocusRequestId by remember(overviewTimeline) { mutableStateOf(0) }
     val contentListState = rememberLazyListState()
-    val hasAnalysisContent = insights.isNotEmpty() || timelineDisplayPoints.isNotEmpty()
-    val timelineItemIndex = 1 +
-        (if (!isOnline) 1 else 0) +
-        (if (hasAnalysisContent) 1 else 0) +
-        (if (insights.isNotEmpty()) 1 else 0)
+    // Items preceding the timeline: optional offline banner, today summary,
+    // then optional insights. Keep this count in sync with the LazyColumn below.
+    val timelineItemIndex = simplifiedTimelineItemIndex(
+        isOnline = isOnline,
+        hasInsights = insights.isNotEmpty()
+    )
     LaunchedEffect(timelineFocusRequestId) {
         if (timelineFocusRequestId > 0) {
             contentListState.animateScrollToItem(timelineItemIndex)
@@ -483,8 +518,17 @@ private fun LoadedView(
                     modelCount = forecast.availableModels.size,
                     referencePoint = overviewTimeline.analysisPoints.firstOrNull(),
                     onInsightClick = { insight ->
-                        focusedTimelinePoint = insight.point
-                        timelineFocusRequestId += 1
+                        val target = insightTimelineTarget(insight)
+                        if (target != null) {
+                            when {
+                                target.instant != null && DisplayMode.HOURLY in timelineAvailableModes ->
+                                    timelineMode = DisplayMode.HOURLY
+                                target.date != null && DisplayMode.DAILY in timelineAvailableModes ->
+                                    timelineMode = DisplayMode.DAILY
+                            }
+                            focusedTimelinePoint = target
+                            timelineFocusRequestId += 1
+                        }
                     }
                 )
             }
@@ -494,11 +538,16 @@ private fun LoadedView(
             item("simplified_timeline_overview") {
                 SimplifiedTimelineCard(
                     points = timelineDisplayPoints,
-                    events = forecastEvents,
-                    mode = overviewTimeline.mode,
+                    events = timelineEvents,
+                    mode = timelineMode,
                     timezone = forecast.city.timezone,
                     focusPoint = focusedTimelinePoint,
                     focusRequestId = timelineFocusRequestId,
+                    onModeChange = { newMode ->
+                        timelineMode = newMode
+                        focusedTimelinePoint = null
+                    },
+                    availableModes = timelineAvailableModes,
                     now = presentationNow
                 )
             }

@@ -116,10 +116,11 @@ internal fun DetailedComparisonControls(
  * sans revenir à la lourdeur d'un segmented control permanent.
  */
 @Composable
-private fun DisplayModeMenu(
+internal fun DisplayModeMenu(
     mode: DisplayMode,
     onModeChange: (DisplayMode) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    availableModes: Set<DisplayMode> = DisplayMode.entries.toSet()
 ) {
     var expanded by remember { mutableStateOf(false) }
     val scheme = MaterialTheme.colorScheme
@@ -163,7 +164,7 @@ private fun DisplayModeMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false }
         ) {
-            DisplayMode.entries.forEach { option ->
+            DisplayMode.entries.filter { it in availableModes }.forEach { option ->
                 val selected = option == mode
                 DropdownMenuItem(
                     text = {

@@ -82,6 +82,8 @@ internal fun SimplifiedTimelineCard(
     modifier: Modifier = Modifier,
     focusPoint: SimplifiedTimelinePoint? = null,
     focusRequestId: Int = 0,
+    onModeChange: ((DisplayMode) -> Unit)? = null,
+    availableModes: Set<DisplayMode> = setOf(mode),
     now: Instant = Instant.now()
 ) {
     if (points.isEmpty()) return
@@ -121,17 +123,33 @@ internal fun SimplifiedTimelineCard(
     ) {
         Column(modifier = Modifier.padding(vertical = 14.dp)) {
             Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                Text(
-                    text = stringResource(
-                        if (mode == DisplayMode.HOURLY) {
-                            R.string.timeline_title_hourly
-                        } else {
-                            R.string.timeline_title_daily
-                        }
-                    ),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = stringResource(
+                            if (mode == DisplayMode.HOURLY) {
+                                R.string.timeline_title_hourly
+                            } else {
+                                R.string.timeline_title_daily
+                            }
+                        ),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    if (onModeChange != null && availableModes.size > 1) {
+                        Spacer(Modifier.width(10.dp))
+                        DisplayModeMenu(
+                            mode = mode,
+                            onModeChange = onModeChange,
+                            availableModes = availableModes
+                        )
+                    }
+                }
                 Text(
                     text = stringResource(
                         if (mode == DisplayMode.HOURLY) {

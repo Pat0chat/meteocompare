@@ -8,10 +8,12 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.test.platform.app.InstrumentationRegistry
 import com.meteocompare.app.R
 import com.meteocompare.app.ui.theme.MeteoCompareTheme
 import java.time.Instant
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 
@@ -253,6 +255,44 @@ class SimplifiedTimelineCardTest {
         composeRule.onNodeWithTag(TAG_TIMELINE_PRECIP_HEAT_DOT).assertIsDisplayed()
         composeRule.onNodeWithText("28°").assertIsDisplayed()
         composeRule.onNodeWithText("26–30°").assertIsDisplayed()
+    }
+
+    @Test
+    fun timeline_mode_button_uses_the_same_compact_menu_and_requests_daily_mode() {
+        val point = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-26T16:00:00Z"),
+            temperatureC = 22.0,
+            modelCount = 2,
+            temperatureModelCount = 2,
+            hasMultiModelEvidence = true
+        )
+        var requestedMode: DisplayMode? = null
+
+        composeRule.setContent {
+            MeteoCompareTheme {
+                Surface {
+                    SimplifiedTimelineCard(
+                        points = listOf(point),
+                        mode = DisplayMode.HOURLY,
+                        timezone = "UTC",
+                        onModeChange = { requestedMode = it },
+                        availableModes = setOf(DisplayMode.HOURLY, DisplayMode.DAILY)
+                    )
+                }
+            }
+        }
+
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        composeRule.onNodeWithText(context.getString(R.string.display_mode_hourly))
+            .assertIsDisplayed()
+            .performClick()
+        composeRule.onNodeWithText(context.getString(R.string.display_mode_daily))
+            .assertIsDisplayed()
+            .performClick()
+
+        composeRule.runOnIdle {
+            assertEquals(DisplayMode.DAILY, requestedMode)
+        }
     }
 
 }
