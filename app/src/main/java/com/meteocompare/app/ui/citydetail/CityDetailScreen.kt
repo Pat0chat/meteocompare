@@ -94,8 +94,6 @@ import com.meteocompare.app.ui.components.AnimatedWeatherIcon
 import com.meteocompare.app.ui.components.WeatherMetric
 import com.meteocompare.app.ui.components.WeatherMetricLayout
 import com.meteocompare.app.ui.components.OfflineDataBanner
-import com.meteocompare.app.ui.components.ModernInlineSelector
-import com.meteocompare.app.ui.components.ModernSectionSeparator
 import com.meteocompare.app.ui.citylist.WeatherAccent
 import com.meteocompare.app.ui.theme.confidenceColor
 import com.meteocompare.app.ui.theme.precipitationMetricAccent
@@ -535,13 +533,6 @@ private fun LoadedView(
             }
         }
 
-        item("forecast_tables_separator") {
-            ModernSectionSeparator(
-                textRes = R.string.forecast_tables_section,
-                modifier = Modifier.padding(top = 10.dp, bottom = 2.dp)
-            )
-        }
-
         stickyHeader("detailed_comparison_controls") {
             DetailedComparisonControls(
                 mode = displayMode,
@@ -869,51 +860,6 @@ private fun DetailedEmptyState() {
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
-}
-
-// ============================================================================
-//  Toggle segmenté
-// ============================================================================
-
-/**
- * Sélecteur coulissant tonal "Par heure / Par jour".
- *
- * Aucun fond commun : l'option inactive reste un simple texte et seule
- * l'option active reçoit une capsule tonale, selon le rendu
- * « Par heure   [ Par jour ] ».
- *
- * Ordre HOURLY-first plutôt que DAILY-first parce que dans l'app finale, la
- * lecture gauche→droite fait naturellement lire "par heure" comme la vue
- * détaillée qu'on active PLUS explicitement. Le sélectionné par défaut reste
- * DAILY (voir LoadedView), donc l'utilisateur voit initialement la capsule sur
- * l'option droite — configuration cohérente avec "j'ai la vue synthétique par
- * défaut, un tap à gauche pour zoomer sur l'heure".
- */
-@Composable
-internal fun DisplayModeToggle(
-    mode: DisplayMode,
-    onModeChange: (DisplayMode) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val options = listOf(DisplayMode.HOURLY, DisplayMode.DAILY)
-    ModernInlineSelector(
-        options = options,
-        selected = mode,
-        onSelected = onModeChange,
-        label = { option ->
-            stringResource(
-                if (option == DisplayMode.HOURLY) {
-                    R.string.display_mode_hourly
-                } else {
-                    R.string.display_mode_daily
-                }
-            )
-        },
-        accent = MaterialTheme.colorScheme.primary,
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-    )
 }
 
 /**

@@ -145,6 +145,7 @@ private fun EditorialWeatherMetric(
     modifier: Modifier
 ) {
     Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier.padding(vertical = 7.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -200,7 +201,7 @@ private fun MetricValue(
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.Bottom,
-        horizontalArrangement = if (compact) Arrangement.Center else Arrangement.Start
+        horizontalArrangement = Arrangement.Center
     ) {
         Text(
             text = value,

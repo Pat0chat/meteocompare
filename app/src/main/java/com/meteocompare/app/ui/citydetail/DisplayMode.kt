@@ -14,8 +14,8 @@ import java.time.ZoneId
  *                précise "à quelle heure va-t-il pleuvoir aujourd'hui ?".
  *
  * Le mode par défaut est [DAILY] — c'est la vue historique et la plus adaptée
- * à un scan rapide. Le mode par heure est un opt-in explicite via le toggle
- * segmenté sous la TodaySummaryCard.
+ * à un scan rapide. Le mode par heure est un opt-in explicite via le menu de granularité
+ * des prévisions détaillées.
  */
 enum class DisplayMode {
     HOURLY,
