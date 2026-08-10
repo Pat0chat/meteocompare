@@ -41,10 +41,4 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    companion object {
-        /** Nom du fichier SharedPreferences dédié à la persistance de la locale. */
-        const val LOCALE_PREFS = "meteocompare_locale_prefs"
-        /** Clé : BCP47 tag (ex: "fr", "en"). Null/vide = suivre la locale système. */
-        const val LOCALE_KEY = "language_tag"
-    }
 }

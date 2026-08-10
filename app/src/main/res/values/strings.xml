@@ -44,7 +44,11 @@
     <string name="settings_models_min_warning">Au moins un modèle doit rester activé.</string>
     <string name="settings_about_title">À propos</string>
     <string name="settings_about_version">Version %s</string>
-    <string name="settings_about_data_source">Données météo fournies par Open-Meteo (open-meteo.com).</string>
+    <string name="settings_about_data_source">Données météo : Open-Meteo. MeteoCompare agrège et transforme ces données pour produire ses comparaisons, scénarios et indicateurs.</string>
+    <string name="open_meteo_attribution">Données : Open-Meteo · agrégées et transformées par MeteoCompare</string>
+    <string name="open_meteo_attribution_open">Ouvrir le site Open-Meteo</string>
+    <string name="open_meteo_link_label">Site Open-Meteo</string>
+    <string name="widget_open_meteo_attribution">Open-Meteo · données agrégées</string>
     <string name="settings_about_models_credit">Modèles : AROME et ARPEGE par Météo-France, ICON par DWD, GFS et HRRR par NOAA, ECMWF et AIFS par le Centre Européen, UKMO par le UK Met Office, GEM par Environnement Canada, MET Nordic par MET Norway, HARMONIE par KNMI, ACCESS par le Bureau of Meteorology (Australie), GRAPES par le CMA (Chine).</string>
     <string name="settings_bias_refresh_title">Suivi des biais</string>
     <string name="settings_bias_refresh_desc">Télécharge jusqu’à 3 semaines de prévisions archivées à échéance fixe J+1 afin d’obtenir au moins 14 jours valides communs pour les modèles activés, puis leurs références météo, pour vos villes favorites. Les modèles sans archive disponible continueront à se calibrer au fil des jours.</string>
@@ -65,6 +69,7 @@
     <string name="confidence_badge_percent">%d %% d\'accord</string>
     <string name="models_unavailable">Modèles indisponibles</string>
     <string name="no_daily_data">Pas de données journalières</string>
+    <string name="forecast_error_no_today">Aucune donnée de prévision pour aujourd’hui</string>
 
     <!-- Sélecteur à 3 états au-dessus de la bande de confiance (T° / Pluie / Vent) -->
     <string name="metric_temperature">Température</string>
@@ -445,7 +450,7 @@
     <string name="forecast_tables_section">Prévisions détaillées</string>
     <string name="timeline_title_hourly">Prochaines 24 heures</string>
     <string name="timeline_title_daily">Prochains jours</string>
-    <string name="timeline_subtitle_hourly">Repères toutes les 3 h · les marqueurs signalent les événements clés.</string>
+    <string name="timeline_subtitle_hourly">Repères toutes les 3h.</string>
     <string name="timeline_subtitle_daily">Consensus des modèles disponibles pour les prochains jours.</string>
     <string name="timeline_disagreement_hint">Accord affiché en pourcentage. En cas de désaccord, les icônes indiquent les variables concernées.</string>
     <string name="timeline_now">Maintenant</string>

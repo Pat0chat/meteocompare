@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.meteocompare.app.R
+import com.meteocompare.app.core.locale.applyPersistedLocale
 import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.core.network.NetworkMonitor
 import com.meteocompare.app.core.network.apiCall
@@ -59,16 +60,20 @@ class CityRepositoryImpl @Inject constructor(
             if (normalizedQuery.length < 2) {
                 return@withContext ApiResult.Success(emptyList())
             }
+            // La recherche doit suivre la langue choisie dans l'app, pas la
+            // locale brute de l'ApplicationContext (qui peut rester système).
+            val localizedContext = applyPersistedLocale(context)
+
             // Court-circuit hors-ligne — évite un timeout 30s sur chaque keystroke
             // déclenchant la recherche debounced.
             if (!networkMonitor.isOnline()) {
                 return@withContext ApiResult.Error(
                     IOException("No network"),
-                    context.getString(R.string.error_no_network)
+                    localizedContext.getString(R.string.error_no_network)
                 )
             }
-            apiCall(context) {
-                val locale = context.resources.configuration.locales[0]
+            apiCall(localizedContext) {
+                val locale = localizedContext.resources.configuration.locales[0]
                 geocodingApi.search(
                     name = normalizedQuery,
                     language = locale.language.takeIf { it.isNotBlank() } ?: "en"

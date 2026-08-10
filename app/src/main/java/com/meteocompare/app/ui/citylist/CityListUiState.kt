@@ -1,5 +1,6 @@
 package com.meteocompare.app.ui.citylist
 
+import androidx.annotation.StringRes
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.DayConfidence
 import com.meteocompare.app.domain.model.WeatherCondition
@@ -78,7 +79,10 @@ sealed interface ForecastState {
         val sunrise: LocalTime? = null,
         val sunset: LocalTime? = null
     ) : ForecastState
-    data class Error(val message: String) : ForecastState
+    data class Error(
+        val message: String? = null,
+        @param:StringRes val messageRes: Int? = null
+    ) : ForecastState
 }
 
 /**

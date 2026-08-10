@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <full-backup-content>
-    <!-- Inclure les favoris dans le backup auto -->
+    <!-- Favoris et préférences DataStore. -->
     <include domain="file" path="datastore/" />
+    <!-- Source canonique de la langue de l'application. -->
+    <include domain="sharedpref" path="meteocompare_locale_prefs.xml" />
 </full-backup-content>

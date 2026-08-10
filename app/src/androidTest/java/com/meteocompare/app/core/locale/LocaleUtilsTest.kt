@@ -2,7 +2,6 @@ package com.meteocompare.app.core.locale
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import com.meteocompare.app.MainActivity
 import com.meteocompare.app.R
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -19,13 +18,13 @@ class LocaleUtilsTest {
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
         originalLocale = Locale.getDefault()
-        preferences().edit().clear().commit()
+        localePreferences(context).edit().clear().commit()
         refreshPersistedLocaleCache(context)
     }
 
     @After
     fun tearDown() {
-        preferences().edit().clear().commit()
+        localePreferences(context).edit().clear().commit()
         refreshPersistedLocaleCache(context)
         Locale.setDefault(originalLocale)
     }
@@ -37,7 +36,9 @@ class LocaleUtilsTest {
 
     @Test
     fun persisted_language_updates_context_resources_and_default_locale() {
-        preferences().edit().putString(MainActivity.LOCALE_KEY, "en").commit()
+        localePreferences(context).edit()
+            .putString(LOCALE_LANGUAGE_TAG_KEY, "en")
+            .commit()
         refreshPersistedLocaleCache(context)
 
         val localized = applyPersistedLocale(context)
@@ -45,7 +46,6 @@ class LocaleUtilsTest {
         assertEquals("en", localized.resources.configuration.locales[0].language)
         assertEquals("en", Locale.getDefault().language)
     }
-
 
     @Test
     fun persisted_language_localizes_detailed_forecast_title() {
@@ -71,15 +71,28 @@ class LocaleUtilsTest {
         // Modifier le disque directement simule une valeur devenue différente
         // sans passer par l'API de persistance. applyPersistedLocale doit garder
         // le cache "en" et ne pas relire SharedPreferences sur ce chemin.
-        preferences().edit().putString(MainActivity.LOCALE_KEY, "fr").commit()
+        localePreferences(context).edit()
+            .putString(LOCALE_LANGUAGE_TAG_KEY, "fr")
+            .commit()
 
         val localized = applyPersistedLocale(context)
 
         assertEquals("en", localized.resources.configuration.locales[0].language)
     }
 
-    private fun preferences() = context.getSharedPreferences(
-        MainActivity.LOCALE_PREFS,
-        Context.MODE_PRIVATE
-    )
+    @Test
+    fun forced_language_then_system_restores_context_default_locale() {
+        val systemLanguage = context.resources.configuration.locales[0].language
+        val forcedTag = if (systemLanguage == "fr") "en" else "fr"
+
+        persistLocalePreference(context, forcedTag)
+        applyPersistedLocale(context)
+        assertEquals(forcedTag, Locale.getDefault().language)
+
+        persistLocalePreference(context, null)
+        val restored = applyPersistedLocale(context)
+
+        assertSame(context, restored)
+        assertEquals(systemLanguage, Locale.getDefault().language)
+    }
 }

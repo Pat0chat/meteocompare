@@ -43,8 +43,8 @@ class MeteoCompareApplication : Application() {
     override fun onCreate() {
         super.onCreate()
 
-        // Lecture disque unique, volontairement effectuée avant StrictMode.
-        // MainActivity.attachBaseContext et les widgets utilisent ensuite le
+        // Lecture disque unique de la source canonique de locale, effectuée
+        // avant StrictMode. MainActivity et les widgets utilisent ensuite le
         // cache mémoire sans relire SharedPreferences sur le thread principal.
         initializePersistedLocaleCache(this)
 

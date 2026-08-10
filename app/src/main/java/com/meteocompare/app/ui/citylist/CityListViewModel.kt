@@ -2,6 +2,7 @@ package com.meteocompare.app.ui.citylist
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.meteocompare.app.R
 import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.core.network.NetworkMonitor
 import com.meteocompare.app.core.util.resolveZoneOrUtc
@@ -449,7 +450,7 @@ class CityListViewModel @Inject constructor(
                     sunset = sunset
                 )
             } else {
-                ForecastState.Error("Aucune donnée de prévision pour aujourd’hui")
+                ForecastState.Error(messageRes = R.string.forecast_error_no_today)
             }
         }
         is ApiResult.Error -> ForecastState.Error(result.message)

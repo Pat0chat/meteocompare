@@ -103,26 +103,12 @@ class SettingsViewModel @Inject constructor(
     }
 
     /**
-     * Persiste la préférence de langue dans DataStore.
-     *
-     * ⚠ L'application effective de la locale (AppCompatDelegate.setApplicationLocales
-     * + Activity.recreate) est faite côté Composable, SYNCHRONEMENT, AVANT que
-     * l'Activity ne soit recréée. Sinon on a un race condition :
-     *
-     *   - viewModelScope.launch { ... } est async (coroutine sur Dispatchers.Main)
-     *   - Si le Composable appelle recreate() juste après onLanguageSelected(),
-     *     la coroutine de la VM n'a pas encore exécuté setApplicationLocales()
-     *   - Donc attachBaseContext() lit l'ANCIENNE locale persistée par AppCompat
-     *   - Résultat : aucun changement visible
-     *
-     * Solution : on découple. DataStore est purement pour notre UI (état du
-     * SegmentedButton). AppCompat est la source de vérité pour la locale
-     * effective, et son appel doit être synchrone côté UI.
+     * Persiste la langue dans l'unique stockage canonique. Cette fonction est
+     * suspendue afin que l'écran puisse attendre la fin de l'écriture avant
+     * `Activity.recreate()` et éviter toute course avec attachBaseContext().
      */
-    fun onLanguageSelected(preference: LanguagePreference) {
-        viewModelScope.launch {
-            prefs.setLanguagePreference(preference)
-        }
+    suspend fun onLanguageSelected(preference: LanguagePreference) {
+        prefs.setLanguagePreference(preference)
     }
 
     /**

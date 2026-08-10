@@ -1,11 +1,16 @@
 package com.meteocompare.app.data.preferences
 
 import android.content.Context
+import android.content.SharedPreferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.meteocompare.app.core.locale.LOCALE_LANGUAGE_TAG_KEY
+import com.meteocompare.app.core.locale.localePreferences
+import com.meteocompare.app.core.locale.persistLocalePreference
+import com.meteocompare.app.core.locale.currentPersistedLanguagePreference
 import com.meteocompare.app.di.IoDispatcher
 import com.meteocompare.app.domain.model.CityDetailSection
 import com.meteocompare.app.domain.model.CityDetailContentTab
@@ -17,7 +22,9 @@ import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -30,7 +37,6 @@ private val Context.preferencesDataStore by preferencesDataStore(name = "user_pr
 
 private val ENABLED_MODELS_KEY = stringSetPreferencesKey("enabled_models")
 private val THEME_PREFERENCE_KEY = stringPreferencesKey("theme_preference")
-private val LANGUAGE_PREFERENCE_KEY = stringPreferencesKey("language_preference")
 private val REFRESH_INTERVAL_KEY = stringPreferencesKey("refresh_interval")
 private val COLLAPSED_CITY_DETAIL_SECTIONS_KEY =
     stringSetPreferencesKey("collapsed_city_detail_sections")
@@ -93,16 +99,27 @@ class UserPreferencesRepositoryImpl @Inject constructor(
             Unit
         }
 
-    override fun observeLanguagePreference(): Flow<LanguagePreference> =
-        safePreferences.map { prefs ->
-            LanguagePreference.fromString(prefs[LANGUAGE_PREFERENCE_KEY])
-        }.distinctUntilChanged()
+    override fun observeLanguagePreference(): Flow<LanguagePreference> = callbackFlow {
+        val preferences = localePreferences(context)
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { prefs, key ->
+            if (key == LOCALE_LANGUAGE_TAG_KEY) {
+                trySend(
+                    LanguagePreference.fromLanguageTag(
+                        prefs.getString(LOCALE_LANGUAGE_TAG_KEY, null)
+                    )
+                )
+            }
+        }
+
+        preferences.registerOnSharedPreferenceChangeListener(listener)
+        // Le cache a été préchargé dans Application.onCreate(), avant StrictMode.
+        trySend(currentPersistedLanguagePreference(context))
+        awaitClose { preferences.unregisterOnSharedPreferenceChangeListener(listener) }
+    }.distinctUntilChanged()
 
     override suspend fun setLanguagePreference(preference: LanguagePreference) =
         withContext(ioDispatcher) {
-            context.preferencesDataStore.edit { prefs ->
-                prefs[LANGUAGE_PREFERENCE_KEY] = preference.name
-            }
+            persistLocalePreference(context, preference.bcp47Tag)
             Unit
         }
 

@@ -182,6 +182,17 @@ internal fun glanceWidgetForProviderClassName(providerClassName: String?): Glanc
 internal fun isInsightWidgetProvider(providerClassName: String?): Boolean =
     providerClassName == MeteoInsightWidgetReceiver::class.java.name
 
+internal fun isRegisteredWidgetProviderClassName(providerClassName: String?): Boolean =
+    providerClassName != null && WidgetReceivers.All.any { it.name == providerClassName }
+
+internal fun isOwnedWidgetProvider(
+    appPackageName: String,
+    providerPackageName: String?,
+    providerClassName: String?
+): Boolean =
+    providerPackageName == appPackageName &&
+        isRegisteredWidgetProviderClassName(providerClassName)
+
 /**
  * Registre central des receivers de widget MeteoCompare.
  *

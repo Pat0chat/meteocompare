@@ -1,7 +1,5 @@
 package com.meteocompare.app.ui.settings
 
-import android.annotation.SuppressLint
-import android.content.Context
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -49,29 +47,16 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.meteocompare.app.R
-import com.meteocompare.app.core.locale.persistLocalePreference
 import com.meteocompare.app.domain.model.Coverage
 import com.meteocompare.app.domain.model.LanguagePreference
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.ThemePreference
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.ui.components.ModernStateChip
+import com.meteocompare.app.ui.components.OpenMeteoAttribution
 import com.meteocompare.app.ui.components.ModernSlidingSelector
 import com.meteocompare.app.ui.theme.color
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-
-@SuppressLint("ApplySharedPref")
-private suspend fun persistLocaleBeforeRecreate(
-    context: Context,
-    preference: LanguagePreference
-) = withContext(Dispatchers.IO) {
-    persistLocalePreference(
-        context = context.applicationContext,
-        languageTag = preference.bcp47Tag
-    )
-}
 
 // ═════════════════════════════════════════════════════════════════════════════
 //  Tri des modèles
@@ -146,16 +131,9 @@ fun SettingsScreen(
             language = language,
             onLanguageSelected = { preference ->
                 scope.launch {
-                    // La valeur doit être persistée AVANT recreate(), car
-                    // attachBaseContext la lit synchronement. L'écriture reste
-                    // donc un commit, mais elle est déplacée hors du thread UI.
-                    persistLocaleBeforeRecreate(context, preference)
-
-                    val locales = preference.bcp47Tag?.let {
-                        androidx.core.os.LocaleListCompat.forLanguageTags(it)
-                    } ?: androidx.core.os.LocaleListCompat.getEmptyLocaleList()
-                    androidx.appcompat.app.AppCompatDelegate.setApplicationLocales(locales)
-
+                    // La préférence canonique est écrite avant recreate().
+                    // attachBaseContext() relit alors immédiatement la nouvelle
+                    // valeur, sans copie concurrente dans AppCompat/DataStore.
                     viewModel.onLanguageSelected(preference)
                     (context as? android.app.Activity)?.recreate()
                 }
@@ -320,6 +298,10 @@ internal fun SettingsContent(
                     text = stringResource(R.string.settings_about_data_source),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OpenMeteoAttribution(
+                    text = stringResource(R.string.open_meteo_link_label),
+                    style = MaterialTheme.typography.bodySmall
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(

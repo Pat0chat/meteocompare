@@ -79,7 +79,12 @@ object A11yFormatter {
         val base = "Ville ${city.name}${city.admin1?.let { ", $it" } ?: ""}"
         return when (val f = state.forecast) {
             ForecastState.Loading -> "$base. ${resources.getString(R.string.a11y_city_loading)}"
-            is ForecastState.Error -> "$base. ${resources.getString(R.string.a11y_city_error, f.message)}"
+            is ForecastState.Error -> {
+                val message = f.message
+                    ?: f.messageRes?.let(resources::getString)
+                    ?: resources.getString(R.string.error_unknown)
+                "$base. ${resources.getString(R.string.a11y_city_error, message)}"
+            }
             is ForecastState.Loaded -> {
                 val parts = mutableListOf<String>()
                 // Condition actuelle en premier : "ensoleillé" + "20°" se

@@ -3,14 +3,11 @@ package com.meteocompare.app.domain.model
 /**
  * Préférence de langue de l'application.
  *
- * SYSTEM : suit la langue de l'OS — choix par défaut, comportement attendu
- *          pour la majorité des utilisateurs.
- * FRENCH / ENGLISH : force la langue indépendamment de l'OS, utile pour
- *          tester ou pour les utilisateurs francophones avec un téléphone
- *          en anglais (ou inversement).
+ * SYSTEM : suit la langue de l'OS — choix par défaut.
+ * FRENCH / ENGLISH : force la langue indépendamment de l'OS.
  *
- * Mappage vers la chaîne BCP-47 utilisée par
- * `AppCompatDelegate.setApplicationLocales`. `null` = laisser au système.
+ * [bcp47Tag] est la représentation stockée dans la source canonique de locale.
+ * `null` signifie "suivre le système".
  */
 enum class LanguagePreference(val bcp47Tag: String?) {
     SYSTEM(null),
@@ -18,9 +15,9 @@ enum class LanguagePreference(val bcp47Tag: String?) {
     ENGLISH("en");
 
     companion object {
-        fun fromString(value: String?): LanguagePreference = when (value) {
-            "FRENCH" -> FRENCH
-            "ENGLISH" -> ENGLISH
+        fun fromLanguageTag(value: String?): LanguagePreference = when (value) {
+            "fr" -> FRENCH
+            "en" -> ENGLISH
             else -> SYSTEM
         }
     }

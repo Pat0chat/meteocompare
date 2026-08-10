@@ -44,7 +44,11 @@
     <string name="settings_models_min_warning">At least one model must remain enabled.</string>
     <string name="settings_about_title">About</string>
     <string name="settings_about_version">Version %s</string>
-    <string name="settings_about_data_source">Weather data provided by Open-Meteo (open-meteo.com).</string>
+    <string name="settings_about_data_source">Weather data: Open-Meteo. MeteoCompare aggregates and transforms this data to produce its comparisons, scenarios, and indicators.</string>
+    <string name="open_meteo_attribution">Data: Open-Meteo · aggregated and transformed by MeteoCompare</string>
+    <string name="open_meteo_attribution_open">Open the Open-Meteo website</string>
+    <string name="open_meteo_link_label">Open-Meteo website</string>
+    <string name="widget_open_meteo_attribution">Open-Meteo · aggregated data</string>
     <string name="settings_about_models_credit">Models: AROME and ARPEGE by Météo-France, ICON by DWD, GFS and HRRR by NOAA, ECMWF and AIFS by the European Centre, UKMO by the UK Met Office, GEM by Environment Canada, MET Nordic by MET Norway, HARMONIE by KNMI, ACCESS by the Bureau of Meteorology (Australia), GRAPES by CMA (China).</string>
     <string name="settings_bias_refresh_title">Bias tracking</string>
     <string name="settings_bias_refresh_desc">Downloads up to 3 weeks of archived forecasts at a fixed D+1 lead time to obtain at least 14 common valid days for enabled models, then their weather references, for your favorite cities. Models without available archives will continue calibrating over time.</string>
@@ -65,6 +69,7 @@
     <string name="confidence_badge_percent">%d%% agreement</string>
     <string name="models_unavailable">Models unavailable</string>
     <string name="no_daily_data">No daily data</string>
+    <string name="forecast_error_no_today">No forecast data for today</string>
 
     <!-- 3-state selector above the confidence band (Temp / Precip / Wind) -->
     <string name="metric_temperature">Temperature</string>
@@ -447,7 +452,7 @@
     <string name="forecast_tables_section">Detailed forecasts</string>
     <string name="timeline_title_hourly">Next 24 hours</string>
     <string name="timeline_title_daily">Next few days</string>
-    <string name="timeline_subtitle_hourly">3-hour reference points · markers show key events</string>
+    <string name="timeline_subtitle_hourly">3-hour reference points</string>
     <string name="timeline_subtitle_daily">Consensus of available models for the next few days</string>
     <string name="timeline_disagreement_hint">Agreement is shown as a percentage. When models disagree, icons identify the affected variables</string>
     <string name="timeline_now">Now</string>

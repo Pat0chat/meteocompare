@@ -40,6 +40,10 @@ class MeteoWidgetConfigActivityTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val intent = Intent(context, MeteoWidgetConfigActivity::class.java)
             .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, 4242)
+            .putExtra(
+                MeteoWidgetConfigActivity.EXTRA_DEBUG_PROVIDER_CLASS_NAME,
+                MeteoWidgetReceiver2x1::class.java.name
+            )
         scenario = ActivityScenario.launch(intent)
         composeRule.waitUntil(timeoutMillis = 5_000) {
             composeRule.onAllNodes(

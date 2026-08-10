@@ -406,7 +406,12 @@ internal fun CityCard(
                         hourlyStartTime = forecast.hourlyStartTime,
                         accentColor = accentColor
                     )
-                    is ForecastState.Error -> CityCardError(forecast.message, onRetry)
+                    is ForecastState.Error -> CityCardError(
+                        message = forecast.message
+                            ?: forecast.messageRes?.let { stringResource(it) }
+                            ?: stringResource(R.string.error_unknown),
+                        onRetry = onRetry
+                    )
                 }
             }
         }

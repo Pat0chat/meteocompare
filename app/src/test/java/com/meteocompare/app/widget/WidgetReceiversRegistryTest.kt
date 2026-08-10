@@ -2,6 +2,7 @@ package com.meteocompare.app.widget
 
 import org.junit.Test
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 
 /**
@@ -93,4 +94,31 @@ class WidgetReceiversRegistryTest {
             )
         }
     }
+    @Test
+    fun `provider ownership requires app package and registered receiver`() {
+        val registered = MeteoWidgetReceiver2x1::class.java.name
+
+        assertTrue(
+            isOwnedWidgetProvider(
+                appPackageName = "com.meteocompare.app",
+                providerPackageName = "com.meteocompare.app",
+                providerClassName = registered
+            )
+        )
+        assertFalse(
+            isOwnedWidgetProvider(
+                appPackageName = "com.meteocompare.app",
+                providerPackageName = "com.other.app",
+                providerClassName = registered
+            )
+        )
+        assertFalse(
+            isOwnedWidgetProvider(
+                appPackageName = "com.meteocompare.app",
+                providerPackageName = "com.meteocompare.app",
+                providerClassName = "com.meteocompare.app.widget.UnknownReceiver"
+            )
+        )
+    }
+
 }

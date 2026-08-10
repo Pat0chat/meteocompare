@@ -582,7 +582,10 @@ class CityListViewModelTest {
             favoritesFlow.value = listOf(paris)
             var state = awaitItem()
             while (state.items.firstOrNull()?.forecast !is ForecastState.Error) state = awaitItem()
-            assertTrue((state.items.first().forecast as ForecastState.Error).message.contains("aujourd"))
+            assertEquals(
+                com.meteocompare.app.R.string.forecast_error_no_today,
+                (state.items.first().forecast as ForecastState.Error).messageRes
+            )
         }
     }
 

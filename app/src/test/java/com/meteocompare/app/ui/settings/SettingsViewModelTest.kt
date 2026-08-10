@@ -195,10 +195,9 @@ class SettingsViewModelTest {
 
     @Test
     fun `onLanguageSelected - délègue au repo sans appeler AppCompat`() = runTest(dispatcher) {
-        // La VM ne fait QUE persister. L'application effective de la locale
-        // (AppCompatDelegate.setApplicationLocales + Activity.recreate) est
-        // responsabilité du Composable — sinon race condition entre la coroutine
-        // async de la VM et le recreate sync UI.
+        // La VM persiste dans l'unique source canonique. L'écran attend cette
+        // écriture avant Activity.recreate(), donc pas de course avec
+        // attachBaseContext().
         viewModel.onLanguageSelected(LanguagePreference.ENGLISH)
         coVerify { prefs.setLanguagePreference(LanguagePreference.ENGLISH) }
     }

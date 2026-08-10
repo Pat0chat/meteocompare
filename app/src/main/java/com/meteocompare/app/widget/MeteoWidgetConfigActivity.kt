@@ -4,6 +4,7 @@ import android.app.Activity
 import android.appwidget.AppWidgetManager
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -59,12 +60,14 @@ import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.lifecycle.lifecycleScope
+import com.meteocompare.app.BuildConfig
 import com.meteocompare.app.R
 import com.meteocompare.app.core.locale.applyPersistedLocale
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.ui.theme.MeteoCompareTheme
 import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.EntryPointAccessors
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -111,29 +114,29 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // Toujours partir de RESULT_CANCELED. Une Activity exportée ne doit
+        // jamais valider un widget tant que l'identité du provider n'a pas été
+        // vérifiée contre notre registre interne.
+        setResult(Activity.RESULT_CANCELED)
+
         val widgetId = intent?.extras?.getInt(
             AppWidgetManager.EXTRA_APPWIDGET_ID,
             AppWidgetManager.INVALID_APPWIDGET_ID
         ) ?: AppWidgetManager.INVALID_APPWIDGET_ID
 
         if (widgetId == AppWidgetManager.INVALID_APPWIDGET_ID) {
-            // Cas dégénéré : l'activité a été lancée sans widget id. Rien à
-            // configurer, on ferme. Sans ce garde, on saverait une prefs
-            // orpheline sous un id invalide.
             finish()
             return
         }
 
-        val providerClassName = runCatching {
-            AppWidgetManager.getInstance(this)
-                .getAppWidgetInfo(widgetId)
-                ?.provider
-                ?.className
-        }.getOrNull()
-
-        // Par défaut RESULT_CANCELED — si l'user quitte sans valider, le
-        // système supprime le widget de l'écran (comportement standard).
-        setResult(Activity.RESULT_CANCELED)
+        val providerClassName = resolveOwnedProviderClassName(widgetId)
+        if (providerClassName == null) {
+            // L'id doit appartenir à un AppWidgetProvider MeteoCompare déclaré
+            // dans WidgetReceivers.All. Cela bloque les lancements externes
+            // forgés avec un id arbitraire ou le provider d'une autre app.
+            finish()
+            return
+        }
 
         setContent {
             MeteoCompareTheme {
@@ -142,6 +145,7 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
                     onSave = { cityId, opacityPct, forecastMode, bgColorArgb, textColorArgb ->
                         persistAndFinish(
                             widgetId = widgetId,
+                            expectedProviderClassName = providerClassName,
                             cityId = cityId,
                             opacityPct = opacityPct,
                             forecastMode = forecastMode,
@@ -153,6 +157,35 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    /**
+     * Résout le provider réel du widget et vérifie qu'il appartient bien à
+     * MeteoCompare et au registre des receivers autorisés.
+     *
+     * Le fallback d'instrumentation n'existe que dans les builds DEBUG afin
+     * que les tests UI puissent rendre l'écran sans launcher/AppWidgetHost. Il
+     * est totalement absent du chemin de décision d'une release.
+     */
+    private fun resolveOwnedProviderClassName(widgetId: Int): String? {
+        val provider = runCatching {
+            AppWidgetManager.getInstance(this)
+                .getAppWidgetInfo(widgetId)
+                ?.provider
+        }.getOrNull()
+
+        val realProviderClass = provider?.className?.takeIf { className ->
+            isOwnedWidgetProvider(
+                appPackageName = packageName,
+                providerPackageName = provider.packageName,
+                providerClassName = className
+            )
+        }
+        if (realProviderClass != null) return realProviderClass
+
+        if (!BuildConfig.DEBUG) return null
+        return intent?.getStringExtra(EXTRA_DEBUG_PROVIDER_CLASS_NAME)
+            ?.takeIf(::isRegisteredWidgetProviderClassName)
     }
 
     /**
@@ -185,6 +218,7 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
      */
     private fun persistAndFinish(
         widgetId: Int,
+        expectedProviderClassName: String,
         cityId: String,
         opacityPct: Int,
         forecastMode: ForecastMode,
@@ -193,94 +227,83 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
     ) {
         val appCtx = applicationContext
         lifecycleScope.launch {
-            val glanceId = GlanceAppWidgetManager(appCtx).getGlanceIdBy(widgetId)
-
-            // 1. Écriture des prefs — atomique via DataStore.
-            //
-            // Pour les couleurs custom : si l'utilisateur a choisi "Auto"
-            // (bgColorArgb / textColorArgb == null), on SUPPRIME la clé du
-            // DataStore au lieu d'écrire une sentinelle. Ça garantit que la
-            // lecture réactive dans MeteoWidget.provideGlance retourne null,
-            // et le widget retombe sur les couleurs Material historiques.
-            // Écrire une sentinelle (0, MIN_VALUE) forcerait le rendu à
-            // vérifier "cette valeur est-elle une sentinelle ?" à chaque
-            // lecture, source potentielle de bugs (0 est aussi une couleur
-            // ARGB valide = noir transparent).
-            updateAppWidgetState(
-                context = appCtx,
-                definition = PreferencesGlanceStateDefinition,
-                glanceId = glanceId
-            ) { prefs ->
-                prefs.toMutablePreferences().apply {
-                    this[WidgetPreferences.CityIdKey] = cityId
-                    this[WidgetPreferences.OpacityPctKey] = opacityPct
-                    this[WidgetPreferences.ForecastModeKey] = forecastMode.name
-
-                    if (bgColorArgb != null) {
-                        this[WidgetPreferences.BackgroundColorKey] = bgColorArgb
-                    } else {
-                        remove(WidgetPreferences.BackgroundColorKey)
+            try {
+                // Revalidation au moment du Save (TOCTOU) : l'id doit toujours
+                // pointer vers le même provider MeteoCompare qu'à l'ouverture.
+                val currentProviderClassName = resolveOwnedProviderClassName(widgetId)
+                    ?: run {
+                        finish()
+                        return@launch
                     }
-                    if (textColorArgb != null) {
-                        this[WidgetPreferences.TextColorKey] = textColorArgb
-                    } else {
-                        remove(WidgetPreferences.TextColorKey)
+                if (currentProviderClassName != expectedProviderClassName) {
+                    finish()
+                    return@launch
+                }
+
+                val glanceId = GlanceAppWidgetManager(appCtx).getGlanceIdBy(widgetId)
+
+                // 1. Écriture des prefs — atomique via DataStore. Pour les
+                // couleurs custom, l'absence de valeur signifie "Auto".
+                updateAppWidgetState(
+                    context = appCtx,
+                    definition = PreferencesGlanceStateDefinition,
+                    glanceId = glanceId
+                ) { prefs ->
+                    prefs.toMutablePreferences().apply {
+                        this[WidgetPreferences.CityIdKey] = cityId
+                        this[WidgetPreferences.OpacityPctKey] = opacityPct
+                        this[WidgetPreferences.ForecastModeKey] = forecastMode.name
+
+                        if (bgColorArgb != null) {
+                            this[WidgetPreferences.BackgroundColorKey] = bgColorArgb
+                        } else {
+                            remove(WidgetPreferences.BackgroundColorKey)
+                        }
+                        if (textColorArgb != null) {
+                            this[WidgetPreferences.TextColorKey] = textColorArgb
+                        } else {
+                            remove(WidgetPreferences.TextColorKey)
+                        }
                     }
                 }
+
+                // 2. Force le BON widget à re-render avec les nouvelles prefs.
+                glanceWidgetForProviderClassName(currentProviderClassName)
+                    .update(appCtx, glanceId)
+
+                // 3. Broadcast APPWIDGET_UPDATE ciblé sur le provider validé.
+                val refreshIntent = Intent().apply {
+                    setClassName(appCtx.packageName, currentProviderClassName)
+                    action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+                    putExtra(
+                        AppWidgetManager.EXTRA_APPWIDGET_IDS,
+                        intArrayOf(widgetId)
+                    )
+                }
+                appCtx.sendBroadcast(refreshIntent)
+
+                // 4. Garantit la présence du worker de rafraîchissement.
+                WidgetRefreshScheduler.schedule(appCtx)
+
+                // 5. Résultat final au système + fin d'activité.
+                val resultIntent = Intent()
+                    .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+                setResult(Activity.RESULT_OK, resultIntent)
+                finish()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                Log.w(TAG, "Unable to persist widget configuration", error)
+                setResult(Activity.RESULT_CANCELED)
+                finish()
             }
-
-            // 2. Force le BON widget à re-render avec les nouvelles prefs.
-            val awm = AppWidgetManager.getInstance(appCtx)
-            val providerClassName = runCatching {
-                awm.getAppWidgetInfo(widgetId)?.provider?.className
-            }.getOrNull()
-            glanceWidgetForProviderClassName(providerClassName).update(appCtx, glanceId)
-
-            // 3. Broadcast APPWIDGET_UPDATE ciblé sur notre widgetId. Traité
-            //    par le receiver du widget après setResult+finish. Le receiver
-            //    délègue à Glance, qui appelle provideGlance() avec les prefs
-            //    fraîches (déjà persistées à l'étape 1). Le pattern reactive
-            //    state via currentState<Preferences>() dans MeteoWidget garantit
-            //    que la nouvelle valeur de cityId sera visible à la recomposition.
-            //
-            //    ⚠ Le receiver cible dépend de la VARIANTE du widget (Standard,
-            //    Tiny, Wide, Large). On ne peut pas hardcoder MeteoWidgetReceiver
-            //    — un widget Large recevrait le broadcast mais celui-ci ne le
-            //    "connaît" pas au sens système. On lit AppWidgetProviderInfo
-            //    pour récupérer le nom du provider réel de CE widgetId.
-            val resolvedProviderClassName = providerClassName
-                ?: MeteoWidgetReceiver::class.java.name
-            val refreshIntent = Intent().apply {
-                setClassName(appCtx.packageName, resolvedProviderClassName)
-                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-                putExtra(
-                    AppWidgetManager.EXTRA_APPWIDGET_IDS,
-                    intArrayOf(widgetId)
-                )
-            }
-            appCtx.sendBroadcast(refreshIntent)
-
-            // 4. S'assurer que le worker WorkManager est bien programmé. En
-            //    théorie [MeteoWidgetReceiver.onEnabled] l'a déjà fait au
-            //    premier drop du widget, mais un update install peut recréer
-            //    les widgets sans re-appeler onEnabled (le receiver était
-            //    déjà "enabled" au sens système). L'appel est idempotent
-            //    (ExistingPeriodicWorkPolicy.KEEP) : le worker existant est
-            //    conservé sans annulation ni replanification.
-            //
-            //    Note : plus besoin de lire l'intervalle utilisateur ici. La
-            //    cadence du worker est maintenant fixe (voir docblock de
-            //    [WidgetRefreshScheduler]). L'intervalle utilisateur est
-            //    consommé au moment du loadWidgetData comme seuil
-            //    `maxCacheAgeMs`, pas comme fréquence de tick.
-            WidgetRefreshScheduler.schedule(appCtx)
-
-            // 5. Résultat final au système + fin d'activité.
-            val resultIntent = Intent()
-                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
-            setResult(Activity.RESULT_OK, resultIntent)
-            finish()
         }
+    }
+
+    companion object {
+        private const val TAG = "MeteoCompare/WidgetConfig"
+        internal const val EXTRA_DEBUG_PROVIDER_CLASS_NAME =
+            "com.meteocompare.app.extra.DEBUG_WIDGET_PROVIDER"
     }
 }
 
