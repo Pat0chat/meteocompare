@@ -1,6 +1,7 @@
 package com.meteocompare.app.ui.citydetail
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Arrangement
@@ -415,27 +416,32 @@ private fun TimelinePointColumn(
 ) {
     val separatorColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.28f)
     val focusColor = MaterialTheme.colorScheme.primary
+    val focusShape = RoundedCornerShape(14.dp)
     val pointTag = if (isFocused) {
         TAG_TIMELINE_POINT_FOCUSED
     } else {
         "${TAG_TIMELINE_POINT_PREFIX}${timelinePointKey(point)}"
     }
+    val focusModifier = if (isFocused) {
+        Modifier
+            .background(
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.24f),
+                shape = focusShape
+            )
+            .border(
+                width = 1.dp,
+                color = focusColor.copy(alpha = 0.42f),
+                shape = focusShape
+            )
+    } else {
+        Modifier
+    }
 
     Column(
         modifier = Modifier
             .width(TIMELINE_COLUMN_WIDTH)
-            .background(
-                if (isFocused) focusColor.copy(alpha = 0.045f) else Color.Transparent
-            )
+            .then(focusModifier)
             .drawBehind {
-                if (isFocused) {
-                    drawLine(
-                        color = focusColor.copy(alpha = 0.20f),
-                        start = Offset(size.width / 2f, 0f),
-                        end = Offset(size.width / 2f, size.height),
-                        strokeWidth = 1.5.dp.toPx()
-                    )
-                }
                 if (!isLast) {
                     drawLine(
                         color = separatorColor,

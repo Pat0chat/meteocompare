@@ -3,7 +3,6 @@ package com.meteocompare.app.ui.citydetail
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -44,6 +43,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.CityDetailContentTab
@@ -112,8 +112,9 @@ internal fun DetailedComparisonControls(
 }
 
 /**
- * Petit bouton de granularité : plus explicite qu'un simple libellé cliquable,
- * sans revenir à la lourdeur d'un segmented control permanent.
+ * Contrôle de granularité volontairement discret. Il reste identifiable comme
+ * un bouton, mais se fond dans la Surface de section. Le menu reprend les tons
+ * Material 3 de l'application et réserve l'accent à l'option active.
  */
 @Composable
 internal fun DisplayModeMenu(
@@ -124,70 +125,85 @@ internal fun DisplayModeMenu(
 ) {
     var expanded by remember { mutableStateOf(false) }
     val scheme = MaterialTheme.colorScheme
-    val shape = RoundedCornerShape(10.dp)
+    val buttonShape = RoundedCornerShape(9.dp)
+    val menuShape = RoundedCornerShape(14.dp)
 
     Box(modifier = modifier) {
         Row(
             modifier = Modifier
-                .height(34.dp)
-                .clip(shape)
-                .background(scheme.surfaceContainerHigh.copy(alpha = 0.72f))
-                .border(
-                    width = 1.dp,
-                    color = scheme.outlineVariant.copy(alpha = 0.55f),
-                    shape = shape
-                )
+                .height(30.dp)
+                .clip(buttonShape)
+                .background(scheme.surfaceContainerHigh.copy(alpha = 0.38f))
                 .clickable(
                     role = Role.Button,
                     onClick = { expanded = true }
                 )
-                .padding(start = 10.dp, end = 6.dp),
+                .padding(start = 9.dp, end = 5.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(3.dp)
+            horizontalArrangement = Arrangement.spacedBy(2.dp)
         ) {
             Text(
                 text = stringResource(mode.labelRes),
                 style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = scheme.onSurface,
+                fontWeight = FontWeight.Medium,
+                color = scheme.onSurfaceVariant,
                 maxLines = 1
             )
             Icon(
                 imageVector = Icons.Default.KeyboardArrowDown,
                 contentDescription = null,
-                tint = scheme.onSurfaceVariant,
-                modifier = Modifier.size(17.dp)
+                tint = scheme.onSurfaceVariant.copy(alpha = 0.78f),
+                modifier = Modifier.size(15.dp)
             )
         }
 
         DropdownMenu(
             expanded = expanded,
-            onDismissRequest = { expanded = false }
+            onDismissRequest = { expanded = false },
+            offset = DpOffset(0.dp, 6.dp),
+            modifier = Modifier
+                .width(148.dp)
+                .clip(menuShape)
+                .background(scheme.surfaceContainerHigh)
+                .padding(vertical = 4.dp)
         ) {
             DisplayMode.entries.filter { it in availableModes }.forEach { option ->
                 val selected = option == mode
+                val itemShape = RoundedCornerShape(10.dp)
                 DropdownMenuItem(
+                    modifier = Modifier
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                        .clip(itemShape)
+                        .background(
+                            if (selected) scheme.primaryContainer.copy(alpha = 0.52f)
+                            else Color.Transparent
+                        ),
                     text = {
                         Text(
                             text = stringResource(option.labelRes),
                             style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
+                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                            color = if (selected) scheme.onPrimaryContainer else scheme.onSurface
                         )
                     },
                     onClick = {
                         expanded = false
                         if (!selected) onModeChange(option)
                     },
-                    leadingIcon = if (selected) {
-                        {
-                            Icon(
-                                imageVector = Icons.Default.Check,
-                                contentDescription = null,
-                                tint = scheme.primary
-                            )
+                    leadingIcon = {
+                        Box(
+                            modifier = Modifier.size(18.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (selected) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = null,
+                                    tint = scheme.primary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
                         }
-                    } else {
-                        null
                     }
                 )
             }
