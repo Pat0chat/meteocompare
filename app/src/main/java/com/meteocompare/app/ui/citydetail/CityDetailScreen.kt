@@ -1507,7 +1507,9 @@ private fun DetailWeatherMetric(
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 2
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
 
@@ -1517,7 +1519,9 @@ private fun DetailWeatherMetric(
                     text = tertiary,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
 
