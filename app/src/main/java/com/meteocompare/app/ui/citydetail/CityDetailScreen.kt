@@ -68,6 +68,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
@@ -1165,7 +1166,7 @@ internal fun TodaySummaryCard(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(3.dp)
+                .height(5.dp)
                 .background(weatherAccent)
         )
         Column(modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp)) {
@@ -1335,7 +1336,6 @@ private fun DetailMetricGrid(today: DayConfidence) {
                             detailRange(score, unit = "°"),
                             detailSpread(score, unit = "°")
                         ),
-                        modelCount = score.modelCount,
                         confidence = score.percent,
                         modifier = Modifier.weight(1f)
                     )
@@ -1354,7 +1354,6 @@ private fun DetailMetricGrid(today: DayConfidence) {
                             detailRange(score, unit = "°"),
                             detailSpread(score, unit = "°")
                         ),
-                        modelCount = score.modelCount,
                         confidence = score.percent,
                         modifier = Modifier.weight(1f)
                     )
@@ -1378,7 +1377,6 @@ private fun DetailMetricGrid(today: DayConfidence) {
                         unit = presentation.unit,
                         supporting = presentation.supporting,
                         detail = presentation.detail,
-                        modelCount = precipitation.modelCount,
                         confidence = precipitation.percent,
                         modifier = Modifier.weight(1f)
                     )
@@ -1406,7 +1404,6 @@ private fun DetailMetricGrid(today: DayConfidence) {
                                 detailRange(gust, unit = "")
                             )
                         },
-                        modelCount = score.modelCount,
                         confidence = score.percent,
                         modifier = Modifier.weight(1f)
                     )
@@ -1422,7 +1419,6 @@ private fun DetailWeatherMetric(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     accent: Color,
     value: String,
-    modelCount: Int,
     confidence: Int,
     modifier: Modifier = Modifier,
     unit: String? = null,
@@ -1440,9 +1436,11 @@ private fun DetailWeatherMetric(
         )
     ) {
         Column(
-            modifier = Modifier.fillMaxHeight().padding(horizontal = 12.dp, vertical = 11.dp)
+            modifier = Modifier.fillMaxHeight().padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Row(
+                horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -1469,9 +1467,9 @@ private fun DetailWeatherMetric(
                 )
             }
 
-            Spacer(Modifier.height(9.dp))
+            Spacer(Modifier.height(8.dp))
 
-            Row(verticalAlignment = Alignment.Bottom) {
+            Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = value,
                     style = MaterialTheme.typography.titleLarge,
@@ -1485,7 +1483,7 @@ private fun DetailWeatherMetric(
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 2.dp)
+                        modifier = Modifier.padding(bottom = 4.dp)
                     )
                 }
             }
@@ -1496,7 +1494,9 @@ private fun DetailWeatherMetric(
                     text = supporting,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.82f),
-                    maxLines = 1
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
 

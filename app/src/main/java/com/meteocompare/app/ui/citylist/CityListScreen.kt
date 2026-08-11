@@ -25,7 +25,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -38,6 +37,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Air
 import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.LocationCity
 import androidx.compose.material.icons.outlined.Thermostat
 import androidx.compose.material.icons.outlined.WaterDrop
@@ -368,7 +368,7 @@ internal fun CityCard(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(3.dp)
+                .height(5.dp)
                 .background(accentColor)
         )
 
@@ -553,22 +553,19 @@ private fun CityCardLoaded(
 
         TodayMetricGrid(today = today)
 
-        if (next12hScenarios.isNotEmpty() &&
+        val visibleScenarios = if (
+            next12hScenarios.isNotEmpty() &&
             next12hScenarios.first().totalModelCount >= 2
         ) {
-            HomeWeatherScenarios(scenarios = next12hScenarios)
+            next12hScenarios
+        } else {
+            emptyList()
         }
 
-        if (fetchedAt != null) {
-            Spacer(Modifier.height(10.dp))
-            Text(
-                text = com.meteocompare.app.ui.components
-                    .rememberFormattedLastUpdated(fetchedAt),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .wrapContentWidth(Alignment.CenterHorizontally)
+        if (visibleScenarios.isNotEmpty() || fetchedAt != null) {
+            HomeWeatherFooter(
+                scenarios = visibleScenarios,
+                fetchedAt = fetchedAt
             )
         }
     }
@@ -866,54 +863,97 @@ private fun weatherConditionLabel(condition: WeatherCondition): String = stringR
 )
 
 @Composable
-private fun HomeWeatherScenarios(
-    scenarios: List<WeatherScenario>
+private fun HomeWeatherFooter(
+    scenarios: List<WeatherScenario>,
+    fetchedAt: java.time.Instant?
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
-    val totalModels = scenarios.firstOrNull()?.totalModelCount ?: return
+    val lastUpdated = if (fetchedAt != null) {
+        com.meteocompare.app.ui.components.rememberFormattedLastUpdated(fetchedAt)
+    } else {
+        null
+    }
 
     Column {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { expanded = !expanded }
-                .padding(horizontal = 4.dp, vertical = 12.dp),
+                .padding(start = 6.dp, top = 6.dp, end = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "≈",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.width(28.dp)
-            )
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.home_scenarios_title),
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Text(
-                    text = "${pluralStringResource(R.plurals.home_scenarios_count, scenarios.size, scenarios.size)} · " +
-                            pluralStringResource(R.plurals.home_scenarios_models, totalModels, totalModels),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            if (scenarios.isNotEmpty()) {
+                Surface(
+                    modifier = Modifier.clickable { expanded = !expanded },
+                    shape = RoundedCornerShape(50),
+                    color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.72f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(
+                            start = 10.dp,
+                            end = 7.dp,
+                            top = 5.dp,
+                            bottom = 5.dp
+                        ),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Layers,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = pluralStringResource(
+                                R.plurals.home_scenarios_count,
+                                scenarios.size,
+                                scenarios.size
+                            ),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(Modifier.width(3.dp))
+                        Icon(
+                            imageVector = if (expanded) {
+                                Icons.Default.KeyboardArrowUp
+                            } else {
+                                Icons.Default.KeyboardArrowDown
+                            },
+                            contentDescription = stringResource(
+                                if (expanded) {
+                                    R.string.home_scenarios_hide
+                                } else {
+                                    R.string.home_scenarios_show
+                                }
+                            ),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
             }
 
-            Icon(
-                imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                contentDescription = stringResource(
-                    if (expanded) R.string.home_scenarios_hide else R.string.home_scenarios_show
-                ),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(22.dp)
-            )
+            if (lastUpdated != null) {
+                if (scenarios.isNotEmpty()) {
+                    Spacer(Modifier.width(8.dp))
+                }
+                Text(
+                    text = lastUpdated,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                    textAlign = TextAlign.End,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+            } else {
+                Spacer(Modifier.weight(1f))
+            }
         }
 
         AnimatedVisibility(
-            visible = expanded,
+            visible = expanded && scenarios.isNotEmpty(),
             enter = expandVertically() + fadeIn(),
             exit = shrinkVertically() + fadeOut()
         ) {
