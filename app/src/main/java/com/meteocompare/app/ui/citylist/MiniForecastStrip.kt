@@ -94,7 +94,7 @@ internal fun MiniForecastStrip(
 
             val hourTextSizePx = with(density) { 6.5.sp.toPx() }
             val temperatureTextSizePx = with(density) { 8.5.sp.toPx() }
-            val precipY = size.height - with(density) { 4.dp.toPx() }
+            val precipY = size.height - with(density) { 6.dp.toPx() }
 
             val hourPaint = android.graphics.Paint().apply {
                 isAntiAlias = true

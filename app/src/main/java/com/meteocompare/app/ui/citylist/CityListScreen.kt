@@ -966,18 +966,24 @@ private fun HomeWeatherFooter(
             enter = expandVertically() + fadeIn(),
             exit = shrinkVertically() + fadeOut()
         ) {
-            Column {
-                scenarios.forEachIndexed { index, scenario ->
-                    if (index > 0) {
-                        HorizontalDivider(
-                            modifier = Modifier.padding(start = 38.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+            Surface(
+                modifier = Modifier.padding(vertical = 10.dp),
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.72f)
+            ) {
+                Column {
+                    scenarios.forEachIndexed { index, scenario ->
+                        if (index > 0) {
+                            HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = 12.dp),
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+                            )
+                        }
+                        HomeWeatherScenarioRow(
+                            scenario = scenario,
+                            rank = index
                         )
                     }
-                    HomeWeatherScenarioRow(
-                        scenario = scenario,
-                        rank = index
-                    )
                 }
             }
         }
@@ -993,7 +999,7 @@ private fun HomeWeatherScenarioRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 9.dp),
+            .padding(horizontal = 5.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
@@ -1011,14 +1017,13 @@ private fun HomeWeatherScenarioRow(
         }
 
         Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.Bottom) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = weatherScenarioTitle(scenario),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = if (rank == 0) FontWeight.SemiBold else FontWeight.Medium,
                     maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
+                    overflow = TextOverflow.Ellipsis
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
