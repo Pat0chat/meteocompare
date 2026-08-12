@@ -710,7 +710,7 @@ private fun TodayMetricGrid(today: DayConfidence) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 8.dp, bottom = 2.dp),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(10.dp),
         color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.52f)
     ) {
         Row(
@@ -893,7 +893,7 @@ private fun HomeWeatherFooter(
             if (scenarios.isNotEmpty()) {
                 Surface(
                     modifier = Modifier.clickable { expanded = !expanded },
-                    shape = RoundedCornerShape(50),
+                    shape = RoundedCornerShape(10.dp),
                     color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.72f)
                 ) {
                     Row(

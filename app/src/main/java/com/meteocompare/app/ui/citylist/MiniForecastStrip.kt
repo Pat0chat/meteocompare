@@ -1,19 +1,17 @@
 package com.meteocompare.app.ui.citylist
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.nativeCanvas
@@ -28,51 +26,26 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.meteocompare.app.R
+import com.meteocompare.app.ui.components.blendedHeatmapColor
 import com.meteocompare.app.ui.components.temperatureHeatmapColor
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
 
 /**
- * Sparkline horizontal miniature qui affiche les 12 prochaines heures de
- * prévision, en superposant :
- *   - une bande de température (heatmap froid → chaud)
- *   - des marqueurs de précipitation (dots bleus sous la bande)
+ * Mini heatmap 12 h de la Home, volontairement alignée sur le langage visuel
+ * de la timeline détaillée : une bande thermique continue, de hauteur fixe,
+ * avec chaque heure représentée par une cellule pleine plutôt que par une
+ * barre de hauteur variable.
  *
- * ─── Design ────────────────────────────────────────────────────────────────
- * Hauteur totale : 30dp. Assez petit pour tenir en bas d'une card tout en
- * gardant assez de hauteur pour afficher la température dans chaque barre,
- * sans concurrencer les valeurs principales de la card.
+ * Les informations restent strictement les mêmes :
+ * - température arrondie pour chacune des 12 heures ;
+ * - marqueur de pluie dès 30 % (taille croissante avec la probabilité) ;
+ * - trois ancres horaires (début, +6 h, +11 h) ;
+ * - description TalkBack consolidée.
  *
- * Chaque heure occupe `width / 12` — les cellules sont donc adaptatives à la
- * largeur disponible. Sur un écran classique 360dp de contenu utile
- * (screen − padding card), ça donne des cellules d'environ 26dp, largement
- * lisibles.
- *
- * ─── Encodage visuel ───────────────────────────────────────────────────────
- * **Température** : chaque heure = un rectangle de couleur, hauteur
- * proportionnelle à la temp normalisée dans la fenêtre 12h de cette card.
- * La valeur arrondie (ex. 18°) est dessinée au centre de chaque barre avec
- * un contraste automatique noir/blanc selon la couleur de fond.
- *
- * **Précipitation** : dot au bas de la cellule si la proba dépasse 30%.
- * Rayon 1.5-2.5dp selon l'intensité (plus la proba est forte, plus le dot
- * est gros). Sous 30% on ne dessine RIEN — un utilisateur lit "s'il n'y a
- * pas de dot, il ne pleut pas dans l'heure".
- *
- * ─── A11y ──────────────────────────────────────────────────────────────────
- * Le composable dessine du pixel pur (Canvas) → invisible pour TalkBack sans
- * semantic label. On fournit une description consolidée du type
- * "Prévision 12h : entre 18 et 24°C, pluie prévue à 3 heures".
- *
- * ─── Robustesse ────────────────────────────────────────────────────────────
- * Ne crashe jamais sur données partielles :
- *   - Si moins de 12 heures fournies : dessine ce qui est présent, laisse la
- *     fin vide (mieux que "extrapoler" une donnée qu'on n'a pas)
- *   - Si toutes les temps sont null : ne dessine que les dots précip et
- *     retourne — pas de division par zéro sur (max−min)
- *   - Si min == max : hauteur uniforme à ~73% + couleur uniforme au milieu de
- *     la rampe
+ * Les heures sont maintenant intégrées dans la bande. La heatmap fait 38 dp,
+ * mais la ligne d’ancres séparée a disparu : la hauteur totale est donc plus faible.
  */
 @Composable
 internal fun MiniForecastStrip(
@@ -82,44 +55,59 @@ internal fun MiniForecastStrip(
     startTime: LocalDateTime? = null
 ) {
     val density = LocalDensity.current
-    // Palette dérivée de MaterialTheme pour respecter le thème dark/light — on
-    // ne fige pas un fond blanc côté canvas. Le noneTint est utilisé pour la
-    // cellule "pas de donnée" (rare, cache pré-feature).
-    val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
+    val surface = MaterialTheme.colorScheme.surfaceContainerLow
+    val noDataColor = MaterialTheme.colorScheme.surfaceVariant
+    val separatorColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.42f)
     val precipColor = MaterialTheme.colorScheme.primary
     val a11yLabel = buildA11yLabel(hourlyTemps, hourlyPrecipProb)
 
-    // Formatter horaire calé sur la préférence 24h du device — pas sur la locale.
-    // Un utilisateur EN qui a réglé son téléphone en 24h veut voir "15h" pas
-    // "3 PM". Pour les autres, "h a" donne "3 PM".
     val context = LocalContext.current
     val is24 = remember { android.text.format.DateFormat.is24HourFormat(context) }
     val platformLocale = LocalLocale.current.platformLocale
     val hourFormatter = remember(is24, platformLocale) {
-        // "H'h'" → "15h" / "0h"  (FR-friendly, sans zero padding)
-        // "h a" → "3 PM" / "12 AM"
-        val pattern = if (is24) "H'h'" else "h a"
-        DateTimeFormatter.ofPattern(pattern, platformLocale)
+        DateTimeFormatter.ofPattern(if (is24) "H'h'" else "h a", platformLocale)
     }
 
-    Column(modifier = modifier.fillMaxWidth()) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(38.dp)
+            .then(
+                if (startTime != null) Modifier.testTag(TAG_MINI_FORECAST_ANCHORS)
+                else Modifier
+            )
+    ) {
         Canvas(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(30.dp)
+                .fillMaxSize()
+                .clip(RoundedCornerShape(10.dp))
                 .testTag(TAG_MINI_FORECAST_STRIP)
                 .semantics { contentDescription = a11yLabel }
         ) {
-            // ─── Setup ────────────────────────────────────────────────────
             val cellCount = 12
             val cellWidth = size.width / cellCount
-            val cellGap = with(density) { 1.dp.toPx() }
-            val barMaxHeight = size.height * 0.76f
-            val dotRow = size.height * 0.92f
-            val labelTextSizePx = with(density) { 8.sp.toPx() }
-            val labelPaint = android.graphics.Paint().apply {
+
+            // La timeline Details utilisait 0.54f : agréable dans une grande carte,
+            // mais trop pâle sur cette bande très compacte. Ici on conserve le même
+            // nuancier thermique en laissant nettement plus de couleur visible.
+            val heatStrength = if (surface.luminance() < 0.5f) 0.88f else 0.82f
+
+            val hourTextSizePx = with(density) { 6.5.sp.toPx() }
+            val temperatureTextSizePx = with(density) { 8.5.sp.toPx() }
+            val precipY = size.height - with(density) { 4.dp.toPx() }
+
+            val hourPaint = android.graphics.Paint().apply {
                 isAntiAlias = true
-                textSize = labelTextSizePx
+                textSize = hourTextSizePx
+                textAlign = android.graphics.Paint.Align.CENTER
+                typeface = android.graphics.Typeface.create(
+                    android.graphics.Typeface.DEFAULT,
+                    android.graphics.Typeface.NORMAL
+                )
+            }
+            val temperaturePaint = android.graphics.Paint().apply {
+                isAntiAlias = true
+                textSize = temperatureTextSizePx
                 textAlign = android.graphics.Paint.Align.CENTER
                 typeface = android.graphics.Typeface.create(
                     android.graphics.Typeface.DEFAULT,
@@ -127,107 +115,79 @@ internal fun MiniForecastStrip(
                 )
             }
 
-            // Normalisation de la temp sur la fenêtre affichée. On ne prend que
-            // les 12 premières valeurs (défensif : liste plus longue = on tronque,
-            // liste plus courte = on rend ce qu'on a).
-            val temps = hourlyTemps.take(cellCount)
-            val precips = hourlyPrecipProb.take(cellCount)
-            val nonNullTemps = temps.filterNotNull()
-            val minT = nonNullTemps.minOrNull()
-            val maxT = nonNullTemps.maxOrNull()
-            val range = if (minT != null && maxT != null && maxT > minT) maxT - minT else 1.0
+            repeat(cellCount) { index ->
+                val temp = hourlyTemps.getOrNull(index)
+                val rawColor = temp?.let(::temperatureHeatmapColor)
+                val background = rawColor?.let {
+                    blendedHeatmapColor(surface, it, heatStrength)
+                } ?: noDataColor
 
-            // ─── Bandes de température ────────────────────────────────────
-            temps.forEachIndexed { i, temp ->
-                if (temp == null) return@forEachIndexed
-                val normalized = if (minT != null && maxT != null && maxT > minT) {
-                    (temp - minT) / range
-                } else {
-                    0.5 // cas dégénéré min==max → hauteur milieu
-                }
-                // 45% minimum : garantit assez de hauteur pour le libellé "18°".
-                val barHeight = (barMaxHeight * (0.45f + 0.55f * normalized)).toFloat()
-                val x = i * cellWidth
-                val barTop = barMaxHeight - barHeight
-                val barColor = temperatureHeatmapColor(temp)
-
+                val x = index * cellWidth
                 drawRect(
-                    color = barColor,
-                    topLeft = Offset(x + cellGap / 2f, barTop),
-                    size = Size(cellWidth - cellGap, barHeight)
+                    color = background,
+                    topLeft = Offset(x, 0f),
+                    size = androidx.compose.ui.geometry.Size(cellWidth, size.height)
                 )
 
-                // Température centrée dans chaque barre. Le contraste est calculé
-                // depuis la luminance du fond pour rester lisible en dark/light.
-                val labelColor = if (barColor.luminance() > 0.52f) {
-                    Color.Black.copy(alpha = 0.78f)
-                } else {
-                    Color.White
+                if (index > 0) {
+                    drawLine(
+                        color = separatorColor,
+                        start = Offset(x, 0f),
+                        end = Offset(x, size.height),
+                        strokeWidth = with(density) { 0.5.dp.toPx() }
+                    )
                 }
-                labelPaint.color = labelColor.toArgb()
-                val metrics = labelPaint.fontMetrics
-                val labelBaseline = barTop +
-                        (barHeight - metrics.ascent - metrics.descent) / 2f
 
-                drawContext.canvas.nativeCanvas.drawText(
-                    "${temp.roundToInt()}°",
-                    x + cellWidth / 2f,
-                    labelBaseline,
-                    labelPaint
-                )
-            }
+                val contentColor = if (background.luminance() > 0.54f) {
+                    Color.Black.copy(alpha = 0.88f)
+                } else {
+                    Color.White.copy(alpha = 0.96f)
+                }
 
-            // ─── Dots de précipitation ────────────────────────────────────
-            // Seuil 30% pour "il pleuvra" — sous ce seuil un utilisateur ne
-            // prendrait pas de parapluie, donc pas d'alerte visuelle.
-            precips.forEachIndexed { i, prob ->
-                if (prob == null || prob < 30) return@forEachIndexed
-                val x = i * cellWidth + cellWidth / 2f
-                // Rayon 1.5 → 2.5dp mappé sur 30 → 100% de proba.
-                val radiusDp = 1.5f + (prob - 30).coerceAtLeast(0) / 70f * 1f
-                val radius = with(density) { radiusDp.dp.toPx() }
-                drawCircle(
-                    color = precipColor,
-                    center = Offset(x, dotRow),
-                    radius = radius
-                )
-            }
-        }
+                // Les trois ancres horaires auparavant placées sous la heatmap sont
+                // maintenant intégrées dans la bande : début, +6 h et dernière heure.
+                if (startTime != null && index in TIME_ANCHOR_INDICES) {
+                    hourPaint.color = contentColor.copy(alpha = 0.76f).toArgb()
+                    val hourMetrics = hourPaint.fontMetrics
+                    val hourCenterY = with(density) { 8.dp.toPx() }
+                    val hourBaseline = hourCenterY -
+                            (hourMetrics.ascent + hourMetrics.descent) / 2f
 
-        // ─── Ancres horaires ──────────────────────────────────────────────
-        // Trois labels alignés sur le début, le milieu et la fin de la strip.
-        // Rôle : ancrer la sparkline à des heures concrètes pour que
-        // l'utilisateur puisse répondre à "à quelle heure exactement il va
-        // pleuvoir ?" sans ouvrir le détail.
-        //
-        // On ne rend RIEN si startTime est null (cache pré-feature ou fuseau
-        // ville inconnu) — plutôt que d'afficher des heures fantaisistes.
-        //
-        // Le milieu montre l'heure de la bar 6 (soit +6h), pas +5h ou +7h,
-        // parce que c'est la borne "au milieu de la fenêtre" qui a le plus de
-        // sens narratif pour l'utilisateur. Fin = +11h (dernière bar), pas +12h
-        // (qui serait la première hors fenêtre).
-        if (startTime != null) {
-            Spacer(Modifier.height(2.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth().testTag(TAG_MINI_FORECAST_ANCHORS),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = startTime.format(hourFormatter),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = onSurfaceVariant
-                )
-                Text(
-                    text = startTime.plusHours(6).format(hourFormatter),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = onSurfaceVariant
-                )
-                Text(
-                    text = startTime.plusHours(11).format(hourFormatter),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = onSurfaceVariant
-                )
+                    drawContext.canvas.nativeCanvas.drawText(
+                        startTime.plusHours(index.toLong()).format(hourFormatter),
+                        x + cellWidth / 2f,
+                        hourBaseline,
+                        hourPaint
+                    )
+                }
+
+                if (temp != null) {
+                    temperaturePaint.color = contentColor.toArgb()
+                    val metrics = temperaturePaint.fontMetrics
+                    val centerY = with(density) { 20.dp.toPx() }
+                    val baseline = centerY - (metrics.ascent + metrics.descent) / 2f
+
+                    drawContext.canvas.nativeCanvas.drawText(
+                        "${temp.roundToInt()}°",
+                        x + cellWidth / 2f,
+                        baseline,
+                        temperaturePaint
+                    )
+                }
+
+                val probability = hourlyPrecipProb.getOrNull(index)
+                if (probability != null && probability >= 30) {
+                    val fraction = ((probability.coerceIn(30, 100) - 30) / 70f)
+                        .coerceIn(0f, 1f)
+                    val radius = with(density) {
+                        (1.5f + 1.0f * fraction).dp.toPx()
+                    }
+                    drawCircle(
+                        color = precipColor.copy(alpha = 0.72f + 0.28f * fraction),
+                        center = Offset(x + cellWidth / 2f, precipY),
+                        radius = radius
+                    )
+                }
             }
         }
     }
@@ -243,13 +203,14 @@ private fun buildA11yLabel(
     val maxT = nonNull.maxOrNull()?.roundToInt()
     val rainHours = precipProbs.count { it != null && it >= 30 }
 
-    // 4 templates de description selon les données présentes.
     return when {
         minT == null || maxT == null -> stringResource(R.string.mini_forecast_a11y_no_data)
         rainHours == 0 -> stringResource(R.string.mini_forecast_a11y_no_rain, minT, maxT)
         else -> stringResource(R.string.mini_forecast_a11y_with_rain, minT, maxT, rainHours)
     }
 }
+
+private val TIME_ANCHOR_INDICES = setOf(0, 4, 7, 11)
 
 internal const val TAG_MINI_FORECAST_STRIP = "mini_forecast_strip"
 internal const val TAG_MINI_FORECAST_ANCHORS = "mini_forecast_anchors"
