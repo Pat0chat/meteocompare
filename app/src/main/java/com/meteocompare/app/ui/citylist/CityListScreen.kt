@@ -66,7 +66,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
@@ -357,61 +359,68 @@ internal fun CityCard(
                 contentDescription = a11yDescription
                 role = Role.Button
             },
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        // Trait supérieur météo : plus léger qu'une barre latérale et plus
-        // cohérent avec les grandes cartes Material 3 arrondies.
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(5.dp)
-                .background(accentColor)
-        )
-
-        Column(modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp)) {
-            CityCardHeader(
-                city = state.city,
-                sunrise = loaded?.sunrise,
-                sunset = loaded?.sunset,
-                onRemove = onRemove
-            )
-
-            AnimatedContent(
-                targetState = state.forecast,
-                transitionSpec = { fadeIn(tween(260)) togetherWith fadeOut(tween(220)) },
-                label = "forecast-state",
-                contentKey = {
-                    when (it) {
-                        ForecastState.Loading -> "loading"
-                        is ForecastState.Loaded -> "loaded"
-                        is ForecastState.Error -> "error"
-                    }
+                .drawBehind {
+                    drawRect(
+                        color = accentColor,
+                        size = Size(
+                            width = 4.dp.toPx(),
+                            height = size.height
+                        )
+                    )
                 }
-            ) { forecast ->
-                when (forecast) {
-                    ForecastState.Loading -> CityCardLoading()
-                    is ForecastState.Loaded -> CityCardLoaded(
-                        today = forecast.today,
-                        currentTemp = forecast.currentTemp,
-                        currentCondition = forecast.currentCondition,
-                        currentCloudCover = forecast.currentCloudCover,
-                        fetchedAt = forecast.fetchedAt,
-                        next12hTemps = forecast.next12hTemps,
-                        next12hPrecipProb = forecast.next12hPrecipProb,
-                        next12hScenarios = forecast.next12hScenarios,
-                        hourlyStartTime = forecast.hourlyStartTime,
-                        accentColor = accentColor
-                    )
-                    is ForecastState.Error -> CityCardError(
-                        message = forecast.message
-                            ?: forecast.messageRes?.let { stringResource(it) }
-                            ?: stringResource(R.string.error_unknown),
-                        onRetry = onRetry
-                    )
+        ) {
+
+            Column(modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp)) {
+                CityCardHeader(
+                    city = state.city,
+                    sunrise = loaded?.sunrise,
+                    sunset = loaded?.sunset,
+                    onRemove = onRemove
+                )
+
+                AnimatedContent(
+                    targetState = state.forecast,
+                    transitionSpec = { fadeIn(tween(260)) togetherWith fadeOut(tween(220)) },
+                    label = "forecast-state",
+                    contentKey = {
+                        when (it) {
+                            ForecastState.Loading -> "loading"
+                            is ForecastState.Loaded -> "loaded"
+                            is ForecastState.Error -> "error"
+                        }
+                    }
+                ) { forecast ->
+                    when (forecast) {
+                        ForecastState.Loading -> CityCardLoading()
+                        is ForecastState.Loaded -> CityCardLoaded(
+                            today = forecast.today,
+                            currentTemp = forecast.currentTemp,
+                            currentCondition = forecast.currentCondition,
+                            currentCloudCover = forecast.currentCloudCover,
+                            fetchedAt = forecast.fetchedAt,
+                            next12hTemps = forecast.next12hTemps,
+                            next12hPrecipProb = forecast.next12hPrecipProb,
+                            next12hScenarios = forecast.next12hScenarios,
+                            hourlyStartTime = forecast.hourlyStartTime,
+                            accentColor = accentColor
+                        )
+
+                        is ForecastState.Error -> CityCardError(
+                            message = forecast.message
+                                ?: forecast.messageRes?.let { stringResource(it) }
+                                ?: stringResource(R.string.error_unknown),
+                            onRetry = onRetry
+                        )
+                    }
                 }
             }
         }
