@@ -23,6 +23,7 @@ Depuis la v1.0, l'app suit aussi **le biais historique de chaque modèle sur cha
 
 - **Comparaison multi-modèles** : jusqu'à 17 modèles météo (Météo-France, DWD, NOAA, ECMWF, UK Met Office, ECCC, MET Norway, KNMI, BOM, CMA, plus le modèle IA d'ECMWF)
 - **Indice d’accord inter-modèles** calculé par variable (température, vent, précipitations) et par heure ; il décrit le spread des scénarios et n’est pas une probabilité de justesse
+- **Résumé « Aujourd’hui » enrichi** : quatre mini-cartes homogènes (température min/max, précipitations, vent) affichent la moyenne des modèles, la plage prévue, la dispersion utile, les rafales lorsqu’elles existent et le niveau d’accord par variable
 - **Page "Pourquoi cette confiance ?"** — clic sur le badge de confiance ouvre une explication détaillée : qui a prédit quoi, quel écart, pourquoi la résolution du modèle compte
 - **Suivi de biais par modèle et par ville** — chaque modèle est confronté à une réanalyse historique Open-Meteo sur ses prévisions J+1 passées. Trois pastilles : biais systématique significatif, biais signé faible, ou historique encore insuffisant. La sheet 30 jours compare prévision et référence avec moyenne, écart-type et contexte méthodologique
 - **Bande de confiance horaire multi-métriques** : sélecteur segmenté à 3 états pour basculer entre température, précipitations et vent — la bande se recalcule instantanément (précalcul dans le ViewModel). Graphique min-max autour de la moyenne pondérée qui s'élargit visuellement quand les modèles divergent
@@ -32,7 +33,10 @@ Depuis la v1.0, l'app suit aussi **le biais historique de chaque modèle sur cha
 - **Tableau Jour × Modèle** des conditions météo (icônes) et températures max/min, avec badges "%" indiquant la couverture nuageuse (cellules nuageuses/couvertes) ou la probabilité de pluie (cellules pluvieuses)
 - **Direction du vent** : flèches *downwind* dans les tableaux vent quand la vitesse dépasse 5 km/h (au-dessous, la direction est du bruit)
 - **Icônes de temps** synthétisées à partir des codes WMO 4677, dont un composite bi-color soleil + nuage pour "partiellement nuageux"
-- **Fraîcheur des données** affichée sur chaque carte : "Mis à jour à l'instant", "il y a 5 min", etc. — auto-rafraîchi au fil du temps
+- **"Fraîcheur" des données** affichée sur chaque carte : "Mis à jour à l'instant", "il y a 5 min", etc. — auto-rafraîchi au fil du temps
+- **Cartes Home compactes** : accent météo vertical sur le bord gauche, métriques resserrées, pastille « N scénarios » repliable et information de mise à jour réunies sur une seule ligne
+- **Heatmap 12 h intégrée aux cartes Home** : 12 cellules thermiques continues avec température par heure, trois repères horaires directement dans la bande et marqueur de pluie à partir de 30 %, sans ajouter une ligne supplémentaire sous la heatmap
+- **Chronologie visuelle sur la page détail** : timeline compacte des prochaines échéances avec heatmap de température, pluie, vent, accord inter-modèles et mise en évidence des changements significatifs
 - **Highlight du jour courant** (et de l'heure courante en mode hourly) dans tous les tableaux
 - **Widgets écran d'accueil** (Glance) redimensionnables 2×1 / 3×1 / 4×1 / 4×2, avec en 4×2 le choix entre 4 prochaines heures, 4 prochains jours, ou une mini bande de confiance (T° / pluie / vent) avec valeurs par jour
 - **Tri des modèles dans les Settings** par zone / famille / finesse
@@ -50,6 +54,7 @@ Depuis la v1.0, l'app suit aussi **le biais historique de chaque modèle sur cha
 - **Retrofit + OkHttp + Kotlinx Serialization** pour la couche réseau
 - **Room** pour le cache local (forecasts, repères climatiques 10 ans)
 - **DataStore Preferences** pour les favoris et paramètres
+- **SharedPreferences dédié** pour la langue de l’app, utilisée comme source persistée unique par l’application et les widgets
 - **Glance** pour les widgets
 - Architecture **UI → ViewModel → Repository → API**, un-way data flow
 
@@ -59,7 +64,7 @@ Depuis la v1.0, l'app suit aussi **le biais historique de chaque modèle sur cha
 app/src/main/java/com/meteocompare/app/
 ├── di/              ← Modules Hilt (Network, Repository, Dispatchers)
 ├── core/
-│   ├── locale/      ← Helper applyPersistedLocale — source unique pour app + widgets
+│   ├── locale/      ← LocaleUtils / applyPersistedLocale — SharedPreferences dédié, source unique app + widgets
 │   └── network/     ← ApiResult, NetworkMonitor, error mapping
 ├── data/
 │   ├── remote/      ← Interfaces Retrofit + DTOs + BatchedForecastSplitter
@@ -78,7 +83,7 @@ app/src/main/java/com/meteocompare/app/
 │                      FetchBiasObservationsUseCase, BootstrapBiasHistoryUseCase,
 │                      weighting strategies
 ├── ui/
-│   ├── citylist/    ← Liste des villes favorites (accueil)
+│   ├── citylist/    ← Accueil : cartes favorites compactes, scénarios repliables, heatmap 12 h
 │   ├── citydetail/  ← Détail d'une ville : cartes, chart, tableaux
 │   │   └── confidence/  ← Écran "Pourquoi cette confiance ?"
 │   ├── settings/    ← Paramètres (modèles avec tri, thème, langue)
@@ -155,6 +160,8 @@ val matrix: List<DayConditionsRow> = calculator.dailyConditionsByModel(forecast)
 
 `DayConditionsRow.extrasByModel` porte les métadonnées par cellule (probabilité de pluie max journalière, couverture nuageuse moyenne journalière) qui alimentent les badges "%" sous les icônes.
 
+La **TodaySummaryCard** conserve un résumé immédiatement lisible mais détaille désormais chaque variable dans quatre mini-cartes de même hauteur. La valeur centrale correspond à la moyenne inter-modèles ; les informations secondaires explicitent la plage, le spread, les rafales éventuelles ou la répartition des scénarios de pluie, avec l’accord propre à la variable.
+
 **Bande de confiance multi-métriques** : le composant `ConfidenceBandSection` encapsule un sélecteur segmenté à 3 états (Température / Précipitations / Vent) au-dessus d'un graphe unique. Les 3 séries de bandes sont pré-calculées dans le ViewModel — la transition entre métriques est instantanée. Chaque bande superpose l'overlay des **repères ERA5 sur 10 ans** (traits pointillés colorés par métrique) chargées depuis l'API archive d'Open-Meteo et cachées 180 jours dans Room. Le graphique est **zoomable au pincement** sur l'axe temps (pinch à 2 doigts + pan) et **réinitialisable au double-tap**.
 
 Les seuils actuels sont des **heuristiques de présentation**, pas une calibration scientifique ni une probabilité de justesse. Une future calibration prédictive devrait s’appuyer sur un corpus de vérification par variable, zone et échéance.
@@ -165,10 +172,10 @@ Un clic sur le badge de confiance (en haut à droite de la carte "Aujourd'hui") 
 
 1. **Résumé du jour** avec verdict en langage naturel ("les modèles convergent fortement", "désaccord significatif"…)
 2. **Une carte par variable** (température max, min, précipitations, vent) montrant :
-   - Le résumé inter-modèles (valeur unique si convergence, plage si dispersion)
-   - Le tableau modèle par modèle avec code couleur identique aux graphes de comparaison
-   - La résolution de chaque modèle contribuant à ce jour
-   - Une phrase d'interprétation qui traduit les chiffres en sens
+    - Le résumé inter-modèles (valeur unique si convergence, plage si dispersion)
+    - Le tableau modèle par modèle avec code couleur identique aux graphes de comparaison
+    - La résolution de chaque modèle contribuant à ce jour
+    - Une phrase d'interprétation qui traduit les chiffres en sens
 3. **Section éducative "Pourquoi les modèles diffèrent ?"** : paragraphe pédagogique sur la résolution + tableau des modèles ayant réellement contribué + astuce AROME HD vs GFS/ECMWF
 
 ## Suivi de biais par modèle
@@ -203,11 +210,11 @@ Widget Glance redimensionnable en 4 tailles :
 - **3×1** : + nom de la ville
 - **4×1** : + min/max du jour
 - **4×2** : + une ligne du bas configurable parmi 5 modes :
-  - 4 prochaines heures (comportement historique, défaut)
-  - 4 prochains jours
-  - Mini bande de confiance **température** avec valeurs par jour
-  - Mini bande de confiance **précipitations** avec valeurs par jour
-  - Mini bande de confiance **vent** avec valeurs par jour
+    - 4 prochaines heures (comportement historique, défaut)
+    - 4 prochains jours
+    - Mini bande de confiance **température** avec valeurs par jour
+    - Mini bande de confiance **précipitations** avec valeurs par jour
+    - Mini bande de confiance **vent** avec valeurs par jour
 
 Les modes confidence rendent une heatmap horizontale colorée par la confiance sur 7 jours, avec sous chaque cellule la valeur agrégée et le jour de la semaine. C'est le rendu widget de la bande de confiance de l'écran détail.
 
@@ -295,7 +302,7 @@ Fait :
 - ✅ v1.5.1 — Uniformisation des tableaux, amélioration des tailles texte / icône dans les widgets, correction de bugs
 - ✅ v1.6 — Section chronologie et "A retenir", correction de bugs
 - ✅ v1.6.1 -> v1.6.4 — Amélioration des sections chronologie et "A retenir", ajout d'un widget "A retenir", correction de bugs
-- ✅ v1.7.0 — Refonte des interfaces, ajout de la donnée "rafale", correction du calcul sunrise / sunset, correction de bugs
+- ✅ v1.7.0 — Refonte des interfaces, ajout de la donnée « rafale », ajout des scénarios, correction du calcul sunrise / sunset, TodaySummary enrichie, cartes Home compactées avec scénarios repliables et nouvelle heatmap 12 h, correction de bugs
 
 À venir :
 
