@@ -43,6 +43,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.WeatherCondition
+import com.meteocompare.app.domain.model.ForecastEvolutionHighlight
+import com.meteocompare.app.domain.model.ForecastEvolutionTrend
+import com.meteocompare.app.domain.model.ForecastEvolutionVariable
 import com.meteocompare.app.ui.theme.precipitationMetricAccent
 import com.meteocompare.app.ui.theme.temperatureMetricAccent
 import com.meteocompare.app.ui.theme.windMetricAccent
@@ -53,12 +56,13 @@ import kotlin.math.roundToInt
 internal fun ForecastInsightsSection(
     insights: List<ForecastInsight>,
     timezone: String?,
+    evolutionHighlight: ForecastEvolutionHighlight? = null,
     modifier: Modifier = Modifier,
     modelCount: Int? = null,
     referencePoint: SimplifiedTimelinePoint? = null,
     onInsightClick: ((ForecastInsight) -> Unit)? = null
 ) {
-    if (insights.isEmpty()) return
+    if (insights.isEmpty() && evolutionHighlight == null) return
 
     Surface(
         modifier = modifier
@@ -77,12 +81,13 @@ internal fun ForecastInsightsSection(
                 availableModelCount = modelCount
             )
 
-            val stableOnly = insights.size == 1 &&
+            val stableOnly = evolutionHighlight == null && insights.size == 1 &&
                 insights.first().kind == ForecastInsightKind.HIGH_AGREEMENT
             if (stableOnly) {
                 StableInsightRow(insight = insights.first())
             } else {
-                insights.forEach { insight ->
+                evolutionHighlight?.let { EvolutionHighlightRow(it) }
+                insights.take(if (evolutionHighlight != null) 2 else 3).forEach { insight ->
                     ForecastInsightRow(
                         insight = insight,
                         timezone = timezone,
@@ -94,7 +99,7 @@ internal fun ForecastInsightsSection(
                 }
             }
 
-            if (onInsightClick != null && !stableOnly) {
+            if (onInsightClick != null && !stableOnly && insights.isNotEmpty()) {
                 HorizontalDivider(
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
                 )
@@ -299,6 +304,83 @@ private fun ForecastInsightRow(
             }
         }
     }
+}
+
+@Composable
+private fun EvolutionHighlightRow(highlight: ForecastEvolutionHighlight) {
+    val color = when (highlight.variable) {
+        ForecastEvolutionVariable.TEMPERATURE -> temperatureMetricAccent()
+        ForecastEvolutionVariable.PRECIPITATION -> precipitationMetricAccent()
+        ForecastEvolutionVariable.WIND -> windMetricAccent()
+    }
+    val icon = when (highlight.variable) {
+        ForecastEvolutionVariable.TEMPERATURE -> Icons.Outlined.Thermostat
+        ForecastEvolutionVariable.PRECIPITATION -> Icons.Outlined.WaterDrop
+        ForecastEvolutionVariable.WIND -> Icons.Outlined.Air
+    }
+    val title = stringResource(evolutionHighlightTitle(highlight))
+    val date = highlight.targetDate.format(DateTimeFormatter.ofPattern("EEE d"))
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(color.copy(alpha = 0.07f), RoundedCornerShape(13.dp))
+            .padding(horizontal = 12.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .background(color.copy(alpha = 0.14f), RoundedCornerShape(12.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(19.dp))
+        }
+        Spacer(Modifier.width(11.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f)
+                )
+                InsightTimeChip(time = date, color = color)
+            }
+            val detail = if (highlight.trend == ForecastEvolutionTrend.VOLATILE) {
+                stringResource(
+                    R.string.forecast_evolution_highlight_detail_volatile,
+                    highlight.comparedModels,
+                    highlight.previousDaysAgo
+                )
+            } else {
+                stringResource(
+                    R.string.forecast_evolution_highlight_detail,
+                    highlight.dominantModels,
+                    highlight.comparedModels,
+                    highlight.previousDaysAgo
+                )
+            }
+            Text(
+                text = detail,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+        }
+    }
+}
+
+private fun evolutionHighlightTitle(highlight: ForecastEvolutionHighlight): Int = when {
+    highlight.trend == ForecastEvolutionTrend.VOLATILE -> R.string.forecast_evolution_highlight_volatile
+    highlight.variable == ForecastEvolutionVariable.TEMPERATURE &&
+        highlight.trend == ForecastEvolutionTrend.INCREASING -> R.string.forecast_evolution_highlight_temp_up
+    highlight.variable == ForecastEvolutionVariable.TEMPERATURE -> R.string.forecast_evolution_highlight_temp_down
+    highlight.variable == ForecastEvolutionVariable.PRECIPITATION &&
+        highlight.trend == ForecastEvolutionTrend.INCREASING -> R.string.forecast_evolution_highlight_precip_up
+    highlight.variable == ForecastEvolutionVariable.PRECIPITATION -> R.string.forecast_evolution_highlight_precip_down
+    highlight.variable == ForecastEvolutionVariable.WIND &&
+        highlight.trend == ForecastEvolutionTrend.INCREASING -> R.string.forecast_evolution_highlight_wind_up
+    else -> R.string.forecast_evolution_highlight_wind_down
 }
 
 @Composable

@@ -5,10 +5,12 @@ import com.meteocompare.app.data.repository.BiasSampleRepositoryImpl
 import com.meteocompare.app.data.repository.CityRepositoryImpl
 import com.meteocompare.app.data.repository.ClimateNormalsRepositoryImpl
 import com.meteocompare.app.data.repository.ForecastRepositoryImpl
+import com.meteocompare.app.data.repository.ForecastEvolutionRepositoryImpl
 import com.meteocompare.app.domain.repository.BiasSampleRepository
 import com.meteocompare.app.domain.repository.CityRepository
 import com.meteocompare.app.domain.repository.ClimateNormalsRepository
 import com.meteocompare.app.domain.repository.ForecastRepository
+import com.meteocompare.app.domain.repository.ForecastEvolutionRepository
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
 import com.meteocompare.app.domain.usecase.EqualWeighting
 import com.meteocompare.app.domain.usecase.ModelWeightingStrategy
@@ -25,6 +27,12 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindForecastRepository(impl: ForecastRepositoryImpl): ForecastRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindForecastEvolutionRepository(
+        impl: ForecastEvolutionRepositoryImpl
+    ): ForecastEvolutionRepository
 
     @Binds
     @Singleton

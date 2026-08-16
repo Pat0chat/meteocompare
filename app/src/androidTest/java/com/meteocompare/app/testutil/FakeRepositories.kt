@@ -17,6 +17,8 @@ import com.meteocompare.app.domain.repository.BiasSampleRepository
 import com.meteocompare.app.domain.repository.CityRepository
 import com.meteocompare.app.domain.repository.ClimateNormalsRepository
 import com.meteocompare.app.domain.repository.ForecastRepository
+import com.meteocompare.app.domain.repository.ForecastEvolutionRepository
+import com.meteocompare.app.domain.repository.PreviousForecastEvolutionData
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -115,6 +117,41 @@ class FakeForecastRepository @Inject constructor() : ForecastRepository {
 
     private fun streamFor(city: City): MutableStateFlow<ApiResult<CityForecast>> =
         streams.getOrPut(city.id) { MutableStateFlow(ApiResult.Success(TestFixtures.forecast(city))) }
+}
+
+@Singleton
+class FakeForecastEvolutionRepository @Inject constructor() : ForecastEvolutionRepository {
+    var result: ApiResult<PreviousForecastEvolutionData> = ApiResult.Success(
+        PreviousForecastEvolutionData(
+            samples = emptyList(),
+            fetchedAt = null,
+            fromCache = false
+        )
+    )
+
+    val requests = mutableListOf<String>()
+
+    override suspend fun getPreviousForecasts(
+        city: City,
+        models: List<WeatherModel>,
+        startDate: LocalDate,
+        endDate: LocalDate,
+        forceRefresh: Boolean
+    ): ApiResult<PreviousForecastEvolutionData> {
+        requests += city.id
+        return result
+    }
+
+    fun reset() {
+        result = ApiResult.Success(
+            PreviousForecastEvolutionData(
+                samples = emptyList(),
+                fetchedAt = null,
+                fromCache = false
+            )
+        )
+        requests.clear()
+    }
 }
 
 @Singleton

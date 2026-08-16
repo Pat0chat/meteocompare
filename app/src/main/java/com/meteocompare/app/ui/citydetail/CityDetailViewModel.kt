@@ -24,14 +24,17 @@ import com.meteocompare.app.domain.repository.BiasSampleRepository
 import com.meteocompare.app.domain.repository.CityRepository
 import com.meteocompare.app.domain.repository.ClimateNormalsRepository
 import com.meteocompare.app.domain.repository.ForecastRepository
+import com.meteocompare.app.domain.repository.ForecastEvolutionRepository
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
 import com.meteocompare.app.domain.usecase.ComputeBiasUseCase
+import com.meteocompare.app.domain.usecase.ComputeForecastEvolutionUseCase
 import com.meteocompare.app.domain.usecase.ConfidenceCalculator
 import com.meteocompare.app.ui.navigation.Destinations
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.BufferOverflow
@@ -85,6 +88,8 @@ class CityDetailViewModel @Inject constructor(
     private val userPreferences: UserPreferencesRepository,
     private val biasSampleRepository: BiasSampleRepository,
     private val computeBias: ComputeBiasUseCase,
+    private val forecastEvolutionRepository: ForecastEvolutionRepository,
+    private val computeForecastEvolution: ComputeForecastEvolutionUseCase,
     private val clock: Clock,
     @param:DefaultDispatcher private val computationDispatcher: CoroutineDispatcher = Dispatchers.Default
 ) : ViewModel() {
@@ -104,6 +109,11 @@ class CityDetailViewModel @Inject constructor(
 
     private val _isOnline = MutableStateFlow(networkMonitor.isOnline())
     val isOnline: StateFlow<Boolean> = _isOnline.asStateFlow()
+
+    private val _evolutionState = MutableStateFlow<ForecastEvolutionState>(ForecastEvolutionState.Idle)
+    val evolutionState: StateFlow<ForecastEvolutionState> = _evolutionState.asStateFlow()
+    private var evolutionJob: Job? = null
+    private var evolutionRequestKey: String? = null
 
     // Channel des feedbacks refresh — capacity 1 + DROP_OLDEST : si l'utilisateur
     // spam le bouton refresh, on ne fait que montrer le dernier résultat plutôt
@@ -418,7 +428,7 @@ class CityDetailViewModel @Inject constructor(
                     models = models,
                     forecastDays = 7
                 )
-                applyResult(result)
+                applyResult(result, forceEvolutionRefresh = result is ApiResult.Success)
                 // Feedback explicite : succès si la requête a abouti, erreur sinon.
                 // Le repo retourne déjà Success même avec des erreurs partielles
                 // (philosophie tolerant aggregation) — on lit le résultat brut.
@@ -454,7 +464,10 @@ class CityDetailViewModel @Inject constructor(
     private suspend fun findCity(): City? =
         cityRepository.observeFavorites().first().firstOrNull { it.id == cityId }
 
-    private suspend fun applyResult(result: ApiResult<CityForecast>) = resultMutex.withLock {
+    private suspend fun applyResult(
+        result: ApiResult<CityForecast>,
+        forceEvolutionRefresh: Boolean = false
+    ) = resultMutex.withLock {
         val previous = _state.value
 
         // Le chargement initial, un refresh manuel local et le signal partagé
@@ -505,6 +518,73 @@ class CityDetailViewModel @Inject constructor(
             }
         }
         _state.value = next
+        if (next is CityDetailUiState.Loaded) {
+            launchEvolutionLoad(next.forecast, forceRefresh = forceEvolutionRefresh)
+        }
+    }
+
+    private fun launchEvolutionLoad(forecast: CityForecast, forceRefresh: Boolean) {
+        val today = clock.instant().localDateIn(forecast.city.timezone)
+        val dates = forecast.seriesByModel.values.asSequence()
+            .flatMap { it.daily.dates.asSequence() }
+            .filter { !it.isBefore(today) }
+            .distinct()
+            .sorted()
+            .take(EVOLUTION_FORECAST_DAYS)
+            .toList()
+        if (dates.isEmpty() || forecast.availableModels.isEmpty()) {
+            _evolutionState.value = ForecastEvolutionState.Unavailable
+            return
+        }
+        val key = buildString {
+            append(forecast.city.id)
+            append('|')
+            append(forecast.availableModels.joinToString(",") { it.name })
+            append('|')
+            append(dates.first())
+            append('|')
+            append(dates.last())
+            append('|')
+            append(forecast.fetchedAt)
+        }
+        if (!forceRefresh && evolutionRequestKey == key &&
+            _evolutionState.value is ForecastEvolutionState.Loaded
+        ) return
+
+        evolutionRequestKey = key
+        evolutionJob?.cancel()
+        evolutionJob = viewModelScope.launch {
+            _evolutionState.value = ForecastEvolutionState.Loading
+            when (val result = forecastEvolutionRepository.getPreviousForecasts(
+                city = forecast.city,
+                models = forecast.availableModels,
+                startDate = dates.first(),
+                endDate = dates.last(),
+                forceRefresh = forceRefresh
+            )) {
+                is ApiResult.Success -> {
+                    val report = withContext(computationDispatcher) {
+                        computeForecastEvolution(
+                            currentForecast = forecast,
+                            previousSamples = result.data.samples,
+                            fetchedAt = result.data.fetchedAt,
+                            fromCache = result.data.fromCache
+                        )
+                    }
+                    if (report.hasUsableData) {
+                        val highlight = withContext(computationDispatcher) {
+                            computeForecastEvolution.buildHighlight(report, today)
+                        }
+                        _evolutionState.value = ForecastEvolutionState.Loaded(report, highlight)
+                    } else {
+                        _evolutionState.value = ForecastEvolutionState.Unavailable
+                    }
+                }
+                is ApiResult.Error -> {
+                    _evolutionState.value = ForecastEvolutionState.Error(result.message)
+                }
+            }
+        }
     }
 
     companion object {
@@ -514,5 +594,6 @@ class CityDetailViewModel @Inject constructor(
          * (35 jours, marge de 5 sur les 30 utilisés ici).
          */
         private const val BIAS_WINDOW_DAYS: Int = 30
+        private const val EVOLUTION_FORECAST_DAYS: Int = 7
     }
 }

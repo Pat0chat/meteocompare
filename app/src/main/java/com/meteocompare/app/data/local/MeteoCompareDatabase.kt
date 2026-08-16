@@ -4,13 +4,16 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 
 /**
- * Version 4 : ajoute les tables `forecast_samples` et `observation_samples`
+ * Version 5 : ajoute `forecast_evolution_samples` pour la comparaison run-to-run.
+ * Une migration 4→5 explicite conserve le cache et l'historique de biais existants.
+ *
+ * Version 4 : ajoutait les tables `forecast_samples` et `observation_samples`
  * pour le suivi de biais par modèle météo (feature "chip de biais" sur
  * CityDetail).
  *
- * Stratégie de migration : `fallbackToDestructiveMigration` reste actif côté
- * `DatabaseModule` — Room recrée la DB en cas d'upgrade. Impact utilisateur
- * pour cette migration précise :
+ * Stratégie de migration : la transition 4→5 est explicite et non destructive.
+ * `fallbackToDestructiveMigration` reste uniquement comme compatibilité pour
+ * d'anciennes versions sans chemin de migration connu. En cas de fallback :
  *   - Caches forecast perdus → régénérés au prochain refresh (quelques
  *     secondes).
  *   - Normales climatiques perdues → re-fetchées à la première consultation
@@ -33,13 +36,15 @@ import androidx.room.RoomDatabase
         ForecastCacheEntity::class,
         ClimateNormalEntity::class,
         ForecastSampleEntity::class,
-        ObservationSampleEntity::class
+        ObservationSampleEntity::class,
+        ForecastEvolutionEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class MeteoCompareDatabase : RoomDatabase() {
     abstract fun forecastCacheDao(): ForecastCacheDao
     abstract fun climateNormalDao(): ClimateNormalDao
     abstract fun biasSampleDao(): BiasSampleDao
+    abstract fun forecastEvolutionDao(): ForecastEvolutionDao
 }

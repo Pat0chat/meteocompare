@@ -120,6 +120,7 @@ object NetworkModule {
             .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
             .build()
 
+
     @Provides
     @Singleton
     fun provideOpenMeteoApi(@ForecastRetrofit retrofit: Retrofit): OpenMeteoApi =
@@ -139,5 +140,6 @@ object NetworkModule {
     @Singleton
     fun providePreviousRunsApi(@PreviousRunsRetrofit retrofit: Retrofit): PreviousRunsApi =
         retrofit.create(PreviousRunsApi::class.java)
+
 
 }

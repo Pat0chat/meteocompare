@@ -118,6 +118,7 @@ fun CityDetailScreen(
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     val isOnline by viewModel.isOnline.collectAsStateWithLifecycle()
     val biasState by viewModel.biasState.collectAsStateWithLifecycle()
+    val evolutionState by viewModel.evolutionState.collectAsStateWithLifecycle()
     val collapsedSections by viewModel.collapsedSections.collectAsStateWithLifecycle()
     val detailViewMode by viewModel.detailViewMode.collectAsStateWithLifecycle()
     val detailContentTab by viewModel.detailContentTab.collectAsStateWithLifecycle()
@@ -152,6 +153,7 @@ fun CityDetailScreen(
         isRefreshing = isRefreshing,
         isOnline = isOnline,
         biasState = biasState,
+        evolutionState = evolutionState,
         collapsedSections = collapsedSections,
         detailViewMode = detailViewMode,
         detailContentTab = detailContentTab,
@@ -176,6 +178,7 @@ internal fun CityDetailContent(
     isRefreshing: Boolean,
     isOnline: Boolean = true,
     biasState: BiasScreenState,
+    evolutionState: ForecastEvolutionState = ForecastEvolutionState.Idle,
     collapsedSections: Set<CityDetailSection> = emptySet(),
     detailViewMode: CityDetailViewMode = CityDetailViewMode.DEFAULT,
     detailContentTab: CityDetailContentTab = CityDetailContentTab.DEFAULT,
@@ -284,6 +287,7 @@ internal fun CityDetailContent(
                         fetchedAt = s.fetchedAt,
                         isOnline = isOnline,
                         biasState = biasState,
+                        evolutionState = evolutionState,
                         collapsedSections = collapsedSections,
                         detailViewMode = detailViewMode,
                         detailContentTab = detailContentTab,
@@ -351,6 +355,7 @@ private fun LoadedView(
     fetchedAt: Instant?,
     isOnline: Boolean,
     biasState: BiasScreenState,
+    evolutionState: ForecastEvolutionState,
     collapsedSections: Set<CityDetailSection>,
     detailViewMode: CityDetailViewMode,
     detailContentTab: CityDetailContentTab,
@@ -362,6 +367,7 @@ private fun LoadedView(
 ) {
     val displayMode = detailViewMode.toDisplayMode()
     val reliabilityExpanded = CityDetailSection.CONFIDENCE !in collapsedSections
+    val evolutionExpanded = CityDetailSection.FORECAST_EVOLUTION !in collapsedSections
     // Même instant que celui utilisé par le ViewModel pour les agrégats
     // « maintenant » : résumé, chronologie et tableaux restent cohérents.
     val presentationNow = calculatedAt
@@ -370,6 +376,8 @@ private fun LoadedView(
     }
     val forecastEvents = remember(overviewTimeline) { detectForecastEvents(overviewTimeline) }
     val insights = remember(forecastEvents) { buildForecastInsights(forecastEvents) }
+    val evolutionHighlight = (evolutionState as? ForecastEvolutionState.Loaded)?.highlight
+    val hasInsightSection = insights.isNotEmpty() || evolutionHighlight != null
     val hourlyTimelinePoints = remember(forecast, presentationNow) {
         buildSimplifiedTimeline(forecast, DisplayMode.HOURLY, presentationNow)
     }
@@ -408,7 +416,7 @@ private fun LoadedView(
     // then optional insights. Keep this count in sync with the LazyColumn below.
     val timelineItemIndex = simplifiedTimelineItemIndex(
         isOnline = isOnline,
-        hasInsights = insights.isNotEmpty()
+        hasInsights = hasInsightSection
     )
     LaunchedEffect(timelineFocusRequestId) {
         if (timelineFocusRequestId > 0) {
@@ -510,10 +518,11 @@ private fun LoadedView(
             }
         }
 
-        if (insights.isNotEmpty()) {
+        if (hasInsightSection) {
             item("forecast_insights") {
                 ForecastInsightsSection(
                     insights = insights,
+                    evolutionHighlight = evolutionHighlight,
                     timezone = forecast.city.timezone,
                     modelCount = forecast.availableModels.size,
                     referencePoint = overviewTimeline.analysisPoints.firstOrNull(),
@@ -549,6 +558,21 @@ private fun LoadedView(
                     },
                     availableModes = timelineAvailableModes,
                     now = presentationNow
+                )
+            }
+        }
+
+        if (evolutionState != ForecastEvolutionState.Idle &&
+            evolutionState != ForecastEvolutionState.Unavailable &&
+            evolutionState !is ForecastEvolutionState.Error
+        ) {
+            item("forecast_evolution") {
+                ForecastEvolutionSection(
+                    state = evolutionState,
+                    expanded = evolutionExpanded,
+                    onExpandedChange = { expanded ->
+                        onSectionExpandedChange(CityDetailSection.FORECAST_EVOLUTION, expanded)
+                    }
                 )
             }
         }

@@ -74,13 +74,18 @@ class UserPreferencesRepositoryImplTest {
             collapsed = true
         )
         repository.setCityDetailSectionCollapsed(
+            cityId = "paris",
+            section = CityDetailSection.FORECAST_EVOLUTION,
+            collapsed = true
+        )
+        repository.setCityDetailSectionCollapsed(
             cityId = "lyon",
             section = CityDetailSection.PRECIPITATION,
             collapsed = true
         )
 
         assertEquals(
-            setOf(CityDetailSection.CONFIDENCE, CityDetailSection.WIND),
+            setOf(CityDetailSection.CONFIDENCE, CityDetailSection.WIND, CityDetailSection.FORECAST_EVOLUTION),
             repository.observeCollapsedCityDetailSections("paris").first()
         )
         assertEquals(
@@ -92,7 +97,7 @@ class UserPreferencesRepositoryImplTest {
         // la nouvelle instance relit les mêmes valeurs depuis DataStore.
         val recreatedRepository = UserPreferencesRepositoryImpl(context, Dispatchers.IO)
         assertEquals(
-            setOf(CityDetailSection.CONFIDENCE, CityDetailSection.WIND),
+            setOf(CityDetailSection.CONFIDENCE, CityDetailSection.WIND, CityDetailSection.FORECAST_EVOLUTION),
             recreatedRepository.observeCollapsedCityDetailSections("paris").first()
         )
 
@@ -103,7 +108,7 @@ class UserPreferencesRepositoryImplTest {
         )
 
         assertEquals(
-            setOf(CityDetailSection.WIND),
+            setOf(CityDetailSection.WIND, CityDetailSection.FORECAST_EVOLUTION),
             repository.observeCollapsedCityDetailSections("paris").first()
         )
     }

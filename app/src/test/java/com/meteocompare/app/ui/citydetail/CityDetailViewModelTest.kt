@@ -18,8 +18,11 @@ import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.repository.CityRepository
 import com.meteocompare.app.domain.repository.ClimateNormalsRepository
 import com.meteocompare.app.domain.repository.ForecastRepository
+import com.meteocompare.app.domain.repository.ForecastEvolutionRepository
+import com.meteocompare.app.domain.repository.PreviousForecastEvolutionData
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
 import com.meteocompare.app.domain.usecase.ConfidenceCalculator
+import com.meteocompare.app.domain.usecase.ComputeForecastEvolutionUseCase
 import com.meteocompare.app.domain.usecase.EqualWeighting
 import com.meteocompare.app.ui.navigation.Destinations
 import io.mockk.coEvery
@@ -82,6 +85,10 @@ class CityDetailViewModelTest {
         coEvery { observeFavorites() } returns favoritesFlow
     }
     private val forecastRepo: ForecastRepository = mockk(relaxed = true)
+    private val evolutionRepo: ForecastEvolutionRepository = mockk(relaxed = true) {
+        coEvery { getPreviousForecasts(any(), any(), any(), any(), any()) } returns
+            ApiResult.Success(PreviousForecastEvolutionData(emptyList(), testNow, true))
+    }
     private val networkMonitor: NetworkMonitor = mockk(relaxed = true) {
         every { isOnline() } answers { onlineFlow.value }
         every { observeOnline() } returns onlineFlow
@@ -130,6 +137,8 @@ class CityDetailViewModelTest {
             // testée ici (loadInitial, refresh, applyResult).
             biasSampleRepository = mockk(relaxed = true),
             computeBias = mockk(relaxed = true),
+            forecastEvolutionRepository = evolutionRepo,
+            computeForecastEvolution = ComputeForecastEvolutionUseCase(),
             clock = testClock,
             computationDispatcher = dispatcher
         )

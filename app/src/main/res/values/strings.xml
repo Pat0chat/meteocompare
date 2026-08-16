@@ -61,7 +61,16 @@
     <string name="theme_dark">Sombre</string>
     <string name="language_system">Système</string>
     <string name="language_french">Français</string>
-    <string name="language_english">English</string>
+    <string name="language_english">Anglais</string>
+    <string name="language_spanish">Espagnol</string>
+    <string name="language_german">Allemand</string>
+    <string name="language_italian">Italien</string>
+    <string name="language_system_short">SYS</string>
+    <string name="language_french_short">FR</string>
+    <string name="language_english_short">EN</string>
+    <string name="language_spanish_short">ES</string>
+    <string name="language_german_short">DE</string>
+    <string name="language_italian_short">IT</string>
 
     <!-- Today summary -->
     <string name="models_analysed_one">%d modèle analysé</string>
@@ -623,5 +632,39 @@
     <string name="home_scenario_freezing_rain">Risque de pluie verglaçante</string>
     <string name="home_scenario_thunderstorm">Scénario orageux</string>
     <string name="home_scenario_other">Autres variantes</string>
+
+
+    <!-- Comparaison run-to-run -->
+    <string name="forecast_evolution_title">Évolution de la prévision</string>
+    <string name="forecast_evolution_subtitle">Comparaison avec les prévisions d’il y a 24 / 48 / 72 h</string>
+    <string name="forecast_evolution_loading">Analyse des anciens runs…</string>
+    <string name="forecast_evolution_loading_detail">Récupération de J−1, J−2 et J−3 sans bloquer la prévision actuelle.</string>
+    <string name="forecast_evolution_view_models">Voir les modèles</string>
+    <string name="forecast_evolution_model_direction">%1$d modèles sur %2$d suivent la tendance depuis J−%3$d</string>
+    <string name="forecast_evolution_method_hint">« Actuel » correspond à la prévision live déjà chargée. Les autres points indiquent ce qui était prévu exactement 24, 48 ou 72 h avant chaque échéance. Les valeurs sont les médianes des modèles comparables ; une donnée indisponible est exclue, jamais remplacée par zéro.</string>
+    <string name="forecast_evolution_now">Actuel</string>
+    <string name="forecast_evolution_day_ago_short">J−%1$d</string>
+    <string name="forecast_evolution_sheet_title">Évolution par modèle</string>
+    <string name="forecast_evolution_sheet_subtitle">%1$s · actuel vs prévision d’il y a %2$d j</string>
+    <string name="forecast_evolution_model">Modèle</string>
+    <string name="forecast_evolution_previous">Avant</string>
+    <string name="forecast_evolution_temp_up">Scénario plus chaud</string>
+    <string name="forecast_evolution_temp_down">Scénario plus frais</string>
+    <string name="forecast_evolution_precip_up">Scénario plus humide</string>
+    <string name="forecast_evolution_precip_down">Scénario plus sec</string>
+    <string name="forecast_evolution_wind_up">Vent revu à la hausse</string>
+    <string name="forecast_evolution_wind_down">Vent revu à la baisse</string>
+    <string name="forecast_evolution_volatile">Prévision instable entre les modèles</string>
+    <string name="forecast_evolution_stable">Prévision globalement stable</string>
+    <string name="forecast_evolution_insufficient">Pas assez de modèles comparables</string>
+    <string name="forecast_evolution_highlight_temp_up">La température prévue augmente</string>
+    <string name="forecast_evolution_highlight_temp_down">La température prévue baisse</string>
+    <string name="forecast_evolution_highlight_precip_up">Le scénario pluie se renforce</string>
+    <string name="forecast_evolution_highlight_precip_down">Le scénario pluie s’atténue</string>
+    <string name="forecast_evolution_highlight_wind_up">Le scénario venteux se renforce</string>
+    <string name="forecast_evolution_highlight_wind_down">Le vent prévu s’atténue</string>
+    <string name="forecast_evolution_highlight_volatile">Les anciens runs divergent nettement</string>
+    <string name="forecast_evolution_highlight_detail">%1$d/%2$d modèles vont dans le même sens depuis J−%3$d</string>
+    <string name="forecast_evolution_highlight_detail_volatile">%1$d modèles comparables, sans direction dominante nette depuis J−%2$d</string>
 
 </resources>

@@ -60,8 +60,17 @@
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
     <string name="language_system">System</string>
-    <string name="language_french">Français</string>
+    <string name="language_french">French</string>
     <string name="language_english">English</string>
+    <string name="language_spanish">Spanish</string>
+    <string name="language_german">German</string>
+    <string name="language_italian">Italian</string>
+    <string name="language_system_short">SYS</string>
+    <string name="language_french_short">FR</string>
+    <string name="language_english_short">EN</string>
+    <string name="language_spanish_short">ES</string>
+    <string name="language_german_short">DE</string>
+    <string name="language_italian_short">IT</string>
 
     <!-- Today summary -->
     <string name="models_analysed_one">%d model analysed</string>
@@ -625,5 +634,39 @@
     <string name="home_scenario_freezing_rain">Freezing rain risk</string>
     <string name="home_scenario_thunderstorm">Thunderstorm scenario</string>
     <string name="home_scenario_other">Other variants</string>
+
+
+    <!-- Run-to-run comparison -->
+    <string name="forecast_evolution_title">Forecast evolution</string>
+    <string name="forecast_evolution_subtitle">Compared with forecasts from 24 / 48 / 72 h earlier</string>
+    <string name="forecast_evolution_loading">Analysing previous runs…</string>
+    <string name="forecast_evolution_loading_detail">Fetching D−1, D−2 and D−3 without blocking the current forecast.</string>
+    <string name="forecast_evolution_view_models">View models</string>
+    <string name="forecast_evolution_model_direction">%1$d of %2$d models follow the trend since D−%3$d</string>
+    <string name="forecast_evolution_method_hint">“Current” is the already loaded live forecast. Other points show what was forecast exactly 24, 48 or 72 hours before each valid time. Values are medians across comparable models; unavailable data is excluded, never replaced by zero.</string>
+    <string name="forecast_evolution_now">Current</string>
+    <string name="forecast_evolution_day_ago_short">D−%1$d</string>
+    <string name="forecast_evolution_sheet_title">Evolution by model</string>
+    <string name="forecast_evolution_sheet_subtitle">%1$s · current vs forecast from %2$d day(s) earlier</string>
+    <string name="forecast_evolution_model">Model</string>
+    <string name="forecast_evolution_previous">Before</string>
+    <string name="forecast_evolution_temp_up">Warmer scenario</string>
+    <string name="forecast_evolution_temp_down">Cooler scenario</string>
+    <string name="forecast_evolution_precip_up">Wetter scenario</string>
+    <string name="forecast_evolution_precip_down">Drier scenario</string>
+    <string name="forecast_evolution_wind_up">Wind revised upward</string>
+    <string name="forecast_evolution_wind_down">Wind revised downward</string>
+    <string name="forecast_evolution_volatile">Forecast unstable across models</string>
+    <string name="forecast_evolution_stable">Forecast broadly stable</string>
+    <string name="forecast_evolution_insufficient">Not enough comparable models</string>
+    <string name="forecast_evolution_highlight_temp_up">Forecast temperature is rising</string>
+    <string name="forecast_evolution_highlight_temp_down">Forecast temperature is falling</string>
+    <string name="forecast_evolution_highlight_precip_up">The rain scenario is strengthening</string>
+    <string name="forecast_evolution_highlight_precip_down">The rain scenario is weakening</string>
+    <string name="forecast_evolution_highlight_wind_up">The windy scenario is strengthening</string>
+    <string name="forecast_evolution_highlight_wind_down">Forecast wind is easing</string>
+    <string name="forecast_evolution_highlight_volatile">Previous runs diverge markedly</string>
+    <string name="forecast_evolution_highlight_detail">%1$d/%2$d models move in the same direction since D−%3$d</string>
+    <string name="forecast_evolution_highlight_detail_volatile">%1$d comparable models, with no clear dominant direction since D−%2$d</string>
 
 </resources>
