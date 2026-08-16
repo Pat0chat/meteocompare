@@ -1,0 +1,27 @@
+name: F-Droid readiness
+
+on:
+  pull_request:
+    paths:
+      - 'app/build.gradle.kts'
+      - 'fastlane/**'
+      - 'fdroid/**'
+      - 'scripts/validate-fdroid-metadata.sh'
+      - '.github/workflows/fdroid.yml'
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Validate F-Droid metadata
+        run: ./scripts/validate-fdroid-metadata.sh
+      - name: Build unsigned release APK
+        run: ./gradlew --no-daemon clean :app:assembleRelease

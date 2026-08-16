@@ -1,0 +1,19 @@
+MeteoCompare compares up to 17 weather models using Open-Meteo data, including AROME, ARPEGE, ICON, GFS, ECMWF, AIFS, UKMO, GEM, HRRR, MET Nordic, HARMONIE, ACCESS and GRAPES.
+
+Instead of hiding uncertainty behind a single forecast, MeteoCompare shows the scenarios produced by each model and how strongly they agree.
+
+Main features:
+- Multi-model weather comparison in one view.
+- Agreement indicators for temperature, precipitation and wind.
+- Rich Today summary with averages, ranges, dispersion, wind gusts and scenarios.
+- Hourly min/max envelopes to make model spread visible.
+- Compact home cards with collapsible scenarios and a 12-hour heatmap.
+- Historical model-bias tracking by city over a rolling 30-day window.
+- Ten-year climate references for additional context.
+- Resizable home-screen widgets.
+- English and French interface, light/dark themes and TalkBack accessibility.
+
+Privacy:
+MeteoCompare contains no ads, no analytics SDK and requires no account. Favorites, preferences, caches and history remain on the device. Network access is used to retrieve weather and geocoding data from Open-Meteo.
+
+MeteoCompare is free and open-source software licensed under Apache-2.0.

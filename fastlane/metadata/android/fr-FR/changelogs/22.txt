@@ -1,0 +1,1 @@
+Refonte de l’interface, ajout des rafales et des scénarios, correction du calcul lever/coucher du soleil, résumé Aujourd’hui enrichi, cartes d’accueil plus compactes avec scénarios repliables et nouvelle heatmap 12 h, ainsi que plusieurs corrections de bugs.

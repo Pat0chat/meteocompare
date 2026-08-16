@@ -1,0 +1,1 @@
+UI overhaul, wind-gust data and scenarios, sunrise/sunset calculation fix, richer Today summary, more compact Home cards with collapsible scenarios and a new 12-hour heatmap, plus multiple bug fixes.

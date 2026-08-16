@@ -1,0 +1,19 @@
+MeteoCompare compare jusqu’à 17 modèles météo à partir des données Open-Meteo, dont AROME, ARPEGE, ICON, GFS, ECMWF, AIFS, UKMO, GEM, HRRR, MET Nordic, HARMONIE, ACCESS et GRAPES.
+
+Au lieu de masquer l’incertitude derrière une prévision unique, MeteoCompare affiche les scénarios produits par chaque modèle et leur niveau d’accord.
+
+Fonctions principales :
+- Comparaison multi-modèles dans une même vue.
+- Indicateurs d’accord pour la température, les précipitations et le vent.
+- Résumé Aujourd’hui enrichi : moyennes, plages, dispersion, rafales et scénarios.
+- Enveloppes horaires min/max pour visualiser la dispersion entre modèles.
+- Cartes d’accueil compactes avec scénarios repliables et heatmap sur 12 heures.
+- Suivi du biais historique des modèles par ville sur une fenêtre glissante de 30 jours.
+- Repères climatiques sur 10 ans pour remettre les prévisions en contexte.
+- Widgets d’écran d’accueil redimensionnables.
+- Interface française et anglaise, thèmes clair/sombre et accessibilité TalkBack.
+
+Vie privée :
+MeteoCompare ne contient aucune publicité, aucun SDK d’analyse et ne nécessite aucun compte. Les favoris, préférences, caches et historiques restent sur l’appareil. L’accès réseau sert à récupérer les données météo et de géocodage auprès d’Open-Meteo.
+
+MeteoCompare est un logiciel libre sous licence Apache-2.0.

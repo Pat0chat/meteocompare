@@ -1,102 +1,73 @@
-# Template pour le metadata F-Droid.
+# Initial F-Droid submission for MeteoCompare 1.7.0 (versionCode 22).
 #
-# À copier dans le repo fdroiddata sous metadata/com.meteocompare.app.yml
-# au moment de la soumission. Voir fdroid/SUBMISSION.md pour la procédure
-# complète.
+# IMPORTANT:
+# v1.7.0 was tagged before fastlane/metadata/android was added upstream.
+# Name/Summary/Description below are therefore one-time fallbacks so the first
+# submission has complete text metadata. Once a NEW tagged release contains
+# the Fastlane metadata, remove Name/Summary/Description from fdroiddata so
+# localized upstream metadata becomes authoritative.
 
 Categories:
-  - Time
-  - Science & Education
+  - Weather
 License: Apache-2.0
 AuthorName: Pat0chat
-WebSite: https://github.com/Pat0chat/MeteoCompare
 SourceCode: https://github.com/Pat0chat/MeteoCompare
 IssueTracker: https://github.com/Pat0chat/MeteoCompare/issues
 Changelog: https://github.com/Pat0chat/MeteoCompare/releases
-Donate: https://liberapay.com/Pat0chat
+Liberapay: Pat0chat
 
-# Open-Meteo est un service web tiers : la data API est gratuite, sans compte,
-# sans tracking et documentée FOSS-friendly, mais le backend server reste
-# proprietary. La pratique F-Droid pour toute app qui consomme une API météo
-# externe (BreezyWeather, Forecastie, Geometric Weather...) est d'ajouter
-# `NonFreeNet` — les reviewers l'ajouteraient de toute façon lors du review.
-# Le déclarer explicitement ici évite un cycle de review supplémentaire.
-AntiFeatures:
-  - NonFreeNet
-
-AutoName: MeteoCompare
-
-# Summary : max 80 chars, affiché dans les listings F-Droid et la home du
-# store. C'est LA phrase d'accroche — doit être auto-suffisante et vendre le
-# différenciateur produit (comparaison multi-modèles + suivi de fiabilité).
-Summary: Comparez 17 modèles météo et suivez leur fiabilité par ville
-
+Name: MeteoCompare
+Summary: Compare 17 weather models and expose forecast uncertainty
 Description: |-
-    MeteoCompare interroge en parallèle 17 modèles météorologiques de référence
-    (AROME, ARPEGE, ICON, GFS, ECMWF, UKMO, ECMWF AIFS, MET Nordic, HRRR, KNMI
-    HARMONIE, GEM, BOM, GRAPES...) et calcule un indice de confiance basé sur
-    leur convergence.
+  MeteoCompare compares up to 17 weather models using Open-Meteo data.
 
-    Plutôt que d'afficher une prévision opaque, l'application montre où les
-    modèles s'accordent et où ils divergent — la vraie information utile pour
-    planifier sereinement vos activités extérieures. L'app calibre en continu
-    chaque modèle sur votre ville (30 jours d'observations) et signale
-    visuellement les biais systématiques.
+  Instead of hiding uncertainty behind a single forecast, it shows the
+  scenarios produced by individual models and how strongly they agree.
 
-    Fonctionnalités principales :
+  Features include:
+  * Multi-model comparison for temperature, precipitation and wind
+  * Agreement indicators and min/max envelopes
+  * Wind gusts, scenarios and a 12-hour heatmap
+  * Historical model-bias tracking by city
+  * Ten-year climate references
+  * Resizable home-screen widgets
+  * English/French UI, dark mode and TalkBack accessibility
 
-    * 17 modèles météo en parallèle (7 activés par défaut, tous configurables)
-    * Indice de confiance pondéré par résolution spatiale
-    * Bande de confiance horaire zoomable sur 7 jours (température, précipitations, vent)
-    * Suivi des biais par modèle et par ville (calibration continue sur 30 jours)
-    * Mini prévision 12h par ville : heatmap de température, probabilités de pluie et ancres horaires
-    * Halo météo-adaptatif sur les cards (repérage visuel instantané entre villes)
-    * Icônes météo animées (rotation soleil, dérive nuages, chute pluie, flash orage)
-    * Sunrise/sunset locaux calculés côté client (aucun appel réseau supplémentaire)
-    * Widgets écran d'accueil redimensionnables (9 tailles, du 1×1 au 5×2) avec 6 modes d'affichage (dont mini prévision 12h)
-    * Overlay des normales climatiques 10 ans pour comparer prévision et comportement typique
-    * Cache local pour démarrage instantané et consultation offline
-    * Accessibilité TalkBack complète
+  MeteoCompare contains no ads, no analytics SDK and requires no account.
+  Favorites, preferences, caches and history stay on the device. Network
+  access is used to retrieve weather and geocoding data from Open-Meteo.
 
-    Vie privée par conception :
+  MeteoCompare is free and open-source software under Apache-2.0.
 
-    * Zéro collecte de données
-    * Aucun analytics, aucun tracking, aucune publicité
-    * Aucun identifiant publicitaire (AD_ID explicitement retiré du manifest)
-    * Deux permissions uniquement : INTERNET et ACCESS_NETWORK_STATE
-    * Aucune permission de localisation
-    * Toutes les données (favoris, cache, préférences, historique) restent sur votre appareil
-    * Seul backend interrogé : Open-Meteo (gratuit, sans compte requis)
-
-    Données fournies par Open-Meteo (https://open-meteo.com). Modèles : AROME
-    et ARPEGE par Météo-France, ICON par DWD (Allemagne), GFS et HRRR par NOAA,
-    ECMWF par le Centre Européen, UKMO par le UK Met Office, MET Nordic par
-    MET Norway, KNMI HARMONIE par KNMI (Pays-Bas), GEM par ECCC (Canada),
-    BOM ACCESS par le Bureau of Meteorology (Australie), GRAPES par CMA (Chine).
-
-    MeteoCompare est indépendant et non affilié aux services météorologiques
-    nationaux cités.
+# Open-Meteo itself is open source/self-hostable, so NonFreeNet is not used.
+# MeteoCompare currently hard-codes the public Open-Meteo endpoints; changing
+# backend requires a source change, hence TetheredNet is declared proactively.
+AntiFeatures:
+  TetheredNet:
+    en-US: Weather and geocoding data are fetched from the public Open-Meteo service; changing the backend currently requires modifying the app.
+    fr-FR: Les données météo et de géocodage proviennent du service public Open-Meteo ; changer de backend nécessite actuellement de modifier l’application.
 
 RepoType: git
 Repo: https://github.com/Pat0chat/MeteoCompare.git
 
 Builds:
-  - versionName: 1.0.0
-    versionCode: 10
-    commit: v1.0.0
+  - versionName: 1.7.0
+    versionCode: 22
+    commit: v1.7.0
     subdir: app
     gradle:
       - yes
 
-# AutoUpdateMode: Version v%v
-#   → à chaque nouveau tag `v<X.Y.Z>` matchant versionName, F-Droid génère
-#     automatiquement un nouveau bloc Builds. Le suffixe `v%v` réplique le
-#     préfixe `v` utilisé dans tes tags git (v1.0.0, v1.1.0, ...) — sans ce
-#     suffixe, F-Droid chercherait un tag "1.0.0" et échouerait.
-# UpdateCheckMode: Tags ^v
-#   → regex qui filtre les tags à ceux commençant par `v` (évite qu'un tag
-#     hors versioning comme `test-branch` déclenche une release).
-AutoUpdateMode: Version v%v
-UpdateCheckMode: Tags ^v
-CurrentVersion: 1.0.0
-CurrentVersionCode: 10
+AutoUpdateMode: Version
+UpdateCheckMode: 'Tags ^v[0-9]+\.[0-9]+\.[0-9]+$'
+CurrentVersion: 1.7.0
+CurrentVersionCode: 22
+
+MaintainerNotes: |-
+  The public Open-Meteo server software is open source and self-hostable.
+  MeteoCompare currently hard-codes Open-Meteo endpoints, therefore TetheredNet
+  is declared rather than NonFreeNet.
+
+  Upstream Fastlane metadata was added after tag v1.7.0. After the first newer
+  tag that contains fastlane/metadata/android, remove Name, Summary and
+  Description above so F-Droid uses the localized upstream metadata.
