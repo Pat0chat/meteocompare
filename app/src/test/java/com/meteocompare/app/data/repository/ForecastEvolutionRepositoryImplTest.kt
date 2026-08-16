@@ -156,7 +156,7 @@ class ForecastEvolutionRepositoryImplTest {
         return PreviousRunsResponseDto(
             latitude = city.latitude,
             longitude = city.longitude,
-            timezone = city.timezone,
+            timezone = requireNotNull(city.timezone),
             hourly = JsonObject(content)
         )
     }
