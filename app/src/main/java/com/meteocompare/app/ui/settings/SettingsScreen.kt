@@ -650,7 +650,10 @@ private fun LanguageSelector(
     val options = listOf(
         LanguagePreference.SYSTEM,
         LanguagePreference.FRENCH,
-        LanguagePreference.ENGLISH
+        LanguagePreference.ENGLISH,
+        LanguagePreference.SPANISH,
+        LanguagePreference.GERMAN,
+        LanguagePreference.ITALIAN
     )
     ModernSlidingSelector(
         options = options,
@@ -659,15 +662,30 @@ private fun LanguageSelector(
         label = { pref ->
             stringResource(
                 when (pref) {
-                    LanguagePreference.SYSTEM -> R.string.language_system
-                    LanguagePreference.FRENCH -> R.string.language_french
-                    LanguagePreference.ENGLISH -> R.string.language_english
+                    LanguagePreference.SYSTEM -> R.string.language_system_short
+                    LanguagePreference.FRENCH -> R.string.language_french_short
+                    LanguagePreference.ENGLISH -> R.string.language_english_short
+                    LanguagePreference.SPANISH -> R.string.language_spanish_short
+                    LanguagePreference.GERMAN -> R.string.language_german_short
+                    LanguagePreference.ITALIAN -> R.string.language_italian_short
                 }
             )
         },
         accent = MaterialTheme.colorScheme.primary,
         modifier = Modifier.fillMaxWidth(),
-        itemModifier = { pref -> Modifier.testTag("$TAG_SETTINGS_LANGUAGE${pref.name}") }
+        itemModifier = { pref -> Modifier.testTag("$TAG_SETTINGS_LANGUAGE${pref.name}") },
+        accessibilityLabel = { pref ->
+            stringResource(
+                when (pref) {
+                    LanguagePreference.SYSTEM -> R.string.language_system
+                    LanguagePreference.FRENCH -> R.string.language_french
+                    LanguagePreference.ENGLISH -> R.string.language_english
+                    LanguagePreference.SPANISH -> R.string.language_spanish
+                    LanguagePreference.GERMAN -> R.string.language_german
+                    LanguagePreference.ITALIAN -> R.string.language_italian
+                }
+            )
+        }
     )
 }
 

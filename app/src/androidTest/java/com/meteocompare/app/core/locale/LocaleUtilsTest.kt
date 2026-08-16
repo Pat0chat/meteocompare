@@ -65,6 +65,23 @@ class LocaleUtilsTest {
     }
 
     @Test
+    fun spanish_german_and_italian_resources_are_resolved() {
+        val expected = mapOf(
+            "es" to "Previsiones detalladas",
+            "de" to "Detaillierte Vorhersagen",
+            "it" to "Previsioni dettagliate"
+        )
+
+        expected.forEach { (tag, title) ->
+            persistLocalePreference(context, tag)
+            val localized = applyPersistedLocale(context)
+
+            assertEquals(tag, localized.resources.configuration.locales[0].language)
+            assertEquals(title, localized.getString(R.string.forecast_tables_section))
+        }
+    }
+
+    @Test
     fun persisted_language_updates_memory_cache_immediately() {
         persistLocalePreference(context, "en")
 

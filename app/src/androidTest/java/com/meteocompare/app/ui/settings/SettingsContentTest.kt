@@ -125,6 +125,26 @@ class SettingsContentTest {
         assertFalse(toggled?.second ?: true)
     }
 
+
+    @Test
+    fun spanish_german_and_italian_language_options_are_reachable() {
+        var language: LanguagePreference? = null
+        content(onLanguage = { language = it })
+
+        listOf(
+            LanguagePreference.SPANISH,
+            LanguagePreference.GERMAN,
+            LanguagePreference.ITALIAN
+        ).forEach { preference ->
+            val tag = "$TAG_SETTINGS_LANGUAGE${preference.name}"
+            scrollTo(tag)
+            composeRule.onNodeWithTag(tag)
+                .assertIsDisplayed()
+                .performClick()
+            assertEquals(preference, language)
+        }
+    }
+
     @Test
     fun last_enabled_model_cannot_be_disabled() {
         val only = WeatherModel.GFS

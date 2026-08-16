@@ -113,8 +113,8 @@ internal fun refreshPersistedLocaleCache(context: Context) {
  * Enrobe [context] avec la locale persistée canonique.
  *
  * Quand aucune langue n'est forcée, on remet aussi explicitement la locale JVM
- * par défaut sur celle du Context système. Cela corrige le cas `FR/EN → Système`
- * dans le même process : un ancien `Locale.setDefault(fr/en)` ne peut plus
+ * par défaut sur celle du Context système. Cela corrige le cas `langue forcée → Système`
+ * dans le même process : un ancien `Locale.setDefault(...)` ne peut plus
  * continuer à influencer les formatters après le retour au mode système.
  */
 fun applyPersistedLocale(context: Context): Context {

@@ -28,6 +28,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -52,7 +54,8 @@ internal fun <T> ModernSlidingSelector(
     label: @Composable (T) -> String,
     accent: Color,
     modifier: Modifier = Modifier,
-    itemModifier: (T) -> Modifier = { Modifier }
+    itemModifier: (T) -> Modifier = { Modifier },
+    accessibilityLabel: @Composable (T) -> String? = { null }
 ) {
     if (options.isEmpty()) return
 
@@ -121,8 +124,16 @@ internal fun <T> ModernSlidingSelector(
                             .padding(horizontal = 8.dp),
                         contentAlignment = Alignment.Center
                     ) {
+                        val spokenLabel = accessibilityLabel(option)
                         Text(
                             text = label(option),
+                            modifier = if (spokenLabel != null) {
+                                Modifier.clearAndSetSemantics {
+                                    contentDescription = spokenLabel
+                                }
+                            } else {
+                                Modifier
+                            },
                             style = MaterialTheme.typography.labelMedium,
                             color = contentColor,
                             fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
