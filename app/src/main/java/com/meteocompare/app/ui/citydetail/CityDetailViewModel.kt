@@ -428,7 +428,10 @@ class CityDetailViewModel @Inject constructor(
                     models = models,
                     forecastDays = 7
                 )
-                applyResult(result, forceEvolutionRefresh = result is ApiResult.Success)
+                // Un refresh réseau réussi est archivé localement par ForecastRepositoryImpl.
+                // La comparaison relit ensuite ces snapshots sans aucun appel réseau
+                // supplémentaire.
+                applyResult(result)
                 // Feedback explicite : succès si la requête a abouti, erreur sinon.
                 // Le repo retourne déjà Success même avec des erreurs partielles
                 // (philosophie tolerant aggregation) — on lit le résultat brut.
@@ -465,8 +468,7 @@ class CityDetailViewModel @Inject constructor(
         cityRepository.observeFavorites().first().firstOrNull { it.id == cityId }
 
     private suspend fun applyResult(
-        result: ApiResult<CityForecast>,
-        forceEvolutionRefresh: Boolean = false
+        result: ApiResult<CityForecast>
     ) = resultMutex.withLock {
         val previous = _state.value
 
@@ -519,11 +521,11 @@ class CityDetailViewModel @Inject constructor(
         }
         _state.value = next
         if (next is CityDetailUiState.Loaded) {
-            launchEvolutionLoad(next.forecast, forceRefresh = forceEvolutionRefresh)
+            launchEvolutionLoad(next.forecast)
         }
     }
 
-    private fun launchEvolutionLoad(forecast: CityForecast, forceRefresh: Boolean) {
+    private fun launchEvolutionLoad(forecast: CityForecast) {
         val today = clock.instant().localDateIn(forecast.city.timezone)
         val dates = forecast.seriesByModel.values.asSequence()
             .flatMap { it.daily.dates.asSequence() }
@@ -547,8 +549,9 @@ class CityDetailViewModel @Inject constructor(
             append('|')
             append(forecast.fetchedAt)
         }
-        if (!forceRefresh && evolutionRequestKey == key &&
-            _evolutionState.value is ForecastEvolutionState.Loaded
+        if (evolutionRequestKey == key &&
+            (_evolutionState.value is ForecastEvolutionState.Loaded ||
+                _evolutionState.value is ForecastEvolutionState.BuildingHistory)
         ) return
 
         evolutionRequestKey = key
@@ -560,15 +563,14 @@ class CityDetailViewModel @Inject constructor(
                 models = forecast.availableModels,
                 startDate = dates.first(),
                 endDate = dates.last(),
-                forceRefresh = forceRefresh
+                referenceAt = forecast.fetchedAt ?: clock.instant()
             )) {
                 is ApiResult.Success -> {
                     val report = withContext(computationDispatcher) {
                         computeForecastEvolution(
                             currentForecast = forecast,
                             previousSamples = result.data.samples,
-                            fetchedAt = result.data.fetchedAt,
-                            fromCache = result.data.fromCache
+                            fetchedAt = forecast.fetchedAt
                         )
                     }
                     if (report.hasUsableData) {
@@ -577,7 +579,9 @@ class CityDetailViewModel @Inject constructor(
                         }
                         _evolutionState.value = ForecastEvolutionState.Loaded(report, highlight)
                     } else {
-                        _evolutionState.value = ForecastEvolutionState.Unavailable
+                        _evolutionState.value = ForecastEvolutionState.BuildingHistory(
+                            result.data.oldestSnapshotAt
+                        )
                     }
                 }
                 is ApiResult.Error -> {

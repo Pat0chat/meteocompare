@@ -50,6 +50,8 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -88,6 +90,11 @@ internal fun ForecastEvolutionSection(
         ForecastEvolutionState.Unavailable,
         is ForecastEvolutionState.Error -> return
         ForecastEvolutionState.Loading -> EvolutionLoadingCard(expanded, onExpandedChange, modifier)
+        is ForecastEvolutionState.BuildingHistory -> EvolutionBuildingHistoryCard(
+            expanded = expanded,
+            onExpandedChange = onExpandedChange,
+            modifier = modifier
+        )
         is ForecastEvolutionState.Loaded -> {
             val report = state.report
             val usableDays = remember(report) {
@@ -136,8 +143,11 @@ internal fun ForecastEvolutionSection(
                             .testTag(TAG_FORECAST_EVOLUTION_HEADER)
                     )
 
+                    // Repliée, la carte revient toujours au premier jour utile :
+                    // autrement un jour futur sélectionné lorsqu'elle était ouverte
+                    // resterait affiché sans aucune date visible dans le résumé.
                     EvolutionCompactSummary(
-                        day = selectedDay,
+                        day = if (expanded) selectedDay else usableDays.first(),
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
                     )
 
@@ -191,6 +201,45 @@ internal fun ForecastEvolutionSection(
 }
 
 @Composable
+private fun EvolutionBuildingHistoryCard(
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+    modifier: Modifier
+) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .testTag(TAG_FORECAST_EVOLUTION_CARD),
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.55f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(modifier = Modifier.padding(vertical = 7.dp)) {
+            CollapsibleSectionHeader(
+                text = stringResource(R.string.forecast_evolution_title),
+                subtitle = stringResource(R.string.forecast_evolution_history_building),
+                expanded = expanded,
+                onToggle = { onExpandedChange(!expanded) },
+                modifier = Modifier.testTag(TAG_FORECAST_EVOLUTION_HEADER)
+            )
+            if (expanded) {
+                Text(
+                    text = stringResource(R.string.forecast_evolution_history_building_detail),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .padding(horizontal = 18.dp, vertical = 10.dp)
+                        .testTag(TAG_FORECAST_EVOLUTION_DETAILS)
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun EvolutionLoadingCard(
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
@@ -216,7 +265,9 @@ private fun EvolutionLoadingCard(
             )
             if (expanded) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp),
+                    modifier = Modifier
+                        .padding(horizontal = 18.dp, vertical = 10.dp)
+                        .testTag(TAG_FORECAST_EVOLUTION_DETAILS),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
@@ -259,9 +310,17 @@ private fun EvolutionCompactMetric(
     modifier: Modifier = Modifier
 ) {
     val accent = evolutionAccent(variable)
+    val variableName = stringResource(variableLabel(variable))
+    val trendName = stringResource(trendLabelResource(variable, trend))
+    val a11yDescription = stringResource(
+        R.string.forecast_evolution_metric_a11y,
+        variableName,
+        trendName
+    )
     Column(
         modifier = modifier
             .background(accent.copy(alpha = 0.07f), RoundedCornerShape(14.dp))
+            .clearAndSetSemantics { contentDescription = a11yDescription }
             .padding(horizontal = 7.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -349,12 +408,20 @@ private fun EvolutionAnalysis(evolution: VariableForecastEvolution) {
                 )
                 if (revision != null) {
                     Text(
-                        text = stringResource(
-                            R.string.forecast_evolution_model_direction,
-                            revision.dominantModels,
-                            revision.comparedModels,
-                            revision.previousDaysAgo
-                        ),
+                        text = if (revision.trend == ForecastEvolutionTrend.VOLATILE) {
+                            stringResource(
+                                R.string.forecast_evolution_model_direction_volatile,
+                                revision.comparedModels,
+                                revision.previousAgeHours
+                            )
+                        } else {
+                            stringResource(
+                                R.string.forecast_evolution_model_direction,
+                                revision.dominantModels,
+                                revision.comparedModels,
+                                revision.previousAgeHours
+                            )
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -431,7 +498,10 @@ private fun EvolutionSnapshotValues(evolution: VariableForecastEvolution) {
             ) {
                 Text(
                     text = if (snapshot.daysAgo == 0) stringResource(R.string.forecast_evolution_now)
-                    else stringResource(R.string.forecast_evolution_day_ago_short, snapshot.daysAgo),
+                    else stringResource(
+                        R.string.forecast_evolution_day_ago_short,
+                        snapshot.ageHours
+                    ),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
@@ -475,7 +545,7 @@ private fun ModelEvolutionSheet(
                 text = stringResource(
                     R.string.forecast_evolution_sheet_subtitle,
                     longDate(evolution.targetDate),
-                    revision.previousDaysAgo
+                    revision.previousAgeHours
                 ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -521,24 +591,26 @@ private fun ModelEvolutionSheet(
 }
 
 @Composable
-private fun trendTitle(evolution: VariableForecastEvolution): String = when (evolution.trend) {
-    ForecastEvolutionTrend.INCREASING -> stringResource(
-        when (evolution.variable) {
-            ForecastEvolutionVariable.TEMPERATURE -> R.string.forecast_evolution_temp_up
-            ForecastEvolutionVariable.PRECIPITATION -> R.string.forecast_evolution_precip_up
-            ForecastEvolutionVariable.WIND -> R.string.forecast_evolution_wind_up
-        }
-    )
-    ForecastEvolutionTrend.DECREASING -> stringResource(
-        when (evolution.variable) {
-            ForecastEvolutionVariable.TEMPERATURE -> R.string.forecast_evolution_temp_down
-            ForecastEvolutionVariable.PRECIPITATION -> R.string.forecast_evolution_precip_down
-            ForecastEvolutionVariable.WIND -> R.string.forecast_evolution_wind_down
-        }
-    )
-    ForecastEvolutionTrend.VOLATILE -> stringResource(R.string.forecast_evolution_volatile)
-    ForecastEvolutionTrend.STABLE -> stringResource(R.string.forecast_evolution_stable)
-    ForecastEvolutionTrend.INSUFFICIENT_DATA -> stringResource(R.string.forecast_evolution_insufficient)
+private fun trendTitle(evolution: VariableForecastEvolution): String =
+    stringResource(trendLabelResource(evolution.variable, evolution.trend))
+
+private fun trendLabelResource(
+    variable: ForecastEvolutionVariable,
+    trend: ForecastEvolutionTrend
+): Int = when (trend) {
+    ForecastEvolutionTrend.INCREASING -> when (variable) {
+        ForecastEvolutionVariable.TEMPERATURE -> R.string.forecast_evolution_temp_up
+        ForecastEvolutionVariable.PRECIPITATION -> R.string.forecast_evolution_precip_up
+        ForecastEvolutionVariable.WIND -> R.string.forecast_evolution_wind_up
+    }
+    ForecastEvolutionTrend.DECREASING -> when (variable) {
+        ForecastEvolutionVariable.TEMPERATURE -> R.string.forecast_evolution_temp_down
+        ForecastEvolutionVariable.PRECIPITATION -> R.string.forecast_evolution_precip_down
+        ForecastEvolutionVariable.WIND -> R.string.forecast_evolution_wind_down
+    }
+    ForecastEvolutionTrend.VOLATILE -> R.string.forecast_evolution_volatile
+    ForecastEvolutionTrend.STABLE -> R.string.forecast_evolution_stable
+    ForecastEvolutionTrend.INSUFFICIENT_DATA -> R.string.forecast_evolution_insufficient
 }
 
 private fun trendGlyph(trend: ForecastEvolutionTrend): String = when (trend) {
@@ -563,9 +635,9 @@ private fun evolutionAccent(variable: ForecastEvolutionVariable): Color = when (
 }
 
 private fun variableLabel(variable: ForecastEvolutionVariable): Int = when (variable) {
-    ForecastEvolutionVariable.TEMPERATURE -> R.string.metric_temperature
-    ForecastEvolutionVariable.PRECIPITATION -> R.string.metric_precipitation
-    ForecastEvolutionVariable.WIND -> R.string.metric_wind
+    ForecastEvolutionVariable.TEMPERATURE -> R.string.forecast_evolution_metric_temperature_max
+    ForecastEvolutionVariable.PRECIPITATION -> R.string.forecast_evolution_metric_precipitation_sum
+    ForecastEvolutionVariable.WIND -> R.string.forecast_evolution_metric_wind_max
 }
 
 private fun formatEvolutionValue(value: Double, variable: ForecastEvolutionVariable): String = when (variable) {
@@ -578,8 +650,8 @@ private fun signedEvolutionValue(value: Double, variable: ForecastEvolutionVaria
     val sign = if (value > 0) "+" else ""
     return when (variable) {
         ForecastEvolutionVariable.TEMPERATURE -> "$sign${String.format("%.1f", value)}°"
-        ForecastEvolutionVariable.PRECIPITATION -> "$sign${String.format("%.1f", value)}"
-        ForecastEvolutionVariable.WIND -> "$sign${value.roundToInt()}"
+        ForecastEvolutionVariable.PRECIPITATION -> "$sign${String.format("%.1f", value)} mm"
+        ForecastEvolutionVariable.WIND -> "$sign${value.roundToInt()} km/h"
     }
 }
 

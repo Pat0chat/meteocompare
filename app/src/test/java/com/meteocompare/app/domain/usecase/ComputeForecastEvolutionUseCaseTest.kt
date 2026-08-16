@@ -11,6 +11,7 @@ import com.meteocompare.app.domain.model.HourlyForecast
 import com.meteocompare.app.domain.model.WeatherModel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Test
 import java.time.LocalDate
 
@@ -70,6 +71,59 @@ class ComputeForecastEvolutionUseCaseTest {
         assertEquals(1, revision.stableModels)
     }
 
+
+    @Test
+    fun `all displayed snapshots use the same comparable model cohort`() {
+        val current = forecast(
+            mapOf(
+                WeatherModel.GFS to 10.0,
+                WeatherModel.ECMWF to 20.0,
+                WeatherModel.ICON_GLOBAL to 100.0
+            )
+        )
+        val previous = listOf(
+            sample(WeatherModel.GFS, 8.0, 1),
+            sample(WeatherModel.ECMWF, 18.0, 1),
+            sample(WeatherModel.ICON_GLOBAL, 90.0, 1),
+            sample(WeatherModel.GFS, 7.0, 2),
+            sample(WeatherModel.ECMWF, 17.0, 2),
+            // ICON n'existe plus à H-48 : il doit être retiré de TOUTES les médianes affichées.
+            sample(WeatherModel.GFS, 6.0, 3)
+            // H-72 ne garde qu'un modèle : ce snapshot doit être abandonné.
+        )
+
+        val evolution = useCase(current, previous)
+            .day(date)!!
+            .variables.getValue(ForecastEvolutionVariable.PRECIPITATION)
+
+        assertEquals(setOf(WeatherModel.GFS, WeatherModel.ECMWF), evolution.current.valuesByModel.keys)
+        assertEquals(15.0, evolution.current.medianValue, 0.001)
+        assertEquals(listOf(2, 1), evolution.previous.map { it.daysAgo })
+        evolution.previous.forEach { snapshot ->
+            assertEquals(setOf(WeatherModel.GFS, WeatherModel.ECMWF), snapshot.valuesByModel.keys)
+        }
+        assertEquals(13.0, evolution.previous.first { it.daysAgo == 1 }.medianValue, 0.001)
+        assertEquals(12.0, evolution.previous.first { it.daysAgo == 2 }.medianValue, 0.001)
+    }
+
+    @Test
+    fun `one comparable model is insufficient and does not create a trend`() {
+        val current = forecast(
+            mapOf(
+                WeatherModel.GFS to 10.0,
+                WeatherModel.ECMWF to 12.0
+            )
+        )
+        val previous = listOf(sample(WeatherModel.GFS, 5.0, 1))
+
+        val report = useCase(current, previous)
+
+        val day = report.day(date)
+        // La variable n'est pas publiée : avec un seul modèle, parler de consensus
+        // ou de tendance inter-modèles serait trompeur.
+        assertEquals(null, day?.variables?.get(ForecastEvolutionVariable.PRECIPITATION))
+    }
+
     @Test
     fun `large strengthening rain produces highlight`() {
         val current = forecast(models.associateWith { 18.0 })
@@ -82,6 +136,58 @@ class ComputeForecastEvolutionUseCaseTest {
         assertEquals(ForecastEvolutionVariable.PRECIPITATION, highlight!!.variable)
         assertEquals(ForecastEvolutionTrend.INCREASING, highlight.trend)
         assertEquals(3, highlight.dominantModels)
+    }
+
+
+    @Test
+    fun `changes inside precipitation stability threshold stay stable`() {
+        val current = forecast(
+            mapOf(
+                WeatherModel.GFS to 10.0,
+                WeatherModel.ECMWF to 10.0,
+                WeatherModel.ICON_GLOBAL to 10.0
+            )
+        )
+        val previous = listOf(
+            sample(WeatherModel.GFS, 9.1, 1),   // +0.9 mm
+            sample(WeatherModel.ECMWF, 10.8, 1), // -0.8 mm
+            sample(WeatherModel.ICON_GLOBAL, 10.0, 1)
+        )
+
+        val report = useCase(current, previous)
+        val revision = report
+            .day(date)!!
+            .variables.getValue(ForecastEvolutionVariable.PRECIPITATION)
+            .revision!!
+
+        assertEquals(ForecastEvolutionTrend.STABLE, revision.trend)
+        assertEquals(3, revision.stableModels)
+        assertEquals(0, revision.increasedModels)
+        assertEquals(0, revision.decreasedModels)
+        assertNull(useCase.buildHighlight(report, date))
+    }
+
+    @Test
+    fun `volatile large revisions can surface as highlight without claiming a direction`() {
+        val current = forecast(
+            mapOf(
+                WeatherModel.GFS to 10.0,
+                WeatherModel.ECMWF to 10.0,
+                WeatherModel.ICON_GLOBAL to 10.0
+            )
+        )
+        val previous = listOf(
+            sample(WeatherModel.GFS, 4.0, 1),   // +6
+            sample(WeatherModel.ECMWF, 16.0, 1), // -6
+            sample(WeatherModel.ICON_GLOBAL, 10.0, 1) // stable
+        )
+
+        val report = useCase(current, previous)
+        val highlight = useCase.buildHighlight(report, date)
+
+        assertNotNull(highlight)
+        assertEquals(ForecastEvolutionTrend.VOLATILE, highlight!!.trend)
+        assertEquals(3, highlight.comparedModels)
     }
 
     private fun sample(model: WeatherModel, value: Double, daysAgo: Int) = ForecastEvolutionSample(

@@ -37,7 +37,7 @@ object DatabaseModule {
             // (drop-and-recreate). Room 2.7+ demande le paramètre explicite pour
             // clarifier qu'on accepte de perdre AUSSI les tables non listées
             // dans le schéma actuel (cache orphelin).
-            .addMigrations(MIGRATION_4_5)
+            .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_4_6)
             .fallbackToDestructiveMigration(dropAllTables = true)
             .build()
 
@@ -57,7 +57,7 @@ object DatabaseModule {
     fun provideForecastEvolutionDao(database: MeteoCompareDatabase): ForecastEvolutionDao =
         database.forecastEvolutionDao()
 
-    /** Ajout non destructif du cache run-to-run : les données v4 restent intactes. */
+    /** Ajout du prototype v5 ; conservé pour permettre le chemin 4→5→6. */
     private val MIGRATION_4_5 = object : Migration(4, 5) {
         override fun migrate(db: SupportSQLiteDatabase) {
             db.execSQL(
@@ -84,4 +84,56 @@ object DatabaseModule {
             )
         }
     }
+
+    /**
+     * Le contenu v5 venait de Previous Runs et n'a pas la sémantique d'un
+     * historique de snapshots locaux. On recrée uniquement cette table
+     * reconstructible ; caches météo, normales et historique de biais restent
+     * intacts.
+     */
+    private val MIGRATION_5_6 = object : Migration(5, 6) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("DROP TABLE IF EXISTS `forecast_evolution_samples`")
+            createEvolutionSnapshotTable(db)
+        }
+    }
+
+
+
+    /** Les utilisateurs de la 1.7.x (DB v4) passent directement au schéma final v6. */
+    private val MIGRATION_4_6 = object : Migration(4, 6) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            createEvolutionSnapshotTable(db)
+        }
+    }
+
+    private fun createEvolutionSnapshotTable(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `forecast_evolution_samples` (
+                `cityId` TEXT NOT NULL,
+                `modelKey` TEXT NOT NULL,
+                `variable` TEXT NOT NULL,
+                `targetDateEpochDay` INTEGER NOT NULL,
+                `snapshotBucket` INTEGER NOT NULL,
+                `snapshotAtEpochMs` INTEGER NOT NULL,
+                `value` REAL NOT NULL,
+                PRIMARY KEY(`cityId`, `modelKey`, `variable`, `targetDateEpochDay`, `snapshotBucket`)
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_forecast_evolution_samples_cityId_snapshotBucket` " +
+                "ON `forecast_evolution_samples` (`cityId`, `snapshotBucket`)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_forecast_evolution_samples_snapshotAtEpochMs` " +
+                "ON `forecast_evolution_samples` (`snapshotAtEpochMs`)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_forecast_evolution_samples_cityId_targetDateEpochDay` " +
+                "ON `forecast_evolution_samples` (`cityId`, `targetDateEpochDay`)"
+        )
+    }
+
 }

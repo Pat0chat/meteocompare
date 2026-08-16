@@ -7,11 +7,10 @@ import com.meteocompare.app.domain.model.WeatherModel
 import java.time.Instant
 import java.time.LocalDate
 
-/** Snapshots Previous Runs (J−1/J−2/J−3) utilisés par le moteur run-to-run. */
-data class PreviousForecastEvolutionData(
+/** Historique local des prévisions enregistrées lors des refreshs frais de MeteoCompare. */
+data class ForecastEvolutionHistoryData(
     val samples: List<ForecastEvolutionSample>,
-    val fetchedAt: Instant?,
-    val fromCache: Boolean
+    val oldestSnapshotAt: Instant?
 )
 
 interface ForecastEvolutionRepository {
@@ -20,6 +19,6 @@ interface ForecastEvolutionRepository {
         models: List<WeatherModel>,
         startDate: LocalDate,
         endDate: LocalDate,
-        forceRefresh: Boolean = false
-    ): ApiResult<PreviousForecastEvolutionData>
+        referenceAt: Instant
+    ): ApiResult<ForecastEvolutionHistoryData>
 }

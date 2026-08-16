@@ -6,7 +6,7 @@ Cette base sépare volontairement les tests rapides JVM des tests Android instru
 
 ### Tests JVM (`app/src/test`)
 
-Ils couvrent les règles métier, les agrégations météo, le mapping réseau, les ViewModels, les widgets purs et les schedulers testables sans appareil. Ils ne doivent dépendre ni du réseau réel, ni de l'heure système non contrôlée, ni d'une base Android persistante.
+Ils couvrent les règles métier, les agrégations météo, le mapping réseau, les ViewModels, les widgets purs et les schedulers testables sans appareil. Le moteur d’évolution y vérifie notamment la sélection des snapshots locaux ~24/~48/~72 h, l’intersection des modèles comparables, les révisions, la détection des tendances et l’absence d’impact d’une erreur d’historisation sur la prévision principale. Ils ne doivent dépendre ni du réseau réel, ni de l'heure système non contrôlée, ni d'une base Android persistante.
 
 ### Tests instrumentés (`app/src/androidTest`)
 
@@ -16,9 +16,10 @@ Ils couvrent ce qui nécessite Android :
 - états et interactions Compose des écrans principaux ;
 - accessibilité et sémantique des composants météo ;
 - configuration des widgets ;
-- DAO Room avec base en mémoire ;
+- DAO Room avec base en mémoire, dont l’invariant « un snapshot cohérent par ville et tranche de 3 h » ;
 - persistance DataStore ;
-- application de la locale persistée.
+- application de la locale persistée ;
+- repli/dépli des cartes d’analyse, dont « Évolution de la prévision », sans perdre leur résumé compact.
 
 Les parcours d'application n'utilisent jamais Open-Meteo. `TestRepositoryModule` remplace les repositories de production par des fakes déterministes. Les dates de fixtures sont calculées relativement au jour d'exécution puis figées pour tout le processus de test.
 

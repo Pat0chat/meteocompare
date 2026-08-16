@@ -10,6 +10,7 @@ sealed interface ForecastEvolutionState {
         val report: ForecastEvolutionReport,
         val highlight: ForecastEvolutionHighlight?
     ) : ForecastEvolutionState
+    data class BuildingHistory(val oldestSnapshotAt: java.time.Instant?) : ForecastEvolutionState
     data object Unavailable : ForecastEvolutionState
     data class Error(val message: String?) : ForecastEvolutionState
 }

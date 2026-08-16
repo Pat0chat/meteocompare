@@ -57,6 +57,7 @@ class ForecastRepositoryImplTest {
 
     private lateinit var api: OpenMeteoApi
     private lateinit var cacheDao: ForecastCacheDao
+    private lateinit var evolutionRecorder: ForecastEvolutionRecorder
     private lateinit var repository: ForecastRepositoryImpl
     private val json = Json { ignoreUnknownKeys = true; explicitNulls = false }
 
@@ -85,6 +86,7 @@ class ForecastRepositoryImplTest {
     fun setUp() {
         api = mockk()
         cacheDao = mockk(relaxed = true)
+        evolutionRecorder = mockk(relaxed = true)
         val networkMonitor: NetworkMonitor = mockk {
             every { isOnline() } returns true
         }
@@ -99,6 +101,7 @@ class ForecastRepositoryImplTest {
             json = json,
             networkMonitor = networkMonitor,
             clock = Clock.systemUTC(),
+            evolutionRecorder = evolutionRecorder,
             context = context,
             ioDispatcher = kotlinx.coroutines.Dispatchers.Unconfined,
             computationDispatcher = kotlinx.coroutines.Dispatchers.Unconfined
@@ -125,6 +128,26 @@ class ForecastRepositoryImplTest {
 
         assertTrue(result is ApiResult.Success)
         assertEquals(paris.id, update.await().city.id)
+        coVerify(exactly = 1) { evolutionRecorder.record(any()) }
+    }
+
+
+    @Test
+    fun `evolution snapshot write failure never breaks the main forecast`() = runTest {
+        coEvery {
+            api.getForecastBatched(
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any()
+            )
+        } returns batchedResponseWith(modelsWithData = listOf(WeatherModel.GFS))
+        coEvery { evolutionRecorder.record(any()) } throws IllegalStateException("room unavailable")
+
+        val result = repository.refreshCityForecast(
+            city = paris,
+            models = listOf(WeatherModel.GFS)
+        )
+
+        assertTrue(result is ApiResult.Success)
+        coVerify(exactly = 1) { evolutionRecorder.record(any()) }
     }
 
     @Test
@@ -495,6 +518,7 @@ class ForecastRepositoryImplTest {
             coVerify(exactly = 0) {
                 api.getForecastBatched(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
             }
+            coVerify(exactly = 0) { evolutionRecorder.record(any()) }
         }
 
     @Test
@@ -613,6 +637,18 @@ class ForecastRepositoryImplTest {
         coVerify(exactly = 1) {
             api.getForecastBatched(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
         }
+    }
+
+
+    @Test
+    fun `clear cache for city also clears local forecast evolution history`() = runTest {
+        coEvery { cacheDao.deleteForCity(paris.id) } returns Unit
+        coEvery { evolutionRecorder.clearCity(paris.id) } returns Unit
+
+        repository.clearCacheForCity(paris.id)
+
+        coVerify(exactly = 1) { cacheDao.deleteForCity(paris.id) }
+        coVerify(exactly = 1) { evolutionRecorder.clearCity(paris.id) }
     }
 
     // ─────────────────────── Nouveau : gain "un seul appel API" ───────────
@@ -793,6 +829,7 @@ class ForecastRepositoryImplTest {
             json = json,
             networkMonitor = networkMonitor,
             clock = Clock.systemUTC(),
+            evolutionRecorder = evolutionRecorder,
             context = context,
             ioDispatcher = kotlinx.coroutines.Dispatchers.Unconfined,
             computationDispatcher = kotlinx.coroutines.Dispatchers.Unconfined

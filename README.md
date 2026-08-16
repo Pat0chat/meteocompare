@@ -26,6 +26,7 @@ Depuis la v1.0, l'app suit aussi **le biais historique de chaque modèle sur cha
 - **Résumé « Aujourd’hui » enrichi** : quatre mini-cartes homogènes (température min/max, précipitations, vent) affichent la moyenne des modèles, la plage prévue, la dispersion utile, les rafales lorsqu’elles existent et le niveau d’accord par variable
 - **Page "Pourquoi cette confiance ?"** — clic sur le badge de confiance ouvre une explication détaillée : qui a prédit quoi, quel écart, pourquoi la résolution du modèle compte
 - **Suivi de biais par modèle et par ville** — chaque modèle est confronté à une réanalyse historique Open-Meteo sur ses prévisions J+1 passées. Trois pastilles : biais systématique significatif, biais signé faible, ou historique encore insuffisant. La sheet 30 jours compare prévision et référence avec moyenne, écart-type et contexte méthodologique
+- **Évolution des prévisions (~24 / ~48 / ~72 h)** : chaque refresh météo frais enregistre localement un snapshot quotidien (température max, cumul de pluie, vent max), au plus une fois par tranche de 3 h et avec 5 jours de rétention. La fiche ville compare ensuite la prévision courante aux snapshots les plus proches de 24/48/72 h et affiche leur âge réel (par ex. H−25). Ce n'est pas une reconstruction des cycles 00Z/06Z/12Z/18Z d'un modèle. Les médianes gardent le même groupe de modèles comparables, les données manquantes sont exclues, les changements importants remontent dans « À retenir », et la carte repliable est mémorisée par ville. Aucun appel réseau supplémentaire n'est déclenché par cette fonctionnalité ; après installation, l'historique se construit progressivement.
 - **Bande de confiance horaire multi-métriques** : sélecteur segmenté à 3 états pour basculer entre température, précipitations et vent — la bande se recalcule instantanément (précalcul dans le ViewModel). Graphique min-max autour de la moyenne pondérée qui s'élargit visuellement quand les modèles divergent
 - **Repères climatiques 10 ans en overlay** : moyennes calendaires calculées sur la réanalyse ERA5, affichées en traits pointillés pour contextualiser température, précipitations et vent (ce ne sont pas des « normales climatiques » officielles sur 30 ans)
 - **Zoom au pincement** sur l'axe temps (double-tap pour réinitialiser)
@@ -42,7 +43,7 @@ Depuis la v1.0, l'app suit aussi **le biais historique de chaque modèle sur cha
 - **Tri des modèles dans les Settings** par zone / famille / finesse
 - **Batching multi-modèles** : les N modèles activés sont récupérés en 1 seule requête HTTPS (au lieu de N requêtes parallèles) — gain sur la latence et la batterie
 - **Modes clair/sombre**, thème dynamique Material You (Android 12+)
-- **Français + Anglais** (widgets inclus — le rendu suit la préférence app, pas la locale système)
+- **Français + Anglais + Espagnol + Allemand + Italien** (widgets inclus — le rendu suit la préférence app, pas la locale système)
 - **Aucune publicité, aucun tracker, aucune connexion sortante** hors de l'API météo
 
 ## Stack technique
@@ -303,6 +304,7 @@ Fait :
 - ✅ v1.6 — Section chronologie et "A retenir", correction de bugs
 - ✅ v1.6.1 -> v1.6.4 — Amélioration des sections chronologie et "A retenir", ajout d'un widget "A retenir", correction de bugs
 - ✅ v1.7.0 — Refonte des interfaces, ajout de la donnée « rafale », ajout des scénarios, correction du calcul sunrise / sunset, TodaySummary enrichie, cartes Home compactées avec scénarios repliables et nouvelle heatmap 12 h, correction de bugs
+- ✅ v1.8.0 — Évolution des prévisions par snapshots locaux ~24/~48/~72 h, sans requête réseau additionnelle, cohorte commune de modèles, âge réel affiché, carte repliable mémorisée par ville, détails modèle par modèle et signaux injectés dans « À retenir » ; localisation FR/EN/ES/DE/IT
 
 À venir :
 

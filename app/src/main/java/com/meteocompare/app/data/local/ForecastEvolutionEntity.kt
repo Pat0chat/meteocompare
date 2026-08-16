@@ -4,15 +4,26 @@ import androidx.room.Entity
 import androidx.room.Index
 
 /**
- * Snapshot quotidien d'un ancien run utilisé par la carte « Évolution de la prévision ».
- * Les données sont entièrement reconstructibles depuis Open-Meteo Previous Runs.
+ * Snapshot local d'une valeur journalière enregistrée lors d'un refresh frais de MeteoCompare.
+ *
+ * Contrairement à Previous Runs, cette table ne reconstruit pas un lead-time :
+ * elle mémorise la sortie du Forecast API au moment où l'application l'a
+ * effectivement rafraîchie. [snapshotBucket] déduplique les refreshs proches
+ * sans perdre la chronologie nécessaire aux comparaisons ~24/48/72 h.
  */
 @Entity(
     tableName = "forecast_evolution_samples",
-    primaryKeys = ["cityId", "modelKey", "variable", "targetDateEpochDay", "daysAgo"],
+    primaryKeys = [
+        "cityId",
+        "modelKey",
+        "variable",
+        "targetDateEpochDay",
+        "snapshotBucket"
+    ],
     indices = [
-        Index(value = ["cityId", "targetDateEpochDay"]),
-        Index(value = ["fetchedAtEpochMs"])
+        Index(value = ["cityId", "snapshotBucket"]),
+        Index(value = ["snapshotAtEpochMs"]),
+        Index(value = ["cityId", "targetDateEpochDay"])
     ]
 )
 data class ForecastEvolutionEntity(
@@ -20,7 +31,7 @@ data class ForecastEvolutionEntity(
     val modelKey: String,
     val variable: String,
     val targetDateEpochDay: Long,
-    val daysAgo: Int,
-    val value: Double,
-    val fetchedAtEpochMs: Long
+    val snapshotBucket: Long,
+    val snapshotAtEpochMs: Long,
+    val value: Double
 )

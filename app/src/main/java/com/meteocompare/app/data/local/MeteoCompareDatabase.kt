@@ -4,14 +4,18 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 
 /**
- * Version 5 : ajoute `forecast_evolution_samples` pour la comparaison run-to-run.
- * Une migration 4→5 explicite conserve le cache et l'historique de biais existants.
+ * Version 6 : remplace le prototype Previous Runs de `forecast_evolution_samples`
+ * par des snapshots locaux des forecasts récupérés lors des refreshs frais. La table v5 est
+ * reconstructible et volontairement recréée lors de 5→6 ; les autres données
+ * Room restent intactes.
+ *
+ * Version 5 : ajoutait le premier cache d'évolution de prévision.
  *
  * Version 4 : ajoutait les tables `forecast_samples` et `observation_samples`
  * pour le suivi de biais par modèle météo (feature "chip de biais" sur
  * CityDetail).
  *
- * Stratégie de migration : la transition 4→5 est explicite et non destructive.
+ * Stratégie de migration : 4→6 (utilisateurs v1.7.x) et 5→6 (prototype v1.8) sont explicites. La migration 5→6 ne recrée que la table d’évolution, dont le contenu est reconstruisible localement.
  * `fallbackToDestructiveMigration` reste uniquement comme compatibilité pour
  * d'anciennes versions sans chemin de migration connu. En cas de fallback :
  *   - Caches forecast perdus → régénérés au prochain refresh (quelques
@@ -39,7 +43,7 @@ import androidx.room.RoomDatabase
         ObservationSampleEntity::class,
         ForecastEvolutionEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 abstract class MeteoCompareDatabase : RoomDatabase() {

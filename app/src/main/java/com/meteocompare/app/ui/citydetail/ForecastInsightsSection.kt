@@ -350,14 +350,14 @@ private fun EvolutionHighlightRow(highlight: ForecastEvolutionHighlight) {
                 stringResource(
                     R.string.forecast_evolution_highlight_detail_volatile,
                     highlight.comparedModels,
-                    highlight.previousDaysAgo
+                    highlight.previousAgeHours
                 )
             } else {
                 stringResource(
                     R.string.forecast_evolution_highlight_detail,
                     highlight.dominantModels,
                     highlight.comparedModels,
-                    highlight.previousDaysAgo
+                    highlight.previousAgeHours
                 )
             }
             Text(

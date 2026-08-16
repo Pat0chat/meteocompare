@@ -59,6 +59,6 @@ interface ForecastRepository {
      */
     fun observeForecastUpdates(): Flow<CityForecast> = emptyFlow()
 
-    /** Nettoyage du cache quand une ville est retirée des favoris. */
+    /** Nettoyage des données météo locales (cache + historique d’évolution) quand une ville est retirée des favoris. */
     suspend fun clearCacheForCity(cityId: String)
 }

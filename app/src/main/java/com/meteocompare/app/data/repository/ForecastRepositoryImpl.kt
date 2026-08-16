@@ -85,6 +85,7 @@ class ForecastRepositoryImpl @Inject constructor(
     private val json: Json,
     private val networkMonitor: NetworkMonitor,
     private val clock: Clock,
+    private val evolutionRecorder: ForecastEvolutionRecorder,
     @param:ApplicationContext private val context: Context,
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     @param:DefaultDispatcher private val computationDispatcher: CoroutineDispatcher = Dispatchers.Default
@@ -282,6 +283,7 @@ class ForecastRepositoryImpl @Inject constructor(
 
     override suspend fun clearCacheForCity(cityId: String) = withContext(ioDispatcher) {
         cacheDao.deleteForCity(cityId)
+        evolutionRecorder.clearCity(cityId)
     }
 
     // ──────────────────────────────────────────────────────────────────────
@@ -540,6 +542,14 @@ class ForecastRepositoryImpl @Inject constructor(
                 errors = errors,
                 fetchedAt = Instant.ofEpochMilli(now)
             )
+
+            // Snapshot local de la prévision fraîchement récupérée par MeteoCompare.
+            // Cette écriture ne déclenche aucun réseau et ne doit jamais faire
+            // échouer le forecast principal si Room rencontre un incident.
+            runSuspendCatching { evolutionRecorder.record(fresh) }
+                .onFailure { error ->
+                    android.util.Log.w(LOG_TAG, "Forecast evolution snapshot write failed", error)
+                }
 
             ApiResult.Success(fresh)
         }

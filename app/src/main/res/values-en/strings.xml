@@ -636,18 +636,18 @@
     <string name="home_scenario_other">Other variants</string>
 
 
-    <!-- Run-to-run comparison -->
+    <!-- Forecast evolution -->
     <string name="forecast_evolution_title">Forecast evolution</string>
-    <string name="forecast_evolution_subtitle">Compared with forecasts from 24 / 48 / 72 h earlier</string>
-    <string name="forecast_evolution_loading">Analysing previous runs…</string>
-    <string name="forecast_evolution_loading_detail">Fetching D−1, D−2 and D−3 without blocking the current forecast.</string>
+    <string name="forecast_evolution_subtitle">Comparison with forecasts saved ~24 / 48 / 72 h earlier</string>
+    <string name="forecast_evolution_loading">Reading local forecast history…</string>
+    <string name="forecast_evolution_loading_detail">History is read in the background without blocking the current forecast.</string>
     <string name="forecast_evolution_view_models">View models</string>
-    <string name="forecast_evolution_model_direction">%1$d of %2$d models follow the trend since D−%3$d</string>
-    <string name="forecast_evolution_method_hint">“Current” is the already loaded live forecast. Other points show what was forecast exactly 24, 48 or 72 hours before each valid time. Values are medians across comparable models; unavailable data is excluded, never replaced by zero.</string>
+    <string name="forecast_evolution_model_direction">%1$d of %2$d models follow the trend since H−%3$d</string>
+    <string name="forecast_evolution_method_hint">H−N points are local snapshots saved during MeteoCompare fresh forecast updates, selected as close as possible to ~24, ~48 and ~72 hours before the forecast currently displayed. They are not reconstructed 00Z/06Z/12Z/18Z weather-model cycles. Medians use the same cohort of comparable models; missing data is excluded, never replaced by zero. Stable/up/down thresholds are presentation heuristics, not a probability of correctness.</string>
     <string name="forecast_evolution_now">Current</string>
-    <string name="forecast_evolution_day_ago_short">D−%1$d</string>
+    <string name="forecast_evolution_day_ago_short">H−%1$d</string>
     <string name="forecast_evolution_sheet_title">Evolution by model</string>
-    <string name="forecast_evolution_sheet_subtitle">%1$s · current vs forecast from %2$d day(s) earlier</string>
+    <string name="forecast_evolution_sheet_subtitle">%1$s · current vs H−%2$d</string>
     <string name="forecast_evolution_model">Model</string>
     <string name="forecast_evolution_previous">Before</string>
     <string name="forecast_evolution_temp_up">Warmer scenario</string>
@@ -656,7 +656,7 @@
     <string name="forecast_evolution_precip_down">Drier scenario</string>
     <string name="forecast_evolution_wind_up">Wind revised upward</string>
     <string name="forecast_evolution_wind_down">Wind revised downward</string>
-    <string name="forecast_evolution_volatile">Forecast unstable across models</string>
+    <string name="forecast_evolution_volatile">Model revisions are mixed</string>
     <string name="forecast_evolution_stable">Forecast broadly stable</string>
     <string name="forecast_evolution_insufficient">Not enough comparable models</string>
     <string name="forecast_evolution_highlight_temp_up">Forecast temperature is rising</string>
@@ -665,8 +665,23 @@
     <string name="forecast_evolution_highlight_precip_down">The rain scenario is weakening</string>
     <string name="forecast_evolution_highlight_wind_up">The windy scenario is strengthening</string>
     <string name="forecast_evolution_highlight_wind_down">Forecast wind is easing</string>
-    <string name="forecast_evolution_highlight_volatile">Previous runs diverge markedly</string>
-    <string name="forecast_evolution_highlight_detail">%1$d/%2$d models move in the same direction since D−%3$d</string>
-    <string name="forecast_evolution_highlight_detail_volatile">%1$d comparable models, with no clear dominant direction since D−%2$d</string>
+    <string name="forecast_evolution_highlight_volatile">Models are revising in different directions</string>
+    <string name="forecast_evolution_highlight_detail">%1$d/%2$d models move in the same direction since H−%3$d</string>
+    <string name="forecast_evolution_highlight_detail_volatile">%1$d comparable models, with no clear dominant direction since H−%2$d</string>
+
+    <string name="forecast_evolution_history_building">Building local history</string>
+
+    <string name="forecast_evolution_history_building_detail">MeteoCompare now saves each fresh forecast locally. The first comparison appears once a snapshot close to 24 hours old is available. This feature does not require any additional network request.</string>
+
+    <string name="forecast_evolution_model_direction_volatile">%1$d comparable models, with no dominant direction since H−%2$d</string>
+
+    <string name="forecast_evolution_metric_temperature_max">Max temp.</string>
+
+    <string name="forecast_evolution_metric_precipitation_sum">Rain total</string>
+
+    <string name="forecast_evolution_metric_wind_max">Max wind</string>
+
+
+    <string name="forecast_evolution_metric_a11y">%1$s: %2$s</string>
 
 </resources>

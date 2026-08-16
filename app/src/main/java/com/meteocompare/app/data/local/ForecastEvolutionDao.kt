@@ -14,62 +14,67 @@ abstract class ForecastEvolutionDao {
 
     @Query(
         """
+        SELECT EXISTS(
+            SELECT 1 FROM forecast_evolution_samples
+            WHERE cityId = :cityId AND snapshotBucket = :snapshotBucket
+            LIMIT 1
+        )
+        """
+    )
+    abstract suspend fun snapshotBucketExists(cityId: String, snapshotBucket: Long): Boolean
+
+    /**
+     * Capture au plus un snapshot par ville et par tranche de 3 h.
+     *
+     * Garder le premier refresh frais du bucket évite de réécrire plusieurs
+     * centaines de lignes toutes les 15/30 minutes. La transaction sérialise
+     * aussi deux fetches concurrents : ils ne peuvent pas fusionner deux jeux
+     * de modèles différents dans un même snapshot historique.
+     */
+    @Transaction
+    open suspend fun insertSnapshotBucketIfAbsent(
+        cityId: String,
+        snapshotBucket: Long,
+        samples: List<ForecastEvolutionEntity>
+    ): Boolean {
+        if (samples.isEmpty() || snapshotBucketExists(cityId, snapshotBucket)) return false
+        insertAll(samples)
+        return true
+    }
+
+    @Query(
+        """
         SELECT * FROM forecast_evolution_samples
         WHERE cityId = :cityId
           AND modelKey IN (:modelKeys)
           AND targetDateEpochDay BETWEEN :startEpochDay AND :endEpochDay
-        ORDER BY targetDateEpochDay ASC, daysAgo DESC, modelKey ASC
+          AND snapshotBucket BETWEEN :minSnapshotBucket AND :maxSnapshotBucket
+        ORDER BY snapshotBucket ASC, targetDateEpochDay ASC, modelKey ASC
         """
     )
-    abstract suspend fun getForWindow(
-        cityId: String,
-        modelKeys: List<String>,
-        startEpochDay: Long,
-        endEpochDay: Long
-    ): List<ForecastEvolutionEntity>
-
-    @Query(
-        """
-        SELECT MAX(fetchedAtEpochMs) FROM forecast_evolution_samples
-        WHERE cityId = :cityId
-          AND modelKey IN (:modelKeys)
-          AND targetDateEpochDay BETWEEN :startEpochDay AND :endEpochDay
-        """
-    )
-    abstract suspend fun latestFetchForWindow(
-        cityId: String,
-        modelKeys: List<String>,
-        startEpochDay: Long,
-        endEpochDay: Long
-    ): Long?
-
-    @Query(
-        """
-        DELETE FROM forecast_evolution_samples
-        WHERE cityId = :cityId
-          AND modelKey IN (:modelKeys)
-          AND targetDateEpochDay BETWEEN :startEpochDay AND :endEpochDay
-        """
-    )
-    abstract suspend fun deleteWindow(
-        cityId: String,
-        modelKeys: List<String>,
-        startEpochDay: Long,
-        endEpochDay: Long
-    )
-
-    @Transaction
-    open suspend fun replaceWindow(
+    abstract suspend fun getHistoryWindow(
         cityId: String,
         modelKeys: List<String>,
         startEpochDay: Long,
         endEpochDay: Long,
-        samples: List<ForecastEvolutionEntity>
-    ) {
-        deleteWindow(cityId, modelKeys, startEpochDay, endEpochDay)
-        if (samples.isNotEmpty()) insertAll(samples)
-    }
+        minSnapshotBucket: Long,
+        maxSnapshotBucket: Long
+    ): List<ForecastEvolutionEntity>
 
-    @Query("DELETE FROM forecast_evolution_samples WHERE fetchedAtEpochMs < :beforeEpochMs")
-    abstract suspend fun purgeFetchedBefore(beforeEpochMs: Long)
+    @Query(
+        """
+        SELECT MIN(snapshotAtEpochMs) FROM forecast_evolution_samples
+        WHERE cityId = :cityId AND modelKey IN (:modelKeys)
+        """
+    )
+    abstract suspend fun oldestSnapshotAt(
+        cityId: String,
+        modelKeys: List<String>
+    ): Long?
+
+    @Query("DELETE FROM forecast_evolution_samples WHERE snapshotAtEpochMs < :beforeEpochMs")
+    abstract suspend fun purgeCapturedBefore(beforeEpochMs: Long)
+
+    @Query("DELETE FROM forecast_evolution_samples WHERE cityId = :cityId")
+    abstract suspend fun deleteForCity(cityId: String)
 }

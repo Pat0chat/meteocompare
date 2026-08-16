@@ -634,18 +634,18 @@
     <string name="home_scenario_other">Autres variantes</string>
 
 
-    <!-- Comparaison run-to-run -->
+    <!-- Évolution des prévisions -->
     <string name="forecast_evolution_title">Évolution de la prévision</string>
-    <string name="forecast_evolution_subtitle">Comparaison avec les prévisions d’il y a 24 / 48 / 72 h</string>
-    <string name="forecast_evolution_loading">Analyse des anciens runs…</string>
-    <string name="forecast_evolution_loading_detail">Récupération de J−1, J−2 et J−3 sans bloquer la prévision actuelle.</string>
+    <string name="forecast_evolution_subtitle">Comparaison avec les prévisions enregistrées ~24 / 48 / 72 h plus tôt</string>
+    <string name="forecast_evolution_loading">Lecture de l’historique local…</string>
+    <string name="forecast_evolution_loading_detail">L’historique est lu en arrière-plan sans bloquer la prévision actuelle.</string>
     <string name="forecast_evolution_view_models">Voir les modèles</string>
-    <string name="forecast_evolution_model_direction">%1$d modèles sur %2$d suivent la tendance depuis J−%3$d</string>
-    <string name="forecast_evolution_method_hint">« Actuel » correspond à la prévision live déjà chargée. Les autres points indiquent ce qui était prévu exactement 24, 48 ou 72 h avant chaque échéance. Les valeurs sont les médianes des modèles comparables ; une donnée indisponible est exclue, jamais remplacée par zéro.</string>
+    <string name="forecast_evolution_model_direction">%1$d modèles sur %2$d suivent la tendance depuis H−%3$d</string>
+    <string name="forecast_evolution_method_hint">Les points H−N sont des snapshots locaux enregistrés lors des rafraîchissements météo frais de MeteoCompare, choisis au plus près de ~24, ~48 et ~72 h avant la prévision actuellement affichée. Ce ne sont pas des cycles météo 00Z/06Z/12Z/18Z reconstruits. Les médianes utilisent le même groupe de modèles comparables ; une donnée manquante est exclue, jamais remplacée par zéro. Les seuils stable/hausse/baisse sont des heuristiques de présentation, pas une probabilité de justesse.</string>
     <string name="forecast_evolution_now">Actuel</string>
-    <string name="forecast_evolution_day_ago_short">J−%1$d</string>
+    <string name="forecast_evolution_day_ago_short">H−%1$d</string>
     <string name="forecast_evolution_sheet_title">Évolution par modèle</string>
-    <string name="forecast_evolution_sheet_subtitle">%1$s · actuel vs prévision d’il y a %2$d j</string>
+    <string name="forecast_evolution_sheet_subtitle">%1$s · actuel vs H−%2$d</string>
     <string name="forecast_evolution_model">Modèle</string>
     <string name="forecast_evolution_previous">Avant</string>
     <string name="forecast_evolution_temp_up">Scénario plus chaud</string>
@@ -654,7 +654,7 @@
     <string name="forecast_evolution_precip_down">Scénario plus sec</string>
     <string name="forecast_evolution_wind_up">Vent revu à la hausse</string>
     <string name="forecast_evolution_wind_down">Vent revu à la baisse</string>
-    <string name="forecast_evolution_volatile">Prévision instable entre les modèles</string>
+    <string name="forecast_evolution_volatile">Révisions dispersées entre les modèles</string>
     <string name="forecast_evolution_stable">Prévision globalement stable</string>
     <string name="forecast_evolution_insufficient">Pas assez de modèles comparables</string>
     <string name="forecast_evolution_highlight_temp_up">La température prévue augmente</string>
@@ -663,8 +663,23 @@
     <string name="forecast_evolution_highlight_precip_down">Le scénario pluie s’atténue</string>
     <string name="forecast_evolution_highlight_wind_up">Le scénario venteux se renforce</string>
     <string name="forecast_evolution_highlight_wind_down">Le vent prévu s’atténue</string>
-    <string name="forecast_evolution_highlight_volatile">Les anciens runs divergent nettement</string>
-    <string name="forecast_evolution_highlight_detail">%1$d/%2$d modèles vont dans le même sens depuis J−%3$d</string>
-    <string name="forecast_evolution_highlight_detail_volatile">%1$d modèles comparables, sans direction dominante nette depuis J−%2$d</string>
+    <string name="forecast_evolution_highlight_volatile">Les modèles révisent dans des sens différents</string>
+    <string name="forecast_evolution_highlight_detail">%1$d/%2$d modèles vont dans le même sens depuis H−%3$d</string>
+    <string name="forecast_evolution_highlight_detail_volatile">%1$d modèles comparables, sans direction dominante nette depuis H−%2$d</string>
+
+    <string name="forecast_evolution_history_building">Historique local en construction</string>
+
+    <string name="forecast_evolution_history_building_detail">MeteoCompare enregistre désormais chaque prévision fraîche localement. La première comparaison apparaît lorsqu’un snapshot proche de 24 h est disponible. Aucun appel réseau supplémentaire n’est nécessaire pour cette fonctionnalité.</string>
+
+    <string name="forecast_evolution_model_direction_volatile">%1$d modèles comparables, sans direction dominante depuis H−%2$d</string>
+
+    <string name="forecast_evolution_metric_temperature_max">T° max</string>
+
+    <string name="forecast_evolution_metric_precipitation_sum">Cumul pluie</string>
+
+    <string name="forecast_evolution_metric_wind_max">Vent max</string>
+
+
+    <string name="forecast_evolution_metric_a11y">%1$s : %2$s</string>
 
 </resources>

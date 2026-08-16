@@ -18,7 +18,7 @@ import javax.inject.Singleton
 import kotlin.math.abs
 
 /**
- * Compare le forecast courant déjà chargé avec les snapshots Previous Runs.
+ * Compare le forecast courant déjà chargé avec des snapshots locaux plus anciens.
  * Aucun score de "probabilité de justesse" n'est produit ici : il s'agit
  * uniquement de mesurer l'amplitude et la direction des révisions.
  */
@@ -28,8 +28,7 @@ class ComputeForecastEvolutionUseCase @Inject constructor() {
     operator fun invoke(
         currentForecast: CityForecast,
         previousSamples: List<ForecastEvolutionSample>,
-        fetchedAt: Instant? = null,
-        fromCache: Boolean = false
+        fetchedAt: Instant? = null
     ): ForecastEvolutionReport {
         val previousByKey = previousSamples.groupBy { sample ->
             SampleKey(sample.targetDate, sample.variable, sample.daysAgo)
@@ -46,26 +45,52 @@ class ComputeForecastEvolutionUseCase @Inject constructor() {
                 val currentValues = currentValues(currentForecast, date, variable)
                 if (currentValues.isEmpty()) return@variableLoop null
 
+                val rawPrevious = (1..3).mapNotNull { daysAgo ->
+                    val samplesForKey = previousByKey[SampleKey(date, variable, daysAgo)].orEmpty()
+                    val values = samplesForKey.associate { it.model to it.value }
+                    values.takeIf(Map<WeatherModel, Double>::isNotEmpty)
+                        ?.let {
+                            PreviousValues(
+                                daysAgo = daysAgo,
+                                ageHours = samplesForKey.firstOrNull()?.ageHours ?: daysAgo * 24,
+                                capturedAt = samplesForKey.firstOrNull()?.capturedAt,
+                                values = it
+                            )
+                        }
+                }
+                if (rawPrevious.isEmpty()) return@variableLoop null
+
+                // Pour que la courbe soit interprétable, toutes les médianes
+                // affichées doivent porter sur le MEME cohort de modèles. On part
+                // du snapshot le plus proche de ~24 h puis on ajoute ~48/~72 h uniquement si au moins deux
+                // modèles restent communs à toute la série. Ainsi, une médiane ne
+                // peut pas bouger uniquement parce qu'un modèle disparaît à
+                // longue échéance.
+                val comparable = selectComparableHistory(currentValues, rawPrevious)
+                    ?: return@variableLoop null
+                val commonModels = comparable.models
+                val normalizedCurrentValues = currentValues.filterKeys(commonModels::contains)
                 val current = ForecastEvolutionSnapshot(
                     daysAgo = 0,
-                    medianValue = median(currentValues.values),
-                    valuesByModel = currentValues
+                    medianValue = median(normalizedCurrentValues.values),
+                    valuesByModel = normalizedCurrentValues,
+                    ageHours = 0,
+                    capturedAt = currentForecast.fetchedAt
                 )
-                val previous = (1..3).mapNotNull { daysAgo ->
-                    val values = previousByKey[SampleKey(date, variable, daysAgo)]
-                        .orEmpty()
-                        .associate { it.model to it.value }
-                    if (values.isEmpty()) null else ForecastEvolutionSnapshot(
-                        daysAgo = daysAgo,
+                val previous = comparable.previous.map { raw ->
+                    val values = raw.values.filterKeys(commonModels::contains)
+                    ForecastEvolutionSnapshot(
+                        daysAgo = raw.daysAgo,
                         medianValue = median(values.values),
-                        valuesByModel = values
+                        valuesByModel = values,
+                        ageHours = raw.ageHours,
+                        capturedAt = raw.capturedAt
                     )
                 }
-                if (previous.isEmpty()) return@variableLoop null
 
                 val comparisonSnapshot = previous.minByOrNull(ForecastEvolutionSnapshot::daysAgo)
                 val revision = comparisonSnapshot?.let { old ->
-                    computeRevision(variable, currentValues, old)
+                    computeRevision(variable, normalizedCurrentValues, old)
                 }
                 variable to VariableForecastEvolution(
                     variable = variable,
@@ -80,8 +105,7 @@ class ComputeForecastEvolutionUseCase @Inject constructor() {
 
         return ForecastEvolutionReport(
             days = days,
-            fetchedAt = fetchedAt,
-            fromCache = fromCache
+            fetchedAt = fetchedAt
         )
     }
 
@@ -106,7 +130,7 @@ class ComputeForecastEvolutionUseCase @Inject constructor() {
                     medianDelta = revision.medianDelta,
                     comparedModels = revision.comparedModels,
                     dominantModels = revision.dominantModels,
-                    previousDaysAgo = revision.previousDaysAgo
+                    previousAgeHours = revision.previousAgeHours
                 )
             }
             .maxByOrNull { it.first }
@@ -130,13 +154,32 @@ class ComputeForecastEvolutionUseCase @Inject constructor() {
         }
     }
 
+
+    private fun selectComparableHistory(
+        currentValues: Map<WeatherModel, Double>,
+        previous: List<PreviousValues>
+    ): ComparableHistory? {
+        var commonModels = currentValues.keys.toSet()
+        val retained = mutableListOf<PreviousValues>()
+
+        previous.sortedBy(PreviousValues::daysAgo).forEach { snapshot ->
+            val candidateCommon = commonModels.intersect(snapshot.values.keys)
+            if (candidateCommon.size >= MIN_COMPARABLE_MODELS) {
+                commonModels = candidateCommon
+                retained += snapshot
+            }
+        }
+        if (retained.isEmpty() || commonModels.size < MIN_COMPARABLE_MODELS) return null
+        return ComparableHistory(commonModels, retained)
+    }
+
     private fun computeRevision(
         variable: ForecastEvolutionVariable,
         currentValues: Map<WeatherModel, Double>,
         previous: ForecastEvolutionSnapshot
     ): ForecastRevision? {
         val comparable = currentValues.keys.intersect(previous.valuesByModel.keys)
-        if (comparable.isEmpty()) return null
+        if (comparable.size < MIN_COMPARABLE_MODELS) return null
         val deltas = comparable.associateWith { model ->
             currentValues.getValue(model) - previous.valuesByModel.getValue(model)
         }
@@ -147,6 +190,7 @@ class ComputeForecastEvolutionUseCase @Inject constructor() {
         val trend = classifyTrend(increased, decreased, stable, deltas.size)
         return ForecastRevision(
             previousDaysAgo = previous.daysAgo,
+            previousAgeHours = previous.ageHours,
             medianDelta = median(deltas.values),
             medianAbsoluteDelta = median(deltas.values.map(::abs)),
             increasedModels = increased,
@@ -206,6 +250,18 @@ class ComputeForecastEvolutionUseCase @Inject constructor() {
         ForecastEvolutionVariable.PRECIPITATION -> 2.0
         ForecastEvolutionVariable.WIND -> 5.0
     }
+
+    private data class PreviousValues(
+        val daysAgo: Int,
+        val ageHours: Int,
+        val capturedAt: Instant?,
+        val values: Map<WeatherModel, Double>
+    )
+
+    private data class ComparableHistory(
+        val models: Set<WeatherModel>,
+        val previous: List<PreviousValues>
+    )
 
     private data class SampleKey(
         val date: LocalDate,

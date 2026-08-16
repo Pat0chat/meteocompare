@@ -3,14 +3,14 @@ package com.meteocompare.app.domain.model
 import java.time.Instant
 import java.time.LocalDate
 
-/** Variable affichée dans la comparaison run-to-run. */
+/** Variable affichée dans la comparaison d’évolution des prévisions. */
 enum class ForecastEvolutionVariable {
     TEMPERATURE,
     PRECIPITATION,
     WIND
 }
 
-/** Lecture qualitative de la révision entre la prévision actuelle et J-1. */
+/** Lecture qualitative d'une révision entre la prévision actuelle et un snapshot local antérieur. */
 enum class ForecastEvolutionTrend {
     STABLE,
     INCREASING,
@@ -20,28 +20,33 @@ enum class ForecastEvolutionTrend {
 }
 
 /**
- * Valeur quotidienne issue d'Open-Meteo Previous Runs.
- * [daysAgo] vaut 1, 2 ou 3 et représente l'écart fixe entre le moment où
- * la valeur a été prévue et [targetDate] : 24, 48 ou 72 heures.
+ * Valeur quotidienne provenant d'un snapshot local d'une prévision enregistrée
+ * lors d'un refresh frais. [daysAgo] identifie la cible logique (~24/~48/~72 h), tandis que
+ * [ageHours] et [capturedAt] décrivent l'âge réel du snapshot retenu.
  */
 data class ForecastEvolutionSample(
     val model: WeatherModel,
     val variable: ForecastEvolutionVariable,
     val targetDate: LocalDate,
     val daysAgo: Int,
-    val value: Double
+    val value: Double,
+    val ageHours: Int = daysAgo * 24,
+    val capturedAt: Instant? = null
 )
 
 /** Snapshot agrégé pour un décalage de prévision donné. */
 data class ForecastEvolutionSnapshot(
     val daysAgo: Int,
     val medianValue: Double,
-    val valuesByModel: Map<WeatherModel, Double>
+    val valuesByModel: Map<WeatherModel, Double>,
+    val ageHours: Int = daysAgo * 24,
+    val capturedAt: Instant? = null
 )
 
-/** Révision modèle-par-modèle entre l'ancien run et la prévision actuelle. */
+/** Révision modèle-par-modèle entre un snapshot local antérieur et la prévision actuelle. */
 data class ForecastRevision(
     val previousDaysAgo: Int,
+    val previousAgeHours: Int,
     val medianDelta: Double,
     val medianAbsoluteDelta: Double,
     val increasedModels: Int,
@@ -60,9 +65,9 @@ data class VariableForecastEvolution(
     val variable: ForecastEvolutionVariable,
     val targetDate: LocalDate,
     val current: ForecastEvolutionSnapshot,
-    /** Snapshots triés du plus ancien au plus récent : J-3, J-2, J-1. */
+    /** Snapshots triés du plus ancien au plus récent (cibles ~72/~48/~24 h). */
     val previous: List<ForecastEvolutionSnapshot>,
-    /** Révision prioritaire actuelle vs J-1 (ou dernier offset disponible). */
+    /** Révision prioritaire actuelle vs le snapshot disponible le plus proche de ~24 h. */
     val revision: ForecastRevision?
 ) {
     val trend: ForecastEvolutionTrend
@@ -81,8 +86,7 @@ data class DayForecastEvolution(
 /** Résultat complet consommé par CityDetail. */
 data class ForecastEvolutionReport(
     val days: List<DayForecastEvolution>,
-    val fetchedAt: Instant? = null,
-    val fromCache: Boolean = false
+    val fetchedAt: Instant? = null
 ) {
     val hasUsableData: Boolean
         get() = days.any { day -> day.variables.values.any { it.revision != null } }
@@ -90,7 +94,7 @@ data class ForecastEvolutionReport(
     fun day(date: LocalDate): DayForecastEvolution? = days.firstOrNull { it.date == date }
 }
 
-/** Signal run-to-run suffisamment important pour remonter dans « À retenir ». */
+/** Signal d’évolution suffisamment important pour remonter dans « À retenir ». */
 data class ForecastEvolutionHighlight(
     val targetDate: LocalDate,
     val variable: ForecastEvolutionVariable,
@@ -98,5 +102,5 @@ data class ForecastEvolutionHighlight(
     val medianDelta: Double,
     val comparedModels: Int,
     val dominantModels: Int,
-    val previousDaysAgo: Int
+    val previousAgeHours: Int
 )

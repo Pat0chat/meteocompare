@@ -12,6 +12,8 @@ import com.meteocompare.app.domain.model.CityDetailViewMode
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DailyForecast
 import com.meteocompare.app.domain.model.ForecastSeries
+import com.meteocompare.app.domain.model.ForecastEvolutionSample
+import com.meteocompare.app.domain.model.ForecastEvolutionVariable
 import com.meteocompare.app.domain.model.HourlyForecast
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.WeatherModel
@@ -19,7 +21,7 @@ import com.meteocompare.app.domain.repository.CityRepository
 import com.meteocompare.app.domain.repository.ClimateNormalsRepository
 import com.meteocompare.app.domain.repository.ForecastRepository
 import com.meteocompare.app.domain.repository.ForecastEvolutionRepository
-import com.meteocompare.app.domain.repository.PreviousForecastEvolutionData
+import com.meteocompare.app.domain.repository.ForecastEvolutionHistoryData
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
 import com.meteocompare.app.domain.usecase.ConfidenceCalculator
 import com.meteocompare.app.domain.usecase.ComputeForecastEvolutionUseCase
@@ -87,7 +89,7 @@ class CityDetailViewModelTest {
     private val forecastRepo: ForecastRepository = mockk(relaxed = true)
     private val evolutionRepo: ForecastEvolutionRepository = mockk(relaxed = true) {
         coEvery { getPreviousForecasts(any(), any(), any(), any(), any()) } returns
-            ApiResult.Success(PreviousForecastEvolutionData(emptyList(), testNow, true))
+            ApiResult.Success(ForecastEvolutionHistoryData(emptyList(), testNow))
     }
     private val networkMonitor: NetworkMonitor = mockk(relaxed = true) {
         every { isOnline() } answers { onlineFlow.value }
@@ -317,6 +319,78 @@ class CityDetailViewModelTest {
             assertEquals(null, state.normals)
         }
     }
+
+
+    @Test
+    fun `evolution - first fresh forecast exposes building history without failing city detail`() =
+        runTest(dispatcher) {
+            val forecast = buildForecast(paris).copy(fetchedAt = testNow)
+            coEvery {
+                forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
+            } returns flowOf(ApiResult.Success(forecast))
+            coEvery { evolutionRepo.getPreviousForecasts(any(), any(), any(), any(), any()) } returns
+                ApiResult.Success(ForecastEvolutionHistoryData(emptyList(), testNow))
+
+            val vm = buildViewModel()
+            runCurrent()
+
+            assertTrue(vm.state.value is CityDetailUiState.Loaded)
+            assertTrue(vm.evolutionState.value is ForecastEvolutionState.BuildingHistory)
+        }
+
+    @Test
+    fun `evolution - local historical samples are wired into a loaded report`() =
+        runTest(dispatcher) {
+            val gfs = buildForecast(paris, WeatherModel.GFS, 20.0)
+            val ecmwf = buildForecast(paris, WeatherModel.ECMWF, 22.0)
+            val forecast = gfs.copy(
+                seriesByModel = gfs.seriesByModel + ecmwf.seriesByModel,
+                fetchedAt = testNow
+            )
+            val targetDate = LocalDate.of(2026, 6, 28)
+            val history = listOf(
+                ForecastEvolutionSample(
+                    WeatherModel.GFS, ForecastEvolutionVariable.PRECIPITATION, targetDate,
+                    daysAgo = 1, value = 4.0, ageHours = 25, capturedAt = testNow.minusSeconds(25 * 3600)
+                ),
+                ForecastEvolutionSample(
+                    WeatherModel.ECMWF, ForecastEvolutionVariable.PRECIPITATION, targetDate,
+                    daysAgo = 1, value = 5.0, ageHours = 25, capturedAt = testNow.minusSeconds(25 * 3600)
+                )
+            )
+            coEvery {
+                forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
+            } returns flowOf(ApiResult.Success(forecast))
+            coEvery { evolutionRepo.getPreviousForecasts(any(), any(), any(), any(), any()) } returns
+                ApiResult.Success(ForecastEvolutionHistoryData(history, testNow.minusSeconds(25 * 3600)))
+
+            val vm = buildViewModel()
+            runCurrent()
+
+            val evolution = vm.evolutionState.value
+            assertTrue(evolution is ForecastEvolutionState.Loaded)
+            evolution as ForecastEvolutionState.Loaded
+            assertTrue(evolution.report.hasUsableData)
+            assertEquals(25, evolution.report.days.first().variables
+                .getValue(ForecastEvolutionVariable.PRECIPITATION).revision?.previousAgeHours)
+        }
+
+    @Test
+    fun `evolution - history failure stays secondary and never replaces loaded city detail`() =
+        runTest(dispatcher) {
+            val forecast = buildForecast(paris).copy(fetchedAt = testNow)
+            coEvery {
+                forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
+            } returns flowOf(ApiResult.Success(forecast))
+            coEvery { evolutionRepo.getPreviousForecasts(any(), any(), any(), any(), any()) } returns
+                ApiResult.Error(IllegalStateException("history unavailable"), "history unavailable")
+
+            val vm = buildViewModel()
+            runCurrent()
+
+            assertTrue(vm.state.value is CityDetailUiState.Loaded)
+            assertTrue(vm.evolutionState.value is ForecastEvolutionState.Error)
+        }
 
     @Test
     fun `loadInitial - forecast en erreur sans cache → Error`() = runTest(dispatcher) {
