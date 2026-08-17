@@ -186,12 +186,11 @@ private fun IconCell(
             Text("—", style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
-            // Marqueur visuel d'inférence : alpha réduit sur le contenu pour
-            // signaler que cette condition vient de la médiane des peers et
-            // pas de la prédiction propre du modèle. Non-invasif visuellement
-            // — l'icône reste lisible et colorée — mais suffisant pour qu'un
-            // utilisateur qui compare les cellules perçoive le différentiel.
-            val contentModifier = if (isInferred) Modifier.alpha(0.25f) else Modifier
+            // Marqueur visuel d'inférence : la condition provient de variables
+            // physiques du MÊME modèle (précip/temp ou nébulosité), faute de
+            // weather_code direct. On garde l'icône clairement visible tout en
+            // la différenciant d'un code WMO natif/dérivé fourni par l'API.
+            val contentModifier = if (isInferred) Modifier.alpha(0.55f) else Modifier
             Column(
                 modifier = contentModifier,
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -291,7 +290,7 @@ internal fun WeatherLegend() {
                 condition = WeatherCondition.PARTLY_CLOUDY,
                 size = 16.dp,
                 tint = WeatherCondition.PARTLY_CLOUDY.semanticTint(),
-                modifier = Modifier.alpha(0.25f)
+                modifier = Modifier.alpha(0.65f)
             )
             Text(
                 text = stringResource(R.string.weather_legend_inferred_note),

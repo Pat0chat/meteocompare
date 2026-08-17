@@ -192,6 +192,27 @@ class WeatherConditionTest {
         assertEquals(WeatherCondition.RAIN, equalCalc.currentWeatherCondition(forecast))
     }
 
+    @Test
+    fun `currentWeatherCondition infere AROME HD depuis cloud cover si weather code absent`() {
+        val now = Instant.parse("2026-08-17T10:00:00Z")
+        val arome = ForecastSeries(
+            model = WeatherModel.AROME_FRANCE_HD,
+            hourly = HourlyForecast(
+                timestamps = listOf(now),
+                temperature2m = listOf(20.0),
+                precipitation = listOf(0.0),
+                windSpeed10m = listOf(8.0),
+                weatherCode = listOf(null),
+                cloudCover = listOf(82)
+            ),
+            daily = emptyDaily()
+        )
+
+        val forecast = CityForecast(paris, mapOf(WeatherModel.AROME_FRANCE_HD to arome))
+
+        assertEquals(WeatherCondition.OVERCAST, calculator.currentWeatherCondition(forecast, now))
+    }
+
     // ─── dailyConditionsByModel ──────────────────────────────────────────────
 
     @Test

@@ -155,6 +155,9 @@ class ConfidenceCalculator @Inject constructor(
                     precipMm = series.hourly.precipitation.getOrNull(idx),
                     tempMinC = series.hourly.temperature2m.getOrNull(idx)
                 )
+                ?: series.hourly.cloudCover.getOrNull(idx)
+                    ?.takeIf { it in 0..100 }
+                    ?.let { WeatherCondition.fromCloudCover(it.toDouble()) }
                 ?: return@forEach
             votes.merge(condition, safeWeight(model), Double::plus)
         }

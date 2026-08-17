@@ -150,9 +150,43 @@ object BatchedForecastSplitter {
             weatherCode = get.ints(HourlyVar.WEATHER_CODE),
             windDirection10m = get.ints(HourlyVar.WIND_DIRECTION_10M),
             precipitationProbability = get.ints(HourlyVar.PRECIPITATION_PROBABILITY),
-            cloudCover = get.ints(HourlyVar.CLOUD_COVER),
+            cloudCover = resolveCloudCover(get),
             windGusts10m = get.doubles(HourlyVar.WIND_GUSTS_10M)
         )
+    }
+
+
+    /**
+     * Retourne la nébulosité totale fournie par Open-Meteo lorsqu'elle existe.
+     *
+     * AROME France HD expose un jeu natif réduit. En pratique, certaines
+     * réponses peuvent omettre `cloud_cover`/`weather_code` tout en conservant
+     * les couches basse, moyenne et haute. Pour ne pas transformer une journée
+     * sèche en cellule sans condition, on construit alors un indicateur de
+     * nébulosité de secours strictement à partir du MÊME modèle.
+     *
+     * On utilise le maximum des trois couches : ce n'est pas une reconstruction
+     * physique exacte de la couverture totale, mais un proxy conservateur
+     * suffisant pour classer clair / peu nuageux / variable / couvert. Le
+     * consumer marque déjà toute condition issue de ce chemin comme « inférée ».
+     */
+    private fun resolveCloudCover(get: VariableGetter): List<Int?>? {
+        val total = get.ints(HourlyVar.CLOUD_COVER)
+        if (!total.isNullOrEmpty() && total.any { it != null }) return total
+
+        val low = get.ints(HourlyVar.CLOUD_COVER_LOW)
+        val mid = get.ints(HourlyVar.CLOUD_COVER_MID)
+        val high = get.ints(HourlyVar.CLOUD_COVER_HIGH)
+        val size = maxOf(low?.size ?: 0, mid?.size ?: 0, high?.size ?: 0)
+        if (size == 0) return total
+
+        return List(size) { index ->
+            listOfNotNull(
+                low?.getOrNull(index),
+                mid?.getOrNull(index),
+                high?.getOrNull(index)
+            ).filter { it in 0..100 }.maxOrNull()
+        }
     }
 
     private fun buildDailyDto(
@@ -287,6 +321,9 @@ object BatchedForecastSplitter {
         const val WIND_GUSTS_10M = "wind_gusts_10m"
         const val PRECIPITATION_PROBABILITY = "precipitation_probability"
         const val CLOUD_COVER = "cloud_cover"
+        const val CLOUD_COVER_LOW = "cloud_cover_low"
+        const val CLOUD_COVER_MID = "cloud_cover_mid"
+        const val CLOUD_COVER_HIGH = "cloud_cover_high"
     }
 
     private object DailyVar {

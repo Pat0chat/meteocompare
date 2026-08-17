@@ -131,9 +131,9 @@ Les modèles marqués "Par défaut" sont activés dès la première ouverture ; 
 
 ### Note sur AROME HD et les variables dérivées
 
-AROME France HD conserve un jeu de champs natifs plus réduit que certains autres modèles, mais **Open-Meteo expose aujourd'hui `cloud_cover` et un `weather_code` dérivé** pour AROME/ARPEGE. Le code WMO n'est pas une sortie native Météo-France : Open-Meteo le calcule à partir de plusieurs champs météorologiques, notamment nébulosité et précipitations.
+AROME France HD conserve un jeu de champs natifs plus réduit que certains autres modèles. La documentation Open-Meteo définit `weather_code` comme une variable dérivée pour AROME/ARPEGE, mais le client tolère également les réponses opérationnelles où `weather_code` ou `cloud_cover` total sont absents pour AROME HD.
 
-Le client utilise donc en priorité les champs fournis par l'API. Une inférence locale n'intervient qu'en cas de donnée réellement manquante (cache ancien ou réponse partielle), et uniquement à partir des variables du **même modèle**. Les données d'un modèle voisin ne sont jamais copiées pour « compléter » une cellule.
+Le client utilise donc en priorité le `weather_code` fourni par l'API. S'il manque, il infère d'abord pluie/neige depuis les précipitations et la température du **même modèle**. Pour les situations sèches où `cloud_cover` total manque aussi, les couches `cloud_cover_low`, `cloud_cover_mid` et `cloud_cover_high` servent à construire un indicateur de nébulosité de secours (maximum des couches) uniquement pour choisir l'icône clair/nuageux/couvert. Cette icône reste visuellement marquée comme inférée. Les données d'un modèle voisin ne sont jamais copiées pour « compléter » une cellule.
 
 Les badges "%" restent conditionnés à la présence réelle de leur variable : une probabilité de précipitation absente n'est jamais transformée en 0 %, et une couverture nuageuse absente n'est jamais inventée.
 

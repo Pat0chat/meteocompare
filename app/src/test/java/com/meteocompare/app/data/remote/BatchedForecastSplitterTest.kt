@@ -201,6 +201,51 @@ class BatchedForecastSplitterTest {
         )
     }
 
+    @Test
+    fun `AROME HD reconstruit cloud cover depuis les couches quand total absent`() {
+        val response = json.decodeFromString<BatchedForecastResponseDto>(
+            """{
+              "latitude": 48.85, "longitude": 2.35, "timezone": "Europe/Paris",
+              "hourly": {
+                "time": ["2026-08-17T09:00","2026-08-17T10:00","2026-08-17T11:00"],
+                "temperature_2m_meteofrance_arome_france_hd": [18.0,19.0,20.0],
+                "cloud_cover_low_meteofrance_arome_france_hd": [10,20,30],
+                "cloud_cover_mid_meteofrance_arome_france_hd": [40,15,20],
+                "cloud_cover_high_meteofrance_arome_france_hd": [25,70,10]
+              }
+            }"""
+        )
+
+        val arome = BatchedForecastSplitter.split(
+            response, listOf(WeatherModel.AROME_FRANCE_HD, WeatherModel.GFS)
+        ).getValue(WeatherModel.AROME_FRANCE_HD)
+
+        assertEquals(listOf(40, 70, 30), arome.hourly?.cloudCover)
+    }
+
+    @Test
+    fun `AROME HD conserve cloud cover total quand il est fourni`() {
+        val response = json.decodeFromString<BatchedForecastResponseDto>(
+            """{
+              "latitude": 48.85, "longitude": 2.35, "timezone": "Europe/Paris",
+              "hourly": {
+                "time": ["2026-08-17T09:00"],
+                "temperature_2m_meteofrance_arome_france_hd": [18.0],
+                "cloud_cover_meteofrance_arome_france_hd": [35],
+                "cloud_cover_low_meteofrance_arome_france_hd": [90],
+                "cloud_cover_mid_meteofrance_arome_france_hd": [90],
+                "cloud_cover_high_meteofrance_arome_france_hd": [90]
+              }
+            }"""
+        )
+
+        val arome = BatchedForecastSplitter.split(
+            response, listOf(WeatherModel.AROME_FRANCE_HD, WeatherModel.GFS)
+        ).getValue(WeatherModel.AROME_FRANCE_HD)
+
+        assertEquals(listOf(35), arome.hourly?.cloudCover)
+    }
+
     // ─────────────────────── Robustesse ───────────────────
 
     @Test

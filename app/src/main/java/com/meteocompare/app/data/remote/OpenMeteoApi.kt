@@ -64,6 +64,7 @@ interface OpenMeteoApi {
          */
         const val DEFAULT_HOURLY_VARS =
             "temperature_2m,precipitation,precipitation_probability,cloud_cover," +
+                "cloud_cover_low,cloud_cover_mid,cloud_cover_high," +
                 "wind_speed_10m,wind_direction_10m,wind_gusts_10m,weather_code"
 
         const val DEFAULT_DAILY_VARS =

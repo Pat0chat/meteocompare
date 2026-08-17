@@ -94,7 +94,8 @@ class ForecastDataChainContractTest {
         assertEquals(
             setOf(
                 "temperature_2m", "precipitation", "precipitation_probability",
-                "cloud_cover", "wind_speed_10m", "wind_direction_10m",
+                "cloud_cover", "cloud_cover_low", "cloud_cover_mid", "cloud_cover_high",
+                "wind_speed_10m", "wind_direction_10m",
                 "wind_gusts_10m", "weather_code"
             ),
             OpenMeteoApi.DEFAULT_HOURLY_VARS.split(',').toSet()
