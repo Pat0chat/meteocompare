@@ -135,7 +135,10 @@ class BootstrapBiasHistoryUseCase @Inject constructor(
 
             for ((date, values) in accumulators) {
                 val expectedHours = expectedHoursByDate[date] ?: continue
-                if (expectedHours < MIN_EXPECTED_HOURS) continue
+                // Une journée civile complète contient 24 h, ou 23/25 h lors
+                // d'un changement DST. Les journées tronquées (ex. 18/24)
+                // ne doivent jamais produire un cumul pluie ou un max biaisé.
+                if (expectedHours !in COMPLETE_CIVIL_DAY_HOURS) continue
                 val issuedAt = date.minusDays(1).atStartOfDay(zone).toInstant()
                 var addedForModelDay = false
 
@@ -239,14 +242,11 @@ class BootstrapBiasHistoryUseCase @Inject constructor(
         internal const val DEFAULT_BOOTSTRAP_LOOKBACK_DAYS = 21
 
         private const val KEY_TIME = "time"
-        private const val MIN_EXPECTED_HOURS = 18
-        private const val MIN_COVERAGE_RATIO = 0.75
+        private val COMPLETE_CIVIL_DAY_HOURS = 23..25
         private val ISO_DATE: DateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE
 
         private fun coverageIsSufficient(validCount: Int, expectedCount: Int): Boolean =
-            expectedCount > 0 &&
-                validCount >= MIN_EXPECTED_HOURS &&
-                validCount.toDouble() / expectedCount >= MIN_COVERAGE_RATIO
+            expectedCount in COMPLETE_CIVIL_DAY_HOURS && validCount == expectedCount
     }
 }
 

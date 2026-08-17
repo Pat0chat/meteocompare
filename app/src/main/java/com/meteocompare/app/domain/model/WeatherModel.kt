@@ -38,7 +38,7 @@ enum class WeatherModel(
         maxForecastDays = 3,
         coverage = Coverage.FRANCE,
         family = ModelFamily.METEO_FRANCE,
-        forecastHorizonHours = 51
+        forecastHorizonHours = 48
     ),
     AROME_FRANCE(
         apiKey = "meteofrance_arome_france",
@@ -47,7 +47,7 @@ enum class WeatherModel(
         maxForecastDays = 3,
         coverage = Coverage.FRANCE,
         family = ModelFamily.METEO_FRANCE,
-        forecastHorizonHours = 51
+        forecastHorizonHours = 48
     ),
     ARPEGE_EUROPE(
         apiKey = "meteofrance_arpege_europe",
@@ -136,7 +136,7 @@ enum class WeatherModel(
     ECMWF_AIFS(
         apiKey = "ecmwf_aifs025_single",
         displayName = "AIFS",
-        resolutionKm = 25.0,
+        resolutionKm = 28.0,
         maxForecastDays = 15,
         coverage = Coverage.GLOBAL,
         family = ModelFamily.ECMWF
@@ -189,7 +189,11 @@ enum class WeatherModel(
         resolutionKm = 3.0,
         maxForecastDays = 2,
         coverage = Coverage.UNITED_STATES,
-        family = ModelFamily.NOAA
+        family = ModelFamily.NOAA,
+        // Les runs horaires standards vont à ~18 h ; les cycles 00/06/12/18Z
+        // s'étendent jusqu'à ~48 h. Le plafond de requête reste 2 jours pour
+        // ne pas tronquer ces cycles longs, mais l'horizon affiché reste prudent.
+        forecastHorizonHours = 18
     ),
 
     /**
@@ -243,13 +247,13 @@ enum class WeatherModel(
     /**
      * CMA GRAPES Global — modèle global du China Meteorological Administration.
      *
-     * Diversifie les sources avec un scénario global d'environ 13 km. Aucun
+     * Diversifie les sources avec un scénario global d'environ 15 km. Aucun
      * avantage régional n'est supposé sans mesure de vérification dédiée.
      */
     CMA_GRAPES(
         apiKey = "cma_grapes_global",
         displayName = "CMA",
-        resolutionKm = 13.0,
+        resolutionKm = 15.0,
         maxForecastDays = 10,
         coverage = Coverage.GLOBAL,
         family = ModelFamily.CMA

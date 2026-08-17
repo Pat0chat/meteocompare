@@ -90,7 +90,13 @@ object WeatherScenarioBuilder {
         val clouds = samples.mapNotNull { it.cloudCover }.sorted()
         val gusts = samples.mapNotNull { it.gust }
         val precipitation = samples.mapNotNull { it.precipitation }
-        val totalPrecip = precipitation.sum().takeIf { precipitation.isNotEmpty() }
+        // Un "cumul 12 h" n'est honnête que si les 12 échéances et leurs
+        // quantités sont toutes présentes. Une fenêtre partielle peut encore
+        // qualifier le scénario (codes WMO / pluie observée), mais ne publie
+        // jamais un faux total sous-estimé.
+        val totalPrecip = precipitation.sum().takeIf {
+            samples.size == HOUR_COUNT && precipitation.size == HOUR_COUNT
+        }
 
         val wetSamples = samples.filter { sample ->
             (sample.precipitation ?: 0.0) >= WET_THRESHOLD_MM || sample.condition.isWet

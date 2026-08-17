@@ -269,6 +269,21 @@ class CityDetailViewModelTest {
         }
 
     @Test
+    fun `loadInitial - le fuseau resolu par le forecast devient la source pour les donnees secondaires`() =
+        runTest(dispatcher) {
+            val resolvedCity = paris.copy(timezone = "Europe/Paris")
+            val forecast = buildForecast(resolvedCity)
+            coEvery {
+                forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
+            } returns flowOf(ApiResult.Success(forecast))
+
+            buildViewModel()
+            runCurrent()
+
+            coVerify(exactly = 1) { climateRepo.getNormalsForCity(eq(resolvedCity)) }
+        }
+
+    @Test
     fun `loadInitial - normales demarrent une seule fois apres le premier succes`() =
         runTest(dispatcher) {
             val forecast = buildForecast(paris)

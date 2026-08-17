@@ -64,14 +64,14 @@ class FetchBiasObservationsUseCaseTest {
         assertEquals(0, useCase(city, today))
 
         coVerify(exactly = 0) {
-            api.archive(any(), any(), any(), any(), any(), any(), any(), any())
+            api.archive(any(), any(), any(), any(), any(), any(), any(), any(), any())
         }
     }
 
     @Test
     fun `une série optionnelle absente ne bloque pas les autres observations`() = runTest {
         coEvery {
-            api.archive(any(), any(), any(), any(), any(), any(), any(), any())
+            api.archive(any(), any(), any(), any(), any(), any(), any(), any(), any())
         } returns ArchiveResponseDto(
             latitude = city.latitude,
             longitude = city.longitude,
@@ -102,7 +102,7 @@ class FetchBiasObservationsUseCaseTest {
     @Test
     fun `listes partielles sont traitées indépendamment`() = runTest {
         coEvery {
-            api.archive(any(), any(), any(), any(), any(), any(), any(), any())
+            api.archive(any(), any(), any(), any(), any(), any(), any(), any(), any())
         } returns ArchiveResponseDto(
             latitude = city.latitude,
             longitude = city.longitude,
@@ -133,7 +133,7 @@ class FetchBiasObservationsUseCaseTest {
     @Test
     fun `references physiques invalides ne sont pas persistees`() = runTest {
         coEvery {
-            api.archive(any(), any(), any(), any(), any(), any(), any(), any())
+            api.archive(any(), any(), any(), any(), any(), any(), any(), any(), any())
         } returns ArchiveResponseDto(
             latitude = city.latitude,
             longitude = city.longitude,
@@ -157,7 +157,7 @@ class FetchBiasObservationsUseCaseTest {
             repository.earliestMissingReferenceDate(city.id, today.minusDays(1))
         } returns LocalDate.of(2026, 7, 11)
         coEvery {
-            api.archive(any(), any(), any(), any(), any(), any(), any(), any())
+            api.archive(any(), any(), any(), any(), any(), any(), any(), any(), any())
         } returns emptyArchive()
 
         useCase(city, today)
@@ -168,7 +168,7 @@ class FetchBiasObservationsUseCaseTest {
                 longitude = city.longitude,
                 startDate = "2026-07-11",
                 endDate = "2026-07-14",
-                daily = any(),
+                daily = ClimateArchiveApi.BIAS_DAILY_VARS,
                 timezone = "Europe/Paris",
                 windSpeedUnit = any(),
                 precipitationUnit = any()
@@ -182,7 +182,7 @@ class FetchBiasObservationsUseCaseTest {
             repository.earliestMissingReferenceDate(city.id, today.minusDays(1))
         } returns today.minusDays(60)
         coEvery {
-            api.archive(any(), any(), any(), any(), any(), any(), any(), any())
+            api.archive(any(), any(), any(), any(), any(), any(), any(), any(), any())
         } returns emptyArchive()
 
         useCase(city, today)
@@ -193,7 +193,7 @@ class FetchBiasObservationsUseCaseTest {
                 longitude = city.longitude,
                 startDate = "2026-06-15",
                 endDate = "2026-07-14",
-                daily = any(),
+                daily = ClimateArchiveApi.BIAS_DAILY_VARS,
                 timezone = "Europe/Paris",
                 windSpeedUnit = any(),
                 precipitationUnit = any()
@@ -210,7 +210,7 @@ class FetchBiasObservationsUseCaseTest {
         assertEquals(0, useCase(city, today))
 
         coVerify(exactly = 0) {
-            api.archive(any(), any(), any(), any(), any(), any(), any(), any())
+            api.archive(any(), any(), any(), any(), any(), any(), any(), any(), any())
         }
     }
 

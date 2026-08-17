@@ -70,6 +70,7 @@ class WidgetForecastSelectionTest {
 
         assertEquals(5, items.size)
         assertEquals(listOf(20.0, 21.0, 22.0, 23.0, 24.0), items.map { it.temp })
+        assertTrue(items.all { it.sourceModelName == "GFS" })
         assertTrue(items.all { it.temp != null || it.condition != null })
     }
 
@@ -274,6 +275,7 @@ class WidgetForecastSelectionTest {
             ),
             hourly = emptyHourly(),
             zone = java.time.ZoneId.of("Europe/Paris"),
+            now = Instant.parse("2026-07-17T08:00:00Z"),
             forecastConfidenceByDate = mapOf(
                 dates[0] to 82,
                 dates[1] to 64
@@ -361,6 +363,37 @@ class WidgetForecastSelectionTest {
         )
 
         assertTrue(buildHourlyForecasts(hourly, java.time.ZoneId.of("UTC"), now).isEmpty())
+    }
+
+    @Test
+    fun `daily filtre les jours passes d un cache stale sans decaler les valeurs`() {
+        val zone = java.time.ZoneId.of("Europe/Paris")
+        val dates = (0L until 5L).map { LocalDate.of(2026, 7, 15).plusDays(it) }
+        val items = buildDailyForecasts(
+            daily = DailyForecast(
+                dates = dates,
+                tempMax = listOf(15.0, 16.0, 17.0, 18.0, 19.0),
+                tempMin = List(5) { 10.0 },
+                precipitationSum = listOf(1.0, 2.0, 3.0, 4.0, 5.0),
+                windSpeedMax = List(5) { 10.0 },
+                weatherCode = listOf(1, 2, 3, 61, 63)
+            ),
+            hourly = emptyHourly(),
+            zone = zone,
+            now = LocalDate.of(2026, 7, 17).atStartOfDay(zone).toInstant()
+        )
+
+        assertEquals(listOf(17.0, 18.0, 19.0), items.map { it.temp })
+    }
+
+    @Test
+    fun `bucket confiance pluie cumule les mm horaires au lieu de les moyenner`() {
+        assertEquals(24.0, aggregateConfidenceBucketValue(
+            ForecastMode.CONFIDENCE_PRECIPITATION, List(24) { 1.0 }
+        ), 0.001)
+        assertEquals(10.0, aggregateConfidenceBucketValue(
+            ForecastMode.CONFIDENCE_TEMPERATURE, listOf(8.0, 12.0)
+        ), 0.001)
     }
 
     private fun confidenceBand(

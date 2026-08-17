@@ -165,15 +165,14 @@ fun HourlyConfidenceChart(
                 .distinct()
             datesInRange.forEach { date ->
                 normals[DayNormals.key(date.monthValue, date.dayOfMonth)]?.let { n ->
-                    when (metric) {
-                        ConfidenceMetric.TEMPERATURE -> {
-                            allValues += n.tempMinNormal
-                            allValues += n.tempMaxNormal
-                        }
-                        ConfidenceMetric.PRECIPITATION ->
-                            n.precipMeanNormal?.let { allValues += it }
-                        ConfidenceMetric.WIND ->
-                            n.windMeanNormal?.let { allValues += it }
+                    // Les repères ERA5 disponibles sont journaliers. Seules
+                    // les températures Tmax/Tmin sont comparables sans ambiguïté
+                    // au graphe horaire (même unité physique). Un cumul pluie
+                    // journalier ou un max de vent journalier ne doit jamais être
+                    // superposé à des valeurs horaires.
+                    if (metric == ConfidenceMetric.TEMPERATURE) {
+                        allValues += n.tempMinNormal
+                        allValues += n.tempMaxNormal
                     }
                 }
             }
@@ -507,49 +506,23 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawNormalsOverlay(
             if (endX > startX) {
                 val normal = normals[DayNormals.key(date.monthValue, date.dayOfMonth)]
                 if (normal != null) {
-                    when (metric) {
-                        ConfidenceMetric.TEMPERATURE -> {
-                            val yMax = yFor(normal.tempMaxNormal)
-                            drawLine(
-                                color = palette.tempMax,
-                                start = Offset(startX, yMax),
-                                end = Offset(endX, yMax),
-                                strokeWidth = strokeWidth,
-                                pathEffect = dashLong
-                            )
-                            val yMin = yFor(normal.tempMinNormal)
-                            drawLine(
-                                color = palette.tempMin,
-                                start = Offset(startX, yMin),
-                                end = Offset(endX, yMin),
-                                strokeWidth = strokeWidth,
-                                pathEffect = dashShort
-                            )
-                        }
-                        ConfidenceMetric.PRECIPITATION -> {
-                            normal.precipMeanNormal?.let { p ->
-                                val y = yFor(p)
-                                drawLine(
-                                    color = palette.precip,
-                                    start = Offset(startX, y),
-                                    end = Offset(endX, y),
-                                    strokeWidth = strokeWidth,
-                                    pathEffect = dashLong
-                                )
-                            }
-                        }
-                        ConfidenceMetric.WIND -> {
-                            normal.windMeanNormal?.let { w ->
-                                val y = yFor(w)
-                                drawLine(
-                                    color = palette.wind,
-                                    start = Offset(startX, y),
-                                    end = Offset(endX, y),
-                                    strokeWidth = strokeWidth,
-                                    pathEffect = dashLong
-                                )
-                            }
-                        }
+                    if (metric == ConfidenceMetric.TEMPERATURE) {
+                        val yMax = yFor(normal.tempMaxNormal)
+                        drawLine(
+                            color = palette.tempMax,
+                            start = Offset(startX, yMax),
+                            end = Offset(endX, yMax),
+                            strokeWidth = strokeWidth,
+                            pathEffect = dashLong
+                        )
+                        val yMin = yFor(normal.tempMinNormal)
+                        drawLine(
+                            color = palette.tempMin,
+                            start = Offset(startX, yMin),
+                            end = Offset(endX, yMin),
+                            strokeWidth = strokeWidth,
+                            pathEffect = dashShort
+                        )
                     }
                 }
             }
@@ -572,11 +545,7 @@ private fun hasNormalsForMetric(
     val dates = bands.map { it.timestamp.atZone(zone).toLocalDate() }.distinct()
     return dates.any { date ->
         val n = normals[DayNormals.key(date.monthValue, date.dayOfMonth)] ?: return@any false
-        when (metric) {
-            ConfidenceMetric.TEMPERATURE -> true // toujours présent si la normale existe
-            ConfidenceMetric.PRECIPITATION -> n.precipMeanNormal != null
-            ConfidenceMetric.WIND -> n.windMeanNormal != null
-        }
+        metric == ConfidenceMetric.TEMPERATURE
     }
 }
 

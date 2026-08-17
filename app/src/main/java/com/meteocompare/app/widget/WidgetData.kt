@@ -192,7 +192,9 @@ internal data class WidgetForecastItem(
      * de deux familles de variables sont comparables : le widget ne présente
      * jamais une métrique isolée comme une confiance globale.
      */
-    val forecastConfidencePct: Int? = null
+    val forecastConfidencePct: Int? = null,
+    /** Modèle unique qui fournit les valeurs/icônes des cartes 5h/5j. */
+    val sourceModelName: String? = null
 )
 
 /**
@@ -352,7 +354,11 @@ internal suspend fun loadWidgetData(
             val forecast = result.data
             val calc = entry.confidenceCalculator()
             val currentInstant = java.time.Instant.now()
-            val today = currentInstant.localDateIn(city.timezone)
+            // Le forecast porte le fuseau réellement résolu par l'API. Pour les
+            // anciens favoris sans timezone (ou invalide), il doit primer sur la
+            // valeur persistée afin de choisir le bon jour civil.
+            val effectiveTimezone = forecast.city.timezone
+            val today = currentInstant.localDateIn(effectiveTimezone)
             val dayConf = calc.dayConfidence(forecast, today)
             val precipitation = dayConf.precipitation
             val rainConfidence = precipitation as?
@@ -398,7 +404,7 @@ internal suspend fun loadWidgetData(
                 buildForecasts(
                     forecast = forecast,
                     mode = forecastMode,
-                    timezone = city.timezone,
+                    timezone = effectiveTimezone,
                     now = currentInstant,
                     forecastConfidence = forecastConfidence
                 )
@@ -432,7 +438,7 @@ internal suspend fun loadWidgetData(
             }
             val hourlyStartTime = if (miniForecast != null) {
                 miniForecast.startInstant
-                    .atZone(resolveZoneOrUtc(city.timezone))
+                    .atZone(resolveZoneOrUtc(effectiveTimezone))
                     .toLocalDateTime()
             } else {
                 null
@@ -508,6 +514,7 @@ internal fun buildForecasts(
 
     data class Candidate(
         val stableOrder: Int,
+        val modelName: String,
         val items: List<WidgetForecastItem>
     ) {
         val visibleItems: List<WidgetForecastItem> = items.take(5)
@@ -546,6 +553,7 @@ internal fun buildForecasts(
                 daily = series.daily,
                 hourly = series.hourly,
                 zone = zone,
+                now = now,
                 forecastConfidenceByDate = forecastConfidence.dailyByDate
             )
             ForecastMode.CONFIDENCE_ALL,
@@ -556,7 +564,7 @@ internal fun buildForecasts(
             ForecastMode.HEATMAP_CHART_12H,
             ForecastMode.HEATMAP_TREND_12H -> emptyList()
         }
-        Candidate(stableOrder, items)
+        Candidate(stableOrder, model.displayName, items)
     }.filter { it.visibleItems.isNotEmpty() }
 
     val best = candidates.minWithOrNull(
@@ -568,7 +576,10 @@ internal fun buildForecasts(
             .thenBy { it.stableOrder }
     ) ?: return emptyList()
 
-    return best.visibleItems
+    // Les valeurs météo viennent volontairement d'un seul modèle complet,
+    // tandis que forecastConfidencePct reste multi-modèles. Exposer la source
+    // évite toute ambiguïté de provenance dans le widget.
+    return best.visibleItems.map { it.copy(sourceModelName = best.modelName) }
 }
 
 internal fun buildHourlyForecasts(
@@ -611,11 +622,17 @@ internal fun buildDailyForecasts(
     daily: com.meteocompare.app.domain.model.DailyForecast,
     hourly: com.meteocompare.app.domain.model.HourlyForecast,
     zone: java.time.ZoneId,
+    now: java.time.Instant = java.time.Instant.now(),
     forecastConfidenceByDate: Map<java.time.LocalDate, Int> = emptyMap()
 ): List<WidgetForecastItem> {
     if (daily.dates.isEmpty()) return emptyList()
     val locale = java.util.Locale.getDefault()
-    return daily.dates.take(5).mapIndexed { i, date ->
+    val today = now.atZone(zone).toLocalDate()
+    // Un cache stale peut encore contenir des jours passés : préserver les
+    // indices source et ne jamais les présenter comme les prochains jours.
+    val indices = daily.dates.indices.filter { daily.dates[it] >= today }.take(5)
+    return indices.map { i ->
+        val date = daily.dates[i]
         val label = date.dayOfWeek
             .getDisplayName(java.time.format.TextStyle.SHORT, locale)
             .replaceFirstChar { it.uppercase() }
@@ -835,10 +852,13 @@ private fun buildConfidenceStrip(
             contributingModels = minModelCount,
             totalModels = totalModels
         )
-        val avgValue = dayBands.sumOf { it.meanValue } / dayBands.size
+        val displayValue = aggregateConfidenceBucketValue(
+            mode = mode,
+            values = dayBands.map { it.meanValue }
+        )
         StripBucket(
             percent = conservativePercent,
-            value = formatBucketValue(mode, avgValue),
+            value = formatBucketValue(mode, displayValue),
             label = if (date == today) nowShortLabel
             else date.dayOfWeek
                 .getDisplayName(java.time.format.TextStyle.SHORT, locale)
@@ -892,6 +912,19 @@ internal fun conservativeConfidencePercent(
     else contributingModels.coerceIn(0, totalModels).toDouble() / totalModels
     val coverageFactor = 0.60 + 0.40 * coverage
     return (lowerQuartile * coverageFactor).roundToInt().coerceIn(0, 100)
+}
+
+/** Agrège une journée de bande horaire sans mélanger les sémantiques.
+ * La température/le vent sont des valeurs instantanées/moyennes -> moyenne ;
+ * la précipitation horaire est une quantité sur l'heure -> somme journalière.
+ */
+internal fun aggregateConfidenceBucketValue(mode: ForecastMode, values: List<Double>): Double {
+    if (values.isEmpty()) return Double.NaN
+    return when (mode) {
+        ForecastMode.CONFIDENCE_PRECIPITATION -> values.sum()
+        ForecastMode.CONFIDENCE_TEMPERATURE, ForecastMode.CONFIDENCE_WIND -> values.average()
+        else -> values.average()
+    }
 }
 
 /**

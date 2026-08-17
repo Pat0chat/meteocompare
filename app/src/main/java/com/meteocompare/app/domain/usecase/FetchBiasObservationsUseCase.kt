@@ -95,6 +95,7 @@ class FetchBiasObservationsUseCase @Inject constructor(
             longitude = city.longitude,
             startDate = cappedStart.format(ISO_DATE),
             endDate = end.format(ISO_DATE),
+            daily = ClimateArchiveApi.BIAS_DAILY_VARS,
             timezone = apiTimezoneOrAuto(city.timezone)
         )
 

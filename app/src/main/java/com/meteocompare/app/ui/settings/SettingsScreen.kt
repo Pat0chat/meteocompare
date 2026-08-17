@@ -506,7 +506,7 @@ private fun ModelGroupHeader(text: String) {
  * grossi à 17 modèles (débordement inévitable sinon).
  *
  * ─── Format des méta ───────────────────────────────────────────────────
- * "1.5 km · 51 h" ou "11 km · 4 j" — résolution + horizon natif. La zone n'est plus dupliquée sur
+ * "1.5 km · 48 h" ou "11 km · 4 j" — résolution + horizon natif. La zone n'est plus dupliquée sur
  * chaque ligne car elle est déjà portée par le header de groupe en mode ZONE.
  * En mode FAMILLE ou FINESSE, l'utilisateur peut inférer la zone depuis le
  * nom du modèle ("EU" dans "ICON-EU", etc.) — trade-off acceptable pour la

@@ -1363,6 +1363,8 @@ private fun ForecastCardsPanel(
         else -> ctx.getString(R.string.widget_forecast_generic)
     }
     val visibleItems = items.take(itemCount)
+    val sourceModel = visibleItems.firstOrNull()?.sourceModelName
+    val titleWithSource = if (sourceModel.isNullOrBlank()) title else "$title · $sourceModel"
 
     Column(modifier = modifier) {
         if (showHeader) {
@@ -1371,7 +1373,7 @@ private fun ForecastCardsPanel(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = title,
+                    text = titleWithSource,
                     modifier = GlanceModifier.defaultWeight(),
                     style = TextStyle(
                         color = onContainer,

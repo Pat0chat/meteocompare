@@ -1,9 +1,14 @@
 package com.meteocompare.app.data.repository
 
+import com.meteocompare.app.data.remote.ClimateArchiveApi
 import com.meteocompare.app.data.remote.dto.ArchiveDailyDto
 import com.meteocompare.app.data.remote.dto.ArchiveResponseDto
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.LocalDate
 
 /**
  * Tests de la logique d'agrégation des normales.
@@ -75,10 +80,10 @@ class ClimateNormalsAggregationTest {
         assertEquals(12 to 31, result[2].month to result[2].day)
     }
 
-    // ─── Nouveaux tests v3 : agrégation précipitations et vent ─────────────
+    // ─── Régression : les overlays pluie/vent journaliers restent désactivés ───
 
     @Test
-    fun `precipitation et vent - moyenne independante des jours a NULL`() {
+    fun `precipitation et vent restent absents des reperes horaires`() {
         val response = ArchiveResponseDto(
             latitude = 48.85,
             longitude = 2.35,
@@ -95,8 +100,8 @@ class ClimateNormalsAggregationTest {
         val result = ClimateNormalsRepositoryImpl.aggregate(response)
         assertEquals(1, result.size)
         val june15 = result.first()
-        assertEquals(5.0, june15.precipMeanNormal!!, 0.001)
-        assertEquals(25.0, june15.windMeanNormal!!, 0.001)
+        assertNull(june15.precipMeanNormal)
+        assertNull(june15.windMeanNormal)
     }
 
     @Test
@@ -127,7 +132,7 @@ class ClimateNormalsAggregationTest {
         org.junit.Assert.assertNull(june15.windMeanNormal)
     }
     @Test
-    fun `pluie et vent contribuent meme si la temperature manque cette annee`() {
+    fun `annee thermique manquante est ignoree sans reactiver pluie vent`() {
         val response = ArchiveResponseDto(
             latitude = 48.85,
             longitude = 2.35,
@@ -145,8 +150,8 @@ class ClimateNormalsAggregationTest {
 
         assertEquals(26.0, result.tempMaxNormal, 0.001)
         assertEquals(16.0, result.tempMinNormal, 0.001)
-        assertEquals(6.0, result.precipMeanNormal!!, 0.001)
-        assertEquals(30.0, result.windMeanNormal!!, 0.001)
+        assertNull(result.precipMeanNormal)
+        assertNull(result.windMeanNormal)
     }
 
     @Test
@@ -169,14 +174,19 @@ class ClimateNormalsAggregationTest {
         // La paire thermique NaN est entièrement exclue pour 2023.
         assertEquals(26.0, result.tempMaxNormal, 0.001)
         assertEquals(16.0, result.tempMinNormal, 0.001)
-        // Pluie/vent négatifs ne deviennent jamais des normales artificiellement basses.
-        assertEquals(3.0, result.precipMeanNormal!!, 0.001)
-        assertEquals(25.0, result.windMeanNormal!!, 0.001)
+        // Les overlays pluie/vent sont désactivés : ces grandeurs journalières
+        // ne sont pas comparables à la bande horaire.
+        assertNull(result.precipMeanNormal)
+        assertNull(result.windMeanNormal)
     }
 
     @Test
-    fun `source des normales est une reanalyse ERA5 stable`() {
+    fun `source et variables des reperes thermiques restent explicites`() {
         assertEquals("era5", ClimateNormalsRepositoryImpl.NORMALS_REANALYSIS_MODEL)
+        assertEquals(
+            "temperature_2m_max,temperature_2m_min",
+            ClimateArchiveApi.NORMALS_DAILY_VARS
+        )
     }
 
     @Test
@@ -207,8 +217,74 @@ class ClimateNormalsAggregationTest {
 
         assertEquals(26.0, result.tempMaxNormal, 0.001)
         assertEquals(16.0, result.tempMinNormal, 0.001)
-        assertEquals(3.0, result.precipMeanNormal!!, 0.001)
-        assertEquals(25.0, result.windMeanNormal!!, 0.001)
+        assertNull(result.precipMeanNormal)
+        assertNull(result.windMeanNormal)
+    }
+
+    @Test
+    fun `payload ERA5 de dix annees quasi complet est accepte`() {
+        val start = LocalDate.of(2016, 1, 1)
+        val end = LocalDate.of(2025, 12, 31)
+        val dates = generateSequence(start) { date ->
+            date.plusDays(1).takeIf { !it.isAfter(end) }
+        }.toList()
+        val response = ArchiveResponseDto(
+            latitude = 48.85,
+            longitude = 2.35,
+            timezone = "Europe/Paris",
+            daily = ArchiveDailyDto(
+                time = dates.map(LocalDate::toString),
+                tempMax = List(dates.size) { 20.0 },
+                tempMin = List(dates.size) { 10.0 }
+            )
+        )
+
+        assertTrue(ClimateNormalsRepositoryImpl.isArchivePayloadComplete(response, start, end))
+    }
+
+    @Test
+    fun `payload ERA5 d une seule annee ne peut pas ecraser le cache dix ans`() {
+        val requestedStart = LocalDate.of(2016, 1, 1)
+        val requestedEnd = LocalDate.of(2025, 12, 31)
+        val oneYearStart = LocalDate.of(2025, 1, 1)
+        val dates = generateSequence(oneYearStart) { date ->
+            date.plusDays(1).takeIf { it.year == 2025 }
+        }.toList()
+        val response = ArchiveResponseDto(
+            latitude = 48.85,
+            longitude = 2.35,
+            timezone = "Europe/Paris",
+            daily = ArchiveDailyDto(
+                time = dates.map(LocalDate::toString),
+                tempMax = List(dates.size) { 20.0 },
+                tempMin = List(dates.size) { 10.0 }
+            )
+        )
+
+        assertFalse(ClimateNormalsRepositoryImpl.isArchivePayloadComplete(
+            response, requestedStart, requestedEnd
+        ))
+    }
+
+    @Test
+    fun `payload ERA5 sans Tmin est refuse avant ecriture Room`() {
+        val start = LocalDate.of(2016, 1, 1)
+        val end = LocalDate.of(2025, 12, 31)
+        val dates = generateSequence(start) { date ->
+            date.plusDays(1).takeIf { !it.isAfter(end) }
+        }.toList()
+        val response = ArchiveResponseDto(
+            latitude = 48.85,
+            longitude = 2.35,
+            timezone = "Europe/Paris",
+            daily = ArchiveDailyDto(
+                time = dates.map(LocalDate::toString),
+                tempMax = List(dates.size) { 20.0 },
+                tempMin = null
+            )
+        )
+
+        assertFalse(ClimateNormalsRepositoryImpl.isArchivePayloadComplete(response, start, end))
     }
 
 }

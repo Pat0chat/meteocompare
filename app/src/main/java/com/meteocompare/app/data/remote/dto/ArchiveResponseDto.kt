@@ -10,11 +10,9 @@ import kotlinx.serialization.Serializable
  * `time` et chaque variable. Les valeurs nulles existent pour les jours
  * manquants (rare en zone tempérée, plus fréquent dans les hautes latitudes).
  *
- * Les champs `precipitationSum` et `windSpeedMax` sont fournis par défaut par
- * l'API à partir du moment où on les demande dans `daily=`. Ils sont
- * @SerialName("...") pour matcher les clés API, et non-nullables en liste
- * (chaque élément peut être null, mais la liste elle-même est toujours
- * présente si demandée).
+ * Les séries optionnelles ne sont pas supposées présentes : les deux
+ * consommateurs de cet endpoint demandent des ensembles de variables différents.
+ * Chaque pipeline valide donc explicitement les champs dont il a besoin.
  */
 @Serializable
 data class ArchiveResponseDto(
@@ -31,7 +29,7 @@ data class ArchiveDailyDto(
     @SerialName("temperature_2m_max")
     val tempMax: List<Double?>,
     @SerialName("temperature_2m_min")
-    val tempMin: List<Double?>,
+    val tempMin: List<Double?>? = null,
     /**
      * Cumul journalier de précipitations en mm. Nullable (par élément) : un
      * jour sans mesure exploitable est représenté par null, PAS par 0.0 —
@@ -44,11 +42,7 @@ data class ArchiveDailyDto(
      */
     @SerialName("precipitation_sum")
     val precipSum: List<Double?>? = null,
-    /**
-     * Vitesse max quotidienne du vent moyen à 10m en km/h. On agrège en normale
-     * la moyenne journalière du max — proxy raisonnable pour "vent typique du
-     * jour" qui reste comparable au `windSpeedMax` du forecast.
-     */
+    /** Vitesse maximale quotidienne du vent moyen à 10 m, en km/h. */
     @SerialName("wind_speed_10m_max")
     val windSpeedMax: List<Double?>? = null
 )

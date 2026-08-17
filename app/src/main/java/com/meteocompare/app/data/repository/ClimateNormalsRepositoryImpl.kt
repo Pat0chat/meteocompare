@@ -22,6 +22,8 @@ import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.time.Clock
 import java.time.LocalDate
+import java.time.temporal.ChronoUnit
+import kotlin.math.ceil
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -34,13 +36,11 @@ import javax.inject.Singleton
  *      où la donnée existe.
  *   4. Persiste dans Room et retourne.
  *
- * Nouveau (v3) : on agrège aussi la précipitation et le vent max moyen. Ces
- * séries sont OPTIONNELLES — un cache d'archive Open-Meteo qui n'a pas ces
- * variables (ou une future coupure d'API sur ces champs) laisse le champ
- * `precipMeanNormal`/`windMeanNormal` à null plutôt que de crash.
- *
- * Le nombre de requêtes réseau ne change pas : on ajoute juste 2 variables à
- * la query `daily=` existante, tout est retourné en un seul appel HTTP.
+ * Les repères affichés sur la bande horaire sont uniquement thermiques :
+ * Tmax/Tmin journaliers ERA5. Les anciennes moyennes de cumul pluie journalier
+ * et de vent max journalier ne sont plus utilisées comme overlays horaires,
+ * car elles n'ont pas la même fenêtre temporelle que les séries du graphe.
+ * Les colonnes Room historiques restent nullables pour compatibilité de schéma.
  */
 @Singleton
 class ClimateNormalsRepositoryImpl @Inject constructor(
@@ -70,19 +70,18 @@ class ClimateNormalsRepositoryImpl @Inject constructor(
 
         /**
          * Agrégation : pour chaque (month, day) rencontré dans la série, moyenne
-         * arithmétique des variables sur toutes les années où la donnée existe.
-         * Les NULL sont ignorés champ par champ — un jour où seule la pluie
-         * est manquante contribue quand même aux moyennes température/vent.
+         * arithmétique de Tmax/Tmin sur toutes les années où la paire existe.
+         * Les NULL et valeurs non finies sont ignorés par paire thermique.
          *
-         * Retour : les champs `precipMeanNormal` et `windMeanNormal` sont null
-         * quand aucune donnée valide n'existe (ex. série sans la variable, cas
-         * de coupure d'API), sinon la moyenne.
+         * Les champs `precipMeanNormal` et `windMeanNormal` restent volontairement
+         * null : des agrégats journaliers pluie/vent ne sont pas superposables à
+         * la bande horaire sans changer de fenêtre temporelle et de sémantique.
          */
         internal fun aggregate(response: ArchiveResponseDto): List<DayNormals> {
             data class Acc(
-                var sumMax: Double = 0.0, var sumMin: Double = 0.0, var nTemp: Int = 0,
-                var sumPrecip: Double = 0.0, var nPrecip: Int = 0,
-                var sumWind: Double = 0.0, var nWind: Int = 0
+                var sumMax: Double = 0.0,
+                var sumMin: Double = 0.0,
+                var nTemp: Int = 0
             )
             val byMonthDay = HashMap<Int, Acc>()
 
@@ -96,34 +95,18 @@ class ClimateNormalsRepositoryImpl @Inject constructor(
                 val acc = byMonthDay.getOrPut(key) { Acc() }
 
                 // Température : max et min forment une paire. Une année sans
-                // cette paire ne contribue pas à la normale thermique, mais ne
-                // doit pas empêcher pluie/vent de contribuer indépendamment.
+                // cette paire ne contribue pas au repère thermique.
                 val tempMax = response.daily.tempMax.getOrNull(i)?.takeIf(Double::isFinite)
-                val tempMin = response.daily.tempMin.getOrNull(i)?.takeIf(Double::isFinite)
+                val tempMin = response.daily.tempMin?.getOrNull(i)?.takeIf(Double::isFinite)
                 if (tempMax != null && tempMin != null) {
                     acc.sumMax += tempMax
                     acc.sumMin += tempMin
                     acc.nTemp += 1
                 }
-
-                response.daily.precipSum?.getOrNull(i)
-                    ?.takeIf { it.isFinite() && it >= 0.0 }
-                    ?.let {
-                        acc.sumPrecip += it
-                        acc.nPrecip += 1
-                    }
-                response.daily.windSpeedMax?.getOrNull(i)
-                    ?.takeIf { it.isFinite() && it >= 0.0 }
-                    ?.let {
-                        acc.sumWind += it
-                        acc.nWind += 1
-                    }
             }
 
             return byMonthDay.entries
-                // DayNormals exige une base thermique exploitable. Les autres
-                // variables restent toutefois agrégées avec toutes leurs
-                // années valides, même quand la température manque ponctuellement.
+                // DayNormals exige une base thermique exploitable.
                 .filter { (_, acc) -> acc.nTemp > 0 }
                 .map { (key, acc) ->
                     DayNormals(
@@ -131,12 +114,49 @@ class ClimateNormalsRepositoryImpl @Inject constructor(
                         day = key % 100,
                         tempMaxNormal = acc.sumMax / acc.nTemp,
                         tempMinNormal = acc.sumMin / acc.nTemp,
-                        precipMeanNormal = if (acc.nPrecip > 0) acc.sumPrecip / acc.nPrecip else null,
-                        windMeanNormal = if (acc.nWind > 0) acc.sumWind / acc.nWind else null
+                        precipMeanNormal = null,
+                        windMeanNormal = null
                     )
                 }
                 .sortedWith(compareBy({ it.month }, { it.day }))
         }
+
+        /**
+         * Refuse les réponses archive manifestement partielles avant toute
+         * écriture Room. ERA5 doit être une série quotidienne quasi continue :
+         * on exige les dix années demandées et au moins 95 % des dates/paire
+         * Tmax-Tmin attendues.
+         */
+        internal fun isArchivePayloadComplete(
+            response: ArchiveResponseDto,
+            startDate: LocalDate,
+            endDate: LocalDate
+        ): Boolean {
+            if (endDate < startDate) return false
+            val expectedDays = ChronoUnit.DAYS.between(startDate, endDate) + 1L
+            if (expectedDays <= 0L) return false
+
+            val validDates = response.daily.time.mapNotNull { raw ->
+                runCatching { LocalDate.parse(raw) }.getOrNull()
+                    ?.takeIf { it in startDate..endDate }
+            }.distinct()
+            val years = validDates.map(LocalDate::getYear).distinct()
+            val minCoverage = ceil(expectedDays * MIN_ARCHIVE_COVERAGE_RATIO).toLong()
+            if (years.size < YEARS_OF_HISTORY || validDates.size.toLong() < minCoverage) return false
+
+            val tempMin = response.daily.tempMin ?: return false
+            val pairedTemperatureDays = response.daily.time.indices.count { index ->
+                val date = response.daily.time.getOrNull(index)?.let { raw ->
+                    runCatching { LocalDate.parse(raw) }.getOrNull()
+                } ?: return@count false
+                if (date !in startDate..endDate) return@count false
+                response.daily.tempMax.getOrNull(index)?.isFinite() == true &&
+                    tempMin.getOrNull(index)?.isFinite() == true
+            }
+            return pairedTemperatureDays.toLong() >= minCoverage
+        }
+
+        private const val MIN_ARCHIVE_COVERAGE_RATIO = 0.95
     }
 
     override suspend fun getNormalsForCity(city: City): ApiResult<List<DayNormals>> =
@@ -185,6 +205,7 @@ class ClimateNormalsRepositoryImpl @Inject constructor(
                     longitude = city.longitude,
                     startDate = startDate.toString(),
                     endDate = endDate.toString(),
+                    daily = ClimateArchiveApi.NORMALS_DAILY_VARS,
                     models = NORMALS_REANALYSIS_MODEL
                 )
             }
@@ -198,6 +219,19 @@ class ClimateNormalsRepositoryImpl @Inject constructor(
                     }
                 }
                 is ApiResult.Success -> {
+                    // Un HTTP 200 ne suffit pas : une réponse vide/partielle ne
+                    // doit jamais remplacer un cache ERA5 10 ans déjà valide.
+                    if (!isArchivePayloadComplete(result.data, startDate, endDate)) {
+                        return@withContext if (fallbackCache.isNotEmpty()) {
+                            ApiResult.Success(fallbackCache.map { it.toDomain() })
+                        } else {
+                            ApiResult.Error(
+                                IllegalStateException("Incomplete ERA5 archive payload"),
+                                context.getString(R.string.error_unknown)
+                            )
+                        }
+                    }
+
                     val normals = withContext(computation) { aggregate(result.data) }
                     val now = clock.millis()
                     val entities = normals.map { it.toEntity(cacheId, now) }

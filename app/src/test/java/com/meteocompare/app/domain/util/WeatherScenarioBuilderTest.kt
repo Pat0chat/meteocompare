@@ -90,6 +90,25 @@ class WeatherScenarioBuilderTest {
         assertTrue(scenarios.all { it.totalModelCount == 4 })
     }
 
+    @Test
+    fun `cumul pluie 12h reste absent si une heure de quantite manque`() {
+        val forecast = forecastOf(
+            WeatherModel.GFS to hourly(
+                temperatures = List(12) { 15.0 },
+                precipitations = List(11) { 1.0 } + listOf(null),
+                weatherCodes = List(12) { 61 },
+                clouds = List(12) { 90 },
+                gusts = List(12) { 30.0 }
+            )
+        )
+
+        val scenario = WeatherScenarioBuilder.next12h(forecast, now).single()
+
+        assertEquals(WeatherScenarioKind.RAIN, scenario.kind)
+        assertEquals(null, scenario.precipitationMinMm)
+        assertEquals(null, scenario.precipitationMaxMm)
+    }
+
     private fun simpleHourly(code: Int, cloud: Int, precip: Double): HourlyForecast = hourly(
         temperatures = List(12) { 15.0 },
         precipitations = List(12) { precip },

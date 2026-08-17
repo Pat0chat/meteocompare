@@ -28,7 +28,7 @@ Depuis la v1.0, l'app suit aussi **le biais historique de chaque modèle sur cha
 - **Suivi de biais par modèle et par ville** — chaque modèle est confronté à une réanalyse historique Open-Meteo sur ses prévisions J+1 passées. Trois pastilles : biais systématique significatif, biais signé faible, ou historique encore insuffisant. La sheet 30 jours compare prévision et référence avec moyenne, écart-type et contexte méthodologique
 - **Évolution des prévisions (~24 / ~48 / ~72 h)** : chaque refresh météo frais enregistre localement un snapshot quotidien (température max, cumul de pluie, vent max), au plus une fois par tranche de 3 h et avec 5 jours de rétention. La fiche ville compare ensuite la prévision courante aux snapshots les plus proches de 24/48/72 h et affiche leur âge réel (par ex. H−25). Ce n'est pas une reconstruction des cycles 00Z/06Z/12Z/18Z d'un modèle. Les médianes gardent le même groupe de modèles comparables, les données manquantes sont exclues, les changements importants remontent dans « À retenir », et la carte repliable est mémorisée par ville. Aucun appel réseau supplémentaire n'est déclenché par cette fonctionnalité ; après installation, l'historique se construit progressivement.
 - **Bande de confiance horaire multi-métriques** : sélecteur segmenté à 3 états pour basculer entre température, précipitations et vent — la bande se recalcule instantanément (précalcul dans le ViewModel). Graphique min-max autour de la moyenne pondérée qui s'élargit visuellement quand les modèles divergent
-- **Repères climatiques 10 ans en overlay** : moyennes calendaires calculées sur la réanalyse ERA5, affichées en traits pointillés pour contextualiser température, précipitations et vent (ce ne sont pas des « normales climatiques » officielles sur 30 ans)
+- **Repères thermiques 10 ans en overlay** : Tmax/Tmin calendaires calculées sur la réanalyse ERA5 et affichées en traits pointillés sur la bande température. Les anciennes références pluie/vent journalières ne sont plus superposées aux graphes horaires, car les fenêtres temporelles ne sont pas comparables (et il ne s’agit pas de « normales climatiques » officielles sur 30 ans).
 - **Zoom au pincement** sur l'axe temps (double-tap pour réinitialiser)
 - **Toggle "par heure / par jour"** : bascule les tableaux entre la vue synthétique 7 jours et le détail horaire jusqu'à la fin de la journée courante
 - **Tableau Jour × Modèle** des conditions météo (icônes) et températures max/min, avec badges "%" indiquant la couverture nuageuse (cellules nuageuses/couvertes) ou la probabilité de pluie (cellules pluvieuses)
@@ -101,8 +101,8 @@ Listés dans `WeatherModel.kt` avec leur résolution native (km), leur horizon, 
 
 | Modèle             | Résolution | Couverture       | Horizon | Institution         | Par défaut |
 |--------------------|------------|------------------|---------|---------------------|:----------:|
-| AROME France HD    | 1.5 km     | France           | ≈51 h   | Météo-France        |     ✓      |
-| AROME France       | 2.5 km     | France           | ≈51 h   | Météo-France        |            |
+| AROME France HD    | 1.5 km     | France           | 2 j (48 h) | Météo-France        |     ✓      |
+| AROME France       | 2.5 km     | France           | 2 j (48 h) | Météo-France        |            |
 | ARPEGE Europe      | 11 km      | Europe           | 4 j     | Météo-France        |     ✓      |
 | ARPEGE World       | 25 km      | Global           | 4 j     | Météo-France        |            |
 | ICON-EU            | 7 km       | Europe           | 5 j     | DWD (Allemagne)     |     ✓      |
@@ -110,14 +110,14 @@ Listés dans `WeatherModel.kt` avec leur résolution native (km), leur horizon, 
 | ICON-D2            | 2 km       | Europe centrale  | 2 j     | DWD                 |            |
 | GFS                | 13 km      | Global           | 16 j    | NOAA (USA)          |     ✓      |
 | ECMWF              | 25 km      | Global           | 15 j    | ECMWF (UE)          |     ✓      |
-| ECMWF AIFS         | 25 km      | Global (**IA**)  | 15 j    | ECMWF               |     ✓      |
+| ECMWF AIFS         | 28 km      | Global (**IA**)  | 15 j    | ECMWF               |     ✓      |
 | UKMO Global        | 10 km      | Global           | 7 j     | UK Met Office       |     ✓      |
 | GEM Global         | 15 km      | Global           | 10 j    | ECCC (Canada)       |            |
-| **HRRR**           | **3 km**   | USA continental  | 2 j     | NOAA                |            |
+| **HRRR**           | **3 km**   | USA continental  | 18 h standard (48 h sur 00/06/12/18Z) | NOAA |            |
 | **MET Nordic**     | **1 km**   | Scandinavie      | 2,5 j   | MET Norway          |            |
 | **HARMONIE**       | **5.5 km** | Europe           | 2,5 j   | KNMI (Pays-Bas)     |            |
 | **BOM ACCESS**     | 15 km      | Global           | 10 j    | Bureau of Meteorology (Australie) |            |
-| **CMA GRAPES**     | 13 km      | Global           | 10 j    | China Meteorological Administration |            |
+| **CMA GRAPES**     | 15 km      | Global           | 10 j    | China Meteorological Administration |            |
 
 Les modèles marqués "Par défaut" sont activés dès la première ouverture ; les autres sont activables dans les Settings, désormais **triables par zone, par famille ou par finesse** (résolution native).
 
@@ -163,7 +163,7 @@ val matrix: List<DayConditionsRow> = calculator.dailyConditionsByModel(forecast)
 
 La **TodaySummaryCard** conserve un résumé immédiatement lisible mais détaille désormais chaque variable dans quatre mini-cartes de même hauteur. La valeur centrale correspond à la moyenne inter-modèles ; les informations secondaires explicitent la plage, le spread, les rafales éventuelles ou la répartition des scénarios de pluie, avec l’accord propre à la variable.
 
-**Bande de confiance multi-métriques** : le composant `ConfidenceBandSection` encapsule un sélecteur segmenté à 3 états (Température / Précipitations / Vent) au-dessus d'un graphe unique. Les 3 séries de bandes sont pré-calculées dans le ViewModel — la transition entre métriques est instantanée. Chaque bande superpose l'overlay des **repères ERA5 sur 10 ans** (traits pointillés colorés par métrique) chargées depuis l'API archive d'Open-Meteo et cachées 180 jours dans Room. Le graphique est **zoomable au pincement** sur l'axe temps (pinch à 2 doigts + pan) et **réinitialisable au double-tap**.
+**Bande de confiance multi-métriques** : le composant `ConfidenceBandSection` encapsule un sélecteur segmenté à 3 états (Température / Précipitations / Vent) au-dessus d'un graphe unique. Les 3 séries de bandes sont pré-calculées dans le ViewModel — la transition entre métriques est instantanée. La bande **température** superpose les **repères ERA5 Tmax/Tmin sur 10 ans**, chargés depuis l'API archive d'Open-Meteo et cachés 180 jours dans Room. Les graphes pluie/vent n'affichent pas de repère journalier sur une série horaire afin d'éviter de comparer des fenêtres temporelles différentes. Le graphique est **zoomable au pincement** sur l'axe temps (pinch à 2 doigts + pan) et **réinitialisable au double-tap**.
 
 Les seuils actuels sont des **heuristiques de présentation**, pas une calibration scientifique ni une probabilité de justesse. Une future calibration prédictive devrait s’appuyer sur un corpus de vérification par variable, zone et échéance.
 

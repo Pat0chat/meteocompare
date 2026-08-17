@@ -713,7 +713,7 @@ class ForecastRepositoryImplTest {
     @Test
     fun `refresh - forecast_days pris au max des modèles bornée par forecastDays voulu`() =
         runTest {
-            // AROME_FRANCE_HD.maxForecastDays = 3 (51 h natives), GFS = 16, forecastDays voulu = 5.
+            // AROME_FRANCE_HD.maxForecastDays = 3 (48 h natives, plafond civil 3 j), GFS = 16, forecastDays voulu = 5.
             // Attendu : effectiveForecastDays = min(max(3, 16), 5) = 5.
             // Ce test verrouille l'algo : envoyer forecast_days=16 gaspillerait
             // du réseau (GFS a 16 j de data mais UI n'affiche que 5), et

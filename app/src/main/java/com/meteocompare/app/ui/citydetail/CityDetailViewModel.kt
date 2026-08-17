@@ -375,7 +375,10 @@ class CityDetailViewModel @Inject constructor(
                     applyResult(result)
                     if (!normalsStarted && result is ApiResult.Success) {
                         normalsStarted = true
-                        launchNormalsLoad(city)
+                        // Le forecast porte le fuseau réparé par Open-Meteo.
+                        // Il doit aussi servir aux repères ERA5 pour les anciens
+                        // favoris dont le timezone était absent/invalide.
+                        launchNormalsLoad(result.data.city)
                     }
                 }
         }
@@ -487,6 +490,13 @@ class CityDetailViewModel @Inject constructor(
                 incomingFetchedAt == currentFetchedAt &&
                 incomingModels == currentModels
             if (isOlder || isSameVersion) return@withLock
+        }
+
+        // Une fois un forecast accepté, son City contient le timezone réellement
+        // résolu par l'API. Il devient la source de vérité pour les calculs
+        // secondaires (biais, dates civiles, repères historiques).
+        if (result is ApiResult.Success) {
+            cityTimezone.value = result.data.city.timezone
         }
 
         val next = when (result) {

@@ -173,14 +173,55 @@ class BootstrapBiasHistoryUseCaseTest {
     }
 
     @Test
-    fun `jour incomplet est ignoré sans fabriquer un cumul partiel`() = runTest {
+    fun `timeline tronquee a 18 heures est rejetee comme journee incomplete`() = runTest {
+        val model = WeatherModel.GFS
+        val date = today.minusDays(1)
+        val hourly = linkedMapOf<String, kotlinx.serialization.json.JsonElement>()
+        hourly["time"] = JsonArray((0 until 18).map { hour ->
+            JsonPrimitive("${date}T${hour.toString().padStart(2, '0')}:00")
+        })
+        hourly["temperature_2m_previous_day1_${model.apiKey}"] = values(18) { 15.0 }
+        hourly["precipitation_previous_day1_${model.apiKey}"] = values(18) { 1.0 }
+        hourly["wind_speed_10m_previous_day1_${model.apiKey}"] = values(18) { 20.0 }
+        coEvery { api.getPreviousDayOne(any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returns
+            PreviousRunsResponseDto(city.latitude, city.longitude, city.timezone!!, JsonObject(hourly))
+
+        val result = useCase(city, listOf(model), today, requestedDays = 1)
+
+        assertEquals(0, result.coveredDays)
+        assertEquals(0, result.forecastRecords)
+        coVerify(exactly = 1) { repository.recordForecasts(emptyList()) }
+    }
+
+    @Test
+    fun `journee civile DST de 23 heures reste acceptee si toutes les heures sont presentes`() = runTest {
+        val model = WeatherModel.GFS
+        val date = today.minusDays(1)
+        val hourly = linkedMapOf<String, kotlinx.serialization.json.JsonElement>()
+        hourly["time"] = JsonArray((0 until 23).map { hour ->
+            JsonPrimitive("${date}T${hour.toString().padStart(2, '0')}:00")
+        })
+        hourly["temperature_2m_previous_day1_${model.apiKey}"] = values(23) { it.toDouble() }
+        hourly["precipitation_previous_day1_${model.apiKey}"] = values(23) { 1.0 }
+        hourly["wind_speed_10m_previous_day1_${model.apiKey}"] = values(23) { 20.0 + it }
+        coEvery { api.getPreviousDayOne(any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returns
+            PreviousRunsResponseDto(city.latitude, city.longitude, city.timezone!!, JsonObject(hourly))
+
+        val result = useCase(city, listOf(model), today, requestedDays = 1)
+
+        assertEquals(1, result.coveredDays)
+        assertEquals(3, result.forecastRecords)
+    }
+
+    @Test
+    fun `jour 18 heures sur 24 est ignore sans fabriquer un cumul partiel`() = runTest {
         coEvery { api.getPreviousDayOne(any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returns
             response(
                 model = WeatherModel.GFS,
                 days = 1,
-                temperature = { _, hour -> if (hour < 10) 15.0 else null },
-                precipitation = { _, hour -> if (hour < 10) 1.0 else null },
-                wind = { _, hour -> if (hour < 10) 20.0 else null }
+                temperature = { _, hour -> if (hour < 18) 15.0 else null },
+                precipitation = { _, hour -> if (hour < 18) 1.0 else null },
+                wind = { _, hour -> if (hour < 18) 20.0 else null }
             )
 
         val result = useCase(city, listOf(WeatherModel.GFS), today, requestedDays = 1)

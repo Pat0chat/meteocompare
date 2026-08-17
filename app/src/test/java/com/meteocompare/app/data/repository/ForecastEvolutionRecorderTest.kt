@@ -19,6 +19,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneOffset
 
 class ForecastEvolutionRecorderTest {
     private val city = City("paris", "Paris", country = "France", latitude = 48.85, longitude = 2.35)
@@ -82,6 +83,32 @@ class ForecastEvolutionRecorderTest {
     }
 
     @Test
+    fun `partial last horizon day is not recorded as a comparable daily value`() = runTest {
+        val dao = mockk<ForecastEvolutionDao>()
+        val inserted = slot<List<ForecastEvolutionEntity>>()
+        coEvery { dao.insertSnapshotBucketIfAbsent(any(), any(), capture(inserted)) } returns true
+        coEvery { dao.purgeCapturedBefore(any()) } returns Unit
+        val recorder = ForecastEvolutionRecorder(dao, Dispatchers.Unconfined)
+        val base = forecast()
+        val partial = base.copy(
+            seriesByModel = base.seriesByModel.mapValues { (_, series) ->
+                series.copy(
+                    hourly = series.hourly.copy(
+                        precipitation = series.hourly.precipitation.mapIndexed { index, value ->
+                            if (index >= 18) null else value
+                        }
+                    )
+                )
+            }
+        )
+
+        recorder.record(partial)
+
+        assertEquals(4, inserted.captured.size) // T + vent pour 2 modèles ; pluie exclue
+        assertTrue(inserted.captured.none { it.variable == "PRECIPITATION" })
+    }
+
+    @Test
     fun `same three hour bucket does not trigger retention work again`() = runTest {
         val dao = mockk<ForecastEvolutionDao>()
         coEvery { dao.insertSnapshotBucketIfAbsent(any(), any(), any()) } returns false
@@ -108,7 +135,14 @@ class ForecastEvolutionRecorderTest {
         val series = listOf(WeatherModel.GFS, WeatherModel.ECMWF).associateWith { model ->
             ForecastSeries(
                 model = model,
-                hourly = HourlyForecast(emptyList(), emptyList(), emptyList(), emptyList()),
+                hourly = HourlyForecast(
+                    timestamps = (0 until 24).map { hour ->
+                        date.atStartOfDay(ZoneOffset.UTC).plusHours(hour.toLong()).toInstant()
+                    },
+                    temperature2m = List(24) { if (model == WeatherModel.GFS) 20.0 else 21.0 },
+                    precipitation = List(24) { if (model == WeatherModel.GFS) 0.125 else 1.0 / 6.0 },
+                    windSpeed10m = List(24) { if (model == WeatherModel.GFS) 30.0 else 35.0 }
+                ),
                 daily = DailyForecast(
                     dates = listOf(date),
                     tempMax = listOf(if (model == WeatherModel.GFS) 21.0 else 22.0),
