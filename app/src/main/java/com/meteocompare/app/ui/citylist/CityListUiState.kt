@@ -27,7 +27,8 @@ data class CityListUiState(
 
 data class CityCardState(
     val city: City,
-    val forecast: ForecastState
+    val forecast: ForecastState,
+    val isMarineLoading: Boolean = false
 )
 
 sealed interface ForecastState {

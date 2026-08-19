@@ -10,6 +10,7 @@ import com.meteocompare.app.domain.model.CityDetailViewMode
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DayNormals
 import com.meteocompare.app.domain.model.LanguagePreference
+import com.meteocompare.app.domain.model.MarineForecast
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.ThemePreference
 import com.meteocompare.app.domain.model.WeatherModel
@@ -19,6 +20,7 @@ import com.meteocompare.app.domain.repository.ClimateNormalsRepository
 import com.meteocompare.app.domain.repository.ForecastRepository
 import com.meteocompare.app.domain.repository.ForecastEvolutionRepository
 import com.meteocompare.app.domain.repository.ForecastEvolutionHistoryData
+import com.meteocompare.app.domain.repository.MarineRepository
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -55,6 +57,12 @@ class FakeCityRepository @Inject constructor() : CityRepository {
 
     override suspend fun removeFavorite(cityId: String) {
         favorites.value = favorites.value.filterNot { it.id == cityId }
+    }
+
+    override suspend fun setMarineEnabled(cityId: String, enabled: Boolean) {
+        favorites.value = favorites.value.map { city ->
+            if (city.id == cityId) city.copy(marineEnabled = enabled) else city
+        }
     }
 
     fun setFavorites(cities: List<City>) {
@@ -117,6 +125,23 @@ class FakeForecastRepository @Inject constructor() : ForecastRepository {
 
     private fun streamFor(city: City): MutableStateFlow<ApiResult<CityForecast>> =
         streams.getOrPut(city.id) { MutableStateFlow(ApiResult.Success(TestFixtures.forecast(city))) }
+}
+
+@Singleton
+class FakeMarineRepository @Inject constructor() : MarineRepository {
+    private val cache = ConcurrentHashMap<String, MarineForecast>()
+    var nextResult: ApiResult<MarineForecast>? = null
+
+    override suspend fun getMarine(city: City, forceRefresh: Boolean): ApiResult<MarineForecast> =
+        nextResult ?: cache[city.id]?.let { ApiResult.Success(it) }
+        ?: ApiResult.Error(IllegalStateException("marine unavailable"), "marine unavailable")
+
+    override suspend fun getCached(cityId: String): MarineForecast? = cache[cityId]
+
+    override suspend fun clear(cityId: String) { cache.remove(cityId) }
+
+    fun set(cityId: String, data: MarineForecast) { cache[cityId] = data }
+    fun reset() { cache.clear(); nextResult = null }
 }
 
 @Singleton

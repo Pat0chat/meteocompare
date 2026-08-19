@@ -190,7 +190,7 @@ private fun IconCell(
             // physiques du MÊME modèle (précip/temp ou nébulosité), faute de
             // weather_code direct. On garde l'icône clairement visible tout en
             // la différenciant d'un code WMO natif/dérivé fourni par l'API.
-            val contentModifier = if (isInferred) Modifier.alpha(0.55f) else Modifier
+            val contentModifier = if (isInferred) Modifier.alpha(0.65f) else Modifier
             Column(
                 modifier = contentModifier,
                 horizontalAlignment = Alignment.CenterHorizontally,

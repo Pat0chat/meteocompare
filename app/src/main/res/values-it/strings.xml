@@ -617,4 +617,44 @@ dato</string>
 
     <string name="forecast_evolution_metric_a11y">%1$s: %2$s</string>
 
+    <!-- Mode Mer / côte -->
+    <string name="action_activate_marine">Attiva Mare / costa</string>
+    <string name="action_refresh_marine">Aggiorna Mare / costa</string>
+    <string name="marine_enabled">Modalità Mare / costa attivata</string>
+    <string name="marine_refreshed">Dati Mare / costa aggiornati</string>
+    <string name="marine_not_coastal">Non è stato trovato alcun punto di griglia marino affidabile entro 50 km da questa città.</string>
+    <string name="marine_error">Impossibile caricare i dati marini: %1$s</string>
+    <string name="marine_title">Mare / costa</string>
+    <string name="marine_intro">Onde, swell, temperatura del mare e livello marino</string>
+    <string name="marine_distance">Punto marino a %1$.1f km</string>
+    <string name="marine_loading">Caricamento…</string>
+    <string name="marine_wave_height">Altezza onde</string>
+    <string name="marine_wave_period">Periodo onde</string>
+    <string name="marine_wave_direction">Direzione onde</string>
+    <string name="marine_swell_height">Altezza swell</string>
+    <string name="marine_sea_temp">Temperatura del mare</string>
+    <string name="marine_wave_evolution">Evoluzione dell’altezza delle onde</string>
+    <string name="marine_next_48h">Prossime 48 h</string>
+    <string name="marine_daily_outlook">Previsione a 7 giorni</string>
+    <string name="marine_tides">Maree / livello del mare</string>
+    <string name="marine_tides_intro">Estremi orari approssimativi nelle prossime 72 h</string>
+    <string name="marine_unavailable">Non disponibile</string>
+    <string name="marine_trend_rising">In aumento</string>
+    <string name="marine_trend_falling">In diminuzione</string>
+    <string name="marine_trend_steady">Quasi stabile</string>
+    <string name="marine_current_level">Livello attuale</string>
+    <string name="marine_reference_msl">Riferimento MSL globale</string>
+    <string name="marine_next_extremum">Prossimo estremo</string>
+    <string name="marine_high_water">Alta marea appross.</string>
+    <string name="marine_low_water">Bassa marea appross.</string>
+    <string name="marine_tide_unavailable">Dati insufficienti per stimare gli estremi</string>
+    <string name="marine_tide_range_short">Escursione 24 h</string>
+    <string name="marine_next_24h">Prossime 24 h</string>
+    <string name="marine_tide_datum_note">sea_level_height_msl è riferito al livello medio del mare (MSL) e può includere contributi diversi dalla sola marea astronomica. Non corrisponde allo zero idrografico di un porto.</string>
+    <string name="marine_disclaimer">Informazioni puramente indicative. Non usare per navigazione o sicurezza marittima.</string>
+    <string name="marine_source">Fonte: Open-Meteo Marine API</string>
+    <string name="marine_chart_unavailable">Grafico marino non disponibile: punti utilizzabili insufficienti.</string>
+
+    <string name="settings_about_marine">Mare / costa: onde, swell, temperatura e livello del mare provengono da Open-Meteo Marine. Gli estremi del livello sono approssimativi e non devono essere usati per la navigazione.</string>
+
 </resources>

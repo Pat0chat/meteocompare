@@ -13,6 +13,7 @@ import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.di.DefaultDispatcher
 import com.meteocompare.app.domain.repository.CityRepository
 import com.meteocompare.app.domain.repository.ForecastRepository
+import com.meteocompare.app.domain.repository.MarineRepository
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
 import com.meteocompare.app.domain.usecase.ConfidenceCalculator
 import com.meteocompare.app.domain.util.ForecastAggregates
@@ -26,10 +27,12 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
@@ -45,11 +48,20 @@ import kotlinx.coroutines.withContext
 import java.time.Clock
 import javax.inject.Inject
 
+
+sealed interface MarineFeedback {
+    data object Enabled : MarineFeedback
+    data object Refreshed : MarineFeedback
+    data object NotCoastal : MarineFeedback
+    data class Error(val message: String) : MarineFeedback
+}
+
 @HiltViewModel
 @OptIn(FlowPreview::class, kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class CityListViewModel @Inject constructor(
     private val cityRepository: CityRepository,
     private val forecastRepository: ForecastRepository,
+    private val marineRepository: MarineRepository,
     private val networkMonitor: NetworkMonitor,
     private val confidenceCalculator: ConfidenceCalculator,
     private val userPreferences: UserPreferencesRepository,
@@ -60,6 +72,9 @@ class CityListViewModel @Inject constructor(
     private val forecastsById = MutableStateFlow<Map<String, ForecastState>>(emptyMap())
     private val _isRefreshing = MutableStateFlow(false)
     private val _isOnline = MutableStateFlow(networkMonitor.isOnline())
+    private val marineLoadingIds = MutableStateFlow<Set<String>>(emptySet())
+    private val _marineFeedback = Channel<MarineFeedback>(capacity = Channel.BUFFERED)
+    val marineFeedback = _marineFeedback.receiveAsFlow()
 
     // Tracking des jobs de stream par cityId. Sert à les canceller proprement
     // quand une ville est retirée des favoris ou quand les modèles sélectionnés
@@ -85,13 +100,15 @@ class CityListViewModel @Inject constructor(
         cityRepository.observeFavorites(),
         forecastsById,
         _isRefreshing,
-        _isOnline
-    ) { cities, cache, refreshing, online ->
+        _isOnline,
+        marineLoadingIds
+    ) { cities, cache, refreshing, online, marineLoading ->
         CityListUiState(
             items = cities.map { city ->
                 CityCardState(
                     city = city,
-                    forecast = cache[city.id] ?: ForecastState.Loading
+                    forecast = cache[city.id] ?: ForecastState.Loading,
+                    isMarineLoading = city.id in marineLoading
                 )
             },
             isRefreshing = refreshing,
@@ -307,6 +324,32 @@ class CityListViewModel @Inject constructor(
             // Nettoyage explicite après la suppression utilisateur. Une émission
             // DataStore vide transitoire ne doit jamais effacer le cache.
             forecastRepository.clearCacheForCity(cityId)
+            marineRepository.clear(cityId)
+        }
+    }
+
+    /** Active le mode côtier après validation du point marin, ou rafraîchit le cache existant. */
+    fun onMarineAction(city: City) {
+        if (city.id in marineLoadingIds.value) return
+        viewModelScope.launch {
+            marineLoadingIds.update { it + city.id }
+            try {
+                when (val result = marineRepository.getMarine(city, forceRefresh = true)) {
+                    is ApiResult.Success -> {
+                        if (!result.data.coastal) {
+                            _marineFeedback.send(MarineFeedback.NotCoastal)
+                        } else if (!city.marineEnabled) {
+                            cityRepository.setMarineEnabled(city.id, true)
+                            _marineFeedback.send(MarineFeedback.Enabled)
+                        } else {
+                            _marineFeedback.send(MarineFeedback.Refreshed)
+                        }
+                    }
+                    is ApiResult.Error -> _marineFeedback.send(MarineFeedback.Error(result.message))
+                }
+            } finally {
+                marineLoadingIds.update { it - city.id }
+            }
         }
     }
 

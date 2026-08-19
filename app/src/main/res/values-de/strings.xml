@@ -617,4 +617,44 @@ Daten</string>
 
     <string name="forecast_evolution_metric_a11y">%1$s: %2$s</string>
 
+    <!-- Mode Mer / côte -->
+    <string name="action_activate_marine">Meer / Küste aktivieren</string>
+    <string name="action_refresh_marine">Meer / Küste aktualisieren</string>
+    <string name="marine_enabled">Meer-/Küstenmodus aktiviert</string>
+    <string name="marine_refreshed">Meer-/Küstendaten aktualisiert</string>
+    <string name="marine_not_coastal">Im Umkreis von 50 km um diese Stadt wurde kein zuverlässiger Meeres-Gitterpunkt gefunden.</string>
+    <string name="marine_error">Meeresdaten konnten nicht geladen werden: %1$s</string>
+    <string name="marine_title">Meer / Küste</string>
+    <string name="marine_intro">Wellen, Dünung, Meerestemperatur und Meeresspiegel</string>
+    <string name="marine_distance">Meeres-Gitterpunkt in %1$.1f km Entfernung</string>
+    <string name="marine_loading">Wird geladen…</string>
+    <string name="marine_wave_height">Wellenhöhe</string>
+    <string name="marine_wave_period">Wellenperiode</string>
+    <string name="marine_wave_direction">Wellenrichtung</string>
+    <string name="marine_swell_height">Dünungshöhe</string>
+    <string name="marine_sea_temp">Meerestemperatur</string>
+    <string name="marine_wave_evolution">Entwicklung der Wellenhöhe</string>
+    <string name="marine_next_48h">Nächste 48 Std.</string>
+    <string name="marine_daily_outlook">7-Tage-Ausblick</string>
+    <string name="marine_tides">Gezeiten / Meeresspiegel</string>
+    <string name="marine_tides_intro">Ungefähre stündliche Extrema der nächsten 72 Std.</string>
+    <string name="marine_unavailable">Nicht verfügbar</string>
+    <string name="marine_trend_rising">Steigend</string>
+    <string name="marine_trend_falling">Fallend</string>
+    <string name="marine_trend_steady">Nahezu stabil</string>
+    <string name="marine_current_level">Aktueller Pegel</string>
+    <string name="marine_reference_msl">Globale MSL-Referenz</string>
+    <string name="marine_next_extremum">Nächstes Extremum</string>
+    <string name="marine_high_water">Ungefähr Hochwasser</string>
+    <string name="marine_low_water">Ungefähr Niedrigwasser</string>
+    <string name="marine_tide_unavailable">Nicht genügend Daten zur Bestimmung der Extrema</string>
+    <string name="marine_tide_range_short">Tidenhub 24 Std.</string>
+    <string name="marine_next_24h">Nächste 24 Std.</string>
+    <string name="marine_tide_datum_note">sea_level_height_msl bezieht sich auf den mittleren Meeresspiegel (MSL) und kann weitere Beiträge neben der astronomischen Tide enthalten. Es entspricht nicht dem Seekartennull eines Hafens.</string>
+    <string name="marine_disclaimer">Nur Richtwerte. Nicht für Navigation oder maritime Sicherheit verwenden.</string>
+    <string name="marine_source">Quelle: Open-Meteo Marine API</string>
+    <string name="marine_chart_unavailable">Meeresdiagramm nicht verfügbar: zu wenige nutzbare Punkte.</string>
+
+    <string name="settings_about_marine">Meer / Küste: Wellen, Dünung, Meerestemperatur und Meeresspiegel stammen von Open-Meteo Marine. Pegel-Extrema sind Näherungswerte und dürfen nicht zur Navigation verwendet werden.</string>
+
 </resources>

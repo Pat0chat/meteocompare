@@ -23,7 +23,9 @@ data class City(
     val country: String,
     val latitude: Double,
     val longitude: Double,
-    val timezone: String? = null
+    val timezone: String? = null,
+    /** Active les données mer / côte pour cette ville après validation côtière. */
+    val marineEnabled: Boolean = false
 ) {
     /** Libellé court pour l'UI : "Paris, Île-de-France". */
     val shortLabel: String

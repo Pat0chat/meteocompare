@@ -52,6 +52,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -60,6 +63,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -125,6 +129,23 @@ fun CityListScreen(
     val addState by viewModel.addCityState.collectAsStateWithLifecycle()
     var showAddSheet by rememberSaveable { mutableStateOf(false) }
     var showDonationDialog by rememberSaveable { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val resources = LocalResources.current
+
+    LaunchedEffect(viewModel) {
+        viewModel.marineFeedback.collect { feedback ->
+            val message = when (feedback) {
+                MarineFeedback.Enabled -> resources.getString(R.string.marine_enabled)
+                MarineFeedback.Refreshed -> resources.getString(R.string.marine_refreshed)
+                MarineFeedback.NotCoastal -> resources.getString(R.string.marine_not_coastal)
+                is MarineFeedback.Error -> resources.getString(R.string.marine_error, feedback.message)
+            }
+            snackbarHostState.showSnackbar(
+                message = message,
+                duration = if (feedback is MarineFeedback.Error) SnackbarDuration.Long else SnackbarDuration.Short
+            )
+        }
+    }
 
     CityListContent(
         uiState = uiState,
@@ -134,7 +155,9 @@ fun CityListScreen(
         onSettingsClick = onSettingsClick,
         onRemoveCity = viewModel::onRemoveCity,
         onRetry = viewModel::onRetry,
-        onRefresh = viewModel::onRefreshAll
+        onRefresh = viewModel::onRefreshAll,
+        onMarineAction = viewModel::onMarineAction,
+        snackbarHostState = snackbarHostState
     )
 
     if (showDonationDialog) {
@@ -171,10 +194,14 @@ internal fun CityListContent(
     onSettingsClick: () -> Unit,
     onRemoveCity: (cityId: String) -> Unit,
     onRetry: (City) -> Unit,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    onMarineAction: (City) -> Unit = {},
+    snackbarHostState: SnackbarHostState? = null
 ) {
+    val effectiveSnackbarHostState = snackbarHostState ?: remember { SnackbarHostState() }
     Scaffold(
         containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+        snackbarHost = { SnackbarHost(effectiveSnackbarHostState) },
         topBar = {
             TopAppBar(
                 title = {
@@ -246,7 +273,8 @@ internal fun CityListContent(
                         isOnline = uiState.isOnline,
                         onCityClick = onCityClick,
                         onRemove = onRemoveCity,
-                        onRetry = onRetry
+                        onRetry = onRetry,
+                        onMarineAction = onMarineAction
                     )
                 }
             }
@@ -260,7 +288,8 @@ internal fun CityList(
     isOnline: Boolean = true,
     onCityClick: (String) -> Unit,
     onRemove: (String) -> Unit,
-    onRetry: (City) -> Unit
+    onRetry: (City) -> Unit,
+    onMarineAction: (City) -> Unit = {}
 ) {
     LazyColumn(
         modifier = Modifier
@@ -286,6 +315,7 @@ internal fun CityList(
                 onClick = { onCityClick(state.city.id) },
                 onRemove = { onRemove(state.city.id) },
                 onRetry = { onRetry(state.city) },
+                onMarineAction = { onMarineAction(state.city) },
                 // animateItem() permet aux ajouts/suppressions d'animer
                 // proprement à l'intérieur de la LazyColumn.
                 modifier = Modifier.animateItem(
@@ -338,6 +368,7 @@ internal fun CityCard(
     onClick: () -> Unit,
     onRemove: () -> Unit,
     onRetry: () -> Unit,
+    onMarineAction: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val resources = LocalResources.current
@@ -384,6 +415,9 @@ internal fun CityCard(
                     city = state.city,
                     sunrise = loaded?.sunrise,
                     sunset = loaded?.sunset,
+                    marineEnabled = state.city.marineEnabled,
+                    marineLoading = state.isMarineLoading,
+                    onMarineAction = onMarineAction,
                     onRemove = onRemove
                 )
 
@@ -432,6 +466,9 @@ private fun CityCardHeader(
     city: City,
     sunrise: java.time.LocalTime?,
     sunset: java.time.LocalTime?,
+    marineEnabled: Boolean,
+    marineLoading: Boolean,
+    onMarineAction: () -> Unit,
     onRemove: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -471,7 +508,12 @@ private fun CityCardHeader(
             }
         }
 
-        CityCardMenu(onRemove = onRemove)
+        CityCardMenu(
+            marineEnabled = marineEnabled,
+            marineLoading = marineLoading,
+            onMarineAction = onMarineAction,
+            onRemove = onRemove
+        )
     }
 
     Spacer(Modifier.height(8.dp))
@@ -1145,7 +1187,12 @@ private fun weatherScenarioMetrics(scenario: WeatherScenario): List<String> {
 }
 
 @Composable
-private fun CityCardMenu(onRemove: () -> Unit) {
+private fun CityCardMenu(
+    marineEnabled: Boolean,
+    marineLoading: Boolean,
+    onMarineAction: () -> Unit,
+    onRemove: () -> Unit
+) {
     var expanded by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { expanded = true }) {
@@ -1155,6 +1202,20 @@ private fun CityCardMenu(onRemove: () -> Unit) {
             expanded = expanded,
             onDismissRequest = { expanded = false }
         ) {
+            DropdownMenuItem(
+                text = {
+                    Text(
+                        stringResource(
+                            if (marineEnabled) R.string.action_refresh_marine else R.string.action_activate_marine
+                        )
+                    )
+                },
+                enabled = !marineLoading,
+                onClick = {
+                    expanded = false
+                    onMarineAction()
+                }
+            )
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.action_remove_from_favorites)) },
                 onClick = {

@@ -25,6 +25,7 @@ import com.meteocompare.app.domain.repository.CityRepository
 import com.meteocompare.app.domain.repository.ClimateNormalsRepository
 import com.meteocompare.app.domain.repository.ForecastRepository
 import com.meteocompare.app.domain.repository.ForecastEvolutionRepository
+import com.meteocompare.app.domain.repository.MarineRepository
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
 import com.meteocompare.app.domain.usecase.ComputeBiasUseCase
 import com.meteocompare.app.domain.usecase.ComputeForecastEvolutionUseCase
@@ -82,6 +83,7 @@ class CityDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val cityRepository: CityRepository,
     private val forecastRepository: ForecastRepository,
+    private val marineRepository: MarineRepository,
     private val networkMonitor: NetworkMonitor,
     private val climateNormalsRepository: ClimateNormalsRepository,
     private val confidenceCalculator: ConfidenceCalculator,
@@ -112,6 +114,10 @@ class CityDetailViewModel @Inject constructor(
 
     private val _evolutionState = MutableStateFlow<ForecastEvolutionState>(ForecastEvolutionState.Idle)
     val evolutionState: StateFlow<ForecastEvolutionState> = _evolutionState.asStateFlow()
+
+    private val _marineState = MutableStateFlow<MarineUiState>(MarineUiState.Idle)
+    val marineState: StateFlow<MarineUiState> = _marineState.asStateFlow()
+    private var marineJob: Job? = null
     private var evolutionJob: Job? = null
     private var evolutionRequestKey: String? = null
 
@@ -342,6 +348,7 @@ class CityDetailViewModel @Inject constructor(
                 return@launch
             }
             cityTimezone.value = city.timezone
+            if (city.marineEnabled) launchMarineLoad(city, forceRefresh = false)
 
             // Les repères historiques sont indépendantes du jeu de modèles météo, mais leur
             // premier calcul peut télécharger dix années d'archives. On attend le
@@ -407,6 +414,37 @@ class CityDetailViewModel @Inject constructor(
     fun setDetailContentTab(tab: CityDetailContentTab) {
         viewModelScope.launch {
             userPreferences.setCityDetailContentTab(cityId, tab)
+        }
+    }
+
+    /** Rafraîchissement indépendant du mode Mer / côte. */
+    fun refreshMarine() {
+        viewModelScope.launch {
+            val city = findCity() ?: return@launch
+            if (city.marineEnabled) launchMarineLoad(city, forceRefresh = true)
+        }
+    }
+
+    private fun launchMarineLoad(city: City, forceRefresh: Boolean) {
+        marineJob?.cancel()
+        marineJob = viewModelScope.launch {
+            val previous = _marineState.value as? MarineUiState.Loaded
+            _marineState.value = previous?.copy(isRefreshing = true) ?: MarineUiState.Loading
+            when (val result = marineRepository.getMarine(city, forceRefresh = forceRefresh)) {
+                is ApiResult.Success -> {
+                    _marineState.value = if (result.data.coastal) {
+                        MarineUiState.Loaded(result.data)
+                    } else {
+                        MarineUiState.Error(context.getString(R.string.marine_not_coastal))
+                    }
+                }
+                is ApiResult.Error -> {
+                    _marineState.value = previous ?: MarineUiState.Error(result.message)
+                    if (forceRefresh && previous != null) {
+                        _refreshFeedback.trySend(RefreshFeedback.Error(result.message))
+                    }
+                }
+            }
         }
     }
 

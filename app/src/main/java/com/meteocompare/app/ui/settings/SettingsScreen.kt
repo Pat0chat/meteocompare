@@ -303,7 +303,13 @@ internal fun SettingsContent(
                     text = stringResource(R.string.open_meteo_link_label),
                     style = MaterialTheme.typography.bodySmall
                 )
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = stringResource(R.string.settings_about_marine),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(8.dp))
                 Text(
                     text = stringResource(R.string.settings_about_models_credit),
                     style = MaterialTheme.typography.bodySmall,

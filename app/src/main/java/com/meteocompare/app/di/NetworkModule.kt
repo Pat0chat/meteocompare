@@ -3,6 +3,7 @@ package com.meteocompare.app.di
 import com.meteocompare.app.BuildConfig
 import com.meteocompare.app.data.remote.ClimateArchiveApi
 import com.meteocompare.app.data.remote.GeocodingApi
+import com.meteocompare.app.data.remote.MarineApi
 import com.meteocompare.app.data.remote.OpenMeteoApi
 import com.meteocompare.app.data.remote.PreviousRunsApi
 import dagger.Module
@@ -27,6 +28,10 @@ annotation class ForecastRetrofit
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
 annotation class GeocodingRetrofit
+
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class MarineRetrofit
 
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
@@ -98,6 +103,16 @@ object NetworkModule {
 
     @Provides
     @Singleton
+    @MarineRetrofit
+    fun provideMarineRetrofit(client: OkHttpClient, json: Json): Retrofit =
+        Retrofit.Builder()
+            .baseUrl("https://marine-api.open-meteo.com/")
+            .client(client)
+            .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
+            .build()
+
+    @Provides
+    @Singleton
     @ArchiveRetrofit
     fun provideArchiveRetrofit(client: OkHttpClient, json: Json): Retrofit =
         Retrofit.Builder()
@@ -130,6 +145,11 @@ object NetworkModule {
     @Singleton
     fun provideGeocodingApi(@GeocodingRetrofit retrofit: Retrofit): GeocodingApi =
         retrofit.create(GeocodingApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideMarineApi(@MarineRetrofit retrofit: Retrofit): MarineApi =
+        retrofit.create(MarineApi::class.java)
 
     @Provides
     @Singleton

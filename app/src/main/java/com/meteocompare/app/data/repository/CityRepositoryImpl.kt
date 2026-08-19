@@ -115,4 +115,17 @@ class CityRepositoryImpl @Inject constructor(
         }
         Unit
     }
+
+    override suspend fun setMarineEnabled(cityId: String, enabled: Boolean) = withContext(ioDispatcher) {
+        context.favoritesDataStore.edit { prefs ->
+            val current = prefs[FAVORITES_KEY]
+                ?.let { runCatching { json.decodeFromString(cityListSerializer, it) }.getOrDefault(emptyList()) }
+                ?: emptyList()
+            val updated = current.map { city ->
+                if (city.id == cityId) city.copy(marineEnabled = enabled) else city
+            }
+            prefs[FAVORITES_KEY] = json.encodeToString(cityListSerializer, updated)
+        }
+        Unit
+    }
 }

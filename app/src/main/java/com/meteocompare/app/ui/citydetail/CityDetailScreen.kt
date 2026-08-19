@@ -119,6 +119,7 @@ fun CityDetailScreen(
     val isOnline by viewModel.isOnline.collectAsStateWithLifecycle()
     val biasState by viewModel.biasState.collectAsStateWithLifecycle()
     val evolutionState by viewModel.evolutionState.collectAsStateWithLifecycle()
+    val marineState by viewModel.marineState.collectAsStateWithLifecycle()
     val collapsedSections by viewModel.collapsedSections.collectAsStateWithLifecycle()
     val detailViewMode by viewModel.detailViewMode.collectAsStateWithLifecycle()
     val detailContentTab by viewModel.detailContentTab.collectAsStateWithLifecycle()
@@ -154,12 +155,14 @@ fun CityDetailScreen(
         isOnline = isOnline,
         biasState = biasState,
         evolutionState = evolutionState,
+        marineState = marineState,
         collapsedSections = collapsedSections,
         detailViewMode = detailViewMode,
         detailContentTab = detailContentTab,
         snackbarHostState = snackbarHostState,
         onBack = onBack,
         onRefresh = viewModel::refresh,
+        onRefreshMarine = viewModel::refreshMarine,
         onSectionExpandedChange = viewModel::setSectionExpanded,
         onDetailViewModeChange = viewModel::setDetailViewMode,
         onDetailContentTabChange = viewModel::setDetailContentTab,
@@ -179,12 +182,14 @@ internal fun CityDetailContent(
     isOnline: Boolean = true,
     biasState: BiasScreenState,
     evolutionState: ForecastEvolutionState = ForecastEvolutionState.Idle,
+    marineState: MarineUiState = MarineUiState.Idle,
     collapsedSections: Set<CityDetailSection> = emptySet(),
     detailViewMode: CityDetailViewMode = CityDetailViewMode.DEFAULT,
     detailContentTab: CityDetailContentTab = CityDetailContentTab.DEFAULT,
     snackbarHostState: SnackbarHostState,
     onBack: () -> Unit,
     onRefresh: () -> Unit,
+    onRefreshMarine: () -> Unit = {},
     onSectionExpandedChange: (CityDetailSection, Boolean) -> Unit = { _, _ -> },
     onDetailViewModeChange: (CityDetailViewMode) -> Unit = {},
     onDetailContentTabChange: (CityDetailContentTab) -> Unit = {},
@@ -288,6 +293,7 @@ internal fun CityDetailContent(
                         isOnline = isOnline,
                         biasState = biasState,
                         evolutionState = evolutionState,
+                        marineState = marineState,
                         collapsedSections = collapsedSections,
                         detailViewMode = detailViewMode,
                         detailContentTab = detailContentTab,
@@ -295,6 +301,7 @@ internal fun CityDetailContent(
                         onSectionExpandedChange = onSectionExpandedChange,
                         onDetailViewModeChange = onDetailViewModeChange,
                         onDetailContentTabChange = onDetailContentTabChange,
+                        onRefreshMarine = onRefreshMarine,
                         onConfidenceClick = onConfidenceClick
                     )
                 }
@@ -356,6 +363,7 @@ private fun LoadedView(
     isOnline: Boolean,
     biasState: BiasScreenState,
     evolutionState: ForecastEvolutionState,
+    marineState: MarineUiState,
     collapsedSections: Set<CityDetailSection>,
     detailViewMode: CityDetailViewMode,
     detailContentTab: CityDetailContentTab,
@@ -363,6 +371,7 @@ private fun LoadedView(
     onSectionExpandedChange: (CityDetailSection, Boolean) -> Unit,
     onDetailViewModeChange: (CityDetailViewMode) -> Unit,
     onDetailContentTabChange: (CityDetailContentTab) -> Unit,
+    onRefreshMarine: () -> Unit,
     onConfidenceClick: (isoDate: String) -> Unit = {}
 ) {
     val displayMode = detailViewMode.toDisplayMode()
@@ -639,6 +648,15 @@ private fun LoadedView(
                     selectedVariableName = bias.variable.name
                 }
             )
+        }
+
+        if (marineState !is MarineUiState.Idle) {
+            item("marine_section") {
+                MarineSection(
+                    state = marineState,
+                    onRefresh = onRefreshMarine
+                )
+            }
         }
 
         if (forecast.errors.isNotEmpty()) {
