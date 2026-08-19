@@ -3,16 +3,20 @@ package com.meteocompare.app.ui.citydetail
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.WeatherCondition
+import com.meteocompare.app.domain.model.WeatherModel
+import com.meteocompare.app.domain.usecase.ForecastConsensus
 import com.meteocompare.app.domain.util.dailyCloudCoverMean
 import java.time.Instant
 import java.time.LocalDate
-import kotlin.math.ceil
 import kotlin.math.roundToInt
 
 /** Origine du signal pluie affiché dans la chronologie. */
 internal enum class PrecipitationSignalSource {
-    /** Médiane de probabilités explicitement fournies par plusieurs modèles. */
+    /** Probabilité d'occurrence agrégée et équilibrée par familles. */
     MODEL_PROBABILITY,
+
+    /** Mélange de probabilités natives et de votes déterministes humide/sec. */
+    MIXED,
 
     /** Part des modèles déterministes qui prévoient un cumul au-dessus du seuil pluie. */
     MODEL_AGREEMENT
@@ -69,8 +73,12 @@ internal data class SimplifiedTimelinePoint(
     val precipitationSource: PrecipitationSignalSource? = null,
     val precipitationModelCount: Int = 0,
     val wetModelCount: Int = 0,
-    /** Cumul médian et plage des scénarios, en millimètres. */
+    /** Quantité centrale déterministe Consensus v2 (0 si P(pluie) < 50 %). */
     val precipitationMm: Double? = null,
+    /** Médiane pondérée des seuls scénarios humides. */
+    val precipitationConditionalMm: Double? = null,
+    /** Espérance P(pluie) × quantité conditionnelle. */
+    val precipitationExpectedMm: Double? = null,
     val precipitationMinAcrossModelsMm: Double? = null,
     val precipitationMaxAcrossModelsMm: Double? = null,
     /** Plage de probabilités lorsque plusieurs modèles la fournissent. */
@@ -92,6 +100,8 @@ internal data class SimplifiedTimelinePoint(
     val condition: WeatherCondition? = null,
     /** Nombre de modèles ayant fourni au moins une valeur exploitable à cette échéance. */
     val modelCount: Int = 0,
+    /** Nombre de lignées numériques indépendantes à cette échéance. */
+    val familyCount: Int = 0,
     val temperatureModelCount: Int = 0,
     val windModelCount: Int = 0,
     val conditionModelCount: Int = 0,
@@ -129,7 +139,7 @@ private fun buildHourlyTimeline(
     now: Instant
 ): List<SimplifiedTimelinePoint> {
     val (startHour, endExclusive) = computeHourlyHorizon(forecast.city.timezone, now)
-    val indexed = forecast.seriesByModel.values.map(::indexHourlySnapshots)
+    val indexed = forecast.seriesByModel.map { (model, series) -> indexHourlySnapshots(model, series) }
     val timestamps = indexed
         .flatMap { it.keys }
         .distinct()
@@ -150,7 +160,7 @@ private fun buildDailyTimeline(
 ): List<SimplifiedTimelinePoint> {
     val zone = resolveCityZone(forecast.city.timezone)
     val today = now.atZone(zone).toLocalDate()
-    val indexed = forecast.seriesByModel.values.map { series -> indexDailySnapshots(series, zone) }
+    val indexed = forecast.seriesByModel.map { (model, series) -> indexDailySnapshots(model, series, zone) }
     val dates = indexed
         .flatMap { it.keys }
         .distinct()
@@ -167,6 +177,7 @@ private fun buildDailyTimeline(
 }
 
 private data class TimelineSnapshot(
+    val model: WeatherModel,
     val temperature: Double?,
     val tempMin: Double?,
     val tempMax: Double?,
@@ -184,7 +195,7 @@ private data class TimelineSnapshot(
             (condition != null && condition != WeatherCondition.UNKNOWN)
 }
 
-private fun indexHourlySnapshots(series: ForecastSeries): Map<Instant, TimelineSnapshot> = buildMap {
+private fun indexHourlySnapshots(model: WeatherModel, series: ForecastSeries): Map<Instant, TimelineSnapshot> = buildMap {
     series.hourly.timestamps.forEachIndexed { index, timestamp ->
         val temperature = series.hourly.temperature2m.getOrNull(index)
         val precipitation = series.hourly.precipitation.getOrNull(index)
@@ -197,6 +208,7 @@ private fun indexHourlySnapshots(series: ForecastSeries): Map<Instant, TimelineS
         val condition = nativeCondition
             ?: WeatherCondition.inferFromPrecipAndTemp(precipitation, temperature)
         val snapshot = TimelineSnapshot(
+            model = model,
             temperature = temperature,
             tempMin = null,
             tempMax = null,
@@ -212,6 +224,7 @@ private fun indexHourlySnapshots(series: ForecastSeries): Map<Instant, TimelineS
 }
 
 private fun indexDailySnapshots(
+    model: WeatherModel,
     series: ForecastSeries,
     zone: java.time.ZoneId
 ): Map<LocalDate, TimelineSnapshot> = buildMap {
@@ -228,6 +241,7 @@ private fun indexDailySnapshots(
         val condition = nativeCondition
             ?: WeatherCondition.inferFromPrecipAndTemp(precipitation, min)
         val snapshot = TimelineSnapshot(
+            model = model,
             temperature = null,
             tempMin = min,
             tempMax = max,
@@ -251,237 +265,123 @@ private fun timelinePoint(
     val meaningful = snapshots.filter(TimelineSnapshot::hasAnyValue)
     if (meaningful.isEmpty()) return null
 
-    val temperatures = meaningful.mapNotNull { it.temperature }
-    val minTemperatures = meaningful.mapNotNull { it.tempMin }
-    val maxTemperatures = meaningful.mapNotNull { it.tempMax }
-    val precipitationValues = meaningful.mapNotNull { it.precipitation }
-    val probabilities = meaningful.mapNotNull { it.precipitationProbability }
-    val cloudCovers = meaningful.mapNotNull { it.cloudCover }
-    val winds = meaningful.mapNotNull { it.wind }
-    val windGusts = meaningful.mapNotNull { it.windGust }
-    val conditions = meaningful.mapNotNull { it.condition }
-        .filterNot { it == WeatherCondition.UNKNOWN }
+    fun continuous(
+        extractor: (TimelineSnapshot) -> Double?,
+        tight: Double,
+        wide: Double
+    ) = ForecastConsensus.continuous(
+        meaningful.mapNotNull { snap -> extractor(snap)?.let { ForecastConsensus.Entry(snap.model, it) } },
+        tightStdDev = tight,
+        wideStdDev = wide
+    )
 
-    val conditionCounts = conditions.groupingBy { it }.eachCount()
-    val topConditionCount = conditionCounts.values.maxOrNull() ?: 0
-    val consensusCondition = conditionCounts.entries
-        .filter { it.value == topConditionCount }
-        .maxByOrNull { it.key.severityRank }
-        ?.key
-    val conditionAgreement = if (conditions.size >= 2) {
-        topConditionCount * 100.0 / conditions.size
-    } else {
-        null
-    }
-    val conditionDivergent = conditionAgreement != null && conditionAgreement < 60.0
+    val temp = continuous({ if (hourly) it.temperature else it.tempMax }, 0.5, 3.0)
+    val tempMin = if (hourly) null else continuous({ it.tempMin }, 0.5, 3.0)
+    val wind = continuous({ it.wind }, 2.0, 12.0)
+    val gust = continuous({ it.windGust }, 2.0, 12.0)
+    val cloud = continuous({ it.cloudCover?.toDouble() }, 10.0, 50.0)
 
     val rainThreshold = if (hourly) HOURLY_RAIN_THRESHOLD_MM else DAILY_RAIN_THRESHOLD_MM
-    val wetVotes = precipitationValues.count { it >= rainThreshold }
-    val wetShare = if (precipitationValues.size >= 2) {
-        wetVotes * 100.0 / precipitationValues.size
-    } else {
-        null
-    }
-
-    // Une probabilité isolée ne représente pas un consensus multi-modèles.
-    // On ne l'utilise que si au moins deux modèles la fournissent et si la
-    // couverture atteint la moitié des modèles disposant d'un signal pluie.
-    val rainCapableModelCount = meaningful.count {
-        it.precipitationProbability != null || it.precipitation != null
-    }
-    val minimumProbabilityCoverage = maxOf(2, ceil(rainCapableModelCount / 2.0).toInt())
-    val hasRobustProbabilityCoverage = probabilities.size >= minimumProbabilityCoverage
-
-    val precipitationSource: PrecipitationSignalSource?
-    val precipitationPercent: Int?
-    val precipitationModelCount: Int
-    when {
-        hasRobustProbabilityCoverage -> {
-            precipitationSource = PrecipitationSignalSource.MODEL_PROBABILITY
-            precipitationPercent = median(probabilities.map(Int::toDouble))
-                ?.roundToInt()
-                ?.coerceIn(0, 100)
-            precipitationModelCount = probabilities.size
+    val precipitation = ForecastConsensus.precipitation(
+        rows = meaningful.map { snap ->
+            ForecastConsensus.PrecipitationRow(
+                model = snap.model,
+                amountMm = snap.precipitation,
+                probabilityPercent = snap.precipitationProbability
+            )
+        },
+        thresholdMm = rainThreshold,
+        amountTightStdDev = if (hourly) 0.5 else 1.0,
+        amountWideStdDev = if (hourly) 4.0 else 8.0
+    )
+    val conditionVote = ForecastConsensus.conditionVote(
+        meaningful.mapNotNull { snap ->
+            snap.condition?.takeUnless { it == WeatherCondition.UNKNOWN }
+                ?.let { ForecastConsensus.Entry(snap.model, it) }
         }
-        wetShare != null -> {
-            precipitationSource = PrecipitationSignalSource.MODEL_AGREEMENT
-            precipitationPercent = wetShare.roundToInt().coerceIn(0, 100)
-            precipitationModelCount = precipitationValues.size
-        }
-        else -> {
-            precipitationSource = null
-            precipitationPercent = null
-            precipitationModelCount = maxOf(probabilities.size, precipitationValues.size)
-        }
-    }
+    )
 
-    val temperatureSpread = when {
-        hourly -> spread(temperatures)
-        else -> maxOf(spread(minTemperatures), spread(maxTemperatures))
-    }
-    val windSpread = spread(winds)
-    val probabilityValues = probabilities.map(Int::toDouble)
-    val probabilitySpread = spread(probabilityValues)
-    val splitRain = wetShare != null && wetShare in 30.0..70.0
-    val isRainDivergent = when {
-        hasRobustProbabilityCoverage -> probabilitySpread > 50.0
-        else -> splitRain
-    }
-
-    val temperatureModelCount = if (hourly) temperatures.size
-    else maxOf(minTemperatures.size, maxTemperatures.size)
-    val temperatureScore = if (temperatureModelCount >= 2) {
-        spreadAgreementScore(temperatureSpread, if (hourly) 8.0 else 10.0)
-    } else null
-    val windScore = if (winds.size >= 2) spreadAgreementScore(windSpread, 40.0) else null
-    val precipitationScore = when {
-        hasRobustProbabilityCoverage -> (100.0 - probabilitySpread).coerceIn(0.0, 100.0)
-        wetShare != null -> maxOf(wetShare, 100.0 - wetShare)
-        else -> null
-    }
-
-    fun metricLevel(score: Double): ModelConsensusLevel = when {
-        score >= 75.0 -> ModelConsensusLevel.HIGH
-        score >= 50.0 -> ModelConsensusLevel.MEDIUM
+    fun metricLevel(score: Int): ModelConsensusLevel = when {
+        score >= 75 -> ModelConsensusLevel.HIGH
+        score >= 50 -> ModelConsensusLevel.MEDIUM
         else -> ModelConsensusLevel.LOW
     }
 
+    val temperatureScores = listOfNotNull(temp.convergencePercent, tempMin?.convergencePercent)
+    val temperaturePercent = if (temperatureScores.isEmpty()) null else temperatureScores.average().roundToInt()
     val metricConsensus = buildMap {
-        temperatureScore?.let { score ->
-            put(
-                ForecastMetric.TEMPERATURE,
-                MetricConsensus(
-                    metric = ForecastMetric.TEMPERATURE,
-                    percent = score.roundToInt().coerceIn(0, 100),
-                    modelCount = temperatureModelCount,
-                    level = metricLevel(score),
-                    minimum = (if (hourly) temperatures else minTemperatures).minOrNull(),
-                    maximum = (if (hourly) temperatures else maxTemperatures).maxOrNull(),
-                    isDivergent = temperatureSpread > (if (hourly) 4.0 else 5.0)
-                )
-            )
+        temperaturePercent?.let { score ->
+            put(ForecastMetric.TEMPERATURE, MetricConsensus(
+                metric = ForecastMetric.TEMPERATURE, percent = score, modelCount = temp.modelCount,
+                level = metricLevel(score), minimum = temp.stats?.min, maximum = temp.stats?.max,
+                isDivergent = score < 50
+            ))
         }
-        precipitationScore?.let { score ->
-            put(
-                ForecastMetric.PRECIPITATION,
-                MetricConsensus(
-                    metric = ForecastMetric.PRECIPITATION,
-                    percent = score.roundToInt().coerceIn(0, 100),
-                    modelCount = precipitationModelCount,
-                    level = metricLevel(score),
-                    minimum = when {
-                        hasRobustProbabilityCoverage -> probabilityValues.minOrNull()
-                        else -> precipitationValues.minOrNull()
-                    },
-                    maximum = when {
-                        hasRobustProbabilityCoverage -> probabilityValues.maxOrNull()
-                        else -> precipitationValues.maxOrNull()
-                    },
-                    isDivergent = isRainDivergent
-                )
-            )
+        precipitation.convergencePercent?.let { score ->
+            put(ForecastMetric.PRECIPITATION, MetricConsensus(
+                metric = ForecastMetric.PRECIPITATION, percent = score, modelCount = precipitation.modelCount,
+                level = metricLevel(score), minimum = precipitation.minMm, maximum = precipitation.maxMm,
+                isDivergent = score < 50
+            ))
         }
-        windScore?.let { score ->
-            put(
-                ForecastMetric.WIND,
-                MetricConsensus(
-                    metric = ForecastMetric.WIND,
-                    percent = score.roundToInt().coerceIn(0, 100),
-                    modelCount = winds.size,
-                    level = metricLevel(score),
-                    minimum = winds.minOrNull(),
-                    maximum = winds.maxOrNull(),
-                    isDivergent = windSpread > 20.0
-                )
-            )
+        wind.convergencePercent?.let { score ->
+            put(ForecastMetric.WIND, MetricConsensus(
+                metric = ForecastMetric.WIND, percent = score, modelCount = wind.modelCount,
+                level = metricLevel(score), minimum = wind.stats?.min, maximum = wind.stats?.max,
+                isDivergent = score < 50
+            ))
         }
-        conditionAgreement?.let { score ->
-            put(
-                ForecastMetric.CONDITION,
-                MetricConsensus(
-                    metric = ForecastMetric.CONDITION,
-                    percent = score.roundToInt().coerceIn(0, 100),
-                    modelCount = conditions.size,
-                    level = metricLevel(score),
-                    isDivergent = conditionDivergent
-                )
-            )
+        conditionVote.percent?.let { score ->
+            put(ForecastMetric.CONDITION, MetricConsensus(
+                metric = ForecastMetric.CONDITION, percent = score, modelCount = conditionVote.modelCount,
+                level = metricLevel(score), isDivergent = score < 50
+            ))
         }
     }
-
     val divergenceReasons = buildSet {
-        if (metricConsensus[ForecastMetric.CONDITION]?.isDivergent == true) add(DivergenceReason.CONDITION)
         if (metricConsensus[ForecastMetric.TEMPERATURE]?.isDivergent == true) add(DivergenceReason.TEMPERATURE)
-        if (metricConsensus[ForecastMetric.WIND]?.isDivergent == true) add(DivergenceReason.WIND)
         if (metricConsensus[ForecastMetric.PRECIPITATION]?.isDivergent == true) add(DivergenceReason.PRECIPITATION)
+        if (metricConsensus[ForecastMetric.WIND]?.isDivergent == true) add(DivergenceReason.WIND)
+        if (metricConsensus[ForecastMetric.CONDITION]?.isDivergent == true) add(DivergenceReason.CONDITION)
     }
-
-    val hasMultiModelEvidence = metricConsensus.isNotEmpty()
-    val consensusPercent = metricConsensus.values
-        .takeIf { it.isNotEmpty() }
-        ?.map(MetricConsensus::percent)
-        ?.average()
-        ?.roundToInt()
-        ?.coerceIn(0, 100)
-    val consensusLevel = consensusPercent?.let { metricLevel(it.toDouble()) }
-    val primaryTemperatureValues = if (hourly) temperatures else maxTemperatures
+    val overall = metricConsensus.values.takeIf { it.isNotEmpty() }
+        ?.map { it.percent }?.average()?.roundToInt()?.coerceIn(0, 100)
+    val source = when (precipitation.source) {
+        ForecastConsensus.PrecipitationSource.PROBABILITY -> PrecipitationSignalSource.MODEL_PROBABILITY
+        ForecastConsensus.PrecipitationSource.MIXED -> PrecipitationSignalSource.MIXED
+        ForecastConsensus.PrecipitationSource.MODEL_AGREEMENT -> PrecipitationSignalSource.MODEL_AGREEMENT
+        null -> null
+    }
+    val temperatures = meaningful.mapNotNull { if (hourly) it.temperature else it.tempMax }
+    val precipitationValues = meaningful.mapNotNull { it.precipitation }
+    val probabilities = meaningful.mapNotNull { it.precipitationProbability }
+    val cloudValues = meaningful.mapNotNull { it.cloudCover }
+    val windValues = meaningful.mapNotNull { it.wind }
+    val gustValues = meaningful.mapNotNull { it.windGust }
+    val familyCount = listOf(temp.familyCount, wind.familyCount, precipitation.familyCount, conditionVote.familyCount).maxOrNull() ?: 0
 
     return SimplifiedTimelinePoint(
-        instant = timestamp,
-        date = date,
-        temperatureC = median(temperatures),
-        tempMinC = median(minTemperatures),
-        tempMaxC = median(maxTemperatures),
-        temperatureMinAcrossModels = primaryTemperatureValues.minOrNull(),
-        temperatureMaxAcrossModels = primaryTemperatureValues.maxOrNull(),
-        precipitationPercent = precipitationPercent,
-        precipitationSource = precipitationSource,
-        precipitationModelCount = precipitationModelCount,
-        wetModelCount = wetVotes,
-        precipitationMm = median(precipitationValues),
-        precipitationMinAcrossModelsMm = precipitationValues.minOrNull(),
-        precipitationMaxAcrossModelsMm = precipitationValues.maxOrNull(),
-        precipitationProbabilityMin = probabilities.minOrNull(),
-        precipitationProbabilityMax = probabilities.maxOrNull(),
-        cloudCoverPercent = median(cloudCovers.map(Int::toDouble))?.roundToInt()?.coerceIn(0, 100),
-        cloudCoverMinAcrossModels = cloudCovers.minOrNull(),
-        cloudCoverMaxAcrossModels = cloudCovers.maxOrNull(),
-        cloudCoverModelCount = cloudCovers.size,
-        windKmh = median(winds),
-        windMinAcrossModels = winds.minOrNull(),
-        windMaxAcrossModels = winds.maxOrNull(),
-        windGustKmh = median(windGusts),
-        windGustMinAcrossModels = windGusts.minOrNull(),
-        windGustMaxAcrossModels = windGusts.maxOrNull(),
-        windGustModelCount = windGusts.size,
-        condition = consensusCondition,
-        modelCount = meaningful.size,
-        temperatureModelCount = temperatureModelCount,
-        windModelCount = winds.size,
-        conditionModelCount = conditions.size,
-        hasMultiModelEvidence = hasMultiModelEvidence,
-        consensusPercent = consensusPercent,
-        consensusLevel = consensusLevel,
-        metricConsensus = metricConsensus,
-        divergenceReasons = divergenceReasons
+        instant = timestamp, date = date,
+        temperatureC = if (hourly) temp.central else null,
+        tempMinC = tempMin?.central, tempMaxC = if (hourly) null else temp.central,
+        temperatureMinAcrossModels = temperatures.minOrNull(), temperatureMaxAcrossModels = temperatures.maxOrNull(),
+        precipitationPercent = precipitation.probabilityPercent, precipitationSource = source,
+        precipitationModelCount = precipitation.modelCount, wetModelCount = precipitation.wetModelCount,
+        precipitationMm = precipitation.centralAmountMm, precipitationConditionalMm = precipitation.conditionalAmountMm,
+        precipitationExpectedMm = precipitation.expectedAmountMm,
+        precipitationMinAcrossModelsMm = precipitationValues.minOrNull(), precipitationMaxAcrossModelsMm = precipitationValues.maxOrNull(),
+        precipitationProbabilityMin = probabilities.minOrNull(), precipitationProbabilityMax = probabilities.maxOrNull(),
+        cloudCoverPercent = cloud.central?.roundToInt()?.coerceIn(0, 100),
+        cloudCoverMinAcrossModels = cloudValues.minOrNull(), cloudCoverMaxAcrossModels = cloudValues.maxOrNull(),
+        cloudCoverModelCount = cloud.modelCount,
+        windKmh = wind.central, windMinAcrossModels = windValues.minOrNull(), windMaxAcrossModels = windValues.maxOrNull(),
+        windGustKmh = gust.central, windGustMinAcrossModels = gustValues.minOrNull(), windGustMaxAcrossModels = gustValues.maxOrNull(),
+        windGustModelCount = gust.modelCount,
+        condition = conditionVote.value, modelCount = meaningful.size, familyCount = familyCount,
+        temperatureModelCount = temp.modelCount, windModelCount = wind.modelCount, conditionModelCount = conditionVote.modelCount,
+        hasMultiModelEvidence = metricConsensus.isNotEmpty(), consensusPercent = overall,
+        consensusLevel = overall?.let(::metricLevel), metricConsensus = metricConsensus, divergenceReasons = divergenceReasons
     )
-
-}
-
-private fun spreadAgreementScore(spread: Double, zeroAgreementSpread: Double): Double =
-    (100.0 - (spread / zeroAgreementSpread * 100.0)).coerceIn(0.0, 100.0)
-
-private fun median(values: List<Double>): Double? {
-    if (values.isEmpty()) return null
-    val sorted = values.sorted()
-    val middle = sorted.size / 2
-    return if (sorted.size % 2 == 1) sorted[middle]
-    else (sorted[middle - 1] + sorted[middle]) / 2.0
-}
-
-private fun spread(values: List<Double>): Double {
-    if (values.size < 2) return 0.0
-    return (values.maxOrNull() ?: 0.0) - (values.minOrNull() ?: 0.0)
 }
 
 /**
@@ -561,6 +461,6 @@ internal fun buildOverviewTimeline(
 private const val MAX_TIMELINE_POINTS = 8
 private const val MAX_DAILY_POINTS = 7
 private const val HOURLY_RAIN_THRESHOLD_MM = 0.1
-private const val DAILY_RAIN_THRESHOLD_MM = 0.2
+private const val DAILY_RAIN_THRESHOLD_MM = 1.0
 private const val MILLIS_PER_DAY = 86_400_000L
 private const val REGULAR_TIMELINE_STEP_HOURS = 3L

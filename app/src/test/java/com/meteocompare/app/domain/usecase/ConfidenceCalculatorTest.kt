@@ -32,7 +32,7 @@ class ConfidenceCalculatorTest {
 
     @Before
     fun setUp() {
-        // Tests avec EqualWeighting → résultats prédictibles (moyennes arithmétiques pures).
+        // Tests avec EqualWeighting → Consensus v2 équilibré par familles, sans biais local.
         calculator = ConfidenceCalculator(EqualWeighting())
     }
 
@@ -147,7 +147,7 @@ class ConfidenceCalculatorTest {
     }
 
     @Test
-    fun `pluie - tous d'accord pour sec mais traces - NoRain confiance légèrement réduite`() {
+    fun `pluie - traces sous le seuil restent un consensus sec maximal`() {
         // Quelques traces de pluie (toutes < 1mm seuil) — pas vraiment de la pluie
         val forecast = buildForecast(
             precipByModel = mapOf(
@@ -159,7 +159,7 @@ class ConfidenceCalculatorTest {
 
         val precip = calculator.dayConfidence(forecast, today).precipitation
         assertTrue(precip is PrecipitationConfidence.NoRain)
-        assertEquals(90, (precip as PrecipitationConfidence.NoRain).percent)
+        assertEquals(100, (precip as PrecipitationConfidence.NoRain).percent)
     }
 
     @Test
@@ -202,8 +202,8 @@ class ConfidenceCalculatorTest {
         assertEquals(1.5, precip.rainMinMm, 0.001)
         assertEquals(3.0, precip.rainMaxMm, 0.001)
         assertTrue(precip.rainMeanMm in 1.5..3.0)
-        // 3/5 = 60% d'agreement → (0.6 - 0.5) * 200 = 20%
-        assertEquals(20, precip.percent)
+        // Occurrence 60 % + bonne convergence sur la quantité conditionnelle.
+        assertEquals(44, precip.percent)
     }
 
     @Test
@@ -219,7 +219,8 @@ class ConfidenceCalculatorTest {
 
         val precip = calculator.dayConfidence(forecast, today).precipitation
         assertTrue(precip is PrecipitationConfidence.Divided)
-        assertEquals(0, (precip as PrecipitationConfidence.Divided).percent)
+        // À P(pluie)=50 %, Consensus v2 combine occurrence (0) et accord sur les mm humides (100).
+        assertEquals(30, (precip as PrecipitationConfidence.Divided).percent)
     }
 
     @Test
@@ -242,8 +243,8 @@ class ConfidenceCalculatorTest {
         val precip = weightedCalculator.dayConfidence(forecast, today).precipitation
         assertTrue(precip is PrecipitationConfidence.Divided)
         precip as PrecipitationConfidence.Divided
-        // Poids pluie = 4, sec = 2 => majorité pondérée 2/3 => 33 %.
-        assertEquals(33, precip.percent)
+        // Le multiplicateur 3 est borné par Consensus v2 : une famille ne peut pas écraser les autres.
+        assertEquals(34, precip.percent)
         // L'UI conserve toutefois les comptes bruts, pas des pseudo-modèles pondérés.
         assertEquals(2, precip.modelsForRain)
         assertEquals(2, precip.modelsAgainstRain)

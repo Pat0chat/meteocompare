@@ -12,7 +12,10 @@ import com.meteocompare.app.domain.model.HourlyConfidenceBand
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.usecase.ConfidenceCalculator
+import com.meteocompare.app.domain.usecase.ForecastConsensus
 import com.meteocompare.app.domain.util.ForecastAggregates
+import com.meteocompare.app.ui.citydetail.DisplayMode
+import com.meteocompare.app.ui.citydetail.buildSimplifiedTimeline
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -39,10 +42,8 @@ internal data class WidgetData(
     val tempMin: Double?,
     val confidencePct: Int?,
     /**
-     * Quantité de pluie représentative pour aujourd'hui. En cas d'accord
-     * complet, c'est la moyenne de tous les modèles pluvieux ; en cas de
-     * désaccord, c'est la moyenne des seuls modèles qui annoncent une pluie
-     * significative, afin de ne plus masquer complètement les millimètres.
+     * Quantité centrale Consensus v2 pour aujourd'hui : 0 si P(pluie) < 50 %,
+     * sinon médiane pondérée des scénarios humides, équilibrée par lignée.
      */
     val precipMm: Double?,
     /**
@@ -193,7 +194,7 @@ internal data class WidgetForecastItem(
      * jamais une métrique isolée comme une confiance globale.
      */
     val forecastConfidencePct: Int? = null,
-    /** Modèle unique qui fournit les valeurs/icônes des cartes 5h/5j. */
+    /** Source des cartes : null signifie consensus multi-modèles (Consensus v2). */
     val sourceModelName: String? = null
 )
 
@@ -363,13 +364,7 @@ internal suspend fun loadWidgetData(
             val precipitation = dayConf.precipitation
             val rainConfidence = precipitation as?
                 com.meteocompare.app.domain.model.PrecipitationConfidence.Rain
-            val precipAmountMm = when (precipitation) {
-                is com.meteocompare.app.domain.model.PrecipitationConfidence.Rain ->
-                    precipitation.meanMm
-                is com.meteocompare.app.domain.model.PrecipitationConfidence.Divided ->
-                    precipitation.rainMeanMm
-                else -> null
-            }
+            val precipAmountMm = precipitation?.meta?.centralAmountMm
 
             // Selon le mode utilisateur, on alimente soit la ligne de prévisions
             // 5 items (HOURLY/DAILY), soit la mini bande de confiance
@@ -380,20 +375,24 @@ internal suspend fun loadWidgetData(
             // elle décrit la convergence des modèles sur la prévision complète,
             // et non la seule quantité de pluie. Les calculs restent limités au
             // mode réellement affiché pour ne pas alourdir les autres widgets.
-            val totalModelCount = forecast.seriesByModel.size.coerceAtLeast(1)
+            val totalFamilyCount = forecast.seriesByModel.keys
+                .map(ForecastConsensus::groupFor)
+                .distinct()
+                .size
+                .coerceAtLeast(1)
             val forecastConfidence = when (forecastMode) {
                 ForecastMode.HOURLY -> WidgetForecastConfidence(
                     hourlyByTimestamp = hourlyForecastConfidenceByTimestamp(
                         temperatureBands = calc.hourlyTemperatureConfidence(forecast),
                         precipitationBands = calc.hourlyPrecipitationConfidence(forecast),
                         windBands = calc.hourlyWindConfidence(forecast),
-                        totalModelCount = totalModelCount
+                        totalModelCount = totalFamilyCount
                     )
                 )
                 ForecastMode.DAILY -> WidgetForecastConfidence(
                     dailyByDate = dailyForecastConfidenceByDate(
                         days = calc.weeklyConfidence(forecast),
-                        totalModelCount = totalModelCount
+                        totalModelCount = totalFamilyCount
                     )
                 )
                 else -> WidgetForecastConfidence.Empty
@@ -489,19 +488,12 @@ internal suspend fun loadWidgetData(
 internal suspend fun <T> Flow<T>.awaitWidgetTerminalEmission(): T? = lastOrNull()
 
 /**
- * Construit la liste des 5 items de prévision étendue pour le layout 4×2.
+ * Construit les 5 items du widget 4×2 à partir de la timeline Consensus v2.
  *
- * ─── Choix du modèle "meilleur" ────────────────────────────────────────
- * Les réponses batched utilisent un axe temporel commun. La taille de
- * `dates`/`timestamps` ne prouve donc pas qu'un modèle possède réellement des
- * valeurs sur cinq échéances : un modèle court peut avoir cinq positions dont
- * les trois dernières sont nulles.
- *
- * On construit les cinq cartes de chaque modèle et on classe les candidats
- * selon les données réellement exploitables : cinq échéances complètes,
- * présence des détails utiles, puis ordre stable des modèles activés. Ce choix
- * évite de traiter la résolution spatiale comme un score de qualité et empêche
- * de sélectionner un modèle régional dont l'horizon utile est incomplet.
+ * Les valeurs ne proviennent plus d'un modèle unique : température, pluie,
+ * nuages, condition et convergence utilisent la même prévision centrale que
+ * les écrans principaux. Les horizons courts contribuent tant qu'ils ont une
+ * valeur, puis les familles encore disponibles prennent naturellement le relais.
  */
 internal fun buildForecasts(
     forecast: com.meteocompare.app.domain.model.CityForecast,
@@ -511,75 +503,56 @@ internal fun buildForecasts(
     forecastConfidence: WidgetForecastConfidence = WidgetForecastConfidence.Empty
 ): List<WidgetForecastItem> {
     val zone = resolveZoneOrUtc(timezone)
-
-    data class Candidate(
-        val stableOrder: Int,
-        val modelName: String,
-        val items: List<WidgetForecastItem>
-    ) {
-        val visibleItems: List<WidgetForecastItem> = items.take(5)
-        val temperatureCount: Int = visibleItems.count { it.temp != null }
-        val conditionCount: Int = visibleItems.count { it.condition != null }
-        val detailCount: Int = visibleItems.sumOf { item ->
-            (if (item.cloudCoverPct != null) 1 else 0) +
-                (if (item.precipProbabilityPct != null) 1 else 0)
+    val locale = java.util.Locale.getDefault()
+    return when (mode) {
+        ForecastMode.HOURLY -> {
+            val formatter = java.time.format.DateTimeFormatter.ofPattern("H'h'", locale)
+            buildSimplifiedTimeline(forecast, DisplayMode.HOURLY, now)
+                .filter { it.instant != null && it.instant >= now.minusSeconds(30 * 60L) }
+                .take(5)
+                .map { point ->
+                    val ts = requireNotNull(point.instant)
+                    WidgetForecastItem(
+                        label = ts.atZone(zone).format(formatter),
+                        condition = point.condition,
+                        temp = point.temperatureC,
+                        cloudCoverPct = point.cloudCoverPercent,
+                        precipProbabilityPct = point.precipitationPercent,
+                        forecastConfidencePct = point.consensusPercent
+                            ?: forecastConfidence.hourlyByTimestamp[ts],
+                        sourceModelName = null
+                    )
+                }
         }
-        val complete: Boolean = visibleItems.size == 5 && temperatureCount == 5
-        val fullyDetailed: Boolean = complete && detailCount == 10
+        ForecastMode.DAILY -> {
+            buildSimplifiedTimeline(forecast, DisplayMode.DAILY, now)
+                .filter { it.date != null }
+                .take(5)
+                .map { point ->
+                    val date = requireNotNull(point.date)
+                    WidgetForecastItem(
+                        label = date.dayOfWeek
+                            .getDisplayName(java.time.format.TextStyle.SHORT, locale)
+                            .replaceFirstChar { it.uppercase() }
+                            .replace(".", ""),
+                        condition = point.condition,
+                        temp = point.tempMaxC,
+                        cloudCoverPct = point.cloudCoverPercent,
+                        precipProbabilityPct = point.precipitationPercent,
+                        forecastConfidencePct = point.consensusPercent
+                            ?: forecastConfidence.dailyByDate[date],
+                        sourceModelName = null
+                    )
+                }
+        }
+        ForecastMode.CONFIDENCE_ALL,
+        ForecastMode.CONFIDENCE_TEMPERATURE,
+        ForecastMode.CONFIDENCE_PRECIPITATION,
+        ForecastMode.CONFIDENCE_WIND,
+        ForecastMode.MINI_FORECAST_12H,
+        ForecastMode.HEATMAP_CHART_12H,
+        ForecastMode.HEATMAP_TREND_12H -> emptyList()
     }
-
-    /*
-     * Les tableaux batched partagent le même axe temporel pour tous les modèles.
-     * Un modèle court comme AROME HD reçoit donc bien 5/7 dates dans `dates`,
-     * mais ses valeurs deviennent null après son horizon réel. Compter la taille
-     * des listes sélectionnait à tort ce modèle fin : deux jours remplis puis
-     * trois cartes vides, et parfois cinq heures vides autour d'un run incomplet.
-     *
-     * On construit désormais les cinq cartes réelles de chaque modèle, puis on
-     * choisit d'abord un candidat COMPLET. À complétude égale, on favorise les
-     * cartes qui possèdent le plus de détails utiles, puis l'ordre stable du
-     * modèle. Si aucun modèle ne couvre les cinq échéances, on prend celui qui
-     * fournit le plus de températures utiles, sans masquer les données disponibles.
-     */
-    val candidates = forecast.seriesByModel.entries.mapIndexed { stableOrder, (model, series) ->
-        val items = when (mode) {
-            ForecastMode.HOURLY -> buildHourlyForecasts(
-                hourly = series.hourly,
-                zone = zone,
-                now = now,
-                forecastConfidenceByTimestamp = forecastConfidence.hourlyByTimestamp
-            )
-            ForecastMode.DAILY -> buildDailyForecasts(
-                daily = series.daily,
-                hourly = series.hourly,
-                zone = zone,
-                now = now,
-                forecastConfidenceByDate = forecastConfidence.dailyByDate
-            )
-            ForecastMode.CONFIDENCE_ALL,
-            ForecastMode.CONFIDENCE_TEMPERATURE,
-            ForecastMode.CONFIDENCE_PRECIPITATION,
-            ForecastMode.CONFIDENCE_WIND,
-            ForecastMode.MINI_FORECAST_12H,
-            ForecastMode.HEATMAP_CHART_12H,
-            ForecastMode.HEATMAP_TREND_12H -> emptyList()
-        }
-        Candidate(stableOrder, model.displayName, items)
-    }.filter { it.visibleItems.isNotEmpty() }
-
-    val best = candidates.minWithOrNull(
-        compareByDescending<Candidate> { it.complete }
-            .thenByDescending { it.fullyDetailed }
-            .thenByDescending { it.detailCount }
-            .thenByDescending { it.temperatureCount }
-            .thenByDescending { it.conditionCount }
-            .thenBy { it.stableOrder }
-    ) ?: return emptyList()
-
-    // Les valeurs météo viennent volontairement d'un seul modèle complet,
-    // tandis que forecastConfidencePct reste multi-modèles. Exposer la source
-    // évite toute ambiguïté de provenance dans le widget.
-    return best.visibleItems.map { it.copy(sourceModelName = best.modelName) }
 }
 
 internal fun buildHourlyForecasts(
@@ -676,7 +649,7 @@ internal data class WidgetForecastConfidence(
 /**
  * Combine les confiances horaires température, précipitations et vent.
  *
- * Chaque métrique est d'abord ajustée à sa couverture réelle des modèles.
+ * Chaque métrique est d'abord ajustée à sa couverture réelle des lignées indépendantes.
  * Une confiance globale n'est produite que si au moins deux familles de
  * variables sont disponibles au même timestamp : une seule métrique, même
  * très confiante, ne peut pas représenter honnêtement toute la prévision.
@@ -696,7 +669,7 @@ internal fun hourlyForecastConfidenceByTimestamp(
             val band = byTimestamp[timestamp] ?: return@metric null
             coverageAdjustedConfidence(
                 percent = band.percent,
-                contributingModels = band.modelCount,
+                contributingModels = band.familyCount,
                 totalModels = totalModelCount
             )
         }
@@ -709,7 +682,7 @@ internal fun hourlyForecastConfidenceByTimestamp(
  * Combine les confidences journalières déjà utilisées par City Details.
  *
  * Les composantes sont température max/min, précipitations et vent max. Comme
- * pour l'horaire, chaque score est ajusté à la couverture et au moins deux
+ * pour l'horaire, chaque score est ajusté à la couverture des lignées et au moins deux
  * composantes sont requises. Le pourcentage affiché sous la pluie décrit donc
  * bien la prévision du jour dans son ensemble.
  */
@@ -718,10 +691,10 @@ internal fun dailyForecastConfidenceByDate(
     totalModelCount: Int
 ): Map<java.time.LocalDate, Int> = days.mapNotNull { day ->
     val scores = listOfNotNull(
-        day.tempMax?.let { it.percent to it.modelCount },
-        day.tempMin?.let { it.percent to it.modelCount },
-        day.precipitation?.let { it.percent to it.modelCount },
-        day.windMax?.let { it.percent to it.modelCount }
+        day.tempMax?.let { it.percent to it.familyCount },
+        day.tempMin?.let { it.percent to it.familyCount },
+        day.precipitation?.let { it.percent to it.meta.familyCount.coerceAtLeast(1) },
+        day.windMax?.let { it.percent to it.familyCount }
     ).map { (percent, modelCount) ->
         coverageAdjustedConfidence(
             percent = percent,
@@ -782,7 +755,7 @@ internal fun dailyCloudCoverPct(
  * chaque jour civil couvert par la série :
  *
  *   percent = moyenne des `percent` de toutes les bandes tombant dans ce jour
- *   value   = moyenne des `meanValue` de toutes les bandes tombant dans ce jour
+ *   value   = agrégation temporelle des valeurs centrales horaires (`meanValue` historique)
  *
  * Cette agrégation par jour civil (dans la timezone de la ville, pas UTC)
  * garantit que "aujourd'hui" ne dépasse pas au milieu de la nuit locale — un
@@ -845,12 +818,18 @@ private fun buildConfidenceStrip(
     val today = now.atZone(zone).toLocalDate()
     val nowShortLabel = context.getString(R.string.widget_confidence_now_short)
     val totalModels = forecast.seriesByModel.size.coerceAtLeast(1)
+    val totalFamilies = forecast.seriesByModel.keys
+        .map(ForecastConsensus::groupFor)
+        .distinct()
+        .size
+        .coerceAtLeast(1)
     val buckets = byDay.entries.take(5).map { (date, dayBands) ->
         val minModelCount = dayBands.minOf { it.modelCount }
+        val minFamilyCount = dayBands.minOf { it.familyCount }
         val conservativePercent = conservativeConfidencePercent(
             percents = dayBands.map { it.percent },
-            contributingModels = minModelCount,
-            totalModels = totalModels
+            contributingModels = minFamilyCount,
+            totalModels = totalFamilies
         )
         val displayValue = aggregateConfidenceBucketValue(
             mode = mode,
@@ -897,8 +876,8 @@ private fun buildConfidenceStrip(
  * 1. On retient le quartile bas des scores horaires plutôt que leur moyenne :
  *    une fenêtre très incertaine ne disparaît plus dans une journée globalement
  *    stable.
- * 2. On applique une pénalité de couverture : un accord entre 2 modèles sur 7
- *    ne peut pas être présenté avec la même force qu'un accord entre 7 modèles.
+ * 2. On applique une pénalité de couverture sur les lignées indépendantes :
+ *    trois variantes ICON ne valent pas trois sources indépendantes.
  */
 internal fun conservativeConfidencePercent(
     percents: List<Int>,
@@ -915,8 +894,8 @@ internal fun conservativeConfidencePercent(
 }
 
 /** Agrège une journée de bande horaire sans mélanger les sémantiques.
- * La température/le vent sont des valeurs instantanées/moyennes -> moyenne ;
- * la précipitation horaire est une quantité sur l'heure -> somme journalière.
+ * La température/le vent agrègent les centrales horaires dans le temps ;
+ * la précipitation horaire, déjà centrale Consensus v2, est une quantité -> somme journalière.
  */
 internal fun aggregateConfidenceBucketValue(mode: ForecastMode, values: List<Double>): Double {
     if (values.isEmpty()) return Double.NaN

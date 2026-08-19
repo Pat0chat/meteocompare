@@ -198,7 +198,7 @@
     <string name="metric_confidence_high">Élevée · %1$d %%</string>
     <string name="metric_confidence_medium">Moyenne · %1$d %%</string>
     <string name="metric_confidence_low">Faible · %1$d %%</string>
-    <string name="metric_summary_average">Moyenne des modèles</string>
+    <string name="metric_summary_average">Consensus central</string>
     <string name="metric_summary_range">Plage %1$s</string>
     <string name="metric_summary_range_and_spread">Plage %1$s · écart %2$s</string>
     <string name="metric_summary_max_model_precip">Max modèle %1$.1f mm</string>
@@ -233,7 +233,7 @@
     <string name="a11y_temperature_prefix">Température</string>
     <string name="a11y_overall_confidence">Accord global %d pourcent</string>
     <string name="a11y_hourly_empty">Graphique vide, données insuffisantes</string>
-    <string name="a11y_hourly_template">Bande d\'accord horaire sur %1$d jours. Température moyenne %2$d degrés à l\'heure actuelle, %3$d degrés à la fin de l\'horizon. Divergence entre modèles %4$s. Accord %5$d pourcent maintenant, %6$d pourcent à J plus %1$d.</string>
+    <string name="a11y_hourly_template">Bande d\'accord horaire sur %1$d jours. Température centrale %2$d degrés à l\'heure actuelle, %3$d degrés à la fin de l\'horizon. Divergence entre modèles %4$s. Accord %5$d pourcent maintenant, %6$d pourcent à J plus %1$d.</string>
     <string name="a11y_divergence_strong">qui augmente fortement</string>
     <string name="a11y_divergence_increasing">qui augmente</string>
     <string name="a11y_divergence_stable">globalement stable</string>
@@ -268,7 +268,7 @@
 
     <!-- Phrases d\'interprétation finales (par carte) -->
     <string name="confidence_interp_high">Accord inter-modèles élevé : les scénarios sont proches à cette échéance.</string>
-    <string name="confidence_interp_medium">Accord modéré : les scénarios diffèrent et la moyenne n\'est qu\'un repère central.</string>
+    <string name="confidence_interp_medium">Convergence modérée : les scénarios diffèrent ; la médiane pondérée reste seulement un repère central.</string>
     <string name="confidence_interp_low">Désaccord significatif : les scénarios disponibles sont dispersés à cette échéance.</string>
     <string name="confidence_interp_precip_dry">Aucun modèle disponible ne prévoit de précipitation à cette échéance.</string>
     <string name="confidence_interp_precip_rain">Tous les modèles disponibles prévoient de la pluie, avec des intensités différentes.</string>
@@ -553,9 +553,9 @@
     <string name="forecast_insight_detail_wind_strong">Le niveau reste élevé sur plusieurs échéances.</string>
     <string name="forecast_insight_detail_wind_peak">Un pic marqué est attendu.</string>
 
-    <string name="local_reliability_title">Fiabilité locale</string>
-    <string name="local_reliability_subtitle_with_confidence">%1$d %% d\'accord · %2$d modèles</string>
-    <string name="local_reliability_subtitle_models">%1$d modèles comparés</string>
+    <string name="local_reliability_title">Convergence &amp; confiance locale</string>
+    <string name="local_reliability_subtitle_with_confidence">Convergence actuelle : %1$d %% · %2$d familles indépendantes</string>
+    <string name="local_reliability_subtitle_models">%1$d familles indépendantes comparées</string>
     <string name="local_reliability_best_model">Meilleur modèle local</string>
 
     <string name="detail_tab_conditions">Conditions</string>
@@ -722,4 +722,10 @@
 
     <string name="settings_about_marine">Mer / côte : les vagues, la houle, la température de mer et le niveau marin proviennent d’Open-Meteo Marine. Les extrema de niveau sont approximatifs et ne doivent pas être utilisés pour la navigation.</string>
 
+    <string name="historical_confidence_title">Confiance historique locale</string>
+    <string name="historical_confidence_meta">Performance J+1 observée · %1$d familles</string>
+    <string name="home_scenario_family_support">%1$d %% soutien des familles</string>
+    <string name="metric_precip_probability_only">P(pluie) %1$d %%</string>
+    <string name="metric_precip_probability_conditional">P(pluie) %1$d %% · %2$.1f mm si pluie</string>
+    <string name="metric_precip_expected_range">Espérance %1$.1f mm · plage humide %2$s</string>
 </resources>

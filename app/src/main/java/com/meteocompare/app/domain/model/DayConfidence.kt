@@ -34,4 +34,8 @@ data class DayConfidence(
             )
             return if (scores.isEmpty()) null else scores.average().toInt()
         }
+
+    /** Nom explicite Consensus v2 : dispersion actuelle, pas probabilité de justesse. */
+    val convergencePercent: Int? get() = overallPercent
+
 }

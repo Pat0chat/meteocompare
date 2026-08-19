@@ -200,7 +200,7 @@
     <string name="metric_confidence_high">High · %1$d%%</string>
     <string name="metric_confidence_medium">Medium · %1$d%%</string>
     <string name="metric_confidence_low">Low · %1$d%%</string>
-    <string name="metric_summary_average">Model average</string>
+    <string name="metric_summary_average">Central consensus</string>
     <string name="metric_summary_range">Range %1$s</string>
     <string name="metric_summary_range_and_spread">Range %1$s · spread %2$s</string>
     <string name="metric_summary_max_model_precip">Highest model %1$.1f mm</string>
@@ -235,7 +235,7 @@
     <string name="a11y_temperature_prefix">Temperature</string>
     <string name="a11y_overall_confidence">Overall agreement %d percent</string>
     <string name="a11y_hourly_empty">Empty chart, insufficient data</string>
-    <string name="a11y_hourly_template">Hourly agreement band over %1$d days. Mean temperature %2$d degrees right now, %3$d degrees at horizon\'s end. Inter-model divergence %4$s. Agreement %5$d percent now, %6$d percent at D plus %1$d.</string>
+    <string name="a11y_hourly_template">Hourly agreement band over %1$d days. Central temperature %2$d degrees right now, %3$d degrees at horizon\'s end. Inter-model divergence %4$s. Agreement %5$d percent now, %6$d percent at D plus %1$d.</string>
     <string name="a11y_divergence_strong">strongly increasing</string>
     <string name="a11y_divergence_increasing">increasing</string>
     <string name="a11y_divergence_stable">overall stable</string>
@@ -270,7 +270,7 @@
 
     <!-- Final interpretation sentences per card -->
     <string name="confidence_interp_high">High inter-model agreement: the scenarios are close at this lead time.</string>
-    <string name="confidence_interp_medium">Moderate agreement: scenarios differ and the mean is only a central reference.</string>
+    <string name="confidence_interp_medium">Moderate convergence: scenarios differ; the weighted median remains only a central reference.</string>
     <string name="confidence_interp_low">Significant disagreement: the available scenarios are dispersed at this lead time.</string>
     <string name="confidence_interp_precip_dry">No available model forecasts precipitation at this lead time.</string>
     <string name="confidence_interp_precip_rain">All available models forecast rain, with different intensities.</string>
@@ -555,9 +555,9 @@
     <string name="forecast_insight_detail_wind_strong">Levels remain elevated across several time steps.</string>
     <string name="forecast_insight_detail_wind_peak">A marked peak is expected.</string>
 
-    <string name="local_reliability_title">Local reliability</string>
-    <string name="local_reliability_subtitle_with_confidence">%1$d%% agreement · %2$d models</string>
-    <string name="local_reliability_subtitle_models">%1$d models compared</string>
+    <string name="local_reliability_title">Convergence &amp; local confidence</string>
+    <string name="local_reliability_subtitle_with_confidence">Current convergence: %1$d%% · %2$d independent families</string>
+    <string name="local_reliability_subtitle_models">%1$d independent families compared</string>
     <string name="local_reliability_best_model">Best local model</string>
 
     <string name="detail_tab_conditions">Conditions</string>
@@ -724,4 +724,10 @@
 
     <string name="settings_about_marine">Sea / coast: waves, swell, sea temperature and sea level come from Open-Meteo Marine. Sea-level extrema are approximate and must not be used for navigation.</string>
 
+    <string name="historical_confidence_title">Local historical confidence</string>
+    <string name="historical_confidence_meta">Observed D+1 performance · %1$d families</string>
+    <string name="home_scenario_family_support">%1$d%% family support</string>
+    <string name="metric_precip_probability_only">P(rain) %1$d%%</string>
+    <string name="metric_precip_probability_conditional">P(rain) %1$d%% · %2$.1f mm if wet</string>
+    <string name="metric_precip_expected_range">Expected %1$.1f mm · wet range %2$s</string>
 </resources>

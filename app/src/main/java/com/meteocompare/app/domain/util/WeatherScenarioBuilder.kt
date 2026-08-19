@@ -6,6 +6,8 @@ import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherScenario
 import com.meteocompare.app.domain.model.WeatherScenarioKind
 import com.meteocompare.app.domain.model.WeatherScenarioTiming
+import com.meteocompare.app.domain.model.WeatherModel
+import com.meteocompare.app.domain.usecase.ForecastConsensus
 import java.time.Instant
 import kotlin.math.roundToInt
 
@@ -31,22 +33,25 @@ object WeatherScenarioBuilder {
         if (maxScenarios <= 0) return emptyList()
 
         val startInstant = HourlySampling.anchor(forecast, now)
-        val modelSummaries = forecast.seriesByModel.values.mapNotNull { series ->
-            summarizeModel(series, startInstant)
+        val modelSummaries = forecast.seriesByModel.mapNotNull { (model, series) ->
+            summarizeModel(model, series, startInstant)
         }
         if (modelSummaries.isEmpty()) return emptyList()
 
         val totalModelCount = modelSummaries.size
+        val familyWeights = ForecastConsensus.familyBalancedWeights(modelSummaries.map { it.model })
+        val totalVoteWeight = familyWeights.values.sum().takeIf { it > 0.0 } ?: 1.0
+        val totalFamilyCount = modelSummaries.map { ForecastConsensus.groupFor(it.model) }.distinct().size
         val grouped = modelSummaries
             .groupBy { ScenarioKey(it.kind, it.timing) }
-            .map { (key, models) -> models.toScenario(key, totalModelCount) }
+            .map { (key, models) -> models.toScenario(key, totalModelCount, totalFamilyCount, familyWeights, totalVoteWeight) }
             .sortedWith(
-                compareByDescending<WeatherScenario> { it.modelCount }
+                compareByDescending<WeatherScenario> { it.voteSharePercent ?: 0 }
                     .thenByDescending { it.kind.importance }
             )
 
         if (grouped.size <= maxScenarios) return grouped
-        if (maxScenarios == 1) return listOf(modelSummaries.toOtherScenario(totalModelCount))
+        if (maxScenarios == 1) return listOf(modelSummaries.toOtherScenario(totalModelCount, totalFamilyCount, familyWeights, totalVoteWeight))
 
         // On conserve les scénarios les plus soutenus et on regroupe les
         // variantes minoritaires dans une ligne explicite plutôt que de les
@@ -55,10 +60,10 @@ object WeatherScenarioBuilder {
         val keptKeys = grouped.take(keptCount).map { ScenarioKey(it.kind, it.timing) }.toSet()
         val remainder = modelSummaries.filter { ScenarioKey(it.kind, it.timing) !in keptKeys }
 
-        return grouped.take(keptCount) + remainder.toOtherScenario(totalModelCount)
+        return grouped.take(keptCount) + remainder.toOtherScenario(totalModelCount, totalFamilyCount, familyWeights, totalVoteWeight)
     }
 
-    private fun summarizeModel(series: ForecastSeries, startInstant: Instant): ModelScenario? {
+    private fun summarizeModel(model: WeatherModel, series: ForecastSeries, startInstant: Instant): ModelScenario? {
         val samples = buildList {
             repeat(HOUR_COUNT) { offset ->
                 val target = startInstant.plusSeconds(offset * 3_600L)
@@ -127,6 +132,7 @@ object WeatherScenarioBuilder {
         }
 
         return ModelScenario(
+            model = model,
             kind = kind,
             timing = timing,
             temperatureMinC = temperatures.minOrNull(),
@@ -176,12 +182,18 @@ object WeatherScenarioBuilder {
 
     private fun List<ModelScenario>.toScenario(
         key: ScenarioKey,
-        totalModelCount: Int
+        totalModelCount: Int,
+        totalFamilyCount: Int,
+        weights: Map<WeatherModel, Double>,
+        totalVoteWeight: Double
     ): WeatherScenario = WeatherScenario(
         kind = key.kind,
         timing = key.timing,
         modelCount = size,
         totalModelCount = totalModelCount,
+        voteSharePercent = (sumOf { weights[it.model] ?: 0.0 } * 100.0 / totalVoteWeight).roundToInt(),
+        familyCount = map { ForecastConsensus.groupFor(it.model) }.distinct().size,
+        totalFamilyCount = totalFamilyCount,
         temperatureMinC = mapNotNull { it.temperatureMinC }.minOrNull(),
         temperatureMaxC = mapNotNull { it.temperatureMaxC }.maxOrNull(),
         precipitationMinMm = mapNotNull { it.precipitationTotalMm }.minOrNull(),
@@ -192,11 +204,19 @@ object WeatherScenarioBuilder {
         gustMaxKmh = mapNotNull { it.gustMaxKmh }.maxOrNull()
     )
 
-    private fun List<ModelScenario>.toOtherScenario(totalModelCount: Int): WeatherScenario = WeatherScenario(
+    private fun List<ModelScenario>.toOtherScenario(
+        totalModelCount: Int,
+        totalFamilyCount: Int,
+        weights: Map<WeatherModel, Double>,
+        totalVoteWeight: Double
+    ): WeatherScenario = WeatherScenario(
         kind = WeatherScenarioKind.OTHER,
         timing = WeatherScenarioTiming.NONE,
         modelCount = size,
         totalModelCount = totalModelCount,
+        voteSharePercent = (sumOf { weights[it.model] ?: 0.0 } * 100.0 / totalVoteWeight).roundToInt(),
+        familyCount = map { ForecastConsensus.groupFor(it.model) }.distinct().size,
+        totalFamilyCount = totalFamilyCount,
         temperatureMinC = mapNotNull { it.temperatureMinC }.minOrNull(),
         temperatureMaxC = mapNotNull { it.temperatureMaxC }.maxOrNull(),
         precipitationMinMm = mapNotNull { it.precipitationTotalMm }.minOrNull(),
@@ -213,6 +233,7 @@ object WeatherScenarioBuilder {
     )
 
     private data class ModelScenario(
+        val model: WeatherModel,
         val kind: WeatherScenarioKind,
         val timing: WeatherScenarioTiming,
         val temperatureMinC: Double?,

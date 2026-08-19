@@ -180,7 +180,7 @@ Daten</string>
     <string name="metric_confidence_high">Hoch · %1$d%%</string>
     <string name="metric_confidence_medium">Mittel · %1$d%%</string>
     <string name="metric_confidence_low">Niedrig · %1$d%%</string>
-    <string name="metric_summary_average">Modellmittel</string>
+    <string name="metric_summary_average">Zentraler Konsens</string>
     <string name="metric_summary_range">Spanne %1$s</string>
     <string name="metric_summary_range_and_spread">Spanne %1$s · Streuung %2$s</string>
     <string name="metric_summary_max_model_precip">Höchstes Modell %1$.1f mm</string>
@@ -212,7 +212,7 @@ Daten</string>
     <string name="a11y_temperature_prefix">Temperatur</string>
     <string name="a11y_overall_confidence">Gesamtübereinstimmung %d Prozent</string>
     <string name="a11y_hourly_empty">Leeres Diagramm, unzureichende Daten</string>
-    <string name="a11y_hourly_template">Stündliches Übereinstimmungsband über %1$d Tage. Mittlere Temperatur jetzt %2$d Grad, am Ende des Horizonts %3$d Grad. Abweichung zwischen Modellen %4$s. Übereinstimmung jetzt %5$d Prozent, bei D plus %1$d %6$d Prozent.</string>
+    <string name="a11y_hourly_template">Stündliches Übereinstimmungsband über %1$d Tage. Zentrale Temperatur jetzt %2$d Grad, am Ende des Horizonts %3$d Grad. Abweichung zwischen Modellen %4$s. Übereinstimmung jetzt %5$d Prozent, bei D plus %1$d %6$d Prozent.</string>
     <string name="a11y_divergence_strong">stark zunehmend</string>
     <string name="a11y_divergence_increasing">zunehmend</string>
     <string name="a11y_divergence_stable">insgesamt stabil</string>
@@ -243,7 +243,7 @@ Daten</string>
     <string name="confidence_model_resolution">Auflösung %s</string>
     <!-- Final interpretation sentences per card -->
     <string name="confidence_interp_high">Hohe Übereinstimmung zwischen Modellen: Die Szenarien liegen bei diesem Vorhersagehorizont nah beieinander.</string>
-    <string name="confidence_interp_medium">Mäßige Übereinstimmung: Die Szenarien unterscheiden sich und der Mittelwert ist nur eine zentrale Referenz.</string>
+    <string name="confidence_interp_medium">Mittlere Konvergenz: Die Szenarien unterscheiden sich; der gewichtete Median bleibt nur eine zentrale Referenz.</string>
     <string name="confidence_interp_low">Deutliche Uneinigkeit: Die verfügbaren Szenarien sind bei diesem Vorhersagehorizont stark gestreut.</string>
     <string name="confidence_interp_precip_dry">Kein verfügbares Modell sagt für diesen Vorhersagehorizont Niederschlag voraus.</string>
     <string name="confidence_interp_precip_rain">Alle verfügbaren Modelle sagen Regen voraus, jedoch mit unterschiedlicher Intensität.</string>
@@ -493,9 +493,9 @@ Daten</string>
     <string name="forecast_insight_detail_wind_rising_short">Eine Spitze entwickelt sich schnell.</string>
     <string name="forecast_insight_detail_wind_strong">Die Werte bleiben über mehrere Zeitschritte erhöht.</string>
     <string name="forecast_insight_detail_wind_peak">Eine ausgeprägte Spitze wird erwartet.</string>
-    <string name="local_reliability_title">Lokale Zuverlässigkeit</string>
-    <string name="local_reliability_subtitle_with_confidence">%1$d%% Übereinstimmung · %2$d Modelle</string>
-    <string name="local_reliability_subtitle_models">%1$d Modelle verglichen</string>
+    <string name="local_reliability_title">Konvergenz &amp; lokale Zuverlässigkeit</string>
+    <string name="local_reliability_subtitle_with_confidence">Aktuelle Konvergenz: %1$d%% · %2$d unabhängige Familien</string>
+    <string name="local_reliability_subtitle_models">%1$d unabhängige Familien verglichen</string>
     <string name="local_reliability_best_model">Bestes lokales Modell</string>
     <string name="detail_tab_conditions">Bedingungen</string>
     <string name="detail_tab_temperature">Temperatur</string>
@@ -657,4 +657,10 @@ Daten</string>
 
     <string name="settings_about_marine">Meer / Küste: Wellen, Dünung, Meerestemperatur und Meeresspiegel stammen von Open-Meteo Marine. Pegel-Extrema sind Näherungswerte und dürfen nicht zur Navigation verwendet werden.</string>
 
+    <string name="historical_confidence_title">Lokales historisches Vertrauen</string>
+    <string name="historical_confidence_meta">Beobachtete D+1-Leistung · %1$d Familien</string>
+    <string name="home_scenario_family_support">%1$d%% Familien-Unterstützung</string>
+    <string name="metric_precip_probability_only">P(Regen) %1$d%%</string>
+    <string name="metric_precip_probability_conditional">P(Regen) %1$d%% · %2$.1f mm falls nass</string>
+    <string name="metric_precip_expected_range">Erwartungswert %1$.1f mm · Nassbereich %2$s</string>
 </resources>

@@ -6,6 +6,7 @@ import com.meteocompare.app.domain.model.DayConfidence
 import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.HourlyConfidenceBand
 import com.meteocompare.app.domain.model.PrecipitationConfidence
+import com.meteocompare.app.domain.model.PrecipitationConsensusMeta
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.util.dailyCloudCoverMean
@@ -23,7 +24,7 @@ import kotlin.math.sqrt
  * Principe :
  *   - Pour chaque variable continue (température, vent), agrège les prédictions
  *     de tous les modèles disponibles pour un même instant/jour.
- *   - Calcule moyenne et écart-type **pondérés** par [ModelWeightingStrategy].
+ *   - Construit une valeur centrale par médiane pondérée, équilibrée par lignée.
  *   - Convertit l'écart-type en pourcentage d'accord via des seuils heuristiques
  *     par variable (cf. [Thresholds]).
  *   - Cas spécial pluie : agreement binaire + spread sur l'intensité.
@@ -75,8 +76,12 @@ class ConfidenceCalculator @Inject constructor(
                 thresholds = Thresholds.WIND
             ),
             precipitation = precipitationConfidence(
-                samples = modelsAtDate.mapNotNull { (model, series, idx) ->
-                    series.daily.precipitationSum.getOrNull(idx)?.let { model to it }
+                rows = modelsAtDate.map { (model, series, idx) ->
+                    ForecastConsensus.PrecipitationRow(
+                        model = model,
+                        amountMm = series.daily.precipitationSum.getOrNull(idx),
+                        probabilityPercent = series.daily.precipitationProbabilityMax.getOrNull(idx)
+                    )
                 }
             )
         )
@@ -92,7 +97,7 @@ class ConfidenceCalculator @Inject constructor(
     }
 
     /**
-     * Température "maintenant" — moyenne pondérée entre modèles de la valeur
+     * Température "maintenant" — médiane pondérée Consensus v2 de la valeur
      * horaire la plus proche de l'instant courant.
      *
      * Open-Meteo retourne typiquement les heures depuis 00:00 du jour. À 14:30,
@@ -115,17 +120,19 @@ class ConfidenceCalculator @Inject constructor(
             val temp = series.hourly.temperature2m.getOrNull(idx) ?: return@mapNotNull null
             model to temp
         }
-        if (samples.isEmpty()) return null
-        val totalWeight = samples.sumOf { (model, _) -> safeWeight(model) }
-        val weightedSum = samples.sumOf { (model, temp) -> temp * safeWeight(model) }
-        return weightedSum / totalWeight
+        return ForecastConsensus.continuous(
+            entries = samples.map { (model, value) -> ForecastConsensus.Entry(model, value) },
+            localWeights = localWeights(samples.map { it.first }),
+            tightStdDev = Thresholds.TEMPERATURE.tightStdDev,
+            wideStdDev = Thresholds.TEMPERATURE.wideStdDev
+        ).central
     }
 
     /**
      * Condition météo "maintenant" — vote selon la stratégie de pondération sur la famille
      * de code WMO la plus voisine de l'instant courant.
      *
-     * Pourquoi un vote majoritaire et non une "moyenne" comme la température :
+     * Pourquoi un vote majoritaire et non une agrégation continue comme la température :
      * les codes WMO sont catégoriels (pluie ≠ neige ≠ ciel clair). Faire la
      * moyenne de "61" (pluie) et "71" (neige) donnerait "66" (pluie verglaçante),
      * ce qui est une condition meteorologique sans rapport avec ce que prédit
@@ -141,13 +148,8 @@ class ConfidenceCalculator @Inject constructor(
         forecast: CityForecast,
         now: Instant = Instant.now()
     ): WeatherCondition? {
-        val votes = mutableMapOf<WeatherCondition, Double>()
-        forecast.seriesByModel.forEach { (model, series) ->
-            val idx = nearestCurrentIndex(series, now) ?: return@forEach
-            // 1) Priorité au weather_code du modèle si disponible.
-            // 2) Sinon, fallback strictement local au même modèle depuis
-            //    précipitations + température. Aucun signal d'un peer n'est
-            //    injecté dans la prédiction de ce modèle.
+        val entries = forecast.seriesByModel.mapNotNull { (model, series) ->
+            val idx = nearestCurrentIndex(series, now) ?: return@mapNotNull null
             val code = series.hourly.weatherCode.getOrNull(idx)
             val condition = WeatherCondition.fromWmoCode(code)
                 ?.takeUnless { it == WeatherCondition.UNKNOWN }
@@ -158,27 +160,24 @@ class ConfidenceCalculator @Inject constructor(
                 ?: series.hourly.cloudCover.getOrNull(idx)
                     ?.takeIf { it in 0..100 }
                     ?.let { WeatherCondition.fromCloudCover(it.toDouble()) }
-                ?: return@forEach
-            votes.merge(condition, safeWeight(model), Double::plus)
+                ?: return@mapNotNull null
+            ForecastConsensus.Entry(model, condition)
         }
-        if (votes.isEmpty()) return null
-        val maxVote = votes.maxOf { it.value }
-        // Tie-breaker conservateur et explicite. On n'utilise pas l'ordinal :
-        // UNKNOWN est déclaré en dernier et pourrait sinon gagner une égalité.
-        return votes.filterValues { it == maxVote }
-            .keys
-            .maxByOrNull { it.severityRank }
+        return ForecastConsensus.vote(
+            entries = entries,
+            localWeights = localWeights(entries.map { it.model }),
+            severity = { it.severityRank }
+        ).value
     }
 
     /**
-     * Couverture nuageuse "maintenant" — moyenne selon la stratégie de pondération
+     * Couverture nuageuse "maintenant" — médiane pondérée Consensus v2
      * du cloud_cover horaire à l'instant courant.
      *
      * Utilisée pour afficher le "% nuageux" sur les cards home et
      * TodaySummaryCard quand la condition affichée est de la famille
-     * PARTLY_CLOUDY ou OVERCAST. La moyenne pondérée reste le bon agrégat
-     * pour un pourcentage : le mode/vote catégoriel (comme les codes WMO)
-     * n'aurait pas de sens sur une échelle 0-100.
+     * PARTLY_CLOUDY ou OVERCAST. Comme les autres variables continues, la valeur
+     * centrale est une médiane pondérée et équilibrée par lignée.
      *
      * Retourne null si aucun modèle n'a de donnée cloud_cover à l'instant
      * courant — typique d'un cache pré-feature. L'UI omet alors le badge.
@@ -186,18 +185,18 @@ class ConfidenceCalculator @Inject constructor(
     fun currentCloudCover(
         forecast: CityForecast,
         now: Instant = Instant.now()
-    ): Int? = weightedMeanCurrentHourly(forecast, now) { series, idx ->
+    ): Int? = centralCurrentHourlyPercent(forecast, now) { series, idx ->
         series.hourly.cloudCover.getOrNull(idx)
     }
 
     /**
-     * Vitesse du vent "maintenant" — moyenne selon la stratégie de pondération du
+     * Vitesse du vent "maintenant" — médiane pondérée Consensus v2 du
      * wind_speed_10m horaire à l'instant courant, en km/h (unité fournie par
      * l'API via `wind_speed_unit=kmh`).
      *
      * Utilisée pour afficher le vent sur les widgets et la TodaySummaryCard.
-     * Comme pour cloud cover et température, la moyenne pondérée est le bon
-     * agrégat pour une valeur continue.
+     * Comme pour cloud cover et température, la centrale robuste est équilibrée
+     * par lignée de modèles.
      *
      * Retourne null si aucun modèle n'a de donnée wind_speed_10m à l'instant
      * courant — cas rare (tous les modèles Open-Meteo supportent la variable),
@@ -205,7 +204,7 @@ class ConfidenceCalculator @Inject constructor(
      *
      * ─── Note d'implémentation ────────────────────────────────────────────
      * On duplique délibérément la logique de [currentTemperature] au lieu de
-     * la factoriser via [weightedMeanCurrentHourly] : ce helper renvoie Int?
+     * la factoriser via [centralCurrentHourlyPercent] : ce helper renvoie Int?
      * et est optimisé pour les pourcentages arrondis. Pour une valeur Double
      * qu'on veut préserver en précision (le vent à 15.3 km/h n'est pas 15),
      * l'inlining est plus honnête que de convertir Int↔Double dans les deux
@@ -220,25 +219,27 @@ class ConfidenceCalculator @Inject constructor(
             val wind = series.hourly.windSpeed10m.getOrNull(idx) ?: return@mapNotNull null
             model to wind
         }
-        if (samples.isEmpty()) return null
-        val totalWeight = samples.sumOf { (model, _) -> safeWeight(model) }
-        val weightedSum = samples.sumOf { (model, w) -> w * safeWeight(model) }
-        return weightedSum / totalWeight
+        return ForecastConsensus.continuous(
+            entries = samples.map { (model, value) -> ForecastConsensus.Entry(model, value) },
+            localWeights = localWeights(samples.map { it.first }),
+            tightStdDev = Thresholds.WIND.tightStdDev,
+            wideStdDev = Thresholds.WIND.wideStdDev
+        ).central
     }
 
     /**
-     * Helper : moyenne pondérée d'une valeur horaire à l'instant courant.
+     * Helper : centrale Consensus v2 d'une valeur horaire à l'instant courant.
      *
      * Factorise la logique commune à [currentTemperature] et [currentCloudCover] :
      *   1. Trouver l'index horaire le plus proche de "maintenant" pour chaque modèle
      *   2. Extraire la valeur via [extractor]
-     *   3. Pondérer par le poids du modèle et faire la moyenne
+     *   3. Équilibrer les lignées et calculer la médiane pondérée
      *
      * Le résultat est arrondi à l'entier — approprié pour les pourcentages qu'on
      * affiche à l'UI. Pour la température (Double), on utilise directement la
      * version inline dans [currentTemperature] au lieu de ce helper.
      */
-    private fun weightedMeanCurrentHourly(
+    private fun centralCurrentHourlyPercent(
         forecast: CityForecast,
         now: Instant,
         extractor: (ForecastSeries, Int) -> Int?
@@ -248,10 +249,13 @@ class ConfidenceCalculator @Inject constructor(
             val value = extractor(series, idx) ?: return@mapNotNull null
             model to value.toDouble()
         }
-        if (samples.isEmpty()) return null
-        val totalWeight = samples.sumOf { (model, _) -> safeWeight(model) }
-        val weightedSum = samples.sumOf { (model, v) -> v * safeWeight(model) }
-        return (weightedSum / totalWeight).roundToInt()
+        val central = ForecastConsensus.continuous(
+            entries = samples.map { (model, value) -> ForecastConsensus.Entry(model, value) },
+            localWeights = localWeights(samples.map { it.first }),
+            tightStdDev = 10.0,
+            wideStdDev = 50.0
+        ).central
+        return central?.roundToInt()
     }
 
     /**
@@ -327,7 +331,7 @@ class ConfidenceCalculator @Inject constructor(
     /**
      * Bandes de confiance horaires sur la température.
      *
-     * Pour chaque heure couverte par au moins 2 modèles, calcule la moyenne pondérée,
+     * Pour chaque heure couverte par au moins 2 lignées, calcule la médiane pondérée,
      * le min, le max et l'écart-type. Le résultat se visualise comme une bande qui
      * s'élargit avec l'horizon — c'est la signature visuelle de la divergence
      * inter-modèles.
@@ -351,26 +355,52 @@ class ConfidenceCalculator @Inject constructor(
     /**
      * Bandes d'accord horaires sur les précipitations (mm sur l'heure précédente).
      *
-     * Utilise le même modèle mathématique que la température : moyenne pondérée,
-     * min/max, écart-type converti en %. Les seuils tight/wide sont ceux de
+     * Utilise le Consensus v2 : P(pluie) séparée de la quantité conditionnelle,
+     * centrale robuste, min/max et dispersion convertie en %. Les seuils tight/wide sont ceux de
      * [Thresholds.PRECIP] — bien plus larges qu'en température (la pluie est
      * intrinsèquement plus divergente entre modèles, surtout sur la convection).
      *
      * Différence importante avec le calcul journalier ([dayConfidence]) qui
      * distingue les cas "sec/pluie/divisé" via [PrecipitationConfidence] :
-     * ici on reste sur une bande continue, c'est ce que le graphe attend.
-     * Le graphe visualise l'AMPLITUDE des prévisions pluie, pas leur
-     * classification qualitative — les deux vues sont complémentaires.
+     * ici la bande conserve min/max et dispersion, tandis que sa centrale suit
+     * exactement le même moteur pluie en deux étapes que le résumé.
      */
     fun hourlyPrecipitationConfidence(
         forecast: CityForecast,
         horizonHours: Int = 168
-    ): List<HourlyConfidenceBand> = hourlyConfidenceBand(
-        forecast = forecast,
-        horizonHours = horizonHours,
-        thresholds = Thresholds.PRECIP,
-        extractor = { series, idx -> series.hourly.precipitation.getOrNull(idx) }
-    )
+    ): List<HourlyConfidenceBand> {
+        val indexed = forecast.seriesByModel.mapValues { (_, series) ->
+            series.hourly.timestamps.withIndex().associate { (idx, ts) -> ts to idx }
+        }
+        val allTimestamps = indexed.values.flatMap { it.keys }.distinct().sorted().take(horizonHours)
+        return allTimestamps.mapNotNull timestamp@ { ts ->
+            val rows = forecast.seriesByModel.mapNotNull row@ { (model, series) ->
+                val idx = indexed[model]?.get(ts) ?: return@row null
+                val amount = series.hourly.precipitation.getOrNull(idx)
+                val probability = series.hourly.precipitationProbability.getOrNull(idx)
+                if (amount == null && probability == null) null
+                else ForecastConsensus.PrecipitationRow(model, amount, probability)
+            }
+            val result = ForecastConsensus.precipitation(
+                rows = rows,
+                thresholdMm = 0.1,
+                localWeights = localWeights(rows.map { it.model }),
+                amountTightStdDev = 1.0,
+                amountWideStdDev = 8.0
+            )
+            val percent = result.convergencePercent ?: return@timestamp null
+            HourlyConfidenceBand(
+                timestamp = ts,
+                meanValue = result.centralAmountMm ?: 0.0,
+                minValue = result.minMm ?: 0.0,
+                maxValue = result.maxMm ?: 0.0,
+                stdDev = result.conditionalStdDev ?: 0.0,
+                percent = percent,
+                modelCount = result.modelCount,
+                familyCount = result.familyCount
+            )
+        }
+    }
 
     /**
      * Bandes de confiance horaires sur le vent à 10m (km/h).
@@ -393,8 +423,8 @@ class ConfidenceCalculator @Inject constructor(
      * Helper générique — factorise la logique de [hourlyTemperatureConfidence]
      * / [hourlyPrecipitationConfidence] / [hourlyWindConfidence].
      *
-     * Concept identique à la version historique : pré-indexation par timestamp
-     * pour éviter le indexOf quadratique, agrégation pondérée (moyenne + std),
+     * Pré-indexation par timestamp pour éviter le indexOf quadratique, puis
+     * agrégation Consensus v2 (médiane pondérée + dispersion),
      * conversion σ → % via les seuils passés en paramètre.
      *
      * Le paramètre `extractor` isole la seule chose qui varie entre variables :
@@ -424,26 +454,24 @@ class ConfidenceCalculator @Inject constructor(
             val samples = indexedByModel.mapNotNull { (model, map) ->
                 map[ts]?.let { model to it }
             }
-            if (samples.size < 2) return@mapNotNull null
-
-            val weighted = samples.map { (model, value) ->
-                WeightedSample(value, safeWeight(model))
-            }
-            val stats = computeWeightedStats(weighted)
-            val percent = stdDevToConfidence(
-                stdDev = stats.stdDev,
-                tight = thresholds.tightStdDev,
-                wide = thresholds.wideStdDev
+            val consensus = ForecastConsensus.continuous(
+                entries = samples.map { (model, value) -> ForecastConsensus.Entry(model, value) },
+                localWeights = localWeights(samples.map { it.first }),
+                tightStdDev = thresholds.tightStdDev,
+                wideStdDev = thresholds.wideStdDev
             )
+            val stats = consensus.stats ?: return@mapNotNull null
+            val percent = consensus.convergencePercent ?: return@mapNotNull null
 
             HourlyConfidenceBand(
                 timestamp = ts,
-                meanValue = stats.mean,
+                meanValue = consensus.central ?: stats.mean,
                 minValue = stats.min,
                 maxValue = stats.max,
                 stdDev = stats.stdDev,
                 percent = percent,
-                modelCount = samples.size
+                modelCount = consensus.modelCount,
+                familyCount = consensus.familyCount
             )
         }
     }
@@ -451,114 +479,81 @@ class ConfidenceCalculator @Inject constructor(
     // ─────────────────────────── Confidences continues ───────────────────────────
 
     /**
-     * Pour une variable continue (température, vent) : calcule la moyenne et
-     * l'écart-type pondérés, puis convertit en score 0-100 via [thresholds].
+     * Pour une variable continue (température, vent) : médiane pondérée pour la
+     * centrale, écart-type pondéré pour la convergence 0-100 via [thresholds].
      */
     private fun continuousConfidence(
         samples: List<Pair<WeatherModel, Double>>,
         thresholds: Thresholds
     ): ConfidenceScore? {
-        if (samples.size < 2) return null  // pas de "confiance" possible avec un seul modèle
-
-        val weighted = samples.map { (model, value) -> WeightedSample(value, safeWeight(model)) }
-        val stats = computeWeightedStats(weighted)
-
-        val percent = stdDevToConfidence(
-            stdDev = stats.stdDev,
-            tight = thresholds.tightStdDev,
-            wide = thresholds.wideStdDev
+        val consensus = ForecastConsensus.continuous(
+            entries = samples.map { (model, value) -> ForecastConsensus.Entry(model, value) },
+            localWeights = localWeights(samples.map { it.first }),
+            tightStdDev = thresholds.tightStdDev,
+            wideStdDev = thresholds.wideStdDev
         )
-
+        val stats = consensus.stats ?: return null
+        val percent = consensus.convergencePercent ?: return null
         return ConfidenceScore(
             percent = percent,
             minValue = stats.min,
             maxValue = stats.max,
-            meanValue = stats.mean,
+            meanValue = consensus.central ?: stats.mean,
             stdDev = stats.stdDev,
-            modelCount = samples.size
+            modelCount = consensus.modelCount,
+            familyCount = consensus.familyCount
         )
     }
 
     // ─────────────────────────── Confidence pluie ───────────────────────────
 
     /**
-     * Pluie : trois cas selon l'agreement binaire sur "est-ce qu'il pleut ?".
+     * Pluie Consensus v2 : P(pluie), quantité conditionnelle puis représentation
+     * qualitative compatible avec l'UI historique.
      */
     private fun precipitationConfidence(
-        samples: List<Pair<WeatherModel, Double>>
+        rows: List<ForecastConsensus.PrecipitationRow>
     ): PrecipitationConfidence? {
-        if (samples.isEmpty()) return null
-
-        val threshold = PrecipitationConfidence.PRECIP_THRESHOLD_MM
-        val rainModels = samples.filter { it.second >= threshold }
-        val dryModels = samples.filter { it.second < threshold }
-        val total = samples.size
-
+        val result = ForecastConsensus.precipitation(
+            rows = rows,
+            thresholdMm = PrecipitationConfidence.PRECIP_THRESHOLD_MM,
+            localWeights = localWeights(rows.map { it.model }),
+            amountTightStdDev = Thresholds.PRECIP.tightStdDev,
+            amountWideStdDev = Thresholds.PRECIP.wideStdDev
+        )
+        val percent = result.convergencePercent ?: return null
+        val common = PrecipitationConsensusMeta(
+            probabilityPercent = result.probabilityPercent,
+            conditionalAmountMm = result.conditionalAmountMm,
+            expectedAmountMm = result.expectedAmountMm,
+            centralAmountMm = result.centralAmountMm,
+            familyCount = result.familyCount
+        )
+        val wetAmounts = rows.mapNotNull { row ->
+            row.amountMm?.takeIf { it.isFinite() && it >= PrecipitationConfidence.PRECIP_THRESHOLD_MM }
+        }
+        val wetMin = wetAmounts.minOrNull()
+        val wetMax = wetAmounts.maxOrNull()
         return when {
-            // Cas 1 : tout le monde d'accord — sec
-            rainModels.isEmpty() -> {
-                val maxAmount = samples.maxOf { it.second }
-                // Si tout le monde annonce 0.0 strict, confiance maximale.
-                // Quelques modèles avec 0.3mm "trace" → confiance légèrement réduite.
-                val percent = if (maxAmount < 0.1) 100 else 90
-                PrecipitationConfidence.NoRain(
-                    percent = percent,
-                    modelCount = total,
-                    maxAmountMm = maxAmount
-                )
-            }
-
-            // Cas 2 : tout le monde d'accord — pluie. La confiance dépend du spread sur l'intensité.
-            dryModels.isEmpty() -> {
-                val weighted = rainModels.map { (model, value) ->
-                    WeightedSample(value, safeWeight(model))
-                }
-                val stats = computeWeightedStats(weighted)
-                val percent = stdDevToConfidence(
-                    stdDev = stats.stdDev,
-                    tight = Thresholds.PRECIP.tightStdDev,
-                    wide = Thresholds.PRECIP.wideStdDev
-                )
-                PrecipitationConfidence.Rain(
-                    percent = percent,
-                    modelCount = total,
-                    minMm = stats.min,
-                    maxMm = stats.max,
-                    meanMm = stats.mean
-                )
-            }
-
-            // Cas 3 : désaccord binaire — c'est le cas le plus incertain.
-            else -> {
-                // L'accord binaire suit la même stratégie de pondération que les
-                // autres agrégats. Avec EqualWeighting (production actuelle),
-                // cela reste exactement le ratio de modèles. Ce calcul évite
-                // une incohérence future si une stratégie backtestée est ajoutée.
-                val rainWeight = rainModels.sumOf { (model, _) -> safeWeight(model) }
-                val dryWeight = dryModels.sumOf { (model, _) -> safeWeight(model) }
-                val agreement = maxOf(rainWeight, dryWeight) / (rainWeight + dryWeight)
-                // 50/50 → 0% d'accord, 100/0 → 100%. Le nombre de modèles
-                // affiché reste un compte brut, distinct du poids statistique.
-                val percent = ((agreement - 0.5) * 200).roundToInt().coerceIn(0, 100)
-                val rainStats = computeWeightedStats(
-                    rainModels.map { (model, value) ->
-                        WeightedSample(value, safeWeight(model))
-                    }
-                )
-                PrecipitationConfidence.Divided(
-                    percent = percent,
-                    modelCount = total,
-                    modelsForRain = rainModels.size,
-                    modelsAgainstRain = dryModels.size,
-                    rainMinMm = rainStats.min,
-                    rainMaxMm = rainStats.max,
-                    rainMeanMm = rainStats.mean
-                )
-            }
+            result.wetModelCount == 0 -> PrecipitationConfidence.NoRain(
+                percent = percent, modelCount = result.modelCount, maxAmountMm = result.maxMm ?: 0.0, meta = common
+            )
+            result.wetModelCount == result.modelCount -> PrecipitationConfidence.Rain(
+                percent = percent, modelCount = result.modelCount, minMm = wetMin ?: result.minMm ?: 0.0,
+                maxMm = wetMax ?: result.maxMm ?: 0.0, meanMm = result.conditionalAmountMm ?: 0.0, meta = common
+            )
+            else -> PrecipitationConfidence.Divided(
+                percent = percent, modelCount = result.modelCount, modelsForRain = result.wetModelCount,
+                modelsAgainstRain = result.modelCount - result.wetModelCount, rainMinMm = wetMin ?: 0.0,
+                rainMaxMm = wetMax ?: 0.0, rainMeanMm = result.conditionalAmountMm ?: 0.0, meta = common
+            )
         }
     }
 
     // ─────────────────────────── Math primitives ───────────────────────────
+
+    private fun localWeights(models: Collection<WeatherModel>): Map<WeatherModel, Double> =
+        models.distinct().associateWith(::safeWeight)
 
     private data class WeightedSample(val value: Double, val weight: Double)
 

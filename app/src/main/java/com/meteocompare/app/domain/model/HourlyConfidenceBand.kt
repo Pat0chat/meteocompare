@@ -23,6 +23,7 @@ import java.time.Instant
  * disparaissent et les écarts grandissent → bande qui s'élargit.
  *
  * @property modelCount Nombre de modèles ayant contribué (varie selon l'horizon).
+ * @property familyCount Nombre de lignées indépendantes après déduplication Consensus v2.
  */
 data class HourlyConfidenceBand(
     val timestamp: Instant,
@@ -31,7 +32,8 @@ data class HourlyConfidenceBand(
     val maxValue: Double,
     val stdDev: Double,
     val percent: Int,
-    val modelCount: Int
+    val modelCount: Int,
+    val familyCount: Int = modelCount
 ) {
     val spread: Double get() = maxValue - minValue
 }

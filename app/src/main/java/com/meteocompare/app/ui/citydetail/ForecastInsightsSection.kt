@@ -491,7 +491,7 @@ private fun forecastInsightMetrics(insight: ForecastInsight): List<InsightMetric
                         )
                     )
                 }
-                insight.precipitationSource == PrecipitationSignalSource.MODEL_PROBABILITY -> {
+                insight.precipitationSource in setOf(PrecipitationSignalSource.MODEL_PROBABILITY, PrecipitationSignalSource.MIXED) -> {
                     (insight.targetValue ?: insight.value)?.let { probability ->
                         add(
                             InsightMetric(

@@ -72,6 +72,7 @@ class MarineRepositoryImpl @Inject constructor(
 
     override suspend fun clear(cityId: String) = withContext(ioDispatcher) {
         context.marineDataStore.edit { it.remove(key(cityId)) }
+        Unit
     }
 
     private suspend fun save(cityId: String, data: MarineForecast) {

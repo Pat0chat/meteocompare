@@ -705,7 +705,7 @@ private fun temperatureRangeLabel(
 
 @Composable
 private fun precipitationSourceLabel(point: SimplifiedTimelinePoint): String = when {
-    point.precipitationSource == PrecipitationSignalSource.MODEL_PROBABILITY ->
+    point.precipitationSource in setOf(PrecipitationSignalSource.MODEL_PROBABILITY, PrecipitationSignalSource.MIXED) ->
         stringResource(R.string.timeline_precip_probability_source)
     point.precipitationSource == PrecipitationSignalSource.MODEL_AGREEMENT &&
         point.precipitationModelCount >= 2 -> stringResource(

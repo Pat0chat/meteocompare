@@ -7,6 +7,7 @@ import com.meteocompare.app.domain.model.ModelBias
 import com.meteocompare.app.domain.model.ModelReliability
 import com.meteocompare.app.domain.model.ModelReliabilityCalculator
 import com.meteocompare.app.domain.model.WeatherModel
+import com.meteocompare.app.domain.usecase.ForecastConsensus
 import java.time.Instant
 import java.time.LocalDate
 
@@ -44,6 +45,25 @@ internal data class LocalModelRankings(
         get() = temperature.entries.isNotEmpty() ||
             precipitation.entries.isNotEmpty() ||
             wind.entries.isNotEmpty()
+
+    /**
+     * Performance J+1 passée, distincte de la convergence instantanée. Les
+     * scores des modèles frères sont d'abord agrégés par lignée afin de ne pas
+     * compter plusieurs fois le même système numérique.
+     */
+    val historicalConfidencePercent: Int?
+        get() {
+            val perVariable = listOf(temperature, precipitation, wind).mapNotNull { ranking ->
+                val familyScores = ranking.entries.groupBy { ForecastConsensus.groupFor(it.model) }
+                    .values.map { siblings -> siblings.map { it.reliability.score }.average() }
+                if (familyScores.size < 2) null else familyScores.average()
+            }
+            return if (perVariable.isEmpty()) null else perVariable.average().toInt().coerceIn(0, 100)
+        }
+
+    val historicalFamilyCount: Int
+        get() = listOf(temperature, precipitation, wind).flatMap { it.entries }
+            .map { ForecastConsensus.groupFor(it.model) }.distinct().size
 
     val firstAvailableVariable: BiasVariable
         get() = when {

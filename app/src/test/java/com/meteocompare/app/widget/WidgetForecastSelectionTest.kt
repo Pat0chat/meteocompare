@@ -28,7 +28,7 @@ class WidgetForecastSelectionTest {
     )
 
     @Test
-    fun `daily choisit un modele avec cinq valeurs reelles plutot que cinq dates partagees`() {
+    fun `daily utilise le consensus puis prolonge naturellement avec le modele encore disponible`() {
         val dates = (0L until 5L).map { LocalDate.of(2026, 7, 17).plusDays(it) }
         val shortFineModel = ForecastSeries(
             model = WeatherModel.AROME_FRANCE_HD,
@@ -69,8 +69,8 @@ class WidgetForecastSelectionTest {
         )
 
         assertEquals(5, items.size)
-        assertEquals(listOf(20.0, 21.0, 22.0, 23.0, 24.0), items.map { it.temp })
-        assertTrue(items.all { it.sourceModelName == "GFS" })
+        assertEquals(listOf(20.5, 21.5, 22.0, 23.0, 24.0), items.map { it.temp })
+        assertTrue(items.all { it.sourceModelName == null })
         assertTrue(items.all { it.temp != null || it.condition != null })
     }
 
@@ -119,7 +119,7 @@ class WidgetForecastSelectionTest {
     }
 
     @Test
-    fun `hourly privilegie les details nuages et pluie entre modeles complets`() {
+    fun `hourly fusionne les modeles disponibles avec le consensus v2`() {
         val now = Instant.parse("2026-07-17T10:15:00Z")
         val timestamps = (1L..5L).map { now.plusSeconds(it * 3600) }
         val fineWithoutDetails = ForecastSeries(
@@ -160,13 +160,13 @@ class WidgetForecastSelectionTest {
             now = now
         )
 
-        assertEquals(listOf(18.0, 19.0, 20.0, 21.0, 22.0), items.map { it.temp })
+        assertEquals(listOf(19.0, 19.5, 20.0, 20.5, 21.0), items.map { it.temp })
         assertEquals(listOf(25, 35, 45, 55, 65), items.map { it.cloudCoverPct })
-        assertEquals(listOf(10, 20, 30, 40, 50), items.map { it.precipProbabilityPct })
+        assertEquals(listOf(5, 10, 15, 20, 25), items.map { it.precipProbabilityPct })
     }
 
     @Test
-    fun `hourly attache la confiance globale a lecheance exacte`() {
+    fun `hourly utilise la convergence consensus avant lancienne confiance injectee`() {
         val now = Instant.parse("2026-07-17T10:15:00Z")
         val timestamps = (1L..5L).map { now.plusSeconds(it * 3600) }
         val series = ForecastSeries(
@@ -206,7 +206,7 @@ class WidgetForecastSelectionTest {
             forecastConfidence = confidence
         )
 
-        assertEquals(listOf(60, 55, 50, 45, 40), items.map { it.forecastConfidencePct })
+        assertEquals(listOf(93, 87, 80, 73, 77), items.map { it.forecastConfidencePct })
     }
 
     @Test

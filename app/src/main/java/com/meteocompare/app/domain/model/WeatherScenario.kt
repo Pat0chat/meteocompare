@@ -17,7 +17,11 @@ data class WeatherScenario(
     val cloudCoverMinPercent: Int? = null,
     val cloudCoverMaxPercent: Int? = null,
     val gustMinKmh: Double? = null,
-    val gustMaxKmh: Double? = null
+    val gustMaxKmh: Double? = null,
+    /** Soutien après équilibrage des lignées ; ce n'est pas une probabilité météo. */
+    val voteSharePercent: Int? = null,
+    val familyCount: Int = 0,
+    val totalFamilyCount: Int = 0
 )
 
 enum class WeatherScenarioKind {

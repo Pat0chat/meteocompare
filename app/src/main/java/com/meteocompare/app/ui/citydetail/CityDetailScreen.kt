@@ -88,6 +88,7 @@ import com.meteocompare.app.domain.model.DayNormals
 import com.meteocompare.app.domain.model.HourlyConfidenceBand
 import com.meteocompare.app.domain.model.HourlyForecast
 import com.meteocompare.app.domain.model.PrecipitationConfidence
+import com.meteocompare.app.domain.usecase.ForecastConsensus
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.usecase.DayConditionsRow
@@ -593,7 +594,10 @@ private fun LoadedView(
             item("local_reliability") {
                 LocalReliabilitySection(
                     overallConfidencePercent = summaryDay?.overallPercent,
-                    modelCount = forecast.availableModels.size,
+                    familyCount = forecast.availableModels
+                        .map(ForecastConsensus::groupFor)
+                        .distinct()
+                        .size,
                     rankings = localRankings,
                     tempBands = hourlyBands,
                     precipBands = hourlyPrecipBands,
@@ -1621,38 +1625,48 @@ private fun detailPrecipitationPresentation(
     is PrecipitationConfidence.NoRain ->
         DetailMetricPresentation(
             value = stringResource(R.string.precip_dry),
-            supporting = stringResource(R.string.confidence_precip_all_dry),
+            supporting = precipitation.meta.probabilityPercent?.let { probability ->
+                stringResource(R.string.metric_precip_probability_only, probability)
+            } ?: stringResource(R.string.confidence_precip_all_dry),
             detail = stringResource(
                 R.string.metric_summary_max_model_precip,
                 precipitation.maxAmountMm
             )
         )
 
-    is PrecipitationConfidence.Rain ->
+    is PrecipitationConfidence.Rain -> {
+        val conditional = precipitation.meta.conditionalAmountMm ?: precipitation.meanMm
+        val probability = precipitation.meta.probabilityPercent
+        val expected = precipitation.meta.expectedAmountMm
+        val rawRange = "${precipitation.minMm.roundToInt()}–${precipitation.maxMm.roundToInt()} mm"
         DetailMetricPresentation(
-            value = precipitation.meanMm.roundToInt().toString(),
+            value = (precipitation.meta.centralAmountMm ?: conditional).roundToInt().toString(),
             unit = "mm",
-            supporting = stringResource(R.string.metric_summary_average),
-            detail = stringResource(
-                R.string.metric_summary_range,
-                "${precipitation.minMm.roundToInt()}–${precipitation.maxMm.roundToInt()} mm"
-            )
+            supporting = if (probability != null) {
+                stringResource(R.string.metric_precip_probability_conditional, probability, conditional)
+            } else stringResource(R.string.metric_precip_if_rain, "${conditional.roundToInt()} mm"),
+            detail = if (expected != null) {
+                stringResource(R.string.metric_precip_expected_range, expected, rawRange)
+            } else stringResource(R.string.metric_summary_range, rawRange)
         )
+    }
 
-    is PrecipitationConfidence.Divided ->
+    is PrecipitationConfidence.Divided -> {
+        val conditional = precipitation.meta.conditionalAmountMm ?: precipitation.rainMeanMm
+        val probability = precipitation.meta.probabilityPercent
+        val expected = precipitation.meta.expectedAmountMm
+        val rawRange = "${precipitation.rainMinMm.roundToInt()}–${precipitation.rainMaxMm.roundToInt()} mm"
         DetailMetricPresentation(
-            value = precipitation.rainMeanMm.roundToInt().toString(),
+            value = (precipitation.meta.centralAmountMm ?: conditional).roundToInt().toString(),
             unit = "mm",
-            supporting = stringResource(
-                R.string.confidence_precip_divided,
-                precipitation.modelsForRain,
-                precipitation.modelCount
-            ),
-            detail = stringResource(
-                R.string.metric_precip_if_rain,
-                "${precipitation.rainMinMm.roundToInt()}–${precipitation.rainMaxMm.roundToInt()} mm"
-            )
+            supporting = if (probability != null) {
+                stringResource(R.string.metric_precip_probability_conditional, probability, conditional)
+            } else stringResource(R.string.metric_precip_if_rain, "${conditional.roundToInt()} mm"),
+            detail = if (expected != null) {
+                stringResource(R.string.metric_precip_expected_range, expected, rawRange)
+            } else stringResource(R.string.metric_precip_if_rain, rawRange)
         )
+    }
 }
 
 @Composable

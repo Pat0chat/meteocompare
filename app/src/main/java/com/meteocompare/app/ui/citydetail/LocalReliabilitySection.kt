@@ -62,7 +62,7 @@ internal const val TAG_LOCAL_RELIABILITY_DETAILS = "local-reliability-details"
 @Composable
 internal fun LocalReliabilitySection(
     overallConfidencePercent: Int?,
-    modelCount: Int,
+    familyCount: Int,
     rankings: LocalModelRankings,
     tempBands: List<HourlyConfidenceBand>,
     precipBands: List<HourlyConfidenceBand>,
@@ -106,7 +106,7 @@ internal fun LocalReliabilitySection(
         Column(modifier = Modifier.padding(vertical = 7.dp)) {
             CollapsibleSectionHeader(
                 text = stringResource(R.string.local_reliability_title),
-                subtitle = reliabilitySubtitle(overallConfidencePercent, modelCount),
+                subtitle = reliabilitySubtitle(overallConfidencePercent, familyCount),
                 expanded = expanded,
                 onToggle = { onExpandedChange(!expanded) },
                 modifier = Modifier
@@ -127,6 +127,33 @@ internal fun LocalReliabilitySection(
                     onOpenRanking = onOpenRanking,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
                 )
+            }
+
+            rankings.historicalConfidencePercent?.let { historical ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 18.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.historical_confidence_title),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = stringResource(
+                                R.string.historical_confidence_meta,
+                                rankings.historicalFamilyCount
+                            ),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    ReliabilityScore(score = historical)
+                }
             }
 
             if (expanded) {
@@ -306,11 +333,11 @@ private fun ReliabilityScore(score: Int) {
 }
 
 @Composable
-private fun reliabilitySubtitle(percent: Int?, modelCount: Int): String =
+private fun reliabilitySubtitle(percent: Int?, familyCount: Int): String =
     if (percent != null) {
-        stringResource(R.string.local_reliability_subtitle_with_confidence, percent, modelCount)
+        stringResource(R.string.local_reliability_subtitle_with_confidence, percent, familyCount)
     } else {
-        stringResource(R.string.local_reliability_subtitle_models, modelCount)
+        stringResource(R.string.local_reliability_subtitle_models, familyCount)
     }
 
 private fun ConfidenceMetric.toBiasVariable(): BiasVariable = when (this) {

@@ -870,7 +870,7 @@ private fun precipitationMetricPresentation(
         MetricPresentation(value = stringResource(R.string.precip_dry))
     is PrecipitationConfidence.Rain -> {
         val value = if (precip.minMm.roundToInt() == precip.maxMm.roundToInt()) {
-            precip.meanMm.roundToInt().toString()
+            (precip.meta.centralAmountMm ?: precip.meanMm).roundToInt().toString()
         } else {
             "${precip.minMm.roundToInt()}–${precip.maxMm.roundToInt()}"
         }
@@ -878,7 +878,7 @@ private fun precipitationMetricPresentation(
     }
     is PrecipitationConfidence.Divided -> {
         val value = if (precip.rainMinMm.roundToInt() == precip.rainMaxMm.roundToInt()) {
-            precip.rainMeanMm.roundToInt().toString()
+            (precip.meta.centralAmountMm ?: precip.rainMeanMm).roundToInt().toString()
         } else {
             "${precip.rainMinMm.roundToInt()}–${precip.rainMaxMm.roundToInt()}"
         }
@@ -1069,7 +1069,9 @@ private fun HomeWeatherScenarioRow(
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    text = stringResource(
+                    text = scenario.voteSharePercent?.let { support ->
+                        stringResource(R.string.home_scenario_family_support, support)
+                    } ?: stringResource(
                         R.string.forecast_insight_metric_model_ratio,
                         scenario.modelCount,
                         scenario.totalModelCount

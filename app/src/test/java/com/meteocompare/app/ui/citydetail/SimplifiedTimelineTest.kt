@@ -81,7 +81,7 @@ class SimplifiedTimelineTest {
         assertEquals(12.0, point.tempMinC!!, 0.001)
         assertEquals(22.0, point.tempMaxC!!, 0.001)
         assertEquals(12.0, point.windKmh!!, 0.001)
-        assertEquals(10, point.precipitationPercent)
+        assertEquals(33, point.precipitationPercent)
         assertEquals(PrecipitationSignalSource.MODEL_PROBABILITY, point.precipitationSource)
         assertEquals(3, point.precipitationModelCount)
         // Égalité parfaite entre clair, principalement clair et pluie : le
@@ -96,7 +96,7 @@ class SimplifiedTimelineTest {
     }
 
     @Test
-    fun `one isolated probability falls back to deterministic model agreement`() {
+    fun `one isolated probability is mixed with deterministic occurrence`() {
         val forecast = CityForecast(
             city = paris,
             seriesByModel = linkedMapOf(
@@ -120,15 +120,15 @@ class SimplifiedTimelineTest {
 
         val point = buildSimplifiedTimeline(forecast, DisplayMode.DAILY, now).single()
 
-        assertEquals(PrecipitationSignalSource.MODEL_AGREEMENT, point.precipitationSource)
-        assertEquals(0, point.precipitationPercent)
+        assertEquals(PrecipitationSignalSource.MIXED, point.precipitationSource)
+        assertEquals(30, point.precipitationPercent)
         assertEquals(0, point.wetModelCount)
         assertEquals(3, point.precipitationModelCount)
     }
 
 
     @Test
-    fun `sparse probability coverage cannot create a rain disagreement`() {
+    fun `sparse probability coverage is explicitly marked mixed`() {
         val models = listOf(
             WeatherModel.GFS,
             WeatherModel.ECMWF,
@@ -158,8 +158,8 @@ class SimplifiedTimelineTest {
 
         val point = buildSimplifiedTimeline(forecast, DisplayMode.DAILY, now).single()
 
-        assertEquals(PrecipitationSignalSource.MODEL_AGREEMENT, point.precipitationSource)
-        assertEquals(0, point.precipitationPercent)
+        assertEquals(PrecipitationSignalSource.MIXED, point.precipitationSource)
+        assertEquals(25, point.precipitationPercent)
         assertFalse(DivergenceReason.PRECIPITATION in point.divergenceReasons)
     }
 

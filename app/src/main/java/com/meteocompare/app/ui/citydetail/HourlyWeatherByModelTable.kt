@@ -284,7 +284,7 @@ private fun HourIconCell(
             // Marqueur visuel d'inférence : la condition vient uniquement des
             // variables du MÊME modèle. 65 % reste visible sur fond clair/sombre
             // tout en signalant qu'il ne s'agit pas d'un weather_code direct.
-            val contentModifier = if (cell.isInferred) Modifier.alpha(0.65f) else Modifier
+            val contentModifier = if (cell.isInferred) Modifier.alpha(0.55f) else Modifier
             Column(
                 modifier = contentModifier,
                 horizontalAlignment = Alignment.CenterHorizontally,

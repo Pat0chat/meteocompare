@@ -7,7 +7,7 @@ package com.meteocompare.app.domain.model
  * @property percent Score 0-100. Plus c'est élevé, plus les modèles convergent.
  * @property minValue Valeur minimale prévue par l'ensemble des modèles.
  * @property maxValue Valeur maximale prévue par l'ensemble des modèles.
- * @property meanValue Moyenne pondérée par la stratégie de pondération.
+ * @property meanValue Nom historique : contient désormais la médiane pondérée centrale Consensus v2.
  * @property stdDev Écart-type pondéré (base du calcul de [percent]).
  * @property modelCount Nombre de modèles ayant contribué au calcul.
  */
@@ -17,8 +17,13 @@ data class ConfidenceScore(
     val maxValue: Double,
     val meanValue: Double,
     val stdDev: Double,
-    val modelCount: Int
+    val modelCount: Int,
+    /** Nombre de lignées numériques indépendantes ayant réellement contribué. */
+    val familyCount: Int = modelCount
 ) {
+    /** Alias explicite pour le moteur Consensus v2. */
+    val centralValue: Double get() = meanValue
+
     /** Range visible affichable à l'utilisateur : `maxValue - minValue`. */
     val spread: Double get() = maxValue - minValue
 

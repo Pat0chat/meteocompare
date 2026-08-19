@@ -21,8 +21,9 @@ interface ModelWeightingStrategy {
 /**
  * Pondération équitable utilisée en production.
  *
- * Chaque modèle disponible compte une fois. Ce choix rend la moyenne et
- * l'indice d'accord interprétables comme une comparaison de scénarios, sans
+ * Chaque modèle reçoit un multiplicateur brut de 1. Le moteur Consensus v2
+ * équilibre ensuite ces multiplicateurs par lignée numérique : plusieurs
+ * variantes apparentées se partagent une même masse de vote, sans
  * prétendre qu'une maille plus fine est automatiquement plus juste.
  */
 @Singleton
