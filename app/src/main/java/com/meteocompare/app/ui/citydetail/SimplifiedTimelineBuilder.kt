@@ -30,7 +30,7 @@ internal enum class DivergenceReason {
     CONDITION
 }
 
-/** Niveau synthétique d'accord multi-modèles à une échéance. */
+/** Niveau synthétique de convergence multi-modèles à une échéance. */
 internal enum class ModelConsensusLevel {
     HIGH,
     MEDIUM,
@@ -107,7 +107,7 @@ internal data class SimplifiedTimelinePoint(
     val conditionModelCount: Int = 0,
     /** Vrai uniquement si au moins deux modèles partagent une même métrique. */
     val hasMultiModelEvidence: Boolean = false,
-    /** Score synthétique d'accord, calculé seulement à partir de métriques comparables. */
+    /** Score synthétique de convergence, calculé seulement à partir de métriques comparables. */
     val consensusPercent: Int? = null,
     val consensusLevel: ModelConsensusLevel? = null,
     /** Consensus détaillé par variable, source de vérité des insights. */

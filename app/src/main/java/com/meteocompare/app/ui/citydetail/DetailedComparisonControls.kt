@@ -46,6 +46,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import com.meteocompare.app.R
+import com.meteocompare.app.ui.components.CollapsibleSectionHeader
 import com.meteocompare.app.domain.model.CityDetailContentTab
 import com.meteocompare.app.ui.theme.precipitationMetricAccent
 import com.meteocompare.app.ui.theme.temperatureMetricAccent
@@ -71,43 +72,37 @@ internal fun DetailedComparisonControls(
     selectedTab: CityDetailContentTab,
     onModeChange: (DisplayMode) -> Unit,
     onTabChange: (CityDetailContentTab) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    expanded: Boolean = true,
+    onExpandedChange: (Boolean) -> Unit = {}
 ) {
     Column(
         modifier = modifier
             .fillMaxWidth()
             .padding(top = 12.dp, bottom = 4.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = stringResource(R.string.forecast_tables_section),
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1
-            )
+        CollapsibleSectionHeader(
+            text = stringResource(R.string.forecast_tables_section),
+            expanded = expanded,
+            onToggle = { onExpandedChange(!expanded) },
+            trailingContent = {
+                DisplayModeMenu(
+                    mode = mode,
+                    onModeChange = onModeChange
+                )
+            }
+        )
 
-            DisplayModeMenu(
-                mode = mode,
-                onModeChange = onModeChange
+        if (expanded) {
+            Spacer(Modifier.height(4.dp))
+            DetailContentTabs(
+                selected = selectedTab,
+                onSelected = onTabChange,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp)
             )
         }
-
-        Spacer(Modifier.height(8.dp))
-
-        DetailContentTabs(
-            selected = selectedTab,
-            onSelected = onTabChange,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp)
-        )
     }
 }
 

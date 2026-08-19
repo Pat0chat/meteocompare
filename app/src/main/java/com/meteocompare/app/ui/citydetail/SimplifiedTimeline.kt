@@ -56,6 +56,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.meteocompare.app.R
 import com.meteocompare.app.ui.components.WeatherIconDecorative
+import com.meteocompare.app.ui.components.CollapsibleSectionHeader
 import com.meteocompare.app.ui.components.semanticTint
 import com.meteocompare.app.ui.components.blendedHeatmapColor
 import com.meteocompare.app.ui.components.temperatureHeatmapColor
@@ -71,7 +72,7 @@ import kotlin.math.roundToInt
  * Vue chronologique légère placée avant les tableaux détaillés.
  *
  * Les valeurs principales sont des médianes multi-modèles. Les plages et le
- * indicateur d'accord rendent la dispersion visible sans remplacer les tableaux.
+ * indicateur de convergence rendent la dispersion visible sans remplacer les tableaux.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -85,7 +86,9 @@ internal fun SimplifiedTimelineCard(
     focusRequestId: Int = 0,
     onModeChange: ((DisplayMode) -> Unit)? = null,
     availableModes: Set<DisplayMode> = setOf(mode),
-    now: Instant = Instant.now()
+    now: Instant = Instant.now(),
+    expanded: Boolean = true,
+    onExpandedChange: (Boolean) -> Unit = {}
 ) {
     if (points.isEmpty()) return
 
@@ -123,48 +126,36 @@ internal fun SimplifiedTimelineCard(
         shadowElevation = 0.dp
     ) {
         Column(modifier = Modifier.padding(vertical = 14.dp)) {
-            Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = stringResource(
-                            if (mode == DisplayMode.HOURLY) {
-                                R.string.timeline_title_hourly
-                            } else {
-                                R.string.timeline_title_daily
-                            }
-                        ),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    if (onModeChange != null && availableModes.size > 1) {
-                        Spacer(Modifier.width(10.dp))
+            CollapsibleSectionHeader(
+                text = stringResource(
+                    if (mode == DisplayMode.HOURLY) {
+                        R.string.timeline_title_hourly
+                    } else {
+                        R.string.timeline_title_daily
+                    }
+                ),
+                subtitle = stringResource(
+                    if (mode == DisplayMode.HOURLY) {
+                        R.string.timeline_subtitle_hourly
+                    } else {
+                        R.string.timeline_subtitle_daily
+                    }
+                ),
+                expanded = expanded,
+                onToggle = { onExpandedChange(!expanded) },
+                trailingContent = if (onModeChange != null && availableModes.size > 1) {
+                    {
                         DisplayModeMenu(
                             mode = mode,
                             onModeChange = onModeChange,
                             availableModes = availableModes
                         )
                     }
-                }
-                Text(
-                    text = stringResource(
-                        if (mode == DisplayMode.HOURLY) {
-                            R.string.timeline_subtitle_hourly
-                        } else {
-                            R.string.timeline_subtitle_daily
-                        }
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+                } else null
+            )
 
-            Spacer(Modifier.height(12.dp))
+            if (expanded) {
+            Spacer(Modifier.height(8.dp))
 
             LazyRow(
                 state = listState,
@@ -226,6 +217,7 @@ internal fun SimplifiedTimelineCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+            }
             }
         }
     }

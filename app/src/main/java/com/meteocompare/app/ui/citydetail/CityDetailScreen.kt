@@ -93,6 +93,7 @@ import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.usecase.DayConditionsRow
 import com.meteocompare.app.ui.components.AnimatedWeatherIcon
+import com.meteocompare.app.ui.components.CollapsibleSectionHeader
 import com.meteocompare.app.ui.components.OfflineDataBanner
 import com.meteocompare.app.ui.citylist.WeatherAccent
 import com.meteocompare.app.ui.theme.confidenceColor
@@ -378,6 +379,11 @@ private fun LoadedView(
     val displayMode = detailViewMode.toDisplayMode()
     val reliabilityExpanded = CityDetailSection.CONFIDENCE !in collapsedSections
     val evolutionExpanded = CityDetailSection.FORECAST_EVOLUTION !in collapsedSections
+    val todaySummaryExpanded = CityDetailSection.TODAY_SUMMARY !in collapsedSections
+    val insightsExpanded = CityDetailSection.INSIGHTS !in collapsedSections
+    val timelineExpanded = CityDetailSection.TIMELINE !in collapsedSections
+    val detailedForecastExpanded = CityDetailSection.DETAILED_FORECAST !in collapsedSections
+    val marineExpanded = CityDetailSection.MARINE !in collapsedSections
     // Même instant que celui utilisé par le ViewModel pour les agrégats
     // « maintenant » : résumé, chronologie et tableaux restent cohérents.
     val presentationNow = calculatedAt
@@ -523,6 +529,10 @@ private fun LoadedView(
                     currentCloudCover = currentCloudCover,
                     fetchedAt = fetchedAt,
                     isOnline = isOnline,
+                    expanded = todaySummaryExpanded,
+                    onExpandedChange = { expanded ->
+                        onSectionExpandedChange(CityDetailSection.TODAY_SUMMARY, expanded)
+                    },
                     onConfidenceClick = { onConfidenceClick(today.date.toString()) }
                 )
             }
@@ -536,6 +546,10 @@ private fun LoadedView(
                     timezone = forecast.city.timezone,
                     modelCount = forecast.availableModels.size,
                     referencePoint = overviewTimeline.analysisPoints.firstOrNull(),
+                    expanded = insightsExpanded,
+                    onExpandedChange = { expanded ->
+                        onSectionExpandedChange(CityDetailSection.INSIGHTS, expanded)
+                    },
                     onInsightClick = { insight ->
                         val target = insightTimelineTarget(insight)
                         if (target != null) {
@@ -567,7 +581,11 @@ private fun LoadedView(
                         focusedTimelinePoint = null
                     },
                     availableModes = timelineAvailableModes,
-                    now = presentationNow
+                    now = presentationNow,
+                    expanded = timelineExpanded,
+                    onExpandedChange = { expanded ->
+                        onSectionExpandedChange(CityDetailSection.TIMELINE, expanded)
+                    }
                 )
             }
         }
@@ -650,6 +668,10 @@ private fun LoadedView(
                 onBiasChipClick = { model, bias ->
                     selectedModelName = model.name
                     selectedVariableName = bias.variable.name
+                },
+                expanded = detailedForecastExpanded,
+                onExpandedChange = { expanded ->
+                    onSectionExpandedChange(CityDetailSection.DETAILED_FORECAST, expanded)
                 }
             )
         }
@@ -658,7 +680,11 @@ private fun LoadedView(
             item("marine_section") {
                 MarineSection(
                     state = marineState,
-                    onRefresh = onRefreshMarine
+                    onRefresh = onRefreshMarine,
+                    expanded = marineExpanded,
+                    onExpandedChange = { expanded ->
+                        onSectionExpandedChange(CityDetailSection.MARINE, expanded)
+                    }
                 )
             }
         }
@@ -728,7 +754,9 @@ private fun DetailedForecastSection(
     temperatureSampleCountProvider: ((WeatherModel) -> Int)? = null,
     precipitationSampleCountProvider: ((WeatherModel) -> Int)? = null,
     windSampleCountProvider: ((WeatherModel) -> Int)? = null,
-    onBiasChipClick: ((WeatherModel, com.meteocompare.app.domain.model.ModelBias) -> Unit)? = null
+    onBiasChipClick: ((WeatherModel, com.meteocompare.app.domain.model.ModelBias) -> Unit)? = null,
+    expanded: Boolean = true,
+    onExpandedChange: (Boolean) -> Unit = {}
 ) {
     Surface(
         modifier = Modifier
@@ -744,9 +772,12 @@ private fun DetailedForecastSection(
                 mode = mode,
                 selectedTab = tab,
                 onModeChange = onModeChange,
-                onTabChange = onTabChange
+                onTabChange = onTabChange,
+                expanded = expanded,
+                onExpandedChange = onExpandedChange
             )
 
+            if (expanded) {
             HorizontalDivider(
                 modifier = Modifier.padding(horizontal = 16.dp),
                 thickness = 1.dp,
@@ -777,6 +808,7 @@ private fun DetailedForecastSection(
                 windSampleCountProvider = windSampleCountProvider,
                 onBiasChipClick = onBiasChipClick
             )
+            }
         }
     }
 }
@@ -1181,6 +1213,8 @@ internal fun TodaySummaryCard(
     currentCloudCover: Int? = null,
     fetchedAt: Instant? = null,
     isOnline: Boolean = true,
+    expanded: Boolean = true,
+    onExpandedChange: (Boolean) -> Unit = {},
     onConfidenceClick: () -> Unit = {}
 ) {
     val resources = LocalResources.current
@@ -1215,36 +1249,23 @@ internal fun TodaySummaryCard(
                 .height(5.dp)
                 .background(weatherAccent)
         )
-        Column(modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = today.date.format(longDateFmt).replaceFirstChar { it.uppercase() },
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Text(
-                        text = if (modelCount > 1) {
-                            stringResource(R.string.models_analysed_many, modelCount)
-                        } else {
-                            stringResource(R.string.models_analysed_one, modelCount)
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+        Column(modifier = Modifier.padding(vertical = 7.dp)) {
+            CollapsibleSectionHeader(
+                text = today.date.format(longDateFmt).replaceFirstChar { it.uppercase() },
+                subtitle = if (modelCount > 1) {
+                    stringResource(R.string.models_analysed_many, modelCount)
+                } else {
+                    stringResource(R.string.models_analysed_one, modelCount)
+                },
+                expanded = expanded,
+                onToggle = { onExpandedChange(!expanded) },
+                trailingContent = if (fetchedAt != null) {
+                    { DataFreshnessPill(fetchedAt = fetchedAt, isOnline = isOnline) }
+                } else null
+            )
 
-                if (fetchedAt != null) {
-                    DataFreshnessPill(fetchedAt = fetchedAt, isOnline = isOnline)
-                }
-            }
-
-            Spacer(Modifier.height(12.dp))
-
+            if (expanded) {
+            Column(modifier = Modifier.padding(horizontal = 18.dp, vertical = 7.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -1306,6 +1327,8 @@ internal fun TodaySummaryCard(
             }
 
             DetailMetricGrid(today = today)
+            }
+            }
         }
     }
 }
@@ -1316,7 +1339,7 @@ private fun DataFreshnessPill(
     isOnline: Boolean
 ) {
     Row(
-        modifier = Modifier.padding(start = 10.dp, top = 4.dp),
+        modifier = Modifier.padding(start = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
@@ -1509,7 +1532,9 @@ private fun DetailWeatherMetric(
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1
+                    maxLines = 2,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center
                 )
             }
 
@@ -1637,7 +1662,6 @@ private fun detailPrecipitationPresentation(
     is PrecipitationConfidence.Rain -> {
         val conditional = precipitation.meta.conditionalAmountMm ?: precipitation.meanMm
         val probability = precipitation.meta.probabilityPercent
-        val expected = precipitation.meta.expectedAmountMm
         val rawRange = "${precipitation.minMm.roundToInt()}–${precipitation.maxMm.roundToInt()} mm"
         DetailMetricPresentation(
             value = (precipitation.meta.centralAmountMm ?: conditional).roundToInt().toString(),
@@ -1645,16 +1669,13 @@ private fun detailPrecipitationPresentation(
             supporting = if (probability != null) {
                 stringResource(R.string.metric_precip_probability_conditional, probability, conditional)
             } else stringResource(R.string.metric_precip_if_rain, "${conditional.roundToInt()} mm"),
-            detail = if (expected != null) {
-                stringResource(R.string.metric_precip_expected_range, expected, rawRange)
-            } else stringResource(R.string.metric_summary_range, rawRange)
+            detail = stringResource(R.string.metric_precip_rain_range, rawRange)
         )
     }
 
     is PrecipitationConfidence.Divided -> {
         val conditional = precipitation.meta.conditionalAmountMm ?: precipitation.rainMeanMm
         val probability = precipitation.meta.probabilityPercent
-        val expected = precipitation.meta.expectedAmountMm
         val rawRange = "${precipitation.rainMinMm.roundToInt()}–${precipitation.rainMaxMm.roundToInt()} mm"
         DetailMetricPresentation(
             value = (precipitation.meta.centralAmountMm ?: conditional).roundToInt().toString(),
@@ -1662,9 +1683,7 @@ private fun detailPrecipitationPresentation(
             supporting = if (probability != null) {
                 stringResource(R.string.metric_precip_probability_conditional, probability, conditional)
             } else stringResource(R.string.metric_precip_if_rain, "${conditional.roundToInt()} mm"),
-            detail = if (expected != null) {
-                stringResource(R.string.metric_precip_expected_range, expected, rawRange)
-            } else stringResource(R.string.metric_precip_if_rain, rawRange)
+            detail = stringResource(R.string.metric_precip_rain_range, rawRange)
         )
     }
 }

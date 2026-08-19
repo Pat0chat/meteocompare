@@ -905,7 +905,7 @@ private fun selectMostRelevantInsights(
     takeFrom(setOf(ForecastInsightLevel.ALERT, ForecastInsightLevel.WATCH))
     takeFrom(setOf(ForecastInsightLevel.INFO))
     // Une amélioration concrète peut compléter la synthèse. Le message générique
-    // d'accord sert uniquement de repli lorsqu'aucun autre point clé ne ressort.
+    // de convergence sert uniquement de repli lorsqu'aucun autre point clé ne ressort.
     takeFrom(setOf(ForecastInsightLevel.POSITIVE), excludeAgreement = true)
     if (selected.isEmpty()) {
         candidates

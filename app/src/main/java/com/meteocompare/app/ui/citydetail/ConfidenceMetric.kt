@@ -3,7 +3,7 @@ package com.meteocompare.app.ui.citydetail
 import androidx.compose.runtime.saveable.Saver
 
 /**
- * Métrique visualisée par la bande de confiance horaire.
+ * Métrique visualisée par la bande de convergence horaire.
  *
  *   - [TEMPERATURE] : température à 2m en °C. Métrique historique et défaut
  *     de l'app — c'est celle qui a toujours été rendue avant l'ajout du

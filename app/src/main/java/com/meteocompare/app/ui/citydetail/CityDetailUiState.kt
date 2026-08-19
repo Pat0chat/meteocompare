@@ -25,7 +25,7 @@ sealed interface CityDetailUiState {
      *
      * `hourlyBands` (température), `hourlyPrecipBands` (précipitations), et
      * `hourlyWindBands` (vent) alimentent les trois modes du graphe unique de
-     * bande de confiance. On les précalcule dans le ViewModel pour éviter que
+     * bande de convergence. On les précalcule dans le ViewModel pour éviter que
      * changer de mode dans l'UI ne déclenche un recalcul coûteux (jusqu'à
      * 168 timestamps × N modèles).
      */
@@ -34,13 +34,13 @@ sealed interface CityDetailUiState {
         val weeklyConfidence: List<DayConfidence>,
         val hourlyBands: List<HourlyConfidenceBand>,
         /**
-         * Bande de confiance précipitation. Peut être vide si aucun modèle ne
+         * Bande de convergence précipitation. Peut être vide si aucun modèle ne
          * fournit la variable horaire à l'instant courant — dans ce cas l'UI
          * affiche le placeholder "pas assez de données" typique du chart.
          */
         val hourlyPrecipBands: List<HourlyConfidenceBand> = emptyList(),
         /**
-         * Bande de confiance vent (moyen à 10m, km/h). Idem : vide si aucun
+         * Bande de convergence vent (moyen à 10m, km/h). Idem : vide si aucun
          * modèle n'a la variable, UI affiche le placeholder.
          */
         val hourlyWindBands: List<HourlyConfidenceBand> = emptyList(),

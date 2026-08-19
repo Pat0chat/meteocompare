@@ -706,7 +706,7 @@ private fun ForecastModeRow(
 
 
 /**
- * Choix unique pour les deux bandes de confiance. Les chips rendent
+ * Choix unique pour les deux bandes de convergence. Les chips rendent
  * explicite que température et pluie seront visibles simultanément,
  * contrairement à l'ancienne liste de trois options mutuellement exclusives.
  */

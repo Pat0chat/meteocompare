@@ -9,7 +9,7 @@ internal enum class ForecastCardHeightProfile {
 }
 
 /**
- * L'information de confiance ajoute une seconde ligne sous la probabilité de
+ * L'information de convergence ajoute une seconde ligne sous la probabilité de
  * pluie. Elle n'est affichée que lorsque la hauteur utile garantit qu'aucune
  * icône, température ou métrique ne sera comprimée.
  */
@@ -120,7 +120,7 @@ internal fun shouldShowCityInSmallWidget(widthDp: Float, heightDp: Float): Boole
  * Nombre de cartes horaires compactes dans un 5×1.
  *
  * Une largeur juste au-dessus du breakpoint 5×1 reste trop serrée pour deux
- * cartes + le résumé principal + le badge de confiance. On passe à deux cartes
+ * cartes + le résumé principal + le badge de convergence. On passe à deux cartes
  * uniquement quand le host offre une largeur réellement confortable.
  */
 internal fun inlineForecastItemCount(widthDp: Float): Int = when {

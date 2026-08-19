@@ -27,11 +27,11 @@
     <string name="widget_forecast_hours">Prossime ore</string>
     <string name="widget_forecast_days">Prossimi giorni</string>
     <string name="widget_forecast_generic">Previsioni</string>
-    <string name="widget_forecast_confidence">Affidabilità dei modelli</string>
-    <string name="widget_forecast_confidence_hint">accordo / modelli</string>
-    <string name="widget_forecast_confidence_short">Conf. %1$d%%</string>
+    <string name="widget_forecast_confidence">Convergenza dei modelli</string>
+    <string name="widget_forecast_confidence_hint">convergenza / modelli</string>
+    <string name="widget_forecast_confidence_short">Conv. %1$d%%</string>
     <string name="widget_label_insight">4×2 Da ricordare</string>
-    <string name="widget_description_insight">Il segnale meteo più utile e il livello di accordo tra i modelli.</string>
+    <string name="widget_description_insight">Il segnale meteo più utile e il livello di convergenza tra i modelli.</string>
     <string name="widget_config_insight_horizon_note">Il widget Da ricordare analizza sempre le prossime 24 ore.</string>
     <string name="widget_config_insight_horizon">Prossime 24 ore</string>
     <string name="widget_config_insight_horizon_descr">Il segnale principale e la sua incertezza vengono aggiornati automaticamente.</string>
@@ -43,12 +43,12 @@
     <string name="widget_value_probability_range">%1$d–%2$d%%</string>
     <string name="widget_value_precip_range">%1$.1f–%2$.1f mm</string>
     <string name="widget_value_wind_range">%1$d–%2$d km/h</string>
-    <string name="widget_value_detail_range_consensus">%1$s · %2$d%% di accordo</string>
+    <string name="widget_value_detail_range_consensus">%1$s · %2$d%% di convergenza</string>
     <plurals name="widget_value_detail_range_models">
         <item quantity="one">%1$s · %2$d modello</item>
         <item quantity="other">%1$s · %2$d modelli</item>
     </plurals>
-    <string name="widget_value_detail_consensus">%1$d%% di accordo tra modelli</string>
+    <string name="widget_value_detail_consensus">%1$d%% di convergenza tra modelli</string>
     <string name="widget_value_metric_temperature">Temperatura</string>
     <string name="widget_value_metric_precipitation">Pioggia</string>
     <string name="widget_value_metric_wind">Vento</string>

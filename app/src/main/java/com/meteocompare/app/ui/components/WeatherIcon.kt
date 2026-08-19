@@ -121,7 +121,7 @@ private fun PartlyCloudyIcon(
  * Couleur sémantique recommandée pour teinter l'icône. Pas obligatoire — un
  * `LocalContentColor` neutre marche aussi — mais quand on AFFICHE plusieurs
  * conditions côte à côte (matrice Jour × Modèle), une teinte sémantique aide
- * énormément à scanner du regard ("toutes les cases bleues" = tous d'accord
+ * énormément à scanner du regard ("toutes les cases bleues" = forte convergence
  * sur la pluie).
  *
  * Les couleurs collent à celles déjà utilisées dans l'app pour la cohérence :

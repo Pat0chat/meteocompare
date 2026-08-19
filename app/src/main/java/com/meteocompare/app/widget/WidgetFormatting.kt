@@ -32,7 +32,7 @@ import kotlin.math.roundToInt
  *   contexte pour l'humidité, etc.). Arrondi à l'entier — la précision
  *   sous-km/h n'a pas d'utilité pratique sur un widget.
  * - **Précipitations** : dès qu'un modèle prévoit >0 mm sur la journée.
- *   Le % de confiance (accord entre modèles) est le signal éditorial le
+ *   Le % historique nommé "confidence" représente ici la convergence entre modèles et reste le signal éditorial le
  *   plus fort de l'app — on le montre entre parenthèses quand disponible.
  *
  * Séparateur "·" (middle dot U+00B7) plutôt qu'une virgule : plus léger

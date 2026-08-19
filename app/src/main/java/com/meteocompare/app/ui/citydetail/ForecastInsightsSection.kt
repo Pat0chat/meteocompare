@@ -42,6 +42,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.meteocompare.app.R
+import com.meteocompare.app.ui.components.CollapsibleSectionHeader
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.ForecastEvolutionHighlight
 import com.meteocompare.app.domain.model.ForecastEvolutionTrend
@@ -60,7 +61,9 @@ internal fun ForecastInsightsSection(
     modifier: Modifier = Modifier,
     modelCount: Int? = null,
     referencePoint: SimplifiedTimelinePoint? = null,
-    onInsightClick: ((ForecastInsight) -> Unit)? = null
+    onInsightClick: ((ForecastInsight) -> Unit)? = null,
+    expanded: Boolean = true,
+    onExpandedChange: (Boolean) -> Unit = {}
 ) {
     if (insights.isEmpty() && evolutionHighlight == null) return
 
@@ -73,14 +76,21 @@ internal fun ForecastInsightsSection(
         color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.55f)
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(11.dp)
+            modifier = Modifier.padding(vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             ForecastInsightsHeader(
                 insights = insights,
-                availableModelCount = modelCount
+                availableModelCount = modelCount,
+                expanded = expanded,
+                onExpandedChange = onExpandedChange
             )
 
+            if (expanded) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(11.dp)
+                ) {
             val stableOnly = evolutionHighlight == null && insights.size == 1 &&
                 insights.first().kind == ForecastInsightKind.HIGH_AGREEMENT
             if (stableOnly) {
@@ -112,6 +122,8 @@ internal fun ForecastInsightsSection(
                         .testTag(TAG_FORECAST_INSIGHTS_TIMELINE_HINT)
                 )
             }
+                }
+            }
         }
     }
 }
@@ -119,7 +131,9 @@ internal fun ForecastInsightsSection(
 @Composable
 private fun ForecastInsightsHeader(
     insights: List<ForecastInsight>,
-    availableModelCount: Int?
+    availableModelCount: Int?,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit
 ) {
     val modelCount = availableModelCount
         ?.takeIf { it > 0 }
@@ -148,19 +162,13 @@ private fun ForecastInsightsHeader(
         else -> stringResource(R.string.forecast_insights_subtitle_generic)
     }
 
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            text = stringResource(R.string.forecast_insights_title),
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.SemiBold
-        )
-        Text(
-            text = subtitle,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.testTag(TAG_FORECAST_INSIGHTS_SUMMARY)
-        )
-    }
+    CollapsibleSectionHeader(
+        text = stringResource(R.string.forecast_insights_title),
+        subtitle = subtitle,
+        expanded = expanded,
+        onToggle = { onExpandedChange(!expanded) },
+        modifier = Modifier.testTag(TAG_FORECAST_INSIGHTS_SUMMARY)
+    )
 }
 
 @OptIn(ExperimentalLayoutApi::class)

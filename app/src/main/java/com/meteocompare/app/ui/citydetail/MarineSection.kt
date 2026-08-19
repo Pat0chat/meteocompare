@@ -36,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.meteocompare.app.R
+import com.meteocompare.app.ui.components.CollapsibleSectionHeader
 import com.meteocompare.app.domain.model.MarineForecast
 import com.meteocompare.app.domain.model.TideEvent
 import com.meteocompare.app.domain.model.TideEventType
@@ -54,7 +55,9 @@ import kotlin.math.max
 internal fun MarineSection(
     state: MarineUiState,
     onRefresh: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    expanded: Boolean = true,
+    onExpandedChange: (Boolean) -> Unit = {}
 ) {
     Card(
         modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -62,46 +65,43 @@ internal fun MarineSection(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             val loaded = state as? MarineUiState.Loaded
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.marine_title),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                    val distance = loaded?.data?.grid?.distanceKm
-                    Text(
-                        text = if (distance != null) {
-                            stringResource(R.string.marine_distance, distance)
-                        } else {
-                            stringResource(R.string.marine_intro)
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+            val distance = loaded?.data?.grid?.distanceKm
+            CollapsibleSectionHeader(
+                text = stringResource(R.string.marine_title),
+                subtitle = if (distance != null) {
+                    stringResource(R.string.marine_distance, distance)
+                } else {
+                    stringResource(R.string.marine_intro)
+                },
+                expanded = expanded,
+                onToggle = { onExpandedChange(!expanded) },
+                trailingContent = {
+                    TextButton(
+                        onClick = onRefresh,
+                        enabled = state !is MarineUiState.Loading && loaded?.isRefreshing != true
+                    ) {
+                        Text(
+                            if (loaded?.isRefreshing == true || state is MarineUiState.Loading) {
+                                stringResource(R.string.marine_loading)
+                            } else {
+                                stringResource(R.string.action_refresh)
+                            },
+                            maxLines = 1
+                        )
+                    }
                 }
-                TextButton(
-                    onClick = onRefresh,
-                    enabled = state !is MarineUiState.Loading && loaded?.isRefreshing != true
-                ) {
-                    Text(
-                        if (loaded?.isRefreshing == true || state is MarineUiState.Loading) {
-                            stringResource(R.string.marine_loading)
-                        } else {
-                            stringResource(R.string.action_refresh_marine)
-                        }
-                    )
-                }
-            }
+            )
 
-            when (state) {
+            if (expanded) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                when (state) {
                 MarineUiState.Idle, MarineUiState.Loading -> Box(
                     modifier = Modifier.fillMaxWidth().height(120.dp),
                     contentAlignment = Alignment.Center
@@ -117,6 +117,8 @@ internal fun MarineSection(
                 }
 
                 is MarineUiState.Loaded -> MarineDashboard(state.data)
+                }
+                }
             }
         }
     }
@@ -268,7 +270,7 @@ private fun MarineKpi(label: String, value: String) {
                 label,
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
             Spacer(Modifier.height(4.dp))

@@ -55,7 +55,7 @@ internal const val TAG_LOCAL_RELIABILITY_HEADER = "local-reliability-header"
 internal const val TAG_LOCAL_RELIABILITY_DETAILS = "local-reliability-details"
 
 /**
- * Bloc unique réunissant accord inter-modèles et fiabilité historique locale.
+ * Bloc unique réunissant convergence inter-modèles et confiance historique locale.
  * Le résumé des gagnants reste visible replié ; le graphique n'apparaît qu'en
  * état déplié pour préserver une lecture compacte de la fiche.
  */

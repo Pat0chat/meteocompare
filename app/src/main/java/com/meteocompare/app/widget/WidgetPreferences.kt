@@ -86,7 +86,7 @@ internal object WidgetPreferences {
     /**
      * Défaut = HOURLY : les prochaines heures sont le signal le plus
      * actionnable pour un widget consulté en cours de journée. Les modes
-     * confidence restent opt-in — plus abstraits, ils demandent une lecture
+     * convergence restent opt-in — plus abstraits, ils demandent une lecture
      * intentionnelle plutôt qu'un coup d'œil rapide.
      */
     val DEFAULT_FORECAST_MODE = ForecastMode.HOURLY
@@ -112,7 +112,7 @@ internal enum class ForecastMode {
     HOURLY,
     DAILY,
     /**
-     * Vue synthétique qui superpose les deux indicateurs de confiance :
+     * Vue synthétique qui superpose les deux indicateurs de convergence :
      * température et précipitations. C'est l'unique choix exposé dans
      * la configuration du widget.
      */
@@ -143,7 +143,7 @@ internal enum class ForecastMode {
 }
 
 /**
- * Helper : cette mode affiche-t-elle une bande de confiance (vs une prévision
+ * Helper : cette mode affiche-t-elle une bande de convergence (vs une prévision
  * discrète 5 items) ? Sert dans le widget pour choisir le layout du bas.
  */
 internal fun ForecastMode.isConfidenceBand(): Boolean = when (this) {

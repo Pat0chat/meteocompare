@@ -19,13 +19,13 @@ import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
 /**
- * Calculateur d'indice d'accord multi-modèles.
+ * Calculateur de convergence instantanée multi-modèles (nom de classe historique).
  *
  * Principe :
  *   - Pour chaque variable continue (température, vent), agrège les prédictions
  *     de tous les modèles disponibles pour un même instant/jour.
  *   - Construit une valeur centrale par médiane pondérée, équilibrée par lignée.
- *   - Convertit l'écart-type en pourcentage d'accord via des seuils heuristiques
+ *   - Convertit la dispersion en pourcentage de convergence via des seuils heuristiques
  *     par variable (cf. [Thresholds]).
  *   - Cas spécial pluie : agreement binaire + spread sur l'intensité.
  *
@@ -353,7 +353,7 @@ class ConfidenceCalculator @Inject constructor(
     )
 
     /**
-     * Bandes d'accord horaires sur les précipitations (mm sur l'heure précédente).
+     * Bandes de convergence horaires sur les précipitations (mm sur l'heure précédente).
      *
      * Utilise le Consensus v2 : P(pluie) séparée de la quantité conditionnelle,
      * centrale robuste, min/max et dispersion convertie en %. Les seuils tight/wide sont ceux de
@@ -597,7 +597,7 @@ class ConfidenceCalculator @Inject constructor(
     }
 
     /**
-     * Convertit un écart-type en indice d'accord 0-100 via interpolation
+     * Convertit un écart-type en indice de convergence 0-100 via interpolation
      * linéaire entre deux seuils heuristiques par variable.
      *
      * - σ ≤ tight → 100% (modèles très alignés)

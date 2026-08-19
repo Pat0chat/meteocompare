@@ -76,7 +76,7 @@ private const val MIN_VIEW_SPAN = 0.02f
 private const val MAX_VIEW_SPAN = 1.0f
 
 /**
- * Graphique de bande de confiance horaire — supporte 3 métriques (température,
+ * Graphique de bande de convergence horaire — supporte 3 métriques (température,
  * précipitation, vent) et un overlay optionnel de repères historiques 10 ans.
  *
  * Interactions :
@@ -381,7 +381,7 @@ fun HourlyConfidenceChart(
                 }
             }
 
-            // ─── Bande SEGMENTÉE colorée par confiance locale ────────────
+            // ─── Bande SEGMENTÉE colorée par convergence locale ────────────
             bands.zipWithNext().forEach { (a, b) ->
                 val xa = xFor(a.timestamp)
                 val xb = xFor(b.timestamp)
@@ -688,10 +688,10 @@ private fun NormalsLegendRow(color: Color, label: String) {
 }
 
 /**
- * Petite barre sous le graphique qui résume l'évolution de la confiance.
+ * Petite barre sous le graphique qui résume l'évolution de la convergence.
  *
  * On échantillonne 24 points (un par heure de la journée en moyenne pour 7j)
- * et on les colore selon le niveau de confiance.
+ * et on les colore selon le niveau de convergence.
  */
 @Composable
 private fun ConfidenceTimeline(bands: List<HourlyConfidenceBand>, stripAlpha: Float) {

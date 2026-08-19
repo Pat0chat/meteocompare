@@ -10,7 +10,7 @@
     <string name="action_cancel">Annuler</string>
 
     <!-- ─── Widget homescreen ────────────────────────────────────────── -->
-    <string name="widget_description">Météo actuelle d\'une ville favorite avec indice d\'accord entre modèles.</string>
+    <string name="widget_description">Météo actuelle d\'une ville favorite avec indice de convergence des modèles.</string>
     <string name="widget_config_title">Configurer le widget</string>
     <string name="widget_config_subtitle">Choisissez la ville affichée et l\'opacité du fond.</string>
     <string name="widget_config_pick_city">Ville affichée</string>
@@ -31,7 +31,7 @@
     <string name="settings_language">Langue</string>
     <!-- Fréquence de rafraîchissement (widget + app) -->
     <string name="settings_refresh_interval_title">Fréquence de rafraîchissement</string>
-    <string name="settings_refresh_interval_desc">Cadence à laquelle le widget et l\'app tentent de récupérer de nouvelles données. Un intervalle long économise batterie et data ; un intervalle court garde les prévisions plus fraîches. En mode \"Manuel\", le rafraîchissement ne se déclenche qu\'au pull-to-refresh.</string>
+    <string name="settings_refresh_interval_desc">Mise à jour du widget et de l\'app. Plus fréquent = données plus récentes, mais plus de batterie et de réseau. En mode manuel, seule une action utilisateur actualise les données.</string>
     <string name="refresh_interval_15_min">15 min</string>
     <string name="refresh_interval_30_min">30 min</string>
     <string name="refresh_interval_1_hour">1 h</string>
@@ -40,7 +40,7 @@
     <string name="refresh_interval_manual">Manuel</string>
 
     <string name="settings_models_title">Modèles météo</string>
-    <string name="settings_models_desc">Choisissez les modèles à comparer. Plus de modèles rendent la comparaison plus représentative, mais augmentent le volume de données et les calculs.</string>
+    <string name="settings_models_desc">Choisissez les modèles comparés. Plus de modèles enrichit la comparaison, mais augmente les données à charger.</string>
     <string name="settings_models_min_warning">Au moins un modèle doit rester activé.</string>
     <string name="settings_about_title">À propos</string>
     <string name="settings_about_version">Version %s</string>
@@ -51,7 +51,7 @@
     <string name="widget_open_meteo_attribution">Open-Meteo · données agrégées</string>
     <string name="settings_about_models_credit">Modèles : AROME et ARPEGE par Météo-France, ICON par DWD, GFS et HRRR par NOAA, ECMWF et AIFS par le Centre Européen, UKMO par le UK Met Office, GEM par Environnement Canada, MET Nordic par MET Norway, HARMONIE par KNMI, ACCESS par le Bureau of Meteorology (Australie), GRAPES par le CMA (Chine).</string>
     <string name="settings_bias_refresh_title">Suivi des biais</string>
-    <string name="settings_bias_refresh_desc">Télécharge jusqu’à 3 semaines de prévisions archivées à échéance fixe J+1 afin d’obtenir au moins 14 jours valides communs pour les modèles activés, puis leurs références météo, pour vos villes favorites. Les modèles sans archive disponible continueront à se calibrer au fil des jours.</string>
+    <string name="settings_bias_refresh_desc">Récupère jusqu’à 3 semaines d’historique J+1 pour amorcer la fiabilité locale. Les modèles sans archive se calibrent progressivement.</string>
     <string name="settings_bias_refresh_action">Initialiser ou mettre à jour</string>
     <string name="settings_bias_refresh_queued">Mise à jour lancée. Les jours archivés disponibles seront traités en arrière-plan ; certains modèles peuvent nécessiter une collecte progressive.</string>
     <string name="settings_privacy_title">Confidentialité</string>
@@ -75,7 +75,7 @@
     <!-- Today summary -->
     <string name="models_analysed_one">%d modèle analysé</string>
     <string name="models_analysed_many">%d modèles analysés</string>
-    <string name="confidence_badge_percent">%d %% d\'accord</string>
+    <string name="confidence_badge_percent">%d %% de convergence</string>
     <string name="models_unavailable">Modèles indisponibles</string>
     <string name="no_daily_data">Pas de données journalières</string>
     <string name="forecast_error_no_today">Aucune donnée de prévision pour aujourd’hui</string>
@@ -97,8 +97,8 @@
     <string name="chart_normals_legend_wind">Repère vent max 10 ans</string>
 
     <!-- Modes de prévision étendue supplémentaires du widget 4×2 -->
-    <string name="widget_config_forecast_mode_conf_all">Accord des modèles</string>
-    <string name="widget_config_forecast_mode_conf_all_note">Affiche les accords des modèles sur la température et pluie.</string>
+    <string name="widget_config_forecast_mode_conf_all">Convergence des modèles</string>
+    <string name="widget_config_forecast_mode_conf_all_note">Affiche la convergence des modèles pour la température et la pluie sur les mêmes jours.</string>
     <!-- Ancres temporelles affichées sous la mini bande de confiance du widget 4×2 -->
     <string name="widget_confidence_now_short">Auj.</string>
 
@@ -125,19 +125,19 @@
     <string name="no_hourly_data">Pas de données horaires</string>
 
     <!-- Caption "dernière mise à jour" (CityCard home + TodaySummaryCard détail) -->
-    <string name="updated_just_now">Mis à jour à l\'instant</string>
-    <string name="updated_min_ago">Mis à jour il y a %d min</string>
-    <string name="updated_hour_ago">Mis à jour il y a %dh</string>
-    <string name="updated_day_ago">Mis à jour il y a %dj</string>
+    <string name="updated_just_now">À l\'instant</string>
+    <string name="updated_min_ago">Il y a %d min</string>
+    <string name="updated_hour_ago">Il y a %d h</string>
+    <string name="updated_day_ago">Il y a %d j</string>
 
-    <!-- Zoom sur la bande de confiance horaire -->
+    <!-- Zoom sur la bande de convergence horaire -->
     <string name="chart_zoom_hint">Pincez pour zoomer • Double-tap pour réinitialiser</string>
     <string name="chart_zoom_a11y_zoomed">Graphique zoomé, double-tap pour réinitialiser</string>
 
     <!-- Chart messages -->
     <string name="chart_not_enough_data">Pas assez de données pour calculer une bande</string>
-    <string name="chart_confidence_band_desc">Plus la bande s\'élargit, plus les modèles divergent. La couleur indique leur niveau d\'accord.</string>
-    <string name="chart_confidence_now">Accord : %d%%</string>
+    <string name="chart_confidence_band_desc">Plus la bande s\'élargit, plus les modèles divergent. La couleur indique leur niveau de convergence.</string>
+    <string name="chart_confidence_now">Convergence : %d%%</string>
     <string name="chart_confidence_ahead">à J+%1$d : %2$d%%</string>
 
     <!-- Precipitation legend (feminine — la pluie) -->
@@ -187,7 +187,7 @@
     <string name="metric_home_precipitation">Précipitations</string>
     <string name="metric_home_wind">Vent</string>
     <string name="metric_home_gusts">Rafales</string>
-    <string name="metric_agreement">Accord %1$d %%</string>
+    <string name="metric_agreement">Convergence %1$d %%</string>
     <string name="metric_precip_if_rain">%1$s si pluie</string>
     <string name="metric_gust_supporting">Raf. %1$s</string>
     <string name="metric_precip_models_short">%1$d/%2$d modèles</string>
@@ -195,9 +195,9 @@
     <string name="metric_gust_detail">Rafales %1$s km/h</string>
     <string name="metric_detail_wind">Vent</string>
     <string name="metric_detail_gusts">Rafales</string>
-    <string name="metric_confidence_high">Élevée · %1$d %%</string>
-    <string name="metric_confidence_medium">Moyenne · %1$d %%</string>
-    <string name="metric_confidence_low">Faible · %1$d %%</string>
+    <string name="metric_confidence_high">Convergence élevée · %1$d %%</string>
+    <string name="metric_confidence_medium">Convergence moyenne · %1$d %%</string>
+    <string name="metric_confidence_low">Convergence faible · %1$d %%</string>
     <string name="metric_summary_average">Consensus central</string>
     <string name="metric_summary_range">Plage %1$s</string>
     <string name="metric_summary_range_and_spread">Plage %1$s · écart %2$s</string>
@@ -217,23 +217,23 @@
     <string name="donations_dialog_close">Fermer</string>
 
     <!-- Accessibility descriptions (lus par TalkBack) -->
-    <string name="a11y_confidence_high">Accord élevé</string>
-    <string name="a11y_confidence_medium">Accord moyen</string>
-    <string name="a11y_confidence_low">Accord faible</string>
-    <string name="a11y_open_confidence_explanation">%d %% d\'accord entre modèles, ouvrir l\'explication détaillée</string>
+    <string name="a11y_confidence_high">Convergence élevée</string>
+    <string name="a11y_confidence_medium">Convergence moyenne</string>
+    <string name="a11y_confidence_low">Convergence faible</string>
+    <string name="a11y_open_confidence_explanation">%d %% de convergence entre modèles, ouvrir l\'explication détaillée</string>
     <string name="a11y_temp_single">%d degrés</string>
     <string name="a11y_temp_range">entre %1$d et %2$d degrés</string>
     <string name="a11y_temp_with_confidence">%1$s, %2$s, %3$d pourcent</string>
-    <string name="a11y_no_rain">Pas de pluie attendue, accord %d pourcent</string>
-    <string name="a11y_rain">Pluie attendue, entre %1$d et %2$d millimètres, accord %3$d pourcent</string>
+    <string name="a11y_no_rain">Pas de pluie attendue, convergence %d pourcent</string>
+    <string name="a11y_rain">Pluie attendue, entre %1$d et %2$d millimètres, convergence %3$d pourcent</string>
     <string name="a11y_models_divided">Modèles divisés sur la pluie, %1$d sur %2$d prédisent la pluie, entre %3$d et %4$d millimètres</string>
     <string name="a11y_city_loading">Chargement des prévisions.</string>
     <string name="a11y_city_error">Erreur : %1$s.</string>
     <string name="a11y_now_temp">Maintenant %d degrés</string>
     <string name="a11y_temperature_prefix">Température</string>
-    <string name="a11y_overall_confidence">Accord global %d pourcent</string>
+    <string name="a11y_overall_confidence">Convergence globale %d pourcent</string>
     <string name="a11y_hourly_empty">Graphique vide, données insuffisantes</string>
-    <string name="a11y_hourly_template">Bande d\'accord horaire sur %1$d jours. Température centrale %2$d degrés à l\'heure actuelle, %3$d degrés à la fin de l\'horizon. Divergence entre modèles %4$s. Accord %5$d pourcent maintenant, %6$d pourcent à J plus %1$d.</string>
+    <string name="a11y_hourly_template">Bande de convergence horaire sur %1$d jours. Température centrale %2$d degrés à l\'heure actuelle, %3$d degrés à la fin de l\'horizon. Divergence entre modèles %4$s. Convergence %5$d pourcent maintenant, %6$d pourcent à J plus %1$d.</string>
     <string name="a11y_divergence_strong">qui augmente fortement</string>
     <string name="a11y_divergence_increasing">qui augmente</string>
     <string name="a11y_divergence_stable">globalement stable</string>
@@ -244,12 +244,12 @@
     <string name="a11y_wind_max_label">Vent max à 10 m</string>
     <string name="a11y_kmh_unit">kilomètres par heure</string>
 
-    <!-- ─── "Pourquoi cet accord ?" ─────────────────────────────────── -->
-    <string name="confidence_explanation_title">Pourquoi cet accord ?</string>
+    <!-- ─── "Pourquoi cette convergence ?" ─────────────────────────────────── -->
+    <string name="confidence_explanation_title">Pourquoi cette convergence ?</string>
     <string name="confidence_explanation_invalid_date">Date invalide</string>
-    <string name="confidence_overall_label">Accord global</string>
+    <string name="confidence_overall_label">Convergence globale</string>
     <string name="confidence_verdict_high">Les modèles convergent fortement. Cela décrit leur cohérence, sans garantir l\'issue observée.</string>
-    <string name="confidence_verdict_medium">Les modèles ne sont qu\'en partie d\'accord. Les valeurs exactes restent incertaines.</string>
+    <string name="confidence_verdict_medium">La convergence des modèles est partielle. Les valeurs exactes restent incertaines.</string>
     <string name="confidence_verdict_low">Les modèles divergent fortement. Les valeurs précises sont à prendre avec précaution.</string>
 
     <!-- Bandeau récapitulatif (en haut de chaque carte variable) -->
@@ -267,12 +267,12 @@
     <string name="confidence_model_resolution">résolution %s</string>
 
     <!-- Phrases d\'interprétation finales (par carte) -->
-    <string name="confidence_interp_high">Accord inter-modèles élevé : les scénarios sont proches à cette échéance.</string>
+    <string name="confidence_interp_high">Convergence inter-modèles élevée : les scénarios sont proches à cette échéance.</string>
     <string name="confidence_interp_medium">Convergence modérée : les scénarios diffèrent ; la médiane pondérée reste seulement un repère central.</string>
-    <string name="confidence_interp_low">Désaccord significatif : les scénarios disponibles sont dispersés à cette échéance.</string>
+    <string name="confidence_interp_low">Convergence faible : les scénarios disponibles sont dispersés à cette échéance.</string>
     <string name="confidence_interp_precip_dry">Aucun modèle disponible ne prévoit de précipitation à cette échéance.</string>
     <string name="confidence_interp_precip_rain">Tous les modèles disponibles prévoient de la pluie, avec des intensités différentes.</string>
-    <string name="confidence_interp_precip_divided">Désaccord typique des situations de transition (front, averses isolées). À surveiller au prochain run.</string>
+    <string name="confidence_interp_precip_divided">Divergence typique des situations de transition (front, averses isolées). À surveiller au prochain run.</string>
 
     <!-- Section éducative -->
     <string name="confidence_section_why">Pourquoi les modèles diffèrent ?</string>
@@ -424,7 +424,7 @@
     <string name="bias_reliability_balance_over_badge">%1$d %% sur</string>
     <string name="bias_reliability_direction_balance">%1$d %% au-dessus · %2$d %% proches · %3$d %% au-dessous</string>
     <string name="bias_reliability_sample_coverage">Historique exploité : %1$d jours sur une fenêtre de %2$d jours.</string>
-    <string name="bias_reliability_method_note">Cet indice est un repère local et pédagogique, pas une note officielle du modèle. Il compare les prévisions J+1 capturées la veille à une réanalyse historique Open-Meteo pour la température maximale quotidienne, le cumul quotidien de précipitations et le vent maximal quotidien à 10 m, et non à une station au point exact. Il dépend de la ville, de la variable et de la période disponible. Pour la pluie, un jour est considéré humide à partir de 0,5 mm.</string>
+    <string name="bias_reliability_method_note">Indice local basé sur les prévisions J+1 enregistrées et la réanalyse Open-Meteo, sur des dates comparables. Pluie : jour humide dès 0,5 mm. Repère indicatif, pas une note officielle.</string>
 
     <string name="bias_chip_calibrating_progress_a11y">En cours de calibration : %1$d échantillons sur %2$d collectés</string>
 
@@ -457,7 +457,7 @@
     <string name="local_ranking_rain_support">MAE %1$s · %2$d fausses alertes</string>
     <string name="local_ranking_empty_title">Classement indisponible</string>
     <string name="local_ranking_empty_body">Au moins deux modèles disposant de 14 jours communs sont nécessaires pour établir un classement sur cette variable.</string>
-    <string name="local_ranking_method_note">Ce classement est local et pédagogique. Seuls les modèles disposant d’au moins 14 dates communes sont comparés, afin que chaque rang repose sur exactement les mêmes journées. Il ne constitue pas une évaluation officielle des modèles.</string>
+    <string name="local_ranking_method_note">Classement local sur les mêmes dates (14 minimum). Repère indicatif, pas une évaluation officielle des modèles.</string>
     <string name="local_ranking_open_content_description">Ouvrir le classement local des modèles.</string>
 
     <string name="forecast_tables_section">Prévisions détaillées</string>
@@ -465,7 +465,7 @@
     <string name="timeline_title_daily">Prochains jours</string>
     <string name="timeline_subtitle_hourly">Repères toutes les 3h.</string>
     <string name="timeline_subtitle_daily">Consensus des modèles disponibles pour les prochains jours.</string>
-    <string name="timeline_disagreement_hint">Accord affiché en pourcentage. En cas de désaccord, les icônes indiquent les variables concernées.</string>
+    <string name="timeline_disagreement_hint">Le score indique la convergence ; les icônes signalent les variables qui divergent.</string>
     <string name="timeline_now">Maintenant</string>
     <string name="timeline_today">Aujourd’hui</string>
     <string name="timeline_tomorrow">Demain</string>
@@ -475,23 +475,23 @@
     <string name="timeline_wind_gust">Raf. %1$d km/h</string>
     <string name="wind_gust_abbreviation">R</string>
     <string name="wind_table_legend">Vent à 10 m · R = rafales · km/h</string>
-    <string name="timeline_consensus_high">Accord élevé</string>
-    <string name="timeline_consensus_medium">Accord moyen</string>
-    <string name="timeline_consensus_low">Accord faible</string>
+    <string name="timeline_consensus_high">Convergence élevée</string>
+    <string name="timeline_consensus_medium">Convergence moyenne</string>
+    <string name="timeline_consensus_low">Convergence faible</string>
     <string name="timeline_consensus_limited">Comparaison limitée</string>
     <string name="timeline_consensus_accessibility">%1$s : %2$d %%</string>
     <string name="timeline_divergence_rain">Pluie</string>
     <string name="timeline_divergence_wind">Vent</string>
     <string name="timeline_divergence_temperature">Temp.</string>
     <string name="timeline_divergence_condition">Conditions</string>
-    <string name="timeline_divergence_variables_accessibility">Variables en désaccord : %1$s</string>
+    <string name="timeline_divergence_variables_accessibility">Variables divergentes : %1$s</string>
 
     <string name="section_state_expanded">Déployée</string>
     <string name="section_state_collapsed">Repliée</string>
     <string name="offline_data_title">Mode hors connexion</string>
-    <string name="offline_data_message">Données conservées sur cet appareil · %1$s</string>
-    <string name="offline_data_age_unknown">Âge des données indisponible</string>
-    <string name="offline_list_message">Les dernières données enregistrées restent disponibles. Leur âge est indiqué dans chaque ville.</string>
+    <string name="offline_data_message">Données enregistrées · %1$s</string>
+    <string name="offline_data_age_unknown">Dernière mise à jour inconnue</string>
+    <string name="offline_list_message">Les dernières données enregistrées restent disponibles. Chaque ville indique quand elles ont été mises à jour.</string>
 
     <string name="offline_saved_data_age_inline">Hors connexion · %1$s</string>
 
@@ -518,7 +518,7 @@
     <string name="forecast_insight_title_weather_freezing_rain">Risque de pluie verglaçante</string>
     <string name="forecast_insight_title_weather_snow">Neige possible</string>
     <string name="forecast_insight_detail_weather_transition">%1$s → %2$s</string>
-    <string name="forecast_insight_metric_consensus">%1$d %% d’accord</string>
+    <string name="forecast_insight_metric_consensus">%1$d %% de convergence</string>
     <string name="forecast_insight_metric_probability">%1$d %%</string>
     <string name="forecast_insight_metric_model_ratio">%1$d/%2$d modèles</string>
     <string name="forecast_insight_metric_coverage">%1$d/%2$d modèles</string>
@@ -526,9 +526,9 @@
     <string name="forecast_insight_metric_temperature_range">%1$d° → %2$d°</string>
     <string name="forecast_insight_title_disagreement">Prévision incertaine</string>
     <string name="forecast_insight_title_disagreement_multiple">Prévision très incertaine</string>
-    <string name="forecast_insight_title_disagreement_rain">Désaccord sur la pluie</string>
-    <string name="forecast_insight_title_disagreement_wind">Désaccord sur le vent</string>
-    <string name="forecast_insight_title_disagreement_temperature">Désaccord sur la température</string>
+    <string name="forecast_insight_title_disagreement_rain">Divergence sur la pluie</string>
+    <string name="forecast_insight_title_disagreement_wind">Divergence sur le vent</string>
+    <string name="forecast_insight_title_disagreement_temperature">Divergence sur la température</string>
     <string name="forecast_insight_title_disagreement_condition">Conditions météo incertaines</string>
     <string name="forecast_insight_detail_disagreement">Les scénarios s’écartent nettement à cette échéance.</string>
     <string name="forecast_insight_detail_disagreement_multiple">Plusieurs variables divisent les modèles.</string>
@@ -553,7 +553,7 @@
     <string name="forecast_insight_detail_wind_strong">Le niveau reste élevé sur plusieurs échéances.</string>
     <string name="forecast_insight_detail_wind_peak">Un pic marqué est attendu.</string>
 
-    <string name="local_reliability_title">Convergence &amp; confiance locale</string>
+    <string name="local_reliability_title">Convergence &amp; confiance historique</string>
     <string name="local_reliability_subtitle_with_confidence">Convergence actuelle : %1$d %% · %2$d familles indépendantes</string>
     <string name="local_reliability_subtitle_models">%1$d familles indépendantes comparées</string>
     <string name="local_reliability_best_model">Meilleur modèle local</string>
@@ -602,7 +602,7 @@
         <item quantity="other">%d localités suivies</item>
     </plurals>
     <string name="home_cloud_cover">Nuages %d %%</string>
-    <string name="home_agreement_label">Accord</string>
+    <string name="home_agreement_label">Convergence</string>
     <!-- Scénarios météo repliables sur la Home -->
     <string name="home_scenarios_title">Scénarios · prochaines 12 h</string>
     <plurals name="home_scenarios_count">
@@ -641,7 +641,7 @@
     <string name="forecast_evolution_loading_detail">L’historique est lu en arrière-plan sans bloquer la prévision actuelle.</string>
     <string name="forecast_evolution_view_models">Voir les modèles</string>
     <string name="forecast_evolution_model_direction">%1$d modèles sur %2$d suivent la tendance depuis H−%3$d</string>
-    <string name="forecast_evolution_method_hint">Les points H−N sont des snapshots locaux enregistrés lors des rafraîchissements météo frais de MeteoCompare, choisis au plus près de ~24, ~48 et ~72 h avant la prévision actuellement affichée. Ce ne sont pas des cycles météo 00Z/06Z/12Z/18Z reconstruits. Les médianes utilisent le même groupe de modèles comparables ; une donnée manquante est exclue, jamais remplacée par zéro. Les seuils stable/hausse/baisse sont des heuristiques de présentation, pas une probabilité de justesse.</string>
+    <string name="forecast_evolution_method_hint">H−N = prévisions enregistrées environ 24, 48 ou 72 h plus tôt. Même groupe de modèles ; données manquantes exclues. Les tendances sont indicatives.</string>
     <string name="forecast_evolution_now">Actuel</string>
     <string name="forecast_evolution_day_ago_short">H−%1$d</string>
     <string name="forecast_evolution_sheet_title">Évolution par modèle</string>
@@ -669,7 +669,7 @@
 
     <string name="forecast_evolution_history_building">Historique local en construction</string>
 
-    <string name="forecast_evolution_history_building_detail">MeteoCompare enregistre désormais chaque prévision fraîche localement. La première comparaison apparaît lorsqu’un snapshot proche de 24 h est disponible. Aucun appel réseau supplémentaire n’est nécessaire pour cette fonctionnalité.</string>
+    <string name="forecast_evolution_history_building_detail">Les prévisions sont enregistrées localement. La première comparaison apparaît après environ 24 h, sans appel réseau supplémentaire.</string>
 
     <string name="forecast_evolution_model_direction_volatile">%1$d modèles comparables, sans direction dominante depuis H−%2$d</string>
 
@@ -690,42 +690,43 @@
     <string name="marine_not_coastal">Aucun point marin fiable n’a été trouvé à moins de 50 km de cette ville.</string>
     <string name="marine_error">Impossible de charger les données marines : %1$s</string>
     <string name="marine_title">Mer / côte</string>
-    <string name="marine_intro">Vagues, houle, température de la mer et niveau marin</string>
-    <string name="marine_distance">Point marin à %1$.1f km</string>
+    <string name="marine_intro">Vagues, houle, mer et marées</string>
+    <string name="marine_distance">Données marines à %1$.1f km</string>
     <string name="marine_loading">Chargement…</string>
-    <string name="marine_wave_height">Hauteur des vagues</string>
-    <string name="marine_wave_period">Période des vagues</string>
-    <string name="marine_wave_direction">Direction des vagues</string>
-    <string name="marine_swell_height">Hauteur de houle</string>
-    <string name="marine_sea_temp">Température de la mer</string>
-    <string name="marine_wave_evolution">Évolution de la hauteur des vagues</string>
-    <string name="marine_next_48h">Prochaines 48 h</string>
-    <string name="marine_daily_outlook">Aperçu 7 jours</string>
-    <string name="marine_tides">Marées / niveau marin</string>
-    <string name="marine_tides_intro">Extrema horaires approximatifs sur les prochaines 72 h</string>
+    <string name="marine_wave_height">Hauteur vagues</string>
+    <string name="marine_wave_period">Période vagues</string>
+    <string name="marine_wave_direction">Direction vagues</string>
+    <string name="marine_swell_height">Houle</string>
+    <string name="marine_sea_temp">Temp. mer</string>
+    <string name="marine_wave_evolution">Évolution des vagues</string>
+    <string name="marine_next_48h">48 h</string>
+    <string name="marine_daily_outlook">7 jours</string>
+    <string name="marine_tides">Marées</string>
+    <string name="marine_tides_intro">Pleines et basses mers estimées sur 72 h</string>
     <string name="marine_unavailable">Indisponible</string>
     <string name="marine_trend_rising">Montante</string>
     <string name="marine_trend_falling">Descendante</string>
     <string name="marine_trend_steady">Quasi stable</string>
-    <string name="marine_current_level">Niveau actuel</string>
-    <string name="marine_reference_msl">Référence MSL globale</string>
-    <string name="marine_next_extremum">Prochain extremum</string>
-    <string name="marine_high_water">Pleine mer approximative</string>
-    <string name="marine_low_water">Basse mer approximative</string>
-    <string name="marine_tide_unavailable">Pas assez de données pour estimer les extrema</string>
-    <string name="marine_tide_range_short">Marnage 24 h</string>
-    <string name="marine_next_24h">Prochaines 24 h</string>
-    <string name="marine_tide_datum_note">Le niveau sea_level_height_msl est référencé au niveau moyen de la mer (MSL) et peut inclure d’autres contributions que la marée seule. Il ne correspond pas au zéro hydrographique d’un port.</string>
-    <string name="marine_disclaimer">Informations indicatives uniquement. Ne pas utiliser pour la navigation ou la sécurité maritime.</string>
+    <string name="marine_current_level">Niveau maintenant</string>
+    <string name="marine_reference_msl">Réf. niveau moyen (MSL)</string>
+    <string name="marine_next_extremum">Prochaine marée</string>
+    <string name="marine_high_water">Pleine mer</string>
+    <string name="marine_low_water">Basse mer</string>
+    <string name="marine_tide_unavailable">Données insuffisantes</string>
+    <string name="marine_tide_range_short">Marnage</string>
+    <string name="marine_next_24h">24 h</string>
+    <string name="marine_tide_datum_note">Niveaux par rapport au niveau moyen de la mer (MSL), pas au zéro hydrographique d’un port.</string>
+    <string name="marine_disclaimer">Indicatif uniquement — pas pour la navigation.</string>
     <string name="marine_source">Source : Open-Meteo Marine API</string>
-    <string name="marine_chart_unavailable">Courbe marine indisponible : pas assez de points exploitables.</string>
+    <string name="marine_chart_unavailable">Courbe indisponible : données insuffisantes.</string>
 
-    <string name="settings_about_marine">Mer / côte : les vagues, la houle, la température de mer et le niveau marin proviennent d’Open-Meteo Marine. Les extrema de niveau sont approximatifs et ne doivent pas être utilisés pour la navigation.</string>
+    <string name="settings_about_marine">Mer / côte : vagues, houle, température de mer et niveau marin via Open-Meteo Marine. Niveaux indicatifs, pas pour la navigation.</string>
 
     <string name="historical_confidence_title">Confiance historique locale</string>
     <string name="historical_confidence_meta">Performance J+1 observée · %1$d familles</string>
     <string name="home_scenario_family_support">%1$d %% soutien des familles</string>
-    <string name="metric_precip_probability_only">P(pluie) %1$d %%</string>
-    <string name="metric_precip_probability_conditional">P(pluie) %1$d %% · %2$.1f mm si pluie</string>
-    <string name="metric_precip_expected_range">Espérance %1$.1f mm · plage humide %2$s</string>
+    <string name="metric_precip_probability_only">Risque pluie %1$d %%</string>
+    <string name="metric_precip_probability_conditional">Risque pluie %1$d %% · %2$.1f mm si pluie</string>
+    <string name="metric_precip_expected_range">Cumul moyen estimé %1$.1f mm · si pluie %2$s</string>
+    <string name="metric_precip_rain_range">Scénarios pluvieux %1$s</string>
 </resources>

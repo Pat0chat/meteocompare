@@ -21,7 +21,7 @@
         <ImageView android:layout_width="28dp" android:layout_height="28dp" android:padding="5dp" android:src="@drawable/ic_widget_value_rain" android:background="@drawable/widget_preview_pill_bg" android:contentDescription="@null" />
         <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginStart="9dp" android:orientation="vertical">
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Pluie incertaine" android:textSize="12sp" android:textStyle="bold" android:textColor="?android:attr/textColorPrimary" />
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="40–75 % · 52 % d’accord" android:textSize="9sp" android:textColor="?android:attr/textColorSecondary" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="40–75 % · 52 % de convergence" android:textSize="9sp" android:textColor="?android:attr/textColorSecondary" />
         </LinearLayout>
         <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="18 h" android:textSize="9sp" android:textStyle="bold" android:textColor="@color/widget_preview_confidence" />
     </LinearLayout>

@@ -10,7 +10,7 @@
     <string name="action_cancel">Cancel</string>
 
     <!-- ─── Home-screen widget ────────────────────────────────────────── -->
-    <string name="widget_description">Current weather for a favorite city with an inter-model agreement index.</string>
+    <string name="widget_description">Current weather for a favorite city with a model convergence index.</string>
     <string name="widget_config_title">Configure widget</string>
     <string name="widget_config_subtitle">Pick which city to display and the background opacity.</string>
     <string name="widget_config_pick_city">City to display</string>
@@ -31,7 +31,7 @@
     <string name="settings_language">Language</string>
     <!-- Refresh interval (widget + app) -->
     <string name="settings_refresh_interval_title">Refresh interval</string>
-    <string name="settings_refresh_interval_desc">How often the widget and app try to fetch new data. A longer interval saves battery and data; a shorter one keeps forecasts fresher. In \"Manual\" mode, refresh only happens when you pull-to-refresh.</string>
+    <string name="settings_refresh_interval_desc">Widget and app update cadence. More frequent = newer data, but more battery and network use. Manual mode updates only on user action.</string>
     <string name="refresh_interval_15_min">15 min</string>
     <string name="refresh_interval_30_min">30 min</string>
     <string name="refresh_interval_1_hour">1 h</string>
@@ -40,7 +40,7 @@
     <string name="refresh_interval_manual">Manual</string>
 
     <string name="settings_models_title">Weather models</string>
-    <string name="settings_models_desc">Pick the models to compare. More models make the comparison more representative, but increase data volume and computation.</string>
+    <string name="settings_models_desc">Choose the models to compare. More models enrich the comparison but require more data.</string>
     <string name="settings_models_min_warning">At least one model must remain enabled.</string>
     <string name="settings_about_title">About</string>
     <string name="settings_about_version">Version %s</string>
@@ -51,7 +51,7 @@
     <string name="widget_open_meteo_attribution">Open-Meteo · aggregated data</string>
     <string name="settings_about_models_credit">Models: AROME and ARPEGE by Météo-France, ICON by DWD, GFS and HRRR by NOAA, ECMWF and AIFS by the European Centre, UKMO by the UK Met Office, GEM by Environment Canada, MET Nordic by MET Norway, HARMONIE by KNMI, ACCESS by the Bureau of Meteorology (Australia), GRAPES by CMA (China).</string>
     <string name="settings_bias_refresh_title">Bias tracking</string>
-    <string name="settings_bias_refresh_desc">Downloads up to 3 weeks of archived forecasts at a fixed D+1 lead time to obtain at least 14 common valid days for enabled models, then their weather references, for your favorite cities. Models without available archives will continue calibrating over time.</string>
+    <string name="settings_bias_refresh_desc">Fetches up to 3 weeks of D+1 history to seed local reliability. Models without archives calibrate progressively.</string>
     <string name="settings_bias_refresh_action">Initialize or update</string>
     <string name="settings_bias_refresh_queued">Update started. Available archived days will be processed in the background; some models may still require gradual collection.</string>
     <string name="settings_privacy_title">Privacy</string>
@@ -75,7 +75,7 @@
     <!-- Today summary -->
     <string name="models_analysed_one">%d model analysed</string>
     <string name="models_analysed_many">%d models analysed</string>
-    <string name="confidence_badge_percent">%d%% agreement</string>
+    <string name="confidence_badge_percent">%d%% convergence</string>
     <string name="models_unavailable">Models unavailable</string>
     <string name="no_daily_data">No daily data</string>
     <string name="forecast_error_no_today">No forecast data for today</string>
@@ -97,8 +97,8 @@
     <string name="chart_normals_legend_wind">10-year max-wind reference</string>
 
     <!-- Extra widget 4×2 forecast modes -->
-    <string name="widget_config_forecast_mode_conf_all">Model agreement</string>
-    <string name="widget_config_forecast_mode_conf_all_note">Shows model agreement bands for temperature and rain over the same days.</string>
+    <string name="widget_config_forecast_mode_conf_all">Model convergence</string>
+    <string name="widget_config_forecast_mode_conf_all_note">Shows model convergence for temperature and rain over the same days.</string>
     <!-- Time anchors shown under the widget 4x2 confidence strip -->
     <string name="widget_confidence_now_short">Now</string>
 
@@ -127,10 +127,10 @@
     <!-- Hourly temperature table legend — absolute thresholds -->
 
     <!-- "Last updated" caption (CityCard home + TodaySummaryCard details) -->
-    <string name="updated_just_now">Updated just now</string>
-    <string name="updated_min_ago">Updated %d min ago</string>
-    <string name="updated_hour_ago">Updated %dh ago</string>
-    <string name="updated_day_ago">Updated %dd ago</string>
+    <string name="updated_just_now">Just now</string>
+    <string name="updated_min_ago">%d min ago</string>
+    <string name="updated_hour_ago">%d h ago</string>
+    <string name="updated_day_ago">%d d ago</string>
 
     <!-- Confidence band chart zoom -->
     <string name="chart_zoom_hint">Pinch to zoom • Double-tap to reset</string>
@@ -138,8 +138,8 @@
 
     <!-- Chart messages -->
     <string name="chart_not_enough_data">Not enough data to compute a band</string>
-    <string name="chart_confidence_band_desc">The wider the band, the more models disagree. Color shows their agreement level.</string>
-    <string name="chart_confidence_now">Agreement now: %d%%</string>
+    <string name="chart_confidence_band_desc">The wider the band, the more models diverge. Color shows their convergence level.</string>
+    <string name="chart_confidence_now">Convergence now: %d%%</string>
     <string name="chart_confidence_ahead">at D+%1$d: %2$d%%</string>
 
     <!-- Precipitation legend -->
@@ -189,7 +189,7 @@
     <string name="metric_home_precipitation">Precipitation</string>
     <string name="metric_home_wind">Wind</string>
     <string name="metric_home_gusts">Gusts</string>
-    <string name="metric_agreement">%1$d%% agreement</string>
+    <string name="metric_agreement">%1$d%% convergence</string>
     <string name="metric_precip_if_rain">%1$s if rain</string>
     <string name="metric_gust_supporting">Gust %1$s</string>
     <string name="metric_precip_models_short">%1$d/%2$d models</string>
@@ -197,9 +197,9 @@
     <string name="metric_gust_detail">Gusts %1$s km/h</string>
     <string name="metric_detail_wind">Wind</string>
     <string name="metric_detail_gusts">Gusts</string>
-    <string name="metric_confidence_high">High · %1$d%%</string>
-    <string name="metric_confidence_medium">Medium · %1$d%%</string>
-    <string name="metric_confidence_low">Low · %1$d%%</string>
+    <string name="metric_confidence_high">High convergence · %1$d%%</string>
+    <string name="metric_confidence_medium">Medium convergence · %1$d%%</string>
+    <string name="metric_confidence_low">Low convergence · %1$d%%</string>
     <string name="metric_summary_average">Central consensus</string>
     <string name="metric_summary_range">Range %1$s</string>
     <string name="metric_summary_range_and_spread">Range %1$s · spread %2$s</string>
@@ -219,23 +219,23 @@
     <string name="donations_dialog_close">Close</string>
 
     <!-- Accessibility descriptions (read aloud by TalkBack) -->
-    <string name="a11y_confidence_high">High agreement</string>
-    <string name="a11y_confidence_medium">Medium agreement</string>
-    <string name="a11y_confidence_low">Low agreement</string>
-    <string name="a11y_open_confidence_explanation">%d%% inter-model agreement, open detailed explanation</string>
+    <string name="a11y_confidence_high">High convergence</string>
+    <string name="a11y_confidence_medium">Medium convergence</string>
+    <string name="a11y_confidence_low">Low convergence</string>
+    <string name="a11y_open_confidence_explanation">%d%% inter-model convergence, open detailed explanation</string>
     <string name="a11y_temp_single">%d degrees</string>
     <string name="a11y_temp_range">between %1$d and %2$d degrees</string>
     <string name="a11y_temp_with_confidence">%1$s, %2$s, %3$d percent</string>
-    <string name="a11y_no_rain">No rain expected, agreement %d percent</string>
-    <string name="a11y_rain">Rain expected, between %1$d and %2$d millimeters, agreement %3$d percent</string>
+    <string name="a11y_no_rain">No rain expected, convergence %d percent</string>
+    <string name="a11y_rain">Rain expected, between %1$d and %2$d millimeters, convergence %3$d percent</string>
     <string name="a11y_models_divided">Models divided on rain, %1$d out of %2$d predict rain, between %3$d and %4$d millimeters</string>
     <string name="a11y_city_loading">Loading forecasts.</string>
     <string name="a11y_city_error">Error: %1$s.</string>
     <string name="a11y_now_temp">Now %d degrees</string>
     <string name="a11y_temperature_prefix">Temperature</string>
-    <string name="a11y_overall_confidence">Overall agreement %d percent</string>
+    <string name="a11y_overall_confidence">Overall convergence %d percent</string>
     <string name="a11y_hourly_empty">Empty chart, insufficient data</string>
-    <string name="a11y_hourly_template">Hourly agreement band over %1$d days. Central temperature %2$d degrees right now, %3$d degrees at horizon\'s end. Inter-model divergence %4$s. Agreement %5$d percent now, %6$d percent at D plus %1$d.</string>
+    <string name="a11y_hourly_template">Hourly convergence band over %1$d days. Central temperature %2$d degrees right now, %3$d degrees at horizon\'s end. Inter-model divergence %4$s. Convergence %5$d percent now, %6$d percent at D plus %1$d.</string>
     <string name="a11y_divergence_strong">strongly increasing</string>
     <string name="a11y_divergence_increasing">increasing</string>
     <string name="a11y_divergence_stable">overall stable</string>
@@ -246,12 +246,12 @@
     <string name="a11y_wind_max_label">10 m max wind</string>
     <string name="a11y_kmh_unit">kilometers per hour</string>
 
-    <!-- ─── "Why this agreement?" ───────────────────────────────────────── -->
-    <string name="confidence_explanation_title">Why this agreement?</string>
+    <!-- ─── "Why this convergence?" ───────────────────────────────────────── -->
+    <string name="confidence_explanation_title">Why this convergence?</string>
     <string name="confidence_explanation_invalid_date">Invalid date</string>
-    <string name="confidence_overall_label">Overall agreement</string>
+    <string name="confidence_overall_label">Overall convergence</string>
     <string name="confidence_verdict_high">The models converge strongly. This describes their consistency, not a guarantee of the observed outcome.</string>
-    <string name="confidence_verdict_medium">The models only partially agree. Exact values remain uncertain.</string>
+    <string name="confidence_verdict_medium">Model convergence is partial. Exact values remain uncertain.</string>
     <string name="confidence_verdict_low">The models diverge strongly. Treat exact values with caution.</string>
 
     <!-- Per-variable summary line (top of each card) -->
@@ -269,12 +269,12 @@
     <string name="confidence_model_resolution">resolution %s</string>
 
     <!-- Final interpretation sentences per card -->
-    <string name="confidence_interp_high">High inter-model agreement: the scenarios are close at this lead time.</string>
+    <string name="confidence_interp_high">High inter-model convergence: the scenarios are close at this lead time.</string>
     <string name="confidence_interp_medium">Moderate convergence: scenarios differ; the weighted median remains only a central reference.</string>
-    <string name="confidence_interp_low">Significant disagreement: the available scenarios are dispersed at this lead time.</string>
+    <string name="confidence_interp_low">Low convergence: the available scenarios are dispersed at this lead time.</string>
     <string name="confidence_interp_precip_dry">No available model forecasts precipitation at this lead time.</string>
     <string name="confidence_interp_precip_rain">All available models forecast rain, with different intensities.</string>
-    <string name="confidence_interp_precip_divided">Typical disagreement for transitional situations (fronts, scattered showers). Watch the next run.</string>
+    <string name="confidence_interp_precip_divided">Typical divergence for transitional situations (fronts, scattered showers). Watch the next run.</string>
 
     <!-- Educational section -->
     <string name="confidence_section_why">Why models differ</string>
@@ -426,7 +426,7 @@
     <string name="bias_reliability_balance_over_badge">%1$d%% above</string>
     <string name="bias_reliability_direction_balance">%1$d%% above · %2$d%% close · %3$d%% below</string>
     <string name="bias_reliability_sample_coverage">History used: %1$d days within a %2$d-day window.</string>
-    <string name="bias_reliability_method_note">This index is a local educational guide, not an official model score. It compares D+1 forecasts captured the previous day with Open-Meteo historical reanalysis for daily maximum temperature, daily precipitation total, and daily maximum 10 m wind, not with a station at the exact point. It depends on the city, variable, and available period. For precipitation, a day is considered wet from 0.5 mm.</string>
+    <string name="bias_reliability_method_note">Local index based on saved D+1 forecasts and Open-Meteo reanalysis over comparable dates. Wet day: 0.5 mm or more. Indicative, not an official score.</string>
 
     <string name="bias_chip_calibrating_progress_a11y">Calibrating: %1$d of %2$d samples collected</string>
 
@@ -459,7 +459,7 @@
     <string name="local_ranking_rain_support">MAE %1$s · %2$d false alarms</string>
     <string name="local_ranking_empty_title">Ranking unavailable</string>
     <string name="local_ranking_empty_body">At least two models with 14 common days are required to rank this variable.</string>
-    <string name="local_ranking_method_note">This ranking is local and educational. Only models with at least 14 common dates are compared, so every rank is based on exactly the same days. It is not an official model assessment.</string>
+    <string name="local_ranking_method_note">Local ranking on the same dates (14 minimum). Indicative, not an official model assessment.</string>
     <string name="local_ranking_open_content_description">Open the local model ranking</string>
 
     <string name="forecast_tables_section">Detailed forecasts</string>
@@ -467,7 +467,7 @@
     <string name="timeline_title_daily">Next few days</string>
     <string name="timeline_subtitle_hourly">3-hour reference points</string>
     <string name="timeline_subtitle_daily">Consensus of available models for the next few days</string>
-    <string name="timeline_disagreement_hint">Agreement is shown as a percentage. When models disagree, icons identify the affected variables</string>
+    <string name="timeline_disagreement_hint">The score shows convergence; icons flag the variables that diverge.</string>
     <string name="timeline_now">Now</string>
     <string name="timeline_today">Today</string>
     <string name="timeline_tomorrow">Tomorrow</string>
@@ -477,23 +477,23 @@
     <string name="timeline_wind_gust">Gust %1$d km/h</string>
     <string name="wind_gust_abbreviation">G</string>
     <string name="wind_table_legend">10 m wind · G = gusts · km/h</string>
-    <string name="timeline_consensus_high">High agreement</string>
-    <string name="timeline_consensus_medium">Medium agreement</string>
-    <string name="timeline_consensus_low">Low agreement</string>
+    <string name="timeline_consensus_high">High convergence</string>
+    <string name="timeline_consensus_medium">Medium convergence</string>
+    <string name="timeline_consensus_low">Low convergence</string>
     <string name="timeline_consensus_limited">Limited comparison</string>
     <string name="timeline_consensus_accessibility">%1$s: %2$d%%</string>
     <string name="timeline_divergence_rain">Rain</string>
     <string name="timeline_divergence_wind">Wind</string>
     <string name="timeline_divergence_temperature">Temp.</string>
     <string name="timeline_divergence_condition">Conditions</string>
-    <string name="timeline_divergence_variables_accessibility">Variables in disagreement: %1$s</string>
+    <string name="timeline_divergence_variables_accessibility">Diverging variables: %1$s</string>
 
     <string name="section_state_expanded">Expanded</string>
     <string name="section_state_collapsed">Collapsed</string>
     <string name="offline_data_title">Offline mode</string>
-    <string name="offline_data_message">Data stored on this device · %1$s</string>
-    <string name="offline_data_age_unknown">Data age unavailable</string>
-    <string name="offline_list_message">The latest saved data remains available. Its age is shown on each city.</string>
+    <string name="offline_data_message">Saved data · %1$s</string>
+    <string name="offline_data_age_unknown">Last update unknown</string>
+    <string name="offline_list_message">Saved data remains available. Each city shows when it was last updated.</string>
 
     <string name="offline_saved_data_age_inline">Offline · %1$s</string>
 
@@ -520,7 +520,7 @@
     <string name="forecast_insight_title_weather_freezing_rain">Freezing rain risk</string>
     <string name="forecast_insight_title_weather_snow">Snow possible</string>
     <string name="forecast_insight_detail_weather_transition">%1$s → %2$s</string>
-    <string name="forecast_insight_metric_consensus">%1$d%% agreement</string>
+    <string name="forecast_insight_metric_consensus">%1$d%% convergence</string>
     <string name="forecast_insight_metric_probability">%1$d%%</string>
     <string name="forecast_insight_metric_model_ratio">%1$d/%2$d models</string>
     <string name="forecast_insight_metric_coverage">%1$d/%2$d models</string>
@@ -528,9 +528,9 @@
     <string name="forecast_insight_metric_temperature_range">%1$d° → %2$d°</string>
     <string name="forecast_insight_title_disagreement">Uncertain forecast</string>
     <string name="forecast_insight_title_disagreement_multiple">Highly uncertain forecast</string>
-    <string name="forecast_insight_title_disagreement_rain">Disagreement on rain</string>
-    <string name="forecast_insight_title_disagreement_wind">Disagreement on wind</string>
-    <string name="forecast_insight_title_disagreement_temperature">Disagreement on temperature</string>
+    <string name="forecast_insight_title_disagreement_rain">Divergence on rain</string>
+    <string name="forecast_insight_title_disagreement_wind">Divergence on wind</string>
+    <string name="forecast_insight_title_disagreement_temperature">Divergence on temperature</string>
     <string name="forecast_insight_title_disagreement_condition">Uncertain weather conditions</string>
     <string name="forecast_insight_detail_disagreement">Scenarios spread out clearly at this time.</string>
     <string name="forecast_insight_detail_disagreement_multiple">Models differ across several variables.</string>
@@ -555,7 +555,7 @@
     <string name="forecast_insight_detail_wind_strong">Levels remain elevated across several time steps.</string>
     <string name="forecast_insight_detail_wind_peak">A marked peak is expected.</string>
 
-    <string name="local_reliability_title">Convergence &amp; local confidence</string>
+    <string name="local_reliability_title">Convergence &amp; historical confidence</string>
     <string name="local_reliability_subtitle_with_confidence">Current convergence: %1$d%% · %2$d independent families</string>
     <string name="local_reliability_subtitle_models">%1$d independent families compared</string>
     <string name="local_reliability_best_model">Best local model</string>
@@ -604,7 +604,7 @@
         <item quantity="other">%d locations followed</item>
     </plurals>
     <string name="home_cloud_cover">Cloud cover %d%%</string>
-    <string name="home_agreement_label">Agreement</string>
+    <string name="home_agreement_label">Convergence</string>
     <!-- Collapsible weather scenarios on Home -->
     <string name="home_scenarios_title">Scenarios · next 12 h</string>
     <plurals name="home_scenarios_count">
@@ -643,7 +643,7 @@
     <string name="forecast_evolution_loading_detail">History is read in the background without blocking the current forecast.</string>
     <string name="forecast_evolution_view_models">View models</string>
     <string name="forecast_evolution_model_direction">%1$d of %2$d models follow the trend since H−%3$d</string>
-    <string name="forecast_evolution_method_hint">H−N points are local snapshots saved during MeteoCompare fresh forecast updates, selected as close as possible to ~24, ~48 and ~72 hours before the forecast currently displayed. They are not reconstructed 00Z/06Z/12Z/18Z weather-model cycles. Medians use the same cohort of comparable models; missing data is excluded, never replaced by zero. Stable/up/down thresholds are presentation heuristics, not a probability of correctness.</string>
+    <string name="forecast_evolution_method_hint">H−N = forecasts saved about 24, 48 or 72 h earlier. Same model group; missing data is excluded. Trends are indicative.</string>
     <string name="forecast_evolution_now">Current</string>
     <string name="forecast_evolution_day_ago_short">H−%1$d</string>
     <string name="forecast_evolution_sheet_title">Evolution by model</string>
@@ -671,7 +671,7 @@
 
     <string name="forecast_evolution_history_building">Building local history</string>
 
-    <string name="forecast_evolution_history_building_detail">MeteoCompare now saves each fresh forecast locally. The first comparison appears once a snapshot close to 24 hours old is available. This feature does not require any additional network request.</string>
+    <string name="forecast_evolution_history_building_detail">Forecasts are saved locally. The first comparison appears after about 24 h, with no extra network request.</string>
 
     <string name="forecast_evolution_model_direction_volatile">%1$d comparable models, with no dominant direction since H−%2$d</string>
 
@@ -692,42 +692,43 @@
     <string name="marine_not_coastal">No reliable marine grid point was found within 50 km of this city.</string>
     <string name="marine_error">Unable to load marine data: %1$s</string>
     <string name="marine_title">Sea / coast</string>
-    <string name="marine_intro">Waves, swell, sea temperature and sea level</string>
-    <string name="marine_distance">Marine grid point %1$.1f km away</string>
+    <string name="marine_intro">Waves, swell, sea &amp; tides</string>
+    <string name="marine_distance">Marine data %1$.1f km away</string>
     <string name="marine_loading">Loading…</string>
-    <string name="marine_wave_height">Wave height</string>
+    <string name="marine_wave_height">Wave ht.</string>
     <string name="marine_wave_period">Wave period</string>
-    <string name="marine_wave_direction">Wave direction</string>
-    <string name="marine_swell_height">Swell height</string>
-    <string name="marine_sea_temp">Sea temperature</string>
-    <string name="marine_wave_evolution">Wave-height evolution</string>
-    <string name="marine_next_48h">Next 48 h</string>
-    <string name="marine_daily_outlook">7-day outlook</string>
-    <string name="marine_tides">Tides / sea level</string>
-    <string name="marine_tides_intro">Approximate hourly extrema over the next 72 h</string>
+    <string name="marine_wave_direction">Wave dir.</string>
+    <string name="marine_swell_height">Swell</string>
+    <string name="marine_sea_temp">Sea temp.</string>
+    <string name="marine_wave_evolution">Wave evolution</string>
+    <string name="marine_next_48h">48 h</string>
+    <string name="marine_daily_outlook">7 days</string>
+    <string name="marine_tides">Tides</string>
+    <string name="marine_tides_intro">Estimated high/low tides over 72 h</string>
     <string name="marine_unavailable">Unavailable</string>
     <string name="marine_trend_rising">Rising</string>
     <string name="marine_trend_falling">Falling</string>
     <string name="marine_trend_steady">Nearly steady</string>
-    <string name="marine_current_level">Current level</string>
-    <string name="marine_reference_msl">Global MSL reference</string>
-    <string name="marine_next_extremum">Next extremum</string>
-    <string name="marine_high_water">Approx. high water</string>
-    <string name="marine_low_water">Approx. low water</string>
-    <string name="marine_tide_unavailable">Not enough data to estimate extrema</string>
-    <string name="marine_tide_range_short">24 h tidal range</string>
-    <string name="marine_next_24h">Next 24 h</string>
-    <string name="marine_tide_datum_note">sea_level_height_msl is referenced to mean sea level (MSL) and can include contributions other than the astronomical tide. It is not a harbour chart datum.</string>
-    <string name="marine_disclaimer">Indicative information only. Do not use for navigation or maritime safety.</string>
+    <string name="marine_current_level">Level now</string>
+    <string name="marine_reference_msl">Mean sea level (MSL)</string>
+    <string name="marine_next_extremum">Next tide</string>
+    <string name="marine_high_water">High tide</string>
+    <string name="marine_low_water">Low tide</string>
+    <string name="marine_tide_unavailable">Not enough data</string>
+    <string name="marine_tide_range_short">Tidal range</string>
+    <string name="marine_next_24h">24 h</string>
+    <string name="marine_tide_datum_note">Levels use mean sea level (MSL), not a harbour chart datum.</string>
+    <string name="marine_disclaimer">Indicative only — not for navigation.</string>
     <string name="marine_source">Source: Open-Meteo Marine API</string>
-    <string name="marine_chart_unavailable">Marine chart unavailable: not enough usable points.</string>
+    <string name="marine_chart_unavailable">Chart unavailable: not enough data.</string>
 
-    <string name="settings_about_marine">Sea / coast: waves, swell, sea temperature and sea level come from Open-Meteo Marine. Sea-level extrema are approximate and must not be used for navigation.</string>
+    <string name="settings_about_marine">Sea / coast: waves, swell, sea temperature and sea level via Open-Meteo Marine. Indicative levels, not for navigation.</string>
 
     <string name="historical_confidence_title">Local historical confidence</string>
     <string name="historical_confidence_meta">Observed D+1 performance · %1$d families</string>
     <string name="home_scenario_family_support">%1$d%% family support</string>
-    <string name="metric_precip_probability_only">P(rain) %1$d%%</string>
-    <string name="metric_precip_probability_conditional">P(rain) %1$d%% · %2$.1f mm if wet</string>
-    <string name="metric_precip_expected_range">Expected %1$.1f mm · wet range %2$s</string>
+    <string name="metric_precip_probability_only">Rain risk %1$d%%</string>
+    <string name="metric_precip_probability_conditional">Rain risk %1$d%% · %2$.1f mm if wet</string>
+    <string name="metric_precip_expected_range">Estimated mean %1$.1f mm · if wet %2$s</string>
+    <string name="metric_precip_rain_range">Wet scenarios %1$s</string>
 </resources>
