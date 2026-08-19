@@ -283,27 +283,27 @@ private fun SummaryLine(breakdown: VariableBreakdown, dayConfidence: DayConfiden
     val precip = dayConfidence.precipitation
 
     val text: String
-    val percent: Int
+    val percent: Int?
     when (breakdown.kind) {
         VariableKind.TEMP_MAX -> {
             if (tempMax == null) return
             text = continuousSummary(tempMax, "°")
-            percent = tempMax.percent
+            percent = tempMax.convergencePercent
         }
         VariableKind.TEMP_MIN -> {
             if (tempMin == null) return
             text = continuousSummary(tempMin, "°")
-            percent = tempMin.percent
+            percent = tempMin.convergencePercent
         }
         VariableKind.WIND_MAX -> {
             if (windMax == null) return
             text = continuousSummary(windMax, " km/h")
-            percent = windMax.percent
+            percent = windMax.convergencePercent
         }
         VariableKind.PRECIPITATION -> {
             if (precip == null) return
             text = precipitationSummary(precip)
-            percent = precip.percent
+            percent = precip.convergencePercent
         }
     }
 
@@ -318,7 +318,7 @@ private fun SummaryLine(breakdown: VariableBreakdown, dayConfidence: DayConfiden
             fontWeight = FontWeight.Medium,
             color = MaterialTheme.colorScheme.onSurface
         )
-        ConfidencePillReadOnly(percent)
+        percent?.let { ConfidencePillReadOnly(it) }
     }
 }
 
@@ -425,9 +425,9 @@ private fun interpretationFor(
     // le @Composable au niveau body. Aucune lambda non-@Composable n'enrobe
     // un appel @Composable.
     val percent: Int? = when (breakdown.kind) {
-        VariableKind.TEMP_MAX -> dayConfidence.tempMax?.percent
-        VariableKind.TEMP_MIN -> dayConfidence.tempMin?.percent
-        VariableKind.WIND_MAX -> dayConfidence.windMax?.percent
+        VariableKind.TEMP_MAX -> dayConfidence.tempMax?.convergencePercent
+        VariableKind.TEMP_MIN -> dayConfidence.tempMin?.convergencePercent
+        VariableKind.WIND_MAX -> dayConfidence.windMax?.convergencePercent
         VariableKind.PRECIPITATION -> null // traité plus bas
     }
     if (percent != null) return interpretContinuousByPercent(percent)

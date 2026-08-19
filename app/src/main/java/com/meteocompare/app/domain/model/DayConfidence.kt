@@ -27,10 +27,10 @@ data class DayConfidence(
     val overallPercent: Int?
         get() {
             val scores = listOfNotNull(
-                tempMax?.percent,
-                tempMin?.percent,
-                precipitation?.percent,
-                windMax?.percent
+                tempMax?.convergencePercent,
+                tempMin?.convergencePercent,
+                precipitation?.convergencePercent,
+                windMax?.convergencePercent
             )
             return if (scores.isEmpty()) null else scores.average().toInt()
         }

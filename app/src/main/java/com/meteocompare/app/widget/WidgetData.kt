@@ -451,7 +451,7 @@ internal suspend fun loadWidgetData(
                 tempMin = dayConf.tempMin?.meanValue,
                 confidencePct = dayConf.overallPercent,
                 precipMm = precipAmountMm,
-                precipConfidencePct = rainConfidence?.percent,
+                precipConfidencePct = rainConfidence?.convergencePercent,
                 currentCloudCover = calc.currentCloudCover(forecast, currentInstant),
                 currentWindSpeedKmh = calc.currentWindSpeed(forecast, currentInstant),
                 forecastMode = forecastMode.normalized(),
@@ -691,10 +691,20 @@ internal fun dailyForecastConfidenceByDate(
     totalModelCount: Int
 ): Map<java.time.LocalDate, Int> = days.mapNotNull { day ->
     val scores = listOfNotNull(
-        day.tempMax?.let { it.percent to it.familyCount },
-        day.tempMin?.let { it.percent to it.familyCount },
-        day.precipitation?.let { it.percent to it.meta.familyCount.coerceAtLeast(1) },
-        day.windMax?.let { it.percent to it.familyCount }
+        day.tempMax?.let { score ->
+            score.convergencePercent?.let { it to score.familyCount }
+        },
+        day.tempMin?.let { score ->
+            score.convergencePercent?.let { it to score.familyCount }
+        },
+        day.precipitation?.let { precipitation ->
+            precipitation.convergencePercent?.let { percent ->
+                percent to precipitation.meta.familyCount.coerceAtLeast(1)
+            }
+        },
+        day.windMax?.let { score ->
+            score.convergencePercent?.let { it to score.familyCount }
+        }
     ).map { (percent, modelCount) ->
         coverageAdjustedConfidence(
             percent = percent,

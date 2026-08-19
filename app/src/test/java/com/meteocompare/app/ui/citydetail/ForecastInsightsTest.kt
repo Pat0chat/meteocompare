@@ -178,6 +178,93 @@ class ForecastInsightsTest {
     }
 
     @Test
+    fun `key points keep a non evolution message when run to run highlight is shown`() {
+        val evolution = ForecastInsight(
+            kind = ForecastInsightKind.WEATHER_CHANGE,
+            level = ForecastInsightLevel.ALERT,
+            priority = 100,
+            point = point(hour = 1)
+        )
+        val temperatureTrend = ForecastInsight(
+            kind = ForecastInsightKind.TEMPERATURE_CHANGE,
+            level = ForecastInsightLevel.WATCH,
+            priority = 90,
+            point = point(hour = 2)
+        )
+        val rain = ForecastInsight(
+            kind = ForecastInsightKind.RAIN_UNCERTAIN,
+            level = ForecastInsightLevel.WATCH,
+            priority = 80,
+            point = point(hour = 4, precipitation = 50)
+        )
+
+        val selected = selectKeyPointInsights(
+            listOf(evolution, temperatureTrend, rain),
+            hasEvolutionHighlight = true
+        )
+
+        assertEquals(2, selected.size)
+        assertTrue(selected.any { it.kind == ForecastInsightKind.RAIN_UNCERTAIN })
+    }
+
+    @Test
+    fun `key points with evolution highlight keep a later alert over an earlier info`() {
+        val early = ForecastInsight(
+            kind = ForecastInsightKind.HIGH_AGREEMENT,
+            level = ForecastInsightLevel.INFO,
+            priority = 10,
+            point = point(hour = 1)
+        )
+        val middle = ForecastInsight(
+            kind = ForecastInsightKind.RAIN_UNCERTAIN,
+            level = ForecastInsightLevel.WATCH,
+            priority = 70,
+            point = point(hour = 2, precipitation = 45)
+        )
+        val laterAlert = ForecastInsight(
+            kind = ForecastInsightKind.DISAGREEMENT,
+            level = ForecastInsightLevel.ALERT,
+            priority = 100,
+            point = point(hour = 7, reasons = setOf(DivergenceReason.WIND))
+        )
+
+        val selected = selectKeyPointInsights(
+            listOf(early, middle, laterAlert),
+            hasEvolutionHighlight = true
+        )
+
+        assertTrue(selected.any { it.level == ForecastInsightLevel.ALERT })
+        assertFalse(selected.contains(early))
+    }
+
+    @Test
+    fun `key points never fill all slots with forecast evolutions`() {
+        val insights = listOf(
+            ForecastInsight(
+                kind = ForecastInsightKind.WEATHER_CHANGE,
+                level = ForecastInsightLevel.ALERT,
+                priority = 100,
+                point = point(hour = 1)
+            ),
+            ForecastInsight(
+                kind = ForecastInsightKind.TEMPERATURE_CHANGE,
+                level = ForecastInsightLevel.WATCH,
+                priority = 90,
+                point = point(hour = 2)
+            ),
+            ForecastInsight(
+                kind = ForecastInsightKind.WEATHER_CHANGE,
+                level = ForecastInsightLevel.WATCH,
+                priority = 80,
+                point = point(hour = 3)
+            )
+        )
+
+        assertEquals(2, selectKeyPointInsights(insights, hasEvolutionHighlight = false).size)
+        assertEquals(1, selectKeyPointInsights(insights, hasEvolutionHighlight = true).size)
+    }
+
+    @Test
     fun `weather transition creates an event object`() {
         val clear = point(hour = 0, condition = WeatherCondition.CLEAR)
         val fog = point(hour = 3, condition = WeatherCondition.FOG)

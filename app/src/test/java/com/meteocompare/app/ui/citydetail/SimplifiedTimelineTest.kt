@@ -82,6 +82,9 @@ class SimplifiedTimelineTest {
         assertEquals(22.0, point.tempMaxC!!, 0.001)
         assertEquals(12.0, point.windKmh!!, 0.001)
         assertEquals(33, point.precipitationPercent)
+        // Le moteur conserve bien la quantité conditionnelle : l'UI timeline
+        // l'affiche désormais sous le risque pluie au lieu du libellé de source.
+        assertEquals(2.55, point.precipitationConditionalMm!!, 0.001)
         assertEquals(PrecipitationSignalSource.MODEL_PROBABILITY, point.precipitationSource)
         assertEquals(3, point.precipitationModelCount)
         // Égalité parfaite entre clair, principalement clair et pluie : le

@@ -12,6 +12,8 @@ data class PrecipitationConsensusMeta(
     val conditionalAmountMm: Double? = null,
     val expectedAmountMm: Double? = null,
     val centralAmountMm: Double? = null,
+    /** Convergence actuelle ; null lorsqu'une seule lignée indépendante contribue. */
+    val convergencePercent: Int? = null,
     val familyCount: Int = 0
 )
 
@@ -25,6 +27,14 @@ sealed interface PrecipitationConfidence {
     val percent: Int
     val modelCount: Int
     val meta: PrecipitationConsensusMeta
+
+    /**
+     * Score réellement comparable. Les objets historiques/tests sans métadonnées
+     * (familyCount=0) retombent sur [percent] pour compatibilité ; en production,
+     * une seule famille donne null au lieu d'afficher artificiellement 0 ou 100 %.
+     */
+    val convergencePercent: Int?
+        get() = meta.convergencePercent ?: percent.takeIf { meta.familyCount == 0 }
 
     data class NoRain(
         override val percent: Int,

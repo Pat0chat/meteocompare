@@ -515,7 +515,7 @@ private fun TimelinePointColumn(
             tint = precipitationAccent
         )
         TimelineSupportingText(
-            text = precipitationSourceLabel(point).ifBlank { "—" }
+            text = timelinePrecipitationAmountLabel(point)
         )
 
         TimelineMetric(
@@ -696,16 +696,18 @@ private fun temperatureRangeLabel(
 }
 
 @Composable
-private fun precipitationSourceLabel(point: SimplifiedTimelinePoint): String = when {
-    point.precipitationSource in setOf(PrecipitationSignalSource.MODEL_PROBABILITY, PrecipitationSignalSource.MIXED) ->
-        stringResource(R.string.timeline_precip_probability_source)
-    point.precipitationSource == PrecipitationSignalSource.MODEL_AGREEMENT &&
-        point.precipitationModelCount >= 2 -> stringResource(
-            R.string.timeline_precip_models_source,
-            point.wetModelCount,
-            point.precipitationModelCount
-        )
-    else -> ""
+private fun timelinePrecipitationAmountLabel(point: SimplifiedTimelinePoint): String {
+    val conditional = point.precipitationConditionalMm
+        ?.takeIf { it.isFinite() && it >= 0.05 }
+    if (conditional != null) {
+        return stringResource(R.string.timeline_precip_amount_if_rain, conditional)
+    }
+    val central = point.precipitationMm?.takeIf { it.isFinite() && it >= 0.0 }
+    return if (central != null) {
+        stringResource(R.string.timeline_precip_amount, central)
+    } else {
+        "—"
+    }
 }
 
 @Composable

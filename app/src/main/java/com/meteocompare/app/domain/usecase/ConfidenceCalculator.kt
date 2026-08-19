@@ -493,7 +493,9 @@ class ConfidenceCalculator @Inject constructor(
             wideStdDev = thresholds.wideStdDev
         )
         val stats = consensus.stats ?: return null
-        val percent = consensus.convergencePercent ?: return null
+        // Une valeur centrale reste exploitable avec une seule lignée. Seule la
+        // convergence inter-familles devient indéfinie dans ce cas.
+        val percent = consensus.convergencePercent ?: 0
         return ConfidenceScore(
             percent = percent,
             minValue = stats.min,
@@ -501,7 +503,8 @@ class ConfidenceCalculator @Inject constructor(
             meanValue = consensus.central ?: stats.mean,
             stdDev = stats.stdDev,
             modelCount = consensus.modelCount,
-            familyCount = consensus.familyCount
+            familyCount = consensus.familyCount,
+            convergencePercent = consensus.convergencePercent
         )
     }
 
@@ -521,12 +524,16 @@ class ConfidenceCalculator @Inject constructor(
             amountTightStdDev = Thresholds.PRECIP.tightStdDev,
             amountWideStdDev = Thresholds.PRECIP.wideStdDev
         )
-        val percent = result.convergencePercent ?: return null
+        if (result.modelCount == 0) return null
+        // La quantité centrale reste utile avec une seule famille. En revanche,
+        // la convergence inter-familles est alors indéfinie et reste null dans meta.
+        val percent = result.convergencePercent ?: 0
         val common = PrecipitationConsensusMeta(
             probabilityPercent = result.probabilityPercent,
             conditionalAmountMm = result.conditionalAmountMm,
             expectedAmountMm = result.expectedAmountMm,
             centralAmountMm = result.centralAmountMm,
+            convergencePercent = result.convergencePercent,
             familyCount = result.familyCount
         )
         val wetAmounts = rows.mapNotNull { row ->

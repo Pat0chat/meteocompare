@@ -227,6 +227,8 @@
     <string name="a11y_temp_range">between %1$d and %2$d degrees</string>
     <string name="a11y_temp_with_confidence">%1$s, %2$s, %3$d percent</string>
     <string name="a11y_no_rain">No rain expected, convergence %d percent</string>
+    <string name="a11y_no_rain_no_convergence">No rain expected</string>
+    <string name="a11y_rain_no_convergence">Rain expected, between %1$d and %2$d millimeters</string>
     <string name="a11y_rain">Rain expected, between %1$d and %2$d millimeters, convergence %3$d percent</string>
     <string name="a11y_models_divided">Models divided on rain, %1$d out of %2$d predict rain, between %3$d and %4$d millimeters</string>
     <string name="a11y_city_loading">Loading forecasts.</string>
@@ -287,7 +289,7 @@
     <string name="weather_partly_cloudy">Partly cloudy</string>
     <string name="weather_overcast">Overcast</string>
     <string name="weather_fog">Fog</string>
-    <string name="weather_drizzle">Drizzle</string>
+    <string name="weather_drizzle">Light rain</string>
     <string name="weather_rain">Rain</string>
     <string name="weather_freezing_rain">Freezing rain</string>
     <string name="weather_snow">Snow</string>
@@ -474,6 +476,8 @@
     <string name="timeline_tomorrow_at">Tomorrow · %1$s</string>
     <string name="timeline_precip_probability_source">median</string>
     <string name="timeline_precip_models_source">%1$d/%2$d models</string>
+    <string name="timeline_precip_amount">%1$.1f mm</string>
+    <string name="timeline_precip_amount_if_rain">%1$.1f mm if rain</string>
     <string name="timeline_wind_gust">Gust %1$d km/h</string>
     <string name="wind_gust_abbreviation">G</string>
     <string name="wind_table_legend">10 m wind · G = gusts · km/h</string>

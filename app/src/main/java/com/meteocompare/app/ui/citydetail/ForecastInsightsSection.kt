@@ -97,7 +97,10 @@ internal fun ForecastInsightsSection(
                 StableInsightRow(insight = insights.first())
             } else {
                 evolutionHighlight?.let { EvolutionHighlightRow(it) }
-                insights.take(if (evolutionHighlight != null) 2 else 3).forEach { insight ->
+                selectKeyPointInsights(
+                    insights = insights,
+                    hasEvolutionHighlight = evolutionHighlight != null
+                ).forEach { insight ->
                     ForecastInsightRow(
                         insight = insight,
                         timezone = timezone,

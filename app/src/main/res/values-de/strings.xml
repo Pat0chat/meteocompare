@@ -204,6 +204,8 @@ Daten</string>
     <string name="a11y_temp_range">zwischen %1$d und %2$d Grad</string>
     <string name="a11y_temp_with_confidence">%1$s, %2$s, %3$d Prozent</string>
     <string name="a11y_no_rain">Kein Regen erwartet, Konvergenz %d Prozent</string>
+    <string name="a11y_no_rain_no_convergence">Kein Regen erwartet</string>
+    <string name="a11y_rain_no_convergence">Regen erwartet, zwischen %1$d und %2$d Millimetern</string>
     <string name="a11y_rain">Regen erwartet, zwischen %1$d und %2$d Millimeter, Konvergenz %3$d Prozent</string>
     <string name="a11y_models_divided">Modelle beim Regen uneinig: %1$d von %2$d erwarten Regen, zwischen %3$d und %4$d Millimeter</string>
     <string name="a11y_city_loading">Vorhersagen werden geladen.</string>
@@ -258,7 +260,7 @@ Daten</string>
     <string name="weather_partly_cloudy">Teilweise bewölkt</string>
     <string name="weather_overcast">Bedeckt</string>
     <string name="weather_fog">Nebel</string>
-    <string name="weather_drizzle">Nieselregen</string>
+    <string name="weather_drizzle">Leichter Regen</string>
     <string name="weather_rain">Regen</string>
     <string name="weather_freezing_rain">Gefrierender Regen</string>
     <string name="weather_snow">Schnee</string>
@@ -416,6 +418,8 @@ Daten</string>
     <string name="timeline_tomorrow_at">Morgen · %1$s</string>
     <string name="timeline_precip_probability_source">Median</string>
     <string name="timeline_precip_models_source">%1$d/%2$d Modelle</string>
+    <string name="timeline_precip_amount">%1$.1f mm</string>
+    <string name="timeline_precip_amount_if_rain">%1$.1f mm bei Regen</string>
     <string name="timeline_wind_gust">Böe %1$d km/h</string>
     <string name="wind_gust_abbreviation">B</string>
     <string name="wind_table_legend">Wind in 10 m · B = Böen · km/h</string>

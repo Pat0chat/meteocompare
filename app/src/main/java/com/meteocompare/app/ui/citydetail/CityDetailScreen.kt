@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -1405,7 +1406,7 @@ private fun DetailMetricGrid(today: DayConfidence) {
                             detailRange(score, unit = "°"),
                             detailSpread(score, unit = "°")
                         ),
-                        confidence = score.percent,
+                        confidence = score.convergencePercent,
                         modifier = Modifier.weight(1f)
                     )
                 } ?: Spacer(Modifier.weight(1f))
@@ -1423,7 +1424,7 @@ private fun DetailMetricGrid(today: DayConfidence) {
                             detailRange(score, unit = "°"),
                             detailSpread(score, unit = "°")
                         ),
-                        confidence = score.percent,
+                        confidence = score.convergencePercent,
                         modifier = Modifier.weight(1f)
                     )
                 } ?: Spacer(Modifier.weight(1f))
@@ -1446,7 +1447,7 @@ private fun DetailMetricGrid(today: DayConfidence) {
                         unit = presentation.unit,
                         supporting = presentation.supporting,
                         detail = presentation.detail,
-                        confidence = precipitation.percent,
+                        confidence = precipitation.convergencePercent,
                         modifier = Modifier.weight(1f)
                     )
                 } ?: Spacer(Modifier.weight(1f))
@@ -1473,7 +1474,7 @@ private fun DetailMetricGrid(today: DayConfidence) {
                                 detailRange(gust, unit = "")
                             )
                         },
-                        confidence = score.percent,
+                        confidence = score.convergencePercent,
                         modifier = Modifier.weight(1f)
                     )
                 } ?: Spacer(Modifier.weight(1f))
@@ -1488,7 +1489,7 @@ private fun DetailWeatherMetric(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     accent: Color,
     value: String,
-    confidence: Int,
+    confidence: Int?,
     modifier: Modifier = Modifier,
     unit: String? = null,
     supporting: String? = null,
@@ -1496,7 +1497,7 @@ private fun DetailWeatherMetric(
     tertiary: String? = null
 ) {
     Surface(
-        modifier = modifier.height(180.dp),
+        modifier = modifier.heightIn(min = 180.dp),
         shape = RoundedCornerShape(17.dp),
         color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.62f),
         border = BorderStroke(
@@ -1597,7 +1598,7 @@ private fun DetailWeatherMetric(
             }
 
             Spacer(Modifier.weight(1f))
-            DetailMetricMeta(confidence = confidence)
+            confidence?.let { DetailMetricMeta(confidence = it) }
         }
     }
 }

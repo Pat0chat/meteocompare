@@ -100,13 +100,16 @@ class ConfidenceCalculatorTest {
     }
 
     @Test
-    fun `temperature - un seul modèle - pas de confidence calculable`() {
+    fun `temperature - une seule famille conserve la valeur sans inventer de convergence`() {
         val forecast = buildForecast(
             tempMaxByModel = mapOf(WeatherModel.GFS to 22.0)
         )
 
-        // Avec 1 seul modèle, pas d'écart-type significatif → on retourne null
-        assertNull(calculator.dayConfidence(forecast, today).tempMax)
+        val score = calculator.dayConfidence(forecast, today).tempMax
+        assertNotNull(score)
+        assertEquals(22.0, score!!.centralValue, 0.001)
+        assertEquals(1, score.familyCount)
+        assertNull(score.convergencePercent)
     }
 
     @Test
@@ -160,6 +163,23 @@ class ConfidenceCalculatorTest {
         val precip = calculator.dayConfidence(forecast, today).precipitation
         assertTrue(precip is PrecipitationConfidence.NoRain)
         assertEquals(100, (precip as PrecipitationConfidence.NoRain).percent)
+    }
+
+    @Test
+    fun `pluie - une seule famille conserve la valeur sans inventer de convergence`() {
+        val forecast = buildForecast(
+            precipByModel = mapOf(
+                WeatherModel.ICON_D2 to 2.0,
+                WeatherModel.ICON_EU to 4.0
+            )
+        )
+
+        val precip = calculator.dayConfidence(forecast, today).precipitation
+        assertTrue(precip is PrecipitationConfidence.Rain)
+        precip as PrecipitationConfidence.Rain
+        assertEquals(1, precip.meta.familyCount)
+        assertEquals(null, precip.convergencePercent)
+        assertTrue(precip.meta.centralAmountMm != null)
     }
 
     @Test
@@ -293,9 +313,11 @@ class ConfidenceCalculatorTest {
         assertNotNull(day0.tempMax)
         assertEquals(2, day0.tempMax!!.modelCount)
 
-        // J+2 : seul GFS contribue → tempMax null (1 seul modèle)
+        // J+2 : seul GFS contribue → valeur conservée, convergence indéfinie.
         val day2 = calculator.dayConfidence(forecast, afterTomorrow)
-        assertNull(day2.tempMax)
+        assertNotNull(day2.tempMax)
+        assertEquals(27.0, day2.tempMax!!.centralValue, 0.001)
+        assertNull(day2.tempMax!!.convergencePercent)
     }
 
     @Test

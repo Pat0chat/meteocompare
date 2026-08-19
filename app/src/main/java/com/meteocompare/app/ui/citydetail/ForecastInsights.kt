@@ -168,6 +168,60 @@ internal fun buildForecastInsights(events: List<ForecastEvent>): List<ForecastIn
         )
     }
 
+/**
+ * Sélection éditoriale pour la card « À retenir ». Quand un highlight de
+ * révision run-to-run occupe déjà une ligne, on réserve si possible au moins
+ * une des deux autres lignes à un phénomène météo/une incertitude qui n'est
+ * pas une simple évolution. On classe par impact et priorité avant de remettre
+ * le résultat dans l'ordre chronologique : un événement important plus tardif
+ * ne doit pas être évincé par les deux premiers messages de la journée.
+ */
+internal fun selectKeyPointInsights(
+    insights: List<ForecastInsight>,
+    hasEvolutionHighlight: Boolean
+): List<ForecastInsight> {
+    val limit = if (hasEvolutionHighlight) 2 else 3
+    // Le highlight run-to-run compte déjà comme une évolution éditoriale. Même
+    // sans lui, on ne laisse pas trois messages de simple évolution remplir la
+    // card : mieux vaut deux informations utiles que trois variantes du même thème.
+    val maxEvolutionLike = if (hasEvolutionHighlight) 1 else 2
+
+    val ranked = insights.sortedWith(
+        compareByDescending<ForecastInsight> { insightLevelWeight(it.level) }
+            .thenByDescending(ForecastInsight::priority)
+            .thenBy { insightSortKey(it.point ?: SimplifiedTimelinePoint()) }
+    )
+
+    val selected = mutableListOf<ForecastInsight>()
+    // Une alerte/incertitude non-évolution est prioritaire lorsqu'elle existe.
+    ranked.firstOrNull { !it.isEvolutionLikeKeyPoint() }?.let(selected::add)
+
+    var evolutionCount = selected.count(ForecastInsight::isEvolutionLikeKeyPoint)
+    ranked.forEach { candidate ->
+        if (selected.size >= limit || candidate in selected) return@forEach
+        val evolutionLike = candidate.isEvolutionLikeKeyPoint()
+        if (evolutionLike && evolutionCount >= maxEvolutionLike) return@forEach
+        selected += candidate
+        if (evolutionLike) evolutionCount += 1
+    }
+
+    return selected.sortedBy { it.point?.let(::insightSortKey) ?: Long.MAX_VALUE }
+}
+
+private fun ForecastInsight.isEvolutionLikeKeyPoint(): Boolean = when (kind) {
+    ForecastInsightKind.WEATHER_CHANGE,
+    ForecastInsightKind.TEMPERATURE_CHANGE -> true
+    ForecastInsightKind.RAIN_LIKELY -> isStrengtheningRainSignal
+    ForecastInsightKind.WIND_EVENT -> {
+        val from = value
+        val to = secondaryValue
+        from != null && to != null && to - from >= 15
+    }
+    ForecastInsightKind.HIGH_AGREEMENT,
+    ForecastInsightKind.DISAGREEMENT,
+    ForecastInsightKind.RAIN_UNCERTAIN -> false
+}
+
 private fun selectMostRelevantEvents(events: List<ForecastEvent>): List<ForecastEvent> {
     val concrete = events.filter { it.kind != ForecastEventKind.STABLE }
     val candidates = if (concrete.isNotEmpty()) concrete else events

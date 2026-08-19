@@ -46,24 +46,42 @@ object A11yFormatter {
                 score.maxValue.roundToInt()
             )
         }
-        return resources.getString(
-            R.string.a11y_temp_with_confidence,
-            main,
-            confidenceLevelLabel(resources, score.level).lowercase(),
-            score.percent
-        )
+        val convergence = score.convergencePercent
+        return if (convergence != null) {
+            resources.getString(
+                R.string.a11y_temp_with_confidence,
+                main,
+                confidenceLevelLabel(resources, score.level).lowercase(),
+                convergence
+            )
+        } else {
+            main
+        }
     }
 
     fun precipitationDescription(resources: Resources, precip: PrecipitationConfidence): String = when (precip) {
-        is PrecipitationConfidence.NoRain ->
-            resources.getString(R.string.a11y_no_rain, precip.percent)
-        is PrecipitationConfidence.Rain ->
-            resources.getString(
-                R.string.a11y_rain,
-                precip.minMm.roundToInt(),
-                precip.maxMm.roundToInt(),
-                precip.percent
-            )
+        is PrecipitationConfidence.NoRain -> {
+            val convergence = precip.convergencePercent
+            if (convergence != null) resources.getString(R.string.a11y_no_rain, convergence)
+            else resources.getString(R.string.a11y_no_rain_no_convergence)
+        }
+        is PrecipitationConfidence.Rain -> {
+            val convergence = precip.convergencePercent
+            if (convergence != null) {
+                resources.getString(
+                    R.string.a11y_rain,
+                    precip.minMm.roundToInt(),
+                    precip.maxMm.roundToInt(),
+                    convergence
+                )
+            } else {
+                resources.getString(
+                    R.string.a11y_rain_no_convergence,
+                    precip.minMm.roundToInt(),
+                    precip.maxMm.roundToInt()
+                )
+            }
+        }
         is PrecipitationConfidence.Divided ->
             resources.getString(
                 R.string.a11y_models_divided,
