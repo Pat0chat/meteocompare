@@ -165,9 +165,14 @@ enum class WeatherModel(
         apiKey = "icon_d2",
         displayName = "ICON-D2",
         resolutionKm = 2.0,
-        maxForecastDays = 2,
+        // `forecast_days` démarre à 00:00 locale. Un horizon natif roulant de
+        // 48 h peut donc déborder sur un 3e jour civil selon l'heure du run.
+        // Même garde que pour AROME : demander 3 jours ne fabrique aucune
+        // donnée, mais évite de tronquer les dernières échéances disponibles.
+        maxForecastDays = 3,
         coverage = Coverage.EUROPE,
-        family = ModelFamily.DWD
+        family = ModelFamily.DWD,
+        forecastHorizonHours = 48
     ),
 
     // ──────────────────────────────────────────────────────────────────────
@@ -187,12 +192,12 @@ enum class WeatherModel(
         apiKey = "ncep_hrrr_conus",
         displayName = "HRRR",
         resolutionKm = 3.0,
-        maxForecastDays = 2,
+        // 3 jours civils permettent de ne pas tronquer les cycles étendus
+        // de 48 h lorsque leur fin tombe sur le 3e jour local. Les runs
+        // standards restent ~18 h ; les heures sans donnée restent null.
+        maxForecastDays = 3,
         coverage = Coverage.UNITED_STATES,
         family = ModelFamily.NOAA,
-        // Les runs horaires standards vont à ~18 h ; les cycles 00/06/12/18Z
-        // s'étendent jusqu'à ~48 h. Le plafond de requête reste 2 jours pour
-        // ne pas tronquer ces cycles longs, mais l'horizon affiché reste prudent.
         forecastHorizonHours = 18
     ),
 
@@ -207,7 +212,8 @@ enum class WeatherModel(
         apiKey = "metno_nordic",
         displayName = "MET Nordic",
         resolutionKm = 1.0,
-        maxForecastDays = 3,
+        // 60 h roulantes peuvent atteindre un 4e jour civil.
+        maxForecastDays = 4,
         coverage = Coverage.EUROPE,
         family = ModelFamily.METNO,
         forecastHorizonHours = 60
@@ -225,7 +231,8 @@ enum class WeatherModel(
         apiKey = "knmi_harmonie_arome_europe",
         displayName = "HARMONIE",
         resolutionKm = 5.5,
-        maxForecastDays = 3,
+        // 60 h roulantes peuvent atteindre un 4e jour civil.
+        maxForecastDays = 4,
         coverage = Coverage.EUROPE,
         family = ModelFamily.KNMI,
         forecastHorizonHours = 60

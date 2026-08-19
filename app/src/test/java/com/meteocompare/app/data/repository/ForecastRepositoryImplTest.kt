@@ -739,6 +739,30 @@ class ForecastRepositoryImplTest {
             assertEquals(5, forecastDaysSlot.captured)
         }
 
+    @Test
+    fun `refresh ICON-D2 seul demande trois jours civils sans exiger une journee complete`() = runTest {
+        val forecastDaysSlot = slot<Int>()
+        coEvery {
+            api.getForecastBatched(
+                any(), any(), any(), any(), any(), any(),
+                capture(forecastDaysSlot),
+                any(), any(), any()
+            )
+        } returns batchedResponseWith(modelsWithData = listOf(WeatherModel.ICON_D2))
+        coEvery { cacheDao.getForCity(any()) } returns emptyList()
+
+        val result = repository.refreshCityForecast(
+            city = paris,
+            models = listOf(WeatherModel.ICON_D2),
+            forecastDays = 7
+        )
+
+        assertEquals(3, forecastDaysSlot.captured)
+        assertTrue(result is ApiResult.Success)
+        val forecast = (result as ApiResult.Success).data
+        assertTrue(WeatherModel.ICON_D2 in forecast.seriesByModel)
+    }
+
     // ─────────────────────── Helpers ───────────────────────────────────────
 
     /**

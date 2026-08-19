@@ -357,6 +357,32 @@ class BatchedForecastSplitterTest {
         val gfs = split.getValue(WeatherModel.GFS)
         assertEquals(listOf(0.0), gfs.hourly?.precipitation)
     }
+
+    @Test
+    fun `modele horizon court avec seulement 18 heures valides reste exploitable en forecast live`() {
+        val times = (0 until 24).joinToString(",") { hour ->
+            "\"2026-08-18T${hour.toString().padStart(2, '0')}:00\""
+        }
+        val values = (0 until 24).joinToString(",") { hour ->
+            if (hour < 18) (20.0 + hour / 10.0).toString() else "null"
+        }
+        val response = json.decodeFromString<BatchedForecastResponseDto>(
+            """{
+              "latitude": 52.52, "longitude": 13.41, "timezone": "Europe/Berlin",
+              "hourly": {
+                "time": [$times],
+                "temperature_2m_icon_d2": [$values]
+              }
+            }"""
+        )
+
+        val split = BatchedForecastSplitter.split(response, listOf(WeatherModel.ICON_D2))
+
+        assertEquals(setOf(WeatherModel.ICON_D2), split.keys)
+        assertEquals(24, split.getValue(WeatherModel.ICON_D2).hourly?.time?.size)
+        assertEquals(18, split.getValue(WeatherModel.ICON_D2).hourly?.temperature2m?.count { it != null })
+    }
+
     @Test
     fun `GEM accepte la cle canonique actuelle et ancien suffixe en compatibilite`() {
         val canonical = json.decodeFromString<BatchedForecastResponseDto>(
