@@ -699,7 +699,14 @@ internal fun dailyForecastConfidenceByDate(
         },
         day.precipitation?.let { precipitation ->
             precipitation.convergencePercent?.let { percent ->
-                percent to precipitation.meta.familyCount.coerceAtLeast(1)
+                // Les objets produits par Consensus v2 exposent familyCount.
+                // Les anciens caches/tests peuvent ne pas encore avoir cette
+                // métadonnée : dans ce cas modelCount reste le meilleur fallback
+                // disponible, comme pour PrecipitationConfidence.convergencePercent.
+                val familyCount = precipitation.meta.familyCount
+                    .takeIf { it > 0 }
+                    ?: precipitation.modelCount.coerceAtLeast(1)
+                percent to familyCount
             }
         },
         day.windMax?.let { score ->

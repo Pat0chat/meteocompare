@@ -206,7 +206,9 @@ class WidgetForecastSelectionTest {
             forecastConfidence = confidence
         )
 
-        assertEquals(listOf(93, 87, 80, 73, 77), items.map { it.forecastConfidencePct })
+        // La convergence globale Consensus v2 inclut aussi la condition météo,
+        // comme la version web de référence, en plus de température/pluie/vent.
+        assertEquals(listOf(95, 90, 85, 80, 83), items.map { it.forecastConfidencePct })
     }
 
     @Test

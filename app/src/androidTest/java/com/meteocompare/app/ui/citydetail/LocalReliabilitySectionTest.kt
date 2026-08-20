@@ -30,7 +30,7 @@ class LocalReliabilitySectionTest {
             MeteoCompareTheme {
                 LocalReliabilitySection(
                     overallConfidencePercent = 84,
-                    modelCount = 3,
+                    familyCount = 3,
                     rankings = rankings,
                     tempBands = emptyList(),
                     precipBands = emptyList(),
@@ -60,7 +60,7 @@ class LocalReliabilitySectionTest {
                 var expanded by remember { mutableStateOf(true) }
                 LocalReliabilitySection(
                     overallConfidencePercent = 84,
-                    modelCount = 3,
+                    familyCount = 3,
                     rankings = rankings,
                     tempBands = emptyList(),
                     precipBands = emptyList(),

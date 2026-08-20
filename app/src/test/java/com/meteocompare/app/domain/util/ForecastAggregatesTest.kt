@@ -41,7 +41,9 @@ class ForecastAggregatesTest {
         assertEquals(25.0, result.temperatures[1] ?: error("temperature manquante"), 0.001)
         assertEquals(30, result.precipitationProbabilities[0])
         assertEquals(50, result.precipitationProbabilities[1])
-        assertEquals(0.3, result.precipitationAmountsMm[0] ?: error("pluie manquante"), 0.001)
+        // Consensus v2 n'affiche pas une moyenne diluée : sous 50 % de risque,
+        // la quantité centrale déterministe est 0 mm.
+        assertEquals(0.0, result.precipitationAmountsMm[0] ?: error("pluie manquante"), 0.001)
         assertEquals(1.5, result.precipitationAmountsMm[1] ?: error("pluie manquante"), 0.001)
         assertEquals(WeatherCondition.DRIZZLE, result.conditions[0])
         assertEquals(WeatherCondition.RAIN_SHOWERS, result.conditions[1])
