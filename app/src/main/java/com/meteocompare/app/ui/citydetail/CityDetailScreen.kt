@@ -6,6 +6,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -72,7 +73,9 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -104,6 +107,7 @@ import com.meteocompare.app.ui.theme.temperatureMetricAccent
 import com.meteocompare.app.ui.theme.temperatureMinMetricAccent
 import com.meteocompare.app.ui.theme.windMetricAccent
 import java.time.Instant
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
 
@@ -526,6 +530,7 @@ private fun LoadedView(
                 TodaySummaryCard(
                     today = today,
                     modelCount = forecast.availableModels.size,
+                    forecast = forecast,
                     currentTemp = currentTemp,
                     currentCondition = currentCondition,
                     currentCloudCover = currentCloudCover,
@@ -608,8 +613,8 @@ private fun LoadedView(
         }
 
         val hasConfidenceData = hourlyBands.size >= 2 ||
-            hourlyPrecipBands.size >= 2 ||
-            hourlyWindBands.size >= 2
+                hourlyPrecipBands.size >= 2 ||
+                hourlyWindBands.size >= 2
         if (hasConfidenceData || localRankings.hasAnyRanking) {
             item("local_reliability") {
                 LocalReliabilitySection(
@@ -639,8 +644,8 @@ private fun LoadedView(
 
         val hasAnyBias =
             biasState.temperature.biasByModel.values.any { it != null } ||
-            biasState.precipitation.biasByModel.values.any { it != null } ||
-            biasState.wind.biasByModel.values.any { it != null }
+                    biasState.precipitation.biasByModel.values.any { it != null } ||
+                    biasState.wind.biasByModel.values.any { it != null }
 
         item("detailed_forecast_section") {
             DetailedForecastSection(
@@ -652,7 +657,7 @@ private fun LoadedView(
                 presentationNow = presentationNow,
                 cityToday = cityToday,
                 showBiasHistoryHint = !hasAnyBias &&
-                    detailContentTab != CityDetailContentTab.CONDITIONS,
+                        detailContentTab != CityDetailContentTab.CONDITIONS,
                 onModeChange = { onDetailViewModeChange(it.toPreference()) },
                 onTabChange = onDetailContentTabChange,
                 temperatureBiasProvider = { model -> biasState.temperature.biasByModel[model] },
@@ -780,36 +785,36 @@ private fun DetailedForecastSection(
             )
 
             if (expanded) {
-            HorizontalDivider(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                thickness = 1.dp,
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.30f)
-            )
-
-            if (showBiasHistoryHint) {
-                BiasHistoryHint(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                HorizontalDivider(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    thickness = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.30f)
                 )
-            } else {
-                Spacer(Modifier.height(8.dp))
-            }
 
-            DetailedComparisonContent(
-                mode = mode,
-                tab = tab,
-                forecast = forecast,
-                dailyConditions = dailyConditions,
-                normals = normals,
-                presentationNow = presentationNow,
-                cityToday = cityToday,
-                temperatureBiasProvider = temperatureBiasProvider,
-                precipitationBiasProvider = precipitationBiasProvider,
-                windBiasProvider = windBiasProvider,
-                temperatureSampleCountProvider = temperatureSampleCountProvider,
-                precipitationSampleCountProvider = precipitationSampleCountProvider,
-                windSampleCountProvider = windSampleCountProvider,
-                onBiasChipClick = onBiasChipClick
-            )
+                if (showBiasHistoryHint) {
+                    BiasHistoryHint(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                    )
+                } else {
+                    Spacer(Modifier.height(8.dp))
+                }
+
+                DetailedComparisonContent(
+                    mode = mode,
+                    tab = tab,
+                    forecast = forecast,
+                    dailyConditions = dailyConditions,
+                    normals = normals,
+                    presentationNow = presentationNow,
+                    cityToday = cityToday,
+                    temperatureBiasProvider = temperatureBiasProvider,
+                    precipitationBiasProvider = precipitationBiasProvider,
+                    windBiasProvider = windBiasProvider,
+                    temperatureSampleCountProvider = temperatureSampleCountProvider,
+                    precipitationSampleCountProvider = precipitationSampleCountProvider,
+                    windSampleCountProvider = windSampleCountProvider,
+                    onBiasChipClick = onBiasChipClick
+                )
             }
         }
     }
@@ -1217,7 +1222,8 @@ internal fun TodaySummaryCard(
     isOnline: Boolean = true,
     expanded: Boolean = true,
     onExpandedChange: (Boolean) -> Unit = {},
-    onConfidenceClick: () -> Unit = {}
+    onConfidenceClick: () -> Unit = {},
+    forecast: CityForecast? = null
 ) {
     val resources = LocalResources.current
     val baseDescription = com.meteocompare.app.ui.accessibility.A11yFormatter
@@ -1267,69 +1273,74 @@ internal fun TodaySummaryCard(
             )
 
             if (expanded) {
-            Column(modifier = Modifier.padding(horizontal = 18.dp, vertical = 7.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(64.dp)
-                        .background(
-                            weatherAccent.copy(alpha = if (isDark) 0.14f else 0.08f),
-                            RoundedCornerShape(20.dp)
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (currentCondition != null) {
-                        AnimatedWeatherIcon(
-                            condition = currentCondition,
-                            size = 56.dp,
-                            animated = true,
-                            motionScale = 2.0f,
-                            tint = Color.Unspecified
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Outlined.Thermostat,
-                            contentDescription = null,
-                            tint = weatherAccent,
-                            modifier = Modifier.size(38.dp)
-                        )
+                Column(modifier = Modifier.padding(horizontal = 18.dp, vertical = 7.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(64.dp)
+                                .background(
+                                    weatherAccent.copy(alpha = if (isDark) 0.14f else 0.08f),
+                                    RoundedCornerShape(20.dp)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (currentCondition != null) {
+                                AnimatedWeatherIcon(
+                                    condition = currentCondition,
+                                    size = 56.dp,
+                                    animated = true,
+                                    motionScale = 2.0f,
+                                    tint = Color.Unspecified
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Outlined.Thermostat,
+                                    contentDescription = null,
+                                    tint = weatherAccent,
+                                    modifier = Modifier.size(38.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(Modifier.width(16.dp))
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = currentTemp?.let { "${it.roundToInt()}°" } ?: "—",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Medium
+                            )
+                            currentCondition?.let { condition ->
+                                Text(
+                                    text = detailWeatherConditionLabel(condition),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                            if (currentCloudCover != null) {
+                                Text(
+                                    text = stringResource(R.string.home_cloud_cover, currentCloudCover),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        today.overallPercent?.let { percent ->
+                            ConfidenceBadge(percent, onClick = onConfidenceClick)
+                        }
                     }
-                }
 
-                Spacer(Modifier.width(16.dp))
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = currentTemp?.let { "${it.roundToInt()}°" } ?: "—",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Medium
+                    DetailMetricGrid(
+                        today = today,
+                        samples = remember(forecast, today.date) {
+                            buildTodaySummaryDispersionSamples(forecast, today.date)
+                        }
                     )
-                    currentCondition?.let { condition ->
-                        Text(
-                            text = detailWeatherConditionLabel(condition),
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                    if (currentCloudCover != null) {
-                        Text(
-                            text = stringResource(R.string.home_cloud_cover, currentCloudCover),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
                 }
-
-                today.overallPercent?.let { percent ->
-                    ConfidenceBadge(percent, onClick = onConfidenceClick)
-                }
-            }
-
-            DetailMetricGrid(today = today)
-            }
             }
         }
     }
@@ -1377,317 +1388,493 @@ private fun DataFreshnessPill(
     }
 }
 
+private data class DispersionSample(
+    val model: WeatherModel,
+    val value: Double
+)
+
+private data class TodaySummaryDispersionSamples(
+    val tempMin: List<DispersionSample> = emptyList(),
+    val tempMax: List<DispersionSample> = emptyList(),
+    val precipitation: List<DispersionSample> = emptyList(),
+    val wind: List<DispersionSample> = emptyList()
+)
+
+/**
+ * Valeurs journalières brutes utilisées uniquement pour dessiner les frises.
+ *
+ * Le consensus central reste celui de [ConfidenceScore] / [PrecipitationConfidence]
+ * (médiane pondérée et équilibrée par famille). Les points, eux, représentent
+ * volontairement chaque modèle disponible comme dans la version web : la frise
+ * montre la dispersion brute sans transformer plusieurs modèles apparentés en
+ * plusieurs votes dans le calcul central.
+ */
+private fun buildTodaySummaryDispersionSamples(
+    forecast: CityForecast?,
+    date: LocalDate
+): TodaySummaryDispersionSamples {
+    if (forecast == null) return TodaySummaryDispersionSamples()
+
+    val tempMin = mutableListOf<DispersionSample>()
+    val tempMax = mutableListOf<DispersionSample>()
+    val precipitation = mutableListOf<DispersionSample>()
+    val wind = mutableListOf<DispersionSample>()
+
+    forecast.seriesByModel.forEach { (model, series) ->
+        val index = series.daily.dates.indexOf(date)
+        if (index < 0) return@forEach
+        series.daily.tempMin.getOrNull(index)?.takeIf { it.isFinite() }?.let {
+            tempMin += DispersionSample(model, it)
+        }
+        series.daily.tempMax.getOrNull(index)?.takeIf { it.isFinite() }?.let {
+            tempMax += DispersionSample(model, it)
+        }
+        series.daily.precipitationSum.getOrNull(index)?.takeIf { it.isFinite() }?.let {
+            precipitation += DispersionSample(model, it.coerceAtLeast(0.0))
+        }
+        series.daily.windSpeedMax.getOrNull(index)?.takeIf { it.isFinite() }?.let {
+            wind += DispersionSample(model, it.coerceAtLeast(0.0))
+        }
+    }
+
+    return TodaySummaryDispersionSamples(
+        tempMin = tempMin,
+        tempMax = tempMax,
+        precipitation = precipitation,
+        wind = wind
+    )
+}
+
 @Composable
-private fun DetailMetricGrid(today: DayConfidence) {
-    val hasTemperature = today.tempMax != null || today.tempMin != null
-    val hasWeather = today.precipitation != null || today.windMax != null || today.windGustMax != null
+private fun DetailMetricGrid(
+    today: DayConfidence,
+    samples: TodaySummaryDispersionSamples
+) {
+    val hasAnyMetric = today.tempMin != null || today.tempMax != null ||
+            today.precipitation != null || today.windMax != null || today.windGustMax != null
+    if (!hasAnyMetric) return
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+            .padding(top = 10.dp)
     ) {
-        if (hasTemperature) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.Top
-            ) {
-                today.tempMin?.let { score ->
-                    DetailWeatherMetric(
-                        label = stringResource(R.string.var_temp_min),
-                        icon = Icons.Outlined.Thermostat,
-                        accent = temperatureMinMetricAccent(),
-                        value = score.meanValue.roundToInt().toString(),
-                        unit = "°",
-                        supporting = stringResource(R.string.metric_summary_average),
-                        detail = stringResource(
-                            R.string.metric_summary_range_and_spread,
-                            detailRange(score, unit = "°"),
-                            detailSpread(score, unit = "°")
-                        ),
-                        confidence = score.convergencePercent,
-                        modifier = Modifier.weight(1f)
-                    )
-                } ?: Spacer(Modifier.weight(1f))
+        var hasPrevious = false
 
-                today.tempMax?.let { score ->
-                    DetailWeatherMetric(
-                        label = stringResource(R.string.var_temp_max),
-                        icon = Icons.Outlined.Thermostat,
-                        accent = temperatureMetricAccent(),
-                        value = score.meanValue.roundToInt().toString(),
-                        unit = "°",
-                        supporting = stringResource(R.string.metric_summary_average),
-                        detail = stringResource(
-                            R.string.metric_summary_range_and_spread,
-                            detailRange(score, unit = "°"),
-                            detailSpread(score, unit = "°")
-                        ),
-                        confidence = score.convergencePercent,
-                        modifier = Modifier.weight(1f)
-                    )
-                } ?: Spacer(Modifier.weight(1f))
-            }
+        today.tempMin?.let { score ->
+            DispersionMetricRow(
+                label = stringResource(R.string.var_temp_min),
+                icon = Icons.Outlined.Thermostat,
+                accent = temperatureMinMetricAccent(),
+                central = score.centralValue,
+                fallbackMin = score.minValue,
+                fallbackMax = score.maxValue,
+                samples = samples.tempMin,
+                unit = "°",
+                digits = 1,
+                convergence = score.convergencePercent,
+                reportedModelCount = score.modelCount
+            )
+            hasPrevious = true
         }
 
-        if (hasWeather) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.Top
-            ) {
-                today.precipitation?.let { precipitation ->
-                    val presentation = detailPrecipitationPresentation(precipitation)
-                    DetailWeatherMetric(
-                        label = stringResource(R.string.var_precipitation),
-                        icon = Icons.Outlined.WaterDrop,
-                        accent = precipitationMetricAccent(),
-                        value = presentation.value,
-                        unit = presentation.unit,
-                        supporting = presentation.supporting,
-                        detail = presentation.detail,
-                        confidence = precipitation.convergencePercent,
-                        modifier = Modifier.weight(1f)
-                    )
-                } ?: Spacer(Modifier.weight(1f))
+        today.tempMax?.let { score ->
+            if (hasPrevious) SummaryDispersionDivider()
+            DispersionMetricRow(
+                label = stringResource(R.string.var_temp_max),
+                icon = Icons.Outlined.Thermostat,
+                accent = temperatureMetricAccent(),
+                central = score.centralValue,
+                fallbackMin = score.minValue,
+                fallbackMax = score.maxValue,
+                samples = samples.tempMax,
+                unit = "°",
+                digits = 1,
+                convergence = score.convergencePercent,
+                reportedModelCount = score.modelCount
+            )
+            hasPrevious = true
+        }
 
-                val windScore = today.windMax ?: today.windGustMax
-                windScore?.let { score ->
-                    val isGustOnly = today.windMax == null
-                    DetailWeatherMetric(
-                        label = stringResource(
-                            if (isGustOnly) R.string.metric_detail_gusts else R.string.metric_detail_wind
-                        ),
-                        icon = Icons.Outlined.Air,
-                        accent = windMetricAccent(),
-                        value = score.meanValue.roundToInt().toString(),
-                        unit = "km/h",
-                        supporting = stringResource(R.string.metric_summary_average),
-                        detail = stringResource(
-                            R.string.metric_summary_range,
-                            detailRange(score, unit = " km/h")
-                        ),
-                        tertiary = if (isGustOnly) null else today.windGustMax?.let { gust ->
-                            stringResource(
-                                R.string.metric_gust_detail,
-                                detailRange(gust, unit = "")
-                            )
-                        },
-                        confidence = score.convergencePercent,
-                        modifier = Modifier.weight(1f)
-                    )
-                } ?: Spacer(Modifier.weight(1f))
+        today.precipitation?.let { precipitation ->
+            if (hasPrevious) SummaryDispersionDivider()
+            val rain = precipitationDispersionPresentation(precipitation)
+            val locale = LocalLocale.current.platformLocale
+            val rainMetadata = mutableListOf<String>()
+            rain.probabilityPercent?.let { probability ->
+                rainMetadata += stringResource(R.string.metric_precip_probability_only, probability)
             }
+            rain.conditionalAmountMm?.takeIf { it > 0.0 }?.let { conditional ->
+                rainMetadata += stringResource(
+                    R.string.metric_precip_if_rain,
+                    formatDispersionValue(conditional, " mm", 1, locale)
+                )
+            }
+            DispersionMetricRow(
+                label = stringResource(R.string.var_precipitation),
+                icon = Icons.Outlined.WaterDrop,
+                accent = precipitationMetricAccent(),
+                central = rain.central,
+                fallbackMin = rain.min,
+                fallbackMax = rain.max,
+                samples = samples.precipitation,
+                unit = " mm",
+                digits = 1,
+                convergence = precipitation.convergencePercent,
+                reportedModelCount = precipitation.modelCount,
+                metadata = rainMetadata
+            )
+            hasPrevious = true
+        }
+
+        (today.windMax ?: today.windGustMax)?.let { score ->
+            if (hasPrevious) SummaryDispersionDivider()
+            val isGustOnly = today.windMax == null
+            val windMetadata = mutableListOf<String>()
+            if (!isGustOnly) {
+                today.windGustMax?.let { gust ->
+                    windMetadata += stringResource(
+                        R.string.metric_gust_detail,
+                        "${gust.minValue.roundToInt()}–${gust.maxValue.roundToInt()}"
+                    )
+                }
+            }
+            DispersionMetricRow(
+                label = stringResource(
+                    if (isGustOnly) R.string.metric_detail_gusts else R.string.metric_detail_wind
+                ),
+                icon = Icons.Outlined.Air,
+                accent = windMetricAccent(),
+                central = score.centralValue,
+                fallbackMin = score.minValue,
+                fallbackMax = score.maxValue,
+                samples = if (isGustOnly) emptyList() else samples.wind,
+                unit = " km/h",
+                digits = 0,
+                convergence = score.convergencePercent,
+                reportedModelCount = score.modelCount,
+                metadata = windMetadata
+            )
         }
     }
 }
 
 @Composable
-private fun DetailWeatherMetric(
+private fun SummaryDispersionDivider() {
+    HorizontalDivider(
+        modifier = Modifier.padding(horizontal = 4.dp),
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
+    )
+}
+
+private data class PrecipitationDispersionPresentation(
+    val central: Double,
+    val min: Double,
+    val max: Double,
+    val probabilityPercent: Int?,
+    val conditionalAmountMm: Double?
+)
+
+private fun precipitationDispersionPresentation(
+    precipitation: PrecipitationConfidence
+): PrecipitationDispersionPresentation = when (precipitation) {
+    is PrecipitationConfidence.NoRain -> PrecipitationDispersionPresentation(
+        central = precipitation.meta.centralAmountMm ?: 0.0,
+        min = 0.0,
+        max = precipitation.maxAmountMm.coerceAtLeast(0.0),
+        probabilityPercent = precipitation.meta.probabilityPercent ?: 0,
+        conditionalAmountMm = precipitation.meta.conditionalAmountMm
+    )
+    is PrecipitationConfidence.Rain -> PrecipitationDispersionPresentation(
+        central = precipitation.meta.centralAmountMm
+            ?: precipitation.meta.conditionalAmountMm
+            ?: precipitation.meanMm,
+        min = precipitation.minMm.coerceAtLeast(0.0),
+        max = precipitation.maxMm.coerceAtLeast(0.0),
+        probabilityPercent = precipitation.meta.probabilityPercent ?: 100,
+        conditionalAmountMm = precipitation.meta.conditionalAmountMm ?: precipitation.meanMm
+    )
+    is PrecipitationConfidence.Divided -> {
+        val probability = precipitation.meta.probabilityPercent
+            ?: if (precipitation.modelCount > 0) {
+                ((precipitation.modelsForRain.toDouble() / precipitation.modelCount) * 100.0).roundToInt()
+            } else null
+        val conditional = precipitation.meta.conditionalAmountMm ?: precipitation.rainMeanMm
+        PrecipitationDispersionPresentation(
+            central = precipitation.meta.centralAmountMm
+                ?: if ((probability ?: 0) >= 50) conditional else 0.0,
+            // Un état Divided comporte explicitement des scénarios secs : la
+            // dispersion brute commence donc à 0 même si rainMinMm ne décrit
+            // que les membres humides.
+            min = 0.0,
+            max = precipitation.rainMaxMm.coerceAtLeast(0.0),
+            probabilityPercent = probability,
+            conditionalAmountMm = conditional
+        )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun DispersionMetricRow(
     label: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     accent: Color,
-    value: String,
-    confidence: Int?,
-    modifier: Modifier = Modifier,
-    unit: String? = null,
-    supporting: String? = null,
-    detail: String? = null,
-    tertiary: String? = null
+    central: Double,
+    fallbackMin: Double,
+    fallbackMax: Double,
+    samples: List<DispersionSample>,
+    unit: String,
+    digits: Int,
+    convergence: Int?,
+    reportedModelCount: Int,
+    metadata: List<String> = emptyList()
 ) {
-    Surface(
-        modifier = modifier.heightIn(min = 180.dp),
-        shape = RoundedCornerShape(17.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.62f),
-        border = BorderStroke(
-            width = 1.dp,
-            color = accent.copy(alpha = 0.16f)
-        )
-    ) {
-        Column(
-            modifier = Modifier.fillMaxHeight().padding(horizontal = 12.dp, vertical = 10.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Row(
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .background(accent.copy(alpha = 0.12f), RoundedCornerShape(9.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = accent,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center
-                )
-            }
-
-            Spacer(Modifier.height(8.dp))
-
-            Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = value,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                if (!unit.isNullOrBlank()) {
-                    Spacer(Modifier.width(4.dp))
-                    Text(
-                        text = unit,
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 4.dp)
-                    )
-                }
-            }
-
-            if (!supporting.isNullOrBlank()) {
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = supporting,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.82f),
-                    textAlign = TextAlign.Center,
-                    maxLines = 2,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-
-            if (!detail.isNullOrBlank()) {
-                Spacer(Modifier.height(7.dp))
-                Text(
-                    text = detail,
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    textAlign = TextAlign.Center,
-                    maxLines = 2,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-
-            if (!tertiary.isNullOrBlank()) {
-                Spacer(Modifier.height(3.dp))
-                Text(
-                    text = tertiary,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-
-            Spacer(Modifier.weight(1f))
-            confidence?.let { DetailMetricMeta(confidence = it) }
+    val locale = LocalLocale.current.platformLocale
+    val sampleValues = samples.map(DispersionSample::value).filter { it.isFinite() }
+    val min = sampleValues.minOrNull() ?: fallbackMin
+    val max = sampleValues.maxOrNull() ?: fallbackMax
+    val safeMin = min.takeIf { it.isFinite() } ?: central
+    val safeMax = max.takeIf { it.isFinite() } ?: central
+    val modelCount = if (samples.isNotEmpty()) samples.size else reportedModelCount.coerceAtLeast(0)
+    val rangeLabel = "${formatDispersionValue(safeMin, unit, digits, locale)} – ${formatDispersionValue(safeMax, unit, digits, locale)}"
+    val centralLabel = formatDispersionValue(central, unit, digits, locale)
+    val railDescription = if (samples.isNotEmpty()) {
+        samples.joinToString(" · ") { sample ->
+            "${sample.model.displayName} ${formatDispersionValue(sample.value, unit, digits, locale)}"
         }
+    } else {
+        "$label · $rangeLabel"
     }
-}
+    val convergenceTint = if (convergence != null) {
+        confidenceColor(convergence)
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
 
-@Composable
-private fun DetailMetricMeta(
-    confidence: Int
-) {
-    val confidenceTint = confidenceColor(confidence)
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 2.dp, vertical = 13.dp),
+        verticalArrangement = Arrangement.spacedBy(9.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Box(
                 modifier = Modifier
-                    .size(6.dp)
-                    .background(confidenceTint, androidx.compose.foundation.shape.CircleShape)
-            )
-            Spacer(Modifier.width(6.dp))
+                    .size(36.dp)
+                    .background(accent.copy(alpha = 0.10f), RoundedCornerShape(11.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = accent,
+                    modifier = Modifier.size(19.dp)
+                )
+            }
+            Spacer(Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = stringResource(R.string.metric_summary_average),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             Text(
-                text = stringResource(R.string.metric_agreement, confidence),
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1
+                text = centralLabel,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
             )
+        }
+
+        DispersionRail(
+            samples = sampleValues,
+            min = safeMin,
+            max = safeMax,
+            central = central,
+            accent = accent,
+            contentDescription = railDescription
+        )
+
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = formatDispersionValue(safeMin, unit, digits, locale),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                text = centralLabel,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center
+            )
+            Text(
+                text = formatDispersionValue(safeMax, unit, digits, locale),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.End,
+                modifier = Modifier.weight(1f)
+            )
+        }
+
+        androidx.compose.foundation.layout.FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.metric_summary_range, rangeLabel),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            metadata.forEach { item ->
+                Text(
+                    text = item,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            if (modelCount > 0) {
+                Text(
+                    text = pluralStringResource(
+                        R.plurals.summary_dispersion_models,
+                        modelCount,
+                        modelCount
+                    ),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.82f)
+                )
+            }
+        }
+
+        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(R.string.home_agreement_label),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = convergenceTint,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    text = convergence?.let { "$it%" } ?: "—",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = convergenceTint
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(5.dp)
+                    .clip(androidx.compose.foundation.shape.CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+            ) {
+                if (convergence != null) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth((convergence.coerceIn(0, 100) / 100f))
+                            .fillMaxHeight()
+                            .background(convergenceTint)
+                    )
+                }
+            }
         }
     }
 }
 
-private data class DetailMetricPresentation(
-    val value: String,
-    val unit: String? = null,
-    val supporting: String? = null,
-    val detail: String? = null
-)
-
-private fun detailRange(
-    score: ConfidenceScore,
-    unit: String
-): String = "${score.minValue.roundToInt()}–${score.maxValue.roundToInt()}$unit"
-
-private fun detailSpread(
-    score: ConfidenceScore,
-    unit: String
-): String = "${score.spread.roundToInt()}$unit"
-
 @Composable
-private fun detailPrecipitationPresentation(
-    precipitation: PrecipitationConfidence
-): DetailMetricPresentation = when (precipitation) {
-    is PrecipitationConfidence.NoRain ->
-        DetailMetricPresentation(
-            value = stringResource(R.string.precip_dry),
-            supporting = precipitation.meta.probabilityPercent?.let { probability ->
-                stringResource(R.string.metric_precip_probability_only, probability)
-            } ?: stringResource(R.string.confidence_precip_all_dry),
-            detail = stringResource(
-                R.string.metric_summary_max_model_precip,
-                precipitation.maxAmountMm
+private fun DispersionRail(
+    samples: List<Double>,
+    min: Double,
+    max: Double,
+    central: Double,
+    accent: Color,
+    contentDescription: String
+) {
+    val surface = MaterialTheme.colorScheme.surfaceContainerLow
+    val track = MaterialTheme.colorScheme.surfaceContainerHighest
+    val centerColor = MaterialTheme.colorScheme.onSurface
+
+    Canvas(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(34.dp)
+            .semantics { this.contentDescription = contentDescription }
+    ) {
+        val startX = size.width * 0.08f
+        val endX = size.width * 0.92f
+        val centerY = size.height / 2f
+        val span = (max - min).takeIf { it.isFinite() && kotlin.math.abs(it) > 0.0001 } ?: 0.0
+        fun xFor(value: Double): Float {
+            if (span == 0.0 || !value.isFinite()) return (startX + endX) / 2f
+            val ratio = ((value - min) / span).coerceIn(0.0, 1.0).toFloat()
+            return startX + (endX - startX) * ratio
+        }
+
+        drawRoundRect(
+            color = track,
+            topLeft = androidx.compose.ui.geometry.Offset(startX, centerY - 2.dp.toPx()),
+            size = androidx.compose.ui.geometry.Size(endX - startX, 4.dp.toPx()),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(99.dp.toPx())
+        )
+        drawRoundRect(
+            color = accent.copy(alpha = 0.38f),
+            topLeft = androidx.compose.ui.geometry.Offset(startX, centerY - 3.dp.toPx()),
+            size = androidx.compose.ui.geometry.Size(endX - startX, 6.dp.toPx()),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(99.dp.toPx())
+        )
+
+        samples.forEachIndexed { index, value ->
+            val y = if (index % 2 == 0) centerY - 6.dp.toPx() else centerY + 6.dp.toPx()
+            drawCircle(
+                color = surface,
+                radius = 5.dp.toPx(),
+                center = androidx.compose.ui.geometry.Offset(xFor(value), y)
             )
-        )
+            drawCircle(
+                color = accent,
+                radius = 3.5.dp.toPx(),
+                center = androidx.compose.ui.geometry.Offset(xFor(value), y)
+            )
+        }
 
-    is PrecipitationConfidence.Rain -> {
-        val conditional = precipitation.meta.conditionalAmountMm ?: precipitation.meanMm
-        val probability = precipitation.meta.probabilityPercent
-        val rawRange = "${precipitation.minMm.roundToInt()}–${precipitation.maxMm.roundToInt()} mm"
-        DetailMetricPresentation(
-            value = (precipitation.meta.centralAmountMm ?: conditional).roundToInt().toString(),
-            unit = "mm",
-            supporting = if (probability != null) {
-                stringResource(R.string.metric_precip_probability_conditional, probability, conditional)
-            } else stringResource(R.string.metric_precip_if_rain, "${conditional.roundToInt()} mm"),
-            detail = stringResource(R.string.metric_precip_rain_range, rawRange)
+        val centerX = xFor(central)
+        drawRoundRect(
+            color = centerColor,
+            topLeft = androidx.compose.ui.geometry.Offset(centerX - 1.5.dp.toPx(), 2.dp.toPx()),
+            size = androidx.compose.ui.geometry.Size(3.dp.toPx(), size.height - 4.dp.toPx()),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(3.dp.toPx())
         )
     }
+}
 
-    is PrecipitationConfidence.Divided -> {
-        val conditional = precipitation.meta.conditionalAmountMm ?: precipitation.rainMeanMm
-        val probability = precipitation.meta.probabilityPercent
-        val rawRange = "${precipitation.rainMinMm.roundToInt()}–${precipitation.rainMaxMm.roundToInt()} mm"
-        DetailMetricPresentation(
-            value = (precipitation.meta.centralAmountMm ?: conditional).roundToInt().toString(),
-            unit = "mm",
-            supporting = if (probability != null) {
-                stringResource(R.string.metric_precip_probability_conditional, probability, conditional)
-            } else stringResource(R.string.metric_precip_if_rain, "${conditional.roundToInt()} mm"),
-            detail = stringResource(R.string.metric_precip_rain_range, rawRange)
-        )
+private fun formatDispersionValue(
+    value: Double,
+    unit: String,
+    digits: Int,
+    locale: java.util.Locale
+): String {
+    if (!value.isFinite()) return "—"
+    val number = if (digits <= 0) {
+        value.roundToInt().toString()
+    } else {
+        String.format(locale, "%.${digits}f", value)
     }
+    return "$number$unit"
 }
 
 @Composable

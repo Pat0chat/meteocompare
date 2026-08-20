@@ -733,4 +733,10 @@
     <string name="metric_precip_probability_conditional">Risque pluie %1$d %% · %2$.1f mm si pluie</string>
     <string name="metric_precip_expected_range">Cumul moyen estimé %1$.1f mm · si pluie %2$s</string>
     <string name="metric_precip_rain_range">Scénarios pluvieux %1$s</string>
+
+    <plurals name="summary_dispersion_models">
+        <item quantity="one">%d modèle</item>
+        <item quantity="many">%d modèles</item>
+        <item quantity="other">%d modèles</item>
+    </plurals>
 </resources>

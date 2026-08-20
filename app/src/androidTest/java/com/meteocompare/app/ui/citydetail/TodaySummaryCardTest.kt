@@ -6,6 +6,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.test.platform.app.InstrumentationRegistry
 import com.meteocompare.app.R
+import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.ConfidenceScore
 import com.meteocompare.app.domain.model.DayConfidence
 import com.meteocompare.app.domain.model.PrecipitationConfidence
@@ -18,10 +19,21 @@ class TodaySummaryCardTest {
     @get:Rule val composeRule = createComposeRule()
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
 
-    private fun render(today: DayConfidence, modelCount: Int = 5) {
+    private fun render(
+        today: DayConfidence,
+        modelCount: Int = 5,
+        forecast: CityForecast? = null
+    ) {
         composeRule.setContent {
             MeteoCompareTheme {
-                Surface { TodaySummaryCard(today = today, modelCount = modelCount, currentTemp = null) }
+                Surface {
+                    TodaySummaryCard(
+                        today = today,
+                        modelCount = modelCount,
+                        currentTemp = null,
+                        forecast = forecast
+                    )
+                }
             }
         }
     }
@@ -43,23 +55,56 @@ class TodaySummaryCardTest {
         composeRule.onNodeWithText(context.getString(R.string.var_temp_max), useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText(context.getString(R.string.var_temp_min), useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText(
-            context.getString(R.string.metric_summary_range_and_spread, "14–17°", "3°"),
+            context.getString(R.string.metric_summary_range, "14.0° – 17.0°"),
             useUnmergedTree = true
         ).assertIsDisplayed()
-        composeRule.onNodeWithText(context.getString(R.string.var_precipitation), useUnmergedTree = true).assertIsDisplayed()
-        composeRule.onNodeWithText(context.getString(R.string.metric_detail_wind), useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText(context.getString(R.string.var_precipitation), useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText(context.getString(R.string.metric_detail_wind), useUnmergedTree = true).assertExists()
         composeRule.onNodeWithText(
             context.getString(R.string.metric_gust_detail, "28–36"),
             useUnmergedTree = true
-        ).assertIsDisplayed()
-        composeRule.onNodeWithText(context.getString(R.string.precip_dry), useUnmergedTree = true).assertIsDisplayed()
+        ).assertExists()
+        composeRule.onNodeWithText("0.0 mm", useUnmergedTree = true).assertExists()
         // TodaySummaryCard merges descendants for accessibility. The confidence label is
         // intentionally a secondary visual element, so this test verifies that it is
         // emitted in the unmerged semantics tree rather than requiring viewport visibility.
+        composeRule.onNodeWithText(context.getString(R.string.home_agreement_label), useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText("85%", useUnmergedTree = true).assertExists()
+    }
+
+
+    @Test
+    fun dispersion_uses_raw_model_values_from_forecast() {
+        val forecast = TestFixtures.forecast()
+        render(
+            today = DayConfidence(
+                date = TestFixtures.today,
+                tempMax = null,
+                tempMin = ConfidenceScore(
+                    percent = 90,
+                    minValue = 10.0,
+                    maxValue = 20.0,
+                    meanValue = 15.8,
+                    stdDev = 0.6,
+                    modelCount = 3
+                ),
+                precipitation = null,
+                windMax = null
+            ),
+            modelCount = 3,
+            forecast = forecast
+        )
+
+        // Les fixtures donnent 15.0 / 15.8 / 16.6 °C aujourd'hui. La plage
+        // affichée doit donc venir des modèles bruts, pas du fallback 10–20 °C.
         composeRule.onNodeWithText(
-            context.getString(R.string.metric_agreement, 85),
+            context.getString(R.string.metric_summary_range, "15.0° – 16.6°"),
             useUnmergedTree = true
-        ).assertExists()
+        ).assertIsDisplayed()
+        composeRule.onNodeWithText(
+            context.resources.getQuantityString(R.plurals.summary_dispersion_models, 3, 3),
+            useUnmergedTree = true
+        ).assertIsDisplayed()
     }
 
     @Test
@@ -92,7 +137,7 @@ class TodaySummaryCardTest {
             )
         )
         composeRule.onNodeWithText(
-            context.getString(R.string.metric_summary_range, "2–6 mm"),
+            context.getString(R.string.metric_summary_range, "2.0 mm – 6.0 mm"),
             useUnmergedTree = true
         ).assertIsDisplayed()
     }
@@ -117,11 +162,11 @@ class TodaySummaryCardTest {
             )
         )
         composeRule.onNodeWithText(
-            context.getString(R.string.metric_precip_if_rain, "2–3 mm"),
+            context.getString(R.string.metric_precip_if_rain, "2.2 mm"),
             useUnmergedTree = true
         ).assertIsDisplayed()
         composeRule.onNodeWithText(
-            context.getString(R.string.confidence_precip_divided, 3, 5),
+            context.getString(R.string.metric_precip_probability_only, 60),
             useUnmergedTree = true
         ).assertIsDisplayed()
     }

@@ -668,4 +668,10 @@ Daten</string>
     <string name="metric_precip_probability_conditional">Regenrisiko %1$d%% · %2$.1f mm bei Regen</string>
     <string name="metric_precip_expected_range">Geschätztes Mittel %1$.1f mm · bei Regen %2$s</string>
     <string name="metric_precip_rain_range">Regenszenarien %1$s</string>
+
+    <plurals name="summary_dispersion_models">
+        <item quantity="one">%d Modell</item>
+        <item quantity="many">%d Modelle</item>
+        <item quantity="other">%d Modelle</item>
+    </plurals>
 </resources>

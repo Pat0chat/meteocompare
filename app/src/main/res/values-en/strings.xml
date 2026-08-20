@@ -735,4 +735,10 @@
     <string name="metric_precip_probability_conditional">Rain risk %1$d%% · %2$.1f mm if wet</string>
     <string name="metric_precip_expected_range">Estimated mean %1$.1f mm · if wet %2$s</string>
     <string name="metric_precip_rain_range">Wet scenarios %1$s</string>
+
+    <plurals name="summary_dispersion_models">
+        <item quantity="one">%d model</item>
+        <item quantity="many">%d models</item>
+        <item quantity="other">%d models</item>
+    </plurals>
 </resources>

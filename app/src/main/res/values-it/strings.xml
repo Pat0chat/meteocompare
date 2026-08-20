@@ -672,4 +672,10 @@ dato</string>
     <string name="metric_precip_probability_conditional">Rischio pioggia %1$d%% · %2$.1f mm se piove</string>
     <string name="metric_precip_expected_range">Media stimata %1$.1f mm · se piove %2$s</string>
     <string name="metric_precip_rain_range">Scenari piovosi %1$s</string>
+
+    <plurals name="summary_dispersion_models">
+        <item quantity="one">%d modello</item>
+        <item quantity="many">%d modelli</item>
+        <item quantity="other">%d modelli</item>
+    </plurals>
 </resources>
