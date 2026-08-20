@@ -170,7 +170,7 @@ internal fun FrozenDetailTableLayout(
             )
 
             SyncedTemporalHeaderViewport(
-                scrollOffsetPx = horizontalState.value,
+                scrollOffsetPx = { horizontalState.value },
                 modifier = Modifier
                     .weight(1f)
                     .height(headerHeight)
@@ -229,7 +229,7 @@ internal fun FrozenDetailTableLayout(
  */
 @Composable
 private fun SyncedTemporalHeaderViewport(
-    scrollOffsetPx: Int,
+    scrollOffsetPx: () -> Int,
     modifier: Modifier = Modifier,
     content: @Composable RowScope.() -> Unit
 ) {
@@ -244,7 +244,7 @@ private fun SyncedTemporalHeaderViewport(
             )
         )
         layout(constraints.maxWidth, constraints.maxHeight) {
-            row.placeRelative(x = -scrollOffsetPx, y = 0)
+            row.placeRelative(x = -scrollOffsetPx(), y = 0)
         }
     }
 }

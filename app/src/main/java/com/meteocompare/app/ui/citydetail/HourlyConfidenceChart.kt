@@ -94,10 +94,10 @@ private const val MAX_VIEW_SPAN = 1.0f
 @Composable
 fun HourlyConfidenceChart(
     bands: List<HourlyConfidenceBand>,
-    metric: ConfidenceMetric = ConfidenceMetric.TEMPERATURE,
     timezone: String?,
-    normals: Map<Int, DayNormals>? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    metric: ConfidenceMetric = ConfidenceMetric.TEMPERATURE,
+    normals: Map<Int, DayNormals>? = null
 ) {
     if (bands.size < 2) {
         Box(modifier = modifier.height(ChartCanvasHeight), contentAlignment = Alignment.Center) {

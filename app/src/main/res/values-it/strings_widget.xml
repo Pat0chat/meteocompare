@@ -46,6 +46,7 @@
     <string name="widget_value_detail_range_consensus">%1$s · %2$d%% di convergenza</string>
     <plurals name="widget_value_detail_range_models">
         <item quantity="one">%1$s · %2$d modello</item>
+        <item quantity="many">%1$s · %2$d modelli</item>
         <item quantity="other">%1$s · %2$d modelli</item>
     </plurals>
     <string name="widget_value_detail_consensus">%1$d%% di convergenza tra modelli</string>

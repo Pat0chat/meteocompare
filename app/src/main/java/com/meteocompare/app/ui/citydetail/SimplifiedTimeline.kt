@@ -78,10 +78,10 @@ import kotlin.math.roundToInt
 @Composable
 internal fun SimplifiedTimelineCard(
     points: List<SimplifiedTimelinePoint>,
-    events: List<ForecastEvent> = emptyList(),
     mode: DisplayMode,
     timezone: String?,
     modifier: Modifier = Modifier,
+    events: List<ForecastEvent> = emptyList(),
     focusPoint: SimplifiedTimelinePoint? = null,
     focusRequestId: Int = 0,
     onModeChange: ((DisplayMode) -> Unit)? = null,

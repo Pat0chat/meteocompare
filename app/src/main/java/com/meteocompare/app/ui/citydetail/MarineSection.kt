@@ -30,7 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -300,7 +300,7 @@ private fun MarineSurface(title: String, subtitle: String, content: @Composable 
 
 @Composable
 private fun MarineDayCard(data: MarineForecast, date: String, index: Int) {
-    val locale = LocalContext.current.resources.configuration.locales[0] ?: Locale.getDefault()
+    val locale = LocalLocale.current.platformLocale
     val dayLabel = runCatching {
         LocalDate.parse(date).format(DateTimeFormatter.ofPattern("EEE d MMM", locale))
     }.getOrDefault(date)
@@ -361,7 +361,7 @@ private fun TideRow(event: TideEvent) {
 
 @Composable
 private fun eventDateTime(event: TideEvent): String {
-    val locale = LocalContext.current.resources.configuration.locales[0] ?: Locale.getDefault()
+    val locale = LocalLocale.current.platformLocale
     return runCatching {
         LocalDateTime.parse(event.timestamp).format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT).withLocale(locale))
     }.getOrDefault(event.timestamp)

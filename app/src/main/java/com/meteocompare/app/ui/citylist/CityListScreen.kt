@@ -368,8 +368,8 @@ internal fun CityCard(
     onClick: () -> Unit,
     onRemove: () -> Unit,
     onRetry: () -> Unit,
-    onMarineAction: () -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onMarineAction: () -> Unit = {}
 ) {
     val resources = LocalResources.current
     val a11yDescription = com.meteocompare.app.ui.accessibility.A11yFormatter

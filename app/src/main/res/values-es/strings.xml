@@ -442,6 +442,7 @@ datos</string>
     <string name="offline_saved_data_age_inline">Sin conexión · %1$s</string>
     <plurals name="forecast_insights_models">
         <item quantity="one">%d modelo</item>
+        <item quantity="many">%d modelos</item>
         <item quantity="other">%d modelos</item>
     </plurals>
     <string name="forecast_insights_subtitle_hourly">Resumen de las próximas 24 horas · %1$s</string>
@@ -541,6 +542,7 @@ datos</string>
     <!-- Modernized Home -->
     <plurals name="home_locations_followed">
         <item quantity="one">%d ubicación seguida</item>
+        <item quantity="many">%d ubicaciones seguidas</item>
         <item quantity="other">%d ubicaciones seguidas</item>
     </plurals>
     <string name="home_cloud_cover">Nubosidad %d%%</string>
@@ -549,10 +551,12 @@ datos</string>
     <string name="home_scenarios_title">Escenarios · próximas 12 h</string>
     <plurals name="home_scenarios_count">
         <item quantity="one">%d escenario</item>
+        <item quantity="many">%d escenarios</item>
         <item quantity="other">%d escenarios</item>
     </plurals>
     <plurals name="home_scenarios_models">
         <item quantity="one">%d modelo</item>
+        <item quantity="many">%d modelos</item>
         <item quantity="other">%d modelos</item>
     </plurals>
     <string name="home_scenario_gust_short">rachas %1$s</string>

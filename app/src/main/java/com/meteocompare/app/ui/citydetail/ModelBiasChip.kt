@@ -95,8 +95,8 @@ internal fun ModelBiasChip(
  */
 @Composable
 internal fun CalibratingChip(
-    sampleCount: Int? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    sampleCount: Int? = null
 ) {
     val showProgress = sampleCount != null
     val progress = sampleCount ?: 0

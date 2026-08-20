@@ -71,6 +71,7 @@ import com.meteocompare.app.ui.theme.windMetricAccent
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import java.util.Locale
 import kotlin.math.roundToInt
 
 internal const val TAG_FORECAST_EVOLUTION_CARD = "forecast-evolution-card"
@@ -642,15 +643,15 @@ private fun variableLabel(variable: ForecastEvolutionVariable): Int = when (vari
 
 private fun formatEvolutionValue(value: Double, variable: ForecastEvolutionVariable): String = when (variable) {
     ForecastEvolutionVariable.TEMPERATURE -> "${value.roundToInt()}°"
-    ForecastEvolutionVariable.PRECIPITATION -> String.format("%.1f mm", value)
+    ForecastEvolutionVariable.PRECIPITATION -> String.format(Locale.getDefault(), "%.1f mm", value)
     ForecastEvolutionVariable.WIND -> "${value.roundToInt()} km/h"
 }
 
 private fun signedEvolutionValue(value: Double, variable: ForecastEvolutionVariable): String {
     val sign = if (value > 0) "+" else ""
     return when (variable) {
-        ForecastEvolutionVariable.TEMPERATURE -> "$sign${String.format("%.1f", value)}°"
-        ForecastEvolutionVariable.PRECIPITATION -> "$sign${String.format("%.1f", value)} mm"
+        ForecastEvolutionVariable.TEMPERATURE -> "$sign${String.format(Locale.getDefault(), "%.1f", value)}°"
+        ForecastEvolutionVariable.PRECIPITATION -> "$sign${String.format(Locale.getDefault(), "%.1f", value)} mm"
         ForecastEvolutionVariable.WIND -> "$sign${value.roundToInt()} km/h"
     }
 }

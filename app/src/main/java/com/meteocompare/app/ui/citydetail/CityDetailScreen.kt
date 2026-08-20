@@ -55,6 +55,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -427,7 +428,7 @@ private fun LoadedView(
     var focusedTimelinePoint by remember(overviewTimeline) {
         mutableStateOf<SimplifiedTimelinePoint?>(null)
     }
-    var timelineFocusRequestId by remember(overviewTimeline) { mutableStateOf(0) }
+    var timelineFocusRequestId by remember(overviewTimeline) { mutableIntStateOf(0) }
     val contentListState = rememberLazyListState()
     // Items preceding the timeline: optional offline banner, today summary,
     // then optional insights. Keep this count in sync with the LazyColumn below.

@@ -340,7 +340,7 @@
     <!-- Hint affiché quand aucun chip de biais n\'est encore disponible pour la
          ville (première utilisation OU l\'app n\'a pas encore fetché l\'historique).
          Disparaît dès qu\'au moins un chip devient significatif. -->
-    <string name="bias_history_collecting">Historique J+1 en cours de collecte. Les indicateurs par modèle apparaîtront après 14 jours correspondants.</string>
+    <string name="bias_history_collecting">Historique J+1 en cours de collecte. Les indicateurs par modèle apparaîtront après 14 jours comparables.</string>
 
     <!-- Description a11y du chip "en cours de calibration" (< 14 samples). -->
     <string name="bias_chip_calibrating_content_description">Suivi de biais en cours pour ce modèle : pas encore assez de données historiques pour évaluer sa précision.</string>

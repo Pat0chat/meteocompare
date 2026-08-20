@@ -33,6 +33,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 
 private const val SELECTOR_ANIMATION_MS = 180
@@ -85,7 +86,7 @@ internal fun <T> ModernSlidingSelector(
 
             Box(
                 modifier = Modifier
-                    .offset(x = indicatorOffset)
+                    .offset { IntOffset(indicatorOffset.roundToPx(), 0) }
                     .width(itemWidth)
                     .fillMaxHeight()
                     .padding(3.dp)

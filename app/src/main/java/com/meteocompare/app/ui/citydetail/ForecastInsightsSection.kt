@@ -57,8 +57,8 @@ import kotlin.math.roundToInt
 internal fun ForecastInsightsSection(
     insights: List<ForecastInsight>,
     timezone: String?,
-    evolutionHighlight: ForecastEvolutionHighlight? = null,
     modifier: Modifier = Modifier,
+    evolutionHighlight: ForecastEvolutionHighlight? = null,
     modelCount: Int? = null,
     referencePoint: SimplifiedTimelinePoint? = null,
     onInsightClick: ((ForecastInsight) -> Unit)? = null,
