@@ -159,6 +159,8 @@
     <!-- Variable labels (today summary) -->
     <string name="var_temp_max">Température max</string>
     <string name="var_temp_min">Température min</string>
+    <string name="today_summary_temp_min_short">Min</string>
+    <string name="today_summary_temp_max_short">Max</string>
     <string name="var_wind_max">Vent max à 10 m</string>
     <string name="var_wind_gust_max">Rafales max à 10 m</string>
     <string name="var_precipitation">Précipitations</string>

@@ -1,8 +1,10 @@
 package com.meteocompare.app.ui.citydetail
 
 import androidx.compose.material3.Surface
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.test.platform.app.InstrumentationRegistry
 import com.meteocompare.app.R
@@ -52,12 +54,13 @@ class TodaySummaryCardTest {
         )
 
         composeRule.onNodeWithText(context.getString(R.string.models_analysed_many, 5), useUnmergedTree = true).assertIsDisplayed()
-        composeRule.onNodeWithText(context.getString(R.string.var_temp_max), useUnmergedTree = true).assertIsDisplayed()
-        composeRule.onNodeWithText(context.getString(R.string.var_temp_min), useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText(context.getString(R.string.metric_temperature), useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText(context.getString(R.string.today_summary_temp_min_short), useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText(context.getString(R.string.today_summary_temp_max_short), useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText(
             context.getString(R.string.metric_summary_range, "14.0° – 17.0°"),
             useUnmergedTree = true
-        ).assertIsDisplayed()
+        ).assertDoesNotExist()
         composeRule.onNodeWithText(context.getString(R.string.var_precipitation), useUnmergedTree = true).assertExists()
         composeRule.onNodeWithText(context.getString(R.string.metric_detail_wind), useUnmergedTree = true).assertExists()
         composeRule.onNodeWithText(
@@ -95,16 +98,20 @@ class TodaySummaryCardTest {
             forecast = forecast
         )
 
-        // Les fixtures donnent 15.0 / 15.8 / 16.6 °C aujourd'hui. La plage
-        // affichée doit donc venir des modèles bruts, pas du fallback 10–20 °C.
+        // Les fixtures donnent 15.0 / 15.8 / 16.6 °C aujourd'hui. Les bornes
+        // visibles de la frise doivent donc venir des modèles bruts, pas du
+        // fallback 10–20 °C. Le range textuel et le nombre de modèles sont
+        // volontairement supprimés pour compacter la card.
+        composeRule.onNodeWithText("15.0°", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("16.6°", useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText(
             context.getString(R.string.metric_summary_range, "15.0° – 16.6°"),
             useUnmergedTree = true
-        ).assertIsDisplayed()
+        ).assertDoesNotExist()
         composeRule.onNodeWithText(
             context.resources.getQuantityString(R.plurals.summary_dispersion_models, 3, 3),
             useUnmergedTree = true
-        ).assertIsDisplayed()
+        ).assertDoesNotExist()
     }
 
     @Test
@@ -119,14 +126,15 @@ class TodaySummaryCardTest {
             ),
             modelCount = 3
         )
-        composeRule.onNodeWithText(context.getString(R.string.var_temp_max), useUnmergedTree = true).assertIsDisplayed()
-        composeRule.onNodeWithText(context.getString(R.string.var_temp_min), useUnmergedTree = true).assertDoesNotExist()
+        composeRule.onNodeWithText(context.getString(R.string.metric_temperature), useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText(context.getString(R.string.today_summary_temp_max_short), useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText(context.getString(R.string.today_summary_temp_min_short), useUnmergedTree = true).assertDoesNotExist()
         composeRule.onNodeWithText(context.getString(R.string.var_precipitation), useUnmergedTree = true).assertDoesNotExist()
         composeRule.onNodeWithText(context.getString(R.string.metric_detail_wind), useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test
-    fun rain_state_shows_precipitation_range() {
+    fun rain_state_keeps_probability_and_conditional_amount() {
         render(
             DayConfidence(
                 date = TestFixtures.today,
@@ -137,9 +145,19 @@ class TodaySummaryCardTest {
             )
         )
         composeRule.onNodeWithText(
-            context.getString(R.string.metric_summary_range, "2.0 mm – 6.0 mm"),
+            context.getString(R.string.metric_precip_probability_only, 100),
+            substring = true,
             useUnmergedTree = true
         ).assertIsDisplayed()
+        composeRule.onNodeWithText(
+            context.getString(R.string.metric_precip_if_rain, "4.0 mm"),
+            substring = true,
+            useUnmergedTree = true
+        ).assertIsDisplayed()
+        composeRule.onNodeWithText(
+            context.getString(R.string.metric_summary_range, "2.0 mm – 6.0 mm"),
+            useUnmergedTree = true
+        ).assertDoesNotExist()
     }
 
     @Test
@@ -163,11 +181,64 @@ class TodaySummaryCardTest {
         )
         composeRule.onNodeWithText(
             context.getString(R.string.metric_precip_if_rain, "2.2 mm"),
+            substring = true,
             useUnmergedTree = true
         ).assertIsDisplayed()
         composeRule.onNodeWithText(
             context.getString(R.string.metric_precip_probability_only, 60),
+            substring = true,
             useUnmergedTree = true
         ).assertIsDisplayed()
     }
+    @Test
+    fun dispersion_central_value_at_min_replaces_overlapping_min_label() {
+        render(
+            DayConfidence(
+                date = TestFixtures.today,
+                tempMax = null,
+                tempMin = ConfidenceScore(
+                    percent = 88,
+                    minValue = 12.0,
+                    maxValue = 18.0,
+                    meanValue = 12.0,
+                    stdDev = 1.2,
+                    modelCount = 4
+                ),
+                precipitation = null,
+                windMax = null
+            ),
+            modelCount = 4
+        )
+
+        // Au bord gauche, la valeur centrale noire sert aussi de borne : le
+        // libellé min gris qui la chevaucherait doit être masqué.
+        composeRule.onAllNodesWithText("12.0°", useUnmergedTree = true).assertCountEquals(1)
+        composeRule.onNodeWithText("18.0°", useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun dispersion_central_value_at_max_replaces_overlapping_max_label() {
+        render(
+            DayConfidence(
+                date = TestFixtures.today,
+                tempMax = ConfidenceScore(
+                    percent = 88,
+                    minValue = 20.0,
+                    maxValue = 26.0,
+                    meanValue = 26.0,
+                    stdDev = 1.2,
+                    modelCount = 4
+                ),
+                tempMin = null,
+                precipitation = null,
+                windMax = null
+            ),
+            modelCount = 4
+        )
+
+        // Même protection au bord droit.
+        composeRule.onNodeWithText("20.0°", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onAllNodesWithText("26.0°", useUnmergedTree = true).assertCountEquals(1)
+    }
+
 }
