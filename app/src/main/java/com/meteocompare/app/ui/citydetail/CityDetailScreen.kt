@@ -1479,7 +1479,9 @@ private fun DetailMetricGrid(
                     samples = samples.tempMin,
                     unit = "°",
                     digits = 1,
-                    convergence = score.convergencePercent
+                    convergence = score.convergencePercent,
+                    centralTestTag = TAG_TODAY_SUMMARY_TEMP_MIN_CENTRAL,
+                    convergenceTestTag = TAG_TODAY_SUMMARY_TEMP_MIN_CONVERGENCE
                 )
             }
 
@@ -1494,7 +1496,9 @@ private fun DetailMetricGrid(
                     samples = samples.tempMax,
                     unit = "°",
                     digits = 1,
-                    convergence = score.convergencePercent
+                    convergence = score.convergencePercent,
+                    centralTestTag = TAG_TODAY_SUMMARY_TEMP_MAX_CENTRAL,
+                    convergenceTestTag = TAG_TODAY_SUMMARY_TEMP_MAX_CONVERGENCE
                 )
             }
             hasPrevious = true
@@ -1532,7 +1536,9 @@ private fun DetailMetricGrid(
                 samples = samples.precipitation,
                 unit = " mm",
                 digits = 1,
-                convergence = precipitation.convergencePercent
+                convergence = precipitation.convergencePercent,
+                centralTestTag = TAG_TODAY_SUMMARY_PRECIP_CENTRAL,
+                convergenceTestTag = TAG_TODAY_SUMMARY_PRECIP_CONVERGENCE
             )
             hasPrevious = true
         }
@@ -1568,7 +1574,9 @@ private fun DetailMetricGrid(
                 samples = if (isGustOnly) emptyList() else samples.wind,
                 unit = " km/h",
                 digits = 0,
-                convergence = score.convergencePercent
+                convergence = score.convergencePercent,
+                centralTestTag = TAG_TODAY_SUMMARY_WIND_CENTRAL,
+                convergenceTestTag = TAG_TODAY_SUMMARY_WIND_CONVERGENCE
             )
         }
     }
@@ -1681,7 +1689,9 @@ private fun DispersionMetricRow(
     unit: String,
     digits: Int,
     convergence: Int?,
-    subLabel: String? = null
+    subLabel: String? = null,
+    centralTestTag: String? = null,
+    convergenceTestTag: String? = null
 ) {
     val locale = LocalLocale.current.platformLocale
     val sampleValues = samples.map(DispersionSample::value).filter { it.isFinite() }
@@ -1734,7 +1744,8 @@ private fun DispersionMetricRow(
             maxLabel = formatDispersionValue(safeMax, unit, digits, locale),
             min = safeMin,
             max = safeMax,
-            central = central
+            central = central,
+            centralTestTag = centralTestTag
         )
 
         Row(
@@ -1749,6 +1760,7 @@ private fun DispersionMetricRow(
             Spacer(Modifier.width(6.dp))
             Text(
                 text = convergence?.let { "$it%" } ?: "—",
+                modifier = if (convergenceTestTag != null) Modifier.testTag(convergenceTestTag) else Modifier,
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.SemiBold,
                 color = convergenceTint
@@ -1781,7 +1793,8 @@ private fun DispersionAxisLabels(
     maxLabel: String,
     min: Double,
     max: Double,
-    central: Double
+    central: Double,
+    centralTestTag: String? = null
 ) {
     val mutedColor = MaterialTheme.colorScheme.onSurfaceVariant
     val centralColor = MaterialTheme.colorScheme.onSurface
@@ -1796,6 +1809,7 @@ private fun DispersionAxisLabels(
             )
             Text(
                 text = centralLabel,
+                modifier = if (centralTestTag != null) Modifier.testTag(centralTestTag) else Modifier,
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.SemiBold,
                 color = centralColor,
@@ -2023,6 +2037,14 @@ internal const val TAG_DETAIL_LOADING = "detail_loading"
 internal const val TAG_DETAIL_ERROR = "detail_error"
 internal const val TAG_DETAIL_LOADED = "detail_loaded"
 internal const val TAG_CONFIDENCE_BADGE = "confidence_badge"
+internal const val TAG_TODAY_SUMMARY_TEMP_MIN_CENTRAL = "today_summary_temp_min_central"
+internal const val TAG_TODAY_SUMMARY_TEMP_MAX_CENTRAL = "today_summary_temp_max_central"
+internal const val TAG_TODAY_SUMMARY_PRECIP_CENTRAL = "today_summary_precip_central"
+internal const val TAG_TODAY_SUMMARY_WIND_CENTRAL = "today_summary_wind_central"
+internal const val TAG_TODAY_SUMMARY_TEMP_MIN_CONVERGENCE = "today_summary_temp_min_convergence"
+internal const val TAG_TODAY_SUMMARY_TEMP_MAX_CONVERGENCE = "today_summary_temp_max_convergence"
+internal const val TAG_TODAY_SUMMARY_PRECIP_CONVERGENCE = "today_summary_precip_convergence"
+internal const val TAG_TODAY_SUMMARY_WIND_CONVERGENCE = "today_summary_wind_convergence"
 
 // ============================================================================
 //  Légendes des tableaux précipitations et vent

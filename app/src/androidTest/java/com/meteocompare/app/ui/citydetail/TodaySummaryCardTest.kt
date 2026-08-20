@@ -1,11 +1,11 @@
 package com.meteocompare.app.ui.citydetail
 
 import androidx.compose.material3.Surface
-import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.assertTextEquals
 import androidx.test.platform.app.InstrumentationRegistry
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.CityForecast
@@ -67,12 +67,13 @@ class TodaySummaryCardTest {
             context.getString(R.string.metric_gust_detail, "28–36"),
             useUnmergedTree = true
         ).assertExists()
-        composeRule.onNodeWithText("0.0 mm", useUnmergedTree = true).assertExists()
-        // TodaySummaryCard merges descendants for accessibility. The confidence label is
-        // intentionally a secondary visual element, so this test verifies that it is
-        // emitted in the unmerged semantics tree rather than requiring viewport visibility.
-        composeRule.onNodeWithText(context.getString(R.string.home_agreement_label), useUnmergedTree = true).assertExists()
-        composeRule.onNodeWithText("85%", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_PRECIP_CENTRAL, useUnmergedTree = true)
+            .assertTextEquals("0.0 mm")
+            .assertIsDisplayed()
+        // Chaque frise possède son propre libellé « Convergence ». On cible donc
+        // le pourcentage de la métrique attendue plutôt qu'un texte global ambigu.
+        composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_TEMP_MAX_CONVERGENCE, useUnmergedTree = true)
+            .assertTextEquals("85%")
     }
 
 
@@ -212,7 +213,9 @@ class TodaySummaryCardTest {
 
         // Au bord gauche, la valeur centrale noire sert aussi de borne : le
         // libellé min gris qui la chevaucherait doit être masqué.
-        composeRule.onAllNodesWithText("12.0°", useUnmergedTree = true).assertCountEquals(1)
+        composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_TEMP_MIN_CENTRAL, useUnmergedTree = true)
+            .assertTextEquals("12.0°")
+            .assertIsDisplayed()
         composeRule.onNodeWithText("18.0°", useUnmergedTree = true).assertIsDisplayed()
     }
 
@@ -238,7 +241,9 @@ class TodaySummaryCardTest {
 
         // Même protection au bord droit.
         composeRule.onNodeWithText("20.0°", useUnmergedTree = true).assertIsDisplayed()
-        composeRule.onAllNodesWithText("26.0°", useUnmergedTree = true).assertCountEquals(1)
+        composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_TEMP_MAX_CENTRAL, useUnmergedTree = true)
+            .assertTextEquals("26.0°")
+            .assertIsDisplayed()
     }
 
 }
