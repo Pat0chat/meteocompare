@@ -27,7 +27,7 @@ import kotlin.math.sqrt
  *   - Construit une valeur centrale par médiane pondérée, équilibrée par lignée.
  *   - Convertit la dispersion en pourcentage de convergence via des seuils heuristiques
  *     par variable (cf. [Thresholds]).
- *   - Cas spécial pluie : agreement binaire + spread sur l'intensité.
+ *   - Cas spécial pluie : probabilité d'occurrence + quantité conditionnelle.
  *
  * Conventions :
  *   - On utilise toujours les **séries journalières** (`daily`) pour les confidences,

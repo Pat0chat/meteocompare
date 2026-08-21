@@ -246,4 +246,45 @@ class TodaySummaryCardTest {
             .assertIsDisplayed()
     }
 
+    @Test
+    fun gust_only_dispersion_uses_raw_gust_values_from_forecast() {
+        val base = TestFixtures.forecast()
+        val gustForecast = base.copy(
+            seriesByModel = base.seriesByModel.entries.mapIndexed { modelIndex, (model, series) ->
+                model to series.copy(
+                    daily = series.daily.copy(
+                        windSpeedMax = emptyList(),
+                        windGustsMax = series.daily.dates.indices.map { 30.0 + modelIndex * 2.0 }
+                    )
+                )
+            }.toMap()
+        )
+
+        render(
+            today = DayConfidence(
+                date = TestFixtures.today,
+                tempMax = null,
+                tempMin = null,
+                precipitation = null,
+                windMax = null,
+                windGustMax = ConfidenceScore(
+                    percent = 82,
+                    minValue = 30.0,
+                    maxValue = 34.0,
+                    meanValue = 32.0,
+                    stdDev = 1.6,
+                    modelCount = 3
+                )
+            ),
+            modelCount = 3,
+            forecast = gustForecast
+        )
+
+        composeRule.onNodeWithText("30 km/h", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("34 km/h", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_WIND_CENTRAL, useUnmergedTree = true)
+            .assertTextEquals("32 km/h")
+            .assertIsDisplayed()
+    }
+
 }

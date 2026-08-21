@@ -39,7 +39,7 @@ import java.time.LocalDate
 import javax.inject.Inject
 
 /**
- * État de l'écran "Pourquoi cette confiance ?".
+ * État de l'écran "Pourquoi cette convergence ?".
  *
  * Même pattern que [com.meteocompare.app.ui.citydetail.CityDetailUiState] :
  * sealed interface car les trois cas (Loading, Loaded, Error) sont

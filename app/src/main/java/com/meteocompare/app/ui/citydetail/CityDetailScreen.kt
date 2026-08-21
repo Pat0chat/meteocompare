@@ -1397,7 +1397,8 @@ private data class TodaySummaryDispersionSamples(
     val tempMin: List<DispersionSample> = emptyList(),
     val tempMax: List<DispersionSample> = emptyList(),
     val precipitation: List<DispersionSample> = emptyList(),
-    val wind: List<DispersionSample> = emptyList()
+    val wind: List<DispersionSample> = emptyList(),
+    val windGust: List<DispersionSample> = emptyList()
 )
 
 /**
@@ -1419,6 +1420,7 @@ private fun buildTodaySummaryDispersionSamples(
     val tempMax = mutableListOf<DispersionSample>()
     val precipitation = mutableListOf<DispersionSample>()
     val wind = mutableListOf<DispersionSample>()
+    val windGust = mutableListOf<DispersionSample>()
 
     forecast.seriesByModel.forEach { (model, series) ->
         val index = series.daily.dates.indexOf(date)
@@ -1435,13 +1437,17 @@ private fun buildTodaySummaryDispersionSamples(
         series.daily.windSpeedMax.getOrNull(index)?.takeIf { it.isFinite() }?.let {
             wind += DispersionSample(model, it.coerceAtLeast(0.0))
         }
+        series.daily.windGustsMax.getOrNull(index)?.takeIf { it.isFinite() }?.let {
+            windGust += DispersionSample(model, it.coerceAtLeast(0.0))
+        }
     }
 
     return TodaySummaryDispersionSamples(
         tempMin = tempMin,
         tempMax = tempMax,
         precipitation = precipitation,
-        wind = wind
+        wind = wind,
+        windGust = windGust
     )
 }
 
@@ -1571,7 +1577,7 @@ private fun DetailMetricGrid(
                 central = score.centralValue,
                 fallbackMin = score.minValue,
                 fallbackMax = score.maxValue,
-                samples = if (isGustOnly) emptyList() else samples.wind,
+                samples = if (isGustOnly) samples.windGust else samples.wind,
                 unit = " km/h",
                 digits = 0,
                 convergence = score.convergencePercent,

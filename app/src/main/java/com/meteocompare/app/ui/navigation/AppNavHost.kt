@@ -50,7 +50,7 @@ fun AppNavHost() {
             )
         }
 
-        // ─── "Pourquoi cette confiance ?" ──────────────────────────────────
+        // ─── "Pourquoi cette convergence ?" ──────────────────────────────────
         // Sa propre route plutôt qu'un BottomSheet : c'est un contenu long
         // (header + 4 variables × 5-8 modèles + section éducative). Un sheet
         // mangerait l'écran et obligerait à scroller dans un demi-écran. Une

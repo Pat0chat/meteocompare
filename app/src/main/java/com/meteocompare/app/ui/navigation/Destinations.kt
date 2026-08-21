@@ -16,7 +16,7 @@ object Destinations {
 
     fun cityDetail(cityId: String): String = "$CITY_DETAIL_BASE/$cityId"
 
-    // ─── "Pourquoi cette confiance ?" ──────────────────────────────────────
+    // ─── "Pourquoi cette convergence ?" ──────────────────────────────────────
     //
     // Deux arguments : cityId + date (ISO yyyy-MM-dd). On garde la date dans
     // la route plutôt que dans un side-channel ViewModel-shared parce que :

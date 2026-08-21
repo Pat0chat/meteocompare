@@ -15,10 +15,10 @@ import kotlin.math.roundToInt
  * Regroupe les prévisions déterministes modèle par modèle en quelques scénarios
  * pédagogiques sur les 12 prochaines heures.
  *
- * Important : un groupe de 4 modèles sur 7 est présenté comme "4/7 modèles",
- * jamais comme "57 % de probabilité". Des modèles issus de familles proches
- * peuvent partager des dépendances et ne constituent pas des tirages
- * indépendants.
+ * Important : le soutien affichable est équilibré par familles de modèles et ne
+ * doit jamais être interprété comme une probabilité météo. Des modèles issus de
+ * familles proches peuvent partager des dépendances et ne constituent pas des
+ * tirages indépendants.
  */
 object WeatherScenarioBuilder {
 

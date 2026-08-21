@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <full-backup-content>
-    <!-- Favoris et préférences DataStore. -->
-    <include domain="file" path="datastore/" />
+    <!-- Données utilisateur durables uniquement. Les caches réseau sont reconstruits après restauration. -->
+    <include domain="file" path="datastore/user_prefs.preferences_pb" />
+    <include domain="file" path="datastore/favorites.preferences_pb" />
     <!-- Source canonique de la langue de l'application. -->
     <include domain="sharedpref" path="meteocompare_locale_prefs.xml" />
 </full-backup-content>

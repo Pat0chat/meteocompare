@@ -105,7 +105,7 @@ internal data class SimplifiedTimelinePoint(
     val temperatureModelCount: Int = 0,
     val windModelCount: Int = 0,
     val conditionModelCount: Int = 0,
-    /** Vrai uniquement si au moins deux modèles partagent une même métrique. */
+    /** Vrai uniquement si au moins deux familles indépendantes partagent une même métrique. */
     val hasMultiModelEvidence: Boolean = false,
     /** Score synthétique de convergence, calculé seulement à partir de métriques comparables. */
     val consensusPercent: Int? = null,
