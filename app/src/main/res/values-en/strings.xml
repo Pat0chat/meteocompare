@@ -732,7 +732,7 @@
 
     <string name="historical_confidence_title">Local historical confidence</string>
     <string name="historical_confidence_meta">Observed D+1 performance · %1$d families</string>
-    <string name="home_scenario_family_support">%1$d%% family support</string>
+    <string name="home_scenario_family_support">%1$d%%</string>
     <string name="metric_precip_probability_only">Rain risk %1$d%%</string>
     <string name="metric_precip_probability_conditional">Rain risk %1$d%% · %2$.1f mm if wet</string>
     <string name="metric_precip_expected_range">Estimated mean %1$.1f mm · if wet %2$s</string>

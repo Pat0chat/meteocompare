@@ -669,7 +669,7 @@ dato</string>
 
     <string name="historical_confidence_title">Affidabilità storica locale</string>
     <string name="historical_confidence_meta">Prestazioni D+1 osservate · %1$d famiglie</string>
-    <string name="home_scenario_family_support">%1$d%% supporto famiglie</string>
+    <string name="home_scenario_family_support">%1$d%%</string>
     <string name="metric_precip_probability_only">Rischio pioggia %1$d%%</string>
     <string name="metric_precip_probability_conditional">Rischio pioggia %1$d%% · %2$.1f mm se piove</string>
     <string name="metric_precip_expected_range">Media stimata %1$.1f mm · se piove %2$s</string>

@@ -665,7 +665,7 @@ Daten</string>
 
     <string name="historical_confidence_title">Lokale historische Zuverlässigkeit</string>
     <string name="historical_confidence_meta">Beobachtete D+1-Leistung · %1$d Familien</string>
-    <string name="home_scenario_family_support">%1$d%% Familien-Unterstützung</string>
+    <string name="home_scenario_family_support">%1$d%%</string>
     <string name="metric_precip_probability_only">Regenrisiko %1$d%%</string>
     <string name="metric_precip_probability_conditional">Regenrisiko %1$d%% · %2$.1f mm bei Regen</string>
     <string name="metric_precip_expected_range">Geschätztes Mittel %1$.1f mm · bei Regen %2$s</string>

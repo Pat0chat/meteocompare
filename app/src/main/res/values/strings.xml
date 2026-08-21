@@ -730,7 +730,7 @@
 
     <string name="historical_confidence_title">Confiance historique locale</string>
     <string name="historical_confidence_meta">Performance J+1 observée · %1$d familles</string>
-    <string name="home_scenario_family_support">%1$d %% soutien des familles</string>
+    <string name="home_scenario_family_support">%1$d %%</string>
     <string name="metric_precip_probability_only">Risque pluie %1$d %%</string>
     <string name="metric_precip_probability_conditional">Risque pluie %1$d %% · %2$.1f mm si pluie</string>
     <string name="metric_precip_expected_range">Cumul moyen estimé %1$.1f mm · si pluie %2$s</string>
