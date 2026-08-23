@@ -1,1 +1,1 @@
-Compare 17 weather models and see where forecasts agree or diverge
+Compare 19 weather models, 4 forecast engines and coastal conditions.

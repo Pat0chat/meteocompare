@@ -1,1 +1,1 @@
-Compare 17 weather models (AROME, GFS, ECMWF…) and track their bias by city.
+Compare 19 weather models, 4 forecast engines and coastal conditions.

@@ -1,0 +1,1 @@
+Traduzione automatica. Motore V3 con 4 strategie e pagina di confronto, modalità Mare / costa con maree, HARMONIE DMI e MeteoSwiss ICON-CH2, indicatore marino nelle card Home e varie correzioni UI/test.

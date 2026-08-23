@@ -147,6 +147,14 @@ class WeatherModelInvariantsTest {
         assertEquals(4, WeatherModel.KNMI_HARMONIE_EU.maxForecastDays)
         assertEquals(180, WeatherModel.ICON_GLOBAL.forecastHorizonHours)
         assertEquals(60, WeatherModel.METNO_NORDIC.forecastHorizonHours)
+        assertEquals("dmi_harmonie_arome_europe", WeatherModel.DMI_HARMONIE_EU.apiKey)
+        assertEquals(2.0, WeatherModel.DMI_HARMONIE_EU.resolutionKm, 0.0)
+        assertEquals(4, WeatherModel.DMI_HARMONIE_EU.maxForecastDays)
+        assertEquals(60, WeatherModel.DMI_HARMONIE_EU.forecastHorizonHours)
+        assertEquals("meteoswiss_icon_ch2", WeatherModel.METEOSWISS_ICON_CH2.apiKey)
+        assertEquals(2.0, WeatherModel.METEOSWISS_ICON_CH2.resolutionKm, 0.0)
+        assertEquals(5, WeatherModel.METEOSWISS_ICON_CH2.maxForecastDays)
+        assertEquals(120, WeatherModel.METEOSWISS_ICON_CH2.forecastHorizonHours)
     }
 
     @Test
@@ -167,6 +175,13 @@ class WeatherModelInvariantsTest {
         assertEquals(WeatherModel.GFS, WeatherModel.fromApiKey("ncep_gfs_seamless"))
         assertEquals(WeatherModel.ICON_GLOBAL, WeatherModel.fromApiKey("icon_seamless"))
         assertEquals(WeatherModel.ICON_GLOBAL, WeatherModel.fromApiKey("icon_global"))
+    }
+
+    @Test
+    fun `catalogue contient les 19 modeles attendus`() {
+        assertEquals(19, WeatherModel.entries.size)
+        assertTrue(WeatherModel.DMI_HARMONIE_EU in WeatherModel.entries)
+        assertTrue(WeatherModel.METEOSWISS_ICON_CH2 in WeatherModel.entries)
     }
 
 }

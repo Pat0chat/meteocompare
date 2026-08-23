@@ -1,0 +1,1 @@
+Automatisch übersetzt. V3-Prognose-Engine mit 4 Strategien und Vergleichsseite, Meer-/Küstenmodus mit Gezeiten, DMI HARMONIE und MeteoSwiss ICON-CH2, Marine-Anzeige auf Home-Karten sowie UI- und Testkorrekturen.

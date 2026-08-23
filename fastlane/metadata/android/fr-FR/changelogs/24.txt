@@ -1,0 +1,1 @@
+Moteur de prévision V3 avec 4 stratégies et comparaison dédiée, mode Mer / côte avec marées, ajout de HARMONIE DMI et MeteoSwiss ICON-CH2, indicateur mer sur les cartes Home, amélioration du classement local et nombreuses corrections de tests/UI.

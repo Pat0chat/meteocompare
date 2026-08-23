@@ -489,6 +489,18 @@ private fun CityCardHeader(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false)
                 )
+                if (marineEnabled) {
+                    Spacer(Modifier.width(7.dp))
+                    Surface(
+                        modifier = Modifier
+                            .size(9.dp)
+                            .padding(bottom = 1.dp)
+                            .testTag("$TAG_CITY_MARINE_ENABLED${city.id}"),
+                        shape = androidx.compose.foundation.shape.CircleShape,
+                        color = Color(0xFF1976D2),
+                        content = {}
+                    )
+                }
                 if (city.country.isNotBlank()) {
                     Spacer(Modifier.width(12.dp))
                     Text(
@@ -1282,6 +1294,7 @@ internal fun EmptyState(
 // ─── Test tags exposés pour les tests d'instrumentation ─────────────────────
 internal const val TAG_CITY_LIST = "city_list"
 internal const val TAG_CITY_CARD = "city_card_"
+internal const val TAG_CITY_MARINE_ENABLED = "city_marine_enabled_"
 internal const val TAG_EMPTY_STATE = "empty_state"
 internal const val TAG_ADD_FAB = "add_fab"
 internal const val TAG_DONATE_BUTTON = "donate_button"

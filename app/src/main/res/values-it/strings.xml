@@ -45,7 +45,7 @@
     <string name="open_meteo_attribution_open">Apri il sito di Open-Meteo</string>
     <string name="open_meteo_link_label">Sito di Open-Meteo</string>
     <string name="widget_open_meteo_attribution">Open-Meteo · dati aggregati</string>
-    <string name="settings_about_models_credit">Modelli: AROME e ARPEGE di Météo-France, ICON di DWD, GFS e HRRR di NOAA, ECMWF e AIFS del Centro Europeo, UKMO del UK Met Office, GEM di Environment Canada, MET Nordic di MET Norway, HARMONIE di KNMI, ACCESS del Bureau of Meteorology (Australia), GRAPES di CMA (Cina).</string>
+    <string name="settings_about_models_credit">Modelli: AROME e ARPEGE di Météo-France, ICON di DWD, GFS e HRRR di NOAA, ECMWF e AIFS del Centro Europeo, UKMO del UK Met Office, GEM di Environment Canada, MET Nordic di MET Norway, HARMONIE di KNMI e DMI, ICON-CH di MeteoSwiss, ACCESS del Bureau of Meteorology (Australia), GRAPES di CMA (Cina).</string>
     <string name="settings_bias_refresh_title">Monitoraggio del bias</string>
     <string name="settings_bias_refresh_desc">Recupera fino a 3 settimane di storico D+1 per avviare l’affidabilità locale. I modelli senza archivio si calibrano gradualmente.</string>
     <string name="settings_bias_refresh_action">Inizializza o aggiorna</string>

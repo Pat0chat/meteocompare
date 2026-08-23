@@ -44,7 +44,9 @@ private val ModelColorMap: Map<WeatherModel, Color> = mapOf(
     WeatherModel.METNO_NORDIC to Color(0xFF00695C),
     WeatherModel.KNMI_HARMONIE_EU to Color(0xFF795548),
     WeatherModel.BOM_ACCESS to Color(0xFF283593),
-    WeatherModel.CMA_GRAPES to Color(0xFFAD1457)
+    WeatherModel.CMA_GRAPES to Color(0xFFAD1457),
+    WeatherModel.DMI_HARMONIE_EU to Color(0xFF8D6E63),
+    WeatherModel.METEOSWISS_ICON_CH2 to Color(0xFFD32F2F)
 )
 
 /**

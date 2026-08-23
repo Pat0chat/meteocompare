@@ -1,0 +1,1 @@
+Traducción automática. Motor V3 con 4 estrategias y comparación dedicada, modo Mar / costa con mareas, HARMONIE DMI e ICON-CH2 de MeteoSwiss, indicador marino en Inicio y varias correcciones de interfaz y pruebas.

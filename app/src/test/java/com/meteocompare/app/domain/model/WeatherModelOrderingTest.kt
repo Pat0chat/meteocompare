@@ -61,7 +61,9 @@ class WeatherModelOrderingTest {
                 ModelFamily.METNO,
                 ModelFamily.KNMI,
                 ModelFamily.BOM,
-                ModelFamily.CMA
+                ModelFamily.CMA,
+                ModelFamily.DMI,
+                ModelFamily.METEOSWISS
             ),
             sorted.map { it.family }.distinct()
         )

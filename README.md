@@ -4,7 +4,7 @@
 [![F-Droid](https://img.shields.io/f-droid/v/com.meteocompare.app)](https://f-droid.org/packages/com.meteocompare.app/)
 [![Liberapay patrons](https://img.shields.io/liberapay/patrons/Pat0chat.svg?logo=liberapay)](https://liberapay.com/Pat0chat)
 
-Application Android de comparaison multi-modèles météorologiques (AROME, ARPEGE, ICON, GFS, HRRR, ECMWF, UKMO, AIFS, GEM, MET Nordic, HARMONIE, ACCESS, GRAPES…) basée sur l'API [Open-Meteo](https://open-meteo.com).
+Application Android de comparaison multi-modèles météorologiques (AROME, ARPEGE, ICON, GFS, HRRR, ECMWF, UKMO, AIFS, GEM, MET Nordic, HARMONIE KNMI/DMI, ICON-CH2, ACCESS, GRAPES…) basée sur l'API [Open-Meteo](https://open-meteo.com).
 
 L'app se concentre sur **les données brutes et l'incertitude** : au lieu d'agréger silencieusement les modèles en une seule prévision, elle expose les désaccords entre modèles pour que l'utilisateur puisse juger lui-même du niveau de confiance à accorder à la prévision.
 
@@ -21,7 +21,7 @@ Depuis la v1.0, l'app suit aussi **le biais historique de chaque modèle sur cha
 
 ## Fonctionnalités
 
-- **Comparaison multi-modèles** : jusqu'à 17 modèles météo (Météo-France, DWD, NOAA, ECMWF, UK Met Office, ECCC, MET Norway, KNMI, BOM, CMA, plus le modèle IA d'ECMWF)
+- **Comparaison multi-modèles** : jusqu'à 19 modèles météo (Météo-France, DWD, NOAA, ECMWF, UK Met Office, ECCC, MET Norway, KNMI, DMI, MeteoSwiss, BOM, CMA, plus le modèle IA d'ECMWF)
 - **Moteur de prévision V3 sélectionnable** : Multi-consensus robuste, Calibration locale, Scénarios et Adaptatif. Le moteur choisi pilote Home, Détails et widgets sans modifier les sorties brutes des modèles.
 - **Comparaison des moteurs** : page dédiée calculant les quatre moteurs sur exactement le même forecast brut, sur 7 jours futurs dans le fuseau de la ville, avec graphiques Tmax/Tmin/pluie/vent/rafales/nuages et frise de divergence.
 - **Indice d’accord inter-modèles** calculé par variable (température, vent, précipitations) et par heure ; il décrit le spread des scénarios et n’est pas une probabilité de justesse
@@ -38,6 +38,7 @@ Depuis la v1.0, l'app suit aussi **le biais historique de chaque modèle sur cha
 - **Icônes de temps** synthétisées à partir des codes WMO 4677, dont un composite bi-color soleil + nuage pour "partiellement nuageux"
 - **"Fraîcheur" des données** affichée sur chaque carte : "Mis à jour à l'instant", "il y a 5 min", etc. — auto-rafraîchi au fil du temps
 - **Cartes Home compactes** : accent météo vertical sur le bord gauche, métriques resserrées, pastille « N scénarios » repliable et information de mise à jour réunies sur une seule ligne
+- **Mode Mer / côte par localité** : activation depuis la carte Home, pastille bleue visible près du nom de la ville lorsqu’il est actif, puis vagues, houle, température de mer et marées estimées dans la page Détails. Données indicatives, non destinées à la navigation.
 - **Heatmap 12 h intégrée aux cartes Home** : 12 cellules thermiques continues avec température par heure, trois repères horaires directement dans la bande et marqueur de pluie à partir de 30 %, sans ajouter une ligne supplémentaire sous la heatmap
 - **Chronologie visuelle sur la page détail** : timeline compacte des prochaines échéances avec heatmap de température, pluie, vent, accord inter-modèles et mise en évidence des changements significatifs
 - **Highlight du jour courant** (et de l'heure courante en mode hourly) dans tous les tableaux
@@ -119,19 +120,26 @@ Listés dans `WeatherModel.kt` avec leur résolution native (km), leur horizon, 
 | GEM Global         | 15 km      | Global           | 10 j    | ECCC (Canada)       |            |
 | **HRRR**           | **3 km**   | USA continental  | 18 h standard (48 h sur 00/06/12/18Z) | NOAA |            |
 | **MET Nordic**     | **1 km**   | Scandinavie      | 2,5 j   | MET Norway          |            |
-| **HARMONIE**       | **5.5 km** | Europe           | 2,5 j   | KNMI (Pays-Bas)     |            |
+| **HARMONIE KNMI**  | **5.5 km** | Europe           | 2,5 j   | KNMI (Pays-Bas)     |            |
+| **HARMONIE DMI**   | **2 km**   | Europe           | 2,5 j   | DMI (Danemark)      |            |
+| **ICON-CH2**       | **2 km**   | Suisse / Europe centrale | 5 j | MeteoSwiss          |            |
 | **BOM ACCESS**     | 15 km      | Global           | 10 j    | Bureau of Meteorology (Australie) |            |
 | **CMA GRAPES**     | 15 km      | Global           | 10 j    | China Meteorological Administration |            |
 
 Les modèles marqués "Par défaut" sont activés dès la première ouverture ; les autres sont activables dans les Settings, désormais **triables par zone, par famille ou par finesse** (résolution native).
+
+> **À propos du groupe « France »** : il désigne les domaines natifs Météo-France AROME. Il ne représente pas tous les modèles utilisables sur le territoire français. ARPEGE Europe, ICON-EU, HARMONIE DMI/KNMI et, selon la position, ICON-D2 ou ICON-CH2 peuvent aussi couvrir une ville française mais restent classés dans « Europe ». Les variantes AROME 15 minutes d’Open-Meteo ne sont pas ajoutées comme modèles indépendants : elles utilisent la même lignée AROME et leur horizon n’est que de quelques heures.
 
 **Diversité éditoriale** du catalogue :
 
 - **ECMWF AIFS** est un modèle de prévision fondé sur l'IA/ML — il apporte un scénario méthodologiquement différent de l'IFS physique, sans recevoir de poids supérieur a priori
 - **HRRR** est le pendant américain d'AROME HD : rapid-refresh 3 km, particulièrement utile pour la convection estivale sur les États-Unis
 - **MET Nordic** offre la résolution la plus fine du catalogue (1 km) sur la Scandinavie — cousin arctique d'AROME HD
-- **KNMI HARMONIE** partage le moteur numérique d'AROME mais avec une initialisation via l'IFS ECMWF — utile pour repérer un désaccord de conditions initiales sur l'Europe de l'Ouest
+- **HARMONIE KNMI + DMI** apportent deux domaines UWC-West distincts. Le moteur V3 les rattache à une même lignée de consensus pour éviter un double vote artificiel
+- **MeteoSwiss ICON-CH2** ajoute un scénario régional 2 km sur la Suisse et l'Europe centrale ; il partage la lignée ICON dans le consensus, comme dans la version web 1.16
 - **BOM ACCESS** et **CMA GRAPES** ajoutent une diversité méthodologique non-occidentale — sources indépendantes de biais éventuels du pool européen/nord-américain
+
+**Autres modèles régionaux pouvant intéresser la France** : Open-Meteo expose également MeteoSwiss ICON-CH1 (1 km), CHMI ALADIN Central Europe (~2,3 km), GeoSphere AROME Austria (2,5 km) et ItaliaMeteo ICON-2I (2 km). Leur domaine est plus régional : ils ne sont pas activés dans MeteoCompare 1.9.0 afin d'éviter d'ajouter des modèles souvent hors couverture selon la ville.
 
 ### Note sur AROME HD et les variables dérivées
 
@@ -165,7 +173,7 @@ val matrix: List<DayConditionsRow> = calculator.dailyConditionsByModel(forecast)
 
 `DayConditionsRow.extrasByModel` porte les métadonnées par cellule (probabilité de pluie max journalière, couverture nuageuse moyenne journalière) qui alimentent les badges "%" sous les icônes.
 
-La **TodaySummaryCard** conserve un résumé immédiatement lisible mais détaille désormais chaque variable dans quatre mini-cartes de même hauteur. La valeur centrale correspond à la moyenne inter-modèles ; les informations secondaires explicitent la plage, le spread, les rafales éventuelles ou la répartition des scénarios de pluie, avec l’accord propre à la variable.
+La **TodaySummaryCard** conserve un résumé immédiatement lisible mais détaille chaque variable dans quatre mini-cartes de même hauteur. La valeur centrale provient du moteur V3 sélectionné (Multi-consensus, Calibration, Scénarios ou Adaptatif), tandis que la plage, le spread et les indicateurs de convergence restent calculés exclusivement sur les sorties brutes des modèles.
 
 **Bande de confiance multi-métriques** : le composant `ConfidenceBandSection` encapsule un sélecteur segmenté à 3 états (Température / Précipitations / Vent) au-dessus d'un graphe unique. Les 3 séries de bandes sont pré-calculées dans le ViewModel — la transition entre métriques est instantanée. La bande **température** superpose les **repères ERA5 Tmax/Tmin sur 10 ans**, chargés depuis l'API archive d'Open-Meteo et cachés 180 jours dans Room. Les graphes pluie/vent n'affichent pas de repère journalier sur une série horaire afin d'éviter de comparer des fenêtres temporelles différentes. Le graphique est **zoomable au pincement** sur l'axe temps (pinch à 2 doigts + pan) et **réinitialisable au double-tap**.
 
@@ -310,9 +318,10 @@ Fait :
 - ✅ v1.7.0 — Refonte des interfaces, ajout de la donnée « rafale », ajout des scénarios, correction du calcul sunrise / sunset, TodaySummary enrichie, cartes Home compactées avec scénarios repliables et nouvelle heatmap 12 h, correction de bugs
 - ✅ v1.8.0 — Évolution des prévisions par snapshots locaux ~24/~48/~72 h, sans requête réseau additionnelle, cohorte commune de modèles, âge réel affiché, carte repliable mémorisée par ville, détails modèle par modèle et signaux injectés dans « À retenir » ; localisation FR/EN/ES/DE/IT
 - ✅ v1.9.0 - Moteur de prévisions v2 et ajout des informations "marine" pour les villes cotières, correction de bugs
+- ✅ v1.10.0 — Stack Gradle/AGP/Kotlin modernisée, moteur de prévisions V3, nouveaux modèles régionaux, correction de bugs
 
 ## Licence
 
 [Apache License 2.0](LICENSE) — vous pouvez utiliser, modifier et redistribuer le code librement, à condition de conserver la notice de copyright.
 
-Les données météo sont fournies par [Open-Meteo](https://open-meteo.com) (également open-source, AGPL-3.0). Les modèles eux-mêmes sont produits par leurs organismes respectifs : Météo-France (AROME, ARPEGE), DWD (ICON, ICON-D2), NOAA (GFS, HRRR), ECMWF (IFS et AIFS), UK Met Office (UKMO), Environnement et Changement climatique Canada (GEM), MET Norway (MET Nordic), KNMI (HARMONIE), Bureau of Meteorology Australie (ACCESS), China Meteorological Administration (GRAPES).
+Les données météo sont fournies par [Open-Meteo](https://open-meteo.com) (également open-source, AGPL-3.0). Les modèles eux-mêmes sont produits par leurs organismes respectifs : Météo-France (AROME, ARPEGE), DWD (ICON, ICON-D2), NOAA (GFS, HRRR), ECMWF (IFS et AIFS), UK Met Office (UKMO), Environnement et Changement climatique Canada (GEM), MET Norway (MET Nordic), KNMI et DMI (HARMONIE), MeteoSwiss (ICON-CH2), Bureau of Meteorology Australie (ACCESS), China Meteorological Administration (GRAPES).

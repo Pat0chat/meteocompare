@@ -1,104 +1,37 @@
-MeteoCompare is the weather app for people who want to understand forecast reliability, not just consult it.
+MeteoCompare is a multi-model weather app designed to make forecast uncertainty visible instead of hiding it behind a single prediction.
 
-Instead of displaying a single forecast, MeteoCompare queries 17 reference weather models in parallel and shows you where they agree — and where they diverge.
+19 WEATHER MODELS
+Compare raw output from reference models: AROME and ARPEGE (Météo-France), ICON and ICON-D2 (DWD), GFS and HRRR (NOAA), ECMWF IFS and AIFS, UKMO, GEM, MET Nordic, KNMI and DMI HARMONIE, MeteoSwiss ICON-CH2, ACCESS and GRAPES.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4 V3 FORECAST ENGINES
+Choose in Settings how the central forecast is calculated:
+- Multi-consensus: robust synthesis balanced by numerical model lineage.
+- Calibration: progressively adjusts selected daily values using available local history.
+- Scenarios: favors coherent forecast clusters instead of one simple average.
+- Adaptive: conservatively selects the most relevant strategy for the context.
 
-SUPPORTED MODELS
+A dedicated Engine Comparison page runs all four methods on exactly the same raw forecast, with charts, a divergence timeline and a daily comparison table.
 
-France
-• AROME France HD (Météo-France, 1.5 km)
-• AROME France (Météo-France, 2.5 km)
+CONVERGENCE AND LOCAL RELIABILITY
+MeteoCompare keeps two concepts separate:
+- current convergence, computed only from raw model output;
+- local historical reliability, based on past D+1 forecasts compared with an Open-Meteo historical reference.
 
-Europe
-• ARPEGE Europe (Météo-France, 11 km)
-• ICON-EU (DWD Germany, 7 km)
-• ICON-D2 (DWD Germany, 2 km)
-• MET Nordic (MET Norway, 1 km, Scandinavia)
-• KNMI HARMONIE (Netherlands, 5.5 km)
+Related models share voting mass so enabling several variants from the same numerical lineage cannot artificially increase confidence.
 
-Global
-• ARPEGE World (Météo-France, 25 km)
-• ICON (DWD Germany, 13 km)
-• GFS (NOAA USA, 13 km, up to 16 days)
-• HRRR (NOAA USA, 3 km, rapid-refresh continental US)
-• ECMWF (European Centre, 25 km)
-• ECMWF AIFS (European Centre, AI model)
-• UKMO Global (UK Met Office, 10 km)
-• GEM Global (ECCC Canada, 15 km)
-• BOM ACCESS (Bureau of Meteorology Australia, 12 km)
-• CMA GRAPES (China Meteorological Administration, 15 km)
+SEA / COAST
+For coastal cities, enable Sea / coast from the Home card. A blue dot shows when it is active. City Details then includes waves, swell, sea temperature and estimated tides. Marine information is indicative only and is not intended for navigation.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+VISUALS
+- Today summary and hourly timeline;
+- min/max spread bands and agreement levels;
+- model-by-model tables;
+- forecast evolution around 24 / 48 / 72 hours;
+- local model ranking;
+- resizable home-screen widgets;
+- offline cache, light/dark themes and TalkBack accessibility.
 
-CONFIDENCE INDEX — THE KEY FEATURE
+PRIVACY
+No account, no ads and no analytics SDK. Favorites, preferences, caches and history remain on the device. Weather and geocoding data are provided by Open-Meteo.
 
-A 0-100% score tells you how much the models agree:
-• Perfect convergence → 95% (good confidence)
-• Strong divergence → 30% (real uncertainty)
-
-Weighting favors high-resolution models in their coverage zone (AROME in France, ARPEGE in Europe, HRRR in the US, MET Nordic in Scandinavia). Tap the confidence badge to open a "Why this confidence?" page that breaks down which model predicted what, variable by variable.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-PER-MODEL BIAS TRACKING
-
-Every day, the app compares each model's past forecasts against actual observations (ERA5), for each of your favorite cities. Under each model name in the tables, a discreet pill tells you what you need to know:
-
-• Red pill "+1.8°" — the model systematically overestimates temperature by 1.8° on average over 30 days
-• Blue pill "−2.3 mm" — the model underestimates precipitation
-• Neutral checkmark — the model is calibrated here, no correction needed
-• Empty pill — not enough history yet (< 14 days of overlap)
-
-Tap a pill to open a sheet with a 30-day chart overlaying forecast and observation, mean bias, standard deviation and a plain-language summary. The forecast data itself is never modified — only the context is enriched so you can interpret forecasts more accurately.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-VISUALIZATIONS
-
-• Hourly confidence band over 7 days — pinch-zoom with 2 fingers (double-tap to reset)
-• Three metrics on the confidence band: temperature, precipitation, wind — switch instantly with the segmented selector
-• 10-year climate normals overlay (dashed lines) to compare the forecast against typical values for the date
-• Hourly / daily toggle — switch between the 7-day summary and hour-by-hour detail until end of day
-• Day × Model tables: temperature, precipitation, wind with direction arrows
-• "%" badges under weather icons: rain probability or cloud cover depending on condition
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-HOME SCREEN WIDGETS
-
-Resizable widget (2×1 / 3×1 / 4×1 / 4×2) with:
-• Compact summary of the chosen favorite city
-• 4×2 with three modes: 4 upcoming hours, 4 upcoming days, or a mini confidence band (temperature, precipitation, or wind) with daily values
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-PRIVACY BY DESIGN
-
-• Zero data collection
-• No analytics, no tracking, no ads
-• All data stays on your device
-• Local-only storage (favorites, cache, preferences)
-• Only external requests: Open-Meteo (free, no account)
-
-The app requests exactly two permissions: INTERNET and ACCESS_NETWORK_STATE.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-MORE FEATURES
-
-• Favorite cities with daily quick view
-• Model sorting in Settings by zone / family / resolution
-• Update indicator — "Updated just now", "5 min ago"…
-• City search by name
-• Offline cache (view last forecasts without network)
-• Pull-to-refresh
-• Custom model selection
-• Auto light/dark theme (Material You)
-• Full TalkBack accessibility
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-WEATHER DATA
-
-Provided by Open-Meteo (https://open-meteo.com), free for non-commercial use. MeteoCompare is independent and not affiliated with Open-Meteo, Météo-France, NOAA, DWD, ECMWF, UK Met Office, ECCC, MET Norway, KNMI, BOM or CMA.
+MeteoCompare is free and open-source software licensed under Apache-2.0.

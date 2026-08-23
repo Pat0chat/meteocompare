@@ -585,7 +585,7 @@ private fun ModelGroupHeader(text: String) {
  * courtes (labelSmall) séparées par bullet, padding vertical 8dp → hauteur
  * ~40dp. Gain : ~35% de hauteur, on voit deux fois plus de modèles à l'écran
  * sur un téléphone standard. Utile maintenant que l'enum WeatherModel a
- * grossi à 17 modèles (débordement inévitable sinon).
+ * grossi à 19 modèles (débordement inévitable sinon).
  *
  * ─── Format des méta ───────────────────────────────────────────────────
  * "1.5 km · 48 h" ou "11 km · 4 j" — résolution + horizon natif. La zone n'est plus dupliquée sur

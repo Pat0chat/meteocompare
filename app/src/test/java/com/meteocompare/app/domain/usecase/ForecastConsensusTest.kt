@@ -76,4 +76,16 @@ class ForecastConsensusTest {
         assertTrue(weights.getValue(WeatherModel.AROME_FRANCE_HD) <= 1.25 + 1e-9)
         assertEquals(1.0, weights.getValue(WeatherModel.GFS), 1e-9)
     }
+    @Test
+    fun `nouveaux modeles europeens conservent les lignees du web v1 16`() {
+        assertEquals(
+            ForecastConsensus.groupFor(WeatherModel.KNMI_HARMONIE_EU),
+            ForecastConsensus.groupFor(WeatherModel.DMI_HARMONIE_EU)
+        )
+        assertEquals(
+            ForecastConsensus.groupFor(WeatherModel.ICON_EU),
+            ForecastConsensus.groupFor(WeatherModel.METEOSWISS_ICON_CH2)
+        )
+    }
+
 }

@@ -1,0 +1,1 @@
+V3 forecast engine with 4 strategies and a dedicated comparison page, Sea / coast mode with tides, DMI HARMONIE and MeteoSwiss ICON-CH2, a marine status dot on Home cards, local-ranking improvements and multiple UI/test fixes.

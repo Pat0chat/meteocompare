@@ -46,6 +46,7 @@ fun CollapsibleSectionHeader(
     onToggle: () -> Unit,
     modifier: Modifier = Modifier,
     subtitle: String? = null,
+    titleMaxLines: Int = 1,
     trailingContent: (@Composable RowScope.() -> Unit)? = null
 ) {
     val rotation by animateFloatAsState(
@@ -75,7 +76,7 @@ fun CollapsibleSectionHeader(
                 text = text,
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
+                maxLines = titleMaxLines,
                 overflow = TextOverflow.Ellipsis
             )
             if (!subtitle.isNullOrBlank()) {

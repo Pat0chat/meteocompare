@@ -1,19 +1,37 @@
-MeteoCompare compares up to 17 weather models using Open-Meteo data, including AROME, ARPEGE, ICON, GFS, ECMWF, AIFS, UKMO, GEM, HRRR, MET Nordic, HARMONIE, ACCESS and GRAPES.
+MeteoCompare is a multi-model weather app designed to make forecast uncertainty visible instead of hiding it behind a single prediction.
 
-Instead of hiding uncertainty behind a single forecast, MeteoCompare shows the scenarios produced by each model and how strongly they agree.
+19 WEATHER MODELS
+Compare raw output from reference models: AROME and ARPEGE (Météo-France), ICON and ICON-D2 (DWD), GFS and HRRR (NOAA), ECMWF IFS and AIFS, UKMO, GEM, MET Nordic, KNMI and DMI HARMONIE, MeteoSwiss ICON-CH2, ACCESS and GRAPES.
 
-Main features:
-- Multi-model weather comparison in one view.
-- Agreement indicators for temperature, precipitation and wind.
-- Rich Today summary with averages, ranges, dispersion, wind gusts and scenarios.
-- Hourly min/max envelopes to make model spread visible.
-- Compact home cards with collapsible scenarios and a 12-hour heatmap.
-- Historical model-bias tracking by city over a rolling 30-day window.
-- Ten-year climate references for additional context.
-- Resizable home-screen widgets.
-- English and French interface, light/dark themes and TalkBack accessibility.
+4 V3 FORECAST ENGINES
+Choose in Settings how the central forecast is calculated:
+- Multi-consensus: robust synthesis balanced by numerical model lineage.
+- Calibration: progressively adjusts selected daily values using available local history.
+- Scenarios: favors coherent forecast clusters instead of one simple average.
+- Adaptive: conservatively selects the most relevant strategy for the context.
 
-Privacy:
-MeteoCompare contains no ads, no analytics SDK and requires no account. Favorites, preferences, caches and history remain on the device. Network access is used to retrieve weather and geocoding data from Open-Meteo.
+A dedicated Engine Comparison page runs all four methods on exactly the same raw forecast, with charts, a divergence timeline and a daily comparison table.
+
+CONVERGENCE AND LOCAL RELIABILITY
+MeteoCompare keeps two concepts separate:
+- current convergence, computed only from raw model output;
+- local historical reliability, based on past D+1 forecasts compared with an Open-Meteo historical reference.
+
+Related models share voting mass so enabling several variants from the same numerical lineage cannot artificially increase confidence.
+
+SEA / COAST
+For coastal cities, enable Sea / coast from the Home card. A blue dot shows when it is active. City Details then includes waves, swell, sea temperature and estimated tides. Marine information is indicative only and is not intended for navigation.
+
+VISUALS
+- Today summary and hourly timeline;
+- min/max spread bands and agreement levels;
+- model-by-model tables;
+- forecast evolution around 24 / 48 / 72 hours;
+- local model ranking;
+- resizable home-screen widgets;
+- offline cache, light/dark themes and TalkBack accessibility.
+
+PRIVACY
+No account, no ads and no analytics SDK. Favorites, preferences, caches and history remain on the device. Weather and geocoding data are provided by Open-Meteo.
 
 MeteoCompare is free and open-source software licensed under Apache-2.0.

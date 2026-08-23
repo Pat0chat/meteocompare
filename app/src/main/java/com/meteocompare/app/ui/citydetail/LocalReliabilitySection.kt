@@ -109,19 +109,22 @@ internal fun LocalReliabilitySection(
                 subtitle = reliabilitySubtitle(overallConfidencePercent, familyCount),
                 expanded = expanded,
                 onToggle = { onExpandedChange(!expanded) },
+                titleMaxLines = 2,
                 modifier = Modifier
                     .padding(horizontal = 2.dp)
-                    .testTag(TAG_LOCAL_RELIABILITY_HEADER),
-                trailingContent = {
-                    if (rankings.hasAnyRanking) {
-                        TextButton(onClick = { onOpenRanking(rankingVariableFor(activeVariable, rankings)) }) {
-                            Text(stringResource(R.string.local_ranking_view_all))
-                        }
-                    }
-                }
+                    .testTag(TAG_LOCAL_RELIABILITY_HEADER)
             )
 
             if (rankings.hasAnyRanking) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = { onOpenRanking(rankingVariableFor(activeVariable, rankings)) }) {
+                        Text(stringResource(R.string.local_ranking_view_all))
+                    }
+                }
+
                 ReliabilityWinnersSummary(
                     rankings = rankings,
                     onOpenRanking = onOpenRanking,

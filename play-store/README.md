@@ -11,12 +11,20 @@ play-store/
 │   ├── feature-graphic.png           ← Bandeau 1024×500 (obligatoire)
 │   └── icon-monochrome-preview.png   ← Aperçu monochrome themed (info)
 ├── descriptions/
-│   ├── short-fr.txt                  ← Description courte FR (≤80 car.)
-│   ├── short-en.txt                  ← Description courte EN
-│   ├── full-fr.txt                   ← Description complète FR
-│   └── full-en.txt                   ← Description complète EN
+│   ├── short-fr.txt / full-fr.txt    ← Français
+│   ├── short-en.txt / full-en.txt    ← Anglais
+│   ├── short-es.txt / full-es.txt    ← Espagnol (traduction automatique signalée)
+│   ├── short-de.txt / full-de.txt    ← Allemand (traduction automatique signalée)
+│   └── short-it.txt / full-it.txt    ← Italien (traduction automatique signalée)
 └── screenshots-placeholders/         ← À remplir manuellement (voir ci-dessous)
 ```
+
+
+## Localisations Play Store
+
+Les fiches FR et EN sont les fiches de référence. Les fiches ES, DE et IT sont fournies pour la publication locale et commencent par une mention explicite indiquant qu'elles ont été **traduites automatiquement**. Les mêmes textes sont synchronisés dans `fastlane/metadata/android/{fr-FR,en-US,es-ES,de-DE,it-IT}`.
+
+Le changelog correspondant au `versionCode 24` est disponible dans chaque locale sous `changelogs/24.txt`.
 
 ## Screenshots — à capturer manuellement
 
@@ -30,14 +38,15 @@ Play Store exige minimum 2 screenshots par form factor. Recommandations :
 ### Captures à faire dans l'app
 
 1. **Écran d'accueil** avec 3-4 villes en favoris, valeurs chargées avec des
-   confidences variées (vert / orange / rouge) pour montrer l'indice.
+   confidences variées ; inclure si possible une ville côtière avec la **pastille bleue Mer / côte** active.
 2. **Détail d'une ville — résumé jour** : montrer la TodaySummaryCard avec
    toutes les valeurs (T max, T min, pluie, vent) et les badges de confiance.
 3. **Détail d'une ville — bande de confiance** : c'est LE shot signature.
    Choisir une ville où on voit la bande s'élargir nettement.
 4. **Détail d'une ville — comparaison des modèles** : les courbes superposées.
-5. **Écran Settings** : la liste des modèles avec checkboxes — montre la
-   transparence sur les sources de données.
+5. **Comparaison des moteurs V3** : graphique + frise de divergence + tableau quotidien.
+6. **Mer / côte** : vagues, houle et marées sur une ville côtière.
+7. **Écran Settings** : sélecteur du moteur V3 et liste des **19 modèles**, dont HARMONIE DMI et ICON-CH2.
 
 ### Mode opératoire
 

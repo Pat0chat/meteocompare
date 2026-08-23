@@ -1,0 +1,28 @@
+Nota: questa scheda Play Store è stata tradotta automaticamente.
+
+MeteoCompare è un’app meteo multi-modello progettata per mostrare l’incertezza delle previsioni invece di nasconderla dietro un unico valore.
+
+19 MODELLI METEO
+Confronta le uscite grezze di AROME e ARPEGE (Météo-France), ICON e ICON-D2 (DWD), GFS e HRRR (NOAA), ECMWF IFS e AIFS, UKMO, GEM, MET Nordic, HARMONIE di KNMI e DMI, MeteoSwiss ICON-CH2, ACCESS e GRAPES.
+
+4 MOTORI PREVISIONALI V3
+Nelle Impostazioni puoi scegliere come calcolare la previsione centrale:
+- Multi-consenso: sintesi robusta bilanciata per linea numerica dei modelli.
+- Calibrazione: corregge progressivamente alcuni valori giornalieri usando lo storico locale disponibile.
+- Scenari: privilegia gruppi di previsioni coerenti invece di una semplice media.
+- Adattivo: seleziona in modo prudente la strategia più adatta al contesto.
+
+La pagina Confronto motori applica tutti e quattro i metodi agli stessi identici dati grezzi, con grafici, timeline delle divergenze e tabella giornaliera.
+
+CONVERGENZA E AFFIDABILITÀ LOCALE
+La convergenza corrente viene calcolata solo dalle uscite grezze. L’affidabilità storica locale è separata e usa precedenti previsioni D+1 confrontate con un riferimento storico Open-Meteo. I modelli imparentati condividono il peso di voto per evitare di aumentare artificialmente la confidenza.
+
+MARE / COSTA
+Per una città costiera attiva Mare / costa dalla card Home. Un punto blu indica quando la modalità è attiva. Nei Dettagli compaiono onde, swell, temperatura del mare e maree stimate. Informazioni indicative, non destinate alla navigazione.
+
+Sono inclusi anche timeline oraria, bande min/max, tabelle per modello, evoluzione ~24 / ~48 / ~72 h, classifica locale, widget ridimensionabili, cache offline, tema chiaro/scuro e accessibilità TalkBack.
+
+PRIVACY
+Nessun account, nessuna pubblicità e nessun SDK di analytics. Preferiti, impostazioni, cache e cronologia restano sul dispositivo. I dati meteo e di geocodifica provengono da Open-Meteo.
+
+MeteoCompare è software libero open source con licenza Apache-2.0.

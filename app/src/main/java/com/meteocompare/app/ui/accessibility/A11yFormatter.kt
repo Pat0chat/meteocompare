@@ -94,7 +94,8 @@ object A11yFormatter {
 
     fun cityCardDescription(resources: Resources, state: CityCardState): String {
         val city = state.city
-        val base = "Ville ${city.name}${city.admin1?.let { ", $it" } ?: ""}"
+        val marine = if (city.marineEnabled) ". ${resources.getString(R.string.marine_enabled)}" else ""
+        val base = "Ville ${city.name}${city.admin1?.let { ", $it" } ?: ""}$marine"
         return when (val f = state.forecast) {
             ForecastState.Loading -> "$base. ${resources.getString(R.string.a11y_city_loading)}"
             is ForecastState.Error -> {

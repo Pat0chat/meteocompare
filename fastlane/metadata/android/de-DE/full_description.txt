@@ -1,0 +1,28 @@
+Hinweis: Diese Play-Store-Beschreibung wurde automatisch übersetzt.
+
+MeteoCompare ist eine Multi-Modell-Wetter-App, die Prognoseunsicherheit sichtbar macht, statt sie hinter einer einzigen Vorhersage zu verbergen.
+
+19 WETTERMODELLE
+Vergleiche Rohdaten von AROME und ARPEGE (Météo-France), ICON und ICON-D2 (DWD), GFS und HRRR (NOAA), ECMWF IFS und AIFS, UKMO, GEM, MET Nordic, HARMONIE von KNMI und DMI, MeteoSwiss ICON-CH2, ACCESS und GRAPES.
+
+4 V3-PROGNOSE-ENGINES
+In den Einstellungen kann die Berechnung der zentralen Vorhersage gewählt werden:
+- Multi-Konsens: robuste, nach Modelllinien ausbalancierte Synthese.
+- Kalibrierung: passt ausgewählte Tageswerte schrittweise anhand verfügbarer lokaler Historie an.
+- Szenarien: bevorzugt kohärente Vorhersagegruppen statt eines einfachen Mittelwerts.
+- Adaptiv: wählt konservativ die passendste Strategie für den jeweiligen Kontext.
+
+Die Seite Engine-Vergleich berechnet alle vier Methoden aus exakt denselben Rohdaten und zeigt Diagramme, eine Divergenz-Zeitleiste und eine tägliche Vergleichstabelle.
+
+KONVERGENZ UND LOKALE ZUVERLÄSSIGKEIT
+Die aktuelle Konvergenz wird ausschließlich aus den Rohdaten der Modelle berechnet. Die lokale historische Zuverlässigkeit wird separat aus früheren D+1-Prognosen und einer historischen Open-Meteo-Referenz bestimmt. Verwandte Modelle teilen sich Stimmgewicht, damit Varianten derselben numerischen Linie die Konfidenz nicht künstlich erhöhen.
+
+MEER / KÜSTE
+Für Küstenstädte kann Meer / Küste direkt auf der Home-Karte aktiviert werden. Ein blauer Punkt zeigt den aktiven Modus. In den Details erscheinen Wellen, Dünung, Meerestemperatur und geschätzte Gezeiten. Nur zur Orientierung, nicht für die Navigation.
+
+Außerdem: Stunden-Timeline, Min/Max-Bänder, Modelltabellen, Prognoseentwicklung ~24 / ~48 / ~72 h, lokale Modellrangliste, skalierbare Widgets, Offline-Cache, Hell-/Dunkelmodus und TalkBack-Unterstützung.
+
+DATENSCHUTZ
+Kein Konto, keine Werbung und kein Analytics-SDK. Favoriten, Einstellungen, Cache und Verlauf bleiben auf dem Gerät. Wetter- und Geocoding-Daten stammen von Open-Meteo.
+
+MeteoCompare ist freie Open-Source-Software unter Apache-2.0.

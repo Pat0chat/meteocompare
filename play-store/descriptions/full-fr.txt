@@ -1,104 +1,37 @@
-MeteoCompare est l'application météo pensée pour les utilisateurs qui veulent comprendre la fiabilité d'une prévision, pas juste la consulter.
+MeteoCompare est une application météo multi-modèles conçue pour rendre l’incertitude visible au lieu de la masquer derrière une seule prévision.
 
-Plutôt que d'afficher une seule prévision, MeteoCompare interroge en parallèle 17 modèles météorologiques de référence et vous montre où ils s'accordent — et où ils divergent.
+19 MODÈLES MÉTÉO
+Comparez les sorties brutes de modèles de référence : AROME et ARPEGE (Météo-France), ICON et ICON-D2 (DWD), GFS et HRRR (NOAA), ECMWF IFS et AIFS, UKMO, GEM, MET Nordic, HARMONIE KNMI et DMI, MeteoSwiss ICON-CH2, ACCESS et GRAPES.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4 MOTEURS DE PRÉVISION V3
+Choisissez dans les paramètres la méthode utilisée pour la valeur centrale :
+- Multi-consensus : synthèse robuste équilibrée par lignées de modèles.
+- Calibration : ajuste progressivement certaines valeurs avec l’historique local disponible.
+- Scénarios : privilégie les groupes de prévisions cohérents plutôt qu’une moyenne unique.
+- Adaptatif : sélectionne prudemment la stratégie la plus pertinente selon le contexte.
 
-LES MODÈLES SUPPORTÉS
+Une page Comparaison des moteurs montre les quatre calculs sur exactement les mêmes données brutes, avec graphiques, frise de divergence et tableau quotidien.
 
-France
-• AROME France HD (Météo-France, 1.5 km)
-• AROME France (Météo-France, 2.5 km)
+CONVERGENCE ET FIABILITÉ LOCALE
+MeteoCompare sépare deux notions :
+- la convergence actuelle, calculée uniquement à partir des sorties brutes des modèles ;
+- la fiabilité historique locale, basée sur les prévisions J+1 passées comparées à une référence historique Open-Meteo.
 
-Europe
-• ARPEGE Europe (Météo-France, 11 km)
-• ICON-EU (DWD Allemagne, 7 km)
-• ICON-D2 (DWD Allemagne, 2 km)
-• MET Nordic (MET Norway, 1 km, Scandinavie)
-• KNMI HARMONIE (Pays-Bas, 5.5 km)
+Les modèles apparentés partagent une masse de vote afin qu’activer plusieurs variantes d’une même lignée ne gonfle pas artificiellement la confiance.
 
-Global
-• ARPEGE World (Météo-France, 25 km)
-• ICON (DWD Allemagne, 13 km)
-• GFS (NOAA USA, 13 km, jusqu'à 16 jours)
-• HRRR (NOAA USA, 3 km, rapid-refresh continental)
-• ECMWF (Centre Européen, 25 km)
-• ECMWF AIFS (Centre Européen, modèle par IA)
-• UKMO Global (UK Met Office, 10 km)
-• GEM Global (ECCC Canada, 15 km)
-• BOM ACCESS (Bureau of Meteorology Australie, 12 km)
-• CMA GRAPES (China Meteorological Administration, 15 km)
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-INDICE DE CONFIANCE — LA FONCTIONNALITÉ CLÉ
-
-Un score 0-100 % vous indique à quel point les modèles s'accordent :
-• Convergence parfaite → 95 % (bonne confiance)
-• Forte divergence → 30 % (incertitude réelle)
-
-La pondération privilégie les modèles haute-résolution sur leur zone (AROME en France, ARPEGE en Europe, HRRR aux USA, MET Nordic en Scandinavie). Un clic sur le badge ouvre une page "Pourquoi cette confiance ?" qui détaille variable par variable qui a prédit quoi.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-SUIVI DE BIAIS PAR MODÈLE
-
-L'app confronte chaque jour les prévisions passées de chaque modèle aux observations réelles (ERA5), sur chacune de vos villes favorites. Sous chaque nom de modèle dans les tableaux, une pastille discrète vous dit ce qu'il faut savoir :
-
-• Pastille rouge « +1.8° » — le modèle surestime systématiquement la température de 1.8° en moyenne sur 30 jours
-• Pastille bleue « −2.3 mm » — le modèle sous-estime les précipitations
-• Coche neutre — le modèle est calibré à cet endroit, pas de correction à faire
-• Pastille vide — pas encore assez d'historique (< 14 jours de recouvrement)
-
-Un clic sur une pastille ouvre une sheet avec un graphique 30 jours superposant prévision et observation, l'écart moyen, l'écart-type et un texte de synthèse. Les données ne sont jamais modifiées — seul le contexte est enrichi pour que vous puissiez interpréter les prévisions plus justement.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MER / CÔTE
+Pour une ville côtière, activez le mode Mer / côte depuis la carte d’accueil. Une pastille bleue indique qu’il est actif. La page Détails affiche alors vagues, houle, température de mer et marées estimées. Ces informations sont indicatives et ne sont pas destinées à la navigation.
 
 VISUALISATIONS
+- résumé Aujourd’hui et timeline horaire ;
+- bandes min/max et niveau d’accord ;
+- tableaux modèle par modèle ;
+- évolution des prévisions ~24 / ~48 / ~72 h ;
+- classement local des modèles ;
+- widgets d’écran d’accueil redimensionnables ;
+- cache hors ligne, thèmes clair/sombre et accessibilité TalkBack.
 
-• Bande de confiance horaire sur 7 jours — zoomable par pincement à 2 doigts (double-tap pour réinitialiser)
-• Trois métriques sur la bande de confiance : température, précipitations, vent — bascule instantanée via un sélecteur segmenté
-• Overlay des normales climatiques 10 ans (traits pointillés) pour comparer la prévision au comportement typique de la date
-• Toggle "par heure / par jour" — bascule entre la vue synthétique 7 jours et le détail horaire jusqu'à la fin de la journée
-• Tableaux jour × modèle : température, précipitations, vent avec direction (flèches)
-• Badges "%" sous les icônes : probabilité de pluie ou couverture nuageuse selon la condition
+CONFIDENTIALITÉ
+Aucun compte, aucune publicité et aucun SDK d’analyse. Favoris, préférences, caches et historiques restent sur l’appareil. Les données météo et de géocodage proviennent d’Open-Meteo.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-WIDGETS ÉCRAN D'ACCUEIL
-
-Widget redimensionnable (2×1 / 3×1 / 4×1 / 4×2) avec :
-• Résumé compact de la ville favorite choisie
-• 4×2 avec trois modes : 4 prochaines heures, 4 prochains jours, ou une mini bande de confiance (température, précipitations ou vent) avec les valeurs par jour
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-VIE PRIVÉE PAR CONCEPTION
-
-• Zéro collecte de données
-• Aucun analytics, aucun tracking, zéro pub
-• Toutes les données restent sur votre appareil
-• Stockage local uniquement (favoris, cache, préférences)
-• Seules requêtes externes : Open-Meteo (gratuit, sans compte)
-
-L'application demande exactement deux permissions : INTERNET et ACCESS_NETWORK_STATE.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-AUTRES FONCTIONNALITÉS
-
-• Villes favorites avec aperçu rapide du jour
-• Tri des modèles dans les Settings par zone / famille / finesse
-• Indicateur de mise à jour — "Mis à jour à l'instant", "il y a 5 min"…
-• Recherche de ville par nom
-• Cache offline (consultez les dernières prévisions sans réseau)
-• Pull-to-refresh
-• Sélection personnalisée des modèles activés
-• Thème clair/sombre automatique (Material You)
-• Accessibilité TalkBack complète
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-DONNÉES MÉTÉO
-
-Fournies par Open-Meteo (https://open-meteo.com), service gratuit pour usage non commercial. MeteoCompare est indépendant et non affilié à Open-Meteo, Météo-France, NOAA, DWD, ECMWF, UK Met Office, ECCC, MET Norway, KNMI, BOM ou CMA.
+MeteoCompare est un logiciel libre sous licence Apache-2.0.

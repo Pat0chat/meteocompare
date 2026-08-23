@@ -264,6 +264,41 @@ enum class WeatherModel(
         maxForecastDays = 10,
         coverage = Coverage.GLOBAL,
         family = ModelFamily.CMA
+    ),
+
+    /**
+     * DMI HARMONIE AROME Europe (DINI) — modèle régional UWC-West à 2 km.
+     *
+     * Même lignée numérique HARMONIE-AROME que le modèle KNMI Europe, mais
+     * avec un domaine/runs DMI distincts. Le consensus V3 les regroupe afin
+     * que les deux variantes ne comptent pas comme deux votes indépendants.
+     */
+    DMI_HARMONIE_EU(
+        apiKey = "dmi_harmonie_arome_europe",
+        displayName = "HARMONIE DMI",
+        resolutionKm = 2.0,
+        // 60 h roulantes peuvent atteindre un 4e jour civil selon l'heure.
+        maxForecastDays = 4,
+        coverage = Coverage.EUROPE,
+        family = ModelFamily.DMI,
+        forecastHorizonHours = 60
+    ),
+
+    /**
+     * MeteoSwiss ICON-CH2 — modèle régional haute résolution à 2 km.
+     *
+     * Il apporte un scénario fin supplémentaire sur la Suisse et le domaine
+     * alpin/centre-européen, notamment utile près de l'est de la France. Il
+     * partage la lignée numérique ICON dans le consensus V3.
+     */
+    METEOSWISS_ICON_CH2(
+        apiKey = "meteoswiss_icon_ch2",
+        displayName = "ICON-CH2",
+        resolutionKm = 2.0,
+        maxForecastDays = 5,
+        coverage = Coverage.EUROPE,
+        family = ModelFamily.METEOSWISS,
+        forecastHorizonHours = 120
     );
 
     /** Clé courante ou alias historique/canonique accepté en lecture. */
@@ -331,5 +366,7 @@ enum class ModelFamily(val displayName: String) {
     METNO("MET Norway"),
     KNMI("KNMI"),
     BOM("BOM"),
-    CMA("CMA")
+    CMA("CMA"),
+    DMI("DMI"),
+    METEOSWISS("MeteoSwiss")
 }

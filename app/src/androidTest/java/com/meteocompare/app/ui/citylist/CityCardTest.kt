@@ -4,6 +4,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.test.platform.app.InstrumentationRegistry
 import com.meteocompare.app.R
@@ -138,4 +139,22 @@ class CityCardTest {
         composeRule.onNodeWithText(context.getString(R.string.action_retry), useUnmergedTree = true).performClick()
         assertTrue(retried)
     }
+    @Test
+    fun marine_enabled_city_displays_blue_status_dot() {
+        val marineCity = TestFixtures.paris.copy(marineEnabled = true)
+        composeRule.setContent {
+            MeteoCompareTheme {
+                Surface {
+                    CityCard(
+                        state = CityCardState(marineCity, ForecastState.Loading),
+                        onClick = {}, onRemove = {}, onRetry = {}
+                    )
+                }
+            }
+        }
+
+        composeRule.onNodeWithTag("$TAG_CITY_MARINE_ENABLED${marineCity.id}", useUnmergedTree = true)
+            .assertIsDisplayed()
+    }
+
 }
