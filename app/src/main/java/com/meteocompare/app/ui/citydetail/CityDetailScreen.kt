@@ -1235,8 +1235,9 @@ private fun EngineComparisonEntryCard(
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
             .clickable(onClick = onClick),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.42f)
         )
     ) {
         Row(
@@ -1244,30 +1245,59 @@ private fun EngineComparisonEntryCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.engine_comparison_title),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Spacer(Modifier.height(3.dp))
-                Text(
-                    text = stringResource(
-                        R.string.engine_comparison_entry_selected,
-                        stringResource(when (engine) {
-                            ForecastEngine.MULTI_CONSENSUS -> R.string.forecast_engine_multi_consensus
-                            ForecastEngine.CALIBRATION -> R.string.forecast_engine_calibration
-                            ForecastEngine.SCENARIOS -> R.string.forecast_engine_scenarios
-                            ForecastEngine.ADAPTIVE -> R.string.forecast_engine_adaptive
-                        })
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    modifier = Modifier.size(34.dp),
+                    shape = RoundedCornerShape(999.dp),
+                    color = MaterialTheme.colorScheme.primary
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "Σ",
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.engine_comparison_title),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        text = stringResource(
+                            R.string.engine_comparison_entry_selected,
+                            stringResource(when (engine) {
+                                ForecastEngine.MULTI_CONSENSUS -> R.string.forecast_engine_multi_consensus
+                                ForecastEngine.CALIBRATION -> R.string.forecast_engine_calibration
+                                ForecastEngine.SCENARIOS -> R.string.forecast_engine_scenarios
+                                ForecastEngine.ADAPTIVE -> R.string.forecast_engine_adaptive
+                            })
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = stringResource(R.string.engine_comparison_open),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
             Icon(
                 Icons.AutoMirrored.Filled.ArrowForward,
-                contentDescription = stringResource(R.string.engine_comparison_open)
+                contentDescription = stringResource(R.string.engine_comparison_open),
+                tint = MaterialTheme.colorScheme.primary
             )
         }
     }
