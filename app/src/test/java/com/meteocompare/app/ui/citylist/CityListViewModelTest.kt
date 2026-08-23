@@ -213,11 +213,11 @@ class CityListViewModelTest {
             forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
         } returns flowOf(ApiResult.Success(forecast))
 
-        val vm = CityListViewModel(
-            cityRepo, forecastRepo, marineRepo, networkMonitor, calculator, prefs, testClock, dispatcher,
-            engineContextProvider
-        )
-        vm.uiState.test {
+        // Réutiliser la VM créée dans setUp : en instancier une seconde laisserait
+        // deux collecteurs actifs sur favoritesFlow et doublerait artificiellement
+        // l'appel au repository, ce qui invaliderait précisément le coVerify
+        // « sans refetch » que ce test cherche à protéger.
+        viewModel.uiState.test {
             awaitItem()
             favoritesFlow.value = listOf(paris)
             var loadedState = awaitItem()

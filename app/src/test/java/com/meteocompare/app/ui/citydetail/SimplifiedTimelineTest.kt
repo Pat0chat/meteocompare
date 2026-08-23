@@ -54,7 +54,7 @@ class SimplifiedTimelineTest {
     }
 
     @Test
-    fun `daily timeline uses medians and flags strong disagreement`() {
+    fun `daily timeline uses V3 robust central values and flags strong disagreement`() {
         val forecast = CityForecast(
             city = paris,
             seriesByModel = linkedMapOf(
@@ -80,7 +80,10 @@ class SimplifiedTimelineTest {
 
         assertEquals(12.0, point.tempMinC!!, 0.001)
         assertEquals(22.0, point.tempMaxC!!, 0.001)
-        assertEquals(12.0, point.windKmh!!, 0.001)
+        // Avec V3, la centrale n'est plus la médiane brute historique. Le
+        // Huber robuste conserve l'information du scénario à 40 km/h tout en
+        // réduisant fortement son poids : 13,1338 km/h pour 10/12/40.
+        assertEquals(13.133844407902354, point.windKmh!!, 0.001)
         assertEquals(33, point.precipitationPercent)
         // Le moteur conserve bien la quantité conditionnelle : l'UI timeline
         // l'affiche désormais sous le risque pluie au lieu du libellé de source.

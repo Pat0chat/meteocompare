@@ -40,6 +40,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -246,9 +247,13 @@ private fun EngineLineChart(days: List<EngineComparisonDay>, metric: EngineCompa
             if (started) drawPath(path, colors.getValue(engine), style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round))
         }
     }
+    val platformLocale = LocalLocale.current.platformLocale
+    val dayFormatter = remember(platformLocale) {
+        DateTimeFormatter.ofPattern("EEE", platformLocale)
+    }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         days.forEach { day ->
-            Text(day.date.format(DateTimeFormatter.ofPattern("EEE", Locale.getDefault())), style = MaterialTheme.typography.labelSmall)
+            Text(day.date.format(dayFormatter), style = MaterialTheme.typography.labelSmall)
         }
     }
 }
@@ -269,6 +274,7 @@ private fun EngineLegend(selected: ForecastEngine) {
 
 @Composable
 private fun DivergenceCard(day: EngineComparisonDay, modifier: Modifier = Modifier) {
+    val locale = LocalLocale.current.platformLocale
     val label = when (day.divergence.level) {
         EngineDivergenceLevel.HIGH -> stringResource(R.string.engine_divergence_high)
         EngineDivergenceLevel.MEDIUM -> stringResource(R.string.engine_divergence_medium)
@@ -277,7 +283,7 @@ private fun DivergenceCard(day: EngineComparisonDay, modifier: Modifier = Modifi
     Card(modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
         Column(Modifier.padding(12.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(formatDate(day.date), fontWeight = FontWeight.SemiBold)
+                Text(formatDate(day.date, locale), fontWeight = FontWeight.SemiBold)
                 Text(label, color = when (day.divergence.level) {
                     EngineDivergenceLevel.HIGH -> MaterialTheme.colorScheme.error
                     EngineDivergenceLevel.MEDIUM -> MaterialTheme.colorScheme.tertiary
@@ -302,9 +308,10 @@ private fun DivergenceCard(day: EngineComparisonDay, modifier: Modifier = Modifi
 
 @Composable
 private fun EngineDayTable(day: EngineComparisonDay, selected: ForecastEngine, modifier: Modifier = Modifier) {
+    val locale = LocalLocale.current.platformLocale
     Card(modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp)) {
-            Text(formatDate(day.date), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Text(formatDate(day.date, locale), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(8.dp))
             ForecastEngine.entries.forEachIndexed { index, engine ->
                 val value = day.byEngine[engine]
@@ -317,9 +324,9 @@ private fun EngineDayTable(day: EngineComparisonDay, selected: ForecastEngine, m
                     Text(
                         stringResource(
                             R.string.engine_comparison_row_values,
-                            value?.tempMin?.let { String.format(Locale.getDefault(), "%.1f", it) } ?: "—",
-                            value?.tempMax?.let { String.format(Locale.getDefault(), "%.1f", it) } ?: "—",
-                            value?.precipitationAmountMm?.let { String.format(Locale.getDefault(), "%.1f", it) } ?: "—",
+                            value?.tempMin?.let { String.format(locale, "%.1f", it) } ?: "—",
+                            value?.tempMax?.let { String.format(locale, "%.1f", it) } ?: "—",
+                            value?.precipitationAmountMm?.let { String.format(locale, "%.1f", it) } ?: "—",
                             value?.precipitationProbabilityPercent?.toString() ?: "—"
                         ),
                         style = MaterialTheme.typography.bodySmall,
@@ -328,10 +335,10 @@ private fun EngineDayTable(day: EngineComparisonDay, selected: ForecastEngine, m
                     Text(
                         stringResource(
                             R.string.engine_comparison_row_values_secondary,
-                            value?.precipitationExpectedMm?.let { String.format(Locale.getDefault(), "%.1f", it) } ?: "—",
-                            value?.windKmh?.let { String.format(Locale.getDefault(), "%.0f", it) } ?: "—",
-                            value?.gustKmh?.let { String.format(Locale.getDefault(), "%.0f", it) } ?: "—",
-                            value?.cloudPercent?.let { String.format(Locale.getDefault(), "%.0f", it) } ?: "—",
+                            value?.precipitationExpectedMm?.let { String.format(locale, "%.1f", it) } ?: "—",
+                            value?.windKmh?.let { String.format(locale, "%.0f", it) } ?: "—",
+                            value?.gustKmh?.let { String.format(locale, "%.0f", it) } ?: "—",
+                            value?.cloudPercent?.let { String.format(locale, "%.0f", it) } ?: "—",
                             value?.condition?.let { stringResource(weatherConditionLabel(it)) } ?: "—"
                         ),
                         style = MaterialTheme.typography.bodySmall,
@@ -386,5 +393,5 @@ private fun weatherConditionLabel(condition: WeatherCondition): Int = when (cond
     WeatherCondition.UNKNOWN -> R.string.weather_unknown
 }
 
-private fun formatDate(date: java.time.LocalDate): String =
-    date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.getDefault()))
+private fun formatDate(date: java.time.LocalDate, locale: Locale): String =
+    date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale))

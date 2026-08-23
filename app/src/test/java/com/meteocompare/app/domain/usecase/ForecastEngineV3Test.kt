@@ -89,8 +89,18 @@ class ForecastEngineV3Test {
 
     @Test
     fun `scenario engine falls back explicitly when there is only one scenario`() {
+        // Une série 20/21/22/23 est volontairement scindable par V3 : ses
+        // intervalles réguliers forment deux groupes de poids comparables selon
+        // le seuil robuste. Utiliser ici un nuage réellement compact permet de
+        // tester le contrat SINGLE_SCENARIO sans contredire l'algorithme.
+        val singleClusterEntries = listOf(
+            ForecastConsensus.Entry(WeatherModel.GFS, 20.0),
+            ForecastConsensus.Entry(WeatherModel.ECMWF, 20.2),
+            ForecastConsensus.Entry(WeatherModel.ARPEGE_EUROPE, 20.4),
+            ForecastConsensus.Entry(WeatherModel.UKMO_GLOBAL, 20.6)
+        )
         val result = ForecastEngineV3.continuous(
-            closeEntries,
+            singleClusterEntries,
             ForecastEngineV3.ContinuousOptions(engine = ForecastEngine.SCENARIOS)
         )
 
