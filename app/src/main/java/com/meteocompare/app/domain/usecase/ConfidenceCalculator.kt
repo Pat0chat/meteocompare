@@ -18,7 +18,6 @@ import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.roundToInt
-import kotlin.math.sqrt
 
 /**
  * Calculateur de convergence instantanée multi-modèles (nom de classe historique).
@@ -119,7 +118,7 @@ class ConfidenceCalculator @Inject constructor(
     }
 
     /**
-     * Température "maintenant" — médiane pondérée Consensus v2 de la valeur
+     * Température "maintenant" — médiane pondérée consensus robuste de la valeur
      * horaire la plus proche de l'instant courant.
      *
      * Open-Meteo retourne typiquement les heures depuis 00:00 du jour. À 14:30,
@@ -195,7 +194,7 @@ class ConfidenceCalculator @Inject constructor(
     }
 
     /**
-     * Couverture nuageuse "maintenant" — médiane pondérée Consensus v2
+     * Couverture nuageuse "maintenant" — médiane pondérée consensus robuste
      * du cloud_cover horaire à l'instant courant.
      *
      * Utilisée pour afficher le "% nuageux" sur les cards home et
@@ -215,7 +214,7 @@ class ConfidenceCalculator @Inject constructor(
     }
 
     /**
-     * Vitesse du vent "maintenant" — médiane pondérée Consensus v2 du
+     * Vitesse du vent "maintenant" — médiane pondérée consensus robuste du
      * wind_speed_10m horaire à l'instant courant, en km/h (unité fournie par
      * l'API via `wind_speed_unit=kmh`).
      *
@@ -256,7 +255,7 @@ class ConfidenceCalculator @Inject constructor(
     }
 
     /**
-     * Helper : centrale Consensus v2 d'une valeur horaire à l'instant courant.
+     * Helper : centrale consensus robuste d'une valeur horaire à l'instant courant.
      *
      * Factorise la logique commune à [currentTemperature] et [currentCloudCover] :
      *   1. Trouver l'index horaire le plus proche de "maintenant" pour chaque modèle
@@ -390,7 +389,7 @@ class ConfidenceCalculator @Inject constructor(
     /**
      * Bandes de convergence horaires sur les précipitations (mm sur l'heure précédente).
      *
-     * Utilise le Consensus v2 : P(pluie) séparée de la quantité conditionnelle,
+     * Utilise le consensus robuste : P(pluie) séparée de la quantité conditionnelle,
      * centrale robuste, min/max et dispersion convertie en %. Les seuils tight/wide sont ceux de
      * [Thresholds.PRECIP] — bien plus larges qu'en température (la pluie est
      * intrinsèquement plus divergente entre modèles, surtout sur la convection).
@@ -474,7 +473,7 @@ class ConfidenceCalculator @Inject constructor(
      * / [hourlyPrecipitationConfidence] / [hourlyWindConfidence].
      *
      * Pré-indexation par timestamp pour éviter le indexOf quadratique, puis
-     * agrégation Consensus v2 (médiane pondérée + dispersion),
+     * agrégation consensus robuste (médiane pondérée + dispersion),
      * conversion σ → % via les seuils passés en paramètre.
      *
      * Le paramètre `extractor` isole la seule chose qui varie entre variables :
@@ -582,7 +581,7 @@ class ConfidenceCalculator @Inject constructor(
     // ─────────────────────────── Confidence pluie ───────────────────────────
 
     /**
-     * Pluie Consensus v2 : P(pluie), quantité conditionnelle puis représentation
+     * Pluie consensus robuste : P(pluie), quantité conditionnelle puis représentation
      * qualitative compatible avec l'UI historique.
      */
     private fun precipitationConfidence(
@@ -668,60 +667,11 @@ class ConfidenceCalculator @Inject constructor(
     private fun localWeights(models: Collection<WeatherModel>): Map<WeatherModel, Double> =
         models.distinct().associateWith(::safeWeight)
 
-    private data class WeightedSample(val value: Double, val weight: Double)
-
-    private data class WeightedStats(
-        val mean: Double,
-        val stdDev: Double,
-        val min: Double,
-        val max: Double
-    )
-
     /** Défense du contrat de [ModelWeightingStrategy] contre NaN, zéro ou poids négatif. */
     private fun safeWeight(model: WeatherModel): Double = weighting.weight(model).also { weight ->
         require(weight.isFinite() && weight > 0.0) {
             "Model weight must be finite and > 0 for ${model.name}: $weight"
         }
-    }
-
-    /**
-     * Moyenne et écart-type pondérés.
-     *
-     * Formules standard :
-     *   weighted_mean = Σ(w_i · x_i) / Σ(w_i)
-     *   weighted_var  = Σ(w_i · (x_i − mean)²) / Σ(w_i)
-     *
-     * On n'applique PAS la correction de Bessel (`N-1`) car la population de
-     * modèles n'est pas un échantillon d'une plus grande population — c'est
-     * littéralement tous les modèles dont on dispose.
-     */
-    private fun computeWeightedStats(samples: List<WeightedSample>): WeightedStats {
-        require(samples.isNotEmpty())
-        require(samples.all { it.value.isFinite() && it.weight.isFinite() && it.weight > 0.0 })
-        val totalWeight = samples.sumOf { it.weight }
-        val mean = samples.sumOf { it.value * it.weight } / totalWeight
-        val variance = samples.sumOf { it.weight * (it.value - mean) * (it.value - mean) } / totalWeight
-        return WeightedStats(
-            mean = mean,
-            stdDev = sqrt(variance),
-            min = samples.minOf { it.value },
-            max = samples.maxOf { it.value }
-        )
-    }
-
-    /**
-     * Convertit un écart-type en indice de convergence 0-100 via interpolation
-     * linéaire entre deux seuils heuristiques par variable.
-     *
-     * - σ ≤ tight → 100% (modèles très alignés)
-     * - σ ≥ wide  → 0%   (divergence forte)
-     * - entre les deux : interpolation linéaire
-     */
-    private fun stdDevToConfidence(stdDev: Double, tight: Double, wide: Double): Int {
-        if (stdDev <= tight) return 100
-        if (stdDev >= wide) return 0
-        val ratio = (stdDev - tight) / (wide - tight)
-        return (100.0 * (1.0 - ratio)).toInt()
     }
 
     /**

@@ -43,7 +43,7 @@ internal data class WidgetData(
     val tempMin: Double?,
     val confidencePct: Int?,
     /**
-     * Quantité centrale Consensus v2 pour aujourd'hui : 0 si P(pluie) < 50 %,
+     * Quantité centrale consensus robuste pour aujourd'hui : 0 si P(pluie) < 50 %,
      * sinon médiane pondérée des scénarios humides, équilibrée par lignée.
      */
     val precipMm: Double?,
@@ -195,7 +195,7 @@ internal data class WidgetForecastItem(
      * jamais une métrique isolée comme une confiance globale.
      */
     val forecastConfidencePct: Int? = null,
-    /** Source des cartes : null signifie consensus multi-modèles (Consensus v2). */
+    /** Source des cartes : null signifie consensus multi-modèles (consensus robuste). */
     val sourceModelName: String? = null
 )
 
@@ -495,7 +495,7 @@ internal suspend fun loadWidgetData(
 internal suspend fun <T> Flow<T>.awaitWidgetTerminalEmission(): T? = lastOrNull()
 
 /**
- * Construit les 5 items du widget 4×2 à partir de la timeline Consensus v2.
+ * Construit les 5 items du widget 4×2 à partir de la timeline consensus robuste.
  *
  * Les valeurs ne proviennent plus d'un modèle unique : température, pluie,
  * nuages, condition et convergence utilisent la même prévision centrale que
@@ -707,7 +707,7 @@ internal fun dailyForecastConfidenceByDate(
         },
         day.precipitation?.let { precipitation ->
             precipitation.convergencePercent?.let { percent ->
-                // Les objets produits par Consensus v2 exposent familyCount.
+                // Les objets produits par consensus robuste exposent familyCount.
                 // Les anciens caches/tests peuvent ne pas encore avoir cette
                 // métadonnée : dans ce cas modelCount reste le meilleur fallback
                 // disponible, comme pour PrecipitationConfidence.convergencePercent.
@@ -922,7 +922,7 @@ internal fun conservativeConfidencePercent(
 
 /** Agrège une journée de bande horaire sans mélanger les sémantiques.
  * La température/le vent agrègent les centrales horaires dans le temps ;
- * la précipitation horaire, déjà centrale Consensus v2, est une quantité -> somme journalière.
+ * la précipitation horaire, déjà centrale consensus robuste, est une quantité -> somme journalière.
  */
 internal fun aggregateConfidenceBucketValue(mode: ForecastMode, values: List<Double>): Double {
     if (values.isEmpty()) return Double.NaN

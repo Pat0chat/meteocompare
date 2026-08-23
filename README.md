@@ -29,7 +29,7 @@ Depuis la v1.0, l'app suit aussi **le biais historique de chaque modèle sur cha
 - **Page "Pourquoi cette confiance ?"** — clic sur le badge de confiance ouvre une explication détaillée : qui a prédit quoi, quel écart, pourquoi la résolution du modèle compte
 - **Suivi de biais par modèle et par ville** — chaque modèle est confronté à une réanalyse historique Open-Meteo sur ses prévisions J+1 passées. Trois pastilles : biais systématique significatif, biais signé faible, ou historique encore insuffisant. La sheet 30 jours compare prévision et référence avec moyenne, écart-type et contexte méthodologique
 - **Évolution des prévisions (~24 / ~48 / ~72 h)** : chaque refresh météo frais enregistre localement un snapshot quotidien (température max, cumul de pluie, vent max), au plus une fois par tranche de 3 h et avec 5 jours de rétention. La fiche ville compare ensuite la prévision courante aux snapshots les plus proches de 24/48/72 h et affiche leur âge réel (par ex. H−25). Ce n'est pas une reconstruction des cycles 00Z/06Z/12Z/18Z d'un modèle. Les médianes gardent le même groupe de modèles comparables, les données manquantes sont exclues, les changements importants remontent dans « À retenir », et la carte repliable est mémorisée par ville. Aucun appel réseau supplémentaire n'est déclenché par cette fonctionnalité ; après installation, l'historique se construit progressivement.
-- **Bande de confiance horaire multi-métriques** : sélecteur segmenté à 3 états pour basculer entre température, précipitations et vent — la bande se recalcule instantanément (précalcul dans le ViewModel). Graphique min-max autour de la moyenne pondérée qui s'élargit visuellement quand les modèles divergent
+- **Bande de confiance horaire multi-métriques** : sélecteur segmenté à 3 états pour basculer entre température, précipitations et vent — la bande se recalcule instantanément (précalcul dans le ViewModel). Graphique min-max autour de la centrale du moteur sélectionné, tandis que l’enveloppe et la convergence restent issues des modèles bruts et s’élargissent lorsque les modèles divergent
 - **Repères thermiques 10 ans en overlay** : Tmax/Tmin calendaires calculées sur la réanalyse ERA5 et affichées en traits pointillés sur la bande température. Les anciennes références pluie/vent journalières ne sont plus superposées aux graphes horaires, car les fenêtres temporelles ne sont pas comparables (et il ne s’agit pas de « normales climatiques » officielles sur 30 ans).
 - **Zoom au pincement** sur l'axe temps (double-tap pour réinitialiser)
 - **Toggle "par heure / par jour"** : bascule les tableaux entre la vue synthétique 7 jours et le détail horaire jusqu'à la fin de la journée courante
@@ -38,7 +38,7 @@ Depuis la v1.0, l'app suit aussi **le biais historique de chaque modèle sur cha
 - **Icônes de temps** synthétisées à partir des codes WMO 4677, dont un composite bi-color soleil + nuage pour "partiellement nuageux"
 - **"Fraîcheur" des données** affichée sur chaque carte : "Mis à jour à l'instant", "il y a 5 min", etc. — auto-rafraîchi au fil du temps
 - **Cartes Home compactes** : accent météo vertical sur le bord gauche, métriques resserrées, pastille « N scénarios » repliable et information de mise à jour réunies sur une seule ligne
-- **Mode Mer / côte par localité** : activation depuis la carte Home, pastille bleue visible près du nom de la ville lorsqu’il est actif, puis vagues, houle, température de mer et marées estimées dans la page Détails. Données indicatives, non destinées à la navigation.
+- **Mode Mer / côte par localité** : la Home affiche une pastille bleue sur le menu `⋮` lorsqu’une localité est éligible au mode côtier, puis une icône 🌊 près du nom uniquement lorsque l’option est réellement activée. La page Détails affiche alors vagues, houle, température de mer et marées estimées. La décision d’éligibilité est mise en cache 6 h avec revalidation ; les données restent indicatives et ne sont pas destinées à la navigation.
 - **Heatmap 12 h intégrée aux cartes Home** : 12 cellules thermiques continues avec température par heure, trois repères horaires directement dans la bande et marqueur de pluie à partir de 30 %, sans ajouter une ligne supplémentaire sous la heatmap
 - **Chronologie visuelle sur la page détail** : timeline compacte des prochaines échéances avec heatmap de température, pluie, vent, accord inter-modèles et mise en évidence des changements significatifs
 - **Highlight du jour courant** (et de l'heure courante en mode hourly) dans tous les tableaux
@@ -51,7 +51,7 @@ Depuis la v1.0, l'app suit aussi **le biais historique de chaque modèle sur cha
 
 ## Stack technique
 
-- **Gradle 9.5** + **Android Gradle Plugin 9.3**
+- **Gradle 9.5.1** + **Android Gradle Plugin 9.3.0**
 - **Kotlin 2.3.21 intégré à AGP** + Coroutines + Flow
 - **JDK de build 21 (daemon Gradle)**, avec launcher compatible **JDK 25** ; bytecode applicatif ciblé Java 17
 - **Jetpack Compose** + Material 3 (couleurs dynamiques, typographie M3, formes)
@@ -155,11 +155,12 @@ Les badges "%" restent conditionnés à la présence réelle de leur variable : 
 
 **Algorithme** :
 
-- Pour les variables continues (T, vent, précipitations) : moyenne et écart-type **pondérés** par `ModelWeightingStrategy`. L'écart-type est transformé en indice d’accord 0–100 via des seuils heuristiques (`tight`/`wide`) propres à chaque variable.
-- Pour la pluie journalière : agreement binaire d'abord (les modèles s'accordent-ils sur *l'occurrence* ?), puis spread sur l'intensité si oui. Distinct de la bande horaire précipitation qui garde une représentation continue.
-- Pour la condition météo actuelle : vote pondéré par famille (CLEAR/OVERCAST/RAIN…) — moyenner des codes WMO catégoriels n'a aucun sens. Tie-break : la condition la plus sévère.
-- Pour la couverture nuageuse "maintenant" (utilisée par les cards home/détail) : moyenne pondérée horaire sur les modèles qui exposent `cloud_cover`.
-- Pondération de production : **poids égaux**. La résolution de grille n’est pas utilisée comme proxy de qualité ; le point d’extension `ModelWeightingStrategy` n’autorise une pondération différente que si elle est un jour justifiée par un backtest vérifié.
+- Le noyau `ForecastConsensus` déduplique les variantes apparentées par lignée numérique et leur partage une masse de vote, afin d'éviter qu'une famille disposant de plusieurs variantes ne domine artificiellement le résultat.
+- Pour les variables continues (température, vent, nébulosité), la centrale de base est une **médiane pondérée robuste** équilibrée par lignée ; la dispersion (min/max/écart-type) des sorties brutes alimente séparément l'indice d’accord 0–100 via des seuils heuristiques propres à chaque variable. Le moteur V3 sélectionné peut remplacer la centrale, mais jamais la dispersion/convergence brute.
+- Pour la pluie, occurrence et quantité sont séparées : probabilité de pluie, quantité conditionnelle si pluie, quantité attendue et centrale V3. Une absence de probabilité native n'est jamais assimilée silencieusement à 0 %.
+- Pour la condition météo actuelle : vote équilibré par lignée sur les catégories (CLEAR/OVERCAST/RAIN…) — moyenner des codes WMO catégoriels n'aurait aucun sens. Tie-break : la condition la plus sévère.
+- Pour la couverture nuageuse « maintenant », la centrale passe par le même noyau robuste et par le moteur choisi, sans calibration J+1 sur l'horaire.
+- `ModelWeightingStrategy` reste un point d'extension injectable, mais la production utilise des **poids égaux**. La résolution de grille n'est pas utilisée comme proxy de qualité ; une pondération différente ne serait légitime qu'après un backtest vérifié.
 
 ```kotlin
 val daily = calculator.dayConfidence(forecast, LocalDate.now())
@@ -317,8 +318,7 @@ Fait :
 - ✅ v1.6.1 -> v1.6.4 — Amélioration des sections chronologie et "A retenir", ajout d'un widget "A retenir", correction de bugs
 - ✅ v1.7.0 — Refonte des interfaces, ajout de la donnée « rafale », ajout des scénarios, correction du calcul sunrise / sunset, TodaySummary enrichie, cartes Home compactées avec scénarios repliables et nouvelle heatmap 12 h, correction de bugs
 - ✅ v1.8.0 — Évolution des prévisions par snapshots locaux ~24/~48/~72 h, sans requête réseau additionnelle, cohorte commune de modèles, âge réel affiché, carte repliable mémorisée par ville, détails modèle par modèle et signaux injectés dans « À retenir » ; localisation FR/EN/ES/DE/IT
-- ✅ v1.9.0 - Moteur de prévisions v2 et ajout des informations "marine" pour les villes cotières, correction de bugs
-- ✅ v1.10.0 — Stack Gradle/AGP/Kotlin modernisée, moteur de prévisions V3, nouveaux modèles régionaux, correction de bugs
+- ✅ v1.9.0 — Stack Gradle/AGP/Kotlin modernisée, moteur de prévisions V3 sélectionnable, page de comparaison des moteurs, mode Mer / côte et marées, ajout de HARMONIE DMI + MeteoSwiss ICON-CH2, corrections de non-régression et amélioration des tests ; audit R9 : TTL marine fiabilisée, seuils d’évolution centralisés, nettoyage du consensus et documentation synchronisée
 
 ## Licence
 

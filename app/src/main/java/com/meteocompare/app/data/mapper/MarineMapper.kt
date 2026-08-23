@@ -16,7 +16,7 @@ import kotlin.math.sqrt
 
 internal fun MarineResponseDto.toDomain(
     city: City,
-    fetchedAtEpochMs: Long = System.currentTimeMillis()
+    fetchedAtEpochMs: Long
 ): MarineForecast {
     val raw = hourly
     val timestamps = raw?.time.orEmpty()

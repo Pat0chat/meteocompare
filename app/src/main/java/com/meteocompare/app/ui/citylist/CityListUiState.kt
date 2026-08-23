@@ -36,7 +36,7 @@ data class CityCardState(
 sealed interface ForecastState {
     data object Loading : ForecastState
     /**
-     * @param currentTemp moyenne pondérée des modèles à l'heure la plus proche
+     * @param currentTemp centrale du moteur sélectionné à l'heure la plus proche
      *   de maintenant. Null si aucune donnée horaire dispo.
      * @param currentCondition famille de temps actuelle (vote selon la
      *   stratégie de pondération configurée). Null si aucun signal exploitable.

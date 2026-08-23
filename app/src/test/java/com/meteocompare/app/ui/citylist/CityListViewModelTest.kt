@@ -680,7 +680,8 @@ class CityListViewModelTest {
     fun `marine availability from cache is exposed independently from activation`() = runTest(dispatcher) {
         val cached = mockk<MarineForecast>()
         every { cached.coastal } returns true
-        coEvery { marineRepo.getCached(paris.id) } returns cached
+        every { cached.fetchedAtEpochMs } returns testClock.millis()
+        coEvery { marineRepo.getFreshCached(paris.id) } returns cached
 
         viewModel.uiState.test {
             awaitItem()
@@ -692,6 +693,54 @@ class CityListViewModelTest {
             assertTrue(item.isMarineAvailable)
             assertTrue(!item.city.marineEnabled)
             coVerify(exactly = 0) { marineRepo.getMarine(paris, forceRefresh = false) }
+        }
+    }
+
+    @Test
+    fun `expired marine cache triggers a fresh availability check`() = runTest(dispatcher) {
+        val fresh = mockk<MarineForecast>()
+        every { fresh.coastal } returns true
+        every { fresh.fetchedAtEpochMs } returns testClock.millis()
+        coEvery { marineRepo.getFreshCached(paris.id) } returns null
+        coEvery { marineRepo.getMarine(paris, forceRefresh = false) } returns ApiResult.Success(fresh)
+
+        viewModel.uiState.test {
+            awaitItem()
+            favoritesFlow.value = listOf(paris)
+            var state = awaitItem()
+            while (state.items.firstOrNull()?.isMarineAvailable != true) state = awaitItem()
+
+            assertTrue(state.items.first().isMarineAvailable)
+            coVerify(exactly = 1) { marineRepo.getFreshCached(paris.id) }
+            coVerify(exactly = 1) { marineRepo.getMarine(paris, forceRefresh = false) }
+        }
+    }
+
+    @Test
+    fun `expired marine cache is used offline then revalidated when network returns`() = runTest(dispatcher) {
+        val stale = mockk<MarineForecast>()
+        every { stale.coastal } returns true
+        every { stale.fetchedAtEpochMs } returns
+            testClock.millis() - MarineRepository.AVAILABILITY_CACHE_TTL_MS - 1
+        val fresh = mockk<MarineForecast>()
+        every { fresh.coastal } returns true
+        every { fresh.fetchedAtEpochMs } returns testClock.millis()
+        coEvery { marineRepo.getFreshCached(paris.id) } returns null
+        coEvery { marineRepo.getCached(paris.id) } returns stale
+        coEvery { marineRepo.getMarine(paris, forceRefresh = false) } returns ApiResult.Success(fresh)
+
+        onlineFlow.value = false
+        viewModel.uiState.test {
+            awaitItem()
+            favoritesFlow.value = listOf(paris)
+            var state = awaitItem()
+            while (state.items.firstOrNull()?.isMarineAvailable != true) state = awaitItem()
+
+            assertTrue(state.items.first().isMarineAvailable)
+            coVerify(exactly = 0) { marineRepo.getMarine(paris, forceRefresh = false) }
+
+            onlineFlow.value = true
+            coVerify(exactly = 1) { marineRepo.getMarine(paris, forceRefresh = false) }
         }
     }
 

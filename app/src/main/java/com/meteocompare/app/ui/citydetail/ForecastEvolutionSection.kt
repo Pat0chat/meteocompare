@@ -63,6 +63,7 @@ import androidx.compose.ui.unit.dp
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.DayForecastEvolution
 import com.meteocompare.app.domain.model.ForecastEvolutionSnapshot
+import com.meteocompare.app.domain.model.ForecastEvolutionThresholds
 import com.meteocompare.app.domain.model.ForecastEvolutionTrend
 import com.meteocompare.app.domain.model.ForecastEvolutionVariable
 import com.meteocompare.app.domain.model.VariableForecastEvolution
@@ -349,6 +350,7 @@ private fun EvolutionDateSelector(
     selected: LocalDate,
     onSelected: (LocalDate) -> Unit
 ) {
+    val locale = LocalLocale.current.platformLocale
     LazyRow(
         modifier = Modifier
             .fillMaxWidth()
@@ -368,7 +370,7 @@ private fun EvolutionDateSelector(
                 }
             ) {
                 Text(
-                    text = shortDate(day.date),
+                    text = shortDate(day.date, locale),
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                     color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
@@ -455,8 +457,8 @@ private fun EvolutionTrendChart(
     val values = snapshots.map(ForecastEvolutionSnapshot::medianValue)
     val locale = LocalLocale.current.platformLocale
     val currentValue = evolution.current.medianValue
-    val stableThreshold = evolutionStableThreshold(evolution.variable)
-    val notableThreshold = evolutionNotableThreshold(evolution.variable)
+    val stableThreshold = ForecastEvolutionThresholds.stable(evolution.variable)
+    val notableThreshold = ForecastEvolutionThresholds.notable(evolution.variable)
     val isNonNegative = evolution.variable != ForecastEvolutionVariable.TEMPERATURE
 
     val rawMin = minOf(values.minOrNull() ?: return, currentValue - notableThreshold)
@@ -620,6 +622,7 @@ private fun EvolutionTrendChart(
 
 @Composable
 private fun EvolutionSnapshotValues(evolution: VariableForecastEvolution) {
+    val locale = LocalLocale.current.platformLocale
     val snapshots = evolution.allSnapshotsChronological
     Row(
         modifier = Modifier.fillMaxWidth().padding(start = 56.dp),
@@ -641,7 +644,7 @@ private fun EvolutionSnapshotValues(evolution: VariableForecastEvolution) {
                     textAlign = TextAlign.Center
                 )
                 Text(
-                    text = formatEvolutionValue(snapshot.medianValue, evolution.variable),
+                    text = formatEvolutionValue(snapshot.medianValue, evolution.variable, locale),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
                     textAlign = TextAlign.Center
@@ -657,6 +660,7 @@ private fun ModelEvolutionSheet(
     evolution: VariableForecastEvolution,
     onDismiss: () -> Unit
 ) {
+    val locale = LocalLocale.current.platformLocale
     val revision = evolution.revision ?: return
     val previous = evolution.previous.firstOrNull { it.daysAgo == revision.previousDaysAgo } ?: return
     val models = revision.deltasByModel.keys.sortedBy { it.resolutionKm }
@@ -678,7 +682,7 @@ private fun ModelEvolutionSheet(
             Text(
                 text = stringResource(
                     R.string.forecast_evolution_sheet_subtitle,
-                    longDate(evolution.targetDate),
+                    longDate(evolution.targetDate, locale),
                     revision.previousAgeHours
                 ),
                 style = MaterialTheme.typography.bodySmall,
@@ -709,10 +713,10 @@ private fun ModelEvolutionSheet(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Text(formatEvolutionValue(old, evolution.variable), modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.End)
-                    Text(formatEvolutionValue(current, evolution.variable), modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.End)
+                    Text(formatEvolutionValue(old, evolution.variable, locale), modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.End)
+                    Text(formatEvolutionValue(current, evolution.variable, locale), modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.End)
                     Text(
-                        text = signedEvolutionValue(delta, evolution.variable),
+                        text = signedEvolutionValue(delta, evolution.variable, locale),
                         modifier = Modifier.weight(0.8f),
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.SemiBold,
@@ -774,18 +778,6 @@ private fun variableLabel(variable: ForecastEvolutionVariable): Int = when (vari
     ForecastEvolutionVariable.WIND -> R.string.forecast_evolution_metric_wind_max
 }
 
-internal fun evolutionStableThreshold(variable: ForecastEvolutionVariable): Double = when (variable) {
-    ForecastEvolutionVariable.TEMPERATURE -> 0.5
-    ForecastEvolutionVariable.PRECIPITATION -> 1.0
-    ForecastEvolutionVariable.WIND -> 3.0
-}
-
-internal fun evolutionNotableThreshold(variable: ForecastEvolutionVariable): Double = when (variable) {
-    ForecastEvolutionVariable.TEMPERATURE -> 1.0
-    ForecastEvolutionVariable.PRECIPITATION -> 2.0
-    ForecastEvolutionVariable.WIND -> 5.0
-}
-
 private fun formatEvolutionAxisValue(
     value: Double,
     variable: ForecastEvolutionVariable,
@@ -806,23 +798,23 @@ private fun formatEvolutionThreshold(
     ForecastEvolutionVariable.WIND -> "${value.roundToInt()} km/h"
 }
 
-private fun formatEvolutionValue(value: Double, variable: ForecastEvolutionVariable): String = when (variable) {
+private fun formatEvolutionValue(value: Double, variable: ForecastEvolutionVariable, locale: Locale): String = when (variable) {
     ForecastEvolutionVariable.TEMPERATURE -> "${value.roundToInt()}°"
-    ForecastEvolutionVariable.PRECIPITATION -> String.format(Locale.getDefault(), "%.1f mm", value)
+    ForecastEvolutionVariable.PRECIPITATION -> String.format(locale, "%.1f mm", value)
     ForecastEvolutionVariable.WIND -> "${value.roundToInt()} km/h"
 }
 
-private fun signedEvolutionValue(value: Double, variable: ForecastEvolutionVariable): String {
+private fun signedEvolutionValue(value: Double, variable: ForecastEvolutionVariable, locale: Locale): String {
     val sign = if (value > 0) "+" else ""
     return when (variable) {
-        ForecastEvolutionVariable.TEMPERATURE -> "$sign${String.format(Locale.getDefault(), "%.1f", value)}°"
-        ForecastEvolutionVariable.PRECIPITATION -> "$sign${String.format(Locale.getDefault(), "%.1f", value)} mm"
+        ForecastEvolutionVariable.TEMPERATURE -> "$sign${String.format(locale, "%.1f", value)}°"
+        ForecastEvolutionVariable.PRECIPITATION -> "$sign${String.format(locale, "%.1f", value)} mm"
         ForecastEvolutionVariable.WIND -> "$sign${value.roundToInt()} km/h"
     }
 }
 
-private fun shortDate(date: LocalDate): String =
-    date.format(DateTimeFormatter.ofPattern("EEE d"))
+private fun shortDate(date: LocalDate, locale: Locale): String =
+    date.format(DateTimeFormatter.ofPattern("EEE d", locale))
 
-private fun longDate(date: LocalDate): String =
-    date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
+private fun longDate(date: LocalDate, locale: Locale): String =
+    date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale))

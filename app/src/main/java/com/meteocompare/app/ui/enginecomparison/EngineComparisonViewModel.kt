@@ -1,8 +1,10 @@
 package com.meteocompare.app.ui.enginecomparison
 
+import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.meteocompare.app.R
 import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.model.RefreshInterval
@@ -14,6 +16,7 @@ import com.meteocompare.app.domain.usecase.EngineComparisonDay
 import com.meteocompare.app.domain.usecase.ForecastEngineContextProvider
 import com.meteocompare.app.ui.navigation.Destinations
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -55,7 +58,8 @@ class EngineComparisonViewModel @Inject constructor(
     private val preferences: UserPreferencesRepository,
     private val contextProvider: ForecastEngineContextProvider,
     private val comparisonBuilder: EngineComparisonBuilder,
-    private val clock: Clock
+    private val clock: Clock,
+    @param:ApplicationContext private val appContext: Context
 ) : ViewModel() {
     private val cityId: String = checkNotNull(savedStateHandle[Destinations.CITY_DETAIL_ARG])
     private val _state = MutableStateFlow<EngineComparisonUiState>(EngineComparisonUiState.Loading)
@@ -68,10 +72,11 @@ class EngineComparisonViewModel @Inject constructor(
 
     private fun load() {
         loadJob?.cancel()
+        _state.value = EngineComparisonUiState.Loading
         loadJob = viewModelScope.launch {
             val city = cityRepository.observeFavorites().first().firstOrNull { it.id == cityId }
             if (city == null) {
-                _state.value = EngineComparisonUiState.Error("City not found")
+                _state.value = EngineComparisonUiState.Error(appContext.getString(R.string.city_not_found_in_favorites))
                 return@launch
             }
             combine(

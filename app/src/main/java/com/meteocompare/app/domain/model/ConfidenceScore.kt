@@ -9,7 +9,7 @@ package com.meteocompare.app.domain.model
  *                   [convergencePercent] pour distinguer « faible » de « non calculable ».
  * @property minValue Valeur minimale prévue par l'ensemble des modèles.
  * @property maxValue Valeur maximale prévue par l'ensemble des modèles.
- * @property meanValue Nom historique : contient désormais la médiane pondérée centrale Consensus v2.
+ * @property meanValue Nom historique : contient désormais la centrale robuste du consensus.
  * @property stdDev Écart-type pondéré (base du calcul de [convergencePercent]).
  * @property modelCount Nombre de modèles ayant contribué au calcul.
  */
@@ -25,7 +25,7 @@ data class ConfidenceScore(
     /** Convergence instantanée ; null si une seule lignée indépendante contribue. */
     val convergencePercent: Int? = percent
 ) {
-    /** Alias explicite pour le moteur Consensus v2. */
+    /** Alias explicite pour le moteur consensus robuste. */
     val centralValue: Double get() = meanValue
 
     /** Range visible affichable à l'utilisateur : `maxValue - minValue`. */

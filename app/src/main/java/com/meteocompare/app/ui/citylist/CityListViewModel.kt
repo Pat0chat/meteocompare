@@ -80,7 +80,7 @@ class CityListViewModel @Inject constructor(
     private val marineLoadingIds = MutableStateFlow<Set<String>>(emptySet())
     /** Villes validées comme côtières, indépendamment de l'activation de Mer / côte. */
     private val marineAvailableIds = MutableStateFlow<Set<String>>(emptySet())
-    private val marineAvailabilityCheckedIds = mutableSetOf<String>()
+    private val marineAvailabilityCheckedAt = mutableMapOf<String, Long>()
     private val marineAvailabilityJobs = mutableMapOf<String, Job>()
     private val _marineFeedback = Channel<MarineFeedback>(capacity = Channel.BUFFERED)
     val marineFeedback = _marineFeedback.receiveAsFlow()
@@ -189,8 +189,8 @@ class CityListViewModel @Inject constructor(
         viewModelScope.launch {
             userPreferences.observeForecastEngine().distinctUntilChanged().collect { engine ->
                 rawForecastsById.value.forEach { (id, forecast) ->
-                    val city = favoriteCitiesById[id] ?: return@forEach
-                    val mapped = toForecastState(city, ApiResult.Success(forecast), engine)
+                    if (id !in favoriteCitiesById) return@forEach
+                    val mapped = toForecastState(ApiResult.Success(forecast), engine)
                     forecastsById.update { it + (id to mapped) }
                 }
             }
@@ -279,7 +279,7 @@ class CityListViewModel @Inject constructor(
             forecastsById.update { it - id }
             rawForecastsById.update { it - id }
             marineAvailabilityJobs.remove(id)?.cancel()
-            marineAvailabilityCheckedIds.remove(id)
+            marineAvailabilityCheckedAt.remove(id)
             marineAvailableIds.update { it - id }
         }
 
@@ -347,37 +347,50 @@ class CityListViewModel @Inject constructor(
 
     /**
      * Valide en arrière-plan la disponibilité du mode côtier pour les favoris.
-     * Un cache marin existant est utilisé en priorité ; sinon une seule requête
-     * par ville et par session est autorisée. En cas d'échec réseau, la ville
-     * reste éligible à un nouveau contrôle au prochain retour en ligne.
+     * Un cache marin encore frais est utilisé en priorité. Une décision de
+     * disponibilité expire après la même fenêtre de 6 h que le cache ; elle
+     * peut alors être revalidée. En cas d'échec réseau, la ville reste éligible
+     * à un nouveau contrôle au prochain retour en ligne.
      */
     private fun syncMarineAvailability(cities: List<City>) {
         cities.forEach { city ->
             if (city.marineEnabled) {
-                marineAvailabilityCheckedIds += city.id
+                marineAvailabilityCheckedAt[city.id] = clock.millis()
                 marineAvailableIds.update { it + city.id }
                 return@forEach
             }
-            if (city.id in marineAvailabilityCheckedIds || city.id in marineAvailabilityJobs) return@forEach
+            if (isMarineAvailabilityDecisionFresh(city.id) || city.id in marineAvailabilityJobs) return@forEach
 
             val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
                 val ownJob = coroutineContext[Job]
                 try {
-                    val cached = runCatching { marineRepository.getCached(city.id) }.getOrNull()
+                    val cached = runCatching { marineRepository.getFreshCached(city.id) }.getOrNull()
                     if (cached != null) {
-                        marineAvailabilityCheckedIds += city.id
+                        marineAvailabilityCheckedAt[city.id] = cached.fetchedAtEpochMs
                         if (cached.coastal) marineAvailableIds.update { it + city.id }
                         else marineAvailableIds.update { it - city.id }
                         return@launch
                     }
-                    if (!networkMonitor.isOnline()) return@launch
+                    if (!networkMonitor.isOnline()) {
+                        // Hors ligne, une ancienne décision reste utile pour
+                        // l'indication visuelle. On conserve son timestamp
+                        // d'origine afin qu'elle soit revalidée dès le retour
+                        // réseau au lieu de prolonger artificiellement sa TTL.
+                        val stale = runCatching { marineRepository.getCached(city.id) }.getOrNull()
+                        if (stale != null) {
+                            marineAvailabilityCheckedAt[city.id] = stale.fetchedAtEpochMs
+                            if (stale.coastal) marineAvailableIds.update { it + city.id }
+                            else marineAvailableIds.update { it - city.id }
+                        }
+                        return@launch
+                    }
 
                     val result = runCatching {
                         marineRepository.getMarine(city, forceRefresh = false)
                     }.getOrNull()
                     when (result) {
                         is ApiResult.Success -> {
-                            marineAvailabilityCheckedIds += city.id
+                            marineAvailabilityCheckedAt[city.id] = result.data.fetchedAtEpochMs
                             if (result.data.coastal) {
                                 marineAvailableIds.update { it + city.id }
                             } else {
@@ -395,6 +408,12 @@ class CityListViewModel @Inject constructor(
             marineAvailabilityJobs[city.id] = job
             job.start()
         }
+    }
+
+    private fun isMarineAvailabilityDecisionFresh(cityId: String): Boolean {
+        val checkedAt = marineAvailabilityCheckedAt[cityId] ?: return false
+        val ageMs = clock.millis() - checkedAt
+        return ageMs in 0 until MarineRepository.AVAILABILITY_CACHE_TTL_MS
     }
 
     // ─── Actions utilisateur ────────────────────────────────────────────────
@@ -429,7 +448,7 @@ class CityListViewModel @Inject constructor(
             try {
                 when (val result = marineRepository.getMarine(city, forceRefresh = true)) {
                     is ApiResult.Success -> {
-                        marineAvailabilityCheckedIds += city.id
+                        marineAvailabilityCheckedAt[city.id] = result.data.fetchedAtEpochMs
                         if (!result.data.coastal) {
                             marineAvailableIds.update { it - city.id }
                             _marineFeedback.send(MarineFeedback.NotCoastal)
@@ -504,7 +523,7 @@ class CityListViewModel @Inject constructor(
                 else current + (city.id to result.data)
             }
         }
-        val mapped = toForecastState(city, result)
+        val mapped = toForecastState(result)
         forecastsById.update { states ->
             if (city.id !in favoriteCitiesById) return@update states
 
@@ -534,7 +553,6 @@ class CityListViewModel @Inject constructor(
     }
 
     private suspend fun toForecastState(
-        city: City,
         result: ApiResult<CityForecast>,
         engineOverride: ForecastEngine? = null
     ): ForecastState = withContext(computationDispatcher) { when (result) {

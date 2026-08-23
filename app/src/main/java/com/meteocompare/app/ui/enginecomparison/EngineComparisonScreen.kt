@@ -1,5 +1,6 @@
 package com.meteocompare.app.ui.enginecomparison
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -989,9 +991,6 @@ private fun formatDecimal(value: Double?, locale: Locale, suffix: String): Strin
 
 private fun formatInteger(value: Double?, locale: Locale, suffix: String): String =
     value?.takeIf(Double::isFinite)?.let { String.format(locale, "%.0f%s", it, suffix) } ?: "—"
-
-private fun formatCompact(value: Double, suffix: String): String =
-    if (value.isFinite()) String.format(Locale.ROOT, "%.1f%s", value, suffix) else "—"
 
 private fun weatherConditionLabel(condition: WeatherCondition): Int = when (condition) {
     WeatherCondition.CLEAR -> R.string.weather_clear

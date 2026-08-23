@@ -138,6 +138,7 @@ class FakeMarineRepository @Inject constructor() : MarineRepository {
         ?: ApiResult.Error(IllegalStateException("marine unavailable"), "marine unavailable")
 
     override suspend fun getCached(cityId: String): MarineForecast? = cache[cityId]
+    override suspend fun getFreshCached(cityId: String): MarineForecast? = cache[cityId]
 
     override suspend fun clear(cityId: String) { cache.remove(cityId) }
 

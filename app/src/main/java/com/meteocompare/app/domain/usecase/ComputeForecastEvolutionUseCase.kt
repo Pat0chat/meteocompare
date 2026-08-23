@@ -7,6 +7,7 @@ import com.meteocompare.app.domain.model.ForecastEvolutionReport
 import com.meteocompare.app.domain.model.ForecastEvolutionSample
 import com.meteocompare.app.domain.model.ForecastEvolutionSnapshot
 import com.meteocompare.app.domain.model.ForecastEvolutionTrend
+import com.meteocompare.app.domain.model.ForecastEvolutionThresholds
 import com.meteocompare.app.domain.model.ForecastEvolutionVariable
 import com.meteocompare.app.domain.model.ForecastRevision
 import com.meteocompare.app.domain.model.VariableForecastEvolution
@@ -183,7 +184,7 @@ class ComputeForecastEvolutionUseCase @Inject constructor() {
         val deltas = comparable.associateWith { model ->
             currentValues.getValue(model) - previous.valuesByModel.getValue(model)
         }
-        val threshold = stableThreshold(variable)
+        val threshold = ForecastEvolutionThresholds.stable(variable)
         val increased = deltas.values.count { it > threshold }
         val decreased = deltas.values.count { it < -threshold }
         val stable = deltas.size - increased - decreased
@@ -226,29 +227,17 @@ class ComputeForecastEvolutionUseCase @Inject constructor() {
         if (revision.trend == ForecastEvolutionTrend.STABLE ||
             revision.trend == ForecastEvolutionTrend.INSUFFICIENT_DATA
         ) return false
-        return revision.medianAbsoluteDelta >= notableThreshold(variable)
+        return revision.medianAbsoluteDelta >= ForecastEvolutionThresholds.notable(variable)
     }
 
     private fun highlightScore(
         variable: ForecastEvolutionVariable,
         revision: ForecastRevision
     ): Double {
-        val amplitude = revision.medianAbsoluteDelta / notableThreshold(variable)
+        val amplitude = revision.medianAbsoluteDelta / ForecastEvolutionThresholds.notable(variable)
         val consensus = revision.dominantModels.toDouble() / revision.comparedModels
         val volatilityBoost = if (revision.trend == ForecastEvolutionTrend.VOLATILE) 0.35 else 0.0
         return amplitude + consensus + volatilityBoost
-    }
-
-    private fun stableThreshold(variable: ForecastEvolutionVariable): Double = when (variable) {
-        ForecastEvolutionVariable.TEMPERATURE -> 0.5
-        ForecastEvolutionVariable.PRECIPITATION -> 1.0
-        ForecastEvolutionVariable.WIND -> 3.0
-    }
-
-    private fun notableThreshold(variable: ForecastEvolutionVariable): Double = when (variable) {
-        ForecastEvolutionVariable.TEMPERATURE -> 1.0
-        ForecastEvolutionVariable.PRECIPITATION -> 2.0
-        ForecastEvolutionVariable.WIND -> 5.0
     }
 
     private data class PreviousValues(

@@ -425,7 +425,7 @@ fun HourlyConfidenceChart(
                 )
             }
 
-            // ─── Ligne moyenne pondérée ──────────────────────────────────
+            // ─── Ligne centrale du moteur sélectionné ──────────────────────────────────
             val meanPath = Path().apply {
                 bands.forEachIndexed { i, b ->
                     val x = xFor(b.timestamp)

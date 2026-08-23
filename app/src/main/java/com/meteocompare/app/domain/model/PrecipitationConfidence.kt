@@ -1,7 +1,7 @@
 package com.meteocompare.app.domain.model
 
 /**
- * Métadonnées Consensus v2 pour les précipitations.
+ * Métadonnées consensus robuste pour les précipitations.
  *
  * La probabilité d'occurrence et la quantité conditionnelle sont volontairement
  * séparées. La valeur centrale déterministe vaut [centralAmountMm] : 0 lorsque
@@ -66,7 +66,7 @@ sealed interface PrecipitationConfidence {
     ) : PrecipitationConfidence
 
     companion object {
-        /** Seuil journalier Consensus v2 : >= 1 mm = scénario humide. */
+        /** Seuil journalier consensus robuste : >= 1 mm = scénario humide. */
         const val PRECIP_THRESHOLD_MM = 1.0
     }
 }

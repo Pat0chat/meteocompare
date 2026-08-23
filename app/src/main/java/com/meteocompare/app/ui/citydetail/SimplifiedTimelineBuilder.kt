@@ -76,7 +76,7 @@ internal data class SimplifiedTimelinePoint(
     val precipitationSource: PrecipitationSignalSource? = null,
     val precipitationModelCount: Int = 0,
     val wetModelCount: Int = 0,
-    /** Quantité centrale déterministe Consensus v2 (0 si P(pluie) < 50 %). */
+    /** Quantité centrale déterministe consensus robuste (0 si P(pluie) < 50 %). */
     val precipitationMm: Double? = null,
     /** Médiane pondérée des seuls scénarios humides. */
     val precipitationConditionalMm: Double? = null,

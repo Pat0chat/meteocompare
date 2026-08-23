@@ -24,6 +24,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,6 +50,7 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
+import kotlinx.coroutines.delay
 import kotlin.math.abs
 import kotlin.math.max
 
@@ -126,7 +129,14 @@ internal fun MarineSection(
 
 @Composable
 private fun MarineDashboard(data: MarineForecast) {
-    val now = System.currentTimeMillis()
+    val locale = LocalLocale.current.platformLocale
+    val now by produceState(System.currentTimeMillis(), data) {
+        while (true) {
+            val current = System.currentTimeMillis()
+            value = current
+            delay(60_000L - (current % 60_000L).coerceAtMost(59_999L))
+        }
+    }
     val index = remember(data, now / 60_000L) { data.nearestMarineIndex(now) }
     val h = data.hourly
     fun value(values: List<Double?>): Double? = values.getOrNull(index)
@@ -136,14 +146,14 @@ private fun MarineDashboard(data: MarineForecast) {
         modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        MarineKpi(stringResource(R.string.marine_wave_height), format(value(h.waveHeight), "m"))
-        MarineKpi(stringResource(R.string.marine_wave_period), format(value(h.wavePeriod), "s"))
+        MarineKpi(stringResource(R.string.marine_wave_height), formatMarine(value(h.waveHeight), "m", locale = locale))
+        MarineKpi(stringResource(R.string.marine_wave_period), formatMarine(value(h.wavePeriod), "s", locale = locale))
         MarineKpi(
             stringResource(R.string.marine_wave_direction),
             waveDirection?.let { "${it.toInt()}° ${compass(it)}" } ?: "—"
         )
-        MarineKpi(stringResource(R.string.marine_swell_height), format(value(h.swellHeight), "m"))
-        MarineKpi(stringResource(R.string.marine_sea_temp), format(value(h.seaSurfaceTemperature), "°C"))
+        MarineKpi(stringResource(R.string.marine_swell_height), formatMarine(value(h.swellHeight), "m", locale = locale))
+        MarineKpi(stringResource(R.string.marine_sea_temp), formatMarine(value(h.seaSurfaceTemperature), "°C", locale = locale))
     }
 
     MarineSurface(
@@ -205,7 +215,7 @@ private fun MarineDashboard(data: MarineForecast) {
             Column(Modifier.fillMaxWidth().padding(14.dp)) {
                 Text(stringResource(R.string.marine_current_level), style = MaterialTheme.typography.labelMedium)
                 Text(
-                    text = format(currentLevel, "m", digits = 2),
+                    text = formatMarine(currentLevel, "m", digits = 2, locale = locale),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold
                 )
@@ -223,13 +233,13 @@ private fun MarineDashboard(data: MarineForecast) {
                 value = tideEvents.firstOrNull()?.let {
                     stringResource(if (it.type == TideEventType.HIGH) R.string.marine_high_water else R.string.marine_low_water)
                 } ?: "—",
-                detail = tideEvents.firstOrNull()?.let { "${eventTime(it)} · ${format(it.value, "m", 2)}" }
+                detail = tideEvents.firstOrNull()?.let { "${eventTime(it)} · ${formatMarine(it.value, "m", 2, locale)}" }
                     ?: stringResource(R.string.marine_tide_unavailable),
                 modifier = Modifier.weight(1f)
             )
             MarineFact(
                 label = stringResource(R.string.marine_tide_range_short),
-                value = tideRange?.let { format(it.range, "m", 2) } ?: "—",
+                value = tideRange?.let { formatMarine(it.range, "m", 2, locale) } ?: "—",
                 detail = stringResource(R.string.marine_next_24h),
                 modifier = Modifier.weight(1f)
             )
@@ -311,9 +321,9 @@ private fun MarineDayCard(data: MarineForecast, date: String, index: Int) {
     ) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Text(dayLabel, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-            Text(format(data.daily.waveHeightMax.getOrNull(index), "m"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(formatMarine(data.daily.waveHeightMax.getOrNull(index), "m", locale = locale), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Text(
-                "${format(data.daily.wavePeriodMax.getOrNull(index), "s")} · ${format(data.daily.swellHeightMax.getOrNull(index), "m")}",
+                "${formatMarine(data.daily.wavePeriodMax.getOrNull(index), "s", locale = locale)} · ${formatMarine(data.daily.swellHeightMax.getOrNull(index), "m", locale = locale)}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -334,6 +344,7 @@ private fun MarineFact(label: String, value: String, detail: String, modifier: M
 
 @Composable
 private fun TideRow(event: TideEvent) {
+    val locale = LocalLocale.current.platformLocale
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -355,7 +366,7 @@ private fun TideRow(event: TideEvent) {
             )
             Text(eventDateTime(event), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Text(format(event.value, "m", 2), fontWeight = FontWeight.Bold)
+        Text(formatMarine(event.value, "m", 2, locale), fontWeight = FontWeight.Bold)
     }
 }
 
@@ -440,8 +451,10 @@ private fun MarineLineChart(
     }
 }
 
-private fun format(value: Double?, unit: String, digits: Int = 1): String =
-    value?.takeIf { it.isFinite() }?.let { "% .${digits}f".format(Locale.getDefault(), it).trim() + " $unit" } ?: "—"
+private fun formatMarine(value: Double?, unit: String, digits: Int = 1, locale: Locale): String =
+    value?.takeIf { it.isFinite() }
+        ?.let { String.format(locale, "%.${digits}f", it) + " $unit" }
+        ?: "—"
 
 private fun compass(degrees: Double): String {
     val labels = arrayOf("N", "NE", "E", "SE", "S", "SW", "W", "NW")

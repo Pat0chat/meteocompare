@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import java.io.IOException
+import java.time.Clock
 import java.time.ZoneId
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -33,13 +34,14 @@ class MarineRepositoryImpl @Inject constructor(
     private val api: MarineApi,
     private val json: Json,
     private val networkMonitor: NetworkMonitor,
+    private val clock: Clock,
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : MarineRepository {
 
     override suspend fun getMarine(city: City, forceRefresh: Boolean): ApiResult<MarineForecast> =
         withContext(ioDispatcher) {
-            val cached = getCached(city.id)
-            if (!forceRefresh && cached != null && isFresh(cached)) {
+            val cached = readCached(city.id)
+            if (!forceRefresh && cached != null && MarineCachePolicy.isFresh(cached.fetchedAtEpochMs, clock.millis())) {
                 return@withContext ApiResult.Success(cached)
             }
             val localizedContext = applyPersistedLocale(context)
@@ -59,7 +61,7 @@ class MarineRepositoryImpl @Inject constructor(
                     timezone = city.timezone?.takeIf { tz ->
                         runCatching { ZoneId.of(tz) }.isSuccess
                     } ?: "auto"
-                ).toDomain(city)
+                ).toDomain(city, fetchedAtEpochMs = clock.millis())
             }
             // La disponibilité côtière est elle aussi mise en cache : la Home
             // peut afficher sa pastille sans revalider une ville intérieure à
@@ -70,13 +72,23 @@ class MarineRepositoryImpl @Inject constructor(
         }
 
     override suspend fun getCached(cityId: String): MarineForecast? = withContext(ioDispatcher) {
-        val raw = context.marineDataStore.data.first()[key(cityId)] ?: return@withContext null
-        runCatching { json.decodeFromString(MarineForecast.serializer(), raw) }.getOrNull()
+        readCached(cityId)
+    }
+
+    override suspend fun getFreshCached(cityId: String): MarineForecast? = withContext(ioDispatcher) {
+        readCached(cityId)?.takeIf {
+            MarineCachePolicy.isFresh(it.fetchedAtEpochMs, clock.millis())
+        }
     }
 
     override suspend fun clear(cityId: String) = withContext(ioDispatcher) {
         context.marineDataStore.edit { it.remove(key(cityId)) }
         Unit
+    }
+
+    private suspend fun readCached(cityId: String): MarineForecast? {
+        val raw = context.marineDataStore.data.first()[key(cityId)] ?: return null
+        return runCatching { json.decodeFromString(MarineForecast.serializer(), raw) }.getOrNull()
     }
 
     private suspend fun save(cityId: String, data: MarineForecast) {
@@ -86,9 +98,11 @@ class MarineRepositoryImpl @Inject constructor(
     }
 
     private fun key(cityId: String) = stringPreferencesKey("marine_$cityId")
-    private fun isFresh(data: MarineForecast) = System.currentTimeMillis() - data.fetchedAtEpochMs < CACHE_TTL_MS
+}
 
-    companion object {
-        const val CACHE_TTL_MS = 6 * 3_600_000L
+internal object MarineCachePolicy {
+    fun isFresh(fetchedAtEpochMs: Long, nowEpochMs: Long): Boolean {
+        val ageMs = nowEpochMs - fetchedAtEpochMs
+        return ageMs in 0 until MarineRepository.AVAILABILITY_CACHE_TTL_MS
     }
 }

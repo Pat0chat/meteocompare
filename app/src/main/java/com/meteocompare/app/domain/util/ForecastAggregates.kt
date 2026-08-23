@@ -17,7 +17,7 @@ internal data class Next12hForecast(
 )
 
 /**
- * Agrégats 12 h construits avec le même moteur Consensus v2 que le détail ville.
+ * Agrégats 12 h construits avec le même moteur consensus robuste que le détail ville.
  * Les variantes apparentées partagent une voix ; température = médiane pondérée,
  * pluie = P(pluie) + quantité conditionnelle.
  */

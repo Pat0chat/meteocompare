@@ -267,7 +267,7 @@ enum class WeatherModel(
     ),
 
     /**
-     * DMI HARMONIE AROME Europe (DINI) — modèle régional UWC-West à 2 km.
+     * DMI HARMONIE AROME DINI (Europe) — modèle régional UWC-West à 2 km.
      *
      * Même lignée numérique HARMONIE-AROME que le modèle KNMI Europe, mais
      * avec un domaine/runs DMI distincts. Le consensus V3 les regroupe afin
@@ -314,7 +314,8 @@ enum class WeatherModel(
          * Composition : 1 fine-resolution local (AROME HD), 1 régional Europe
          * pour utilisateurs européens (ICON EU), 3 globaux occidentaux (GFS,
          * ECMWF, UKMO) et AIFS pour la comparaison IA vs physique. Les nouveaux
-         * modèles (HRRR, MET Nordic, HARMONIE, BOM, GRAPES, GEM, ICON-D2)
+         * modèles régionaux/globaux ajoutés ensuite (HRRR, MET Nordic,
+         * HARMONIE KNMI/DMI, BOM, GRAPES, GEM, ICON-D2, ICON-CH2)
          * restent opt-in via Settings — pertinents pour certains utilisateurs
          * mais surchargeraient la 1re impression pour les autres.
          */

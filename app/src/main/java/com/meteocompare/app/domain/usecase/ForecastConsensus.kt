@@ -7,7 +7,7 @@ import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
 /**
- * Moteur statistique unique du consensus MeteoCompare (Consensus v2).
+ * Moteur statistique unique du consensus MeteoCompare (consensus robuste).
  *
  * Les sorties brutes des modèles ne sont jamais modifiées. Ce moteur construit
  * seulement une prévision centrale robuste et un score de convergence actuel.

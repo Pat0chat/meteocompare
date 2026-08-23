@@ -1,5 +1,6 @@
 package com.meteocompare.app.ui.enginecomparison
 
+import android.content.Context
 import app.cash.turbine.test
 import androidx.lifecycle.SavedStateHandle
 import com.meteocompare.app.core.network.ApiResult
@@ -75,6 +76,7 @@ class EngineComparisonViewModelTest {
         coEvery { build(forecast, ForecastEngine.ADAPTIVE, now) } returns
             ForecastEngineContext(engine = ForecastEngine.ADAPTIVE)
     }
+    private val appContext: Context = mockk(relaxed = true)
     private val builder = EngineComparisonBuilder(ConfidenceCalculator(EqualWeighting()))
 
     @Before
@@ -91,6 +93,33 @@ class EngineComparisonViewModelTest {
     }
 
     @Test
+    fun `missing favorite exposes localized error without opening forecast stream`() = runTest(dispatcher) {
+        every { cityRepository.observeFavorites() } returns flowOf(emptyList())
+        every { appContext.getString(com.meteocompare.app.R.string.city_not_found_in_favorites) } returns "City missing"
+
+        val viewModel = EngineComparisonViewModel(
+            savedStateHandle = SavedStateHandle(mapOf(Destinations.CITY_DETAIL_ARG to city.id)),
+            cityRepository = cityRepository,
+            forecastRepository = forecastRepository,
+            preferences = preferences,
+            contextProvider = contextProvider,
+            comparisonBuilder = builder,
+            clock = clock,
+            appContext = appContext
+        )
+
+        viewModel.state.test {
+            var state = awaitItem()
+            while (state is EngineComparisonUiState.Loading) state = awaitItem()
+            assertEquals(EngineComparisonUiState.Error("City missing"), state)
+            verify(exactly = 0) {
+                forecastRepository.getCityForecastStream(any(), any(), any(), any(), any())
+            }
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun `changing selected engine only updates highlight without reopening forecast stream`() =
         runTest(dispatcher) {
             val viewModel = EngineComparisonViewModel(
@@ -100,7 +129,8 @@ class EngineComparisonViewModelTest {
                 preferences = preferences,
                 contextProvider = contextProvider,
                 comparisonBuilder = builder,
-                clock = clock
+                clock = clock,
+                appContext = appContext
             )
 
             viewModel.state.test {
