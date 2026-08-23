@@ -4,6 +4,7 @@ import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DayConfidence
 import com.meteocompare.app.domain.model.DayNormals
 import com.meteocompare.app.domain.model.HourlyConfidenceBand
+import com.meteocompare.app.domain.model.ForecastEngineContext
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.usecase.DayConditionsRow
 import java.time.Instant
@@ -49,6 +50,8 @@ sealed interface CityDetailUiState {
         val currentCloudCover: Int? = null,
         val dailyConditions: List<DayConditionsRow> = emptyList(),
         val normals: Map<Int, DayNormals>? = null,
+        /** Moteur + profils utilisés pour toutes les centrales de cet écran. */
+        val engineContext: ForecastEngineContext = ForecastEngineContext.DEFAULT,
         /** Instant unique utilisé pour calculer et présenter les agrégats « maintenant ». */
         val calculatedAt: Instant,
         val fetchedAt: Instant? = null

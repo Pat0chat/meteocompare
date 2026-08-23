@@ -4,6 +4,7 @@ import com.meteocompare.app.domain.repository.CityRepository
 import com.meteocompare.app.domain.repository.ForecastRepository
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
 import com.meteocompare.app.domain.usecase.ConfidenceCalculator
+import com.meteocompare.app.domain.usecase.ForecastEngineContextProvider
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
@@ -31,5 +32,6 @@ internal interface WidgetEntryPoint {
     fun cityRepository(): CityRepository
     fun forecastRepository(): ForecastRepository
     fun confidenceCalculator(): ConfidenceCalculator
+    fun forecastEngineContextProvider(): ForecastEngineContextProvider
     fun userPreferencesRepository(): UserPreferencesRepository
 }

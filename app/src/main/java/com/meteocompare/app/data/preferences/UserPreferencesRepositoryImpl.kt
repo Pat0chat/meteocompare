@@ -16,6 +16,7 @@ import com.meteocompare.app.domain.model.CityDetailSection
 import com.meteocompare.app.domain.model.CityDetailContentTab
 import com.meteocompare.app.domain.model.CityDetailViewMode
 import com.meteocompare.app.domain.model.LanguagePreference
+import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.ThemePreference
 import com.meteocompare.app.domain.model.WeatherModel
@@ -38,6 +39,7 @@ private val Context.preferencesDataStore by preferencesDataStore(name = "user_pr
 private val ENABLED_MODELS_KEY = stringSetPreferencesKey("enabled_models")
 private val THEME_PREFERENCE_KEY = stringPreferencesKey("theme_preference")
 private val REFRESH_INTERVAL_KEY = stringPreferencesKey("refresh_interval")
+private val FORECAST_ENGINE_KEY = stringPreferencesKey("forecast_engine")
 private val COLLAPSED_CITY_DETAIL_SECTIONS_KEY =
     stringSetPreferencesKey("collapsed_city_detail_sections")
 private val CITY_DETAIL_VIEW_MODES_KEY =
@@ -132,6 +134,19 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         withContext(ioDispatcher) {
             context.preferencesDataStore.edit { prefs ->
                 prefs[REFRESH_INTERVAL_KEY] = interval.name
+            }
+            Unit
+        }
+
+    override fun observeForecastEngine(): Flow<ForecastEngine> =
+        safePreferences.map { prefs ->
+            ForecastEngine.fromString(prefs[FORECAST_ENGINE_KEY])
+        }.distinctUntilChanged()
+
+    override suspend fun setForecastEngine(engine: ForecastEngine) =
+        withContext(ioDispatcher) {
+            context.preferencesDataStore.edit { prefs ->
+                prefs[FORECAST_ENGINE_KEY] = engine.name
             }
             Unit
         }

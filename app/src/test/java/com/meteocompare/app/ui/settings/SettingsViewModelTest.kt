@@ -4,6 +4,7 @@ import android.content.Context
 import app.cash.turbine.test
 import com.meteocompare.app.data.worker.BiasRefreshScheduler
 import com.meteocompare.app.domain.model.LanguagePreference
+import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.ThemePreference
 import com.meteocompare.app.domain.model.WeatherModel
@@ -59,12 +60,14 @@ class SettingsViewModelTest {
     private val themeFlow = MutableStateFlow(ThemePreference.SYSTEM)
     private val languageFlow = MutableStateFlow(LanguagePreference.SYSTEM)
     private val refreshIntervalFlow = MutableStateFlow(RefreshInterval.DEFAULT)
+    private val forecastEngineFlow = MutableStateFlow(ForecastEngine.DEFAULT)
 
     private val prefs: UserPreferencesRepository = mockk(relaxed = true) {
         coEvery { observeEnabledModels() } returns modelsFlow
         coEvery { observeThemePreference() } returns themeFlow
         coEvery { observeLanguagePreference() } returns languageFlow
         coEvery { observeRefreshInterval() } returns refreshIntervalFlow
+        every { observeForecastEngine() } returns forecastEngineFlow
     }
 
     /**
@@ -332,4 +335,20 @@ class SettingsViewModelTest {
         }
         backgroundJob.cancel()
     }
+    @Test
+    fun `forecastEngine - suit le repository et le changement rafraichit le widget`() = runTest(dispatcher) {
+        viewModel.forecastEngine.test {
+            assertEquals(ForecastEngine.DEFAULT, awaitItem())
+            forecastEngineFlow.value = ForecastEngine.ADAPTIVE
+            assertEquals(ForecastEngine.ADAPTIVE, awaitItem())
+        }
+
+        viewModel.onForecastEngineSelected(ForecastEngine.CALIBRATION)
+
+        coVerifyOrder {
+            prefs.setForecastEngine(ForecastEngine.CALIBRATION)
+            WidgetRefreshScheduler.triggerImmediateRefresh(appContext)
+        }
+    }
+
 }

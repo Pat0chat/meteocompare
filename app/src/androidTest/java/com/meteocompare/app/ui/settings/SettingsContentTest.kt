@@ -12,6 +12,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.unit.dp
+import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.model.LanguagePreference
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.ThemePreference
@@ -32,6 +33,8 @@ class SettingsContentTest {
         onTheme: (ThemePreference) -> Unit = {},
         onLanguage: (LanguagePreference) -> Unit = {},
         onRefresh: (RefreshInterval) -> Unit = {},
+        forecastEngine: ForecastEngine = ForecastEngine.DEFAULT,
+        onForecastEngine: (ForecastEngine) -> Unit = {},
         biasRefreshRequested: Boolean = false,
         onBiasRefresh: () -> Unit = {},
         onDonate: () -> Unit = {}
@@ -47,6 +50,8 @@ class SettingsContentTest {
                     onLanguageSelected = onLanguage,
                     refreshInterval = RefreshInterval.DEFAULT,
                     onRefreshIntervalSelected = onRefresh,
+                    forecastEngine = forecastEngine,
+                    onForecastEngineSelected = onForecastEngine,
                     biasRefreshRequested = biasRefreshRequested,
                     onBiasRefreshClick = onBiasRefresh,
                     onDonateClick = onDonate,
@@ -196,4 +201,19 @@ class SettingsContentTest {
             .performClick()
         assertTrue(donated)
     }
+    @Test
+    fun forecast_engine_selection_is_visible_and_forwarded() {
+        var selected: ForecastEngine? = null
+        content(onForecastEngine = { selected = it })
+
+        val defaultTag = "$TAG_SETTINGS_ENGINE${ForecastEngine.MULTI_CONSENSUS.name}"
+        val adaptiveTag = "$TAG_SETTINGS_ENGINE${ForecastEngine.ADAPTIVE.name}"
+        scrollTo(defaultTag)
+        composeRule.onNodeWithTag(defaultTag).assertIsSelected()
+        scrollTo(adaptiveTag)
+        composeRule.onNodeWithTag(adaptiveTag).performClick()
+
+        assertEquals(ForecastEngine.ADAPTIVE, selected)
+    }
+
 }

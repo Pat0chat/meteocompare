@@ -4,6 +4,7 @@ import com.meteocompare.app.domain.model.CityDetailSection
 import com.meteocompare.app.domain.model.CityDetailContentTab
 import com.meteocompare.app.domain.model.CityDetailViewMode
 import com.meteocompare.app.domain.model.LanguagePreference
+import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.ThemePreference
 import com.meteocompare.app.domain.model.WeatherModel
@@ -31,6 +32,10 @@ interface UserPreferencesRepository {
      */
     fun observeRefreshInterval(): Flow<RefreshInterval>
     suspend fun setRefreshInterval(interval: RefreshInterval)
+
+    /** Moteur de prévision central utilisé par Home, Détails et widgets. */
+    fun observeForecastEngine(): Flow<ForecastEngine>
+    suspend fun setForecastEngine(engine: ForecastEngine)
 
     /**
      * Sections repliées de la fiche d'une ville. La préférence est mémorisée

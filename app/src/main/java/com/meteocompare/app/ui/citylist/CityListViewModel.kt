@@ -9,6 +9,7 @@ import com.meteocompare.app.core.util.resolveZoneOrUtc
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.RefreshInterval
+import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.di.DefaultDispatcher
 import com.meteocompare.app.domain.repository.CityRepository
@@ -16,6 +17,7 @@ import com.meteocompare.app.domain.repository.ForecastRepository
 import com.meteocompare.app.domain.repository.MarineRepository
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
 import com.meteocompare.app.domain.usecase.ConfidenceCalculator
+import com.meteocompare.app.domain.usecase.ForecastEngineContextProvider
 import com.meteocompare.app.domain.util.ForecastAggregates
 import com.meteocompare.app.domain.util.WeatherScenarioBuilder
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -66,10 +68,13 @@ class CityListViewModel @Inject constructor(
     private val confidenceCalculator: ConfidenceCalculator,
     private val userPreferences: UserPreferencesRepository,
     private val clock: Clock,
-    @param:DefaultDispatcher private val computationDispatcher: CoroutineDispatcher = Dispatchers.Default
+    @param:DefaultDispatcher private val computationDispatcher: CoroutineDispatcher = Dispatchers.Default,
+    private val engineContextProvider: ForecastEngineContextProvider
 ) : ViewModel() {
 
     private val forecastsById = MutableStateFlow<Map<String, ForecastState>>(emptyMap())
+    /** Dernières données brutes : changer de moteur recalcule sans refetch réseau. */
+    private val rawForecastsById = MutableStateFlow<Map<String, CityForecast>>(emptyMap())
     private val _isRefreshing = MutableStateFlow(false)
     private val _isOnline = MutableStateFlow(networkMonitor.isOnline())
     private val marineLoadingIds = MutableStateFlow<Set<String>>(emptySet())
@@ -164,6 +169,19 @@ class CityListViewModel @Inject constructor(
             networkMonitor.observeOnline().collect { online -> _isOnline.value = online }
         }
 
+        // Le moteur change uniquement la centrale dérivée. On recalcule donc
+        // les cartes depuis les forecasts bruts déjà en mémoire, sans annuler
+        // ni relancer les streams cache/réseau.
+        viewModelScope.launch {
+            userPreferences.observeForecastEngine().distinctUntilChanged().collect { engine ->
+                rawForecastsById.value.forEach { (id, forecast) ->
+                    val city = favoriteCitiesById[id] ?: return@forEach
+                    val mapped = toForecastState(city, ApiResult.Success(forecast), engine)
+                    forecastsById.update { it + (id to mapped) }
+                }
+            }
+        }
+
         // Le cœur : on combine favoris + modèles sélectionnés + intervalle.
         // Quand l'une de ces sources change, on réajuste les streams.
         //
@@ -245,6 +263,7 @@ class CityListViewModel @Inject constructor(
             streamJobs.remove(id)?.cancel()
             initializedCityIds.remove(id)
             forecastsById.update { it - id }
+            rawForecastsById.update { it - id }
         }
 
         val config = models to interval
@@ -397,6 +416,15 @@ class CityListViewModel @Inject constructor(
         city: City,
         result: ApiResult<CityForecast>
     ) {
+        if (result is ApiResult.Success) {
+            rawForecastsById.update { current ->
+                val previous = current[city.id]
+                val previousAt = previous?.fetchedAt
+                val incomingAt = result.data.fetchedAt
+                if (previousAt != null && (incomingAt == null || incomingAt.isBefore(previousAt))) current
+                else current + (city.id to result.data)
+            }
+        }
         val mapped = toForecastState(city, result)
         forecastsById.update { states ->
             if (city.id !in favoriteCitiesById) return@update states
@@ -428,10 +456,13 @@ class CityListViewModel @Inject constructor(
 
     private suspend fun toForecastState(
         city: City,
-        result: ApiResult<CityForecast>
+        result: ApiResult<CityForecast>,
+        engineOverride: ForecastEngine? = null
     ): ForecastState = withContext(computationDispatcher) { when (result) {
         is ApiResult.Success -> {
             val now = clock.instant()
+            val engine = engineOverride ?: userPreferences.observeForecastEngine().first()
+            val engineContext = engineContextProvider.build(result.data, engine, now)
             // Le repository complète le fuseau depuis `timezone=auto` si un
             // favori legacy ne l'avait pas. Utiliser la ville du forecast évite
             // alors de retomber à tort sur UTC pour la Home.
@@ -472,13 +503,13 @@ class CityListViewModel @Inject constructor(
                 val sunrise = sunriseFromApi?.atZone(zone)?.toLocalTime() ?: fallbackSun?.sunrise
                 val sunset = sunsetFromApi?.atZone(zone)?.toLocalTime() ?: fallbackSun?.sunset
 
-                val miniForecast = ForecastAggregates.next12h(result.data, now)
+                val miniForecast = ForecastAggregates.next12h(result.data, now, engineContext = engineContext)
                 val scenarios = WeatherScenarioBuilder.next12h(result.data, now)
                 ForecastState.Loaded(
-                    today = confidenceCalculator.dayConfidence(result.data, today),
-                    currentTemp = confidenceCalculator.currentTemperature(result.data, now),
+                    today = confidenceCalculator.dayConfidence(result.data, today, engineContext),
+                    currentTemp = confidenceCalculator.currentTemperature(result.data, now, engineContext),
                     currentCondition = confidenceCalculator.currentWeatherCondition(result.data, now),
-                    currentCloudCover = confidenceCalculator.currentCloudCover(result.data, now),
+                    currentCloudCover = confidenceCalculator.currentCloudCover(result.data, now, engineContext),
                     fetchedAt = result.data.fetchedAt,
                     sourceModels = result.data.seriesByModel.keys + result.data.errors.keys,
                     next12hTemps = miniForecast.temperatures,

@@ -10,6 +10,7 @@ import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DayConfidence
 import com.meteocompare.app.domain.model.HourlyConfidenceBand
 import com.meteocompare.app.domain.model.RefreshInterval
+import com.meteocompare.app.domain.model.ForecastEngineContext
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.usecase.ConfidenceCalculator
 import com.meteocompare.app.domain.usecase.ForecastConsensus
@@ -339,6 +340,7 @@ internal suspend fun loadWidgetData(
     // Avec `enabledModels`, app et widget écrivent/lisent EXACTEMENT les
     // mêmes lignes de cache → le premier à démarrer sert le second.
     val enabledModels = prefsRepo.observeEnabledModels().first()
+    val selectedEngine = prefsRepo.observeForecastEngine().first()
     val maxCacheAgeMs = if (interval == RefreshInterval.MANUAL) Long.MAX_VALUE
     else interval.millis
 
@@ -355,12 +357,14 @@ internal suspend fun loadWidgetData(
             val forecast = result.data
             val calc = entry.confidenceCalculator()
             val currentInstant = java.time.Instant.now()
+            val engineContext = entry.forecastEngineContextProvider()
+                .build(forecast, selectedEngine, currentInstant)
             // Le forecast porte le fuseau réellement résolu par l'API. Pour les
             // anciens favoris sans timezone (ou invalide), il doit primer sur la
             // valeur persistée afin de choisir le bon jour civil.
             val effectiveTimezone = forecast.city.timezone
             val today = currentInstant.localDateIn(effectiveTimezone)
-            val dayConf = calc.dayConfidence(forecast, today)
+            val dayConf = calc.dayConfidence(forecast, today, engineContext)
             val precipitation = dayConf.precipitation
             val rainConfidence = precipitation as?
                 com.meteocompare.app.domain.model.PrecipitationConfidence.Rain
@@ -383,15 +387,15 @@ internal suspend fun loadWidgetData(
             val forecastConfidence = when (forecastMode) {
                 ForecastMode.HOURLY -> WidgetForecastConfidence(
                     hourlyByTimestamp = hourlyForecastConfidenceByTimestamp(
-                        temperatureBands = calc.hourlyTemperatureConfidence(forecast),
-                        precipitationBands = calc.hourlyPrecipitationConfidence(forecast),
-                        windBands = calc.hourlyWindConfidence(forecast),
+                        temperatureBands = calc.hourlyTemperatureConfidence(forecast, engineContext = engineContext),
+                        precipitationBands = calc.hourlyPrecipitationConfidence(forecast, engineContext = engineContext),
+                        windBands = calc.hourlyWindConfidence(forecast, engineContext = engineContext),
                         totalModelCount = totalFamilyCount
                     )
                 )
                 ForecastMode.DAILY -> WidgetForecastConfidence(
                     dailyByDate = dailyForecastConfidenceByDate(
-                        days = calc.weeklyConfidence(forecast),
+                        days = calc.weeklyConfidence(forecast, engineContext),
                         totalModelCount = totalFamilyCount
                     )
                 )
@@ -405,11 +409,12 @@ internal suspend fun loadWidgetData(
                     mode = forecastMode,
                     timezone = effectiveTimezone,
                     now = currentInstant,
-                    forecastConfidence = forecastConfidence
+                    forecastConfidence = forecastConfidence,
+                    engineContext = engineContext
                 )
             }
             val confidenceStrips = if (forecastMode.isConfidenceBand())
-                buildAllConfidenceStrips(localizedContext, forecast, calc, currentInstant)
+                buildAllConfidenceStrips(localizedContext, forecast, calc, currentInstant, engineContext)
             else emptyList()
 
             // ─── Mini forecast 12h (nouveau mode) ─────────────────────────
@@ -421,7 +426,8 @@ internal suspend fun loadWidgetData(
                 buildWidgetValueSnapshot(
                     context = localizedContext,
                     forecast = forecast,
-                    now = miniForecastNow
+                    now = miniForecastNow,
+                    engineContext = engineContext
                 )
             } else {
                 WidgetValueSnapshot(keyInsight = null, comparison = null)
@@ -430,7 +436,8 @@ internal suspend fun loadWidgetData(
                 ForecastAggregates.next12h(
                     forecast = forecast,
                     now = miniForecastNow,
-                    includeConditions = true
+                    includeConditions = true,
+                    engineContext = engineContext
                 )
             } else {
                 null
@@ -445,15 +452,15 @@ internal suspend fun loadWidgetData(
 
             WidgetData(
                 cityName = city.name,
-                currentTemp = calc.currentTemperature(forecast, currentInstant),
+                currentTemp = calc.currentTemperature(forecast, currentInstant, engineContext),
                 currentCondition = calc.currentWeatherCondition(forecast, currentInstant),
                 tempMax = dayConf.tempMax?.meanValue,
                 tempMin = dayConf.tempMin?.meanValue,
                 confidencePct = dayConf.overallPercent,
                 precipMm = precipAmountMm,
                 precipConfidencePct = rainConfidence?.convergencePercent,
-                currentCloudCover = calc.currentCloudCover(forecast, currentInstant),
-                currentWindSpeedKmh = calc.currentWindSpeed(forecast, currentInstant),
+                currentCloudCover = calc.currentCloudCover(forecast, currentInstant, engineContext),
+                currentWindSpeedKmh = calc.currentWindSpeed(forecast, currentInstant, engineContext),
                 forecastMode = forecastMode.normalized(),
                 forecasts = forecasts,
                 confidenceStrips = confidenceStrips,
@@ -500,14 +507,15 @@ internal fun buildForecasts(
     mode: ForecastMode,
     timezone: String?,
     now: java.time.Instant = java.time.Instant.now(),
-    forecastConfidence: WidgetForecastConfidence = WidgetForecastConfidence.Empty
+    forecastConfidence: WidgetForecastConfidence = WidgetForecastConfidence.Empty,
+    engineContext: ForecastEngineContext = ForecastEngineContext.DEFAULT
 ): List<WidgetForecastItem> {
     val zone = resolveZoneOrUtc(timezone)
     val locale = java.util.Locale.getDefault()
     return when (mode) {
         ForecastMode.HOURLY -> {
             val formatter = java.time.format.DateTimeFormatter.ofPattern("H'h'", locale)
-            buildSimplifiedTimeline(forecast, DisplayMode.HOURLY, now)
+            buildSimplifiedTimeline(forecast, DisplayMode.HOURLY, now, engineContext)
                 .filter { it.instant != null && it.instant >= now.minusSeconds(30 * 60L) }
                 .take(5)
                 .map { point ->
@@ -525,7 +533,7 @@ internal fun buildForecasts(
                 }
         }
         ForecastMode.DAILY -> {
-            buildSimplifiedTimeline(forecast, DisplayMode.DAILY, now)
+            buildSimplifiedTimeline(forecast, DisplayMode.DAILY, now, engineContext)
                 .filter { it.date != null }
                 .take(5)
                 .map { point ->
@@ -790,10 +798,11 @@ private fun buildAllConfidenceStrips(
     context: Context,
     forecast: CityForecast,
     calc: ConfidenceCalculator,
-    now: java.time.Instant
+    now: java.time.Instant,
+    engineContext: ForecastEngineContext
 ): List<WidgetConfidenceStrip> = listOfNotNull(
-    buildConfidenceStrip(context, forecast, ForecastMode.CONFIDENCE_TEMPERATURE, calc, now),
-    buildConfidenceStrip(context, forecast, ForecastMode.CONFIDENCE_PRECIPITATION, calc, now)
+    buildConfidenceStrip(context, forecast, ForecastMode.CONFIDENCE_TEMPERATURE, calc, now, engineContext),
+    buildConfidenceStrip(context, forecast, ForecastMode.CONFIDENCE_PRECIPITATION, calc, now, engineContext)
 )
 
 private fun buildConfidenceStrip(
@@ -801,12 +810,13 @@ private fun buildConfidenceStrip(
     forecast: CityForecast,
     mode: ForecastMode,
     calc: ConfidenceCalculator,
-    now: java.time.Instant
+    now: java.time.Instant,
+    engineContext: ForecastEngineContext
 ): WidgetConfidenceStrip? {
     val bands = when (mode) {
-        ForecastMode.CONFIDENCE_TEMPERATURE -> calc.hourlyTemperatureConfidence(forecast)
-        ForecastMode.CONFIDENCE_PRECIPITATION -> calc.hourlyPrecipitationConfidence(forecast)
-        ForecastMode.CONFIDENCE_WIND -> calc.hourlyWindConfidence(forecast)
+        ForecastMode.CONFIDENCE_TEMPERATURE -> calc.hourlyTemperatureConfidence(forecast, engineContext = engineContext)
+        ForecastMode.CONFIDENCE_PRECIPITATION -> calc.hourlyPrecipitationConfidence(forecast, engineContext = engineContext)
+        ForecastMode.CONFIDENCE_WIND -> calc.hourlyWindConfidence(forecast, engineContext = engineContext)
         else -> return null // sécurité — signature contrôlée par isConfidenceBand()
     }
     if (bands.size < 2) return null

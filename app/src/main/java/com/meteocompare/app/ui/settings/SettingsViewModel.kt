@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.meteocompare.app.data.worker.BiasRefreshScheduler
 import com.meteocompare.app.domain.model.LanguagePreference
+import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.ThemePreference
 import com.meteocompare.app.domain.model.WeatherModel
@@ -57,6 +58,13 @@ class SettingsViewModel @Inject constructor(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = RefreshInterval.DEFAULT
+        )
+
+    val forecastEngine: StateFlow<ForecastEngine> = prefs.observeForecastEngine()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = ForecastEngine.DEFAULT
         )
 
     fun onModelToggled(model: WeatherModel, enabled: Boolean) {
@@ -143,6 +151,19 @@ class SettingsViewModel @Inject constructor(
     fun onRefreshIntervalSelected(interval: RefreshInterval) {
         viewModelScope.launch {
             prefs.setRefreshInterval(interval)
+            WidgetRefreshScheduler.triggerImmediateRefresh(appContext)
+        }
+    }
+
+
+    /**
+     * Change uniquement la stratégie de centrale : aucune requête réseau n'est
+     * nécessaire. Le widget est toutefois rafraîchi immédiatement pour relire
+     * la préférence et recalculer ses valeurs depuis le cache partagé.
+     */
+    fun onForecastEngineSelected(engine: ForecastEngine) {
+        viewModelScope.launch {
+            prefs.setForecastEngine(engine)
             WidgetRefreshScheduler.triggerImmediateRefresh(appContext)
         }
     }

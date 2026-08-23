@@ -743,4 +743,39 @@
         <item quantity="many">%d models</item>
         <item quantity="other">%d models</item>
     </plurals>
+
+    <!-- Moteur de prévision V3 / Engine comparison -->
+    <string name="settings_forecast_engine_title">Forecast engine</string>
+    <string name="settings_forecast_engine_desc">Choose how MeteoCompare turns model outputs into a central forecast. The selected engine drives Home, widgets and City Details.</string>
+    <string name="forecast_engine_multi_consensus">Multi-consensus</string>
+    <string name="forecast_engine_multi_consensus_desc">Robust model-family aggregation that limits the influence of isolated values.</string>
+    <string name="forecast_engine_calibration">Calibration</string>
+    <string name="forecast_engine_calibration_desc">Corrects local bias and adjusts weights from observed history; automatically falls back to multi-consensus when history is insufficient.</string>
+    <string name="forecast_engine_scenarios">Scenarios</string>
+    <string name="forecast_engine_scenarios_desc">Detects distinct forecast groups and favours the dominant scenario instead of averaging incompatible scenarios.</string>
+    <string name="forecast_engine_adaptive">Adaptive</string>
+    <string name="forecast_engine_adaptive_desc">Dynamically chooses between robust consensus, calibration and scenarios based on data, history and multimodality.</string>
+    <string name="engine_comparison_title">Engine comparison</string>
+    <string name="engine_comparison_intro">See how the four engines interpret the same models and spot the days when their forecasts diverge.</string>
+    <string name="engine_comparison_selected">Active engine: %1$s</string>
+    <string name="engine_comparison_metric">Compared variable</string>
+    <string name="engine_comparison_divergence_title">Divergence timeline</string>
+    <string name="engine_comparison_divergence_desc">Each day summarizes the spread between the four engines for temperature, rain, wind and cloud cover.</string>
+    <string name="engine_comparison_details_title">Daily detail</string>
+    <string name="engine_comparison_science_note">Intervals and spreads are descriptive. They are not calibrated probabilities; convergence elsewhere in MeteoCompare remains computed from raw model outputs.</string>
+    <string name="engine_comparison_not_enough_data">Not enough data to draw the curves.</string>
+    <string name="engine_comparison_entry_selected">Active engine: %1$s · compare all four methods</string>
+    <string name="engine_comparison_open">Open engine comparison</string>
+    <string name="engine_divergence_low">Low spread</string>
+    <string name="engine_divergence_medium">Moderate spread</string>
+    <string name="engine_divergence_high">High spread</string>
+    <string name="engine_divergence_values">ΔT %1$.1f °C · rain %2$.1f mm · wind %3$.0f km/h · cloud %4$d %%</string>
+    <string name="engine_comparison_row_values">Min %1$s° · Max %2$s° · rain %3$s mm · probability %4$s%%</string>
+    <string name="engine_metric_temp_max">Max temp</string>
+    <string name="engine_metric_temp_min">Min temp</string>
+    <string name="engine_metric_precipitation">Rain</string>
+    <string name="engine_metric_wind">Wind</string>
+    <string name="engine_metric_gust">Gusts</string>
+    <string name="engine_metric_cloud">Cloud</string>
+    <string name="engine_comparison_row_values_secondary">Expected %1$s mm · wind %2$s km/h · gusts %3$s km/h · cloud %4$s%% · %5$s</string>
 </resources>

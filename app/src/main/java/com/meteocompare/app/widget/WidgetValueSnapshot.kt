@@ -4,6 +4,7 @@ import com.meteocompare.app.core.util.resolveZoneOrUtc
 import android.content.Context
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.CityForecast
+import com.meteocompare.app.domain.model.ForecastEngineContext
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.ui.citydetail.DivergenceReason
 import com.meteocompare.app.ui.citydetail.DisplayMode
@@ -69,9 +70,10 @@ internal data class WidgetValueSnapshot(
 internal fun buildWidgetValueSnapshot(
     context: Context,
     forecast: CityForecast,
-    now: Instant = Instant.now()
+    now: Instant = Instant.now(),
+    engineContext: ForecastEngineContext = ForecastEngineContext.DEFAULT
 ): WidgetValueSnapshot {
-    val overview = buildOverviewTimeline(forecast, now)
+    val overview = buildOverviewTimeline(forecast, now, engineContext)
     val insights = buildForecastInsights(overview)
     val comparisonPoint = overview.analysisPoints.firstOrNull { it.hasMultiModelEvidence }
         ?: overview.analysisPoints.firstOrNull()

@@ -741,4 +741,39 @@
         <item quantity="many">%d modèles</item>
         <item quantity="other">%d modèles</item>
     </plurals>
+
+    <!-- Moteur de prévision V3 / Engine comparison -->
+    <string name="settings_forecast_engine_title">Moteur de prévision</string>
+    <string name="settings_forecast_engine_desc">Choisissez la manière dont MeteoCompare transforme les modèles en prévision centrale. Le moteur sélectionné pilote l’accueil, les widgets et les pages Détails.</string>
+    <string name="forecast_engine_multi_consensus">Multi-consensus</string>
+    <string name="forecast_engine_multi_consensus_desc">Agrégation robuste par familles de modèles, résistante aux valeurs isolées.</string>
+    <string name="forecast_engine_calibration">Calibration</string>
+    <string name="forecast_engine_calibration_desc">Corrige les biais locaux et ajuste les poids avec l’historique observé ; retour automatique au multi-consensus si l’historique est insuffisant.</string>
+    <string name="forecast_engine_scenarios">Scénarios</string>
+    <string name="forecast_engine_scenarios_desc">Détecte des groupes de prévisions distincts et privilégie le scénario dominant plutôt qu’une moyenne entre scénarios incompatibles.</string>
+    <string name="forecast_engine_adaptive">Adaptative</string>
+    <string name="forecast_engine_adaptive_desc">Choisit dynamiquement entre consensus robuste, calibration et scénarios selon les données, l’historique et la multimodalité.</string>
+    <string name="engine_comparison_title">Comparaison des moteurs</string>
+    <string name="engine_comparison_intro">Visualisez comment les quatre moteurs interprètent les mêmes modèles et repérez les jours où leurs prévisions divergent.</string>
+    <string name="engine_comparison_selected">Moteur actif : %1$s</string>
+    <string name="engine_comparison_metric">Variable comparée</string>
+    <string name="engine_comparison_divergence_title">Frise de divergence</string>
+    <string name="engine_comparison_divergence_desc">Chaque jour résume l’écart entre les quatre moteurs sur la température, la pluie, le vent et la nébulosité.</string>
+    <string name="engine_comparison_details_title">Détail par jour</string>
+    <string name="engine_comparison_science_note">Les intervalles et écarts sont descriptifs. Ils ne constituent pas des probabilités calibrées ; la convergence affichée ailleurs dans MeteoCompare reste calculée à partir des modèles bruts.</string>
+    <string name="engine_comparison_not_enough_data">Pas assez de données pour tracer les courbes.</string>
+    <string name="engine_comparison_entry_selected">Moteur actif : %1$s · comparer les quatre méthodes</string>
+    <string name="engine_comparison_open">Ouvrir la comparaison des moteurs</string>
+    <string name="engine_divergence_low">Écart faible</string>
+    <string name="engine_divergence_medium">Écart modéré</string>
+    <string name="engine_divergence_high">Écart marqué</string>
+    <string name="engine_divergence_values">ΔT %1$.1f °C · pluie %2$.1f mm · vent %3$.0f km/h · nuages %4$d %%</string>
+    <string name="engine_comparison_row_values">Min %1$s° · Max %2$s° · pluie %3$s mm · probabilité %4$s%%</string>
+    <string name="engine_metric_temp_max">T° max</string>
+    <string name="engine_metric_temp_min">T° min</string>
+    <string name="engine_metric_precipitation">Pluie</string>
+    <string name="engine_metric_wind">Vent</string>
+    <string name="engine_metric_gust">Rafales</string>
+    <string name="engine_metric_cloud">Nuages</string>
+    <string name="engine_comparison_row_values_secondary">Attendue %1$s mm · vent %2$s km/h · rafales %3$s km/h · nuages %4$s%% · %5$s</string>
 </resources>

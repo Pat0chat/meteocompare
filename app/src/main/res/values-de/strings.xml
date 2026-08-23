@@ -676,4 +676,39 @@ Daten</string>
         <item quantity="many">%d Modelle</item>
         <item quantity="other">%d Modelle</item>
     </plurals>
+
+    <!-- Moteur de prévision V3 / Engine comparison -->
+    <string name="settings_forecast_engine_title">Vorhersage-Engine</string>
+    <string name="settings_forecast_engine_desc">Wähle, wie MeteoCompare aus den Modellen eine zentrale Prognose bildet. Die ausgewählte Engine steuert Startseite, Widgets und Stadtdetails.</string>
+    <string name="forecast_engine_multi_consensus">Multi-Konsens</string>
+    <string name="forecast_engine_multi_consensus_desc">Robuste Aggregation nach Modellfamilien, die den Einfluss einzelner Ausreißer begrenzt.</string>
+    <string name="forecast_engine_calibration">Kalibrierung</string>
+    <string name="forecast_engine_calibration_desc">Korrigiert lokale Biases und passt Gewichte anhand beobachteter Historie an; fällt bei zu wenig Historie automatisch auf Multi-Konsens zurück.</string>
+    <string name="forecast_engine_scenarios">Szenarien</string>
+    <string name="forecast_engine_scenarios_desc">Erkennt getrennte Vorhersagegruppen und bevorzugt das dominante Szenario statt inkompatible Szenarien zu mitteln.</string>
+    <string name="forecast_engine_adaptive">Adaptiv</string>
+    <string name="forecast_engine_adaptive_desc">Wählt dynamisch zwischen robustem Konsens, Kalibrierung und Szenarien je nach Daten, Historie und Multimodalität.</string>
+    <string name="engine_comparison_title">Vergleich der Prognosemotoren</string>
+    <string name="engine_comparison_intro">Sieh, wie die vier Engines dieselben Modelle interpretieren, und erkenne Tage mit abweichenden Prognosen sofort.</string>
+    <string name="engine_comparison_selected">Aktiver Motor: %1$s</string>
+    <string name="engine_comparison_metric">Verglichene Variable</string>
+    <string name="engine_comparison_divergence_title">Divergenz-Zeitleiste</string>
+    <string name="engine_comparison_divergence_desc">Jeder Tag fasst die Unterschiede der vier Engines bei Temperatur, Niederschlag, Wind und Bewölkung zusammen.</string>
+    <string name="engine_comparison_details_title">Tagesdetails</string>
+    <string name="engine_comparison_science_note">Intervalle und Abweichungen sind deskriptiv und keine kalibrierten Wahrscheinlichkeiten. Die Konvergenz wird weiterhin aus den rohen Modellausgaben berechnet.</string>
+    <string name="engine_comparison_not_enough_data">Nicht genügend Daten für die Kurven.</string>
+    <string name="engine_comparison_entry_selected">Aktiver Motor: %1$s · alle vier Methoden vergleichen</string>
+    <string name="engine_comparison_open">Engine-Vergleich öffnen</string>
+    <string name="engine_divergence_low">Geringe Abweichung</string>
+    <string name="engine_divergence_medium">Mittlere Abweichung</string>
+    <string name="engine_divergence_high">Deutliche Abweichung</string>
+    <string name="engine_divergence_values">ΔT %1$.1f °C · Regen %2$.1f mm · Wind %3$.0f km/h · Wolken %4$d %%</string>
+    <string name="engine_comparison_row_values">Min. %1$s° · Max. %2$s° · Regen %3$s mm · Wahrscheinlichkeit %4$s%%</string>
+    <string name="engine_metric_temp_max">Max Temp.</string>
+    <string name="engine_metric_temp_min">Min Temp.</string>
+    <string name="engine_metric_precipitation">Regen</string>
+    <string name="engine_metric_wind">Wind</string>
+    <string name="engine_metric_gust">Böen</string>
+    <string name="engine_metric_cloud">Wolken</string>
+    <string name="engine_comparison_row_values_secondary">Erwartet %1$s mm · Wind %2$s km/h · Böen %3$s km/h · Wolken %4$s%% · %5$s</string>
 </resources>

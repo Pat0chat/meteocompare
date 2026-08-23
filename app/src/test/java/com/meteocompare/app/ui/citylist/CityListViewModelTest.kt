@@ -8,6 +8,7 @@ import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DailyForecast
 import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.HourlyForecast
+import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.repository.CityRepository
@@ -16,6 +17,7 @@ import com.meteocompare.app.domain.repository.MarineRepository
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
 import com.meteocompare.app.domain.usecase.ConfidenceCalculator
 import com.meteocompare.app.domain.usecase.EqualWeighting
+import com.meteocompare.app.domain.usecase.ForecastEngineContextProvider
 import io.mockk.clearMocks
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -37,6 +39,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -81,6 +84,7 @@ class CityListViewModelTest {
     private val favoritesFlow = MutableStateFlow<List<City>>(emptyList())
     private val modelsFlow = MutableStateFlow(WeatherModel.MVP_SELECTION)
     private val refreshIntervalFlow = MutableStateFlow(RefreshInterval.DEFAULT)
+    private val forecastEngineFlow = MutableStateFlow(ForecastEngine.DEFAULT)
     private val forecastUpdates = MutableSharedFlow<CityForecast>(extraBufferCapacity = 4)
     private val onlineFlow = MutableStateFlow(true)
 
@@ -103,8 +107,10 @@ class CityListViewModelTest {
         // stream soit lancé et émette, ce qui suppose que le combine amont ait
         // reçu une valeur pour chaque source.
         coEvery { observeRefreshInterval() } returns refreshIntervalFlow
+        every { observeForecastEngine() } returns forecastEngineFlow
     }
     private val calculator = ConfidenceCalculator(EqualWeighting())
+    private val engineContextProvider = ForecastEngineContextProvider(mockk(relaxed = true))
 
     private lateinit var viewModel: CityListViewModel
 
@@ -114,6 +120,7 @@ class CityListViewModelTest {
         favoritesFlow.value = emptyList()
         modelsFlow.value = WeatherModel.MVP_SELECTION
         refreshIntervalFlow.value = RefreshInterval.DEFAULT
+        forecastEngineFlow.value = ForecastEngine.DEFAULT
         onlineFlow.value = true
         // Par défaut, getCityForecastStream renvoie un flow qui reste en cours.
         // Les tests qui veulent un résultat spécifique l'overrident AVANT
@@ -128,7 +135,7 @@ class CityListViewModelTest {
             /* ne rien émettre, ne pas terminer */
         }
         every { forecastRepo.observeForecastUpdates() } returns forecastUpdates
-        viewModel = CityListViewModel(cityRepo, forecastRepo, marineRepo, networkMonitor, calculator, prefs, testClock, dispatcher)
+        viewModel = CityListViewModel(cityRepo, forecastRepo, marineRepo, networkMonitor, calculator, prefs, testClock, dispatcher, engineContextProvider)
     }
 
     @After
@@ -183,7 +190,7 @@ class CityListViewModelTest {
         } returns flowOf(ApiResult.Success(forecast))
 
         // Nouvelle VM qui capturera le bon stub
-        val vm = CityListViewModel(cityRepo, forecastRepo, marineRepo, networkMonitor, calculator, prefs, testClock, dispatcher)
+        val vm = CityListViewModel(cityRepo, forecastRepo, marineRepo, networkMonitor, calculator, prefs, testClock, dispatcher, engineContextProvider)
 
         vm.uiState.test {
             awaitItem() // initial vide
@@ -200,13 +207,48 @@ class CityListViewModelTest {
     }
 
     @Test
+    fun `changement de moteur recalcule la CityCard sans refetch`() = runTest(dispatcher) {
+        val forecast = buildScenarioForecast(paris)
+        coEvery {
+            forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
+        } returns flowOf(ApiResult.Success(forecast))
+
+        val vm = CityListViewModel(
+            cityRepo, forecastRepo, marineRepo, networkMonitor, calculator, prefs, testClock, dispatcher,
+            engineContextProvider
+        )
+        vm.uiState.test {
+            awaitItem()
+            favoritesFlow.value = listOf(paris)
+            var loadedState = awaitItem()
+            while (loadedState.items.firstOrNull()?.forecast !is ForecastState.Loaded) loadedState = awaitItem()
+            val before = (loadedState.items.first().forecast as ForecastState.Loaded).currentTemp
+
+            coVerify(exactly = 1) {
+                forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
+            }
+            forecastEngineFlow.value = ForecastEngine.SCENARIOS
+
+            var updated = awaitItem()
+            while ((updated.items.firstOrNull()?.forecast as? ForecastState.Loaded)?.currentTemp == before) {
+                updated = awaitItem()
+            }
+            val after = (updated.items.first().forecast as ForecastState.Loaded).currentTemp
+            assertNotEquals(before, after)
+            coVerify(exactly = 1) {
+                forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
+            }
+        }
+    }
+
+    @Test
     fun `uiState - error path conserve la ville dans la liste avec ForecastState Error`() =
         runTest(dispatcher) {
             coEvery {
                 forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
             } returns flowOf(ApiResult.Error(RuntimeException("net"), "Pas de connexion"))
 
-            val vm = CityListViewModel(cityRepo, forecastRepo, marineRepo, networkMonitor, calculator, prefs, testClock, dispatcher)
+            val vm = CityListViewModel(cityRepo, forecastRepo, marineRepo, networkMonitor, calculator, prefs, testClock, dispatcher, engineContextProvider)
 
             vm.uiState.test {
                 awaitItem()
@@ -234,7 +276,7 @@ class CityListViewModelTest {
                 forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
             } returns flowOf(ApiResult.Success(initial))
 
-            val vm = CityListViewModel(cityRepo, forecastRepo, marineRepo, networkMonitor, calculator, prefs, testClock, dispatcher)
+            val vm = CityListViewModel(cityRepo, forecastRepo, marineRepo, networkMonitor, calculator, prefs, testClock, dispatcher, engineContextProvider)
 
             vm.uiState.test {
                 awaitItem()
@@ -286,7 +328,7 @@ class CityListViewModelTest {
                 forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
             } returns flowOf(ApiResult.Success(initial))
 
-            val vm = CityListViewModel(cityRepo, forecastRepo, marineRepo, networkMonitor, calculator, prefs, testClock, dispatcher)
+            val vm = CityListViewModel(cityRepo, forecastRepo, marineRepo, networkMonitor, calculator, prefs, testClock, dispatcher, engineContextProvider)
 
             vm.uiState.test {
                 awaitItem()
@@ -362,7 +404,7 @@ class CityListViewModelTest {
             forecastRepo.refreshCityForecast(eq(paris), any(), any())
         } returns ApiResult.Error(RuntimeException("offline"), "Pas de connexion")
 
-        val vm = CityListViewModel(cityRepo, forecastRepo, marineRepo, networkMonitor, calculator, prefs, testClock, dispatcher)
+        val vm = CityListViewModel(cityRepo, forecastRepo, marineRepo, networkMonitor, calculator, prefs, testClock, dispatcher, engineContextProvider)
         backgroundScope.launch { vm.uiState.collect {} }
         favoritesFlow.value = listOf(paris)
         vm.uiState.first {
@@ -415,7 +457,7 @@ class CityListViewModelTest {
             forecastRepo.refreshCityForecast(eq(paris), any(), any())
         } returns ApiResult.Success(freshForecast)
 
-        val vm = CityListViewModel(cityRepo, forecastRepo, marineRepo, networkMonitor, calculator, prefs, testClock, dispatcher)
+        val vm = CityListViewModel(cityRepo, forecastRepo, marineRepo, networkMonitor, calculator, prefs, testClock, dispatcher, engineContextProvider)
 
         vm.uiState.test {
             awaitItem() // initial vide
@@ -577,7 +619,7 @@ class CityListViewModelTest {
         coEvery {
             forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
         } returns flowOf(ApiResult.Success(stale))
-        val vm = CityListViewModel(cityRepo, forecastRepo, marineRepo, networkMonitor, calculator, prefs, testClock, dispatcher)
+        val vm = CityListViewModel(cityRepo, forecastRepo, marineRepo, networkMonitor, calculator, prefs, testClock, dispatcher, engineContextProvider)
 
         vm.uiState.test {
             awaitItem()
@@ -620,7 +662,7 @@ class CityListViewModelTest {
         coEvery {
             forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
         } returns flowOf(ApiResult.Success(forecast))
-        val vm = CityListViewModel(cityRepo, forecastRepo, marineRepo, networkMonitor, calculator, prefs, lateClock, dispatcher)
+        val vm = CityListViewModel(cityRepo, forecastRepo, marineRepo, networkMonitor, calculator, prefs, lateClock, dispatcher, engineContextProvider)
 
         vm.uiState.test {
             awaitItem()
@@ -633,6 +675,39 @@ class CityListViewModelTest {
     }
 
     // ──────────────── Helpers ────────────────
+
+
+    private fun buildScenarioForecast(city: City): CityForecast {
+        val today = LocalDate.of(2026, 6, 28)
+        val values = linkedMapOf(
+            WeatherModel.GFS to 10.0,
+            WeatherModel.ECMWF to 10.4,
+            WeatherModel.ARPEGE_EUROPE to 10.8,
+            WeatherModel.UKMO_GLOBAL to 20.0,
+            WeatherModel.GEM_GLOBAL to 20.4
+        )
+        return CityForecast(
+            city = city,
+            seriesByModel = values.mapValues { (model, value) ->
+                ForecastSeries(
+                    model = model,
+                    hourly = HourlyForecast(
+                        timestamps = listOf(testNow),
+                        temperature2m = listOf(value),
+                        precipitation = listOf(0.0),
+                        windSpeed10m = listOf(10.0)
+                    ),
+                    daily = DailyForecast(
+                        dates = listOf(today),
+                        tempMax = listOf(value + 2.0),
+                        tempMin = listOf(value - 6.0),
+                        precipitationSum = listOf(0.0),
+                        windSpeedMax = listOf(10.0)
+                    )
+                )
+            }
+        )
+    }
 
     private fun buildForecast(
         city: City,

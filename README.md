@@ -22,8 +22,10 @@ Depuis la v1.0, l'app suit aussi **le biais historique de chaque modèle sur cha
 ## Fonctionnalités
 
 - **Comparaison multi-modèles** : jusqu'à 17 modèles météo (Météo-France, DWD, NOAA, ECMWF, UK Met Office, ECCC, MET Norway, KNMI, BOM, CMA, plus le modèle IA d'ECMWF)
+- **Moteur de prévision V3 sélectionnable** : Multi-consensus robuste, Calibration locale, Scénarios et Adaptatif. Le moteur choisi pilote Home, Détails et widgets sans modifier les sorties brutes des modèles.
+- **Comparaison des moteurs** : page dédiée calculant les quatre moteurs sur exactement le même forecast brut, sur 7 jours futurs dans le fuseau de la ville, avec graphiques Tmax/Tmin/pluie/vent/rafales/nuages et frise de divergence.
 - **Indice d’accord inter-modèles** calculé par variable (température, vent, précipitations) et par heure ; il décrit le spread des scénarios et n’est pas une probabilité de justesse
-- **Résumé « Aujourd’hui » enrichi** : quatre mini-cartes homogènes (température min/max, précipitations, vent) affichent la moyenne des modèles, la plage prévue, la dispersion utile, les rafales lorsqu’elles existent et le niveau d’accord par variable
+- **Résumé « Aujourd’hui » enrichi** : quatre mini-cartes homogènes (température min/max, précipitations, vent) affichent la centrale du moteur sélectionné tout en conservant la plage, la dispersion et le niveau d’accord calculés exclusivement sur les modèles bruts
 - **Page "Pourquoi cette confiance ?"** — clic sur le badge de confiance ouvre une explication détaillée : qui a prédit quoi, quel écart, pourquoi la résolution du modèle compte
 - **Suivi de biais par modèle et par ville** — chaque modèle est confronté à une réanalyse historique Open-Meteo sur ses prévisions J+1 passées. Trois pastilles : biais systématique significatif, biais signé faible, ou historique encore insuffisant. La sheet 30 jours compare prévision et référence avec moyenne, écart-type et contexte méthodologique
 - **Évolution des prévisions (~24 / ~48 / ~72 h)** : chaque refresh météo frais enregistre localement un snapshot quotidien (température max, cumul de pluie, vent max), au plus une fois par tranche de 3 h et avec 5 jours de rétention. La fiche ville compare ensuite la prévision courante aux snapshots les plus proches de 24/48/72 h et affiche leur âge réel (par ex. H−25). Ce n'est pas une reconstruction des cycles 00Z/06Z/12Z/18Z d'un modèle. Les médianes gardent le même groupe de modèles comparables, les données manquantes sont exclues, les changements importants remontent dans « À retenir », et la carte repliable est mémorisée par ville. Aucun appel réseau supplémentaire n'est déclenché par cette fonctionnalité ; après installation, l'historique se construit progressivement.
@@ -88,7 +90,8 @@ app/src/main/java/com/meteocompare/app/
 │   ├── citylist/    ← Accueil : cartes favorites compactes, scénarios repliables, heatmap 12 h
 │   ├── citydetail/  ← Détail d'une ville : cartes, chart, tableaux
 │   │   └── confidence/  ← Écran "Pourquoi cette confiance ?"
-│   ├── settings/    ← Paramètres (modèles avec tri, thème, langue)
+│   ├── enginecomparison/ ← Comparaison des quatre moteurs V3
+│   ├── settings/    ← Paramètres (modèles, moteur V3, thème, langue)
 │   ├── components/  ← Composables réutilisables (WeatherIcon, WindArrow, ShimmerBox…)
 │   ├── accessibility/ ← Formatage des descriptions TalkBack
 │   ├── theme/       ← Couleurs, typographie, tokens M3
@@ -306,7 +309,7 @@ Fait :
 - ✅ v1.6.1 -> v1.6.4 — Amélioration des sections chronologie et "A retenir", ajout d'un widget "A retenir", correction de bugs
 - ✅ v1.7.0 — Refonte des interfaces, ajout de la donnée « rafale », ajout des scénarios, correction du calcul sunrise / sunset, TodaySummary enrichie, cartes Home compactées avec scénarios repliables et nouvelle heatmap 12 h, correction de bugs
 - ✅ v1.8.0 — Évolution des prévisions par snapshots locaux ~24/~48/~72 h, sans requête réseau additionnelle, cohorte commune de modèles, âge réel affiché, carte repliable mémorisée par ville, détails modèle par modèle et signaux injectés dans « À retenir » ; localisation FR/EN/ES/DE/IT
-- ✅ v1.9.0 — Moteur de prévisions v2 et ajout des informations "marine" pour les villes cotières, correction de bugs
+- ✅ v1.9.0 - Moteur de prévisions v2 et ajout des informations "marine" pour les villes cotières, correction de bugs
 
 ## Licence
 

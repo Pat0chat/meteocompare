@@ -49,6 +49,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.Coverage
 import com.meteocompare.app.domain.model.LanguagePreference
+import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.ThemePreference
 import com.meteocompare.app.domain.model.WeatherModel
@@ -100,6 +101,7 @@ fun SettingsScreen(
     val theme by viewModel.themePreference.collectAsStateWithLifecycle()
     val language by viewModel.languagePreference.collectAsStateWithLifecycle()
     val refreshInterval by viewModel.refreshInterval.collectAsStateWithLifecycle()
+    val forecastEngine by viewModel.forecastEngine.collectAsStateWithLifecycle()
     var showDonationDialog by rememberSaveable { mutableStateOf(false) }
     var biasRefreshRequested by rememberSaveable { mutableStateOf(false) }
     val context = LocalContext.current
@@ -140,6 +142,8 @@ fun SettingsScreen(
             },
             refreshInterval = refreshInterval,
             onRefreshIntervalSelected = viewModel::onRefreshIntervalSelected,
+            forecastEngine = forecastEngine,
+            onForecastEngineSelected = viewModel::onForecastEngineSelected,
             biasRefreshRequested = biasRefreshRequested,
             onBiasRefreshClick = {
                 viewModel.onBiasRefreshRequested()
@@ -165,6 +169,8 @@ internal fun SettingsContent(
     onLanguageSelected: (LanguagePreference) -> Unit,
     refreshInterval: RefreshInterval,
     onRefreshIntervalSelected: (RefreshInterval) -> Unit,
+    forecastEngine: ForecastEngine = ForecastEngine.DEFAULT,
+    onForecastEngineSelected: (ForecastEngine) -> Unit = {},
     biasRefreshRequested: Boolean,
     onBiasRefreshClick: () -> Unit,
     onDonateClick: () -> Unit,
@@ -228,6 +234,34 @@ internal fun SettingsContent(
                 RefreshIntervalSelector(
                     selected = refreshInterval,
                     onSelect = onRefreshIntervalSelected
+                )
+            }
+        }
+        item { HorizontalDivider() }
+
+        item {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = stringResource(R.string.settings_forecast_engine_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = stringResource(R.string.settings_forecast_engine_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(12.dp))
+                ForecastEngineSelector(
+                    selected = forecastEngine,
+                    onSelect = onForecastEngineSelected
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = forecastEngineDescription(forecastEngine),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -696,6 +730,48 @@ private fun LanguageSelector(
 }
 
 @Composable
+private fun ForecastEngineSelector(
+    selected: ForecastEngine,
+    onSelect: (ForecastEngine) -> Unit
+) {
+    androidx.compose.foundation.layout.FlowRow(
+        modifier = Modifier.selectableGroup(),
+        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
+    ) {
+        ForecastEngine.entries.forEach { engine ->
+            ModernStateChip(
+                selected = selected == engine,
+                onClick = { onSelect(engine) },
+                label = forecastEngineLabel(engine),
+                accent = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.testTag("$TAG_SETTINGS_ENGINE${engine.name}")
+            )
+        }
+    }
+}
+
+@Composable
+private fun forecastEngineLabel(engine: ForecastEngine): String = stringResource(
+    when (engine) {
+        ForecastEngine.MULTI_CONSENSUS -> R.string.forecast_engine_multi_consensus
+        ForecastEngine.CALIBRATION -> R.string.forecast_engine_calibration
+        ForecastEngine.SCENARIOS -> R.string.forecast_engine_scenarios
+        ForecastEngine.ADAPTIVE -> R.string.forecast_engine_adaptive
+    }
+)
+
+@Composable
+private fun forecastEngineDescription(engine: ForecastEngine): String = stringResource(
+    when (engine) {
+        ForecastEngine.MULTI_CONSENSUS -> R.string.forecast_engine_multi_consensus_desc
+        ForecastEngine.CALIBRATION -> R.string.forecast_engine_calibration_desc
+        ForecastEngine.SCENARIOS -> R.string.forecast_engine_scenarios_desc
+        ForecastEngine.ADAPTIVE -> R.string.forecast_engine_adaptive_desc
+    }
+)
+
+@Composable
 private fun RefreshIntervalSelector(
     selected: RefreshInterval,
     onSelect: (RefreshInterval) -> Unit
@@ -735,3 +811,4 @@ internal const val TAG_SETTINGS_SORT = "settings_sort_"
 internal const val TAG_SETTINGS_THEME = "settings_theme_"
 internal const val TAG_SETTINGS_LANGUAGE = "settings_language_"
 internal const val TAG_SETTINGS_REFRESH = "settings_refresh_"
+internal const val TAG_SETTINGS_ENGINE = "settings_engine_"

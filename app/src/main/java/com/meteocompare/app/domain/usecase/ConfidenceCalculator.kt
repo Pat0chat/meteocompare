@@ -4,6 +4,8 @@ import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.ConfidenceScore
 import com.meteocompare.app.domain.model.DayConfidence
 import com.meteocompare.app.domain.model.ForecastSeries
+import com.meteocompare.app.domain.model.ForecastEngineContext
+import com.meteocompare.app.domain.model.ForecastEngineVariable
 import com.meteocompare.app.domain.model.HourlyConfidenceBand
 import com.meteocompare.app.domain.model.PrecipitationConfidence
 import com.meteocompare.app.domain.model.PrecipitationConsensusMeta
@@ -43,7 +45,11 @@ class ConfidenceCalculator @Inject constructor(
 ) {
 
     /** Calcule le bundle de confidences pour [date]. */
-    fun dayConfidence(forecast: CityForecast, date: LocalDate): DayConfidence {
+    fun dayConfidence(
+        forecast: CityForecast,
+        date: LocalDate,
+        engineContext: ForecastEngineContext = ForecastEngineContext.DEFAULT
+    ): DayConfidence {
         val modelsAtDate = forecast.seriesByModel.mapNotNull { (model, series) ->
             val idx = series.daily.dates.indexOf(date)
             if (idx >= 0) Triple(model, series, idx) else null
@@ -55,25 +61,37 @@ class ConfidenceCalculator @Inject constructor(
                 samples = modelsAtDate.mapNotNull { (model, series, idx) ->
                     series.daily.tempMax.getOrNull(idx)?.let { model to it }
                 },
-                thresholds = Thresholds.TEMPERATURE
+                thresholds = Thresholds.TEMPERATURE,
+                engineContext = engineContext,
+                variable = ForecastEngineVariable.TEMPERATURE,
+                allowCalibration = true
             ),
             tempMin = continuousConfidence(
                 samples = modelsAtDate.mapNotNull { (model, series, idx) ->
                     series.daily.tempMin.getOrNull(idx)?.let { model to it }
                 },
-                thresholds = Thresholds.TEMPERATURE
+                thresholds = Thresholds.TEMPERATURE,
+                engineContext = engineContext,
+                variable = ForecastEngineVariable.TEMPERATURE,
+                allowCalibration = false
             ),
             windMax = continuousConfidence(
                 samples = modelsAtDate.mapNotNull { (model, series, idx) ->
                     series.daily.windSpeedMax.getOrNull(idx)?.let { model to it }
                 },
-                thresholds = Thresholds.WIND
+                thresholds = Thresholds.WIND,
+                engineContext = engineContext,
+                variable = ForecastEngineVariable.WIND,
+                allowCalibration = true
             ),
             windGustMax = continuousConfidence(
                 samples = modelsAtDate.mapNotNull { (model, series, idx) ->
                     series.daily.windGustsMax.getOrNull(idx)?.let { model to it }
                 },
-                thresholds = Thresholds.WIND
+                thresholds = Thresholds.WIND,
+                engineContext = engineContext,
+                variable = ForecastEngineVariable.WIND,
+                allowCalibration = false
             ),
             precipitation = precipitationConfidence(
                 rows = modelsAtDate.map { (model, series, idx) ->
@@ -82,18 +100,22 @@ class ConfidenceCalculator @Inject constructor(
                         amountMm = series.daily.precipitationSum.getOrNull(idx),
                         probabilityPercent = series.daily.precipitationProbabilityMax.getOrNull(idx)
                     )
-                }
+                },
+                engineContext = engineContext
             )
         )
     }
 
     /** Convenience : confidence par jour sur tout l'horizon disponible. */
-    fun weeklyConfidence(forecast: CityForecast): List<DayConfidence> {
+    fun weeklyConfidence(
+        forecast: CityForecast,
+        engineContext: ForecastEngineContext = ForecastEngineContext.DEFAULT
+    ): List<DayConfidence> {
         val allDates = forecast.seriesByModel.values
             .flatMap { it.daily.dates }
             .distinct()
             .sorted()
-        return allDates.map { dayConfidence(forecast, it) }
+        return allDates.map { dayConfidence(forecast, it, engineContext) }
     }
 
     /**
@@ -113,18 +135,20 @@ class ConfidenceCalculator @Inject constructor(
      */
     fun currentTemperature(
         forecast: CityForecast,
-        now: Instant = Instant.now()
+        now: Instant = Instant.now(),
+        engineContext: ForecastEngineContext = ForecastEngineContext.DEFAULT
     ): Double? {
         val samples = forecast.seriesByModel.mapNotNull { (model, series) ->
             val idx = nearestCurrentIndex(series, now) ?: return@mapNotNull null
             val temp = series.hourly.temperature2m.getOrNull(idx) ?: return@mapNotNull null
             model to temp
         }
-        return ForecastConsensus.continuous(
-            entries = samples.map { (model, value) -> ForecastConsensus.Entry(model, value) },
-            localWeights = localWeights(samples.map { it.first }),
-            tightStdDev = Thresholds.TEMPERATURE.tightStdDev,
-            wideStdDev = Thresholds.TEMPERATURE.wideStdDev
+        return engineContinuous(
+            samples = samples,
+            thresholds = Thresholds.TEMPERATURE,
+            engineContext = engineContext,
+            variable = ForecastEngineVariable.TEMPERATURE,
+            allowCalibration = false
         ).central
     }
 
@@ -184,8 +208,9 @@ class ConfidenceCalculator @Inject constructor(
      */
     fun currentCloudCover(
         forecast: CityForecast,
-        now: Instant = Instant.now()
-    ): Int? = centralCurrentHourlyPercent(forecast, now) { series, idx ->
+        now: Instant = Instant.now(),
+        engineContext: ForecastEngineContext = ForecastEngineContext.DEFAULT
+    ): Int? = centralCurrentHourlyPercent(forecast, now, engineContext) { series, idx ->
         series.hourly.cloudCover.getOrNull(idx)
     }
 
@@ -212,18 +237,21 @@ class ConfidenceCalculator @Inject constructor(
      */
     fun currentWindSpeed(
         forecast: CityForecast,
-        now: Instant = Instant.now()
+        now: Instant = Instant.now(),
+        engineContext: ForecastEngineContext = ForecastEngineContext.DEFAULT
     ): Double? {
         val samples = forecast.seriesByModel.mapNotNull { (model, series) ->
             val idx = nearestCurrentIndex(series, now) ?: return@mapNotNull null
             val wind = series.hourly.windSpeed10m.getOrNull(idx) ?: return@mapNotNull null
             model to wind
         }
-        return ForecastConsensus.continuous(
-            entries = samples.map { (model, value) -> ForecastConsensus.Entry(model, value) },
-            localWeights = localWeights(samples.map { it.first }),
-            tightStdDev = Thresholds.WIND.tightStdDev,
-            wideStdDev = Thresholds.WIND.wideStdDev
+        return engineContinuous(
+            samples = samples,
+            thresholds = Thresholds.WIND,
+            engineContext = engineContext,
+            variable = ForecastEngineVariable.WIND,
+            allowCalibration = false,
+            min = 0.0
         ).central
     }
 
@@ -242,6 +270,7 @@ class ConfidenceCalculator @Inject constructor(
     private fun centralCurrentHourlyPercent(
         forecast: CityForecast,
         now: Instant,
+        engineContext: ForecastEngineContext,
         extractor: (ForecastSeries, Int) -> Int?
     ): Int? {
         val samples = forecast.seriesByModel.mapNotNull { (model, series) ->
@@ -249,11 +278,14 @@ class ConfidenceCalculator @Inject constructor(
             val value = extractor(series, idx) ?: return@mapNotNull null
             model to value.toDouble()
         }
-        val central = ForecastConsensus.continuous(
-            entries = samples.map { (model, value) -> ForecastConsensus.Entry(model, value) },
-            localWeights = localWeights(samples.map { it.first }),
-            tightStdDev = 10.0,
-            wideStdDev = 50.0
+        val central = engineContinuous(
+            samples = samples,
+            thresholds = Thresholds(10.0, 50.0),
+            engineContext = engineContext,
+            variable = ForecastEngineVariable.CLOUD,
+            allowCalibration = false,
+            min = 0.0,
+            max = 100.0
         ).central
         return central?.roundToInt()
     }
@@ -344,11 +376,14 @@ class ConfidenceCalculator @Inject constructor(
      */
     fun hourlyTemperatureConfidence(
         forecast: CityForecast,
-        horizonHours: Int = 168
+        horizonHours: Int = 168,
+        engineContext: ForecastEngineContext = ForecastEngineContext.DEFAULT
     ): List<HourlyConfidenceBand> = hourlyConfidenceBand(
         forecast = forecast,
         horizonHours = horizonHours,
         thresholds = Thresholds.TEMPERATURE,
+        engineContext = engineContext,
+        variable = ForecastEngineVariable.TEMPERATURE,
         extractor = { series, idx -> series.hourly.temperature2m.getOrNull(idx) }
     )
 
@@ -367,7 +402,8 @@ class ConfidenceCalculator @Inject constructor(
      */
     fun hourlyPrecipitationConfidence(
         forecast: CityForecast,
-        horizonHours: Int = 168
+        horizonHours: Int = 168,
+        engineContext: ForecastEngineContext = ForecastEngineContext.DEFAULT
     ): List<HourlyConfidenceBand> {
         val indexed = forecast.seriesByModel.mapValues { (_, series) ->
             series.hourly.timestamps.withIndex().associate { (idx, ts) -> ts to idx }
@@ -388,10 +424,21 @@ class ConfidenceCalculator @Inject constructor(
                 amountTightStdDev = 1.0,
                 amountWideStdDev = 8.0
             )
+            val engineResult = ForecastEngineV3.precipitation(
+                rows,
+                ForecastEngineV3.PrecipitationOptions(
+                    engine = engineContext.engine,
+                    threshold = 0.1,
+                    localWeights = localWeights(rows.map { it.model }),
+                    calibration = emptyMap(),
+                    amountTight = 1.0,
+                    amountWide = 8.0
+                )
+            )
             val percent = result.convergencePercent ?: return@timestamp null
             HourlyConfidenceBand(
                 timestamp = ts,
-                meanValue = result.centralAmountMm ?: 0.0,
+                meanValue = engineResult.centralAmountMm ?: result.centralAmountMm ?: 0.0,
                 minValue = result.minMm ?: 0.0,
                 maxValue = result.maxMm ?: 0.0,
                 stdDev = result.conditionalStdDev ?: 0.0,
@@ -411,11 +458,14 @@ class ConfidenceCalculator @Inject constructor(
      */
     fun hourlyWindConfidence(
         forecast: CityForecast,
-        horizonHours: Int = 168
+        horizonHours: Int = 168,
+        engineContext: ForecastEngineContext = ForecastEngineContext.DEFAULT
     ): List<HourlyConfidenceBand> = hourlyConfidenceBand(
         forecast = forecast,
         horizonHours = horizonHours,
         thresholds = Thresholds.WIND,
+        engineContext = engineContext,
+        variable = ForecastEngineVariable.WIND,
         extractor = { series, idx -> series.hourly.windSpeed10m.getOrNull(idx) }
     )
 
@@ -435,6 +485,8 @@ class ConfidenceCalculator @Inject constructor(
         forecast: CityForecast,
         horizonHours: Int,
         thresholds: Thresholds,
+        engineContext: ForecastEngineContext,
+        variable: ForecastEngineVariable,
         extractor: (ForecastSeries, Int) -> Double?
     ): List<HourlyConfidenceBand> {
         val indexedByModel: Map<WeatherModel, Map<Instant, Double>> =
@@ -462,10 +514,18 @@ class ConfidenceCalculator @Inject constructor(
             )
             val stats = consensus.stats ?: return@mapNotNull null
             val percent = consensus.convergencePercent ?: return@mapNotNull null
+            val engineResult = engineContinuous(
+                samples = samples,
+                thresholds = thresholds,
+                engineContext = engineContext,
+                variable = variable,
+                allowCalibration = false,
+                min = if (variable == ForecastEngineVariable.WIND) 0.0 else null
+            )
 
             HourlyConfidenceBand(
                 timestamp = ts,
-                meanValue = consensus.central ?: stats.mean,
+                meanValue = engineResult.central ?: consensus.central ?: stats.mean,
                 minValue = stats.min,
                 maxValue = stats.max,
                 stdDev = stats.stdDev,
@@ -484,7 +544,10 @@ class ConfidenceCalculator @Inject constructor(
      */
     private fun continuousConfidence(
         samples: List<Pair<WeatherModel, Double>>,
-        thresholds: Thresholds
+        thresholds: Thresholds,
+        engineContext: ForecastEngineContext,
+        variable: ForecastEngineVariable,
+        allowCalibration: Boolean
     ): ConfidenceScore? {
         val consensus = ForecastConsensus.continuous(
             entries = samples.map { (model, value) -> ForecastConsensus.Entry(model, value) },
@@ -493,6 +556,14 @@ class ConfidenceCalculator @Inject constructor(
             wideStdDev = thresholds.wideStdDev
         )
         val stats = consensus.stats ?: return null
+        val engineResult = engineContinuous(
+            samples = samples,
+            thresholds = thresholds,
+            engineContext = engineContext,
+            variable = variable,
+            allowCalibration = allowCalibration,
+            min = if (variable == ForecastEngineVariable.WIND) 0.0 else null
+        )
         // Une valeur centrale reste exploitable avec une seule lignée. Seule la
         // convergence inter-familles devient indéfinie dans ce cas.
         val percent = consensus.convergencePercent ?: 0
@@ -500,7 +571,7 @@ class ConfidenceCalculator @Inject constructor(
             percent = percent,
             minValue = stats.min,
             maxValue = stats.max,
-            meanValue = consensus.central ?: stats.mean,
+            meanValue = engineResult.central ?: consensus.central ?: stats.mean,
             stdDev = stats.stdDev,
             modelCount = consensus.modelCount,
             familyCount = consensus.familyCount,
@@ -515,7 +586,8 @@ class ConfidenceCalculator @Inject constructor(
      * qualitative compatible avec l'UI historique.
      */
     private fun precipitationConfidence(
-        rows: List<ForecastConsensus.PrecipitationRow>
+        rows: List<ForecastConsensus.PrecipitationRow>,
+        engineContext: ForecastEngineContext
     ): PrecipitationConfidence? {
         val result = ForecastConsensus.precipitation(
             rows = rows,
@@ -525,14 +597,25 @@ class ConfidenceCalculator @Inject constructor(
             amountWideStdDev = Thresholds.PRECIP.wideStdDev
         )
         if (result.modelCount == 0) return null
+        val engineResult = ForecastEngineV3.precipitation(
+            rows,
+            ForecastEngineV3.PrecipitationOptions(
+                engine = engineContext.engine,
+                threshold = PrecipitationConfidence.PRECIP_THRESHOLD_MM,
+                localWeights = localWeights(rows.map { it.model }),
+                calibration = engineContext.calibration(ForecastEngineVariable.PRECIPITATION),
+                amountTight = Thresholds.PRECIP.tightStdDev,
+                amountWide = Thresholds.PRECIP.wideStdDev
+            )
+        )
         // La quantité centrale reste utile avec une seule famille. En revanche,
         // la convergence inter-familles est alors indéfinie et reste null dans meta.
         val percent = result.convergencePercent ?: 0
         val common = PrecipitationConsensusMeta(
-            probabilityPercent = result.probabilityPercent,
-            conditionalAmountMm = result.conditionalAmountMm,
-            expectedAmountMm = result.expectedAmountMm,
-            centralAmountMm = result.centralAmountMm,
+            probabilityPercent = engineResult.probabilityPercent ?: result.probabilityPercent,
+            conditionalAmountMm = engineResult.conditionalAmountMm ?: result.conditionalAmountMm,
+            expectedAmountMm = engineResult.expectedAmountMm ?: result.expectedAmountMm,
+            centralAmountMm = engineResult.centralAmountMm ?: result.centralAmountMm,
             convergencePercent = result.convergencePercent,
             familyCount = result.familyCount
         )
@@ -547,15 +630,38 @@ class ConfidenceCalculator @Inject constructor(
             )
             result.wetModelCount == result.modelCount -> PrecipitationConfidence.Rain(
                 percent = percent, modelCount = result.modelCount, minMm = wetMin ?: result.minMm ?: 0.0,
-                maxMm = wetMax ?: result.maxMm ?: 0.0, meanMm = result.conditionalAmountMm ?: 0.0, meta = common
+                maxMm = wetMax ?: result.maxMm ?: 0.0, meanMm = engineResult.conditionalAmountMm ?: result.conditionalAmountMm ?: 0.0, meta = common
             )
             else -> PrecipitationConfidence.Divided(
                 percent = percent, modelCount = result.modelCount, modelsForRain = result.wetModelCount,
                 modelsAgainstRain = result.modelCount - result.wetModelCount, rainMinMm = wetMin ?: 0.0,
-                rainMaxMm = wetMax ?: 0.0, rainMeanMm = result.conditionalAmountMm ?: 0.0, meta = common
+                rainMaxMm = wetMax ?: 0.0, rainMeanMm = engineResult.conditionalAmountMm ?: result.conditionalAmountMm ?: 0.0, meta = common
             )
         }
     }
+
+    // ─────────────────────────── Moteur V3 ───────────────────────────
+
+    private fun engineContinuous(
+        samples: List<Pair<WeatherModel, Double>>,
+        thresholds: Thresholds,
+        engineContext: ForecastEngineContext,
+        variable: ForecastEngineVariable,
+        allowCalibration: Boolean,
+        min: Double? = null,
+        max: Double? = null
+    ): ForecastEngineV3.ContinuousResult = ForecastEngineV3.continuous(
+        entries = samples.map { (model, value) -> ForecastConsensus.Entry(model, value) },
+        options = ForecastEngineV3.ContinuousOptions(
+            engine = engineContext.engine,
+            localWeights = localWeights(samples.map { it.first }) + engineContext.localWeights(variable),
+            calibration = engineContext.calibration(variable, allowCalibration),
+            tight = thresholds.tightStdDev,
+            wide = thresholds.wideStdDev,
+            min = min,
+            max = max
+        )
+    )
 
     // ─────────────────────────── Math primitives ───────────────────────────
 

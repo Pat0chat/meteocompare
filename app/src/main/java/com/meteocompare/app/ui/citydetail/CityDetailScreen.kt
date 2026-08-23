@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -91,6 +92,8 @@ import com.meteocompare.app.domain.model.DailyForecast
 import com.meteocompare.app.domain.model.DayConfidence
 import com.meteocompare.app.domain.model.DayNormals
 import com.meteocompare.app.domain.model.HourlyConfidenceBand
+import com.meteocompare.app.domain.model.ForecastEngineContext
+import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.model.HourlyForecast
 import com.meteocompare.app.domain.model.PrecipitationConfidence
 import com.meteocompare.app.domain.usecase.ForecastConsensus
@@ -120,6 +123,7 @@ import kotlin.math.roundToInt
 fun CityDetailScreen(
     onBack: () -> Unit,
     onConfidenceClick: (isoDate: String) -> Unit = {},
+    onEngineComparisonClick: () -> Unit = {},
     viewModel: CityDetailViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -174,7 +178,8 @@ fun CityDetailScreen(
         onSectionExpandedChange = viewModel::setSectionExpanded,
         onDetailViewModeChange = viewModel::setDetailViewMode,
         onDetailContentTabChange = viewModel::setDetailContentTab,
-        onConfidenceClick = onConfidenceClick
+        onConfidenceClick = onConfidenceClick,
+        onEngineComparisonClick = onEngineComparisonClick
     )
 }
 
@@ -201,7 +206,8 @@ internal fun CityDetailContent(
     onSectionExpandedChange: (CityDetailSection, Boolean) -> Unit = { _, _ -> },
     onDetailViewModeChange: (CityDetailViewMode) -> Unit = {},
     onDetailContentTabChange: (CityDetailContentTab) -> Unit = {},
-    onConfidenceClick: (isoDate: String) -> Unit = {}
+    onConfidenceClick: (isoDate: String) -> Unit = {},
+    onEngineComparisonClick: () -> Unit = {}
 ) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
@@ -296,6 +302,7 @@ internal fun CityDetailContent(
                         currentCloudCover = s.currentCloudCover,
                         dailyConditions = s.dailyConditions,
                         normals = s.normals,
+                        engineContext = s.engineContext,
                         calculatedAt = s.calculatedAt,
                         fetchedAt = s.fetchedAt,
                         isOnline = isOnline,
@@ -310,7 +317,8 @@ internal fun CityDetailContent(
                         onDetailViewModeChange = onDetailViewModeChange,
                         onDetailContentTabChange = onDetailContentTabChange,
                         onRefreshMarine = onRefreshMarine,
-                        onConfidenceClick = onConfidenceClick
+                        onConfidenceClick = onConfidenceClick,
+                        onEngineComparisonClick = onEngineComparisonClick
                     )
                 }
             }
@@ -366,6 +374,7 @@ private fun LoadedView(
     currentCloudCover: Int?,
     dailyConditions: List<DayConditionsRow>,
     normals: Map<Int, DayNormals>?,
+    engineContext: ForecastEngineContext,
     calculatedAt: Instant,
     fetchedAt: Instant?,
     isOnline: Boolean,
@@ -380,7 +389,8 @@ private fun LoadedView(
     onDetailViewModeChange: (CityDetailViewMode) -> Unit,
     onDetailContentTabChange: (CityDetailContentTab) -> Unit,
     onRefreshMarine: () -> Unit,
-    onConfidenceClick: (isoDate: String) -> Unit = {}
+    onConfidenceClick: (isoDate: String) -> Unit = {},
+    onEngineComparisonClick: () -> Unit = {}
 ) {
     val displayMode = detailViewMode.toDisplayMode()
     val reliabilityExpanded = CityDetailSection.CONFIDENCE !in collapsedSections
@@ -393,18 +403,18 @@ private fun LoadedView(
     // Même instant que celui utilisé par le ViewModel pour les agrégats
     // « maintenant » : résumé, chronologie et tableaux restent cohérents.
     val presentationNow = calculatedAt
-    val overviewTimeline = remember(forecast, presentationNow) {
-        buildOverviewTimeline(forecast, presentationNow)
+    val overviewTimeline = remember(forecast, presentationNow, engineContext) {
+        buildOverviewTimeline(forecast, presentationNow, engineContext)
     }
     val forecastEvents = remember(overviewTimeline) { detectForecastEvents(overviewTimeline) }
     val insights = remember(forecastEvents) { buildForecastInsights(forecastEvents) }
     val evolutionHighlight = (evolutionState as? ForecastEvolutionState.Loaded)?.highlight
     val hasInsightSection = insights.isNotEmpty() || evolutionHighlight != null
-    val hourlyTimelinePoints = remember(forecast, presentationNow) {
-        buildSimplifiedTimeline(forecast, DisplayMode.HOURLY, presentationNow)
+    val hourlyTimelinePoints = remember(forecast, presentationNow, engineContext) {
+        buildSimplifiedTimeline(forecast, DisplayMode.HOURLY, presentationNow, engineContext)
     }
-    val dailyTimelinePoints = remember(forecast, presentationNow) {
-        buildSimplifiedTimeline(forecast, DisplayMode.DAILY, presentationNow)
+    val dailyTimelinePoints = remember(forecast, presentationNow, engineContext) {
+        buildSimplifiedTimeline(forecast, DisplayMode.DAILY, presentationNow, engineContext)
     }
     val timelineAvailableModes = remember(hourlyTimelinePoints, dailyTimelinePoints) {
         listOfNotNull(
@@ -543,6 +553,13 @@ private fun LoadedView(
                     onConfidenceClick = { onConfidenceClick(today.date.toString()) }
                 )
             }
+        }
+
+        item("engine_comparison") {
+            EngineComparisonEntryCard(
+                engine = engineContext.engine,
+                onClick = onEngineComparisonClick
+            )
         }
 
         if (hasInsightSection) {
@@ -1207,6 +1224,54 @@ private fun HeatmapGradientLegend(
                     modifier = Modifier.weight(1f)
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun EngineComparisonEntryCard(
+    engine: ForecastEngine,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        )
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.engine_comparison_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(Modifier.height(3.dp))
+                Text(
+                    text = stringResource(
+                        R.string.engine_comparison_entry_selected,
+                        stringResource(when (engine) {
+                            ForecastEngine.MULTI_CONSENSUS -> R.string.forecast_engine_multi_consensus
+                            ForecastEngine.CALIBRATION -> R.string.forecast_engine_calibration
+                            ForecastEngine.SCENARIOS -> R.string.forecast_engine_scenarios
+                            ForecastEngine.ADAPTIVE -> R.string.forecast_engine_adaptive
+                        })
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Icon(
+                Icons.AutoMirrored.Filled.ArrowForward,
+                contentDescription = stringResource(R.string.engine_comparison_open)
+            )
         }
     }
 }

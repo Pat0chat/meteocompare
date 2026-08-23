@@ -9,6 +9,7 @@ import androidx.navigation.navArgument
 import com.meteocompare.app.ui.citydetail.CityDetailScreen
 import com.meteocompare.app.ui.citydetail.confidence.ConfidenceExplanationScreen
 import com.meteocompare.app.ui.citylist.CityListScreen
+import com.meteocompare.app.ui.enginecomparison.EngineComparisonScreen
 import com.meteocompare.app.ui.settings.SettingsScreen
 
 @Composable
@@ -46,8 +47,20 @@ fun AppNavHost() {
                 onBack = { navController.popBackStack() },
                 onConfidenceClick = { isoDate ->
                     navController.navigate(Destinations.confidence(cityId, isoDate))
+                },
+                onEngineComparisonClick = {
+                    navController.navigate(Destinations.engineComparison(cityId))
                 }
             )
+        }
+
+        composable(
+            route = Destinations.ENGINE_COMPARISON,
+            arguments = listOf(navArgument(Destinations.CITY_DETAIL_ARG) {
+                type = NavType.StringType
+            })
+        ) {
+            EngineComparisonScreen(onBack = { navController.popBackStack() })
         }
 
         // ─── "Pourquoi cette convergence ?" ──────────────────────────────────

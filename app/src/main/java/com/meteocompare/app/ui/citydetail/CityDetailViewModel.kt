@@ -16,6 +16,7 @@ import com.meteocompare.app.domain.model.CityDetailContentTab
 import com.meteocompare.app.domain.model.CityDetailViewMode
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DayNormals
+import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.model.ModelBias
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.WeatherModel
@@ -30,6 +31,7 @@ import com.meteocompare.app.domain.repository.UserPreferencesRepository
 import com.meteocompare.app.domain.usecase.ComputeBiasUseCase
 import com.meteocompare.app.domain.usecase.ComputeForecastEvolutionUseCase
 import com.meteocompare.app.domain.usecase.ConfidenceCalculator
+import com.meteocompare.app.domain.usecase.ForecastEngineContextProvider
 import com.meteocompare.app.ui.navigation.Destinations
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -93,7 +95,8 @@ class CityDetailViewModel @Inject constructor(
     private val forecastEvolutionRepository: ForecastEvolutionRepository,
     private val computeForecastEvolution: ComputeForecastEvolutionUseCase,
     private val clock: Clock,
-    @param:DefaultDispatcher private val computationDispatcher: CoroutineDispatcher = Dispatchers.Default
+    @param:DefaultDispatcher private val computationDispatcher: CoroutineDispatcher = Dispatchers.Default,
+    private val engineContextProvider: ForecastEngineContextProvider
 ) : ViewModel() {
 
     private val cityId: String = checkNotNull(
@@ -201,7 +204,26 @@ class CityDetailViewModel @Inject constructor(
     init {
         observeConnectivity()
         observeExternalForecastUpdates()
+        observeForecastEngineChanges()
         loadInitial()
+    }
+
+    /**
+     * Un changement de moteur recalcule le forecast déjà chargé sans refetch.
+     * Les changements de l'historique de biais déclenchent le même recalcul :
+     * le moteur Calibration/Adaptive profite alors immédiatement d'un bootstrap
+     * ou du worker quotidien.
+     */
+    private fun observeForecastEngineChanges() {
+        viewModelScope.launch {
+            combine(userPreferences.observeForecastEngine(), biasState) { engine, _ -> engine }
+                .collect { engine -> recalculateLoadedForecast(engine) }
+        }
+    }
+
+    private suspend fun recalculateLoadedForecast(engine: ForecastEngine) = resultMutex.withLock {
+        val current = _state.value as? CityDetailUiState.Loaded ?: return@withLock
+        _state.value = buildLoadedState(current.forecast, engine, current.normals)
     }
 
     /** Met à jour la bannière hors connexion sans attendre un nouveau refresh. */
@@ -505,6 +527,34 @@ class CityDetailViewModel @Inject constructor(
         }
     }
 
+    private suspend fun buildLoadedState(
+        forecast: CityForecast,
+        engine: ForecastEngine,
+        normals: Map<Int, DayNormals>?
+    ): CityDetailUiState.Loaded = withContext(computationDispatcher) {
+        val calculationNow = clock.instant()
+        val engineContext = engineContextProvider.build(forecast, engine, calculationNow)
+        val weekly = confidenceCalculator.weeklyConfidence(forecast, engineContext)
+        val hourly = confidenceCalculator.hourlyTemperatureConfidence(forecast, engineContext = engineContext)
+        val hourlyPrecip = confidenceCalculator.hourlyPrecipitationConfidence(forecast, engineContext = engineContext)
+        val hourlyWind = confidenceCalculator.hourlyWindConfidence(forecast, engineContext = engineContext)
+        CityDetailUiState.Loaded(
+            forecast = forecast,
+            weeklyConfidence = weekly,
+            hourlyBands = hourly,
+            hourlyPrecipBands = hourlyPrecip,
+            hourlyWindBands = hourlyWind,
+            currentTemp = confidenceCalculator.currentTemperature(forecast, calculationNow, engineContext),
+            currentCondition = confidenceCalculator.currentWeatherCondition(forecast, calculationNow),
+            currentCloudCover = confidenceCalculator.currentCloudCover(forecast, calculationNow, engineContext),
+            dailyConditions = confidenceCalculator.dailyConditionsByModel(forecast),
+            normals = normals,
+            engineContext = engineContext,
+            calculatedAt = calculationNow,
+            fetchedAt = forecast.fetchedAt
+        )
+    }
+
     private suspend fun findCity(): City? =
         cityRepository.observeFavorites().first().firstOrNull { it.id == cityId }
 
@@ -538,29 +588,9 @@ class CityDetailViewModel @Inject constructor(
         }
 
         val next = when (result) {
-            is ApiResult.Success -> withContext(computationDispatcher) {
-                val calculationNow = clock.instant()
-                val weekly = confidenceCalculator.weeklyConfidence(result.data)
-                val hourly = confidenceCalculator.hourlyTemperatureConfidence(result.data)
-                val hourlyPrecip = confidenceCalculator.hourlyPrecipitationConfidence(result.data)
-                val hourlyWind = confidenceCalculator.hourlyWindConfidence(result.data)
-                val currentTemp = confidenceCalculator.currentTemperature(result.data, calculationNow)
-                val currentCondition = confidenceCalculator.currentWeatherCondition(result.data, calculationNow)
-                val dailyConditions = confidenceCalculator.dailyConditionsByModel(result.data)
-                CityDetailUiState.Loaded(
-                    forecast = result.data,
-                    weeklyConfidence = weekly,
-                    hourlyBands = hourly,
-                    hourlyPrecipBands = hourlyPrecip,
-                    hourlyWindBands = hourlyWind,
-                    currentTemp = currentTemp,
-                    currentCondition = currentCondition,
-                    currentCloudCover = confidenceCalculator.currentCloudCover(result.data, calculationNow),
-                    dailyConditions = dailyConditions,
-                    normals = loadedNormals,
-                    calculatedAt = calculationNow,
-                    fetchedAt = result.data.fetchedAt
-                )
+            is ApiResult.Success -> {
+                val engine = userPreferences.observeForecastEngine().first()
+                buildLoadedState(result.data, engine, loadedNormals)
             }
             is ApiResult.Error -> {
                 if (previous is CityDetailUiState.Loaded) previous

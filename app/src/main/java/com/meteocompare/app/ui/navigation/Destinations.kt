@@ -16,6 +16,11 @@ object Destinations {
 
     fun cityDetail(cityId: String): String = "$CITY_DETAIL_BASE/$cityId"
 
+    private const val ENGINE_COMPARISON_BASE = "engine-comparison"
+    const val ENGINE_COMPARISON = "$ENGINE_COMPARISON_BASE/{$CITY_DETAIL_ARG}"
+
+    fun engineComparison(cityId: String): String = "$ENGINE_COMPARISON_BASE/$cityId"
+
     // ─── "Pourquoi cette convergence ?" ──────────────────────────────────────
     //
     // Deux arguments : cityId + date (ISO yyyy-MM-dd). On garde la date dans

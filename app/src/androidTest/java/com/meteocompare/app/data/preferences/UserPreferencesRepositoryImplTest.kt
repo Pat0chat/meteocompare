@@ -5,6 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.meteocompare.app.domain.model.CityDetailSection
 import com.meteocompare.app.domain.model.CityDetailContentTab
 import com.meteocompare.app.domain.model.CityDetailViewMode
+import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.model.LanguagePreference
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.ThemePreference
@@ -29,6 +30,7 @@ class UserPreferencesRepositoryImplTest {
             repository.setThemePreference(ThemePreference.SYSTEM)
             repository.setLanguagePreference(LanguagePreference.SYSTEM)
             repository.setRefreshInterval(RefreshInterval.DEFAULT)
+            repository.setForecastEngine(ForecastEngine.DEFAULT)
             listOf("paris", "lyon").forEach { cityId ->
                 CityDetailSection.entries.forEach { section ->
                     repository.setCityDetailSectionCollapsed(cityId, section, collapsed = false)
@@ -45,6 +47,7 @@ class UserPreferencesRepositoryImplTest {
         repository.setThemePreference(ThemePreference.DARK)
         repository.setLanguagePreference(LanguagePreference.ENGLISH)
         repository.setRefreshInterval(RefreshInterval.HOURS_3)
+        repository.setForecastEngine(ForecastEngine.ADAPTIVE)
 
         assertEquals(
             listOf(WeatherModel.GFS, WeatherModel.ECMWF),
@@ -53,6 +56,7 @@ class UserPreferencesRepositoryImplTest {
         assertEquals(ThemePreference.DARK, repository.observeThemePreference().first())
         assertEquals(LanguagePreference.ENGLISH, repository.observeLanguagePreference().first())
         assertEquals(RefreshInterval.HOURS_3, repository.observeRefreshInterval().first())
+        assertEquals(ForecastEngine.ADAPTIVE, repository.observeForecastEngine().first())
     }
 
     @Test
@@ -141,6 +145,13 @@ class UserPreferencesRepositoryImplTest {
             CityDetailContentTab.PRECIPITATION,
             recreatedRepository.observeCityDetailContentTab("paris").first()
         )
+    }
+
+    @Test
+    fun forecast_engine_survives_repository_recreation() = runTest {
+        repository.setForecastEngine(ForecastEngine.SCENARIOS)
+        val recreatedRepository = UserPreferencesRepositoryImpl(context, Dispatchers.IO)
+        assertEquals(ForecastEngine.SCENARIOS, recreatedRepository.observeForecastEngine().first())
     }
 
 }

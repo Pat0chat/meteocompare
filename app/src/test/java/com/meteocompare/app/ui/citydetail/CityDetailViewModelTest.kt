@@ -15,6 +15,7 @@ import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.ForecastEvolutionSample
 import com.meteocompare.app.domain.model.ForecastEvolutionVariable
 import com.meteocompare.app.domain.model.HourlyForecast
+import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.repository.CityRepository
@@ -27,6 +28,7 @@ import com.meteocompare.app.domain.repository.UserPreferencesRepository
 import com.meteocompare.app.domain.usecase.ConfidenceCalculator
 import com.meteocompare.app.domain.usecase.ComputeForecastEvolutionUseCase
 import com.meteocompare.app.domain.usecase.EqualWeighting
+import com.meteocompare.app.domain.usecase.ForecastEngineContextProvider
 import com.meteocompare.app.ui.navigation.Destinations
 import io.mockk.coEvery
 import io.mockk.every
@@ -46,6 +48,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -78,6 +81,7 @@ class CityDetailViewModelTest {
     private val favoritesFlow = MutableStateFlow(listOf(paris))
     private val modelsFlow = MutableStateFlow(WeatherModel.MVP_SELECTION)
     private val refreshIntervalFlow = MutableStateFlow(RefreshInterval.DEFAULT)
+    private val forecastEngineFlow = MutableStateFlow(ForecastEngine.DEFAULT)
     private val collapsedSectionsFlow = MutableStateFlow<Set<CityDetailSection>>(emptySet())
     private val detailViewModeFlow = MutableStateFlow(CityDetailViewMode.DEFAULT)
     private val detailContentTabFlow = MutableStateFlow(CityDetailContentTab.DEFAULT)
@@ -110,6 +114,7 @@ class CityDetailViewModelTest {
         // de passer sans changer leur comportement (DEFAULT = HOUR_1, non-MANUAL,
         // donc maxCacheAgeMs = 3600000 — les tests fonctionnent avec cette valeur).
         coEvery { observeRefreshInterval() } returns refreshIntervalFlow
+        every { observeForecastEngine() } returns forecastEngineFlow
         every { observeCollapsedCityDetailSections(any()) } returns collapsedSectionsFlow
         every { observeCityDetailViewMode(any()) } returns detailViewModeFlow
         every { observeCityDetailContentTab(any()) } returns detailContentTabFlow
@@ -122,6 +127,7 @@ class CityDetailViewModelTest {
     }
 
     private val calculator = ConfidenceCalculator(EqualWeighting())
+    private val engineContextProvider = ForecastEngineContextProvider(mockk(relaxed = true))
 
     private fun buildViewModel(cityId: String = "1"): CityDetailViewModel {
         val saved = SavedStateHandle(mapOf(Destinations.CITY_DETAIL_ARG to cityId))
@@ -145,7 +151,8 @@ class CityDetailViewModelTest {
             forecastEvolutionRepository = evolutionRepo,
             computeForecastEvolution = ComputeForecastEvolutionUseCase(),
             clock = testClock,
-            computationDispatcher = dispatcher
+            computationDispatcher = dispatcher,
+            engineContextProvider = engineContextProvider
         )
     }
 
@@ -155,6 +162,7 @@ class CityDetailViewModelTest {
         favoritesFlow.value = listOf(paris)
         modelsFlow.value = WeatherModel.MVP_SELECTION
         refreshIntervalFlow.value = RefreshInterval.DEFAULT
+        forecastEngineFlow.value = ForecastEngine.DEFAULT
         collapsedSectionsFlow.value = emptySet()
         detailViewModeFlow.value = CityDetailViewMode.DEFAULT
         detailContentTabFlow.value = CityDetailContentTab.DEFAULT
@@ -409,6 +417,34 @@ class CityDetailViewModelTest {
             assertTrue(vm.state.value is CityDetailUiState.Loaded)
             assertTrue(vm.evolutionState.value is ForecastEvolutionState.Error)
         }
+
+    @Test
+    fun `changement de moteur recalcule Details sans nouvelle requete`() = runTest(dispatcher) {
+        val forecast = buildScenarioForecast(paris)
+        coEvery {
+            forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
+        } returns flowOf(ApiResult.Success(forecast))
+
+        val vm = buildViewModel()
+        vm.state.test {
+            var state = awaitItem()
+            while (state !is CityDetailUiState.Loaded) state = awaitItem()
+            val before = state.currentTemp
+
+            coVerify(exactly = 1) {
+                forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
+            }
+            forecastEngineFlow.value = ForecastEngine.SCENARIOS
+
+            var updated = awaitItem()
+            while (updated !is CityDetailUiState.Loaded || updated.currentTemp == before) updated = awaitItem()
+            assertNotEquals(before, updated.currentTemp)
+            assertEquals(ForecastEngine.SCENARIOS, updated.engineContext.engine)
+            coVerify(exactly = 1) {
+                forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
+            }
+        }
+    }
 
     @Test
     fun `loadInitial - forecast en erreur sans cache → Error`() = runTest(dispatcher) {
@@ -670,6 +706,39 @@ class CityDetailViewModelTest {
         }
 
     // ──────────────── Helpers ────────────────
+
+
+    private fun buildScenarioForecast(city: City): CityForecast {
+        val today = LocalDate.of(2026, 6, 28)
+        val values = linkedMapOf(
+            WeatherModel.GFS to 10.0,
+            WeatherModel.ECMWF to 10.4,
+            WeatherModel.ARPEGE_EUROPE to 10.8,
+            WeatherModel.UKMO_GLOBAL to 20.0,
+            WeatherModel.GEM_GLOBAL to 20.4
+        )
+        return CityForecast(
+            city = city,
+            seriesByModel = values.mapValues { (model, value) ->
+                ForecastSeries(
+                    model = model,
+                    hourly = HourlyForecast(
+                        timestamps = listOf(testNow),
+                        temperature2m = listOf(value),
+                        precipitation = listOf(0.0),
+                        windSpeed10m = listOf(10.0)
+                    ),
+                    daily = DailyForecast(
+                        dates = listOf(today),
+                        tempMax = listOf(value + 2.0),
+                        tempMin = listOf(value - 6.0),
+                        precipitationSum = listOf(0.0),
+                        windSpeedMax = listOf(10.0)
+                    )
+                )
+            }
+        )
+    }
 
     private fun buildForecast(
         city: City,

@@ -2,9 +2,12 @@ package com.meteocompare.app.ui.citydetail
 
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.ForecastSeries
+import com.meteocompare.app.domain.model.ForecastEngineContext
+import com.meteocompare.app.domain.model.ForecastEngineVariable
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.usecase.ForecastConsensus
+import com.meteocompare.app.domain.usecase.ForecastEngineV3
 import com.meteocompare.app.domain.util.dailyCloudCoverMean
 import java.time.Instant
 import java.time.LocalDate
@@ -128,15 +131,17 @@ internal data class SimplifiedTimelinePoint(
 internal fun buildSimplifiedTimeline(
     forecast: CityForecast,
     mode: DisplayMode,
-    now: Instant = Instant.now()
+    now: Instant = Instant.now(),
+    engineContext: ForecastEngineContext = ForecastEngineContext.DEFAULT
 ): List<SimplifiedTimelinePoint> = when (mode) {
-    DisplayMode.HOURLY -> buildHourlyTimeline(forecast, now)
-    DisplayMode.DAILY -> buildDailyTimeline(forecast, now)
+    DisplayMode.HOURLY -> buildHourlyTimeline(forecast, now, engineContext)
+    DisplayMode.DAILY -> buildDailyTimeline(forecast, now, engineContext)
 }
 
 private fun buildHourlyTimeline(
     forecast: CityForecast,
-    now: Instant
+    now: Instant,
+    engineContext: ForecastEngineContext
 ): List<SimplifiedTimelinePoint> {
     val (startHour, endExclusive) = computeHourlyHorizon(forecast.city.timezone, now)
     val indexed = forecast.seriesByModel.map { (model, series) -> indexHourlySnapshots(model, series) }
@@ -150,13 +155,14 @@ private fun buildHourlyTimeline(
     // visuelle applique ensuite une grille régulière indépendante des événements.
     return timestamps.mapNotNull { timestamp ->
         val snapshots = indexed.mapNotNull { it[timestamp] }
-        timelinePoint(timestamp = timestamp, date = null, snapshots = snapshots, hourly = true)
+        timelinePoint(timestamp = timestamp, date = null, snapshots = snapshots, hourly = true, engineContext = engineContext)
     }
 }
 
 private fun buildDailyTimeline(
     forecast: CityForecast,
-    now: Instant
+    now: Instant,
+    engineContext: ForecastEngineContext
 ): List<SimplifiedTimelinePoint> {
     val zone = resolveCityZone(forecast.city.timezone)
     val today = now.atZone(zone).toLocalDate()
@@ -172,7 +178,7 @@ private fun buildDailyTimeline(
 
     return dates.mapNotNull { date ->
         val snapshots = indexed.mapNotNull { it[date] }
-        timelinePoint(timestamp = null, date = date, snapshots = snapshots, hourly = false)
+        timelinePoint(timestamp = null, date = date, snapshots = snapshots, hourly = false, engineContext = engineContext)
     }
 }
 
@@ -260,39 +266,90 @@ private fun timelinePoint(
     timestamp: Instant?,
     date: LocalDate?,
     snapshots: List<TimelineSnapshot>,
-    hourly: Boolean
+    hourly: Boolean,
+    engineContext: ForecastEngineContext
 ): SimplifiedTimelinePoint? {
     val meaningful = snapshots.filter(TimelineSnapshot::hasAnyValue)
     if (meaningful.isEmpty()) return null
 
-    fun continuous(
-        extractor: (TimelineSnapshot) -> Double?,
-        tight: Double,
-        wide: Double
-    ) = ForecastConsensus.continuous(
-        meaningful.mapNotNull { snap -> extractor(snap)?.let { ForecastConsensus.Entry(snap.model, it) } },
-        tightStdDev = tight,
-        wideStdDev = wide
+    data class ContinuousPair(
+        val agreement: ForecastConsensus.Continuous,
+        val forecastValue: ForecastEngineV3.ContinuousResult
     )
 
-    val temp = continuous({ if (hourly) it.temperature else it.tempMax }, 0.5, 3.0)
-    val tempMin = if (hourly) null else continuous({ it.tempMin }, 0.5, 3.0)
-    val wind = continuous({ it.wind }, 2.0, 12.0)
-    val gust = continuous({ it.windGust }, 2.0, 12.0)
-    val cloud = continuous({ it.cloudCover?.toDouble() }, 10.0, 50.0)
+    fun continuous(
+        extractor: (TimelineSnapshot) -> Double?,
+        variable: ForecastEngineVariable,
+        tight: Double,
+        wide: Double,
+        allowCalibration: Boolean,
+        min: Double? = null,
+        max: Double? = null
+    ): ContinuousPair {
+        val entries = meaningful.mapNotNull { snap ->
+            extractor(snap)?.let { ForecastConsensus.Entry(snap.model, it) }
+        }
+        val agreement = ForecastConsensus.continuous(entries, tightStdDev = tight, wideStdDev = wide)
+        val forecastValue = ForecastEngineV3.continuous(
+            entries,
+            ForecastEngineV3.ContinuousOptions(
+                engine = engineContext.engine,
+                calibration = engineContext.calibration(variable, allowCalibration),
+                localWeights = engineContext.localWeights(variable),
+                tight = tight,
+                wide = wide,
+                min = min,
+                max = max
+            )
+        )
+        return ContinuousPair(agreement, forecastValue)
+    }
+
+    // Même garde-fou que la version Web 1.16 : l'historique de biais est J+1.
+    // Il peut corriger Tmax et vent max journalier, mais pas les heures, Tmin,
+    // rafales ou nuages dont la sémantique de calibration serait différente.
+    val temp = continuous(
+        { if (hourly) it.temperature else it.tempMax }, ForecastEngineVariable.TEMPERATURE,
+        0.5, 3.0, allowCalibration = !hourly
+    )
+    val tempMin = if (hourly) null else continuous(
+        { it.tempMin }, ForecastEngineVariable.TEMPERATURE, 0.5, 3.0, allowCalibration = false
+    )
+    val wind = continuous(
+        { it.wind }, ForecastEngineVariable.WIND, 2.0, 12.0, allowCalibration = !hourly, min = 0.0
+    )
+    val gust = continuous(
+        { it.windGust }, ForecastEngineVariable.WIND, 2.0, 12.0, allowCalibration = false, min = 0.0
+    )
+    val cloud = continuous(
+        { it.cloudCover?.toDouble() }, ForecastEngineVariable.CLOUD, 10.0, 50.0,
+        allowCalibration = false, min = 0.0, max = 100.0
+    )
 
     val rainThreshold = if (hourly) HOURLY_RAIN_THRESHOLD_MM else DAILY_RAIN_THRESHOLD_MM
+    val precipitationRows = meaningful.map { snap ->
+        ForecastConsensus.PrecipitationRow(
+            model = snap.model,
+            amountMm = snap.precipitation,
+            probabilityPercent = snap.precipitationProbability
+        )
+    }
     val precipitation = ForecastConsensus.precipitation(
-        rows = meaningful.map { snap ->
-            ForecastConsensus.PrecipitationRow(
-                model = snap.model,
-                amountMm = snap.precipitation,
-                probabilityPercent = snap.precipitationProbability
-            )
-        },
+        rows = precipitationRows,
         thresholdMm = rainThreshold,
         amountTightStdDev = if (hourly) 0.5 else 1.0,
         amountWideStdDev = if (hourly) 4.0 else 8.0
+    )
+    val precipitationForecast = ForecastEngineV3.precipitation(
+        precipitationRows,
+        ForecastEngineV3.PrecipitationOptions(
+            engine = engineContext.engine,
+            threshold = rainThreshold,
+            localWeights = engineContext.localWeights(ForecastEngineVariable.PRECIPITATION),
+            calibration = engineContext.calibration(ForecastEngineVariable.PRECIPITATION, allowCalibration = !hourly),
+            amountTight = if (hourly) 0.5 else 1.0,
+            amountWide = if (hourly) 4.0 else 8.0
+        )
     )
     val conditionVote = ForecastConsensus.conditionVote(
         meaningful.mapNotNull { snap ->
@@ -307,13 +364,13 @@ private fun timelinePoint(
         else -> ModelConsensusLevel.LOW
     }
 
-    val temperatureScores = listOfNotNull(temp.convergencePercent, tempMin?.convergencePercent)
+    val temperatureScores = listOfNotNull(temp.agreement.convergencePercent, tempMin?.agreement?.convergencePercent)
     val temperaturePercent = if (temperatureScores.isEmpty()) null else temperatureScores.average().roundToInt()
     val metricConsensus = buildMap {
         temperaturePercent?.let { score ->
             put(ForecastMetric.TEMPERATURE, MetricConsensus(
-                metric = ForecastMetric.TEMPERATURE, percent = score, modelCount = temp.modelCount,
-                level = metricLevel(score), minimum = temp.stats?.min, maximum = temp.stats?.max,
+                metric = ForecastMetric.TEMPERATURE, percent = score, modelCount = temp.agreement.modelCount,
+                level = metricLevel(score), minimum = temp.agreement.stats?.min, maximum = temp.agreement.stats?.max,
                 isDivergent = score < 50
             ))
         }
@@ -324,10 +381,10 @@ private fun timelinePoint(
                 isDivergent = score < 50
             ))
         }
-        wind.convergencePercent?.let { score ->
+        wind.agreement.convergencePercent?.let { score ->
             put(ForecastMetric.WIND, MetricConsensus(
-                metric = ForecastMetric.WIND, percent = score, modelCount = wind.modelCount,
-                level = metricLevel(score), minimum = wind.stats?.min, maximum = wind.stats?.max,
+                metric = ForecastMetric.WIND, percent = score, modelCount = wind.agreement.modelCount,
+                level = metricLevel(score), minimum = wind.agreement.stats?.min, maximum = wind.agreement.stats?.max,
                 isDivergent = score < 50
             ))
         }
@@ -358,27 +415,27 @@ private fun timelinePoint(
     val cloudValues = meaningful.mapNotNull { it.cloudCover }
     val windValues = meaningful.mapNotNull { it.wind }
     val gustValues = meaningful.mapNotNull { it.windGust }
-    val familyCount = listOf(temp.familyCount, wind.familyCount, precipitation.familyCount, conditionVote.familyCount).maxOrNull() ?: 0
+    val familyCount = listOf(temp.agreement.familyCount, wind.agreement.familyCount, precipitation.familyCount, conditionVote.familyCount).maxOrNull() ?: 0
 
     return SimplifiedTimelinePoint(
         instant = timestamp, date = date,
-        temperatureC = if (hourly) temp.central else null,
-        tempMinC = tempMin?.central, tempMaxC = if (hourly) null else temp.central,
+        temperatureC = if (hourly) temp.forecastValue.central else null,
+        tempMinC = tempMin?.forecastValue?.central, tempMaxC = if (hourly) null else temp.forecastValue.central,
         temperatureMinAcrossModels = temperatures.minOrNull(), temperatureMaxAcrossModels = temperatures.maxOrNull(),
-        precipitationPercent = precipitation.probabilityPercent, precipitationSource = source,
+        precipitationPercent = precipitationForecast.probabilityPercent ?: precipitation.probabilityPercent, precipitationSource = source,
         precipitationModelCount = precipitation.modelCount, wetModelCount = precipitation.wetModelCount,
-        precipitationMm = precipitation.centralAmountMm, precipitationConditionalMm = precipitation.conditionalAmountMm,
-        precipitationExpectedMm = precipitation.expectedAmountMm,
+        precipitationMm = precipitationForecast.centralAmountMm, precipitationConditionalMm = precipitationForecast.conditionalAmountMm,
+        precipitationExpectedMm = precipitationForecast.expectedAmountMm,
         precipitationMinAcrossModelsMm = precipitationValues.minOrNull(), precipitationMaxAcrossModelsMm = precipitationValues.maxOrNull(),
         precipitationProbabilityMin = probabilities.minOrNull(), precipitationProbabilityMax = probabilities.maxOrNull(),
-        cloudCoverPercent = cloud.central?.roundToInt()?.coerceIn(0, 100),
+        cloudCoverPercent = cloud.forecastValue.central?.roundToInt()?.coerceIn(0, 100),
         cloudCoverMinAcrossModels = cloudValues.minOrNull(), cloudCoverMaxAcrossModels = cloudValues.maxOrNull(),
-        cloudCoverModelCount = cloud.modelCount,
-        windKmh = wind.central, windMinAcrossModels = windValues.minOrNull(), windMaxAcrossModels = windValues.maxOrNull(),
-        windGustKmh = gust.central, windGustMinAcrossModels = gustValues.minOrNull(), windGustMaxAcrossModels = gustValues.maxOrNull(),
-        windGustModelCount = gust.modelCount,
+        cloudCoverModelCount = cloud.agreement.modelCount,
+        windKmh = wind.forecastValue.central, windMinAcrossModels = windValues.minOrNull(), windMaxAcrossModels = windValues.maxOrNull(),
+        windGustKmh = gust.forecastValue.central, windGustMinAcrossModels = gustValues.minOrNull(), windGustMaxAcrossModels = gustValues.maxOrNull(),
+        windGustModelCount = gust.agreement.modelCount,
         condition = conditionVote.value, modelCount = meaningful.size, familyCount = familyCount,
-        temperatureModelCount = temp.modelCount, windModelCount = wind.modelCount, conditionModelCount = conditionVote.modelCount,
+        temperatureModelCount = temp.agreement.modelCount, windModelCount = wind.agreement.modelCount, conditionModelCount = conditionVote.modelCount,
         hasMultiModelEvidence = metricConsensus.isNotEmpty(), consensusPercent = overall,
         consensusLevel = overall?.let(::metricLevel), metricConsensus = metricConsensus, divergenceReasons = divergenceReasons
     )
@@ -439,9 +496,10 @@ internal data class OverviewTimeline(
 
 internal fun buildOverviewTimeline(
     forecast: CityForecast,
-    now: Instant = Instant.now()
+    now: Instant = Instant.now(),
+    engineContext: ForecastEngineContext = ForecastEngineContext.DEFAULT
 ): OverviewTimeline {
-    val hourly = buildSimplifiedTimeline(forecast, DisplayMode.HOURLY, now)
+    val hourly = buildSimplifiedTimeline(forecast, DisplayMode.HOURLY, now, engineContext)
     return if (hourly.size >= 2) {
         OverviewTimeline(
             mode = DisplayMode.HOURLY,
@@ -449,7 +507,7 @@ internal fun buildOverviewTimeline(
             timezone = forecast.city.timezone
         )
     } else {
-        val daily = buildSimplifiedTimeline(forecast, DisplayMode.DAILY, now)
+        val daily = buildSimplifiedTimeline(forecast, DisplayMode.DAILY, now, engineContext)
         OverviewTimeline(
             mode = DisplayMode.DAILY,
             analysisPoints = daily,

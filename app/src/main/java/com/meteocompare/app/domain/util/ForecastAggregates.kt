@@ -2,7 +2,9 @@ package com.meteocompare.app.domain.util
 
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.WeatherCondition
+import com.meteocompare.app.domain.model.ForecastEngineContext
 import com.meteocompare.app.domain.usecase.ForecastConsensus
+import com.meteocompare.app.domain.usecase.ForecastEngineV3
 import java.time.Instant
 
 /** Résultat agrégé utilisé par la liste des villes et le mini-forecast widget. */
@@ -25,7 +27,8 @@ internal object ForecastAggregates {
     fun next12h(
         forecast: CityForecast,
         now: Instant = Instant.now(),
-        includeConditions: Boolean = false
+        includeConditions: Boolean = false,
+        engineContext: ForecastEngineContext = ForecastEngineContext.DEFAULT
     ): Next12hForecast {
         val temperatures = ArrayList<Double?>(HOUR_COUNT)
         val probabilities = ArrayList<Int?>(HOUR_COUNT)
@@ -63,14 +66,24 @@ internal object ForecastAggregates {
                 }
             }
 
-            temperatures += ForecastConsensus.continuous(
-                tempRows, tightStdDev = 0.5, wideStdDev = 3.0
+            temperatures += ForecastEngineV3.continuous(
+                tempRows,
+                ForecastEngineV3.ContinuousOptions(
+                    engine = engineContext.engine,
+                    calibration = emptyMap(), // historique J+1 ≠ prévision horaire
+                    tight = 0.5,
+                    wide = 3.0
+                )
             ).central
-            val precipitation = ForecastConsensus.precipitation(
+            val precipitation = ForecastEngineV3.precipitation(
                 precipRows,
-                thresholdMm = 0.1,
-                amountTightStdDev = 0.5,
-                amountWideStdDev = 4.0
+                ForecastEngineV3.PrecipitationOptions(
+                    engine = engineContext.engine,
+                    threshold = 0.1,
+                    calibration = emptyMap(), // historique J+1 ≠ prévision horaire
+                    amountTight = 0.5,
+                    amountWide = 4.0
+                )
             )
             probabilities += precipitation.probabilityPercent
             amounts += precipitation.centralAmountMm
