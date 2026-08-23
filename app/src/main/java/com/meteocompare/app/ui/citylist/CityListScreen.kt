@@ -12,6 +12,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -71,6 +72,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.LocalLocale
@@ -489,18 +491,6 @@ private fun CityCardHeader(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false)
                 )
-                if (marineEnabled) {
-                    Spacer(Modifier.width(7.dp))
-                    Surface(
-                        modifier = Modifier
-                            .size(9.dp)
-                            .padding(bottom = 1.dp)
-                            .testTag("$TAG_CITY_MARINE_ENABLED${city.id}"),
-                        shape = androidx.compose.foundation.shape.CircleShape,
-                        color = Color(0xFF1976D2),
-                        content = {}
-                    )
-                }
                 if (city.country.isNotBlank()) {
                     Spacer(Modifier.width(12.dp))
                     Text(
@@ -521,6 +511,7 @@ private fun CityCardHeader(
         }
 
         CityCardMenu(
+            cityId = city.id,
             marineEnabled = marineEnabled,
             marineLoading = marineLoading,
             onMarineAction = onMarineAction,
@@ -1202,6 +1193,7 @@ private fun weatherScenarioMetrics(scenario: WeatherScenario): List<String> {
 
 @Composable
 private fun CityCardMenu(
+    cityId: String,
     marineEnabled: Boolean,
     marineLoading: Boolean,
     onMarineAction: () -> Unit,
@@ -1211,6 +1203,17 @@ private fun CityCardMenu(
     Box {
         IconButton(onClick = { expanded = true }) {
             Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.action_more_options))
+        }
+        if (marineEnabled) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 8.dp, end = 8.dp)
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF1976D2))
+                    .testTag("$TAG_CITY_MARINE_ENABLED$cityId")
+            )
         }
         DropdownMenu(
             expanded = expanded,

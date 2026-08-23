@@ -1,6 +1,5 @@
 package com.meteocompare.app.ui.enginecomparison
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -492,74 +491,85 @@ private fun EngineLegend(selectedEngine: ForecastEngine) {
 private fun DivergenceTimeline(days: List<EngineComparisonDay>) {
     val locale = LocalLocale.current.platformLocale
     val dayFormatter = remember(locale) {
-        DateTimeFormatter.ofPattern("EEEE d MMM", locale)
+        DateTimeFormatter.ofPattern("EEE d MMM", locale)
     }
+    val scrollState = rememberScrollState()
 
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(scrollState),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
         days.forEach { day ->
             val globalColor = divergenceLevelColor(day.divergence.level)
             val globalLabel = divergenceLevelLabel(day.divergence.level)
 
             Column(
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .width(252.dp)
                     .clip(RoundedCornerShape(14.dp))
-                    .background(MaterialTheme.colorScheme.surfaceContainerLow)
-                    .padding(horizontal = 12.dp, vertical = 12.dp)
+                    .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.58f))
+                    .padding(horizontal = 11.dp, vertical = 10.dp)
             ) {
-                Text(
-                    text = day.date.format(dayFormatter).replaceFirstChar { char ->
-                        if (char.isLowerCase()) char.titlecase(locale) else char.toString()
-                    },
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(Modifier.height(3.dp))
                 Row(
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(7.dp)
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .clip(CircleShape)
-                            .background(globalColor)
-                    )
                     Text(
-                        text = globalLabel,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = globalColor
+                        text = day.date.format(dayFormatter).replaceFirstChar { char ->
+                            if (char.isLowerCase()) char.titlecase(locale) else char.toString()
+                        },
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(7.dp)
+                                .clip(CircleShape)
+                                .background(globalColor)
+                        )
+                        Text(
+                            text = globalLabel,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = globalColor
+                        )
+                    }
                 }
 
-                Spacer(Modifier.height(12.dp))
-                DivergenceMetricRow(
+                Spacer(Modifier.height(9.dp))
+                DivergenceMetricCompactRow(
                     label = stringResource(R.string.engine_divergence_variable_temperature),
                     delta = day.divergence.temperatureDelta,
                     unit = "°C",
                     scaleMax = 4.0,
                     decimals = 1
                 )
-                Spacer(Modifier.height(10.dp))
-                DivergenceMetricRow(
+                Spacer(Modifier.height(7.dp))
+                DivergenceMetricCompactRow(
                     label = stringResource(R.string.engine_divergence_variable_rain),
                     delta = day.divergence.precipitationDelta,
                     unit = "mm",
                     scaleMax = 8.0,
                     decimals = 1
                 )
-                Spacer(Modifier.height(10.dp))
-                DivergenceMetricRow(
+                Spacer(Modifier.height(7.dp))
+                DivergenceMetricCompactRow(
                     label = stringResource(R.string.engine_divergence_variable_wind),
                     delta = day.divergence.windDelta,
                     unit = "km/h",
                     scaleMax = 15.0,
                     decimals = 0
                 )
-                Spacer(Modifier.height(10.dp))
-                DivergenceMetricRow(
+                Spacer(Modifier.height(7.dp))
+                DivergenceMetricCompactRow(
                     label = stringResource(R.string.engine_divergence_variable_cloud),
                     delta = day.divergence.cloudDelta,
                     unit = "%",
@@ -572,7 +582,7 @@ private fun DivergenceTimeline(days: List<EngineComparisonDay>) {
 }
 
 @Composable
-private fun DivergenceMetricRow(
+private fun DivergenceMetricCompactRow(
     label: String,
     delta: Double,
     unit: String,
@@ -590,39 +600,40 @@ private fun DivergenceMetricRow(
         EngineDivergenceLevel.MEDIUM -> mediumColor
         EngineDivergenceLevel.HIGH -> highColor
     }
-    val formattedDelta = if (!delta.isFinite()) {
-        "—"
-    } else if (decimals == 0) {
-        String.format(locale, "Δ %.0f %s", delta, unit)
-    } else {
-        String.format(locale, "Δ %.1f %s", delta, unit)
+    val formattedDelta = when {
+        !delta.isFinite() -> "—"
+        decimals == 0 -> String.format(locale, "Δ %.0f %s", delta, unit)
+        else -> String.format(locale, "Δ %.1f %s", delta, unit)
     }
 
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                text = formattedDelta,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Bold,
-                color = valueColor
-            )
-        }
-        Spacer(Modifier.height(6.dp))
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(7.dp)
+    ) {
+        Text(
+            text = label,
+            modifier = Modifier.width(72.dp),
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1
+        )
         DivergenceScale(
             progress = normalized,
             lowColor = lowColor,
             mediumColor = mediumColor,
-            highColor = highColor
+            highColor = highColor,
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            text = formattedDelta,
+            modifier = Modifier.width(66.dp),
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.End,
+            color = valueColor,
+            maxLines = 1
         )
     }
 }
@@ -632,16 +643,15 @@ private fun DivergenceScale(
     progress: Float,
     lowColor: Color,
     mediumColor: Color,
-    highColor: Color
+    highColor: Color,
+    modifier: Modifier = Modifier
 ) {
     val markerColor = MaterialTheme.colorScheme.onSurface
     val markerOutline = MaterialTheme.colorScheme.surface
     Canvas(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(12.dp)
+        modifier = modifier.height(10.dp)
     ) {
-        val barHeight = 6.dp.toPx()
+        val barHeight = 5.dp.toPx()
         val radius = barHeight / 2f
         val y = size.height / 2f
         val top = y - barHeight / 2f
@@ -666,15 +676,16 @@ private fun DivergenceScale(
             cornerRadius = androidx.compose.ui.geometry.CornerRadius(radius, radius)
         )
 
-        val markerX = (size.width * progress.coerceIn(0f, 1f)).coerceIn(4.dp.toPx(), size.width - 4.dp.toPx())
+        val markerX = (size.width * progress.coerceIn(0f, 1f))
+            .coerceIn(4.dp.toPx(), size.width - 4.dp.toPx())
         drawCircle(
             color = markerOutline,
-            radius = 5.dp.toPx(),
+            radius = 4.5.dp.toPx(),
             center = Offset(markerX, y)
         )
         drawCircle(
             color = markerColor,
-            radius = 3.dp.toPx(),
+            radius = 2.7.dp.toPx(),
             center = Offset(markerX, y)
         )
     }
