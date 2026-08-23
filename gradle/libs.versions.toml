@@ -1,6 +1,6 @@
 [versions]
-agp = "8.13.2"
-kotlin = "2.3.0"
+agp = "9.3.0"
+kotlin = "2.3.21"
 ksp = "2.3.9"
 
 minSdk = "27"
@@ -15,7 +15,7 @@ activityCompose = "1.11.0"
 composeBom = "2026.06.00"
 navCompose = "2.9.6"
 
-hilt = "2.58"
+hilt = "2.60.1"
 hiltNav = "1.2.0"
 
 retrofit = "3.0.0"
@@ -96,7 +96,6 @@ androidx-compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-mani
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }

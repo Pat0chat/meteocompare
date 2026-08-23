@@ -2,7 +2,6 @@ import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
@@ -39,8 +38,8 @@ android {
         applicationId = "com.meteocompare.app"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 23
-        versionName = "1.9.0"
+        versionCode = 24
+        versionName = "1.10.0"
         testInstrumentationRunner = "com.meteocompare.app.HiltTestRunner"
         vectorDrawables { useSupportLibrary = true }
     }
@@ -98,9 +97,9 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    // `kotlinOptions { jvmTarget = "17" }` est déprécié depuis KGP 2.0 ;
-    // le bloc `kotlin { compilerOptions { ... } }` au niveau projet (en
-    // dehors d'`android { }`) le remplace — voir plus bas.
+    // Avec le Kotlin intégré d'AGP 9, le jvmTarget Kotlin suit automatiquement
+    // targetCompatibility. On conserve Java 17 pour le bytecode de l'application ;
+    // cela est indépendant du JDK qui exécute Gradle.
 
     buildFeatures {
         compose = true
@@ -145,16 +144,8 @@ android {
     }
 }
 
-// Configuration Kotlin niveau projet — remplace `kotlinOptions { }`
-// (déprécié depuis KGP 2.0). Le type sûr `JvmTarget.JVM_17` est préféré à la
-// chaîne `"17"` parce qu'il échoue à la compilation Gradle si la valeur est
-// invalide, plutôt qu'à l'exécution.
-kotlin {
-    compilerOptions {
-        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
-    }
-}
-
+// Avec Kotlin intégré (AGP 9+), le jvmTarget Kotlin est automatiquement aligné
+// sur android.compileOptions.targetCompatibility (Java 17 ici).
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.core.splashscreen)

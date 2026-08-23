@@ -48,8 +48,9 @@ Depuis la v1.0, l'app suit aussi **le biais historique de chaque modèle sur cha
 
 ## Stack technique
 
-- **Gradle 8.14** + **Android Gradle Plugin 8.13**
-- **Kotlin 2.3** + Coroutines + Flow
+- **Gradle 9.5** + **Android Gradle Plugin 9.3**
+- **Kotlin 2.3.21 intégré à AGP** + Coroutines + Flow
+- **JDK de build 21 (daemon Gradle)**, avec launcher compatible **JDK 25** ; bytecode applicatif ciblé Java 17
 - **Jetpack Compose** + Material 3 (couleurs dynamiques, typographie M3, formes)
 - **Hilt** pour l'injection de dépendances (via KSP)
 - **Retrofit + OkHttp + Kotlinx Serialization** pour la couche réseau
