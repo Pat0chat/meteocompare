@@ -786,4 +786,6 @@
     <string name="engine_table_probability">Risque pluie</string>
     <string name="engine_table_expected_rain">Pluie attendue</string>
     <string name="engine_table_condition">Conditions</string>
+    <string name="forecast_evolution_stable_axis">Zone stable ± %1$s</string>
+    <string name="forecast_evolution_notable_axis">Seuil notable ± %1$s</string>
 </resources>

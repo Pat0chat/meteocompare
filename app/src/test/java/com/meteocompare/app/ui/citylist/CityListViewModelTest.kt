@@ -8,6 +8,7 @@ import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DailyForecast
 import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.HourlyForecast
+import com.meteocompare.app.domain.model.MarineForecast
 import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.WeatherModel
@@ -671,6 +672,26 @@ class CityListViewModelTest {
             while (state.items.firstOrNull()?.forecast !is ForecastState.Loaded) state = awaitItem()
             val loaded = state.items.first().forecast as ForecastState.Loaded
             assertEquals(LocalDateTime.of(2026, 6, 28, 13, 0), loaded.hourlyStartTime)
+        }
+    }
+
+
+    @Test
+    fun `marine availability from cache is exposed independently from activation`() = runTest(dispatcher) {
+        val cached = mockk<MarineForecast>()
+        every { cached.coastal } returns true
+        coEvery { marineRepo.getCached(paris.id) } returns cached
+
+        viewModel.uiState.test {
+            awaitItem()
+            favoritesFlow.value = listOf(paris)
+            var state = awaitItem()
+            while (state.items.firstOrNull()?.isMarineAvailable != true) state = awaitItem()
+
+            val item = state.items.first()
+            assertTrue(item.isMarineAvailable)
+            assertTrue(!item.city.marineEnabled)
+            coVerify(exactly = 0) { marineRepo.getMarine(paris, forceRefresh = false) }
         }
     }
 

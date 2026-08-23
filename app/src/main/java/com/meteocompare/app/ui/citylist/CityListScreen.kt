@@ -42,6 +42,7 @@ import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.LocationCity
 import androidx.compose.material.icons.outlined.Thermostat
 import androidx.compose.material.icons.outlined.WaterDrop
+import androidx.compose.material.icons.outlined.Waves
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -418,6 +419,7 @@ internal fun CityCard(
                     sunrise = loaded?.sunrise,
                     sunset = loaded?.sunset,
                     marineEnabled = state.city.marineEnabled,
+                    marineAvailable = state.isMarineAvailable,
                     marineLoading = state.isMarineLoading,
                     onMarineAction = onMarineAction,
                     onRemove = onRemove
@@ -469,6 +471,7 @@ private fun CityCardHeader(
     sunrise: java.time.LocalTime?,
     sunset: java.time.LocalTime?,
     marineEnabled: Boolean,
+    marineAvailable: Boolean,
     marineLoading: Boolean,
     onMarineAction: () -> Unit,
     onRemove: () -> Unit,
@@ -491,6 +494,17 @@ private fun CityCardHeader(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false)
                 )
+                if (marineEnabled) {
+                    Spacer(Modifier.width(6.dp))
+                    Icon(
+                        imageVector = Icons.Outlined.Waves,
+                        contentDescription = stringResource(R.string.marine_enabled),
+                        tint = Color(0xFF1976D2),
+                        modifier = Modifier
+                            .size(17.dp)
+                            .testTag("$TAG_CITY_MARINE_ENABLED${city.id}")
+                    )
+                }
                 if (city.country.isNotBlank()) {
                     Spacer(Modifier.width(12.dp))
                     Text(
@@ -513,6 +527,7 @@ private fun CityCardHeader(
         CityCardMenu(
             cityId = city.id,
             marineEnabled = marineEnabled,
+            marineAvailable = marineAvailable,
             marineLoading = marineLoading,
             onMarineAction = onMarineAction,
             onRemove = onRemove
@@ -1195,6 +1210,7 @@ private fun weatherScenarioMetrics(scenario: WeatherScenario): List<String> {
 private fun CityCardMenu(
     cityId: String,
     marineEnabled: Boolean,
+    marineAvailable: Boolean,
     marineLoading: Boolean,
     onMarineAction: () -> Unit,
     onRemove: () -> Unit
@@ -1204,7 +1220,7 @@ private fun CityCardMenu(
         IconButton(onClick = { expanded = true }) {
             Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.action_more_options))
         }
-        if (marineEnabled) {
+        if (marineAvailable) {
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
@@ -1212,7 +1228,7 @@ private fun CityCardMenu(
                     .size(8.dp)
                     .clip(CircleShape)
                     .background(Color(0xFF1976D2))
-                    .testTag("$TAG_CITY_MARINE_ENABLED$cityId")
+                    .testTag("$TAG_CITY_MARINE_AVAILABLE$cityId")
             )
         }
         DropdownMenu(
@@ -1297,6 +1313,7 @@ internal fun EmptyState(
 // ─── Test tags exposés pour les tests d'instrumentation ─────────────────────
 internal const val TAG_CITY_LIST = "city_list"
 internal const val TAG_CITY_CARD = "city_card_"
+internal const val TAG_CITY_MARINE_AVAILABLE = "city_marine_available_"
 internal const val TAG_CITY_MARINE_ENABLED = "city_marine_enabled_"
 internal const val TAG_EMPTY_STATE = "empty_state"
 internal const val TAG_ADD_FAB = "add_fab"

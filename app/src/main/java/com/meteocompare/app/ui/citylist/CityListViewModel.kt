@@ -78,6 +78,10 @@ class CityListViewModel @Inject constructor(
     private val _isRefreshing = MutableStateFlow(false)
     private val _isOnline = MutableStateFlow(networkMonitor.isOnline())
     private val marineLoadingIds = MutableStateFlow<Set<String>>(emptySet())
+    /** Villes validées comme côtières, indépendamment de l'activation de Mer / côte. */
+    private val marineAvailableIds = MutableStateFlow<Set<String>>(emptySet())
+    private val marineAvailabilityCheckedIds = mutableSetOf<String>()
+    private val marineAvailabilityJobs = mutableMapOf<String, Job>()
     private val _marineFeedback = Channel<MarineFeedback>(capacity = Channel.BUFFERED)
     val marineFeedback = _marineFeedback.receiveAsFlow()
 
@@ -101,18 +105,25 @@ class CityListViewModel @Inject constructor(
     // moment de la souscription.
     private var lastStreamConfig: Pair<List<WeatherModel>, RefreshInterval>? = null
 
+    private val marineUiState = combine(
+        marineLoadingIds,
+        marineAvailableIds
+    ) { loading, available -> loading to available }
+
     val uiState: StateFlow<CityListUiState> = combine(
         cityRepository.observeFavorites(),
         forecastsById,
         _isRefreshing,
         _isOnline,
-        marineLoadingIds
-    ) { cities, cache, refreshing, online, marineLoading ->
+        marineUiState
+    ) { cities, cache, refreshing, online, marineState ->
+        val (marineLoading, marineAvailable) = marineState
         CityListUiState(
             items = cities.map { city ->
                 CityCardState(
                     city = city,
                     forecast = cache[city.id] ?: ForecastState.Loading,
+                    isMarineAvailable = city.marineEnabled || city.id in marineAvailable,
                     isMarineLoading = city.id in marineLoading
                 )
             },
@@ -166,7 +177,10 @@ class CityListViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            networkMonitor.observeOnline().collect { online -> _isOnline.value = online }
+            networkMonitor.observeOnline().collect { online ->
+                _isOnline.value = online
+                if (online) syncMarineAvailability(favoriteCitiesById.values.toList())
+            }
         }
 
         // Le moteur change uniquement la centrale dérivée. On recalcule donc
@@ -264,7 +278,14 @@ class CityListViewModel @Inject constructor(
             initializedCityIds.remove(id)
             forecastsById.update { it - id }
             rawForecastsById.update { it - id }
+            marineAvailabilityJobs.remove(id)?.cancel()
+            marineAvailabilityCheckedIds.remove(id)
+            marineAvailableIds.update { it - id }
         }
+
+        // La disponibilité Mer / côte est distincte de son activation : on la
+        // détecte discrètement pour pouvoir signaler l'option dans le menu.
+        syncMarineAvailability(cities)
 
         val config = models to interval
         val configChanged = lastStreamConfig?.let { it != config } ?: true
@@ -324,6 +345,58 @@ class CityListViewModel @Inject constructor(
         lastStreamConfig = config
     }
 
+    /**
+     * Valide en arrière-plan la disponibilité du mode côtier pour les favoris.
+     * Un cache marin existant est utilisé en priorité ; sinon une seule requête
+     * par ville et par session est autorisée. En cas d'échec réseau, la ville
+     * reste éligible à un nouveau contrôle au prochain retour en ligne.
+     */
+    private fun syncMarineAvailability(cities: List<City>) {
+        cities.forEach { city ->
+            if (city.marineEnabled) {
+                marineAvailabilityCheckedIds += city.id
+                marineAvailableIds.update { it + city.id }
+                return@forEach
+            }
+            if (city.id in marineAvailabilityCheckedIds || city.id in marineAvailabilityJobs) return@forEach
+
+            val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
+                val ownJob = coroutineContext[Job]
+                try {
+                    val cached = runCatching { marineRepository.getCached(city.id) }.getOrNull()
+                    if (cached != null) {
+                        marineAvailabilityCheckedIds += city.id
+                        if (cached.coastal) marineAvailableIds.update { it + city.id }
+                        else marineAvailableIds.update { it - city.id }
+                        return@launch
+                    }
+                    if (!networkMonitor.isOnline()) return@launch
+
+                    val result = runCatching {
+                        marineRepository.getMarine(city, forceRefresh = false)
+                    }.getOrNull()
+                    when (result) {
+                        is ApiResult.Success -> {
+                            marineAvailabilityCheckedIds += city.id
+                            if (result.data.coastal) {
+                                marineAvailableIds.update { it + city.id }
+                            } else {
+                                marineAvailableIds.update { it - city.id }
+                            }
+                        }
+                        else -> Unit // retry possible au prochain changement réseau/config
+                    }
+                } finally {
+                    if (marineAvailabilityJobs[city.id] === ownJob) {
+                        marineAvailabilityJobs.remove(city.id)
+                    }
+                }
+            }
+            marineAvailabilityJobs[city.id] = job
+            job.start()
+        }
+    }
+
     // ─── Actions utilisateur ────────────────────────────────────────────────
 
     fun onSearchQueryChanged(query: String) {
@@ -350,18 +423,24 @@ class CityListViewModel @Inject constructor(
     /** Active le mode côtier après validation du point marin, ou rafraîchit le cache existant. */
     fun onMarineAction(city: City) {
         if (city.id in marineLoadingIds.value) return
+        marineAvailabilityJobs.remove(city.id)?.cancel()
         viewModelScope.launch {
             marineLoadingIds.update { it + city.id }
             try {
                 when (val result = marineRepository.getMarine(city, forceRefresh = true)) {
                     is ApiResult.Success -> {
+                        marineAvailabilityCheckedIds += city.id
                         if (!result.data.coastal) {
+                            marineAvailableIds.update { it - city.id }
                             _marineFeedback.send(MarineFeedback.NotCoastal)
-                        } else if (!city.marineEnabled) {
-                            cityRepository.setMarineEnabled(city.id, true)
-                            _marineFeedback.send(MarineFeedback.Enabled)
                         } else {
-                            _marineFeedback.send(MarineFeedback.Refreshed)
+                            marineAvailableIds.update { it + city.id }
+                            if (!city.marineEnabled) {
+                                cityRepository.setMarineEnabled(city.id, true)
+                                _marineFeedback.send(MarineFeedback.Enabled)
+                            } else {
+                                _marineFeedback.send(MarineFeedback.Refreshed)
+                            }
                         }
                     }
                     is ApiResult.Error -> _marineFeedback.send(MarineFeedback.Error(result.message))

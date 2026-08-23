@@ -45,6 +45,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -331,6 +332,16 @@ private fun EngineLineChart(
         ForecastEngine.SCENARIOS to engineColor(ForecastEngine.SCENARIOS),
         ForecastEngine.ADAPTIVE to engineColor(ForecastEngine.ADAPTIVE)
     )
+    val lowDivergenceBackground = divergenceLevelColor(EngineDivergenceLevel.LOW).copy(alpha = 0.08f)
+    val mediumDivergenceBackground = divergenceLevelColor(EngineDivergenceLevel.MEDIUM).copy(alpha = 0.10f)
+    val highDivergenceBackground = divergenceLevelColor(EngineDivergenceLevel.HIGH).copy(alpha = 0.09f)
+    val divergenceBackgrounds = days.map { day ->
+        when (day.divergence.level) {
+            EngineDivergenceLevel.LOW -> lowDivergenceBackground
+            EngineDivergenceLevel.MEDIUM -> mediumDivergenceBackground
+            EngineDivergenceLevel.HIGH -> highDivergenceBackground
+        }
+    }
 
     Column {
         Row(
@@ -370,6 +381,23 @@ private fun EngineLineChart(
                 val right = size.width - 6.dp.toPx()
                 val top = 12.dp.toPx()
                 val bottom = size.height - 12.dp.toPx()
+
+                // Chaque journée colore discrètement le fond selon la divergence
+                // globale des quatre moteurs. Les courbes restent prioritaires :
+                // l'alpha est volontairement faible pour ne pas réduire leur contraste.
+                val xPositions = days.indices.map { index ->
+                    if (days.size == 1) left
+                    else left + (right - left) * index / (days.size - 1f)
+                }
+                xPositions.forEachIndexed { index, x ->
+                    val startX = if (index == 0) left else (xPositions[index - 1] + x) / 2f
+                    val endX = if (index == xPositions.lastIndex) right else (x + xPositions[index + 1]) / 2f
+                    drawRect(
+                        color = divergenceBackgrounds[index],
+                        topLeft = Offset(startX, top),
+                        size = Size(endX - startX, bottom - top)
+                    )
+                }
 
                 listOf(top, top + (bottom - top) / 2f, bottom).forEach { y ->
                     drawLine(

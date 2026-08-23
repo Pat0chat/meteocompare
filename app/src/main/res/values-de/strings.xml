@@ -721,4 +721,6 @@ Daten</string>
     <string name="engine_table_probability">Regenrisiko</string>
     <string name="engine_table_expected_rain">Erwarteter Regen</string>
     <string name="engine_table_condition">Bedingungen</string>
+    <string name="forecast_evolution_stable_axis">Stabiler Bereich ± %1$s</string>
+    <string name="forecast_evolution_notable_axis">Auffälliger Schwellenwert ± %1$s</string>
 </resources>

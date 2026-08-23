@@ -44,11 +44,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -448,39 +451,169 @@ private fun EvolutionTrendChart(
 ) {
     val snapshots = evolution.allSnapshotsChronological
     if (snapshots.size < 2) return
+
     val values = snapshots.map(ForecastEvolutionSnapshot::medianValue)
-    val min = values.minOrNull() ?: return
-    val max = values.maxOrNull() ?: return
-    val range = (max - min).takeIf { it > 0.0001 } ?: 1.0
+    val locale = LocalLocale.current.platformLocale
+    val currentValue = evolution.current.medianValue
+    val stableThreshold = evolutionStableThreshold(evolution.variable)
+    val notableThreshold = evolutionNotableThreshold(evolution.variable)
+    val isNonNegative = evolution.variable != ForecastEvolutionVariable.TEMPERATURE
+
+    val rawMin = minOf(values.minOrNull() ?: return, currentValue - notableThreshold)
+    val rawMax = maxOf(values.maxOrNull() ?: return, currentValue + notableThreshold)
+    val rawRange = (rawMax - rawMin).takeIf { it > 0.0001 } ?: 1.0
+    val padding = rawRange * 0.08
+    val domainMin = if (isNonNegative) maxOf(0.0, rawMin - padding) else rawMin - padding
+    val domainMax = rawMax + padding
+    val domainRange = (domainMax - domainMin).takeIf { it > 0.0001 } ?: 1.0
+    val domainMid = domainMin + domainRange / 2.0
+
     val lineColor = accent
     val guideColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
     val pointInnerColor = MaterialTheme.colorScheme.surface
+    val stableZoneColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.07f)
+    val stableThresholdColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
+    val notableThresholdColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.65f)
+    val currentGuideColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.42f)
 
-    Canvas(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(82.dp)
-            .padding(horizontal = 6.dp, vertical = 8.dp)
-    ) {
-        val left = 8.dp.toPx()
-        val right = size.width - 8.dp.toPx()
-        val top = 5.dp.toPx()
-        val bottom = size.height - 5.dp.toPx()
-        drawLine(guideColor, Offset(left, bottom), Offset(right, bottom), strokeWidth = 1.dp.toPx())
-        val points = values.mapIndexed { index, value ->
-            val x = if (values.size == 1) size.width / 2f
-            else left + (right - left) * index / (values.size - 1).toFloat()
-            val normalized = ((value - min) / range).toFloat()
-            Offset(x, bottom - normalized * (bottom - top))
+    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Row(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.width(50.dp).height(112.dp).padding(vertical = 8.dp),
+                verticalArrangement = Arrangement.SpaceBetween,
+                horizontalAlignment = Alignment.End
+            ) {
+                Text(
+                    text = formatEvolutionAxisValue(domainMax, evolution.variable, locale),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = formatEvolutionAxisValue(domainMid, evolution.variable, locale),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = formatEvolutionAxisValue(domainMin, evolution.variable, locale),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Spacer(Modifier.width(6.dp))
+            Canvas(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(112.dp)
+                    .padding(vertical = 8.dp)
+            ) {
+                val left = 4.dp.toPx()
+                val right = size.width - 4.dp.toPx()
+                val top = 4.dp.toPx()
+                val bottom = size.height - 4.dp.toPx()
+
+                fun yFor(value: Double): Float =
+                    bottom - (((value - domainMin) / domainRange).coerceIn(0.0, 1.0)).toFloat() * (bottom - top)
+
+                // Zone de stabilité autour de la prévision actuelle : elle
+                // matérialise le seuil réellement utilisé par le moteur d'évolution.
+                val stableLow = if (isNonNegative) maxOf(0.0, currentValue - stableThreshold)
+                else currentValue - stableThreshold
+                val stableHigh = currentValue + stableThreshold
+                val stableTop = yFor(stableHigh)
+                val stableBottom = yFor(stableLow)
+                if (stableBottom > stableTop) {
+                    drawRect(
+                        color = stableZoneColor,
+                        topLeft = Offset(left, stableTop),
+                        size = Size(right - left, stableBottom - stableTop)
+                    )
+                }
+
+                // Grille principale + axe vertical/horizontal.
+                listOf(domainMax, domainMid, domainMin).forEach { value ->
+                    val y = yFor(value)
+                    drawLine(guideColor, Offset(left, y), Offset(right, y), strokeWidth = 1.dp.toPx())
+                }
+                drawLine(guideColor, Offset(left, top), Offset(left, bottom), strokeWidth = 1.dp.toPx())
+                drawLine(guideColor, Offset(left, bottom), Offset(right, bottom), strokeWidth = 1.dp.toPx())
+
+                val stableDash = PathEffect.dashPathEffect(floatArrayOf(5.dp.toPx(), 4.dp.toPx()))
+                val notableDash = PathEffect.dashPathEffect(floatArrayOf(8.dp.toPx(), 5.dp.toPx()))
+
+                // Seuils ± de stabilité.
+                listOf(currentValue - stableThreshold, currentValue + stableThreshold).forEach { threshold ->
+                    if (threshold in domainMin..domainMax && (!isNonNegative || threshold >= 0.0)) {
+                        val y = yFor(threshold)
+                        drawLine(
+                            color = stableThresholdColor,
+                            start = Offset(left, y),
+                            end = Offset(right, y),
+                            strokeWidth = 1.dp.toPx(),
+                            pathEffect = stableDash
+                        )
+                    }
+                }
+
+                // Seuils ± de révision notable.
+                listOf(currentValue - notableThreshold, currentValue + notableThreshold).forEach { threshold ->
+                    if (threshold in domainMin..domainMax && (!isNonNegative || threshold >= 0.0)) {
+                        val y = yFor(threshold)
+                        drawLine(
+                            color = notableThresholdColor,
+                            start = Offset(left, y),
+                            end = Offset(right, y),
+                            strokeWidth = 1.25.dp.toPx(),
+                            pathEffect = notableDash
+                        )
+                    }
+                }
+
+                // Valeur actuelle comme référence centrale.
+                val currentY = yFor(currentValue)
+                drawLine(
+                    color = currentGuideColor,
+                    start = Offset(left, currentY),
+                    end = Offset(right, currentY),
+                    strokeWidth = 1.dp.toPx()
+                )
+
+                val points = values.mapIndexed { index, value ->
+                    val x = if (values.size == 1) size.width / 2f
+                    else left + (right - left) * index / (values.size - 1).toFloat()
+                    Offset(x, yFor(value))
+                }
+                val path = Path().apply {
+                    moveTo(points.first().x, points.first().y)
+                    points.drop(1).forEach { lineTo(it.x, it.y) }
+                }
+                drawPath(path, lineColor, style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round))
+                points.forEach { point ->
+                    drawCircle(lineColor, radius = 4.dp.toPx(), center = point)
+                    drawCircle(pointInnerColor, radius = 1.7.dp.toPx(), center = point)
+                }
+            }
         }
-        val path = Path().apply {
-            moveTo(points.first().x, points.first().y)
-            points.drop(1).forEach { lineTo(it.x, it.y) }
-        }
-        drawPath(path, lineColor, style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round))
-        points.forEach { point ->
-            drawCircle(lineColor, radius = 4.dp.toPx(), center = point)
-            drawCircle(pointInnerColor, radius = 1.7.dp.toPx(), center = point)
+
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(start = 56.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Text(
+                text = stringResource(
+                    R.string.forecast_evolution_stable_axis,
+                    formatEvolutionThreshold(stableThreshold, evolution.variable, locale)
+                ),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                text = stringResource(
+                    R.string.forecast_evolution_notable_axis,
+                    formatEvolutionThreshold(notableThreshold, evolution.variable, locale)
+                ),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.tertiary
+            )
         }
     }
 }
@@ -489,7 +622,7 @@ private fun EvolutionTrendChart(
 private fun EvolutionSnapshotValues(evolution: VariableForecastEvolution) {
     val snapshots = evolution.allSnapshotsChronological
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().padding(start = 56.dp),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         snapshots.forEach { snapshot ->
@@ -639,6 +772,38 @@ private fun variableLabel(variable: ForecastEvolutionVariable): Int = when (vari
     ForecastEvolutionVariable.TEMPERATURE -> R.string.forecast_evolution_metric_temperature_max
     ForecastEvolutionVariable.PRECIPITATION -> R.string.forecast_evolution_metric_precipitation_sum
     ForecastEvolutionVariable.WIND -> R.string.forecast_evolution_metric_wind_max
+}
+
+internal fun evolutionStableThreshold(variable: ForecastEvolutionVariable): Double = when (variable) {
+    ForecastEvolutionVariable.TEMPERATURE -> 0.5
+    ForecastEvolutionVariable.PRECIPITATION -> 1.0
+    ForecastEvolutionVariable.WIND -> 3.0
+}
+
+internal fun evolutionNotableThreshold(variable: ForecastEvolutionVariable): Double = when (variable) {
+    ForecastEvolutionVariable.TEMPERATURE -> 1.0
+    ForecastEvolutionVariable.PRECIPITATION -> 2.0
+    ForecastEvolutionVariable.WIND -> 5.0
+}
+
+private fun formatEvolutionAxisValue(
+    value: Double,
+    variable: ForecastEvolutionVariable,
+    locale: Locale
+): String = when (variable) {
+    ForecastEvolutionVariable.TEMPERATURE -> "${value.roundToInt()}°"
+    ForecastEvolutionVariable.PRECIPITATION -> String.format(locale, "%.1f", value)
+    ForecastEvolutionVariable.WIND -> value.roundToInt().toString()
+}
+
+private fun formatEvolutionThreshold(
+    value: Double,
+    variable: ForecastEvolutionVariable,
+    locale: Locale
+): String = when (variable) {
+    ForecastEvolutionVariable.TEMPERATURE -> String.format(locale, "%.1f °C", value)
+    ForecastEvolutionVariable.PRECIPITATION -> String.format(locale, "%.1f mm", value)
+    ForecastEvolutionVariable.WIND -> "${value.roundToInt()} km/h"
 }
 
 private fun formatEvolutionValue(value: Double, variable: ForecastEvolutionVariable): String = when (variable) {

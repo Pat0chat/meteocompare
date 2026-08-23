@@ -61,7 +61,11 @@ class MarineRepositoryImpl @Inject constructor(
                     } ?: "auto"
                 ).toDomain(city)
             }
-            if (result is ApiResult.Success && result.data.coastal) save(city.id, result.data)
+            // La disponibilité côtière est elle aussi mise en cache : la Home
+            // peut afficher sa pastille sans revalider une ville intérieure à
+            // chaque ouverture. Une activation explicite utilise forceRefresh
+            // et contourne donc toujours cette décision mise en cache.
+            if (result is ApiResult.Success) save(city.id, result.data)
             result
         }
 

@@ -725,4 +725,6 @@ dato</string>
     <string name="engine_table_probability">Rischio pioggia</string>
     <string name="engine_table_expected_rain">Pioggia attesa</string>
     <string name="engine_table_condition">Condizioni</string>
+    <string name="forecast_evolution_stable_axis">Zona stabile ± %1$s</string>
+    <string name="forecast_evolution_notable_axis">Soglia rilevante ± %1$s</string>
 </resources>

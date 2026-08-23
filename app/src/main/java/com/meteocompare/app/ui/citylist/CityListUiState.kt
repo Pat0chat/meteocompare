@@ -28,6 +28,8 @@ data class CityListUiState(
 data class CityCardState(
     val city: City,
     val forecast: ForecastState,
+    /** True quand la ville a été validée comme côtière et peut activer Mer / côte. */
+    val isMarineAvailable: Boolean = false,
     val isMarineLoading: Boolean = false
 )
 

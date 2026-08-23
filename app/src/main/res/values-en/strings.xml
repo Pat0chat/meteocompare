@@ -788,4 +788,6 @@
     <string name="engine_table_probability">Rain risk</string>
     <string name="engine_table_expected_rain">Expected rain</string>
     <string name="engine_table_condition">Conditions</string>
+    <string name="forecast_evolution_stable_axis">Stable zone ± %1$s</string>
+    <string name="forecast_evolution_notable_axis">Notable threshold ± %1$s</string>
 </resources>

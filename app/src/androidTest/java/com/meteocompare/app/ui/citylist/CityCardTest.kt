@@ -140,7 +140,29 @@ class CityCardTest {
         assertTrue(retried)
     }
     @Test
-    fun marine_enabled_city_displays_blue_status_dot() {
+    fun marine_available_city_displays_blue_menu_dot() {
+        val city = TestFixtures.paris.copy(marineEnabled = false)
+        composeRule.setContent {
+            MeteoCompareTheme {
+                Surface {
+                    CityCard(
+                        state = CityCardState(
+                            city = city,
+                            forecast = ForecastState.Loading,
+                            isMarineAvailable = true
+                        ),
+                        onClick = {}, onRemove = {}, onRetry = {}
+                    )
+                }
+            }
+        }
+
+        composeRule.onNodeWithTag("$TAG_CITY_MARINE_AVAILABLE${city.id}", useUnmergedTree = true)
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun marine_enabled_city_displays_wave_icon_next_to_name() {
         val marineCity = TestFixtures.paris.copy(marineEnabled = true)
         composeRule.setContent {
             MeteoCompareTheme {

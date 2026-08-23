@@ -725,4 +725,6 @@ datos</string>
     <string name="engine_table_probability">Riesgo de lluvia</string>
     <string name="engine_table_expected_rain">Lluvia esperada</string>
     <string name="engine_table_condition">Condiciones</string>
+    <string name="forecast_evolution_stable_axis">Zona estable ± %1$s</string>
+    <string name="forecast_evolution_notable_axis">Umbral notable ± %1$s</string>
 </resources>
