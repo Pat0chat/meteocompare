@@ -363,6 +363,7 @@ class CityListViewModel @Inject constructor(
 
             val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
                 val ownJob = coroutineContext[Job]
+                var checkedWhileOffline = false
                 try {
                     val cached = runCatching { marineRepository.getFreshCached(city.id) }.getOrNull()
                     if (cached != null) {
@@ -372,6 +373,7 @@ class CityListViewModel @Inject constructor(
                         return@launch
                     }
                     if (!networkMonitor.isOnline()) {
+                        checkedWhileOffline = true
                         // Hors ligne, une ancienne décision reste utile pour
                         // l'indication visuelle. On conserve son timestamp
                         // d'origine afin qu'elle soit revalidée dès le retour
@@ -402,6 +404,23 @@ class CityListViewModel @Inject constructor(
                 } finally {
                     if (marineAvailabilityJobs[city.id] === ownJob) {
                         marineAvailabilityJobs.remove(city.id)
+
+                        // Une réponse de cache hors ligne peut mettre à jour la UI
+                        // juste avant que ce job ne soit retiré. Si le réseau revient
+                        // exactement dans cette fenêtre, le collector réseau voit
+                        // encore un job actif et ne lance pas la revalidation. Une fois
+                        // ce job terminé, aucun nouvel événement réseau n'arriverait :
+                        // on ferme donc explicitement cette race en relançant le check
+                        // si (et seulement si) ce job a réellement suivi le chemin
+                        // hors ligne et que sa décision reste expirée.
+                        if (
+                            checkedWhileOffline &&
+                            networkMonitor.isOnline() &&
+                            !city.marineEnabled &&
+                            !isMarineAvailabilityDecisionFresh(city.id)
+                        ) {
+                            syncMarineAvailability(listOf(city))
+                        }
                     }
                 }
             }

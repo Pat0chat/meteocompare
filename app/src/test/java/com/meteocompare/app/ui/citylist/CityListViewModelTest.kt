@@ -741,18 +741,27 @@ class CityListViewModelTest {
             coVerify(exactly = 1) { marineRepo.getCached(paris.id) }
             coVerify(exactly = 0) { marineRepo.getMarine(paris, forceRefresh = false) }
 
-            // Le retour réseau est observé dans un autre coroutine du ViewModel.
-            // Avec les versions récentes de coroutines/AGP, l'émission du
-            // StateFlow n'est pas contractuellement traitée avant l'instruction
-            // suivante du test. On vide explicitement la file du scheduler pour
-            // rendre ce scénario déterministe au lieu de dépendre du timing du
-            // dispatcher de test.
+            // Régression : l'ancien job hors ligne pouvait encore être présent
+            // dans marineAvailabilityJobs au moment exact du retour réseau. Le
+            // collector ignorait alors la revalidation et aucun nouvel événement
+            // ne la relançait après le finally. Le ViewModel ferme désormais cette
+            // fenêtre de concurrence ; runCurrent vide simplement le scheduler afin
+            // d'observer la relance déclenchée par le correctif de production.
             onlineFlow.value = true
             runCurrent()
+
+            // Le retour réseau est lui-même une émission de uiState. Il faut
+            // la consommer : sinon Turbine termine le bloc avec un événement
+            // restant et lève TurbineAssertionError alors que les interactions
+            // repository sont déjà correctes.
+            var reconnected = awaitItem()
+            while (!reconnected.isOnline) reconnected = awaitItem()
+            assertTrue(reconnected.items.first().isMarineAvailable)
 
             coVerify(exactly = 2) { marineRepo.getFreshCached(paris.id) }
             coVerify(exactly = 1) { marineRepo.getCached(paris.id) }
             coVerify(exactly = 1) { marineRepo.getMarine(paris, forceRefresh = false) }
+            cancelAndIgnoreRemainingEvents()
         }
     }
 
