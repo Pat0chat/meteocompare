@@ -737,9 +737,21 @@ class CityListViewModelTest {
             while (state.items.firstOrNull()?.isMarineAvailable != true) state = awaitItem()
 
             assertTrue(state.items.first().isMarineAvailable)
+            coVerify(exactly = 1) { marineRepo.getFreshCached(paris.id) }
+            coVerify(exactly = 1) { marineRepo.getCached(paris.id) }
             coVerify(exactly = 0) { marineRepo.getMarine(paris, forceRefresh = false) }
 
+            // Le retour réseau est observé dans un autre coroutine du ViewModel.
+            // Avec les versions récentes de coroutines/AGP, l'émission du
+            // StateFlow n'est pas contractuellement traitée avant l'instruction
+            // suivante du test. On vide explicitement la file du scheduler pour
+            // rendre ce scénario déterministe au lieu de dépendre du timing du
+            // dispatcher de test.
             onlineFlow.value = true
+            runCurrent()
+
+            coVerify(exactly = 2) { marineRepo.getFreshCached(paris.id) }
+            coVerify(exactly = 1) { marineRepo.getCached(paris.id) }
             coVerify(exactly = 1) { marineRepo.getMarine(paris, forceRefresh = false) }
         }
     }
