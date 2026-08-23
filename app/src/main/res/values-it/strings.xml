@@ -698,6 +698,10 @@ dato</string>
     <string name="engine_comparison_metric">Variabile confrontata</string>
     <string name="engine_comparison_divergence_title">Sequenza delle divergenze</string>
     <string name="engine_comparison_divergence_desc">Ogni giorno riassume lo scarto tra i quattro motori per temperatura, pioggia, vento e nuvolosità.</string>
+    <string name="engine_divergence_variable_temperature">Temperatura</string>
+    <string name="engine_divergence_variable_rain">Pioggia</string>
+    <string name="engine_divergence_variable_wind">Vento</string>
+    <string name="engine_divergence_variable_cloud">Nuvole</string>
     <string name="engine_comparison_details_title">Dettaglio giornaliero</string>
     <string name="engine_comparison_science_note">Intervalli e scarti sono descrittivi, non probabilità calibrate. La convergenza resta calcolata dalle uscite grezze dei modelli.</string>
     <string name="engine_comparison_not_enough_data">Dati insufficienti per tracciare le curve.</string>

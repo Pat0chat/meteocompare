@@ -698,6 +698,10 @@ datos</string>
     <string name="engine_comparison_metric">Variable comparada</string>
     <string name="engine_comparison_divergence_title">Línea temporal de divergencia</string>
     <string name="engine_comparison_divergence_desc">Cada día resume la diferencia entre los cuatro motores en temperatura, lluvia, viento y nubosidad.</string>
+    <string name="engine_divergence_variable_temperature">Temperatura</string>
+    <string name="engine_divergence_variable_rain">Lluvia</string>
+    <string name="engine_divergence_variable_wind">Viento</string>
+    <string name="engine_divergence_variable_cloud">Nubes</string>
     <string name="engine_comparison_details_title">Detalle diario</string>
     <string name="engine_comparison_science_note">Los intervalos y diferencias son descriptivos, no probabilidades calibradas. La convergencia sigue calculándose con las salidas brutas de los modelos.</string>
     <string name="engine_comparison_not_enough_data">No hay suficientes datos para trazar las curvas.</string>

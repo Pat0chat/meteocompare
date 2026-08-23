@@ -694,6 +694,10 @@ Daten</string>
     <string name="engine_comparison_metric">Verglichene Variable</string>
     <string name="engine_comparison_divergence_title">Divergenz-Zeitleiste</string>
     <string name="engine_comparison_divergence_desc">Jeder Tag fasst die Unterschiede der vier Engines bei Temperatur, Niederschlag, Wind und Bewölkung zusammen.</string>
+    <string name="engine_divergence_variable_temperature">Temperatur</string>
+    <string name="engine_divergence_variable_rain">Regen</string>
+    <string name="engine_divergence_variable_wind">Wind</string>
+    <string name="engine_divergence_variable_cloud">Wolken</string>
     <string name="engine_comparison_details_title">Tagesdetails</string>
     <string name="engine_comparison_science_note">Intervalle und Abweichungen sind deskriptiv und keine kalibrierten Wahrscheinlichkeiten. Die Konvergenz wird weiterhin aus den rohen Modellausgaben berechnet.</string>
     <string name="engine_comparison_not_enough_data">Nicht genügend Daten für die Kurven.</string>

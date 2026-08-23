@@ -759,6 +759,10 @@
     <string name="engine_comparison_metric">Variable comparée</string>
     <string name="engine_comparison_divergence_title">Frise de divergence</string>
     <string name="engine_comparison_divergence_desc">Chaque jour résume l’écart entre les quatre moteurs sur la température, la pluie, le vent et la nébulosité.</string>
+    <string name="engine_divergence_variable_temperature">Température</string>
+    <string name="engine_divergence_variable_rain">Pluie</string>
+    <string name="engine_divergence_variable_wind">Vent</string>
+    <string name="engine_divergence_variable_cloud">Nuages</string>
     <string name="engine_comparison_details_title">Détail par jour</string>
     <string name="engine_comparison_science_note">Les intervalles et écarts sont descriptifs. Ils ne constituent pas des probabilités calibrées ; la convergence affichée ailleurs dans MeteoCompare reste calculée à partir des modèles bruts.</string>
     <string name="engine_comparison_not_enough_data">Pas assez de données pour tracer les courbes.</string>

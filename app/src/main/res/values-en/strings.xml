@@ -761,6 +761,10 @@
     <string name="engine_comparison_metric">Compared variable</string>
     <string name="engine_comparison_divergence_title">Divergence timeline</string>
     <string name="engine_comparison_divergence_desc">Each day summarizes the spread between the four engines for temperature, rain, wind and cloud cover.</string>
+    <string name="engine_divergence_variable_temperature">Temperature</string>
+    <string name="engine_divergence_variable_rain">Rain</string>
+    <string name="engine_divergence_variable_wind">Wind</string>
+    <string name="engine_divergence_variable_cloud">Clouds</string>
     <string name="engine_comparison_details_title">Daily detail</string>
     <string name="engine_comparison_science_note">Intervals and spreads are descriptive. They are not calibrated probabilities; convergence elsewhere in MeteoCompare remains computed from raw model outputs.</string>
     <string name="engine_comparison_not_enough_data">Not enough data to draw the curves.</string>
