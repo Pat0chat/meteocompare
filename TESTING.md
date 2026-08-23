@@ -105,20 +105,3 @@ Points à vérifier :
 - un `force-stop` manuel bloque volontairement tous les composants Android
   jusqu'à la prochaine ouverture de l'application : ce cas ne peut pas être
   contourné par WorkManager ou par un receiver.
-
-## Recette de stabilisation R9
-
-Avant toute release construite à partir de l'audit R9 :
-
-```powershell
-.\gradlew.bat clean testDebugUnitTest testReleaseUnitTest lintDebug assembleDebug assembleRelease
-.\gradlew.bat connectedDebugAndroidTest
-```
-
-Points manuels ciblés à vérifier en plus de la suite automatisée :
-
-1. Ajouter une ville côtière et une ville intérieure : la pastille bleue du menu ne doit apparaître que si le mode Mer/côte est disponible ; l'icône 🌊 près du nom ne doit apparaître qu'après activation.
-2. Passer hors ligne avec un ancien cache marin : l'état connu peut rester visible, puis doit être revalidé au retour réseau.
-3. Changer successivement les quatre moteurs dans Settings : Home, Détails et widgets doivent changer de centrale sans modifier les badges de convergence brute.
-4. Ouvrir Engine Comparison : les quatre courbes utilisent les mêmes données brutes ; le changement de moteur actif ne doit pas refetcher la météo.
-5. Dans Évolution des prévisions, vérifier que les seuils dessinés correspondent aux seuils métier : T 0,5/1,0 °C ; pluie 1/2 mm ; vent 3/5 km/h.

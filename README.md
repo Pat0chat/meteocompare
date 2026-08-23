@@ -318,7 +318,8 @@ Fait :
 - ✅ v1.6.1 -> v1.6.4 — Amélioration des sections chronologie et "A retenir", ajout d'un widget "A retenir", correction de bugs
 - ✅ v1.7.0 — Refonte des interfaces, ajout de la donnée « rafale », ajout des scénarios, correction du calcul sunrise / sunset, TodaySummary enrichie, cartes Home compactées avec scénarios repliables et nouvelle heatmap 12 h, correction de bugs
 - ✅ v1.8.0 — Évolution des prévisions par snapshots locaux ~24/~48/~72 h, sans requête réseau additionnelle, cohorte commune de modèles, âge réel affiché, carte repliable mémorisée par ville, détails modèle par modèle et signaux injectés dans « À retenir » ; localisation FR/EN/ES/DE/IT
-- ✅ v1.9.0 — Stack Gradle/AGP/Kotlin modernisée, moteur de prévisions V3 sélectionnable, page de comparaison des moteurs, mode Mer / côte et marées, ajout de HARMONIE DMI + MeteoSwiss ICON-CH2, corrections de non-régression et amélioration des tests ; audit R9 : TTL marine fiabilisée, seuils d’évolution centralisés, nettoyage du consensus et documentation synchronisée
+- ✅ v1.9.0 - Moteur de prévisions v2 et ajout des informations "marine" pour les villes cotières, correction de bugs
+- ✅ v1.10.0 — Stack Gradle/AGP/Kotlin modernisée, moteur de prévisions V3, nouveaux modèles régionaux, correction de bugs
 
 ## Licence
 
