@@ -776,4 +776,10 @@
     <string name="engine_metric_gust">Rafales</string>
     <string name="engine_metric_cloud">Nuages</string>
     <string name="engine_comparison_row_values_secondary">Attendue %1$s mm · vent %2$s km/h · rafales %3$s km/h · nuages %4$s%% · %5$s</string>
+
+    <!-- Engine comparison table -->
+    <string name="engine_table_metric">Mesure</string>
+    <string name="engine_table_probability">Risque pluie</string>
+    <string name="engine_table_expected_rain">Pluie attendue</string>
+    <string name="engine_table_condition">Conditions</string>
 </resources>

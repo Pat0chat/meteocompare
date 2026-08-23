@@ -715,4 +715,10 @@ datos</string>
     <string name="engine_metric_gust">Ráfagas</string>
     <string name="engine_metric_cloud">Nubes</string>
     <string name="engine_comparison_row_values_secondary">Esperada %1$s mm · viento %2$s km/h · ráfagas %3$s km/h · nubes %4$s%% · %5$s</string>
+
+    <!-- Engine comparison table -->
+    <string name="engine_table_metric">Medida</string>
+    <string name="engine_table_probability">Riesgo de lluvia</string>
+    <string name="engine_table_expected_rain">Lluvia esperada</string>
+    <string name="engine_table_condition">Condiciones</string>
 </resources>

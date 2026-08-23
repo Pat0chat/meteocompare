@@ -711,4 +711,10 @@ Daten</string>
     <string name="engine_metric_gust">Böen</string>
     <string name="engine_metric_cloud">Wolken</string>
     <string name="engine_comparison_row_values_secondary">Erwartet %1$s mm · Wind %2$s km/h · Böen %3$s km/h · Wolken %4$s%% · %5$s</string>
+
+    <!-- Engine comparison table -->
+    <string name="engine_table_metric">Messwert</string>
+    <string name="engine_table_probability">Regenrisiko</string>
+    <string name="engine_table_expected_rain">Erwarteter Regen</string>
+    <string name="engine_table_condition">Bedingungen</string>
 </resources>

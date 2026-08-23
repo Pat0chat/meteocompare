@@ -1235,9 +1235,9 @@ private fun EngineComparisonEntryCard(
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
             .clickable(onClick = onClick),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.42f)
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.18f)
         )
     ) {
         Row(
@@ -1252,12 +1252,12 @@ private fun EngineComparisonEntryCard(
                 Surface(
                     modifier = Modifier.size(34.dp),
                     shape = RoundedCornerShape(999.dp),
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Text(
                             text = "Σ",
-                            color = MaterialTheme.colorScheme.onPrimary,
+                            color = MaterialTheme.colorScheme.primary,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
