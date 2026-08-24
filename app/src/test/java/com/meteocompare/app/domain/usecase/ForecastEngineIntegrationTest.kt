@@ -155,6 +155,38 @@ class ForecastEngineIntegrationTest {
         }
     }
 
+
+    @Test
+    fun `current condition keeps dry cloud-only models in hierarchical root vote`() {
+        val now = Instant.parse("2026-08-24T10:00:00Z")
+        fun series(model: WeatherModel, code: Int?, cloud: Int, precip: Double): ForecastSeries = ForecastSeries(
+            model = model,
+            hourly = HourlyForecast(
+                timestamps = listOf(now),
+                temperature2m = listOf(20.0),
+                precipitation = listOf(precip),
+                windSpeed10m = listOf(10.0),
+                weatherCode = listOf(code),
+                cloudCover = listOf(cloud)
+            ),
+            daily = DailyForecast(emptyList(), emptyList(), emptyList(), emptyList(), emptyList())
+        )
+        val forecast = CityForecast(
+            city = city,
+            seriesByModel = linkedMapOf(
+                WeatherModel.GFS to series(WeatherModel.GFS, 61, 95, 2.0),
+                WeatherModel.ECMWF to series(WeatherModel.ECMWF, null, 30, 0.0),
+                WeatherModel.UKMO_GLOBAL to series(WeatherModel.UKMO_GLOBAL, null, 35, 0.0)
+            )
+        )
+
+        val condition = calculator.currentWeatherCondition(forecast, now)
+
+        // Les deux modèles secs sans weather_code doivent voter NON_PRECIPITATION
+        // grâce à leur cloud_cover, et non disparaître face au seul modèle pluvieux.
+        assertEquals(com.meteocompare.app.domain.model.WeatherCondition.MAINLY_CLEAR, condition)
+    }
+
     private fun dailyForecast(dates: List<LocalDate>): CityForecast {
         val valuesByModel = linkedMapOf(
             WeatherModel.GFS to 20.0,

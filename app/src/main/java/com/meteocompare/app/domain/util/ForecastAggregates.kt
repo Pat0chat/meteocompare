@@ -59,12 +59,7 @@ internal object ForecastAggregates {
                     precipRows += ForecastConsensus.PrecipitationRow(model, amount, probability)
                 }
                 if (conditions != null) {
-                    val condition = WeatherCondition.fromWmoCode(series.hourly.weatherCode.getOrNull(index))
-                        ?.takeUnless { it == WeatherCondition.UNKNOWN }
-                        ?: WeatherCondition.inferFromPrecipAndTemp(
-                            precipMm = amount,
-                            tempMinC = series.hourly.temperature2m.getOrNull(index)
-                        )
+                    val condition = series.resolveHourlyCondition(index)
                     condition?.let { conditionRows += ForecastConsensus.Entry(model, it) }
                     series.hourly.cloudCover.getOrNull(index)
                         ?.takeIf { it in 0..100 }

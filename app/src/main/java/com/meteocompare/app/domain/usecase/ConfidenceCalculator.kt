@@ -13,6 +13,7 @@ import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.util.dailyCloudCoverMean
 import com.meteocompare.app.domain.util.resolveDailyCondition
+import com.meteocompare.app.domain.util.resolveHourlyCondition
 import java.time.Instant
 import java.time.LocalDate
 import javax.inject.Inject
@@ -172,12 +173,7 @@ class ConfidenceCalculator @Inject constructor(
 
         forecast.seriesByModel.forEach { (model, series) ->
             val idx = nearestCurrentIndex(series, now) ?: return@forEach
-            val condition = WeatherCondition.fromWmoCode(series.hourly.weatherCode.getOrNull(idx))
-                ?.takeUnless { it == WeatherCondition.UNKNOWN }
-                ?: WeatherCondition.inferFromPrecipAndTemp(
-                    precipMm = series.hourly.precipitation.getOrNull(idx),
-                    tempMinC = series.hourly.temperature2m.getOrNull(idx)
-                )
+            val condition = series.resolveHourlyCondition(idx)
             condition?.let { conditionEntries += ForecastConsensus.Entry(model, it) }
             series.hourly.cloudCover.getOrNull(idx)
                 ?.takeIf { it in 0..100 }

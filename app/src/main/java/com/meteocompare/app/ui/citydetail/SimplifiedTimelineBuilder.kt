@@ -10,6 +10,8 @@ import com.meteocompare.app.domain.usecase.ForecastConsensus
 import com.meteocompare.app.domain.usecase.WeatherConditionConsensus
 import com.meteocompare.app.domain.usecase.ForecastEngineV3
 import com.meteocompare.app.domain.util.dailyCloudCoverMean
+import com.meteocompare.app.domain.util.resolveDailyCondition
+import com.meteocompare.app.domain.util.resolveHourlyCondition
 import java.time.Instant
 import java.time.LocalDate
 import kotlin.math.roundToInt
@@ -210,10 +212,7 @@ private fun indexHourlySnapshots(model: WeatherModel, series: ForecastSeries): M
         val cloudCover = series.hourly.cloudCover.getOrNull(index)
         val wind = series.hourly.windSpeed10m.getOrNull(index)
         val windGust = series.hourly.windGusts10m.getOrNull(index)
-        val nativeCondition = WeatherCondition.fromWmoCode(series.hourly.weatherCode.getOrNull(index))
-            ?.takeUnless { it == WeatherCondition.UNKNOWN }
-        val condition = nativeCondition
-            ?: WeatherCondition.inferFromPrecipAndTemp(precipitation, temperature)
+        val condition = series.resolveHourlyCondition(index)
         val snapshot = TimelineSnapshot(
             model = model,
             temperature = temperature,
@@ -243,10 +242,7 @@ private fun indexDailySnapshots(
         val cloudCover = series.dailyCloudCoverMean(date, zone)
         val wind = series.daily.windSpeedMax.getOrNull(index)
         val windGust = series.daily.windGustsMax.getOrNull(index)
-        val nativeCondition = WeatherCondition.fromWmoCode(series.daily.weatherCode.getOrNull(index))
-            ?.takeUnless { it == WeatherCondition.UNKNOWN }
-        val condition = nativeCondition
-            ?: WeatherCondition.inferFromPrecipAndTemp(precipitation, min)
+        val condition = series.resolveDailyCondition(date, zone)?.condition
         val snapshot = TimelineSnapshot(
             model = model,
             temperature = null,
