@@ -152,14 +152,13 @@ class ConfidenceCalculator @Inject constructor(
     }
 
     /**
-     * Condition météo "maintenant" — consensus hybride.
+     * Condition météo "maintenant" — consensus hiérarchique.
      *
-     * Les phénomènes significatifs (pluie, neige, brouillard, orage…) restent
-     * issus du vote catégoriel familial des codes WMO bruts. Pour un ciel sec,
-     * CLEAR / MAINLY_CLEAR / PARTLY_CLOUDY / OVERCAST sont regroupés avant le
-     * vote puis la condition affichée est dérivée de la nébulosité centrale du
-     * moteur V3 sélectionné. Cela évite qu'une minorité OVERCAST gagne seulement
-     * parce que les autres modèles secs sont fragmentés en plusieurs libellés.
+     * Les codes WMO sont résolus par consensus hiérarchique : occurrence de
+     * précipitation, sous-famille météorologique, puis feuille précise. La
+     * branche SKY utilise la nébulosité centrale du moteur V3 sélectionné.
+     * Cette structure évite toute fragmentation artificielle entre sous-types
+     * proches (ciel, pluie liquide, neige…), pas seulement OVERCAST.
      *
      * La nébulosité horaire n'est jamais calibrée avec l'historique J+1.
      */
@@ -194,7 +193,7 @@ class ConfidenceCalculator @Inject constructor(
             min = 0.0,
             max = 100.0
         ).central
-        return ForecastConsensus.conditionHybrid(
+        return WeatherConditionConsensus.resolve(
             entries = conditionEntries,
             cloudCoverPercent = cloudCentral,
             localWeights = localWeights(conditionEntries.map { it.model })

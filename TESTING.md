@@ -105,3 +105,80 @@ Points à vérifier :
 - un `force-stop` manuel bloque volontairement tous les composants Android
   jusqu'à la prochaine ouverture de l'application : ce cas ne peut pas être
   contourné par WorkManager ou par un receiver.
+
+## Recette de stabilisation R9
+
+Avant toute release construite à partir de l'audit R9 :
+
+```powershell
+.\gradlew.bat clean testDebugUnitTest testReleaseUnitTest lintDebug assembleDebug assembleRelease
+.\gradlew.bat connectedDebugAndroidTest
+```
+
+Points manuels ciblés à vérifier en plus de la suite automatisée :
+
+1. Ajouter une ville côtière et une ville intérieure : la pastille bleue du menu ne doit apparaître que si le mode Mer/côte est disponible ; l'icône 🌊 près du nom ne doit apparaître qu'après activation.
+2. Passer hors ligne avec un ancien cache marin : l'état connu peut rester visible, puis doit être revalidé au retour réseau.
+3. Changer successivement les quatre moteurs dans Settings : Home, Détails et widgets doivent changer de centrale sans modifier les badges de convergence brute.
+4. Ouvrir Engine Comparison : les quatre courbes utilisent les mêmes données brutes ; le changement de moteur actif ne doit pas refetcher la météo.
+5. Dans Évolution des prévisions, vérifier que les seuils dessinés correspondent aux seuils métier : T 0,5/1,0 °C ; pluie 1/2 mm ; vent 3/5 km/h.
+
+
+## JDK 25 et MockK
+
+Les tests JVM utilisent MockK 1.14.11. Son agent déclare Byte Buddy 1.18.2 transitivement ; MeteoCompare force `byte-buddy` et `byte-buddy-agent` en 1.18.9 dans le classpath **test** afin d'utiliser le chemin d'injection compatible JDK 25 et d'éviter l'appel terminalement déprécié à `sun.misc.Unsafe::objectFieldOffset`.
+
+Pour vérifier la résolution réellement utilisée :
+
+```powershell
+.\gradlew.bat :app:dependencyInsight --dependency byte-buddy --configuration testReleaseRuntimeClasspath
+.\gradlew.bat :app:dependencyInsight --dependency byte-buddy-agent --configuration testReleaseRuntimeClasspath
+```
+
+La version sélectionnée doit être `1.18.9`.
+
+
+## R10 — consensus hybride des conditions météo
+
+Le libellé de condition ne doit plus sur-représenter « Couvert » lorsque les modèles secs sont répartis entre `CLEAR`, `MAINLY_CLEAR`, `PARTLY_CLOUDY` et `OVERCAST`.
+
+Tests automatiques ciblés :
+
+- `WeatherConditionConsensusTest` : regroupement du ciel sec, conservation du vote brut pour la convergence, priorité aux phénomènes significatifs et tie-break prudent sec/pluie ;
+- `WeatherConditionTest` : seuils de nébulosité `<20 / <45 / <85 / ≥85 %` ;
+- `ForecastAggregatesTest` : propagation du consensus hiérarchique dans le mini-forecast widget 12 h ;
+- `WeatherScenarioBuilderTest` : un ciel sec à 82 % reste `VARIABLE_SKY`, pas `OVERCAST`.
+
+Recette manuelle recommandée : choisir une ville où plusieurs modèles oscillent entre codes WMO 1/2/3, comparer le pourcentage de nébulosité et l'icône affichée sur Home, Détails et widgets. Entre 45 et 84 % de nébulosité centrale, un ciel sec doit rester « Partiellement nuageux » ; pluie/neige/brouillard/orage doivent continuer à primer lorsqu'ils gagnent le vote catégoriel familial.
+
+
+## R11 — consensus hiérarchique généralisé des conditions météo
+
+R11 remplace le regroupement ponctuel `DRY_SKY` de R10 par un arbre sémantique complet. Le test doit vérifier la décision à chaque niveau, pas seulement le ciel sec.
+
+Arbre de référence :
+
+```text
+ROOT
+├─ NON_PRECIPITATION
+│  ├─ SKY → CLEAR / MAINLY_CLEAR / PARTLY_CLOUDY / OVERCAST
+│  └─ FOG
+└─ PRECIPITATION
+   ├─ LIQUID → DRIZZLE / RAIN_SHOWERS / RAIN
+   ├─ FROZEN → SNOW_SHOWERS / SNOW
+   ├─ FREEZING_RAIN
+   └─ THUNDERSTORM
+```
+
+Tests ciblés dans `WeatherConditionConsensusTest` :
+
+- fragmentation du ciel sec conservée comme cas de régression ;
+- `DRIZZLE + RAIN_SHOWERS + RAIN` consolidés avant comparaison à `NON_PRECIPITATION` ;
+- `SNOW + SNOW_SHOWERS` consolidés avant comparaison à la pluie liquide ;
+- `SKY + FOG` consolidés au niveau `NON_PRECIPITATION` ;
+- un orage minoritaire ne gagne pas uniquement grâce à son rang de sévérité si la branche `LIQUID` est plus soutenue ;
+- égalité `PRECIPITATION / NON_PRECIPITATION` toujours prudente vers la précipitation ;
+- toutes les conditions connues sauf `UNKNOWN` sont couvertes par exactement une feuille de l'arbre ;
+- la convergence retournée reste le vote brut exact des modèles.
+
+Recette manuelle : vérifier sur Home, Détails, widgets et Engine Comparison qu'une majorité sémantique ne se fragmente plus entre sous-types voisins, tout en contrôlant que le pourcentage de convergence reste inchangé par rapport aux codes WMO bruts.

@@ -7,6 +7,7 @@ import com.meteocompare.app.domain.model.ForecastEngineVariable
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.usecase.ForecastConsensus
+import com.meteocompare.app.domain.usecase.WeatherConditionConsensus
 import com.meteocompare.app.domain.usecase.ForecastEngineV3
 import com.meteocompare.app.domain.util.dailyCloudCoverMean
 import java.time.Instant
@@ -351,7 +352,7 @@ private fun timelinePoint(
             amountWide = if (hourly) 4.0 else 8.0
         )
     )
-    val conditionConsensus = ForecastConsensus.conditionHybrid(
+    val conditionConsensus = WeatherConditionConsensus.resolve(
         entries = meaningful.mapNotNull { snap ->
             snap.condition?.takeUnless { it == WeatherCondition.UNKNOWN }
                 ?.let { ForecastConsensus.Entry(snap.model, it) }

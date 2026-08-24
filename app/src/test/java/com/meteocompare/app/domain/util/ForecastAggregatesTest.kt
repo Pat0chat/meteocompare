@@ -167,6 +167,22 @@ class ForecastAggregatesTest {
     }
 
     @Test
+    fun `helper sans modeles utilise aussi la hierarchie pour les precipitations liquides`() {
+        assertEquals(
+            WeatherCondition.RAIN,
+            ForecastAggregates.conditionConsensus(
+                listOf(
+                    WeatherCondition.CLEAR,
+                    WeatherCondition.MAINLY_CLEAR,
+                    WeatherCondition.DRIZZLE,
+                    WeatherCondition.RAIN_SHOWERS,
+                    WeatherCondition.RAIN
+                )
+            )
+        )
+    }
+
+    @Test
     fun `modèle sec sans weather code ne fabrique pas une icône de ciel clair`() {
         val forecast = forecastOf(
             WeatherModel.GFS to hourly(

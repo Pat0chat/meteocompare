@@ -92,9 +92,11 @@ class SimplifiedTimelineTest {
         assertEquals(5.0, point.precipitationConditionalMm!!, 0.001)
         assertEquals(PrecipitationSignalSource.MODEL_PROBABILITY, point.precipitationSource)
         assertEquals(3, point.precipitationModelCount)
-        // Égalité parfaite entre clair, principalement clair et pluie : le
-        // départage conservateur choisit la condition la plus significative.
-        assertEquals(WeatherCondition.RAIN, point.condition)
+        // Le consensus hiérarchique consolide d'abord NON_PRECIPITATION :
+        // CLEAR + MAINLY_CLEAR (2 familles) l'emportent sur RAIN (1 famille).
+        // Sans cloud_cover journalier, la branche SKY redescend ensuite vers
+        // les feuilles et l'égalité CLEAR / MAINLY_CLEAR est tranchée prudemment.
+        assertEquals(WeatherCondition.MAINLY_CLEAR, point.condition)
         assertEquals(3, point.modelCount)
         assertTrue(point.isDivergent)
         assertEquals(3, point.consensusFor(ForecastMetric.TEMPERATURE)?.modelCount)

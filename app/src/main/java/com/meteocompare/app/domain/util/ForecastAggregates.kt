@@ -5,6 +5,7 @@ import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.ForecastEngineContext
 import com.meteocompare.app.domain.model.ForecastEngineVariable
 import com.meteocompare.app.domain.usecase.ForecastConsensus
+import com.meteocompare.app.domain.usecase.WeatherConditionConsensus
 import com.meteocompare.app.domain.usecase.ForecastEngineV3
 import java.time.Instant
 
@@ -105,20 +106,17 @@ internal object ForecastAggregates {
                         max = 100.0
                     )
                 ).central
-                conditions += ForecastConsensus.conditionHybrid(conditionRows, cloudCentral).value
+                conditions += WeatherConditionConsensus.resolve(conditionRows, cloudCentral).value
             }
         }
 
         return Next12hForecast(startInstant, temperatures, probabilities, amounts, conditions.orEmpty())
     }
 
-    /** Compatibilité des tests/utilitaires : vote familial, pas vote brut par modèle. */
-    internal fun conditionConsensus(values: List<WeatherCondition>): WeatherCondition? {
-        if (values.isEmpty()) return null
-        // Sans identifiants modèles on ne peut pas appliquer la parenté ; ce helper
-        // ne sert qu'aux anciens tests. Le chemin de production ci-dessus est familial.
-        val counts = values.groupingBy { it }.eachCount()
-        val best = counts.values.maxOrNull() ?: return null
-        return counts.filterValues { it == best }.keys.maxByOrNull { it.severityRank }
-    }
+    /**
+     * Compatibilité des tests/utilitaires sans identifiants modèles.
+     * Même hiérarchie sémantique que la production, avec une voix par valeur.
+     */
+    internal fun conditionConsensus(values: List<WeatherCondition>): WeatherCondition? =
+        WeatherConditionConsensus.resolveUnweighted(values)
 }

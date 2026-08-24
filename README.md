@@ -23,7 +23,7 @@ Depuis la v1.0, l'app suit aussi **le biais historique de chaque modèle sur cha
 
 - **Comparaison multi-modèles** : jusqu'à 19 modèles météo (Météo-France, DWD, NOAA, ECMWF, UK Met Office, ECCC, MET Norway, KNMI, DMI, MeteoSwiss, BOM, CMA, plus le modèle IA d'ECMWF)
 - **Moteur de prévision V3 sélectionnable** : Multi-consensus robuste, Calibration locale, Scénarios et Adaptatif. Le moteur choisi pilote Home, Détails et widgets sans modifier les sorties brutes des modèles.
-- **Condition météo hybride** : les phénomènes significatifs restent issus des codes WMO bruts, tandis que les ciels secs sont résolus avec la nébulosité centrale V3 pour éviter de sur-représenter « Couvert ».
+- **Condition météo à consensus hiérarchique** : le moteur dédié `WeatherConditionConsensus` consolide les codes WMO par grandes familles météorologiques (précipitation / non-précipitation, puis ciel/brouillard et liquide/neige/verglas/orage) avant de choisir la condition précise. La branche ciel utilise la nébulosité centrale V3 pour éviter de sur-représenter « Couvert ».
 - **Comparaison des moteurs** : page dédiée calculant les quatre moteurs sur exactement le même forecast brut, sur 7 jours futurs dans le fuseau de la ville, avec graphiques Tmax/Tmin/pluie/vent/rafales/nuages et frise de divergence.
 - **Indice d’accord inter-modèles** calculé par variable (température, vent, précipitations) et par heure ; il décrit le spread des scénarios et n’est pas une probabilité de justesse
 - **Résumé « Aujourd’hui » enrichi** : quatre mini-cartes homogènes (température min/max, précipitations, vent) affichent la centrale du moteur sélectionné tout en conservant la plage, la dispersion et le niveau d’accord calculés exclusivement sur les modèles bruts
@@ -159,8 +159,9 @@ Les badges "%" restent conditionnés à la présence réelle de leur variable : 
 - Le noyau `ForecastConsensus` déduplique les variantes apparentées par lignée numérique et leur partage une masse de vote, afin d'éviter qu'une famille disposant de plusieurs variantes ne domine artificiellement le résultat.
 - Pour les variables continues (température, vent, nébulosité), la centrale de base est une **médiane pondérée robuste** équilibrée par lignée ; la dispersion (min/max/écart-type) des sorties brutes alimente séparément l'indice d’accord 0–100 via des seuils heuristiques propres à chaque variable. Le moteur V3 sélectionné peut remplacer la centrale, mais jamais la dispersion/convergence brute.
 - Pour la pluie, occurrence et quantité sont séparées : probabilité de pluie, quantité conditionnelle si pluie, quantité attendue et centrale V3. Une absence de probabilité native n'est jamais assimilée silencieusement à 0 %.
-- Pour la condition météo, MeteoCompare utilise désormais un **consensus hybride** : brouillard/pluie/neige/orage restent départagés par vote catégoriel équilibré par lignée ; les quatre états de ciel sec (clair / plutôt clair / partiellement nuageux / couvert) sont d'abord regroupés afin d'éviter la fragmentation des votes, puis le libellé affiché est dérivé de la **nébulosité centrale V3**. Les seuils secs sont volontairement conservateurs : `<20 %` clair, `<45 %` plutôt clair, `<85 %` partiellement nuageux, puis couvert.
-- La convergence de la condition reste calculée sur les **catégories brutes des modèles** : le raffinement par nébulosité ne peut donc pas embellir artificiellement l'accord affiché.
+- Pour la condition météo, MeteoCompare utilise désormais un **consensus hiérarchique complet**. Le vote descend un arbre sémantique : `PRECIPITATION / NON_PRECIPITATION`, puis `SKY / FOG` ou `LIQUID / FROZEN / FREEZING_RAIN / THUNDERSTORM`, puis la feuille WMO précise. À chaque niveau, les variantes de modèles restent équilibrées par lignée. Cette structure évite aussi bien la fragmentation `CLEAR / MAINLY_CLEAR / PARTLY_CLOUDY / OVERCAST` que des cas `DRIZZLE / RAIN_SHOWERS / RAIN` ou `SNOW_SHOWERS / SNOW`.
+- Lorsque la branche `SKY` gagne, la feuille affichée est dérivée de la **nébulosité centrale V3** avec des seuils conservateurs : `<20 %` clair, `<45 %` plutôt clair, `<85 %` partiellement nuageux, puis couvert. Sans nébulosité exploitable, le consensus descend jusqu'aux feuilles WMO du ciel.
+- La convergence de la condition reste calculée sur les **catégories brutes exactes des modèles** : l'agrégation hiérarchique ne peut donc pas embellir artificiellement l'accord affiché.
 - Pour la couverture nuageuse « maintenant », la centrale passe par le même noyau robuste et par le moteur choisi, sans calibration J+1 sur l'horaire.
 - `ModelWeightingStrategy` reste un point d'extension injectable, mais la production utilise des **poids égaux**. La résolution de grille n'est pas utilisée comme proxy de qualité ; une pondération différente ne serait légitime qu'après un backtest vérifié.
 
@@ -320,9 +321,7 @@ Fait :
 - ✅ v1.6.1 -> v1.6.4 — Amélioration des sections chronologie et "A retenir", ajout d'un widget "A retenir", correction de bugs
 - ✅ v1.7.0 — Refonte des interfaces, ajout de la donnée « rafale », ajout des scénarios, correction du calcul sunrise / sunset, TodaySummary enrichie, cartes Home compactées avec scénarios repliables et nouvelle heatmap 12 h, correction de bugs
 - ✅ v1.8.0 — Évolution des prévisions par snapshots locaux ~24/~48/~72 h, sans requête réseau additionnelle, cohorte commune de modèles, âge réel affiché, carte repliable mémorisée par ville, détails modèle par modèle et signaux injectés dans « À retenir » ; localisation FR/EN/ES/DE/IT
-- ✅ v1.9.0 - Moteur de prévisions v2 et ajout des informations "marine" pour les villes cotières, correction de bugs
-- ✅ v1.10.0 — Stack Gradle/AGP/Kotlin modernisée, moteur de prévisions V3, nouveaux modèles régionaux, correction de bugs
-- ✅ v1.11.0 — Nouveau moteur de consensus, page d'aide, correction de bugs
+- ✅ v1.9.0 — Stack Gradle/AGP/Kotlin modernisée, moteur de prévisions V3 sélectionnable, page de comparaison des moteurs, mode Mer / côte et marées, ajout de HARMONIE DMI + MeteoSwiss ICON-CH2, corrections de non-régression et amélioration des tests ; audit R9 : TTL marine fiabilisée, seuils d’évolution centralisés et documentation synchronisée ; R11 : consensus hiérarchique généralisé des conditions météo.
 
 ## Licence
 

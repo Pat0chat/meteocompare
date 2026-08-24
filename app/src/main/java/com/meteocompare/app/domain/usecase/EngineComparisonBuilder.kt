@@ -30,7 +30,7 @@ data class EngineComparisonValues(
     val gustKmh: Double?,
     val cloudPercent: Double?,
     /**
-     * Phénomènes significatifs = vote brut ; ciel sec = nébulosité centrale du moteur.
+     * Condition = consensus hiérarchique ; la branche SKY utilise la nébulosité centrale du moteur.
      * La convergence des conditions reste calculée séparément sur les sorties brutes.
      */
     val condition: WeatherCondition?
@@ -119,7 +119,7 @@ class EngineComparisonBuilder @Inject constructor(
                 max = 100.0
             )
         ).central
-        val condition = ForecastConsensus.conditionHybrid(
+        val condition = WeatherConditionConsensus.resolve(
             entries = conditionEntries,
             cloudCoverPercent = cloud
         ).value
