@@ -255,6 +255,90 @@ object ForecastConsensus {
         else -> (100.0 * (1.0 - (stdDev - tight) / (wide - tight))).roundToInt().coerceIn(0, 100)
     }
 
-    fun conditionVote(entries: List<Entry<WeatherCondition>>): Vote<WeatherCondition> =
-        vote(entries, severity = { it.severityRank })
+    fun conditionVote(
+        entries: List<Entry<WeatherCondition>>,
+        localWeights: Map<WeatherModel, Double> = emptyMap()
+    ): Vote<WeatherCondition> = vote(entries, localWeights, severity = { it.severityRank })
+
+    /**
+     * Consensus hybride pour la condition affichée.
+     *
+     * Les phénomènes significatifs (brouillard, bruine, pluie, neige, orage…)
+     * restent départagés par le vote catégoriel familial. En revanche, les
+     * quatre états de ciel sec sont regroupés en une seule voix DRY_SKY afin de
+     * ne pas fragmenter artificiellement le vote entre CLEAR / MAINLY_CLEAR /
+     * PARTLY_CLOUDY / OVERCAST. Si le ciel sec gagne, la famille affichée est
+     * dérivée de la nébulosité centrale V3.
+     *
+     * Important : [Vote.percent] reste celui du vote BRUT des conditions. La
+     * convergence affichée continue donc de mesurer l'accord réel des sorties
+     * modèles et n'est jamais embellie par ce raffinement de présentation.
+     */
+    fun conditionHybrid(
+        entries: List<Entry<WeatherCondition>>,
+        cloudCoverPercent: Double?,
+        localWeights: Map<WeatherModel, Double> = emptyMap()
+    ): Vote<WeatherCondition> {
+        val valid = entries.filter { it.value != WeatherCondition.UNKNOWN }
+        val rawVote = conditionVote(valid, localWeights)
+        val cloudCondition = cloudCoverPercent
+            ?.takeIf { it.isFinite() && it in 0.0..100.0 }
+            ?.let { WeatherCondition.fromCloudCover(it) }
+
+        if (valid.isEmpty()) {
+            return rawVote.copy(value = cloudCondition)
+        }
+
+        val bucketEntries = valid.map { row -> Entry(row.model, row.value.toConditionBucket()) }
+        val bucketVote = vote(
+            entries = bucketEntries,
+            localWeights = localWeights,
+            severity = { it.severityRank }
+        )
+        val display = when (val bucket = bucketVote.value) {
+            ConditionBucket.DRY_SKY -> cloudCondition
+                ?: conditionVote(valid.filter { it.value.isDrySky }, localWeights).value
+                ?: rawVote.value
+            null -> cloudCondition ?: rawVote.value
+            else -> bucket.condition
+        }
+        return rawVote.copy(value = display)
+    }
+
+    private enum class ConditionBucket(
+        val condition: WeatherCondition?,
+        val severityRank: Int
+    ) {
+        DRY_SKY(null, 0),
+        FOG(WeatherCondition.FOG, WeatherCondition.FOG.severityRank),
+        DRIZZLE(WeatherCondition.DRIZZLE, WeatherCondition.DRIZZLE.severityRank),
+        RAIN_SHOWERS(WeatherCondition.RAIN_SHOWERS, WeatherCondition.RAIN_SHOWERS.severityRank),
+        RAIN(WeatherCondition.RAIN, WeatherCondition.RAIN.severityRank),
+        SNOW_SHOWERS(WeatherCondition.SNOW_SHOWERS, WeatherCondition.SNOW_SHOWERS.severityRank),
+        SNOW(WeatherCondition.SNOW, WeatherCondition.SNOW.severityRank),
+        FREEZING_RAIN(WeatherCondition.FREEZING_RAIN, WeatherCondition.FREEZING_RAIN.severityRank),
+        THUNDERSTORM(WeatherCondition.THUNDERSTORM, WeatherCondition.THUNDERSTORM.severityRank)
+    }
+
+    private val WeatherCondition.isDrySky: Boolean
+        get() = this == WeatherCondition.CLEAR ||
+            this == WeatherCondition.MAINLY_CLEAR ||
+            this == WeatherCondition.PARTLY_CLOUDY ||
+            this == WeatherCondition.OVERCAST
+
+    private fun WeatherCondition.toConditionBucket(): ConditionBucket = when (this) {
+        WeatherCondition.CLEAR,
+        WeatherCondition.MAINLY_CLEAR,
+        WeatherCondition.PARTLY_CLOUDY,
+        WeatherCondition.OVERCAST -> ConditionBucket.DRY_SKY
+        WeatherCondition.FOG -> ConditionBucket.FOG
+        WeatherCondition.DRIZZLE -> ConditionBucket.DRIZZLE
+        WeatherCondition.RAIN_SHOWERS -> ConditionBucket.RAIN_SHOWERS
+        WeatherCondition.RAIN -> ConditionBucket.RAIN
+        WeatherCondition.SNOW_SHOWERS -> ConditionBucket.SNOW_SHOWERS
+        WeatherCondition.SNOW -> ConditionBucket.SNOW
+        WeatherCondition.FREEZING_RAIN -> ConditionBucket.FREEZING_RAIN
+        WeatherCondition.THUNDERSTORM -> ConditionBucket.THUNDERSTORM
+        WeatherCondition.UNKNOWN -> ConditionBucket.DRY_SKY
+    }
 }

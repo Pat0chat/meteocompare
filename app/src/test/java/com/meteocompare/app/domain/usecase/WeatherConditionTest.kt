@@ -210,7 +210,7 @@ class WeatherConditionTest {
 
         val forecast = CityForecast(paris, mapOf(WeatherModel.AROME_FRANCE_HD to arome))
 
-        assertEquals(WeatherCondition.OVERCAST, calculator.currentWeatherCondition(forecast, now))
+        assertEquals(WeatherCondition.PARTLY_CLOUDY, calculator.currentWeatherCondition(forecast, now))
     }
 
     // ─── dailyConditionsByModel ──────────────────────────────────────────────
@@ -339,28 +339,28 @@ class WeatherConditionTest {
     // ─── fromCloudCover — fallback local au même modèle ───────────────────
 
     @Test
-    fun `fromCloudCover renvoie CLEAR sous 15 pourcent`() {
+    fun `fromCloudCover renvoie CLEAR sous 20 pourcent`() {
         assertEquals(WeatherCondition.CLEAR, WeatherCondition.fromCloudCover(0.0))
-        assertEquals(WeatherCondition.CLEAR, WeatherCondition.fromCloudCover(14.99))
+        assertEquals(WeatherCondition.CLEAR, WeatherCondition.fromCloudCover(19.99))
     }
 
     @Test
-    fun `fromCloudCover renvoie MAINLY_CLEAR entre 15 et 40 pourcent`() {
-        assertEquals(WeatherCondition.MAINLY_CLEAR, WeatherCondition.fromCloudCover(15.0))
+    fun `fromCloudCover renvoie MAINLY_CLEAR entre 20 et 45 pourcent`() {
+        assertEquals(WeatherCondition.MAINLY_CLEAR, WeatherCondition.fromCloudCover(20.0))
         assertEquals(WeatherCondition.MAINLY_CLEAR, WeatherCondition.fromCloudCover(30.0))
-        assertEquals(WeatherCondition.MAINLY_CLEAR, WeatherCondition.fromCloudCover(39.99))
+        assertEquals(WeatherCondition.MAINLY_CLEAR, WeatherCondition.fromCloudCover(44.99))
     }
 
     @Test
-    fun `fromCloudCover renvoie PARTLY_CLOUDY entre 40 et 70 pourcent`() {
-        assertEquals(WeatherCondition.PARTLY_CLOUDY, WeatherCondition.fromCloudCover(40.0))
+    fun `fromCloudCover renvoie PARTLY_CLOUDY entre 45 et 85 pourcent`() {
+        assertEquals(WeatherCondition.PARTLY_CLOUDY, WeatherCondition.fromCloudCover(45.0))
         assertEquals(WeatherCondition.PARTLY_CLOUDY, WeatherCondition.fromCloudCover(55.0))
-        assertEquals(WeatherCondition.PARTLY_CLOUDY, WeatherCondition.fromCloudCover(69.99))
+        assertEquals(WeatherCondition.PARTLY_CLOUDY, WeatherCondition.fromCloudCover(84.99))
     }
 
     @Test
-    fun `fromCloudCover renvoie OVERCAST au-dessus de 70 pourcent`() {
-        assertEquals(WeatherCondition.OVERCAST, WeatherCondition.fromCloudCover(70.0))
+    fun `fromCloudCover renvoie OVERCAST a partir de 85 pourcent`() {
+        assertEquals(WeatherCondition.OVERCAST, WeatherCondition.fromCloudCover(85.0))
         assertEquals(WeatherCondition.OVERCAST, WeatherCondition.fromCloudCover(90.0))
         assertEquals(WeatherCondition.OVERCAST, WeatherCondition.fromCloudCover(100.0))
     }

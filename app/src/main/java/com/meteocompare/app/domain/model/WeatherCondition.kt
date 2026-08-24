@@ -108,14 +108,16 @@ enum class WeatherCondition {
          * modèle et signaler qu'il s'agit d'une interprétation, pas d'un code
          * WMO journalier fourni tel quel.
          *
-         * Seuils pédagogiques : <15 CLEAR, <40 MAINLY_CLEAR, <70
-         * PARTLY_CLOUDY, sinon OVERCAST. Cette méthode ne déduit jamais pluie,
-         * brouillard ou orage de la seule nébulosité.
+         * Seuils pédagogiques volontairement conservateurs pour éviter de
+         * sur-classer un ciel encore percé d'éclaircies comme « couvert » :
+         * <20 CLEAR, <45 MAINLY_CLEAR, <85 PARTLY_CLOUDY, sinon OVERCAST.
+         * Cette méthode ne déduit jamais pluie, brouillard ou orage de la seule
+         * nébulosité.
          */
         fun fromCloudCover(cloudCoverPct: Double): WeatherCondition = when {
-            cloudCoverPct < 15.0 -> CLEAR
-            cloudCoverPct < 40.0 -> MAINLY_CLEAR
-            cloudCoverPct < 70.0 -> PARTLY_CLOUDY
+            cloudCoverPct < 20.0 -> CLEAR
+            cloudCoverPct < 45.0 -> MAINLY_CLEAR
+            cloudCoverPct < 85.0 -> PARTLY_CLOUDY
             else                 -> OVERCAST
         }
     }

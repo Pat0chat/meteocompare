@@ -38,8 +38,8 @@ android {
         applicationId = "com.meteocompare.app"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 24
-        versionName = "1.10.0"
+        versionCode = 25
+        versionName = "1.11.0"
         testInstrumentationRunner = "com.meteocompare.app.HiltTestRunner"
         vectorDrawables { useSupportLibrary = true }
     }
@@ -197,6 +197,12 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
+    // MockK 1.14.11 brings Byte Buddy 1.18.2 transitively. On JDK 25 that
+    // version still calls the terminally deprecated sun.misc.Unsafe API.
+    // 1.18.9 keeps MockK's API unchanged but selects Byte Buddy's JDK 25-safe
+    // class-injection path instead of merely hiding the JVM warning.
+    testImplementation(libs.byte.buddy)
+    testImplementation(libs.byte.buddy.agent)
     testImplementation(libs.turbine)
     testImplementation(libs.kotlinx.coroutines.test)
 

@@ -119,6 +119,43 @@ class ForecastAggregatesTest {
         assertEquals(WeatherCondition.PARTLY_CLOUDY, result.conditions.first())
     }
 
+
+    @Test
+    fun `widget 12h utilise la nebulosite centrale pour un ciel sec fragmente`() {
+        val forecast = forecastOf(
+            WeatherModel.AROME_FRANCE_HD to hourly(listOf(18.0), listOf(10), listOf(0.0), listOf(3), listOf(64)),
+            WeatherModel.ARPEGE_EUROPE to hourly(listOf(18.0), listOf(10), listOf(0.0), listOf(3), listOf(65)),
+            WeatherModel.GFS to hourly(listOf(18.0), listOf(10), listOf(0.0), listOf(3), listOf(66)),
+            WeatherModel.ECMWF to hourly(listOf(18.0), listOf(10), listOf(0.0), listOf(2), listOf(61)),
+            WeatherModel.UKMO_GLOBAL to hourly(listOf(18.0), listOf(10), listOf(0.0), listOf(2), listOf(62)),
+            WeatherModel.GEM_GLOBAL to hourly(listOf(18.0), listOf(10), listOf(0.0), listOf(1), listOf(58)),
+            WeatherModel.METNO_NORDIC to hourly(listOf(18.0), listOf(10), listOf(0.0), listOf(1), listOf(60)),
+            WeatherModel.KNMI_HARMONIE_EU to hourly(listOf(18.0), listOf(10), listOf(0.0), listOf(0), listOf(56)),
+            WeatherModel.BOM_ACCESS to hourly(listOf(18.0), listOf(10), listOf(0.0), listOf(0), listOf(59))
+        )
+
+        val result = ForecastAggregates.next12h(forecast, now, includeConditions = true)
+
+        assertEquals(WeatherCondition.PARTLY_CLOUDY, result.conditions.first())
+    }
+
+    @Test
+    fun `widget 12h peut inferer le ciel depuis cloud cover sans weather code`() {
+        val forecast = forecastOf(
+            WeatherModel.GFS to hourly(
+                temperatures = listOf(18.0),
+                precipitationProbabilities = listOf(null),
+                precipitationAmounts = listOf(0.0),
+                weatherCodes = listOf(null),
+                cloudCover = listOf(82)
+            )
+        )
+
+        val result = ForecastAggregates.next12h(forecast, now, includeConditions = true)
+
+        assertEquals(WeatherCondition.PARTLY_CLOUDY, result.conditions.first())
+    }
+
     @Test
     fun `égalité de conditions privilégie le signal météo le plus prudent`() {
         assertEquals(
@@ -177,14 +214,16 @@ class ForecastAggregatesTest {
         temperatures: List<Double?>,
         precipitationProbabilities: List<Int?>,
         precipitationAmounts: List<Double?>,
-        weatherCodes: List<Int?> = List(temperatures.size) { null }
+        weatherCodes: List<Int?> = List(temperatures.size) { null },
+        cloudCover: List<Int?> = List(temperatures.size) { null }
     ): HourlyForecast = HourlyForecast(
         timestamps = temperatures.indices.map { now.plusSeconds(it * 3_600L) },
         temperature2m = temperatures,
         precipitation = precipitationAmounts,
         windSpeed10m = List(temperatures.size) { null },
         weatherCode = weatherCodes,
-        precipitationProbability = precipitationProbabilities
+        precipitationProbability = precipitationProbabilities,
+        cloudCover = cloudCover
     )
 
     private fun forecastOf(

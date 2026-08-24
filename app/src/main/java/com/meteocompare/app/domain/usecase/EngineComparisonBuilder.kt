@@ -29,7 +29,10 @@ data class EngineComparisonValues(
     val windKmh: Double?,
     val gustKmh: Double?,
     val cloudPercent: Double?,
-    /** La condition reste un vote catégoriel sur les modèles bruts : aucun moteur ne l'invente. */
+    /**
+     * Phénomènes significatifs = vote brut ; ciel sec = nébulosité centrale du moteur.
+     * La convergence des conditions reste calculée séparément sur les sorties brutes.
+     */
     val condition: WeatherCondition?
 ) {
     fun value(metric: EngineComparisonMetric): Double? = when (metric) {
@@ -80,17 +83,13 @@ class EngineComparisonBuilder @Inject constructor(
         val zone = resolveZoneOrUtc(forecast.city.timezone)
 
         return dates.map { date ->
-            // La condition n'est pas une variable continue du moteur : elle reste
-            // le vote familial des sorties brutes, identique pour les 4 colonnes.
-            val condition = ForecastConsensus.conditionVote(
-                forecast.seriesByModel.mapNotNull { (model, series) ->
-                    series.resolveDailyCondition(date, zone)?.condition
-                        ?.takeUnless { it == WeatherCondition.UNKNOWN }
-                        ?.let { ForecastConsensus.Entry(model, it) }
-                }
-            ).value
+            val conditionEntries = forecast.seriesByModel.mapNotNull { (model, series) ->
+                series.resolveDailyCondition(date, zone)?.condition
+                    ?.takeUnless { it == WeatherCondition.UNKNOWN }
+                    ?.let { ForecastConsensus.Entry(model, it) }
+            }
             val values = ForecastEngine.entries.associateWith { engine ->
-                valuesFor(forecast, date, calibrationContext.withEngine(engine), condition)
+                valuesFor(forecast, date, calibrationContext.withEngine(engine), conditionEntries)
             }
             EngineComparisonDay(date, values, divergence(values.values.toList()))
         }
@@ -100,7 +99,7 @@ class EngineComparisonBuilder @Inject constructor(
         forecast: CityForecast,
         date: LocalDate,
         context: ForecastEngineContext,
-        condition: WeatherCondition?
+        conditionEntries: List<ForecastConsensus.Entry<WeatherCondition>>
     ): EngineComparisonValues {
         val day = confidenceCalculator.dayConfidence(forecast, date, context)
         val zone = resolveZoneOrUtc(forecast.city.timezone)
@@ -120,6 +119,10 @@ class EngineComparisonBuilder @Inject constructor(
                 max = 100.0
             )
         ).central
+        val condition = ForecastConsensus.conditionHybrid(
+            entries = conditionEntries,
+            cloudCoverPercent = cloud
+        ).value
         val precipitationMeta = day.precipitation?.meta
         return EngineComparisonValues(
             tempMax = day.tempMax?.meanValue,

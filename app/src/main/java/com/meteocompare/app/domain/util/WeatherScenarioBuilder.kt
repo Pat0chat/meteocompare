@@ -148,20 +148,34 @@ object WeatherScenarioBuilder {
         if (cloudMedian != null) {
             return when {
                 cloudMedian < 30 -> WeatherScenarioKind.CLEAR
-                cloudMedian < 70 -> WeatherScenarioKind.VARIABLE_SKY
+                cloudMedian < 85 -> WeatherScenarioKind.VARIABLE_SKY
                 else -> WeatherScenarioKind.OVERCAST
             }
         }
 
         val knownConditions = samples.mapNotNull { it.condition }
+        if (knownConditions.any { it == WeatherCondition.FOG }) return WeatherScenarioKind.OVERCAST
+
+        // Sans cloud_cover, ne pas laisser une seule heure OVERCAST dominer les
+        // onze autres heures sèches. On classe chaque état de ciel puis on prend
+        // la catégorie la plus fréquente ; en cas d'égalité, VARIABLE_SKY est le
+        // compromis le plus honnête entre clair et couvert.
+        val dryKinds = knownConditions.mapNotNull { condition ->
+            when (condition) {
+                WeatherCondition.CLEAR, WeatherCondition.MAINLY_CLEAR -> WeatherScenarioKind.CLEAR
+                WeatherCondition.PARTLY_CLOUDY -> WeatherScenarioKind.VARIABLE_SKY
+                WeatherCondition.OVERCAST -> WeatherScenarioKind.OVERCAST
+                else -> null
+            }
+        }
+        if (dryKinds.isEmpty()) return WeatherScenarioKind.DRY_UNSPECIFIED
+        val counts = dryKinds.groupingBy { it }.eachCount()
+        val best = counts.values.maxOrNull() ?: return WeatherScenarioKind.DRY_UNSPECIFIED
+        val tied = counts.filterValues { it == best }.keys
         return when {
-            knownConditions.any { it == WeatherCondition.OVERCAST || it == WeatherCondition.FOG } ->
-                WeatherScenarioKind.OVERCAST
-            knownConditions.any { it == WeatherCondition.PARTLY_CLOUDY } ->
-                WeatherScenarioKind.VARIABLE_SKY
-            knownConditions.any { it == WeatherCondition.CLEAR || it == WeatherCondition.MAINLY_CLEAR } ->
-                WeatherScenarioKind.CLEAR
-            else -> WeatherScenarioKind.DRY_UNSPECIFIED
+            WeatherScenarioKind.VARIABLE_SKY in tied -> WeatherScenarioKind.VARIABLE_SKY
+            tied.size == 1 -> tied.first()
+            else -> WeatherScenarioKind.VARIABLE_SKY
         }
     }
 

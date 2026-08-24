@@ -90,6 +90,18 @@ class WeatherScenarioBuilderTest {
         assertTrue(scenarios.all { it.totalModelCount == 4 })
     }
 
+
+    @Test
+    fun `un ciel sec a 82 pourcent reste variable et non couvert`() {
+        val forecast = forecastOf(
+            WeatherModel.GFS to simpleHourly(code = 3, cloud = 82, precip = 0.0)
+        )
+
+        val scenario = WeatherScenarioBuilder.next12h(forecast, now).single()
+
+        assertEquals(WeatherScenarioKind.VARIABLE_SKY, scenario.kind)
+    }
+
     @Test
     fun `cumul pluie 12h reste absent si une heure de quantite manque`() {
         val forecast = forecastOf(

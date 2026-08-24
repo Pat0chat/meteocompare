@@ -453,7 +453,7 @@ internal suspend fun loadWidgetData(
             WidgetData(
                 cityName = city.name,
                 currentTemp = calc.currentTemperature(forecast, currentInstant, engineContext),
-                currentCondition = calc.currentWeatherCondition(forecast, currentInstant),
+                currentCondition = calc.currentWeatherCondition(forecast, currentInstant, engineContext),
                 tempMax = dayConf.tempMax?.meanValue,
                 tempMin = dayConf.tempMin?.meanValue,
                 confidencePct = dayConf.overallPercent,

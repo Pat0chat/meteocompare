@@ -545,7 +545,7 @@ class CityDetailViewModel @Inject constructor(
             hourlyPrecipBands = hourlyPrecip,
             hourlyWindBands = hourlyWind,
             currentTemp = confidenceCalculator.currentTemperature(forecast, calculationNow, engineContext),
-            currentCondition = confidenceCalculator.currentWeatherCondition(forecast, calculationNow),
+            currentCondition = confidenceCalculator.currentWeatherCondition(forecast, calculationNow, engineContext),
             currentCloudCover = confidenceCalculator.currentCloudCover(forecast, calculationNow, engineContext),
             dailyConditions = confidenceCalculator.dailyConditionsByModel(forecast),
             normals = normals,

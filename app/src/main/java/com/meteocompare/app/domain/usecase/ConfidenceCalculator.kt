@@ -152,44 +152,52 @@ class ConfidenceCalculator @Inject constructor(
     }
 
     /**
-     * Condition météo "maintenant" — vote selon la stratégie de pondération sur la famille
-     * de code WMO la plus voisine de l'instant courant.
+     * Condition météo "maintenant" — consensus hybride.
      *
-     * Pourquoi un vote majoritaire et non une agrégation continue comme la température :
-     * les codes WMO sont catégoriels (pluie ≠ neige ≠ ciel clair). Faire la
-     * moyenne de "61" (pluie) et "71" (neige) donnerait "66" (pluie verglaçante),
-     * ce qui est une condition meteorologique sans rapport avec ce que prédit
-     * la moitié des modèles. On agrège donc en famille (CLEAR/RAIN/SNOW/…) et
-     * on prend la famille majoritaire pondérée — c'est l'équivalent du "mode"
-     * statistique pour des données catégorielles.
+     * Les phénomènes significatifs (pluie, neige, brouillard, orage…) restent
+     * issus du vote catégoriel familial des codes WMO bruts. Pour un ciel sec,
+     * CLEAR / MAINLY_CLEAR / PARTLY_CLOUDY / OVERCAST sont regroupés avant le
+     * vote puis la condition affichée est dérivée de la nébulosité centrale du
+     * moteur V3 sélectionné. Cela évite qu'une minorité OVERCAST gagne seulement
+     * parce que les autres modèles secs sont fragmentés en plusieurs libellés.
      *
-     * En cas d'égalité de poids, on prend la famille la plus "sévère" — un modèle
-     * dit clair, un autre dit pluie, on garde pluie. C'est le côté tolérant aux
-     * erreurs de prudence : mieux vaut afficher la pluie à tort que la cacher.
+     * La nébulosité horaire n'est jamais calibrée avec l'historique J+1.
      */
     fun currentWeatherCondition(
         forecast: CityForecast,
-        now: Instant = Instant.now()
+        now: Instant = Instant.now(),
+        engineContext: ForecastEngineContext = ForecastEngineContext.DEFAULT
     ): WeatherCondition? {
-        val entries = forecast.seriesByModel.mapNotNull { (model, series) ->
-            val idx = nearestCurrentIndex(series, now) ?: return@mapNotNull null
-            val code = series.hourly.weatherCode.getOrNull(idx)
-            val condition = WeatherCondition.fromWmoCode(code)
+        val conditionEntries = mutableListOf<ForecastConsensus.Entry<WeatherCondition>>()
+        val cloudSamples = mutableListOf<Pair<WeatherModel, Double>>()
+
+        forecast.seriesByModel.forEach { (model, series) ->
+            val idx = nearestCurrentIndex(series, now) ?: return@forEach
+            val condition = WeatherCondition.fromWmoCode(series.hourly.weatherCode.getOrNull(idx))
                 ?.takeUnless { it == WeatherCondition.UNKNOWN }
                 ?: WeatherCondition.inferFromPrecipAndTemp(
                     precipMm = series.hourly.precipitation.getOrNull(idx),
                     tempMinC = series.hourly.temperature2m.getOrNull(idx)
                 )
-                ?: series.hourly.cloudCover.getOrNull(idx)
-                    ?.takeIf { it in 0..100 }
-                    ?.let { WeatherCondition.fromCloudCover(it.toDouble()) }
-                ?: return@mapNotNull null
-            ForecastConsensus.Entry(model, condition)
+            condition?.let { conditionEntries += ForecastConsensus.Entry(model, it) }
+            series.hourly.cloudCover.getOrNull(idx)
+                ?.takeIf { it in 0..100 }
+                ?.let { cloudSamples += model to it.toDouble() }
         }
-        return ForecastConsensus.vote(
-            entries = entries,
-            localWeights = localWeights(entries.map { it.model }),
-            severity = { it.severityRank }
+
+        val cloudCentral = engineContinuous(
+            samples = cloudSamples,
+            thresholds = Thresholds(10.0, 50.0),
+            engineContext = engineContext,
+            variable = ForecastEngineVariable.CLOUD,
+            allowCalibration = false,
+            min = 0.0,
+            max = 100.0
+        ).central
+        return ForecastConsensus.conditionHybrid(
+            entries = conditionEntries,
+            cloudCoverPercent = cloudCentral,
+            localWeights = localWeights(conditionEntries.map { it.model })
         ).value
     }
 

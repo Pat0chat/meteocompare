@@ -351,11 +351,12 @@ private fun timelinePoint(
             amountWide = if (hourly) 4.0 else 8.0
         )
     )
-    val conditionVote = ForecastConsensus.conditionVote(
-        meaningful.mapNotNull { snap ->
+    val conditionConsensus = ForecastConsensus.conditionHybrid(
+        entries = meaningful.mapNotNull { snap ->
             snap.condition?.takeUnless { it == WeatherCondition.UNKNOWN }
                 ?.let { ForecastConsensus.Entry(snap.model, it) }
-        }
+        },
+        cloudCoverPercent = cloud.forecastValue.central
     )
 
     fun metricLevel(score: Int): ModelConsensusLevel = when {
@@ -388,9 +389,9 @@ private fun timelinePoint(
                 isDivergent = score < 50
             ))
         }
-        conditionVote.percent?.let { score ->
+        conditionConsensus.percent?.let { score ->
             put(ForecastMetric.CONDITION, MetricConsensus(
-                metric = ForecastMetric.CONDITION, percent = score, modelCount = conditionVote.modelCount,
+                metric = ForecastMetric.CONDITION, percent = score, modelCount = conditionConsensus.modelCount,
                 level = metricLevel(score), isDivergent = score < 50
             ))
         }
@@ -415,7 +416,7 @@ private fun timelinePoint(
     val cloudValues = meaningful.mapNotNull { it.cloudCover }
     val windValues = meaningful.mapNotNull { it.wind }
     val gustValues = meaningful.mapNotNull { it.windGust }
-    val familyCount = listOf(temp.agreement.familyCount, wind.agreement.familyCount, precipitation.familyCount, conditionVote.familyCount).maxOrNull() ?: 0
+    val familyCount = listOf(temp.agreement.familyCount, wind.agreement.familyCount, precipitation.familyCount, conditionConsensus.familyCount).maxOrNull() ?: 0
 
     return SimplifiedTimelinePoint(
         instant = timestamp, date = date,
@@ -434,8 +435,8 @@ private fun timelinePoint(
         windKmh = wind.forecastValue.central, windMinAcrossModels = windValues.minOrNull(), windMaxAcrossModels = windValues.maxOrNull(),
         windGustKmh = gust.forecastValue.central, windGustMinAcrossModels = gustValues.minOrNull(), windGustMaxAcrossModels = gustValues.maxOrNull(),
         windGustModelCount = gust.agreement.modelCount,
-        condition = conditionVote.value, modelCount = meaningful.size, familyCount = familyCount,
-        temperatureModelCount = temp.agreement.modelCount, windModelCount = wind.agreement.modelCount, conditionModelCount = conditionVote.modelCount,
+        condition = conditionConsensus.value, modelCount = meaningful.size, familyCount = familyCount,
+        temperatureModelCount = temp.agreement.modelCount, windModelCount = wind.agreement.modelCount, conditionModelCount = conditionConsensus.modelCount,
         hasMultiModelEvidence = metricConsensus.isNotEmpty(), consensusPercent = overall,
         consensusLevel = overall?.let(::metricLevel), metricConsensus = metricConsensus, divergenceReasons = divergenceReasons
     )

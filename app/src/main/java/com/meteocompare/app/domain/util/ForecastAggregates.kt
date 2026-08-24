@@ -3,6 +3,7 @@ package com.meteocompare.app.domain.util
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.ForecastEngineContext
+import com.meteocompare.app.domain.model.ForecastEngineVariable
 import com.meteocompare.app.domain.usecase.ForecastConsensus
 import com.meteocompare.app.domain.usecase.ForecastEngineV3
 import java.time.Instant
@@ -41,6 +42,7 @@ internal object ForecastAggregates {
             val tempRows = mutableListOf<ForecastConsensus.Entry<Double>>()
             val precipRows = mutableListOf<ForecastConsensus.PrecipitationRow>()
             val conditionRows = mutableListOf<ForecastConsensus.Entry<WeatherCondition>>()
+            val cloudRows = mutableListOf<ForecastConsensus.Entry<Double>>()
 
             forecast.seriesByModel.forEach { (model, series) ->
                 val timestamps = series.hourly.timestamps
@@ -63,6 +65,9 @@ internal object ForecastAggregates {
                             tempMinC = series.hourly.temperature2m.getOrNull(index)
                         )
                     condition?.let { conditionRows += ForecastConsensus.Entry(model, it) }
+                    series.hourly.cloudCover.getOrNull(index)
+                        ?.takeIf { it in 0..100 }
+                        ?.let { cloudRows += ForecastConsensus.Entry(model, it.toDouble()) }
                 }
             }
 
@@ -88,7 +93,19 @@ internal object ForecastAggregates {
             probabilities += precipitation.probabilityPercent
             amounts += precipitation.centralAmountMm
             if (conditions != null) {
-                conditions += ForecastConsensus.conditionVote(conditionRows).value
+                val cloudCentral = ForecastEngineV3.continuous(
+                    cloudRows,
+                    ForecastEngineV3.ContinuousOptions(
+                        engine = engineContext.engine,
+                        localWeights = engineContext.localWeights(ForecastEngineVariable.CLOUD),
+                        calibration = emptyMap(), // historique J+1 ≠ nébulosité horaire
+                        tight = 10.0,
+                        wide = 50.0,
+                        min = 0.0,
+                        max = 100.0
+                    )
+                ).central
+                conditions += ForecastConsensus.conditionHybrid(conditionRows, cloudCentral).value
             }
         }
 

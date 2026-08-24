@@ -1,5 +1,6 @@
 package com.meteocompare.app.domain.usecase
 
+import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -86,6 +87,62 @@ class ForecastConsensusTest {
             ForecastConsensus.groupFor(WeatherModel.ICON_EU),
             ForecastConsensus.groupFor(WeatherModel.METEOSWISS_ICON_CH2)
         )
+    }
+
+    @Test
+    fun `ciel sec ne fragmente plus le vote entre quatre libelles`() {
+        val entries = listOf(
+            ForecastConsensus.Entry(WeatherModel.AROME_FRANCE_HD, WeatherCondition.OVERCAST),
+            ForecastConsensus.Entry(WeatherModel.ARPEGE_EUROPE, WeatherCondition.OVERCAST),
+            ForecastConsensus.Entry(WeatherModel.GFS, WeatherCondition.OVERCAST),
+            ForecastConsensus.Entry(WeatherModel.ECMWF, WeatherCondition.PARTLY_CLOUDY),
+            ForecastConsensus.Entry(WeatherModel.UKMO_GLOBAL, WeatherCondition.PARTLY_CLOUDY),
+            ForecastConsensus.Entry(WeatherModel.GEM_GLOBAL, WeatherCondition.MAINLY_CLEAR),
+            ForecastConsensus.Entry(WeatherModel.METNO_NORDIC, WeatherCondition.MAINLY_CLEAR),
+            ForecastConsensus.Entry(WeatherModel.KNMI_HARMONIE_EU, WeatherCondition.CLEAR),
+            ForecastConsensus.Entry(WeatherModel.BOM_ACCESS, WeatherCondition.CLEAR)
+        )
+
+        val result = ForecastConsensus.conditionHybrid(entries, cloudCoverPercent = 62.0)
+
+        assertEquals(WeatherCondition.PARTLY_CLOUDY, result.value)
+        // La convergence reste le vote brut : OVERCAST est seulement 3/9.
+        assertEquals(33, result.percent)
+    }
+
+    @Test
+    fun `phenomene significatif majoritaire reste prioritaire sur la nebulosite`() {
+        val entries = listOf(
+            ForecastConsensus.Entry(WeatherModel.GFS, WeatherCondition.RAIN),
+            ForecastConsensus.Entry(WeatherModel.ECMWF, WeatherCondition.RAIN),
+            ForecastConsensus.Entry(WeatherModel.ICON_GLOBAL, WeatherCondition.RAIN),
+            ForecastConsensus.Entry(WeatherModel.ARPEGE_EUROPE, WeatherCondition.CLEAR),
+            ForecastConsensus.Entry(WeatherModel.UKMO_GLOBAL, WeatherCondition.MAINLY_CLEAR)
+        )
+
+        val result = ForecastConsensus.conditionHybrid(entries, cloudCoverPercent = 10.0)
+
+        assertEquals(WeatherCondition.RAIN, result.value)
+    }
+
+    @Test
+    fun `egalite ciel sec pluie reste prudente et choisit pluie`() {
+        val entries = listOf(
+            ForecastConsensus.Entry(WeatherModel.GFS, WeatherCondition.CLEAR),
+            ForecastConsensus.Entry(WeatherModel.ECMWF, WeatherCondition.RAIN)
+        )
+
+        val result = ForecastConsensus.conditionHybrid(entries, cloudCoverPercent = 5.0)
+
+        assertEquals(WeatherCondition.RAIN, result.value)
+    }
+
+    @Test
+    fun `nebulosite seule peut resoudre un ciel sec sans code WMO`() {
+        val result = ForecastConsensus.conditionHybrid(emptyList(), cloudCoverPercent = 82.0)
+
+        assertEquals(WeatherCondition.PARTLY_CLOUDY, result.value)
+        assertEquals(null, result.percent)
     }
 
 }
