@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Air
 import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.LocationCity
 import androidx.compose.material.icons.outlined.Thermostat
@@ -126,6 +127,7 @@ import kotlin.math.roundToInt
 fun CityListScreen(
     onCityClick: (cityId: String) -> Unit,
     onSettingsClick: () -> Unit,
+    onHelpClick: () -> Unit,
     viewModel: CityListViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -155,6 +157,7 @@ fun CityListScreen(
         onCityClick = onCityClick,
         onAddClick = { showAddSheet = true },
         onDonateClick = { showDonationDialog = true },
+        onHelpClick = onHelpClick,
         onSettingsClick = onSettingsClick,
         onRemoveCity = viewModel::onRemoveCity,
         onRetry = viewModel::onRetry,
@@ -194,6 +197,7 @@ internal fun CityListContent(
     onCityClick: (cityId: String) -> Unit,
     onAddClick: () -> Unit,
     onDonateClick: () -> Unit,
+    onHelpClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onRemoveCity: (cityId: String) -> Unit,
     onRetry: (City) -> Unit,
@@ -237,6 +241,12 @@ internal fun CityListContent(
                         Icon(
                             Icons.Outlined.FavoriteBorder,
                             contentDescription = stringResource(R.string.action_support_dev)
+                        )
+                    }
+                    IconButton(onClick = onHelpClick) {
+                        Icon(
+                            Icons.Outlined.HelpOutline,
+                            contentDescription = stringResource(R.string.action_how_it_works)
                         )
                     }
                     IconButton(

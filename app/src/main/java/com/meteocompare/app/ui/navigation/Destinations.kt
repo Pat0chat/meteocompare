@@ -9,6 +9,7 @@ package com.meteocompare.app.ui.navigation
 object Destinations {
     const val CITY_LIST = "cities"
     const val SETTINGS = "settings"
+    const val HELP = "help"
 
     private const val CITY_DETAIL_BASE = "city"
     const val CITY_DETAIL_ARG = "cityId"

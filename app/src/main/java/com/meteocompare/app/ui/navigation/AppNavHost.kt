@@ -10,6 +10,7 @@ import com.meteocompare.app.ui.citydetail.CityDetailScreen
 import com.meteocompare.app.ui.citydetail.confidence.ConfidenceExplanationScreen
 import com.meteocompare.app.ui.citylist.CityListScreen
 import com.meteocompare.app.ui.enginecomparison.EngineComparisonScreen
+import com.meteocompare.app.ui.help.HowItWorksScreen
 import com.meteocompare.app.ui.settings.SettingsScreen
 
 @Composable
@@ -27,8 +28,15 @@ fun AppNavHost() {
                 },
                 onSettingsClick = {
                     navController.navigate(Destinations.SETTINGS)
+                },
+                onHelpClick = {
+                    navController.navigate(Destinations.HELP)
                 }
             )
+        }
+
+        composable(Destinations.HELP) {
+            HowItWorksScreen(onBack = { navController.popBackStack() })
         }
 
         composable(Destinations.SETTINGS) {

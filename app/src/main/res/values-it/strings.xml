@@ -1,13 +1,13 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
     <string name="app_name">MeteoCompare</string>
-    <!-- Navigation / Top bars -->
+    
     <string name="nav_back">Indietro</string>
     <string name="action_refresh">Aggiorna</string>
     <string name="action_settings">Impostazioni</string>
     <string name="action_add_city">Aggiungi una città</string>
     <string name="action_cancel">Annulla</string>
-    <!-- ─── Home-screen widget ────────────────────────────────────────── -->
+    
     <string name="widget_description">Meteo attuale per una città preferita con un indice di convergenza dei modelli.</string>
     <string name="widget_config_title">Configura widget</string>
     <string name="widget_config_subtitle">Scegli la città da visualizzare e l’opacità dello sfondo.</string>
@@ -23,10 +23,10 @@
     <string name="widget_config_forecast_mode_daily_descr">Mostra la previsione per i prossimi 5 giorni.</string>
     <string name="widget_config_save">Aggiungi</string>
     <string name="title_detail_fallback">Dettaglio</string>
-    <!-- Settings -->
+    
     <string name="settings_appearance">Aspetto</string>
     <string name="settings_language">Lingua</string>
-    <!-- Refresh interval (widget + app) -->
+    
     <string name="settings_refresh_interval_title">Intervallo di aggiornamento</string>
     <string name="settings_refresh_interval_desc">Frequenza di aggiornamento di widget e app. Più frequente = dati più recenti, ma più batteria e rete. Manuale solo su richiesta.</string>
     <string name="refresh_interval_15_min">15 min</string>
@@ -67,40 +67,36 @@
     <string name="language_spanish_short">ES</string>
     <string name="language_german_short">DE</string>
     <string name="language_italian_short">IT</string>
-    <!-- Today summary -->
+    
     <string name="models_analysed_one">%d modello analizzato</string>
     <string name="models_analysed_many">%d modelli analizzati</string>
     <string name="confidence_badge_percent">%d%% di convergenza</string>
     <string name="models_unavailable">Modelli non disponibili</string>
     <string name="no_daily_data">Nessun dato giornaliero</string>
     <string name="forecast_error_no_today">Nessun dato di previsione per oggi</string>
-    <!-- 3-state selector above the confidence band (Temp / Precip / Wind) -->
+    
     <string name="metric_temperature">Temperatura</string>
     <string name="metric_precipitation">Precipitazioni</string>
     <string name="metric_wind">Vento</string>
-    <!-- Model sort in Settings (Zone / Family / Resolution) -->
+    
     <string name="model_sort_zone">Zona</string>
     <string name="model_sort_family">Famiglia</string>
     <string name="model_sort_finesse">Risoluzione</string>
-    <!-- Legend for 10-year ERA5 historical references -->
+    
     <string name="chart_normals_legend_temp_max">Riferimento massimo su 10 anni</string>
     <string name="chart_normals_legend_temp_min">Riferimento minimo su 10 anni</string>
     <string name="chart_normals_legend_precip">Pioggia media su 10 anni</string>
     <string name="chart_normals_legend_wind">Riferimento vento massimo su 10 anni</string>
-    <!-- Extra widget 4×2 forecast modes -->
+    
     <string name="widget_config_forecast_mode_conf_all">Convergenza dei modelli</string>
     <string name="widget_config_forecast_mode_conf_all_note">Mostra la convergenza dei modelli per temperatura e pioggia negli stessi giorni.</string>
-    <!-- Time anchors shown under the widget 4x2 confidence strip -->
+    
     <string name="widget_confidence_now_short">Ora</string>
-    <!-- Metric labels shown at the top-left of the widget 4x2 confidence
-         strip. Kept intentionally short: widget width is limited and the
-         "%" value on the right must stay readable. -->
+    
     <string name="widget_metric_temperature">T°</string>
     <string name="widget_metric_precipitation">Pioggia</string>
     <string name="widget_metric_wind">Vento</string>
-    <!-- Widget status messages shown when no data can be displayed.
-         Rendered on two lines via \n to stay readable on small sizes
-         (2x2 widget is ~140 dp wide). -->
+    
     <string name="widget_error_not_configured">Configura
 la città</string>
     <string name="widget_error_loading">Caricamento…</string>
@@ -108,39 +104,39 @@ la città</string>
 rimossa</string>
     <string name="widget_error_fetch">Nessun
 dato</string>
-    <!-- Display-mode toggle (below the TodaySummaryCard) -->
+    
     <string name="display_mode_hourly">Oraria</string>
     <string name="display_mode_daily">Giornaliera</string>
-    <!-- Missing hourly data (hourly mode) -->
+    
     <string name="no_hourly_data">Nessun dato orario</string>
-    <!-- Hourly temperature table legend — absolute thresholds -->
-    <!-- "Last updated" caption (CityCard home + TodaySummaryCard details) -->
+    
+    
     <string name="updated_just_now">Ora</string>
     <string name="updated_min_ago">%d min fa</string>
     <string name="updated_hour_ago">%d h fa</string>
     <string name="updated_day_ago">%d g fa</string>
-    <!-- Confidence band chart zoom -->
+    
     <string name="chart_zoom_hint">Pizzica per ingrandire • Doppio tocco per reimpostare</string>
     <string name="chart_zoom_a11y_zoomed">Grafico ingrandito, doppio tocco per reimpostare</string>
-    <!-- Chart messages -->
+    
     <string name="chart_not_enough_data">Dati insufficienti per calcolare una banda</string>
     <string name="chart_confidence_band_desc">Più la banda è ampia, più i modelli divergono. Il colore mostra il livello di convergenza.</string>
     <string name="chart_confidence_now">Convergenza ora: %d%%</string>
     <string name="chart_confidence_ahead">a D+%1$d: %2$d%%</string>
-    <!-- Precipitation legend -->
+    
     <string name="precip_legend_light">debole</string>
     <string name="precip_legend_moderate">moderata</string>
     <string name="precip_legend_strong">forte</string>
     <string name="precip_legend_very_strong">molto forte</string>
-    <!-- Wind legend -->
+    
     <string name="wind_legend_light">debole</string>
     <string name="wind_legend_moderate">moderato</string>
     <string name="wind_legend_strong">forte</string>
     <string name="wind_legend_storm">tempesta</string>
-    <!-- Min/max table legend -->
+    
     <string name="temp_legend_above_normal">&gt; riferimento su 10 anni + 2°</string>
     <string name="temp_legend_below_normal">&lt; riferimento su 10 anni − 2°</string>
-    <!-- Variable labels (today summary) -->
+    
     <string name="var_temp_max">Temperatura massima</string>
     <string name="var_temp_min">Temperatura minima</string>
     <string name="today_summary_temp_min_short">Min</string>
@@ -148,7 +144,7 @@ dato</string>
     <string name="var_wind_max">Vento massimo a 10 m</string>
     <string name="var_wind_gust_max">Raffiche massime a 10 m</string>
     <string name="var_precipitation">Precipitazioni</string>
-    <!-- Refresh feedback -->
+    
     <string name="refresh_success">Previsione aggiornata</string>
     <string name="refresh_error">Aggiornamento non riuscito: %s</string>
     <string name="refresh_city_not_found">Città non trovata</string>
@@ -159,7 +155,7 @@ dato</string>
     <string name="error_model_out_of_range">Dati non disponibili per questo modello</string>
     <string name="error_no_model_available">Nessun dato di modello disponibile per questa città</string>
     <string name="city_not_found_in_favorites">Città non trovata nei preferiti</string>
-    <!-- Empty / loading states -->
+    
     <string name="empty_favorites_title">Nessuna città</string>
     <string name="empty_favorites_subtitle">Tocca + per aggiungerne una e confrontare le previsioni di più modelli.</string>
     <string name="action_retry">Riprova</string>
@@ -186,10 +182,10 @@ dato</string>
     <string name="metric_summary_range">Intervallo %1$s</string>
     <string name="metric_summary_range_and_spread">Intervallo %1$s · dispersione %2$s</string>
     <string name="metric_summary_max_model_precip">Modello più alto %1$.1f mm</string>
-    <!-- Add city sheet -->
+    
     <string name="search_city_placeholder">Cerca una città…</string>
     <string name="search_no_results">Nessuna città trovata</string>
-    <!-- Donations -->
+    
     <string name="action_support_dev">Sostieni lo sviluppo</string>
     <string name="donations_dialog_title">Sostieni lo sviluppo</string>
     <string name="donations_dialog_body">MeteoCompare è gratuita, senza analisi, tracciamento pubblicitario o annunci. Se vuoi sostenere lo sviluppo:</string>
@@ -197,7 +193,7 @@ dato</string>
     <string name="donations_liberapay_desc">Contributi periodici, adatti al software libero</string>
     <string name="donations_kofi_desc">Donazione una tantum, «offrimi un caffè»</string>
     <string name="donations_dialog_close">Chiudi</string>
-    <!-- Accessibility descriptions (read aloud by TalkBack) -->
+    
     <string name="a11y_confidence_high">Convergenza alta</string>
     <string name="a11y_confidence_medium">Convergenza media</string>
     <string name="a11y_confidence_low">Convergenza bassa</string>
@@ -226,37 +222,37 @@ dato</string>
     <string name="a11y_temp_min_label">Temperatura minima</string>
     <string name="a11y_wind_max_label">Vento massimo a 10 m</string>
     <string name="a11y_kmh_unit">chilometri orari</string>
-    <!-- ─── "Why this convergence?" ───────────────────────────────────────── -->
+    
     <string name="confidence_explanation_title">Perché questa convergenza?</string>
     <string name="confidence_explanation_invalid_date">Data non valida</string>
     <string name="confidence_overall_label">Convergenza complessiva</string>
     <string name="confidence_verdict_high">I modelli convergono nettamente. Questo descrive la loro coerenza, non garantisce ciò che verrà effettivamente osservato.</string>
     <string name="confidence_verdict_medium">La convergenza dei modelli è parziale. I valori esatti restano incerti.</string>
     <string name="confidence_verdict_low">I modelli divergono nettamente. Interpreta i valori esatti con cautela.</string>
-    <!-- Per-variable summary line (top of each card) -->
-    <!-- %1$d : rounded value, %2$s : unit (\u00b0 or \u00a0km/h) -->
+    
+    
     <string name="confidence_summary_converged">Tutti i modelli si concentrano intorno a %1$d%2$s</string>
-    <!-- %1$d : min, %2$d : max, %3$s : unit, %4$d : spread -->
+    
     <string name="confidence_summary_spread">Tra %1$d e %2$d%3$s (dispersione %4$d%3$s)</string>
     <string name="confidence_precip_all_dry">Tutti i modelli prevedono tempo asciutto</string>
-    <!-- %1$d : min mm, %2$d : max mm -->
+    
     <string name="confidence_precip_all_rain">Tutti prevedono pioggia: tra %1$d e %2$d mm</string>
-    <!-- %1$d : models predicting rain, %2$d : total -->
+    
     <string name="confidence_precip_divided">%1$d/%2$d modelli prevedono pioggia</string>
-    <!-- Per-model row: resolution -->
+    
     <string name="confidence_model_resolution">risoluzione %s</string>
-    <!-- Final interpretation sentences per card -->
+    
     <string name="confidence_interp_high">Convergenza elevata tra modelli: gli scenari sono vicini a questa scadenza.</string>
     <string name="confidence_interp_medium">Convergenza moderata: gli scenari differiscono; la mediana ponderata resta solo un riferimento centrale.</string>
     <string name="confidence_interp_low">Convergenza bassa: gli scenari disponibili sono dispersi a questa scadenza.</string>
     <string name="confidence_interp_precip_dry">Nessun modello disponibile prevede precipitazioni a questa scadenza.</string>
     <string name="confidence_interp_precip_rain">Tutti i modelli disponibili prevedono pioggia, con intensità diverse.</string>
     <string name="confidence_interp_precip_divided">Divergenza tipica delle situazioni di transizione (fronti, rovesci sparsi). Controlla il prossimo run.</string>
-    <!-- Educational section -->
+    
     <string name="confidence_section_why">Perché i modelli differiscono</string>
     <string name="confidence_why_resolution_body">La risoluzione di un modello è la dimensione di ogni cella della griglia di calcolo. Più è fine, meglio il modello può rappresentare fenomeni locali come rovesci convettivi, effetti del rilievo o brezze marine. Ma ha un costo: i modelli ad altissima risoluzione richiedono molte risorse e hanno un orizzonte di previsione più breve.</string>
     <string name="confidence_why_resolution_tip">Regola pratica: i modelli regionali descrivono più dettagli locali nel breve termine, mentre quelli globali coprono orizzonti più lunghi. Una griglia più fine da sola non garantisce una previsione migliore.</string>
-    <!-- ─── Weather icons (a11y descriptions) ────────────────────────────── -->
+    
     <string name="weather_clear">Cielo sereno</string>
     <string name="weather_mainly_clear">Prevalentemente sereno</string>
     <string name="weather_partly_cloudy">Parzialmente nuvoloso</string>
@@ -270,61 +266,54 @@ dato</string>
     <string name="weather_snow_showers">Rovesci di neve</string>
     <string name="weather_thunderstorm">Temporale</string>
     <string name="weather_unknown">Sconosciuto</string>
-    <!-- Legend below the Day x Model table -->
+    
     <string name="weather_legend_clear">Soleggiato</string>
     <string name="weather_legend_partly_cloudy">Parzialmente nuvoloso</string>
     <string name="weather_legend_overcast">Coperto</string>
     <string name="weather_legend_rain">Pioggia</string>
     <string name="weather_legend_snow">Neve</string>
     <string name="weather_legend_thunderstorm">Temporale</string>
-    <!-- Note explaining the % badges under icons in the weather-by-model table -->
+    
     <string name="weather_legend_percent_note" formatted="false">La % sotto un’icona = copertura nuvolosa (nuvoloso/coperto) o probabilità di precipitazione (pioggia/neve/temporale).</string>
     <string name="weather_legend_inferred_note">Icona attenuata = condizione derivata dalle variabili di questo modello.</string>
-    <!-- ============================================================
-         Per-model bias tracking — Phase 1 UI
-         ============================================================ -->
-    <!-- Chip: accessibility description (parameterized: verb, variable, magnitude, days).
-         E.g. "This model overestimates temperature by 1.5° on average over 30 days…" -->
+    
+    
     <string name="bias_chip_content_description">Questo modello %1$s %2$s di %3$s in media su %4$d giorni. Tocca per i dettagli.</string>
-    <!-- Direction verbs (used in a11y and explainer text) -->
+    
     <string name="bias_verb_overestimates">sovrastima</string>
     <string name="bias_verb_underestimates">sottostima</string>
     <string name="bias_verb_neutral">rimane calibrato per</string>
-    <!-- Weather variables (no article in English) -->
+    
     <string name="bias_variable_temperature">temperatura massima</string>
     <string name="bias_variable_precipitation">precipitazione totale</string>
     <string name="bias_variable_wind_speed">vento massimo</string>
-    <!-- Sheet eyebrow: "GFS · Temperature bias · 30 days" -->
+    
     <string name="bias_sheet_eyebrow">%1$s  ·  %2$s  ·  %3$d giorni</string>
     <string name="bias_sheet_variable_temperature">Bias della temperatura massima</string>
     <string name="bias_sheet_variable_precipitation">Bias del totale di pioggia</string>
     <string name="bias_sheet_variable_wind_speed">Bias del vento massimo</string>
-    <!-- Sheet title, split into prefix + coloured magnitude + suffix -->
+    
     <string name="bias_sheet_title_prefix">Deviazione media </string>
     <string name="bias_sheet_title_suffix"> rispetto al riferimento storico.</string>
-    <!-- Placeholder for the 30-day chart (kept as defensive fallback). -->
-    <!-- Hint shown when no bias chip is available yet (first use OR history not
-         yet collected). Disappears as soon as at least one chip becomes visible. -->
+    
+    
     <string name="bias_history_collecting">La cronologia D+1 è in fase di raccolta. Gli indicatori per modello compariranno dopo 14 giorni corrispondenti.</string>
-    <!-- a11y description for the "calibrating" chip (< 14 samples). -->
+    
     <string name="bias_chip_calibrating_content_description">Monitoraggio del bias in corso per questo modello: i dati storici non sono ancora sufficienti per valutarne l’accuratezza.</string>
-    <!-- X-axis labels at both ends of the sparkline. Short parameterized form
-         (window size) so a future variable window can be supported without
-         changing the strings. -->
+    
     <string name="bias_sparkline_label_past">%1$d g fa</string>
     <string name="bias_sparkline_label_today">Oggi</string>
-    <!-- Mini-legend below the sparkline: which line is which curve. -->
+    
     <string name="bias_sparkline_legend_observation">riferimento storico</string>
     <string name="bias_sparkline_legend_forecast">previsione</string>
-    <!-- Explainer opener, parameterized (model, verb, variable, days).
-         E.g. EN: "GFS systematically overestimates temperature here over the last 30 days." -->
+    
     <string name="bias_explainer_opener">%1$s %2$s sistematicamente %3$s qui negli ultimi %4$d giorni.</string>
     <string name="bias_explainer_calibrated">%1$s rimane vicino al riferimento storico per %2$s in questa località. Negli ultimi %3$d giorni D+1 disponibili, la deviazione media resta entro il rumore giornaliero.</string>
-    <!-- Stability interpretation — varies by significance -->
+    
     <string name="bias_stability_high">Il bias è coerente negli ultimi 30 giorni.</string>
     <string name="bias_stability_moderate">Il bias è visibile ma moderato.</string>
     <string name="bias_stability_not_significant">Deviazione vicina al rumore giornaliero.</string>
-    <!-- Local reliability dashboard — educational synthesis of bias tracking -->
+    
     <string name="bias_reliability_title">Affidabilità locale D+1</string>
     <string name="bias_reliability_local_index">Indice di affidabilità locale</string>
     <string name="bias_reliability_score_suffix">/ 100</string>
@@ -380,14 +369,14 @@ dato</string>
     <string name="bias_reliability_sample_coverage">Cronologia usata: %1$d giorni in una finestra di %2$d giorni.</string>
     <string name="bias_reliability_method_note">Indice locale basato su previsioni D+1 salvate e rianalisi Open-Meteo su date confrontabili. Giorno piovoso da 0,5 mm. Indicativo, non ufficiale.</string>
     <string name="bias_chip_calibrating_progress_a11y">Calibrazione: %1$d di %2$d campioni raccolti</string>
-    <!-- ─── CityCard home enrichment (v1.0: weather halo, 12h mini forecast, sunrise/sunset) ─── -->
-    <!-- Sunrise/sunset: consolidated phrase for TalkBack. %1$s = sunrise time, %2$s = sunset time. -->
+    
+    
     <string name="sun_times_a11y">Alba alle %1$s, tramonto alle %2$s</string>
-    <!-- 12h mini forecast: 3 variants depending on available data. -->
+    
     <string name="mini_forecast_a11y_no_data">Previsione a 12 h non disponibile</string>
     <string name="mini_forecast_a11y_no_rain">Previsione a 12 h: tra %1$d e %2$d gradi, nessuna pioggia prevista</string>
     <string name="mini_forecast_a11y_with_rain">Previsione a 12 h: tra %1$d e %2$d gradi, pioggia prevista per %3$d ore</string>
-    <!-- New extended forecast mode for widgets 3x2/4x2/5x2: 12h heatmap bitmap + time anchors. -->
+    
     <string name="widget_config_forecast_mode_mini_12h">Mini previsione a 12 ore</string>
     <string name="widget_config_forecast_mode_mini_12h_descr">Mostra le previsioni di temperatura e precipitazioni per le prossime 12 ore.</string>
     <string name="widget_config_forecast_mode_heatmap_12h">Mappa di calore a 12 ore</string>
@@ -541,7 +530,7 @@ dato</string>
     <string name="model_horizon_days">%1$d g</string>
     <string name="model_horizon_days_decimal">%1$.1f g</string>
     <string name="model_horizon_hours">%1$d h</string>
-    <!-- Modernized Home -->
+    
     <plurals name="home_locations_followed">
         <item quantity="one">%d località seguita</item>
         <item quantity="many">%d località seguite</item>
@@ -549,7 +538,7 @@ dato</string>
     </plurals>
     <string name="home_cloud_cover">Copertura nuvolosa %d%%</string>
     <string name="home_agreement_label">Convergenza</string>
-    <!-- Collapsible weather scenarios on Home -->
+    
     <string name="home_scenarios_title">Scenari · prossime 12 h</string>
     <plurals name="home_scenarios_count">
         <item quantity="one">%d scenario</item>
@@ -580,7 +569,7 @@ dato</string>
     <string name="home_scenario_freezing_rain">Rischio di pioggia gelata</string>
     <string name="home_scenario_thunderstorm">Scenario temporalesco</string>
     <string name="home_scenario_other">Altre varianti</string>
-    <!-- Forecast evolution -->
+    
     <string name="forecast_evolution_title">Evoluzione della previsione</string>
     <string name="forecast_evolution_subtitle">Confronto con previsioni salvate ~24 / 48 / 72 h prima</string>
     <string name="forecast_evolution_loading">Lettura dello storico locale…</string>
@@ -627,7 +616,7 @@ dato</string>
 
     <string name="forecast_evolution_metric_a11y">%1$s: %2$s</string>
 
-    <!-- Mode Mer / côte -->
+    
     <string name="action_activate_marine">Attiva Mare / costa</string>
     <string name="action_refresh_marine">Aggiorna Mare / costa</string>
     <string name="marine_enabled">Modalità Mare / costa attivata</string>
@@ -681,7 +670,7 @@ dato</string>
         <item quantity="other">%d modelli</item>
     </plurals>
 
-    <!-- Moteur de prévision V3 / Engine comparison -->
+    
     <string name="settings_forecast_engine_title">Motore di previsione</string>
     <string name="settings_forecast_engine_desc">Scegli come MeteoCompare trasforma i modelli in una previsione centrale. Il motore selezionato controlla Home, widget e Dettagli.</string>
     <string name="forecast_engine_multi_consensus">Multi-consenso</string>
@@ -720,11 +709,58 @@ dato</string>
     <string name="engine_metric_cloud">Nuvole</string>
     <string name="engine_comparison_row_values_secondary">Attesa %1$s mm · vento %2$s km/h · raffiche %3$s km/h · nuvole %4$s%% · %5$s</string>
 
-    <!-- Engine comparison table -->
+    
     <string name="engine_table_metric">Misura</string>
     <string name="engine_table_probability">Rischio pioggia</string>
     <string name="engine_table_expected_rain">Pioggia attesa</string>
     <string name="engine_table_condition">Condizioni</string>
     <string name="forecast_evolution_stable_axis">Zona stabile ± %1$s</string>
     <string name="forecast_evolution_notable_axis">Soglia rilevante ± %1$s</string>
+
+    
+    <string name="action_how_it_works">Come funziona MeteoCompare</string>
+    <string name="help_title">Come funziona MeteoCompare?</string>
+    <string name="help_subtitle">Confronta più modelli meteo per capire meglio convergenze, divergenze e incertezza.</string>
+    <string name="help_section_1_title">Fonti dei modelli</string>
+    <string name="help_section_1_body">MeteoCompare riunisce diverse famiglie di modelli meteo per confrontarne i segnali e non dipendere da una sola fonte.</string>
+    <string name="help_section_2_title">4 motori di calcolo</string>
+    <string name="help_section_2_body">Per le variabili numeriche, l’app applica quattro approcci complementari in base al contesto, allo storico locale e alla dispersione tra modelli.</string>
+    <string name="help_engine_multi_title">Multi-consensus</string>
+    <string name="help_engine_multi_body">Consenso robusto tra modelli per ricavare un valore centrale e un intervallo plausibile.</string>
+    <string name="help_engine_calibration_title">Calibrazione</string>
+    <string name="help_engine_calibration_body">Corregge alcuni bias storici locali quando è disponibile abbastanza archivio.</string>
+    <string name="help_engine_scenarios_title">Scenari</string>
+    <string name="help_engine_scenarios_body">Mette in evidenza più evoluzioni possibili invece di un solo valore medio.</string>
+    <string name="help_engine_adaptive_title">Adattivo</string>
+    <string name="help_engine_adaptive_body">Combina dinamicamente gli altri tre motori in base al contesto e alla qualità dei dati.</string>
+    <string name="help_variable_rain">Pioggia</string>
+    <string name="help_variable_humidity">Umidità</string>
+    <string name="help_variable_cloud_cover">Nuvolosità</string>
+    <string name="help_section_3_title">Condizioni meteo</string>
+    <string name="help_section_3_body">La condizione mostrata deriva da un consenso gerarchico: prima la grande famiglia del tempo, poi un affinamento all’interno di quella famiglia.</string>
+    <string name="help_hierarchical_dry">Senza precipitazioni</string>
+    <string name="help_hierarchical_dry_body">Il motore distingue poi tra sereno, poco nuvoloso, parzialmente nuvoloso, coperto o nebbia a partire dai segnali disponibili.</string>
+    <string name="help_hierarchical_precip">Precipitazioni</string>
+    <string name="help_hierarchical_precip_body">Le situazioni piovose o invernali vengono prima raggruppate e poi risolte tra pioggia, pioviggine, neve, pioggia gelata, rovesci o temporali.</string>
+    <string name="help_hierarchical_note">Questo consenso gerarchico riduce i bias di un semplice voto categorico ed evita che una categoria isolata domini in modo scorretto.</string>
+    <string name="help_section_4_title">Accordo tra modelli</string>
+    <string name="help_section_4_body">MeteoCompare mostra quando i modelli convergono e quando divergono, così fiducia e incertezza restano leggibili.</string>
+    <string name="help_convergence_strong_title">Convergenza forte</string>
+    <string name="help_convergence_strong_body">Quando i modelli raccontano una storia simile, MeteoCompare mostra intervalli più stretti e maggiore fiducia.</string>
+    <string name="help_convergence_uncertain_title">Divergenza / incertezza</string>
+    <string name="help_convergence_uncertain_body">Quando i modelli si separano, l’app rende visibili le differenze e richiama l’attenzione sull’incertezza.</string>
+    <string name="help_section_5_title">Radar pioggia</string>
+    <string name="help_section_5_body">Nel brevissimo termine, il radar completa i modelli per seguire l’osservazione attuale e proiettare l’evoluzione probabile delle celle di pioggia.</string>
+    <string name="help_radar_step_now">Osservazione attuale</string>
+    <string name="help_radar_note">Il radar è uno strumento di supporto a breve termine per anticipare meglio l’evoluzione immediata della pioggia.</string>
+    <string name="help_section_6_title">Lettura e decisione</string>
+    <string name="help_section_6_body">L’obiettivo è aiutare a confrontare gli scenari, sintetizzarli e prendere più distanza prima di una decisione meteo.</string>
+    <string name="help_decision_compare_title">Confrontare più modelli</string>
+    <string name="help_decision_compare_body">Aggregazione chiara delle migliori previsioni disponibili.</string>
+    <string name="help_decision_synthesize_title">Sintetizzare con motori + consenso</string>
+    <string name="help_decision_synthesize_body">Algoritmi avanzati sintetizzano i segnali utili in indicazioni leggibili.</string>
+    <string name="help_decision_understand_title">Capire meglio l’incertezza</string>
+    <string name="help_decision_understand_body">Visualizza accordi, scarti e livelli di fiducia per prendere più distanza.</string>
+    <string name="help_footer_note">MeteoCompare è uno strumento di supporto all’analisi meteo. Evidenzia convergenze e divergenze tra modelli, ma non sostituisce l’esperienza umana.</string>
+
 </resources>
