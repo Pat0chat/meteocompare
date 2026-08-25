@@ -826,4 +826,5 @@
     <string name="help_decision_understand_body">Visualise agreements, gaps, and confidence levels to take a step back.</string>
     <string name="help_footer_note">MeteoCompare is a weather-analysis support tool. It highlights convergence and divergence between models, but it does not replace human expertise.</string>
 
+    <string name="help_engines_compute_variables">These engines then compute the variables</string>
 </resources>

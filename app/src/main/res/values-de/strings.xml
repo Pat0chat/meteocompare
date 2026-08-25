@@ -759,4 +759,5 @@ Daten</string>
     <string name="help_decision_understand_body">Visualisieren Sie Übereinstimmungen, Abweichungen und Vertrauensniveaus, um mehr Überblick zu gewinnen.</string>
     <string name="help_footer_note">MeteoCompare ist ein Hilfsmittel für die Wetteranalyse. Es hebt Konvergenzen und Divergenzen zwischen Modellen hervor, ersetzt aber keine menschliche Expertise.</string>
 
+    <string name="help_engines_compute_variables">Diese Motoren berechnen anschließend die Variablen</string>
 </resources>

@@ -20,7 +20,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.Air
+import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.Layers
+import androidx.compose.material.icons.outlined.Thermostat
+import androidx.compose.material.icons.outlined.WaterDrop
+import androidx.compose.material.icons.outlined.WbCloudy
 import androidx.compose.material.icons.outlined.SettingsSuggest
 import androidx.compose.material.icons.outlined.TrackChanges
 import androidx.compose.material3.Card
@@ -44,6 +49,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.meteocompare.app.domain.model.WeatherCondition
+import com.meteocompare.app.ui.components.WeatherIconDecorative
+import com.meteocompare.app.ui.components.semanticTint
 import com.meteocompare.app.R
 
 private data class HelpSection(
@@ -96,19 +104,7 @@ private fun HowItWorksContent(modifier: Modifier = Modifier) {
             title = stringResource(R.string.help_section_2_title),
             body = stringResource(R.string.help_section_2_body),
             icon = Icons.Outlined.SettingsSuggest,
-            illustration = { EngineModesIllustration() },
-            footer = {
-                ChipGroup(
-                    listOf(
-                        stringResource(R.string.metric_temperature),
-                        stringResource(R.string.help_variable_rain),
-                        stringResource(R.string.metric_wind),
-                        stringResource(R.string.metric_home_gusts),
-                        stringResource(R.string.help_variable_humidity),
-                        stringResource(R.string.help_variable_cloud_cover)
-                    )
-                )
-            }
+            illustration = { EngineModesIllustration() }
         ),
         HelpSection(
             number = 3,
@@ -211,21 +207,11 @@ private fun HelpSectionCard(section: HelpSection) {
                     )
                 }
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = section.icon,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = section.title,
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
+                    Text(
+                        text = section.title,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
                     Text(
                         text = section.body,
                         style = MaterialTheme.typography.bodyMedium,
@@ -307,13 +293,25 @@ private fun ModelBadge(text: String, modifier: Modifier = Modifier) {
         shape = RoundedCornerShape(14.dp),
         color = MaterialTheme.colorScheme.surface
     ) {
-        Text(
-            text = text,
-            modifier = Modifier.padding(vertical = 10.dp),
-            textAlign = TextAlign.Center,
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Medium
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.WbCloudy,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(Modifier.size(6.dp))
+            Text(
+                text = text,
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Medium
+            )
+        }
     }
 }
 
@@ -328,6 +326,15 @@ private fun EngineModesIllustration() {
                 EngineItem(stringResource(R.string.help_engine_adaptive_title), stringResource(R.string.help_engine_adaptive_body), MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f), MaterialTheme.colorScheme.onErrorContainer)
             )
         )
+        Text(
+            text = "↓ " + stringResource(R.string.help_engines_compute_variables),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.Center
+        )
+        VariableIconRow()
     }
 }
 
@@ -345,7 +352,7 @@ private fun TwoByTwoCards(items: List<EngineItem>) {
                         color = item.bg
                     ) {
                         Column(
-                            modifier = Modifier.fillMaxWidth().padding(14.dp),
+                            modifier = Modifier.fillMaxWidth().height(142.dp).padding(14.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Text(item.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = item.fg)
@@ -383,7 +390,12 @@ private fun HierarchicalConsensusIllustration() {
                     contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                     modifier = Modifier.fillMaxWidth()
                 )
-                ChipGroup(listOf("☀", "🌤", "☁", "🌫"))
+                WeatherConditionRow(listOf(
+                    WeatherCondition.CLEAR,
+                    WeatherCondition.PARTLY_CLOUDY,
+                    WeatherCondition.OVERCAST,
+                    WeatherCondition.FOG
+                ))
                 HelpMiniText(stringResource(R.string.help_hierarchical_dry_body))
             }
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -393,7 +405,12 @@ private fun HierarchicalConsensusIllustration() {
                     contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
                     modifier = Modifier.fillMaxWidth()
                 )
-                ChipGroup(listOf("🌧", "🌨", "🧊", "⛈"))
+                WeatherConditionRow(listOf(
+                    WeatherCondition.DRIZZLE,
+                    WeatherCondition.RAIN,
+                    WeatherCondition.SNOW,
+                    WeatherCondition.THUNDERSTORM
+                ))
                 HelpMiniText(stringResource(R.string.help_hierarchical_precip_body))
             }
         }
@@ -466,6 +483,64 @@ private fun VisualRangeBar(accent: Color, activeCount: Int, totalCount: Int) {
                     .clip(RoundedCornerShape(10.dp))
                     .background(accent)
             )
+        }
+    }
+}
+
+@Composable
+private fun VariableIconRow() {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        VariableChip(Icons.Outlined.Thermostat, stringResource(R.string.metric_temperature), Modifier.weight(1f))
+        VariableChip(Icons.Outlined.WaterDrop, stringResource(R.string.help_variable_rain), Modifier.weight(1f))
+        VariableChip(Icons.Outlined.Air, stringResource(R.string.metric_wind), Modifier.weight(1f))
+        VariableChip(Icons.Outlined.WbCloudy, stringResource(R.string.help_variable_cloud_cover), Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun VariableChip(icon: ImageVector, label: String, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surface
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+            Text(label, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center)
+        }
+    }
+}
+
+@Composable
+private fun WeatherConditionRow(conditions: List<WeatherCondition>) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        conditions.forEach { condition ->
+            Surface(
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(14.dp),
+                color = MaterialTheme.colorScheme.surface
+            ) {
+                Box(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    WeatherIconDecorative(
+                        condition = condition,
+                        size = 24.dp,
+                        tint = condition.semanticTint()
+                    )
+                }
+            }
         }
     }
 }
