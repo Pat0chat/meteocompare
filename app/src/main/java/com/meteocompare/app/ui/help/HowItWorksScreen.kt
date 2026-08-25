@@ -8,8 +8,10 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -18,11 +20,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.SettingsSuggest
 import androidx.compose.material.icons.outlined.TrackChanges
-import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -89,7 +89,7 @@ private fun HowItWorksContent(modifier: Modifier = Modifier) {
             title = stringResource(R.string.help_section_1_title),
             body = stringResource(R.string.help_section_1_body),
             icon = Icons.Outlined.Layers,
-            illustration = { ModelAggregationIllustration() }
+            illustration = { ModelSourcesIllustration() }
         ),
         HelpSection(
             number = 2,
@@ -131,27 +131,6 @@ private fun HowItWorksContent(modifier: Modifier = Modifier) {
             body = stringResource(R.string.help_section_4_body),
             icon = Icons.Outlined.TrackChanges,
             illustration = { ConvergenceIllustration() }
-        ),
-        HelpSection(
-            number = 5,
-            title = stringResource(R.string.help_section_5_title),
-            body = stringResource(R.string.help_section_5_body),
-            icon = Icons.Outlined.WaterDrop,
-            illustration = { RadarProjectionIllustration() },
-            footer = {
-                Text(
-                    text = stringResource(R.string.help_radar_note),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        ),
-        HelpSection(
-            number = 6,
-            title = stringResource(R.string.help_section_6_title),
-            body = stringResource(R.string.help_section_6_body),
-            icon = Icons.Outlined.FavoriteBorder,
-            illustration = { DecisionSupportIllustration() }
         )
     )
 
@@ -162,21 +141,6 @@ private fun HowItWorksContent(modifier: Modifier = Modifier) {
     ) {
         item { HelpHeroCard() }
         items(sections) { section -> HelpSectionCard(section) }
-        item {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
-            ) {
-                Text(
-                    text = stringResource(R.string.help_footer_note),
-                    modifier = Modifier.padding(16.dp),
-                    style = MaterialTheme.typography.bodyMedium,
-                    textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
-        }
     }
 }
 
@@ -189,25 +153,29 @@ private fun HelpHeroCard() {
     ) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Text(
-                text = stringResource(R.string.help_title),
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold
-            )
             Text(
                 text = stringResource(R.string.help_subtitle),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            ChipGroup(
-                listOf(
-                    stringResource(R.string.help_section_1_title),
-                    stringResource(R.string.help_section_2_title),
-                    stringResource(R.string.help_section_3_title)
-                )
-            )
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.help_footer_note),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
         }
     }
 }
@@ -276,235 +244,228 @@ private fun HelpSectionCard(section: HelpSection) {
 private fun IllustrationSurface(content: @Composable () -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.surfaceContainerLow
     ) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) { content() }
+    }
+}
+
+@Composable
+private fun ModelSourcesIllustration() {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            listOf("AROME", "ICON", "ECMWF").forEach {
+                ModelBadge(it, Modifier.weight(1f))
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            listOf("GFS", "UKMO", "ARPEGE").forEach {
+                ModelBadge(it, Modifier.weight(1f))
+            }
+        }
+        Text(
+            text = "↓",
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.Center
+        )
+        Surface(
+            shape = RoundedCornerShape(18.dp),
+            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f)
         ) {
-            content()
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = "MeteoCompare",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+                Text(
+                    text = stringResource(R.string.help_decision_compare_body),
+                    style = MaterialTheme.typography.bodySmall,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun ModelAggregationIllustration() {
-    ChipGroup(listOf("AROME", "ICON", "ECMWF", "GFS", "UKMO"))
-    Text(
-        text = "↓",
-        style = MaterialTheme.typography.headlineMedium,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.fillMaxWidth(),
-        textAlign = TextAlign.Center
-    )
+private fun ModelBadge(text: String, modifier: Modifier = Modifier) {
     Surface(
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f)
+        modifier = modifier,
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surface
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = "MeteoCompare",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-        }
+        Text(
+            text = text,
+            modifier = Modifier.padding(vertical = 10.dp),
+            textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Medium
+        )
     }
 }
 
 @Composable
 private fun EngineModesIllustration() {
-    TwoColumnFeatureGrid(
-        items = listOf(
-            stringResource(R.string.help_engine_multi_title) to stringResource(R.string.help_engine_multi_body),
-            stringResource(R.string.help_engine_calibration_title) to stringResource(R.string.help_engine_calibration_body),
-            stringResource(R.string.help_engine_scenarios_title) to stringResource(R.string.help_engine_scenarios_body),
-            stringResource(R.string.help_engine_adaptive_title) to stringResource(R.string.help_engine_adaptive_body)
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        TwoByTwoCards(
+            listOf(
+                EngineItem(stringResource(R.string.help_engine_multi_title), stringResource(R.string.help_engine_multi_body), MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer),
+                EngineItem(stringResource(R.string.help_engine_calibration_title), stringResource(R.string.help_engine_calibration_body), MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer),
+                EngineItem(stringResource(R.string.help_engine_scenarios_title), stringResource(R.string.help_engine_scenarios_body), MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer),
+                EngineItem(stringResource(R.string.help_engine_adaptive_title), stringResource(R.string.help_engine_adaptive_body), MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f), MaterialTheme.colorScheme.onErrorContainer)
+            )
         )
-    )
+    }
+}
+
+private data class EngineItem(val title: String, val body: String, val bg: Color, val fg: Color)
+
+@Composable
+private fun TwoByTwoCards(items: List<EngineItem>) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        for (i in items.indices step 2) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                items.subList(i, minOf(i + 2, items.size)).forEach { item ->
+                    Surface(
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(18.dp),
+                        color = item.bg
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(item.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = item.fg)
+                            Text(item.body, style = MaterialTheme.typography.bodySmall, color = item.fg)
+                        }
+                    }
+                }
+                if (items.subList(i, minOf(i + 2, items.size)).size == 1) Spacer(Modifier.weight(1f))
+            }
+        }
+    }
 }
 
 @Composable
 private fun HierarchicalConsensusIllustration() {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         HighlightPill(
-            modifier = Modifier.weight(1f),
-            text = stringResource(R.string.help_hierarchical_dry),
-            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.75f),
-            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+            text = "Consensus météo",
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            modifier = Modifier.fillMaxWidth()
         )
-        HighlightPill(
-            modifier = Modifier.weight(1f),
-            text = stringResource(R.string.help_hierarchical_precip),
-            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.75f),
-            contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+        Text(
+            text = "↓",
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.primary
         )
-    }
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            ChipGroup(listOf("☀", "🌤", "☁", "🌫"))
-            HelpMiniText(stringResource(R.string.help_hierarchical_dry_body))
-        }
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            ChipGroup(listOf("🌧", "🌨", "🧊", "⛈"))
-            HelpMiniText(stringResource(R.string.help_hierarchical_precip_body))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                HighlightPill(
+                    text = stringResource(R.string.help_hierarchical_dry),
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.8f),
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                ChipGroup(listOf("☀", "🌤", "☁", "🌫"))
+                HelpMiniText(stringResource(R.string.help_hierarchical_dry_body))
+            }
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                HighlightPill(
+                    text = stringResource(R.string.help_hierarchical_precip),
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.8f),
+                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                ChipGroup(listOf("🌧", "🌨", "🧊", "⛈"))
+                HelpMiniText(stringResource(R.string.help_hierarchical_precip_body))
+            }
         }
     }
 }
 
 @Composable
 private fun ConvergenceIllustration() {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         StatusPanel(
-            modifier = Modifier.weight(1f),
             title = stringResource(R.string.help_convergence_strong_title),
             accent = MaterialTheme.colorScheme.secondary,
             dots = listOf(true, true, true, true, true),
             body = stringResource(R.string.help_convergence_strong_body)
         )
         StatusPanel(
-            modifier = Modifier.weight(1f),
             title = stringResource(R.string.help_convergence_uncertain_title),
             accent = MaterialTheme.colorScheme.error,
-            dots = listOf(true, true, false, true, false),
+            dots = listOf(true, false, true, false, true),
             body = stringResource(R.string.help_convergence_uncertain_body)
         )
     }
 }
 
 @Composable
-private fun RadarProjectionIllustration() {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        listOf(
-            stringResource(R.string.help_radar_step_now),
-            "+15",
-            "+30",
-            "+45",
-            "+60"
-        ).forEach { label ->
-            Surface(
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(14.dp),
-                color = MaterialTheme.colorScheme.surface
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp, horizontal = 6.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(28.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(text = "☔")
-                    }
-                    Text(
-                        text = label,
-                        style = MaterialTheme.typography.labelSmall,
-                        textAlign = TextAlign.Center
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun DecisionSupportIllustration() {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        MiniDecisionCard(
-            modifier = Modifier.weight(1f),
-            emoji = "🔎",
-            title = stringResource(R.string.help_decision_compare_title)
-        )
-        MiniDecisionCard(
-            modifier = Modifier.weight(1f),
-            emoji = "⚙",
-            title = stringResource(R.string.help_decision_synthesize_title)
-        )
-        MiniDecisionCard(
-            modifier = Modifier.weight(1f),
-            emoji = "🎯",
-            title = stringResource(R.string.help_decision_understand_title)
-        )
-    }
-}
-
-@Composable
-private fun MiniDecisionCard(modifier: Modifier = Modifier, emoji: String, title: String) {
+private fun StatusPanel(title: String, accent: Color, dots: List<Boolean>, body: String) {
     Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surface
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(text = emoji, style = MaterialTheme.typography.headlineSmall)
-            Text(
-                text = title,
-                style = MaterialTheme.typography.labelLarge,
-                textAlign = TextAlign.Center,
-                fontWeight = FontWeight.Medium
-            )
-        }
-    }
-}
-
-@Composable
-private fun StatusPanel(
-    modifier: Modifier = Modifier,
-    title: String,
-    accent: Color,
-    dots: List<Boolean>,
-    body: String
-) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(18.dp),
         color = accent.copy(alpha = 0.10f)
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            modifier = Modifier.fillMaxWidth().padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text(text = title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                dots.forEach { active ->
-                    Box(
-                        modifier = Modifier
-                            .size(10.dp)
-                            .clip(CircleShape)
-                            .background(if (active) accent else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
-                    )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    dots.forEach { active ->
+                        Box(
+                            modifier = Modifier
+                                .size(10.dp)
+                                .clip(CircleShape)
+                                .background(if (active) accent else MaterialTheme.colorScheme.outline.copy(alpha = 0.35f))
+                        )
+                    }
                 }
             }
+            VisualRangeBar(accent = accent, activeCount = dots.count { it }, totalCount = dots.size)
             HelpMiniText(body)
+        }
+    }
+}
+
+@Composable
+private fun VisualRangeBar(accent: Color, activeCount: Int, totalCount: Int) {
+    val fill = (activeCount.toFloat() / totalCount.toFloat()).coerceIn(0f, 1f)
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = MaterialTheme.colorScheme.surface
+    ) {
+        Box(modifier = Modifier.fillMaxWidth().height(10.dp)) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(fill)
+                    .height(10.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(accent)
+            )
         }
     }
 }
@@ -520,16 +481,12 @@ private fun HelpMiniText(text: String) {
 
 @Composable
 private fun HighlightPill(
-    modifier: Modifier = Modifier,
     text: String,
     containerColor: Color,
-    contentColor: Color
+    contentColor: Color,
+    modifier: Modifier = Modifier
 ) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(14.dp),
-        color = containerColor
-    ) {
+    Surface(modifier = modifier, shape = RoundedCornerShape(14.dp), color = containerColor) {
         Text(
             text = text,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
@@ -558,37 +515,6 @@ private fun ChipGroup(items: List<String>) {
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                     style = MaterialTheme.typography.labelLarge
                 )
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun TwoColumnFeatureGrid(items: List<Pair<String, String>>) {
-    FlowRow(
-        modifier = Modifier.fillMaxWidth(),
-        maxItemsInEachRow = 2,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        items.forEach { (title, body) ->
-            Surface(
-                modifier = Modifier.fillMaxWidth(0.48f),
-                shape = RoundedCornerShape(18.dp),
-                color = MaterialTheme.colorScheme.surface
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Text(text = title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                    Text(
-                        text = body,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
             }
         }
     }
