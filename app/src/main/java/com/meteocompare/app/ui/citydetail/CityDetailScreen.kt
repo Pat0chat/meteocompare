@@ -75,6 +75,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -1596,19 +1597,9 @@ private fun DetailMetricGrid(
         today.precipitation?.let { precipitation ->
             if (hasPrevious) SummaryDispersionDivider()
             val rain = precipitationDispersionPresentation(precipitation)
-            val locale = LocalLocale.current.platformLocale
-            val probabilityLabel = if (rain.probabilityPercent != null) {
-                stringResource(R.string.metric_precip_probability_only, rain.probabilityPercent)
-            } else null
-            val conditionalLabel = if (rain.conditionalAmountMm != null && rain.conditionalAmountMm > 0.0) {
-                stringResource(
-                    R.string.metric_precip_if_rain,
-                    formatDispersionValue(rain.conditionalAmountMm, " mm", 1, locale)
-                )
-            } else null
-            val rainHeaderDetail = listOfNotNull(probabilityLabel, conditionalLabel)
-                .joinToString(" · ")
-                .ifBlank { null }
+            val rainHeaderDetail = rain.probabilityPercent?.let { probability ->
+                stringResource(R.string.metric_precip_probability_only, probability)
+            }
 
             SummaryMetricGroupHeader(
                 title = stringResource(R.string.var_precipitation),
@@ -1724,8 +1715,7 @@ private data class PrecipitationDispersionPresentation(
     val central: Double,
     val min: Double,
     val max: Double,
-    val probabilityPercent: Int?,
-    val conditionalAmountMm: Double?
+    val probabilityPercent: Int?
 )
 
 private fun precipitationDispersionPresentation(
@@ -1735,8 +1725,7 @@ private fun precipitationDispersionPresentation(
         central = precipitation.meta.centralAmountMm ?: 0.0,
         min = 0.0,
         max = precipitation.maxAmountMm.coerceAtLeast(0.0),
-        probabilityPercent = precipitation.meta.probabilityPercent ?: 0,
-        conditionalAmountMm = precipitation.meta.conditionalAmountMm
+        probabilityPercent = precipitation.meta.probabilityPercent ?: 0
     )
     is PrecipitationConfidence.Rain -> PrecipitationDispersionPresentation(
         central = precipitation.meta.centralAmountMm
@@ -1744,8 +1733,7 @@ private fun precipitationDispersionPresentation(
             ?: precipitation.meanMm,
         min = precipitation.minMm.coerceAtLeast(0.0),
         max = precipitation.maxMm.coerceAtLeast(0.0),
-        probabilityPercent = precipitation.meta.probabilityPercent ?: 100,
-        conditionalAmountMm = precipitation.meta.conditionalAmountMm ?: precipitation.meanMm
+        probabilityPercent = precipitation.meta.probabilityPercent ?: 100
     )
     is PrecipitationConfidence.Divided -> {
         val probability = precipitation.meta.probabilityPercent
@@ -1761,8 +1749,7 @@ private fun precipitationDispersionPresentation(
             // que les membres humides.
             min = 0.0,
             max = precipitation.rainMaxMm.coerceAtLeast(0.0),
-            probabilityPercent = probability,
-            conditionalAmountMm = conditional
+            probabilityPercent = probability
         )
     }
 }

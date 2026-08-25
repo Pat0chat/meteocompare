@@ -135,7 +135,7 @@ class TodaySummaryCardTest {
     }
 
     @Test
-    fun rain_state_keeps_probability_and_conditional_amount() {
+    fun rain_state_header_keeps_only_probability() {
         render(
             DayConfidence(
                 date = TestFixtures.today,
@@ -154,7 +154,7 @@ class TodaySummaryCardTest {
             context.getString(R.string.metric_precip_if_rain, "4.0 mm"),
             substring = true,
             useUnmergedTree = true
-        ).assertIsDisplayed()
+        ).assertDoesNotExist()
         composeRule.onNodeWithText(
             context.getString(R.string.metric_summary_range, "2.0 mm – 6.0 mm"),
             useUnmergedTree = true
@@ -184,7 +184,7 @@ class TodaySummaryCardTest {
             context.getString(R.string.metric_precip_if_rain, "2.2 mm"),
             substring = true,
             useUnmergedTree = true
-        ).assertIsDisplayed()
+        ).assertDoesNotExist()
         composeRule.onNodeWithText(
             context.getString(R.string.metric_precip_probability_only, 60),
             substring = true,
