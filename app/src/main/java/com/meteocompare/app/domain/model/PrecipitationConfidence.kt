@@ -66,7 +66,7 @@ sealed interface PrecipitationConfidence {
     ) : PrecipitationConfidence
 
     companion object {
-        /** Seuil journalier consensus robuste : >= 1 mm = scénario humide. */
-        const val PRECIP_THRESHOLD_MM = 1.0
+        /** Seuil journalier d’occurrence, aligné sur la définition PoP Open-Meteo. */
+        const val PRECIP_THRESHOLD_MM = PrecipitationThresholds.DAILY_OCCURRENCE_MM
     }
 }

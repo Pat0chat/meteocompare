@@ -1,5 +1,6 @@
 package com.meteocompare.app.domain.usecase
 
+import com.meteocompare.app.domain.model.PrecipitationThresholds
 import com.meteocompare.app.domain.model.WeatherModel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -64,6 +65,61 @@ class ForecastConsensusTest {
         assertEquals(9.0, result.centralAmountMm ?: error("central missing"), 1e-9)
         assertEquals(4.5, result.expectedAmountMm ?: error("expected missing"), 1e-9)
         assertEquals(ForecastConsensus.PrecipitationSource.PROBABILITY, result.source)
+    }
+
+
+    @Test
+    fun `probabilite native reste probabiliste meme si tous les deterministes sont humides`() {
+        val result = ForecastConsensus.precipitation(
+            rows = listOf(
+                ForecastConsensus.PrecipitationRow(WeatherModel.GFS, amountMm = 4.0, probabilityPercent = 70),
+                ForecastConsensus.PrecipitationRow(WeatherModel.ECMWF, amountMm = 5.0, probabilityPercent = 80),
+                ForecastConsensus.PrecipitationRow(WeatherModel.ARPEGE_EUROPE, amountMm = 6.0, probabilityPercent = 90)
+            ),
+            thresholdMm = PrecipitationThresholds.DAILY_OCCURRENCE_MM,
+            amountTightStdDev = 1.0,
+            amountWideStdDev = 8.0
+        )
+
+        assertEquals(80, result.probabilityPercent)
+        assertEquals(3, result.wetModelCount)
+        assertEquals(ForecastConsensus.PrecipitationSource.PROBABILITY, result.source)
+    }
+
+    @Test
+    fun `accord deterministe complet sans probabilite native donne cent pour cent meme pour pluie faible`() {
+        val result = ForecastConsensus.precipitation(
+            rows = listOf(
+                ForecastConsensus.PrecipitationRow(WeatherModel.GFS, amountMm = 0.2),
+                ForecastConsensus.PrecipitationRow(WeatherModel.ECMWF, amountMm = 0.3),
+                ForecastConsensus.PrecipitationRow(WeatherModel.ARPEGE_EUROPE, amountMm = 0.4)
+            ),
+            thresholdMm = PrecipitationThresholds.DAILY_OCCURRENCE_MM,
+            amountTightStdDev = 1.0,
+            amountWideStdDev = 8.0
+        )
+
+        assertEquals(100, result.probabilityPercent)
+        assertEquals(3, result.wetModelCount)
+        assertEquals(ForecastConsensus.PrecipitationSource.MODEL_AGREEMENT, result.source)
+        assertTrue((result.centralAmountMm ?: 0.0) >= 0.2)
+    }
+
+    @Test
+    fun `probabilite sans quantite ne fabrique pas zero millimetre`() {
+        val result = ForecastConsensus.precipitation(
+            rows = listOf(
+                ForecastConsensus.PrecipitationRow(WeatherModel.GFS, probabilityPercent = 80),
+                ForecastConsensus.PrecipitationRow(WeatherModel.ECMWF, probabilityPercent = 70)
+            ),
+            thresholdMm = PrecipitationThresholds.DAILY_OCCURRENCE_MM,
+            amountTightStdDev = 1.0,
+            amountWideStdDev = 8.0
+        )
+
+        assertEquals(75, result.probabilityPercent)
+        assertEquals(null, result.centralAmountMm)
+        assertEquals(null, result.expectedAmountMm)
     }
 
     @Test

@@ -97,7 +97,7 @@ enum class WeatherCondition {
             return when {
                 precipMm >= 5.0 -> if (freezing) SNOW else RAIN
                 precipMm >= 1.0 -> if (freezing) SNOW_SHOWERS else RAIN_SHOWERS
-                precipMm >= 0.1 -> if (freezing) SNOW_SHOWERS else DRIZZLE
+                precipMm > PrecipitationThresholds.HOURLY_OCCURRENCE_MM -> if (freezing) SNOW_SHOWERS else DRIZZLE
                 else -> null
             }
         }

@@ -8,6 +8,7 @@ import com.meteocompare.app.domain.model.ForecastEngineContext
 import com.meteocompare.app.domain.model.ForecastEngineVariable
 import com.meteocompare.app.domain.model.HourlyConfidenceBand
 import com.meteocompare.app.domain.model.PrecipitationConfidence
+import com.meteocompare.app.domain.model.PrecipitationThresholds
 import com.meteocompare.app.domain.model.PrecipitationConsensusMeta
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
@@ -421,7 +422,7 @@ class ConfidenceCalculator @Inject constructor(
             }
             val result = ForecastConsensus.precipitation(
                 rows = rows,
-                thresholdMm = 0.1,
+                thresholdMm = PrecipitationThresholds.HOURLY_OCCURRENCE_MM,
                 localWeights = localWeights(rows.map { it.model }),
                 amountTightStdDev = 1.0,
                 amountWideStdDev = 8.0
@@ -430,7 +431,7 @@ class ConfidenceCalculator @Inject constructor(
                 rows,
                 ForecastEngineV3.PrecipitationOptions(
                     engine = engineContext.engine,
-                    threshold = 0.1,
+                    threshold = PrecipitationThresholds.HOURLY_OCCURRENCE_MM,
                     localWeights = localWeights(rows.map { it.model }),
                     calibration = emptyMap(),
                     amountTight = 1.0,
@@ -622,7 +623,7 @@ class ConfidenceCalculator @Inject constructor(
             familyCount = result.familyCount
         )
         val wetAmounts = rows.mapNotNull { row ->
-            row.amountMm?.takeIf { it.isFinite() && it >= PrecipitationConfidence.PRECIP_THRESHOLD_MM }
+            row.amountMm?.takeIf { it.isFinite() && it > PrecipitationConfidence.PRECIP_THRESHOLD_MM }
         }
         val wetMin = wetAmounts.minOrNull()
         val wetMax = wetAmounts.maxOrNull()

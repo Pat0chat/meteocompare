@@ -2,6 +2,7 @@ package com.meteocompare.app.domain.util
 
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.ForecastSeries
+import com.meteocompare.app.domain.model.PrecipitationThresholds
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherScenario
 import com.meteocompare.app.domain.model.WeatherScenarioKind
@@ -23,7 +24,6 @@ import kotlin.math.roundToInt
 object WeatherScenarioBuilder {
 
     private const val HOUR_COUNT = 12
-    private const val WET_THRESHOLD_MM = 0.10
 
     fun next12h(
         forecast: CityForecast,
@@ -104,7 +104,7 @@ object WeatherScenarioBuilder {
         }
 
         val wetSamples = samples.filter { sample ->
-            (sample.precipitation ?: 0.0) >= WET_THRESHOLD_MM || sample.condition.isWet
+            (sample.precipitation ?: 0.0) > PrecipitationThresholds.HOURLY_OCCURRENCE_MM || sample.condition.isWet
         }
 
         val severeKind = when {

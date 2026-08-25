@@ -152,12 +152,12 @@ object ForecastConsensus {
             val p = row.probabilityPercent?.takeIf { it in 0..100 }?.let {
                 nativeProbabilityCount++
                 it / 100.0
-            } ?: if ((row.amountMm ?: Double.NEGATIVE_INFINITY) >= thresholdMm) 1.0 else 0.0
+            } ?: if ((row.amountMm ?: Double.NEGATIVE_INFINITY) > thresholdMm) 1.0 else 0.0
             probabilitySum += weight * p
             totalWeight += weight
         }
         val p = if (totalWeight > 0.0) probabilitySum / totalWeight else null
-        val wet = usable.filter { (it.amountMm ?: Double.NEGATIVE_INFINITY) >= thresholdMm }
+        val wet = usable.filter { (it.amountMm ?: Double.NEGATIVE_INFINITY) > thresholdMm }
         val wetWeights = familyBalancedWeights(wet.map { it.model }, localWeights)
         val weightedWet = wet.mapNotNull { row ->
             val amount = row.amountMm ?: return@mapNotNull null
@@ -178,17 +178,30 @@ object ForecastConsensus {
             } else occurrence.roundToInt()
         }?.coerceIn(0, 100)
         val source = when {
-            nativeProbabilityCount >= maxOf(2, (usable.size + 1) / 2) -> PrecipitationSource.PROBABILITY
+            nativeProbabilityCount == usable.size -> PrecipitationSource.PROBABILITY
             nativeProbabilityCount > 0 -> PrecipitationSource.MIXED
             else -> PrecipitationSource.MODEL_AGREEMENT
         }
         val probabilityPercent = p?.let { (it * 100.0).roundToInt().coerceIn(0, 100) }
-        val central = if (p != null && p >= 0.5 && conditional != null) conditional else 0.0
+        val finiteAmounts = usable.mapNotNull { it.amountMm?.takeIf(Double::isFinite) }
+        // Ne jamais transformer « quantité inconnue » en 0 mm. Avec au moins
+        // une quantité déterministe disponible, 0 reste en revanche un résultat
+        // valide lorsque le scénario central est sec.
+        val central = when {
+            finiteAmounts.isEmpty() -> null
+            p != null && p >= 0.5 && conditional != null -> conditional
+            else -> 0.0
+        }
+        val expected = when {
+            p != null && conditional != null -> p * conditional
+            finiteAmounts.isNotEmpty() && wet.isEmpty() -> 0.0
+            else -> null
+        }
         return Precipitation(
             probabilityPercent = probabilityPercent,
             conditionalAmountMm = conditional ?: if (wet.isNotEmpty()) 0.0 else null,
             centralAmountMm = central,
-            expectedAmountMm = if (p != null && conditional != null) p * conditional else 0.0,
+            expectedAmountMm = expected,
             convergencePercent = convergence,
             modelCount = usable.size,
             familyCount = familyCount,

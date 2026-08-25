@@ -1,5 +1,6 @@
 package com.meteocompare.app.ui.citydetail
 
+import com.meteocompare.app.domain.model.PrecipitationThresholds
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.ForecastEngineContext
@@ -516,7 +517,7 @@ internal fun buildOverviewTimeline(
 
 private const val MAX_TIMELINE_POINTS = 8
 private const val MAX_DAILY_POINTS = 7
-private const val HOURLY_RAIN_THRESHOLD_MM = 0.1
-private const val DAILY_RAIN_THRESHOLD_MM = 1.0
+private const val HOURLY_RAIN_THRESHOLD_MM = PrecipitationThresholds.HOURLY_OCCURRENCE_MM
+private const val DAILY_RAIN_THRESHOLD_MM = PrecipitationThresholds.DAILY_OCCURRENCE_MM
 private const val MILLIS_PER_DAY = 86_400_000L
 private const val REGULAR_TIMELINE_STEP_HOURS = 3L

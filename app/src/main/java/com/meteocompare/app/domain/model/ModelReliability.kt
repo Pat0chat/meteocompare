@@ -79,7 +79,7 @@ data class ReliabilityRank(
  */
 object ModelReliabilityCalculator {
 
-    private const val WET_DAY_THRESHOLD_MM = 0.5
+    private const val WET_DAY_THRESHOLD_MM = PrecipitationThresholds.DAILY_OCCURRENCE_MM
     private const val RECENT_WINDOW_DAYS = 7
 
     private data class VariableScale(
@@ -283,8 +283,8 @@ object ModelReliabilityCalculator {
         var forecastWetDays = 0
 
         samples.forEach { sample ->
-            val forecastWet = sample.forecast >= WET_DAY_THRESHOLD_MM
-            val observedWet = sample.observation >= WET_DAY_THRESHOLD_MM
+            val forecastWet = sample.forecast > WET_DAY_THRESHOLD_MM
+            val observedWet = sample.observation > WET_DAY_THRESHOLD_MM
             if (forecastWet) forecastWetDays++
             if (observedWet) observedWetDays++
             when {

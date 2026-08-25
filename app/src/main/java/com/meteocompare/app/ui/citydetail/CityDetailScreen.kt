@@ -75,7 +75,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.platform.LocalResources
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -1771,10 +1770,14 @@ private fun DispersionMetricRow(
 ) {
     val locale = LocalLocale.current.platformLocale
     val sampleValues = samples.map(DispersionSample::value).filter { it.isFinite() }
-    val min = sampleValues.minOrNull() ?: fallbackMin
-    val max = sampleValues.maxOrNull() ?: fallbackMax
-    val safeMin = min.takeIf { it.isFinite() } ?: central
-    val safeMax = max.takeIf { it.isFinite() } ?: central
+    // La centrale du moteur peut légitimement sortir de l’enveloppe des runs bruts
+    // (ex. pluie : P < 50 % => centrale 0 mm alors que les runs déterministes
+    // humides donnent tous une quantité > 0). L’axe doit toujours contenir la
+    // centrale afin de ne pas la plaquer artificiellement sur une borne.
+    val rawMin = sampleValues.minOrNull() ?: fallbackMin
+    val rawMax = sampleValues.maxOrNull() ?: fallbackMax
+    val safeMin = listOf(rawMin, central).filter(Double::isFinite).minOrNull() ?: central
+    val safeMax = listOf(rawMax, central).filter(Double::isFinite).maxOrNull() ?: central
     val rangeLabel = "${formatDispersionValue(safeMin, unit, digits, locale)} – ${formatDispersionValue(safeMax, unit, digits, locale)}"
     val centralLabel = formatDispersionValue(central, unit, digits, locale)
     val railDescription = if (samples.isNotEmpty()) {

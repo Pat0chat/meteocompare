@@ -171,6 +171,36 @@ class ForecastEngineV3Test {
     }
 
     @Test
+    fun `precipitation keeps native probability below one hundred even when deterministic amounts are wet`() {
+        val result = ForecastEngineV3.precipitation(
+            listOf(
+                ForecastConsensus.PrecipitationRow(WeatherModel.GFS, amountMm = 4.0, probabilityPercent = 70),
+                ForecastConsensus.PrecipitationRow(WeatherModel.ECMWF, amountMm = 5.0, probabilityPercent = 80),
+                ForecastConsensus.PrecipitationRow(WeatherModel.ARPEGE_EUROPE, amountMm = 6.0, probabilityPercent = 90)
+            ),
+            ForecastEngineV3.PrecipitationOptions(threshold = 0.1)
+        )
+
+        assertEquals(80, result.probabilityPercent)
+        assertEquals(3, result.wetModelCount)
+        assertEquals(ForecastConsensus.PrecipitationSource.PROBABILITY, result.source)
+    }
+
+    @Test
+    fun `precipitation probability without amount keeps amount unknown`() {
+        val result = ForecastEngineV3.precipitation(
+            listOf(
+                ForecastConsensus.PrecipitationRow(WeatherModel.GFS, probabilityPercent = 80),
+                ForecastConsensus.PrecipitationRow(WeatherModel.ECMWF, probabilityPercent = 70)
+            )
+        )
+
+        assertEquals(75, result.probabilityPercent)
+        assertEquals(null, result.centralAmountMm)
+        assertEquals(null, result.expectedAmountMm)
+    }
+
+    @Test
     fun `precipitation occurrence calibration is guarded by family coverage`() {
         val rows = listOf(
             ForecastConsensus.PrecipitationRow(WeatherModel.GFS, amountMm = 2.0, probabilityPercent = 50),

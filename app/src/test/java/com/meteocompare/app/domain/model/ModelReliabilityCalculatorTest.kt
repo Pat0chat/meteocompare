@@ -138,6 +138,21 @@ class ModelReliabilityCalculatorTest {
 
 
     @Test
+    fun `diagnostic pluie compte une pluie mesurable de deux dixiemes comme humide`() {
+        val samples = samples(14) { 0.2 to 0.2 }
+
+        val reliability = ModelReliabilityCalculator.compute(
+            BiasVariable.PRECIPITATION,
+            samples
+        )!!
+        val rain = reliability.precipitation!!
+
+        assertEquals(14, rain.observedWetDays)
+        assertEquals(14, rain.forecastWetDays)
+        assertEquals(1.0, rain.hitRate!!, 1e-9)
+    }
+
+    @Test
     fun `diagnostic pluie renvoie indisponible sans evenement de reference`() {
         val reliability = ModelReliabilityCalculator.compute(
             BiasVariable.PRECIPITATION,

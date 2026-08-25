@@ -1,5 +1,6 @@
 package com.meteocompare.app.domain.util
 
+import com.meteocompare.app.domain.model.PrecipitationThresholds
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.ForecastEngineContext
@@ -80,7 +81,7 @@ internal object ForecastAggregates {
                 precipRows,
                 ForecastEngineV3.PrecipitationOptions(
                     engine = engineContext.engine,
-                    threshold = 0.1,
+                    threshold = PrecipitationThresholds.HOURLY_OCCURRENCE_MM,
                     calibration = emptyMap(), // historique J+1 ≠ prévision horaire
                     amountTight = 0.5,
                     amountWide = 4.0

@@ -151,13 +151,13 @@ object ForecastEngineV3 {
             var probability = row.probabilityPercent?.takeIf { it in 0..100 }?.let {
                 nativeProbabilityCount++
                 it / 100.0
-            } ?: if ((row.amountMm ?: Double.NEGATIVE_INFINITY) >= options.threshold) 1.0 else 0.0
+            } ?: if ((row.amountMm ?: Double.NEGATIVE_INFINITY) > options.threshold) 1.0 else 0.0
             if (canCalibrateOccurrence) probability = clamp(probability + occurrence.delta * 0.65, 0.0, 1.0)
             probabilitySum += weight * probability
             totalWeight += weight
         }
         val probability = if (totalWeight > 0.0) probabilitySum / totalWeight else null
-        val wetRows = usable.filter { (it.amountMm ?: Double.NEGATIVE_INFINITY) >= options.threshold }
+        val wetRows = usable.filter { (it.amountMm ?: Double.NEGATIVE_INFINITY) > options.threshold }
         val amountResult = continuous(
             wetRows.mapNotNull { row -> row.amountMm?.takeIf(Double::isFinite)?.let { ForecastConsensus.Entry(row.model, it) } },
             ContinuousOptions(
@@ -176,13 +176,23 @@ object ForecastEngineV3 {
             nativeProbabilityCount > 0 -> ForecastConsensus.PrecipitationSource.MIXED
             else -> ForecastConsensus.PrecipitationSource.MODEL_AGREEMENT
         }
+        val centralAmount = when {
+            amounts.isEmpty() -> null
+            probability != null && probability >= 0.5 && conditional != null -> conditional
+            else -> 0.0
+        }
+        val expectedAmount = when {
+            probability != null && conditional != null -> probability * conditional
+            amounts.isNotEmpty() && wetRows.isEmpty() -> 0.0
+            else -> null
+        }
         return PrecipitationResult(
             engine = options.engine,
             effectiveEngine = amountResult.effectiveEngine,
             probabilityPercent = probability?.let { (it * 100).roundToInt().coerceIn(0, 100) },
             conditionalAmountMm = conditional ?: if (wetRows.isNotEmpty()) 0.0 else null,
-            centralAmountMm = if (probability != null && probability >= 0.5 && conditional != null) conditional else 0.0,
-            expectedAmountMm = if (probability != null && conditional != null) probability * conditional else 0.0,
+            centralAmountMm = centralAmount,
+            expectedAmountMm = expectedAmount,
             modelCount = usable.size,
             familyCount = usable.map { ForecastConsensus.groupFor(it.model) }.distinct().size,
             wetModelCount = wetRows.size,

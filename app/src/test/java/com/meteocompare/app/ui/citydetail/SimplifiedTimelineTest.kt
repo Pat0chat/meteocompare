@@ -85,10 +85,9 @@ class SimplifiedTimelineTest {
         // réduisant fortement son poids : 13,1338 km/h pour 10/12/40.
         assertEquals(13.133844407902354, point.windKmh!!, 0.001)
         assertEquals(33, point.precipitationPercent)
-        // Le moteur conserve bien la quantité conditionnelle : l'UI timeline
-        // l'affiche désormais sous le risque pluie au lieu du libellé de source.
-        // En journalier, Consensus v2 considère humide un scénario à >= 1 mm.
-        // 0,1 mm ne doit donc pas diluer les 5 mm du scénario réellement pluvieux.
+        // La PoP Open-Meteo vise strictement > 0,1 mm : le scénario à exactement
+        // 0,1 mm reste sous la coupure et seul le scénario à 5 mm contribue à
+        // la quantité conditionnelle « s'il pleut ».
         assertEquals(5.0, point.precipitationConditionalMm!!, 0.001)
         assertEquals(PrecipitationSignalSource.MODEL_PROBABILITY, point.precipitationSource)
         assertEquals(3, point.precipitationModelCount)

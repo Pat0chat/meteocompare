@@ -151,12 +151,13 @@ class ConfidenceCalculatorTest {
 
     @Test
     fun `pluie - traces sous le seuil restent un consensus sec maximal`() {
-        // Quelques traces de pluie (toutes < 1mm seuil) — pas vraiment de la pluie
+        // Valeurs strictement sous 0,1 mm : elles restent hors de l’événement
+        // probabiliste défini par Open-Meteo (> 0,1 mm sur l’heure).
         val forecast = buildForecast(
             precipByModel = mapOf(
                 WeatherModel.AROME_FRANCE_HD to 0.0,
-                WeatherModel.ICON_EU to 0.3,
-                WeatherModel.GFS to 0.5
+                WeatherModel.ICON_EU to 0.03,
+                WeatherModel.GFS to 0.08
             )
         )
 
@@ -184,7 +185,7 @@ class ConfidenceCalculatorTest {
 
     @Test
     fun `pluie - tous annoncent pluie avec spread faible - Rain confiance haute`() {
-        // Tous > 1mm seuil, avec spread étroit (σ ≈ 0.5mm)
+        // Tous au-dessus du seuil d’occurrence, avec spread étroit (σ ≈ 0.5mm)
         val forecast = buildForecast(
             precipByModel = mapOf(
                 WeatherModel.AROME_FRANCE_HD to 2.0,
@@ -203,6 +204,25 @@ class ConfidenceCalculatorTest {
     }
 
     @Test
+    fun `pluie faible mesurable est classee comme humide`() {
+        val forecast = buildForecast(
+            precipByModel = mapOf(
+                WeatherModel.AROME_FRANCE_HD to 0.2,
+                WeatherModel.ICON_EU to 0.3,
+                WeatherModel.GFS to 0.4,
+                WeatherModel.ECMWF to 0.2
+            )
+        )
+
+        val precip = calculator.dayConfidence(forecast, today).precipitation
+        assertTrue("Expected Rain for measurable light rain, got $precip", precip is PrecipitationConfidence.Rain)
+        precip as PrecipitationConfidence.Rain
+        assertEquals(4, precip.modelCount)
+        assertTrue(precip.meanMm in 0.2..0.4)
+        assertEquals(100, precip.meta.probabilityPercent)
+    }
+
+    @Test
     fun `pluie - modèles divisés 3-2 - Divided`() {
         val forecast = buildForecast(
             precipByModel = mapOf(
@@ -210,7 +230,7 @@ class ConfidenceCalculatorTest {
                 WeatherModel.ARPEGE_EUROPE to 2.0,
                 WeatherModel.ICON_EU to 1.5,
                 WeatherModel.GFS to 0.0,
-                WeatherModel.ECMWF to 0.2
+                WeatherModel.ECMWF to 0.0
             )
         )
 
