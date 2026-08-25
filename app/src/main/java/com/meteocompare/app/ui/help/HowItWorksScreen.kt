@@ -21,7 +21,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Air
-import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.Thermostat
 import androidx.compose.material.icons.outlined.WaterDrop
@@ -55,7 +54,6 @@ import com.meteocompare.app.ui.components.semanticTint
 import com.meteocompare.app.R
 
 private data class HelpSection(
-    val number: Int,
     val title: String,
     val body: String,
     val icon: ImageVector,
@@ -93,21 +91,18 @@ fun HowItWorksScreen(onBack: () -> Unit) {
 private fun HowItWorksContent(modifier: Modifier = Modifier) {
     val sections = listOf(
         HelpSection(
-            number = 1,
             title = stringResource(R.string.help_section_1_title),
             body = stringResource(R.string.help_section_1_body),
             icon = Icons.Outlined.Layers,
             illustration = { ModelSourcesIllustration() }
         ),
         HelpSection(
-            number = 2,
             title = stringResource(R.string.help_section_2_title),
             body = stringResource(R.string.help_section_2_body),
             icon = Icons.Outlined.SettingsSuggest,
             illustration = { EngineModesIllustration() }
         ),
         HelpSection(
-            number = 3,
             title = stringResource(R.string.help_section_3_title),
             body = stringResource(R.string.help_section_3_body),
             icon = Icons.Outlined.TrackChanges,
@@ -117,12 +112,13 @@ private fun HowItWorksContent(modifier: Modifier = Modifier) {
                     text = stringResource(R.string.help_hierarchical_note),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center
                 )
             }
         ),
         HelpSection(
-            number = 4,
             title = stringResource(R.string.help_section_4_title),
             body = stringResource(R.string.help_section_4_body),
             icon = Icons.Outlined.TrackChanges,
@@ -154,7 +150,9 @@ private fun HelpHeroCard() {
             Text(
                 text = stringResource(R.string.help_subtitle),
                 style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center
             )
             Surface(
                 shape = RoundedCornerShape(18.dp),
@@ -168,7 +166,9 @@ private fun HelpHeroCard() {
                         text = stringResource(R.string.help_footer_note),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
                     )
                 }
             }
@@ -188,25 +188,13 @@ private fun HelpSectionCard(section: HelpSection) {
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.Top,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(42.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = section.number.toString(),
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                }
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Column(modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
                         text = section.title,
                         style = MaterialTheme.typography.titleLarge,
@@ -215,7 +203,9 @@ private fun HelpSectionCard(section: HelpSection) {
                     Text(
                         text = section.body,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
                     )
                 }
             }
@@ -355,8 +345,10 @@ private fun TwoByTwoCards(items: List<EngineItem>) {
                             modifier = Modifier.fillMaxWidth().height(142.dp).padding(14.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Text(item.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = item.fg)
-                            Text(item.body, style = MaterialTheme.typography.bodySmall, color = item.fg)
+                            Text(item.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = item.fg,                        modifier = Modifier.fillMaxWidth(),
+                                textAlign = TextAlign.Center)
+                            Text(item.body, style = MaterialTheme.typography.bodySmall, color = item.fg,modifier = Modifier.fillMaxWidth(),
+                                textAlign = TextAlign.Center)
                         }
                     }
                 }
@@ -493,15 +485,15 @@ private fun VariableIconRow() {
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        VariableChip(Icons.Outlined.Thermostat, stringResource(R.string.metric_temperature), Modifier.weight(1f))
-        VariableChip(Icons.Outlined.WaterDrop, stringResource(R.string.help_variable_rain), Modifier.weight(1f))
-        VariableChip(Icons.Outlined.Air, stringResource(R.string.metric_wind), Modifier.weight(1f))
-        VariableChip(Icons.Outlined.WbCloudy, stringResource(R.string.help_variable_cloud_cover), Modifier.weight(1f))
+        VariableChip(Icons.Outlined.Thermostat, Modifier.weight(1f))
+        VariableChip(Icons.Outlined.WaterDrop, Modifier.weight(1f))
+        VariableChip(Icons.Outlined.Air,  Modifier.weight(1f))
+        VariableChip(Icons.Outlined.WbCloudy,  Modifier.weight(1f))
     }
 }
 
 @Composable
-private fun VariableChip(icon: ImageVector, label: String, modifier: Modifier = Modifier) {
+private fun VariableChip(icon: ImageVector, modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(14.dp),
@@ -513,7 +505,6 @@ private fun VariableChip(icon: ImageVector, label: String, modifier: Modifier = 
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-            Text(label, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center)
         }
     }
 }
@@ -550,7 +541,9 @@ private fun HelpMiniText(text: String) {
     Text(
         text = text,
         style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.fillMaxWidth(),
+        textAlign = TextAlign.Center
     )
 }
 

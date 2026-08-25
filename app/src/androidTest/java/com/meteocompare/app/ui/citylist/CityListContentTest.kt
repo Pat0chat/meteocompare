@@ -25,6 +25,7 @@ class CityListContentTest {
     fun empty_state_exposes_primary_actions() {
         var add = false
         var donate = false
+        var help = false
         var settings = false
         composeRule.setContent {
             MeteoCompareTheme {
@@ -33,6 +34,7 @@ class CityListContentTest {
                     onCityClick = {},
                     onAddClick = { add = true },
                     onDonateClick = { donate = true },
+                    onHelpClick = { help = true },
                     onSettingsClick = { settings = true },
                     onRemoveCity = {}, onRetry = {}, onRefresh = {}
                 )
@@ -42,9 +44,11 @@ class CityListContentTest {
         composeRule.onNodeWithText(context.getString(R.string.empty_favorites_title)).assertIsDisplayed()
         composeRule.onNodeWithTag(TAG_ADD_FAB).performClick()
         composeRule.onNodeWithTag(TAG_DONATE_BUTTON).performClick()
+        composeRule.onNodeWithTag(TAG_HELP_BUTTON).performClick()
         composeRule.onNodeWithTag(TAG_SETTINGS_BUTTON).performClick()
         assertTrue(add)
         assertTrue(donate)
+        assertTrue(help)
         assertTrue(settings)
     }
 
@@ -68,7 +72,7 @@ class CityListContentTest {
                         )
                     ),
                     onCityClick = { selectedId = it },
-                    onAddClick = {}, onDonateClick = {}, onSettingsClick = {},
+                    onAddClick = {}, onDonateClick = {}, onHelpClick = {}, onSettingsClick = {},
                     onRemoveCity = {}, onRetry = {}, onRefresh = {}
                 )
             }

@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -197,7 +198,7 @@ internal fun CityListContent(
     onCityClick: (cityId: String) -> Unit,
     onAddClick: () -> Unit,
     onDonateClick: () -> Unit,
-    onHelpClick: () -> Unit,
+    onHelpClick: () -> Unit = {},
     onSettingsClick: () -> Unit,
     onRemoveCity: (cityId: String) -> Unit,
     onRetry: (City) -> Unit,
@@ -243,9 +244,12 @@ internal fun CityListContent(
                             contentDescription = stringResource(R.string.action_support_dev)
                         )
                     }
-                    IconButton(onClick = onHelpClick) {
+                    IconButton(
+                        onClick = onHelpClick,
+                        modifier = Modifier.testTag(TAG_HELP_BUTTON)
+                    ) {
                         Icon(
-                            Icons.Outlined.HelpOutline,
+                            Icons.AutoMirrored.Outlined.HelpOutline,
                             contentDescription = stringResource(R.string.action_how_it_works)
                         )
                     }
@@ -1328,6 +1332,7 @@ internal const val TAG_CITY_MARINE_ENABLED = "city_marine_enabled_"
 internal const val TAG_EMPTY_STATE = "empty_state"
 internal const val TAG_ADD_FAB = "add_fab"
 internal const val TAG_DONATE_BUTTON = "donate_button"
+internal const val TAG_HELP_BUTTON = "help_button"
 internal const val TAG_SETTINGS_BUTTON = "settings_button"
 
 // ─── Previews ────────────────────────────────────────────────────────────────
