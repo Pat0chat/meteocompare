@@ -1,73 +1,39 @@
-# Initial F-Droid submission for MeteoCompare 1.7.0 (versionCode 22).
-#
-# IMPORTANT:
-# v1.7.0 was tagged before fastlane/metadata/android was added upstream.
-# Name/Summary/Description below are therefore one-time fallbacks so the first
-# submission has complete text metadata. Once a NEW tagged release contains
-# the Fastlane metadata, remove Name/Summary/Description from fdroiddata so
-# localized upstream metadata becomes authoritative.
-
 Categories:
   - Weather
+
 License: Apache-2.0
+
 AuthorName: Pat0chat
-SourceCode: https://github.com/Pat0chat/MeteoCompare
-IssueTracker: https://github.com/Pat0chat/MeteoCompare/issues
-Changelog: https://github.com/Pat0chat/MeteoCompare/releases
+
+SourceCode: https://github.com/Pat0chat/meteocompare
+IssueTracker: https://github.com/Pat0chat/meteocompare/issues
+Changelog: https://github.com/Pat0chat/meteocompare/releases
+
 Liberapay: Pat0chat
 
-Name: MeteoCompare
-Summary: Compare 17 weather models and expose forecast uncertainty
-Description: |-
-  MeteoCompare compares up to 17 weather models using Open-Meteo data.
-
-  Instead of hiding uncertainty behind a single forecast, it shows the
-  scenarios produced by individual models and how strongly they agree.
-
-  Features include:
-  * Multi-model comparison for temperature, precipitation and wind
-  * Agreement indicators and min/max envelopes
-  * Wind gusts, scenarios and a 12-hour heatmap
-  * Historical model-bias tracking by city
-  * Ten-year climate references
-  * Resizable home-screen widgets
-  * English/French UI, dark mode and TalkBack accessibility
-
-  MeteoCompare contains no ads, no analytics SDK and requires no account.
-  Favorites, preferences, caches and history stay on the device. Network
-  access is used to retrieve weather and geocoding data from Open-Meteo.
-
-  MeteoCompare is free and open-source software under Apache-2.0.
-
-# Open-Meteo itself is open source/self-hostable, so NonFreeNet is not used.
-# MeteoCompare currently hard-codes the public Open-Meteo endpoints; changing
-# backend requires a source change, hence TetheredNet is declared proactively.
 AntiFeatures:
   TetheredNet:
     en-US: Weather and geocoding data are fetched from the public Open-Meteo service; changing the backend currently requires modifying the app.
     fr-FR: Les données météo et de géocodage proviennent du service public Open-Meteo ; changer de backend nécessite actuellement de modifier l’application.
 
 RepoType: git
-Repo: https://github.com/Pat0chat/MeteoCompare.git
+Repo: https://github.com/Pat0chat/meteocompare.git
 
 Builds:
-  - versionName: 1.7.0
-    versionCode: 22
-    commit: v1.7.0
+  - versionName: 1.11.1
+    versionCode: 25
+    commit: v1.11.1
     subdir: app
     gradle:
       - yes
 
 AutoUpdateMode: Version
 UpdateCheckMode: 'Tags ^v[0-9]+\.[0-9]+\.[0-9]+$'
-CurrentVersion: 1.7.0
-CurrentVersionCode: 22
+
+CurrentVersion: 1.11.0
+CurrentVersionCode: 25
 
 MaintainerNotes: |-
   The public Open-Meteo server software is open source and self-hostable.
   MeteoCompare currently hard-codes Open-Meteo endpoints, therefore TetheredNet
   is declared rather than NonFreeNet.
-
-  Upstream Fastlane metadata was added after tag v1.7.0. After the first newer
-  tag that contains fastlane/metadata/android, remove Name, Summary and
-  Description above so F-Droid uses the localized upstream metadata.
