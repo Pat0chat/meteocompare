@@ -67,9 +67,8 @@ android {
             // Signing config appliqué uniquement si la storeFile a été configurée.
             // Sinon assembleRelease produit un APK non signé, ce qui est OK pour
             // tester le shrinking en local sans secret.
-            val releaseSigningConfig = signingConfigs.getByName("release")
-            if (releaseSigningConfig.storeFile != null) {
-                signingConfig = releaseSigningConfig
+            if (hasKeystoreProperties || !System.getenv("KEYSTORE_PATH").isNullOrBlank()) {
+                signingConfig = signingConfigs.getByName("release")
             }
             // Symboles de débogage natifs.
             //
