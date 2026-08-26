@@ -21,7 +21,7 @@ Repo: https://github.com/Pat0chat/meteocompare.git
 
 Builds:
   - versionName: 1.11.1
-    versionCode: 25
+    versionCode: 26
     commit: v1.11.1
     subdir: app
     gradle:
@@ -30,8 +30,8 @@ Builds:
 AutoUpdateMode: Version
 UpdateCheckMode: 'Tags ^v[0-9]+\.[0-9]+\.[0-9]+$'
 
-CurrentVersion: 1.11.0
-CurrentVersionCode: 25
+CurrentVersion: 1.11.1
+CurrentVersionCode: 26
 
 MaintainerNotes: |-
   The public Open-Meteo server software is open source and self-hostable.
