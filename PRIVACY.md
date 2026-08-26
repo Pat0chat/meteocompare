@@ -20,7 +20,7 @@ Concrètement, cela signifie :
 
 - ❌ Pas de Google Analytics, Firebase, ou autre SDK d'analytics
 - ❌ Pas de Crashlytics ou autre crash reporting
-- ❌ Pas d'Advertising ID — la permission `AD_ID` est explicitement retirée du manifest
+- ❌ Pas d'Advertising ID : aucune dépendance de MeteoCompare ne déclare ou n'injecte la permission AD_ID dans le manifeste de l'application.
 - ❌ Pas de réseaux publicitaires (AdMob, etc.)
 - ❌ Pas de cookies (web ou natifs)
 - ❌ Pas de fingerprinting de l'appareil
@@ -28,7 +28,9 @@ Concrètement, cela signifie :
 
 ## 2. Données que nous partageons
 
-**Aucune.** Voir section 1.
+MeteoCompare ne partage aucune donnée à des fins publicitaires, analytiques ou de profilage.
+
+Pour fournir ses fonctionnalités météo, l'application transmet toutefois les paramètres nécessaires aux API Open-Meteo, comme détaillé ci-dessous.
 
 ## 3. Utilisation d'Open-Meteo (service tiers)
 

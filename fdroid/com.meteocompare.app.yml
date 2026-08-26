@@ -5,6 +5,7 @@ License: Apache-2.0
 
 AuthorName: Pat0chat
 
+WebSite: https://pat0chat.github.io/meteocompare/
 SourceCode: https://github.com/Pat0chat/meteocompare
 IssueTracker: https://github.com/Pat0chat/meteocompare/issues
 Changelog: https://github.com/Pat0chat/meteocompare/releases
@@ -20,9 +21,9 @@ RepoType: git
 Repo: https://github.com/Pat0chat/meteocompare.git
 
 Builds:
-  - versionName: 1.11.1
-    versionCode: 26
-    commit: v1.11.1
+  - versionName: 1.11.2
+    versionCode: 27
+    commit: 3327339dbdb495852e8342f1576731414a240cdf
     subdir: app
     gradle:
       - yes
@@ -30,8 +31,8 @@ Builds:
 AutoUpdateMode: Version
 UpdateCheckMode: 'Tags ^v[0-9]+\.[0-9]+\.[0-9]+$'
 
-CurrentVersion: 1.11.1
-CurrentVersionCode: 26
+CurrentVersion: 1.11.2
+CurrentVersionCode: 27
 
 MaintainerNotes: |-
   The public Open-Meteo server software is open source and self-hostable.
