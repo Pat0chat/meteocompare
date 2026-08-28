@@ -196,10 +196,10 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
-    // MockK 1.14.11 brings Byte Buddy 1.18.2 transitively. On JDK 25 that
-    // version still calls the terminally deprecated sun.misc.Unsafe API.
-    // 1.18.9 keeps MockK's API unchanged but selects Byte Buddy's JDK 25-safe
-    // class-injection path instead of merely hiding the JVM warning.
+    // MockK 1.14.11 brings Byte Buddy 1.18.2 transitively. We pin 1.18.9
+    // for newer-JDK compatibility. Some JDK 24+ / MockK injection paths still
+    // touch Unsafe; the forked unit-test task below explicitly enables that
+    // compatibility access so it does not pollute the build log.
     testImplementation(libs.byte.buddy)
     testImplementation(libs.byte.buddy.agent)
     testImplementation(libs.turbine)
@@ -222,4 +222,16 @@ tasks.matching {
             it.name == "lintAnalyzeDebugUnitTest"
 }.configureEach {
     dependsOn("hiltJavaCompileDebugAndroidTest")
+}
+
+// MockK/Byte Buddy still touches sun.misc.Unsafe on some JDK 24+ runtimes.
+// This is confined to the forked JVM unit-test process (never the app/runtime).
+// JDK 24 introduced the terminal-deprecation warning; `allow` keeps the legacy
+// access explicitly enabled until MockK no longer needs this injection path,
+// avoiding noisy warnings without changing production behavior.
+tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
+    val major = JavaVersion.current().majorVersion.toIntOrNull() ?: 17
+    if (major >= 24) {
+        jvmArgs("--sun-misc-unsafe-memory-access=allow")
+    }
 }

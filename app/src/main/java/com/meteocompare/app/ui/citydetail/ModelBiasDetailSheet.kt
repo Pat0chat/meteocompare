@@ -61,6 +61,7 @@ import kotlin.math.roundToInt
 
 
 internal const val TAG_MODEL_BIAS_DETAIL_SHEET = "model-bias-detail-sheet"
+internal const val TAG_MODEL_BIAS_HEADER = "model-bias-header"
 internal const val TAG_MODEL_BIAS_SCORE = "model-bias-score"
 
 /**
@@ -201,7 +202,8 @@ private fun BiasSheetHeader(
                 ),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.testTag(TAG_MODEL_BIAS_HEADER)
             )
         }
     }

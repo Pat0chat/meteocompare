@@ -1,8 +1,9 @@
 package com.meteocompare.app.ui.citydetail
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertTextEquals
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
@@ -121,7 +122,8 @@ class BiasPagesRenderTest {
         }
 
         composeRule.onNodeWithTag(TAG_MODEL_BIAS_DETAIL_SHEET).assertIsDisplayed()
-        composeRule.onNodeWithText(WeatherModel.GFS.displayName, substring = true)
+        composeRule.onNodeWithTag(TAG_MODEL_BIAS_HEADER)
+            .assertTextContains(WeatherModel.GFS.displayName)
             .assertIsDisplayed()
         composeRule.onNodeWithTag(TAG_MODEL_BIAS_SCORE)
             .assertTextEquals(selection.reliability.score.toString())

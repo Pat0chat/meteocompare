@@ -1,8 +1,10 @@
 package com.meteocompare.app.ui.citydetail
 
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performScrollTo
 import com.meteocompare.app.domain.model.MarineDaily
 import com.meteocompare.app.domain.model.MarineForecast
 import com.meteocompare.app.domain.model.MarineGrid
@@ -23,35 +25,57 @@ class MarineSectionRenderTest {
     fun loaded_dashboard_displays_modern_current_wave_and_tide_panels() {
         composeRule.setContent {
             MeteoCompareTheme {
-                MarineSection(
-                    state = MarineUiState.Loaded(forecast()),
-                    onRefresh = {}
-                )
+                LazyColumn {
+                    item {
+                        MarineSection(
+                            state = MarineUiState.Loaded(forecast()),
+                            onRefresh = {}
+                        )
+                    }
+                }
             }
         }
 
         composeRule.onNodeWithTag(TAG_MARINE_CURRENT_PANEL).assertIsDisplayed()
-        composeRule.onNodeWithTag(TAG_MARINE_WAVE_CHART).assertIsDisplayed()
-        composeRule.onNodeWithTag(TAG_MARINE_WAVE_AXES).assertIsDisplayed()
-        composeRule.onNodeWithTag(TAG_MARINE_TIDE_AXES).assertIsDisplayed()
-        composeRule.onNodeWithTag(TAG_MARINE_TIDE_PANEL).assertIsDisplayed()
+        composeRule.onNodeWithTag(TAG_MARINE_WAVE_CHART)
+            .performScrollTo()
+            .assertIsDisplayed()
+        composeRule.onNodeWithTag(TAG_MARINE_WAVE_AXES)
+            .performScrollTo()
+            .assertIsDisplayed()
+        composeRule.onNodeWithTag(TAG_MARINE_TIDE_AXES)
+            .performScrollTo()
+            .assertIsDisplayed()
+        composeRule.onNodeWithTag(TAG_MARINE_TIDE_PANEL)
+            .performScrollTo()
+            .assertIsDisplayed()
     }
 
     @Test
     fun loaded_dashboard_renders_in_dark_theme() {
         composeRule.setContent {
             MeteoCompareTheme(themePreference = ThemePreference.DARK, dynamicColor = false) {
-                MarineSection(
-                    state = MarineUiState.Loaded(forecast()),
-                    onRefresh = {}
-                )
+                LazyColumn {
+                    item {
+                        MarineSection(
+                            state = MarineUiState.Loaded(forecast()),
+                            onRefresh = {}
+                        )
+                    }
+                }
             }
         }
 
         composeRule.onNodeWithTag(TAG_MARINE_CURRENT_PANEL).assertIsDisplayed()
-        composeRule.onNodeWithTag(TAG_MARINE_WAVE_AXES).assertIsDisplayed()
-        composeRule.onNodeWithTag(TAG_MARINE_TIDE_AXES).assertIsDisplayed()
-        composeRule.onNodeWithTag(TAG_MARINE_TIDE_PANEL).assertIsDisplayed()
+        composeRule.onNodeWithTag(TAG_MARINE_WAVE_AXES)
+            .performScrollTo()
+            .assertIsDisplayed()
+        composeRule.onNodeWithTag(TAG_MARINE_TIDE_AXES)
+            .performScrollTo()
+            .assertIsDisplayed()
+        composeRule.onNodeWithTag(TAG_MARINE_TIDE_PANEL)
+            .performScrollTo()
+            .assertIsDisplayed()
     }
 
     private fun forecast(): MarineForecast {
