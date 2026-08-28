@@ -89,7 +89,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -111,11 +110,9 @@ import com.meteocompare.app.ui.components.WeatherMetric
 import com.meteocompare.app.ui.components.WeatherMetricLayout
 import com.meteocompare.app.ui.settings.DonationDialog
 import com.meteocompare.app.ui.theme.confidenceColor
-import com.meteocompare.app.ui.theme.MeteoCompareTheme
 import com.meteocompare.app.ui.theme.precipitationMetricAccent
 import com.meteocompare.app.ui.theme.temperatureMetricAccent
 import com.meteocompare.app.ui.theme.windMetricAccent
-import java.time.LocalDate
 import java.text.NumberFormat
 import kotlin.math.roundToInt
 
@@ -1362,68 +1359,3 @@ internal const val TAG_ADD_FAB = "add_fab"
 internal const val TAG_DONATE_BUTTON = "donate_button"
 internal const val TAG_HELP_BUTTON = "help_button"
 internal const val TAG_SETTINGS_BUTTON = "settings_button"
-
-// ─── Previews ────────────────────────────────────────────────────────────────
-
-@Preview(showBackground = true)
-@Composable
-private fun CityCardLoadedPreview() {
-    MeteoCompareTheme {
-        val sample = CityCardState(
-            city = City(
-                id = "1", name = "Paris", admin1 = "Île-de-France",
-                country = "France", latitude = 48.85, longitude = 2.35
-            ),
-            forecast = ForecastState.Loaded(
-                today = DayConfidence(
-                    date = LocalDate.now(),
-                    tempMax = ConfidenceScore(85, 21.0, 24.0, 22.5, 0.8, 5),
-                    tempMin = ConfidenceScore(78, 14.0, 17.0, 15.5, 1.0, 5),
-                    precipitation = PrecipitationConfidence.NoRain(100, 5, 0.0),
-                    windMax = ConfidenceScore(72, 12.0, 18.0, 15.0, 2.5, 5)
-                ),
-                currentTemp = 19.0,
-                currentCondition = WeatherCondition.PARTLY_CLOUDY,
-                // Preview des 4 nouvelles features — courbe de temp en cloche
-                // sur la journée, un peu de pluie en fin d'après-midi.
-                next12hTemps = listOf(19.0, 20.5, 22.0, 23.5, 24.0, 23.5,
-                    22.5, 21.0, 19.5, 18.0, 17.0, 16.5),
-                next12hPrecipProb = listOf(0, 0, 10, 20, 30, 40, 60, 50, 20, 5, 0, 0),
-                next12hPrecipMm = listOf(0.0, 0.0, 0.0, 0.0, 0.1, 0.3, 1.4, 0.8, 0.1, 0.0, 0.0, 0.0),
-                next12hConditions = listOf(
-                    WeatherCondition.PARTLY_CLOUDY, WeatherCondition.MAINLY_CLEAR,
-                    WeatherCondition.MAINLY_CLEAR, WeatherCondition.PARTLY_CLOUDY,
-                    WeatherCondition.OVERCAST, WeatherCondition.DRIZZLE,
-                    WeatherCondition.RAIN, WeatherCondition.RAIN_SHOWERS,
-                    WeatherCondition.PARTLY_CLOUDY, WeatherCondition.MAINLY_CLEAR,
-                    WeatherCondition.CLEAR, WeatherCondition.CLEAR
-                ),
-                hourlyStartTime = java.time.LocalDateTime.of(2026, 7, 14, 15, 0),
-                sunrise = java.time.LocalTime.of(6, 12),
-                sunset = java.time.LocalTime.of(21, 45)
-            )
-        )
-        Surface { CityCard(state = sample, onClick = {}, onRemove = {}, onRetry = {}) }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun CityCardLoadingPreview() {
-    MeteoCompareTheme {
-        val sample = CityCardState(
-            city = City(id = "1", name = "Paris", country = "France",
-                latitude = 48.85, longitude = 2.35),
-            forecast = ForecastState.Loading
-        )
-        Surface { CityCard(state = sample, onClick = {}, onRemove = {}, onRetry = {}) }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun EmptyStatePreview() {
-    MeteoCompareTheme {
-        Surface { EmptyState(onAddClick = {}) }
-    }
-}

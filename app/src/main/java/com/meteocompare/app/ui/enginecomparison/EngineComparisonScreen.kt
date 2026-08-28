@@ -121,7 +121,7 @@ fun EngineComparisonScreen(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun EngineComparisonContent(
+internal fun EngineComparisonContent(
     state: EngineComparisonUiState.Loaded,
     modifier: Modifier = Modifier
 ) {
