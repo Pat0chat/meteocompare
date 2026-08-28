@@ -5,6 +5,7 @@ import androidx.compose.animation.core.EaseOutCubic
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -119,16 +120,13 @@ internal fun BiasSparkline(
     val forecastColor = palette.foreground
     val envelopeColor = palette.foreground
     val observationColor = MaterialTheme.colorScheme.onSurfaceVariant
-    // Fond du container : composition "teinte de direction faible sur
-    // container thémé". La `palette.background` (rose/bleu très pâle) était
-    // codée en clair et donnait un gris quand elle passait à alpha 0.5 sur
-    // le sombre → grave problème d'identité visuelle en dark mode. Ici on
-    // part de `surfaceContainerHigh` (thémé automatiquement clair/sombre)
-    // et on ajoute juste 8% de la couleur foreground par-dessus. Le tint
-    // reste identifiable dans les deux modes sans jamais devenir gris.
+    // Surface tonale légère, alignée sur les autres panneaux de la page.
+    // La couleur du biais reste un accent et ne devient jamais le fond
+    // dominant, ce qui garde le graphe lisible en clair comme en sombre.
     val backgroundTint = palette.foreground
-        .copy(alpha = 0.10f)
-        .compositeOver(MaterialTheme.colorScheme.surfaceContainerHigh)
+        .copy(alpha = 0.055f)
+        .compositeOver(MaterialTheme.colorScheme.surfaceContainerLow)
+    val panelShape = RoundedCornerShape(14.dp)
 
     // ── État d'animation : 3 progressions indépendantes ──
     // Chacun remonte de 0 → 1 (obs et fcst = fraction de path visible via
@@ -156,15 +154,20 @@ internal fun BiasSparkline(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
+            .clip(panelShape)
             .background(backgroundTint)
-            .padding(horizontal = 12.dp, vertical = 10.dp)
+            .border(
+                width = 1.dp,
+                color = palette.foreground.copy(alpha = 0.14f),
+                shape = panelShape
+            )
+            .padding(horizontal = 14.dp, vertical = 12.dp)
     ) {
         // ── Canvas des courbes ──
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(110.dp)
+                .height(104.dp)
         ) {
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val paths = buildSparklinePaths(

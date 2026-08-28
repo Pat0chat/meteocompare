@@ -11,6 +11,7 @@ import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.BiasSample
 import com.meteocompare.app.domain.model.BiasVariable
 import com.meteocompare.app.domain.model.ModelBias
+import com.meteocompare.app.domain.model.ThemePreference
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.ui.theme.MeteoCompareTheme
 import java.time.LocalDate
@@ -98,6 +99,34 @@ class BiasPagesRenderTest {
         composeRule.onNodeWithText(formatBiasLabel(selection.bias)).assertIsDisplayed()
     }
 
+
+    @Test
+    fun variable_bias_page_renders_core_content_in_dark_theme() {
+        val state = variableState()
+        val selection = requireNotNull(
+            buildBiasSelection(
+                model = WeatherModel.GFS,
+                variable = BiasVariable.TEMPERATURE,
+                state = state
+            )
+        )
+
+        composeRule.setContent {
+            MeteoCompareTheme(
+                themePreference = ThemePreference.DARK,
+                dynamicColor = false
+            ) {
+                ModelBiasDetailSheet(selection = selection, onDismiss = {})
+            }
+        }
+
+        composeRule.onNodeWithTag(TAG_MODEL_BIAS_DETAIL_SHEET).assertIsDisplayed()
+        composeRule.onNodeWithText(WeatherModel.GFS.displayName, substring = true)
+            .assertIsDisplayed()
+        composeRule.onNodeWithTag(TAG_MODEL_BIAS_SCORE)
+            .assertTextEquals(selection.reliability.score.toString())
+            .assertIsDisplayed()
+    }
 
     @Test
     fun precipitation_page_displays_rain_diagnostics_and_mm_bias() {

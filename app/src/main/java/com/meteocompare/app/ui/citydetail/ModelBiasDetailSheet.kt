@@ -1,5 +1,6 @@
 package com.meteocompare.app.ui.citydetail
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -21,7 +22,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
@@ -53,6 +53,9 @@ import com.meteocompare.app.domain.model.ReliabilityLevel
 import com.meteocompare.app.domain.model.ReliabilityTrend
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.ui.theme.confidenceColor
+import com.meteocompare.app.ui.theme.precipitationMetricAccent
+import com.meteocompare.app.ui.theme.temperatureMetricAccent
+import com.meteocompare.app.ui.theme.windMetricAccent
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -87,41 +90,48 @@ internal fun ModelBiasDetailSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState
     ) {
+        val variableAccent = biasVariableAccent(selection.bias.variable)
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag(TAG_MODEL_BIAS_DETAIL_SHEET)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp)
+                .padding(horizontal = 16.dp)
                 .navigationBarsPadding()
                 .padding(bottom = 24.dp)
         ) {
-            SheetEyebrow(selection.model, selection.bias.variable, selection.bias.windowDays)
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = stringResource(R.string.bias_reliability_title),
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.SemiBold
+            BiasSheetHeader(
+                model = selection.model,
+                variable = selection.bias.variable,
+                windowDays = selection.bias.windowDays,
+                accent = variableAccent
             )
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(14.dp))
             ReliabilityHero(
                 selection = selection,
-                onOpenRanking = onOpenRanking
+                onOpenRanking = onOpenRanking,
+                variableAccent = variableAccent
             )
             Spacer(Modifier.height(10.dp))
-            ReliabilitySummary(selection)
+            ReliabilitySummary(selection, variableAccent)
 
-            SectionTitle(stringResource(R.string.bias_reliability_section_performance))
+            SectionTitle(
+                text = stringResource(R.string.bias_reliability_section_performance),
+                accent = variableAccent
+            )
             ReliabilityMetricsGrid(selection)
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(8.dp))
             RecentTrendCard(selection.reliability)
 
             selection.multiModelReliability?.let { baseline ->
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(8.dp))
                 MultiModelComparisonCard(selection.reliability, baseline)
             }
 
-            SectionTitle(stringResource(R.string.bias_reliability_section_history))
+            SectionTitle(
+                text = stringResource(R.string.bias_reliability_section_history),
+                accent = variableAccent
+            )
             BiasSparkline(
                 forecast = selection.dailyForecast,
                 observation = selection.dailyObservation,
@@ -131,136 +141,169 @@ internal fun ModelBiasDetailSheet(
             )
 
             selection.reliability.precipitation?.let { precipitation ->
-                SectionTitle(stringResource(R.string.bias_reliability_section_rain))
+                SectionTitle(
+                    text = stringResource(R.string.bias_reliability_section_rain),
+                    accent = variableAccent
+                )
                 PrecipitationDiagnosticsCard(precipitation)
             }
 
-            SectionTitle(stringResource(R.string.bias_reliability_section_bias))
+            SectionTitle(
+                text = stringResource(R.string.bias_reliability_section_bias),
+                accent = variableAccent
+            )
             BiasReadingCard(selection)
 
-            Spacer(Modifier.height(16.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(18.dp))
             Text(
                 text = stringResource(R.string.bias_reliability_method_note),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.65f))
+                    .padding(12.dp)
             )
         }
     }
 }
 
 @Composable
-private fun SheetEyebrow(model: WeatherModel, variable: BiasVariable, windowDays: Int) {
+private fun BiasSheetHeader(
+    model: WeatherModel,
+    variable: BiasVariable,
+    windowDays: Int,
+    accent: Color
+) {
     val variableLabel = stringResource(sheetVariableLabelResId(variable))
-    Text(
-        text = stringResource(
-            R.string.bias_sheet_eyebrow,
-            model.displayName,
-            variableLabel,
-            windowDays
-        ),
-        style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        fontWeight = FontWeight.Medium
-    )
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier
+                .size(width = 4.dp, height = 34.dp)
+                .clip(RoundedCornerShape(99.dp))
+                .background(accent)
+        )
+        Spacer(Modifier.width(10.dp))
+        Column {
+            Text(
+                text = stringResource(R.string.bias_reliability_title),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = stringResource(
+                    R.string.bias_sheet_eyebrow,
+                    model.displayName,
+                    variableLabel,
+                    windowDays
+                ),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.Medium
+            )
+        }
+    }
 }
 
 @Composable
 private fun ReliabilityHero(
     selection: BiasSelection,
-    onOpenRanking: ((WeatherModel, BiasVariable) -> Unit)?
+    onOpenRanking: ((WeatherModel, BiasVariable) -> Unit)?,
+    variableAccent: Color
 ) {
     val reliability = selection.reliability
-    val accent = reliabilityLevelAccent(reliability.level)
-    val container = accent.copy(alpha = 0.11f)
-        .compositeOver(MaterialTheme.colorScheme.surfaceContainerHigh)
+    val scoreAccent = reliabilityLevelAccent(reliability.level)
+    val container = variableAccent.copy(alpha = 0.055f)
+        .compositeOver(MaterialTheme.colorScheme.surfaceContainerLow)
     val openRankingDescription = stringResource(
         R.string.local_ranking_open_content_description
     )
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = container)
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = container),
+        border = BorderStroke(
+            1.dp,
+            variableAccent.copy(alpha = 0.18f)
+        )
     ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(6.dp)
-                    .background(accent)
-            )
-            Column(modifier = Modifier.padding(18.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 15.dp),
+            verticalArrangement = Arrangement.spacedBy(11.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.bias_reliability_local_index),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Row(verticalAlignment = Alignment.Bottom) {
                         Text(
-                            text = stringResource(R.string.bias_reliability_local_index),
+                            text = reliability.score.toString(),
+                            style = MaterialTheme.typography.headlineLarge,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
+                            modifier = Modifier.testTag(TAG_MODEL_BIAS_SCORE),
+                            color = scoreAccent
+                        )
+                        Text(
+                            text = stringResource(R.string.bias_reliability_score_suffix),
                             style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(Modifier.height(2.dp))
-                        Row(verticalAlignment = Alignment.Bottom) {
-                            Text(
-                                text = reliability.score.toString(),
-                                style = MaterialTheme.typography.displaySmall,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.testTag(TAG_MODEL_BIAS_SCORE),
-                                color = accent
-                            )
-                            Text(
-                                text = stringResource(R.string.bias_reliability_score_suffix),
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(bottom = 5.dp, start = 3.dp)
-                            )
-                        }
-                    }
-                    AccentBadge(
-                        text = stringResource(reliabilityLevelResId(reliability.level)),
-                        accent = accent
-                    )
-                }
-                Spacer(Modifier.height(12.dp))
-                ScoreBar(progress = reliability.score / 100f, accent = accent)
-                Spacer(Modifier.height(10.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    AccentBadge(
-                        text = stringResource(sheetVariableLabelResId(selection.bias.variable)),
-                        accent = MaterialTheme.colorScheme.secondary
-                    )
-                    selection.localRank?.let { rank ->
-                        AccentBadge(
-                            text = stringResource(
-                                R.string.bias_reliability_rank,
-                                rank.rank,
-                                rank.modelCount
-                            ),
-                            accent = accent,
-                            modifier = if (onOpenRanking != null) {
-                                Modifier
-                                    .semantics {
-                                        contentDescription = openRankingDescription
-                                    }
-                                    .clickable {
-                                        onOpenRanking(selection.model, selection.bias.variable)
-                                    }
-                            } else {
-                                Modifier
-                            }
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 5.dp, start = 4.dp)
                         )
                     }
                 }
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = stringResource(R.string.bias_reliability_score_explanation),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                AccentBadge(
+                    text = stringResource(reliabilityLevelResId(reliability.level)),
+                    accent = scoreAccent
                 )
             }
+            ScoreBar(progress = reliability.score / 100f, accent = scoreAccent)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                AccentBadge(
+                    text = stringResource(sheetVariableLabelResId(selection.bias.variable)),
+                    accent = variableAccent
+                )
+                selection.localRank?.let { rank ->
+                    AccentBadge(
+                        text = stringResource(
+                            R.string.bias_reliability_rank,
+                            rank.rank,
+                            rank.modelCount
+                        ),
+                        accent = scoreAccent,
+                        modifier = if (onOpenRanking != null) {
+                            Modifier
+                                .semantics {
+                                    contentDescription = openRankingDescription
+                                }
+                                .clickable {
+                                    onOpenRanking(selection.model, selection.bias.variable)
+                                }
+                        } else {
+                            Modifier
+                        }
+                    )
+                }
+            }
+            Text(
+                text = stringResource(R.string.bias_reliability_score_explanation),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -270,14 +313,14 @@ private fun ScoreBar(progress: Float, accent: Color) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(8.dp)
+            .height(6.dp)
             .clip(RoundedCornerShape(99.dp))
             .background(MaterialTheme.colorScheme.surfaceContainerHighest)
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth(progress.coerceIn(0f, 1f))
-                .height(8.dp)
+                .height(6.dp)
                 .clip(RoundedCornerShape(99.dp))
                 .background(accent)
         )
@@ -306,7 +349,7 @@ private fun AccentBadge(
 }
 
 @Composable
-private fun ReliabilitySummary(selection: BiasSelection) {
+private fun ReliabilitySummary(selection: BiasSelection, accent: Color) {
     val error = formatMeasure(selection.reliability.meanAbsoluteError, selection.bias.variable)
     val tailRes = when {
         selection.bias.significance == BiasSignificance.NOT_SIGNIFICANT ->
@@ -317,26 +360,51 @@ private fun ReliabilitySummary(selection: BiasSelection) {
             R.string.bias_reliability_summary_under
         else -> R.string.bias_reliability_summary_calibrated
     }
-    Text(
-        text = stringResource(
-            R.string.bias_reliability_summary,
-            selection.model.displayName,
-            error,
-            stringResource(tailRes)
-        ),
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurface
-    )
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.65f))
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .clip(RoundedCornerShape(99.dp))
+                .background(accent)
+        )
+        Spacer(Modifier.width(10.dp))
+        Text(
+            text = stringResource(
+                R.string.bias_reliability_summary,
+                selection.model.displayName,
+                error,
+                stringResource(tailRes)
+            ),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+    }
 }
 
 @Composable
-private fun SectionTitle(text: String) {
+private fun SectionTitle(text: String, accent: Color) {
     Spacer(Modifier.height(22.dp))
-    Text(
-        text = text,
-        style = MaterialTheme.typography.titleMedium,
-        fontWeight = FontWeight.SemiBold
-    )
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier
+                .size(width = 3.dp, height = 18.dp)
+                .clip(RoundedCornerShape(99.dp))
+                .background(accent.copy(alpha = 0.88f))
+        )
+        Spacer(Modifier.width(9.dp))
+        Text(
+            text = text,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold
+        )
+    }
     Spacer(Modifier.height(10.dp))
 }
 
@@ -420,50 +488,44 @@ private fun ReliabilityMetricCard(
     modifier: Modifier = Modifier,
     emphasized: Boolean = false
 ) {
-    val container = accent.copy(alpha = 0.10f)
+    val container = accent.copy(alpha = if (emphasized) 0.075f else 0.045f)
         .compositeOver(MaterialTheme.colorScheme.surfaceContainerLow)
     Card(
         modifier = modifier.fillMaxHeight(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = container)
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = container),
+        border = BorderStroke(1.dp, accent.copy(alpha = 0.14f))
     ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(4.dp)
-                    .background(accent)
-            )
-            Column(modifier = Modifier.padding(14.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .clip(RoundedCornerShape(99.dp))
-                            .background(accent)
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = label,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = value,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = if (emphasized) FontWeight.Bold else FontWeight.SemiBold,
-                    color = if (emphasized) accent else MaterialTheme.colorScheme.onSurface
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(7.dp)
+                        .clip(RoundedCornerShape(99.dp))
+                        .background(accent)
                 )
-                Spacer(Modifier.height(5.dp))
+                Spacer(Modifier.width(7.dp))
                 Text(
-                    text = supporting,
-                    style = MaterialTheme.typography.bodySmall,
+                    text = label,
+                    style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleLarge,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = if (emphasized) FontWeight.Bold else FontWeight.SemiBold,
+                color = accent
+            )
+            Text(
+                text = supporting,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -471,51 +533,53 @@ private fun ReliabilityMetricCard(
 @Composable
 private fun RecentTrendCard(reliability: ModelReliability) {
     val accent = trendAccent(reliability.trend)
-    val container = accent.copy(alpha = 0.10f)
+    val container = accent.copy(alpha = 0.045f)
         .compositeOver(MaterialTheme.colorScheme.surfaceContainerLow)
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = container)
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = container),
+        border = BorderStroke(1.dp, accent.copy(alpha = 0.14f))
     ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(4.dp)
+                    .size(9.dp)
+                    .clip(RoundedCornerShape(99.dp))
                     .background(accent)
             )
-            Row(
-                modifier = Modifier.padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.bias_reliability_recent_trend),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(Modifier.height(5.dp))
-                    AccentBadge(
-                        text = stringResource(reliabilityTrendResId(reliability.trend)),
-                        accent = accent
-                    )
-                }
-                val recentError = reliability.recentMeanAbsoluteError
-                val previousError = reliability.previousMeanAbsoluteError
-                if (recentError != null && previousError != null) {
-                    Text(
-                        text = stringResource(
-                            R.string.bias_reliability_trend_values,
-                            formatMeasure(previousError, reliability.variable),
-                            formatMeasure(recentError, reliability.variable)
-                        ),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontFamily = FontFamily.Monospace
-                    )
-                }
+            Spacer(Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.bias_reliability_recent_trend),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(5.dp))
+                Text(
+                    text = stringResource(reliabilityTrendResId(reliability.trend)),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = accent,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            val recentError = reliability.recentMeanAbsoluteError
+            val previousError = reliability.previousMeanAbsoluteError
+            if (recentError != null && previousError != null) {
+                Text(
+                    text = stringResource(
+                        R.string.bias_reliability_trend_values,
+                        formatMeasure(previousError, reliability.variable),
+                        formatMeasure(recentError, reliability.variable)
+                    ),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontFamily = FontFamily.Monospace
+                )
             }
         }
     }
@@ -549,30 +613,40 @@ private fun MultiModelComparisonCard(
         deltaPercent < 0.0 -> confidenceColor(90)
         else -> MaterialTheme.colorScheme.error
     }
-    val container = accent.copy(alpha = 0.10f)
+    val container = accent.copy(alpha = 0.045f)
         .compositeOver(MaterialTheme.colorScheme.surfaceContainerLow)
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = container)
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = container),
+        border = BorderStroke(1.dp, accent.copy(alpha = 0.14f))
     ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(4.dp)
+                    .size(9.dp)
+                    .clip(RoundedCornerShape(99.dp))
                     .background(accent)
             )
-            Column(modifier = Modifier.padding(14.dp)) {
+            Spacer(Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = stringResource(R.string.bias_reliability_baseline_title),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(Modifier.height(6.dp))
-                AccentBadge(text = comparisonText, accent = accent)
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = comparisonText,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = accent,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(Modifier.height(3.dp))
                 Text(
                     text = stringResource(
                         R.string.bias_reliability_baseline_values,
@@ -600,10 +674,11 @@ private fun PrecipitationDiagnosticsCard(stats: PrecipitationReliability) {
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-        )
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f))
     ) {
         Column(
             modifier = Modifier.padding(14.dp),
@@ -690,42 +765,44 @@ private fun RainMetricCard(
     accent: Color,
     modifier: Modifier = Modifier
 ) {
-    val container = accent.copy(alpha = 0.10f)
+    val container = accent.copy(alpha = 0.045f)
         .compositeOver(MaterialTheme.colorScheme.surfaceContainerHigh)
     Card(
         modifier = modifier.fillMaxHeight(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = container)
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = container),
+        border = BorderStroke(1.dp, accent.copy(alpha = 0.13f))
     ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(4.dp)
-                    .background(accent)
-            )
-            Column(
-                modifier = Modifier.padding(14.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(7.dp)
+                        .clip(RoundedCornerShape(99.dp))
+                        .background(accent)
+                )
+                Spacer(Modifier.width(7.dp))
                 Text(
                     text = label,
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Text(
-                    text = value,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold,
-                    color = accent
-                )
-                Text(
-                    text = supporting,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleLarge,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Bold,
+                color = accent
+            )
+            Text(
+                text = supporting,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -737,12 +814,13 @@ private fun BiasReadingCard(selection: BiasSelection) {
     val closeAccent = confidenceColor((selection.reliability.closeRate * 100).roundToInt())
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-        )
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f))
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(15.dp)) {
             SheetBiasTitle(selection.bias)
             Spacer(Modifier.height(10.dp))
             DirectionBalanceBar(
@@ -908,6 +986,13 @@ private fun BiasExplainer(selection: BiasSelection) {
         text = "$opener ${stringResource(explainerStabilityResId(selection.bias.significance))}",
         style = MaterialTheme.typography.bodyMedium
     )
+}
+
+@Composable
+private fun biasVariableAccent(variable: BiasVariable): Color = when (variable) {
+    BiasVariable.TEMPERATURE -> temperatureMetricAccent()
+    BiasVariable.PRECIPITATION -> precipitationMetricAccent()
+    BiasVariable.WIND_SPEED -> windMetricAccent()
 }
 
 @Composable
