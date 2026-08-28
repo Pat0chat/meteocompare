@@ -624,6 +624,7 @@ datos</string>
     <string name="marine_error">No se pueden cargar los datos marinos: %1$s</string>
     <string name="marine_title">Mar / costa</string>
     <string name="marine_intro">Olas, mar de fondo, mar y mareas</string>
+    <string name="marine_current_conditions">Condiciones actuales</string>
     <string name="marine_distance">Datos marinos a %1$.1f km</string>
     <string name="marine_loading">Cargando…</string>
     <string name="marine_wave_height">Altura ola</string>

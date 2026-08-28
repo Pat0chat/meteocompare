@@ -620,6 +620,7 @@ Daten</string>
     <string name="marine_error">Meeresdaten konnten nicht geladen werden: %1$s</string>
     <string name="marine_title">Meer / Küste</string>
     <string name="marine_intro">Wellen, Dünung, Meer &amp; Gezeiten</string>
+    <string name="marine_current_conditions">Aktuelle Bedingungen</string>
     <string name="marine_distance">Meeresdaten in %1$.1f km</string>
     <string name="marine_loading">Wird geladen…</string>
     <string name="marine_wave_height">Wellenhöhe</string>

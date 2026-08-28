@@ -687,6 +687,7 @@
     <string name="marine_error">Unable to load marine data: %1$s</string>
     <string name="marine_title">Sea / coast</string>
     <string name="marine_intro">Waves, swell, sea &amp; tides</string>
+    <string name="marine_current_conditions">Current conditions</string>
     <string name="marine_distance">Marine data %1$.1f km away</string>
     <string name="marine_loading">Loading…</string>
     <string name="marine_wave_height">Wave ht.</string>

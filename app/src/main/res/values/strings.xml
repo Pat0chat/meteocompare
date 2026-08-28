@@ -682,6 +682,7 @@
     <string name="marine_error">Impossible de charger les données marines : %1$s</string>
     <string name="marine_title">Mer / côte</string>
     <string name="marine_intro">Vagues, houle, mer et marées</string>
+    <string name="marine_current_conditions">Conditions actuelles</string>
     <string name="marine_distance">Données marines à %1$.1f km</string>
     <string name="marine_loading">Chargement…</string>
     <string name="marine_wave_height">Hauteur vagues</string>
