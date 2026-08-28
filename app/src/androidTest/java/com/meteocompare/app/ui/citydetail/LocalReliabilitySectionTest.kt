@@ -45,7 +45,7 @@ class LocalReliabilitySectionTest {
         }
 
         composeRule.onNodeWithTag(TAG_LOCAL_RELIABILITY_CARD).assertIsDisplayed()
-        composeRule.onNodeWithText("ECMWF").assertIsDisplayed()
+        composeRule.onNodeWithText(WeatherModel.ECMWF.displayName).assertIsDisplayed()
         composeRule.onNodeWithText("GFS").performClick()
 
         assertEquals(BiasVariable.PRECIPITATION, opened)
@@ -77,7 +77,7 @@ class LocalReliabilitySectionTest {
         composeRule.onNodeWithTag(TAG_LOCAL_RELIABILITY_DETAILS).assertIsDisplayed()
         composeRule.onNodeWithTag(TAG_LOCAL_RELIABILITY_HEADER).performClick()
         composeRule.onNodeWithTag(TAG_LOCAL_RELIABILITY_DETAILS).assertDoesNotExist()
-        composeRule.onNodeWithText("ECMWF").assertIsDisplayed()
+        composeRule.onNodeWithText(WeatherModel.ECMWF.displayName).assertIsDisplayed()
     }
 
     private fun rankings(): LocalModelRankings = buildLocalModelRankings(

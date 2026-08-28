@@ -206,9 +206,12 @@ class WidgetForecastSelectionTest {
             forecastConfidence = confidence
         )
 
-        // La convergence globale Consensus v2 inclut aussi la condition météo,
-        // comme la version web de référence, en plus de température/pluie/vent.
-        assertEquals(listOf(95, 90, 85, 80, 83), items.map { it.forecastConfidencePct })
+        // Depuis la hiérarchie WMO native -> variables centrales, une condition
+        // dérivée de température/pluie/nébulosité ne fabrique plus un faux
+        // pourcentage de consensus catégoriel. La convergence globale reste donc
+        // calculée ici sur les trois métriques réellement mesurables :
+        // température, précipitations et vent.
+        assertEquals(listOf(93, 87, 80, 73, 77), items.map { it.forecastConfidencePct })
     }
 
     @Test

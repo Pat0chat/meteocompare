@@ -227,4 +227,25 @@ class WeatherConditionConsensusTest {
         assertEquals(openSky.percent, coveredSky.percent)
         assertEquals(25, openSky.percent)
     }
+
+    @Test
+    fun `condition derivee des variables centrales ne fabrique pas de convergence WMO`() {
+        val result = WeatherConditionConsensus.resolveAggregate(
+            nativeEntries = emptyList(),
+            temperatureCentralC = 20.0,
+            precipitationCentralMm = 0.5,
+            cloudCoverPercent = null,
+            supportModels = listOf(WeatherModel.GFS, WeatherModel.ICON_EU)
+        )
+
+        assertEquals(WeatherCondition.DRIZZLE, result.vote.value)
+        assertEquals(null, result.vote.percent)
+        assertEquals(2, result.vote.modelCount)
+        assertEquals(2, result.vote.familyCount)
+        assertEquals(
+            WeatherConditionConsensus.AggregateSource.AGGREGATED_VARIABLES,
+            result.source
+        )
+    }
+
 }
