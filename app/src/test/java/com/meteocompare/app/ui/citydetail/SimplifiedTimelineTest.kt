@@ -105,6 +105,38 @@ class SimplifiedTimelineTest {
     }
 
     @Test
+    fun `hourly timeline does not let inferred conditions overturn native WMO families`() {
+        fun hourly(model: WeatherModel, code: Int?, precip: Double, cloud: Int) = ForecastSeries(
+            model = model,
+            hourly = HourlyForecast(
+                timestamps = listOf(now),
+                temperature2m = listOf(18.0),
+                precipitation = listOf(precip),
+                windSpeed10m = listOf(10.0),
+                weatherCode = listOf(code),
+                precipitationProbability = listOf(if (precip > 0.1) 80 else 0),
+                cloudCover = listOf(cloud)
+            ),
+            daily = DailyForecast(emptyList(), emptyList(), emptyList(), emptyList(), emptyList())
+        )
+        val forecast = CityForecast(
+            city = paris,
+            seriesByModel = linkedMapOf(
+                WeatherModel.GFS to hourly(WeatherModel.GFS, 61, 2.0, 95),
+                WeatherModel.ECMWF to hourly(WeatherModel.ECMWF, 61, 2.0, 95),
+                WeatherModel.ICON_GLOBAL to hourly(WeatherModel.ICON_GLOBAL, null, 0.0, 10),
+                WeatherModel.UKMO_GLOBAL to hourly(WeatherModel.UKMO_GLOBAL, null, 0.0, 10),
+                WeatherModel.GEM_GLOBAL to hourly(WeatherModel.GEM_GLOBAL, null, 0.0, 10)
+            )
+        )
+
+        val point = buildSimplifiedTimeline(forecast, DisplayMode.HOURLY, now).single()
+
+        assertEquals(WeatherCondition.RAIN, point.condition)
+        assertEquals(2, point.conditionModelCount)
+    }
+
+    @Test
     fun `one isolated probability is mixed with deterministic occurrence`() {
         val forecast = CityForecast(
             city = paris,

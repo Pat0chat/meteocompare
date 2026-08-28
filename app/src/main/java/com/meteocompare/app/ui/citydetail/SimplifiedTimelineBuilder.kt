@@ -196,7 +196,8 @@ private data class TimelineSnapshot(
     val cloudCover: Int?,
     val wind: Double?,
     val windGust: Double?,
-    val condition: WeatherCondition?
+    val condition: WeatherCondition?,
+    val nativeCondition: WeatherCondition? = null
 ) {
     val hasAnyValue: Boolean
         get() = temperature != null || tempMin != null || tempMax != null ||
@@ -213,7 +214,9 @@ private fun indexHourlySnapshots(model: WeatherModel, series: ForecastSeries): M
         val cloudCover = series.hourly.cloudCover.getOrNull(index)
         val wind = series.hourly.windSpeed10m.getOrNull(index)
         val windGust = series.hourly.windGusts10m.getOrNull(index)
-        val condition = series.resolveHourlyCondition(index)
+        val nativeCondition = WeatherCondition.fromWmoCode(series.hourly.weatherCode.getOrNull(index))
+            ?.takeUnless { it == WeatherCondition.UNKNOWN }
+        val condition = nativeCondition ?: series.resolveHourlyCondition(index)
         val snapshot = TimelineSnapshot(
             model = model,
             temperature = temperature,
@@ -224,7 +227,8 @@ private fun indexHourlySnapshots(model: WeatherModel, series: ForecastSeries): M
             cloudCover = cloudCover,
             wind = wind,
             windGust = windGust,
-            condition = condition
+            condition = condition,
+            nativeCondition = nativeCondition
         )
         if (snapshot.hasAnyValue) put(timestamp, snapshot)
     }
@@ -243,7 +247,9 @@ private fun indexDailySnapshots(
         val cloudCover = series.dailyCloudCoverMean(date, zone)
         val wind = series.daily.windSpeedMax.getOrNull(index)
         val windGust = series.daily.windGustsMax.getOrNull(index)
-        val condition = series.resolveDailyCondition(date, zone)?.condition
+        val nativeCondition = WeatherCondition.fromWmoCode(series.daily.weatherCode.getOrNull(index))
+            ?.takeUnless { it == WeatherCondition.UNKNOWN }
+        val condition = nativeCondition ?: series.resolveDailyCondition(date, zone)?.condition
         val snapshot = TimelineSnapshot(
             model = model,
             temperature = null,
@@ -254,7 +260,8 @@ private fun indexDailySnapshots(
             cloudCover = cloudCover,
             wind = wind,
             windGust = windGust,
-            condition = condition
+            condition = condition,
+            nativeCondition = nativeCondition
         )
         if (snapshot.hasAnyValue) put(date, snapshot)
     }
@@ -349,13 +356,21 @@ private fun timelinePoint(
             amountWide = if (hourly) 4.0 else 8.0
         )
     )
-    val conditionConsensus = WeatherConditionConsensus.resolve(
-        entries = meaningful.mapNotNull { snap ->
-            snap.condition?.takeUnless { it == WeatherCondition.UNKNOWN }
-                ?.let { ForecastConsensus.Entry(snap.model, it) }
+    val conditionResolution = WeatherConditionConsensus.resolveAggregate(
+        nativeEntries = meaningful.mapNotNull { snap ->
+            snap.nativeCondition?.let { ForecastConsensus.Entry(snap.model, it) }
         },
-        cloudCoverPercent = cloud.forecastValue.central
+        temperatureCentralC = if (hourly) {
+            temp.forecastValue.central
+        } else {
+            tempMin?.forecastValue?.central ?: temp.forecastValue.central
+        },
+        precipitationCentralMm = precipitationForecast.centralAmountMm,
+        cloudCoverPercent = cloud.forecastValue.central,
+        supportModels = meaningful.map { it.model },
+        localWeights = emptyMap()
     )
+    val conditionConsensus = conditionResolution.vote
 
     fun metricLevel(score: Int): ModelConsensusLevel = when {
         score >= 75 -> ModelConsensusLevel.HIGH

@@ -51,16 +51,22 @@ object WeatherScenarioBuilder {
             )
 
         if (grouped.size <= maxScenarios) return grouped
-        if (maxScenarios == 1) return listOf(modelSummaries.toOtherScenario(totalModelCount, totalFamilyCount, familyWeights, totalVoteWeight))
 
-        // On conserve les scénarios les plus soutenus et on regroupe les
-        // variantes minoritaires dans une ligne explicite plutôt que de les
-        // supprimer silencieusement.
-        val keptCount = maxScenarios - 1
-        val keptKeys = grouped.take(keptCount).map { ScenarioKey(it.kind, it.timing) }.toSet()
-        val remainder = modelSummaries.filter { ScenarioKey(it.kind, it.timing) !in keptKeys }
-
-        return grouped.take(keptCount) + remainder.toOtherScenario(totalModelCount, totalFamilyCount, familyWeights, totalVoteWeight)
+        // Ne jamais fabriquer un pseudo-scénario OTHER à partir de groupes
+        // météorologiquement incompatibles : ses min/max (pluie, température,
+        // rafales) n'auraient aucune signification. On affiche uniquement de
+        // vrais groupes cohérents et on expose séparément le nombre de variantes
+        // masquées pour que l'UI puisse le signaler sans agréger leurs métriques.
+        val displayed = grouped.take(maxScenarios)
+        val hidden = grouped.drop(maxScenarios)
+        val hiddenVariantCount = hidden.size
+        val hiddenModelCount = hidden.sumOf { it.modelCount }
+        return displayed.map { scenario ->
+            scenario.copy(
+                hiddenVariantCount = hiddenVariantCount,
+                hiddenModelCount = hiddenModelCount
+            )
+        }
     }
 
     private fun summarizeModel(model: WeatherModel, series: ForecastSeries, startInstant: Instant): ModelScenario? {
@@ -203,29 +209,6 @@ object WeatherScenarioBuilder {
     ): WeatherScenario = WeatherScenario(
         kind = key.kind,
         timing = key.timing,
-        modelCount = size,
-        totalModelCount = totalModelCount,
-        voteSharePercent = (sumOf { weights[it.model] ?: 0.0 } * 100.0 / totalVoteWeight).roundToInt(),
-        familyCount = map { ForecastConsensus.groupFor(it.model) }.distinct().size,
-        totalFamilyCount = totalFamilyCount,
-        temperatureMinC = mapNotNull { it.temperatureMinC }.minOrNull(),
-        temperatureMaxC = mapNotNull { it.temperatureMaxC }.maxOrNull(),
-        precipitationMinMm = mapNotNull { it.precipitationTotalMm }.minOrNull(),
-        precipitationMaxMm = mapNotNull { it.precipitationTotalMm }.maxOrNull(),
-        cloudCoverMinPercent = mapNotNull { it.cloudCoverMedianPercent }.minOrNull(),
-        cloudCoverMaxPercent = mapNotNull { it.cloudCoverMedianPercent }.maxOrNull(),
-        gustMinKmh = mapNotNull { it.gustMaxKmh }.minOrNull(),
-        gustMaxKmh = mapNotNull { it.gustMaxKmh }.maxOrNull()
-    )
-
-    private fun List<ModelScenario>.toOtherScenario(
-        totalModelCount: Int,
-        totalFamilyCount: Int,
-        weights: Map<WeatherModel, Double>,
-        totalVoteWeight: Double
-    ): WeatherScenario = WeatherScenario(
-        kind = WeatherScenarioKind.OTHER,
-        timing = WeatherScenarioTiming.NONE,
         modelCount = size,
         totalModelCount = totalModelCount,
         voteSharePercent = (sumOf { weights[it.model] ?: 0.0 } * 100.0 / totalVoteWeight).roundToInt(),

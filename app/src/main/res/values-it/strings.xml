@@ -737,7 +737,7 @@ dato</string>
     <string name="help_variable_humidity">Umidità</string>
     <string name="help_variable_cloud_cover">Nuvolosità</string>
     <string name="help_section_3_title">Condizioni meteo</string>
-    <string name="help_section_3_body">La condizione mostrata deriva da un consenso gerarchico: prima la grande famiglia del tempo, poi un affinamento all’interno di quella famiglia.</string>
+    <string name="help_section_3_body">La condizione mostrata dà priorità ai codici meteo WMO nativi: quando sono disponibili da almeno due famiglie di modelli indipendenti, solo questi codici partecipano al consenso. In caso contrario, viene derivata un’unica condizione dai valori centrali di precipitazioni, temperatura e nuvolosità.</string>
     <string name="help_hierarchical_dry">Senza precipitazioni</string>
     <string name="help_hierarchical_dry_body">Il motore distingue poi tra sereno, poco nuvoloso, parzialmente nuvoloso, coperto o nebbia a partire dai segnali disponibili.</string>
     <string name="help_hierarchical_precip">Precipitazioni</string>
@@ -764,4 +764,8 @@ dato</string>
     <string name="help_footer_note">MeteoCompare è uno strumento di supporto all’analisi meteo. Evidenzia convergenze e divergenze tra modelli, ma non sostituisce l’esperienza umana.</string>
 
     <string name="help_engines_compute_variables">Questi motori calcolano poi le variabili</string>
+    <plurals name="home_scenario_hidden_variants">
+        <item quantity="one">+ %1$d altra variante non mostrata · %2$d/%3$d modelli</item>
+        <item quantity="other">+ %1$d altre varianti non mostrate · %2$d/%3$d modelli</item>
+    </plurals>
 </resources>

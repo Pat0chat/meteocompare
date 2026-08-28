@@ -35,6 +35,93 @@ import com.meteocompare.app.domain.model.WeatherModel
  */
 object WeatherConditionConsensus {
 
+    /** Provenance de la condition centrale agrégée. */
+    enum class AggregateSource {
+        NATIVE_WMO_CONSENSUS,
+        AGGREGATED_VARIABLES,
+        SINGLE_NATIVE_WMO,
+        NONE
+    }
+
+    data class AggregateResolution(
+        val vote: ForecastConsensus.Vote<WeatherCondition>,
+        val source: AggregateSource
+    )
+
+    /**
+     * Hiérarchie de production pour une condition centrale multi-modèles.
+     *
+     * 1. Dès que deux familles indépendantes fournissent un WMO natif, seules
+     *    ces observations catégorielles participent au consensus. Les fallbacks
+     *    d'autres modèles ne peuvent donc pas renverser ce signal.
+     * 2. Si la couverture WMO native est insuffisante, on déduit UNE condition
+     *    depuis les variables centrales déjà calculées par le moteur (pluie,
+     *    température, nébulosité), au lieu de voter sur plusieurs heuristiques.
+     * 3. Si les variables centrales sont elles-mêmes insuffisantes, un WMO natif
+     *    isolé reste utilisable, sans pourcentage de consensus inter-familles.
+     */
+    fun resolveAggregate(
+        nativeEntries: List<ForecastConsensus.Entry<WeatherCondition>>,
+        temperatureCentralC: Double?,
+        precipitationCentralMm: Double?,
+        cloudCoverPercent: Double?,
+        supportModels: Collection<WeatherModel>,
+        localWeights: Map<WeatherModel, Double> = emptyMap()
+    ): AggregateResolution {
+        val native = nativeEntries.filter { it.value != WeatherCondition.UNKNOWN }
+        val nativeFamilyCount = native.map { ForecastConsensus.groupFor(it.model) }.distinct().size
+        val supportingModels = supportModels.distinct()
+
+        if (native.size == 1 && supportingModels.size == 1 && native.single().model == supportingModels.single()) {
+            return AggregateResolution(
+                vote = resolve(native, cloudCoverPercent = null, localWeights = localWeights),
+                source = AggregateSource.SINGLE_NATIVE_WMO
+            )
+        }
+
+        if (nativeFamilyCount >= 2) {
+            // Consensus strictement fondé sur les codes WMO natifs. La
+            // nébulosité de modèles sans WMO ne doit pas modifier sa feuille.
+            return AggregateResolution(
+                vote = resolve(native, cloudCoverPercent = null, localWeights = localWeights),
+                source = AggregateSource.NATIVE_WMO_CONSENSUS
+            )
+        }
+
+        val derived = WeatherCondition.inferFromPrecipAndTemp(
+            precipMm = precipitationCentralMm,
+            tempMinC = temperatureCentralC
+        ) ?: cloudCoverPercent
+            ?.takeIf { it.isFinite() && it in 0.0..100.0 }
+            ?.let(WeatherCondition::fromCloudCover)
+
+        if (derived != null) {
+            val models = supportingModels
+            val families = models.map(ForecastConsensus::groupFor).distinct().size
+            return AggregateResolution(
+                vote = ForecastConsensus.Vote(
+                    value = derived,
+                    percent = null,
+                    modelCount = models.size,
+                    familyCount = families
+                ),
+                source = AggregateSource.AGGREGATED_VARIABLES
+            )
+        }
+
+        if (native.isNotEmpty()) {
+            return AggregateResolution(
+                vote = resolve(native, cloudCoverPercent = null, localWeights = localWeights),
+                source = AggregateSource.SINGLE_NATIVE_WMO
+            )
+        }
+
+        return AggregateResolution(
+            vote = ForecastConsensus.Vote(null, null, 0, 0),
+            source = AggregateSource.NONE
+        )
+    }
+
     /**
      * Résout la condition centrale avec équilibrage par lignée à chaque niveau.
      *

@@ -800,7 +800,7 @@
     <string name="help_variable_humidity">Humidity</string>
     <string name="help_variable_cloud_cover">Cloud cover</string>
     <string name="help_section_3_title">Weather conditions</string>
-    <string name="help_section_3_body">The displayed condition comes from a hierarchical consensus: first the main weather family, then a refinement inside that family.</string>
+    <string name="help_section_3_body">The displayed condition prioritizes native WMO weather codes: when at least two independent model families provide them, only those codes enter the consensus. Otherwise, one condition is derived from the central precipitation, temperature, and cloud-cover values.</string>
     <string name="help_hierarchical_dry">No precipitation</string>
     <string name="help_hierarchical_dry_body">The engine then distinguishes clear, mainly clear, partly cloudy, overcast, or foggy conditions from the available signals.</string>
     <string name="help_hierarchical_precip">Precipitation</string>
@@ -827,4 +827,8 @@
     <string name="help_footer_note">MeteoCompare is a weather-analysis support tool. It highlights convergence and divergence between models, but it does not replace human expertise.</string>
 
     <string name="help_engines_compute_variables">These engines then compute the variables</string>
+    <plurals name="home_scenario_hidden_variants">
+        <item quantity="one">+ %1$d other variant not shown · %2$d/%3$d models</item>
+        <item quantity="other">+ %1$d other variants not shown · %2$d/%3$d models</item>
+    </plurals>
 </resources>

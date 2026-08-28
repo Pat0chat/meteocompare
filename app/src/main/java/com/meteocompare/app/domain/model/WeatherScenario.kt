@@ -21,7 +21,11 @@ data class WeatherScenario(
     /** Soutien après équilibrage des lignées ; ce n'est pas une probabilité météo. */
     val voteSharePercent: Int? = null,
     val familyCount: Int = 0,
-    val totalFamilyCount: Int = 0
+    val totalFamilyCount: Int = 0,
+    /** Nombre de groupes cohérents supplémentaires non affichés. */
+    val hiddenVariantCount: Int = 0,
+    /** Nombre de modèles appartenant aux variantes cohérentes non affichées. */
+    val hiddenModelCount: Int = 0
 )
 
 enum class WeatherScenarioKind {

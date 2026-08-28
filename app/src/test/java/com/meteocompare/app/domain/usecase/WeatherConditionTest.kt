@@ -193,6 +193,37 @@ class WeatherConditionTest {
     }
 
     @Test
+    fun `currentWeatherCondition protege le consensus WMO natif contre les fallbacks`() {
+        val now = Instant.parse("2026-08-17T10:00:00Z")
+
+        fun series(model: WeatherModel, code: Int?, precip: Double, cloud: Int): ForecastSeries = ForecastSeries(
+            model = model,
+            hourly = HourlyForecast(
+                timestamps = listOf(now),
+                temperature2m = listOf(18.0),
+                precipitation = listOf(precip),
+                windSpeed10m = listOf(8.0),
+                weatherCode = listOf(code),
+                cloudCover = listOf(cloud)
+            ),
+            daily = emptyDaily()
+        )
+
+        val forecast = CityForecast(
+            paris,
+            linkedMapOf(
+                WeatherModel.GFS to series(WeatherModel.GFS, 61, 2.0, 95),
+                WeatherModel.ECMWF to series(WeatherModel.ECMWF, 61, 2.0, 95),
+                WeatherModel.ICON_GLOBAL to series(WeatherModel.ICON_GLOBAL, null, 0.0, 10),
+                WeatherModel.UKMO_GLOBAL to series(WeatherModel.UKMO_GLOBAL, null, 0.0, 10),
+                WeatherModel.GEM_GLOBAL to series(WeatherModel.GEM_GLOBAL, null, 0.0, 10)
+            )
+        )
+
+        assertEquals(WeatherCondition.RAIN, calculator.currentWeatherCondition(forecast, now))
+    }
+
+    @Test
     fun `currentWeatherCondition infere AROME HD depuis cloud cover si weather code absent`() {
         val now = Instant.parse("2026-08-17T10:00:00Z")
         val arome = ForecastSeries(

@@ -733,7 +733,7 @@ Daten</string>
     <string name="help_variable_humidity">Luftfeuchtigkeit</string>
     <string name="help_variable_cloud_cover">Bewölkung</string>
     <string name="help_section_3_title">Wetterzustände</string>
-    <string name="help_section_3_body">Der angezeigte Zustand stammt aus einem hierarchischen Konsens: zuerst die große Wetterfamilie, dann eine Verfeinerung innerhalb dieser Familie.</string>
+    <string name="help_section_3_body">Die angezeigte Wetterlage bevorzugt native WMO-Wettercodes: Liegen sie aus mindestens zwei unabhängigen Modellfamilien vor, gehen nur diese Codes in den Konsens ein. Andernfalls wird eine einzige Wetterlage aus den zentralen Werten für Niederschlag, Temperatur und Bewölkung abgeleitet.</string>
     <string name="help_hierarchical_dry">Ohne Niederschlag</string>
     <string name="help_hierarchical_dry_body">Danach unterscheidet der Motor anhand der verfügbaren Signale zwischen klar, überwiegend klar, teilweise bewölkt, bedeckt oder Nebel.</string>
     <string name="help_hierarchical_precip">Niederschlag</string>
@@ -760,4 +760,8 @@ Daten</string>
     <string name="help_footer_note">MeteoCompare ist ein Hilfsmittel für die Wetteranalyse. Es hebt Konvergenzen und Divergenzen zwischen Modellen hervor, ersetzt aber keine menschliche Expertise.</string>
 
     <string name="help_engines_compute_variables">Diese Motoren berechnen anschließend die Variablen</string>
+    <plurals name="home_scenario_hidden_variants">
+        <item quantity="one">+ %1$d weitere Variante nicht angezeigt · %2$d/%3$d Modelle</item>
+        <item quantity="other">+ %1$d weitere Varianten nicht angezeigt · %2$d/%3$d Modelle</item>
+    </plurals>
 </resources>

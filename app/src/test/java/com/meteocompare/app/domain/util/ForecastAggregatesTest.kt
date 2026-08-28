@@ -45,7 +45,9 @@ class ForecastAggregatesTest {
         // la quantité centrale déterministe est 0 mm.
         assertEquals(0.0, result.precipitationAmountsMm[0] ?: error("pluie manquante"), 0.001)
         assertEquals(1.5, result.precipitationAmountsMm[1] ?: error("pluie manquante"), 0.001)
-        assertEquals(WeatherCondition.DRIZZLE, result.conditions[0])
+        // Sans WMO ni nébulosité, une P(pluie) centrale < 50 % ne fabrique plus
+        // une condition par vote de fallbacks individuels.
+        assertNull(result.conditions[0])
         assertEquals(WeatherCondition.RAIN_SHOWERS, result.conditions[1])
         assertNull(result.temperatures[2])
         assertNull(result.precipitationProbabilities[2])
@@ -121,7 +123,7 @@ class ForecastAggregatesTest {
 
 
     @Test
-    fun `widget 12h utilise la nebulosite centrale pour un ciel sec fragmente`() {
+    fun `avec plusieurs familles WMO la condition reste fondee sur les codes natifs`() {
         val forecast = forecastOf(
             WeatherModel.AROME_FRANCE_HD to hourly(listOf(18.0), listOf(10), listOf(0.0), listOf(3), listOf(64)),
             WeatherModel.ARPEGE_EUROPE to hourly(listOf(18.0), listOf(10), listOf(0.0), listOf(3), listOf(65)),
@@ -136,7 +138,22 @@ class ForecastAggregatesTest {
 
         val result = ForecastAggregates.next12h(forecast, now, includeConditions = true)
 
-        assertEquals(WeatherCondition.PARTLY_CLOUDY, result.conditions.first())
+        assertEquals(WeatherCondition.OVERCAST, result.conditions.first())
+    }
+
+    @Test
+    fun `des fallbacks de modeles incomplets ne renversent pas deux familles WMO natives`() {
+        val forecast = forecastOf(
+            WeatherModel.GFS to hourly(listOf(18.0), listOf(80), listOf(2.0), listOf(61), listOf(95)),
+            WeatherModel.ECMWF to hourly(listOf(18.0), listOf(80), listOf(2.0), listOf(61), listOf(95)),
+            WeatherModel.ICON_GLOBAL to hourly(listOf(18.0), listOf(0), listOf(0.0), listOf(null), listOf(10)),
+            WeatherModel.UKMO_GLOBAL to hourly(listOf(18.0), listOf(0), listOf(0.0), listOf(null), listOf(10)),
+            WeatherModel.GEM_GLOBAL to hourly(listOf(18.0), listOf(0), listOf(0.0), listOf(null), listOf(10))
+        )
+
+        val result = ForecastAggregates.next12h(forecast, now, includeConditions = true)
+
+        assertEquals(WeatherCondition.RAIN, result.conditions.first())
     }
 
     @Test

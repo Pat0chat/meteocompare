@@ -7,8 +7,8 @@ import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.model.ForecastEngineContext
 import com.meteocompare.app.domain.model.ForecastEngineVariable
 import com.meteocompare.app.domain.model.WeatherCondition
+import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.util.dailyCloudCoverMean
-import com.meteocompare.app.domain.util.resolveDailyCondition
 import java.time.Instant
 import java.time.LocalDate
 import javax.inject.Inject
@@ -30,7 +30,8 @@ data class EngineComparisonValues(
     val gustKmh: Double?,
     val cloudPercent: Double?,
     /**
-     * Condition = consensus hiérarchique ; la branche SKY utilise la nébulosité centrale du moteur.
+     * Condition = consensus hiérarchique des WMO natifs quand au moins deux familles
+     * indépendantes en disposent ; sinon condition dérivée des variables centrales du moteur.
      * La convergence des conditions reste calculée séparément sur les sorties brutes.
      */
     val condition: WeatherCondition?
@@ -80,16 +81,25 @@ class EngineComparisonBuilder @Inject constructor(
             .sorted()
             .filterNot { it.isBefore(today) }
             .take(7)
-        val zone = resolveZoneOrUtc(forecast.city.timezone)
-
         return dates.map { date ->
-            val conditionEntries = forecast.seriesByModel.mapNotNull { (model, series) ->
-                series.resolveDailyCondition(date, zone)?.condition
+            val nativeConditionEntries = forecast.seriesByModel.mapNotNull { (model, series) ->
+                val index = series.daily.dates.indexOf(date)
+                if (index < 0) return@mapNotNull null
+                WeatherCondition.fromWmoCode(series.daily.weatherCode.getOrNull(index))
                     ?.takeUnless { it == WeatherCondition.UNKNOWN }
                     ?.let { ForecastConsensus.Entry(model, it) }
             }
+            val supportModels = forecast.seriesByModel.mapNotNull { (model, series) ->
+                model.takeIf { series.daily.dates.indexOf(date) >= 0 }
+            }
             val values = ForecastEngine.entries.associateWith { engine ->
-                valuesFor(forecast, date, calibrationContext.withEngine(engine), conditionEntries)
+                valuesFor(
+                    forecast,
+                    date,
+                    calibrationContext.withEngine(engine),
+                    nativeConditionEntries,
+                    supportModels
+                )
             }
             EngineComparisonDay(date, values, divergence(values.values.toList()))
         }
@@ -99,7 +109,8 @@ class EngineComparisonBuilder @Inject constructor(
         forecast: CityForecast,
         date: LocalDate,
         context: ForecastEngineContext,
-        conditionEntries: List<ForecastConsensus.Entry<WeatherCondition>>
+        nativeConditionEntries: List<ForecastConsensus.Entry<WeatherCondition>>,
+        supportModels: List<WeatherModel>
     ): EngineComparisonValues {
         val day = confidenceCalculator.dayConfidence(forecast, date, context)
         val zone = resolveZoneOrUtc(forecast.city.timezone)
@@ -119,11 +130,14 @@ class EngineComparisonBuilder @Inject constructor(
                 max = 100.0
             )
         ).central
-        val condition = WeatherConditionConsensus.resolve(
-            entries = conditionEntries,
-            cloudCoverPercent = cloud
-        ).value
         val precipitationMeta = day.precipitation?.meta
+        val condition = WeatherConditionConsensus.resolveAggregate(
+            nativeEntries = nativeConditionEntries,
+            temperatureCentralC = day.tempMin?.meanValue ?: day.tempMax?.meanValue,
+            precipitationCentralMm = precipitationMeta?.centralAmountMm,
+            cloudCoverPercent = cloud,
+            supportModels = supportModels
+        ).vote.value
         return EngineComparisonValues(
             tempMax = day.tempMax?.meanValue,
             tempMin = day.tempMin?.meanValue,

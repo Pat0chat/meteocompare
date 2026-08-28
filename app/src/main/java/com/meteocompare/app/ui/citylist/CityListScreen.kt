@@ -1058,6 +1058,24 @@ private fun HomeWeatherFooter(
                             rank = index
                         )
                     }
+                    scenarios.firstOrNull()?.takeIf { it.hiddenVariantCount > 0 }?.let { scenario ->
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 12.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+                        )
+                        Text(
+                            text = pluralStringResource(
+                                R.plurals.home_scenario_hidden_variants,
+                                scenario.hiddenVariantCount,
+                                scenario.hiddenVariantCount,
+                                scenario.hiddenModelCount,
+                                scenario.totalModelCount
+                            ),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                        )
+                    }
                 }
             }
         }

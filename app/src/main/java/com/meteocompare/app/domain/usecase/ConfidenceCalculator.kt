@@ -14,7 +14,6 @@ import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.util.dailyCloudCoverMean
 import com.meteocompare.app.domain.util.resolveDailyCondition
-import com.meteocompare.app.domain.util.resolveHourlyCondition
 import java.time.Instant
 import java.time.LocalDate
 import javax.inject.Inject
@@ -169,18 +168,57 @@ class ConfidenceCalculator @Inject constructor(
         now: Instant = Instant.now(),
         engineContext: ForecastEngineContext = ForecastEngineContext.DEFAULT
     ): WeatherCondition? {
-        val conditionEntries = mutableListOf<ForecastConsensus.Entry<WeatherCondition>>()
+        val nativeConditionEntries = mutableListOf<ForecastConsensus.Entry<WeatherCondition>>()
+        val temperatureSamples = mutableListOf<Pair<WeatherModel, Double>>()
+        val precipitationRows = mutableListOf<ForecastConsensus.PrecipitationRow>()
         val cloudSamples = mutableListOf<Pair<WeatherModel, Double>>()
+        val supportModels = linkedSetOf<WeatherModel>()
 
         forecast.seriesByModel.forEach { (model, series) ->
             val idx = nearestCurrentIndex(series, now) ?: return@forEach
-            val condition = series.resolveHourlyCondition(idx)
-            condition?.let { conditionEntries += ForecastConsensus.Entry(model, it) }
+            WeatherCondition.fromWmoCode(series.hourly.weatherCode.getOrNull(idx))
+                ?.takeUnless { it == WeatherCondition.UNKNOWN }
+                ?.let {
+                    nativeConditionEntries += ForecastConsensus.Entry(model, it)
+                    supportModels += model
+                }
+            series.hourly.temperature2m.getOrNull(idx)?.takeIf(Double::isFinite)?.let {
+                temperatureSamples += model to it
+                supportModels += model
+            }
+            val amount = series.hourly.precipitation.getOrNull(idx)
+            val probability = series.hourly.precipitationProbability.getOrNull(idx)
+            if (amount?.isFinite() == true || probability?.let { it in 0..100 } == true) {
+                precipitationRows += ForecastConsensus.PrecipitationRow(model, amount, probability)
+                supportModels += model
+            }
             series.hourly.cloudCover.getOrNull(idx)
                 ?.takeIf { it in 0..100 }
-                ?.let { cloudSamples += model to it.toDouble() }
+                ?.let {
+                    cloudSamples += model to it.toDouble()
+                    supportModels += model
+                }
         }
 
+        val temperatureCentral = engineContinuous(
+            samples = temperatureSamples,
+            thresholds = Thresholds.TEMPERATURE,
+            engineContext = engineContext,
+            variable = ForecastEngineVariable.TEMPERATURE,
+            allowCalibration = false
+        ).central
+        val precipitationCentral = ForecastEngineV3.precipitation(
+            precipitationRows,
+            ForecastEngineV3.PrecipitationOptions(
+                engine = engineContext.engine,
+                threshold = PrecipitationThresholds.HOURLY_OCCURRENCE_MM,
+                localWeights = localWeights(precipitationRows.map { it.model }) +
+                    engineContext.localWeights(ForecastEngineVariable.PRECIPITATION),
+                calibration = emptyMap(),
+                amountTight = 0.5,
+                amountWide = 4.0
+            )
+        ).centralAmountMm
         val cloudCentral = engineContinuous(
             samples = cloudSamples,
             thresholds = Thresholds(10.0, 50.0),
@@ -190,11 +228,14 @@ class ConfidenceCalculator @Inject constructor(
             min = 0.0,
             max = 100.0
         ).central
-        return WeatherConditionConsensus.resolve(
-            entries = conditionEntries,
+        return WeatherConditionConsensus.resolveAggregate(
+            nativeEntries = nativeConditionEntries,
+            temperatureCentralC = temperatureCentral,
+            precipitationCentralMm = precipitationCentral,
             cloudCoverPercent = cloudCentral,
-            localWeights = localWeights(conditionEntries.map { it.model })
-        ).value
+            supportModels = supportModels,
+            localWeights = localWeights(nativeConditionEntries.map { it.model })
+        ).vote.value
     }
 
     /**

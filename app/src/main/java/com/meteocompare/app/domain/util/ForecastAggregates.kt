@@ -60,15 +60,16 @@ internal object ForecastAggregates {
                     precipRows += ForecastConsensus.PrecipitationRow(model, amount, probability)
                 }
                 if (conditions != null) {
-                    val condition = series.resolveHourlyCondition(index)
-                    condition?.let { conditionRows += ForecastConsensus.Entry(model, it) }
+                    WeatherCondition.fromWmoCode(series.hourly.weatherCode.getOrNull(index))
+                        ?.takeUnless { it == WeatherCondition.UNKNOWN }
+                        ?.let { conditionRows += ForecastConsensus.Entry(model, it) }
                     series.hourly.cloudCover.getOrNull(index)
                         ?.takeIf { it in 0..100 }
                         ?.let { cloudRows += ForecastConsensus.Entry(model, it.toDouble()) }
                 }
             }
 
-            temperatures += ForecastEngineV3.continuous(
+            val temperatureCentral = ForecastEngineV3.continuous(
                 tempRows,
                 ForecastEngineV3.ContinuousOptions(
                     engine = engineContext.engine,
@@ -77,6 +78,7 @@ internal object ForecastAggregates {
                     wide = 3.0
                 )
             ).central
+            temperatures += temperatureCentral
             val precipitation = ForecastEngineV3.precipitation(
                 precipRows,
                 ForecastEngineV3.PrecipitationOptions(
@@ -102,7 +104,19 @@ internal object ForecastAggregates {
                         max = 100.0
                     )
                 ).central
-                conditions += WeatherConditionConsensus.resolve(conditionRows, cloudCentral).value
+                val supportModels = buildSet {
+                    addAll(tempRows.map { it.model })
+                    addAll(precipRows.map { it.model })
+                    addAll(cloudRows.map { it.model })
+                    addAll(conditionRows.map { it.model })
+                }
+                conditions += WeatherConditionConsensus.resolveAggregate(
+                    nativeEntries = conditionRows,
+                    temperatureCentralC = temperatureCentral,
+                    precipitationCentralMm = precipitation.centralAmountMm,
+                    cloudCoverPercent = cloudCentral,
+                    supportModels = supportModels
+                ).vote.value
             }
         }
 

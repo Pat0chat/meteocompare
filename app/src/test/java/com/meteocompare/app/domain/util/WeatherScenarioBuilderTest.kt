@@ -74,7 +74,7 @@ class WeatherScenarioBuilderTest {
     }
 
     @Test
-    fun `au delà de trois groupes les variantes minoritaires sont regroupées explicitement`() {
+    fun `au delà de trois groupes on garde trois vrais scénarios et on compte les variantes masquées`() {
         val forecast = forecastOf(
             WeatherModel.GFS to simpleHourly(code = 0, cloud = 5, precip = 0.0),
             WeatherModel.ECMWF to simpleHourly(code = 3, cloud = 95, precip = 0.0),
@@ -85,9 +85,10 @@ class WeatherScenarioBuilderTest {
         val scenarios = WeatherScenarioBuilder.next12h(forecast, now, maxScenarios = 3)
 
         assertEquals(3, scenarios.size)
-        assertEquals(WeatherScenarioKind.OTHER, scenarios.last().kind)
-        assertEquals(2, scenarios.last().modelCount)
+        assertTrue(scenarios.none { it.kind == WeatherScenarioKind.OTHER })
         assertTrue(scenarios.all { it.totalModelCount == 4 })
+        assertTrue(scenarios.all { it.hiddenVariantCount == 1 })
+        assertTrue(scenarios.all { it.hiddenModelCount == 1 })
     }
 
 
