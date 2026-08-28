@@ -87,7 +87,7 @@ class MiniForecastStripVisualsTest {
     fun `home heat strip stays compact and matches card geometry`() {
         assertEquals(70, MINI_TIMELINE_HEIGHT_DP)
         assertEquals(10, MINI_TIMELINE_CORNER_RADIUS_DP)
-        assertEquals(19, MINI_TIMELINE_CONDITION_ICON_DP)
+        assertEquals(16, MINI_TIMELINE_CONDITION_ICON_DP)
     }
 
     @Test
