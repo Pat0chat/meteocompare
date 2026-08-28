@@ -373,6 +373,7 @@ dato</string>
     
     <string name="sun_times_a11y">Alba alle %1$s, tramonto alle %2$s</string>
     
+    <string name="mini_forecast_now">Ora</string>
     <string name="mini_forecast_a11y_no_data">Previsione a 12 h non disponibile</string>
     <string name="mini_forecast_a11y_no_rain">Previsione a 12 h: tra %1$d e %2$d gradi, nessuna pioggia prevista</string>
     <string name="mini_forecast_a11y_with_rain">Previsione a 12 h: tra %1$d e %2$d gradi, pioggia prevista per %3$d ore</string>

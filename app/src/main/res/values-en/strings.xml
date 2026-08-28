@@ -427,6 +427,7 @@
     
     <string name="sun_times_a11y">Sunrise at %1$s, sunset at %2$s</string>
     
+    <string name="mini_forecast_now">Now</string>
     <string name="mini_forecast_a11y_no_data">12h forecast unavailable</string>
     <string name="mini_forecast_a11y_no_rain">12h forecast: between %1$d and %2$d degrees, no rain expected</string>
     <string name="mini_forecast_a11y_with_rain">12h forecast: between %1$d and %2$d degrees, rain expected over %3$d hours</string>

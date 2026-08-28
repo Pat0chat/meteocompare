@@ -2,8 +2,11 @@ package com.meteocompare.app.ui.citylist
 
 import androidx.compose.ui.test.assertContentDescriptionContains
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeLeft
 import androidx.test.platform.app.InstrumentationRegistry
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.WeatherCondition
@@ -91,4 +94,25 @@ class MiniForecastStripTest {
         }
         composeRule.onNodeWithTag(TAG_MINI_FORECAST_ANCHORS).assertIsDisplayed()
     }
+    @Test
+    fun six_hours_are_visible_and_later_hours_are_reached_by_horizontal_swipe() {
+        composeRule.setContent {
+            MiniForecastStrip(
+                hourlyTemps = List(12) { 10.0 + it },
+                hourlyPrecipProb = List(12) { 0 },
+                hourlyConditions = List(12) { WeatherCondition.CLEAR },
+                startTime = LocalDateTime.of(2026, 8, 28, 9, 0)
+            )
+        }
+
+        composeRule.onNodeWithTag("${TAG_MINI_FORECAST_CONDITION_PREFIX}0").assertIsDisplayed()
+        composeRule.onNodeWithTag("${TAG_MINI_FORECAST_CONDITION_PREFIX}5").assertIsDisplayed()
+        composeRule.onNodeWithTag("${TAG_MINI_FORECAST_CONDITION_PREFIX}10").assertIsNotDisplayed()
+
+        composeRule.onNodeWithTag(TAG_MINI_FORECAST_SCROLL).performTouchInput { swipeLeft() }
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithTag("${TAG_MINI_FORECAST_CONDITION_PREFIX}10").assertIsDisplayed()
+    }
+
 }
