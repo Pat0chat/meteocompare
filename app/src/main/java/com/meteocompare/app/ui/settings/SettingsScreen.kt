@@ -649,11 +649,11 @@ private fun CompactModelRow(
 }
 
 /**
- * Format compact de la résolution : "1.5 km" pour < 10 km (précision utile
- * en mésoéchelle), "13 km" pour ≥ 10 km (le .0 devient parasite).
+ * Format compact de la résolution : conserve les décimales réellement utiles
+ * (1.5 km, 2.5 km, 5.5 km) mais évite les faux « .0 » (2 km, 7 km, 9 km).
  */
 private fun formatResolution(km: Double): String =
-    if (km < 10.0) "%.1f km".format(km) else "${km.toInt()} km"
+    if (km % 1.0 == 0.0) "${km.toInt()} km" else "%.1f km".format(km)
 
 /** Horizon natif affiché sans le confondre avec le `forecast_days` entier de l'API. */
 @Composable

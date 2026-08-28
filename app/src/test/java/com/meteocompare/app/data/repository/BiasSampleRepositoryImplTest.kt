@@ -1,6 +1,7 @@
 package com.meteocompare.app.data.repository
 
 import com.meteocompare.app.data.local.BiasSampleDao
+import com.meteocompare.app.data.local.ForecastSampleEntity
 import com.meteocompare.app.data.local.ObservationSampleEntity
 import com.meteocompare.app.domain.model.BiasVariable
 import com.meteocompare.app.domain.model.WeatherModel
@@ -59,6 +60,38 @@ class BiasSampleRepositoryImplTest {
             asOf = asOf,
             windowDays = 30
         ).first()
+    }
+
+    @Test
+    fun `ECMWF HRES forecast sample stores its exact source identity`() = runTest {
+        val dao = mockk<BiasSampleDao>(relaxed = true)
+        val repository = repository(dao)
+        val date = LocalDate.of(2026, 8, 20)
+        val issuedAt = Instant.parse("2026-08-19T00:00:00Z")
+
+        repository.recordForecast(
+            cityId = "paris",
+            model = WeatherModel.ECMWF,
+            variable = BiasVariable.TEMPERATURE,
+            targetDate = date,
+            issuedAt = issuedAt,
+            value = 24.0
+        )
+
+        coVerify(exactly = 1) {
+            dao.insertForecast(
+                ForecastSampleEntity(
+                    cityId = "paris",
+                    modelKey = WeatherModel.ECMWF.name,
+                    variable = BiasVariable.TEMPERATURE.name,
+                    targetDateEpochDay = date.toEpochDay(),
+                    issuedAtEpochMs = issuedAt.toEpochMilli(),
+                    value = 24.0,
+                    sourceApiKey = "ecmwf_ifs",
+                    resolutionKm = 9.0
+                )
+            )
+        }
     }
 
     @Test

@@ -47,5 +47,9 @@ data class ForecastSampleEntity(
     /** Début UTC de la veille locale correspondant à l’échéance fixe J+1. */
     val issuedAtEpochMs: Long,
     /** Valeur prévue dans l'unité naturelle de la variable (°C, mm, km/h). */
-    val value: Double
+    val value: Double,
+    /** Source Open-Meteo exacte, distincte de l'identité UI [modelKey]. */
+    val sourceApiKey: String? = null,
+    /** Résolution native de la source lors de l'enregistrement. */
+    val resolutionKm: Double? = null
 )

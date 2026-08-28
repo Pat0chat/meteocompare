@@ -166,7 +166,7 @@ class WeatherConditionTest {
                 WeatherModel.AROME_FRANCE_HD to seriesWithWeatherCode(now, code = 0),
                 // GFS (13km) dit RAIN — pèse moins
                 WeatherModel.GFS to seriesWithWeatherCode(now, code = 61),
-                // ECMWF (25km) dit CLEAR — encore moins
+                // ECMWF IFS HRES (9 km) dit CLEAR — encore moins
                 WeatherModel.ECMWF to seriesWithWeatherCode(now, code = 0)
             )
         )

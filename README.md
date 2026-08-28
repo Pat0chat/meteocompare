@@ -115,7 +115,7 @@ Listés dans `WeatherModel.kt` avec leur résolution native (km), leur horizon, 
 | ICON               | 11 km      | Global           | 7,5 j   | DWD                 |            |
 | ICON-D2            | 2 km       | Europe centrale  | 2 j     | DWD                 |            |
 | GFS                | 13 km      | Global           | 16 j    | NOAA (USA)          |     ✓      |
-| ECMWF              | 25 km      | Global           | 15 j    | ECMWF (UE)          |     ✓      |
+| ECMWF IFS HRES     | 9 km       | Global           | 15 j    | ECMWF (UE)          |     ✓      |
 | ECMWF AIFS         | 28 km      | Global (**IA**)  | 15 j    | ECMWF               |     ✓      |
 | UKMO Global        | 10 km      | Global           | 7 j     | UK Met Office       |     ✓      |
 | GEM Global         | 15 km      | Global           | 10 j    | ECCC (Canada)       |            |

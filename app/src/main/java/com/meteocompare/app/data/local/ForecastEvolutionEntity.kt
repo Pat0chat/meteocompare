@@ -33,5 +33,8 @@ data class ForecastEvolutionEntity(
     val targetDateEpochDay: Long,
     val snapshotBucket: Long,
     val snapshotAtEpochMs: Long,
-    val value: Double
+    val value: Double,
+    /** Source Open-Meteo exacte, utile pour séparer les migrations de modèle. */
+    val sourceApiKey: String? = null,
+    val resolutionKm: Double? = null
 )

@@ -33,7 +33,7 @@ interface OpenMeteoApi {
      * modèle demandé.
      *
      * @param models Liste des clés de modèles Open-Meteo séparées par des
-     *   virgules. Exemple : `"meteofrance_arome_france_hd,ecmwf_ifs025,ncep_gfs_seamless"`.
+     *   virgules. Exemple : `"meteofrance_arome_france_hd,ecmwf_ifs,ncep_gfs_seamless"`.
      *   Construite depuis `WeatherModel.entries.joinToString(",") { it.apiKey }`.
      *
      * @param forecastDays Horizon commun demandé. Le repository le borne à

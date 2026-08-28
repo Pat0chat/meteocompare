@@ -130,7 +130,7 @@ class WeatherModelInvariantsTest {
     fun `métadonnées modèles critiques restent cohérentes`() {
         assertEquals(15, WeatherModel.ECMWF.maxForecastDays)
         assertEquals(15, WeatherModel.ECMWF_AIFS.maxForecastDays)
-        assertEquals(25.0, WeatherModel.ECMWF.resolutionKm, 0.0)
+        assertEquals(9.0, WeatherModel.ECMWF.resolutionKm, 0.0)
         assertEquals(28.0, WeatherModel.ECMWF_AIFS.resolutionKm, 0.0)
         assertEquals(15.0, WeatherModel.BOM_ACCESS.resolutionKm, 0.0)
         assertEquals(15.0, WeatherModel.CMA_GRAPES.resolutionKm, 0.0)
@@ -175,6 +175,11 @@ class WeatherModelInvariantsTest {
         assertEquals(WeatherModel.GFS, WeatherModel.fromApiKey("ncep_gfs_seamless"))
         assertEquals(WeatherModel.ICON_GLOBAL, WeatherModel.fromApiKey("icon_seamless"))
         assertEquals(WeatherModel.ICON_GLOBAL, WeatherModel.fromApiKey("icon_global"))
+        assertEquals("ecmwf_ifs", WeatherModel.ECMWF.apiKey)
+        assertEquals("ECMWF IFS HRES", WeatherModel.ECMWF.displayName)
+        assertEquals(null, WeatherModel.fromApiKey(WeatherModel.ECMWF_IFS025_API_KEY))
+        assertTrue(WeatherModel.ECMWF.matchesPreferenceApiKey(WeatherModel.ECMWF_IFS025_API_KEY))
+        assertTrue(WeatherModel.ECMWF_IFS025_API_KEY !in WeatherModel.ECMWF.compatibleApiKeys)
     }
 
     @Test

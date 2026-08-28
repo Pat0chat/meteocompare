@@ -75,9 +75,9 @@ class BatchedForecastSplitterTest {
               "hourly": {
                 "time": ["2026-06-23T00:00","2026-06-23T01:00"],
                 "temperature_2m_ncep_gfs_seamless":  [20.0, 21.5],
-                "temperature_2m_ecmwf_ifs025":  [19.5, 21.0],
+                "temperature_2m_ecmwf_ifs":  [19.5, 21.0],
                 "precipitation_ncep_gfs_seamless":   [0.0, 0.2],
-                "precipitation_ecmwf_ifs025":   [0.0, 0.1]
+                "precipitation_ecmwf_ifs":   [0.0, 0.1]
               }
             }"""
         )
@@ -101,7 +101,7 @@ class BatchedForecastSplitterTest {
               "hourly": {
                 "time": ["2026-06-23T00:00","2026-06-23T01:00","2026-06-23T02:00"],
                 "temperature_2m_ncep_gfs_seamless":  [20.0, 21.0, 22.0],
-                "temperature_2m_ecmwf_ifs025":  [19.0, 20.0, 21.0]
+                "temperature_2m_ecmwf_ifs":  [19.0, 20.0, 21.0]
               }
             }"""
         )
@@ -125,16 +125,16 @@ class BatchedForecastSplitterTest {
               "hourly": {
                 "time": ["2026-07-23T12:00"],
                 "temperature_2m_ncep_gfs_seamless": [25.0],
-                "temperature_2m_ecmwf_ifs025": [24.0],
+                "temperature_2m_ecmwf_ifs": [24.0],
                 "wind_gusts_10m_ncep_gfs_seamless": [52.0],
-                "wind_gusts_10m_ecmwf_ifs025": [48.0]
+                "wind_gusts_10m_ecmwf_ifs": [48.0]
               },
               "daily": {
                 "time": ["2026-07-23"],
                 "temperature_2m_max_ncep_gfs_seamless": [28.0],
-                "temperature_2m_max_ecmwf_ifs025": [27.0],
+                "temperature_2m_max_ecmwf_ifs": [27.0],
                 "wind_gusts_10m_max_ncep_gfs_seamless": [64.0],
-                "wind_gusts_10m_max_ecmwf_ifs025": [59.0],
+                "wind_gusts_10m_max_ecmwf_ifs": [59.0],
                 "sunrise": ["2026-07-23T06:12"],
                 "sunset": ["2026-07-23T21:39"]
               }
@@ -150,6 +150,26 @@ class BatchedForecastSplitterTest {
         assertEquals(listOf(64.0), split.getValue(WeatherModel.GFS).daily?.windGusts10mMax)
         assertEquals(listOf("2026-07-23T06:12"), split.getValue(WeatherModel.GFS).daily?.sunrise)
         assertEquals(listOf("2026-07-23T21:39"), split.getValue(WeatherModel.ECMWF).daily?.sunset)
+    }
+
+    @Test
+    fun `ancien suffixe ECMWF 25 km n'est jamais relu comme HRES 9 km`() {
+        val response = json.decodeFromString<BatchedForecastResponseDto>(
+            """{
+              "latitude": 48.85, "longitude": 2.35, "timezone": "Europe/Paris",
+              "hourly": {
+                "time": ["2026-06-23T00:00"],
+                "temperature_2m_ecmwf_ifs025": [19.5]
+              }
+            }"""
+        )
+
+        val split = BatchedForecastSplitter.split(response, listOf(WeatherModel.ECMWF))
+
+        assertFalse(
+            "Le cache/réponse 25 km ne doit jamais être interprété comme ECMWF HRES 9 km",
+            WeatherModel.ECMWF in split
+        )
     }
 
     // ─────────────────────── Filtrage modèles vides ───────────────────

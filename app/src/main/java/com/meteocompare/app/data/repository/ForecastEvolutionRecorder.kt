@@ -40,21 +40,21 @@ class ForecastEvolutionRecorder @Inject constructor(
                         series.daily.tempMax.getOrNull(index)
                             ?.takeIf(Double::isFinite)
                             ?.let { value ->
-                                add(entity(forecast.city.id, model.name, ForecastEvolutionVariable.TEMPERATURE, date.toEpochDay(), bucket, capturedMs, value))
+                                add(entity(forecast.city.id, model, ForecastEvolutionVariable.TEMPERATURE, date.toEpochDay(), bucket, capturedMs, value))
                             }
                     }
                     if (hasCompleteHourlyCoverage(series, date, ForecastEvolutionVariable.PRECIPITATION, zone)) {
                         series.daily.precipitationSum.getOrNull(index)
                             ?.takeIf { it.isFinite() && it >= 0.0 }
                             ?.let { value ->
-                                add(entity(forecast.city.id, model.name, ForecastEvolutionVariable.PRECIPITATION, date.toEpochDay(), bucket, capturedMs, value))
+                                add(entity(forecast.city.id, model, ForecastEvolutionVariable.PRECIPITATION, date.toEpochDay(), bucket, capturedMs, value))
                             }
                     }
                     if (hasCompleteHourlyCoverage(series, date, ForecastEvolutionVariable.WIND, zone)) {
                         series.daily.windSpeedMax.getOrNull(index)
                             ?.takeIf { it.isFinite() && it >= 0.0 }
                             ?.let { value ->
-                                add(entity(forecast.city.id, model.name, ForecastEvolutionVariable.WIND, date.toEpochDay(), bucket, capturedMs, value))
+                                add(entity(forecast.city.id, model, ForecastEvolutionVariable.WIND, date.toEpochDay(), bucket, capturedMs, value))
                             }
                     }
                 }
@@ -100,7 +100,7 @@ class ForecastEvolutionRecorder @Inject constructor(
 
     private fun entity(
         cityId: String,
-        modelKey: String,
+        model: com.meteocompare.app.domain.model.WeatherModel,
         variable: ForecastEvolutionVariable,
         targetDateEpochDay: Long,
         snapshotBucket: Long,
@@ -108,12 +108,14 @@ class ForecastEvolutionRecorder @Inject constructor(
         value: Double
     ) = ForecastEvolutionEntity(
         cityId = cityId,
-        modelKey = modelKey,
+        modelKey = model.name,
         variable = variable.name,
         targetDateEpochDay = targetDateEpochDay,
         snapshotBucket = snapshotBucket,
         snapshotAtEpochMs = snapshotAtEpochMs,
-        value = value
+        value = value,
+        sourceApiKey = model.apiKey,
+        resolutionKm = model.resolutionKm
     )
 
     companion object {

@@ -26,8 +26,22 @@ enum class WeatherModel(
     val maxForecastDays: Int,
     val coverage: Coverage,
     val family: ModelFamily,
-    /** Anciennes clés/alias acceptés uniquement pour relire prefs et caches existants. */
+    /**
+     * Anciennes clés/alias qui désignent encore la MÊME source et peuvent donc
+     * être relues sans rupture dans les réponses/cache historiques.
+     *
+     * Ne pas utiliser ce mécanisme pour une migration de source qui change la
+     * méthodologie du modèle (ex. IFS 25 km → HRES 9 km) : dans ce cas les
+     * données historiques doivent rester séparées.
+     */
     val apiKeyAliases: Set<String> = emptySet(),
+    /**
+     * Anciennes clés acceptées uniquement lors de la lecture des préférences.
+     * Elles permettent de préserver les choix utilisateur après une migration
+     * de source sans rendre les anciens caches/séries compatibles avec la
+     * nouvelle source.
+     */
+    val preferenceApiKeyAliases: Set<String> = emptySet(),
     /** Horizon natif indicatif, distinct du plafond entier utilisé par `forecast_days`. */
     val forecastHorizonHours: Int = maxForecastDays * 24
 ) {
@@ -95,13 +109,24 @@ enum class WeatherModel(
         family = ModelFamily.NOAA,
         apiKeyAliases = setOf("gfs_seamless")
     ),
+    /**
+     * ECMWF IFS HRES pleine résolution.
+     *
+     * Depuis la migration 25 km → 9 km, l'identité UI reste `ECMWF` afin de
+     * conserver les préférences utilisateur, mais la source active est bien
+     * distincte : `ecmwf_ifs`. L'ancien `ecmwf_ifs025` n'est volontairement
+     * PAS un [apiKeyAliases] : un cache ou un historique 25 km ne doit jamais
+     * être relu comme une prévision HRES 9 km. Il reste seulement accepté
+     * comme ancienne préférence via [preferenceApiKeyAliases].
+     */
     ECMWF(
-        apiKey = "ecmwf_ifs025",
-        displayName = "ECMWF",
-        resolutionKm = 25.0,
+        apiKey = "ecmwf_ifs",
+        displayName = "ECMWF IFS HRES",
+        resolutionKm = 9.0,
         maxForecastDays = 15,
         coverage = Coverage.GLOBAL,
-        family = ModelFamily.ECMWF
+        family = ModelFamily.ECMWF,
+        preferenceApiKeyAliases = setOf("ecmwf_ifs025")
     ),
 
     // ──────────────────────────────────────────────────────────────────────
@@ -301,13 +326,24 @@ enum class WeatherModel(
         forecastHorizonHours = 120
     );
 
-    /** Clé courante ou alias historique/canonique accepté en lecture. */
+    /** Clé courante ou alias de MÊME source accepté en lecture de données/cache. */
     fun matchesApiKey(key: String): Boolean = key == apiKey || key in apiKeyAliases
+
+    /** Clé courante, alias de source ou ancienne clé de préférence. */
+    fun matchesPreferenceApiKey(key: String): Boolean =
+        matchesApiKey(key) || key in preferenceApiKeyAliases
 
     /** Toutes les clés reconnues pour relire une réponse/cache existant. */
     val compatibleApiKeys: Set<String> get() = apiKeyAliases + apiKey
 
+    /** Toutes les clés reconnues uniquement pour préserver un choix utilisateur. */
+    val compatiblePreferenceApiKeys: Set<String>
+        get() = compatibleApiKeys + preferenceApiKeyAliases
+
     companion object {
+        /** Ancienne source IFS 0,25° conservée comme identité historique uniquement. */
+        const val ECMWF_IFS025_API_KEY = "ecmwf_ifs025"
+        const val ECMWF_IFS025_LEGACY_MODEL_KEY = "ECMWF_IFS025_LEGACY"
         /**
          * Modèles activés par défaut — choix MVP équilibré.
          *

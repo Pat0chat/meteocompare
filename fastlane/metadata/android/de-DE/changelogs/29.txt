@@ -1,0 +1,1 @@
+ECMWF IFS wechselt von der bisherigen 25-km-Quelle auf das vollaufgelöste HRES-Modell mit 9 km. Historische 25-km-Zuverlässigkeitsdaten bleiben getrennt, Forecast-Caches werden erneuert.

@@ -1,0 +1,1 @@
+ECMWF IFS moves from the legacy 25 km feed to the full-resolution HRES 9 km model. Historical 25 km reliability data is kept separate and forecast caches are refreshed to avoid mixing both sources.

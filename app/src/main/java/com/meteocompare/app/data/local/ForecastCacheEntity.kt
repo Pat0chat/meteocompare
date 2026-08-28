@@ -21,5 +21,9 @@ data class ForecastCacheEntity(
     val cityId: String,
     val modelKey: String,
     val fetchedAtEpochMs: Long,
-    val responseJson: String
+    val responseJson: String,
+    /** Source Open-Meteo exacte ayant produit ce cache. Null uniquement pour anciennes lignes pré-v7. */
+    val sourceApiKey: String? = null,
+    /** Résolution native associée à [sourceApiKey]. Null uniquement pour anciennes lignes pré-v7. */
+    val resolutionKm: Double? = null
 )

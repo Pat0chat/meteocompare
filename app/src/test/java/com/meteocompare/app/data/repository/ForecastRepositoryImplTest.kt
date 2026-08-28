@@ -286,6 +286,8 @@ class ForecastRepositoryImplTest {
         assertEquals(1, entries.captured.size)
         assertEquals("1", entries.captured.single().cityId)
         assertEquals(WeatherModel.GFS.apiKey, entries.captured.single().modelKey)
+        assertEquals(WeatherModel.GFS.apiKey, entries.captured.single().sourceApiKey)
+        assertEquals(WeatherModel.GFS.resolutionKm, entries.captured.single().resolutionKm!!, 0.0)
         assertEquals(fetchedAt.captured, entries.captured.single().fetchedAtEpochMs)
     }
 
@@ -705,7 +707,7 @@ class ForecastRepositoryImplTest {
         )
 
         assertEquals(
-            "ncep_gfs_seamless,ecmwf_ifs025,icon_eu",
+            "ncep_gfs_seamless,ecmwf_ifs,icon_eu",
             modelsParam.captured
         )
     }

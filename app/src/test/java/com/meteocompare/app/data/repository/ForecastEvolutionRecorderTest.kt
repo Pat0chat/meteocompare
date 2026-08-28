@@ -39,6 +39,8 @@ class ForecastEvolutionRecorderTest {
         assertEquals(6, inserted.captured.size) // 2 modèles × 3 métriques × 1 jour
         assertEquals(setOf(WeatherModel.GFS.name, WeatherModel.ECMWF.name), inserted.captured.map { it.modelKey }.toSet())
         assertEquals(setOf("TEMPERATURE", "PRECIPITATION", "WIND"), inserted.captured.map { it.variable }.toSet())
+        val ecmwfRows = inserted.captured.filter { it.modelKey == WeatherModel.ECMWF.name }
+        assertTrue(ecmwfRows.all { it.sourceApiKey == "ecmwf_ifs" && it.resolutionKm == 9.0 })
         assertTrue(inserted.captured.all { it.snapshotAtEpochMs == capturedAt.toEpochMilli() })
         assertTrue(inserted.captured.all {
             it.snapshotBucket == capturedAt.toEpochMilli() / ForecastEvolutionRecorder.SNAPSHOT_BUCKET_MS

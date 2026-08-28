@@ -312,6 +312,15 @@ class ForecastRepositoryImpl @Inject constructor(
         val cachedModels = withContext(computationDispatcher) {
             entries.mapNotNull { entry ->
                 val model = modelByApiKey[entry.modelKey] ?: return@mapNotNull null
+                // Depuis les migrations de source (notamment ECMWF 25 km → HRES 9 km),
+                // l'identité logique ne suffit plus : si une ligne porte une
+                // source explicite différente, elle ne doit jamais être présentée
+                // sous le modèle actif. Les lignes anciennes sans métadonnée
+                // restent acceptées uniquement lorsque leur modelKey est déjà
+                // une clé compatible de la source courante.
+                if (entry.sourceApiKey != null && !model.matchesApiKey(entry.sourceApiKey)) {
+                    return@mapNotNull null
+                }
                 if (entry.responseJson == MISSING_MODEL_CACHE_SENTINEL) {
                     CachedModelEntry(
                         fetchedAtMs = entry.fetchedAtEpochMs,
@@ -470,7 +479,9 @@ class ForecastRepositoryImpl @Inject constructor(
                     responseJson = json.encodeToString(
                         ForecastResponseDto.serializer(),
                         dto
-                    )
+                    ),
+                    sourceApiKey = model.apiKey,
+                    resolutionKm = model.resolutionKm
                 )
             }
             ProcessedForecast(perModelDtos, successes, cacheEntries)
@@ -502,7 +513,9 @@ class ForecastRepositoryImpl @Inject constructor(
                     cityId = city.id,
                     modelKey = model.apiKey,
                     fetchedAtEpochMs = now,
-                    responseJson = MISSING_MODEL_CACHE_SENTINEL
+                    responseJson = MISSING_MODEL_CACHE_SENTINEL,
+                    sourceApiKey = model.apiKey,
+                    resolutionKm = model.resolutionKm
                 )
             }
             runSuspendCatching {

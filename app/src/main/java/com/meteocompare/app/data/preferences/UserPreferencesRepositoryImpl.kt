@@ -75,7 +75,7 @@ class UserPreferencesRepositoryImpl @Inject constructor(
                 WeatherModel.MVP_SELECTION
             } else {
                 WeatherModel.entries
-                    .filter { model -> apiKeys.any(model::matchesApiKey) }
+                    .filter { model -> apiKeys.any(model::matchesPreferenceApiKey) }
                     .ifEmpty { WeatherModel.MVP_SELECTION }
             }
         }.distinctUntilChanged()

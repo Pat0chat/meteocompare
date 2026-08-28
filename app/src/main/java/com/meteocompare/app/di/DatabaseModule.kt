@@ -9,6 +9,7 @@ import com.meteocompare.app.data.local.ClimateNormalDao
 import com.meteocompare.app.data.local.ForecastCacheDao
 import com.meteocompare.app.data.local.ForecastEvolutionDao
 import com.meteocompare.app.data.local.MeteoCompareDatabase
+import com.meteocompare.app.domain.model.WeatherModel
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -37,7 +38,7 @@ object DatabaseModule {
             // (drop-and-recreate). Room 2.7+ demande le paramètre explicite pour
             // clarifier qu'on accepte de perdre AUSSI les tables non listées
             // dans le schéma actuel (cache orphelin).
-            .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_4_6)
+            .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_4_6, MIGRATION_6_7)
             .fallbackToDestructiveMigration(dropAllTables = true)
             .build()
 
@@ -56,6 +57,57 @@ object DatabaseModule {
     @Provides
     fun provideForecastEvolutionDao(database: MeteoCompareDatabase): ForecastEvolutionDao =
         database.forecastEvolutionDao()
+
+
+    /**
+     * Sépare proprement l'ancien ECMWF IFS 0,25° du nouvel IFS HRES 9 km.
+     *
+     * - `forecast_samples` et `forecast_evolution_samples` : l'historique
+     *   existant sous `ECMWF` correspond au 25 km. On le renomme en identité
+     *   legacy afin que les scores/calibrations du nouvel HRES repartent de zéro.
+     * - `forecast_cache` : les réponses 25 km sont invalidées. Elles sont des
+     *   prévisions opérationnelles périssables et ne doivent jamais être relues
+     *   comme si elles provenaient du 9 km.
+     * - les trois tables reçoivent `sourceApiKey` + `resolutionKm` pour tracer
+     *   explicitement la source des nouvelles données.
+     */
+    private val MIGRATION_6_7 = object : Migration(6, 7) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE `forecast_cache` ADD COLUMN `sourceApiKey` TEXT")
+            db.execSQL("ALTER TABLE `forecast_cache` ADD COLUMN `resolutionKm` REAL")
+            db.execSQL("UPDATE `forecast_cache` SET `sourceApiKey` = `modelKey` WHERE `sourceApiKey` IS NULL")
+            db.execSQL(
+                "DELETE FROM `forecast_cache` WHERE `modelKey` = '${WeatherModel.ECMWF_IFS025_API_KEY}' " +
+                    "OR `sourceApiKey` = '${WeatherModel.ECMWF_IFS025_API_KEY}'"
+            )
+
+            db.execSQL("ALTER TABLE `forecast_samples` ADD COLUMN `sourceApiKey` TEXT")
+            db.execSQL("ALTER TABLE `forecast_samples` ADD COLUMN `resolutionKm` REAL")
+            // Défensif : une préversion ayant déjà créé la clé legacy ne doit
+            // pas provoquer de collision de PK lors du renommage ci-dessous.
+            db.execSQL(
+                "DELETE FROM `forecast_samples` WHERE `modelKey` = '${WeatherModel.ECMWF_IFS025_LEGACY_MODEL_KEY}'"
+            )
+            db.execSQL(
+                "UPDATE `forecast_samples` SET " +
+                    "`modelKey` = '${WeatherModel.ECMWF_IFS025_LEGACY_MODEL_KEY}', " +
+                    "`sourceApiKey` = '${WeatherModel.ECMWF_IFS025_API_KEY}', " +
+                    "`resolutionKm` = 25.0 WHERE `modelKey` = 'ECMWF'"
+            )
+
+            db.execSQL("ALTER TABLE `forecast_evolution_samples` ADD COLUMN `sourceApiKey` TEXT")
+            db.execSQL("ALTER TABLE `forecast_evolution_samples` ADD COLUMN `resolutionKm` REAL")
+            db.execSQL(
+                "DELETE FROM `forecast_evolution_samples` WHERE `modelKey` = '${WeatherModel.ECMWF_IFS025_LEGACY_MODEL_KEY}'"
+            )
+            db.execSQL(
+                "UPDATE `forecast_evolution_samples` SET " +
+                    "`modelKey` = '${WeatherModel.ECMWF_IFS025_LEGACY_MODEL_KEY}', " +
+                    "`sourceApiKey` = '${WeatherModel.ECMWF_IFS025_API_KEY}', " +
+                    "`resolutionKm` = 25.0 WHERE `modelKey` = 'ECMWF'"
+            )
+        }
+    }
 
     /** Ajout du prototype v5 ; conservé pour permettre le chemin 4→5→6. */
     private val MIGRATION_4_5 = object : Migration(4, 5) {
@@ -100,7 +152,7 @@ object DatabaseModule {
 
 
 
-    /** Les utilisateurs de la 1.7.x (DB v4) passent directement au schéma final v6. */
+    /** Les utilisateurs de la 1.7.x (DB v4) passent d’abord au schéma v6, puis la migration 6→7 applique la séparation ECMWF HRES/legacy. */
     private val MIGRATION_4_6 = object : Migration(4, 6) {
         override fun migrate(db: SupportSQLiteDatabase) {
             createEvolutionSnapshotTable(db)

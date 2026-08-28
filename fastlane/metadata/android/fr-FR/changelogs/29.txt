@@ -1,0 +1,1 @@
+ECMWF IFS passe de l’ancienne distribution 25 km au modèle HRES pleine résolution 9 km. L’historique de fiabilité 25 km reste séparé et les caches de prévision sont renouvelés pour éviter tout mélange des deux sources.

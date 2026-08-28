@@ -97,7 +97,9 @@ class BiasSampleRepositoryImpl @Inject constructor(
                 variable = variable.name,
                 targetDateEpochDay = targetDate.toEpochDay(),
                 issuedAtEpochMs = issuedAt.toEpochMilli(),
-                value = value
+                value = value,
+                sourceApiKey = model.apiKey,
+                resolutionKm = model.resolutionKm
             )
         )
     }
@@ -111,7 +113,9 @@ class BiasSampleRepositoryImpl @Inject constructor(
                 variable = record.variable.name,
                 targetDateEpochDay = record.targetDate.toEpochDay(),
                 issuedAtEpochMs = record.issuedAt.toEpochMilli(),
-                value = record.value
+                value = record.value,
+                sourceApiKey = record.model.apiKey,
+                resolutionKm = record.model.resolutionKm
             )
         })
     }

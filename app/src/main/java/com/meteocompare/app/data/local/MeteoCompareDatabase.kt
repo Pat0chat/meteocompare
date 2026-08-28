@@ -4,6 +4,13 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 
 /**
+ * Version 7 : migration ECMWF IFS 25 km → IFS HRES 9 km. Les historiques
+ * J+1 et snapshots ECMWF existants sont conservés sous l'identité legacy
+ * `ECMWF_IFS025_LEGACY`, tandis que le cache forecast 25 km est invalidé.
+ * Les tables qui historisent une prévision mémorisent désormais également la
+ * clé API source exacte et sa résolution afin de rendre les futures migrations
+ * de modèle explicitement traçables.
+ *
  * Version 6 : remplace le prototype Previous Runs de `forecast_evolution_samples`
  * par des snapshots locaux des forecasts récupérés lors des refreshs frais. La table v5 est
  * reconstructible et volontairement recréée lors de 5→6 ; les autres données
@@ -15,7 +22,10 @@ import androidx.room.RoomDatabase
  * pour le suivi de biais par modèle météo (feature "chip de biais" sur
  * CityDetail).
  *
- * Stratégie de migration : 4→6 (utilisateurs v1.7.x) et 5→6 (prototype v1.8) sont explicites. La migration 5→6 ne recrée que la table d’évolution, dont le contenu est reconstruisible localement.
+ * Stratégie de migration : 4→6 (utilisateurs v1.7.x), 5→6 (prototype v1.8)
+ * puis 6→7 sont explicites. La migration 5→6 ne recrée que la table
+ * d’évolution, dont le contenu est reconstruisible localement ; 6→7 conserve
+ * les historiques ECMWF 25 km sous une identité legacy distincte.
  * `fallbackToDestructiveMigration` reste uniquement comme compatibilité pour
  * d'anciennes versions sans chemin de migration connu. En cas de fallback :
  *   - Caches forecast perdus → régénérés au prochain refresh (quelques
@@ -43,7 +53,7 @@ import androidx.room.RoomDatabase
         ObservationSampleEntity::class,
         ForecastEvolutionEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = false
 )
 abstract class MeteoCompareDatabase : RoomDatabase() {

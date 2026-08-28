@@ -134,18 +134,23 @@ class BootstrapBiasHistoryUseCaseTest {
     }
 
     @Test
-    fun `bootstrap accepte le suffixe modèle placé avant previous day`() = runTest {
+    fun `bootstrap ECMWF HRES utilise la nouvelle source et accepte le suffixe placé avant previous day`() = runTest {
         val model = WeatherModel.ECMWF
+        val modelsParam = slot<String>()
         val hourly = linkedMapOf<String, kotlinx.serialization.json.JsonElement>()
         hourly["time"] = JsonArray(dayTimes(today.minusDays(1)))
         hourly["temperature_2m_${model.apiKey}_previous_day1"] = values(24) { 18.0 + it }
         hourly["precipitation_${model.apiKey}_previous_day1"] = values(24) { 0.0 }
         hourly["wind_speed_10m_${model.apiKey}_previous_day1"] = values(24) { 10.0 + it }
-        coEvery { api.getPreviousDayOne(any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returns
-            PreviousRunsResponseDto(city.latitude, city.longitude, city.timezone!!, JsonObject(hourly))
+        coEvery {
+            api.getPreviousDayOne(
+                any(), any(), capture(modelsParam), any(), any(), any(), any(), any(), any(), any()
+            )
+        } returns PreviousRunsResponseDto(city.latitude, city.longitude, city.timezone!!, JsonObject(hourly))
 
         val result = useCase(city, listOf(model), today, requestedDays = 1)
 
+        assertEquals("ecmwf_ifs", modelsParam.captured)
         assertEquals(1, result.coveredDays)
         assertEquals(3, result.forecastRecords)
         coVerify(exactly = 1) { repository.recordForecasts(match { it.size == 3 }) }

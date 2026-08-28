@@ -1,0 +1,1 @@
+ECMWF IFS pasa de la fuente anterior de 25 km al modelo HRES de resolución completa de 9 km. El historial de fiabilidad de 25 km se conserva separado y la caché de previsiones se renueva.
