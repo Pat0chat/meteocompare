@@ -421,8 +421,6 @@
     
     
     <string name="sun_times_a11y">Lever du soleil à %1$s, coucher à %2$s</string>
-    
-    <string name="mini_forecast_now">Maint.</string>
     <string name="mini_forecast_a11y_no_data">Prévision 12h non disponible</string>
     <string name="mini_forecast_a11y_no_rain">Prévision 12h : entre %1$d et %2$d degrés, pas de pluie prévue</string>
     <string name="mini_forecast_a11y_with_rain">Prévision 12h : entre %1$d et %2$d degrés, pluie prévue sur %3$d heures</string>
@@ -826,4 +824,5 @@
         <item quantity="one">+ %1$d autre variante non affichée · %2$d/%3$d modèles</item>
         <item quantity="other">+ %1$d autres variantes non affichées · %2$d/%3$d modèles</item>
     </plurals>
+    <string name="mini_forecast_current_hour_a11y">Heure actuelle</string>
 </resources>

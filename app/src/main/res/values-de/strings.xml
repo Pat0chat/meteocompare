@@ -372,8 +372,6 @@ Daten</string>
     
     
     <string name="sun_times_a11y">Sonnenaufgang um %1$s, Sonnenuntergang um %2$s</string>
-    
-    <string name="mini_forecast_now">Jetzt</string>
     <string name="mini_forecast_a11y_no_data">12-Stunden-Vorhersage nicht verfügbar</string>
     <string name="mini_forecast_a11y_no_rain">12-Stunden-Vorhersage: zwischen %1$d und %2$d Grad, kein Regen erwartet</string>
     <string name="mini_forecast_a11y_with_rain">12-Stunden-Vorhersage: zwischen %1$d und %2$d Grad, Regen für %3$d Stunden erwartet</string>
@@ -765,4 +763,5 @@ Daten</string>
         <item quantity="one">+ %1$d weitere Variante nicht angezeigt · %2$d/%3$d Modelle</item>
         <item quantity="other">+ %1$d weitere Varianten nicht angezeigt · %2$d/%3$d Modelle</item>
     </plurals>
+    <string name="mini_forecast_current_hour_a11y">Aktuelle Stunde</string>
 </resources>

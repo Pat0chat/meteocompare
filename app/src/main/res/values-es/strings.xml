@@ -372,8 +372,6 @@ datos</string>
     
     
     <string name="sun_times_a11y">Amanecer a las %1$s, puesta de sol a las %2$s</string>
-    
-    <string name="mini_forecast_now">Ahora</string>
     <string name="mini_forecast_a11y_no_data">Previsión de 12 h no disponible</string>
     <string name="mini_forecast_a11y_no_rain">Previsión de 12 h: entre %1$d y %2$d grados, no se espera lluvia</string>
     <string name="mini_forecast_a11y_with_rain">Previsión de 12 h: entre %1$d y %2$d grados, se espera lluvia durante %3$d horas</string>
@@ -769,4 +767,5 @@ datos</string>
         <item quantity="one">+ %1$d otra variante no mostrada · %2$d/%3$d modelos</item>
         <item quantity="other">+ %1$d otras variantes no mostradas · %2$d/%3$d modelos</item>
     </plurals>
+    <string name="mini_forecast_current_hour_a11y">Hora actual</string>
 </resources>

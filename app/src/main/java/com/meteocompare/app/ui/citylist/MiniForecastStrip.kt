@@ -87,9 +87,9 @@ internal fun MiniForecastStrip(
         DateTimeFormatter.ofPattern(if (is24) "H'h'" else "h a", platformLocale)
     }
 
-    // Palette volontairement moins saturée que l'ancienne grille : la heatmap
-    // reste immédiatement visible, mais laisse la pluie et les icônes respirer.
-    val heatStrength = if (isDarkTheme) 0.72f else 0.68f
+    // Heatmap un peu plus vive que la 1.11.7, tout en conservant assez de
+    // marge de contraste pour les libellés et les icônes météo.
+    val heatStrength = if (isDarkTheme) MINI_TIMELINE_HEAT_STRENGTH_DARK else MINI_TIMELINE_HEAT_STRENGTH_LIGHT
     val cellBackgrounds = List(CELL_COUNT) { index ->
         hourlyTemps.getOrNull(index)
             ?.let(::temperatureHeatmapColor)
@@ -103,7 +103,7 @@ internal fun MiniForecastStrip(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
-            .height(86.dp)
+            .height(MINI_TIMELINE_HEIGHT_DP.dp)
             .then(
                 if (startTime != null) Modifier.testTag(TAG_MINI_FORECAST_ANCHORS)
                 else Modifier
@@ -114,7 +114,7 @@ internal fun MiniForecastStrip(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .clip(RoundedCornerShape(18.dp))
+                .clip(RoundedCornerShape(MINI_TIMELINE_CORNER_RADIUS_DP.dp))
                 .testTag(TAG_MINI_FORECAST_STRIP)
                 .semantics { contentDescription = a11yLabel }
         ) {
@@ -167,53 +167,57 @@ private fun MiniForecastHour(
     contentColor: Color,
     index: Int
 ) {
+    val currentHourA11y = stringResource(R.string.mini_forecast_current_hour_a11y)
+
     Column(
         modifier = modifier.padding(vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        // L'heure courante n'occupe plus une ligne dédiée : une courte barre
+        // intégrée au sommet de la première colonne joue le rôle d'ancre.
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(15.dp),
-            contentAlignment = Alignment.TopCenter
+                .height(14.dp),
+            contentAlignment = Alignment.BottomCenter
         ) {
             if (isCurrentBucket) {
-                Text(
-                    text = stringResource(R.string.mini_forecast_now),
-                    color = contentColor.copy(alpha = 0.76f),
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        fontSize = 7.sp,
-                        lineHeight = 8.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        letterSpacing = 0.25.sp
-                    ),
-                    maxLines = 1
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .width(14.dp)
+                        .height(2.dp)
+                        .background(
+                            contentColor.copy(alpha = 0.88f),
+                            RoundedCornerShape(1.dp)
+                        )
+                        .testTag(TAG_MINI_FORECAST_CURRENT_MARKER)
+                        .semantics { contentDescription = currentHourA11y }
                 )
             }
+            Text(
+                text = hour ?: " ",
+                color = contentColor.copy(alpha = if (isCurrentBucket) 0.94f else 0.74f),
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontSize = 9.sp,
+                    lineHeight = 11.sp,
+                    fontWeight = if (isCurrentBucket) FontWeight.SemiBold else FontWeight.Medium
+                ),
+                textAlign = TextAlign.Center,
+                maxLines = 1
+            )
         }
-
-        Text(
-            text = hour ?: " ",
-            color = contentColor.copy(alpha = if (isCurrentBucket) 0.92f else 0.72f),
-            style = MaterialTheme.typography.labelSmall.copy(
-                fontSize = 9.sp,
-                lineHeight = 11.sp,
-                fontWeight = if (isCurrentBucket) FontWeight.SemiBold else FontWeight.Medium
-            ),
-            textAlign = TextAlign.Center,
-            maxLines = 1
-        )
 
         Box(
             modifier = Modifier
-                .height(24.dp)
+                .height(22.dp)
                 .fillMaxWidth(),
             contentAlignment = Alignment.Center
         ) {
             condition?.let {
                 WeatherIconDecorative(
                     condition = it,
-                    size = 21.dp,
+                    size = MINI_TIMELINE_CONDITION_ICON_DP.dp,
                     tint = contentColor.copy(alpha = 0.96f),
                     modifier = Modifier.testTag("$TAG_MINI_FORECAST_CONDITION_PREFIX$index")
                 )
@@ -373,6 +377,11 @@ private fun buildA11yLabel(
 
 private const val CELL_COUNT = 12
 internal const val MINI_TIMELINE_VISIBLE_HOURS = 6
+internal const val MINI_TIMELINE_HEIGHT_DP = 70
+internal const val MINI_TIMELINE_CORNER_RADIUS_DP = 10
+internal const val MINI_TIMELINE_CONDITION_ICON_DP = 19
+internal const val MINI_TIMELINE_HEAT_STRENGTH_LIGHT = 0.78f
+internal const val MINI_TIMELINE_HEAT_STRENGTH_DARK = 0.82f
 private const val RAIN_DOT_MIN_PROBABILITY = 30
 private const val RAIN_DOT_MIN_AMOUNT_MM = 0.05
 private const val RAIN_DOT_MAX_SCALE_MM = 5.0
@@ -383,4 +392,5 @@ private const val MIN_TEXT_CONTRAST_RATIO = 4.5f
 internal const val TAG_MINI_FORECAST_STRIP = "mini_forecast_strip"
 internal const val TAG_MINI_FORECAST_SCROLL = "mini_forecast_scroll"
 internal const val TAG_MINI_FORECAST_ANCHORS = "mini_forecast_anchors"
+internal const val TAG_MINI_FORECAST_CURRENT_MARKER = "mini_forecast_current_marker"
 internal const val TAG_MINI_FORECAST_CONDITION_PREFIX = "mini_forecast_condition_"

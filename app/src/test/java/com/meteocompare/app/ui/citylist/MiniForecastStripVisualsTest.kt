@@ -82,6 +82,22 @@ class MiniForecastStripVisualsTest {
         assertEquals(6, MINI_TIMELINE_VISIBLE_HOURS)
     }
 
+
+    @Test
+    fun `home heat strip stays compact and matches card geometry`() {
+        assertEquals(70, MINI_TIMELINE_HEIGHT_DP)
+        assertEquals(10, MINI_TIMELINE_CORNER_RADIUS_DP)
+        assertEquals(19, MINI_TIMELINE_CONDITION_ICON_DP)
+    }
+
+    @Test
+    fun `home heat strip uses a more vivid thermal blend`() {
+        assertTrue(MINI_TIMELINE_HEAT_STRENGTH_LIGHT > 0.68f)
+        assertTrue(MINI_TIMELINE_HEAT_STRENGTH_DARK > 0.72f)
+        assertTrue(MINI_TIMELINE_HEAT_STRENGTH_LIGHT < 1f)
+        assertTrue(MINI_TIMELINE_HEAT_STRENGTH_DARK < 1f)
+    }
+
     @Test
     fun `adjacent heatmap cell gradients join without a seam`() {
         val colors = listOf(
