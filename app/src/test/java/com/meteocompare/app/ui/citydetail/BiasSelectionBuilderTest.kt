@@ -44,11 +44,12 @@ class BiasSelectionBuilderTest {
             state
         )
 
-        assertNotNull(selection)
-        assertEquals(2, selection!!.localRank!!.rank)
-        assertEquals(3, selection.localRank!!.modelCount)
-        assertEquals(30, selection.dailyForecast.size)
-        assertNotNull(selection.multiModelReliability)
+        val resolvedSelection = requireNotNull(selection)
+        val localRank = requireNotNull(resolvedSelection.localRank)
+        assertEquals(2, localRank.rank)
+        assertEquals(3, localRank.modelCount)
+        assertEquals(30, resolvedSelection.dailyForecast.size)
+        assertNotNull(resolvedSelection.multiModelReliability)
     }
 
     @Test

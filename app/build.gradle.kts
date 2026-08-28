@@ -230,6 +230,10 @@ tasks.matching {
 // access explicitly enabled until MockK no longer needs this injection path,
 // avoiding noisy warnings without changing production behavior.
 tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
+    // Test instrumentation appends to the bootstrap classpath, which makes CDS unusable
+    // and otherwise emits: "Sharing is only supported for boot loader classes...".
+    jvmArgs("-Xshare:off")
+
     val major = JavaVersion.current().majorVersion.toIntOrNull() ?: 17
     if (major >= 24) {
         jvmArgs("--sun-misc-unsafe-memory-access=allow")

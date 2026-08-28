@@ -44,9 +44,12 @@ class ForecastEngineV3Test {
         )
 
         assertEquals(ForecastEngine.MULTI_CONSENSUS, result.effectiveEngine)
-        assertTrue(result.central!! < 30.0)
-        assertTrue(result.interval.low!! <= result.central!!)
-        assertTrue(result.interval.high!! >= result.central!!)
+        val central = requireNotNull(result.central)
+        val low = requireNotNull(result.interval.low)
+        val high = requireNotNull(result.interval.high)
+        assertTrue(central < 30.0)
+        assertTrue(low <= central)
+        assertTrue(high >= central)
     }
 
     @Test
@@ -164,10 +167,13 @@ class ForecastEngineV3Test {
         )
 
         assertEquals(ForecastEngine.CALIBRATION, adaptive.effectiveEngine)
-        assertTrue(adaptive.adaptiveTrust!! in 0.5..0.85)
-        val low = minOf(multi.central!!, calibrated.central!!)
-        val high = maxOf(multi.central!!, calibrated.central!!)
-        assertTrue(adaptive.central!! in low..high)
+        assertTrue(requireNotNull(adaptive.adaptiveTrust) in 0.5..0.85)
+        val multiCentral = requireNotNull(multi.central)
+        val calibratedCentral = requireNotNull(calibrated.central)
+        val adaptiveCentral = requireNotNull(adaptive.central)
+        val low = minOf(multiCentral, calibratedCentral)
+        val high = maxOf(multiCentral, calibratedCentral)
+        assertTrue(adaptiveCentral in low..high)
     }
 
     @Test

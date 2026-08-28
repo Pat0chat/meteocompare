@@ -24,7 +24,7 @@ import com.meteocompare.app.ui.theme.MeteoCompareTheme
     heightDp = 844,
     uiMode = Configuration.UI_MODE_NIGHT_YES
 )
-annotation class MeteoScreenPreview
+internal annotation class MeteoScreenPreview
 
 @Preview(
     name = "Light",
@@ -39,10 +39,10 @@ annotation class MeteoScreenPreview
     widthDp = 390,
     uiMode = Configuration.UI_MODE_NIGHT_YES
 )
-annotation class MeteoComponentPreview
+internal annotation class MeteoComponentPreview
 
 @Composable
-fun MeteoPreviewSurface(
+internal fun MeteoPreviewSurface(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit
 ) {

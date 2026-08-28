@@ -58,17 +58,26 @@ class ForecastEngineIntegrationTest {
             )
         )
 
+        val multiTempMax = requireNotNull(multi.tempMax)
+        val calibratedTempMax = requireNotNull(calibrated.tempMax)
+        val multiWindMax = requireNotNull(multi.windMax)
+        val calibratedWindMax = requireNotNull(calibrated.windMax)
+        val multiTempMin = requireNotNull(multi.tempMin)
+        val calibratedTempMin = requireNotNull(calibrated.tempMin)
+        val multiWindGustMax = requireNotNull(multi.windGustMax)
+        val calibratedWindGustMax = requireNotNull(calibrated.windGustMax)
+
         // V3 peut changer les centrales journalières compatibles avec l'historique J+1...
-        assertNotEquals(multi.tempMax!!.meanValue, calibrated.tempMax!!.meanValue, 1e-6)
-        assertNotEquals(multi.windMax!!.meanValue, calibrated.windMax!!.meanValue, 1e-6)
+        assertNotEquals(multiTempMax.meanValue, calibratedTempMax.meanValue, 1e-6)
+        assertNotEquals(multiWindMax.meanValue, calibratedWindMax.meanValue, 1e-6)
         // ...mais jamais Tmin/rafales : l'audit 1.16 interdit d'y appliquer un biais d'une autre sémantique.
-        assertEquals(multi.tempMin!!.meanValue, calibrated.tempMin!!.meanValue, 1e-9)
-        assertEquals(multi.windGustMax!!.meanValue, calibrated.windGustMax!!.meanValue, 1e-9)
+        assertEquals(multiTempMin.meanValue, calibratedTempMin.meanValue, 1e-9)
+        assertEquals(multiWindGustMax.meanValue, calibratedWindGustMax.meanValue, 1e-9)
         // Et toute la dispersion/convergence reste celle des modèles bruts.
-        assertEquals(multi.tempMax!!.convergencePercent, calibrated.tempMax!!.convergencePercent)
-        assertEquals(multi.tempMax!!.minValue, calibrated.tempMax!!.minValue, 1e-9)
-        assertEquals(multi.tempMax!!.maxValue, calibrated.tempMax!!.maxValue, 1e-9)
-        assertEquals(multi.tempMax!!.stdDev, calibrated.tempMax!!.stdDev, 1e-9)
+        assertEquals(multiTempMax.convergencePercent, calibratedTempMax.convergencePercent)
+        assertEquals(multiTempMax.minValue, calibratedTempMax.minValue, 1e-9)
+        assertEquals(multiTempMax.maxValue, calibratedTempMax.maxValue, 1e-9)
+        assertEquals(multiTempMax.stdDev, calibratedTempMax.stdDev, 1e-9)
     }
 
     @Test

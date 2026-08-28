@@ -66,7 +66,7 @@ import kotlin.math.sin
 private val BASE_INSTANT: Instant = Instant.parse("2026-08-28T12:00:00Z")
 private val BASE_DATE: LocalDate = LocalDate.of(2026, 8, 28)
 
-object PreviewFixtures {
+internal object PreviewFixtures {
     val city = City(
         id = "preview-paris",
         name = "Paris",

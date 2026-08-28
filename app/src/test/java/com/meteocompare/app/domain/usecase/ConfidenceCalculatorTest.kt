@@ -330,14 +330,14 @@ class ConfidenceCalculatorTest {
 
         // J : les deux modèles contribuent → confiance calculable
         val day0 = calculator.dayConfidence(forecast, today)
-        assertNotNull(day0.tempMax)
-        assertEquals(2, day0.tempMax!!.modelCount)
+        val day0TempMax = requireNotNull(day0.tempMax)
+        assertEquals(2, day0TempMax.modelCount)
 
         // J+2 : seul GFS contribue → valeur conservée, convergence indéfinie.
         val day2 = calculator.dayConfidence(forecast, afterTomorrow)
-        assertNotNull(day2.tempMax)
-        assertEquals(27.0, day2.tempMax!!.centralValue, 0.001)
-        assertNull(day2.tempMax!!.convergencePercent)
+        val day2TempMax = requireNotNull(day2.tempMax)
+        assertEquals(27.0, day2TempMax.centralValue, 0.001)
+        assertNull(day2TempMax.convergencePercent)
     }
 
     @Test

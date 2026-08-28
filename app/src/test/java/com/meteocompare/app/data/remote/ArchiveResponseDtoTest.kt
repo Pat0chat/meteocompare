@@ -9,7 +9,7 @@ import org.junit.Test
 class ArchiveResponseDtoTest {
     @Test
     fun `reponse biais sans Tmin reste deserialisable`() {
-        val dto = Json { ignoreUnknownKeys = true }.decodeFromString<ArchiveResponseDto>(
+        val dto = Json.decodeFromString<ArchiveResponseDto>(
             """{
               "latitude":48.85,
               "longitude":2.35,
