@@ -188,7 +188,7 @@ private fun MiniForecastHour(
                         .width(14.dp)
                         .height(2.dp)
                         .background(
-                            contentColor.copy(alpha = 0.88f),
+                            contentColor.copy(alpha = 0.64f),
                             RoundedCornerShape(1.dp)
                         )
                         .testTag(TAG_MINI_FORECAST_CURRENT_MARKER)
@@ -197,9 +197,9 @@ private fun MiniForecastHour(
             }
             Text(
                 text = hour ?: " ",
-                color = contentColor.copy(alpha = if (isCurrentBucket) 0.94f else 0.74f),
+                color = contentColor.copy(alpha = if (isCurrentBucket) 0.80f else 0.64f),
                 style = MaterialTheme.typography.labelSmall.copy(
-                    fontSize = 9.sp,
+                    fontSize = 8.sp,
                     lineHeight = 11.sp,
                     fontWeight = if (isCurrentBucket) FontWeight.SemiBold else FontWeight.Medium
                 ),
@@ -218,7 +218,7 @@ private fun MiniForecastHour(
                 WeatherIconDecorative(
                     condition = it,
                     size = MINI_TIMELINE_CONDITION_ICON_DP.dp,
-                    tint = contentColor.copy(alpha = 0.96f),
+                    tint = contentColor.copy(alpha = 0.90f),
                     modifier = Modifier.testTag("$TAG_MINI_FORECAST_CONDITION_PREFIX$index")
                 )
             }
@@ -247,7 +247,7 @@ private fun MiniForecastHour(
             Canvas(Modifier.fillMaxSize()) {
                 val y = size.height / 2f
                 drawLine(
-                    color = contentColor.copy(alpha = 0.13f),
+                    color = contentColor.copy(alpha = 0.12f),
                     start = androidx.compose.ui.geometry.Offset(0f, y),
                     end = androidx.compose.ui.geometry.Offset(size.width, y),
                     strokeWidth = 1.dp.toPx()
@@ -379,7 +379,7 @@ private const val CELL_COUNT = 12
 internal const val MINI_TIMELINE_VISIBLE_HOURS = 6
 internal const val MINI_TIMELINE_HEIGHT_DP = 70
 internal const val MINI_TIMELINE_CORNER_RADIUS_DP = 10
-internal const val MINI_TIMELINE_CONDITION_ICON_DP = 19
+internal const val MINI_TIMELINE_CONDITION_ICON_DP = 16
 internal const val MINI_TIMELINE_HEAT_STRENGTH_LIGHT = 0.78f
 internal const val MINI_TIMELINE_HEAT_STRENGTH_DARK = 0.82f
 private const val RAIN_DOT_MIN_PROBABILITY = 30
