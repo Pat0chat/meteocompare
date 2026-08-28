@@ -619,7 +619,12 @@ class CityListViewModel @Inject constructor(
                 val sunrise = sunriseFromApi?.atZone(zone)?.toLocalTime() ?: fallbackSun?.sunrise
                 val sunset = sunsetFromApi?.atZone(zone)?.toLocalTime() ?: fallbackSun?.sunset
 
-                val miniForecast = ForecastAggregates.next12h(result.data, now, engineContext = engineContext)
+                val miniForecast = ForecastAggregates.next12h(
+                    forecast = result.data,
+                    now = now,
+                    includeConditions = true,
+                    engineContext = engineContext
+                )
                 val scenarios = WeatherScenarioBuilder.next12h(result.data, now)
                 ForecastState.Loaded(
                     today = confidenceCalculator.dayConfidence(result.data, today, engineContext),
@@ -630,6 +635,8 @@ class CityListViewModel @Inject constructor(
                     sourceModels = result.data.seriesByModel.keys + result.data.errors.keys,
                     next12hTemps = miniForecast.temperatures,
                     next12hPrecipProb = miniForecast.precipitationProbabilities,
+                    next12hPrecipMm = miniForecast.precipitationAmountsMm,
+                    next12hConditions = miniForecast.conditions,
                     next12hScenarios = scenarios,
                     // L'agrégateur expose l'échéance réellement échantillonnée
                     // (ex. 13:00 à 12:56), donc le label ne peut plus dériver.

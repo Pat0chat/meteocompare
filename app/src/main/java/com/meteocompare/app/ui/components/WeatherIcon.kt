@@ -41,7 +41,11 @@ fun WeatherIconDecorative(
     if (condition == null) return
     val resolvedTint = if (tint == Color.Unspecified) LocalContentColor.current else tint
     if (condition == WeatherCondition.PARTLY_CLOUDY) {
-        PartlyCloudyIcon(size = size, modifier = modifier)
+        PartlyCloudyIcon(
+            size = size,
+            modifier = modifier,
+            monochromeTint = tint.takeUnless { it == Color.Unspecified }
+        )
         return
     }
     Icon(
@@ -73,30 +77,35 @@ fun WeatherIconDecorative(
  *     (onSurface = quasi-noir), lu comme un nuage d'ORAGE alors qu'on veut
  *     signifier "nuage bienveillant qui laisse le soleil percer".
  *   - Détection thème via `surface.luminance() < 0.5f` — même pattern que
- *     HourlyConfidenceChart pour cohérence.
+ *     HourlyConfidenceChart pour cohérence. Quand un appelant fournit une
+ *     teinte explicite (p. ex. une heatmap), les deux couches deviennent
+ *     monochromes avec cette teinte afin de garantir le contraste local.
  *
  */
 @Composable
 private fun PartlyCloudyIcon(
     size: Dp,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    monochromeTint: Color? = null
 ) {
     // Blue Grey 400 en clair (visible sur fond clair sans être quasi-noir),
     // Blue Grey 200 en sombre (assez lumineux pour rester lisible sur fond
     // sombre). Valeurs Material standard — pas de tuning fin nécessaire, ces
     // deux teintes ont un contrast ratio ≥ 3:1 sur leurs backgrounds respectifs.
     val isDarkTheme = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    val cloudTint = if (isDarkTheme) Color(0xFFB0BEC5) else Color(0xFF90A4AE)
+    val cloudTint = monochromeTint
+        ?: if (isDarkTheme) Color(0xFFB0BEC5) else Color(0xFF90A4AE)
+    val sunTint = monochromeTint ?: Color(0xFFFFA726)
 
     Box(modifier = modifier.size(size)) {
         // Soleil au coin haut-gauche — 60% de la size finale, teinte ambre
-        // pour se distinguer du nuage neutre. C'est la SEULE icône météo à
-        // deux teintes de l'app ; on assume qu'elle n'obéit pas au param tint
-        // du parent (partly-cloudy est intrinsèquement bi-color).
+        // pour se distinguer du nuage neutre. En rendu standard elle reste
+        // bi-color ; sur une heatmap qui impose une teinte contrastée, soleil
+        // et nuage utilisent volontairement cette même teinte.
         Icon(
             imageVector = Icons.Outlined.WbSunny,
             contentDescription = null,
-            tint = Color(0xFFFFA726),
+            tint = sunTint,
             modifier = Modifier
                 .size(size * 0.60f)
                 .align(Alignment.TopStart)

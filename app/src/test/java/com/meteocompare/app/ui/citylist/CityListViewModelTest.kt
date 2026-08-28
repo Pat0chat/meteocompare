@@ -12,6 +12,7 @@ import com.meteocompare.app.domain.model.MarineForecast
 import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.WeatherModel
+import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.repository.CityRepository
 import com.meteocompare.app.domain.repository.ForecastRepository
 import com.meteocompare.app.domain.repository.MarineRepository
@@ -672,6 +673,56 @@ class CityListViewModelTest {
             while (state.items.firstOrNull()?.forecast !is ForecastState.Loaded) state = awaitItem()
             val loaded = state.items.first().forecast as ForecastState.Loaded
             assertEquals(LocalDateTime.of(2026, 6, 28, 13, 0), loaded.hourlyStartTime)
+        }
+    }
+
+
+    @Test
+    fun `home mini timeline receives condition probability and amount from the same hourly aggregate`() = runTest(dispatcher) {
+        val daily = DailyForecast(
+            dates = listOf(LocalDate.of(2026, 6, 28)),
+            tempMax = listOf(24.0),
+            tempMin = listOf(16.0),
+            precipitationSum = listOf(1.2),
+            windSpeedMax = listOf(10.0)
+        )
+        val forecast = CityForecast(
+            city = paris,
+            seriesByModel = mapOf(
+                WeatherModel.GFS to ForecastSeries(
+                    model = WeatherModel.GFS,
+                    hourly = HourlyForecast(
+                        timestamps = listOf(testNow),
+                        temperature2m = listOf(18.0),
+                        precipitation = listOf(1.2),
+                        windSpeed10m = listOf(8.0),
+                        weatherCode = listOf(61),
+                        precipitationProbability = listOf(80),
+                        cloudCover = listOf(90)
+                    ),
+                    daily = daily
+                )
+            )
+        )
+        coEvery {
+            forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
+        } returns flowOf(ApiResult.Success(forecast))
+        val vm = CityListViewModel(
+            cityRepo, forecastRepo, marineRepo, networkMonitor, calculator, prefs,
+            testClock, dispatcher, engineContextProvider
+        )
+
+        vm.uiState.test {
+            awaitItem()
+            favoritesFlow.value = listOf(paris)
+            var state = awaitItem()
+            while (state.items.firstOrNull()?.forecast !is ForecastState.Loaded) state = awaitItem()
+            val loaded = state.items.first().forecast as ForecastState.Loaded
+
+            assertEquals(18.0, loaded.next12hTemps.first() ?: error("temperature absente"), 0.001)
+            assertEquals(80, loaded.next12hPrecipProb.first())
+            assertEquals(1.2, loaded.next12hPrecipMm.first() ?: error("pluie absente"), 0.001)
+            assertEquals(WeatherCondition.RAIN, loaded.next12hConditions.first())
         }
     }
 

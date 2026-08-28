@@ -461,6 +461,8 @@ internal fun CityCard(
                             fetchedAt = forecast.fetchedAt,
                             next12hTemps = forecast.next12hTemps,
                             next12hPrecipProb = forecast.next12hPrecipProb,
+                            next12hPrecipMm = forecast.next12hPrecipMm,
+                            next12hConditions = forecast.next12hConditions,
                             next12hScenarios = forecast.next12hScenarios,
                             hourlyStartTime = forecast.hourlyStartTime,
                             accentColor = accentColor
@@ -618,6 +620,8 @@ private fun CityCardLoaded(
     fetchedAt: java.time.Instant?,
     next12hTemps: List<Double?>,
     next12hPrecipProb: List<Int?>,
+    next12hPrecipMm: List<Double?>,
+    next12hConditions: List<WeatherCondition?>,
     next12hScenarios: List<WeatherScenario>,
     hourlyStartTime: java.time.LocalDateTime?,
     accentColor: Color
@@ -631,6 +635,8 @@ private fun CityCardLoaded(
             accentColor = accentColor,
             hourlyTemps = next12hTemps,
             hourlyPrecipProb = next12hPrecipProb,
+            hourlyPrecipMm = next12hPrecipMm,
+            hourlyConditions = next12hConditions,
             startTime = hourlyStartTime
         )
 
@@ -663,6 +669,8 @@ private fun CurrentWeatherHero(
     accentColor: Color,
     hourlyTemps: List<Double?>,
     hourlyPrecipProb: List<Int?>,
+    hourlyPrecipMm: List<Double?>,
+    hourlyConditions: List<WeatherCondition?>,
     startTime: java.time.LocalDateTime?
 ) {
     Column {
@@ -736,6 +744,8 @@ private fun CurrentWeatherHero(
             MiniForecastStrip(
                 hourlyTemps = hourlyTemps,
                 hourlyPrecipProb = hourlyPrecipProb,
+                hourlyPrecipMm = hourlyPrecipMm,
+                hourlyConditions = hourlyConditions,
                 startTime = startTime
             )
         }
@@ -1379,6 +1389,15 @@ private fun CityCardLoadedPreview() {
                 next12hTemps = listOf(19.0, 20.5, 22.0, 23.5, 24.0, 23.5,
                     22.5, 21.0, 19.5, 18.0, 17.0, 16.5),
                 next12hPrecipProb = listOf(0, 0, 10, 20, 30, 40, 60, 50, 20, 5, 0, 0),
+                next12hPrecipMm = listOf(0.0, 0.0, 0.0, 0.0, 0.1, 0.3, 1.4, 0.8, 0.1, 0.0, 0.0, 0.0),
+                next12hConditions = listOf(
+                    WeatherCondition.PARTLY_CLOUDY, WeatherCondition.MAINLY_CLEAR,
+                    WeatherCondition.MAINLY_CLEAR, WeatherCondition.PARTLY_CLOUDY,
+                    WeatherCondition.OVERCAST, WeatherCondition.DRIZZLE,
+                    WeatherCondition.RAIN, WeatherCondition.RAIN_SHOWERS,
+                    WeatherCondition.PARTLY_CLOUDY, WeatherCondition.MAINLY_CLEAR,
+                    WeatherCondition.CLEAR, WeatherCondition.CLEAR
+                ),
                 hourlyStartTime = java.time.LocalDateTime.of(2026, 7, 14, 15, 0),
                 sunrise = java.time.LocalTime.of(6, 12),
                 sunset = java.time.LocalTime.of(21, 45)

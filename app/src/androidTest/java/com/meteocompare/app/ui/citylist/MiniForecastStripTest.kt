@@ -6,6 +6,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.test.platform.app.InstrumentationRegistry
 import com.meteocompare.app.R
+import com.meteocompare.app.domain.model.WeatherCondition
 import org.junit.Rule
 import org.junit.Test
 import java.time.LocalDateTime
@@ -51,6 +52,24 @@ class MiniForecastStripTest {
             )
         }
         composeRule.onNodeWithTag(TAG_MINI_FORECAST_STRIP).assertIsDisplayed()
+    }
+
+    @Test
+    fun weather_condition_icon_is_rendered_for_each_available_hour() {
+        composeRule.setContent {
+            MiniForecastStrip(
+                hourlyTemps = List(12) { 20.0 },
+                hourlyPrecipProb = List(12) { 0 },
+                hourlyConditions = listOf(
+                    WeatherCondition.CLEAR,
+                    WeatherCondition.RAIN
+                ) + List(10) { null }
+            )
+        }
+
+        composeRule.onNodeWithTag("${TAG_MINI_FORECAST_CONDITION_PREFIX}0").assertIsDisplayed()
+        composeRule.onNodeWithTag("${TAG_MINI_FORECAST_CONDITION_PREFIX}1").assertIsDisplayed()
+        composeRule.onNodeWithTag("${TAG_MINI_FORECAST_CONDITION_PREFIX}2").assertDoesNotExist()
     }
 
     @Test
