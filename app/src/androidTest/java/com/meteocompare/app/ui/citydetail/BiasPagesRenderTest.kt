@@ -1,7 +1,7 @@
 package com.meteocompare.app.ui.citydetail
 
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -122,9 +122,12 @@ class BiasPagesRenderTest {
         }
 
         composeRule.onNodeWithTag(TAG_MODEL_BIAS_DETAIL_SHEET).assertIsDisplayed()
-        composeRule.onNodeWithTag(TAG_MODEL_BIAS_HEADER)
-            .assertTextContains(WeatherModel.GFS.displayName)
+        val headerNode = composeRule.onNodeWithTag(TAG_MODEL_BIAS_HEADER)
             .assertIsDisplayed()
+            .fetchSemanticsNode()
+        val headerText = headerNode.config[SemanticsProperties.Text]
+            .joinToString(separator = " ") { it.text }
+        assertTrue(headerText.contains(WeatherModel.GFS.displayName))
         composeRule.onNodeWithTag(TAG_MODEL_BIAS_SCORE)
             .assertTextEquals(selection.reliability.score.toString())
             .assertIsDisplayed()
