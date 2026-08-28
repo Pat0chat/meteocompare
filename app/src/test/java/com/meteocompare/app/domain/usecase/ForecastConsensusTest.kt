@@ -143,4 +143,18 @@ class ForecastConsensusTest {
             ForecastConsensus.groupFor(WeatherModel.METEOSWISS_ICON_CH2)
         )
     }
+    @Test
+    fun `ECMWF HRES et AIFS partagent une seule masse de famille`() {
+        val weights = ForecastConsensus.familyBalancedWeights(
+            listOf(WeatherModel.ECMWF, WeatherModel.ECMWF_AIFS, WeatherModel.GFS)
+        )
+
+        assertEquals(1.0, weights.getValue(WeatherModel.ECMWF) + weights.getValue(WeatherModel.ECMWF_AIFS), 1e-9)
+        assertEquals(1.0, weights.getValue(WeatherModel.GFS), 1e-9)
+        assertEquals(
+            ForecastConsensus.groupFor(WeatherModel.ECMWF),
+            ForecastConsensus.groupFor(WeatherModel.ECMWF_AIFS)
+        )
+    }
+
 }

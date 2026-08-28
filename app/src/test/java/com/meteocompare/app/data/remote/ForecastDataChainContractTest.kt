@@ -90,6 +90,69 @@ class ForecastDataChainContractTest {
     }
 
     @Test
+    fun `ECMWF HRES 9 km traverse le pipeline avec les bons suffixes et variables`() {
+        val key = WeatherModel.ECMWF.apiKey
+        val response = json.decodeFromString<BatchedForecastResponseDto>(
+            """{
+              "latitude": 48.85,
+              "longitude": 2.35,
+              "timezone": "Europe/Paris",
+              "hourly": {
+                "time": ["2026-08-28T06:00"],
+                "temperature_2m_${key}": [17.4],
+                "precipitation_${key}": [1.2],
+                "precipitation_probability_${key}": [64],
+                "cloud_cover_${key}": [83],
+                "cloud_cover_low_${key}": [72],
+                "cloud_cover_mid_${key}": [41],
+                "cloud_cover_high_${key}": [18],
+                "wind_speed_10m_${key}": [22.5],
+                "wind_direction_10m_${key}": [245],
+                "wind_gusts_10m_${key}": [38.7],
+                "weather_code_${key}": [61]
+              },
+              "daily": {
+                "time": ["2026-08-28"],
+                "temperature_2m_max_${key}": [21.8],
+                "temperature_2m_min_${key}": [13.6],
+                "precipitation_sum_${key}": [4.7],
+                "precipitation_probability_max_${key}": [72],
+                "wind_speed_10m_max_${key}": [29.4],
+                "wind_gusts_10m_max_${key}": [46.2],
+                "wind_direction_10m_dominant_${key}": [238],
+                "weather_code_${key}": [63],
+                "sunrise": ["2026-08-28T07:03"],
+                "sunset": ["2026-08-28T20:42"]
+              }
+            }"""
+        )
+
+        val dto = BatchedForecastSplitter.split(
+            response,
+            listOf(WeatherModel.ECMWF, WeatherModel.GFS)
+        ).getValue(WeatherModel.ECMWF)
+        val series = mapper.toSeries(WeatherModel.ECMWF, dto)
+
+        assertEquals("ecmwf_ifs", WeatherModel.ECMWF.apiKey)
+        assertEquals(listOf(17.4), series.hourly.temperature2m)
+        assertEquals(listOf(1.2), series.hourly.precipitation)
+        assertEquals(listOf(64), series.hourly.precipitationProbability)
+        assertEquals(listOf(83), series.hourly.cloudCover)
+        assertEquals(listOf(22.5), series.hourly.windSpeed10m)
+        assertEquals(listOf(245), series.hourly.windDirection10m)
+        assertEquals(listOf(38.7), series.hourly.windGusts10m)
+        assertEquals(listOf(61), series.hourly.weatherCode)
+        assertEquals(listOf(21.8), series.daily.tempMax)
+        assertEquals(listOf(13.6), series.daily.tempMin)
+        assertEquals(listOf(4.7), series.daily.precipitationSum)
+        assertEquals(listOf(72), series.daily.precipitationProbabilityMax)
+        assertEquals(listOf(29.4), series.daily.windSpeedMax)
+        assertEquals(listOf(46.2), series.daily.windGustsMax)
+        assertEquals(listOf(238), series.daily.windDirection10mDominant)
+        assertEquals(listOf(63), series.daily.weatherCode)
+    }
+
+    @Test
     fun `contrat de variables API reste aligne avec les champs du pipeline`() {
         assertEquals(
             setOf(

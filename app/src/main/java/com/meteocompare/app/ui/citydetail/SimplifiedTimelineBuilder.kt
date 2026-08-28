@@ -356,18 +356,37 @@ private fun timelinePoint(
             amountWide = if (hourly) 4.0 else 8.0
         )
     )
+    val nativeConditionEntries = meaningful.mapNotNull { snap ->
+        snap.nativeCondition?.let { ForecastConsensus.Entry(snap.model, it) }
+    }
+    val conditionTemperature = if (hourly) {
+        temp.forecastValue.central
+    } else {
+        tempMin?.forecastValue?.central ?: temp.forecastValue.central
+    }
+    // La provenance de la condition doit compter uniquement les modèles qui
+    // contribuent réellement à l'un de ses inputs. Un modèle « wind-only »
+    // ou « gust-only » reste utile à la chronologie générale, mais ne doit pas
+    // gonfler artificiellement le nombre de modèles/familles de la condition.
+    val temperatureConditionModels = when {
+        hourly -> meaningful.filter { it.temperature?.isFinite() == true }.map { it.model }
+        tempMin?.forecastValue?.central != null -> meaningful.filter { it.tempMin?.isFinite() == true }.map { it.model }
+        else -> meaningful.filter { it.tempMax?.isFinite() == true }.map { it.model }
+    }
+    val conditionSupportModels = buildSet {
+        addAll(nativeConditionEntries.map { it.model })
+        addAll(temperatureConditionModels)
+        addAll(precipitationRows.filter { row ->
+            row.amountMm?.isFinite() == true || row.probabilityPercent?.let { it in 0..100 } == true
+        }.map { it.model })
+        addAll(meaningful.filter { it.cloudCover?.let { cloud -> cloud in 0..100 } == true }.map { it.model })
+    }
     val conditionResolution = WeatherConditionConsensus.resolveAggregate(
-        nativeEntries = meaningful.mapNotNull { snap ->
-            snap.nativeCondition?.let { ForecastConsensus.Entry(snap.model, it) }
-        },
-        temperatureCentralC = if (hourly) {
-            temp.forecastValue.central
-        } else {
-            tempMin?.forecastValue?.central ?: temp.forecastValue.central
-        },
+        nativeEntries = nativeConditionEntries,
+        temperatureCentralC = conditionTemperature,
         precipitationCentralMm = precipitationForecast.centralAmountMm,
         cloudCoverPercent = cloud.forecastValue.central,
-        supportModels = meaningful.map { it.model },
+        supportModels = conditionSupportModels,
         localWeights = emptyMap()
     )
     val conditionConsensus = conditionResolution.vote

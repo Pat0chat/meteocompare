@@ -157,6 +157,64 @@ class ForecastEngineIntegrationTest {
 
 
     @Test
+    fun `engine comparison ignores wind only models when deciding single native WMO provenance`() {
+        val now = Instant.parse("2026-08-28T05:00:00Z")
+        val date = LocalDate.of(2026, 8, 28)
+        val ecmwf = ForecastSeries(
+            model = WeatherModel.ECMWF,
+            hourly = HourlyForecast(
+                timestamps = listOf(Instant.parse("2026-08-28T12:00:00Z")),
+                temperature2m = listOf(20.0),
+                precipitation = listOf(0.0),
+                windSpeed10m = listOf(12.0),
+                cloudCover = listOf(10)
+            ),
+            daily = DailyForecast(
+                dates = listOf(date),
+                tempMax = listOf(24.0),
+                tempMin = listOf(16.0),
+                precipitationSum = listOf(0.0),
+                windSpeedMax = listOf(18.0),
+                weatherCode = listOf(61)
+            )
+        )
+        val windOnly = ForecastSeries(
+            model = WeatherModel.UKMO_GLOBAL,
+            hourly = HourlyForecast(
+                timestamps = emptyList(),
+                temperature2m = emptyList(),
+                precipitation = emptyList(),
+                windSpeed10m = emptyList()
+            ),
+            daily = DailyForecast(
+                dates = listOf(date),
+                tempMax = listOf(null),
+                tempMin = listOf(null),
+                precipitationSum = listOf(null),
+                windSpeedMax = listOf(42.0)
+            )
+        )
+        val forecast = CityForecast(
+            city = city,
+            seriesByModel = linkedMapOf(
+                WeatherModel.ECMWF to ecmwf,
+                WeatherModel.UKMO_GLOBAL to windOnly
+            )
+        )
+
+        val values = EngineComparisonBuilder(calculator)
+            .build(forecast, ForecastEngineContext(), now)
+            .single()
+            .byEngine
+            .getValue(ForecastEngine.MULTI_CONSENSUS)
+
+        // UKMO ne fournit ici que du vent. Il ne doit pas transformer le WMO
+        // natif unique ECMWF (pluie) en un faux consensus multi-modèles dérivé
+        // du ciel clair (cloud_cover=10 %).
+        assertEquals(com.meteocompare.app.domain.model.WeatherCondition.RAIN, values.condition)
+    }
+
+    @Test
     fun `current condition keeps dry cloud-only models in hierarchical root vote`() {
         val now = Instant.parse("2026-08-24T10:00:00Z")
         fun series(model: WeatherModel, code: Int?, cloud: Int, precip: Double): ForecastSeries = ForecastSeries(

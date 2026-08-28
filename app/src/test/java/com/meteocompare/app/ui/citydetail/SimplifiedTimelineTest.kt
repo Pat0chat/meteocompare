@@ -137,6 +137,41 @@ class SimplifiedTimelineTest {
     }
 
     @Test
+    fun `condition provenance excludes a model that only contributes wind`() {
+        fun hourly(
+            model: WeatherModel,
+            temperature: Double?,
+            precipitation: Double?,
+            cloud: Int?,
+            wind: Double?
+        ) = ForecastSeries(
+            model = model,
+            hourly = HourlyForecast(
+                timestamps = listOf(now),
+                temperature2m = listOf(temperature),
+                precipitation = listOf(precipitation),
+                windSpeed10m = listOf(wind),
+                weatherCode = listOf(null),
+                cloudCover = listOf(cloud)
+            ),
+            daily = DailyForecast(emptyList(), emptyList(), emptyList(), emptyList(), emptyList())
+        )
+        val forecast = CityForecast(
+            city = paris,
+            seriesByModel = linkedMapOf(
+                WeatherModel.ECMWF to hourly(WeatherModel.ECMWF, 18.0, 0.0, 30, 15.0),
+                WeatherModel.UKMO_GLOBAL to hourly(WeatherModel.UKMO_GLOBAL, null, null, null, 42.0)
+            )
+        )
+
+        val point = buildSimplifiedTimeline(forecast, DisplayMode.HOURLY, now).single()
+
+        assertEquals(WeatherCondition.MAINLY_CLEAR, point.condition)
+        assertEquals(1, point.conditionModelCount)
+        assertEquals(2, point.modelCount)
+    }
+
+    @Test
     fun `one isolated probability is mixed with deterministic occurrence`() {
         val forecast = CityForecast(
             city = paris,

@@ -1,1 +1,2 @@
-ECMWF IFS passe de l’ancienne distribution 25 km au modèle HRES pleine résolution 9 km. L’historique de fiabilité 25 km reste séparé et les caches de prévision sont renouvelés pour éviter tout mélange des deux sources.
+- ECMWF IFS passe de l’ancienne distribution 25 km au modèle HRES pleine résolution 9 km. L’historique de fiabilité 25 km reste séparé et les caches de prévision sont renouvelés pour éviter tout mélange des deux sources.
+- Audit global du pipeline de prévision après la migration ECMWF IFS HRES 9 km. Vérification des variables, caches, consensus, scénarios et Previous Runs. Correction du comptage des modèles contribuant réellement aux conditions météo dans la chronologie et la comparaison des moteurs.

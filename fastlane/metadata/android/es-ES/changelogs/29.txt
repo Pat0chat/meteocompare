@@ -1,1 +1,2 @@
-ECMWF IFS pasa de la fuente anterior de 25 km al modelo HRES de resolución completa de 9 km. El historial de fiabilidad de 25 km se conserva separado y la caché de previsiones se renueva.
+- ECMWF IFS pasa de la fuente anterior de 25 km al modelo HRES de resolución completa de 9 km. El historial de fiabilidad de 25 km se conserva separado y la caché de previsiones se renueva.
+- Auditoría global del flujo de previsión tras la migración a ECMWF IFS HRES 9 km. Se verificaron variables, cachés, consenso, escenarios y Previous Runs. Corregido el recuento de modelos que contribuyen realmente a las condiciones meteorológicas.

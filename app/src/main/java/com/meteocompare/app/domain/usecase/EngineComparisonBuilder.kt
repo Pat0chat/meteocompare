@@ -89,16 +89,12 @@ class EngineComparisonBuilder @Inject constructor(
                     ?.takeUnless { it == WeatherCondition.UNKNOWN }
                     ?.let { ForecastConsensus.Entry(model, it) }
             }
-            val supportModels = forecast.seriesByModel.mapNotNull { (model, series) ->
-                model.takeIf { series.daily.dates.indexOf(date) >= 0 }
-            }
             val values = ForecastEngine.entries.associateWith { engine ->
                 valuesFor(
                     forecast,
                     date,
                     calibrationContext.withEngine(engine),
-                    nativeConditionEntries,
-                    supportModels
+                    nativeConditionEntries
                 )
             }
             EngineComparisonDay(date, values, divergence(values.values.toList()))
@@ -109,8 +105,7 @@ class EngineComparisonBuilder @Inject constructor(
         forecast: CityForecast,
         date: LocalDate,
         context: ForecastEngineContext,
-        nativeConditionEntries: List<ForecastConsensus.Entry<WeatherCondition>>,
-        supportModels: List<WeatherModel>
+        nativeConditionEntries: List<ForecastConsensus.Entry<WeatherCondition>>
     ): EngineComparisonValues {
         val day = confidenceCalculator.dayConfidence(forecast, date, context)
         val zone = resolveZoneOrUtc(forecast.city.timezone)
@@ -131,6 +126,25 @@ class EngineComparisonBuilder @Inject constructor(
             )
         ).central
         val precipitationMeta = day.precipitation?.meta
+        // Même règle que la chronologie et le résumé courant : la provenance
+        // d'une condition ne compte que les modèles ayant fourni au moins un
+        // input utilisé pour cette condition (WMO, température, pluie ou
+        // nébulosité). La simple présence d'une date daily ne suffit pas.
+        val supportModels = buildSet {
+            addAll(nativeConditionEntries.map { it.model })
+            forecast.seriesByModel.forEach { (model, series) ->
+                val index = series.daily.dates.indexOf(date)
+                if (index < 0) return@forEach
+                if (series.daily.tempMin.getOrNull(index)?.isFinite() == true ||
+                    series.daily.tempMax.getOrNull(index)?.isFinite() == true ||
+                    series.daily.precipitationSum.getOrNull(index)?.let { it.isFinite() && it >= 0.0 } == true ||
+                    series.daily.precipitationProbabilityMax.getOrNull(index)?.let { it in 0..100 } == true ||
+                    series.dailyCloudCoverMean(date, zone) != null
+                ) {
+                    add(model)
+                }
+            }
+        }
         val condition = WeatherConditionConsensus.resolveAggregate(
             nativeEntries = nativeConditionEntries,
             temperatureCentralC = day.tempMin?.meanValue ?: day.tempMax?.meanValue,
