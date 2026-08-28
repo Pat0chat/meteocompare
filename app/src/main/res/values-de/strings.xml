@@ -400,7 +400,7 @@ Daten</string>
     <string name="forecast_tables_section">Detaillierte Vorhersagen</string>
     <string name="timeline_title_hourly">Nächste 24 Stunden</string>
     <string name="timeline_title_daily">Nächste Tage</string>
-    <string name="timeline_subtitle_hourly">Referenzpunkte im 3-Stunden-Abstand</string>
+    <string name="timeline_subtitle_hourly">Stündliche Referenzpunkte</string>
     <string name="timeline_subtitle_daily">Konsens der verfügbaren Modelle für die nächsten Tage</string>
     <string name="timeline_disagreement_hint">Der Wert zeigt die Konvergenz; Symbole markieren abweichende Variablen.</string>
     <string name="timeline_now">Jetzt</string>

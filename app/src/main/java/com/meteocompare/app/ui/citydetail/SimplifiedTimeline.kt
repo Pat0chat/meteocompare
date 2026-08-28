@@ -331,7 +331,7 @@ private fun eventsAssignedToPoint(
     nearest != null && sameTimelinePoint(nearest, point) && event.kind != ForecastEventKind.STABLE
 }
 
-private fun nearestTimelineDisplayIndex(
+internal fun nearestTimelineDisplayIndex(
     points: List<SimplifiedTimelinePoint>,
     target: SimplifiedTimelinePoint
 ): Int = points.indices.minByOrNull { index -> timelineDistance(points[index], target) } ?: -1

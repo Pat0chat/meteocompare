@@ -458,7 +458,7 @@
     <string name="forecast_tables_section">Detailed forecasts</string>
     <string name="timeline_title_hourly">Next 24 hours</string>
     <string name="timeline_title_daily">Next few days</string>
-    <string name="timeline_subtitle_hourly">3-hour reference points</string>
+    <string name="timeline_subtitle_hourly">Hourly reference points</string>
     <string name="timeline_subtitle_daily">Consensus of available models for the next few days</string>
     <string name="timeline_disagreement_hint">The score shows convergence; icons flag the variables that diverge.</string>
     <string name="timeline_now">Now</string>

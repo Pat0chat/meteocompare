@@ -453,7 +453,7 @@
     <string name="forecast_tables_section">Prévisions détaillées</string>
     <string name="timeline_title_hourly">Prochaines 24 heures</string>
     <string name="timeline_title_daily">Prochains jours</string>
-    <string name="timeline_subtitle_hourly">Repères toutes les 3h.</string>
+    <string name="timeline_subtitle_hourly">Repères toutes les heures.</string>
     <string name="timeline_subtitle_daily">Consensus des modèles disponibles pour les prochains jours.</string>
     <string name="timeline_disagreement_hint">Le score indique la convergence ; les icônes signalent les variables qui divergent.</string>
     <string name="timeline_now">Maintenant</string>

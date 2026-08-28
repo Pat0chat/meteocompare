@@ -2,14 +2,14 @@ package com.meteocompare.app.ui.citydetail
 
 import java.time.Instant
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TimelineSelectionTest {
 
     @Test
-    fun `hourly timeline uses stable three hour intervals`() {
+    fun `hourly timeline exposes every hour of the 24 hour window`() {
         val start = Instant.parse("2026-07-23T10:00:00Z")
         val points = List(24) { index ->
             SimplifiedTimelinePoint(instant = start.plusSeconds(index * 3_600L))
@@ -17,42 +17,41 @@ class TimelineSelectionTest {
 
         val selected = selectRegularTimelinePoints(points)
 
-        assertEquals(8, selected.size)
-        assertEquals(
-            listOf(0L, 3L, 6L, 9L, 12L, 15L, 18L, 21L),
-            selected.map { (it.instant!!.epochSecond - start.epochSecond) / 3_600L }
-        )
-    }
-
-    @Test
-    fun `events no longer alter the regular grid`() {
-        val start = Instant.parse("2026-07-23T10:00:00Z")
-        val points = List(24) { index ->
-            SimplifiedTimelinePoint(instant = start.plusSeconds(index * 3_600L))
-        }
-        val eventPoint = points[13]
-
-        val selected = selectRegularTimelinePoints(points)
-
-        assertFalse(eventPoint in selected)
-        assertEquals(points[12], selected[4])
-        assertEquals(points[15], selected[5])
-    }
-
-    @Test
-    fun `missing exact slot produces an empty regular placeholder`() {
-        val start = Instant.parse("2026-07-23T10:00:00Z")
-        val points = listOf(0L, 3L, 6L, 11L, 12L, 15L, 18L, 21L).map { hour ->
-            SimplifiedTimelinePoint(instant = start.plusSeconds(hour * 3_600L))
-        }
-
-        val selected = selectRegularTimelinePoints(points)
-
-        assertTrue(points[3] !in selected)
-        assertEquals(listOf(0L, 3L, 6L, 9L, 12L, 15L, 18L, 21L), selected.map {
+        assertEquals(24, selected.size)
+        assertEquals((0L..23L).toList(), selected.map {
             (it.instant!!.epochSecond - start.epochSecond) / 3_600L
         })
-        assertEquals(null, selected[3].temperatureC)
+        selected.forEachIndexed { index, point -> assertSame(points[index], point) }
+    }
+
+    @Test
+    fun `an insight target keeps its exact hourly card in the displayed timeline`() {
+        val start = Instant.parse("2026-07-23T10:00:00Z")
+        val points = List(24) { index ->
+            SimplifiedTimelinePoint(instant = start.plusSeconds(index * 3_600L))
+        }
+        val target = points[13]
+
+        val selected = selectRegularTimelinePoints(points)
+
+        assertSame(target, selected[13])
+    }
+
+    @Test
+    fun `missing exact hourly slot produces an empty regular placeholder`() {
+        val start = Instant.parse("2026-07-23T10:00:00Z")
+        val points = (0L..23L)
+            .filterNot { it == 9L }
+            .map { hour -> SimplifiedTimelinePoint(instant = start.plusSeconds(hour * 3_600L)) }
+
+        val selected = selectRegularTimelinePoints(points)
+
+        assertEquals(24, selected.size)
+        assertEquals((0L..23L).toList(), selected.map {
+            (it.instant!!.epochSecond - start.epochSecond) / 3_600L
+        })
+        assertEquals(null, selected[9].temperatureC)
+        assertTrue(selected[9] !in points)
     }
 
     @Test

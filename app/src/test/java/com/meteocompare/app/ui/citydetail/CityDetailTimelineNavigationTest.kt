@@ -33,4 +33,17 @@ class CityDetailTimelineNavigationTest {
 
         assertSame(peak, insightTimelineTarget(insight))
     }
+
+    @Test
+    fun hourly_focus_from_insight_targets_the_exact_displayed_hour() {
+        val start = Instant.parse("2026-08-10T00:00:00Z")
+        val analysis = List(24) { hour ->
+            SimplifiedTimelinePoint(instant = start.plusSeconds(hour * 3_600L))
+        }
+        val display = selectRegularTimelinePoints(analysis)
+        val target = analysis[13]
+
+        assertEquals(13, nearestTimelineDisplayIndex(display, target))
+        assertSame(target, display[13])
+    }
 }

@@ -456,10 +456,10 @@ private fun timelinePoint(
 }
 
 /**
- * Sélectionne une grille temporelle prévisible. En mode horaire, les cartes
- * sont espacées de trois heures à partir de la première échéance disponible.
- * Les événements ne déplacent plus les cartes : ils sont portés par la
- * réglette dédiée dans [SimplifiedTimelineCard].
+ * Sélectionne une grille temporelle prévisible. En mode horaire, une carte est
+ * affichée pour chaque heure de la fenêtre de 24 h à partir de la première
+ * échéance disponible. Les événements ne déplacent pas les cartes : ils sont
+ * portés par la réglette dédiée dans [SimplifiedTimelineCard].
  */
 internal fun selectRegularTimelinePoints(
     points: List<SimplifiedTimelinePoint>,
@@ -468,7 +468,9 @@ internal fun selectRegularTimelinePoints(
 ): List<SimplifiedTimelinePoint> {
     if (maxPoints <= 0 || points.isEmpty()) return emptyList()
     val ordered = points.sortedBy(::timelineSortKey)
-    if (ordered.first().instant == null) return ordered.take(maxPoints)
+    if (ordered.first().instant == null) {
+        return ordered.take(minOf(maxPoints, MAX_DAILY_TIMELINE_DISPLAY_POINTS))
+    }
 
     val hourly = ordered.filter { it.instant != null }
     val firstInstant = hourly.firstOrNull()?.instant ?: return ordered.take(maxPoints)
@@ -530,9 +532,10 @@ internal fun buildOverviewTimeline(
     }
 }
 
-private const val MAX_TIMELINE_POINTS = 8
+private const val MAX_TIMELINE_POINTS = 24
 private const val MAX_DAILY_POINTS = 7
+private const val MAX_DAILY_TIMELINE_DISPLAY_POINTS = 8
 private const val HOURLY_RAIN_THRESHOLD_MM = PrecipitationThresholds.HOURLY_OCCURRENCE_MM
 private const val DAILY_RAIN_THRESHOLD_MM = PrecipitationThresholds.DAILY_OCCURRENCE_MM
 private const val MILLIS_PER_DAY = 86_400_000L
-private const val REGULAR_TIMELINE_STEP_HOURS = 3L
+private const val REGULAR_TIMELINE_STEP_HOURS = 1L

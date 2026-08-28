@@ -20,7 +20,7 @@ class SimplifiedTimelineTest {
     private val today = LocalDate.of(2026, 7, 23)
 
     @Test
-    fun `hourly analysis keeps the full 24 hour window while overview displays at most eight points`() {
+    fun `hourly analysis and displayed overview keep every hour of the 24 hour window`() {
         val timestamps = List(24) { index -> now.plusSeconds(index * 3600L) }
         val hourlySeries = ForecastSeries(
             model = WeatherModel.GFS,
@@ -48,7 +48,7 @@ class SimplifiedTimelineTest {
 
         assertEquals(24, analysis.size)
         assertEquals(24, overview.analysisPoints.size)
-        assertTrue(selectRegularTimelinePoints(overview.analysisPoints).size <= 8)
+        assertEquals(24, selectRegularTimelinePoints(overview.analysisPoints).size)
         assertEquals(35, analysis.first().cloudCoverPercent)
         assertEquals(25.0, analysis.first().windGustKmh!!, 0.001)
     }
