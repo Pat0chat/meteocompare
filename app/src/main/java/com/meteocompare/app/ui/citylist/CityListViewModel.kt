@@ -11,11 +11,13 @@ import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.model.WeatherModel
+import com.meteocompare.app.domain.model.VigilanceForecast
 import com.meteocompare.app.di.DefaultDispatcher
 import com.meteocompare.app.domain.repository.CityRepository
 import com.meteocompare.app.domain.repository.ForecastRepository
 import com.meteocompare.app.domain.repository.MarineRepository
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
+import com.meteocompare.app.domain.repository.VigilanceRepository
 import com.meteocompare.app.domain.usecase.ConfidenceCalculator
 import com.meteocompare.app.domain.usecase.ForecastEngineContextProvider
 import com.meteocompare.app.domain.util.ForecastAggregates
@@ -64,6 +66,7 @@ class CityListViewModel @Inject constructor(
     private val cityRepository: CityRepository,
     private val forecastRepository: ForecastRepository,
     private val marineRepository: MarineRepository,
+    private val vigilanceRepository: VigilanceRepository,
     private val networkMonitor: NetworkMonitor,
     private val confidenceCalculator: ConfidenceCalculator,
     private val userPreferences: UserPreferencesRepository,
@@ -75,6 +78,9 @@ class CityListViewModel @Inject constructor(
     private val forecastsById = MutableStateFlow<Map<String, ForecastState>>(emptyMap())
     /** Dernières données brutes : changer de moteur recalcule sans refetch réseau. */
     private val rawForecastsById = MutableStateFlow<Map<String, CityForecast>>(emptyMap())
+    private val vigilanceById = MutableStateFlow<Map<String, VigilanceForecast>>(emptyMap())
+    private val vigilanceJobs = mutableMapOf<String, Job>()
+    private val vigilanceCoastModeById = mutableMapOf<String, Boolean>()
     private val _isRefreshing = MutableStateFlow(false)
     private val _isOnline = MutableStateFlow(networkMonitor.isOnline())
     private val marineLoadingIds = MutableStateFlow<Set<String>>(emptySet())
@@ -110,19 +116,25 @@ class CityListViewModel @Inject constructor(
         marineAvailableIds
     ) { loading, available -> loading to available }
 
+    private val auxiliaryUiState = combine(marineUiState, vigilanceById) { marine, vigilance ->
+        marine to vigilance
+    }
+
     val uiState: StateFlow<CityListUiState> = combine(
         cityRepository.observeFavorites(),
         forecastsById,
         _isRefreshing,
         _isOnline,
-        marineUiState
-    ) { cities, cache, refreshing, online, marineState ->
+        auxiliaryUiState
+    ) { cities, cache, refreshing, online, auxiliary ->
+        val (marineState, vigilance) = auxiliary
         val (marineLoading, marineAvailable) = marineState
         CityListUiState(
             items = cities.map { city ->
                 CityCardState(
                     city = city,
                     forecast = cache[city.id] ?: ForecastState.Loading,
+                    vigilance = vigilance[city.id]?.takeIf { city.isFrenchLocation },
                     isMarineAvailable = city.marineEnabled || city.id in marineAvailable,
                     isMarineLoading = city.id in marineLoading
                 )
@@ -178,8 +190,20 @@ class CityListViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             networkMonitor.observeOnline().collect { online ->
+                val wasOnline = _isOnline.value
                 _isOnline.value = online
-                if (online) syncMarineAvailability(favoriteCitiesById.values.toList())
+                if (online) {
+                    val cities = favoriteCitiesById.values.toList()
+                    syncMarineAvailability(cities)
+                    if (!wasOnline) {
+                        // Une première tentative Vigilance peut s'être terminée hors ligne.
+                        // On la réarme au retour réseau sans attendre un pull-to-refresh.
+                        vigilanceJobs.values.forEach { it.cancel() }
+                        vigilanceJobs.clear()
+                        vigilanceCoastModeById.clear()
+                        syncVigilance(cities)
+                    }
+                }
             }
         }
 
@@ -281,7 +305,10 @@ class CityListViewModel @Inject constructor(
             marineAvailabilityJobs.remove(id)?.cancel()
             marineAvailabilityCheckedAt.remove(id)
             marineAvailableIds.update { it - id }
+            clearVigilanceTracking(id)
         }
+
+        syncVigilance(cities)
 
         // La disponibilité Mer / côte est distincte de son activation : on la
         // détecte discrètement pour pouvoir signaler l'option dans le menu.
@@ -368,8 +395,10 @@ class CityListViewModel @Inject constructor(
                     val cached = runCatching { marineRepository.getFreshCached(city.id) }.getOrNull()
                     if (cached != null) {
                         marineAvailabilityCheckedAt[city.id] = cached.fetchedAtEpochMs
-                        if (cached.coastal) marineAvailableIds.update { it + city.id }
-                        else marineAvailableIds.update { it - city.id }
+                        if (cached.coastal) {
+                            marineAvailableIds.update { it + city.id }
+                            syncVigilance(listOf(city))
+                        } else marineAvailableIds.update { it - city.id }
                         return@launch
                     }
                     if (!networkMonitor.isOnline()) {
@@ -381,8 +410,10 @@ class CityListViewModel @Inject constructor(
                         val stale = runCatching { marineRepository.getCached(city.id) }.getOrNull()
                         if (stale != null) {
                             marineAvailabilityCheckedAt[city.id] = stale.fetchedAtEpochMs
-                            if (stale.coastal) marineAvailableIds.update { it + city.id }
-                            else marineAvailableIds.update { it - city.id }
+                            if (stale.coastal) {
+                                marineAvailableIds.update { it + city.id }
+                                syncVigilance(listOf(city))
+                            } else marineAvailableIds.update { it - city.id }
                         }
                         return@launch
                     }
@@ -395,6 +426,7 @@ class CityListViewModel @Inject constructor(
                             marineAvailabilityCheckedAt[city.id] = result.data.fetchedAtEpochMs
                             if (result.data.coastal) {
                                 marineAvailableIds.update { it + city.id }
+                                syncVigilance(listOf(city))
                             } else {
                                 marineAvailableIds.update { it - city.id }
                             }
@@ -444,17 +476,40 @@ class CityListViewModel @Inject constructor(
     fun onAddCity(city: City) {
         viewModelScope.launch {
             cityRepository.addFavorite(city)
+
+            // Vérification immédiate à l'ajout : ne pas attendre la prochaine émission
+            // DataStore/synchronisation des cards. Aucun appel n'est lancé hors France.
+            if (city.isFrenchLocation) {
+                launchVigilanceCheck(city, forceRefresh = true)
+            } else {
+                clearVigilanceTracking(city.id)
+            }
             _searchQuery.value = ""
         }
     }
 
     fun onRemoveCity(cityId: String) {
         viewModelScope.launch {
+            val removedCity = favoriteCitiesById[cityId]
+                ?: cityRepository.observeFavorites().first().firstOrNull { it.id == cityId }
+            val vigilanceDepartment = (removedCity?.departmentCode
+                ?: vigilanceById.value[cityId]?.department)
+                ?.trim()
+                ?.uppercase()
+                ?.takeIf { it.isNotEmpty() }
+
             cityRepository.removeFavorite(cityId)
             // Nettoyage explicite après la suppression utilisateur. Une émission
-            // DataStore vide transitoire ne doit jamais effacer le cache.
+            // DataStore vide transitoire ne doit jamais effacer le cache météo.
             forecastRepository.clearCacheForCity(cityId)
             marineRepository.clear(cityId)
+            clearVigilanceTracking(cityId)
+            // Le repository Vigilance vérifie les favoris restants avant toute purge :
+            // le cache départemental partagé est conservé tant qu'une autre ville du
+            // même département (ou un favori FR legacy non encore résolu) subsiste.
+            if (vigilanceDepartment != null) {
+                vigilanceRepository.clearCacheForDepartment(vigilanceDepartment)
+            }
         }
     }
 
@@ -473,6 +528,7 @@ class CityListViewModel @Inject constructor(
                             _marineFeedback.send(MarineFeedback.NotCoastal)
                         } else {
                             marineAvailableIds.update { it + city.id }
+                            syncVigilance(listOf(city))
                             if (!city.marineEnabled) {
                                 cityRepository.setMarineEnabled(city.id, true)
                                 _marineFeedback.send(MarineFeedback.Enabled)
@@ -495,6 +551,7 @@ class CityListViewModel @Inject constructor(
             val models = userPreferences.observeEnabledModels().first()
             val result = forecastRepository.refreshCityForecast(city, models = models)
             applyForecastResult(city, result)
+            refreshVigilance(city, forceRefresh = true)
         }
     }
 
@@ -512,6 +569,7 @@ class CityListViewModel @Inject constructor(
                             limiter.withPermit {
                                 val result = forecastRepository.refreshCityForecast(city, models)
                                 applyForecastResult(city, result)
+                                refreshVigilance(city, forceRefresh = true)
                             }
                         }
                     }.awaitAll()
@@ -519,6 +577,64 @@ class CityListViewModel @Inject constructor(
             } finally {
                 _isRefreshing.value = false
             }
+        }
+    }
+
+    private fun syncVigilance(cities: List<City>) {
+        cities.forEach { city ->
+            if (!city.isFrenchLocation) {
+                clearVigilanceTracking(city.id)
+                return@forEach
+            }
+            launchVigilanceCheck(city, forceRefresh = false)
+        }
+    }
+
+    private fun launchVigilanceCheck(city: City, forceRefresh: Boolean) {
+        if (!city.isFrenchLocation) {
+            clearVigilanceTracking(city.id)
+            return
+        }
+        val includeCoast = includeCoastForVigilance(city)
+        val previousMode = vigilanceCoastModeById[city.id]
+        val existingJob = vigilanceJobs[city.id]
+        if (!forceRefresh && previousMode == includeCoast &&
+            (existingJob?.isActive == true || existingJob?.isCompleted == true)
+        ) {
+            return
+        }
+
+        vigilanceJobs.remove(city.id)?.cancel()
+        vigilanceCoastModeById[city.id] = includeCoast
+        vigilanceJobs[city.id] = viewModelScope.launch {
+            refreshVigilance(city, forceRefresh = forceRefresh)
+        }
+    }
+
+    private fun clearVigilanceTracking(cityId: String) {
+        vigilanceJobs.remove(cityId)?.cancel()
+        vigilanceCoastModeById.remove(cityId)
+        vigilanceById.update { it - cityId }
+    }
+
+    private fun includeCoastForVigilance(city: City): Boolean =
+        city.marineEnabled || city.id in marineAvailableIds.value
+
+    private suspend fun refreshVigilance(city: City, forceRefresh: Boolean) {
+        if (!city.isFrenchLocation) {
+            clearVigilanceTracking(city.id)
+            return
+        }
+        val includeCoast = includeCoastForVigilance(city)
+        when (val result = vigilanceRepository.getVigilance(city, includeCoast, forceRefresh)) {
+            is ApiResult.Success -> {
+                val data = result.data
+                vigilanceById.update { current ->
+                    if (data != null && data.activeAlerts.isNotEmpty()) current + (city.id to data)
+                    else current - city.id
+                }
+            }
+            is ApiResult.Error -> Unit // La vigilance enrichit la météo sans bloquer la card principale.
         }
     }
 

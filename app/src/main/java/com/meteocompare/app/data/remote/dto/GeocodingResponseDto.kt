@@ -1,5 +1,6 @@
 package com.meteocompare.app.data.remote.dto
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -17,6 +18,9 @@ data class GeocodingResultDto(
     val latitude: Double,
     val longitude: Double,
     val country: String? = null,
+    @SerialName("country_code") val countryCode: String? = null,
     val admin1: String? = null,
+    val admin2: String? = null,
+    val postcodes: List<String> = emptyList(),
     val timezone: String? = null
 )

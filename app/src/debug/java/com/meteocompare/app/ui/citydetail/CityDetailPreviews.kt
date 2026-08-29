@@ -55,6 +55,7 @@ private fun CityDetailScreenLoadedPreview() {
                 PreviewFixtures.evolutionHighlight()
             ),
             marineState = MarineUiState.Loaded(PreviewFixtures.marineForecast()),
+            vigilanceState = VigilanceUiState.Loaded(PreviewFixtures.coastalVigilance),
             collapsedSections = emptySet(),
             detailViewMode = CityDetailViewMode.HOURLY,
             detailContentTab = CityDetailContentTab.DEFAULT,

@@ -4,6 +4,7 @@ import com.meteocompare.app.BuildConfig
 import com.meteocompare.app.data.remote.ClimateArchiveApi
 import com.meteocompare.app.data.remote.GeocodingApi
 import com.meteocompare.app.data.remote.MarineApi
+import com.meteocompare.app.data.remote.MeteoCompareApi
 import com.meteocompare.app.data.remote.OpenMeteoApi
 import com.meteocompare.app.data.remote.PreviousRunsApi
 import dagger.Module
@@ -40,6 +41,10 @@ annotation class ArchiveRetrofit
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
 annotation class PreviousRunsRetrofit
+
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class MeteoCompareRetrofit
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -138,6 +143,16 @@ object NetworkModule {
 
     @Provides
     @Singleton
+    @MeteoCompareRetrofit
+    fun provideMeteoCompareRetrofit(client: OkHttpClient, json: Json): Retrofit =
+        Retrofit.Builder()
+            .baseUrl(BuildConfig.METEOCOMPARE_BASE_URL)
+            .client(client)
+            .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
+            .build()
+
+    @Provides
+    @Singleton
     fun provideOpenMeteoApi(@ForecastRetrofit retrofit: Retrofit): OpenMeteoApi =
         retrofit.create(OpenMeteoApi::class.java)
 
@@ -161,5 +176,9 @@ object NetworkModule {
     fun providePreviousRunsApi(@PreviousRunsRetrofit retrofit: Retrofit): PreviousRunsApi =
         retrofit.create(PreviousRunsApi::class.java)
 
+    @Provides
+    @Singleton
+    fun provideMeteoCompareApi(@MeteoCompareRetrofit retrofit: Retrofit): MeteoCompareApi =
+        retrofit.create(MeteoCompareApi::class.java)
 
 }

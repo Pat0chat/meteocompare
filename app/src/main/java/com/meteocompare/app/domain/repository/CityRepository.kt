@@ -20,4 +20,10 @@ interface CityRepository {
 
     /** Active/désactive le mode Mer / côte pour un favori existant. */
     suspend fun setMarineEnabled(cityId: String, enabled: Boolean)
+
+    /**
+     * Résout et persiste le code département d'un ancien favori français si
+     * nécessaire. Retourne null pour les villes hors France ou non résolues.
+     */
+    suspend fun resolveDepartmentCode(city: City): String?
 }

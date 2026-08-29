@@ -10,6 +10,7 @@ import com.meteocompare.app.domain.model.DailyForecast
 import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.HourlyForecast
 import com.meteocompare.app.domain.model.WeatherModel
+import com.meteocompare.app.domain.util.FranceDepartmentResolver
 import java.time.Instant
 import java.time.LocalDate
 import javax.inject.Inject
@@ -182,5 +183,12 @@ fun GeocodingResultDto.toDomain(): City = City(
     country = country ?: "",
     latitude = latitude,
     longitude = longitude,
-    timezone = timezone
+    timezone = timezone,
+    countryCode = countryCode,
+    departmentName = admin2,
+    departmentCode = if (countryCode.equals("FR", ignoreCase = true) || country.equals("France", ignoreCase = true)) {
+        FranceDepartmentResolver.resolve(admin2, postcodes)
+    } else {
+        null
+    }
 )

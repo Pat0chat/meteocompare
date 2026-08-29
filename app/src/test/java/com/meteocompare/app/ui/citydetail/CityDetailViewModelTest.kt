@@ -25,6 +25,7 @@ import com.meteocompare.app.domain.repository.ForecastEvolutionRepository
 import com.meteocompare.app.domain.repository.MarineRepository
 import com.meteocompare.app.domain.repository.ForecastEvolutionHistoryData
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
+import com.meteocompare.app.domain.repository.VigilanceRepository
 import com.meteocompare.app.domain.usecase.ConfidenceCalculator
 import com.meteocompare.app.domain.usecase.ComputeForecastEvolutionUseCase
 import com.meteocompare.app.domain.usecase.EqualWeighting
@@ -93,6 +94,9 @@ class CityDetailViewModelTest {
     }
     private val forecastRepo: ForecastRepository = mockk(relaxed = true)
     private val marineRepo: MarineRepository = mockk(relaxed = true)
+    private val vigilanceRepo: VigilanceRepository = mockk(relaxed = true) {
+        coEvery { getVigilance(any(), any(), any()) } returns ApiResult.Success(null)
+    }
     private val evolutionRepo: ForecastEvolutionRepository = mockk(relaxed = true) {
         coEvery { getPreviousForecasts(any(), any(), any(), any(), any()) } returns
             ApiResult.Success(ForecastEvolutionHistoryData(emptyList(), testNow))
@@ -137,6 +141,7 @@ class CityDetailViewModelTest {
             cityRepository = cityRepo,
             forecastRepository = forecastRepo,
             marineRepository = marineRepo,
+            vigilanceRepository = vigilanceRepo,
             networkMonitor = networkMonitor,
             climateNormalsRepository = climateRepo,
             confidenceCalculator = calculator,
@@ -177,6 +182,25 @@ class CityDetailViewModelTest {
     @After
     fun tearDown() {
         Dispatchers.resetMain()
+    }
+
+    @Test
+    fun `ville non francaise - aucune verification vigilance et etat idle`() = runTest(dispatcher) {
+        val london = City(
+            id = "2643743",
+            name = "London",
+            country = "United Kingdom",
+            latitude = 51.5074,
+            longitude = -0.1278,
+            countryCode = "GB"
+        )
+        favoritesFlow.value = listOf(london)
+
+        val vm = buildViewModel(cityId = london.id)
+        runCurrent()
+
+        assertEquals(VigilanceUiState.Idle, vm.vigilanceState.value)
+        coVerify(exactly = 0) { vigilanceRepo.getVigilance(eq(london), any(), any()) }
     }
 
     @Test

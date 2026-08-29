@@ -832,4 +832,31 @@
         <item quantity="other">+ %1$d other variants not shown · %2$d/%3$d models</item>
     </plurals>
     <string name="mini_forecast_current_hour_a11y">Current hour</string>
+
+    <!-- Official Météo-France vigilance -->
+    <string name="vigilance_title">Météo-France vigilance</string>
+    <string name="vigilance_official_source">Official information</string>
+    <string name="vigilance_source_short">Météo-France</string>
+    <string name="vigilance_source_cached_short">Météo-France · cached</string>
+    <string name="vigilance_compact_title">%1$s vigilance</string>
+    <string name="vigilance_updated_at">Updated %1$s</string>
+    <string name="vigilance_timing_approximate">Approximate timing</string>
+    <string name="vigilance_cached_warning">Cached data: check the update time if the connection is unavailable.</string>
+    <string name="vigilance_interval_compact">%1$s–%2$s</string>
+    <string name="vigilance_marine_title">%1$s vigilance · coast</string>
+    <string name="vigilance_marine_timing">Coastal flooding · %1$s</string>
+    <string name="vigilance_color_green">green</string>
+    <string name="vigilance_color_yellow">yellow</string>
+    <string name="vigilance_color_orange">orange</string>
+    <string name="vigilance_color_red">red</string>
+    <string name="vigilance_phenomenon_wind">Wind</string>
+    <string name="vigilance_phenomenon_rain_flood">Rain / flooding</string>
+    <string name="vigilance_phenomenon_thunderstorms">Thunderstorms</string>
+    <string name="vigilance_phenomenon_floods">Floods</string>
+    <string name="vigilance_phenomenon_snow_ice">Snow / ice</string>
+    <string name="vigilance_phenomenon_heatwave">Heatwave</string>
+    <string name="vigilance_phenomenon_extreme_cold">Extreme cold</string>
+    <string name="vigilance_phenomenon_avalanches">Avalanches</string>
+    <string name="vigilance_phenomenon_coastal_flooding">Coastal flooding</string>
+    <string name="vigilance_phenomenon_unknown">Weather hazard</string>
 </resources>

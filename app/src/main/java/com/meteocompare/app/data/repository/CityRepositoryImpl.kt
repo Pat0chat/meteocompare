@@ -128,4 +128,44 @@ class CityRepositoryImpl @Inject constructor(
         }
         Unit
     }
+
+    override suspend fun resolveDepartmentCode(city: City): String? = withContext(ioDispatcher) {
+        city.departmentCode?.let { return@withContext it }
+        // Cette résolution n'est utilisée que par la Vigilance. Ne jamais appeler
+        // Open-Meteo pour enrichir une ville dont on sait déjà qu'elle n'est pas française.
+        if (!city.isFrenchLocation) return@withContext null
+
+        val id = city.id.toLongOrNull() ?: return@withContext null
+        if (!networkMonitor.isOnline()) return@withContext null
+
+        val localizedContext = applyPersistedLocale(context)
+        val locale = localizedContext.resources.configuration.locales[0]
+        val resolved = runCatching {
+            geocodingApi.get(
+                id = id,
+                language = locale.language.takeIf { it.isNotBlank() } ?: "fr"
+            ).toDomain()
+        }.getOrNull() ?: return@withContext null
+
+        val code = resolved.departmentCode
+        context.favoritesDataStore.edit { prefs ->
+            val current = prefs[FAVORITES_KEY]
+                ?.let { runCatching { json.decodeFromString(cityListSerializer, it) }.getOrDefault(emptyList()) }
+                ?: emptyList()
+            val updated = current.map { favorite ->
+                if (favorite.id == city.id) {
+                    favorite.copy(
+                        countryCode = resolved.countryCode ?: favorite.countryCode,
+                        departmentName = resolved.departmentName ?: favorite.departmentName,
+                        departmentCode = code ?: favorite.departmentCode,
+                        timezone = resolved.timezone ?: favorite.timezone
+                    )
+                } else {
+                    favorite
+                }
+            }
+            prefs[FAVORITES_KEY] = json.encodeToString(cityListSerializer, updated)
+        }
+        code
+    }
 }

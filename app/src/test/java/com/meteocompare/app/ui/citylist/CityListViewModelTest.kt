@@ -17,6 +17,7 @@ import com.meteocompare.app.domain.repository.CityRepository
 import com.meteocompare.app.domain.repository.ForecastRepository
 import com.meteocompare.app.domain.repository.MarineRepository
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
+import com.meteocompare.app.domain.repository.VigilanceRepository
 import com.meteocompare.app.domain.usecase.ConfidenceCalculator
 import com.meteocompare.app.domain.usecase.EqualWeighting
 import com.meteocompare.app.domain.usecase.ForecastEngineContextProvider
@@ -95,6 +96,9 @@ class CityListViewModelTest {
     }
     private val forecastRepo: ForecastRepository = mockk(relaxed = true)
     private val marineRepo: MarineRepository = mockk(relaxed = true)
+    private val vigilanceRepo: VigilanceRepository = mockk(relaxed = true) {
+        coEvery { getVigilance(any(), any(), any()) } returns ApiResult.Success(null)
+    }
     private val networkMonitor: NetworkMonitor = mockk(relaxed = true) {
         every { isOnline() } answers { onlineFlow.value }
         every { observeOnline() } returns onlineFlow
@@ -137,7 +141,7 @@ class CityListViewModelTest {
             /* ne rien émettre, ne pas terminer */
         }
         every { forecastRepo.observeForecastUpdates() } returns forecastUpdates
-        viewModel = CityListViewModel(cityRepo, forecastRepo, marineRepo, networkMonitor, calculator, prefs, testClock, dispatcher, engineContextProvider)
+        viewModel = CityListViewModel(cityRepo, forecastRepo, marineRepo, vigilanceRepo, networkMonitor, calculator, prefs, testClock, dispatcher, engineContextProvider)
     }
 
     @After
@@ -192,7 +196,7 @@ class CityListViewModelTest {
         } returns flowOf(ApiResult.Success(forecast))
 
         // Nouvelle VM qui capturera le bon stub
-        val vm = CityListViewModel(cityRepo, forecastRepo, marineRepo, networkMonitor, calculator, prefs, testClock, dispatcher, engineContextProvider)
+        val vm = CityListViewModel(cityRepo, forecastRepo, marineRepo, vigilanceRepo, networkMonitor, calculator, prefs, testClock, dispatcher, engineContextProvider)
 
         vm.uiState.test {
             awaitItem() // initial vide
@@ -250,7 +254,7 @@ class CityListViewModelTest {
                 forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
             } returns flowOf(ApiResult.Error(RuntimeException("net"), "Pas de connexion"))
 
-            val vm = CityListViewModel(cityRepo, forecastRepo, marineRepo, networkMonitor, calculator, prefs, testClock, dispatcher, engineContextProvider)
+            val vm = CityListViewModel(cityRepo, forecastRepo, marineRepo, vigilanceRepo, networkMonitor, calculator, prefs, testClock, dispatcher, engineContextProvider)
 
             vm.uiState.test {
                 awaitItem()
@@ -278,7 +282,7 @@ class CityListViewModelTest {
                 forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
             } returns flowOf(ApiResult.Success(initial))
 
-            val vm = CityListViewModel(cityRepo, forecastRepo, marineRepo, networkMonitor, calculator, prefs, testClock, dispatcher, engineContextProvider)
+            val vm = CityListViewModel(cityRepo, forecastRepo, marineRepo, vigilanceRepo, networkMonitor, calculator, prefs, testClock, dispatcher, engineContextProvider)
 
             vm.uiState.test {
                 awaitItem()
@@ -330,7 +334,7 @@ class CityListViewModelTest {
                 forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
             } returns flowOf(ApiResult.Success(initial))
 
-            val vm = CityListViewModel(cityRepo, forecastRepo, marineRepo, networkMonitor, calculator, prefs, testClock, dispatcher, engineContextProvider)
+            val vm = CityListViewModel(cityRepo, forecastRepo, marineRepo, vigilanceRepo, networkMonitor, calculator, prefs, testClock, dispatcher, engineContextProvider)
 
             vm.uiState.test {
                 awaitItem()
@@ -406,7 +410,7 @@ class CityListViewModelTest {
             forecastRepo.refreshCityForecast(eq(paris), any(), any())
         } returns ApiResult.Error(RuntimeException("offline"), "Pas de connexion")
 
-        val vm = CityListViewModel(cityRepo, forecastRepo, marineRepo, networkMonitor, calculator, prefs, testClock, dispatcher, engineContextProvider)
+        val vm = CityListViewModel(cityRepo, forecastRepo, marineRepo, vigilanceRepo, networkMonitor, calculator, prefs, testClock, dispatcher, engineContextProvider)
         backgroundScope.launch { vm.uiState.collect {} }
         favoritesFlow.value = listOf(paris)
         vm.uiState.first {
@@ -459,7 +463,7 @@ class CityListViewModelTest {
             forecastRepo.refreshCityForecast(eq(paris), any(), any())
         } returns ApiResult.Success(freshForecast)
 
-        val vm = CityListViewModel(cityRepo, forecastRepo, marineRepo, networkMonitor, calculator, prefs, testClock, dispatcher, engineContextProvider)
+        val vm = CityListViewModel(cityRepo, forecastRepo, marineRepo, vigilanceRepo, networkMonitor, calculator, prefs, testClock, dispatcher, engineContextProvider)
 
         vm.uiState.test {
             awaitItem() // initial vide
@@ -508,6 +512,49 @@ class CityListViewModelTest {
         viewModel.addCityState.test {
             assertEquals("", awaitItem().query)
         }
+    }
+
+    @Test
+    fun `onAddCity - verifie immediatement la vigilance pour une ville francaise`() = runTest(dispatcher) {
+        val frenchCity = paris.copy(countryCode = "FR", departmentCode = "75")
+
+        viewModel.onAddCity(frenchCity)
+        runCurrent()
+
+        coVerify(exactly = 1) {
+            vigilanceRepo.getVigilance(eq(frenchCity), eq(false), eq(true))
+        }
+    }
+
+    @Test
+    fun `onAddCity - ne verifie jamais la vigilance pour une ville non francaise`() = runTest(dispatcher) {
+        val london = City(
+            id = "2643743",
+            name = "London",
+            country = "United Kingdom",
+            latitude = 51.5074,
+            longitude = -0.1278,
+            countryCode = "GB"
+        )
+
+        viewModel.onAddCity(london)
+        runCurrent()
+
+        coVerify { cityRepo.addFavorite(london) }
+        coVerify(exactly = 0) { vigilanceRepo.getVigilance(eq(london), any(), any()) }
+    }
+
+    @Test
+    fun `onRemoveCity - demande au repository de nettoyer le cache vigilance du departement`() = runTest(dispatcher) {
+        val frenchCity = paris.copy(countryCode = "FR", departmentCode = "75")
+        favoritesFlow.value = listOf(frenchCity)
+        runCurrent()
+
+        viewModel.onRemoveCity(frenchCity.id)
+        runCurrent()
+
+        coVerify { cityRepo.removeFavorite(frenchCity.id) }
+        coVerify(exactly = 1) { vigilanceRepo.clearCacheForDepartment("75") }
     }
 
     @Test
@@ -621,7 +668,7 @@ class CityListViewModelTest {
         coEvery {
             forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
         } returns flowOf(ApiResult.Success(stale))
-        val vm = CityListViewModel(cityRepo, forecastRepo, marineRepo, networkMonitor, calculator, prefs, testClock, dispatcher, engineContextProvider)
+        val vm = CityListViewModel(cityRepo, forecastRepo, marineRepo, vigilanceRepo, networkMonitor, calculator, prefs, testClock, dispatcher, engineContextProvider)
 
         vm.uiState.test {
             awaitItem()
@@ -664,7 +711,7 @@ class CityListViewModelTest {
         coEvery {
             forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
         } returns flowOf(ApiResult.Success(forecast))
-        val vm = CityListViewModel(cityRepo, forecastRepo, marineRepo, networkMonitor, calculator, prefs, lateClock, dispatcher, engineContextProvider)
+        val vm = CityListViewModel(cityRepo, forecastRepo, marineRepo, vigilanceRepo, networkMonitor, calculator, prefs, lateClock, dispatcher, engineContextProvider)
 
         vm.uiState.test {
             awaitItem()
@@ -708,7 +755,7 @@ class CityListViewModelTest {
             forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
         } returns flowOf(ApiResult.Success(forecast))
         val vm = CityListViewModel(
-            cityRepo, forecastRepo, marineRepo, networkMonitor, calculator, prefs,
+            cityRepo, forecastRepo, marineRepo, vigilanceRepo, networkMonitor, calculator, prefs,
             testClock, dispatcher, engineContextProvider
         )
 

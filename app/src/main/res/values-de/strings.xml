@@ -765,4 +765,30 @@ Daten</string>
         <item quantity="other">+ %1$d weitere Varianten nicht angezeigt · %2$d/%3$d Modelle</item>
     </plurals>
     <string name="mini_forecast_current_hour_a11y">Aktuelle Stunde</string>
+
+    <string name="vigilance_title">Météo-France-Warnlage</string>
+    <string name="vigilance_official_source">Offizielle Information</string>
+    <string name="vigilance_source_short">Météo-France</string>
+    <string name="vigilance_source_cached_short">Météo-France · Cache</string>
+    <string name="vigilance_compact_title">Warnstufe %1$s</string>
+    <string name="vigilance_updated_at">Aktualisiert %1$s</string>
+    <string name="vigilance_timing_approximate">Ungefähre Zeitangaben</string>
+    <string name="vigilance_cached_warning">Zwischengespeicherte Daten: bei fehlender Verbindung bitte Aktualität prüfen.</string>
+    <string name="vigilance_interval_compact">%1$s–%2$s</string>
+    <string name="vigilance_marine_title">Warnstufe %1$s · Küste</string>
+    <string name="vigilance_marine_timing">Wellen / Überflutung · %1$s</string>
+    <string name="vigilance_color_green">grün</string>
+    <string name="vigilance_color_yellow">gelb</string>
+    <string name="vigilance_color_orange">orange</string>
+    <string name="vigilance_color_red">rot</string>
+    <string name="vigilance_phenomenon_wind">Wind</string>
+    <string name="vigilance_phenomenon_rain_flood">Starkregen / Überflutung</string>
+    <string name="vigilance_phenomenon_thunderstorms">Gewitter</string>
+    <string name="vigilance_phenomenon_floods">Hochwasser</string>
+    <string name="vigilance_phenomenon_snow_ice">Schnee / Glätte</string>
+    <string name="vigilance_phenomenon_heatwave">Hitzewelle</string>
+    <string name="vigilance_phenomenon_extreme_cold">Extreme Kälte</string>
+    <string name="vigilance_phenomenon_avalanches">Lawinen</string>
+    <string name="vigilance_phenomenon_coastal_flooding">Küstenüberflutung</string>
+    <string name="vigilance_phenomenon_unknown">Wettergefahr</string>
 </resources>

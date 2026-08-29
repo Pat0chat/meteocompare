@@ -769,4 +769,30 @@ datos</string>
         <item quantity="other">+ %1$d otras variantes no mostradas · %2$d/%3$d modelos</item>
     </plurals>
     <string name="mini_forecast_current_hour_a11y">Hora actual</string>
+
+    <string name="vigilance_title">Vigilancia Météo-France</string>
+    <string name="vigilance_official_source">Información oficial</string>
+    <string name="vigilance_source_short">Météo-France</string>
+    <string name="vigilance_source_cached_short">Météo-France · caché</string>
+    <string name="vigilance_compact_title">Vigilancia %1$s</string>
+    <string name="vigilance_updated_at">Actualizado %1$s</string>
+    <string name="vigilance_timing_approximate">Horarios aproximados</string>
+    <string name="vigilance_cached_warning">Datos en caché: comprueba la actualización si no hay conexión.</string>
+    <string name="vigilance_interval_compact">%1$s–%2$s</string>
+    <string name="vigilance_marine_title">Vigilancia %1$s · costa</string>
+    <string name="vigilance_marine_timing">Oleaje / inundación costera · %1$s</string>
+    <string name="vigilance_color_green">verde</string>
+    <string name="vigilance_color_yellow">amarilla</string>
+    <string name="vigilance_color_orange">naranja</string>
+    <string name="vigilance_color_red">roja</string>
+    <string name="vigilance_phenomenon_wind">Viento</string>
+    <string name="vigilance_phenomenon_rain_flood">Lluvia / inundación</string>
+    <string name="vigilance_phenomenon_thunderstorms">Tormentas</string>
+    <string name="vigilance_phenomenon_floods">Crecidas</string>
+    <string name="vigilance_phenomenon_snow_ice">Nieve / hielo</string>
+    <string name="vigilance_phenomenon_heatwave">Ola de calor</string>
+    <string name="vigilance_phenomenon_extreme_cold">Frío extremo</string>
+    <string name="vigilance_phenomenon_avalanches">Avalanchas</string>
+    <string name="vigilance_phenomenon_coastal_flooding">Oleaje / inundación costera</string>
+    <string name="vigilance_phenomenon_unknown">Fenómeno meteorológico</string>
 </resources>

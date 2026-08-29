@@ -15,6 +15,7 @@ import com.meteocompare.app.domain.model.MarineForecast
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.ThemePreference
 import com.meteocompare.app.domain.model.WeatherModel
+import com.meteocompare.app.domain.model.VigilanceForecast
 import com.meteocompare.app.domain.repository.BiasSampleRepository
 import com.meteocompare.app.domain.repository.CityRepository
 import com.meteocompare.app.domain.repository.ClimateNormalsRepository
@@ -23,6 +24,7 @@ import com.meteocompare.app.domain.repository.ForecastEvolutionRepository
 import com.meteocompare.app.domain.repository.ForecastEvolutionHistoryData
 import com.meteocompare.app.domain.repository.MarineRepository
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
+import com.meteocompare.app.domain.repository.VigilanceRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
@@ -65,6 +67,8 @@ class FakeCityRepository @Inject constructor() : CityRepository {
             if (city.id == cityId) city.copy(marineEnabled = enabled) else city
         }
     }
+
+    override suspend fun resolveDepartmentCode(city: City): String? = city.departmentCode
 
     fun setFavorites(cities: List<City>) {
         favorites.value = cities
@@ -144,6 +148,37 @@ class FakeMarineRepository @Inject constructor() : MarineRepository {
 
     fun set(cityId: String, data: MarineForecast) { cache[cityId] = data }
     fun reset() { cache.clear(); nextResult = null }
+}
+
+
+@Singleton
+class FakeVigilanceRepository @Inject constructor() : VigilanceRepository {
+    private val byCity = ConcurrentHashMap<String, VigilanceForecast?>()
+    val requests = mutableListOf<Triple<String, Boolean, Boolean>>()
+    val clearedDepartments = mutableListOf<String>()
+
+    override suspend fun getVigilance(
+        city: City,
+        includeCoast: Boolean,
+        forceRefresh: Boolean
+    ): ApiResult<VigilanceForecast?> {
+        requests += Triple(city.id, includeCoast, forceRefresh)
+        return ApiResult.Success(byCity[city.id])
+    }
+
+    override suspend fun clearCacheForDepartment(departmentCode: String) {
+        clearedDepartments += departmentCode
+    }
+
+    fun set(cityId: String, vigilance: VigilanceForecast?) {
+        if (vigilance == null) byCity.remove(cityId) else byCity[cityId] = vigilance
+    }
+
+    fun reset() {
+        byCity.clear()
+        requests.clear()
+        clearedDepartments.clear()
+    }
 }
 
 @Singleton

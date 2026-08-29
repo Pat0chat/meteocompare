@@ -49,12 +49,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.MarineForecast
+import com.meteocompare.app.domain.model.VigilancePhenomenonAlert
 import com.meteocompare.app.domain.model.TideEvent
 import com.meteocompare.app.domain.model.TideEventType
 import com.meteocompare.app.domain.util.detectTideEvents
 import com.meteocompare.app.domain.util.nearestMarineIndex
 import com.meteocompare.app.domain.util.tideRangeNext24h
 import com.meteocompare.app.ui.components.CollapsibleSectionHeader
+import com.meteocompare.app.ui.components.MarineCoastalVigilanceBanner
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -85,7 +87,9 @@ internal fun MarineSection(
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier,
     expanded: Boolean = true,
-    onExpandedChange: (Boolean) -> Unit = {}
+    onExpandedChange: (Boolean) -> Unit = {},
+    coastalVigilance: VigilancePhenomenonAlert? = null,
+    vigilanceTimezone: String? = null
 ) {
     val loaded = state as? MarineUiState.Loaded
     val distance = loaded?.data?.grid?.distanceKm
@@ -156,7 +160,11 @@ internal fun MarineSection(
                             }
                         }
 
-                        is MarineUiState.Loaded -> MarineDashboard(state.data)
+                        is MarineUiState.Loaded -> MarineDashboard(
+                            data = state.data,
+                            coastalVigilance = coastalVigilance,
+                            vigilanceTimezone = vigilanceTimezone
+                        )
                     }
                 }
             }
@@ -165,7 +173,11 @@ internal fun MarineSection(
 }
 
 @Composable
-private fun MarineDashboard(data: MarineForecast) {
+private fun MarineDashboard(
+    data: MarineForecast,
+    coastalVigilance: VigilancePhenomenonAlert?,
+    vigilanceTimezone: String?
+) {
     val locale = LocalLocale.current.platformLocale
     val now by produceState(System.currentTimeMillis(), data) {
         while (true) {
@@ -182,6 +194,13 @@ private fun MarineDashboard(data: MarineForecast) {
     val currentAccent = marinePalette.current
     val waveAccent = marinePalette.waves
     val tideAccent = marinePalette.tides
+
+    coastalVigilance?.let { alert ->
+        MarineCoastalVigilanceBanner(
+            alert = alert,
+            timezone = vigilanceTimezone ?: data.timezone
+        )
+    }
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         MarineGroupHeader(

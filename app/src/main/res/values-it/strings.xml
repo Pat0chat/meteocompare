@@ -769,4 +769,30 @@ dato</string>
         <item quantity="other">+ %1$d altre varianti non mostrate · %2$d/%3$d modelli</item>
     </plurals>
     <string name="mini_forecast_current_hour_a11y">Ora corrente</string>
+
+    <string name="vigilance_title">Vigilanza Météo-France</string>
+    <string name="vigilance_official_source">Informazione ufficiale</string>
+    <string name="vigilance_source_short">Météo-France</string>
+    <string name="vigilance_source_cached_short">Météo-France · cache</string>
+    <string name="vigilance_compact_title">Vigilanza %1$s</string>
+    <string name="vigilance_updated_at">Aggiornato %1$s</string>
+    <string name="vigilance_timing_approximate">Orari approssimativi</string>
+    <string name="vigilance_cached_warning">Dati in cache: verifica l’aggiornamento se la connessione non è disponibile.</string>
+    <string name="vigilance_interval_compact">%1$s–%2$s</string>
+    <string name="vigilance_marine_title">Vigilanza %1$s · costa</string>
+    <string name="vigilance_marine_timing">Onde / sommersione costiera · %1$s</string>
+    <string name="vigilance_color_green">verde</string>
+    <string name="vigilance_color_yellow">gialla</string>
+    <string name="vigilance_color_orange">arancione</string>
+    <string name="vigilance_color_red">rossa</string>
+    <string name="vigilance_phenomenon_wind">Vento</string>
+    <string name="vigilance_phenomenon_rain_flood">Pioggia / allagamenti</string>
+    <string name="vigilance_phenomenon_thunderstorms">Temporali</string>
+    <string name="vigilance_phenomenon_floods">Piene</string>
+    <string name="vigilance_phenomenon_snow_ice">Neve / ghiaccio</string>
+    <string name="vigilance_phenomenon_heatwave">Ondata di calore</string>
+    <string name="vigilance_phenomenon_extreme_cold">Freddo intenso</string>
+    <string name="vigilance_phenomenon_avalanches">Valanghe</string>
+    <string name="vigilance_phenomenon_coastal_flooding">Onde / sommersione costiera</string>
+    <string name="vigilance_phenomenon_unknown">Fenomeno meteorologico</string>
 </resources>

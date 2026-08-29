@@ -107,6 +107,7 @@ import com.meteocompare.app.domain.model.WeatherScenarioTiming
 import com.meteocompare.app.ui.components.AnimatedWeatherIcon
 import com.meteocompare.app.ui.components.ShimmerBox
 import com.meteocompare.app.ui.components.WeatherMetric
+import com.meteocompare.app.ui.components.VigilanceCompactBanner
 import com.meteocompare.app.ui.components.WeatherMetricLayout
 import com.meteocompare.app.ui.settings.DonationDialog
 import com.meteocompare.app.ui.theme.confidenceColor
@@ -462,6 +463,8 @@ internal fun CityCard(
                             next12hConditions = forecast.next12hConditions,
                             next12hScenarios = forecast.next12hScenarios,
                             hourlyStartTime = forecast.hourlyStartTime,
+                            vigilance = state.vigilance,
+                            cityTimezone = state.city.timezone,
                             accentColor = accentColor
                         )
 
@@ -497,7 +500,7 @@ private fun CityCardHeader(
         Column(modifier = Modifier.weight(1f)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Bottom
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = city.name,
@@ -508,7 +511,7 @@ private fun CityCardHeader(
                     modifier = Modifier.weight(1f, fill = false)
                 )
                 if (marineEnabled) {
-                    Spacer(Modifier.width(6.dp))
+                    Spacer(Modifier.width(10.dp))
                     Icon(
                         imageVector = Icons.Outlined.Waves,
                         contentDescription = stringResource(R.string.marine_enabled),
@@ -519,14 +522,14 @@ private fun CityCardHeader(
                     )
                 }
                 if (city.country.isNotBlank()) {
-                    Spacer(Modifier.width(12.dp))
+                    Spacer(Modifier.width(10.dp))
                     Text(
                         text = city.country,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(bottom = 3.dp)
+                        modifier = Modifier.padding(top = 4.dp)
                     )
                 }
             }
@@ -621,6 +624,8 @@ private fun CityCardLoaded(
     next12hConditions: List<WeatherCondition?>,
     next12hScenarios: List<WeatherScenario>,
     hourlyStartTime: java.time.LocalDateTime?,
+    vigilance: com.meteocompare.app.domain.model.VigilanceForecast?,
+    cityTimezone: String?,
     accentColor: Color
 ) {
     Column {
@@ -638,6 +643,15 @@ private fun CityCardLoaded(
         )
 
         TodayMetricGrid(today = today)
+
+        vigilance?.takeIf { it.activeAlerts.isNotEmpty() }?.let { alertForecast ->
+            Spacer(Modifier.height(6.dp))
+            VigilanceCompactBanner(
+                vigilance = alertForecast,
+                timezone = cityTimezone
+            )
+            Spacer(Modifier.height(2.dp))
+        }
 
         val visibleScenarios = if (
             next12hScenarios.isNotEmpty() &&
@@ -705,7 +719,7 @@ private fun CurrentWeatherHero(
                 }
             }
 
-            Spacer(Modifier.width(14.dp))
+            Spacer(Modifier.width(10.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(

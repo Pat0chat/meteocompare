@@ -28,6 +28,7 @@ import com.meteocompare.app.domain.repository.ForecastRepository
 import com.meteocompare.app.domain.repository.ForecastEvolutionRepository
 import com.meteocompare.app.domain.repository.MarineRepository
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
+import com.meteocompare.app.domain.repository.VigilanceRepository
 import com.meteocompare.app.domain.usecase.ComputeBiasUseCase
 import com.meteocompare.app.domain.usecase.ComputeForecastEvolutionUseCase
 import com.meteocompare.app.domain.usecase.ConfidenceCalculator
@@ -86,6 +87,7 @@ class CityDetailViewModel @Inject constructor(
     private val cityRepository: CityRepository,
     private val forecastRepository: ForecastRepository,
     private val marineRepository: MarineRepository,
+    private val vigilanceRepository: VigilanceRepository,
     private val networkMonitor: NetworkMonitor,
     private val climateNormalsRepository: ClimateNormalsRepository,
     private val confidenceCalculator: ConfidenceCalculator,
@@ -120,7 +122,10 @@ class CityDetailViewModel @Inject constructor(
 
     private val _marineState = MutableStateFlow<MarineUiState>(MarineUiState.Idle)
     val marineState: StateFlow<MarineUiState> = _marineState.asStateFlow()
+    private val _vigilanceState = MutableStateFlow<VigilanceUiState>(VigilanceUiState.Idle)
+    val vigilanceState: StateFlow<VigilanceUiState> = _vigilanceState.asStateFlow()
     private var marineJob: Job? = null
+    private var vigilanceJob: Job? = null
     private var evolutionJob: Job? = null
     private var evolutionRequestKey: String? = null
 
@@ -229,7 +234,13 @@ class CityDetailViewModel @Inject constructor(
     /** Met à jour la bannière hors connexion sans attendre un nouveau refresh. */
     private fun observeConnectivity() {
         viewModelScope.launch {
-            networkMonitor.observeOnline().collect { online -> _isOnline.value = online }
+            networkMonitor.observeOnline().collect { online ->
+                val wasOnline = _isOnline.value
+                _isOnline.value = online
+                if (online && !wasOnline) {
+                    findCity()?.let { city -> launchVigilanceLoad(city, forceRefresh = false) }
+                }
+            }
         }
     }
 
@@ -370,6 +381,7 @@ class CityDetailViewModel @Inject constructor(
                 return@launch
             }
             cityTimezone.value = city.timezone
+            launchVigilanceLoad(city, forceRefresh = false)
             if (city.marineEnabled) launchMarineLoad(city, forceRefresh = false)
 
             // Les repères historiques sont indépendantes du jeu de modèles météo, mais leur
@@ -439,6 +451,37 @@ class CityDetailViewModel @Inject constructor(
         }
     }
 
+    private fun launchVigilanceLoad(city: City, forceRefresh: Boolean) {
+        vigilanceJob?.cancel()
+        if (!city.isFrenchLocation) {
+            _vigilanceState.value = VigilanceUiState.Idle
+            return
+        }
+        vigilanceJob = viewModelScope.launch {
+            val previous = (_vigilanceState.value as? VigilanceUiState.Loaded)?.forecast
+            if (previous == null) _vigilanceState.value = VigilanceUiState.Loading
+            val cachedCoastal = runCatching { marineRepository.getFreshCached(city.id)?.coastal == true }
+                .getOrDefault(false)
+            when (val result = vigilanceRepository.getVigilance(
+                city = city,
+                includeCoast = city.marineEnabled || cachedCoastal,
+                forceRefresh = forceRefresh
+            )) {
+                is ApiResult.Success -> {
+                    val vigilance = result.data
+                    _vigilanceState.value = if (vigilance != null && vigilance.activeAlerts.isNotEmpty()) {
+                        VigilanceUiState.Loaded(vigilance)
+                    } else {
+                        VigilanceUiState.Idle
+                    }
+                }
+                is ApiResult.Error -> {
+                    _vigilanceState.value = previous?.let(VigilanceUiState::Loaded) ?: VigilanceUiState.Idle
+                }
+            }
+        }
+    }
+
     /** Rafraîchissement indépendant du mode Mer / côte. */
     fun refreshMarine() {
         viewModelScope.launch {
@@ -485,6 +528,7 @@ class CityDetailViewModel @Inject constructor(
                     _refreshFeedback.trySend(RefreshFeedback.Error(context.getString(R.string.refresh_city_not_found)))
                     return@launch
                 }
+                launchVigilanceLoad(city, forceRefresh = true)
                 val models = userPreferences.observeEnabledModels().first()
                 val result = forecastRepository.refreshCityForecast(
                     city = city,

@@ -8,6 +8,7 @@ import com.meteocompare.app.domain.repository.ForecastRepository
 import com.meteocompare.app.domain.repository.ForecastEvolutionRepository
 import com.meteocompare.app.domain.repository.MarineRepository
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
+import com.meteocompare.app.domain.repository.VigilanceRepository
 import com.meteocompare.app.domain.usecase.EqualWeighting
 import com.meteocompare.app.domain.usecase.ModelWeightingStrategy
 import dagger.Module
@@ -26,6 +27,7 @@ object TestRepositoryModule {
     @Provides @Singleton fun forecastRepository(fake: FakeForecastRepository): ForecastRepository = fake
     @Provides @Singleton fun forecastEvolutionRepository(fake: FakeForecastEvolutionRepository): ForecastEvolutionRepository = fake
     @Provides @Singleton fun marineRepository(fake: FakeMarineRepository): MarineRepository = fake
+    @Provides @Singleton fun vigilanceRepository(fake: FakeVigilanceRepository): VigilanceRepository = fake
     @Provides @Singleton fun preferencesRepository(fake: FakeUserPreferencesRepository): UserPreferencesRepository = fake
     @Provides @Singleton fun climateRepository(fake: FakeClimateNormalsRepository): ClimateNormalsRepository = fake
     @Provides @Singleton fun biasRepository(fake: FakeBiasSampleRepository): BiasSampleRepository = fake

@@ -97,10 +97,12 @@ import com.meteocompare.app.domain.model.PrecipitationConfidence
 import com.meteocompare.app.domain.usecase.ForecastConsensus
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
+import com.meteocompare.app.domain.model.VigilanceForecast
 import com.meteocompare.app.domain.usecase.DayConditionsRow
 import com.meteocompare.app.ui.components.AnimatedWeatherIcon
 import com.meteocompare.app.ui.components.CollapsibleSectionHeader
 import com.meteocompare.app.ui.components.OfflineDataBanner
+import com.meteocompare.app.ui.components.VigilanceDetailCard
 import com.meteocompare.app.ui.citylist.WeatherAccent
 import com.meteocompare.app.ui.theme.confidenceColor
 import com.meteocompare.app.ui.theme.precipitationMetricAccent
@@ -130,6 +132,7 @@ fun CityDetailScreen(
     val biasState by viewModel.biasState.collectAsStateWithLifecycle()
     val evolutionState by viewModel.evolutionState.collectAsStateWithLifecycle()
     val marineState by viewModel.marineState.collectAsStateWithLifecycle()
+    val vigilanceState by viewModel.vigilanceState.collectAsStateWithLifecycle()
     val collapsedSections by viewModel.collapsedSections.collectAsStateWithLifecycle()
     val detailViewMode by viewModel.detailViewMode.collectAsStateWithLifecycle()
     val detailContentTab by viewModel.detailContentTab.collectAsStateWithLifecycle()
@@ -166,6 +169,7 @@ fun CityDetailScreen(
         biasState = biasState,
         evolutionState = evolutionState,
         marineState = marineState,
+        vigilanceState = vigilanceState,
         collapsedSections = collapsedSections,
         detailViewMode = detailViewMode,
         detailContentTab = detailContentTab,
@@ -194,6 +198,7 @@ internal fun CityDetailContent(
     biasState: BiasScreenState,
     evolutionState: ForecastEvolutionState = ForecastEvolutionState.Idle,
     marineState: MarineUiState = MarineUiState.Idle,
+    vigilanceState: VigilanceUiState = VigilanceUiState.Idle,
     collapsedSections: Set<CityDetailSection> = emptySet(),
     detailViewMode: CityDetailViewMode = CityDetailViewMode.DEFAULT,
     detailContentTab: CityDetailContentTab = CityDetailContentTab.DEFAULT,
@@ -307,6 +312,8 @@ internal fun CityDetailContent(
                         biasState = biasState,
                         evolutionState = evolutionState,
                         marineState = marineState,
+                        vigilance = (vigilanceState as? VigilanceUiState.Loaded)?.forecast
+                            ?.takeIf { s.forecast.city.isFrenchLocation },
                         collapsedSections = collapsedSections,
                         detailViewMode = detailViewMode,
                         detailContentTab = detailContentTab,
@@ -354,8 +361,14 @@ private fun ErrorView(message: String, onRetry: () -> Unit, padding: PaddingValu
 
 internal fun simplifiedTimelineItemIndex(
     isOnline: Boolean,
-    hasInsights: Boolean
-): Int = (if (isOnline) 0 else 1) + 1 + (if (hasInsights) 1 else 0)
+    hasInsights: Boolean,
+    hasVigilance: Boolean = false
+): Int =
+    (if (isOnline) 0 else 1) + // bannière offline
+        1 + // résumé du jour
+        (if (hasVigilance) 1 else 0) +
+        1 + // comparaison des moteurs
+        (if (hasInsights) 1 else 0)
 
 internal fun insightTimelineTarget(insight: ForecastInsight): SimplifiedTimelinePoint? =
     insight.point ?: insight.event?.peakPoint ?: insight.referencePoint
@@ -379,6 +392,7 @@ private fun LoadedView(
     biasState: BiasScreenState,
     evolutionState: ForecastEvolutionState,
     marineState: MarineUiState,
+    vigilance: VigilanceForecast?,
     collapsedSections: Set<CityDetailSection>,
     detailViewMode: CityDetailViewMode,
     detailContentTab: CityDetailContentTab,
@@ -446,7 +460,8 @@ private fun LoadedView(
     // then optional insights. Keep this count in sync with the LazyColumn below.
     val timelineItemIndex = simplifiedTimelineItemIndex(
         isOnline = isOnline,
-        hasInsights = hasInsightSection
+        hasInsights = hasInsightSection,
+        hasVigilance = vigilance?.activeAlerts?.isNotEmpty() == true
     )
     LaunchedEffect(timelineFocusRequestId) {
         if (timelineFocusRequestId > 0) {
@@ -549,6 +564,16 @@ private fun LoadedView(
                         onSectionExpandedChange(CityDetailSection.TODAY_SUMMARY, expanded)
                     },
                     onConfidenceClick = { onConfidenceClick(today.date.toString()) }
+                )
+            }
+        }
+
+        vigilance?.takeIf { forecast.city.isFrenchLocation && it.activeAlerts.isNotEmpty() }?.let { alertForecast ->
+            item("official_vigilance") {
+                VigilanceDetailCard(
+                    vigilance = alertForecast,
+                    timezone = forecast.city.timezone,
+                    modifier = Modifier.padding(horizontal = 16.dp)
                 )
             }
         }
@@ -704,6 +729,8 @@ private fun LoadedView(
                     state = marineState,
                     onRefresh = onRefreshMarine,
                     expanded = marineExpanded,
+                    coastalVigilance = vigilance?.coastalFloodingAlert,
+                    vigilanceTimezone = forecast.city.timezone,
                     onExpandedChange = { expanded ->
                         onSectionExpandedChange(CityDetailSection.MARINE, expanded)
                     }

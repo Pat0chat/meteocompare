@@ -226,3 +226,27 @@ private fun WeatherHeatmapPalettePreview() {
         }
     }
 }
+
+@MeteoComponentPreview
+@Composable
+private fun VigilanceCardsPreview() {
+    MeteoPreviewSurface {
+        Column(
+            Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            VigilanceCompactBanner(
+                vigilance = PreviewFixtures.vigilance,
+                timezone = "Europe/Paris"
+            )
+            VigilanceDetailCard(
+                vigilance = PreviewFixtures.vigilance,
+                timezone = "Europe/Paris"
+            )
+            MarineCoastalVigilanceBanner(
+                alert = PreviewFixtures.coastalVigilance.coastalFloodingAlert,
+                timezone = "Europe/Paris"
+            )
+        }
+    }
+}

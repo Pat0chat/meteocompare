@@ -22,14 +22,15 @@ annotations. Each function therefore appears in both light and dark mode.
 
 The Home preview set explicitly covers:
 
-- a complete list with loaded inland and coastal locations;
+- a complete list with loaded inland and coastal locations, including official vigilance states;
 - the modern 12-hour heat-strip timeline and weather icons;
 - a loading card;
 - an error card;
 - offline mode;
 - the empty state;
 - the add-city sheet;
-- standalone mini-timeline and sunrise/sunset components.
+- standalone mini-timeline and sunrise/sunset components;
+- official Météo-France vigilance cards for Home, detail and coastal marine contexts.
 
 ## Intentional exclusion
 

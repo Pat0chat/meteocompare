@@ -30,6 +30,13 @@ val keystoreProperties = Properties().apply {
 fun signingValue(key: String, envKey: String): String? =
     keystoreProperties.getProperty(key) ?: System.getenv(envKey)
 
+val vigilanceBaseUrl = providers.gradleProperty("VIGILANCE_BASE_URL")
+    .orElse("https://meteocompare.app/")
+    .get()
+    .trim()
+    .let { value -> if (value.endsWith('/')) value else "$value/" }
+    .also { value -> require(value.startsWith("https://")) { "VIGILANCE_BASE_URL must use HTTPS" } }
+
 android {
     namespace = "com.meteocompare.app"
     compileSdk = libs.versions.compileSdk.get().toInt()
@@ -41,6 +48,7 @@ android {
         versionCode = 29
         versionName = "1.12.0"
         testInstrumentationRunner = "com.meteocompare.app.HiltTestRunner"
+        buildConfigField("String", "METEOCOMPARE_BASE_URL", "\"$vigilanceBaseUrl\"")
         vectorDrawables { useSupportLibrary = true }
     }
 

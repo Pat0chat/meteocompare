@@ -11,10 +11,19 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.test.platform.app.InstrumentationRegistry
 import com.meteocompare.app.R
+import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityDetailSection
+import com.meteocompare.app.domain.model.VigilanceColor
+import com.meteocompare.app.domain.model.VigilanceForecast
+import com.meteocompare.app.domain.model.VigilanceInterval
+import com.meteocompare.app.domain.model.VigilancePeriod
+import com.meteocompare.app.domain.model.VigilancePhenomenon
+import com.meteocompare.app.domain.model.VigilancePhenomenonAlert
+import com.meteocompare.app.domain.model.VigilanceScope
 import com.meteocompare.app.domain.usecase.ConfidenceCalculator
 import com.meteocompare.app.domain.usecase.EqualWeighting
 import com.meteocompare.app.testutil.TestFixtures
+import com.meteocompare.app.ui.components.TAG_VIGILANCE_DETAIL
 import com.meteocompare.app.ui.theme.MeteoCompareTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -114,6 +123,83 @@ class CityDetailContentTest {
         composeRule.onNodeWithTag(TAG_CONFIDENCE_BADGE, useUnmergedTree = true).performClick()
         assertEquals(TestFixtures.today.toString(), clickedDate)
         assertTrue(clickedDate != null)
+    }
+
+    @Test
+    fun non_french_city_never_displays_official_vigilance_section() {
+        val london = City(
+            id = "2643743",
+            name = "London",
+            country = "United Kingdom",
+            latitude = 51.5074,
+            longitude = -0.1278,
+            timezone = "Europe/London",
+            countryCode = "GB"
+        )
+        val forecast = TestFixtures.forecast(city = london)
+        val calculator = ConfidenceCalculator(EqualWeighting())
+        val start = TestFixtures.now
+        val alert = VigilancePhenomenonAlert(
+            phenomenon = VigilancePhenomenon.WIND,
+            maxColor = VigilanceColor.RED,
+            intervals = listOf(
+                VigilanceInterval(
+                    begin = start,
+                    end = start.plusSeconds(7_200),
+                    color = VigilanceColor.RED,
+                    scope = VigilanceScope.DEPARTMENT
+                )
+            )
+        )
+        val vigilance = VigilanceForecast(
+            source = "Météo-France",
+            department = "75",
+            includeCoast = false,
+            updateTime = start,
+            productDatetime = start,
+            generationTimestamp = start,
+            periods = listOf(
+                VigilancePeriod(
+                    term = "J",
+                    begin = start,
+                    end = start.plusSeconds(7_200),
+                    maxColor = VigilanceColor.RED,
+                    departmentMaxColor = VigilanceColor.RED,
+                    coastMaxColor = null,
+                    phenomena = listOf(alert)
+                )
+            ),
+            fetchedAt = start
+        )
+
+        composeRule.setContent {
+            MeteoCompareTheme {
+                CityDetailContent(
+                    state = CityDetailUiState.Loaded(
+                        forecast = forecast,
+                        weeklyConfidence = calculator.weeklyConfidence(forecast),
+                        hourlyBands = calculator.hourlyTemperatureConfidence(forecast),
+                        hourlyPrecipBands = calculator.hourlyPrecipitationConfidence(forecast),
+                        hourlyWindBands = calculator.hourlyWindConfidence(forecast),
+                        currentTemp = calculator.currentTemperature(forecast),
+                        currentCondition = calculator.currentWeatherCondition(forecast),
+                        currentCloudCover = calculator.currentCloudCover(forecast),
+                        dailyConditions = calculator.dailyConditionsByModel(forecast),
+                        calculatedAt = TestFixtures.now,
+                        fetchedAt = forecast.fetchedAt
+                    ),
+                    isRefreshing = false,
+                    biasState = BiasScreenState.EMPTY,
+                    vigilanceState = VigilanceUiState.Loaded(vigilance),
+                    collapsedSections = setOf(CityDetailSection.TODAY_SUMMARY),
+                    snackbarHostState = SnackbarHostState(),
+                    onBack = {},
+                    onRefresh = {}
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag(TAG_VIGILANCE_DETAIL).assertDoesNotExist()
     }
 
     @Test

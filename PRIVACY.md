@@ -1,20 +1,20 @@
 # Politique de confidentialité — MeteoCompare
 
-*Dernière mise à jour : juin 2026*
+*Dernière mise à jour : août 2026*
 
 ## TL;DR
 
-**MeteoCompare ne collecte aucune donnée personnelle.** Aucun analytics, aucun
-tracking, aucune publicité, aucun crash reporting, aucune télémétrie. Toutes
-les données restent sur votre appareil.
+**MeteoCompare n'utilise aucune donnée personnelle à des fins de profilage.** Aucun
+analytics, tracking, publicité, crash reporting ou télémétrie applicative. Les
+favoris, préférences, caches météo et historiques restent sur votre appareil.
 
 ---
 
 ## 1. Données que nous collectons
 
-**Aucune.** L'application MeteoCompare ne dispose d'aucun serveur lui appartenant
-et ne transmet aucune donnée à aucune tierce partie à des fins de profilage,
-analyse, publicité ou tracking.
+MeteoCompare ne constitue aucun fichier d'utilisateurs et ne transmet aucune donnée
+à des fins de profilage, analyse, publicité ou tracking. Les requêtes réseau
+nécessaires aux fonctions météo sont décrites ci-dessous.
 
 Concrètement, cela signifie :
 
@@ -30,7 +30,7 @@ Concrètement, cela signifie :
 
 MeteoCompare ne partage aucune donnée à des fins publicitaires, analytiques ou de profilage.
 
-Pour fournir ses fonctionnalités météo, l'application transmet toutefois les paramètres nécessaires aux API Open-Meteo, comme détaillé ci-dessous.
+Pour fournir ses fonctionnalités météo, l'application transmet toutefois les paramètres nécessaires à Open-Meteo et, pour la Vigilance officielle française, au Worker public MeteoCompare décrit ci-dessous.
 
 ## 3. Utilisation d'Open-Meteo (service tiers)
 
@@ -56,7 +56,24 @@ pour récupérer les prévisions météorologiques.
 Open-Meteo opère selon sa propre [politique de confidentialité](https://open-meteo.com/en/terms#privacy)
 qui spécifie l'absence de stockage à long terme des requêtes individuelles.
 
-## 4. Stockage local sur votre appareil
+## 4. Vigilance Météo-France via le Worker MeteoCompare
+
+Pour les villes françaises, l'application peut interroger le Worker public
+`https://meteocompare.app/_mcx/vigilance` afin d'afficher la Vigilance officielle
+Météo-France (jaune, orange, rouge). L'application envoie uniquement :
+
+- le **code du département** (par exemple `91`) ;
+- `coast=1` lorsque la localité est identifiée comme côtière (ou que le mode Mer / côte est activé), afin d'inclure la vigilance littorale.
+
+Le Worker gère côté serveur l'authentification Météo-France et le cache. **Aucun
+identifiant, mot de passe ou token Météo-France n'est stocké dans l'application.**
+Comme pour toute requête HTTPS, l'infrastructure réseau/Cloudflare voit l'adresse
+IP source et les paramètres de la requête. MeteoCompare n'utilise pas ces données
+pour profiler, suivre ou identifier l'utilisateur.
+
+Les villes hors France ne déclenchent aucun appel Vigilance. Lorsqu’une ville est supprimée des favoris, son état Vigilance en mémoire est supprimé immédiatement et le cache persistant du département concerné est purgé.
+
+## 5. Stockage local sur votre appareil
 
 L'application stocke les données suivantes **uniquement** sur votre appareil :
 
@@ -65,6 +82,7 @@ L'application stocke les données suivantes **uniquement** sur votre appareil :
 | Villes favorites     | DataStore (interne)  | Pour vous afficher votre sélection        |
 | Modèles activés      | DataStore (interne)  | Pour respecter votre configuration        |
 | Cache des prévisions | Room SQLite (interne) | Pour démarrage instantané et mode offline |
+| Cache Vigilance      | DataStore (interne)  | Limiter les appels réseau et permettre un fallback court |
 | Préférence langage   | Room SQLite (interne) | Langue de l'application                   |
 | Préférence thème     | Room SQLite (interne) | Thème de l'application                    |
 
@@ -75,11 +93,11 @@ Ces données :
   **propre** compte Google (sous votre contrôle dans Réglages → Système →
   Sauvegarde). Nous n'avons aucun accès à ces sauvegardes.
 
-## 5. Permissions Android demandées
+## 6. Permissions Android demandées
 
 | Permission             | Pourquoi                                          |
 |------------------------|---------------------------------------------------|
-| `INTERNET`             | Requêtes vers Open-Meteo (seul backend utilisé)  |
+| `INTERNET`             | Requêtes vers Open-Meteo et le Worker MeteoCompare |
 | `ACCESS_NETWORK_STATE` | Détecter mode hors-ligne pour bandeau informatif |
 
 L'application **ne demande pas** :
@@ -89,22 +107,21 @@ L'application **ne demande pas** :
 - Bluetooth, NFC
 - Identifiant publicitaire (`AD_ID` explicitement retiré)
 
-## 6. Public cible
+## 7. Public cible
 
 L'application n'est pas spécifiquement destinée aux enfants de moins de 13 ans.
-Aucune donnée n'étant collectée, l'application est conforme par défaut au COPPA
-et au RGPD pour cette tranche d'âge.
+L'application ne crée aucun compte, profil publicitaire ou historique serveur associé à un utilisateur.
 
-## 7. Modifications de cette politique
+## 8. Modifications de cette politique
 
 Si une mise à jour de l'application change fondamentalement ce comportement
 (par exemple ajout d'un système d'authentification ou de synchronisation cloud),
 cette politique sera mise à jour avant la publication de la version concernée,
 et l'utilisateur sera explicitement informé dans les notes de version.
 
-Tant que la version reste 1.x, l'engagement "zéro collecte" est maintenu.
+Tant que la version reste 1.x, l’engagement sans analytics, tracking, publicité ni profilage est maintenu.
 
-## 8. Contact
+## 9. Contact
 
 Pour toute question sur cette politique :
 [github.com/Pat0chat/MeteoCompare/issues](https://github.com/Pat0chat/MeteoCompare/issues)

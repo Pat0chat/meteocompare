@@ -6,6 +6,13 @@ import retrofit2.http.Query
 
 interface GeocodingApi {
 
+    /** Résout un résultat précis par identifiant Open-Meteo (anciens favoris). */
+    @GET("v1/get")
+    suspend fun get(
+        @Query("id") id: Long,
+        @Query("language") language: String = "fr"
+    ): com.meteocompare.app.data.remote.dto.GeocodingResultDto
+
     /**
      * Recherche de villes par nom.
      *

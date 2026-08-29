@@ -39,11 +39,13 @@ private fun homeItems(): List<CityCardState> = listOf(
     CityCardState(
         city = PreviewFixtures.city,
         forecast = loadedForecast(),
+        vigilance = PreviewFixtures.vigilance,
         isMarineAvailable = false
     ),
     CityCardState(
         city = PreviewFixtures.coastalCity,
         forecast = loadedForecast(19.0, WeatherCondition.RAIN_SHOWERS),
+        vigilance = PreviewFixtures.coastalVigilance,
         isMarineAvailable = true
     ),
     CityCardState(
@@ -138,7 +140,7 @@ private fun CityCardStatesPreview() {
     MeteoPreviewSurface {
         Column(Modifier.padding(12.dp)) {
             CityCard(
-                state = CityCardState(PreviewFixtures.city, loadedForecast()),
+                state = CityCardState(PreviewFixtures.city, loadedForecast(), vigilance = PreviewFixtures.vigilance),
                 onClick = {},
                 onRemove = {},
                 onRetry = {}

@@ -7,12 +7,14 @@ import com.meteocompare.app.data.repository.ClimateNormalsRepositoryImpl
 import com.meteocompare.app.data.repository.ForecastRepositoryImpl
 import com.meteocompare.app.data.repository.ForecastEvolutionRepositoryImpl
 import com.meteocompare.app.data.repository.MarineRepositoryImpl
+import com.meteocompare.app.data.repository.VigilanceRepositoryImpl
 import com.meteocompare.app.domain.repository.BiasSampleRepository
 import com.meteocompare.app.domain.repository.CityRepository
 import com.meteocompare.app.domain.repository.ClimateNormalsRepository
 import com.meteocompare.app.domain.repository.ForecastRepository
 import com.meteocompare.app.domain.repository.ForecastEvolutionRepository
 import com.meteocompare.app.domain.repository.MarineRepository
+import com.meteocompare.app.domain.repository.VigilanceRepository
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
 import com.meteocompare.app.domain.usecase.EqualWeighting
 import com.meteocompare.app.domain.usecase.ModelWeightingStrategy
@@ -43,6 +45,10 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindMarineRepository(impl: MarineRepositoryImpl): MarineRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindVigilanceRepository(impl: VigilanceRepositoryImpl): VigilanceRepository
 
     @Binds
     @Singleton

@@ -6,6 +6,7 @@ import com.meteocompare.app.domain.model.DayConfidence
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.model.WeatherScenario
+import com.meteocompare.app.domain.model.VigilanceForecast
 import java.time.Instant
 import java.time.LocalTime
 
@@ -28,6 +29,8 @@ data class CityListUiState(
 data class CityCardState(
     val city: City,
     val forecast: ForecastState,
+    /** Vigilance officielle Météo-France (jaune ou plus affichée dans la card). */
+    val vigilance: VigilanceForecast? = null,
     /** True quand la ville a été validée comme côtière et peut activer Mer / côte. */
     val isMarineAvailable: Boolean = false,
     val isMarineLoading: Boolean = false

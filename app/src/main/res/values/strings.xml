@@ -826,4 +826,31 @@
         <item quantity="other">+ %1$d autres variantes non affichées · %2$d/%3$d modèles</item>
     </plurals>
     <string name="mini_forecast_current_hour_a11y">Heure actuelle</string>
+
+    <!-- Vigilance officielle Météo-France -->
+    <string name="vigilance_title">Vigilance Météo-France</string>
+    <string name="vigilance_official_source">Information officielle</string>
+    <string name="vigilance_source_short">Météo-France</string>
+    <string name="vigilance_source_cached_short">Météo-France · cache</string>
+    <string name="vigilance_compact_title">Vigilance %1$s</string>
+    <string name="vigilance_updated_at">Mise à jour %1$s</string>
+    <string name="vigilance_timing_approximate">Horaires approximatifs</string>
+    <string name="vigilance_cached_warning">Données en cache : vérifiez la mise à jour si la connexion est indisponible.</string>
+    <string name="vigilance_interval_compact">%1$s–%2$s</string>
+    <string name="vigilance_marine_title">Vigilance %1$s · littoral</string>
+    <string name="vigilance_marine_timing">Vagues-submersion · %1$s</string>
+    <string name="vigilance_color_green">verte</string>
+    <string name="vigilance_color_yellow">jaune</string>
+    <string name="vigilance_color_orange">orange</string>
+    <string name="vigilance_color_red">rouge</string>
+    <string name="vigilance_phenomenon_wind">Vent</string>
+    <string name="vigilance_phenomenon_rain_flood">Pluie-inondation</string>
+    <string name="vigilance_phenomenon_thunderstorms">Orages</string>
+    <string name="vigilance_phenomenon_floods">Crues</string>
+    <string name="vigilance_phenomenon_snow_ice">Neige-verglas</string>
+    <string name="vigilance_phenomenon_heatwave">Canicule</string>
+    <string name="vigilance_phenomenon_extreme_cold">Grand froid</string>
+    <string name="vigilance_phenomenon_avalanches">Avalanches</string>
+    <string name="vigilance_phenomenon_coastal_flooding">Vagues-submersion</string>
+    <string name="vigilance_phenomenon_unknown">Phénomène météo</string>
 </resources>

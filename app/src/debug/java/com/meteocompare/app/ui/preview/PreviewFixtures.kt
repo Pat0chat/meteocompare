@@ -35,6 +35,13 @@ import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.model.WeatherScenario
 import com.meteocompare.app.domain.model.WeatherScenarioKind
 import com.meteocompare.app.domain.model.WeatherScenarioTiming
+import com.meteocompare.app.domain.model.VigilanceColor
+import com.meteocompare.app.domain.model.VigilanceForecast
+import com.meteocompare.app.domain.model.VigilanceInterval
+import com.meteocompare.app.domain.model.VigilancePeriod
+import com.meteocompare.app.domain.model.VigilancePhenomenon
+import com.meteocompare.app.domain.model.VigilancePhenomenonAlert
+import com.meteocompare.app.domain.model.VigilanceScope
 import com.meteocompare.app.domain.usecase.DayCellExtras
 import com.meteocompare.app.domain.usecase.DayConditionsRow
 import com.meteocompare.app.domain.usecase.EngineComparisonDay
@@ -75,7 +82,10 @@ internal object PreviewFixtures {
         latitude = 48.8566,
         longitude = 2.3522,
         timezone = "Europe/Paris",
-        marineEnabled = false
+        marineEnabled = false,
+        countryCode = "FR",
+        departmentName = "Paris",
+        departmentCode = "75"
     )
 
     val coastalCity = City(
@@ -86,7 +96,77 @@ internal object PreviewFixtures {
         latitude = 43.4832,
         longitude = -1.5586,
         timezone = "Europe/Paris",
-        marineEnabled = true
+        marineEnabled = true,
+        countryCode = "FR",
+        departmentName = "Pyrénées-Atlantiques",
+        departmentCode = "64"
+    )
+
+    val vigilance = VigilanceForecast(
+        source = "Météo-France",
+        department = "75",
+        includeCoast = false,
+        updateTime = BASE_INSTANT.minusSeconds(900),
+        productDatetime = BASE_INSTANT.minusSeconds(900),
+        generationTimestamp = BASE_INSTANT.minusSeconds(840),
+        periods = listOf(
+            VigilancePeriod(
+                term = "J",
+                begin = BASE_INSTANT.minusSeconds(2 * 3600L),
+                end = BASE_INSTANT.plusSeconds(18 * 3600L),
+                maxColor = VigilanceColor.ORANGE,
+                departmentMaxColor = VigilanceColor.ORANGE,
+                coastMaxColor = null,
+                phenomena = listOf(
+                    VigilancePhenomenonAlert(
+                        phenomenon = VigilancePhenomenon.THUNDERSTORMS,
+                        maxColor = VigilanceColor.ORANGE,
+                        intervals = listOf(
+                            VigilanceInterval(
+                                begin = BASE_INSTANT.plusSeconds(2 * 3600L),
+                                end = BASE_INSTANT.plusSeconds(8 * 3600L),
+                                color = VigilanceColor.ORANGE,
+                                scope = VigilanceScope.DEPARTMENT
+                            )
+                        )
+                    ),
+                    VigilancePhenomenonAlert(
+                        phenomenon = VigilancePhenomenon.WIND,
+                        maxColor = VigilanceColor.YELLOW,
+                        intervals = listOf(
+                            VigilanceInterval(
+                                begin = BASE_INSTANT,
+                                end = BASE_INSTANT.plusSeconds(12 * 3600L),
+                                color = VigilanceColor.YELLOW,
+                                scope = VigilanceScope.DEPARTMENT
+                            )
+                        )
+                    )
+                )
+            )
+        ),
+        fetchedAt = BASE_INSTANT
+    )
+
+    val coastalVigilance = vigilance.copy(
+        department = "64",
+        includeCoast = true,
+        periods = vigilance.periods.map { period ->
+            period.copy(
+                phenomena = period.phenomena + VigilancePhenomenonAlert(
+                    phenomenon = VigilancePhenomenon.COASTAL_FLOODING,
+                    maxColor = VigilanceColor.ORANGE,
+                    intervals = listOf(
+                        VigilanceInterval(
+                            begin = BASE_INSTANT.plusSeconds(3600),
+                            end = BASE_INSTANT.plusSeconds(7 * 3600L),
+                            color = VigilanceColor.ORANGE,
+                            scope = VigilanceScope.COAST
+                        )
+                    )
+                )
+            )
+        }
     )
 
     val models = listOf(

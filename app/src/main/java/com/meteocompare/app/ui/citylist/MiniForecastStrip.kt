@@ -247,7 +247,7 @@ private fun MiniForecastHour(
             Canvas(Modifier.fillMaxSize()) {
                 val y = size.height / 2f
                 drawLine(
-                    color = contentColor.copy(alpha = 0.12f),
+                    color = contentColor.copy(alpha = 0.08f),
                     start = androidx.compose.ui.geometry.Offset(0f, y),
                     end = androidx.compose.ui.geometry.Offset(size.width, y),
                     strokeWidth = 1.dp.toPx()
