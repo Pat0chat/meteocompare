@@ -694,7 +694,6 @@ dato</string>
     <string name="engine_comparison_details_title">Dettaglio giornaliero</string>
     <string name="engine_comparison_science_note">Intervalli e scarti sono descrittivi, non probabilità calibrate. La convergenza resta calcolata dalle uscite grezze dei modelli.</string>
     <string name="engine_comparison_not_enough_data">Dati insufficienti per tracciare le curve.</string>
-    <string name="engine_comparison_entry_selected">Motore attivo: %1$s · confronta i quattro metodi</string>
     <string name="engine_comparison_open">Apri confronto motori</string>
     <string name="engine_divergence_low">Scarto ridotto</string>
     <string name="engine_divergence_medium">Scarto moderato</string>

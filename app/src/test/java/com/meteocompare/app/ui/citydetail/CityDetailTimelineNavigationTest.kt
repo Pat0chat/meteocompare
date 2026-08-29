@@ -8,10 +8,10 @@ import org.junit.Test
 class CityDetailTimelineNavigationTest {
     @Test
     fun timeline_index_matches_items_before_it() {
-        assertEquals(2, simplifiedTimelineItemIndex(isOnline = true, hasInsights = false))
-        assertEquals(3, simplifiedTimelineItemIndex(isOnline = true, hasInsights = true))
-        assertEquals(3, simplifiedTimelineItemIndex(isOnline = false, hasInsights = false))
-        assertEquals(4, simplifiedTimelineItemIndex(isOnline = false, hasInsights = true))
+        assertEquals(1, simplifiedTimelineItemIndex(isOnline = true, hasInsights = false))
+        assertEquals(2, simplifiedTimelineItemIndex(isOnline = true, hasInsights = true))
+        assertEquals(2, simplifiedTimelineItemIndex(isOnline = false, hasInsights = false))
+        assertEquals(3, simplifiedTimelineItemIndex(isOnline = false, hasInsights = true))
     }
 
     @Test
@@ -48,8 +48,8 @@ class CityDetailTimelineNavigationTest {
     }
     @Test
     fun `timeline index inclut la vigilance officielle quand elle est affichee`() {
-        assertEquals(3, simplifiedTimelineItemIndex(isOnline = true, hasInsights = false, hasVigilance = true))
-        assertEquals(5, simplifiedTimelineItemIndex(isOnline = false, hasInsights = true, hasVigilance = true))
+        assertEquals(2, simplifiedTimelineItemIndex(isOnline = true, hasInsights = false, hasVigilance = true))
+        assertEquals(4, simplifiedTimelineItemIndex(isOnline = false, hasInsights = true, hasVigilance = true))
     }
 
 }

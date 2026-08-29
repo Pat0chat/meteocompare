@@ -29,6 +29,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.QueryStats
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.outlined.Air
@@ -71,7 +72,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.platform.LocalResources
@@ -91,7 +91,6 @@ import com.meteocompare.app.domain.model.DayConfidence
 import com.meteocompare.app.domain.model.DayNormals
 import com.meteocompare.app.domain.model.HourlyConfidenceBand
 import com.meteocompare.app.domain.model.ForecastEngineContext
-import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.model.HourlyForecast
 import com.meteocompare.app.domain.model.PrecipitationConfidence
 import com.meteocompare.app.domain.usecase.ForecastConsensus
@@ -248,6 +247,17 @@ internal fun CityDetailContent(
                     }
                 },
                 actions = {
+                    if (state is CityDetailUiState.Loaded) {
+                        IconButton(
+                            onClick = onEngineComparisonClick,
+                            modifier = Modifier.testTag(TAG_ENGINE_COMPARISON_ACTION)
+                        ) {
+                            Icon(
+                                Icons.Filled.QueryStats,
+                                contentDescription = stringResource(R.string.engine_comparison_open)
+                            )
+                        }
+                    }
                     IconButton(onClick = onRefresh, enabled = !isRefreshing) {
                         if (isRefreshing) {
                             CircularProgressIndicator(
@@ -322,8 +332,7 @@ internal fun CityDetailContent(
                         onDetailViewModeChange = onDetailViewModeChange,
                         onDetailContentTabChange = onDetailContentTabChange,
                         onRefreshMarine = onRefreshMarine,
-                        onConfidenceClick = onConfidenceClick,
-                        onEngineComparisonClick = onEngineComparisonClick
+                        onConfidenceClick = onConfidenceClick
                     )
                 }
             }
@@ -367,7 +376,6 @@ internal fun simplifiedTimelineItemIndex(
     (if (isOnline) 0 else 1) + // bannière offline
         1 + // résumé du jour
         (if (hasVigilance) 1 else 0) +
-        1 + // comparaison des moteurs
         (if (hasInsights) 1 else 0)
 
 internal fun insightTimelineTarget(insight: ForecastInsight): SimplifiedTimelinePoint? =
@@ -401,8 +409,7 @@ private fun LoadedView(
     onDetailViewModeChange: (CityDetailViewMode) -> Unit,
     onDetailContentTabChange: (CityDetailContentTab) -> Unit,
     onRefreshMarine: () -> Unit,
-    onConfidenceClick: (isoDate: String) -> Unit = {},
-    onEngineComparisonClick: () -> Unit = {}
+    onConfidenceClick: (isoDate: String) -> Unit = {}
 ) {
     val displayMode = detailViewMode.toDisplayMode()
     val reliabilityExpanded = CityDetailSection.CONFIDENCE !in collapsedSections
@@ -457,7 +464,8 @@ private fun LoadedView(
     var timelineFocusRequestId by remember(overviewTimeline) { mutableIntStateOf(0) }
     val contentListState = rememberLazyListState()
     // Items preceding the timeline: optional offline banner, today summary,
-    // then optional insights. Keep this count in sync with the LazyColumn below.
+    // optional official vigilance, then optional insights. The engine comparison
+    // action lives in the TopAppBar and therefore no longer affects this index.
     val timelineItemIndex = simplifiedTimelineItemIndex(
         isOnline = isOnline,
         hasInsights = hasInsightSection,
@@ -578,12 +586,6 @@ private fun LoadedView(
             }
         }
 
-        item("engine_comparison") {
-            EngineComparisonEntryCard(
-                engine = engineContext.engine,
-                onClick = onEngineComparisonClick
-            )
-        }
 
         if (hasInsightSection) {
             item("forecast_insights") {
@@ -1249,74 +1251,6 @@ private fun HeatmapGradientLegend(
                     modifier = Modifier.weight(1f)
                 )
             }
-        }
-    }
-}
-
-@Composable
-private fun EngineComparisonEntryCard(
-    engine: ForecastEngine,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .clickable(onClick = onClick),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.10f)
-        )
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Surface(
-                modifier = Modifier.size(28.dp),
-                shape = RoundedCornerShape(999.dp),
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.09f)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        text = "Σ",
-                        color = MaterialTheme.colorScheme.primary,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-            Spacer(Modifier.width(10.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.engine_comparison_title),
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = stringResource(
-                        R.string.engine_comparison_entry_selected,
-                        stringResource(when (engine) {
-                            ForecastEngine.MULTI_CONSENSUS -> R.string.forecast_engine_multi_consensus
-                            ForecastEngine.CALIBRATION -> R.string.forecast_engine_calibration
-                            ForecastEngine.SCENARIOS -> R.string.forecast_engine_scenarios
-                            ForecastEngine.ADAPTIVE -> R.string.forecast_engine_adaptive
-                        })
-                    ),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            Spacer(Modifier.width(8.dp))
-            Icon(
-                Icons.AutoMirrored.Filled.ArrowForward,
-                contentDescription = stringResource(R.string.engine_comparison_open),
-                modifier = Modifier.size(18.dp),
-                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f)
-            )
         }
     }
 }
@@ -2142,6 +2076,7 @@ private fun PartialErrorsSection(errors: Map<WeatherModel, String>) {
 internal const val TAG_DETAIL_LOADING = "detail_loading"
 internal const val TAG_DETAIL_ERROR = "detail_error"
 internal const val TAG_DETAIL_LOADED = "detail_loaded"
+internal const val TAG_ENGINE_COMPARISON_ACTION = "engine_comparison_action"
 internal const val TAG_CONFIDENCE_BADGE = "confidence_badge"
 internal const val TAG_TODAY_SUMMARY_TEMP_MIN_CENTRAL = "today_summary_temp_min_central"
 internal const val TAG_TODAY_SUMMARY_TEMP_MAX_CENTRAL = "today_summary_temp_max_central"

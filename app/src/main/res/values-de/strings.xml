@@ -690,7 +690,6 @@ Daten</string>
     <string name="engine_comparison_details_title">Tagesdetails</string>
     <string name="engine_comparison_science_note">Intervalle und Abweichungen sind deskriptiv und keine kalibrierten Wahrscheinlichkeiten. Die Konvergenz wird weiterhin aus den rohen Modellausgaben berechnet.</string>
     <string name="engine_comparison_not_enough_data">Nicht genügend Daten für die Kurven.</string>
-    <string name="engine_comparison_entry_selected">Aktiver Motor: %1$s · alle vier Methoden vergleichen</string>
     <string name="engine_comparison_open">Engine-Vergleich öffnen</string>
     <string name="engine_divergence_low">Geringe Abweichung</string>
     <string name="engine_divergence_medium">Mittlere Abweichung</string>

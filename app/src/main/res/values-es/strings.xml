@@ -694,7 +694,6 @@ datos</string>
     <string name="engine_comparison_details_title">Detalle diario</string>
     <string name="engine_comparison_science_note">Los intervalos y diferencias son descriptivos, no probabilidades calibradas. La convergencia sigue calculándose con las salidas brutas de los modelos.</string>
     <string name="engine_comparison_not_enough_data">No hay suficientes datos para trazar las curvas.</string>
-    <string name="engine_comparison_entry_selected">Motor activo: %1$s · comparar los cuatro métodos</string>
     <string name="engine_comparison_open">Abrir comparación de motores</string>
     <string name="engine_divergence_low">Diferencia baja</string>
     <string name="engine_divergence_medium">Diferencia moderada</string>
