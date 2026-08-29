@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.WarningAmber
@@ -49,6 +50,7 @@ import kotlin.math.max
 const val TAG_VIGILANCE_HOME = "vigilance-home"
 const val TAG_VIGILANCE_DETAIL = "vigilance-detail"
 const val TAG_VIGILANCE_MARINE = "vigilance-marine"
+const val TAG_VIGILANCE_ALERT_TIMING_PREFIX = "vigilance-alert-timing-"
 
 @Composable
 fun VigilanceCompactBanner(
@@ -282,10 +284,15 @@ private fun VigilanceAlertRow(
                 modifier = Modifier.weight(1f)
             )
             Text(
-                text = vigilanceColorLabel(alert.maxColor),
+                text = phenomenonTimingLabel(alert, timezone),
                 style = MaterialTheme.typography.labelMedium,
-                color = color,
-                fontWeight = FontWeight.SemiBold
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .widthIn(max = 168.dp)
+                    .testTag(TAG_VIGILANCE_ALERT_TIMING_PREFIX + alert.phenomenon.id)
             )
         }
         Spacer(Modifier.height(7.dp))
@@ -304,6 +311,48 @@ private fun VigilanceAlertRow(
             )
         }
     }
+}
+
+
+@Composable
+private fun phenomenonTimingLabel(alert: VigilancePhenomenonAlert, timezone: String?): String {
+    val windows = mergePhenomenonWindows(alert.intervals)
+    if (windows.isEmpty()) return "—"
+
+    val locale = LocalLocale.current.platformLocale
+    val formatter = DateTimeFormatter.ofPattern("HH'h'", locale).withZone(resolveZone(timezone))
+    return windows.joinToString(" · ") { (begin, end) ->
+        "${formatter.format(begin)}–${formatter.format(end)}"
+    }
+}
+
+private fun mergePhenomenonWindows(intervals: List<VigilanceInterval>): List<Pair<Instant, Instant>> {
+    val windows = intervals
+        .mapNotNull { interval ->
+            val begin = interval.begin ?: return@mapNotNull null
+            val end = interval.end ?: return@mapNotNull null
+            if (!end.isAfter(begin)) return@mapNotNull null
+            begin to end
+        }
+        .sortedBy { it.first }
+
+    if (windows.isEmpty()) return emptyList()
+
+    val merged = mutableListOf<Pair<Instant, Instant>>()
+    var currentBegin = windows.first().first
+    var currentEnd = windows.first().second
+
+    windows.drop(1).forEach { (begin, end) ->
+        if (!begin.isAfter(currentEnd)) {
+            if (end.isAfter(currentEnd)) currentEnd = end
+        } else {
+            merged += currentBegin to currentEnd
+            currentBegin = begin
+            currentEnd = end
+        }
+    }
+    merged += currentBegin to currentEnd
+    return merged
 }
 
 @Composable

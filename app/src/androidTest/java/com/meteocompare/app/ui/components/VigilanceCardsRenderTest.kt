@@ -2,6 +2,7 @@ package com.meteocompare.app.ui.components
 
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performScrollTo
@@ -37,6 +38,8 @@ class VigilanceCardsRenderTest {
 
         composeRule.onNodeWithTag(TAG_VIGILANCE_HOME).assertIsDisplayed()
         composeRule.onNodeWithTag(TAG_VIGILANCE_DETAIL).performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag(TAG_VIGILANCE_ALERT_TIMING_PREFIX + VigilancePhenomenon.THUNDERSTORMS.id)
+            .assertTextEquals("10h–14h · 18h–22h")
         composeRule.onNodeWithTag(TAG_VIGILANCE_MARINE).performScrollTo().assertIsDisplayed()
     }
 
@@ -47,7 +50,18 @@ class VigilanceCardsRenderTest {
             phenomenon = VigilancePhenomenon.THUNDERSTORMS,
             maxColor = VigilanceColor.ORANGE,
             intervals = listOf(
-                VigilanceInterval(start, end, VigilanceColor.ORANGE, VigilanceScope.DEPARTMENT)
+                VigilanceInterval(
+                    start,
+                    Instant.parse("2026-08-29T12:00:00Z"),
+                    VigilanceColor.ORANGE,
+                    VigilanceScope.DEPARTMENT
+                ),
+                VigilanceInterval(
+                    Instant.parse("2026-08-29T16:00:00Z"),
+                    end,
+                    VigilanceColor.ORANGE,
+                    VigilanceScope.DEPARTMENT
+                )
             )
         )
         val coast = VigilancePhenomenonAlert(
