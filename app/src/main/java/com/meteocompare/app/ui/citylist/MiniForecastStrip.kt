@@ -176,7 +176,7 @@ private fun MiniForecastHour(
                         .width(14.dp)
                         .height(2.dp)
                         .background(
-                            contentColor.copy(alpha = 0.64f),
+                            contentColor.copy(alpha = 0.50f),
                             RoundedCornerShape(1.dp)
                         )
                         .testTag(TAG_MINI_FORECAST_CURRENT_MARKER)
@@ -186,7 +186,7 @@ private fun MiniForecastHour(
             Text(
                 text = hour ?: " ",
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                    alpha = if (isCurrentBucket) 0.80f else 0.70f
+                    alpha = if (isCurrentBucket) 0.70f else 0.60f
                 ),
                 style = MaterialTheme.typography.labelSmall.copy(
                     fontSize = 8.sp,
@@ -216,7 +216,7 @@ private fun MiniForecastHour(
 
         Box(
             modifier = Modifier
-                .height(23.dp)
+                .height(20.dp)
                 .width(MINI_TIMELINE_TEMPERATURE_CAPSULE_WIDTH_DP.dp)
                 .background(
                     temperatureBackground,
@@ -229,7 +229,7 @@ private fun MiniForecastHour(
                 text = temperature?.let { "${it.roundToInt()}°" } ?: "—",
                 color = temperatureContentColor,
                 style = MaterialTheme.typography.labelLarge.copy(
-                    fontSize = 12.sp,
+                    fontSize = 11.sp,
                     lineHeight = 14.sp,
                     fontWeight = FontWeight.SemiBold
                 ),

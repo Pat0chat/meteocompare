@@ -632,22 +632,23 @@ private fun CityCardLoaded(
             currentCondition = currentCondition,
             currentCloudCover = currentCloudCover,
             agreementPercent = today.overallPercent,
-            accentColor = accentColor
+            accentColor = accentColor,
+            hourlyTemps = next12hTemps
         )
 
         TodayMetricGrid(today = today)
 
         vigilance?.takeIf { it.activeAlerts.isNotEmpty() }?.let { alertForecast ->
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(4.dp))
             VigilanceCompactBanner(
                 vigilance = alertForecast,
                 timezone = cityTimezone
             )
-            Spacer(Modifier.height(2.dp))
+            Spacer(Modifier.height(3.dp))
         }
 
         if (next12hTemps.any { it != null }) {
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(4.dp))
             MiniForecastStrip(
                 hourlyTemps = next12hTemps,
                 hourlyPrecipProb = next12hPrecipProb,
@@ -681,13 +682,16 @@ private fun CurrentWeatherHero(
     currentCondition: WeatherCondition?,
     currentCloudCover: Int?,
     agreementPercent: Int?,
-    accentColor: Color
+    accentColor: Color,
+    hourlyTemps: List<Double?>
 ) {
+    val trend = homeTemperatureTrend(currentTemp, hourlyTemps)
+
     Column {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 6.dp),
+                .padding(vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
@@ -721,11 +725,18 @@ private fun CurrentWeatherHero(
             Spacer(Modifier.width(10.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = currentTemp?.let { "${it.roundToInt()}°" } ?: "—",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = currentTemp?.let { "${it.roundToInt()}°" } ?: "—",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    trend?.let {
+                        Spacer(Modifier.width(8.dp))
+                        HomeTemperatureTrendChip(it)
+                    }
+                }
 
                 currentCondition?.let {
                     Text(
@@ -748,6 +759,71 @@ private fun CurrentWeatherHero(
                 HomeAgreementBadge(percent = agreementPercent)
             }
         }
+    }
+}
+
+private const val HOME_TEMPERATURE_TREND_THRESHOLD_C = 0.7
+internal const val TAG_HOME_TEMPERATURE_TREND = "home_temperature_trend"
+
+internal enum class HomeTemperatureTrendDirection { RISING, FALLING, STABLE }
+
+internal data class HomeTemperatureTrend(
+    val direction: HomeTemperatureTrendDirection,
+    val targetTemperature: Int
+)
+
+/** Tendance légère basée sur une échéance proche (~H+3), sans nouveau calcul météo. */
+internal fun homeTemperatureTrend(
+    currentTemp: Double?,
+    hourlyTemps: List<Double?>
+): HomeTemperatureTrend? {
+    val current = currentTemp?.takeIf { it.isFinite() } ?: return null
+    val target = hourlyTemps.getOrNull(3)?.takeIf { it.isFinite() }
+        ?: hourlyTemps.drop(1).take(4).filterNotNull().lastOrNull { it.isFinite() }
+        ?: return null
+    val delta = target - current
+    val direction = when {
+        delta >= HOME_TEMPERATURE_TREND_THRESHOLD_C -> HomeTemperatureTrendDirection.RISING
+        delta <= -HOME_TEMPERATURE_TREND_THRESHOLD_C -> HomeTemperatureTrendDirection.FALLING
+        else -> HomeTemperatureTrendDirection.STABLE
+    }
+    return HomeTemperatureTrend(direction, target.roundToInt())
+}
+
+@Composable
+private fun HomeTemperatureTrendChip(trend: HomeTemperatureTrend) {
+    val (symbol, a11y, color) = when (trend.direction) {
+        HomeTemperatureTrendDirection.RISING -> Triple(
+            "↑",
+            stringResource(R.string.home_temperature_trend_rising, trend.targetTemperature),
+            temperatureMetricAccent()
+        )
+        HomeTemperatureTrendDirection.FALLING -> Triple(
+            "↓",
+            stringResource(R.string.home_temperature_trend_falling, trend.targetTemperature),
+            if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) Color(0xFF90CAF9) else Color(0xFF1565C0)
+        )
+        HomeTemperatureTrendDirection.STABLE -> Triple(
+            "→",
+            stringResource(R.string.home_temperature_trend_stable, trend.targetTemperature),
+            MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+
+    Surface(
+        modifier = Modifier
+            .testTag(TAG_HOME_TEMPERATURE_TREND)
+            .semantics { contentDescription = a11y },
+        shape = RoundedCornerShape(9.dp),
+        color = color.copy(alpha = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) 0.16f else 0.10f)
+    ) {
+        Text(
+            text = "$symbol ${trend.targetTemperature}°",
+            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = color
+        )
     }
 }
 
