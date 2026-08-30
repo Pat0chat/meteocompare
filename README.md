@@ -327,6 +327,7 @@ Fait :
 - ✅ v1.9.0 - Moteur de prévisions v2 et ajout des informations "marine" pour les villes cotières, correction de bugs
 - ✅ v1.10.0 — Stack Gradle/AGP/Kotlin modernisée, moteur de prévisions V3, nouveaux modèles régionaux, correction de bugs
 - ✅ v1.11.0 — Nouveau moteur de consensus, page d'aide, correction de bugs
+- ✅ v1.12.0 — Migration vers ECMWF 9km, Chronologie par heure, ajout de la vigilance Météo-France, refonte de la partie mer et de la page d'accueil, mise à jour de la stack Gradle, correction de bugs
 
 ## Licence
 
