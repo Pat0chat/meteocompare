@@ -405,7 +405,7 @@ internal fun CityCard(
                 contentDescription = a11yDescription
                 role = Role.Button
             },
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow
         ),
@@ -494,7 +494,7 @@ private fun CityCardHeader(
     modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = modifier.padding(start = 12.dp).fillMaxWidth(),
+        modifier = modifier.padding(start = 24.dp).fillMaxWidth(),
         verticalAlignment = Alignment.Top
     ) {
         Column(modifier = Modifier.weight(1f)) {
@@ -535,7 +535,7 @@ private fun CityCardHeader(
             }
 
             if (sunrise != null || sunset != null) {
-                Spacer(Modifier.height(3.dp))
+                Spacer(Modifier.height(1.dp))
                 SunTimesRow(sunrise = sunrise, sunset = sunset)
             }
         }
@@ -549,8 +549,6 @@ private fun CityCardHeader(
             onRemove = onRemove
         )
     }
-
-    Spacer(Modifier.height(8.dp))
 }
 
 @Composable
@@ -634,12 +632,7 @@ private fun CityCardLoaded(
             currentCondition = currentCondition,
             currentCloudCover = currentCloudCover,
             agreementPercent = today.overallPercent,
-            accentColor = accentColor,
-            hourlyTemps = next12hTemps,
-            hourlyPrecipProb = next12hPrecipProb,
-            hourlyPrecipMm = next12hPrecipMm,
-            hourlyConditions = next12hConditions,
-            startTime = hourlyStartTime
+            accentColor = accentColor
         )
 
         TodayMetricGrid(today = today)
@@ -651,6 +644,17 @@ private fun CityCardLoaded(
                 timezone = cityTimezone
             )
             Spacer(Modifier.height(2.dp))
+        }
+
+        if (next12hTemps.any { it != null }) {
+            Spacer(Modifier.height(8.dp))
+            MiniForecastStrip(
+                hourlyTemps = next12hTemps,
+                hourlyPrecipProb = next12hPrecipProb,
+                hourlyPrecipMm = next12hPrecipMm,
+                hourlyConditions = next12hConditions,
+                startTime = hourlyStartTime
+            )
         }
 
         val visibleScenarios = if (
@@ -677,12 +681,7 @@ private fun CurrentWeatherHero(
     currentCondition: WeatherCondition?,
     currentCloudCover: Int?,
     agreementPercent: Int?,
-    accentColor: Color,
-    hourlyTemps: List<Double?>,
-    hourlyPrecipProb: List<Int?>,
-    hourlyPrecipMm: List<Double?>,
-    hourlyConditions: List<WeatherCondition?>,
-    startTime: java.time.LocalDateTime?
+    accentColor: Color
 ) {
     Column {
         Row(
@@ -693,7 +692,7 @@ private fun CurrentWeatherHero(
         ) {
             Box(
                 modifier = Modifier
-                    .size(58.dp)
+                    .size(62.dp)
                     .background(
                         accentColor.copy(
                             alpha = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) 0.14f else 0.08f
@@ -705,7 +704,7 @@ private fun CurrentWeatherHero(
                 if (currentCondition != null) {
                     AnimatedWeatherIcon(
                         condition = currentCondition,
-                        size = 56.dp,
+                        size = 60.dp,
                         animated = true,
                         tint = Color.Unspecified
                     )
@@ -713,7 +712,7 @@ private fun CurrentWeatherHero(
                     Icon(
                         Icons.Outlined.Thermostat,
                         contentDescription = null,
-                        modifier = Modifier.size(36.dp),
+                        modifier = Modifier.size(42.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -748,17 +747,6 @@ private fun CurrentWeatherHero(
             if (agreementPercent != null) {
                 HomeAgreementBadge(percent = agreementPercent)
             }
-        }
-
-        if (hourlyTemps.any { it != null }) {
-            Spacer(Modifier.height(8.dp))
-            MiniForecastStrip(
-                hourlyTemps = hourlyTemps,
-                hourlyPrecipProb = hourlyPrecipProb,
-                hourlyPrecipMm = hourlyPrecipMm,
-                hourlyConditions = hourlyConditions,
-                startTime = startTime
-            )
         }
     }
 }
@@ -804,14 +792,14 @@ private fun TodayMetricGrid(today: DayConfidence) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 8.dp, bottom = 2.dp),
+            .padding(top = 6.dp, bottom = 2.dp),
         shape = RoundedCornerShape(10.dp),
         color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.52f)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 6.dp, vertical = 10.dp),
+                .padding(horizontal = 6.dp, vertical = 6.dp),
             verticalAlignment = Alignment.Top
         ) {
             WeatherMetric(
@@ -828,7 +816,7 @@ private fun TodayMetricGrid(today: DayConfidence) {
 
             VerticalDivider(
                 modifier = Modifier
-                    .height(46.dp)
+                    .height(30.dp)
                     .align(Alignment.CenterVertically),
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
             )
@@ -848,7 +836,7 @@ private fun TodayMetricGrid(today: DayConfidence) {
 
             VerticalDivider(
                 modifier = Modifier
-                    .height(46.dp)
+                    .height(30.dp)
                     .align(Alignment.CenterVertically),
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
             )

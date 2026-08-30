@@ -2,6 +2,7 @@ package com.meteocompare.app.ui.components
 
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -37,6 +38,8 @@ class VigilanceCardsRenderTest {
         }
 
         composeRule.onNodeWithTag(TAG_VIGILANCE_HOME).assertIsDisplayed()
+        composeRule.onNodeWithTag(TAG_VIGILANCE_HOME_TEXT)
+            .assertTextContains("10h–14h · 18h–22h", substring = true)
         composeRule.onNodeWithTag(TAG_VIGILANCE_DETAIL).performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithTag(TAG_VIGILANCE_ALERT_TIMING_PREFIX + VigilancePhenomenon.THUNDERSTORMS.id)
             .assertTextEquals("10h–14h · 18h–22h")

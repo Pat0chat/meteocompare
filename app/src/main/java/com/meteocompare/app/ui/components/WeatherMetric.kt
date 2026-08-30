@@ -96,29 +96,19 @@ private fun CompactWeatherMetric(
                 imageVector = icon,
                 contentDescription = null,
                 tint = accent,
-                modifier = Modifier.size(15.dp)
+                modifier = Modifier.size(16.dp)
             )
-            Spacer(Modifier.width(5.dp))
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+            Spacer(Modifier.width(4.dp))
+            MetricValue(
+                value = value,
+                unit = unit,
+                compact = true
             )
         }
 
-        Spacer(Modifier.height(5.dp))
-
-        MetricValue(
-            value = value,
-            unit = unit,
-            compact = true
-        )
+        Spacer(Modifier.height(2.dp))
 
         if (!supporting.isNullOrBlank()) {
-            Spacer(Modifier.height(2.dp))
             Text(
                 text = supporting,
                 style = MaterialTheme.typography.labelSmall,

@@ -771,9 +771,7 @@ datos</string>
 
     <string name="vigilance_title">Vigilancia Météo-France</string>
     <string name="vigilance_official_source">Información oficial</string>
-    <string name="vigilance_source_short">Météo-France</string>
     <string name="vigilance_source_cached_short">Météo-France · caché</string>
-    <string name="vigilance_compact_title">Vigilancia %1$s</string>
     <string name="vigilance_updated_at">Actualizado %1$s</string>
     <string name="vigilance_timing_approximate">Horarios aproximados</string>
     <string name="vigilance_cached_warning">Datos en caché: comprueba la actualización si no hay conexión.</string>
@@ -794,4 +792,7 @@ datos</string>
     <string name="vigilance_phenomenon_avalanches">Avalanchas</string>
     <string name="vigilance_phenomenon_coastal_flooding">Oleaje / inundación costera</string>
     <string name="vigilance_phenomenon_unknown">Fenómeno meteorológico</string>
+    <string name="home_temperature_trend_rising">Tendencia de temperatura: sube hacia %1$d°</string>
+    <string name="home_temperature_trend_falling">Tendencia de temperatura: baja hacia %1$d°</string>
+    <string name="home_temperature_trend_stable">Tendencia de temperatura: estable alrededor de %1$d°</string>
 </resources>

@@ -17,13 +17,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
@@ -49,20 +48,16 @@ import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
 /**
- * Ruban météo 12 h de la Home.
+ * Prévision compacte 12 h de la Home.
  *
- * Le fond reste une heatmap de température mais devient une bande continue,
- * sans quadrillage. Six heures sont visibles simultanément ; les six suivantes
- * restent accessibles par scroll horizontal dans le même ruban.
+ * Le composant est désormais une surface neutre, cohérente avec les tuiles
+ * `MetricToday`. La heatmap reste volontairement présente uniquement derrière
+ * la température : la couleur a ainsi un sens unique et immédiat.
  *
- * Chaque colonne réutilise strictement les agrégats du moteur de consensus :
- * - heure ;
- * - icône de condition météo ;
- * - température centrale ;
- * - pluie : probabilité -> intensité du bleu, quantité -> taille du point.
- *
- * Le contraste est déterminé heure par heure à partir de la couleur thermique
- * locale afin de rester lisible en thème clair, sombre ou dynamique.
+ * Six heures sont visibles simultanément et les six suivantes restent
+ * accessibles par scroll horizontal. Chaque colonne réutilise strictement les
+ * agrégats du moteur de consensus : condition, température, probabilité et
+ * quantité de pluie.
  */
 @Composable
 internal fun MiniForecastStrip(
@@ -73,8 +68,7 @@ internal fun MiniForecastStrip(
     hourlyConditions: List<WeatherCondition?> = emptyList(),
     startTime: LocalDateTime? = null
 ) {
-    val surface = MaterialTheme.colorScheme.surfaceContainerLow
-    val noDataColor = MaterialTheme.colorScheme.surfaceVariant
+    val containerColor = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.52f)
     val themeContentColor = MaterialTheme.colorScheme.onSurface
     val isDarkTheme = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val a11yLabel = buildA11yLabel(hourlyTemps, hourlyPrecipProb)
@@ -85,19 +79,6 @@ internal fun MiniForecastStrip(
     val platformLocale = LocalLocale.current.platformLocale
     val hourFormatter = remember(is24, platformLocale) {
         DateTimeFormatter.ofPattern(if (is24) "H'h'" else "h a", platformLocale)
-    }
-
-    // Heatmap un peu plus vive que la 1.11.7, tout en conservant assez de
-    // marge de contraste pour les libellés et les icônes météo.
-    val heatStrength = if (isDarkTheme) MINI_TIMELINE_HEAT_STRENGTH_DARK else MINI_TIMELINE_HEAT_STRENGTH_LIGHT
-    val cellBackgrounds = List(CELL_COUNT) { index ->
-        hourlyTemps.getOrNull(index)
-            ?.let(::temperatureHeatmapColor)
-            ?.let { blendedHeatmapColor(surface, it, heatStrength) }
-            ?: noDataColor
-    }
-    val cellContentColors = cellBackgrounds.map { background ->
-        miniTimelineContentColor(background, themeContentColor)
     }
 
     BoxWithConstraints(
@@ -111,12 +92,13 @@ internal fun MiniForecastStrip(
     ) {
         val cellWidth = maxWidth / MINI_TIMELINE_VISIBLE_HOURS.toFloat()
 
-        Box(
+        Surface(
             modifier = Modifier
                 .fillMaxSize()
-                .clip(RoundedCornerShape(MINI_TIMELINE_CORNER_RADIUS_DP.dp))
                 .testTag(TAG_MINI_FORECAST_STRIP)
-                .semantics { contentDescription = a11yLabel }
+                .semantics { contentDescription = a11yLabel },
+            shape = RoundedCornerShape(MINI_TIMELINE_CORNER_RADIUS_DP.dp),
+            color = containerColor
         ) {
             Row(
                 modifier = Modifier
@@ -125,29 +107,35 @@ internal fun MiniForecastStrip(
                     .testTag(TAG_MINI_FORECAST_SCROLL)
             ) {
                 repeat(CELL_COUNT) { index ->
-                    val contentColor = cellContentColors[index]
                     val hour = startTime?.plusHours(index.toLong())?.format(hourFormatter)
                     val isCurrentBucket = startTime != null && index == 0
+                    val temperature = hourlyTemps.getOrNull(index)
+                    val heatBackground = miniTimelineTemperatureBackground(
+                        temperature = temperature,
+                        surface = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        isDarkTheme = isDarkTheme
+                    )
+                    val temperatureContent = miniTimelineContentColor(
+                        background = heatBackground,
+                        themeContentColor = themeContentColor
+                    )
 
                     MiniForecastHour(
                         modifier = Modifier
                             .width(cellWidth)
-                            .fillMaxHeight()
-                            .background(
-                                Brush.horizontalGradient(
-                                    miniTimelineCellGradientColors(cellBackgrounds, index)
-                                )
-                            ),
+                            .fillMaxHeight(),
                         hour = hour,
                         isCurrentBucket = isCurrentBucket,
-                        temperature = hourlyTemps.getOrNull(index),
+                        temperature = temperature,
+                        temperatureBackground = heatBackground,
+                        temperatureContentColor = temperatureContent,
                         condition = hourlyConditions.getOrNull(index),
                         rainStyle = miniTimelineRainDotStyle(
                             probabilityPercent = hourlyPrecipProb.getOrNull(index),
                             amountMm = hourlyPrecipMm.getOrNull(index),
                             isDarkTheme = isDarkTheme
                         ),
-                        contentColor = contentColor,
+                        contentColor = MaterialTheme.colorScheme.onSurface,
                         index = index
                     )
                 }
@@ -162,6 +150,8 @@ private fun MiniForecastHour(
     hour: String?,
     isCurrentBucket: Boolean,
     temperature: Double?,
+    temperatureBackground: Color,
+    temperatureContentColor: Color,
     condition: WeatherCondition?,
     rainStyle: MiniTimelineRainDotStyle?,
     contentColor: Color,
@@ -170,15 +160,13 @@ private fun MiniForecastHour(
     val currentHourA11y = stringResource(R.string.mini_forecast_current_hour_a11y)
 
     Column(
-        modifier = modifier.padding(vertical = 4.dp),
+        modifier = modifier.padding(vertical = 5.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // L'heure courante n'occupe plus une ligne dédiée : une courte barre
-        // intégrée au sommet de la première colonne joue le rôle d'ancre.
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(14.dp),
+                .height(13.dp),
             contentAlignment = Alignment.BottomCenter
         ) {
             if (isCurrentBucket) {
@@ -197,7 +185,9 @@ private fun MiniForecastHour(
             }
             Text(
                 text = hour ?: " ",
-                color = contentColor.copy(alpha = if (isCurrentBucket) 0.80f else 0.64f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                    alpha = if (isCurrentBucket) 0.80f else 0.70f
+                ),
                 style = MaterialTheme.typography.labelSmall.copy(
                     fontSize = 8.sp,
                     lineHeight = 11.sp,
@@ -210,7 +200,7 @@ private fun MiniForecastHour(
 
         Box(
             modifier = Modifier
-                .height(22.dp)
+                .height(21.dp)
                 .fillMaxWidth(),
             contentAlignment = Alignment.Center
         ) {
@@ -218,30 +208,42 @@ private fun MiniForecastHour(
                 WeatherIconDecorative(
                     condition = it,
                     size = MINI_TIMELINE_CONDITION_ICON_DP.dp,
-                    tint = contentColor.copy(alpha = 0.90f),
+                    tint = contentColor.copy(alpha = 0.88f),
                     modifier = Modifier.testTag("$TAG_MINI_FORECAST_CONDITION_PREFIX$index")
                 )
             }
         }
 
-        Text(
-            text = temperature?.let { "${it.roundToInt()}°" } ?: "—",
-            color = contentColor,
-            style = MaterialTheme.typography.labelLarge.copy(
-                fontSize = 12.sp,
-                lineHeight = 14.sp,
-                fontWeight = FontWeight.SemiBold
-            ),
-            textAlign = TextAlign.Center,
-            maxLines = 1
-        )
+        Box(
+            modifier = Modifier
+                .height(23.dp)
+                .width(MINI_TIMELINE_TEMPERATURE_CAPSULE_WIDTH_DP.dp)
+                .background(
+                    temperatureBackground,
+                    RoundedCornerShape(MINI_TIMELINE_TEMPERATURE_CAPSULE_RADIUS_DP.dp)
+                )
+                .testTag("$TAG_MINI_FORECAST_TEMPERATURE_PREFIX$index"),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = temperature?.let { "${it.roundToInt()}°" } ?: "—",
+                color = temperatureContentColor,
+                style = MaterialTheme.typography.labelLarge.copy(
+                    fontSize = 12.sp,
+                    lineHeight = 14.sp,
+                    fontWeight = FontWeight.SemiBold
+                ),
+                textAlign = TextAlign.Center,
+                maxLines = 1
+            )
+        }
 
         Spacer(Modifier.height(2.dp))
 
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(10.dp),
+                .height(8.dp),
             contentAlignment = Alignment.Center
         ) {
             Canvas(Modifier.fillMaxSize()) {
@@ -262,6 +264,21 @@ private fun MiniForecastHour(
             }
         }
     }
+}
+
+/** Couleur thermique confinée à la capsule de température. */
+internal fun miniTimelineTemperatureBackground(
+    temperature: Double?,
+    surface: Color,
+    isDarkTheme: Boolean
+): Color {
+    if (temperature == null) return surface
+    val strength = if (isDarkTheme) {
+        MINI_TIMELINE_HEAT_STRENGTH_DARK
+    } else {
+        MINI_TIMELINE_HEAT_STRENGTH_LIGHT
+    }
+    return blendedHeatmapColor(surface, temperatureHeatmapColor(temperature), strength)
 }
 
 /** Style visuel d'un point pluie de la mini-timeline. */
@@ -309,34 +326,7 @@ internal fun miniTimelineRainDotStyle(
 }
 
 /**
- * Petit gradient local utilisé par chaque colonne de la heatmap. Les couleurs
- * des bords sont les moyennes avec les colonnes voisines : le bord droit d'une
- * heure est donc exactement le bord gauche de la suivante. On obtient un ruban
- * visuellement continu tout en gardant une couleur centrale fidèle à l'heure.
- */
-internal fun miniTimelineCellGradientColors(
-    cellBackgrounds: List<Color>,
-    index: Int
-): List<Color> {
-    if (cellBackgrounds.isEmpty()) return listOf(Color.Transparent, Color.Transparent)
-    val safeIndex = index.coerceIn(0, cellBackgrounds.lastIndex)
-    val current = cellBackgrounds[safeIndex]
-    val previous = cellBackgrounds.getOrNull(safeIndex - 1) ?: current
-    val next = cellBackgrounds.getOrNull(safeIndex + 1) ?: current
-    return listOf(
-        lerp(previous, current, 0.5f),
-        current,
-        lerp(current, next, 0.5f)
-    )
-}
-
-/**
- * Couleur de contenu sensible au thème ET au fond réel de la cellule.
- *
- * Le rôle Material `onSurface` est privilégié s'il atteint le ratio AA 4.5:1.
- * Sur un fond thermique qui rend ce rôle illisible, noir/blanc prend le relais
- * avec le meilleur contraste. Cette stratégie est robuste avec les thèmes
- * dynamique, clair et sombre.
+ * Couleur de contenu sensible au thème ET au fond réel de la capsule thermique.
  */
 internal fun miniTimelineContentColor(
     background: Color,
@@ -377,11 +367,13 @@ private fun buildA11yLabel(
 
 private const val CELL_COUNT = 12
 internal const val MINI_TIMELINE_VISIBLE_HOURS = 6
-internal const val MINI_TIMELINE_HEIGHT_DP = 70
+internal const val MINI_TIMELINE_HEIGHT_DP = 76
 internal const val MINI_TIMELINE_CORNER_RADIUS_DP = 10
 internal const val MINI_TIMELINE_CONDITION_ICON_DP = 16
-internal const val MINI_TIMELINE_HEAT_STRENGTH_LIGHT = 0.78f
-internal const val MINI_TIMELINE_HEAT_STRENGTH_DARK = 0.82f
+internal const val MINI_TIMELINE_TEMPERATURE_CAPSULE_WIDTH_DP = 42
+internal const val MINI_TIMELINE_TEMPERATURE_CAPSULE_RADIUS_DP = 8
+internal const val MINI_TIMELINE_HEAT_STRENGTH_LIGHT = 0.88f
+internal const val MINI_TIMELINE_HEAT_STRENGTH_DARK = 0.90f
 private const val RAIN_DOT_MIN_PROBABILITY = 30
 private const val RAIN_DOT_MIN_AMOUNT_MM = 0.05
 private const val RAIN_DOT_MAX_SCALE_MM = 5.0
@@ -394,3 +386,4 @@ internal const val TAG_MINI_FORECAST_SCROLL = "mini_forecast_scroll"
 internal const val TAG_MINI_FORECAST_ANCHORS = "mini_forecast_anchors"
 internal const val TAG_MINI_FORECAST_CURRENT_MARKER = "mini_forecast_current_marker"
 internal const val TAG_MINI_FORECAST_CONDITION_PREFIX = "mini_forecast_condition_"
+internal const val TAG_MINI_FORECAST_TEMPERATURE_PREFIX = "mini_forecast_temperature_"

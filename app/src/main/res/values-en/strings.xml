@@ -835,9 +835,7 @@
     <!-- Official Météo-France vigilance -->
     <string name="vigilance_title">Météo-France vigilance</string>
     <string name="vigilance_official_source">Official information</string>
-    <string name="vigilance_source_short">Météo-France</string>
     <string name="vigilance_source_cached_short">Météo-France · cached</string>
-    <string name="vigilance_compact_title">%1$s vigilance</string>
     <string name="vigilance_updated_at">Updated %1$s</string>
     <string name="vigilance_timing_approximate">Approximate timing</string>
     <string name="vigilance_cached_warning">Cached data: check the update time if the connection is unavailable.</string>
@@ -858,4 +856,7 @@
     <string name="vigilance_phenomenon_avalanches">Avalanches</string>
     <string name="vigilance_phenomenon_coastal_flooding">Coastal flooding</string>
     <string name="vigilance_phenomenon_unknown">Weather hazard</string>
+    <string name="home_temperature_trend_rising">Temperature trend: rising toward %1$d°</string>
+    <string name="home_temperature_trend_falling">Temperature trend: falling toward %1$d°</string>
+    <string name="home_temperature_trend_stable">Temperature trend: stable around %1$d°</string>
 </resources>

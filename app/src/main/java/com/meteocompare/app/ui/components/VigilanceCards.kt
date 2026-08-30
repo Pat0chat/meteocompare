@@ -48,6 +48,7 @@ import java.time.format.DateTimeFormatter
 import kotlin.math.max
 
 const val TAG_VIGILANCE_HOME = "vigilance-home"
+const val TAG_VIGILANCE_HOME_TEXT = "vigilance-home-text"
 const val TAG_VIGILANCE_DETAIL = "vigilance-detail"
 const val TAG_VIGILANCE_MARINE = "vigilance-marine"
 const val TAG_VIGILANCE_ALERT_TIMING_PREFIX = "vigilance-alert-timing-"
@@ -60,69 +61,49 @@ fun VigilanceCompactBanner(
 ) {
     val alert = vigilance.activeAlerts.firstOrNull() ?: return
     val color = vigilanceColor(alert.maxColor)
-    val content = readableContentColor(color)
-    val interval = alert.intervals.firstOrNull()
+    val timing = phenomenonTimingLabel(alert, timezone).takeUnless { it == "—" }.orEmpty()
+    val label = buildString {
+        append(vigilancePhenomenonLabel(alert.phenomenon))
+        if (timing.isNotBlank()) append(" · ").append(timing)
+    }
 
     Surface(
         modifier = modifier
             .fillMaxWidth()
             .testTag(TAG_VIGILANCE_HOME),
-        shape = RoundedCornerShape(10.dp),
-        color = color.copy(alpha = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) 0.34f else 0.20f),
+        shape = RoundedCornerShape(8.dp),
+        color = color.copy(alpha = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) 0.18f else 0.10f),
         contentColor = MaterialTheme.colorScheme.onSurface
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 11.dp, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(28.dp)
-                    .background(color, RoundedCornerShape(9.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.WarningAmber,
-                    contentDescription = null,
-                    tint = content,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-            Spacer(Modifier.width(9.dp))
-            Column(modifier = Modifier.weight(1f)) {
+                    .size(9.dp)
+                    .background(color, androidx.compose.foundation.shape.CircleShape)
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag(TAG_VIGILANCE_HOME_TEXT)
+            )
+            if (vigilance.isStale) {
+                Spacer(Modifier.width(8.dp))
                 Text(
-                    text = stringResource(
-                        R.string.vigilance_compact_title,
-                        vigilanceColorLabel(alert.maxColor)
-                    ),
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = buildString {
-                        append(vigilancePhenomenonLabel(alert.phenomenon))
-                        interval?.let {
-                            val timing = compactIntervalLabel(it, timezone)
-                            if (timing.isNotBlank()) append(" · ").append(timing)
-                        }
-                    },
+                    text = stringResource(R.string.vigilance_source_cached_short),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    maxLines = 1
                 )
             }
-            Text(
-                text = if (vigilance.isStale) {
-                    stringResource(R.string.vigilance_source_cached_short)
-                } else {
-                    stringResource(R.string.vigilance_source_short)
-                },
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }

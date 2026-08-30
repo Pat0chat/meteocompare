@@ -73,6 +73,7 @@ class MiniForecastStripTest {
         composeRule.onNodeWithTag("${TAG_MINI_FORECAST_CONDITION_PREFIX}0").assertIsDisplayed()
         composeRule.onNodeWithTag("${TAG_MINI_FORECAST_CONDITION_PREFIX}1").assertIsDisplayed()
         composeRule.onNodeWithTag("${TAG_MINI_FORECAST_CONDITION_PREFIX}2").assertDoesNotExist()
+        composeRule.onNodeWithTag("${TAG_MINI_FORECAST_TEMPERATURE_PREFIX}0").assertIsDisplayed()
     }
 
     @Test
