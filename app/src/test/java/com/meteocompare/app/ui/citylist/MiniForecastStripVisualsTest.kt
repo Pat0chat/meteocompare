@@ -87,7 +87,7 @@ class MiniForecastStripVisualsTest {
     fun `home timeline is a compact neutral card with smaller icons`() {
         assertEquals(76, MINI_TIMELINE_HEIGHT_DP)
         assertEquals(10, MINI_TIMELINE_CORNER_RADIUS_DP)
-        assertEquals(18, MINI_TIMELINE_CONDITION_ICON_DP)
+        assertEquals(16, MINI_TIMELINE_CONDITION_ICON_DP)
         assertEquals(42, MINI_TIMELINE_TEMPERATURE_CAPSULE_WIDTH_DP)
         assertEquals(8, MINI_TIMELINE_TEMPERATURE_CAPSULE_RADIUS_DP)
     }
