@@ -38,7 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.WeatherCondition
-import com.meteocompare.app.ui.components.WeatherIconDecorative
+import com.meteocompare.app.ui.components.WeatherOutlineIconDecorative
 import com.meteocompare.app.ui.components.blendedHeatmapColor
 import com.meteocompare.app.ui.components.temperatureHeatmapColor
 import java.time.LocalDateTime
@@ -136,6 +136,7 @@ internal fun MiniForecastStrip(
                             isDarkTheme = isDarkTheme
                         ),
                         contentColor = MaterialTheme.colorScheme.onSurface,
+                        containerColor = containerColor,
                         index = index
                     )
                 }
@@ -155,6 +156,7 @@ private fun MiniForecastHour(
     condition: WeatherCondition?,
     rainStyle: MiniTimelineRainDotStyle?,
     contentColor: Color,
+    containerColor: Color,
     index: Int
 ) {
     val currentHourA11y = stringResource(R.string.mini_forecast_current_hour_a11y)
@@ -205,10 +207,11 @@ private fun MiniForecastHour(
             contentAlignment = Alignment.Center
         ) {
             condition?.let {
-                WeatherIconDecorative(
+                WeatherOutlineIconDecorative(
                     condition = it,
                     size = MINI_TIMELINE_CONDITION_ICON_DP.dp,
-                    tint = contentColor.copy(alpha = 0.88f),
+                    tint = contentColor.copy(alpha = 0.92f),
+                    backdropColor = containerColor,
                     modifier = Modifier.testTag("$TAG_MINI_FORECAST_CONDITION_PREFIX$index")
                 )
             }

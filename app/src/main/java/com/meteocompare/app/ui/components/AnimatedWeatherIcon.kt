@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -42,6 +43,7 @@ import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.floor
 import kotlin.math.min
+import kotlin.math.roundToInt
 import kotlin.math.sin
 
 /**
@@ -200,41 +202,48 @@ data class WeatherIconPalette(
     val shadow: Color
 ) {
     fun monochrome(tint: Color): WeatherIconPalette = copy(
-        sunCore = tint,
-        sunEdge = tint.copy(alpha = 0.88f),
-        sunRay = tint.copy(alpha = 0.76f),
-        cloudLight = tint.copy(alpha = 0.92f),
-        cloudMid = tint.copy(alpha = 0.80f),
-        cloudDark = tint.copy(alpha = 0.68f),
-        rainLight = tint.copy(alpha = 0.84f),
-        rainDark = tint.copy(alpha = 0.70f),
-        snow = tint.copy(alpha = 0.96f),
-        snowShadow = tint.copy(alpha = 0.56f),
-        lightning = tint,
-        fog = tint.copy(alpha = 0.68f),
-        alert = tint,
-        glow = tint.copy(alpha = 0.30f),
-        shadow = tint.copy(alpha = 0.18f)
+        sunCore = tint.copy(alpha = 0.94f),
+        sunEdge = tint.copy(alpha = 0.72f),
+        sunRay = tint.copy(alpha = 0.86f),
+        // Contraste volontairement plus fort en monochrome pour que les icônes
+        // compactes (notamment overcast) restent lisibles en noir ou en blanc.
+        cloudLight = tint.copy(alpha = 0.98f),
+        cloudMid = tint.copy(alpha = 0.74f),
+        cloudDark = tint.copy(alpha = 0.46f),
+        rainLight = tint.copy(alpha = 0.92f),
+        rainDark = tint.copy(alpha = 0.66f),
+        snow = tint.copy(alpha = 0.98f),
+        snowShadow = tint.copy(alpha = 0.58f),
+        lightning = tint.copy(alpha = 0.96f),
+        fog = tint.copy(alpha = 0.72f),
+        alert = tint.copy(alpha = 0.92f),
+        glow = tint.copy(alpha = 0.10f),
+        shadow = tint.copy(alpha = 0.22f)
     )
 }
 
 object WeatherIconDefaults {
+    /**
+     * Palette 2026 : couleurs franches mais moins « glossy », proches des
+     * rôles tonaux Material 3. Les pictogrammes restent volontairement
+     * multicolores pour être identifiables instantanément à petite taille.
+     */
     val palette = WeatherIconPalette(
-        sunCore = Color(0xFFFFD54F),
-        sunEdge = Color(0xFFFFA726),
-        sunRay = Color(0xFFFFC247),
-        cloudLight = Color(0xFFF7FAFF),
-        cloudMid = Color(0xFFD9E4F2),
-        cloudDark = Color(0xFF9AAEC4),
-        rainLight = Color(0xFF4FC3F7),
+        sunCore = Color(0xFFFFCA28),
+        sunEdge = Color(0xFFFFB300),
+        sunRay = Color(0xFFFFB300),
+        cloudLight = Color(0xFFF8FAFC),
+        cloudMid = Color(0xFFDCE6EE),
+        cloudDark = Color(0xFF708390),
+        rainLight = Color(0xFF6EC6FF),
         rainDark = Color(0xFF1976D2),
-        snow = Color(0xFFF5FBFF),
+        snow = Color(0xFFF6FBFF),
         snowShadow = Color(0xFF90CAF9),
-        lightning = Color(0xFFFFF176),
-        fog = Color(0xFFB0BEC5),
-        alert = Color(0xFF80DEEA),
-        glow = Color(0xFF90CAF9),
-        shadow = Color(0xFF23354D)
+        lightning = Color(0xFFFFC107),
+        fog = Color(0xFF9AAAB5),
+        alert = Color(0xFF5E5CE6),
+        glow = Color(0x141976D2),
+        shadow = Color(0xFF52616B)
     )
 }
 
@@ -382,13 +391,6 @@ private fun DrawScope.drawClear(
     val breathe = 1f + 0.035f * wave(progress, cycles = 2f) * motionScale
     val rotation = 360f * progress
 
-    drawGlow(
-        center = point(50f, 50f, unit),
-        radius = 40f * unit * breathe,
-        color = palette.sunRay,
-        alpha = 0.20f + 0.04f * wave01(progress, cycles = 2f)
-    )
-
     drawSun(
         center = point(50f, 50f, unit),
         radius = 18f * unit * breathe,
@@ -409,13 +411,6 @@ private fun DrawScope.drawMainlyClear(
     val sunCenter = point(39f, 39f, unit)
     val cloudDx = wave(progress, cycles = 1f) * 1.8f * unit * motionScale
     val cloudDy = wave(progress, cycles = 2f, phase = 0.2f) * 0.6f * unit * motionScale
-
-    drawGlow(
-        center = sunCenter,
-        radius = 31f * unit,
-        color = palette.sunRay,
-        alpha = 0.16f
-    )
 
     drawSun(
         center = sunCenter,
@@ -446,12 +441,6 @@ private fun DrawScope.drawPartlyCloudy(
     val foregroundDx = wave(progress, cycles = 1f) * 2.5f * unit * motionScale
     val foregroundDy = wave(progress, cycles = 2f, phase = 0.15f) * 0.7f * unit * motionScale
 
-    drawGlow(
-        center = sunCenter,
-        radius = 27f * unit,
-        color = palette.sunRay,
-        alpha = 0.13f
-    )
     drawSun(
         center = sunCenter,
         radius = 12f * unit,
@@ -477,30 +466,28 @@ private fun DrawScope.drawOvercast(
     motionScale: Float,
     unit: Float
 ) {
-    val backDx = wave(progress, cycles = 1f, phase = 0.1f) * 1.4f * unit * motionScale
-    val frontDx = wave(progress, cycles = 1f, phase = 0.55f) * 2.2f * unit * motionScale
+    val backDx = wave(progress, cycles = 1f, phase = 0.10f) * 1.3f * unit * motionScale
+    val backDy = wave(progress, cycles = 2f, phase = 0.24f) * 0.30f * unit * motionScale
+    val frontDx = wave(progress, cycles = 1f, phase = 0.58f) * 1.7f * unit * motionScale
+    val frontDy = wave(progress, cycles = 2f, phase = 0.14f) * 0.42f * unit * motionScale
 
-    drawGlow(
-        center = point(50f, 54f, unit),
-        radius = 39f * unit,
-        color = palette.cloudMid,
-        alpha = 0.08f
-    )
-
+    // Les deux nuages restent opaques : la séparation se fait par le ton,
+    // l'échelle et le décalage, pas par une semi-transparence qui paraît étrange.
     drawCloud(
-        center = point(42f, 47f, unit) + Offset(backDx, 0f),
-        scale = 0.83f,
+        center = point(37f, 43f, unit) + Offset(backDx, backDy),
+        scale = 0.74f,
         palette = palette,
         unit = unit,
-        depth = 0.25f,
-        alpha = 0.88f
+        depth = 0.08f,
+        alpha = 1f
     )
     drawCloud(
-        center = point(57f, 59f, unit) + Offset(frontDx, 0f),
-        scale = 1.06f,
+        center = point(61f, 60f, unit) + Offset(frontDx, frontDy),
+        scale = 1.12f,
         palette = palette,
         unit = unit,
-        depth = 0.86f
+        depth = 0.98f,
+        alpha = 1f
     )
 }
 
@@ -532,9 +519,9 @@ private fun DrawScope.drawFog(
             5f * unit * direction * motionScale
         drawLine(
             color = palette.fog.copy(alpha = 0.70f - index * 0.10f),
-            start = point(line.x, line.y, unit) + Offset(dx, 0f),
-            end = point(line.x + line.width, line.y, unit) + Offset(dx, 0f),
-            strokeWidth = 5f * unit,
+            start = snap(point(line.x, line.y, unit) + Offset(dx, 0f)),
+            end = snap(point(line.x + line.width, line.y, unit) + Offset(dx, 0f)),
+            strokeWidth = snappedStroke(5f * unit),
             cap = StrokeCap.Round
         )
     }
@@ -555,19 +542,21 @@ private fun DrawScope.drawDrizzle(
         depth = 0.66f
     )
 
-    listOf(33f, 50f, 67f).forEachIndexed { index, x ->
-        val local = fract(progress * 2f + index * 0.29f)
-        val y = lerp(59f, 80f, local)
-        val alpha = precipitationAlpha(local)
-        val length = lerp(2.8f, 5.5f, local)
-        drawLine(
-            color = palette.rainLight.copy(alpha = alpha * 0.85f),
-            start = point(x, y, unit),
-            end = point(x - 1.5f, y + length, unit),
-            strokeWidth = 2.8f * unit,
-            cap = StrokeCap.Round
-        )
-    }
+    drawRainStreaks(
+        progress = progress,
+        palette = palette,
+        unit = unit,
+        motionScale = motionScale,
+        intensity = 0.78f,
+        xPositions = listOf(34f, 50f, 66f),
+        speeds = listOf(1.55f, 1.70f, 1.60f),
+        phases = listOf(0.00f, 0.28f, 0.56f),
+        startY = 59f,
+        endY = 81f,
+        lengthRange = 5.5f to 8.0f,
+        strokeRange = 1.8f to 2.1f,
+        slant = 1.8f
+    )
 }
 
 private fun DrawScope.drawRain(
@@ -660,24 +649,28 @@ private fun DrawScope.drawFreezingRain(
         depth = 0.82f
     )
 
-    listOf(36f, 52f, 68f).forEachIndexed { index, x ->
-        val local = fract(progress * 2f + index * 0.31f)
-        val y = lerp(58f, 76f, local)
-        val alpha = precipitationAlpha(local)
-        drawDrop(
-            center = point(x, y, unit),
-            size = 4.5f * unit,
-            colorTop = palette.rainLight.copy(alpha = alpha),
-            colorBottom = palette.rainDark.copy(alpha = alpha)
-        )
-    }
+    drawRainStreaks(
+        progress = progress,
+        palette = palette,
+        unit = unit,
+        motionScale = motionScale,
+        intensity = 0.92f,
+        xPositions = listOf(36f, 52f, 68f),
+        speeds = listOf(1.85f, 2.15f, 1.95f),
+        phases = listOf(0.00f, 0.31f, 0.62f),
+        startY = 57f,
+        endY = 76f,
+        lengthRange = 6.5f to 10.5f,
+        strokeRange = 2.0f to 2.5f,
+        slant = 2.1f
+    )
 
     val sparklePulse = 0.75f + 0.25f * wave01(progress, cycles = 2f)
     drawSnowflake(
         center = point(52f, 81f, unit),
         radius = 9f * unit * (0.92f + 0.08f * sparklePulse * motionScale),
         color = palette.alert.copy(alpha = sparklePulse),
-        strokeWidth = 2.2f * unit,
+        strokeWidth = snappedStroke(2.2f * unit),
         rotation = 120f * progress
     )
 }
@@ -782,9 +775,9 @@ private fun DrawScope.drawThunderstorm(
         val y = lerp(59f, 80f, local)
         drawLine(
             color = palette.rainDark.copy(alpha = precipitationAlpha(local) * 0.70f),
-            start = point(x, y, unit),
-            end = point(x - 2f, y + 7f, unit),
-            strokeWidth = 2.6f * unit,
+            start = snap(point(x, y, unit)),
+            end = snap(point(x - 2f, y + 7f, unit)),
+            strokeWidth = snappedStroke(2.6f * unit),
             cap = StrokeCap.Round
         )
     }
@@ -832,13 +825,13 @@ private fun DrawScope.drawUnknown(
         useCenter = false,
         topLeft = center - Offset(9f * unit, 13f * unit),
         size = Size(18f * unit, 18f * unit),
-        style = Stroke(width = 5f * unit, cap = StrokeCap.Round)
+        style = Stroke(width = snappedStroke(5f * unit), cap = StrokeCap.Round)
     )
     drawLine(
         color = palette.cloudDark,
-        start = center + Offset(0f, 4f * unit),
-        end = center + Offset(0f, 10f * unit),
-        strokeWidth = 5f * unit,
+        start = snap(center + Offset(0f, 4f * unit)),
+        end = snap(center + Offset(0f, 10f * unit)),
+        strokeWidth = snappedStroke(5f * unit),
         cap = StrokeCap.Round
     )
     drawCircle(
@@ -856,44 +849,38 @@ private fun DrawScope.drawSun(
     rotation: Float,
     palette: WeatherIconPalette,
     unit: Float,
-    rayCount: Int = 10
+    rayCount: Int = 8
 ) {
+    // Direction Material 2026 : géométrie simple, rayons courts et ronds,
+    // mais avec un contour tonal discret pour une meilleure lisibilité.
     rotate(degrees = rotation, pivot = center) {
         repeat(rayCount) { index ->
             val angle = (2.0 * PI * index / rayCount).toFloat()
-            val start = center + polar(rayInner, angle)
-            val end = center + polar(rayOuter, angle)
             drawLine(
-                color = palette.sunRay.copy(alpha = 0.86f),
-                start = start,
-                end = end,
-                strokeWidth = 4f * unit,
+                color = palette.sunRay,
+                start = snap(center + polar(rayInner, angle)),
+                end = snap(center + polar(rayOuter, angle)),
+                strokeWidth = snappedStroke(4.6f * unit),
                 cap = StrokeCap.Round
             )
         }
     }
 
     drawCircle(
-        color = palette.shadow.copy(alpha = 0.13f),
-        radius = radius * 1.03f,
-        center = center + Offset(0f, 2.1f * unit)
+        color = palette.sunEdge.copy(alpha = 0.18f),
+        radius = radius + 2.2f * unit,
+        center = snap(center)
     )
     drawCircle(
-        brush = Brush.radialGradient(
-            colors = listOf(
-                palette.sunCore,
-                palette.sunEdge
-            ),
-            center = center - Offset(radius * 0.25f, radius * 0.28f),
-            radius = radius * 1.25f
-        ),
+        color = palette.sunCore,
         radius = radius,
-        center = center
+        center = snap(center)
     )
     drawCircle(
-        color = Color.White.copy(alpha = 0.23f),
-        radius = radius * 0.22f,
-        center = center - Offset(radius * 0.32f, radius * 0.34f)
+        color = palette.sunEdge.copy(alpha = 0.42f),
+        radius = radius,
+        center = center,
+        style = Stroke(width = snappedStroke(2.0f * unit))
     )
 }
 
@@ -911,41 +898,50 @@ private fun DrawScope.drawCloud(
         x = center.x - bodyWidth / 2f,
         y = center.y - bodyHeight / 2f + 6f * unit * scale
     )
-    val shadowOffset = Offset(0f, 3.0f * unit * scale)
-    val shadowColor = palette.shadow.copy(alpha = 0.13f * alpha)
+
+    // Contours tonals plus nets pour améliorer la définition à petite taille,
+    // tout en conservant un langage plat et moderne.
+    val outline = blend(palette.cloudDark, palette.cloudMid, 0.22f)
+        .copy(alpha = 0.70f * alpha)
+    val fill = blend(palette.cloudLight, palette.cloudMid, depth * 0.52f)
+        .copy(alpha = alpha)
+    val highlight = blend(palette.cloudLight, Color.White, 0.28f)
+        .copy(alpha = 0.14f * alpha)
+    val underside = blend(fill, palette.cloudDark, 0.10f)
+        .copy(alpha = 0.26f * alpha)
 
     drawCloudShape(
-        center = center + shadowOffset,
-        scale = scale,
-        bodyTopLeft = bodyTopLeft + shadowOffset,
-        bodyWidth = bodyWidth,
-        bodyHeight = bodyHeight,
-        brush = SolidColor(shadowColor),
+        center = center,
+        scale = scale * 1.075f,
+        bodyTopLeft = Offset(
+            x = center.x - bodyWidth * 1.075f / 2f,
+            y = center.y - bodyHeight * 1.075f / 2f + 6f * unit * scale * 1.075f
+        ),
+        bodyWidth = bodyWidth * 1.075f,
+        bodyHeight = bodyHeight * 1.075f,
+        brush = SolidColor(outline),
         unit = unit
     )
-
-    val light = blend(palette.cloudLight, palette.cloudMid, depth * 0.35f).copy(alpha = alpha)
-    val dark = blend(palette.cloudMid, palette.cloudDark, depth * 0.72f).copy(alpha = alpha)
-    val cloudBrush = Brush.linearGradient(
-        colors = listOf(light, dark),
-        start = center - Offset(18f * unit * scale, 20f * unit * scale),
-        end = center + Offset(18f * unit * scale, 24f * unit * scale)
-    )
-
     drawCloudShape(
         center = center,
         scale = scale,
         bodyTopLeft = bodyTopLeft,
         bodyWidth = bodyWidth,
         bodyHeight = bodyHeight,
-        brush = cloudBrush,
+        brush = SolidColor(fill),
         unit = unit
     )
 
+    drawRoundRect(
+        color = underside,
+        topLeft = bodyTopLeft + Offset(4.5f * unit * scale, 10f * unit * scale),
+        size = Size(bodyWidth - 9f * unit * scale, bodyHeight * 0.32f),
+        cornerRadius = CornerRadius(9f * unit * scale)
+    )
     drawCircle(
-        color = Color.White.copy(alpha = 0.13f * alpha),
-        radius = 5.4f * unit * scale,
-        center = center + Offset(-12f * unit * scale, -8f * unit * scale)
+        color = highlight,
+        radius = 8.5f * unit * scale,
+        center = center + Offset(-8f * unit * scale, -9f * unit * scale)
     )
 }
 
@@ -967,17 +963,17 @@ private fun DrawScope.drawCloudShape(
     drawCircle(
         brush = brush,
         radius = 14f * unit * scale,
-        center = center + Offset(-15f * unit * scale, -2f * unit * scale)
+        center = snap(center + Offset(-15f * unit * scale, -2f * unit * scale))
     )
     drawCircle(
         brush = brush,
         radius = 18f * unit * scale,
-        center = center + Offset(1f * unit * scale, -9f * unit * scale)
+        center = snap(center + Offset(1f * unit * scale, -9f * unit * scale))
     )
     drawCircle(
         brush = brush,
         radius = 12.5f * unit * scale,
-        center = center + Offset(18f * unit * scale, 0f)
+        center = snap(center + Offset(18f * unit * scale, 0f))
     )
 }
 
@@ -989,26 +985,64 @@ private fun DrawScope.drawRainDrops(
     motionScale: Float,
     xOffset: Float = 0f
 ) {
-    val specs = listOf(
-        RainSpec(x = 29f + xOffset, phase = 0.00f, speed = 2f, size = 4.6f),
-        RainSpec(x = 43f + xOffset, phase = 0.24f, speed = 2f, size = 5.2f),
-        RainSpec(x = 58f + xOffset, phase = 0.48f, speed = 3f, size = 4.4f),
-        RainSpec(x = 72f + xOffset, phase = 0.72f, speed = 2f, size = 5.0f)
+    drawRainStreaks(
+        progress = progress,
+        palette = palette,
+        unit = unit,
+        motionScale = motionScale,
+        intensity = intensity,
+        xPositions = listOf(29f + xOffset, 43f + xOffset, 58f + xOffset, 72f + xOffset),
+        speeds = listOf(1.95f, 2.20f, 2.55f, 2.10f),
+        phases = listOf(0.00f, 0.23f, 0.47f, 0.71f),
+        startY = 56f,
+        endY = 84f,
+        lengthRange = 7.0f to 12.5f,
+        strokeRange = 2.1f to 2.8f,
+        slant = 2.4f
     )
+}
 
-    specs.forEachIndexed { index, spec ->
-        val local = fract(progress * spec.speed + spec.phase)
-        val y = lerp(57f, 83f, local)
-        val drift = sin((local + index * 0.17f) * PI.toFloat()) *
-            1.6f * unit * motionScale
+private fun DrawScope.drawRainStreaks(
+    progress: Float,
+    palette: WeatherIconPalette,
+    unit: Float,
+    motionScale: Float,
+    intensity: Float,
+    xPositions: List<Float>,
+    speeds: List<Float>,
+    phases: List<Float>,
+    startY: Float,
+    endY: Float,
+    lengthRange: Pair<Float, Float>,
+    strokeRange: Pair<Float, Float>,
+    slant: Float
+) {
+    xPositions.forEachIndexed { index, x ->
+        val speed = speeds.getOrElse(index) { speeds.last() }
+        val phase = phases.getOrElse(index) { 0f }
+        val local = fract(progress * speed + phase)
+        val y = lerp(startY, endY, local)
         val alpha = precipitationAlpha(local)
-        val stretch = lerp(0.85f, 1.28f, local) * intensity
+        val drift = sin((local + index * 0.17f) * PI.toFloat()) *
+            1.2f * unit * motionScale
+        val length = lerp(lengthRange.first, lengthRange.second, local) * intensity
+        val stroke = snappedStroke(lerp(strokeRange.first, strokeRange.second, local) * unit)
+        val start = point(x, y, unit) + Offset(drift - slant * unit, -length * unit)
+        val end = point(x, y, unit) + Offset(drift, 0f)
 
-        drawDrop(
-            center = point(spec.x, y, unit) + Offset(drift, 0f),
-            size = spec.size * unit * stretch,
-            colorTop = palette.rainLight.copy(alpha = alpha),
-            colorBottom = palette.rainDark.copy(alpha = alpha)
+        drawLine(
+            color = palette.rainLight.copy(alpha = alpha * 0.55f),
+            start = snap(start),
+            end = snap(end),
+            strokeWidth = snappedStroke(stroke * 1.22f),
+            cap = StrokeCap.Round
+        )
+        drawLine(
+            color = palette.rainDark.copy(alpha = alpha),
+            start = snap(start + Offset(0.15f * unit, 0.35f * unit)),
+            end = snap(end),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round
         )
     }
 }
@@ -1064,10 +1098,15 @@ private fun DrawScope.drawDrop(
             end = center + Offset(0f, size)
         )
     )
+    drawPath(
+        path = path,
+        color = blend(colorBottom, Color.Black.copy(alpha = colorBottom.alpha), 0.12f),
+        style = Stroke(width = snappedStroke(size * 0.18f), join = StrokeJoin.Round)
+    )
     drawCircle(
-        color = Color.White.copy(alpha = colorTop.alpha * 0.30f),
-        radius = size * 0.14f,
-        center = center - Offset(size * 0.18f, size * 0.24f)
+        color = Color.White.copy(alpha = colorTop.alpha * 0.20f),
+        radius = size * 0.11f,
+        center = snap(center - Offset(size * 0.18f, size * 0.24f))
     )
 }
 
@@ -1102,7 +1141,7 @@ private fun DrawScope.drawSnowflakes(
             center = point(spec.x, y, unit) + Offset(sway, 0f),
             radius = spec.radius * unit,
             color = palette.snow.copy(alpha = alpha),
-            strokeWidth = 1.7f * unit,
+            strokeWidth = snappedStroke(1.8f * unit),
             rotation = rotation
         )
     }
@@ -1121,17 +1160,34 @@ private fun DrawScope.drawSnowflake(
             val vector = polar(radius, angle)
             drawLine(
                 color = color,
-                start = center - vector,
-                end = center + vector,
-                strokeWidth = strokeWidth,
+                start = snap(center - vector),
+                end = snap(center + vector),
+                strokeWidth = snappedStroke(strokeWidth),
+                cap = StrokeCap.Round
+            )
+            val branch = polar(radius * 0.42f, angle)
+            val branchLeft = polar(radius * 0.18f, angle + 0.55f)
+            val branchRight = polar(radius * 0.18f, angle - 0.55f)
+            drawLine(
+                color = color.copy(alpha = color.alpha * 0.92f),
+                start = snap(center + branch),
+                end = snap(center + branch - branchLeft),
+                strokeWidth = snappedStroke(strokeWidth * 0.78f),
+                cap = StrokeCap.Round
+            )
+            drawLine(
+                color = color.copy(alpha = color.alpha * 0.92f),
+                start = snap(center + branch),
+                end = snap(center + branch - branchRight),
+                strokeWidth = snappedStroke(strokeWidth * 0.78f),
                 cap = StrokeCap.Round
             )
         }
     }
     drawCircle(
         color = Color.White.copy(alpha = color.alpha * 0.70f),
-        radius = strokeWidth * 0.65f,
-        center = center
+        radius = strokeWidth * 0.62f,
+        center = snap(center)
     )
 }
 
@@ -1142,29 +1198,22 @@ private fun DrawScope.drawLightning(
     shadow: Color,
     unit: Float
 ) {
-    fun buildPath(offset: Offset): Path = Path().apply {
-        moveTo(center.x - 3f * unit * scale + offset.x, center.y - 16f * unit * scale + offset.y)
-        lineTo(center.x + 9f * unit * scale + offset.x, center.y - 16f * unit * scale + offset.y)
-        lineTo(center.x + 2f * unit * scale + offset.x, center.y - 3f * unit * scale + offset.y)
-        lineTo(center.x + 10f * unit * scale + offset.x, center.y - 3f * unit * scale + offset.y)
-        lineTo(center.x - 8f * unit * scale + offset.x, center.y + 18f * unit * scale + offset.y)
-        lineTo(center.x - 2f * unit * scale + offset.x, center.y + 4f * unit * scale + offset.y)
-        lineTo(center.x - 11f * unit * scale + offset.x, center.y + 4f * unit * scale + offset.y)
+    val path = Path().apply {
+        moveTo(center.x - 3f * unit * scale, center.y - 16f * unit * scale)
+        lineTo(center.x + 9f * unit * scale, center.y - 16f * unit * scale)
+        lineTo(center.x + 2f * unit * scale, center.y - 3f * unit * scale)
+        lineTo(center.x + 10f * unit * scale, center.y - 3f * unit * scale)
+        lineTo(center.x - 8f * unit * scale, center.y + 18f * unit * scale)
+        lineTo(center.x - 2f * unit * scale, center.y + 4f * unit * scale)
+        lineTo(center.x - 11f * unit * scale, center.y + 4f * unit * scale)
         close()
     }
-
     drawPath(
-        path = buildPath(Offset(1.8f * unit, 2.4f * unit)),
-        color = shadow
+        path = path,
+        color = shadow,
+        style = Stroke(width = 2.2f * unit * scale, join = StrokeJoin.Round)
     )
-    drawPath(
-        path = buildPath(Offset.Zero),
-        brush = Brush.linearGradient(
-            colors = listOf(Color.White.copy(alpha = color.alpha), color),
-            start = center - Offset(0f, 18f * unit),
-            end = center + Offset(0f, 18f * unit)
-        )
-    )
+    drawPath(path = path, color = color)
 }
 
 private fun DrawScope.drawGlow(
@@ -1173,20 +1222,8 @@ private fun DrawScope.drawGlow(
     color: Color,
     alpha: Float
 ) {
-    if (alpha <= 0f) return
-    drawCircle(
-        brush = Brush.radialGradient(
-            colors = listOf(
-                color.copy(alpha = alpha),
-                color.copy(alpha = alpha * 0.34f),
-                Color.Transparent
-            ),
-            center = center,
-            radius = radius
-        ),
-        radius = radius,
-        center = center
-    )
+    // Désactivé : même un halo très discret autour du soleil pouvait être
+    // perçu comme un rond disgracieux englobant les rayons.
 }
 
 private data class RainSpec(
@@ -1268,5 +1305,16 @@ private fun blend(from: Color, to: Color, amount: Float): Color {
         alpha = lerp(from.alpha, to.alpha, t)
     )
 }
+
+private fun DrawScope.snap(value: Float): Float =
+    (value * 2f).roundToInt() / 2f
+
+private fun DrawScope.snap(offset: Offset): Offset = Offset(
+    x = snap(offset.x),
+    y = snap(offset.y)
+)
+
+private fun DrawScope.snappedStroke(width: Float): Float =
+    maxOf(1f, (width * 2f).roundToInt() / 2f)
 
 private val TAU = (2.0 * PI).toFloat()
