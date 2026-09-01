@@ -3,6 +3,11 @@ package com.meteocompare.app.ui.citylist
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.keyframes
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -75,12 +80,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -185,6 +192,43 @@ fun CityListScreen(
     }
 }
 
+@Composable
+private fun DonationHeartButton(onClick: () -> Unit) {
+    val transition = rememberInfiniteTransition(label = "donation-heart")
+    val pulse by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = keyframes {
+                durationMillis = 6_000
+                0f at 0
+                0f at 4_000
+                1f at 4_200
+                0f at 4_450
+                0.7f at 4_600
+                0f at 4_850
+                0f at 6_000
+            },
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "donation-heart-pulse"
+    )
+    val baseColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val heartColor = lerp(baseColor, Color(0xFFE53935), pulse)
+
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier.testTag(TAG_DONATE_BUTTON)
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.FavoriteBorder,
+            contentDescription = stringResource(R.string.action_support_dev),
+            tint = heartColor,
+            modifier = Modifier.scale(1f + (0.08f * pulse))
+        )
+    }
+}
+
 // ============================================================================
 //  Stateless content — internal so tests can drive it without Hilt
 // ============================================================================
@@ -233,15 +277,7 @@ internal fun CityListContent(
                     containerColor = MaterialTheme.colorScheme.surfaceContainerLowest
                 ),
                 actions = {
-                    IconButton(
-                        onClick = onDonateClick,
-                        modifier = Modifier.testTag(TAG_DONATE_BUTTON)
-                    ) {
-                        Icon(
-                            Icons.Outlined.FavoriteBorder,
-                            contentDescription = stringResource(R.string.action_support_dev)
-                        )
-                    }
+                    DonationHeartButton(onClick = onDonateClick)
                     IconButton(
                         onClick = onHelpClick,
                         modifier = Modifier.testTag(TAG_HELP_BUTTON)
@@ -405,11 +441,10 @@ internal fun CityCard(
                 contentDescription = a11yDescription
                 role = Role.Button
             },
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        )
     ) {
         Box(
             modifier = Modifier

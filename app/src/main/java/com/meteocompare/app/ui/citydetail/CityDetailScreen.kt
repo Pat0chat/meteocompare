@@ -813,7 +813,7 @@ private fun DetailedForecastSection(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(14.dp),
         color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.55f),
         tonalElevation = 0.dp,
         shadowElevation = 0.dp
@@ -1286,11 +1286,10 @@ internal fun TodaySummaryCard(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow
         ),
-        shape = RoundedCornerShape(22.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        shape = RoundedCornerShape(14.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
+            .padding(horizontal = 24.dp)
             .semantics(mergeDescendants = true) {
                 contentDescription = a11yDescription
             }
@@ -1298,7 +1297,7 @@ internal fun TodaySummaryCard(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(5.dp)
+                .height(4.dp)
                 .background(weatherAccent)
         )
         Column(modifier = Modifier.padding(vertical = 7.dp)) {
@@ -1327,7 +1326,7 @@ internal fun TodaySummaryCard(
                         .size(64.dp)
                         .background(
                             weatherAccent.copy(alpha = if (isDark) 0.14f else 0.08f),
-                            RoundedCornerShape(20.dp)
+                            RoundedCornerShape(14.dp)
                         ),
                     contentAlignment = Alignment.Center
                 ) {
@@ -2014,7 +2013,7 @@ private fun ConfidenceBadge(percent: Int, onClick: () -> Unit = {}) {
     val a11yLabel = stringResource(R.string.a11y_open_confidence_explanation, percent)
     Surface(
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(14.dp),
         modifier = Modifier
             .clickable(role = Role.Button, onClick = onClick)
             .semantics { contentDescription = a11yLabel }

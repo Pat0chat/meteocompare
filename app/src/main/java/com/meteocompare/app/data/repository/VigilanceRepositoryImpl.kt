@@ -67,7 +67,9 @@ class VigilanceRepositoryImpl @Inject constructor(
         val cached = cachedRecord?.forecast
         val cachedAge = cachedRecord?.let { Duration.between(it.fetchedAt, now) }
 
-        if (!forceRefresh && cachedRecord != null && cachedAge != null && cachedAge <= FRESH_CACHE_AGE) {
+        // La Vigilance Météo-France est limitée à un rafraîchissement réseau par heure
+        // pour un même département/mode côte, y compris lors d'un refresh manuel global.
+        if (cachedRecord != null && cachedAge != null && cachedAge <= FRESH_CACHE_AGE) {
             return@withContext ApiResult.Success(cached?.copy(evaluationTime = now))
         }
 
@@ -148,7 +150,7 @@ class VigilanceRepositoryImpl @Inject constructor(
         stringPreferencesKey("vigilance_${department}_${if (includeCoast) "coast" else "department"}")
 
     companion object {
-        internal val FRESH_CACHE_AGE: Duration = Duration.ofMinutes(10)
+        internal val FRESH_CACHE_AGE: Duration = Duration.ofHours(1)
         internal val MAX_STALE_AGE: Duration = Duration.ofHours(1)
     }
 }
