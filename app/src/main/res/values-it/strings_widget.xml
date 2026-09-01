@@ -12,7 +12,7 @@
     <string name="widget_config_colors_section">Colori</string>
     <string name="widget_config_colors_bg">Sfondo</string>
     <string name="widget_config_colors_text">Testo</string>
-    <string name="widget_config_colors_note">Auto segue il tema di sistema. L’opacità si applica sopra il colore scelto.</string>
+    <string name="widget_config_colors_note">Auto usa i colori dinamici del sistema e dello sfondo. L’opacità resta personalizzabile.</string>
     <string name="widget_color_auto">Auto</string>
     <string name="widget_color_white">Bianco</string>
     <string name="widget_color_black">Nero</string>

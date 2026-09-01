@@ -23,7 +23,7 @@ internal object WidgetPreferences {
     /** Id de la ville favorite affichée par ce widget. Null = pas configuré. */
     val CityIdKey = stringPreferencesKey("widget_city_id")
 
-    /** Opacité du fond en pourcentage entier, 0..100. 80 par défaut. */
+    /** Opacité du fond en pourcentage entier, 0..100. 100 par défaut pour un rendu Material 3 net. */
     val OpacityPctKey = intPreferencesKey("widget_opacity_pct")
 
     /**
@@ -81,7 +81,7 @@ internal object WidgetPreferences {
      */
     val TextColorKey = intPreferencesKey("widget_text_color_argb")
 
-    const val DEFAULT_OPACITY_PCT = 80
+    const val DEFAULT_OPACITY_PCT = 100
 
     /**
      * Défaut = HOURLY : les prochaines heures sont le signal le plus

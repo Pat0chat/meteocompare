@@ -123,9 +123,9 @@
             android:padding="4dp"
             android:background="@drawable/widget_preview_surface_bg">
             <TextView
-                android:layout_width="match_parent"
-                android:layout_height="3dp"
-                android:layout_marginBottom="2dp"
+                android:layout_width="4dp"
+                android:layout_height="4dp"
+                android:layout_marginBottom="3dp"
                 android:background="@drawable/widget_preview_temp_accent" />
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="14h" android:textSize="9sp" android:textColor="?android:attr/textColorSecondary" />
             <ImageView android:layout_width="24dp" android:layout_height="24dp" android:src="@drawable/widget_preview_weather_sun" android:contentDescription="@null" />
@@ -142,9 +142,9 @@
             android:padding="4dp"
             android:background="@drawable/widget_preview_surface_bg">
             <TextView
-                android:layout_width="match_parent"
-                android:layout_height="3dp"
-                android:layout_marginBottom="2dp"
+                android:layout_width="4dp"
+                android:layout_height="4dp"
+                android:layout_marginBottom="3dp"
                 android:background="@drawable/widget_preview_temp_accent" />
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="15h" android:textSize="9sp" android:textColor="?android:attr/textColorSecondary" />
             <ImageView android:layout_width="24dp" android:layout_height="24dp" android:src="@drawable/widget_preview_weather_partly" android:contentDescription="@null" />
@@ -161,9 +161,9 @@
             android:padding="4dp"
             android:background="@drawable/widget_preview_surface_bg">
             <TextView
-                android:layout_width="match_parent"
-                android:layout_height="3dp"
-                android:layout_marginBottom="2dp"
+                android:layout_width="4dp"
+                android:layout_height="4dp"
+                android:layout_marginBottom="3dp"
                 android:background="@drawable/widget_preview_temp_accent" />
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="16h" android:textSize="9sp" android:textColor="?android:attr/textColorSecondary" />
             <ImageView android:layout_width="24dp" android:layout_height="24dp" android:src="@drawable/widget_preview_weather_cloud" android:contentDescription="@null" />
@@ -179,9 +179,9 @@
             android:padding="4dp"
             android:background="@drawable/widget_preview_surface_bg">
             <TextView
-                android:layout_width="match_parent"
-                android:layout_height="3dp"
-                android:layout_marginBottom="2dp"
+                android:layout_width="4dp"
+                android:layout_height="4dp"
+                android:layout_marginBottom="3dp"
                 android:background="@drawable/widget_preview_temp_accent" />
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="17h" android:textSize="9sp" android:textColor="?android:attr/textColorSecondary" />
             <ImageView android:layout_width="24dp" android:layout_height="24dp" android:src="@drawable/widget_preview_weather_rain" android:contentDescription="@null" />

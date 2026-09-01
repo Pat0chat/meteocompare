@@ -464,7 +464,7 @@ private fun WidgetConfigScreen(
         }
 
         // Preview visuel de l'opacité choisie — l'user voit à quoi ressemblera
-        // son widget avant de valider. Sans ce feedback, "80%" reste abstrait
+        // son widget avant de valider. Sans ce feedback, un pourcentage reste abstrait
         // et il découvrirait le rendu final seulement après validation.
         //
         // Le preview reflète aussi les couleurs custom choisies (voir section

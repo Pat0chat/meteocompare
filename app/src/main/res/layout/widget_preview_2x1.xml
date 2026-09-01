@@ -45,6 +45,11 @@
             android:textSize="9sp"
             android:textStyle="bold"
             android:textColor="@color/widget_preview_confidence"
+            android:background="@drawable/widget_preview_pill_bg"
+            android:paddingStart="5dp"
+            android:paddingEnd="5dp"
+            android:paddingTop="2dp"
+            android:paddingBottom="2dp"
             android:maxLines="1" />
     </LinearLayout>
 </LinearLayout>

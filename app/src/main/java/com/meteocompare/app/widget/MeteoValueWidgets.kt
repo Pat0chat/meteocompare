@@ -25,6 +25,7 @@ import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.SizeMode
+import androidx.glance.appwidget.appWidgetBackground
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
@@ -122,9 +123,12 @@ private fun InsightWidgetContent(
     val context = LocalContext.current
     val night = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
         Configuration.UI_MODE_NIGHT_YES
-    val colors = remember(night, opacityPct, customBackgroundArgb, customTextArgb) {
-        valueWidgetColors(night, opacityPct, customBackgroundArgb, customTextArgb)
-    }
+    val colors = valueWidgetColors(
+        night = night,
+        opacityPct = opacityPct,
+        customBackgroundArgb = customBackgroundArgb,
+        customTextArgb = customTextArgb
+    )
     val size = LocalSize.current
     val compact = size.width.value < 220f || size.height.value < 126f
 
@@ -132,9 +136,13 @@ private fun InsightWidgetContent(
         modifier = GlanceModifier
             .fillMaxSize()
             .background(colors.container)
-            .cornerRadius(24.dp)
+            .cornerRadius(android.R.dimen.system_app_widget_background_radius)
+            .appWidgetBackground()
             .clickable(actionStartActivity<MainActivity>())
-            .padding(horizontal = if (compact) 12.dp else 16.dp, vertical = 12.dp)
+            .padding(
+                horizontal = if (compact) 13.dp else 17.dp,
+                vertical = if (compact) 11.dp else 13.dp
+            )
     ) {
         when (data.error) {
             null -> InsightWidgetLayout(data, colors, compact)
@@ -143,28 +151,55 @@ private fun InsightWidgetContent(
     }
 }
 
+@Composable
 private fun valueWidgetColors(
     night: Boolean,
     opacityPct: Int,
     customBackgroundArgb: Int?,
     customTextArgb: Int?
 ): ValueWidgetColors {
-    val baseBackground = customBackgroundArgb?.let(::Color)
-        ?: if (night) Color(0xFF172033) else Color(0xFFF3F6FF)
+    val context = LocalContext.current
+    val theme = GlanceTheme.colors
+    val useCustomPalette = customBackgroundArgb != null || customTextArgb != null
+
+    val dynamicBackground = theme.widgetBackground.getColor(context)
+    val dynamicForeground = theme.onSurface.getColor(context)
+    val dynamicMuted = theme.onSurfaceVariant.getColor(context)
+    val dynamicSurface = theme.surfaceVariant.getColor(context)
+    val dynamicRaised = theme.secondaryContainer.getColor(context)
+    val dynamicAccent = theme.primary.getColor(context)
+    val dynamicWarning = theme.tertiary.getColor(context)
+
+    val baseBackground = customBackgroundArgb?.let(::Color) ?: dynamicBackground
     val baseText = when {
         customTextArgb != null -> Color(customTextArgb)
         customBackgroundArgb != null -> if (baseBackground.luminance() > 0.5f) Color.Black else Color.White
-        night -> Color(0xFFE7ECFF)
-        else -> Color(0xFF17233D)
+        else -> dynamicForeground
     }
+    val muted = if (useCustomPalette) baseText.copy(alpha = 0.68f) else dynamicMuted
+    val surface = if (useCustomPalette) {
+        baseText.copy(alpha = if (night) 0.10f else 0.075f)
+    } else {
+        dynamicSurface.copy(alpha = if (night) 0.72f else 0.82f)
+    }
+    val raised = if (useCustomPalette) {
+        baseText.copy(alpha = if (night) 0.17f else 0.12f)
+    } else {
+        dynamicRaised.copy(alpha = if (night) 0.78f else 0.86f)
+    }
+
     return ValueWidgetColors(
         container = ColorProvider(baseBackground.copy(alpha = opacityPct / 100f)),
         foreground = ColorProvider(baseText),
-        muted = ColorProvider(baseText.copy(alpha = 0.68f)),
-        surface = ColorProvider(baseText.copy(alpha = if (night) 0.10f else 0.075f)),
-        raisedSurface = ColorProvider(baseText.copy(alpha = if (night) 0.16f else 0.115f)),
-        accent = ColorProvider(if (night) Color(0xFF8EAFFF) else Color(0xFF315DA8)),
-        warning = ColorProvider(if (night) Color(0xFFFFC46B) else Color(0xFF9A5A00)),
+        muted = ColorProvider(muted),
+        surface = ColorProvider(surface),
+        raisedSurface = ColorProvider(raised),
+        accent = ColorProvider(if (useCustomPalette) {
+            if (night) Color(0xFF9DB5FF) else Color(0xFF315DA8)
+        } else dynamicAccent),
+        warning = ColorProvider(if (useCustomPalette) {
+            if (night) Color(0xFFFFC46B) else Color(0xFF9A5A00)
+        } else dynamicWarning),
         positive = ColorProvider(if (night) Color(0xFF8ED6A0) else Color(0xFF237A3B))
     )
 }
@@ -191,13 +226,13 @@ private fun InsightWidgetLayout(
             modifier = GlanceModifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            ValueWeatherGlyph(data.currentCondition, if (compact) 34 else 42)
+            ValueWeatherGlyph(data.currentCondition, if (compact) 36 else 46)
             Spacer(GlanceModifier.width(8.dp))
             Text(
                 text = data.currentTemp?.let { "${it.roundToInt()}°" } ?: "—",
                 style = TextStyle(
                     color = colors.foreground,
-                    fontSize = if (compact) 25.sp else 31.sp,
+                    fontSize = if (compact) 27.sp else 34.sp,
                     fontWeight = FontWeight.Bold
                 ),
                 maxLines = 1
@@ -207,7 +242,7 @@ private fun InsightWidgetLayout(
                 Text(
                     text = context.getString(valueWeatherDescriptionRes(data.currentCondition)),
                     style = TextStyle(
-                        color = colors.foreground,
+                        color = colors.muted,
                         fontSize = if (compact) 10.sp else 12.sp,
                         fontWeight = FontWeight.Medium
                     ),
@@ -264,8 +299,8 @@ private fun InsightSurface(
     Row(
         modifier = modifier
             .background(colors.raisedSurface)
-            .cornerRadius(18.dp)
-            .padding(horizontal = 11.dp, vertical = if (compact) 8.dp else 10.dp),
+            .cornerRadius(if (compact) 18.dp else 22.dp)
+            .padding(horizontal = if (compact) 11.dp else 13.dp, vertical = if (compact) 8.dp else 11.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
@@ -273,7 +308,7 @@ private fun InsightSurface(
                 .width(if (compact) 30.dp else 36.dp)
                 .height(if (compact) 30.dp else 36.dp)
                 .background(tone)
-                .cornerRadius(18.dp),
+                .cornerRadius(if (compact) 11.dp else 13.dp),
             contentAlignment = Alignment.Center
         ) {
             Image(
@@ -330,7 +365,7 @@ private fun ValueWidgetHeader(
             text = title,
             style = TextStyle(
                 color = colors.foreground,
-                fontSize = 14.sp,
+                fontSize = 15.sp,
                 fontWeight = FontWeight.Bold
             ),
             maxLines = 1,
@@ -360,8 +395,8 @@ private fun MetricConsensusPill(
     Row(
         modifier = modifier
             .background(colors.surface)
-            .cornerRadius(12.dp)
-            .padding(horizontal = 6.dp, vertical = 4.dp),
+            .cornerRadius(16.dp)
+            .padding(horizontal = 7.dp, vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {

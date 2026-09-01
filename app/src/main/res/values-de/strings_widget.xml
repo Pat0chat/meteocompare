@@ -12,7 +12,7 @@
     <string name="widget_config_colors_section">Farben</string>
     <string name="widget_config_colors_bg">Hintergrund</string>
     <string name="widget_config_colors_text">Text</string>
-    <string name="widget_config_colors_note">Auto folgt dem Systemdesign. Die Deckkraft wird auf die gewählte Farbe angewendet.</string>
+    <string name="widget_config_colors_note">Auto verwendet die dynamischen System- und Hintergrundfarben. Die Deckkraft bleibt anpassbar.</string>
     <string name="widget_color_auto">Auto</string>
     <string name="widget_color_white">Weiß</string>
     <string name="widget_color_black">Schwarz</string>
