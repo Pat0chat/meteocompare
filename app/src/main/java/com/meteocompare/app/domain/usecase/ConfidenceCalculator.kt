@@ -439,15 +439,18 @@ class ConfidenceCalculator @Inject constructor(
     /**
      * Bandes de convergence horaires sur les précipitations (mm sur l'heure précédente).
      *
-     * Utilise le consensus robuste : P(pluie) séparée de la quantité conditionnelle,
-     * centrale robuste, min/max et dispersion convertie en %. Les seuils tight/wide sont ceux de
+     * Utilise le consensus robuste : P(pluie) séparée de la quantité conditionnelle.
+     * La ligne centrale et l'enveloppe de quantité sont construites dans le même
+     * espace du moteur sélectionné ; l'espérance P×quantité n'est jamais utilisée
+     * comme courbe centrale. Les seuils tight/wide sont ceux de
      * [Thresholds.PRECIP] — bien plus larges qu'en température (la pluie est
      * intrinsèquement plus divergente entre modèles, surtout sur la convection).
      *
      * Différence importante avec le calcul journalier ([dayConfidence]) qui
      * distingue les cas "sec/pluie/divisé" via [PrecipitationConfidence] :
-     * ici la bande conserve min/max et dispersion, tandis que sa centrale suit
-     * exactement le même moteur pluie en deux étapes que le résumé.
+     * ici la couleur conserve la convergence d'occurrence inter-familles, tandis
+     * que la géométrie de la bande décrit l'incertitude sur les millimètres du
+     * moteur sélectionné. Probabilité et quantité restent donc explicitement distinctes.
      */
     fun hourlyPrecipitationConfidence(
         forecast: CityForecast,
@@ -485,12 +488,57 @@ class ConfidenceCalculator @Inject constructor(
                 )
             )
             val percent = result.convergencePercent ?: return@timestamp null
+
+            // La bande pluie doit rester dans un seul espace statistique :
+            // - la ligne centrale est la quantité déterministe du moteur sélectionné ;
+            // - l'enveloppe vient de l'intervalle de CE MÊME moteur ;
+            // - expectedAmountMm (P × quantité conditionnelle) n'est jamais utilisé ici.
+            //
+            // Si certains modèles sont secs, 0 mm fait partie des scénarios possibles
+            // et doit donc rester dans l'enveloppe. À l'inverse, on ne fabrique pas
+            // une bande de quantité si moins de deux modèles fournissent réellement des mm.
+            val amountRows = rows.mapNotNull { row ->
+                row.amountMm?.takeIf(Double::isFinite)?.let { row.model to it }
+            }
+            if (amountRows.map { it.first }.distinct().size < 2) return@timestamp null
+
+            val threshold = PrecipitationThresholds.HOURLY_OCCURRENCE_MM
+            val hasWetAmount = amountRows.any { (_, amount) -> amount > threshold }
+            val hasDryAmount = amountRows.any { (_, amount) -> amount <= threshold }
+            val centralAmount = engineResult.centralAmountMm
+                ?: result.centralAmountMm
+                ?: return@timestamp null
+
+            val intervalLow = engineResult.interval.low
+                ?: engineResult.conditionalAmountMm
+                ?: result.conditionalAmountMm
+            val intervalHigh = engineResult.interval.high
+                ?: engineResult.conditionalAmountMm
+                ?: result.conditionalAmountMm
+
+            val minAmount = when {
+                !hasWetAmount -> 0.0
+                hasDryAmount || centralAmount <= threshold -> 0.0
+                else -> minOf(centralAmount, intervalLow ?: centralAmount)
+            }.coerceAtLeast(0.0)
+
+            val maxAmount = when {
+                !hasWetAmount -> 0.0
+                else -> maxOf(
+                    centralAmount,
+                    intervalHigh
+                        ?: engineResult.maxMm
+                        ?: result.maxMm
+                        ?: centralAmount
+                )
+            }.coerceAtLeast(minAmount)
+
             HourlyConfidenceBand(
                 timestamp = ts,
-                meanValue = engineResult.centralAmountMm ?: result.centralAmountMm ?: 0.0,
-                minValue = result.minMm ?: 0.0,
-                maxValue = result.maxMm ?: 0.0,
-                stdDev = result.conditionalStdDev ?: 0.0,
+                meanValue = centralAmount.coerceIn(minAmount, maxAmount),
+                minValue = minAmount,
+                maxValue = maxAmount,
+                stdDev = engineResult.conditionalStdDev ?: result.conditionalStdDev ?: 0.0,
                 percent = percent,
                 modelCount = result.modelCount,
                 familyCount = result.familyCount

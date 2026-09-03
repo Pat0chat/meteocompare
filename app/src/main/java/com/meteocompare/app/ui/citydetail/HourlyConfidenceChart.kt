@@ -213,7 +213,13 @@ fun HourlyConfidenceChart(
                 .padding(horizontal = 16.dp, vertical = 6.dp)
         ) {
             Text(
-                text = stringResource(R.string.chart_confidence_band_desc),
+                text = stringResource(
+                    if (metric == ConfidenceMetric.PRECIPITATION) {
+                        R.string.chart_confidence_band_precip_desc
+                    } else {
+                        R.string.chart_confidence_band_desc
+                    }
+                ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

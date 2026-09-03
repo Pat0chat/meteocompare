@@ -135,6 +135,7 @@
     
     <string name="chart_not_enough_data">Not enough data to compute a band</string>
     <string name="chart_confidence_band_desc">The wider the band, the more models diverge. Color shows their convergence level.</string>
+    <string name="chart_confidence_band_precip_desc">The band shows the precipitation-amount interval from the selected engine. Color shows agreement between model families on rain probability.</string>
     <string name="chart_confidence_now">Convergence now: %d%%</string>
     <string name="chart_confidence_ahead">at D+%1$d: %2$d%%</string>
 

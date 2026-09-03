@@ -121,6 +121,7 @@ dato</string>
     
     <string name="chart_not_enough_data">Dati insufficienti per calcolare una banda</string>
     <string name="chart_confidence_band_desc">Più la banda è ampia, più i modelli divergono. Il colore mostra il livello di convergenza.</string>
+    <string name="chart_confidence_band_precip_desc">La banda mostra l’intervallo della quantità di precipitazione del motore selezionato. Il colore indica l’accordo tra le famiglie di modelli sulla probabilità di pioggia.</string>
     <string name="chart_confidence_now">Convergenza ora: %d%%</string>
     <string name="chart_confidence_ahead">a D+%1$d: %2$d%%</string>
     

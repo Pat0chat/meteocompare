@@ -5,6 +5,8 @@ import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.ConfidenceLevel
 import com.meteocompare.app.domain.model.DailyForecast
 import com.meteocompare.app.domain.model.ForecastSeries
+import com.meteocompare.app.domain.model.ForecastEngine
+import com.meteocompare.app.domain.model.ForecastEngineContext
 import com.meteocompare.app.domain.model.HourlyForecast
 import com.meteocompare.app.domain.model.PrecipitationConfidence
 import com.meteocompare.app.domain.model.WeatherCondition
@@ -475,6 +477,71 @@ class ConfidenceCalculatorTest {
             assertEquals(0.0, it.meanValue, 0.001)
             assertEquals(100, it.percent)
         }
+    }
+
+    @Test
+    fun `hourly precip - ligne centrale n utilise jamais l esperance probabilisee`() {
+        val t0 = java.time.Instant.parse("2026-06-23T00:00:00Z")
+        val models = listOf(WeatherModel.AROME_FRANCE_HD, WeatherModel.GFS)
+        val series = models.associateWith { model ->
+            ForecastSeries(
+                model = model,
+                hourly = HourlyForecast(
+                    timestamps = listOf(t0),
+                    temperature2m = listOf(20.0),
+                    precipitation = listOf(10.0),
+                    windSpeed10m = listOf(10.0),
+                    precipitationProbability = listOf(50)
+                ),
+                daily = emptyDaily()
+            )
+        }
+        val forecast = CityForecast(city = paris, seriesByModel = series)
+
+        val band = calculator.hourlyPrecipitationConfidence(forecast).single()
+
+        // P=50 % et quantité conditionnelle=10 mm donnent une espérance de 5 mm.
+        // La bande de convergence porte sur les quantités, donc sa centrale reste
+        // 10 mm et n'utilise jamais P × quantité.
+        assertEquals(10.0, band.meanValue, 0.001)
+        assertEquals(10.0, band.minValue, 0.001)
+        assertEquals(10.0, band.maxValue, 0.001)
+        assertEquals(100, band.percent)
+    }
+
+    @Test
+    fun `hourly precip - enveloppe et centrale utilisent le meme moteur`() {
+        val t0 = java.time.Instant.parse("2026-06-23T00:00:00Z")
+        val amounts = mapOf(
+            WeatherModel.AROME_FRANCE_HD to 1.0,
+            WeatherModel.ARPEGE_EUROPE to 1.0,
+            WeatherModel.ICON_EU to 1.0,
+            WeatherModel.GFS to 20.0,
+            WeatherModel.ECMWF to 20.0
+        )
+        val series = amounts.mapValues { (model, amount) ->
+            ForecastSeries(
+                model = model,
+                hourly = HourlyForecast(
+                    timestamps = listOf(t0),
+                    temperature2m = listOf(20.0),
+                    precipitation = listOf(amount),
+                    windSpeed10m = listOf(10.0),
+                    precipitationProbability = listOf(100)
+                ),
+                daily = emptyDaily()
+            )
+        }
+        val forecast = CityForecast(city = paris, seriesByModel = series)
+        val context = ForecastEngineContext.DEFAULT.withEngine(ForecastEngine.SCENARIOS)
+
+        val band = calculator.hourlyPrecipitationConfidence(forecast, engineContext = context).single()
+
+        // Le scénario bas est dominant (3 familles sur 5). La ligne et l'enveloppe
+        // doivent donc suivre ce même scénario au lieu de garder max=20 mm brut.
+        assertEquals(1.0, band.meanValue, 0.001)
+        assertTrue("La borne haute doit rester dans le scénario dominant : ${band.maxValue}", band.maxValue < 20.0)
+        assertTrue(band.meanValue in band.minValue..band.maxValue)
     }
 
     @Test

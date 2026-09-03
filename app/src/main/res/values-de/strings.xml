@@ -121,6 +121,7 @@ Daten</string>
     
     <string name="chart_not_enough_data">Nicht genügend Daten zur Berechnung eines Bandes</string>
     <string name="chart_confidence_band_desc">Je breiter das Band, desto stärker divergieren die Modelle. Die Farbe zeigt den Grad ihrer Konvergenz.</string>
+    <string name="chart_confidence_band_precip_desc">Das Band zeigt das Niederschlagsmengen-Intervall des gewählten Verfahrens. Die Farbe zeigt die Übereinstimmung der Modellfamilien bei der Regenwahrscheinlichkeit.</string>
     <string name="chart_confidence_now">Konvergenz jetzt: %d%%</string>
     <string name="chart_confidence_ahead">bei D+%1$d: %2$d%%</string>
     

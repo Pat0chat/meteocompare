@@ -133,6 +133,7 @@
     
     <string name="chart_not_enough_data">Pas assez de données pour calculer une bande</string>
     <string name="chart_confidence_band_desc">Plus la bande s\'élargit, plus les modèles divergent. La couleur indique leur niveau de convergence.</string>
+    <string name="chart_confidence_band_precip_desc">La bande représente l’intervalle des quantités de pluie du moteur sélectionné. La couleur indique l’accord des familles de modèles sur la probabilité de pluie.</string>
     <string name="chart_confidence_now">Convergence : %d%%</string>
     <string name="chart_confidence_ahead">à J+%1$d : %2$d%%</string>
 
