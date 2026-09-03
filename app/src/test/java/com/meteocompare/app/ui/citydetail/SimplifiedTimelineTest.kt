@@ -236,7 +236,7 @@ class SimplifiedTimelineTest {
 
         assertEquals(PrecipitationSignalSource.MIXED, point.precipitationSource)
         assertEquals(25, point.precipitationPercent)
-        assertFalse(DivergenceReason.PRECIPITATION in point.divergenceReasons)
+        assertTrue(DivergenceReason.PRECIPITATION in point.divergenceReasons)
     }
 
     @Test

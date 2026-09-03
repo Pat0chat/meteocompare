@@ -244,8 +244,10 @@ class ConfidenceCalculatorTest {
         assertEquals(1.5, precip.rainMinMm, 0.001)
         assertEquals(3.0, precip.rainMaxMm, 0.001)
         assertTrue(precip.rainMeanMm in 1.5..3.0)
-        // Occurrence 60 % + bonne convergence sur la quantité conditionnelle.
-        assertEquals(44, precip.percent)
+        // La convergence mesure désormais uniquement la dispersion des
+        // probabilités d'occurrence entre familles. Trois familles humides et
+        // deux sèches sont fortement divisées, même si les mm humides concordent.
+        assertEquals(0, precip.percent)
     }
 
     @Test
@@ -261,8 +263,9 @@ class ConfidenceCalculatorTest {
 
         val precip = calculator.dayConfidence(forecast, today).precipitation
         assertTrue(precip is PrecipitationConfidence.Divided)
-        // À P(pluie)=50 %, Consensus v2 combine occurrence (0) et accord sur les mm humides (100).
-        assertEquals(30, (precip as PrecipitationConfidence.Divided).percent)
+        // Un partage strict humide/sec est une divergence maximale entre
+        // familles. L'accord éventuel sur les mm reste une notion séparée.
+        assertEquals(0, (precip as PrecipitationConfidence.Divided).percent)
     }
 
     @Test
@@ -285,8 +288,12 @@ class ConfidenceCalculatorTest {
         val precip = weightedCalculator.dayConfidence(forecast, today).precipitation
         assertTrue(precip is PrecipitationConfidence.Divided)
         precip as PrecipitationConfidence.Divided
-        // Le multiplicateur 3 est borné par Consensus v2 : une famille ne peut pas écraser les autres.
-        assertEquals(34, precip.percent)
+        // Le multiplicateur local ne transforme pas un partage pluie/sec en
+        // faux accord : la convergence inter-familles reste nulle.
+        assertEquals(0, precip.percent)
+        // La pondération locale agit bien sur P(pluie) sans altérer la mesure
+        // de convergence : AROME est plafonné à 1,25 contre 1 pour les autres.
+        assertEquals(53, precip.meta.probabilityPercent)
         // L'UI conserve toutefois les comptes bruts, pas des pseudo-modèles pondérés.
         assertEquals(2, precip.modelsForRain)
         assertEquals(2, precip.modelsAgainstRain)

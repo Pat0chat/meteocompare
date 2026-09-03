@@ -136,7 +136,7 @@ class WeatherConditionTest {
     fun `currentWeatherCondition is null when no data allows any conclusion`() {
         // No weather_code AND no precip → ni le code natif ni le fallback
         // ne peuvent conclure. On veut null plutôt que d'inventer.
-        val now = Instant.now()
+        val now = Instant.parse("2026-09-03T12:00:00Z")
         val forecast = CityForecast(
             city = paris,
             seriesByModel = mapOf(
@@ -153,12 +153,12 @@ class WeatherConditionTest {
                 )
             )
         )
-        assertNull(calculator.currentWeatherCondition(forecast))
+        assertNull(calculator.currentWeatherCondition(forecast, now))
     }
 
     @Test
-    fun `currentWeatherCondition picks the weighted mode at the closest hour`() {
-        val now = Instant.now()
+    fun `currentWeatherCondition picks the weighted mode at the exact hour`() {
+        val now = Instant.parse("2026-09-03T12:00:00Z")
         val forecast = CityForecast(
             city = paris,
             seriesByModel = mapOf(
@@ -171,7 +171,7 @@ class WeatherConditionTest {
             )
         )
         // 2 modèles disent CLEAR (dont le plus pondéré AROME) → CLEAR gagne
-        assertEquals(WeatherCondition.CLEAR, calculator.currentWeatherCondition(forecast))
+        assertEquals(WeatherCondition.CLEAR, calculator.currentWeatherCondition(forecast, now))
     }
 
     @Test
@@ -211,7 +211,7 @@ class WeatherConditionTest {
         // la hiérarchie, NON_PRECIPITATION et PRECIPITATION sont à égalité ;
         // le tie-break prudent retient alors la branche précipitation.
         val equalCalc = ConfidenceCalculator(EqualWeighting())
-        val now = Instant.now()
+        val now = Instant.parse("2026-09-03T12:00:00Z")
         val forecast = CityForecast(
             city = paris,
             seriesByModel = mapOf(
@@ -219,7 +219,7 @@ class WeatherConditionTest {
                 WeatherModel.ARPEGE_EUROPE to seriesWithWeatherCode(now, code = 61) // RAIN
             )
         )
-        assertEquals(WeatherCondition.RAIN, equalCalc.currentWeatherCondition(forecast))
+        assertEquals(WeatherCondition.RAIN, equalCalc.currentWeatherCondition(forecast, now))
     }
 
     @Test

@@ -211,7 +211,9 @@ class WidgetForecastSelectionTest {
         // pourcentage de consensus catégoriel. La convergence globale reste donc
         // calculée ici sur les trois métriques réellement mesurables :
         // température, précipitations et vent.
-        assertEquals(listOf(93, 87, 80, 73, 77), items.map { it.forecastConfidencePct })
+        // Les deux familles fournissent exactement les mêmes valeurs à chaque
+        // échéance : la convergence inter-familles réelle est donc de 100 %.
+        assertEquals(listOf(100, 100, 100, 100, 100), items.map { it.forecastConfidencePct })
     }
 
     @Test
