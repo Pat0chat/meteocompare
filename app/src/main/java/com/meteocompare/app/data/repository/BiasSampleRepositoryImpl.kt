@@ -57,7 +57,8 @@ class BiasSampleRepositoryImpl @Inject constructor(
         variable: BiasVariable,
         asOf: LocalDate,
         timezone: String?,
-        windowDays: Int
+        windowDays: Int,
+        leadDay: Int
     ): Flow<List<BiasSample>> {
         require(windowDays > 0) { "windowDays must be positive, got $windowDays" }
         val end = asOf.toEpochDay()
@@ -67,18 +68,23 @@ class BiasSampleRepositoryImpl @Inject constructor(
             modelKey = model.name,
             variable = variable.name,
             startEpochDay = start,
-            endEpochDay = end
+            endEpochDay = end,
+            leadDay = leadDay.coerceIn(1, 7)
         ).map { rows ->
-            rows.map { row ->
+            val mapped = rows.map { row ->
                 BiasSample(
                     targetDate = LocalDate.ofEpochDay(row.targetDateEpochDay),
                     forecast = row.forecast,
                     observation = row.observation,
-                    issuedAt = Instant.ofEpochMilli(row.issuedAtEpochMs)
+                    issuedAt = Instant.ofEpochMilli(row.issuedAtEpochMs),
+                    leadDay = row.leadDay
                 )
-            }.let { samples ->
-                if (timezone == null) samples else selectPreviousDaySamples(samples, timezone)
             }
+            selectPreviousDaySamples(
+                samples = mapped,
+                timezone = timezone,
+                leadDay = leadDay.coerceIn(1, 7)
+            )
         }
     }
 
@@ -88,7 +94,8 @@ class BiasSampleRepositoryImpl @Inject constructor(
         variable: BiasVariable,
         targetDate: LocalDate,
         issuedAt: Instant,
-        value: Double
+        value: Double,
+        leadDay: Int
     ) = withContext(io) {
         dao.insertForecast(
             ForecastSampleEntity(
@@ -99,7 +106,8 @@ class BiasSampleRepositoryImpl @Inject constructor(
                 issuedAtEpochMs = issuedAt.toEpochMilli(),
                 value = value,
                 sourceApiKey = model.apiKey,
-                resolutionKm = model.resolutionKm
+                resolutionKm = model.resolutionKm,
+                leadDay = leadDay.coerceIn(1, 7)
             )
         )
     }
@@ -115,7 +123,8 @@ class BiasSampleRepositoryImpl @Inject constructor(
                 issuedAtEpochMs = record.issuedAt.toEpochMilli(),
                 value = record.value,
                 sourceApiKey = record.model.apiKey,
-                resolutionKm = record.model.resolutionKm
+                resolutionKm = record.model.resolutionKm,
+                leadDay = record.leadDay.coerceIn(1, 7)
             )
         })
     }

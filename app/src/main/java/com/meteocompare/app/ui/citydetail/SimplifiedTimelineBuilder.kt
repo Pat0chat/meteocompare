@@ -15,6 +15,7 @@ import com.meteocompare.app.domain.util.resolveDailyCondition
 import com.meteocompare.app.domain.util.resolveHourlyCondition
 import java.time.Instant
 import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 import kotlin.math.roundToInt
 
 /** Origine du signal pluie affiché dans la chronologie. */
@@ -159,7 +160,14 @@ private fun buildHourlyTimeline(
     // visuelle applique ensuite une grille régulière indépendante des événements.
     return timestamps.mapNotNull { timestamp ->
         val snapshots = indexed.mapNotNull { it[timestamp] }
-        timelinePoint(timestamp = timestamp, date = null, snapshots = snapshots, hourly = true, engineContext = engineContext)
+        timelinePoint(
+            timestamp = timestamp,
+            date = null,
+            snapshots = snapshots,
+            hourly = true,
+            calibrationLeadDay = null,
+            engineContext = engineContext
+        )
     }
 }
 
@@ -170,6 +178,7 @@ private fun buildDailyTimeline(
 ): List<SimplifiedTimelinePoint> {
     val zone = resolveCityZone(forecast.city.timezone)
     val today = now.atZone(zone).toLocalDate()
+    val calibrationBaseDate = forecast.fetchedAt?.atZone(zone)?.toLocalDate()
     val indexed = forecast.seriesByModel.map { (model, series) -> indexDailySnapshots(model, series, zone) }
     val dates = indexed
         .flatMap { it.keys }
@@ -182,7 +191,16 @@ private fun buildDailyTimeline(
 
     return dates.mapNotNull { date ->
         val snapshots = indexed.mapNotNull { it[date] }
-        timelinePoint(timestamp = null, date = date, snapshots = snapshots, hourly = false, engineContext = engineContext)
+        timelinePoint(
+            timestamp = null,
+            date = date,
+            snapshots = snapshots,
+            hourly = false,
+            calibrationLeadDay = calibrationBaseDate
+                ?.let { issueDate -> ChronoUnit.DAYS.between(issueDate, date).toInt() }
+                ?.takeIf { it in 1..7 },
+            engineContext = engineContext
+        )
     }
 }
 
@@ -272,6 +290,7 @@ private fun timelinePoint(
     date: LocalDate?,
     snapshots: List<TimelineSnapshot>,
     hourly: Boolean,
+    calibrationLeadDay: Int?,
     engineContext: ForecastEngineContext
 ): SimplifiedTimelinePoint? {
     val meaningful = snapshots.filter(TimelineSnapshot::hasAnyValue)
@@ -299,7 +318,9 @@ private fun timelinePoint(
             entries,
             ForecastEngineV3.ContinuousOptions(
                 engine = engineContext.engine,
-                calibration = engineContext.calibration(variable, allowCalibration),
+                calibration = calibrationLeadDay?.let { leadDay ->
+                    engineContext.calibration(variable, leadDay, allowCalibration)
+                }.orEmpty(),
                 localWeights = engineContext.localWeights(variable),
                 tight = tight,
                 wide = wide,
@@ -310,8 +331,9 @@ private fun timelinePoint(
         return ContinuousPair(agreement, forecastValue)
     }
 
-    // Même garde-fou que la version Web 1.16 : l'historique de biais est J+1.
-    // Il peut corriger Tmax et vent max journalier, mais pas les heures, Tmin,
+    // Même garde-fou que la version Web : la calibration est strictement liée
+    // à l'échéance J+1…J+7. Elle peut corriger Tmax et vent max journalier,
+    // mais pas les heures, Tmin,
     // rafales ou nuages dont la sémantique de calibration serait différente.
     val temp = continuous(
         { if (hourly) it.temperature else it.tempMax }, ForecastEngineVariable.TEMPERATURE,
@@ -351,7 +373,13 @@ private fun timelinePoint(
             engine = engineContext.engine,
             threshold = rainThreshold,
             localWeights = engineContext.localWeights(ForecastEngineVariable.PRECIPITATION),
-            calibration = engineContext.calibration(ForecastEngineVariable.PRECIPITATION, allowCalibration = !hourly),
+            calibration = calibrationLeadDay?.let { leadDay ->
+                engineContext.calibration(
+                    ForecastEngineVariable.PRECIPITATION,
+                    leadDay,
+                    allowCalibration = !hourly
+                )
+            }.orEmpty(),
             amountTight = if (hourly) 0.5 else 1.0,
             amountWide = if (hourly) 4.0 else 8.0
         )

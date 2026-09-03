@@ -32,7 +32,7 @@ class BiasSampleDaoTest {
         dao.insertForecast(ForecastSampleEntity("paris", "GFS", "TEMPERATURE", 101L, 2_000L, 20.0))
         dao.insertObservation(ObservationSampleEntity("paris", "TEMPERATURE", 100L, 21.0, 3_000L))
 
-        val rows = dao.observeJoinedSamples("paris", "GFS", "TEMPERATURE", 90L, 110L).first()
+        val rows = dao.observeJoinedSamples("paris", "GFS", "TEMPERATURE", 90L, 110L, 1).first()
         assertEquals(2, rows.size)
         assertEquals(19.0, rows[0].forecast, 0.0)
         assertEquals(18.0, rows[1].forecast, 0.0)
@@ -67,7 +67,7 @@ class BiasSampleDaoTest {
 
         dao.purgeForecastsBefore(20L)
         dao.purgeObservationsBefore(20L)
-        val rows = dao.observeJoinedSamples("paris", "GFS", "WIND_SPEED", 0L, 30L).first()
+        val rows = dao.observeJoinedSamples("paris", "GFS", "WIND_SPEED", 0L, 30L, 1).first()
         assertEquals(1, rows.size)
         assertEquals(20L, rows.single().targetDateEpochDay)
     }
@@ -87,7 +87,7 @@ class BiasSampleDaoTest {
             )
         )
 
-        val rows = dao.observeJoinedSamples("paris", "GFS", "TEMPERATURE", 90L, 110L).first()
+        val rows = dao.observeJoinedSamples("paris", "GFS", "TEMPERATURE", 90L, 110L, 1).first()
         assertEquals(2, rows.size)
         assertEquals(listOf(100L, 101L), rows.map { it.targetDateEpochDay })
     }

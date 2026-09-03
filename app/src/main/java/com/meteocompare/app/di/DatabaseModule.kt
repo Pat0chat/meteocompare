@@ -38,7 +38,7 @@ object DatabaseModule {
             // (drop-and-recreate). Room 2.7+ demande le paramètre explicite pour
             // clarifier qu'on accepte de perdre AUSSI les tables non listées
             // dans le schéma actuel (cache orphelin).
-            .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_4_6, MIGRATION_6_7)
+            .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_4_6, MIGRATION_6_7, MIGRATION_7_8)
             .fallbackToDestructiveMigration(dropAllTables = true)
             .build()
 
@@ -58,6 +58,18 @@ object DatabaseModule {
     fun provideForecastEvolutionDao(database: MeteoCompareDatabase): ForecastEvolutionDao =
         database.forecastEvolutionDao()
 
+
+
+    /**
+     * Ajoute l'échéance explicite des profils historiques. Les enregistrements
+     * existants étaient exclusivement J+1 : DEFAULT 1 assure une migration
+     * sans perte ni réinterprétation artificielle à J+2…J+7.
+     */
+    private val MIGRATION_7_8 = object : Migration(7, 8) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE `forecast_samples` ADD COLUMN `leadDay` INTEGER NOT NULL DEFAULT 1")
+        }
+    }
 
     /**
      * Sépare proprement l'ancien ECMWF IFS 0,25° du nouvel IFS HRES 9 km.

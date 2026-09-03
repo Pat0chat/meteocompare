@@ -6,6 +6,7 @@ import com.meteocompare.app.data.remote.ClimateArchiveApi
 import com.meteocompare.app.di.IoDispatcher
 import com.meteocompare.app.domain.model.BiasVariable
 import com.meteocompare.app.domain.model.City
+import com.meteocompare.app.domain.model.ForecastPhysicalLimits
 import com.meteocompare.app.domain.repository.BiasSampleRepository
 import com.meteocompare.app.domain.repository.ObservationBiasRecord
 import kotlinx.coroutines.CoroutineDispatcher
@@ -117,19 +118,19 @@ class FetchBiasObservationsUseCase @Inject constructor(
             if (date < cappedStart || date > end) continue
             var recordedForDate = false
 
-            tempMax.getOrNull(i)?.takeIf(Double::isFinite)?.let { value ->
+            ForecastPhysicalLimits.temperature(tempMax.getOrNull(i))?.let { value ->
                 records += ObservationBiasRecord(
                     city.id, BiasVariable.TEMPERATURE, date, value, fetchedAt
                 )
                 recordedForDate = true
             }
-            precipSum?.getOrNull(i)?.takeIf { it.isFinite() && it >= 0.0 }?.let { value ->
+            ForecastPhysicalLimits.precipitation(precipSum?.getOrNull(i))?.let { value ->
                 records += ObservationBiasRecord(
                     city.id, BiasVariable.PRECIPITATION, date, value, fetchedAt
                 )
                 recordedForDate = true
             }
-            windMax?.getOrNull(i)?.takeIf { it.isFinite() && it >= 0.0 }?.let { value ->
+            ForecastPhysicalLimits.wind(windMax?.getOrNull(i))?.let { value ->
                 records += ObservationBiasRecord(
                     city.id, BiasVariable.WIND_SPEED, date, value, fetchedAt
                 )

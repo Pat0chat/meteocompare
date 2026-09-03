@@ -1,5 +1,6 @@
 package com.meteocompare.app.domain.usecase
 
+import com.meteocompare.app.core.util.localDateIn
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.ConfidenceScore
 import com.meteocompare.app.domain.model.DayConfidence
@@ -16,6 +17,7 @@ import com.meteocompare.app.domain.util.dailyCloudCoverMean
 import com.meteocompare.app.domain.util.resolveDailyCondition
 import java.time.Instant
 import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.roundToInt
@@ -54,6 +56,10 @@ class ConfidenceCalculator @Inject constructor(
             val idx = series.daily.dates.indexOf(date)
             if (idx >= 0) Triple(model, series, idx) else null
         }
+        val calibrationLeadDay = forecast.fetchedAt
+            ?.localDateIn(forecast.city.timezone)
+            ?.let { issueDate -> ChronoUnit.DAYS.between(issueDate, date).toInt() }
+            ?.takeIf { it in 1..7 }
 
         return DayConfidence(
             date = date,
@@ -64,7 +70,8 @@ class ConfidenceCalculator @Inject constructor(
                 thresholds = Thresholds.TEMPERATURE,
                 engineContext = engineContext,
                 variable = ForecastEngineVariable.TEMPERATURE,
-                allowCalibration = true
+                allowCalibration = true,
+                calibrationLeadDay = calibrationLeadDay
             ),
             tempMin = continuousConfidence(
                 samples = modelsAtDate.mapNotNull { (model, series, idx) ->
@@ -82,7 +89,8 @@ class ConfidenceCalculator @Inject constructor(
                 thresholds = Thresholds.WIND,
                 engineContext = engineContext,
                 variable = ForecastEngineVariable.WIND,
-                allowCalibration = true
+                allowCalibration = true,
+                calibrationLeadDay = calibrationLeadDay
             ),
             windGustMax = continuousConfidence(
                 samples = modelsAtDate.mapNotNull { (model, series, idx) ->
@@ -101,7 +109,8 @@ class ConfidenceCalculator @Inject constructor(
                         probabilityPercent = series.daily.precipitationProbabilityMax.getOrNull(idx)
                     )
                 },
-                engineContext = engineContext
+                engineContext = engineContext,
+                calibrationLeadDay = calibrationLeadDay
             )
         )
     }
@@ -591,7 +600,8 @@ class ConfidenceCalculator @Inject constructor(
         thresholds: Thresholds,
         engineContext: ForecastEngineContext,
         variable: ForecastEngineVariable,
-        allowCalibration: Boolean
+        allowCalibration: Boolean,
+        calibrationLeadDay: Int? = null
     ): ConfidenceScore? {
         val consensus = ForecastConsensus.continuous(
             entries = samples.map { (model, value) -> ForecastConsensus.Entry(model, value) },
@@ -606,6 +616,7 @@ class ConfidenceCalculator @Inject constructor(
             engineContext = engineContext,
             variable = variable,
             allowCalibration = allowCalibration,
+            calibrationLeadDay = calibrationLeadDay,
             min = if (variable == ForecastEngineVariable.WIND) 0.0 else null
         )
         // Une valeur centrale reste exploitable avec une seule lignée. Seule la
@@ -631,7 +642,8 @@ class ConfidenceCalculator @Inject constructor(
      */
     private fun precipitationConfidence(
         rows: List<ForecastConsensus.PrecipitationRow>,
-        engineContext: ForecastEngineContext
+        engineContext: ForecastEngineContext,
+        calibrationLeadDay: Int? = null
     ): PrecipitationConfidence? {
         val result = ForecastConsensus.precipitation(
             rows = rows,
@@ -647,7 +659,9 @@ class ConfidenceCalculator @Inject constructor(
                 engine = engineContext.engine,
                 threshold = PrecipitationConfidence.PRECIP_THRESHOLD_MM,
                 localWeights = localWeights(rows.map { it.model }),
-                calibration = engineContext.calibration(ForecastEngineVariable.PRECIPITATION),
+                calibration = calibrationLeadDay?.let { leadDay ->
+                    engineContext.calibration(ForecastEngineVariable.PRECIPITATION, leadDay)
+                }.orEmpty(),
                 amountTight = Thresholds.PRECIP.tightStdDev,
                 amountWide = Thresholds.PRECIP.wideStdDev
             )
@@ -692,6 +706,7 @@ class ConfidenceCalculator @Inject constructor(
         engineContext: ForecastEngineContext,
         variable: ForecastEngineVariable,
         allowCalibration: Boolean,
+        calibrationLeadDay: Int? = null,
         min: Double? = null,
         max: Double? = null
     ): ForecastEngineV3.ContinuousResult = ForecastEngineV3.continuous(
@@ -699,7 +714,11 @@ class ConfidenceCalculator @Inject constructor(
         options = ForecastEngineV3.ContinuousOptions(
             engine = engineContext.engine,
             localWeights = localWeights(samples.map { it.first }) + engineContext.localWeights(variable),
-            calibration = engineContext.calibration(variable, allowCalibration),
+            calibration = if (allowCalibration && calibrationLeadDay != null) {
+                engineContext.calibration(variable, calibrationLeadDay, allowCalibration = true)
+            } else {
+                emptyMap()
+            },
             tight = thresholds.tightStdDev,
             wide = thresholds.wideStdDev,
             min = min,

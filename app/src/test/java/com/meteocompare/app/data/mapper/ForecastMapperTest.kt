@@ -182,6 +182,66 @@ class ForecastMapperTest {
         assertEquals(Instant.parse("2026-07-23T04:12:00Z"), series.daily.sunrise.single())
         assertEquals(Instant.parse("2026-07-23T19:39:00Z"), series.daily.sunset.single())
     }
+
+    @Test
+    fun `rejects physically impossible finite values and invalid WMO codes`() {
+        val dto = ForecastResponseDto(
+            latitude = 48.85,
+            longitude = 2.35,
+            timezone = "Europe/Paris",
+            hourly = HourlyDto(
+                time = listOf("2026-07-23T12:00"),
+                temperature2m = listOf(500.0),
+                precipitation = listOf(100_000.0),
+                windSpeed10m = listOf(5_000.0),
+                weatherCode = listOf(4),
+                windGusts10m = listOf(5_000.0)
+            ),
+            daily = DailyDto(
+                time = listOf("2026-07-23"),
+                temperature2mMax = listOf(200.0),
+                temperature2mMin = listOf(-200.0),
+                precipitationSum = listOf(100_000.0),
+                windSpeed10mMax = listOf(5_000.0),
+                weatherCode = listOf(-4),
+                windGusts10mMax = listOf(5_000.0)
+            )
+        )
+
+        val series = mapper.toSeries(WeatherModel.GFS, dto)
+
+        assertNull(series.hourly.temperature2m.single())
+        assertNull(series.hourly.precipitation.single())
+        assertNull(series.hourly.windSpeed10m.single())
+        assertNull(series.hourly.weatherCode.single())
+        assertNull(series.hourly.windGusts10m.single())
+        assertNull(series.daily.tempMax.single())
+        assertNull(series.daily.tempMin.single())
+        assertNull(series.daily.precipitationSum.single())
+        assertNull(series.daily.windSpeedMax.single())
+        assertNull(series.daily.weatherCode.single())
+        assertNull(series.daily.windGustsMax.single())
+    }
+
+    @Test
+    fun `rejects both daily temperatures when max is below min`() {
+        val dto = ForecastResponseDto(
+            latitude = 48.85,
+            longitude = 2.35,
+            timezone = "Europe/Paris",
+            daily = DailyDto(
+                time = listOf("2026-07-23"),
+                temperature2mMax = listOf(12.0),
+                temperature2mMin = listOf(18.0)
+            )
+        )
+
+        val series = mapper.toSeries(WeatherModel.GFS, dto)
+
+        assertNull(series.daily.tempMax.single())
+        assertNull(series.daily.tempMin.single())
+    }
+
     @Test
     fun `rejects impossible percentages directions and negative wind or rain`() {
         val dto = ForecastResponseDto(

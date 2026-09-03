@@ -4,6 +4,9 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 
 /**
+ * Version 8 : ajoute `leadDay` aux historiques Previous Runs. Les anciennes
+ * lignes reçoivent explicitement J+1 afin de conserver leur sémantique.
+ *
  * Version 7 : migration ECMWF IFS 25 km → IFS HRES 9 km. Les historiques
  * J+1 et snapshots ECMWF existants sont conservés sous l'identité legacy
  * `ECMWF_IFS025_LEGACY`, tandis que le cache forecast 25 km est invalidé.
@@ -53,7 +56,7 @@ import androidx.room.RoomDatabase
         ObservationSampleEntity::class,
         ForecastEvolutionEntity::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = false
 )
 abstract class MeteoCompareDatabase : RoomDatabase() {

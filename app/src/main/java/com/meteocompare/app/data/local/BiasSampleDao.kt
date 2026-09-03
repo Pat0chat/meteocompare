@@ -29,7 +29,7 @@ interface BiasSampleDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertForecast(sample: ForecastSampleEntity)
 
-    /** Une transaction Room pour les prévisions Previous Runs J+1 de tous les modèles. */
+    /** Une transaction Room pour les prévisions Previous Runs J+1…J+7 de tous les modèles. */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertForecasts(samples: List<ForecastSampleEntity>)
 
@@ -58,7 +58,7 @@ interface BiasSampleDao {
      * L'ORDER BY `issuedAtEpochMs DESC` reste défensif pour les anciennes
      * bases qui peuvent contenir plusieurs captures du même `targetDate`.
      * Le repository sélectionne ensuite strictement la prévision Previous Runs
-     * à échéance fixe J+1, émise la veille locale.
+     * à l'échéance demandée, émise `leadDay` jours civils avant la cible.
      *
      * Bornes de la fenêtre : `[startEpochDay, endEpochDay)`. Semi-ouverte
      * pour matcher la sémantique du use case (asOf exclu).
@@ -72,7 +72,8 @@ interface BiasSampleDao {
           f.targetDateEpochDay AS targetDateEpochDay,
           f.value              AS forecast,
           o.value              AS observation,
-          f.issuedAtEpochMs    AS issuedAtEpochMs
+          f.issuedAtEpochMs    AS issuedAtEpochMs,
+          f.leadDay            AS leadDay
         FROM forecast_samples f
         INNER JOIN observation_samples o
           ON f.cityId            = o.cityId
@@ -81,6 +82,7 @@ interface BiasSampleDao {
         WHERE f.cityId              = :cityId
           AND f.modelKey            = :modelKey
           AND f.variable            = :variable
+          AND f.leadDay              = :leadDay
           AND f.targetDateEpochDay >= :startEpochDay
           AND f.targetDateEpochDay <  :endEpochDay
         ORDER BY f.targetDateEpochDay ASC, f.issuedAtEpochMs DESC
@@ -91,7 +93,8 @@ interface BiasSampleDao {
         modelKey: String,
         variable: String,
         startEpochDay: Long,
-        endEpochDay: Long
+        endEpochDay: Long,
+        leadDay: Int
     ): Flow<List<BiasSampleRow>>
 
     /**
@@ -148,5 +151,6 @@ data class BiasSampleRow(
     val targetDateEpochDay: Long,
     val forecast: Double,
     val observation: Double,
-    val issuedAtEpochMs: Long
+    val issuedAtEpochMs: Long,
+    val leadDay: Int
 )

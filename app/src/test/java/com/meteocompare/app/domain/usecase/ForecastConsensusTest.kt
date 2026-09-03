@@ -157,4 +157,58 @@ class ForecastConsensusTest {
         )
     }
 
+    @Test
+    fun `convergence pluie mesure la dispersion et non la probabilite moyenne`() {
+        fun convergence(values: List<Int>): Int? = ForecastConsensus.precipitation(
+            rows = listOf(
+                ForecastConsensus.PrecipitationRow(WeatherModel.GFS, amountMm = 1.0, probabilityPercent = values[0]),
+                ForecastConsensus.PrecipitationRow(WeatherModel.ECMWF, amountMm = 1.0, probabilityPercent = values[1]),
+                ForecastConsensus.PrecipitationRow(WeatherModel.ARPEGE_EUROPE, amountMm = 1.0, probabilityPercent = values[2])
+            ),
+            thresholdMm = 0.1,
+            amountTightStdDev = 1.0,
+            amountWideStdDev = 8.0
+        ).convergencePercent
+
+        assertEquals(100, convergence(listOf(50, 50, 50)))
+        assertEquals(100, convergence(listOf(80, 80, 80)))
+        assertTrue(requireNotNull(convergence(listOf(100, 60, 80))) < 100)
+    }
+
+
+    @Test
+    fun `consensus pluie ignore aussi les valeurs physiques impossibles hors mapper`() {
+        val result = ForecastConsensus.precipitation(
+            rows = listOf(
+                ForecastConsensus.PrecipitationRow(WeatherModel.GFS, amountMm = 100_000.0, probabilityPercent = 150),
+                ForecastConsensus.PrecipitationRow(WeatherModel.ECMWF, amountMm = 4.0, probabilityPercent = 80),
+                ForecastConsensus.PrecipitationRow(WeatherModel.ARPEGE_EUROPE, amountMm = 6.0, probabilityPercent = 80)
+            ),
+            thresholdMm = 0.1,
+            amountTightStdDev = 1.0,
+            amountWideStdDev = 8.0
+        )
+
+        assertEquals(80, result.probabilityPercent)
+        assertEquals(5.0, result.conditionalAmountMm ?: error("conditional missing"), 1e-9)
+        assertEquals(2, result.modelCount)
+    }
+
+    @Test
+    fun `probabilite pluie et convergence restent deux notions distinctes`() {
+        val fifty = ForecastConsensus.precipitation(
+            rows = listOf(
+                ForecastConsensus.PrecipitationRow(WeatherModel.GFS, probabilityPercent = 50),
+                ForecastConsensus.PrecipitationRow(WeatherModel.ECMWF, probabilityPercent = 50),
+                ForecastConsensus.PrecipitationRow(WeatherModel.ARPEGE_EUROPE, probabilityPercent = 50)
+            ),
+            thresholdMm = 0.1,
+            amountTightStdDev = 1.0,
+            amountWideStdDev = 8.0
+        )
+
+        assertEquals(50, fifty.probabilityPercent)
+        assertEquals(100, fifty.convergencePercent)
+    }
+
 }

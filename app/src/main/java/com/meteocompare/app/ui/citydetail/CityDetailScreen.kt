@@ -422,17 +422,18 @@ private fun LoadedView(
     // Même instant que celui utilisé par le ViewModel pour les agrégats
     // « maintenant » : résumé, chronologie et tableaux restent cohérents.
     val presentationNow = calculatedAt
-    val overviewTimeline = remember(forecast, presentationNow, engineContext) {
+    val engineCacheSignature = engineContext.cacheSignature
+    val overviewTimeline = remember(forecast, presentationNow, engineCacheSignature) {
         buildOverviewTimeline(forecast, presentationNow, engineContext)
     }
     val forecastEvents = remember(overviewTimeline) { detectForecastEvents(overviewTimeline) }
     val insights = remember(forecastEvents) { buildForecastInsights(forecastEvents) }
     val evolutionHighlight = (evolutionState as? ForecastEvolutionState.Loaded)?.highlight
     val hasInsightSection = insights.isNotEmpty() || evolutionHighlight != null
-    val hourlyTimelinePoints = remember(forecast, presentationNow, engineContext) {
+    val hourlyTimelinePoints = remember(forecast, presentationNow, engineCacheSignature) {
         buildSimplifiedTimeline(forecast, DisplayMode.HOURLY, presentationNow, engineContext)
     }
-    val dailyTimelinePoints = remember(forecast, presentationNow, engineContext) {
+    val dailyTimelinePoints = remember(forecast, presentationNow, engineCacheSignature) {
         buildSimplifiedTimeline(forecast, DisplayMode.DAILY, presentationNow, engineContext)
     }
     val timelineAvailableModes = remember(hourlyTimelinePoints, dailyTimelinePoints) {

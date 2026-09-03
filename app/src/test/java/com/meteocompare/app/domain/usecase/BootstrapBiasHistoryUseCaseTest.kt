@@ -104,6 +104,40 @@ class BootstrapBiasHistoryUseCaseTest {
     }
 
 
+
+    @Test
+    fun `bootstrap conserve des profils distincts par lead day et ne fabrique pas les horizons absents`() = runTest {
+        val model = WeatherModel.GFS
+        val target = today.minusDays(1)
+        val records = slot<List<ForecastBiasRecord>>()
+        coEvery { repository.recordForecasts(capture(records)) } returns Unit
+        val hourly = linkedMapOf<String, kotlinx.serialization.json.JsonElement>()
+        hourly["time"] = JsonArray(dayTimes(target))
+        listOf(1, 3).forEach { lead ->
+            hourly["temperature_2m_previous_day${lead}_${model.apiKey}"] = values(24) { 10.0 * lead + it }
+            hourly["precipitation_previous_day${lead}_${model.apiKey}"] = values(24) { lead.toDouble() }
+            hourly["wind_speed_10m_previous_day${lead}_${model.apiKey}"] = values(24) { 20.0 * lead + it }
+        }
+        coEvery {
+            api.getPreviousDayOne(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        } returns PreviousRunsResponseDto(city.latitude, city.longitude, city.timezone!!, JsonObject(hourly))
+
+        val result = useCase(city, listOf(model), today, requestedDays = 1)
+
+        assertEquals(6, result.forecastRecords)
+        assertEquals(1, result.sampleCount(model, BiasVariable.TEMPERATURE, leadDay = 1))
+        assertEquals(1, result.sampleCount(model, BiasVariable.TEMPERATURE, leadDay = 3))
+        assertEquals(0, result.sampleCount(model, BiasVariable.TEMPERATURE, leadDay = 2))
+        assertEquals(setOf(1, 3), records.captured.map { it.leadDay }.toSet())
+        assertEquals(6, records.captured.size)
+        records.captured.filter { it.leadDay == 1 }.forEach { record ->
+            assertEquals(target.minusDays(1), record.issuedAt.atZone(ZoneId.of(city.timezone)).toLocalDate())
+        }
+        records.captured.filter { it.leadDay == 3 }.forEach { record ->
+            assertEquals(target.minusDays(3), record.issuedAt.atZone(ZoneId.of(city.timezone)).toLocalDate())
+        }
+    }
+
     @Test
     fun `bootstrap demande trois semaines par défaut et conserve quatorze jours valides`() = runTest {
         val records = slot<List<ForecastBiasRecord>>()

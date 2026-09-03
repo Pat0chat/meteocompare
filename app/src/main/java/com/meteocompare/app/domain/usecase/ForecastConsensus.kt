@@ -1,5 +1,6 @@
 package com.meteocompare.app.domain.usecase
 
+import com.meteocompare.app.domain.model.ForecastPhysicalLimits
 import com.meteocompare.app.domain.model.WeatherModel
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -15,6 +16,8 @@ import kotlin.math.sqrt
  */
 object ForecastConsensus {
     private const val EPS = 1e-12
+    private const val OCCURRENCE_TIGHT_STDDEV_PERCENT = 5.0
+    private const val OCCURRENCE_WIDE_STDDEV_PERCENT = 30.0
 
     enum class Group {
         MF_AROME, MF_ARPEGE, DWD_ICON, ECMWF_GLOBAL,
@@ -138,8 +141,13 @@ object ForecastConsensus {
         amountTightStdDev: Double,
         amountWideStdDev: Double
     ): Precipitation {
-        val usable = rows.filter { row ->
-            row.amountMm?.isFinite() == true || row.probabilityPercent?.let { it in 0..100 } == true
+        val usable = rows.map { row ->
+            row.copy(
+                amountMm = ForecastPhysicalLimits.precipitation(row.amountMm),
+                probabilityPercent = ForecastPhysicalLimits.percentage(row.probabilityPercent)
+            )
+        }.filter { row ->
+            row.amountMm != null || row.probabilityPercent != null
         }
         if (usable.isEmpty()) return Precipitation(null, null, null, null, null, 0, 0, 0, 0, null, null, null, null)
 
@@ -147,13 +155,15 @@ object ForecastConsensus {
         var probabilitySum = 0.0
         var totalWeight = 0.0
         var nativeProbabilityCount = 0
+        val occurrenceByModel = linkedMapOf<WeatherModel, Double>()
         usable.forEach { row ->
             val weight = occurrenceWeights[row.model] ?: return@forEach
-            val p = row.probabilityPercent?.takeIf { it in 0..100 }?.let {
+            val rowProbability = row.probabilityPercent?.takeIf { it in 0..100 }?.let {
                 nativeProbabilityCount++
                 it / 100.0
             } ?: if ((row.amountMm ?: Double.NEGATIVE_INFINITY) > thresholdMm) 1.0 else 0.0
-            probabilitySum += weight * p
+            occurrenceByModel[row.model] = rowProbability
+            probabilitySum += weight * rowProbability
             totalWeight += weight
         }
         val p = if (totalWeight > 0.0) probabilitySum / totalWeight else null
@@ -168,15 +178,36 @@ object ForecastConsensus {
         val amountStats = weightedStats(weightedWet)
         val familyCount = usable.map { groupFor(it.model) }.distinct().size
         val wetFamilyCount = wet.map { groupFor(it.model) }.distinct().size
-        val occurrenceConvergence = if (p != null && familyCount >= 2) abs(p - 0.5) * 200.0 else null
-        val amountConvergence = if (amountStats != null && wetFamilyCount >= 2) {
-            scoreFromDispersion(amountStats.stdDev, amountTightStdDev, amountWideStdDev).toDouble()
+
+        // La convergence pluie mesure l'accord entre familles, pas le niveau
+        // moyen de probabilité. Ainsi [50,50,50] est parfaitement convergent,
+        // tout comme [80,80,80], alors que [100,60,80] l'est moins.
+        val familyProbabilities = usable
+            .groupBy { groupFor(it.model) }
+            .mapNotNull { (_, familyRows) ->
+                var sum = 0.0
+                var mass = 0.0
+                familyRows.forEach { row ->
+                    val value = occurrenceByModel[row.model] ?: return@forEach
+                    val weight = occurrenceWeights[row.model] ?: return@forEach
+                    if (weight <= 0.0) return@forEach
+                    sum += value * weight
+                    mass += weight
+                }
+                if (mass > 0.0) sum / mass else null
+            }
+        val convergence = if (familyProbabilities.size >= 2) {
+            val mean = familyProbabilities.average()
+            val variance = familyProbabilities.sumOf { value ->
+                val delta = value - mean
+                delta * delta
+            } / familyProbabilities.size
+            scoreFromDispersion(
+                stdDev = sqrt(variance) * 100.0,
+                tight = OCCURRENCE_TIGHT_STDDEV_PERCENT,
+                wide = OCCURRENCE_WIDE_STDDEV_PERCENT
+            )
         } else null
-        val convergence = occurrenceConvergence?.let { occurrence ->
-            if (amountConvergence != null && p != null && p >= 0.5) {
-                (occurrence * 0.7 + amountConvergence * 0.3).roundToInt()
-            } else occurrence.roundToInt()
-        }?.coerceIn(0, 100)
         val source = when {
             nativeProbabilityCount == usable.size -> PrecipitationSource.PROBABILITY
             nativeProbabilityCount > 0 -> PrecipitationSource.MIXED
@@ -199,7 +230,7 @@ object ForecastConsensus {
         }
         return Precipitation(
             probabilityPercent = probabilityPercent,
-            conditionalAmountMm = conditional ?: if (wet.isNotEmpty()) 0.0 else null,
+            conditionalAmountMm = conditional,
             centralAmountMm = central,
             expectedAmountMm = expected,
             convergencePercent = convergence,

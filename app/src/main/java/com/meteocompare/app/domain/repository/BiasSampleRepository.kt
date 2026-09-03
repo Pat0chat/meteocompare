@@ -24,7 +24,7 @@ import java.time.LocalDate
  * deux côtés change. C'est ce que consomme [ComputeBiasUseCase].
  *
  * Les méthodes "write" sont appelées par le worker de suivi : Previous Runs
- * alimente les prévisions à échéance fixe J+1, puis l’archive historique
+ * alimente les prévisions à échéances fixes J+1…J+7, puis l’archive historique
  * fournit les références de réanalyse correspondantes.
  *
  * ## Rétention
@@ -47,7 +47,8 @@ data class ForecastBiasRecord(
     val variable: BiasVariable,
     val targetDate: LocalDate,
     val issuedAt: Instant,
-    val value: Double
+    val value: Double,
+    val leadDay: Int = 1
 )
 
 /** Lot de références historiques prêt à persister en une transaction. */
@@ -68,9 +69,8 @@ interface BiasSampleRepository {
      * ou l'autre table.
      *
      * En production, [timezone] permet de ne conserver que la dernière
-     * prévision enregistrée la veille civile de chaque jour cible. Tous les
-     * modèles sont ainsi comparés sur un horizon homogène J+1, au lieu de
-     * mélanger des prévisions faites le jour même et plusieurs jours avant.
+     * prévision enregistrée exactement [leadDay] jours civils avant chaque
+     * jour cible. Les horizons ne sont donc jamais mélangés.
      */
     fun observeSamples(
         cityId: String,
@@ -78,14 +78,15 @@ interface BiasSampleRepository {
         variable: BiasVariable,
         asOf: LocalDate,
         timezone: String? = null,
-        windowDays: Int = 30
+        windowDays: Int = 30,
+        leadDay: Int = 1
     ): Flow<List<BiasSample>>
 
     /**
      * Persiste un forecast pour [targetDate]. En production, [issuedAt] sert
      * de marqueur de journée locale d'émission plutôt que d'horodatage exact :
      * les rechargements successifs de la même série Previous Runs remplacent
-     * idempotemment la prévision J+1 de cette journée.
+     * idempotemment la prévision de cette échéance et de cette journée.
      *
      * La clé (city, model, variable, targetDate, issuedAt) est idempotente ;
      * une nouvelle valeur portant la même clé remplace l'ancienne.
@@ -96,7 +97,8 @@ interface BiasSampleRepository {
         variable: BiasVariable,
         targetDate: LocalDate,
         issuedAt: Instant,
-        value: Double
+        value: Double,
+        leadDay: Int = 1
     )
 
     /**
@@ -112,7 +114,8 @@ interface BiasSampleRepository {
                 variable = record.variable,
                 targetDate = record.targetDate,
                 issuedAt = record.issuedAt,
-                value = record.value
+                value = record.value,
+                leadDay = record.leadDay
             )
         }
     }

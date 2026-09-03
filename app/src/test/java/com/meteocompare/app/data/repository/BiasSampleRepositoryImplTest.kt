@@ -1,6 +1,7 @@
 package com.meteocompare.app.data.repository
 
 import com.meteocompare.app.data.local.BiasSampleDao
+import com.meteocompare.app.data.local.BiasSampleRow
 import com.meteocompare.app.data.local.ForecastSampleEntity
 import com.meteocompare.app.data.local.ObservationSampleEntity
 import com.meteocompare.app.domain.model.BiasVariable
@@ -48,7 +49,8 @@ class BiasSampleRepositoryImplTest {
                 modelKey = WeatherModel.GFS.name,
                 variable = BiasVariable.TEMPERATURE.name,
                 startEpochDay = asOf.minusDays(30).toEpochDay(),
-                endEpochDay = asOf.toEpochDay()
+                endEpochDay = asOf.toEpochDay(),
+                leadDay = 1
             )
         } returns flowOf(emptyList())
         val repository = repository(dao)
@@ -60,6 +62,45 @@ class BiasSampleRepositoryImplTest {
             asOf = asOf,
             windowDays = 30
         ).first()
+    }
+
+
+    @Test
+    fun `migrated lead one keeps only capture truly issued one civil day before target`() = runTest {
+        val dao = mockk<BiasSampleDao>()
+        val target = LocalDate.of(2026, 8, 20)
+        val goodIssuedAt = Instant.parse("2026-08-18T22:00:00Z") // 20/08 - 1 jour à Paris = 19/08 local
+        val wrongIssuedAt = Instant.parse("2026-08-17T22:00:00Z")
+        every {
+            dao.observeJoinedSamples(
+                cityId = any(),
+                modelKey = any(),
+                variable = any(),
+                startEpochDay = any(),
+                endEpochDay = any(),
+                leadDay = 1
+            )
+        } returns flowOf(
+            listOf(
+                BiasSampleRow(target.toEpochDay(), 20.0, 19.0, wrongIssuedAt.toEpochMilli(), 1),
+                BiasSampleRow(target.toEpochDay(), 21.0, 19.0, goodIssuedAt.toEpochMilli(), 1)
+            )
+        )
+        val repository = repository(dao)
+
+        val samples = repository.observeSamples(
+            cityId = "paris",
+            model = WeatherModel.GFS,
+            variable = BiasVariable.TEMPERATURE,
+            asOf = target.plusDays(1),
+            timezone = "Europe/Paris",
+            windowDays = 30,
+            leadDay = 1
+        ).first()
+
+        assertEquals(1, samples.size)
+        assertEquals(21.0, samples.single().forecast, 0.0)
+        assertEquals(goodIssuedAt, samples.single().issuedAt)
     }
 
     @Test

@@ -39,7 +39,7 @@ class ForecastEngineIntegrationTest {
     @Test
     fun `selected engine changes central value but never raw convergence or spread`() {
         val date = LocalDate.of(2026, 8, 24)
-        val forecast = dailyForecast(listOf(date))
+        val forecast = dailyForecast(listOf(date), fetchedAt = Instant.parse("2026-08-23T05:00:00Z"))
         val calibration = forecast.seriesByModel.keys.associateWith { profile(bias = 4.0) }
         val multi = calculator.dayConfidence(
             forecast,
@@ -78,6 +78,53 @@ class ForecastEngineIntegrationTest {
         assertEquals(multiTempMax.minValue, calibratedTempMax.minValue, 1e-9)
         assertEquals(multiTempMax.maxValue, calibratedTempMax.maxValue, 1e-9)
         assertEquals(multiTempMax.stdDev, calibratedTempMax.stdDev, 1e-9)
+    }
+
+
+    @Test
+    fun `j plus one calibration is never reused at j plus three and exact horizon profile is used`() {
+        val date = LocalDate.of(2026, 8, 26)
+        val forecast = dailyForecast(
+            dates = listOf(date),
+            fetchedAt = Instant.parse("2026-08-23T05:00:00Z")
+        )
+        val models = forecast.seriesByModel.keys
+        val j1 = models.associateWith { profile(bias = 20.0).copy(leadDay = 1) }
+        val j3 = models.associateWith { profile(bias = 4.0).copy(leadDay = 3) }
+
+        val multi = calculator.dayConfidence(
+            forecast,
+            date,
+            ForecastEngineContext(engine = ForecastEngine.MULTI_CONSENSUS)
+        )
+        val onlyJ1 = calculator.dayConfidence(
+            forecast,
+            date,
+            ForecastEngineContext(
+                engine = ForecastEngine.CALIBRATION,
+                calibrationByVariable = mapOf(ForecastEngineVariable.TEMPERATURE to j1),
+                calibrationByLeadDay = mapOf(
+                    ForecastEngineVariable.TEMPERATURE to mapOf(1 to j1)
+                )
+            )
+        )
+        val exactJ3 = calculator.dayConfidence(
+            forecast,
+            date,
+            ForecastEngineContext(
+                engine = ForecastEngine.CALIBRATION,
+                calibrationByVariable = mapOf(ForecastEngineVariable.TEMPERATURE to j1),
+                calibrationByLeadDay = mapOf(
+                    ForecastEngineVariable.TEMPERATURE to mapOf(
+                        1 to j1,
+                        3 to j3
+                    )
+                )
+            )
+        )
+
+        assertEquals(requireNotNull(multi.tempMax).meanValue, requireNotNull(onlyJ1.tempMax).meanValue, 1e-9)
+        assertNotEquals(requireNotNull(multi.tempMax).meanValue, requireNotNull(exactJ3.tempMax).meanValue, 1e-6)
     }
 
     @Test
@@ -254,7 +301,10 @@ class ForecastEngineIntegrationTest {
         assertEquals(com.meteocompare.app.domain.model.WeatherCondition.MAINLY_CLEAR, condition)
     }
 
-    private fun dailyForecast(dates: List<LocalDate>): CityForecast {
+    private fun dailyForecast(
+        dates: List<LocalDate>,
+        fetchedAt: Instant? = null
+    ): CityForecast {
         val valuesByModel = linkedMapOf(
             WeatherModel.GFS to 20.0,
             WeatherModel.ECMWF to 21.0,
@@ -277,7 +327,8 @@ class ForecastEngineIntegrationTest {
                         windGustsMax = dates.map { 35.0 + (base - 20.0) }
                     )
                 )
-            }
+            },
+            fetchedAt = fetchedAt
         )
     }
 

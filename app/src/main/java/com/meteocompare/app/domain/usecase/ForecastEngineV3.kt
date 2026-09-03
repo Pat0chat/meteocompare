@@ -1,5 +1,6 @@
 package com.meteocompare.app.domain.usecase
 
+import com.meteocompare.app.domain.model.ForecastPhysicalLimits
 import com.meteocompare.app.domain.model.ForecastCalibrationProfile
 import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.model.WeatherModel
@@ -22,19 +23,21 @@ object ForecastEngineV3 {
     const val FULL_CALIBRATION_SAMPLES = 30
     const val MIN_CALIBRATION_COVERAGE = 0.34
     const val MIN_CALIBRATED_FAMILIES = 2
+    const val MIN_DOMINANT_SCENARIO_SHARE = 0.55
     private const val EPS = 1e-9
 
     enum class Explanation {
         ROBUST_FAMILY_BALANCED,
         BIAS_CORRECTED_SKILL_WEIGHTED,
         SINGLE_SCENARIO,
+        BALANCED_SCENARIOS,
         DOMINANT_SCENARIO,
         ADAPTIVE_SCENARIO,
         ADAPTIVE_CALIBRATION_BLEND,
         ADAPTIVE_ROBUST_FALLBACK
     }
 
-    enum class FallbackReason { INSUFFICIENT_CALIBRATION, SINGLE_SCENARIO }
+    enum class FallbackReason { INSUFFICIENT_CALIBRATION, SINGLE_SCENARIO, NO_DOMINANT_SCENARIO }
 
     data class Interval(val low: Double?, val high: Double?)
     data class Scenario(val share: Double, val central: Double?, val low: Double?, val high: Double?)
@@ -124,8 +127,13 @@ object ForecastEngineV3 {
         }
 
     fun precipitation(rows: List<ForecastConsensus.PrecipitationRow>, options: PrecipitationOptions = PrecipitationOptions()): PrecipitationResult {
-        val usable = rows.filter { row ->
-            row.amountMm?.isFinite() == true || row.probabilityPercent?.let { it in 0..100 } == true
+        val usable = rows.map { row ->
+            row.copy(
+                amountMm = ForecastPhysicalLimits.precipitation(row.amountMm),
+                probabilityPercent = ForecastPhysicalLimits.percentage(row.probabilityPercent)
+            )
+        }.filter { row ->
+            row.amountMm != null || row.probabilityPercent != null
         }
         if (usable.isEmpty()) return PrecipitationResult(
             engine = options.engine, effectiveEngine = options.engine, probabilityPercent = null,
@@ -158,15 +166,35 @@ object ForecastEngineV3 {
         }
         val probability = if (totalWeight > 0.0) probabilitySum / totalWeight else null
         val wetRows = usable.filter { (it.amountMm ?: Double.NEGATIVE_INFINITY) > options.threshold }
+        // La quantité conditionnelle utilise exclusivement la calibration sur
+        // les hits pluie (prévu humide ET observé humide). Le biais quotidien
+        // générique n'est jamais appliqué aux millimètres conditionnels.
+        val amountCalibration = options.calibration.mapNotNull { (model, profile) ->
+            val bias = profile.wetHitBias?.takeIf(Double::isFinite) ?: return@mapNotNull null
+            val score = profile.wetHitScore ?: return@mapNotNull null
+            val stdDev = profile.wetHitStandardDeviation
+                ?.takeIf { it.isFinite() && it >= 0.0 } ?: return@mapNotNull null
+            val mae = profile.wetHitMeanAbsoluteError?.takeIf(Double::isFinite) ?: return@mapNotNull null
+            if (profile.wetHitSampleSize < MIN_CALIBRATION_SAMPLES) return@mapNotNull null
+            model to ForecastCalibrationProfile(
+                bias = bias,
+                score = score,
+                standardDeviation = stdDev,
+                meanAbsoluteError = mae,
+                sampleSize = profile.wetHitSampleSize,
+                leadDay = profile.leadDay
+            )
+        }.toMap()
         val amountResult = continuous(
             wetRows.mapNotNull { row -> row.amountMm?.takeIf(Double::isFinite)?.let { ForecastConsensus.Entry(row.model, it) } },
             ContinuousOptions(
                 engine = options.engine,
                 localWeights = options.localWeights,
-                calibration = options.calibration,
+                calibration = amountCalibration,
                 tight = options.amountTight,
                 wide = options.amountWide,
-                min = 0.0
+                // Une valeur classée humide ne doit jamais être calibrée à 0 mm.
+                min = options.threshold
             )
         )
         val conditional = amountResult.central
@@ -190,7 +218,7 @@ object ForecastEngineV3 {
             engine = options.engine,
             effectiveEngine = amountResult.effectiveEngine,
             probabilityPercent = probability?.let { (it * 100).roundToInt().coerceIn(0, 100) },
-            conditionalAmountMm = conditional ?: if (wetRows.isNotEmpty()) 0.0 else null,
+            conditionalAmountMm = conditional,
             centralAmountMm = centralAmount,
             expectedAmountMm = expectedAmount,
             modelCount = usable.size,
@@ -244,11 +272,12 @@ object ForecastEngineV3 {
             val profile = options.calibration[row.model]?.takeIf { it.bias.isFinite() && it.sampleSize >= MIN_CALIBRATION_SAMPLES }
                 ?: return@map row
             val strength = calibrationStrength(profile)
-            val score = (profile.score.takeUnless { it == 0 } ?: 50).coerceIn(0, 100).toDouble()
+            val score = profile.score.coerceIn(0, 100).toDouble()
             val skill = 0.85 + 0.3 * (score / 100.0)
             val familyWeight = familyWeights[row.model] ?: 0.0
-            val std = profile.standardDeviation.takeIf { it.isFinite() && it != 0.0 }
-            val mae = profile.meanAbsoluteError.takeIf(Double::isFinite)
+            // 0.0 est une vraie dispersion nulle, pas une valeur absente.
+            val std = profile.standardDeviation.takeIf { it.isFinite() && it >= 0.0 }
+            val mae = profile.meanAbsoluteError.takeIf { it.isFinite() && it >= 0.0 }
             val noise = max(0.0, std ?: mae ?: 0.0)
             calibratedIds += row.model
             calibratedMass += familyWeight
@@ -313,6 +342,30 @@ object ForecastEngineV3 {
             Cluster(rows, weight, if (totalWeight > 0) weight / totalWeight else 0.0, central, weightedQuantile(rows, .1), weightedQuantile(rows, .9), stats?.stdDev ?: 0.0)
         }.sortedByDescending { it.weight }
         val dominant = clusters.first()
+        val diagnostics = clusters.map {
+            Scenario(
+                it.share,
+                bound(it.central, options.min, options.max),
+                bound(it.low, options.min, options.max),
+                bound(it.high, options.min, options.max)
+            )
+        }
+        if (dominant.share + EPS < MIN_DOMINANT_SCENARIO_SHARE) {
+            // Partage équilibré : les deux scénarios restent visibles pour le
+            // diagnostic, mais la valeur centrale revient au Multi-consensus.
+            val fallback = multiConsensus(entries, options.copy(engine = ForecastEngine.MULTI_CONSENSUS))
+            return fallback.copy(
+                engine = ForecastEngine.SCENARIOS,
+                effectiveEngine = ForecastEngine.MULTI_CONSENSUS,
+                fallback = true,
+                fallbackReason = FallbackReason.NO_DOMINANT_SCENARIO,
+                scenarioCount = 2,
+                dominantShare = dominant.share,
+                scenarioGap = split.third,
+                scenarios = diagnostics,
+                explanation = Explanation.BALANCED_SCENARIOS
+            )
+        }
         val central = dominant.central ?: base.central
         val interval = spreadInterval(dominant.rows, central, dominant.stdDev)
         return ContinuousResult(
@@ -320,7 +373,7 @@ object ForecastEngineV3 {
             interval = Interval(bound(interval.low, options.min, options.max), bound(interval.high, options.min, options.max)),
             engine = ForecastEngine.SCENARIOS, effectiveEngine = ForecastEngine.SCENARIOS,
             scenarioCount = 2, dominantShare = dominant.share, scenarioGap = split.third,
-            scenarios = clusters.map { Scenario(it.share, bound(it.central, options.min, options.max), bound(it.low, options.min, options.max), bound(it.high, options.min, options.max)) },
+            scenarios = diagnostics,
             explanation = Explanation.DOMINANT_SCENARIO,
             modelCount = balanced.modelCount, familyCount = balanced.familyCount,
             engineConvergencePercent = (dominant.share * 100).roundToInt().coerceIn(0, 100)
@@ -333,7 +386,8 @@ object ForecastEngineV3 {
         val scenarios = scenarioConsensus(entries, options.copy(engine = ForecastEngine.SCENARIOS))
         val scenarioGap = scenarios.scenarioGap
         val strongScenario = scenarios.scenarioCount > 1 &&
-            (scenarios.dominantShare ?: 0.0) >= 0.52 && (scenarios.dominantShare ?: 1.0) <= 0.82 &&
+            scenarios.effectiveEngine == ForecastEngine.SCENARIOS &&
+            (scenarios.dominantShare ?: 0.0) >= MIN_DOMINANT_SCENARIO_SHARE && (scenarios.dominantShare ?: 1.0) <= 0.82 &&
             scenarioGap?.isFinite() == true &&
             scenarioGap >= max(options.tight * 1.1, (multi.stats?.stdDev ?: 0.0) * 0.5)
         val components = mapOf(
@@ -389,7 +443,7 @@ object ForecastEngineV3 {
             val n = max(1, profile.sampleSize)
             val observed = profile.observedWetDays.toDouble() / n
             val forecast = profile.forecastWetDays.toDouble() / n
-            val score = profile.score.takeUnless { it == 0 } ?: 50
+            val score = profile.score.coerceIn(0, 100)
             val quality = clamp(score / 100.0, 0.25, 1.0)
             val strength = calibrationStrength(profile)
             val familyWeight = balance[model] ?: 0.0

@@ -27,7 +27,7 @@ import java.util.concurrent.TimeUnit
  * Rafraîchissement quotidien des données de suivi de biais.
  *
  * Tous les cycles utilisent la même source à échéance fixe :
- *   1. **Prévisions J+1** — le cycle quotidien recharge un delta de 3 jours
+ *   1. **Prévisions J+1…J+7** — le cycle quotidien recharge un delta de 3 jours
  *      depuis Previous Runs ; le cycle manuel initialise jusqu'à 21 jours.
  *      Les scores ne mélangent donc jamais des horizons dépendant de l'heure
  *      d'ouverture de l'application.
@@ -275,7 +275,7 @@ internal class BiasRefreshWorker(
         // Une action explicite de l'utilisateur ne doit jamais être bloquée par
         // le timestamp d'un cycle automatique : le cycle précédent a pu ne faire
         // que du housekeeping, alors que le bouton doit initialiser l'historique
-        // J+1 via Previous Runs. ExistingWorkPolicy.KEEP déduplique déjà les taps
+        // J+1…J+7 via Previous Runs. ExistingWorkPolicy.KEEP déduplique déjà les taps
         // tant que le travail manuel est en attente ou actif.
         if (!isManual) {
             val minIntervalMs = if (isKickoff) {
@@ -339,7 +339,7 @@ internal class BiasRefreshWorker(
             return@withLock Result.failure()
         }
 
-        // Tous les cycles rechargent des prévisions Previous Runs J+1 avant
+        // Tous les cycles rechargent des prévisions Previous Runs J+1…J+7 avant
         // leurs références. Le manuel prend 21 jours ; le quotidien se limite
         // à 3 jours pour rester idempotent et peu coûteux.
         val citySuccesses = withTimeoutOrNull(BiasRefreshScheduler.WORK_BUDGET_MS) {
@@ -359,7 +359,7 @@ internal class BiasRefreshWorker(
                             )
                         }
                         if (bootstrap != null && !bootstrap.hasUsableData) {
-                            error("Previous Runs returned no usable J+1 sample for city=${city.id}")
+                            error("Previous Runs returned no usable J+1…J+7 sample for city=${city.id}")
                         }
                         val referenceDays = fetchObs(city)
                         if (BuildConfig.DEBUG) {

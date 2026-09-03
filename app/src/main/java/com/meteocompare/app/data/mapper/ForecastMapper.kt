@@ -8,6 +8,7 @@ import com.meteocompare.app.data.remote.dto.GeocodingResultDto
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.DailyForecast
 import com.meteocompare.app.domain.model.ForecastSeries
+import com.meteocompare.app.domain.model.ForecastPhysicalLimits
 import com.meteocompare.app.domain.model.HourlyForecast
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.util.FranceDepartmentResolver
@@ -36,14 +37,14 @@ class ForecastMapper @Inject constructor() {
             HourlyForecast(
                 // On filtre les timestamps null tout en gardant l'alignement avec les valeurs
                 timestamps = times.filterNotNull(),
-                temperature2m = alignNonNullTimes(times, h.temperature2m).finite(),
-                precipitation = alignNonNullTimes(times, h.precipitation).nonNegative(),
-                windSpeed10m = alignNonNullTimes(times, h.windSpeed10m).nonNegative(),
-                weatherCode = alignNonNullTimesInt(times, h.weatherCode),
-                windDirection10m = alignNonNullTimesInt(times, h.windDirection10m).directions(),
-                precipitationProbability = alignNonNullTimesInt(times, h.precipitationProbability).percentages(),
-                cloudCover = alignNonNullTimesInt(times, h.cloudCover).percentages(),
-                windGusts10m = alignNonNullTimes(times, h.windGusts10m).nonNegative()
+                temperature2m = alignNonNullTimes(times, h.temperature2m).map(ForecastPhysicalLimits::temperature),
+                precipitation = alignNonNullTimes(times, h.precipitation).map(ForecastPhysicalLimits::precipitation),
+                windSpeed10m = alignNonNullTimes(times, h.windSpeed10m).map(ForecastPhysicalLimits::wind),
+                weatherCode = alignNonNullTimesInt(times, h.weatherCode).map(ForecastPhysicalLimits::weatherCode),
+                windDirection10m = alignNonNullTimesInt(times, h.windDirection10m).map(ForecastPhysicalLimits::direction),
+                precipitationProbability = alignNonNullTimesInt(times, h.precipitationProbability).map(ForecastPhysicalLimits::percentage),
+                cloudCover = alignNonNullTimesInt(times, h.cloudCover).map(ForecastPhysicalLimits::percentage),
+                windGusts10m = alignNonNullTimes(times, h.windGusts10m).map(ForecastPhysicalLimits::gust)
             )
         } ?: HourlyForecast(
             timestamps = emptyList(),
@@ -59,16 +60,24 @@ class ForecastMapper @Inject constructor() {
 
         val daily = dto.daily?.let { d ->
             val dates = d.time.map { parseOpenMeteoDate(it) }
+            val alignedMax = alignNonNullDates(dates, d.temperature2mMax)
+            val alignedMin = alignNonNullDates(dates, d.temperature2mMin)
+            val safePairs = alignedMax.indices.map { index ->
+                ForecastPhysicalLimits.dailyTemperaturePair(
+                    max = alignedMax.getOrNull(index),
+                    min = alignedMin.getOrNull(index)
+                )
+            }
             DailyForecast(
                 dates = dates.filterNotNull(),
-                tempMax = alignNonNullDates(dates, d.temperature2mMax).finite(),
-                tempMin = alignNonNullDates(dates, d.temperature2mMin).finite(),
-                precipitationSum = alignNonNullDates(dates, d.precipitationSum).nonNegative(),
-                windSpeedMax = alignNonNullDates(dates, d.windSpeed10mMax).nonNegative(),
-                weatherCode = alignNonNullDatesInt(dates, d.weatherCode),
-                windDirection10mDominant = alignNonNullDatesInt(dates, d.windDirection10mDominant).directions(),
-                precipitationProbabilityMax = alignNonNullDatesInt(dates, d.precipitationProbabilityMax).percentages(),
-                windGustsMax = alignNonNullDates(dates, d.windGusts10mMax).nonNegative(),
+                tempMax = safePairs.map { it.first },
+                tempMin = safePairs.map { it.second },
+                precipitationSum = alignNonNullDates(dates, d.precipitationSum).map(ForecastPhysicalLimits::precipitation),
+                windSpeedMax = alignNonNullDates(dates, d.windSpeed10mMax).map(ForecastPhysicalLimits::wind),
+                weatherCode = alignNonNullDatesInt(dates, d.weatherCode).map(ForecastPhysicalLimits::weatherCode),
+                windDirection10mDominant = alignNonNullDatesInt(dates, d.windDirection10mDominant).map(ForecastPhysicalLimits::direction),
+                precipitationProbabilityMax = alignNonNullDatesInt(dates, d.precipitationProbabilityMax).map(ForecastPhysicalLimits::percentage),
+                windGustsMax = alignNonNullDates(dates, d.windGusts10mMax).map(ForecastPhysicalLimits::gust),
                 sunrise = alignNonNullDatesInstants(dates, d.sunrise, tz),
                 sunset = alignNonNullDatesInstants(dates, d.sunset, tz)
             )
@@ -146,18 +155,6 @@ class ForecastMapper @Inject constructor() {
             .map { index -> values.getOrNull(index) }
     }
 
-    /** Valeurs non finies / physiques impossibles rejetées plutôt que propagées jusqu'à l'UI. */
-    private fun List<Double?>.finite(): List<Double?> =
-        map { value -> value?.takeIf(Double::isFinite) }
-
-    private fun List<Double?>.nonNegative(): List<Double?> =
-        map { value -> value?.takeIf { it.isFinite() && it >= 0.0 } }
-
-    private fun List<Int?>.percentages(): List<Int?> =
-        map { value -> value?.takeIf { it in 0..100 } }
-
-    private fun List<Int?>.directions(): List<Int?> =
-        map { value -> value?.takeIf { it in 0..360 } }
 
     private fun alignNonNullDatesInstants(
         dates: List<LocalDate?>,

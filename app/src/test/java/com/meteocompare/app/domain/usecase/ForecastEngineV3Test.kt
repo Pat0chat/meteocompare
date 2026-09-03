@@ -279,4 +279,118 @@ class ForecastEngineV3Test {
         assertEquals(ForecastEngine.MULTI_CONSENSUS, ForecastEngine.fromString(null))
         assertNotEquals(ForecastEngine.CALIBRATION, ForecastEngine.fromString("calibration"))
     }
+    @Test
+    fun `scenario fifty fifty keeps both scenarios but central falls back to multi consensus`() {
+        val entries = listOf(
+            ForecastConsensus.Entry(WeatherModel.GFS, 10.0),
+            ForecastConsensus.Entry(WeatherModel.ECMWF, 10.2),
+            ForecastConsensus.Entry(WeatherModel.ARPEGE_EUROPE, 20.0),
+            ForecastConsensus.Entry(WeatherModel.UKMO_GLOBAL, 20.2)
+        )
+        val multi = ForecastEngineV3.continuous(entries)
+        val result = ForecastEngineV3.continuous(
+            entries,
+            ForecastEngineV3.ContinuousOptions(engine = ForecastEngine.SCENARIOS)
+        )
+
+        assertTrue(result.fallback)
+        assertEquals(ForecastEngineV3.FallbackReason.NO_DOMINANT_SCENARIO, result.fallbackReason)
+        assertEquals(ForecastEngine.MULTI_CONSENSUS, result.effectiveEngine)
+        assertEquals(2, result.scenarioCount)
+        assertEquals(2, result.scenarios.size)
+        assertEquals(0.5, requireNotNull(result.dominantShare), 1e-9)
+        assertEquals(requireNotNull(multi.central), requireNotNull(result.central), 1e-9)
+    }
+
+    @Test
+    fun `zero score remains a real zero in calibration metadata`() {
+        val calibration = closeEntries.associate { row ->
+            row.model to profile(bias = 1.0, score = 0, samples = 30)
+        }
+        val result = ForecastEngineV3.continuous(
+            closeEntries,
+            ForecastEngineV3.ContinuousOptions(
+                engine = ForecastEngine.CALIBRATION,
+                calibration = calibration
+            )
+        )
+
+        assertFalse(result.fallback)
+        assertEquals(0.0, requireNotNull(result.historicalScore), 1e-9)
+    }
+
+    @Test
+    fun `zero standard deviation is not replaced by mae`() {
+        val calibration = closeEntries.associate { row ->
+            row.model to profile(bias = 0.0, score = 80, samples = 30, stdDev = 0.0, mae = 100.0)
+        }
+        val result = ForecastEngineV3.continuous(
+            closeEntries,
+            ForecastEngineV3.ContinuousOptions(
+                engine = ForecastEngine.CALIBRATION,
+                calibration = calibration
+            )
+        )
+
+        val width = requireNotNull(result.interval.high) - requireNotNull(result.interval.low)
+        assertTrue("stdDev=0 must not inflate interval with MAE fallback", width < 10.0)
+    }
+
+    @Test
+    fun `precipitation amount ignores generic daily bias and uses wet hits only`() {
+        val rows = listOf(
+            ForecastConsensus.PrecipitationRow(WeatherModel.GFS, amountMm = 5.0, probabilityPercent = 80),
+            ForecastConsensus.PrecipitationRow(WeatherModel.ECMWF, amountMm = 5.0, probabilityPercent = 80)
+        )
+        val genericOnly = mapOf(
+            WeatherModel.GFS to profile(bias = 100.0, samples = 30),
+            WeatherModel.ECMWF to profile(bias = 100.0, samples = 30)
+        )
+        val result = ForecastEngineV3.precipitation(
+            rows,
+            ForecastEngineV3.PrecipitationOptions(
+                engine = ForecastEngine.CALIBRATION,
+                threshold = 0.1,
+                calibration = genericOnly
+            )
+        )
+
+        assertEquals(5.0, requireNotNull(result.conditionalAmountMm), 1e-9)
+    }
+
+    @Test
+    fun `wet hit calibration cannot reduce a wet amount to zero`() {
+        fun wetProfile() = ForecastCalibrationProfile(
+            bias = 0.0,
+            score = 80,
+            standardDeviation = 1.0,
+            meanAbsoluteError = 1.0,
+            sampleSize = 30,
+            observedWetDays = 20,
+            forecastWetDays = 20,
+            wetHitBias = 100.0,
+            wetHitScore = 80,
+            wetHitStandardDeviation = 1.0,
+            wetHitMeanAbsoluteError = 1.0,
+            wetHitSampleSize = 30
+        )
+        val result = ForecastEngineV3.precipitation(
+            listOf(
+                ForecastConsensus.PrecipitationRow(WeatherModel.GFS, amountMm = 1.0, probabilityPercent = 90),
+                ForecastConsensus.PrecipitationRow(WeatherModel.ECMWF, amountMm = 1.2, probabilityPercent = 90)
+            ),
+            ForecastEngineV3.PrecipitationOptions(
+                engine = ForecastEngine.CALIBRATION,
+                threshold = 0.1,
+                calibration = mapOf(
+                    WeatherModel.GFS to wetProfile(),
+                    WeatherModel.ECMWF to wetProfile()
+                )
+            )
+        )
+
+        assertTrue(requireNotNull(result.conditionalAmountMm) >= 0.1)
+        assertTrue(requireNotNull(result.centralAmountMm) >= 0.1)
+    }
+
 }

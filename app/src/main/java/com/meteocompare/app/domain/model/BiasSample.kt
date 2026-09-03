@@ -35,7 +35,9 @@ data class BiasSample(
     val targetDate: LocalDate,
     val forecast: Double,
     val observation: Double,
-    val issuedAt: Instant? = null
+    val issuedAt: Instant? = null,
+    /** Échéance de la prévision historique. Anciennes données = J+1. */
+    val leadDay: Int = 1
 ) {
     /** Biais journalier signé : positif = le modèle a surestimé. */
     val dailyBias: Double get() = forecast - observation

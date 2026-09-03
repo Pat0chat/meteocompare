@@ -300,7 +300,8 @@ class FakeBiasSampleRepository @Inject constructor() : BiasSampleRepository {
         variable: BiasVariable,
         asOf: LocalDate,
         timezone: String?,
-        windowDays: Int
+        windowDays: Int,
+        leadDay: Int
     ): Flow<List<BiasSample>> = flowOf(emptyList())
 
     override suspend fun recordForecast(
@@ -309,7 +310,8 @@ class FakeBiasSampleRepository @Inject constructor() : BiasSampleRepository {
         variable: BiasVariable,
         targetDate: LocalDate,
         issuedAt: Instant,
-        value: Double
+        value: Double,
+        leadDay: Int
     ) = Unit
 
     override suspend fun recordObservation(

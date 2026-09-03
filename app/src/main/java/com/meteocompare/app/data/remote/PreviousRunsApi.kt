@@ -5,13 +5,12 @@ import retrofit2.http.GET
 import retrofit2.http.Query
 
 /**
- * Prévisions archivées à échéance fixe via l'API Open-Meteo Previous Runs.
+ * Prévisions archivées par échéance via l'API Open-Meteo Previous Runs.
  *
- * `_previous_day1` représente la valeur prévue 24 heures avant l'heure de
- * validité, `_previous_day2` 48 h avant et `_previous_day3` 72 h avant.
- * Ces séries servent au suivi de biais J+1 à échéance fixe. La carte
- * « Évolution de la prévision » n'utilise volontairement pas cette API : elle
- * s'appuie sur les snapshots locaux enregistrés lors des refreshs de MeteoCompare.
+ * `_previous_day1` représente la valeur prévue 24 h avant l'heure de validité,
+ * … jusqu'à `_previous_day7`. Toutes les échéances sont demandées ensemble :
+ * chaque modèle ne contribuera ensuite qu'aux leads réellement présents dans
+ * sa réponse.
  */
 interface PreviousRunsApi {
 
@@ -20,7 +19,7 @@ interface PreviousRunsApi {
         @Query("latitude") latitude: Double,
         @Query("longitude") longitude: Double,
         @Query("models") models: String,
-        @Query("hourly") hourly: String = DAY_ONE_HOURLY_VARS,
+        @Query("hourly") hourly: String = ALL_LEAD_HOURLY_VARS,
         @Query("timezone") timezone: String,
         @Query("start_date") startDate: String,
         @Query("end_date") endDate: String,
@@ -30,10 +29,20 @@ interface PreviousRunsApi {
     ): PreviousRunsResponseDto
 
     companion object {
-        const val DAY_ONE_HOURLY_VARS =
-            "temperature_2m_previous_day1," +
-                "precipitation_previous_day1," +
-                "wind_speed_10m_previous_day1"
+        const val MIN_LEAD_DAY = 1
+        const val MAX_LEAD_DAY = 7
 
+        val ALL_LEAD_HOURLY_VARS: String = (MIN_LEAD_DAY..MAX_LEAD_DAY)
+            .flatMap { lead ->
+                listOf(
+                    "temperature_2m_previous_day$lead",
+                    "precipitation_previous_day$lead",
+                    "wind_speed_10m_previous_day$lead"
+                )
+            }
+            .joinToString(",")
+
+        /** Alias conservé pour les tests/consommateurs historiques. */
+        val DAY_ONE_HOURLY_VARS: String = ALL_LEAD_HOURLY_VARS
     }
 }
