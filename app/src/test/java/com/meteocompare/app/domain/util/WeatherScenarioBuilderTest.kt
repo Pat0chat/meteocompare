@@ -56,6 +56,31 @@ class WeatherScenarioBuilderTest {
     }
 
     @Test
+    fun `une echeance voisine ne remplace pas une heure manquante dans un scenario`() {
+        val timestamps = (0L..11L)
+            .filterNot { it == 4L }
+            .map { now.plusSeconds(it * 3_600L) }
+        val hourly = HourlyForecast(
+            timestamps = timestamps,
+            temperature2m = List(timestamps.size) { 15.0 },
+            precipitation = List(timestamps.size) { 1.0 },
+            windSpeed10m = List(timestamps.size) { 15.0 },
+            weatherCode = List(timestamps.size) { 61 },
+            precipitationProbability = List(timestamps.size) { 80 },
+            cloudCover = List(timestamps.size) { 90 },
+            windGusts10m = List(timestamps.size) { 30.0 }
+        )
+        val forecast = forecastOf(WeatherModel.GFS to hourly)
+
+        val scenario = WeatherScenarioBuilder.next12h(forecast, now).single()
+
+        // Le cumul 12 h reste inconnu : l'heure 04:00 absente n'est pas
+        // remplacée silencieusement par 03:00 ou 05:00.
+        assertEquals(null, scenario.precipitationMinMm)
+        assertEquals(null, scenario.precipitationMaxMm)
+    }
+
+    @Test
     fun `un épisode pluvieux réparti sur presque toute la fenêtre est persistant`() {
         val forecast = forecastOf(
             WeatherModel.GFS to hourly(

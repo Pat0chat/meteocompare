@@ -13,6 +13,7 @@ import com.meteocompare.app.domain.model.PrecipitationThresholds
 import com.meteocompare.app.domain.model.PrecipitationConsensusMeta
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
+import com.meteocompare.app.domain.util.HourlySampling
 import com.meteocompare.app.domain.util.dailyCloudCoverMean
 import com.meteocompare.app.domain.util.resolveDailyCondition
 import java.time.Instant
@@ -129,11 +130,11 @@ class ConfidenceCalculator @Inject constructor(
 
     /**
      * Température "maintenant" — médiane pondérée consensus robuste de la valeur
-     * horaire la plus proche de l'instant courant.
+     * horaire de l'échéance courante exacte.
      *
-     * Open-Meteo retourne typiquement les heures depuis 00:00 du jour. À 14:30,
-     * l'heure 14:00 est dans le passé (1h) et 15:00 dans le futur (30min) — on
-     * prend la plus proche en valeur absolue.
+     * Le timestamp cible est l'échéance horaire affichée. Si un modèle ne
+     * fournit pas cette échéance exacte, il n'est pas remplacé par l'heure
+     * précédente ou suivante : il est exclu de ce consensus.
      *
      * La stratégie de production donne le même poids à chaque modèle. Une
      * pondération différente ne serait justifiée qu'avec un backtest par zone,
@@ -147,8 +148,9 @@ class ConfidenceCalculator @Inject constructor(
         now: Instant = Instant.now(),
         engineContext: ForecastEngineContext = ForecastEngineContext.DEFAULT
     ): Double? {
+        val target = HourlySampling.anchor(forecast, now)
         val samples = forecast.seriesByModel.mapNotNull { (model, series) ->
-            val idx = nearestCurrentIndex(series, now) ?: return@mapNotNull null
+            val idx = exactCurrentIndex(series, target) ?: return@mapNotNull null
             val temp = series.hourly.temperature2m.getOrNull(idx) ?: return@mapNotNull null
             model to temp
         }
@@ -183,8 +185,9 @@ class ConfidenceCalculator @Inject constructor(
         val cloudSamples = mutableListOf<Pair<WeatherModel, Double>>()
         val supportModels = linkedSetOf<WeatherModel>()
 
+        val target = HourlySampling.anchor(forecast, now)
         forecast.seriesByModel.forEach { (model, series) ->
-            val idx = nearestCurrentIndex(series, now) ?: return@forEach
+            val idx = exactCurrentIndex(series, target) ?: return@forEach
             WeatherCondition.fromWmoCode(series.hourly.weatherCode.getOrNull(idx))
                 ?.takeUnless { it == WeatherCondition.UNKNOWN }
                 ?.let {
@@ -293,8 +296,9 @@ class ConfidenceCalculator @Inject constructor(
         now: Instant = Instant.now(),
         engineContext: ForecastEngineContext = ForecastEngineContext.DEFAULT
     ): Double? {
+        val target = HourlySampling.anchor(forecast, now)
         val samples = forecast.seriesByModel.mapNotNull { (model, series) ->
-            val idx = nearestCurrentIndex(series, now) ?: return@mapNotNull null
+            val idx = exactCurrentIndex(series, target) ?: return@mapNotNull null
             val wind = series.hourly.windSpeed10m.getOrNull(idx) ?: return@mapNotNull null
             model to wind
         }
@@ -312,7 +316,7 @@ class ConfidenceCalculator @Inject constructor(
      * Helper : centrale consensus robuste d'une valeur horaire à l'instant courant.
      *
      * Factorise la logique commune à [currentTemperature] et [currentCloudCover] :
-     *   1. Trouver l'index horaire le plus proche de "maintenant" pour chaque modèle
+     *   1. Trouver l'index de l'échéance horaire exacte pour chaque modèle
      *   2. Extraire la valeur via [extractor]
      *   3. Équilibrer les lignées et calculer la médiane pondérée
      *
@@ -326,8 +330,9 @@ class ConfidenceCalculator @Inject constructor(
         engineContext: ForecastEngineContext,
         extractor: (ForecastSeries, Int) -> Int?
     ): Int? {
+        val target = HourlySampling.anchor(forecast, now)
         val samples = forecast.seriesByModel.mapNotNull { (model, series) ->
-            val idx = nearestCurrentIndex(series, now) ?: return@mapNotNull null
+            val idx = exactCurrentIndex(series, target) ?: return@mapNotNull null
             val value = extractor(series, idx) ?: return@mapNotNull null
             model to value.toDouble()
         }
@@ -344,20 +349,11 @@ class ConfidenceCalculator @Inject constructor(
     }
 
     /**
-     * Index horaire le plus proche de [now], uniquement s'il représente encore
-     * réellement l'instant courant. Sans ce garde, un cache vieux de plusieurs
-     * jours pouvait afficher sa dernière valeur sous le libellé « Maintenant ».
+     * Index de l'échéance horaire exacte. Aucun fallback vers l'heure voisine :
+     * si un modèle est absent à [target], il est exclu du consensus courant.
      */
-    private fun nearestCurrentIndex(series: ForecastSeries, now: Instant): Int? {
-        if (series.hourly.timestamps.isEmpty()) return null
-        val index = series.hourly.timestamps.indices.minBy { i ->
-            kotlin.math.abs(series.hourly.timestamps[i].epochSecond - now.epochSecond)
-        }
-        val distanceSeconds = kotlin.math.abs(
-            series.hourly.timestamps[index].epochSecond - now.epochSecond
-        )
-        return index.takeIf { distanceSeconds <= MAX_CURRENT_SAMPLE_DISTANCE_SECONDS }
-    }
+    private fun exactCurrentIndex(series: ForecastSeries, target: Instant): Int? =
+        with(HourlySampling) { series.hourly.timestamps.exactIndex(target) }
 
 
     /**
@@ -761,7 +757,6 @@ class ConfidenceCalculator @Inject constructor(
 
     private companion object {
         /** Une grille horaire fraîche doit rester à moins de 90 minutes de maintenant. */
-        const val MAX_CURRENT_SAMPLE_DISTANCE_SECONDS: Long = 90L * 60L
     }
 }
 

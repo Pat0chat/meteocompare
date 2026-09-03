@@ -656,9 +656,9 @@ class ConfidenceCalculatorTest {
     fun `currentCloudCover - moyenne pondérée simple entre 2 modèles`() {
         // 2 modèles, weights égaux (EqualWeighting) → moyenne arithmétique.
         // 50% + 80% → 65%. Un timestamp calé pile sur "maintenant" pour que
-        // le closest-to-now lookup soit déterministe (pas de dépendance à
+        // l’échéance horaire exacte soit déterministe (pas de dépendance à
         // Instant.now() qui bougerait pendant le test).
-        val now = java.time.Instant.now()
+        val now = java.time.Instant.parse("2026-07-23T10:00:00Z")
 
         val forecast = CityForecast(
             city = paris,
@@ -675,7 +675,7 @@ class ConfidenceCalculatorTest {
     fun `currentCloudCover - retourne null si aucun modèle ne fournit cloud_cover`() {
         // Cache pré-feature ou modèles sans la variable → null, l'UI cachera
         // le badge côté carte plutôt que d'afficher une valeur inventée.
-        val now = java.time.Instant.now()
+        val now = java.time.Instant.parse("2026-07-23T10:00:00Z")
 
         val forecast = CityForecast(
             city = paris,
@@ -693,7 +693,7 @@ class ConfidenceCalculatorTest {
         // Un modèle sans donnée ne DOIT PAS tirer la moyenne vers 0 en étant
         // compté avec cloud=0. Il doit être exclu du calcul — sinon un modèle
         // manquant biaiserait vers un ciel trop dégagé (danger éditorial).
-        val now = java.time.Instant.now()
+        val now = java.time.Instant.parse("2026-07-23T10:00:00Z")
 
         val forecast = CityForecast(
             city = paris,
@@ -713,7 +713,7 @@ class ConfidenceCalculatorTest {
     @Test
     fun `currentWindSpeed - moyenne pondérée simple entre 2 modèles`() {
         // 10 km/h + 20 km/h avec EqualWeighting → 15 km/h.
-        val now = java.time.Instant.now()
+        val now = java.time.Instant.parse("2026-07-23T10:00:00Z")
 
         val forecast = CityForecast(
             city = paris,
@@ -730,7 +730,7 @@ class ConfidenceCalculatorTest {
     fun `currentWindSpeed - retourne null si aucun modèle ne fournit windSpeed10m`() {
         // Cache pré-feature ou modèles sans la variable → null, l'UI cachera
         // le badge côté widget plutôt que d'afficher "0 km/h" trompeur.
-        val now = java.time.Instant.now()
+        val now = java.time.Instant.parse("2026-07-23T10:00:00Z")
 
         val forecast = CityForecast(
             city = paris,
@@ -747,7 +747,7 @@ class ConfidenceCalculatorTest {
     fun `currentWindSpeed - ignore les modèles sans donnée et moyenne les autres`() {
         // Symétrique du test cloud_cover : un modèle sans donnée ne DOIT PAS
         // être compté comme 0 km/h — biaiserait vers un temps trop calme.
-        val now = java.time.Instant.now()
+        val now = java.time.Instant.parse("2026-07-23T10:00:00Z")
 
         val forecast = CityForecast(
             city = paris,
@@ -786,13 +786,35 @@ class ConfidenceCalculatorTest {
     }
 
     @Test
-    fun `current values accept a recent hourly sample`() {
+    fun `current values do not substitute a neighboring hourly sample`() {
         val now = java.time.Instant.parse("2026-07-23T10:00:00Z")
         val forecast = CityForecast(
             city = paris,
             seriesByModel = mapOf(
                 WeatherModel.GFS to hourlyOnlyCurrentSnapshot(
                     timestamp = now.minusSeconds(30 * 60L),
+                    temperature = 18.0,
+                    weatherCode = 61,
+                    cloudCover = 70,
+                    windKmh = 12.0
+                )
+            )
+        )
+
+        assertNull(calculator.currentTemperature(forecast, now))
+        assertNull(calculator.currentWeatherCondition(forecast, now))
+        assertNull(calculator.currentCloudCover(forecast, now))
+        assertNull(calculator.currentWindSpeed(forecast, now))
+    }
+
+    @Test
+    fun `current values accept the exact hourly sample`() {
+        val now = java.time.Instant.parse("2026-07-23T10:00:00Z")
+        val forecast = CityForecast(
+            city = paris,
+            seriesByModel = mapOf(
+                WeatherModel.GFS to hourlyOnlyCurrentSnapshot(
+                    timestamp = now,
                     temperature = 18.0,
                     weatherCode = 61,
                     cloudCover = 70,

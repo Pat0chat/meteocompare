@@ -4,7 +4,6 @@ import com.meteocompare.app.core.util.resolveZoneOrUtc
 import com.meteocompare.app.domain.model.CityForecast
 import java.time.Instant
 import java.time.temporal.ChronoUnit
-import kotlin.math.abs
 
 /**
  * Grille horaire commune aux agrégats Home/widget et aux scénarios.
@@ -15,7 +14,6 @@ import kotlin.math.abs
  * où une valeur 13:00 pouvait être affichée sous un label 12h à 12:56.
  */
 internal object HourlySampling {
-    const val MAX_TIME_DELTA_SECONDS: Long = 30L * 60L
 
     fun anchor(forecast: CityForecast, now: Instant): Instant {
         val zone = resolveZoneOrUtc(forecast.city.timezone)
@@ -29,25 +27,16 @@ internal object HourlySampling {
         return rounded.toInstant()
     }
 
-    fun List<Instant>.nearestIndex(target: Instant): Int? {
+    /**
+     * Retourne uniquement l'échéance exactement demandée.
+     *
+     * Une heure voisine n'est jamais utilisée comme substitut : un modèle sans
+     * valeur au timestamp cible est simplement absent du consensus de ce slot.
+     */
+    fun List<Instant>.exactIndex(target: Instant): Int? {
         if (isEmpty()) return null
-        val result = binarySearch(target)
-        if (result >= 0) return result
-
-        val insertionPoint = -result - 1
-        return when (insertionPoint) {
-            0 -> 0
-            size -> lastIndex
-            else -> {
-                val before = this[insertionPoint - 1]
-                val after = this[insertionPoint]
-                if (target.epochSecond - before.epochSecond <=
-                    after.epochSecond - target.epochSecond
-                ) insertionPoint - 1 else insertionPoint
-            }
-        }
+        val index = indexOf(target)
+        return index.takeIf { it >= 0 }
     }
 
-    fun isCloseEnough(actual: Instant, target: Instant): Boolean =
-        abs(actual.epochSecond - target.epochSecond) <= MAX_TIME_DELTA_SECONDS
 }

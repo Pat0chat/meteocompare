@@ -39,8 +39,9 @@ data class CityCardState(
 sealed interface ForecastState {
     data object Loading : ForecastState
     /**
-     * @param currentTemp centrale du moteur sélectionné à l'heure la plus proche
-     *   de maintenant. Null si aucune donnée horaire dispo.
+     * @param currentTemp centrale du moteur sélectionné à l'échéance horaire
+     *   de référence. Un modèle sans timestamp exact à cette échéance est exclu
+     *   du consensus. Null si aucune donnée horaire exploitable n'est disponible.
      * @param currentCondition famille de temps actuelle (vote selon la
      *   stratégie de pondération configurée). Null si aucun signal exploitable.
      * @param currentCloudCover couverture nuageuse "maintenant" (0-100),

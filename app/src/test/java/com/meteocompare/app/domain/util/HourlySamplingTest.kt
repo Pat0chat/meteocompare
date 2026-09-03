@@ -53,6 +53,25 @@ class HourlySamplingTest {
         assertEquals(Instant.parse("2026-07-15T12:00:00Z"), HourlySampling.anchor(forecast, now))
     }
 
+    @Test
+    fun `exactIndex ne remplace jamais une echeance manquante par une voisine`() {
+        val target = Instant.parse("2026-07-15T12:00:00Z")
+        val timestamps = listOf(
+            target.minusSeconds(3_600L),
+            target.plusSeconds(3_600L)
+        )
+
+        assertEquals(null, with(HourlySampling) { timestamps.exactIndex(target) })
+    }
+
+    @Test
+    fun `exactIndex retourne uniquement le timestamp exact`() {
+        val target = Instant.parse("2026-07-15T12:00:00Z")
+        val timestamps = listOf(target.minusSeconds(3_600L), target, target.plusSeconds(3_600L))
+
+        assertEquals(1, with(HourlySampling) { timestamps.exactIndex(target) })
+    }
+
     private fun forecast(timezone: String) = CityForecast(
         city = City(
             id = "1",

@@ -21,6 +21,7 @@ import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.repository.ForecastRepository
+import com.meteocompare.app.domain.util.ForecastSeriesDiagnostics
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -335,7 +336,9 @@ class ForecastRepositoryImpl @Inject constructor(
                         CachedModelEntry(
                             fetchedAtMs = entry.fetchedAtEpochMs,
                             model = model,
-                            series = mapper.toSeries(model, dto),
+                            series = mapper.toSeries(model, dto).also { series ->
+                                logSeriesDiagnostics(series, source = "cache")
+                            },
                             knownUnavailable = false,
                             timezone = dto.timezone
                         )
@@ -469,7 +472,9 @@ class ForecastRepositoryImpl @Inject constructor(
         val processed = withContext(computationDispatcher) {
             val perModelDtos = BatchedForecastSplitter.split(batched, models)
             val successes = perModelDtos.mapValues { (model, dto) ->
-                mapper.toSeries(model, dto)
+                mapper.toSeries(model, dto).also { series ->
+                    logSeriesDiagnostics(series, source = "network")
+                }
             }
             val cacheEntries = perModelDtos.map { (model, dto) ->
                 ForecastCacheEntity(
@@ -581,6 +586,24 @@ class ForecastRepositoryImpl @Inject constructor(
         val knownUnavailable: Boolean,
         val timezone: String?
     )
+
+    private fun logSeriesDiagnostics(series: ForecastSeries, source: String) {
+        if (!BuildConfig.DEBUG) return
+        val diagnostic = ForecastSeriesDiagnostics.analyze(series)
+        if (!diagnostic.hasLongInternalMissingSequence) return
+        val timestampGaps = diagnostic.timestampGaps
+            .filter { it.missingHours >= ForecastSeriesDiagnostics.LONG_INTERNAL_MISSING_RUN_HOURS }
+            .joinToString { gap -> "${gap.before}->${gap.after}(${gap.missingHours}h)" }
+        val variableRuns = diagnostic.internalMissingRuns
+            .filter { it.lengthHours >= ForecastSeriesDiagnostics.LONG_INTERNAL_MISSING_RUN_HOURS }
+            .joinToString { run -> "${run.variable}:${run.lengthHours}h@${run.startInstant}" }
+        android.util.Log.w(
+            LOG_TAG,
+            "Series gaps source=$source model=${series.model.apiKey} " +
+                "longest=${diagnostic.longestInternalMissingSequenceHours}h " +
+                "timestampGaps=[$timestampGaps] variableRuns=[$variableRuns]"
+        )
+    }
 
     private data class ProcessedForecast(
         val dtos: Map<WeatherModel, ForecastResponseDto>,

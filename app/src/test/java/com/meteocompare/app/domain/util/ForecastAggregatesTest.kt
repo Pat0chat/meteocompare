@@ -56,8 +56,8 @@ class ForecastAggregatesTest {
     }
 
     @Test
-    fun `une valeur éloignée de plus de trente minutes est ignorée`() {
-        val timestamps = listOf(now.plusSeconds(31 * 60L))
+    fun `une heure voisine est ignoree meme si elle est tres proche`() {
+        val timestamps = listOf(now.plusSeconds(60L))
         val forecast = forecastOf(
             WeatherModel.GFS to HourlyForecast(
                 timestamps = timestamps,
@@ -76,6 +76,34 @@ class ForecastAggregatesTest {
         assertNull(result.conditions.first())
     }
 
+
+    @Test
+    fun `un modele sans echeance exacte est exclu sans biaiser le consensus`() {
+        val exact = HourlyForecast(
+            timestamps = listOf(now),
+            temperature2m = listOf(20.0),
+            precipitation = listOf(0.0),
+            windSpeed10m = listOf(null),
+            precipitationProbability = listOf(20)
+        )
+        val neighborOnly = HourlyForecast(
+            timestamps = listOf(now.plusSeconds(3_600L)),
+            temperature2m = listOf(40.0),
+            precipitation = listOf(10.0),
+            windSpeed10m = listOf(null),
+            precipitationProbability = listOf(100)
+        )
+        val forecast = forecastOf(
+            WeatherModel.GFS to exact,
+            WeatherModel.ECMWF to neighborOnly
+        )
+
+        val result = ForecastAggregates.next12h(forecast, now)
+
+        assertEquals(20.0, result.temperatures.first() ?: error("temperature manquante"), 0.001)
+        assertEquals(20, result.precipitationProbabilities.first())
+        assertEquals(0.0, result.precipitationAmountsMm.first() ?: error("pluie manquante"), 0.001)
+    }
 
     @Test
     fun `calcul des conditions reste désactivé pour les consommateurs qui nen ont pas besoin`() {

@@ -48,8 +48,7 @@ internal object ForecastAggregates {
 
             forecast.seriesByModel.forEach { (model, series) ->
                 val timestamps = series.hourly.timestamps
-                val index = with(HourlySampling) { timestamps.nearestIndex(target) } ?: return@forEach
-                if (!HourlySampling.isCloseEnough(timestamps[index], target)) return@forEach
+                val index = with(HourlySampling) { timestamps.exactIndex(target) } ?: return@forEach
 
                 series.hourly.temperature2m.getOrNull(index)?.let {
                     tempRows += ForecastConsensus.Entry(model, it)
