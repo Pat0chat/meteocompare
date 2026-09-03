@@ -65,6 +65,7 @@ object WeatherConditionConsensus {
         temperatureCentralC: Double?,
         precipitationCentralMm: Double?,
         cloudCoverPercent: Double?,
+        cloudCoverFamilyCount: Int = 0,
         supportModels: Collection<WeatherModel>,
         localWeights: Map<WeatherModel, Double> = emptyMap()
     ): AggregateResolution {
@@ -80,10 +81,17 @@ object WeatherConditionConsensus {
         }
 
         if (nativeFamilyCount >= 2) {
-            // Consensus strictement fondé sur les codes WMO natifs. La
-            // nébulosité de modèles sans WMO ne doit pas modifier sa feuille.
+            // Les codes WMO décident d'abord la grande branche (précipitation,
+            // brouillard ou ciel). Si SKY gagne, une nébulosité continue
+            // soutenue par au moins deux familles indépendantes affine la
+            // feuille CLEAR/MAINLY_CLEAR/PARTLY_CLOUDY/OVERCAST. Cela évite
+            // qu'un tie-break catégoriel ou des codes 3 dérivés trop grossiers
+            // transforment un ciel avec éclaircies en « couvert ».
+            val robustSkyCloud = cloudCoverPercent.takeIf {
+                cloudCoverFamilyCount >= 2 && it != null && it.isFinite() && it in 0.0..100.0
+            }
             return AggregateResolution(
-                vote = resolve(native, cloudCoverPercent = null, localWeights = localWeights),
+                vote = resolve(native, cloudCoverPercent = robustSkyCloud, localWeights = localWeights),
                 source = AggregateSource.NATIVE_WMO_CONSENSUS
             )
         }

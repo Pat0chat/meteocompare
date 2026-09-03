@@ -245,6 +245,7 @@ class ConfidenceCalculator @Inject constructor(
             temperatureCentralC = temperatureCentral,
             precipitationCentralMm = precipitationCentral,
             cloudCoverPercent = cloudCentral,
+            cloudCoverFamilyCount = cloudSamples.map { ForecastConsensus.groupFor(it.first) }.distinct().size,
             supportModels = supportModels,
             localWeights = localWeights(nativeConditionEntries.map { it.model })
         ).vote.value

@@ -159,16 +159,16 @@ object BatchedForecastSplitter {
     /**
      * Retourne la nébulosité totale fournie par Open-Meteo lorsqu'elle existe.
      *
-     * AROME France HD expose un jeu natif réduit. En pratique, certaines
-     * réponses peuvent omettre `cloud_cover`/`weather_code` tout en conservant
-     * les couches basse, moyenne et haute. Pour ne pas transformer une journée
-     * sèche en cellule sans condition, on construit alors un indicateur de
-     * nébulosité de secours strictement à partir du MÊME modèle.
+     * AROME France HD expose un jeu natif réduit. Certaines réponses peuvent
+     * omettre `cloud_cover` tout en fournissant les couches basse, moyenne et
+     * haute. Dans ce cas on reconstruit le total avec la même combinaison que
+     * le backend Open-Meteo : low×0,9 + mid×0,6 + high×0,3, bornée à 100 %.
      *
-     * On utilise le maximum des trois couches : ce n'est pas une reconstruction
-     * physique exacte de la couverture totale, mais un proxy conservateur
-     * suffisant pour classer clair / peu nuageux / variable / couvert. Le
-     * consumer marque déjà toute condition issue de ce chemin comme « inférée ».
+     * L'ancien fallback prenait le MAXIMUM des trois couches. Il surévaluait
+     * fortement les voiles de nuages hauts (100 % high pouvait devenir 100 %
+     * total) et pouvait donc fabriquer à tort un état OVERCAST. Si une des
+     * trois couches manque à une échéance, on préfère désormais `null` plutôt
+     * que d'inventer une couverture totale sous-estimée ou surestimée.
      */
     private fun resolveCloudCover(get: VariableGetter): List<Int?>? {
         val total = get.ints(HourlyVar.CLOUD_COVER)
@@ -181,11 +181,16 @@ object BatchedForecastSplitter {
         if (size == 0) return total
 
         return List(size) { index ->
-            listOfNotNull(
-                low?.getOrNull(index),
-                mid?.getOrNull(index),
-                high?.getOrNull(index)
-            ).filter { it in 0..100 }.maxOrNull()
+            val lowValue = low?.getOrNull(index)?.takeIf { it in 0..100 }
+            val midValue = mid?.getOrNull(index)?.takeIf { it in 0..100 }
+            val highValue = high?.getOrNull(index)?.takeIf { it in 0..100 }
+            if (lowValue == null || midValue == null || highValue == null) {
+                null
+            } else {
+                (lowValue * 0.9 + midValue * 0.6 + highValue * 0.3)
+                    .coerceAtMost(100.0)
+                    .roundToInt()
+            }
         }
     }
 

@@ -240,7 +240,51 @@ class BatchedForecastSplitterTest {
             response, listOf(WeatherModel.AROME_FRANCE_HD, WeatherModel.GFS)
         ).getValue(WeatherModel.AROME_FRANCE_HD)
 
-        assertEquals(listOf(40, 70, 30), arome.hourly?.cloudCover)
+        assertEquals(listOf(41, 48, 42), arome.hourly?.cloudCover)
+    }
+
+    @Test
+    fun `AROME HD nuages hauts seuls ne deviennent pas artificiellement couvert`() {
+        val response = json.decodeFromString<BatchedForecastResponseDto>(
+            """{
+              "latitude": 48.85, "longitude": 2.35, "timezone": "Europe/Paris",
+              "hourly": {
+                "time": ["2026-09-02T18:00"],
+                "temperature_2m_meteofrance_arome_france_hd": [24.0],
+                "cloud_cover_low_meteofrance_arome_france_hd": [0],
+                "cloud_cover_mid_meteofrance_arome_france_hd": [0],
+                "cloud_cover_high_meteofrance_arome_france_hd": [100]
+              }
+            }"""
+        )
+
+        val arome = BatchedForecastSplitter.split(
+            response, listOf(WeatherModel.AROME_FRANCE_HD, WeatherModel.GFS)
+        ).getValue(WeatherModel.AROME_FRANCE_HD)
+
+        // Formule Open-Meteo : 0×0.9 + 0×0.6 + 100×0.3 = 30 %.
+        assertEquals(listOf(30), arome.hourly?.cloudCover)
+    }
+
+    @Test
+    fun `AROME HD ne reconstruit pas un total si une couche manque`() {
+        val response = json.decodeFromString<BatchedForecastResponseDto>(
+            """{
+              "latitude": 48.85, "longitude": 2.35, "timezone": "Europe/Paris",
+              "hourly": {
+                "time": ["2026-09-02T18:00"],
+                "temperature_2m_meteofrance_arome_france_hd": [24.0],
+                "cloud_cover_low_meteofrance_arome_france_hd": [20],
+                "cloud_cover_mid_meteofrance_arome_france_hd": [30]
+              }
+            }"""
+        )
+
+        val arome = BatchedForecastSplitter.split(
+            response, listOf(WeatherModel.AROME_FRANCE_HD, WeatherModel.GFS)
+        ).getValue(WeatherModel.AROME_FRANCE_HD)
+
+        assertEquals(listOf<Int?>(null), arome.hourly?.cloudCover)
     }
 
     @Test

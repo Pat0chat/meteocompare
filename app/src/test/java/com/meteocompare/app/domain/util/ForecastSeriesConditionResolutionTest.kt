@@ -82,18 +82,35 @@ class ForecastSeriesConditionResolutionTest {
     }
 
     @Test
-    fun `native daily WMO remains authoritative`() {
+    fun `significant native daily WMO remains authoritative`() {
         val series = series(
-            dailyCode = 0,
-            hourlyCodes = listOf(95),
-            hourlyPrecip = listOf(8.0),
+            dailyCode = 95,
+            hourlyCodes = listOf(2),
+            hourlyPrecip = listOf(0.0),
             hourlyTemp = listOf(20.0),
-            hourlyCloud = listOf(100)
+            hourlyCloud = listOf(55)
         )
 
         val resolved = series.resolveDailyCondition(date, zone)
-        assertEquals(WeatherCondition.CLEAR, resolved?.condition)
+        assertEquals(WeatherCondition.THUNDERSTORM, resolved?.condition)
         assertEquals(false, resolved?.inferred)
+    }
+
+    @Test
+    fun `daily sky WMO max is refined by hourly cloud cover`() {
+        val hours = (0 until 6).map { Instant.parse("2026-08-23T22:00:00Z").plusSeconds(it * 3600L) }
+        val series = series(
+            timestamps = hours,
+            dailyCode = 3,
+            hourlyCodes = listOf(2, 2, 2, 2, 2, 3),
+            hourlyPrecip = List(6) { 0.0 },
+            hourlyTemp = List(6) { 20.0 },
+            hourlyCloud = listOf(45, 50, 55, 60, 65, 95)
+        )
+
+        val resolved = series.resolveDailyCondition(date, zone)
+        assertEquals(WeatherCondition.PARTLY_CLOUDY, resolved?.condition)
+        assertEquals(true, resolved?.inferred)
     }
 
     private fun series(

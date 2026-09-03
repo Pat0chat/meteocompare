@@ -39,6 +39,13 @@ enum class WeatherCondition {
      * Une condition potentiellement plus gênante gagne sur une condition
      * bénigne afin de ne pas minimiser un signal météo partagé.
      */
+    /** Vrai pour les quatre états qui décrivent uniquement la nébulosité du ciel. */
+    val isSky: Boolean
+        get() = when (this) {
+            CLEAR, MAINLY_CLEAR, PARTLY_CLOUDY, OVERCAST -> true
+            else -> false
+        }
+
     val severityRank: Int
         get() = when (this) {
             CLEAR -> 0
@@ -110,14 +117,15 @@ enum class WeatherCondition {
          *
          * Seuils pédagogiques volontairement conservateurs pour éviter de
          * sur-classer un ciel encore percé d'éclaircies comme « couvert » :
-         * <20 CLEAR, <45 MAINLY_CLEAR, <85 PARTLY_CLOUDY, sinon OVERCAST.
+         * <20 CLEAR, <45 MAINLY_CLEAR, <90 PARTLY_CLOUDY, sinon OVERCAST.
+         * « Couvert » est volontairement réservé à une nébulosité quasi totale.
          * Cette méthode ne déduit jamais pluie, brouillard ou orage de la seule
          * nébulosité.
          */
         fun fromCloudCover(cloudCoverPct: Double): WeatherCondition = when {
             cloudCoverPct < 20.0 -> CLEAR
             cloudCoverPct < 45.0 -> MAINLY_CLEAR
-            cloudCoverPct < 85.0 -> PARTLY_CLOUDY
+            cloudCoverPct < 90.0 -> PARTLY_CLOUDY
             else                 -> OVERCAST
         }
     }

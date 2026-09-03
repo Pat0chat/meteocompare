@@ -48,13 +48,14 @@ internal data class DailyConditionResolution(
 /**
  * Résout la condition d'un jour sans jamais emprunter une donnée à un autre modèle.
  *
- * Ordre : code WMO daily → majorité des codes WMO hourly (sévérité uniquement
- * en cas d'égalité) → agrégation hourly précip/temp/nuages → agrégats daily →
- * nébulosité du même modèle.
+ * Ordre : un phénomène WMO daily significatif (pluie/neige/brouillard/orage)
+ * reste prioritaire ; un simple état de ciel daily (0..3) est réévalué depuis
+ * la nébulosité horaire du même modèle afin d'éviter l'effet MAX journalier ;
+ * puis viennent le mode des WMO horaires et les fallbacks précip/temp/nuages.
  *
- * Ce comportement est volontairement aligné sur la sémantique du moteur web :
- * une unique heure d'orage/pluie ne doit pas classer toute la journée comme
- * orage/pluie si la majorité des heures porte une autre condition.
+ * Ainsi, on ne banalise jamais un phénomène potentiellement important, tout en
+ * évitant qu'une seule heure WMO=3 transforme artificiellement toute une
+ * journée sèche avec éclaircies en « couvert ».
  */
 internal fun ForecastSeries.resolveDailyCondition(
     date: LocalDate,
@@ -62,14 +63,34 @@ internal fun ForecastSeries.resolveDailyCondition(
 ): DailyConditionResolution? {
     val dailyIndex = daily.dates.indexOf(date)
 
-    if (dailyIndex >= 0) {
+    val dailyNative = if (dailyIndex >= 0) {
         WeatherCondition.fromWmoCode(daily.weatherCode.getOrNull(dailyIndex))
             ?.takeUnless { it == WeatherCondition.UNKNOWN }
-            ?.let { return DailyConditionResolution(it, inferred = false) }
+    } else {
+        null
+    }
+
+    // Open-Meteo agrège le weather_code journalier par MAX des codes horaires.
+    // Pour pluie/neige/brouillard/orage, ce signal de phénomène significatif
+    // reste utile. Pour les seuls codes de ciel 0..3, en revanche, MAX peut
+    // transformer une seule heure couverte en « journée couverte ». On affine
+    // donc les états SKY à partir de la nébulosité horaire du même modèle.
+    if (dailyNative != null && !dailyNative.isSky) {
+        return DailyConditionResolution(dailyNative, inferred = false)
     }
 
     val hourlyIndices = hourly.timestamps.indices.filter { index ->
         hourly.timestamps[index].atZone(zone).toLocalDate() == date
+    }
+
+    if (dailyNative?.isSky == true) {
+        val cloudValues = hourlyIndices.mapNotNull { index ->
+            hourly.cloudCover.getOrNull(index)?.takeIf { it in 0..100 }
+        }
+        cloudValues.takeIf { it.isNotEmpty() }
+            ?.average()
+            ?.let(WeatherCondition::fromCloudCover)
+            ?.let { return DailyConditionResolution(it, inferred = true) }
     }
 
     hourlyIndices.mapNotNull { index ->
@@ -77,6 +98,12 @@ internal fun ForecastSeries.resolveDailyCondition(
             ?.takeUnless { it == WeatherCondition.UNKNOWN }
     }.modalCondition()
         ?.let { return DailyConditionResolution(it, inferred = true) }
+
+    // Si le code daily était un simple état de ciel mais qu'aucune donnée
+    // horaire exploitable n'est disponible, on le conserve en dernier recours.
+    if (dailyNative?.isSky == true && hourlyIndices.isEmpty()) {
+        return DailyConditionResolution(dailyNative, inferred = false)
+    }
 
     if (hourlyIndices.isNotEmpty()) {
         val precipitationValues = hourlyIndices.mapNotNull { index ->

@@ -151,7 +151,7 @@ class ForecastAggregatesTest {
 
 
     @Test
-    fun `avec plusieurs familles WMO la condition reste fondee sur les codes natifs`() {
+    fun `avec plusieurs familles WMO le ciel est affine par la nebulosite robuste`() {
         val forecast = forecastOf(
             WeatherModel.AROME_FRANCE_HD to hourly(listOf(18.0), listOf(10), listOf(0.0), listOf(3), listOf(64)),
             WeatherModel.ARPEGE_EUROPE to hourly(listOf(18.0), listOf(10), listOf(0.0), listOf(3), listOf(65)),
@@ -166,7 +166,7 @@ class ForecastAggregatesTest {
 
         val result = ForecastAggregates.next12h(forecast, now, includeConditions = true)
 
-        assertEquals(WeatherCondition.OVERCAST, result.conditions.first())
+        assertEquals(WeatherCondition.PARTLY_CLOUDY, result.conditions.first())
     }
 
     @Test

@@ -265,9 +265,14 @@ private fun indexDailySnapshots(
         val cloudCover = series.dailyCloudCoverMean(date, zone)
         val wind = series.daily.windSpeedMax.getOrNull(index)
         val windGust = series.daily.windGustsMax.getOrNull(index)
-        val nativeCondition = WeatherCondition.fromWmoCode(series.daily.weatherCode.getOrNull(index))
+        val rawDailyCondition = WeatherCondition.fromWmoCode(series.daily.weatherCode.getOrNull(index))
             ?.takeUnless { it == WeatherCondition.UNKNOWN }
-        val condition = nativeCondition ?: series.resolveDailyCondition(date, zone)?.condition
+        // Le code daily Open-Meteo est un MAX horaire. Pour les états SKY,
+        // lorsqu'une nébulosité horaire existe, ne pas le traiter comme une
+        // observation catégorielle indépendante : la centrale cloud est plus
+        // représentative du ciel de la journée.
+        val nativeCondition = rawDailyCondition?.takeIf { !it.isSky || cloudCover == null }
+        val condition = series.resolveDailyCondition(date, zone)?.condition ?: rawDailyCondition
         val snapshot = TimelineSnapshot(
             model = model,
             temperature = null,
@@ -414,6 +419,11 @@ private fun timelinePoint(
         temperatureCentralC = conditionTemperature,
         precipitationCentralMm = precipitationForecast.centralAmountMm,
         cloudCoverPercent = cloud.forecastValue.central,
+        cloudCoverFamilyCount = meaningful
+            .filter { it.cloudCover?.let { cloudValue -> cloudValue in 0..100 } == true }
+            .map { ForecastConsensus.groupFor(it.model) }
+            .distinct()
+            .size,
         supportModels = conditionSupportModels,
         localWeights = emptyMap()
     )

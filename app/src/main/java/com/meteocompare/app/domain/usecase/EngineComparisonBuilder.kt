@@ -82,12 +82,18 @@ class EngineComparisonBuilder @Inject constructor(
             .filterNot { it.isBefore(today) }
             .take(7)
         return dates.map { date ->
+            val zone = resolveZoneOrUtc(forecast.city.timezone)
             val nativeConditionEntries = forecast.seriesByModel.mapNotNull { (model, series) ->
                 val index = series.daily.dates.indexOf(date)
                 if (index < 0) return@mapNotNull null
-                WeatherCondition.fromWmoCode(series.daily.weatherCode.getOrNull(index))
+                val condition = WeatherCondition.fromWmoCode(series.daily.weatherCode.getOrNull(index))
                     ?.takeUnless { it == WeatherCondition.UNKNOWN }
-                    ?.let { ForecastConsensus.Entry(model, it) }
+                    ?: return@mapNotNull null
+                if (condition.isSky && series.dailyCloudCoverMean(date, zone) != null) {
+                    null
+                } else {
+                    ForecastConsensus.Entry(model, condition)
+                }
             }
             val values = ForecastEngine.entries.associateWith { engine ->
                 valuesFor(
@@ -150,6 +156,7 @@ class EngineComparisonBuilder @Inject constructor(
             temperatureCentralC = day.tempMin?.meanValue ?: day.tempMax?.meanValue,
             precipitationCentralMm = precipitationMeta?.centralAmountMm,
             cloudCoverPercent = cloud,
+            cloudCoverFamilyCount = cloudEntries.map { ForecastConsensus.groupFor(it.model) }.distinct().size,
             supportModels = supportModels
         ).vote.value
         return EngineComparisonValues(

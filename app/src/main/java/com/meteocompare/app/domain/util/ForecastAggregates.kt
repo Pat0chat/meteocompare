@@ -114,6 +114,7 @@ internal object ForecastAggregates {
                     temperatureCentralC = temperatureCentral,
                     precipitationCentralMm = precipitation.centralAmountMm,
                     cloudCoverPercent = cloudCentral,
+                    cloudCoverFamilyCount = cloudRows.map { ForecastConsensus.groupFor(it.model) }.distinct().size,
                     supportModels = supportModels
                 ).vote.value
             }

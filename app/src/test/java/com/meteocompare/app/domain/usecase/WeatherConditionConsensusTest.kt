@@ -248,4 +248,58 @@ class WeatherConditionConsensusTest {
         )
     }
 
+    @Test
+    fun `aggregate WMO sky is refined by robust cloud cover from two families`() {
+        val result = WeatherConditionConsensus.resolveAggregate(
+            nativeEntries = listOf(
+                ForecastConsensus.Entry(WeatherModel.GFS, WeatherCondition.OVERCAST),
+                ForecastConsensus.Entry(WeatherModel.ECMWF, WeatherCondition.OVERCAST),
+                ForecastConsensus.Entry(WeatherModel.ICON_GLOBAL, WeatherCondition.PARTLY_CLOUDY)
+            ),
+            temperatureCentralC = 22.0,
+            precipitationCentralMm = 0.0,
+            cloudCoverPercent = 62.0,
+            cloudCoverFamilyCount = 3,
+            supportModels = listOf(WeatherModel.GFS, WeatherModel.ECMWF, WeatherModel.ICON_GLOBAL)
+        )
+
+        assertEquals(WeatherCondition.PARTLY_CLOUDY, result.vote.value)
+        assertEquals(WeatherConditionConsensus.AggregateSource.NATIVE_WMO_CONSENSUS, result.source)
+    }
+
+    @Test
+    fun `aggregate does not let cloud cover erase a precipitation branch`() {
+        val result = WeatherConditionConsensus.resolveAggregate(
+            nativeEntries = listOf(
+                ForecastConsensus.Entry(WeatherModel.GFS, WeatherCondition.RAIN),
+                ForecastConsensus.Entry(WeatherModel.ECMWF, WeatherCondition.RAIN),
+                ForecastConsensus.Entry(WeatherModel.ICON_GLOBAL, WeatherCondition.PARTLY_CLOUDY)
+            ),
+            temperatureCentralC = 18.0,
+            precipitationCentralMm = 2.0,
+            cloudCoverPercent = 35.0,
+            cloudCoverFamilyCount = 3,
+            supportModels = listOf(WeatherModel.GFS, WeatherModel.ECMWF, WeatherModel.ICON_GLOBAL)
+        )
+
+        assertEquals(WeatherCondition.RAIN, result.vote.value)
+    }
+
+    @Test
+    fun `one cloud family cannot override multi family native WMO sky`() {
+        val result = WeatherConditionConsensus.resolveAggregate(
+            nativeEntries = listOf(
+                ForecastConsensus.Entry(WeatherModel.GFS, WeatherCondition.OVERCAST),
+                ForecastConsensus.Entry(WeatherModel.ECMWF, WeatherCondition.OVERCAST)
+            ),
+            temperatureCentralC = 20.0,
+            precipitationCentralMm = 0.0,
+            cloudCoverPercent = 55.0,
+            cloudCoverFamilyCount = 1,
+            supportModels = listOf(WeatherModel.GFS, WeatherModel.ECMWF)
+        )
+
+        assertEquals(WeatherCondition.OVERCAST, result.vote.value)
+    }
+
 }

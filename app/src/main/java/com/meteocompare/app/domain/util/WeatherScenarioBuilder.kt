@@ -153,7 +153,7 @@ object WeatherScenarioBuilder {
         if (cloudMedian != null) {
             return when {
                 cloudMedian < 30 -> WeatherScenarioKind.CLEAR
-                cloudMedian < 85 -> WeatherScenarioKind.VARIABLE_SKY
+                cloudMedian < 90 -> WeatherScenarioKind.VARIABLE_SKY
                 else -> WeatherScenarioKind.OVERCAST
             }
         }
