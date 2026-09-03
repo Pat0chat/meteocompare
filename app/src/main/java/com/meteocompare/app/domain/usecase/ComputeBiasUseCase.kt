@@ -3,6 +3,7 @@ package com.meteocompare.app.domain.usecase
 import com.meteocompare.app.domain.model.BiasSample
 import com.meteocompare.app.domain.model.BiasVariable
 import com.meteocompare.app.domain.model.ModelBias
+import java.time.Instant
 import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -49,9 +50,9 @@ import kotlin.math.sqrt
  *
  * ## Complexité
  *
- * O(n) sur la liste d'entrée (n ≤ 30 jours en pratique). Pas de tri, pas
- * d'allocations superflues. Suffisamment léger pour tourner à chaque emission
- * du Flow sans passer sur un dispatcher I/O.
+ * O(n) sur la liste d'entrée (n ≤ 30 jours en pratique), sans tri global.
+ * Suffisamment léger pour tourner à chaque émission du Flow sans passer sur
+ * un dispatcher I/O.
  *
  * @param variable la grandeur du biais (température, précip, vent). Portée
  *   par le [ModelBias] retourné.
@@ -79,15 +80,14 @@ class ComputeBiasUseCase @Inject constructor() {
         //    `asOf` exclu : aujourd'hui n'a pas encore d'observation validée.
         val windowStart = asOf.minusDays(windowDays.toLong())
         val inWindow = samples.filter {
-            it.targetDate >= windowStart && it.targetDate < asOf
+            it.targetDate >= windowStart && it.targetDate < asOf &&
+                it.forecast.isFinite() && it.observation.isFinite()
         }
 
         // 2. Déduplication : plusieurs samples pour la même date peuvent
         //    exister si la même journée a été prévue puis re-prévue par
-        //    plusieurs runs du modèle. Convention : garder le dernier
-        //    fournisseur (comportement "last write wins" — l'ordre de la liste
-        //    d'entrée fait foi, à charge du repo de trier chronologiquement
-        //    par issued_at DESC avant appel).
+        //    plusieurs runs du modèle. Convention : garder celui dont
+        //    issuedAt est le plus récent, indépendamment de l'ordre d'entrée.
         val deduped = dedupByDate(inWindow)
 
         // 3. Guard sample size.
@@ -108,13 +108,15 @@ class ComputeBiasUseCase @Inject constructor() {
     }
 
     /**
-     * Garde un seul sample par date — le premier rencontré dans l'ordre de la
-     * liste. Le repo est responsable d'ordonner ses samples par issued_at DESC
-     * avant l'appel, de sorte que "premier rencontré" = "plus récent connu".
+     * Garde un seul sample par date : celui dont issuedAt est le plus récent.
+     * Une date d'émission renseignée prime sur une valeur legacy nulle.
      */
     private fun dedupByDate(samples: List<BiasSample>): List<BiasSample> {
-        val seen = mutableSetOf<LocalDate>()
-        return samples.filter { seen.add(it.targetDate) }
+        return samples.groupBy(BiasSample::targetDate).values.map { candidates ->
+            candidates.maxWithOrNull(
+                compareBy<BiasSample> { it.issuedAt ?: Instant.MIN }
+            ) ?: candidates.first()
+        }
     }
 
     /**

@@ -11,6 +11,7 @@ import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
+import java.time.Instant
 import kotlin.math.abs
 
 /**
@@ -21,8 +22,8 @@ import kotlin.math.abs
  *      (division par n−1), cas dégénérés (série constante, biais nul).
  *   2. **Fenêtre glissante** — samples hors [asOf-30j, asOf) filtrés, samples
  *      au jour même exclus, samples au jour J−30 exclus (borne semi-ouverte).
- *   3. **Déduplication** — deux samples pour la même date : premier gardé
- *      (contrat "repo trie par issuedAt DESC").
+ *   3. **Déduplication** — deux samples pour la même date : le run au
+ *      `issuedAt` le plus récent est gardé, quel que soit l'ordre d'entrée.
  *   4. **Seuil MIN_SAMPLES** — retour null si < 14, retour non-null au seuil
  *      pile.
  *   5. **Cohérence avec BiasSignificanceRule** — un résultat qui devrait être
@@ -161,13 +162,16 @@ class ComputeBiasUseCaseTest {
     // ─── Déduplication ────────────────────────────────────────────────────
 
     @Test
-    fun `duplicate samples for the same date keep only the first one`() {
-        // Contrat : le repo passe les samples ordonnés par issuedAt DESC, donc
-        // "premier rencontré" = "plus récent connu". On teste que sur deux
-        // samples pour la même date, celui en tête de liste est gardé.
+    fun `duplicate samples keep the newest issued run regardless of input order`() {
         val date = today.minusDays(1)
-        val recent = BiasSample(date, forecast = 21.0, observation = 20.0)   // +1
-        val stale = BiasSample(date, forecast = 30.0, observation = 20.0)    // +10 — à ignorer
+        val recent = BiasSample(
+            date, forecast = 21.0, observation = 20.0,
+            issuedAt = Instant.parse("2024-07-14T12:00:00Z")
+        )
+        val stale = BiasSample(
+            date, forecast = 30.0, observation = 20.0,
+            issuedAt = Instant.parse("2024-07-14T00:00:00Z")
+        )
 
         // 13 autres samples + le doublon
         val others = daysBefore(today, 13, skipFirst = 1).map { d ->
@@ -175,12 +179,25 @@ class ComputeBiasUseCaseTest {
         }
         val result = useCase(
             BiasVariable.TEMPERATURE,
-            listOf(recent, stale) + others,
+            listOf(stale) + others + recent,
             asOf = today
         )
         assertNotNull(result)
         assertEquals(14, result!!.sampleSize) // 14 dates uniques
         assertEquals(1.0, result.meanBias, EPS) // recent gagne, moyenne = 1.0
+    }
+
+    @Test
+    fun `non finite samples are excluded before threshold and statistics`() {
+        val valid = daysBefore(today, 14).map { date ->
+            BiasSample(date, forecast = 21.0, observation = 20.0)
+        }
+        val corrupt = BiasSample(today.minusDays(20), Double.POSITIVE_INFINITY, 20.0)
+
+        val result = useCase(BiasVariable.TEMPERATURE, valid + corrupt, asOf = today)!!
+
+        assertEquals(14, result.sampleSize)
+        assertEquals(1.0, result.meanBias, EPS)
     }
 
     // ─── Seuil MIN_SAMPLES ────────────────────────────────────────────────

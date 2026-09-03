@@ -156,6 +156,21 @@ private fun WeatherIconPreview() {
 
 @MeteoComponentPreview
 @Composable
+private fun WeatherOutlineIconPreview() {
+    MeteoPreviewSurface {
+        Row(
+            Modifier.padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(18.dp)
+        ) {
+            WeatherOutlineIconDecorative(WeatherCondition.CLEAR, size = 34.dp)
+            WeatherOutlineIconDecorative(WeatherCondition.RAIN, size = 34.dp)
+            WeatherOutlineIconDecorative(WeatherCondition.SNOW, size = 34.dp)
+        }
+    }
+}
+
+@MeteoComponentPreview
+@Composable
 private fun WeatherMetricPreview() {
     MeteoPreviewSurface {
         Column(

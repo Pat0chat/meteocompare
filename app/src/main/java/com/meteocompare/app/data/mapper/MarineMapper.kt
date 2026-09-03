@@ -28,24 +28,28 @@ internal fun MarineResponseDto.toDomain(
     val epochs = timestamps.map { value ->
         runCatching { LocalDateTime.parse(value).atZone(zone).toInstant().toEpochMilli() }.getOrNull()
     }
+    val pointCount = timestamps.size
     val hourlyDomain = MarineHourly(
         timestamps = timestamps,
         timestampEpochMs = epochs,
-        waveHeight = raw?.waveHeight.orEmpty(),
-        waveDirection = raw?.waveDirection.orEmpty(),
-        wavePeriod = raw?.wavePeriod.orEmpty(),
-        swellHeight = raw?.swellHeight.orEmpty(),
-        swellDirection = raw?.swellDirection.orEmpty(),
-        swellPeriod = raw?.swellPeriod.orEmpty(),
-        seaSurfaceTemperature = raw?.seaSurfaceTemperature.orEmpty(),
-        seaLevelHeightMsl = raw?.seaLevelHeightMsl.orEmpty()
+        waveHeight = align(pointCount, raw?.waveHeight, ::validHeight),
+        waveDirection = align(pointCount, raw?.waveDirection, ::validDirection),
+        wavePeriod = align(pointCount, raw?.wavePeriod, ::validPeriod),
+        swellHeight = align(pointCount, raw?.swellHeight, ::validHeight),
+        swellDirection = align(pointCount, raw?.swellDirection, ::validDirection),
+        swellPeriod = align(pointCount, raw?.swellPeriod, ::validPeriod),
+        seaSurfaceTemperature = align(pointCount, raw?.seaSurfaceTemperature, ::validSeaTemperature),
+        seaLevelHeightMsl = align(pointCount, raw?.seaLevelHeightMsl, ::validSeaLevel)
     )
     val gridLat = latitude
     val gridLon = longitude
     val distanceKm = if (gridLat != null && gridLon != null) {
         haversineKm(city.latitude, city.longitude, gridLat, gridLon)
     } else null
-    val usable = hourlyDomain.waveHeight.count { it != null && it.isFinite() }
+    val usable = hourlyDomain.timestamps.indices.count { index ->
+        hourlyDomain.timestampEpochMs.getOrNull(index) != null &&
+            hourlyDomain.waveHeight.getOrNull(index) != null
+    }
     return MarineForecast(
         fetchedAtEpochMs = fetchedAtEpochMs,
         timezone = timezoneId,
@@ -62,8 +66,9 @@ internal fun MarineResponseDto.toDomain(
 private fun deriveDaily(hourly: MarineHourly): MarineDaily {
     val groups = linkedMapOf<String, MutableList<Int>>()
     hourly.timestamps.forEachIndexed { index, timestamp ->
+        if (hourly.timestampEpochMs.getOrNull(index) == null) return@forEachIndexed
         val day = timestamp.take(10)
-        if (day.isNotBlank()) groups.getOrPut(day) { mutableListOf() }.add(index)
+        if (day.length == 10) groups.getOrPut(day) { mutableListOf() }.add(index)
     }
     val dates = mutableListOf<String>()
     val waveHeightMax = mutableListOf<Double?>()
@@ -95,6 +100,27 @@ private fun deriveDaily(hourly: MarineHourly): MarineDaily {
 
 private fun maxAt(indices: List<Int>, values: List<Double?>): Double? =
     indices.mapNotNull { values.getOrNull(it) }.filter { it.isFinite() }.maxOrNull()
+
+private fun align(
+    size: Int,
+    values: List<Double?>?,
+    sanitize: (Double?) -> Double?
+): List<Double?> = List(size) { index -> sanitize(values?.getOrNull(index)) }
+
+private fun validHeight(value: Double?): Double? =
+    value?.takeIf { it.isFinite() && it in 0.0..100.0 }
+
+private fun validPeriod(value: Double?): Double? =
+    value?.takeIf { it.isFinite() && it > 0.0 && it <= 120.0 }
+
+private fun validDirection(value: Double?): Double? =
+    value?.takeIf { it.isFinite() && it in 0.0..360.0 }
+
+private fun validSeaTemperature(value: Double?): Double? =
+    value?.takeIf { it.isFinite() && it in -5.0..50.0 }
+
+private fun validSeaLevel(value: Double?): Double? =
+    value?.takeIf { it.isFinite() && it in -20.0..20.0 }
 
 private fun circularMean(
     indices: List<Int>,

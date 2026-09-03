@@ -271,6 +271,49 @@ class ForecastEngineIntegrationTest {
     }
 
     @Test
+    fun `engine comparison keeps native dry votes when cloud refines the sky leaf`() {
+        val now = Instant.parse("2026-08-28T05:00:00Z")
+        val date = LocalDate.of(2026, 8, 28)
+        fun series(model: WeatherModel, weatherCode: Int, cloud: Int) = ForecastSeries(
+            model = model,
+            hourly = HourlyForecast(
+                timestamps = listOf(Instant.parse("2026-08-28T12:00:00Z")),
+                temperature2m = listOf(20.0),
+                precipitation = listOf(if (weatherCode >= 50) 2.0 else 0.0),
+                windSpeed10m = listOf(12.0),
+                cloudCover = listOf(cloud)
+            ),
+            daily = DailyForecast(
+                dates = listOf(date),
+                tempMax = listOf(24.0),
+                tempMin = listOf(16.0),
+                precipitationSum = listOf(if (weatherCode >= 50) 4.0 else 0.0),
+                windSpeedMax = listOf(18.0),
+                weatherCode = listOf(weatherCode)
+            )
+        )
+        val forecast = CityForecast(
+            city = city,
+            seriesByModel = linkedMapOf(
+                WeatherModel.GFS to series(WeatherModel.GFS, 2, 60),
+                WeatherModel.ECMWF to series(WeatherModel.ECMWF, 2, 60),
+                WeatherModel.UKMO_GLOBAL to series(WeatherModel.UKMO_GLOBAL, 2, 60),
+                WeatherModel.ARPEGE_EUROPE to series(WeatherModel.ARPEGE_EUROPE, 61, 95),
+                WeatherModel.ICON_EU to series(WeatherModel.ICON_EU, 61, 95)
+            )
+        )
+
+        val condition = EngineComparisonBuilder(calculator)
+            .build(forecast, ForecastEngineContext(), now)
+            .single()
+            .byEngine
+            .getValue(ForecastEngine.MULTI_CONSENSUS)
+            .condition
+
+        assertEquals(com.meteocompare.app.domain.model.WeatherCondition.PARTLY_CLOUDY, condition)
+    }
+
+    @Test
     fun `current condition keeps dry cloud-only models in hierarchical root vote`() {
         val now = Instant.parse("2026-08-24T10:00:00Z")
         fun series(model: WeatherModel, code: Int?, cloud: Int, precip: Double): ForecastSeries = ForecastSeries(

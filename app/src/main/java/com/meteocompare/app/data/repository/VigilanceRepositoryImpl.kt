@@ -69,12 +69,14 @@ class VigilanceRepositoryImpl @Inject constructor(
 
         // La Vigilance Météo-France est limitée à un rafraîchissement réseau par heure
         // pour un même département/mode côte, y compris lors d'un refresh manuel global.
-        if (cachedRecord != null && cachedAge != null && cachedAge <= FRESH_CACHE_AGE) {
+        if (cachedRecord != null && cachedAge != null && VigilanceCachePolicy.isFresh(cachedAge)) {
             return@withContext ApiResult.Success(cached?.copy(evaluationTime = now))
         }
 
         if (!networkMonitor.isOnline()) {
-            return@withContext cached?.takeIf { cachedAge != null && cachedAge <= MAX_STALE_AGE }
+            return@withContext cached?.takeIf {
+                cachedAge != null && VigilanceCachePolicy.isUsableFallback(cachedAge)
+            }
                 ?.let { ApiResult.Success(it.copy(isStale = true, evaluationTime = now)) }
                 ?: ApiResult.Success(null)
         }
@@ -95,7 +97,9 @@ class VigilanceRepositoryImpl @Inject constructor(
                 ApiResult.Success(domain)
             }
             is ApiResult.Error -> {
-                cached?.takeIf { cachedAge != null && cachedAge <= MAX_STALE_AGE }
+                cached?.takeIf {
+                    cachedAge != null && VigilanceCachePolicy.isUsableFallback(cachedAge)
+                }
                     ?.let { ApiResult.Success(it.copy(isStale = true, evaluationTime = now)) }
                     ?: result
             }
@@ -149,10 +153,18 @@ class VigilanceRepositoryImpl @Inject constructor(
     private fun cacheKey(department: String, includeCoast: Boolean) =
         stringPreferencesKey("vigilance_${department}_${if (includeCoast) "coast" else "department"}")
 
-    companion object {
-        internal val FRESH_CACHE_AGE: Duration = Duration.ofHours(1)
-        internal val MAX_STALE_AGE: Duration = Duration.ofHours(1)
-    }
+}
+
+/** Politique pure et testable du cache Vigilance. */
+internal object VigilanceCachePolicy {
+    val FRESH_CACHE_AGE: Duration = Duration.ofHours(1)
+    val MAX_STALE_AGE: Duration = Duration.ofHours(6)
+
+    fun isFresh(age: Duration): Boolean =
+        !age.isNegative && age <= FRESH_CACHE_AGE
+
+    fun isUsableFallback(age: Duration): Boolean =
+        !age.isNegative && age <= MAX_STALE_AGE
 }
 
 internal fun isVigilanceDepartmentStillUsed(

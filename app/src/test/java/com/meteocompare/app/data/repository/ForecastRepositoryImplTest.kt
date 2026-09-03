@@ -463,6 +463,69 @@ class ForecastRepositoryImplTest {
         assertTrue(emission is ApiResult.Error)
     }
 
+    @Test
+    fun `refresh rejette un modele dont toutes les temperatures sont physiquement impossibles`() =
+        runTest {
+            val response = json.decodeFromString(
+                BatchedForecastResponseDto.serializer(),
+                """{
+                  "latitude": 48.85,
+                  "longitude": 2.35,
+                  "timezone": "Europe/Paris",
+                  "hourly": {
+                    "time": ["2026-06-23T00:00"],
+                    "temperature_2m_${WeatherModel.GFS.apiKey}": [999.0]
+                  }
+                }"""
+            )
+            coEvery {
+                api.getForecastBatched(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+            } returns response
+
+            val result = repository.refreshCityForecast(paris, listOf(WeatherModel.GFS))
+
+            assertTrue(result is ApiResult.Error)
+            coVerify(exactly = 0) {
+                cacheDao.replaceRequestedModels(any(), any(), any(), any())
+            }
+            coVerify(exactly = 0) { evolutionRecorder.record(any()) }
+        }
+
+    @Test
+    fun `cache recent physiquement vide est ignore et ne bloque pas le reseau`() = runTest {
+        val invalidDto = sampleDto.copy(
+            hourly = sampleDto.hourly?.copy(temperature2m = listOf(999.0))
+        )
+        coEvery { cacheDao.getForCity(paris.id) } returns listOf(
+            ForecastCacheEntity(
+                cityId = paris.id,
+                modelKey = WeatherModel.GFS.apiKey,
+                fetchedAtEpochMs = System.currentTimeMillis() - 1_000L,
+                responseJson = json.encodeToString(ForecastResponseDto.serializer(), invalidDto)
+            )
+        )
+        coEvery {
+            api.getForecastBatched(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        } returns batchedResponseWith(listOf(WeatherModel.GFS))
+
+        val emissions = repository.getCityForecastStream(
+            city = paris,
+            models = listOf(WeatherModel.GFS),
+            maxCacheAgeMs = 60 * 60 * 1000L
+        ).toList()
+
+        assertEquals(1, emissions.size)
+        val fresh = (emissions.single() as ApiResult.Success).data
+        assertEquals(
+            20.0,
+            fresh.seriesByModel.getValue(WeatherModel.GFS).hourly.temperature2m.single()!!,
+            0.001
+        )
+        coVerify(exactly = 1) {
+            api.getForecastBatched(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        }
+    }
+
     // ─────────────────────── Court-circuit maxCacheAgeMs ───────────────────
     //
     // Suite qui vérifie la logique cache-frais du repository. Un bug ici

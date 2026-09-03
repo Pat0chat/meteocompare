@@ -1,6 +1,7 @@
 package com.meteocompare.app.domain.model
 
 import java.time.LocalDate
+import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -208,6 +209,38 @@ class ModelReliabilityCalculatorTest {
         assertNotNull(baseline)
         assertEquals(0.0, baseline!!.meanAbsoluteError, 1e-9)
         assertEquals(100, baseline.score)
+    }
+
+    @Test
+    fun `doublon conserve le run le plus recent independamment de lordre`() {
+        val date = start
+        val older = BiasSample(date, 30.0, 20.0, Instant.parse("2026-01-01T00:00:00Z"))
+        val newer = BiasSample(date, 21.0, 20.0, Instant.parse("2026-01-02T00:00:00Z"))
+        val remaining = (1 until 14).map { index ->
+            BiasSample(start.plusDays(index.toLong()), 21.0, 20.0)
+        }
+
+        val reliability = ModelReliabilityCalculator.compute(
+            BiasVariable.TEMPERATURE,
+            listOf(older) + remaining + newer
+        )!!
+
+        assertEquals(14, reliability.sampleSize)
+        assertEquals(1.0, reliability.meanBias, 1e-9)
+    }
+
+    @Test
+    fun `echantillons non finis sont exclus des statistiques`() {
+        val valid = samples(14) { 11.0 to 10.0 }
+        val corrupt = BiasSample(start.plusDays(20), Double.NaN, 10.0)
+
+        val reliability = ModelReliabilityCalculator.compute(
+            BiasVariable.TEMPERATURE,
+            valid + corrupt
+        )!!
+
+        assertEquals(14, reliability.sampleSize)
+        assertEquals(1.0, reliability.meanBias, 1e-9)
     }
 
     private fun samples(

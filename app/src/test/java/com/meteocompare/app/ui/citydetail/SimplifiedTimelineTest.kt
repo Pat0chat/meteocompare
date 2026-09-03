@@ -105,6 +105,43 @@ class SimplifiedTimelineTest {
     }
 
     @Test
+    fun `daily timeline keeps dry WMO votes when hourly cloud is available`() {
+        fun daily(model: WeatherModel, weatherCode: Int, cloud: Int) = ForecastSeries(
+            model = model,
+            hourly = HourlyForecast(
+                timestamps = listOf(now),
+                temperature2m = listOf(20.0),
+                precipitation = listOf(if (weatherCode >= 50) 2.0 else 0.0),
+                windSpeed10m = listOf(12.0),
+                cloudCover = listOf(cloud)
+            ),
+            daily = DailyForecast(
+                dates = listOf(today),
+                tempMax = listOf(24.0),
+                tempMin = listOf(16.0),
+                precipitationSum = listOf(if (weatherCode >= 50) 4.0 else 0.0),
+                windSpeedMax = listOf(18.0),
+                weatherCode = listOf(weatherCode)
+            )
+        )
+        val forecast = CityForecast(
+            city = paris,
+            seriesByModel = linkedMapOf(
+                WeatherModel.GFS to daily(WeatherModel.GFS, 2, 60),
+                WeatherModel.ECMWF to daily(WeatherModel.ECMWF, 2, 60),
+                WeatherModel.UKMO_GLOBAL to daily(WeatherModel.UKMO_GLOBAL, 2, 60),
+                WeatherModel.ARPEGE_EUROPE to daily(WeatherModel.ARPEGE_EUROPE, 61, 95),
+                WeatherModel.ICON_EU to daily(WeatherModel.ICON_EU, 61, 95)
+            )
+        )
+
+        val point = buildSimplifiedTimeline(forecast, DisplayMode.DAILY, now).single()
+
+        assertEquals(WeatherCondition.PARTLY_CLOUDY, point.condition)
+        assertEquals(5, point.conditionModelCount)
+    }
+
+    @Test
     fun `hourly timeline does not let inferred conditions overturn native WMO families`() {
         fun hourly(model: WeatherModel, code: Int?, precip: Double, cloud: Int) = ForecastSeries(
             model = model,

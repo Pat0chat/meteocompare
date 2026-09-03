@@ -267,11 +267,10 @@ private fun indexDailySnapshots(
         val windGust = series.daily.windGustsMax.getOrNull(index)
         val rawDailyCondition = WeatherCondition.fromWmoCode(series.daily.weatherCode.getOrNull(index))
             ?.takeUnless { it == WeatherCondition.UNKNOWN }
-        // Le code daily Open-Meteo est un MAX horaire. Pour les états SKY,
-        // lorsqu'une nébulosité horaire existe, ne pas le traiter comme une
-        // observation catégorielle indépendante : la centrale cloud est plus
-        // représentative du ciel de la journée.
-        val nativeCondition = rawDailyCondition?.takeIf { !it.isSky || cloudCover == null }
+        // Le code daily Open-Meteo est un MAX horaire : la nébulosité affine
+        // la feuille SKY affichée, mais le WMO natif doit conserver sa voix
+        // dans le vote racine NON_PRECIPITATION vs PRECIPITATION.
+        val nativeCondition = rawDailyCondition
         val condition = series.resolveDailyCondition(date, zone)?.condition ?: rawDailyCondition
         val snapshot = TimelineSnapshot(
             model = model,

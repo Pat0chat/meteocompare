@@ -63,6 +63,27 @@ class MarineMapperTest {
         assertTrue(dominant < 20.0 || dominant > 340.0)
     }
 
+    @Test
+    fun `hauteurs negatives et timestamps invalides ne rendent pas le point cotier`() {
+        val raw = MarineResponseDto(
+            latitude = 43.31,
+            longitude = 5.38,
+            timezone = "Europe/Paris",
+            hourly = MarineHourlyDto(
+                time = List(7) { index -> if (index == 6) "invalide" else "2026-08-18T%02d:00".format(10 + index) },
+                waveHeight = listOf(-1.0, -2.0, -0.5, -4.0, -3.0, -2.0, 1.0),
+                waveDirection = List(7) { 180.0 },
+                wavePeriod = List(7) { 6.0 }
+            )
+        )
+
+        val data = raw.toDomain(city, 123L)
+
+        assertFalse(data.coastal)
+        assertEquals(0, data.usablePoints)
+        assertEquals(null, data.daily.waveHeightMax.singleOrNull())
+    }
+
     private fun response(lat: Double, lon: Double, waveCount: Int): MarineResponseDto {
         val count = 8
         return MarineResponseDto(

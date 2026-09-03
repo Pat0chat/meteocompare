@@ -4,11 +4,14 @@ import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DailyForecast
 import com.meteocompare.app.domain.model.ForecastSeries
+import com.meteocompare.app.domain.model.ForecastEngineContext
+import com.meteocompare.app.domain.model.ForecastEngineVariable
 import com.meteocompare.app.domain.model.HourlyForecast
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Instant
 
@@ -119,6 +122,45 @@ class ForecastAggregatesTest {
         val result = ForecastAggregates.next12h(forecast, now)
 
         assertEquals(emptyList<WeatherCondition?>(), result.conditions)
+    }
+
+    @Test
+    fun `ponderations locales sont appliquees a la temperature et a la pluie`() {
+        val forecast = forecastOf(
+            WeatherModel.GFS to hourly(
+                temperatures = listOf(0.0),
+                precipitationProbabilities = listOf(0),
+                precipitationAmounts = listOf(0.0)
+            ),
+            WeatherModel.ECMWF to hourly(
+                temperatures = listOf(10.0),
+                precipitationProbabilities = listOf(100),
+                precipitationAmounts = listOf(2.0)
+            )
+        )
+        val baseline = ForecastAggregates.next12h(forecast, now)
+        val weighted = ForecastAggregates.next12h(
+            forecast,
+            now,
+            engineContext = ForecastEngineContext(
+                localWeightsByVariable = mapOf(
+                    ForecastEngineVariable.TEMPERATURE to mapOf(
+                        WeatherModel.GFS to 0.5,
+                        WeatherModel.ECMWF to 1.5
+                    ),
+                    ForecastEngineVariable.PRECIPITATION to mapOf(
+                        WeatherModel.GFS to 0.5,
+                        WeatherModel.ECMWF to 1.5
+                    )
+                )
+            )
+        )
+
+        assertTrue(weighted.temperatures.first()!! > baseline.temperatures.first()!!)
+        assertTrue(
+            weighted.precipitationProbabilities.first()!! >
+                baseline.precipitationProbabilities.first()!!
+        )
     }
 
     @Test

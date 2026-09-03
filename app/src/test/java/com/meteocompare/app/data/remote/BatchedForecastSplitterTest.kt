@@ -20,8 +20,8 @@ import org.junit.Test
  *      entre suffixe et modèle.
  *   3. Modèle absent de la réponse : filtré du résultat (typiquement modèle
  *      régional hors zone).
- *   4. Modèle présent mais avec toutes valeurs null : filtré (aucune donnée
- *      exploitable pour l'UI).
+ *   4. Modèle présent mais avec toutes valeurs null ou physiquement
+ *      impossibles : filtré (aucune donnée exploitable pour l'UI).
  *   5. Alignement temporel : le `time` unifié est partagé entre tous les
  *      DTOs reconstruits (invariant Open-Meteo).
  *   6. Robustesse : JsonNull dans les tableaux, éléments manquants ne
@@ -219,6 +219,28 @@ class BatchedForecastSplitterTest {
             "AROME hors zone avec temperature entièrement null doit être filtré",
             WeatherModel.AROME_FRANCE_HD in split
         )
+    }
+
+    @Test
+    fun `modele present mais temperatures physiquement impossibles - filtre`() {
+        val response = json.decodeFromString<BatchedForecastResponseDto>(
+            """{
+              "latitude": 0.0, "longitude": 0.0, "timezone": "UTC",
+              "hourly": {
+                "time": ["2026-06-23T00:00"],
+                "temperature_2m_ncep_gfs_seamless": [999.0]
+              },
+              "daily": {
+                "time": ["2026-06-23"],
+                "temperature_2m_max_ncep_gfs_seamless": [120.0],
+                "temperature_2m_min_ncep_gfs_seamless": [-150.0]
+              }
+            }"""
+        )
+
+        val split = BatchedForecastSplitter.split(response, listOf(WeatherModel.GFS))
+
+        assertTrue(split.isEmpty())
     }
 
     @Test

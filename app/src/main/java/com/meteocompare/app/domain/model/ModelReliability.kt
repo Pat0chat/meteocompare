@@ -1,6 +1,7 @@
 package com.meteocompare.app.domain.model
 
 import androidx.compose.runtime.Immutable
+import java.time.Instant
 import java.time.LocalDate
 import kotlin.math.abs
 import kotlin.math.exp
@@ -315,9 +316,15 @@ object ModelReliabilityCalculator {
     }
 
     private fun deduplicateAndSort(samples: List<BiasSample>): List<BiasSample> {
-        val seen = mutableSetOf<LocalDate>()
         return samples
-            .filter { seen.add(it.targetDate) }
+            .filter { it.forecast.isFinite() && it.observation.isFinite() }
+            .groupBy(BiasSample::targetDate)
+            .values
+            .map { candidates ->
+                candidates.maxWithOrNull(
+                    compareBy<BiasSample> { it.issuedAt ?: Instant.MIN }
+                ) ?: candidates.first()
+            }
             .sortedBy(BiasSample::targetDate)
     }
 

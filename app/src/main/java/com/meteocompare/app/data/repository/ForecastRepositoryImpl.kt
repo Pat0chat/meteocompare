@@ -333,12 +333,17 @@ class ForecastRepositoryImpl @Inject constructor(
                 } else {
                     runCatching {
                         val dto = json.decodeFromString<ForecastResponseDto>(entry.responseJson)
+                        val series = mapper.toSeries(model, dto).also { mapped ->
+                            logSeriesDiagnostics(mapped, source = "cache")
+                        }
+                        // Un JSON valide peut néanmoins ne contenir que des
+                        // valeurs rejetées par les garde-fous physiques. Il ne
+                        // doit ni être affiché ni rendre le cache « complet ».
+                        if (!series.hasUsableTemperatureData()) return@runCatching null
                         CachedModelEntry(
                             fetchedAtMs = entry.fetchedAtEpochMs,
                             model = model,
-                            series = mapper.toSeries(model, dto).also { series ->
-                                logSeriesDiagnostics(series, source = "cache")
-                            },
+                            series = series,
                             knownUnavailable = false,
                             timezone = dto.timezone
                         )
@@ -604,6 +609,12 @@ class ForecastRepositoryImpl @Inject constructor(
                 "timestampGaps=[$timestampGaps] variableRuns=[$variableRuns]"
         )
     }
+
+    /** Même invariant que le splitter, après mapping et filtrage physique. */
+    private fun ForecastSeries.hasUsableTemperatureData(): Boolean =
+        hourly.temperature2m.any { it != null } ||
+            daily.tempMax.any { it != null } ||
+            daily.tempMin.any { it != null }
 
     private data class ProcessedForecast(
         val dtos: Map<WeatherModel, ForecastResponseDto>,

@@ -72,6 +72,7 @@ internal object ForecastAggregates {
                 tempRows,
                 ForecastEngineV3.ContinuousOptions(
                     engine = engineContext.engine,
+                    localWeights = engineContext.localWeights(ForecastEngineVariable.TEMPERATURE),
                     calibration = emptyMap(), // historique J+1 ≠ prévision horaire
                     tight = 0.5,
                     wide = 3.0
@@ -83,6 +84,7 @@ internal object ForecastAggregates {
                 ForecastEngineV3.PrecipitationOptions(
                     engine = engineContext.engine,
                     threshold = PrecipitationThresholds.HOURLY_OCCURRENCE_MM,
+                    localWeights = engineContext.localWeights(ForecastEngineVariable.PRECIPITATION),
                     calibration = emptyMap(), // historique J+1 ≠ prévision horaire
                     amountTight = 0.5,
                     amountWide = 4.0

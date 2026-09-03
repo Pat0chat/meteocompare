@@ -113,6 +113,23 @@ class ForecastSeriesConditionResolutionTest {
         assertEquals(true, resolved?.inferred)
     }
 
+    @Test
+    fun `daily sky WMO survives an hourly axis with no usable variables`() {
+        val series = series(
+            timestamps = listOf(Instant.parse("2026-08-24T10:00:00Z")),
+            dailyCode = 1,
+            hourlyCodes = listOf(null),
+            hourlyPrecip = listOf(null),
+            hourlyTemp = listOf(null),
+            hourlyCloud = listOf(null)
+        )
+
+        val resolved = series.resolveDailyCondition(date, zone)
+
+        assertEquals(WeatherCondition.MAINLY_CLEAR, resolved?.condition)
+        assertEquals(false, resolved?.inferred)
+    }
+
     private fun series(
         timestamps: List<Instant> = listOf(Instant.parse("2026-08-24T10:00:00Z")),
         dailyCode: Int? = null,

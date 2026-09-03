@@ -99,12 +99,6 @@ internal fun ForecastSeries.resolveDailyCondition(
     }.modalCondition()
         ?.let { return DailyConditionResolution(it, inferred = true) }
 
-    // Si le code daily était un simple état de ciel mais qu'aucune donnée
-    // horaire exploitable n'est disponible, on le conserve en dernier recours.
-    if (dailyNative?.isSky == true && hourlyIndices.isEmpty()) {
-        return DailyConditionResolution(dailyNative, inferred = false)
-    }
-
     if (hourlyIndices.isNotEmpty()) {
         val precipitationValues = hourlyIndices.mapNotNull { index ->
             hourly.precipitation.getOrNull(index)?.takeIf { it.isFinite() && it >= 0.0 }
@@ -137,6 +131,13 @@ internal fun ForecastSeries.resolveDailyCondition(
             condition = WeatherCondition.fromCloudCover(cloudCover.toDouble()),
             inferred = true
         )
+    }
+
+    // Un axe horaire peut exister tout en ne contenant aucune variable
+    // exploitable (cache ancien, réponse partielle). Dans ce cas, ne pas
+    // perdre le code daily SKY valide : il reste le dernier signal natif.
+    if (dailyNative?.isSky == true) {
+        return DailyConditionResolution(dailyNative, inferred = false)
     }
 
     return null

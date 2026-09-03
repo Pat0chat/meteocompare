@@ -4,6 +4,7 @@ import com.meteocompare.app.data.remote.dto.BatchedForecastResponseDto
 import com.meteocompare.app.data.remote.dto.DailyDto
 import com.meteocompare.app.data.remote.dto.ForecastResponseDto
 import com.meteocompare.app.data.remote.dto.HourlyDto
+import com.meteocompare.app.domain.model.ForecastPhysicalLimits
 import com.meteocompare.app.domain.model.WeatherModel
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -128,7 +129,8 @@ object BatchedForecastSplitter {
         if (times.isNullOrEmpty() || values.isNullOrEmpty()) return false
         val alignedSize = minOf(times.size, values.size)
         return (0 until alignedSize).any { index ->
-            times[index].isNotBlank() && values[index] != null
+            times[index].isNotBlank() &&
+                ForecastPhysicalLimits.temperature(values[index]) != null
         }
     }
 

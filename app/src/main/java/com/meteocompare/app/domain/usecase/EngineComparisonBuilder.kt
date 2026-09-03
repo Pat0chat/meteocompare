@@ -89,11 +89,9 @@ class EngineComparisonBuilder @Inject constructor(
                 val condition = WeatherCondition.fromWmoCode(series.daily.weatherCode.getOrNull(index))
                     ?.takeUnless { it == WeatherCondition.UNKNOWN }
                     ?: return@mapNotNull null
-                if (condition.isSky && series.dailyCloudCoverMean(date, zone) != null) {
-                    null
-                } else {
-                    ForecastConsensus.Entry(model, condition)
-                }
+                // Le cloud affine la feuille SKY mais ne remplace jamais la
+                // voix native au niveau racine (sec vs précipitations).
+                ForecastConsensus.Entry(model, condition)
             }
             val values = ForecastEngine.entries.associateWith { engine ->
                 valuesFor(

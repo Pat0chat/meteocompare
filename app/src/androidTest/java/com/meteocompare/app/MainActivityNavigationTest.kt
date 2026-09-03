@@ -1,12 +1,16 @@
 package com.meteocompare.app
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
+import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.testutil.FakeCityRepository
 import com.meteocompare.app.testutil.FakeClimateNormalsRepository
 import com.meteocompare.app.testutil.FakeForecastRepository
@@ -14,6 +18,7 @@ import com.meteocompare.app.testutil.FakeUserPreferencesRepository
 import com.meteocompare.app.testutil.TestFixtures
 import com.meteocompare.app.ui.citydetail.TAG_CONFIDENCE_BADGE
 import com.meteocompare.app.ui.citydetail.TAG_DETAIL_LOADED
+import com.meteocompare.app.ui.citydetail.TAG_ENGINE_COMPARISON_ACTION
 import com.meteocompare.app.ui.citydetail.confidence.TAG_CONFIDENCE_EXPLANATION_BACK
 import com.meteocompare.app.ui.citydetail.confidence.TAG_CONFIDENCE_EXPLANATION_ROOT
 import com.meteocompare.app.ui.citylist.TAG_ADD_CITY_RESULT
@@ -24,9 +29,13 @@ import com.meteocompare.app.ui.citylist.TAG_DONATE_BUTTON
 import com.meteocompare.app.ui.citylist.TAG_EMPTY_STATE
 import com.meteocompare.app.ui.citylist.TAG_SETTINGS_BUTTON
 import com.meteocompare.app.ui.settings.TAG_SETTINGS_BACK
+import com.meteocompare.app.ui.settings.TAG_SETTINGS_ENGINE
 import com.meteocompare.app.ui.settings.TAG_SETTINGS_ROOT
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -94,6 +103,36 @@ class MainActivityNavigationTest {
         composeRule.onNodeWithTag(TAG_SETTINGS_ROOT).assertIsDisplayed()
         composeRule.onNodeWithTag(TAG_SETTINGS_BACK).performClick()
         composeRule.onNodeWithTag(TAG_EMPTY_STATE).assertIsDisplayed()
+    }
+
+    @Test
+    fun select_engine_then_open_comparison_end_to_end() {
+        cities.setFavorites(listOf(TestFixtures.paris))
+        forecasts.setForecast(TestFixtures.paris)
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodes(
+                androidx.compose.ui.test.hasTestTag("$TAG_CITY_CARD${TestFixtures.paris.id}")
+            ).fetchSemanticsNodes().isNotEmpty()
+        }
+
+        composeRule.onNodeWithTag(TAG_SETTINGS_BUTTON).performClick()
+        val adaptiveTag = "$TAG_SETTINGS_ENGINE${ForecastEngine.ADAPTIVE.name}"
+        composeRule.onNodeWithTag(TAG_SETTINGS_ROOT).performScrollToNode(hasTestTag(adaptiveTag))
+        composeRule.onNodeWithTag(adaptiveTag).performClick()
+        runBlocking {
+            withTimeout(5_000) {
+                preferences.observeForecastEngine().first { it == ForecastEngine.ADAPTIVE }
+            }
+        }
+        composeRule.onNodeWithTag(adaptiveTag).assertIsSelected()
+        composeRule.onNodeWithTag(TAG_SETTINGS_BACK).performClick()
+
+        composeRule.onNodeWithTag("$TAG_CITY_CARD${TestFixtures.paris.id}").performClick()
+        composeRule.onNodeWithTag(TAG_DETAIL_LOADED).assertIsDisplayed()
+        composeRule.onNodeWithTag(TAG_ENGINE_COMPARISON_ACTION).performClick()
+        composeRule.onNodeWithText(
+            composeRule.activity.getString(R.string.engine_comparison_title)
+        ).assertIsDisplayed()
     }
 
     @Test
