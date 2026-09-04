@@ -188,8 +188,9 @@ private fun IconCell(
         } else {
             // Marqueur visuel d'inférence : la condition provient de variables
             // physiques du MÊME modèle (précip/temp ou nébulosité), faute de
-            // weather_code direct. On garde l'icône clairement visible tout en
-            // la différenciant d'un code WMO natif/dérivé fourni par l'API.
+            // weather_code journalier ou horaire exploitable. On garde l'icône
+            // clairement visible tout en la différenciant d'un WMO natif fourni
+            // par l'API.
             val contentModifier = if (isInferred) Modifier.alpha(0.55f) else Modifier
             Column(
                 modifier = contentModifier,
@@ -276,7 +277,7 @@ internal fun WeatherLegend() {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
         )
-        // Note d'inférence : couronne le marquage alpha 0.35 sur les cellules
+        // Note d'inférence : explique le marquage alpha 0.55 sur les cellules
         // dont la condition a été dérivée de variables du même modèle. Sans cette note, un
         // utilisateur qui remarque une cellule "grisée" ne peut pas savoir
         // qu'il s'agit d'une inférence (il pensera à un bug d'affichage).

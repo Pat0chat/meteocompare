@@ -831,11 +831,13 @@ data class DayConditionsRow(
 
     /**
      * Modèles dont la condition affichée est DÉRIVÉE de leurs propres variables
-     * (codes horaires, précip/temp ou couverture nuageuse), faute de code WMO
-     * journalier exploitable. Aucune donnée d'un autre modèle n'est injectée.
+     * physiques (précip/temp ou couverture nuageuse), faute de code WMO
+     * journalier ou horaire exploitable. Aucune donnée d'un autre modèle n'est
+     * injectée.
      *
      * L'UI signale ces cellules (typiquement alpha réduit) afin de distinguer
-     * une valeur WMO directe d'une interprétation locale et transparente.
+     * une provenance WMO (journalière ou horaire agrégée) d'une interprétation
+     * locale et transparente.
      *
      * Défaut vide pour rétro-compat des tests + du cache pré-feature.
      */

@@ -41,10 +41,11 @@ class ForecastSeriesConditionResolutionTest {
             hourlyCloud = List(6) { 60 }
         )
 
-        assertEquals(
-            WeatherCondition.PARTLY_CLOUDY,
-            series.resolveDailyCondition(date, zone)?.condition
-        )
+        val resolved = series.resolveDailyCondition(date, zone)
+
+        assertEquals(WeatherCondition.PARTLY_CLOUDY, resolved?.condition)
+        assertEquals(DailyConditionProvenance.HOURLY_WMO, resolved?.provenance)
+        assertEquals(false, resolved?.inferred)
     }
 
     @Test
@@ -59,7 +60,11 @@ class ForecastSeriesConditionResolutionTest {
             hourlyCloud = List(4) { 60 }
         )
 
-        assertEquals(WeatherCondition.RAIN, series.resolveDailyCondition(date, zone)?.condition)
+        val resolved = series.resolveDailyCondition(date, zone)
+
+        assertEquals(WeatherCondition.RAIN, resolved?.condition)
+        assertEquals(DailyConditionProvenance.HOURLY_WMO, resolved?.provenance)
+        assertEquals(false, resolved?.inferred)
     }
 
     @Test
@@ -78,7 +83,11 @@ class ForecastSeriesConditionResolutionTest {
             daily = DailyForecast(emptyList(), emptyList(), emptyList(), emptyList(), emptyList())
         )
 
-        assertEquals(WeatherCondition.OVERCAST, series.resolveDailyCondition(date, zone)?.condition)
+        val resolved = series.resolveDailyCondition(date, zone)
+
+        assertEquals(WeatherCondition.OVERCAST, resolved?.condition)
+        assertEquals(DailyConditionProvenance.DERIVED_VARIABLES, resolved?.provenance)
+        assertEquals(true, resolved?.inferred)
     }
 
     @Test
@@ -93,11 +102,12 @@ class ForecastSeriesConditionResolutionTest {
 
         val resolved = series.resolveDailyCondition(date, zone)
         assertEquals(WeatherCondition.THUNDERSTORM, resolved?.condition)
+        assertEquals(DailyConditionProvenance.DAILY_WMO, resolved?.provenance)
         assertEquals(false, resolved?.inferred)
     }
 
     @Test
-    fun `daily sky WMO max is refined by hourly cloud cover`() {
+    fun `daily sky WMO uses representative hourly WMO without becoming inferred`() {
         val hours = (0 until 6).map { Instant.parse("2026-08-23T22:00:00Z").plusSeconds(it * 3600L) }
         val series = series(
             timestamps = hours,
@@ -110,7 +120,29 @@ class ForecastSeriesConditionResolutionTest {
 
         val resolved = series.resolveDailyCondition(date, zone)
         assertEquals(WeatherCondition.PARTLY_CLOUDY, resolved?.condition)
-        assertEquals(true, resolved?.inferred)
+        assertEquals(DailyConditionProvenance.HOURLY_WMO, resolved?.provenance)
+        assertEquals(false, resolved?.inferred)
+    }
+
+    @Test
+    fun `late overcast hours do not turn a mostly clear day into overcast`() {
+        val hours = (0 until 24).map {
+            Instant.parse("2026-08-23T22:00:00Z").plusSeconds(it * 3600L)
+        }
+        val series = series(
+            timestamps = hours,
+            dailyCode = 3,
+            hourlyCodes = List(21) { 0 } + List(3) { 3 },
+            hourlyPrecip = List(24) { 0.0 },
+            hourlyTemp = List(24) { 20.0 },
+            hourlyCloud = List(21) { 5 } + List(3) { 95 }
+        )
+
+        val resolved = series.resolveDailyCondition(date, zone)
+
+        assertEquals(WeatherCondition.CLEAR, resolved?.condition)
+        assertEquals(DailyConditionProvenance.HOURLY_WMO, resolved?.provenance)
+        assertEquals(false, resolved?.inferred)
     }
 
     @Test
@@ -127,6 +159,7 @@ class ForecastSeriesConditionResolutionTest {
         val resolved = series.resolveDailyCondition(date, zone)
 
         assertEquals(WeatherCondition.MAINLY_CLEAR, resolved?.condition)
+        assertEquals(DailyConditionProvenance.DAILY_WMO, resolved?.provenance)
         assertEquals(false, resolved?.inferred)
     }
 

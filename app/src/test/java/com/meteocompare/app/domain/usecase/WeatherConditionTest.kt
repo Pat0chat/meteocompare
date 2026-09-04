@@ -329,6 +329,9 @@ class WeatherConditionTest {
         // J+2 : seul GFS — la map ne doit pas avoir d'entrée AROME
         assertEquals(WeatherCondition.THUNDERSTORM, rows[2].byModel[WeatherModel.GFS])
         assertNull(rows[2].byModel[WeatherModel.AROME_FRANCE_HD])
+
+        // Tous les codes proviennent directement du weather_code journalier.
+        assertTrue(rows.all { it.inferredByModel.isEmpty() })
     }
 
     @Test
@@ -393,8 +396,10 @@ class WeatherConditionTest {
         assertEquals(1, rows.size)
         // AROME HD inféré depuis précip 8mm + temp min > 0 → RAIN
         assertEquals(WeatherCondition.RAIN, rows[0].byModel[WeatherModel.AROME_FRANCE_HD])
+        assertTrue(WeatherModel.AROME_FRANCE_HD in rows[0].inferredByModel)
         // GFS depuis son code WMO 63 → RAIN
         assertEquals(WeatherCondition.RAIN, rows[0].byModel[WeatherModel.GFS])
+        assertTrue(WeatherModel.GFS !in rows[0].inferredByModel)
     }
 
     // ─── fromCloudCover — fallback local au même modèle ───────────────────

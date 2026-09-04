@@ -39,23 +39,40 @@ internal fun ForecastSeries.resolveHourlyCondition(index: Int): WeatherCondition
             ?.let { WeatherCondition.fromCloudCover(it.toDouble()) }
 }
 
+/** Origine de la condition journalière finalement affichée. */
+internal enum class DailyConditionProvenance {
+    /** Code WMO journalier fourni par l'API pour ce modèle. */
+    DAILY_WMO,
+
+    /** Agrégation de codes WMO horaires fournis par l'API pour ce modèle. */
+    HOURLY_WMO,
+
+    /** Condition reconstruite localement depuis précipitations, température ou nébulosité. */
+    DERIVED_VARIABLES
+}
+
 /** Résultat d'une condition journalière avec provenance explicite. */
 internal data class DailyConditionResolution(
     val condition: WeatherCondition,
+    val provenance: DailyConditionProvenance
+) {
+    /** Seules les conditions reconstruites depuis des variables doivent être atténuées. */
     val inferred: Boolean
-)
+        get() = provenance == DailyConditionProvenance.DERIVED_VARIABLES
+}
 
 /**
  * Résout la condition d'un jour sans jamais emprunter une donnée à un autre modèle.
  *
- * Ordre : un phénomène WMO daily significatif (pluie/neige/brouillard/orage)
- * reste prioritaire ; un simple état de ciel daily (0..3) est réévalué depuis
- * la nébulosité horaire du même modèle afin d'éviter l'effet MAX journalier ;
- * puis viennent le mode des WMO horaires et les fallbacks précip/temp/nuages.
+ * Ordre : un phénomène journalier significatif (pluie, neige, brouillard,
+ * orage…) reste prioritaire. Pour les seuls états du ciel (0 à 3), le mode des
+ * WMO horaires du jour fournit une représentation plus fidèle de la condition
+ * dominante qu'un code daily volontairement « le plus sévère ». Viennent
+ * ensuite les fallbacks précip/temp/nuages.
  *
- * Ainsi, on ne banalise jamais un phénomène potentiellement important, tout en
- * évitant qu'une seule heure WMO=3 transforme artificiellement toute une
- * journée sèche avec éclaircies en « couvert ».
+ * La provenance distingue les codes WMO réellement fournis des conditions
+ * reconstruites localement. L'UI peut ainsi atténuer uniquement ces dernières,
+ * sans présenter comme « inféré » un code journalier clair/nuageux valide.
  */
 internal fun ForecastSeries.resolveDailyCondition(
     date: LocalDate,
@@ -70,34 +87,52 @@ internal fun ForecastSeries.resolveDailyCondition(
         null
     }
 
-    // Open-Meteo agrège le weather_code journalier par MAX des codes horaires.
-    // Pour pluie/neige/brouillard/orage, ce signal de phénomène significatif
-    // reste utile. Pour les seuls codes de ciel 0..3, en revanche, MAX peut
-    // transformer une seule heure couverte en « journée couverte ». On affine
-    // donc les états SKY à partir de la nébulosité horaire du même modèle.
+    // Les phénomènes significatifs du daily sont intentionnellement
+    // conservateurs et doivent rester visibles même s'ils ne durent qu'une
+    // partie de la journée.
     if (dailyNative != null && !dailyNative.isSky) {
-        return DailyConditionResolution(dailyNative, inferred = false)
+        return DailyConditionResolution(
+            condition = dailyNative,
+            provenance = DailyConditionProvenance.DAILY_WMO
+        )
     }
 
     val hourlyIndices = hourly.timestamps.indices.filter { index ->
         hourly.timestamps[index].atZone(zone).toLocalDate() == date
     }
 
-    if (dailyNative?.isSky == true) {
-        val cloudValues = hourlyIndices.mapNotNull { index ->
-            hourly.cloudCover.getOrNull(index)?.takeIf { it in 0..100 }
-        }
-        cloudValues.takeIf { it.isNotEmpty() }
-            ?.average()
-            ?.let(WeatherCondition::fromCloudCover)
-            ?.let { return DailyConditionResolution(it, inferred = true) }
-    }
-
-    hourlyIndices.mapNotNull { index ->
+    val hourlyNative = hourlyIndices.mapNotNull { index ->
         WeatherCondition.fromWmoCode(hourly.weatherCode.getOrNull(index))
             ?.takeUnless { it == WeatherCondition.UNKNOWN }
-    }.modalCondition()
-        ?.let { return DailyConditionResolution(it, inferred = true) }
+    }
+
+    // Open-Meteo résume le daily par la condition la plus sévère. Pour une
+    // simple nébulosité, cela pouvait donc afficher « couvert » à cause de
+    // quelques heures tardives alors que la journée était majoritairement
+    // claire. Le mode des états de ciel horaires corrige ce biais sans créer
+    // une condition locale : la provenance reste bien un WMO natif.
+    if (dailyNative?.isSky == true) {
+        hourlyNative.filter { it.isSky }.modalCondition()
+            ?.let {
+                return DailyConditionResolution(
+                    condition = it,
+                    provenance = DailyConditionProvenance.HOURLY_WMO
+                )
+            }
+
+        return DailyConditionResolution(
+            condition = dailyNative,
+            provenance = DailyConditionProvenance.DAILY_WMO
+        )
+    }
+
+    hourlyNative.modalCondition()
+        ?.let {
+            return DailyConditionResolution(
+                condition = it,
+                provenance = DailyConditionProvenance.HOURLY_WMO
+            )
+        }
 
     if (hourlyIndices.isNotEmpty()) {
         val precipitationValues = hourlyIndices.mapNotNull { index ->
@@ -112,32 +147,40 @@ internal fun ForecastSeries.resolveDailyCondition(
         WeatherCondition.inferFromPrecipAndTemp(
             precipMm = precipitationValues.takeIf { it.isNotEmpty() }?.sum(),
             tempMinC = temperatures.minOrNull()
-        )?.let { return DailyConditionResolution(it, inferred = true) }
+        )?.let {
+            return DailyConditionResolution(
+                condition = it,
+                provenance = DailyConditionProvenance.DERIVED_VARIABLES
+            )
+        }
         cloudValues.takeIf { it.isNotEmpty() }
             ?.average()
             ?.let(WeatherCondition::fromCloudCover)
-            ?.let { return DailyConditionResolution(it, inferred = true) }
+            ?.let {
+                return DailyConditionResolution(
+                    condition = it,
+                    provenance = DailyConditionProvenance.DERIVED_VARIABLES
+                )
+            }
     }
 
     if (dailyIndex >= 0) {
         WeatherCondition.inferFromPrecipAndTemp(
             precipMm = daily.precipitationSum.getOrNull(dailyIndex),
             tempMinC = daily.tempMin.getOrNull(dailyIndex)
-        )?.let { return DailyConditionResolution(it, inferred = true) }
+        )?.let {
+            return DailyConditionResolution(
+                condition = it,
+                provenance = DailyConditionProvenance.DERIVED_VARIABLES
+            )
+        }
     }
 
     dailyCloudCoverMean(date, zone)?.let { cloudCover ->
         return DailyConditionResolution(
             condition = WeatherCondition.fromCloudCover(cloudCover.toDouble()),
-            inferred = true
+            provenance = DailyConditionProvenance.DERIVED_VARIABLES
         )
-    }
-
-    // Un axe horaire peut exister tout en ne contenant aucune variable
-    // exploitable (cache ancien, réponse partielle). Dans ce cas, ne pas
-    // perdre le code daily SKY valide : il reste le dernier signal natif.
-    if (dailyNative?.isSky == true) {
-        return DailyConditionResolution(dailyNative, inferred = false)
     }
 
     return null

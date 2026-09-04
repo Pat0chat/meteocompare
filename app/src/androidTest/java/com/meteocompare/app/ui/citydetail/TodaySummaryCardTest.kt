@@ -64,9 +64,12 @@ class TodaySummaryCardTest {
         composeRule.onNodeWithText(context.getString(R.string.var_precipitation), useUnmergedTree = true).assertExists()
         composeRule.onNodeWithText(context.getString(R.string.metric_detail_wind), useUnmergedTree = true).assertExists()
         composeRule.onNodeWithText(
-            context.getString(R.string.metric_gust_detail, "28–36"),
+            context.getString(R.string.metric_detail_gusts),
             useUnmergedTree = true
         ).assertExists()
+        composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_GUST_CENTRAL, useUnmergedTree = true)
+            .assertTextEquals("32 km/h")
+            .assertIsDisplayed()
         composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_PRECIP_CENTRAL, useUnmergedTree = true)
             .assertTextEquals("0.0 mm")
             .assertIsDisplayed()
@@ -135,7 +138,7 @@ class TodaySummaryCardTest {
     }
 
     @Test
-    fun rain_state_header_keeps_only_probability() {
+    fun rain_state_separates_probability_and_conditional_amount() {
         render(
             DayConfidence(
                 date = TestFixtures.today,
@@ -154,7 +157,7 @@ class TodaySummaryCardTest {
             context.getString(R.string.metric_precip_if_rain, "4.0 mm"),
             substring = true,
             useUnmergedTree = true
-        ).assertDoesNotExist()
+        ).assertIsDisplayed()
         composeRule.onNodeWithText(
             context.getString(R.string.metric_summary_range, "2.0 mm – 6.0 mm"),
             useUnmergedTree = true
@@ -184,7 +187,11 @@ class TodaySummaryCardTest {
             context.getString(R.string.metric_precip_if_rain, "2.2 mm"),
             substring = true,
             useUnmergedTree = true
-        ).assertDoesNotExist()
+        ).assertIsDisplayed()
+        composeRule.onNodeWithText(
+            context.getString(R.string.metric_precip_models_rain, 3, 5),
+            useUnmergedTree = true
+        ).assertIsDisplayed()
         composeRule.onNodeWithText(
             context.getString(R.string.metric_precip_probability_only, 60),
             substring = true,
@@ -192,7 +199,7 @@ class TodaySummaryCardTest {
         ).assertIsDisplayed()
     }
     @Test
-    fun dispersion_central_value_at_min_replaces_overlapping_min_label() {
+    fun dispersion_central_value_at_min_remains_prominent() {
         render(
             DayConfidence(
                 date = TestFixtures.today,
@@ -211,8 +218,8 @@ class TodaySummaryCardTest {
             modelCount = 4
         )
 
-        // Au bord gauche, la valeur centrale noire sert aussi de borne : le
-        // libellé min gris qui la chevaucherait doit être masqué.
+        // La valeur centrale est désormais portée par l'en-tête de la frise :
+        // elle reste donc lisible même lorsqu'elle coïncide avec une borne.
         composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_TEMP_MIN_CENTRAL, useUnmergedTree = true)
             .assertTextEquals("12.0°")
             .assertIsDisplayed()
@@ -220,7 +227,7 @@ class TodaySummaryCardTest {
     }
 
     @Test
-    fun dispersion_central_value_at_max_replaces_overlapping_max_label() {
+    fun dispersion_central_value_at_max_remains_prominent() {
         render(
             DayConfidence(
                 date = TestFixtures.today,
@@ -239,7 +246,7 @@ class TodaySummaryCardTest {
             modelCount = 4
         )
 
-        // Même protection au bord droit.
+        // Même garantie lorsque le consensus coïncide avec la borne haute.
         composeRule.onNodeWithText("20.0°", useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_TEMP_MAX_CENTRAL, useUnmergedTree = true)
             .assertTextEquals("26.0°")
