@@ -1,0 +1,1 @@
+- Améliorations des interfaces, mise à jour des icônes, améliorations des moteurs de prévisions / consensus, correction de bugs
