@@ -199,7 +199,7 @@ private fun IconCell(
             ) {
                 WeatherIconDecorative(
                     condition = condition,
-                    size = 22.dp,
+                    size = 28.dp,
                     tint = condition.semanticTint()
                 )
                 val badge = weatherBadgeFor(
@@ -251,7 +251,7 @@ internal fun WeatherLegend() {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     WeatherIconDecorative(
                         condition = c,
-                        size = 16.dp,
+                        size = 18.dp,
                         tint = c.semanticTint()
                     )
                     Text(
@@ -289,7 +289,7 @@ internal fun WeatherLegend() {
         ) {
             WeatherIconDecorative(
                 condition = WeatherCondition.PARTLY_CLOUDY,
-                size = 16.dp,
+                size = 18.dp,
                 tint = WeatherCondition.PARTLY_CLOUDY.semanticTint(),
                 modifier = Modifier.alpha(0.65f)
             )

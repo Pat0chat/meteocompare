@@ -487,7 +487,7 @@ private fun TimelinePointColumn(
             point.condition?.let {
                 WeatherIconDecorative(
                     condition = it,
-                    size = 29.dp,
+                    size = 32.dp,
                     tint = it.semanticTint()
                 )
             } ?: Text(

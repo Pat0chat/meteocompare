@@ -292,7 +292,7 @@ private fun HourIconCell(
             ) {
                 WeatherIconDecorative(
                     condition = cell.condition,
-                    size = 20.dp,
+                    size = 28.dp,
                     tint = cell.condition.semanticTint()
                 )
                 val badge = weatherBadgeFor(

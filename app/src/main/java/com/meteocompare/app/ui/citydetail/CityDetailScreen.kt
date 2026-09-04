@@ -1510,9 +1510,7 @@ private fun DetailMetricGrid(
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         if (today.tempMin != null || today.tempMax != null) {
-            Spacer(Modifier.height(2.dp))
-            SummaryMetricSeparator()
-            Spacer(Modifier.height(2.dp))
+            Spacer(Modifier.height(4.dp))
 
             SummaryMetricSection {
                 SummaryMetricGroupHeader(
@@ -1687,8 +1685,8 @@ private fun SummaryMetricSection(content: @Composable () -> Unit) {
 @Composable
 private fun SummaryMetricSeparator() {
     HorizontalDivider(
-        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
-        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
+        modifier = Modifier.padding(horizontal = 50.dp, vertical = 2.dp),
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.20f)
     )
 }
 

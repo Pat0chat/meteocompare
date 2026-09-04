@@ -329,6 +329,7 @@ Fait :
 - ✅ v1.11.0 — Nouveau moteur de consensus, page d'aide, correction de bugs
 - ✅ v1.12.0 — Migration vers ECMWF 9km, Chronologie par heure, ajout de la vigilance Météo-France, refonte de la partie mer et de la page d'accueil, mise à jour de la stack Gradle, correction de bugs
 - ✅ v1.13.0 — Améliorations des interfaces, mise à jour des icônes, améliorations des moteurs de prévisions / consensus, correction de bugs
+- ✅ v1.13.1 — Améliorations des interfaces, correction de bugs
 
 ## Licence
 

@@ -834,7 +834,7 @@ private fun WeatherConditionRow(conditions: List<WeatherCondition>) {
             ) {
                 WeatherIconDecorative(
                     condition = condition,
-                    size = 22.dp,
+                    size = 28.dp,
                     tint = condition.semanticTint()
                 )
             }
