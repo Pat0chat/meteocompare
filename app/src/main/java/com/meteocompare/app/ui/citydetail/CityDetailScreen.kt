@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -1507,117 +1506,172 @@ private fun DetailMetricGrid(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 6.dp)
+            .padding(top = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        var hasPrevious = false
-
         if (today.tempMin != null || today.tempMax != null) {
-            SummaryMetricGroupHeader(
-                title = stringResource(R.string.metric_temperature),
-                icon = Icons.Outlined.Thermostat,
-                accent = temperatureMetricAccent()
-            )
-
-            today.tempMin?.let { score ->
-                DispersionMetricRow(
-                    semanticLabel = stringResource(R.string.var_temp_min),
-                    subLabel = stringResource(R.string.today_summary_temp_min_short),
-                    accent = temperatureMinMetricAccent(),
-                    central = score.centralValue,
-                    fallbackMin = score.minValue,
-                    fallbackMax = score.maxValue,
-                    samples = samples.tempMin,
-                    unit = "°",
-                    digits = 1,
-                    convergence = score.convergencePercent,
-                    centralTestTag = TAG_TODAY_SUMMARY_TEMP_MIN_CENTRAL,
-                    convergenceTestTag = TAG_TODAY_SUMMARY_TEMP_MIN_CONVERGENCE
+            SummaryMetricSection {
+                SummaryMetricGroupHeader(
+                    title = stringResource(R.string.metric_temperature),
+                    icon = Icons.Outlined.Thermostat,
+                    accent = temperatureMetricAccent()
                 )
-            }
 
-            today.tempMax?.let { score ->
-                DispersionMetricRow(
-                    semanticLabel = stringResource(R.string.var_temp_max),
-                    subLabel = stringResource(R.string.today_summary_temp_max_short),
-                    accent = temperatureMetricAccent(),
-                    central = score.centralValue,
-                    fallbackMin = score.minValue,
-                    fallbackMax = score.maxValue,
-                    samples = samples.tempMax,
-                    unit = "°",
-                    digits = 1,
-                    convergence = score.convergencePercent,
-                    centralTestTag = TAG_TODAY_SUMMARY_TEMP_MAX_CENTRAL,
-                    convergenceTestTag = TAG_TODAY_SUMMARY_TEMP_MAX_CONVERGENCE
-                )
+                today.tempMin?.let { score ->
+                    DispersionMetricRow(
+                        semanticLabel = stringResource(R.string.var_temp_min),
+                        subLabel = stringResource(R.string.today_summary_temp_min_short),
+                        accent = temperatureMinMetricAccent(),
+                        central = score.centralValue,
+                        fallbackMin = score.minValue,
+                        fallbackMax = score.maxValue,
+                        samples = samples.tempMin,
+                        unit = "°",
+                        digits = 1,
+                        convergence = score.convergencePercent,
+                        centralTestTag = TAG_TODAY_SUMMARY_TEMP_MIN_CENTRAL,
+                        convergenceTestTag = TAG_TODAY_SUMMARY_TEMP_MIN_CONVERGENCE
+                    )
+                }
+
+                if (today.tempMin != null && today.tempMax != null) {
+                    Spacer(Modifier.height(4.dp))
+                }
+
+                today.tempMax?.let { score ->
+                    DispersionMetricRow(
+                        semanticLabel = stringResource(R.string.var_temp_max),
+                        subLabel = stringResource(R.string.today_summary_temp_max_short),
+                        accent = temperatureMetricAccent(),
+                        central = score.centralValue,
+                        fallbackMin = score.minValue,
+                        fallbackMax = score.maxValue,
+                        samples = samples.tempMax,
+                        unit = "°",
+                        digits = 1,
+                        convergence = score.convergencePercent,
+                        centralTestTag = TAG_TODAY_SUMMARY_TEMP_MAX_CENTRAL,
+                        convergenceTestTag = TAG_TODAY_SUMMARY_TEMP_MAX_CONVERGENCE
+                    )
+                }
             }
-            hasPrevious = true
         }
 
         today.precipitation?.let { precipitation ->
-            if (hasPrevious) SummaryDispersionDivider()
             val rain = precipitationDispersionPresentation(precipitation)
             val rainHeaderDetail = rain.probabilityPercent?.let { probability ->
                 stringResource(R.string.metric_precip_probability_only, probability)
             }
 
-            SummaryMetricGroupHeader(
-                title = stringResource(R.string.var_precipitation),
-                icon = Icons.Outlined.WaterDrop,
-                accent = precipitationMetricAccent(),
-                trailing = rainHeaderDetail
-            )
-            DispersionMetricRow(
-                semanticLabel = stringResource(R.string.var_precipitation),
-                accent = precipitationMetricAccent(),
-                central = rain.central,
-                fallbackMin = rain.min,
-                fallbackMax = rain.max,
-                samples = samples.precipitation,
-                unit = " mm",
-                digits = 1,
-                convergence = precipitation.convergencePercent,
-                centralTestTag = TAG_TODAY_SUMMARY_PRECIP_CENTRAL,
-                convergenceTestTag = TAG_TODAY_SUMMARY_PRECIP_CONVERGENCE
-            )
-            hasPrevious = true
+            SummaryMetricSection {
+                SummaryMetricGroupHeader(
+                    title = stringResource(R.string.var_precipitation),
+                    icon = Icons.Outlined.WaterDrop,
+                    accent = precipitationMetricAccent(),
+                    trailing = rainHeaderDetail
+                )
+                DispersionMetricRow(
+                    semanticLabel = stringResource(R.string.var_precipitation),
+                    subLabel = stringResource(R.string.metric_summary_average),
+                    accent = precipitationMetricAccent(),
+                    central = rain.central,
+                    fallbackMin = rain.min,
+                    fallbackMax = rain.max,
+                    samples = samples.precipitation,
+                    unit = " mm",
+                    digits = 1,
+                    convergence = precipitation.convergencePercent,
+                    nonNegative = true,
+                    centralTestTag = TAG_TODAY_SUMMARY_PRECIP_CENTRAL,
+                    convergenceTestTag = TAG_TODAY_SUMMARY_PRECIP_CONVERGENCE
+                )
+                RainModelSummary(
+                    presentation = rain,
+                    accent = precipitationMetricAccent()
+                )
+            }
         }
 
-        (today.windMax ?: today.windGustMax)?.let { score ->
-            if (hasPrevious) SummaryDispersionDivider()
+        if (today.windMax != null || today.windGustMax != null) {
             val isGustOnly = today.windMax == null
-            val gustHeaderDetail = if (!isGustOnly) {
-                today.windGustMax?.let { gust ->
-                    stringResource(
-                        R.string.metric_gust_detail,
-                        "${gust.minValue.roundToInt()}–${gust.maxValue.roundToInt()}"
+            val sharedDomain = windDispersionDomain(today, samples)
+
+            SummaryMetricSection {
+                SummaryMetricGroupHeader(
+                    title = stringResource(
+                        if (isGustOnly) R.string.var_wind_gust_max else R.string.var_wind_max
+                    ),
+                    icon = Icons.Outlined.Air,
+                    accent = windMetricAccent()
+                )
+
+                today.windMax?.let { score ->
+                    DispersionMetricRow(
+                        semanticLabel = stringResource(R.string.metric_detail_wind),
+                        subLabel = stringResource(R.string.metric_detail_wind),
+                        accent = windMetricAccent(),
+                        central = score.centralValue,
+                        fallbackMin = score.minValue,
+                        fallbackMax = score.maxValue,
+                        samples = samples.wind,
+                        unit = " km/h",
+                        digits = 0,
+                        convergence = score.convergencePercent,
+                        nonNegative = true,
+                        domainOverride = sharedDomain,
+                        centralTestTag = TAG_TODAY_SUMMARY_WIND_CENTRAL,
+                        convergenceTestTag = TAG_TODAY_SUMMARY_WIND_CONVERGENCE
                     )
                 }
-            } else null
 
-            SummaryMetricGroupHeader(
-                title = stringResource(
-                    if (isGustOnly) R.string.metric_detail_gusts else R.string.metric_detail_wind
-                ),
-                icon = Icons.Outlined.Air,
-                accent = windMetricAccent(),
-                trailing = gustHeaderDetail
-            )
-            DispersionMetricRow(
-                semanticLabel = stringResource(
-                    if (isGustOnly) R.string.metric_detail_gusts else R.string.metric_detail_wind
-                ),
-                accent = windMetricAccent(),
-                central = score.centralValue,
-                fallbackMin = score.minValue,
-                fallbackMax = score.maxValue,
-                samples = if (isGustOnly) samples.windGust else samples.wind,
-                unit = " km/h",
-                digits = 0,
-                convergence = score.convergencePercent,
-                centralTestTag = TAG_TODAY_SUMMARY_WIND_CENTRAL,
-                convergenceTestTag = TAG_TODAY_SUMMARY_WIND_CONVERGENCE
-            )
+                if (today.windMax != null && today.windGustMax != null) {
+                    Spacer(Modifier.height(4.dp))
+                }
+
+                today.windGustMax?.let { score ->
+                    DispersionMetricRow(
+                        semanticLabel = stringResource(R.string.metric_detail_gusts),
+                        subLabel = stringResource(R.string.metric_detail_gusts),
+                        accent = windMetricAccent(),
+                        central = score.centralValue,
+                        fallbackMin = score.minValue,
+                        fallbackMax = score.maxValue,
+                        samples = samples.windGust,
+                        unit = " km/h",
+                        digits = 0,
+                        convergence = score.convergencePercent,
+                        nonNegative = true,
+                        domainOverride = sharedDomain,
+                        centralTestTag = if (isGustOnly) {
+                            TAG_TODAY_SUMMARY_WIND_CENTRAL
+                        } else {
+                            TAG_TODAY_SUMMARY_GUST_CENTRAL
+                        },
+                        convergenceTestTag = if (isGustOnly) {
+                            TAG_TODAY_SUMMARY_WIND_CONVERGENCE
+                        } else {
+                            TAG_TODAY_SUMMARY_GUST_CONVERGENCE
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SummaryMetricSection(content: @Composable () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        border = BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.32f)
+        )
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+            content()
         }
     }
 }
@@ -1632,50 +1686,57 @@ private fun SummaryMetricGroupHeader(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 2.dp, vertical = 7.dp),
+            .padding(bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = accent,
-            modifier = Modifier.size(20.dp)
-        )
-        Spacer(Modifier.width(8.dp))
+        Surface(
+            color = accent.copy(alpha = 0.13f),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Box(modifier = Modifier.size(34.dp), contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = accent,
+                    modifier = Modifier.size(19.dp)
+                )
+            }
+        }
+        Spacer(Modifier.width(10.dp))
         Text(
             text = title,
-            style = MaterialTheme.typography.labelLarge,
+            style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.weight(1f)
         )
         trailing?.let { detail ->
             Spacer(Modifier.width(10.dp))
-            Text(
-                text = detail,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.End,
-                maxLines = 2,
-                modifier = Modifier.weight(1.25f)
-            )
+            Surface(
+                color = accent.copy(alpha = 0.12f),
+                shape = androidx.compose.foundation.shape.CircleShape
+            ) {
+                Text(
+                    text = detail,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Medium,
+                    color = accent,
+                    maxLines = 1,
+                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp)
+                )
+            }
         }
     }
-}
-
-@Composable
-private fun SummaryDispersionDivider() {
-    HorizontalDivider(
-        modifier = Modifier.padding(horizontal = 4.dp),
-        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
-    )
 }
 
 private data class PrecipitationDispersionPresentation(
     val central: Double,
     val min: Double,
     val max: Double,
-    val probabilityPercent: Int?
+    val probabilityPercent: Int?,
+    val conditionalAmount: Double?,
+    val wetModelCount: Int,
+    val modelCount: Int
 )
 
 private fun precipitationDispersionPresentation(
@@ -1685,7 +1746,10 @@ private fun precipitationDispersionPresentation(
         central = precipitation.meta.centralAmountMm ?: 0.0,
         min = 0.0,
         max = precipitation.maxAmountMm.coerceAtLeast(0.0),
-        probabilityPercent = precipitation.meta.probabilityPercent ?: 0
+        probabilityPercent = precipitation.meta.probabilityPercent ?: 0,
+        conditionalAmount = precipitation.meta.conditionalAmountMm,
+        wetModelCount = 0,
+        modelCount = precipitation.modelCount
     )
     is PrecipitationConfidence.Rain -> PrecipitationDispersionPresentation(
         central = precipitation.meta.centralAmountMm
@@ -1693,7 +1757,10 @@ private fun precipitationDispersionPresentation(
             ?: precipitation.meanMm,
         min = precipitation.minMm.coerceAtLeast(0.0),
         max = precipitation.maxMm.coerceAtLeast(0.0),
-        probabilityPercent = precipitation.meta.probabilityPercent ?: 100
+        probabilityPercent = precipitation.meta.probabilityPercent ?: 100,
+        conditionalAmount = precipitation.meta.conditionalAmountMm ?: precipitation.meanMm,
+        wetModelCount = precipitation.modelCount,
+        modelCount = precipitation.modelCount
     )
     is PrecipitationConfidence.Divided -> {
         val probability = precipitation.meta.probabilityPercent
@@ -1709,9 +1776,128 @@ private fun precipitationDispersionPresentation(
             // que les membres humides.
             min = 0.0,
             max = precipitation.rainMaxMm.coerceAtLeast(0.0),
-            probabilityPercent = probability
+            probabilityPercent = probability,
+            conditionalAmount = conditional,
+            wetModelCount = precipitation.modelsForRain,
+            modelCount = precipitation.modelCount
         )
     }
+}
+
+@Composable
+private fun RainModelSummary(
+    presentation: PrecipitationDispersionPresentation,
+    accent: Color
+) {
+    if (presentation.modelCount <= 0) return
+    val locale = LocalLocale.current.platformLocale
+    val modelsLabel = stringResource(
+        R.string.metric_precip_models_rain,
+        presentation.wetModelCount,
+        presentation.modelCount
+    )
+
+    Column(
+        modifier = Modifier.padding(top = 7.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = modelsLabel,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f)
+            )
+            presentation.conditionalAmount?.takeIf { it.isFinite() && it > 0.0 }?.let { amount ->
+                Text(
+                    text = stringResource(
+                        R.string.metric_precip_if_rain,
+                        formatDispersionValue(amount, " mm", 1, locale)
+                    ),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = accent,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+        RainModelVoteRail(
+            wetModelCount = presentation.wetModelCount,
+            modelCount = presentation.modelCount,
+            accent = accent,
+            contentDescription = modelsLabel
+        )
+    }
+}
+
+@Composable
+private fun RainModelVoteRail(
+    wetModelCount: Int,
+    modelCount: Int,
+    accent: Color,
+    contentDescription: String
+) {
+    val dryColor = MaterialTheme.colorScheme.surfaceContainerHighest
+    Canvas(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(9.dp)
+            .semantics { this.contentDescription = contentDescription }
+    ) {
+        val count = modelCount.coerceAtLeast(1)
+        val wetCount = wetModelCount.coerceIn(0, count)
+        val gap = 3.dp.toPx()
+        val segmentWidth = ((size.width - gap * (count - 1)) / count).coerceAtLeast(1f)
+        repeat(count) { index ->
+            val left = index * (segmentWidth + gap)
+            drawRoundRect(
+                color = if (index < wetCount) accent else dryColor,
+                topLeft = androidx.compose.ui.geometry.Offset(left, 0f),
+                size = androidx.compose.ui.geometry.Size(segmentWidth, size.height),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.height / 2f)
+            )
+        }
+    }
+}
+
+private data class DispersionDomain(val min: Double, val max: Double)
+
+private fun paddedDispersionDomain(
+    min: Double,
+    max: Double,
+    nonNegative: Boolean
+): DispersionDomain {
+    val safeMin = min.takeIf(Double::isFinite) ?: 0.0
+    val safeMax = max.takeIf(Double::isFinite) ?: safeMin
+    val span = (safeMax - safeMin).coerceAtLeast(0.0)
+    val padding = if (span > 0.0001) {
+        span * 0.16
+    } else {
+        kotlin.math.max(kotlin.math.abs(safeMin) * 0.08, 1.0)
+    }
+    val domainMin = (safeMin - padding).let { if (nonNegative) it.coerceAtLeast(0.0) else it }
+    val domainMax = (safeMax + padding).coerceAtLeast(domainMin + 0.0001)
+    return DispersionDomain(domainMin, domainMax)
+}
+
+private fun windDispersionDomain(
+    today: DayConfidence,
+    samples: TodaySummaryDispersionSamples
+): DispersionDomain {
+    val values = buildList {
+        addAll(samples.wind.map(DispersionSample::value))
+        addAll(samples.windGust.map(DispersionSample::value))
+        today.windMax?.let { addAll(listOf(it.minValue, it.centralValue, it.maxValue)) }
+        today.windGustMax?.let { addAll(listOf(it.minValue, it.centralValue, it.maxValue)) }
+    }.filter(Double::isFinite)
+    return paddedDispersionDomain(
+        min = values.minOrNull() ?: 0.0,
+        max = values.maxOrNull() ?: 0.0,
+        nonNegative = true
+    )
 }
 
 @Composable
@@ -1726,6 +1912,8 @@ private fun DispersionMetricRow(
     digits: Int,
     convergence: Int?,
     subLabel: String? = null,
+    nonNegative: Boolean = false,
+    domainOverride: DispersionDomain? = null,
     centralTestTag: String? = null,
     convergenceTestTag: String? = null
 ) {
@@ -1739,6 +1927,7 @@ private fun DispersionMetricRow(
     val rawMax = sampleValues.maxOrNull() ?: fallbackMax
     val safeMin = listOf(rawMin, central).filter(Double::isFinite).minOrNull() ?: central
     val safeMax = listOf(rawMax, central).filter(Double::isFinite).maxOrNull() ?: central
+    val domain = domainOverride ?: paddedDispersionDomain(safeMin, safeMax, nonNegative)
     val rangeLabel = "${formatDispersionValue(safeMin, unit, digits, locale)} – ${formatDispersionValue(safeMax, unit, digits, locale)}"
     val centralLabel = formatDispersionValue(central, unit, digits, locale)
     val railDescription = if (samples.isNotEmpty()) {
@@ -1748,96 +1937,110 @@ private fun DispersionMetricRow(
     } else {
         "$semanticLabel · $rangeLabel"
     }
-    val convergenceTint = if (convergence != null) {
-        confidenceColor(convergence)
-    } else {
-        MaterialTheme.colorScheme.onSurfaceVariant
-    }
-
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 2.dp, vertical = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(3.dp)
+            .padding(vertical = 3.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
-        subLabel?.let { label ->
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = subLabel ?: semanticLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = centralLabel,
+                    modifier = if (centralTestTag != null) Modifier.testTag(centralTestTag) else Modifier,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            ConvergenceTonalChip(
+                convergence = convergence,
+                testTag = convergenceTestTag
             )
         }
 
         DispersionRail(
             samples = sampleValues,
-            min = safeMin,
-            max = safeMax,
+            rangeMin = safeMin,
+            rangeMax = safeMax,
+            domain = domain,
             central = central,
             accent = accent,
             contentDescription = railDescription
         )
 
-        DispersionAxisLabels(
+        DispersionBoundsLabels(
             minLabel = formatDispersionValue(safeMin, unit, digits, locale),
-            centralLabel = centralLabel,
             maxLabel = formatDispersionValue(safeMax, unit, digits, locale),
             min = safeMin,
             max = safeMax,
-            central = central,
-            centralTestTag = centralTestTag
+            domain = domain
         )
+    }
+}
 
+@Composable
+private fun ConvergenceTonalChip(
+    convergence: Int?,
+    testTag: String?
+) {
+    val agreementLabel = stringResource(R.string.home_agreement_label)
+    val convergenceLabel = convergence?.let { "$it%" } ?: "—"
+    val tint = if (convergence != null) {
+        confidenceColor(convergence)
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    Surface(
+        color = tint.copy(alpha = 0.12f),
+        shape = androidx.compose.foundation.shape.CircleShape,
+        border = BorderStroke(1.dp, tint.copy(alpha = 0.18f)),
+        modifier = Modifier.semantics {
+            contentDescription = "$agreementLabel $convergenceLabel"
+        }
+    ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = stringResource(R.string.home_agreement_label),
-                style = MaterialTheme.typography.labelSmall,
-                color = convergenceTint
+            Box(
+                modifier = Modifier
+                    .size(6.dp)
+                    .background(tint, androidx.compose.foundation.shape.CircleShape)
             )
             Spacer(Modifier.width(6.dp))
             Text(
-                text = convergence?.let { "$it%" } ?: "—",
-                modifier = if (convergenceTestTag != null) Modifier.testTag(convergenceTestTag) else Modifier,
+                text = convergenceLabel,
+                modifier = if (testTag != null) Modifier.testTag(testTag) else Modifier,
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.SemiBold,
-                color = convergenceTint
+                color = tint
             )
-            Spacer(Modifier.width(8.dp))
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(3.dp)
-                    .clip(androidx.compose.foundation.shape.CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-            ) {
-                if (convergence != null) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth((convergence.coerceIn(0, 100) / 100f))
-                            .fillMaxHeight()
-                            .background(convergenceTint)
-                    )
-                }
-            }
         }
     }
 }
 
 @Composable
-private fun DispersionAxisLabels(
+private fun DispersionBoundsLabels(
     minLabel: String,
-    centralLabel: String,
     maxLabel: String,
     min: Double,
     max: Double,
-    central: Double,
-    centralTestTag: String? = null
+    domain: DispersionDomain
 ) {
+    // Une frise sans dispersion est déjà résumée par la valeur centrale mise
+    // en avant. Répéter deux fois la même borne créerait un chevauchement.
+    if (kotlin.math.abs(max - min) <= 0.0001) return
     val mutedColor = MaterialTheme.colorScheme.onSurfaceVariant
-    val centralColor = MaterialTheme.colorScheme.onSurface
 
     androidx.compose.ui.layout.Layout(
         modifier = Modifier.fillMaxWidth(),
@@ -1846,14 +2049,6 @@ private fun DispersionAxisLabels(
                 text = minLabel,
                 style = MaterialTheme.typography.labelSmall,
                 color = mutedColor
-            )
-            Text(
-                text = centralLabel,
-                modifier = if (centralTestTag != null) Modifier.testTag(centralTestTag) else Modifier,
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = centralColor,
-                textAlign = TextAlign.Center
             )
             Text(
                 text = maxLabel,
@@ -1867,38 +2062,25 @@ private fun DispersionAxisLabels(
             measurable.measure(constraints.copy(minWidth = 0, minHeight = 0))
         }
         val minPlaceable = placeables[0]
-        val centralPlaceable = placeables[1]
-        val maxPlaceable = placeables[2]
+        val maxPlaceable = placeables[1]
         val width = constraints.maxWidth
         val height = placeables.maxOf { it.height }
         val railStart = width * DISPERSION_RAIL_START_FRACTION
         val railEnd = width * DISPERSION_RAIL_END_FRACTION
-        val centralX = railStart + (railEnd - railStart) * dispersionRatio(central, min, max)
+        val minCenter = railStart + (railEnd - railStart) * dispersionRatio(min, domain.min, domain.max)
+        val maxCenter = railStart + (railEnd - railStart) * dispersionRatio(max, domain.min, domain.max)
 
         fun clampedStart(centerX: Float, childWidth: Int): Int =
             (centerX - childWidth / 2f)
                 .roundToInt()
                 .coerceIn(0, (width - childWidth).coerceAtLeast(0))
 
-        val minX = clampedStart(railStart, minPlaceable.width)
-        val centralLabelX = clampedStart(centralX, centralPlaceable.width)
-        val maxX = clampedStart(railEnd, maxPlaceable.width)
-        val gap = 4.dp.roundToPx()
-
-        fun overlaps(leftX: Int, leftWidth: Int, rightX: Int, rightWidth: Int): Boolean =
-            leftX < rightX + rightWidth + gap && rightX < leftX + leftWidth + gap
-
-        // Quand le consensus tombe sur (ou très près de) l'une des bornes,
-        // sa valeur noire fait déjà office de borne. On masque donc uniquement
-        // le libellé gris qui chevaucherait, sans déplacer le consensus par
-        // rapport à son trait noir.
-        val showMin = !overlaps(minX, minPlaceable.width, centralLabelX, centralPlaceable.width)
-        val showMax = !overlaps(maxX, maxPlaceable.width, centralLabelX, centralPlaceable.width)
+        val minX = clampedStart(minCenter, minPlaceable.width)
+        val maxX = clampedStart(maxCenter, maxPlaceable.width)
 
         layout(width, height) {
-            if (showMin) minPlaceable.placeRelative(minX, 0)
-            centralPlaceable.placeRelative(centralLabelX, 0)
-            if (showMax) maxPlaceable.placeRelative(maxX, 0)
+            minPlaceable.placeRelative(minX, 0)
+            maxPlaceable.placeRelative(maxX, 0)
         }
     }
 }
@@ -1915,13 +2097,14 @@ private fun dispersionRatio(value: Double, min: Double, max: Double): Float {
 @Composable
 private fun DispersionRail(
     samples: List<Double>,
-    min: Double,
-    max: Double,
+    rangeMin: Double,
+    rangeMax: Double,
+    domain: DispersionDomain,
     central: Double,
     accent: Color,
     contentDescription: String
 ) {
-    val surface = MaterialTheme.colorScheme.surfaceContainerLow
+    val surface = MaterialTheme.colorScheme.surfaceContainer
     val track = MaterialTheme.colorScheme.surfaceContainerHighest
     val centerColor = MaterialTheme.colorScheme.onSurface
 
@@ -1935,31 +2118,36 @@ private fun DispersionRail(
         val endX = size.width * DISPERSION_RAIL_END_FRACTION
         val centerY = size.height / 2f
         fun xFor(value: Double): Float =
-            startX + (endX - startX) * dispersionRatio(value, min, max)
+            startX + (endX - startX) * dispersionRatio(value, domain.min, domain.max)
 
         drawRoundRect(
             color = track,
-            topLeft = androidx.compose.ui.geometry.Offset(startX, centerY - 2.dp.toPx()),
-            size = androidx.compose.ui.geometry.Size(endX - startX, 4.dp.toPx()),
+            topLeft = androidx.compose.ui.geometry.Offset(startX, centerY - 2.5.dp.toPx()),
+            size = androidx.compose.ui.geometry.Size(endX - startX, 5.dp.toPx()),
             cornerRadius = androidx.compose.ui.geometry.CornerRadius(99.dp.toPx())
         )
+        val rangeStart = xFor(rangeMin)
+        val rangeEnd = xFor(rangeMax)
         drawRoundRect(
-            color = accent.copy(alpha = 0.38f),
-            topLeft = androidx.compose.ui.geometry.Offset(startX, centerY - 3.dp.toPx()),
-            size = androidx.compose.ui.geometry.Size(endX - startX, 6.dp.toPx()),
+            color = accent.copy(alpha = 0.24f),
+            topLeft = androidx.compose.ui.geometry.Offset(rangeStart, centerY - 5.dp.toPx()),
+            size = androidx.compose.ui.geometry.Size(
+                (rangeEnd - rangeStart).coerceAtLeast(3.dp.toPx()),
+                10.dp.toPx()
+            ),
             cornerRadius = androidx.compose.ui.geometry.CornerRadius(99.dp.toPx())
         )
 
         samples.forEachIndexed { index, value ->
-            val y = if (index % 2 == 0) centerY - 6.dp.toPx() else centerY + 6.dp.toPx()
+            val y = centerY + if (index % 2 == 0) -3.dp.toPx() else 3.dp.toPx()
             drawCircle(
                 color = surface,
-                radius = 5.dp.toPx(),
+                radius = 5.5.dp.toPx(),
                 center = androidx.compose.ui.geometry.Offset(xFor(value), y)
             )
             drawCircle(
                 color = accent,
-                radius = 3.5.dp.toPx(),
+                radius = 3.75.dp.toPx(),
                 center = androidx.compose.ui.geometry.Offset(xFor(value), y)
             )
         }
@@ -2082,10 +2270,12 @@ internal const val TAG_TODAY_SUMMARY_TEMP_MIN_CENTRAL = "today_summary_temp_min_
 internal const val TAG_TODAY_SUMMARY_TEMP_MAX_CENTRAL = "today_summary_temp_max_central"
 internal const val TAG_TODAY_SUMMARY_PRECIP_CENTRAL = "today_summary_precip_central"
 internal const val TAG_TODAY_SUMMARY_WIND_CENTRAL = "today_summary_wind_central"
+internal const val TAG_TODAY_SUMMARY_GUST_CENTRAL = "today_summary_gust_central"
 internal const val TAG_TODAY_SUMMARY_TEMP_MIN_CONVERGENCE = "today_summary_temp_min_convergence"
 internal const val TAG_TODAY_SUMMARY_TEMP_MAX_CONVERGENCE = "today_summary_temp_max_convergence"
 internal const val TAG_TODAY_SUMMARY_PRECIP_CONVERGENCE = "today_summary_precip_convergence"
 internal const val TAG_TODAY_SUMMARY_WIND_CONVERGENCE = "today_summary_wind_convergence"
+internal const val TAG_TODAY_SUMMARY_GUST_CONVERGENCE = "today_summary_gust_convergence"
 
 // ============================================================================
 //  Légendes des tableaux précipitations et vent
