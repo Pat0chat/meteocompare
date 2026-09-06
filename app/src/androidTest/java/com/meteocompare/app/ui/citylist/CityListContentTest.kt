@@ -1,5 +1,8 @@
 package com.meteocompare.app.ui.citylist
 
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
@@ -55,7 +58,7 @@ class CityListContentTest {
     }
 
     @Test
-    fun city_cards_render_and_forward_selected_id() {
+    fun smartphone_cards_keep_standard_style_and_forward_selected_id() {
         var selectedId: String? = null
         val confidence = DayConfidence(
             date = TestFixtures.today,
@@ -79,13 +82,23 @@ class CityListContentTest {
                 )
             }
         }
-        composeRule.onNodeWithTag("$TAG_CITY_CARD${TestFixtures.lyon.id}").assertIsDisplayed().performClick()
+        composeRule.onNodeWithTag("$TAG_CITY_CARD${TestFixtures.lyon.id}")
+            .assertIsDisplayed()
+            .assert(
+                SemanticsMatcher.expectValue(
+                    CityCardVisualEmphasisKey,
+                    CityCardVisualEmphasis.STANDARD
+                )
+            )
+            .assert(SemanticsMatcher.expectValue(CityCardTargetAlphaKey, 100))
+            .performClick()
         composeRule.onNodeWithText("25–27", useUnmergedTree = true).assertIsDisplayed()
         assertEquals(TestFixtures.lyon.id, selectedId)
     }
 
     @Test
-    fun tablet_selection_marks_only_the_active_city_card() {
+    fun tablet_inactive_card_is_dimmed_and_clicking_it_moves_the_colored_selection() {
+        val selectedCityId = mutableStateOf(TestFixtures.lyon.id)
         composeRule.setContent {
             MeteoCompareTheme {
                 CityListContent(
@@ -95,7 +108,7 @@ class CityListContentTest {
                             CityCardState(TestFixtures.lyon, ForecastState.Loading)
                         )
                     ),
-                    onCityClick = {},
+                    onCityClick = { selectedCityId.value = it },
                     onAddClick = {},
                     onDonateClick = {},
                     onHelpClick = {},
@@ -103,7 +116,7 @@ class CityListContentTest {
                     onRemoveCity = {},
                     onRetry = {},
                     onRefresh = {},
-                    selectedCityId = TestFixtures.lyon.id,
+                    selectedCityId = selectedCityId.value,
                     selectionEnabled = true
                 )
             }
@@ -111,7 +124,43 @@ class CityListContentTest {
 
         composeRule.onNodeWithTag("$TAG_CITY_CARD${TestFixtures.paris.id}")
             .assertIsNotSelected()
+            .assert(
+                SemanticsMatcher.expectValue(
+                    CityCardVisualEmphasisKey,
+                    CityCardVisualEmphasis.DEEMPHASIZED
+                )
+            )
+            .assert(SemanticsMatcher.expectValue(CityCardTargetAlphaKey, 55))
         composeRule.onNodeWithTag("$TAG_CITY_CARD${TestFixtures.lyon.id}")
             .assertIsSelected()
+            .assert(
+                SemanticsMatcher.expectValue(
+                    CityCardVisualEmphasisKey,
+                    CityCardVisualEmphasis.WEATHER_COLORED
+                )
+            )
+            .assert(SemanticsMatcher.expectValue(CityCardTargetAlphaKey, 100))
+
+        composeRule.onNodeWithTag("$TAG_CITY_CARD${TestFixtures.paris.id}")
+            .performClick()
+
+        composeRule.onNodeWithTag("$TAG_CITY_CARD${TestFixtures.paris.id}")
+            .assertIsSelected()
+            .assert(
+                SemanticsMatcher.expectValue(
+                    CityCardVisualEmphasisKey,
+                    CityCardVisualEmphasis.WEATHER_COLORED
+                )
+            )
+            .assert(SemanticsMatcher.expectValue(CityCardTargetAlphaKey, 100))
+        composeRule.onNodeWithTag("$TAG_CITY_CARD${TestFixtures.lyon.id}")
+            .assertIsNotSelected()
+            .assert(
+                SemanticsMatcher.expectValue(
+                    CityCardVisualEmphasisKey,
+                    CityCardVisualEmphasis.DEEMPHASIZED
+                )
+            )
+            .assert(SemanticsMatcher.expectValue(CityCardTargetAlphaKey, 55))
     }
 }

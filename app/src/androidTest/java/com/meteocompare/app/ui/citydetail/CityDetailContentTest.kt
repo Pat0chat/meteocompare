@@ -1,7 +1,6 @@
 package com.meteocompare.app.ui.citydetail
 
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -90,7 +89,7 @@ class CityDetailContentTest {
     }
 
     @Test
-    fun retry_back_and_refresh_callbacks_are_forwarded() {
+    fun smartphone_retry_back_and_refresh_callbacks_are_forwarded() {
         var back = 0
         var refresh = 0
         composeRule.setContent {

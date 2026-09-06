@@ -1,6 +1,6 @@
 TODO
 ----
 1. Vérification des procédures de refresh
-2. La card home ne se met pas à jour en fonction de l'heure. On est obligé de faire un refresh des données météos
-3. Vérifier le refresh pour la page details
-4. Certain téléphone Android Xiaomi ont leurs widgets qui ne se mettent pas à jour
+2. La card home ne se met pas à jour en fonction de l'heure. On est obligé de faire un refresh des données météos pour forcer le refresh de la card à la bonne heure
+3. Vérifier de la même manière le refresh pour la page details
+4. Certains téléphones (comme ceux sous Android Xiaomi) ont leurs widgets qui ne mettent pas les données afficher à jour (à la bonne heure)

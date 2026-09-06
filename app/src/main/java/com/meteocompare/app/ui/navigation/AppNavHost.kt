@@ -84,11 +84,24 @@ internal fun resolveSelectedCityId(
  */
 @Composable
 fun AppNavHost() {
-    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+    AdaptiveNavigationContent(
+        phoneContent = { PhoneAppNavHost() },
+        tabletContent = { TabletAppNavHost() },
+        modifier = Modifier.fillMaxSize()
+    )
+}
+
+@Composable
+internal fun AdaptiveNavigationContent(
+    phoneContent: @Composable () -> Unit,
+    tabletContent: @Composable () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    BoxWithConstraints(modifier = modifier) {
         if (shouldUseTabletLayout(maxWidth)) {
-            TabletAppNavHost()
+            tabletContent()
         } else {
-            PhoneAppNavHost()
+            phoneContent()
         }
     }
 }
@@ -158,8 +171,45 @@ private fun TabletHomeScreen(
     cityListViewModel: CityListViewModel = hiltViewModel()
 ) {
     val listState by cityListViewModel.uiState.collectAsStateWithLifecycle()
-    var selectedCityId by rememberSaveable { mutableStateOf<String?>(null) }
     val availableCityIds = listState.items.map { it.city.id }
+
+    TabletMasterDetailContent(
+        availableCityIds = availableCityIds,
+        listContent = { activeCityId, onCityClick ->
+            CityListScreen(
+                onCityClick = onCityClick,
+                onSettingsClick = onSettingsClick,
+                onHelpClick = onHelpClick,
+                selectedCityId = activeCityId,
+                selectionEnabled = true,
+                viewModel = cityListViewModel
+            )
+        },
+        detailContent = { cityId ->
+            // Chaque localité possède ainsi une pile de navigation et un
+            // CityDetailViewModel ne contenant que son cityId.
+            key(cityId) {
+                TabletDetailNavHost(cityId = cityId)
+            }
+        },
+        emptyDetailContent = { TabletDetailPlaceholder() },
+        modifier = Modifier.fillMaxSize()
+    )
+}
+
+/**
+ * Contenu maître-détail sans dépendance Hilt, afin de tester le comportement
+ * adaptatif avec des slots déterministes dans les tests instrumentés.
+ */
+@Composable
+internal fun TabletMasterDetailContent(
+    availableCityIds: List<String>,
+    listContent: @Composable (String?, (String) -> Unit) -> Unit,
+    detailContent: @Composable (String) -> Unit,
+    emptyDetailContent: @Composable () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var selectedCityId by rememberSaveable { mutableStateOf<String?>(null) }
     val activeCityId = resolveSelectedCityId(selectedCityId, availableCityIds)
 
     // Sélectionne la première ville au démarrage et bascule proprement sur la
@@ -168,7 +218,7 @@ private fun TabletHomeScreen(
         selectedCityId = activeCityId
     }
 
-    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+    BoxWithConstraints(modifier = modifier) {
         val listPaneWidth = tabletListPaneWidth(maxWidth)
 
         Row(
@@ -182,14 +232,7 @@ private fun TabletHomeScreen(
                     .fillMaxHeight()
                     .testTag(TAG_TABLET_LIST_PANE)
             ) {
-                CityListScreen(
-                    onCityClick = { selectedCityId = it },
-                    onSettingsClick = onSettingsClick,
-                    onHelpClick = onHelpClick,
-                    selectedCityId = activeCityId,
-                    selectionEnabled = true,
-                    viewModel = cityListViewModel
-                )
+                listContent(activeCityId) { selectedCityId = it }
             }
 
             VerticalDivider(
@@ -205,13 +248,9 @@ private fun TabletHomeScreen(
             ) {
                 val cityId = activeCityId
                 if (cityId == null) {
-                    TabletDetailPlaceholder()
+                    emptyDetailContent()
                 } else {
-                    // Chaque localité possède ainsi une pile de navigation et
-                    // un CityDetailViewModel ne contenant que son cityId.
-                    key(cityId) {
-                        TabletDetailNavHost(cityId = cityId)
-                    }
+                    detailContent(cityId)
                 }
             }
         }

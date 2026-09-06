@@ -3,6 +3,7 @@ package com.meteocompare.app.ui.citylist
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
@@ -448,22 +449,43 @@ internal fun CityCard(
         condition = loaded?.currentCondition,
         isDark = isDark
     )
-    val isDeemphasized = selectionEnabled && !isSelected
+    val selectionVisuals = cityCardSelectionVisuals(
+        selectionEnabled = selectionEnabled,
+        isSelected = isSelected
+    )
     val emphasisAlpha by animateFloatAsState(
-        targetValue = if (isDeemphasized) 0.58f else 1f,
+        targetValue = selectionVisuals.targetAlpha,
         animationSpec = tween(durationMillis = 180),
         label = "city-card-selection-emphasis"
     )
-    val displayedAccentColor = if (isDeemphasized) {
-        MaterialTheme.colorScheme.outlineVariant
+    val targetAccentColor = if (
+        selectionVisuals.emphasis == CityCardVisualEmphasis.DEEMPHASIZED
+    ) {
+        deemphasizedCardAccentColor(isDark)
     } else {
         accentColor
     }
-    val containerColor = when {
-        selectionEnabled && isSelected -> MaterialTheme.colorScheme.surfaceContainerHighest
-        isDeemphasized -> MaterialTheme.colorScheme.surfaceVariant
+    val displayedAccentColor by animateColorAsState(
+        targetValue = targetAccentColor,
+        animationSpec = tween(durationMillis = 180),
+        label = "city-card-weather-accent"
+    )
+    val targetContainerColor = when {
+        selectionVisuals.usesWeatherTint -> weatherTintedCardColor(
+            baseColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            weatherAccent = accentColor,
+            isDark = isDark
+        )
+        selectionVisuals.emphasis == CityCardVisualEmphasis.DEEMPHASIZED -> {
+            deemphasizedCardContainerColor(isDark)
+        }
         else -> MaterialTheme.colorScheme.surfaceContainerLow
     }
+    val containerColor by animateColorAsState(
+        targetValue = targetContainerColor,
+        animationSpec = tween(durationMillis = 180),
+        label = "city-card-container"
+    )
 
     Card(
         onClick = onClick,
@@ -475,16 +497,14 @@ internal fun CityCard(
                 contentDescription = a11yDescription
                 role = Role.Button
                 if (selectionEnabled) this.selected = isSelected
+                this[CityCardVisualEmphasisKey] = selectionVisuals.emphasis
+                this[CityCardTargetAlphaKey] =
+                    (selectionVisuals.targetAlpha * 100).roundToInt()
             },
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(
             containerColor = containerColor
-        ),
-        border = if (selectionEnabled && isSelected) {
-            BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
-        } else {
-            null
-        }
+        )
     ) {
         Box(
             modifier = Modifier
