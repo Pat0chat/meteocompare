@@ -72,7 +72,7 @@ class SettingsViewModelTest {
 
     /**
      * Application context mocké. Utilisé UNIQUEMENT pour être passé à
-     * WidgetRefreshScheduler.schedule() dans onRefreshIntervalSelected. La
+     * WidgetRefreshScheduler.triggerImmediateRefresh() dans les callbacks. La
      * VM ne s'en sert pas autrement. On peut donc un mock relaxé.
      */
     private val appContext: Context = mockk(relaxed = true)

@@ -213,6 +213,44 @@ class ConfidenceExplanationViewModelTest {
         }
 
     @Test
+    fun `changing enabled models accepts an older cache from the selected set`() =
+        runTest(dispatcher) {
+            val initial = forecast(
+                models = listOf(WeatherModel.GFS, WeatherModel.ICON_EU),
+                baseTemp = 25.0,
+                fetchedAt = Instant.parse("2026-07-15T12:05:00Z")
+            )
+            val selectedCache = forecast(
+                models = listOf(WeatherModel.GFS),
+                baseTemp = 40.0,
+                fetchedAt = Instant.parse("2026-07-15T12:00:00Z")
+            )
+            every {
+                forecastRepository.getCityForecastStream(
+                    eq(paris),
+                    eq(listOf(WeatherModel.GFS, WeatherModel.ICON_EU)),
+                    any(), any(), any()
+                )
+            } returns flowOf(ApiResult.Success(initial))
+            every {
+                forecastRepository.getCityForecastStream(
+                    eq(paris), eq(listOf(WeatherModel.GFS)), any(), any(), any()
+                )
+            } returns flowOf(ApiResult.Success(selectedCache))
+
+            val viewModel = viewModel()
+            enabledModels.value = listOf(WeatherModel.GFS)
+
+            val loaded = viewModel.state.value as ConfidenceExplanationUiState.Loaded
+            assertEquals(listOf(WeatherModel.GFS), loaded.contributingModels)
+            assertEquals(
+                listOf(40.0),
+                loaded.variableBreakdowns.first { it.kind == VariableKind.TEMP_MAX }
+                    .perModel.map(ModelValue::value)
+            )
+        }
+
+    @Test
     fun `manual refresh from another screen updates an already open explanation`() =
         runTest(dispatcher) {
             val viewModel = viewModel()
@@ -233,6 +271,47 @@ class ConfidenceExplanationViewModelTest {
                 .map(ModelValue::value)
             assertEquals(listOf(42.0, 42.0), maxTemps)
         }
+
+    @Test
+    fun `resume silently relaunches the cache aware explanation stream`() = runTest(dispatcher) {
+        val initial = forecast(
+            baseTemp = 25.0,
+            fetchedAt = Instant.parse("2026-07-15T12:00:00Z")
+        )
+        val refreshed = forecast(
+            baseTemp = 40.0,
+            fetchedAt = Instant.parse("2026-07-15T12:15:00Z")
+        )
+        var calls = 0
+        every {
+            forecastRepository.getCityForecastStream(any(), any(), any(), any(), any())
+        } answers {
+            calls += 1
+            flowOf(ApiResult.Success(if (calls == 1) initial else refreshed))
+        }
+
+        val viewModel = viewModel()
+        val before = viewModel.state.value as ConfidenceExplanationUiState.Loaded
+        assertEquals(
+            listOf(25.0, 25.0),
+            before.variableBreakdowns.first { it.kind == VariableKind.TEMP_MAX }
+                .perModel.map(ModelValue::value)
+        )
+
+        viewModel.refreshIfStale()
+
+        val after = viewModel.state.value as ConfidenceExplanationUiState.Loaded
+        assertEquals(
+            listOf(40.0, 40.0),
+            after.variableBreakdowns.first { it.kind == VariableKind.TEMP_MAX }
+                .perModel.map(ModelValue::value)
+        )
+        verify(exactly = 2) {
+            forecastRepository.getCityForecastStream(
+                eq(paris), any(), eq(7), eq(false), eq(RefreshInterval.DEFAULT.millis)
+            )
+        }
+    }
 
     @Test
     fun `network error before data is displayed as error`() = runTest(dispatcher) {

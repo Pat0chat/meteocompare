@@ -184,6 +184,10 @@ class WidgetRefreshSchedulerTest {
                 false
             )
         )
+        org.junit.Assert.assertTrue(
+            "Le rattrapage OEM doit demander une exécution expedited",
+            requestSlot.captured.workSpec.expedited
+        )
         // On ne doit surtout PAS avoir touché à l'enqueue périodique.
         verify(exactly = 0) {
             workManager.enqueueUniquePeriodicWork(any(), any(), any())

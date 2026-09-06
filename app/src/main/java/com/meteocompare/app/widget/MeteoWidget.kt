@@ -180,10 +180,11 @@ private val LocalNightMode = staticCompositionLocalOf { false }
  *
  * ─── Refresh tick ────────────────────────────────────────────────────────
  * [WidgetRefreshWorker] écrit un timestamp dans la clé [WidgetPreferences.RefreshTickKey]
- * pour signaler "il faut re-fetch". Ce tick est inclus dans les clés du
+ * pour signaler "il faut reconstruire l'affichage". Ce tick est inclus dans les clés du
  * `LaunchedEffect` ci-dessous : chaque incrément invalide l'effet et
- * re-déclenche `loadWidgetData`, qui à son tour respecte le seuil de
- * fraîcheur cache défini dans les préférences utilisateur.
+ * re-déclenche `loadWidgetData`. Cette fonction recalcule les échéances avec
+ * l'heure courante, puis laisse le repository respecter le seuil de fraîcheur
+ * réseau défini dans les préférences utilisateur.
  */
 internal class MeteoWidget : GlanceAppWidget() {
 

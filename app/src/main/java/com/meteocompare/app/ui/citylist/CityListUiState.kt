@@ -51,6 +51,9 @@ sealed interface ForecastState {
      * @param fetchedAt horodatage de la dernière écriture cache ou fetch
      *   réseau. Null quand la donnée provient d'un cache pré-feature — la
      *   CityCard omet alors le caption "il y a X".
+     * @param calculatedAt instant auquel les champs dépendant de « maintenant »
+     *   ont été calculés. Distinct de [fetchedAt] : il avance localement sans
+     *   téléchargement afin que la carte change d'heure au bon moment.
      * @param next12hTemps températures agrégées entre modèles pour les 12
      *   prochaines échéances horaires (index 0 = heure locale la plus proche,
      *   index 11 = +11h). Alimente
@@ -80,6 +83,7 @@ sealed interface ForecastState {
         val currentCondition: WeatherCondition? = null,
         val currentCloudCover: Int? = null,
         val fetchedAt: Instant? = null,
+        val calculatedAt: Instant? = null,
         /** Modèles demandés, y compris ceux connus indisponibles/hors zone. */
         val sourceModels: Set<WeatherModel> = emptySet(),
         // ─── Nouveautés pour la home enrichie ────────────────────────────

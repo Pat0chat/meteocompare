@@ -23,6 +23,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -30,6 +31,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -121,6 +123,7 @@ class ConfidenceExplanationViewModel @Inject constructor(
     val state: StateFlow<ConfidenceExplanationUiState> = _state.asStateFlow()
 
     private val resultMutex = Mutex()
+    private var loadJob: Job? = null
     private var latestFetchedAt: Instant? = null
     private var latestModels: Set<WeatherModel> = emptySet()
 
@@ -128,6 +131,9 @@ class ConfidenceExplanationViewModel @Inject constructor(
         observeExternalForecastUpdates()
         load()
     }
+
+    /** Relecture cache-aware silencieuse après une reprise de l'application. */
+    fun refreshIfStale() = load()
 
     /** Met à jour l'explication déjà ouverte après un refresh Home/Détails. */
     private fun observeExternalForecastUpdates() {
@@ -152,7 +158,8 @@ class ConfidenceExplanationViewModel @Inject constructor(
      *      modèles plus complet, on veut basculer dessus.
      */
     private fun load() {
-        viewModelScope.launch {
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
             val date = targetDate ?: run {
                 _state.value = ConfidenceExplanationUiState.Error(
                     context.getString(R.string.confidence_explanation_invalid_date)
@@ -185,16 +192,19 @@ class ConfidenceExplanationViewModel @Inject constructor(
                         models = models,
                         forecastDays = 7,
                         maxCacheAgeMs = maxCacheAgeMs
-                    )
+                    ).map { result -> models.toSet() to result }
                 }
-                .collect { result -> applyResult(city, date, result) }
+                .collect { (models, result) ->
+                    applyResult(city, date, result, expectedModels = models)
+                }
         }
     }
 
     private suspend fun applyResult(
         city: City,
         date: LocalDate,
-        result: ApiResult<CityForecast>
+        result: ApiResult<CityForecast>,
+        expectedModels: Set<WeatherModel>? = null
     ) = resultMutex.withLock {
         when (result) {
             is ApiResult.Success -> {
@@ -203,10 +213,14 @@ class ConfidenceExplanationViewModel @Inject constructor(
                 val currentAt = latestFetchedAt
                 val isOlder = currentAt != null &&
                     (incomingAt == null || incomingAt.isBefore(currentAt))
+                val isModelSelectionTransition = expectedModels != null &&
+                    latestModels != expectedModels
                 val isSameVersion = currentAt != null &&
                     incomingAt == currentAt &&
                     incomingModels == latestModels
-                if (isOlder || isSameVersion) return@withLock
+                if ((isOlder && !isModelSelectionTransition) || isSameVersion) {
+                    return@withLock
+                }
                 val loaded = withContext(computationDispatcher) {
                     buildLoadedState(city, date, result.data)
                 }

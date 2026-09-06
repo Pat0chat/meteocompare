@@ -6,6 +6,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.meteocompare.app.R
 import com.meteocompare.app.core.network.ApiResult
+import com.meteocompare.app.core.util.localDateIn
+import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.repository.CityRepository
@@ -14,6 +16,7 @@ import com.meteocompare.app.domain.repository.UserPreferencesRepository
 import com.meteocompare.app.domain.usecase.EngineComparisonBuilder
 import com.meteocompare.app.domain.usecase.EngineComparisonDay
 import com.meteocompare.app.domain.usecase.ForecastEngineContextProvider
+import com.meteocompare.app.domain.util.forecastPresentationTicks
 import com.meteocompare.app.ui.navigation.Destinations
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -27,7 +30,10 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.time.Clock
+import java.time.Instant
 import javax.inject.Inject
 
 sealed interface EngineComparisonUiState {
@@ -43,7 +49,9 @@ sealed interface EngineComparisonUiState {
 private sealed interface EngineComparisonForecastState {
     data class Data(
         val cityName: String,
-        val days: List<EngineComparisonDay>
+        val days: List<EngineComparisonDay>,
+        val forecast: CityForecast,
+        val calculatedAt: Instant
     ) : EngineComparisonForecastState
 
     data class Error(val message: String) : EngineComparisonForecastState
@@ -65,14 +73,25 @@ class EngineComparisonViewModel @Inject constructor(
     private val _state = MutableStateFlow<EngineComparisonUiState>(EngineComparisonUiState.Loading)
     val state: StateFlow<EngineComparisonUiState> = _state.asStateFlow()
     private var loadJob: Job? = null
+    private val presentationMutex = Mutex()
+    private var latestForecast: CityForecast? = null
+    private var calculatedAt: Instant? = null
 
-    init { load() }
+    init {
+        observePresentationDate()
+        load()
+    }
 
     fun retry() = load()
 
-    private fun load() {
+    /** Relit Room au retour au premier plan, sans masquer le contenu chargé. */
+    fun refreshIfStale() = load(showLoading = false)
+
+    private fun load(showLoading: Boolean = true) {
         loadJob?.cancel()
-        _state.value = EngineComparisonUiState.Loading
+        if (showLoading || _state.value !is EngineComparisonUiState.Loaded) {
+            _state.value = EngineComparisonUiState.Loading
+        }
         loadJob = viewModelScope.launch {
             val city = cityRepository.observeFavorites().first().firstOrNull { it.id == cityId }
             if (city == null) {
@@ -99,7 +118,9 @@ class EngineComparisonViewModel @Inject constructor(
                             val context = contextProvider.build(result.data, ForecastEngine.ADAPTIVE, now)
                             EngineComparisonForecastState.Data(
                                 cityName = result.data.city.name,
-                                days = comparisonBuilder.build(result.data, context, now)
+                                days = comparisonBuilder.build(result.data, context, now),
+                                forecast = result.data,
+                                calculatedAt = now
                             )
                         }
                         is ApiResult.Error -> EngineComparisonForecastState.Error(result.message)
@@ -109,20 +130,54 @@ class EngineComparisonViewModel @Inject constructor(
                     forecastState to selectedEngine
                 }
                 .collect { (forecastState, selectedEngine) ->
-                    when (forecastState) {
-                        is EngineComparisonForecastState.Data -> {
-                            _state.value = EngineComparisonUiState.Loaded(
-                                cityName = forecastState.cityName,
-                                selectedEngine = selectedEngine,
-                                days = forecastState.days
-                            )
-                        }
-                        is EngineComparisonForecastState.Error ->
-                            if (_state.value !is EngineComparisonUiState.Loaded) {
-                                _state.value = EngineComparisonUiState.Error(forecastState.message)
+                    presentationMutex.withLock {
+                        when (forecastState) {
+                            is EngineComparisonForecastState.Data -> {
+                                latestForecast = forecastState.forecast
+                                calculatedAt = forecastState.calculatedAt
+                                _state.value = EngineComparisonUiState.Loaded(
+                                    cityName = forecastState.cityName,
+                                    selectedEngine = selectedEngine,
+                                    days = forecastState.days
+                                )
                             }
+                            is EngineComparisonForecastState.Error ->
+                                if (_state.value !is EngineComparisonUiState.Loaded) {
+                                    _state.value = EngineComparisonUiState.Error(forecastState.message)
+                                }
+                        }
                     }
                 }
+        }
+    }
+
+    /**
+     * La page filtre les jours antérieurs au jour civil de la ville. Elle doit
+     * donc avancer à minuit même si le forecast brut reste en cache. Le ticker
+     * commun sonde à la minute, mais ce calcul ne repart qu'au changement de
+     * date locale et ne déclenche jamais de requête météo.
+     */
+    private fun observePresentationDate() {
+        viewModelScope.launch {
+            forecastPresentationTicks(clock).collect { now ->
+                presentationMutex.withLock {
+                    val forecast = latestForecast ?: return@withLock
+                    val previous = calculatedAt ?: return@withLock
+                    if (previous.localDateIn(forecast.city.timezone) ==
+                        now.localDateIn(forecast.city.timezone)
+                    ) return@withLock
+
+                    val context = contextProvider.build(forecast, ForecastEngine.ADAPTIVE, now)
+                    val days = comparisonBuilder.build(forecast, context, now)
+                    val current = _state.value as? EngineComparisonUiState.Loaded
+                        ?: return@withLock
+                    calculatedAt = now
+                    _state.value = current.copy(
+                        cityName = forecast.city.name,
+                        days = days
+                    )
+                }
+            }
         }
     }
 }

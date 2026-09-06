@@ -587,6 +587,33 @@ class ForecastRepositoryImplTest {
         }
 
     @Test
+    fun `stream traite un cache date dans le futur comme recent apres recul dhorloge`() =
+        runTest {
+            val cachedEntity = ForecastCacheEntity(
+                cityId = paris.id,
+                modelKey = WeatherModel.GFS.apiKey,
+                fetchedAtEpochMs = System.currentTimeMillis() + 60 * 60 * 1000L,
+                responseJson = json.encodeToString(ForecastResponseDto.serializer(), sampleDto)
+            )
+            coEvery { cacheDao.getForCity(paris.id) } returns listOf(cachedEntity)
+
+            val emissions = repository.getCityForecastStream(
+                city = paris,
+                models = listOf(WeatherModel.GFS),
+                maxCacheAgeMs = 15 * 60 * 1000L
+            ).toList()
+
+            assertEquals(1, emissions.size)
+            assertTrue(emissions.single() is ApiResult.Success)
+            coVerify(exactly = 0) {
+                api.getForecastBatched(
+                    any(), any(), any(), any(), any(), any(), any(), any(), any(), any()
+                )
+            }
+            coVerify(exactly = 0) { evolutionRecorder.record(any()) }
+        }
+
+    @Test
     fun `stream avec cache recent mais incomplet - refetch les modeles manquants`() = runTest {
         val recent = System.currentTimeMillis() - 5_000L
         coEvery { cacheDao.getForCity(paris.id) } returns listOf(

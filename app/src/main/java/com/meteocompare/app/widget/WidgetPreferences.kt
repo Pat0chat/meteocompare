@@ -36,14 +36,15 @@ internal object WidgetPreferences {
     /**
      * Refresh tick — timestamp (ms epoch) de la dernière demande de refresh
      * automatique par [WidgetRefreshWorker]. Utilisé comme clé du
-     * `LaunchedEffect` dans le widget pour déclencher le re-fetch.
+     * `LaunchedEffect` dans le widget pour reconstruire les données affichées.
+     * Le repository décide séparément si cette reconstruction reste cache-only.
      */
     val RefreshTickKey = longPreferencesKey("widget_refresh_tick")
 
     /**
      * Dernière reconstruction RemoteViews réellement envoyée au launcher.
-     * Le worker périodique s'en sert pour ignorer les ticks intermédiaires qui
-     * ne changeraient ni les données ni l'échéance affichée.
+     * Le worker s'en sert pour dédupliquer les callbacks périodiques et système
+     * qui tombent dans le même bucket de quinze minutes.
      */
     val LastDispatchAtKey = longPreferencesKey("widget_last_dispatch_at")
 

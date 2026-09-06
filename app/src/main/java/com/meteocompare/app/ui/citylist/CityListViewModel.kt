@@ -6,6 +6,7 @@ import com.meteocompare.app.R
 import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.core.network.NetworkMonitor
 import com.meteocompare.app.core.util.resolveZoneOrUtc
+import com.meteocompare.app.core.util.runSuspendCatching
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.RefreshInterval
@@ -21,6 +22,8 @@ import com.meteocompare.app.domain.repository.VigilanceRepository
 import com.meteocompare.app.domain.usecase.ConfidenceCalculator
 import com.meteocompare.app.domain.usecase.ForecastEngineContextProvider
 import com.meteocompare.app.domain.util.ForecastAggregates
+import com.meteocompare.app.domain.util.forecastPresentationTicks
+import com.meteocompare.app.domain.util.hasForecastPresentationChanged
 import com.meteocompare.app.domain.util.WeatherScenarioBuilder
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
@@ -36,6 +39,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -50,6 +54,7 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import java.time.Clock
+import java.time.Instant
 import javax.inject.Inject
 
 
@@ -95,6 +100,10 @@ class CityListViewModel @Inject constructor(
     // quand une ville est retirée des favoris ou quand les modèles sélectionnés
     // changent (auquel cas on relance avec la nouvelle config).
     private val streamJobs = mutableMapOf<String, Job>()
+    private val retryJobs = mutableMapOf<String, Job>()
+    /** Relance cache-aware déclenchée au retour au premier plan/réseau. */
+    private var policyRefreshJob: Job? = null
+    private var manualRefreshJob: Job? = null
 
     // Les streams cache+réseau sont finis. Une ville reste donc marquée comme
     // initialisée après la fin normale de son stream, sinon l'ajout d'un autre
@@ -110,6 +119,9 @@ class CityListViewModel @Inject constructor(
     // partie de la clé : il détermine la fraîcheur acceptable du cache au
     // moment de la souscription.
     private var lastStreamConfig: Pair<List<WeatherModel>, RefreshInterval>? = null
+    private var streamConfigGeneration: Long = 0L
+    private val appliedConfigGenerationByCity = mutableMapOf<String, Long>()
+    private val appliedRequestedModelsByCity = mutableMapOf<String, Set<WeatherModel>>()
 
     private val marineUiState = combine(
         marineLoadingIds,
@@ -188,6 +200,8 @@ class CityListViewModel @Inject constructor(
     )
 
     init {
+        observePresentationTime()
+
         viewModelScope.launch {
             networkMonitor.observeOnline().collect { online ->
                 val wasOnline = _isOnline.value
@@ -196,6 +210,7 @@ class CityListViewModel @Inject constructor(
                     val cities = favoriteCitiesById.values.toList()
                     syncMarineAvailability(cities)
                     if (!wasOnline) {
+                        refreshIfStale()
                         // Une première tentative Vigilance peut s'être terminée hors ligne.
                         // On la réarme au retour réseau sans attendre un pull-to-refresh.
                         vigilanceJobs.values.forEach { it.cancel() }
@@ -211,11 +226,23 @@ class CityListViewModel @Inject constructor(
         // les cartes depuis les forecasts bruts déjà en mémoire, sans annuler
         // ni relancer les streams cache/réseau.
         viewModelScope.launch {
-            userPreferences.observeForecastEngine().distinctUntilChanged().collect { engine ->
+            userPreferences.observeForecastEngine().distinctUntilChanged().collectLatest { engine ->
                 rawForecastsById.value.forEach { (id, forecast) ->
                     if (id !in favoriteCitiesById) return@forEach
-                    val mapped = toForecastState(ApiResult.Success(forecast), engine)
-                    forecastsById.update { it + (id to mapped) }
+                    val mapped = toForecastState(
+                        result = ApiResult.Success(forecast),
+                        engineOverride = engine
+                    )
+                    // Le calcul quitte Main. Entre-temps un refresh peut avoir
+                    // remplacé le forecast brut ou la ville peut avoir été
+                    // supprimée. Ne jamais réappliquer alors l'ancien snapshot.
+                    forecastsById.update { states ->
+                        if (id !in favoriteCitiesById || rawForecastsById.value[id] !== forecast) {
+                            states
+                        } else {
+                            states + (id to mapped)
+                        }
+                    }
                 }
             }
         }
@@ -263,6 +290,121 @@ class CityListViewModel @Inject constructor(
     }
 
     /**
+     * Fait avancer les cartes avec l'horloge sans télécharger à nouveau la
+     * météo. Le ticker sonde à la minute, puis la clé de présentation limite
+     * le recalcul aux changements d'échéance horaire ou de jour local.
+     */
+    private fun observePresentationTime() {
+        viewModelScope.launch {
+            forecastPresentationTicks(clock).collect(::recalculatePresentation)
+        }
+    }
+
+    private suspend fun recalculatePresentation(now: Instant) {
+        val snapshots = rawForecastsById.value
+        if (snapshots.isEmpty()) return
+
+        val engine = userPreferences.observeForecastEngine().first()
+        val recalculated = snapshots.mapNotNull { (cityId, forecast) ->
+            val previous = forecastsById.value[cityId] as? ForecastState.Loaded
+                ?: return@mapNotNull null
+            val previouslyCalculatedAt = previous.calculatedAt
+                ?: return@mapNotNull null
+            if (!hasForecastPresentationChanged(
+                    forecast = forecast,
+                    previouslyCalculatedAt = previouslyCalculatedAt,
+                    now = now
+                )
+            ) return@mapNotNull null
+
+            Triple(
+                cityId,
+                forecast,
+                toForecastState(
+                    result = ApiResult.Success(forecast),
+                    engineOverride = engine,
+                    calculationNow = now
+                )
+            )
+        }
+        if (recalculated.isEmpty()) return
+
+        // Un changement de moteur peut avoir lancé son propre calcul pendant
+        // le passage sur le dispatcher de calcul. Dans ce cas son résultat est
+        // prioritaire et le prochain tick repartira de ce nouvel état.
+        if (userPreferences.observeForecastEngine().first() != engine) return
+
+        forecastsById.update { states ->
+            recalculated.fold(states) { current, (cityId, forecast, mapped) ->
+                when {
+                    cityId !in favoriteCitiesById -> current
+                    rawForecastsById.value[cityId] !== forecast -> current
+                    else -> current + (cityId to mapped)
+                }
+            }
+        }
+    }
+
+    /**
+     * Relit Room puis laisse la politique utilisateur décider d'un éventuel
+     * fetch. Cette voie silencieuse est appelée au retour au premier plan et
+     * au retour réseau : elle récupère notamment une prévision plus récente
+     * écrite par un widget pendant que l'écran était en arrière-plan.
+     *
+     * Contrairement au pull-to-refresh, elle ne force jamais le réseau, ne
+     * montre pas de spinner et respecte MANUAL. Le coalescing du repository
+     * protège aussi le démarrage initial si ON_RESUME arrive en même temps.
+     */
+    fun refreshIfStale() {
+        // Toujours remettre la présentation à l'heure, y compris hors ligne.
+        // C'est le rattrapage immédiat après une longue veille du process.
+        viewModelScope.launch { recalculatePresentation(clock.instant()) }
+        // Ne pas court-circuiter hors ligne : Room peut avoir été actualisée
+        // par le widget avant la perte réseau. Le repository émet ce cache et
+        // son NetworkMonitor empêche ensuite toute requête HTTP.
+        if (policyRefreshJob?.isActive == true) return
+        val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
+            val cities = favoriteCitiesById.values.toList()
+            if (cities.isEmpty()) return@launch
+            val models = userPreferences.observeEnabledModels().first()
+            val interval = userPreferences.observeRefreshInterval().first()
+            val expectedConfig = models to interval
+            val expectedGeneration = streamConfigGeneration
+            if (lastStreamConfig != expectedConfig) return@launch
+            val maxCacheAgeMs = if (interval == RefreshInterval.MANUAL) {
+                Long.MAX_VALUE
+            } else {
+                interval.millis
+            }
+            val limiter = Semaphore(MAX_CONCURRENT_CITY_REFRESHES)
+            coroutineScope {
+                cities.map { city ->
+                    async {
+                        limiter.withPermit {
+                            runSuspendCatching {
+                                forecastRepository.getCityForecastStream(
+                                    city = city,
+                                    models = models,
+                                    maxCacheAgeMs = maxCacheAgeMs
+                                ).collect { result ->
+                                    applyForecastResult(
+                                        city = city,
+                                        result = result,
+                                        expectedConfigGeneration = expectedGeneration,
+                                        expectedModels = models.toSet()
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }.awaitAll()
+            }
+        }
+        policyRefreshJob = job
+        job.start()
+    }
+
+    /**
      * Synchronise les streams en cours avec la liste actuelle (favoris × modèles
      * × intervalle).
      *
@@ -299,9 +441,12 @@ class CityListViewModel @Inject constructor(
         //    fait TOUJOURS, indépendamment du path d'optimisation ci-dessous.
         (streamJobs.keys + initializedCityIds).filter { it !in currentIds }.forEach { id ->
             streamJobs.remove(id)?.cancel()
+            retryJobs.remove(id)?.cancel()
             initializedCityIds.remove(id)
             forecastsById.update { it - id }
             rawForecastsById.update { it - id }
+            appliedConfigGenerationByCity.remove(id)
+            appliedRequestedModelsByCity.remove(id)
             marineAvailabilityJobs.remove(id)?.cancel()
             marineAvailabilityCheckedAt.remove(id)
             marineAvailableIds.update { it - id }
@@ -325,6 +470,11 @@ class CityListViewModel @Inject constructor(
         //    L'intervalle affecte `maxCacheAgeMs` au démarrage du stream : on
         //    relance donc immédiatement pour appliquer le nouveau seuil.
         if (configChanged) {
+            streamConfigGeneration += 1L
+            policyRefreshJob?.cancel()
+            manualRefreshJob?.cancel()
+            retryJobs.values.forEach { it.cancel() }
+            retryJobs.clear()
             streamJobs.values.forEach { it.cancel() }
             streamJobs.clear()
             initializedCityIds.clear()
@@ -336,6 +486,8 @@ class CityListViewModel @Inject constructor(
         //    nouvelles.
         val maxCacheAgeMs = if (interval == RefreshInterval.MANUAL) Long.MAX_VALUE
         else interval.millis
+        val expectedGeneration = streamConfigGeneration
+        val expectedModels = models.toSet()
         cities.forEach { city ->
             if (city.id !in initializedCityIds) {
                 initializedCityIds += city.id
@@ -350,7 +502,12 @@ class CityListViewModel @Inject constructor(
                                 maxCacheAgeMs = maxCacheAgeMs
                             )
                             .collect { result ->
-                                applyForecastResult(city, result)
+                                applyForecastResult(
+                                    city = city,
+                                    result = result,
+                                    expectedConfigGeneration = expectedGeneration,
+                                    expectedModels = expectedModels
+                                )
                             }
                         completedNormally = true
                     } finally {
@@ -546,29 +703,50 @@ class CityListViewModel @Inject constructor(
     }
 
     fun onRetry(city: City) {
-        viewModelScope.launch {
-            forecastsById.update { it + (city.id to ForecastState.Loading) }
-            val models = userPreferences.observeEnabledModels().first()
-            val result = forecastRepository.refreshCityForecast(city, models = models)
-            applyForecastResult(city, result)
-            refreshVigilance(city, forceRefresh = true)
+        if (retryJobs[city.id]?.isActive == true) return
+        val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
+            val ownJob = coroutineContext[Job]
+            try {
+                forecastsById.update { it + (city.id to ForecastState.Loading) }
+                val models = userPreferences.observeEnabledModels().first()
+                val expectedGeneration = streamConfigGeneration
+                val result = forecastRepository.refreshCityForecast(city, models = models)
+                applyForecastResult(
+                    city = city,
+                    result = result,
+                    expectedConfigGeneration = expectedGeneration,
+                    expectedModels = models.toSet()
+                )
+                refreshVigilance(city, forceRefresh = true)
+            } finally {
+                if (retryJobs[city.id] === ownJob) retryJobs.remove(city.id)
+            }
         }
+        retryJobs[city.id] = job
+        job.start()
     }
 
     /** Pull-to-refresh : force le réseau pour toutes les villes en parallèle. */
     fun onRefreshAll() {
-        viewModelScope.launch {
+        if (manualRefreshJob?.isActive == true) return
+        val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
             _isRefreshing.value = true
             try {
                 val cities = uiState.value.items.map { it.city }
                 val models = userPreferences.observeEnabledModels().first()
+                val expectedGeneration = streamConfigGeneration
                 val limiter = Semaphore(MAX_CONCURRENT_CITY_REFRESHES)
                 coroutineScope {
                     cities.map { city ->
                         async {
                             limiter.withPermit {
                                 val result = forecastRepository.refreshCityForecast(city, models)
-                                applyForecastResult(city, result)
+                                applyForecastResult(
+                                    city = city,
+                                    result = result,
+                                    expectedConfigGeneration = expectedGeneration,
+                                    expectedModels = models.toSet()
+                                )
                                 refreshVigilance(city, forceRefresh = true)
                             }
                         }
@@ -578,6 +756,8 @@ class CityListViewModel @Inject constructor(
                 _isRefreshing.value = false
             }
         }
+        manualRefreshJob = job
+        job.start()
     }
 
     private fun syncVigilance(cities: List<City>) {
@@ -647,19 +827,49 @@ class CityListViewModel @Inject constructor(
      */
     private suspend fun applyForecastResult(
         city: City,
-        result: ApiResult<CityForecast>
+        result: ApiResult<CityForecast>,
+        expectedConfigGeneration: Long? = null,
+        expectedModels: Set<WeatherModel>? = null
     ) {
+        if (expectedConfigGeneration != null &&
+            expectedConfigGeneration != streamConfigGeneration
+        ) return
+
+        val mapped = toForecastState(result)
+        // Le calcul quitte Main. Une préférence peut donc changer pendant ce
+        // temps et annuler le stream qui a fourni [result]. Son résultat déjà
+        // en cours ne doit pas revenir polluer la nouvelle configuration.
+        if (expectedConfigGeneration != null &&
+            expectedConfigGeneration != streamConfigGeneration
+        ) return
+
+        val currentBefore = forecastsById.value[city.id] as? ForecastState.Loaded
+        val isFirstForConfiguration = expectedConfigGeneration != null &&
+            appliedConfigGenerationByCity[city.id] != expectedConfigGeneration
+        val isModelSelectionTransition = isFirstForConfiguration &&
+            expectedModels != null &&
+            (appliedRequestedModelsByCity[city.id]?.let { it != expectedModels }
+                ?: (currentBefore != null && currentBefore.sourceModels != expectedModels))
+
         if (result is ApiResult.Success) {
             rawForecastsById.update { current ->
+                if (expectedConfigGeneration != null &&
+                    expectedConfigGeneration != streamConfigGeneration
+                ) return@update current
+                if (city.id !in favoriteCitiesById) return@update current
                 val previous = current[city.id]
                 val previousAt = previous?.fetchedAt
                 val incomingAt = result.data.fetchedAt
-                if (previousAt != null && (incomingAt == null || incomingAt.isBefore(previousAt))) current
+                val isOlder = previousAt != null &&
+                    (incomingAt == null || incomingAt.isBefore(previousAt))
+                if (isOlder && !isModelSelectionTransition) current
                 else current + (city.id to result.data)
             }
         }
-        val mapped = toForecastState(result)
         forecastsById.update { states ->
+            if (expectedConfigGeneration != null &&
+                expectedConfigGeneration != streamConfigGeneration
+            ) return@update states
             if (city.id !in favoriteCitiesById) return@update states
 
             val current = states[city.id]
@@ -675,7 +885,9 @@ class CityListViewModel @Inject constructor(
                     val isSameVersion = currentAt != null &&
                         incomingAt == currentAt &&
                         current.sourceModels == mapped.sourceModels
-                    if (isOlder || isSameVersion) {
+                    if ((isOlder && !isModelSelectionTransition) ||
+                        (isSameVersion && !isModelSelectionTransition)
+                    ) {
                         states
                     } else {
                         states + (city.id to mapped)
@@ -685,14 +897,25 @@ class CityListViewModel @Inject constructor(
                 else -> states + (city.id to mapped)
             }
         }
+        if (result is ApiResult.Success &&
+            expectedConfigGeneration != null &&
+            expectedConfigGeneration == streamConfigGeneration &&
+            city.id in favoriteCitiesById
+        ) {
+            appliedConfigGenerationByCity[city.id] = expectedConfigGeneration
+            if (expectedModels != null) {
+                appliedRequestedModelsByCity[city.id] = expectedModels
+            }
+        }
     }
 
     private suspend fun toForecastState(
         result: ApiResult<CityForecast>,
-        engineOverride: ForecastEngine? = null
+        engineOverride: ForecastEngine? = null,
+        calculationNow: Instant = clock.instant()
     ): ForecastState = withContext(computationDispatcher) { when (result) {
         is ApiResult.Success -> {
-            val now = clock.instant()
+            val now = calculationNow
             val engine = engineOverride ?: userPreferences.observeForecastEngine().first()
             val engineContext = engineContextProvider.build(result.data, engine, now)
             // Le repository complète le fuseau depuis `timezone=auto` si un
@@ -748,6 +971,7 @@ class CityListViewModel @Inject constructor(
                     currentCondition = confidenceCalculator.currentWeatherCondition(result.data, now, engineContext),
                     currentCloudCover = confidenceCalculator.currentCloudCover(result.data, now, engineContext),
                     fetchedAt = result.data.fetchedAt,
+                    calculatedAt = now,
                     sourceModels = result.data.seriesByModel.keys + result.data.errors.keys,
                     next12hTemps = miniForecast.temperatures,
                     next12hPrecipProb = miniForecast.precipitationProbabilities,

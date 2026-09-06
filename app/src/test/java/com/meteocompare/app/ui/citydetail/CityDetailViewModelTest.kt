@@ -2,6 +2,7 @@ package com.meteocompare.app.ui.citydetail
 
 import android.content.Context
 import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.viewModelScope
 import app.cash.turbine.test
 import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.core.network.NetworkMonitor
@@ -30,11 +31,13 @@ import com.meteocompare.app.domain.usecase.ConfidenceCalculator
 import com.meteocompare.app.domain.usecase.ComputeForecastEvolutionUseCase
 import com.meteocompare.app.domain.usecase.EqualWeighting
 import com.meteocompare.app.domain.usecase.ForecastEngineContextProvider
+import com.meteocompare.app.testutil.MutableClock
 import com.meteocompare.app.ui.navigation.Destinations
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.coVerify
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -42,6 +45,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -133,7 +137,10 @@ class CityDetailViewModelTest {
     private val calculator = ConfidenceCalculator(EqualWeighting())
     private val engineContextProvider = ForecastEngineContextProvider(mockk(relaxed = true))
 
-    private fun buildViewModel(cityId: String = "1"): CityDetailViewModel {
+    private fun buildViewModel(
+        cityId: String = "1",
+        clock: Clock = testClock
+    ): CityDetailViewModel {
         val saved = SavedStateHandle(mapOf(Destinations.CITY_DETAIL_ARG to cityId))
         return CityDetailViewModel(
             context = context,
@@ -155,7 +162,7 @@ class CityDetailViewModelTest {
             computeBias = mockk(relaxed = true),
             forecastEvolutionRepository = evolutionRepo,
             computeForecastEvolution = ComputeForecastEvolutionUseCase(),
-            clock = testClock,
+            clock = clock,
             computationDispatcher = dispatcher,
             engineContextProvider = engineContextProvider
         )
@@ -581,6 +588,55 @@ class CityDetailViewModelTest {
         }
 
     @Test
+    fun `changement de modeles details accepte un cache plus ancien de la nouvelle selection`() =
+        runTest(dispatcher) {
+            val initialAt = Instant.parse("2026-06-28T10:05:00Z")
+            val selectedCacheAt = Instant.parse("2026-06-28T10:00:00Z")
+            val initial = buildForecast(
+                paris,
+                model = WeatherModel.AROME_FRANCE_HD,
+                temperature = 20.0
+            ).copy(fetchedAt = initialAt)
+            val selectedCache = buildForecast(
+                paris,
+                model = WeatherModel.GFS,
+                temperature = 31.0
+            ).copy(fetchedAt = selectedCacheAt)
+
+            coEvery {
+                forecastRepo.getCityForecastStream(
+                    eq(paris), eq(WeatherModel.MVP_SELECTION), any(), any(), any()
+                )
+            } returns flowOf(ApiResult.Success(initial))
+            coEvery {
+                forecastRepo.getCityForecastStream(
+                    eq(paris), eq(listOf(WeatherModel.GFS)), any(), any(), any()
+                )
+            } returns flowOf(ApiResult.Success(selectedCache))
+
+            val vm = buildViewModel()
+            vm.state.test {
+                var state = awaitItem()
+                while ((state as? CityDetailUiState.Loaded)?.forecast?.seriesByModel?.keys !=
+                    setOf(WeatherModel.AROME_FRANCE_HD)
+                ) {
+                    state = awaitItem()
+                }
+
+                modelsFlow.value = listOf(WeatherModel.GFS)
+
+                var updated = awaitItem()
+                while ((updated as? CityDetailUiState.Loaded)?.forecast?.seriesByModel?.keys !=
+                    setOf(WeatherModel.GFS)
+                ) {
+                    updated = awaitItem()
+                }
+                assertEquals(selectedCacheAt, updated.fetchedAt)
+                assertEquals(31.0, updated.currentTemp ?: Double.NaN, 0.001)
+            }
+        }
+
+    @Test
     fun `refresh depuis la Home - met à jour la page Détails sans second fetch`() =
         runTest(dispatcher) {
             val initialAt = Instant.parse("2026-06-28T10:00:00Z")
@@ -615,6 +671,105 @@ class CityDetailViewModelTest {
                 forecastRepo.refreshCityForecast(any(), any(), any())
             }
         }
+
+    @Test
+    fun `retour au premier plan relit le cache details sans refresh force`() =
+        runTest(dispatcher) {
+            val initialAt = Instant.parse("2026-06-28T10:00:00Z")
+            val cachedAt = Instant.parse("2026-06-28T10:15:00Z")
+            val initial = buildForecast(paris, temperature = 20.0).copy(fetchedAt = initialAt)
+            val cached = buildForecast(paris, temperature = 27.0).copy(fetchedAt = cachedAt)
+            var streamCallCount = 0
+
+            coEvery {
+                forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
+            } answers {
+                streamCallCount += 1
+                flowOf(ApiResult.Success(if (streamCallCount == 1) initial else cached))
+            }
+
+            val vm = buildViewModel()
+            vm.state.test {
+                var state = awaitItem()
+                while ((state as? CityDetailUiState.Loaded)?.fetchedAt != initialAt) {
+                    state = awaitItem()
+                }
+
+                vm.refreshIfStale()
+
+                var updated = awaitItem()
+                while ((updated as? CityDetailUiState.Loaded)?.fetchedAt != cachedAt) {
+                    updated = awaitItem()
+                }
+                assertEquals(27.0, updated.currentTemp ?: Double.NaN, 0.001)
+            }
+
+            coVerify(exactly = 2) {
+                forecastRepo.getCityForecastStream(
+                    eq(paris),
+                    any(),
+                    eq(7),
+                    eq(false),
+                    eq(RefreshInterval.DEFAULT.millis)
+                )
+            }
+            coVerify(exactly = 0) {
+                forecastRepo.refreshCityForecast(any(), any(), any())
+            }
+        }
+
+    @Test
+    fun `retour au premier plan details respecte le mode manuel`() = runTest(dispatcher) {
+        refreshIntervalFlow.value = RefreshInterval.MANUAL
+
+        coEvery {
+            forecastRepo.getCityForecastStream(
+                eq(paris),
+                any(),
+                any(),
+                any(),
+                any()
+            )
+        } returns flowOf(ApiResult.Success(buildForecast(paris)))
+
+        val vm = buildViewModel()
+
+        try {
+            runCurrent()
+
+            // Chargement initial
+            coVerify(exactly = 1) {
+                forecastRepo.getCityForecastStream(
+                    eq(paris),
+                    any(),
+                    eq(7),
+                    eq(false),
+                    eq(Long.MAX_VALUE)
+                )
+            }
+
+            vm.refreshIfStale()
+            runCurrent()
+
+            // 1 appel initial + 1 relecture du cache au retour au premier plan.
+            coVerify(exactly = 2) {
+                forecastRepo.getCityForecastStream(
+                    eq(paris),
+                    any(),
+                    eq(7),
+                    eq(false),
+                    eq(Long.MAX_VALUE)
+                )
+            }
+
+            // MANUAL interdit bien le refresh réseau forcé.
+            coVerify(exactly = 0) {
+                forecastRepo.refreshCityForecast(any(), any(), any())
+            }
+        } finally {
+            vm.viewModelScope.cancel()
+        }
+    }
 
     @Test
     fun `refresh externe - ignore autre ville et valeur plus ancienne`() = runTest(dispatcher) {
@@ -729,6 +884,69 @@ class CityDetailViewModelTest {
             }
         }
 
+    @Test
+    fun `details avance automatiquement de slot sans refresh reseau`() = runTest(dispatcher) {
+        val mutableClock = MutableClock(Instant.parse("2026-06-28T12:29:30Z"))
+        val forecast = buildHourlyShiftForecast(paris)
+        coEvery {
+            forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
+        } returns flowOf(ApiResult.Success(forecast))
+
+        val vm = buildViewModel(clock = mutableClock)
+        vm.state.test {
+            var initialState = awaitItem()
+            while (initialState !is CityDetailUiState.Loaded) initialState = awaitItem()
+            assertEquals(
+                10.0,
+                initialState.currentTemp
+                    ?: error("température initiale absente"),
+                0.001
+            )
+
+            mutableClock.currentInstant = Instant.parse("2026-06-28T12:31:00Z")
+            advanceTimeBy(30_000L)
+            runCurrent()
+
+            var shifted = awaitItem()
+            while ((shifted as? CityDetailUiState.Loaded)?.currentTemp != 20.0) {
+                shifted = awaitItem()
+            }
+            val loaded = shifted
+            assertEquals(20.0, loaded.currentTemp ?: error("température suivante absente"), 0.001)
+            assertEquals(mutableClock.currentInstant, loaded.calculatedAt)
+            coVerify(exactly = 0) { forecastRepo.refreshCityForecast(any(), any(), any()) }
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `reprise hors ligne remet immediatement les details au bon slot`() =
+        runTest(dispatcher) {
+            val mutableClock = MutableClock(Instant.parse("2026-06-28T12:29:30Z"))
+            coEvery {
+                forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
+            } returns flowOf(ApiResult.Success(buildHourlyShiftForecast(paris)))
+            val vm = buildViewModel(clock = mutableClock)
+            runCurrent()
+            assertEquals(
+                10.0,
+                (vm.state.value as CityDetailUiState.Loaded).currentTemp ?: Double.NaN,
+                0.001
+            )
+
+            onlineFlow.value = false
+            mutableClock.currentInstant = Instant.parse("2026-06-28T12:31:00Z")
+            vm.refreshIfStale()
+            runCurrent()
+
+            val loaded = vm.state.value as CityDetailUiState.Loaded
+            assertEquals(20.0, loaded.currentTemp ?: Double.NaN, 0.001)
+            assertEquals(mutableClock.currentInstant, loaded.calculatedAt)
+            coVerify(exactly = 2) {
+                forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
+            }
+        }
+
     // ──────────────── Helpers ────────────────
 
 
@@ -793,6 +1011,36 @@ class CityDetailViewModelTest {
             city = city,
             seriesByModel = mapOf(model to series),
             errors = emptyMap()
+        )
+    }
+
+    private fun buildHourlyShiftForecast(city: City): CityForecast {
+        val model = WeatherModel.AROME_FRANCE_HD
+        return CityForecast(
+            city = city,
+            seriesByModel = mapOf(
+                model to ForecastSeries(
+                    model = model,
+                    hourly = HourlyForecast(
+                        timestamps = listOf(
+                            Instant.parse("2026-06-28T12:00:00Z"),
+                            Instant.parse("2026-06-28T13:00:00Z")
+                        ),
+                        temperature2m = listOf(10.0, 20.0),
+                        precipitation = listOf(0.0, 1.0),
+                        windSpeed10m = listOf(5.0, 15.0),
+                        weatherCode = listOf(0, 61)
+                    ),
+                    daily = DailyForecast(
+                        dates = listOf(LocalDate.of(2026, 6, 28)),
+                        tempMax = listOf(22.0),
+                        tempMin = listOf(8.0),
+                        precipitationSum = listOf(0.0),
+                        windSpeedMax = listOf(15.0)
+                    )
+                )
+            ),
+            fetchedAt = Instant.parse("2026-06-28T12:00:00Z")
         )
     }
 }

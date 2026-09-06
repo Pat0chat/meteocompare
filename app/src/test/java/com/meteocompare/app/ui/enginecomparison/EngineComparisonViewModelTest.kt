@@ -20,6 +20,7 @@ import com.meteocompare.app.domain.usecase.ConfidenceCalculator
 import com.meteocompare.app.domain.usecase.EngineComparisonBuilder
 import com.meteocompare.app.domain.usecase.EqualWeighting
 import com.meteocompare.app.domain.usecase.ForecastEngineContextProvider
+import com.meteocompare.app.testutil.MutableClock
 import com.meteocompare.app.ui.navigation.Destinations
 import io.mockk.coEvery
 import io.mockk.every
@@ -30,7 +31,9 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
@@ -73,7 +76,7 @@ class EngineComparisonViewModelTest {
         every { observeForecastEngine() } returns engineFlow
     }
     private val contextProvider: ForecastEngineContextProvider = mockk(relaxed = true) {
-        coEvery { build(forecast, ForecastEngine.ADAPTIVE, now) } returns
+        coEvery { build(forecast, ForecastEngine.ADAPTIVE, any()) } returns
             ForecastEngineContext(engine = ForecastEngine.ADAPTIVE)
     }
     private val appContext: Context = mockk(relaxed = true)
@@ -155,6 +158,80 @@ class EngineComparisonViewModelTest {
                 verify(exactly = 1) {
                     forecastRepository.getCityForecastStream(city, any(), any(), any(), any())
                 }
+            }
+        }
+
+    @Test
+    fun `resume silently reopens the cache aware comparison stream`() = runTest(dispatcher) {
+        val refreshed = forecast.copy(city = city.copy(name = "Paris actualisé"))
+        var calls = 0
+        every {
+            forecastRepository.getCityForecastStream(city, any(), any(), any(), any())
+        } answers {
+            calls += 1
+            flowOf(ApiResult.Success(if (calls == 1) forecast else refreshed))
+        }
+        coEvery { contextProvider.build(any(), ForecastEngine.ADAPTIVE, any()) } returns
+            ForecastEngineContext(engine = ForecastEngine.ADAPTIVE)
+
+        val viewModel = EngineComparisonViewModel(
+            savedStateHandle = SavedStateHandle(mapOf(Destinations.CITY_DETAIL_ARG to city.id)),
+            cityRepository = cityRepository,
+            forecastRepository = forecastRepository,
+            preferences = preferences,
+            contextProvider = contextProvider,
+            comparisonBuilder = builder,
+            clock = clock,
+            appContext = appContext
+        )
+        assertEquals("Paris", (viewModel.state.value as EngineComparisonUiState.Loaded).cityName)
+
+        viewModel.refreshIfStale()
+
+        assertEquals(
+            "Paris actualisé",
+            (viewModel.state.value as EngineComparisonUiState.Loaded).cityName
+        )
+        verify(exactly = 2) {
+            forecastRepository.getCityForecastStream(city, any(), any(), any(), any())
+        }
+    }
+
+    @Test
+    fun `comparison drops the previous local day at midnight without network refresh`() =
+        runTest(dispatcher) {
+            val mutableClock = MutableClock(Instant.parse("2026-08-23T21:59:30Z"))
+            val viewModel = EngineComparisonViewModel(
+                savedStateHandle = SavedStateHandle(mapOf(Destinations.CITY_DETAIL_ARG to city.id)),
+                cityRepository = cityRepository,
+                forecastRepository = forecastRepository,
+                preferences = preferences,
+                contextProvider = contextProvider,
+                comparisonBuilder = builder,
+                clock = mutableClock,
+                appContext = appContext
+            )
+
+            viewModel.state.test {
+                var loaded = awaitItem()
+                while (loaded !is EngineComparisonUiState.Loaded) loaded = awaitItem()
+                assertEquals(LocalDate.of(2026, 8, 23), loaded.days.first().date)
+
+                mutableClock.currentInstant = Instant.parse("2026-08-23T22:00:00Z")
+                advanceTimeBy(30_000L)
+                runCurrent()
+
+                var shifted = awaitItem()
+                while (shifted !is EngineComparisonUiState.Loaded ||
+                    shifted.days.firstOrNull()?.date != LocalDate.of(2026, 8, 24)
+                ) {
+                    shifted = awaitItem()
+                }
+                assertEquals(6, shifted.days.size)
+                verify(exactly = 1) {
+                    forecastRepository.getCityForecastStream(city, any(), any(), any(), any())
+                }
+                cancelAndIgnoreRemainingEvents()
             }
         }
 

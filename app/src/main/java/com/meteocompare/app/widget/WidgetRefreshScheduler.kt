@@ -13,15 +13,13 @@ import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.OutOfQuotaPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.meteocompare.app.BuildConfig
 import com.meteocompare.app.core.util.runSuspendCatching
-import com.meteocompare.app.domain.model.RefreshInterval
-import dagger.hilt.android.EntryPointAccessors
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
@@ -48,15 +46,15 @@ private const val WIDGET_LOG_TAG = "MeteoCompare/Widget"
  * jusqu'au tick suivant — d'où la plainte "les heures ne changent pas au
  * fur et à mesure du temps".
  *
- * Le worker conserve un tick de sécurité à 15 min (minimum WorkManager),
- * mais ne reconstruit plus systématiquement les RemoteViews. Il compare le
- * bucket courant au dernier rendu : 15 min pour le profil le plus frais,
- * 30 min pour MINUTES_30 et 1 h pour HOUR_1/HOURS_3/HOURS_6/MANUAL.
+ * Le worker conserve un tick de sécurité à 15 min (minimum WorkManager) et
+ * reconstruit les RemoteViews à chaque nouveau bucket de 15 min. Le seuil
+ * utilisateur reste uniquement un seuil RÉSEAU dans `loadWidgetData` : avec
+ * HOUR_1 ou MANUAL, trois rendus sur quatre sont donc cache-only.
  *
  * Les rafraîchissements immédiats (configuration, préférences, boot) portent
  * un flag `force` et contournent ce filtre. Lorsqu'un rendu est nécessaire,
- * loadWidgetData conserve le même seuil `maxCacheAgeMs` : la réduction de
- * CPU/IPC n'altère donc ni les fetch réseau attendus ni le mode manuel.
+ * `loadWidgetData` conserve le même seuil `maxCacheAgeMs`, donc cette cadence
+ * d'affichage n'altère ni les fetch réseau attendus ni le mode manuel.
  *
  * ─── Pourquoi pas AlarmManager ? ────────────────────────────────────────
  * Voir docblock historique retenu ci-dessous — les motifs (Doze, App
@@ -200,6 +198,11 @@ internal object WidgetRefreshScheduler {
     internal fun triggerImmediateRefresh(workManager: WorkManager) {
         val request = OneTimeWorkRequestBuilder<WidgetRefreshWorker>()
             .setInputData(workDataOf(FORCE_REFRESH_KEY to true))
+            // Les callbacks explicites (configuration, ouverture de l'app,
+            // fallback AppWidgetManager) doivent être servis sans attendre le
+            // prochain quota périodique. Si le quota expedited est épuisé,
+            // WorkManager conserve le job en mode normal plutôt que de le jeter.
+            .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
             .setBackoffCriteria(
                 BackoffPolicy.EXPONENTIAL,
                 30,
@@ -314,13 +317,6 @@ internal class WidgetRefreshWorker(
             WidgetRefreshScheduler.FORCE_REFRESH_KEY,
             false
         )
-        val refreshInterval = runSuspendCatching {
-            EntryPointAccessors.fromApplication(ctx, WidgetEntryPoint::class.java)
-                .userPreferencesRepository()
-                .observeRefreshInterval()
-                .first()
-        }.getOrDefault(RefreshInterval.DEFAULT)
-
         var updatedCount = 0
         var skippedCount = 0
         var failedCount = 0
@@ -340,7 +336,6 @@ internal class WidgetRefreshWorker(
                         if (!isWidgetDispatchDue(
                                 lastDispatchAtMs = lastDispatch,
                                 nowMs = now,
-                                interval = refreshInterval,
                                 force = forceRefresh
                             )
                         ) {

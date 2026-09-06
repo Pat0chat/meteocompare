@@ -119,6 +119,46 @@ class WidgetForecastSelectionTest {
     }
 
     @Test
+    fun `nouveau rendu widget avance au slot horaire sans nouvelles donnees`() {
+        val model = WeatherModel.GFS
+        val forecast = CityForecast(
+            city = city,
+            seriesByModel = mapOf(
+                model to ForecastSeries(
+                    model = model,
+                    hourly = HourlyForecast(
+                        timestamps = listOf(
+                            Instant.parse("2026-07-17T12:00:00Z"),
+                            Instant.parse("2026-07-17T13:00:00Z"),
+                            Instant.parse("2026-07-17T14:00:00Z")
+                        ),
+                        temperature2m = listOf(10.0, 20.0, 30.0),
+                        precipitation = listOf(0.0, 0.0, 0.0),
+                        windSpeed10m = listOf(5.0, 5.0, 5.0)
+                    ),
+                    daily = emptyDaily()
+                )
+            )
+        )
+
+        val beforeBoundary = buildForecasts(
+            forecast = forecast,
+            mode = ForecastMode.HOURLY,
+            timezone = city.timezone,
+            now = Instant.parse("2026-07-17T12:29:00Z")
+        )
+        val afterBoundary = buildForecasts(
+            forecast = forecast,
+            mode = ForecastMode.HOURLY,
+            timezone = city.timezone,
+            now = Instant.parse("2026-07-17T12:31:00Z")
+        )
+
+        assertEquals(10.0, beforeBoundary.first().temp ?: Double.NaN, 0.001)
+        assertEquals(20.0, afterBoundary.first().temp ?: Double.NaN, 0.001)
+    }
+
+    @Test
     fun `hourly fusionne les modeles disponibles avec le consensus v2`() {
         val now = Instant.parse("2026-07-17T10:15:00Z")
         val timestamps = (1L..5L).map { now.plusSeconds(it * 3600) }

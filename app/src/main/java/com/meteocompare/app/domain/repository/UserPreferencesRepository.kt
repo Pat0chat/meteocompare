@@ -27,8 +27,8 @@ interface UserPreferencesRepository {
 
     /**
      * Intervalle entre deux rafraîchissements automatiques des données.
-     * Utilisé par le widget (cadence WorkManager) et l'app (seuil de fraîcheur
-     * du cache avant refetch au chargement d'écran).
+     * Utilisé par le widget et l'app comme seuil de fraîcheur réseau du cache.
+     * La cadence de présentation horaire est volontairement indépendante.
      */
     fun observeRefreshInterval(): Flow<RefreshInterval>
     suspend fun setRefreshInterval(interval: RefreshInterval)
@@ -58,4 +58,3 @@ interface UserPreferencesRepository {
     fun observeCityDetailContentTab(cityId: String): Flow<CityDetailContentTab>
     suspend fun setCityDetailContentTab(cityId: String, tab: CityDetailContentTab)
 }
-

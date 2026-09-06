@@ -58,13 +58,15 @@ open class MeteoWidgetReceiver : GlanceAppWidgetReceiver() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
-        // Callback initial/configuration/resize du launcher. La cadence
-        // périodique XML est désactivée (updatePeriodMillis=0) pour éviter un
-        // second réveil toutes les 30 min en parallèle de WorkManager. Cet
-        // événement reste une occasion de réparer la planification unique ;
-        // `super` déclenche le rendu Glance demandé par le launcher.
+        // Callback initial/configuration/resize ET filet de sécurité système
+        // toutes les 30 min. Cette seconde voie est importante sur les OEMs
+        // qui retardent fortement WorkManager (notamment certaines versions
+        // MIUI). Le job one-shot forcé incrémente RefreshTickKey et pousse
+        // explicitement les RemoteViews ; REPLACE déduplique une éventuelle
+        // rafale de callbacks de plusieurs providers.
         WidgetRefreshScheduler.schedule(context)
         super.onUpdate(context, appWidgetManager, appWidgetIds)
+        WidgetRefreshScheduler.triggerImmediateRefresh(context)
     }
 
     override fun onRestored(
@@ -77,6 +79,7 @@ open class MeteoWidgetReceiver : GlanceAppWidgetReceiver() {
         // évite un widget figé jusqu'au prochain lancement de l'application.
         WidgetRefreshScheduler.schedule(context)
         super.onRestored(context, oldWidgetIds, newWidgetIds)
+        WidgetRefreshScheduler.triggerImmediateRefresh(context)
     }
 
     override fun onDisabled(context: Context) {

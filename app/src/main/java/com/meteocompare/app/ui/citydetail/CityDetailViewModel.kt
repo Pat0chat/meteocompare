@@ -8,6 +8,7 @@ import com.meteocompare.app.R
 import com.meteocompare.app.core.util.localDateIn
 import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.core.network.NetworkMonitor
+import com.meteocompare.app.core.util.runSuspendCatching
 import com.meteocompare.app.domain.model.BiasSample
 import com.meteocompare.app.domain.model.BiasVariable
 import com.meteocompare.app.domain.model.City
@@ -33,6 +34,8 @@ import com.meteocompare.app.domain.usecase.ComputeBiasUseCase
 import com.meteocompare.app.domain.usecase.ComputeForecastEvolutionUseCase
 import com.meteocompare.app.domain.usecase.ConfidenceCalculator
 import com.meteocompare.app.domain.usecase.ForecastEngineContextProvider
+import com.meteocompare.app.domain.util.forecastPresentationTicks
+import com.meteocompare.app.domain.util.hasForecastPresentationChanged
 import com.meteocompare.app.ui.navigation.Destinations
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -63,6 +66,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.time.Clock
+import java.time.Instant
 import java.time.LocalDate
 import javax.inject.Inject
 
@@ -110,6 +114,8 @@ class CityDetailViewModel @Inject constructor(
 
     /** Fuseau de la ville courante, source de vérité des fenêtres calendaires. */
     private val cityTimezone = MutableStateFlow<String?>(null)
+    /** Horloge de présentation : avance sans impliquer de requête météo. */
+    private val presentationNow = MutableStateFlow(clock.instant())
 
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
@@ -127,7 +133,13 @@ class CityDetailViewModel @Inject constructor(
     private var marineJob: Job? = null
     private var vigilanceJob: Job? = null
     private var evolutionJob: Job? = null
+    private var policyRefreshJob: Job? = null
+    private var manualRefreshJob: Job? = null
     private var evolutionRequestKey: String? = null
+    private var forecastConfig: Pair<List<WeatherModel>, RefreshInterval>? = null
+    private var forecastConfigGeneration: Long = 0L
+    private var appliedForecastConfigGeneration: Long = 0L
+    private var appliedForecastModels: Set<WeatherModel>? = null
 
     // Channel des feedbacks refresh — capacity 1 + DROP_OLDEST : si l'utilisateur
     // spam le bouton refresh, on ne fait que montrer le dernier résultat plutôt
@@ -163,12 +175,15 @@ class CityDetailViewModel @Inject constructor(
     // Room n'a pas émis. Aucun placeholder à gérer.
     val biasState: StateFlow<BiasScreenState> = combine(
         userPreferences.observeEnabledModels(),
-        cityTimezone
-    ) { models, timezone ->
-        Triple(models, timezone, clock.instant().localDateIn(timezone))
-    }.flatMapLatest { (models, timezone, asOf) ->
-        observeBiasScreenState(models, timezone, asOf)
+        cityTimezone,
+        presentationNow
+    ) { models, timezone, now ->
+        Triple(models, timezone, now.localDateIn(timezone))
     }
+        .distinctUntilChanged()
+        .flatMapLatest { (models, timezone, asOf) ->
+            observeBiasScreenState(models, timezone, asOf)
+        }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000L),
@@ -210,7 +225,45 @@ class CityDetailViewModel @Inject constructor(
         observeConnectivity()
         observeExternalForecastUpdates()
         observeForecastEngineChanges()
+        observePresentationTime()
         loadInitial()
+    }
+
+    /**
+     * Recalcule les champs horaires depuis le forecast déjà chargé. Aucun
+     * refresh réseau n'est nécessaire pour passer à la température, la
+     * condition et la timeline de l'échéance suivante.
+     */
+    private fun observePresentationTime() {
+        viewModelScope.launch {
+            forecastPresentationTicks(clock).collect(::recalculatePresentation)
+        }
+    }
+
+    private suspend fun recalculatePresentation(now: Instant) {
+        presentationNow.value = now
+        resultMutex.withLock {
+            val current = _state.value as? CityDetailUiState.Loaded
+                ?: return@withLock
+            if (!hasForecastPresentationChanged(
+                    forecast = current.forecast,
+                    previouslyCalculatedAt = current.calculatedAt,
+                    now = now
+                )
+            ) return@withLock
+
+            val engine = userPreferences.observeForecastEngine().first()
+            val updated = buildLoadedState(
+                forecast = current.forecast,
+                engine = engine,
+                normals = current.normals,
+                calculationNow = now
+            )
+            _state.value = updated
+            // Le garde interne évite tout travail si la fenêtre de dates est
+            // inchangée ; à minuit il recharge la bonne vue.
+            launchEvolutionLoad(updated.forecast)
+        }
     }
 
     /**
@@ -238,6 +291,7 @@ class CityDetailViewModel @Inject constructor(
                 val wasOnline = _isOnline.value
                 _isOnline.value = online
                 if (online && !wasOnline) {
+                    refreshIfStale()
                     findCity()?.let { city -> launchVigilanceLoad(city, forceRefresh = false) }
                 }
             }
@@ -400,6 +454,11 @@ class CityDetailViewModel @Inject constructor(
             ) { models, interval -> models to interval }
                 .distinctUntilChanged()
                 .flatMapLatest { (models, interval) ->
+                    policyRefreshJob?.cancel()
+                    manualRefreshJob?.cancel()
+                    forecastConfig = models to interval
+                    forecastConfigGeneration += 1L
+                    val generation = forecastConfigGeneration
                     val maxCacheAgeMs = if (interval == RefreshInterval.MANUAL) {
                         Long.MAX_VALUE
                     } else {
@@ -410,10 +469,14 @@ class CityDetailViewModel @Inject constructor(
                         models = models,
                         forecastDays = 7,
                         maxCacheAgeMs = maxCacheAgeMs
-                    )
+                    ).map { result -> Triple(generation, models.toSet(), result) }
                 }
-                .collect { result ->
-                    applyResult(result)
+                .collect { (generation, models, result) ->
+                    applyResult(
+                        result = result,
+                        expectedConfigGeneration = generation,
+                        expectedModels = models
+                    )
                     if (!normalsStarted && result is ApiResult.Success) {
                         normalsStarted = true
                         // Le forecast porte le fuseau réparé par Open-Meteo.
@@ -423,6 +486,48 @@ class CityDetailViewModel @Inject constructor(
                     }
                 }
         }
+    }
+
+    /**
+     * Resynchronisation silencieuse au retour au premier plan ou au retour
+     * réseau. Le stream relit d'abord Room (un widget peut l'avoir mise à jour)
+     * et ne télécharge que si le cache dépasse l'intervalle utilisateur.
+     */
+    fun refreshIfStale() {
+        // La vue courante est recalculée depuis le cache même hors connexion.
+        viewModelScope.launch { recalculatePresentation(clock.instant()) }
+        // La relecture Room reste utile hors ligne ; seul le fetch HTTP est
+        // bloqué plus bas par le repository et son NetworkMonitor.
+        if (policyRefreshJob?.isActive == true) return
+        val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
+            val city = findCity() ?: return@launch
+            val models = userPreferences.observeEnabledModels().first()
+            val interval = userPreferences.observeRefreshInterval().first()
+            val expectedConfig = models to interval
+            val expectedGeneration = forecastConfigGeneration
+            if (forecastConfig != expectedConfig) return@launch
+            val maxCacheAgeMs = if (interval == RefreshInterval.MANUAL) {
+                Long.MAX_VALUE
+            } else {
+                interval.millis
+            }
+            runSuspendCatching {
+                forecastRepository.getCityForecastStream(
+                    city = city,
+                    models = models,
+                    forecastDays = 7,
+                    maxCacheAgeMs = maxCacheAgeMs
+                ).collect { result ->
+                    applyResult(
+                        result = result,
+                        expectedConfigGeneration = expectedGeneration,
+                        expectedModels = models.toSet()
+                    )
+                }
+            }
+        }
+        policyRefreshJob = job
+        job.start()
     }
 
     /**
@@ -521,7 +626,8 @@ class CityDetailViewModel @Inject constructor(
      * l'utilisateur doute que son tap ait été reçu.
      */
     fun refresh() {
-        viewModelScope.launch {
+        if (manualRefreshJob?.isActive == true) return
+        val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
             _isRefreshing.value = true
             try {
                 val city = findCity() ?: run {
@@ -530,6 +636,7 @@ class CityDetailViewModel @Inject constructor(
                 }
                 launchVigilanceLoad(city, forceRefresh = true)
                 val models = userPreferences.observeEnabledModels().first()
+                val expectedGeneration = forecastConfigGeneration
                 val result = forecastRepository.refreshCityForecast(
                     city = city,
                     models = models,
@@ -538,7 +645,11 @@ class CityDetailViewModel @Inject constructor(
                 // Un refresh réseau réussi est archivé localement par ForecastRepositoryImpl.
                 // La comparaison relit ensuite ces snapshots sans aucun appel réseau
                 // supplémentaire.
-                applyResult(result)
+                applyResult(
+                    result = result,
+                    expectedConfigGeneration = expectedGeneration,
+                    expectedModels = models.toSet()
+                )
                 // Feedback explicite : succès si la requête a abouti, erreur sinon.
                 // Le repo retourne déjà Success même avec des erreurs partielles
                 // (philosophie tolerant aggregation) — on lit le résultat brut.
@@ -550,6 +661,8 @@ class CityDetailViewModel @Inject constructor(
                 _isRefreshing.value = false
             }
         }
+        manualRefreshJob = job
+        job.start()
     }
 
     private fun launchNormalsLoad(city: City) {
@@ -557,13 +670,14 @@ class CityDetailViewModel @Inject constructor(
             val result = climateNormalsRepository.getNormalsForCity(city)
             if (result is ApiResult.Success) {
                 val byKey = result.data.associateBy { it.key }
-                loadedNormals = byKey
-                // Patch le state existant : si on est déjà en Loaded, on
-                // remplace .normals. Sinon (Loading/Error), on n'altère pas
-                // — les repères historiques seules sans forecast n'ont pas de sens.
-                _state.update { current ->
-                    if (current is CityDetailUiState.Loaded) current.copy(normals = byKey)
-                    else current
+                resultMutex.withLock {
+                    loadedNormals = byKey
+                    // Même verrou que les refresh/ticks : une fin de calcul
+                    // météo concurrente ne peut plus réécraser ces normales.
+                    _state.update { current ->
+                        if (current is CityDetailUiState.Loaded) current.copy(normals = byKey)
+                        else current
+                    }
                 }
             }
             // En cas d'erreur, on ignore silencieusement : l'app reste fonctionnelle
@@ -574,9 +688,9 @@ class CityDetailViewModel @Inject constructor(
     private suspend fun buildLoadedState(
         forecast: CityForecast,
         engine: ForecastEngine,
-        normals: Map<Int, DayNormals>?
+        normals: Map<Int, DayNormals>?,
+        calculationNow: Instant = clock.instant()
     ): CityDetailUiState.Loaded = withContext(computationDispatcher) {
-        val calculationNow = clock.instant()
         val engineContext = engineContextProvider.build(forecast, engine, calculationNow)
         val weekly = confidenceCalculator.weeklyConfidence(forecast, engineContext)
         val hourly = confidenceCalculator.hourlyTemperatureConfidence(forecast, engineContext = engineContext)
@@ -603,9 +717,24 @@ class CityDetailViewModel @Inject constructor(
         cityRepository.observeFavorites().first().firstOrNull { it.id == cityId }
 
     private suspend fun applyResult(
-        result: ApiResult<CityForecast>
+        result: ApiResult<CityForecast>,
+        expectedConfigGeneration: Long? = null,
+        expectedModels: Set<WeatherModel>? = null
     ) = resultMutex.withLock {
+        if (expectedConfigGeneration != null &&
+            expectedConfigGeneration != forecastConfigGeneration
+        ) return@withLock
+
         val previous = _state.value
+        val isFirstForConfiguration = expectedConfigGeneration != null &&
+            appliedForecastConfigGeneration != expectedConfigGeneration
+        val currentModels = (previous as? CityDetailUiState.Loaded)?.forecast?.let {
+            it.seriesByModel.keys + it.errors.keys
+        }
+        val isModelSelectionTransition = isFirstForConfiguration &&
+            expectedModels != null &&
+            (appliedForecastModels?.let { it != expectedModels }
+                ?: (currentModels != null && currentModels != expectedModels))
 
         // Le chargement initial, un refresh manuel local et le signal partagé
         // peuvent recevoir le même fetch coalescé dans un ordre différent. Ne
@@ -615,13 +744,20 @@ class CityDetailViewModel @Inject constructor(
             val incomingFetchedAt = result.data.fetchedAt
             val currentFetchedAt = previous.fetchedAt
             val incomingModels = result.data.seriesByModel.keys + result.data.errors.keys
-            val currentModels = previous.forecast.seriesByModel.keys + previous.forecast.errors.keys
             val isOlder = currentFetchedAt != null &&
                 (incomingFetchedAt == null || incomingFetchedAt.isBefore(currentFetchedAt))
             val isSameVersion = currentFetchedAt != null &&
                 incomingFetchedAt == currentFetchedAt &&
                 incomingModels == currentModels
-            if (isOlder || isSameVersion) return@withLock
+            if ((isOlder && !isModelSelectionTransition) ||
+                (isSameVersion && !isModelSelectionTransition)
+            ) {
+                if (expectedConfigGeneration != null) {
+                    appliedForecastConfigGeneration = expectedConfigGeneration
+                    if (expectedModels != null) appliedForecastModels = expectedModels
+                }
+                return@withLock
+            }
         }
 
         // Une fois un forecast accepté, son City contient le timezone réellement
@@ -641,7 +777,16 @@ class CityDetailViewModel @Inject constructor(
                 else CityDetailUiState.Error(result.message)
             }
         }
+        // [buildLoadedState] quitte Main. Un flatMapLatest peut avoir annulé
+        // la configuration pendant ce calcul ; ne jamais publier sa valeur.
+        if (expectedConfigGeneration != null &&
+            expectedConfigGeneration != forecastConfigGeneration
+        ) return@withLock
         _state.value = next
+        if (result is ApiResult.Success && expectedConfigGeneration != null) {
+            appliedForecastConfigGeneration = expectedConfigGeneration
+            if (expectedModels != null) appliedForecastModels = expectedModels
+        }
         if (next is CityDetailUiState.Loaded) {
             launchEvolutionLoad(next.forecast)
         }

@@ -221,8 +221,14 @@ class ForecastRepositoryImpl @Inject constructor(
         // user coincé sur du cache très vieux.
         if (!forceRefresh && maxCacheAgeMs != null && hasCached && cacheComplete &&
             cachedFetchedAtMs != null) {
-            val ageMs = clock.millis() - cachedFetchedAtMs
-            if (ageMs in 0..maxCacheAgeMs) {
+            // Une correction NTP ou un changement manuel peut faire reculer
+            // l'horloge après l'écriture Room. Le cache paraît alors venir du
+            // futur. Le considérer périmé provoquerait un fetch à chaque tick,
+            // tandis que l'écriture plus ancienne pourrait être rejetée par le
+            // garde de fraîcheur du DAO. Comme les libellés d'âge, on borne ce
+            // delta à zéro : cette donnée est traitée comme venant d'être lue.
+            val ageMs = (clock.millis() - cachedFetchedAtMs).coerceAtLeast(0L)
+            if (ageMs <= maxCacheAgeMs) {
                 // Cache assez récent, on n'appelle même pas fetchAndCache.
                 return@flow
             }

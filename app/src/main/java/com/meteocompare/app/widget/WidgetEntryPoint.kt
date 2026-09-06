@@ -21,10 +21,9 @@ import dagger.hilt.components.SingletonComponent
  * (repositories + calculator) sont elles-mêmes @Singleton et vivent à
  * l'échelle de l'app, pas d'une activité.
  *
- * On expose aussi [UserPreferencesRepository] pour que [MeteoWidget] et
- * [WidgetRefreshScheduler] puissent lire l'intervalle de rafraîchissement
- * choisi par l'utilisateur (utilisé comme seuil `maxCacheAgeMs` dans le
- * repository, et comme cadence WorkManager).
+ * On expose aussi [UserPreferencesRepository] pour que [MeteoWidget] lise
+ * l'intervalle choisi comme seuil réseau `maxCacheAgeMs`. La cadence de rendu
+ * reste indépendante et fixe : un widget peut avancer d'heure depuis le cache.
  */
 @EntryPoint
 @InstallIn(SingletonComponent::class)

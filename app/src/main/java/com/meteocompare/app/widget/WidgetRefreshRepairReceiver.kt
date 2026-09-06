@@ -13,7 +13,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 /**
- * Répare la planification après redémarrage ou remplacement de l'APK.
+ * Répare la planification après redémarrage ou remplacement de l'APK, et
+ * invalide immédiatement le rendu après un changement d'heure/date/fuseau.
  *
  * WorkManager restaure normalement ses travaux tout seul. Après un reboot,
  * ce receiver utilise KEEP et déclenche seulement un rendu widget immédiat.
@@ -22,9 +23,7 @@ import kotlinx.coroutines.launch
  */
 class WidgetRefreshRepairReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != Intent.ACTION_BOOT_COMPLETED &&
-            intent.action != Intent.ACTION_MY_PACKAGE_REPLACED
-        ) return
+        if (!isWidgetRefreshRepairAction(intent.action)) return
 
         val appContext = context.applicationContext
         val action = intent.action
@@ -67,3 +66,15 @@ class WidgetRefreshRepairReceiver : BroadcastReceiver() {
         }
     }
 }
+
+/** Actions système qui invalident l'heure ou la planification d'un widget. */
+private val widgetRefreshRepairActions = setOf(
+    Intent.ACTION_BOOT_COMPLETED,
+    Intent.ACTION_MY_PACKAGE_REPLACED,
+    Intent.ACTION_TIME_CHANGED,
+    Intent.ACTION_TIMEZONE_CHANGED,
+    Intent.ACTION_DATE_CHANGED
+)
+
+internal fun isWidgetRefreshRepairAction(action: String?): Boolean =
+    action in widgetRefreshRepairActions

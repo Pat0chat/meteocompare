@@ -78,6 +78,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.BiasVariable
 import com.meteocompare.app.domain.model.CityDetailSection
@@ -140,6 +142,10 @@ fun CityDetailScreen(
     // LocalContext, LocalResources invalide la composition quand la locale ou
     // une autre configuration de ressources change.
     val resources = LocalResources.current
+
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        viewModel.refreshIfStale()
+    }
 
     // Collecte les événements one-shot de refresh — succès ou erreur.
     // LaunchedEffect avec viewModel comme key : si la VM change (changement

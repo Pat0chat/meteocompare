@@ -40,8 +40,8 @@
       - maxResizeWidth  = 1200dp (pas de contrainte artificielle,
         cf. issue Pixel 9a 5×1 fixé au sprint précédent)
       - maxResizeHeight = 1200dp
-      - updatePeriodMillis = 0 (cadence confiée uniquement à WorkManager
-        est étranglé par Doze/économie batterie)
+      - updatePeriodMillis = 30 min (filet de sécurité AppWidgetManager
+        lorsque WorkManager est étranglé par Doze ou par un OEM)
       - previewLayout = widget_preview_5x1 (aperçu dédié avec une échéance inline)
 -->
 <appwidget-provider
@@ -55,7 +55,7 @@
     android:maxResizeWidth="1200dp"
     android:maxResizeHeight="1200dp"
     android:resizeMode="horizontal|vertical"
-    android:updatePeriodMillis="0"
+    android:updatePeriodMillis="1800000"
     android:widgetCategory="home_screen"
     android:widgetFeatures="reconfigurable"
     android:configure="com.meteocompare.app.widget.MeteoWidgetConfigActivity"

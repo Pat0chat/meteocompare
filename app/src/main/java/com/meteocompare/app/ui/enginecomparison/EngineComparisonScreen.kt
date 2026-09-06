@@ -56,7 +56,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.model.WeatherCondition
@@ -76,6 +78,9 @@ fun EngineComparisonScreen(
     viewModel: EngineComparisonViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        viewModel.refreshIfStale()
+    }
     Scaffold(
         topBar = {
             TopAppBar(

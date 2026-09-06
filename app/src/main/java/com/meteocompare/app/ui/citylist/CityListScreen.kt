@@ -106,6 +106,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.ConfidenceScore
@@ -148,6 +150,10 @@ fun CityListScreen(
     var showDonationDialog by rememberSaveable { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val resources = LocalResources.current
+
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        viewModel.refreshIfStale()
+    }
 
     LaunchedEffect(viewModel) {
         viewModel.marineFeedback.collect { feedback ->
