@@ -45,6 +45,7 @@ import com.meteocompare.app.domain.model.VigilancePhenomenonAlert
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 import kotlin.math.max
 
 const val TAG_VIGILANCE_HOME = "vigilance-home"
@@ -89,7 +90,9 @@ fun VigilanceCompactBanner(
                 text = label,
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
+                // La période contient désormais sa ou ses dates. Deux lignes
+                // évitent de masquer précisément la date de fin sur téléphone.
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
                     .weight(1f)
@@ -269,7 +272,9 @@ private fun VigilanceAlertRow(
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontWeight = FontWeight.Medium,
-                maxLines = 1,
+                // Une période traversant minuit affiche les deux dates. Elle
+                // doit pouvoir revenir à la ligne au lieu d'être tronquée.
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
                     .widthIn(max = 168.dp)
@@ -301,10 +306,71 @@ private fun phenomenonTimingLabel(alert: VigilancePhenomenonAlert, timezone: Str
     if (windows.isEmpty()) return "—"
 
     val locale = LocalLocale.current.platformLocale
-    val formatter = DateTimeFormatter.ofPattern("HH'h'", locale).withZone(resolveZone(timezone))
-    return windows.joinToString(" · ") { (begin, end) ->
-        "${formatter.format(begin)}–${formatter.format(end)}"
+    return formatVigilanceWindows(windows, timezone, locale)
+}
+
+/**
+ * Formate des créneaux Vigilance sans ambiguïté de jour.
+ *
+ * - même jour local : `Sam. 29 août · 10h–14h, 18h–22h` ;
+ * - passage de jour : `Sam. 29 août · 16h → Dim. 30 août · 00h`.
+ *
+ * Les créneaux d'une même date sont regroupés pour garder le badge Home
+ * compact. Les comparaisons se font après conversion dans le fuseau de la
+ * localité : un `00h` est donc toujours associé à sa vraie date civile.
+ */
+internal fun formatVigilanceWindows(
+    windows: List<Pair<Instant, Instant>>,
+    timezone: String?,
+    locale: Locale
+): String {
+    val zone = resolveZone(timezone)
+    val dateFormatter = DateTimeFormatter.ofPattern("EEE d MMM", locale)
+    val timeFormatter = DateTimeFormatter.ofPattern("HH'h'", locale)
+    val validWindows = windows
+        .filter { (begin, end) -> end.isAfter(begin) }
+        .sortedBy { it.first }
+        .map { (begin, end) -> begin.atZone(zone) to end.atZone(zone) }
+
+    if (validWindows.isEmpty()) return ""
+
+    fun dateLabel(instant: java.time.ZonedDateTime): String = instant
+        .format(dateFormatter)
+        .replaceFirstChar { first -> first.titlecase() }
+
+    fun timeLabel(instant: java.time.ZonedDateTime): String = instant.format(timeFormatter)
+
+    val chunks = mutableListOf<String>()
+    var groupedDate: java.time.LocalDate? = null
+    var groupedDateLabel = ""
+    val groupedRanges = mutableListOf<String>()
+
+    fun flushSameDayGroup() {
+        if (groupedRanges.isNotEmpty()) {
+            chunks += "$groupedDateLabel · ${groupedRanges.joinToString(", ")}"
+            groupedRanges.clear()
+        }
+        groupedDate = null
+        groupedDateLabel = ""
     }
+
+    validWindows.forEach { (begin, end) ->
+        if (begin.toLocalDate() == end.toLocalDate()) {
+            if (groupedDate != begin.toLocalDate()) {
+                flushSameDayGroup()
+                groupedDate = begin.toLocalDate()
+                groupedDateLabel = dateLabel(begin)
+            }
+            groupedRanges += "${timeLabel(begin)}–${timeLabel(end)}"
+        } else {
+            flushSameDayGroup()
+            chunks += "${dateLabel(begin)} · ${timeLabel(begin)} → " +
+                "${dateLabel(end)} · ${timeLabel(end)}"
+        }
+    }
+    flushSameDayGroup()
+
+    return chunks.joinToString(" · ")
 }
 
 private fun mergePhenomenonWindows(intervals: List<VigilanceInterval>): List<Pair<Instant, Instant>> {
@@ -457,8 +523,7 @@ private fun compactIntervalLabel(interval: VigilanceInterval, timezone: String?)
     val begin = interval.begin ?: return ""
     val end = interval.end ?: return ""
     val locale = LocalLocale.current.platformLocale
-    val formatter = DateTimeFormatter.ofPattern("HH'h'", locale).withZone(resolveZone(timezone))
-    return stringResource(R.string.vigilance_interval_compact, formatter.format(begin), formatter.format(end))
+    return formatVigilanceWindows(listOf(begin to end), timezone, locale)
 }
 
 private fun vigilanceUpdateLabel(instant: Instant, timezone: String?): String {

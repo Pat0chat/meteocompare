@@ -2,7 +2,6 @@ package com.meteocompare.app.ui.citydetail
 
 import android.content.Context
 import androidx.lifecycle.SavedStateHandle
-import androidx.lifecycle.viewModelScope
 import app.cash.turbine.test
 import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.core.network.NetworkMonitor
@@ -37,7 +36,6 @@ import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.coVerify
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -721,53 +719,28 @@ class CityDetailViewModelTest {
     @Test
     fun `retour au premier plan details respecte le mode manuel`() = runTest(dispatcher) {
         refreshIntervalFlow.value = RefreshInterval.MANUAL
-
         coEvery {
-            forecastRepo.getCityForecastStream(
-                eq(paris),
-                any(),
-                any(),
-                any(),
-                any()
-            )
+            forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
         } returns flowOf(ApiResult.Success(buildForecast(paris)))
 
         val vm = buildViewModel()
+        runCurrent()
+        io.mockk.clearMocks(forecastRepo, answers = false, recordedCalls = true)
 
-        try {
-            runCurrent()
+        vm.refreshIfStale()
+        runCurrent()
 
-            // Chargement initial
-            coVerify(exactly = 1) {
-                forecastRepo.getCityForecastStream(
-                    eq(paris),
-                    any(),
-                    eq(7),
-                    eq(false),
-                    eq(Long.MAX_VALUE)
-                )
-            }
-
-            vm.refreshIfStale()
-            runCurrent()
-
-            // 1 appel initial + 1 relecture du cache au retour au premier plan.
-            coVerify(exactly = 2) {
-                forecastRepo.getCityForecastStream(
-                    eq(paris),
-                    any(),
-                    eq(7),
-                    eq(false),
-                    eq(Long.MAX_VALUE)
-                )
-            }
-
-            // MANUAL interdit bien le refresh réseau forcé.
-            coVerify(exactly = 0) {
-                forecastRepo.refreshCityForecast(any(), any(), any())
-            }
-        } finally {
-            vm.viewModelScope.cancel()
+        coVerify(exactly = 1) {
+            forecastRepo.getCityForecastStream(
+                eq(paris),
+                any(),
+                eq(7),
+                eq(false),
+                eq(Long.MAX_VALUE)
+            )
+        }
+        coVerify(exactly = 0) {
+            forecastRepo.refreshCityForecast(any(), any(), any())
         }
     }
 
@@ -911,7 +884,7 @@ class CityDetailViewModelTest {
             while ((shifted as? CityDetailUiState.Loaded)?.currentTemp != 20.0) {
                 shifted = awaitItem()
             }
-            val loaded = shifted
+            val loaded = shifted as CityDetailUiState.Loaded
             assertEquals(20.0, loaded.currentTemp ?: error("température suivante absente"), 0.001)
             assertEquals(mutableClock.currentInstant, loaded.calculatedAt)
             coVerify(exactly = 0) { forecastRepo.refreshCityForecast(any(), any(), any()) }

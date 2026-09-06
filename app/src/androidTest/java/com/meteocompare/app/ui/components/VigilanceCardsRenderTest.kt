@@ -3,7 +3,6 @@ package com.meteocompare.app.ui.components
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
-import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performScrollTo
@@ -39,16 +38,56 @@ class VigilanceCardsRenderTest {
 
         composeRule.onNodeWithTag(TAG_VIGILANCE_HOME).assertIsDisplayed()
         composeRule.onNodeWithTag(TAG_VIGILANCE_HOME_TEXT)
-            .assertTextContains("10h–14h · 18h–22h", substring = true)
+            .assertTextContains("29", substring = true)
+            .assertTextContains("10h–14h, 18h–22h", substring = true)
         composeRule.onNodeWithTag(TAG_VIGILANCE_DETAIL).performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithTag(TAG_VIGILANCE_ALERT_TIMING_PREFIX + VigilancePhenomenon.THUNDERSTORMS.id)
-            .assertTextEquals("10h–14h · 18h–22h")
+            .assertTextContains("29", substring = true)
+            .assertTextContains("10h–14h, 18h–22h", substring = true)
+        composeRule.onNodeWithTag(TAG_VIGILANCE_ALERT_TIMING_PREFIX + VigilancePhenomenon.WIND.id)
+            .performScrollTo()
+            .assertTextContains("29", substring = true)
+            .assertTextContains("20h", substring = true)
+            .assertTextContains("30", substring = true)
+            .assertTextContains("04h", substring = true)
+            .assertTextContains("→", substring = true)
         composeRule.onNodeWithTag(TAG_VIGILANCE_MARINE).performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun home_badge_displays_both_dates_when_period_crosses_midnight() {
+        val base = forecast()
+        val period = base.periods.single()
+        val wind = period.phenomena.single { it.phenomenon == VigilancePhenomenon.WIND }
+        val vigilance = base.copy(
+            periods = listOf(
+                period.copy(
+                    maxColor = VigilanceColor.YELLOW,
+                    departmentMaxColor = VigilanceColor.YELLOW,
+                    coastMaxColor = null,
+                    phenomena = listOf(wind)
+                )
+            )
+        )
+
+        composeRule.setContent {
+            MeteoCompareTheme(dynamicColor = false) {
+                VigilanceCompactBanner(vigilance, "Europe/Paris")
+            }
+        }
+
+        composeRule.onNodeWithTag(TAG_VIGILANCE_HOME_TEXT)
+            .assertTextContains("29", substring = true)
+            .assertTextContains("20h", substring = true)
+            .assertTextContains("30", substring = true)
+            .assertTextContains("04h", substring = true)
+            .assertTextContains("→", substring = true)
     }
 
     private fun forecast(): VigilanceForecast {
         val start = Instant.parse("2026-08-29T08:00:00Z")
         val end = Instant.parse("2026-08-29T20:00:00Z")
+        val windEnd = Instant.parse("2026-08-30T02:00:00Z")
         val storms = VigilancePhenomenonAlert(
             phenomenon = VigilancePhenomenon.THUNDERSTORMS,
             maxColor = VigilanceColor.ORANGE,
@@ -74,6 +113,18 @@ class VigilanceCardsRenderTest {
                 VigilanceInterval(start, end, VigilanceColor.YELLOW, VigilanceScope.COAST)
             )
         )
+        val wind = VigilancePhenomenonAlert(
+            phenomenon = VigilancePhenomenon.WIND,
+            maxColor = VigilanceColor.YELLOW,
+            intervals = listOf(
+                VigilanceInterval(
+                    Instant.parse("2026-08-29T18:00:00Z"),
+                    windEnd,
+                    VigilanceColor.YELLOW,
+                    VigilanceScope.DEPARTMENT
+                )
+            )
+        )
         return VigilanceForecast(
             source = "Météo-France",
             department = "29",
@@ -85,11 +136,11 @@ class VigilanceCardsRenderTest {
                 VigilancePeriod(
                     term = "J",
                     begin = start,
-                    end = end,
+                    end = windEnd,
                     maxColor = VigilanceColor.ORANGE,
                     departmentMaxColor = VigilanceColor.ORANGE,
                     coastMaxColor = VigilanceColor.YELLOW,
-                    phenomena = listOf(storms, coast)
+                    phenomena = listOf(storms, coast, wind)
                 )
             ),
             fetchedAt = start
