@@ -122,6 +122,7 @@ fun CityDetailScreen(
     onBack: () -> Unit,
     onConfidenceClick: (isoDate: String) -> Unit = {},
     onEngineComparisonClick: () -> Unit = {},
+    showBackButton: Boolean = true,
     viewModel: CityDetailViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -179,7 +180,8 @@ fun CityDetailScreen(
         onDetailViewModeChange = viewModel::setDetailViewMode,
         onDetailContentTabChange = viewModel::setDetailContentTab,
         onConfidenceClick = onConfidenceClick,
-        onEngineComparisonClick = onEngineComparisonClick
+        onEngineComparisonClick = onEngineComparisonClick,
+        showBackButton = showBackButton
     )
 }
 
@@ -208,7 +210,8 @@ internal fun CityDetailContent(
     onDetailViewModeChange: (CityDetailViewMode) -> Unit = {},
     onDetailContentTabChange: (CityDetailContentTab) -> Unit = {},
     onConfidenceClick: (isoDate: String) -> Unit = {},
-    onEngineComparisonClick: () -> Unit = {}
+    onEngineComparisonClick: () -> Unit = {},
+    showBackButton: Boolean = true
 ) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
@@ -238,11 +241,13 @@ internal fun CityDetailContent(
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.nav_back)
-                        )
+                    if (showBackButton) {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = stringResource(R.string.nav_back)
+                            )
+                        }
                     }
                 },
                 actions = {

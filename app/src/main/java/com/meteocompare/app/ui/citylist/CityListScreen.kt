@@ -5,6 +5,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -79,6 +80,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.clip
@@ -92,6 +94,7 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -134,6 +137,8 @@ fun CityListScreen(
     onCityClick: (cityId: String) -> Unit,
     onSettingsClick: () -> Unit,
     onHelpClick: () -> Unit,
+    selectedCityId: String? = null,
+    selectionEnabled: Boolean = false,
     viewModel: CityListViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -169,7 +174,9 @@ fun CityListScreen(
         onRetry = viewModel::onRetry,
         onRefresh = viewModel::onRefreshAll,
         onMarineAction = viewModel::onMarineAction,
-        snackbarHostState = snackbarHostState
+        snackbarHostState = snackbarHostState,
+        selectedCityId = selectedCityId,
+        selectionEnabled = selectionEnabled
     )
 
     if (showDonationDialog) {
@@ -246,7 +253,9 @@ internal fun CityListContent(
     onRetry: (City) -> Unit,
     onRefresh: () -> Unit,
     onMarineAction: (City) -> Unit = {},
-    snackbarHostState: SnackbarHostState? = null
+    snackbarHostState: SnackbarHostState? = null,
+    selectedCityId: String? = null,
+    selectionEnabled: Boolean = false
 ) {
     val effectiveSnackbarHostState = snackbarHostState ?: remember { SnackbarHostState() }
     Scaffold(
@@ -325,7 +334,9 @@ internal fun CityListContent(
                         onCityClick = onCityClick,
                         onRemove = onRemoveCity,
                         onRetry = onRetry,
-                        onMarineAction = onMarineAction
+                        onMarineAction = onMarineAction,
+                        selectedCityId = selectedCityId,
+                        selectionEnabled = selectionEnabled
                     )
                 }
             }
@@ -340,7 +351,9 @@ internal fun CityList(
     onCityClick: (String) -> Unit,
     onRemove: (String) -> Unit,
     onRetry: (City) -> Unit,
-    onMarineAction: (City) -> Unit = {}
+    onMarineAction: (City) -> Unit = {},
+    selectedCityId: String? = null,
+    selectionEnabled: Boolean = false
 ) {
     LazyColumn(
         modifier = Modifier
@@ -367,6 +380,8 @@ internal fun CityList(
                 onRemove = { onRemove(state.city.id) },
                 onRetry = { onRetry(state.city) },
                 onMarineAction = { onMarineAction(state.city) },
+                isSelected = state.city.id == selectedCityId,
+                selectionEnabled = selectionEnabled,
                 // animateItem() permet aux ajouts/suppressions d'animer
                 // proprement à l'intérieur de la LazyColumn.
                 modifier = Modifier.animateItem(
@@ -420,7 +435,9 @@ internal fun CityCard(
     onRemove: () -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
-    onMarineAction: () -> Unit = {}
+    onMarineAction: () -> Unit = {},
+    isSelected: Boolean = false,
+    selectionEnabled: Boolean = false
 ) {
     val resources = LocalResources.current
     val a11yDescription = com.meteocompare.app.ui.accessibility.A11yFormatter
@@ -431,27 +448,50 @@ internal fun CityCard(
         condition = loaded?.currentCondition,
         isDark = isDark
     )
+    val isDeemphasized = selectionEnabled && !isSelected
+    val emphasisAlpha by animateFloatAsState(
+        targetValue = if (isDeemphasized) 0.58f else 1f,
+        animationSpec = tween(durationMillis = 180),
+        label = "city-card-selection-emphasis"
+    )
+    val displayedAccentColor = if (isDeemphasized) {
+        MaterialTheme.colorScheme.outlineVariant
+    } else {
+        accentColor
+    }
+    val containerColor = when {
+        selectionEnabled && isSelected -> MaterialTheme.colorScheme.surfaceContainerHighest
+        isDeemphasized -> MaterialTheme.colorScheme.surfaceVariant
+        else -> MaterialTheme.colorScheme.surfaceContainerLow
+    }
 
     Card(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
+            .alpha(emphasisAlpha)
             .testTag("$TAG_CITY_CARD${state.city.id}")
             .semantics(mergeDescendants = true) {
                 contentDescription = a11yDescription
                 role = Role.Button
+                if (selectionEnabled) this.selected = isSelected
             },
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-        )
+            containerColor = containerColor
+        ),
+        border = if (selectionEnabled && isSelected) {
+            BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+        } else {
+            null
+        }
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .drawBehind {
                     drawRect(
-                        color = accentColor,
+                        color = displayedAccentColor,
                         size = Size(
                             width = 4.dp.toPx(),
                             height = size.height

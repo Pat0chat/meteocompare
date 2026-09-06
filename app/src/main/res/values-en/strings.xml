@@ -25,6 +25,8 @@
     <string name="widget_config_forecast_mode_daily_descr">Displays the forecast for the next 5 days.</string>
     <string name="widget_config_save">Add</string>
     <string name="title_detail_fallback">Detail</string>
+    <string name="tablet_detail_placeholder_title">Detailed forecast</string>
+    <string name="tablet_detail_placeholder_subtitle">Select a location in the left column.</string>
 
     
     <string name="settings_appearance">Appearance</string>

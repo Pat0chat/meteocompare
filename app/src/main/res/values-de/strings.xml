@@ -23,6 +23,8 @@
     <string name="widget_config_forecast_mode_daily_descr">Zeigt die Vorhersage für die nächsten 5 Tage.</string>
     <string name="widget_config_save">Hinzufügen</string>
     <string name="title_detail_fallback">Details</string>
+    <string name="tablet_detail_placeholder_title">Detailvorhersage</string>
+    <string name="tablet_detail_placeholder_subtitle">Wähle einen Ort in der linken Spalte aus.</string>
     
     <string name="settings_appearance">Darstellung</string>
     <string name="settings_language">Sprache</string>

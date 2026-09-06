@@ -1,6 +1,8 @@
 package com.meteocompare.app.ui.citylist
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -80,5 +82,36 @@ class CityListContentTest {
         composeRule.onNodeWithTag("$TAG_CITY_CARD${TestFixtures.lyon.id}").assertIsDisplayed().performClick()
         composeRule.onNodeWithText("25–27", useUnmergedTree = true).assertIsDisplayed()
         assertEquals(TestFixtures.lyon.id, selectedId)
+    }
+
+    @Test
+    fun tablet_selection_marks_only_the_active_city_card() {
+        composeRule.setContent {
+            MeteoCompareTheme {
+                CityListContent(
+                    uiState = CityListUiState(
+                        items = listOf(
+                            CityCardState(TestFixtures.paris, ForecastState.Loading),
+                            CityCardState(TestFixtures.lyon, ForecastState.Loading)
+                        )
+                    ),
+                    onCityClick = {},
+                    onAddClick = {},
+                    onDonateClick = {},
+                    onHelpClick = {},
+                    onSettingsClick = {},
+                    onRemoveCity = {},
+                    onRetry = {},
+                    onRefresh = {},
+                    selectedCityId = TestFixtures.lyon.id,
+                    selectionEnabled = true
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("$TAG_CITY_CARD${TestFixtures.paris.id}")
+            .assertIsNotSelected()
+        composeRule.onNodeWithTag("$TAG_CITY_CARD${TestFixtures.lyon.id}")
+            .assertIsSelected()
     }
 }

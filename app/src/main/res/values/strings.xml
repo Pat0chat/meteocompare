@@ -25,6 +25,8 @@
     <string name="widget_config_forecast_mode_daily_descr">Affiche les prévisions des 5 prochains jours</string>
     <string name="widget_config_save">Ajouter</string>
     <string name="title_detail_fallback">Détail</string>
+    <string name="tablet_detail_placeholder_title">Prévisions détaillées</string>
+    <string name="tablet_detail_placeholder_subtitle">Sélectionnez une localité dans la colonne de gauche.</string>
 
     
     <string name="settings_appearance">Apparence</string>

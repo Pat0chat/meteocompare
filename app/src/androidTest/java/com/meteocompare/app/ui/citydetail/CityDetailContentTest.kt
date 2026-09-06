@@ -1,6 +1,7 @@
 package com.meteocompare.app.ui.citydetail
 
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -49,6 +50,26 @@ class CityDetailContentTest {
             }
         }
         composeRule.onNodeWithTag(TAG_DETAIL_LOADING).assertIsDisplayed()
+    }
+
+    @Test
+    fun tablet_detail_hides_the_redundant_back_button() {
+        composeRule.setContent {
+            MeteoCompareTheme {
+                CityDetailContent(
+                    state = CityDetailUiState.Loading,
+                    isRefreshing = false,
+                    biasState = BiasScreenState.EMPTY,
+                    snackbarHostState = SnackbarHostState(),
+                    onBack = {},
+                    onRefresh = {},
+                    showBackButton = false
+                )
+            }
+        }
+
+        composeRule.onNodeWithContentDescription(context.getString(R.string.nav_back))
+            .assertDoesNotExist()
     }
 
     @Test
