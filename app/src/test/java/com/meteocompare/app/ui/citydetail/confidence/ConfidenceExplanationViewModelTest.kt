@@ -292,8 +292,10 @@ class ConfidenceExplanationViewModelTest {
 
         val viewModel = viewModel()
         val before = viewModel.state.value as ConfidenceExplanationUiState.Loaded
+        // Le fixture attribue baseTemp + index, puis le ViewModel trie par
+        // résolution : ICON_EU (index 1) précède GFS (index 0).
         assertEquals(
-            listOf(25.0, 25.0),
+            listOf(26.0, 25.0),
             before.variableBreakdowns.first { it.kind == VariableKind.TEMP_MAX }
                 .perModel.map(ModelValue::value)
         )
@@ -302,7 +304,7 @@ class ConfidenceExplanationViewModelTest {
 
         val after = viewModel.state.value as ConfidenceExplanationUiState.Loaded
         assertEquals(
-            listOf(40.0, 40.0),
+            listOf(41.0, 40.0),
             after.variableBreakdowns.first { it.kind == VariableKind.TEMP_MAX }
                 .perModel.map(ModelValue::value)
         )

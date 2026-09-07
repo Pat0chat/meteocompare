@@ -3,6 +3,7 @@ package com.meteocompare.app.ui.enginecomparison
 import android.content.Context
 import app.cash.turbine.test
 import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.viewModelScope
 import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityForecast
@@ -28,8 +29,10 @@ import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
@@ -48,6 +51,7 @@ import java.time.ZoneOffset
 @OptIn(ExperimentalCoroutinesApi::class)
 class EngineComparisonViewModelTest {
     private val dispatcher = UnconfinedTestDispatcher()
+    private val createdViewModels = mutableListOf<EngineComparisonViewModel>()
     private val now = Instant.parse("2026-08-23T05:00:00Z")
     private val clock = Clock.fixed(now, ZoneOffset.UTC)
     private val city = City(
@@ -82,6 +86,41 @@ class EngineComparisonViewModelTest {
     private val appContext: Context = mockk(relaxed = true)
     private val builder = EngineComparisonBuilder(ConfidenceCalculator(EqualWeighting()))
 
+    private fun createViewModel(
+        savedStateHandle: SavedStateHandle,
+        cityRepository: CityRepository,
+        forecastRepository: ForecastRepository,
+        preferences: UserPreferencesRepository,
+        contextProvider: ForecastEngineContextProvider,
+        comparisonBuilder: EngineComparisonBuilder,
+        clock: Clock,
+        appContext: Context
+    ): EngineComparisonViewModel = EngineComparisonViewModel(
+        savedStateHandle = savedStateHandle,
+        cityRepository = cityRepository,
+        forecastRepository = forecastRepository,
+        preferences = preferences,
+        contextProvider = contextProvider,
+        comparisonBuilder = comparisonBuilder,
+        clock = clock,
+        appContext = appContext
+    ).also(createdViewModels::add)
+
+    /**
+     * Le ticker minute du ViewModel partage le scheduler virtuel de runTest.
+     * Annuler toutes les instances avant le nettoyage empêche le ticker infini
+     * de reprogrammer indéfiniment une nouvelle tâche différée.
+     */
+    private fun runViewModelTest(testBody: suspend TestScope.() -> Unit) =
+        runTest(dispatcher) {
+            try {
+                testBody()
+            } finally {
+                createdViewModels.forEach { it.viewModelScope.cancel() }
+                createdViewModels.clear()
+            }
+        }
+
     @Before
     fun setUp() {
         Dispatchers.setMain(dispatcher)
@@ -96,11 +135,11 @@ class EngineComparisonViewModelTest {
     }
 
     @Test
-    fun `missing favorite exposes localized error without opening forecast stream`() = runTest(dispatcher) {
+    fun `missing favorite exposes localized error without opening forecast stream`() = runViewModelTest {
         every { cityRepository.observeFavorites() } returns flowOf(emptyList())
         every { appContext.getString(com.meteocompare.app.R.string.city_not_found_in_favorites) } returns "City missing"
 
-        val viewModel = EngineComparisonViewModel(
+        val viewModel = createViewModel(
             savedStateHandle = SavedStateHandle(mapOf(Destinations.CITY_DETAIL_ARG to city.id)),
             cityRepository = cityRepository,
             forecastRepository = forecastRepository,
@@ -124,8 +163,8 @@ class EngineComparisonViewModelTest {
 
     @Test
     fun `changing selected engine only updates highlight without reopening forecast stream`() =
-        runTest(dispatcher) {
-            val viewModel = EngineComparisonViewModel(
+        runViewModelTest {
+            val viewModel = createViewModel(
                 savedStateHandle = SavedStateHandle(mapOf(Destinations.CITY_DETAIL_ARG to city.id)),
                 cityRepository = cityRepository,
                 forecastRepository = forecastRepository,
@@ -162,7 +201,7 @@ class EngineComparisonViewModelTest {
         }
 
     @Test
-    fun `resume silently reopens the cache aware comparison stream`() = runTest(dispatcher) {
+    fun `resume silently reopens the cache aware comparison stream`() = runViewModelTest {
         val refreshed = forecast.copy(city = city.copy(name = "Paris actualisé"))
         var calls = 0
         every {
@@ -174,7 +213,7 @@ class EngineComparisonViewModelTest {
         coEvery { contextProvider.build(any(), ForecastEngine.ADAPTIVE, any()) } returns
             ForecastEngineContext(engine = ForecastEngine.ADAPTIVE)
 
-        val viewModel = EngineComparisonViewModel(
+        val viewModel = createViewModel(
             savedStateHandle = SavedStateHandle(mapOf(Destinations.CITY_DETAIL_ARG to city.id)),
             cityRepository = cityRepository,
             forecastRepository = forecastRepository,
@@ -199,9 +238,9 @@ class EngineComparisonViewModelTest {
 
     @Test
     fun `comparison drops the previous local day at midnight without network refresh`() =
-        runTest(dispatcher) {
+        runViewModelTest {
             val mutableClock = MutableClock(Instant.parse("2026-08-23T21:59:30Z"))
-            val viewModel = EngineComparisonViewModel(
+            val viewModel = createViewModel(
                 savedStateHandle = SavedStateHandle(mapOf(Destinations.CITY_DETAIL_ARG to city.id)),
                 cityRepository = cityRepository,
                 forecastRepository = forecastRepository,

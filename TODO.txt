@@ -1,5 +1,4 @@
 TODO
 ----
-- Dans le badge Vigilance, les périodes ne sont pas correctement affichées. On a juste par exemple 16h - 00h mais on ne sait pas si la période est sur le même jour ou plusieurs jours.
 - Améliorer le rendu des graphiques de la section Forecast evolution. Ils sont très austères actuellement. Ajouter un preview dans le dossier debug pour avoir un aperçu rapide.
-- Ajouter un système de toast global pour toutes les actions / erreurs dans l'application
+- Il y a déjà des indications lors de la mise à jour des données météo. Mais mettre en place un vrai système de toast global et complet pour toutes les actions / erreurs dans l'application

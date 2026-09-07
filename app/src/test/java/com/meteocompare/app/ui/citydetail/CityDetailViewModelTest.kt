@@ -2,6 +2,7 @@ package com.meteocompare.app.ui.citydetail
 
 import android.content.Context
 import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.viewModelScope
 import app.cash.turbine.test
 import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.core.network.NetworkMonitor
@@ -38,11 +39,13 @@ import io.mockk.mockk
 import io.mockk.coVerify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
@@ -77,6 +80,7 @@ import java.time.ZoneOffset
 class CityDetailViewModelTest {
 
     private val dispatcher = UnconfinedTestDispatcher()
+    private val createdViewModels = mutableListOf<CityDetailViewModel>()
     private val testNow = Instant.parse("2026-06-28T12:00:00Z")
     private val testClock = Clock.fixed(testNow, ZoneOffset.UTC)
 
@@ -163,8 +167,24 @@ class CityDetailViewModelTest {
             clock = clock,
             computationDispatcher = dispatcher,
             engineContextProvider = engineContextProvider
-        )
+        ).also(createdViewModels::add)
     }
+
+    /**
+     * Le ticker de présentation du ViewModel est volontairement infini. Comme
+     * il utilise Dispatchers.Main, il partage ici le scheduler virtuel du test.
+     * Il faut donc annuler le viewModelScope avant que runTest cherche à vider
+     * ce scheduler, sinon chaque tick minute en programme un nouveau.
+     */
+    private fun runViewModelTest(testBody: suspend TestScope.() -> Unit) =
+        runTest(dispatcher) {
+            try {
+                testBody()
+            } finally {
+                createdViewModels.forEach { it.viewModelScope.cancel() }
+                createdViewModels.clear()
+            }
+        }
 
     @Before
     fun setUp() {
@@ -190,7 +210,7 @@ class CityDetailViewModelTest {
     }
 
     @Test
-    fun `ville non francaise - aucune verification vigilance et etat idle`() = runTest(dispatcher) {
+    fun `ville non francaise - aucune verification vigilance et etat idle`() = runViewModelTest {
         val london = City(
             id = "2643743",
             name = "London",
@@ -209,7 +229,7 @@ class CityDetailViewModelTest {
     }
 
     @Test
-    fun `connectivite - expose les changements reseau`() = runTest(dispatcher) {
+    fun `connectivite - expose les changements reseau`() = runViewModelTest {
         val vm = buildViewModel()
         vm.isOnline.test {
             assertTrue(awaitItem())
@@ -220,7 +240,7 @@ class CityDetailViewModelTest {
 
     @Test
     fun `sections repliees - expose les preferences persistantes de la ville`() =
-        runTest(dispatcher) {
+        runViewModelTest {
             val vm = buildViewModel()
 
             vm.collapsedSections.test {
@@ -240,7 +260,7 @@ class CityDetailViewModelTest {
 
     @Test
     fun `setSectionExpanded - persiste l'etat inverse sous forme collapsed`() =
-        runTest(dispatcher) {
+        runViewModelTest {
             val vm = buildViewModel()
 
             vm.setSectionExpanded(CityDetailSection.PRECIPITATION, expanded = false)
@@ -265,7 +285,7 @@ class CityDetailViewModelTest {
 
     @Test
     fun `detail preferences - expose et persiste le mode et l onglet`() =
-        runTest(dispatcher) {
+        runViewModelTest {
             val vm = buildViewModel()
 
             vm.detailViewMode.test {
@@ -292,7 +312,7 @@ class CityDetailViewModelTest {
     // ──────────────── Chargement initial ────────────────
 
     @Test
-    fun `loadInitial - état initial est Loading`() = runTest(dispatcher) {
+    fun `loadInitial - état initial est Loading`() = runViewModelTest {
         val vm = buildViewModel()
         vm.state.test {
             assertEquals(CityDetailUiState.Loading, awaitItem())
@@ -301,7 +321,7 @@ class CityDetailViewModelTest {
 
     @Test
     fun `loadInitial - normales ne demarrent pas avant un forecast exploitable`() =
-        runTest(dispatcher) {
+        runViewModelTest {
             buildViewModel()
             runCurrent()
 
@@ -310,7 +330,7 @@ class CityDetailViewModelTest {
 
     @Test
     fun `loadInitial - le fuseau resolu par le forecast devient la source pour les donnees secondaires`() =
-        runTest(dispatcher) {
+        runViewModelTest {
             val resolvedCity = paris.copy(timezone = "Europe/Paris")
             val forecast = buildForecast(resolvedCity)
             coEvery {
@@ -325,7 +345,7 @@ class CityDetailViewModelTest {
 
     @Test
     fun `loadInitial - normales demarrent une seule fois apres le premier succes`() =
-        runTest(dispatcher) {
+        runViewModelTest {
             val forecast = buildForecast(paris)
             coEvery {
                 forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
@@ -341,7 +361,7 @@ class CityDetailViewModelTest {
         }
 
     @Test
-    fun `loadInitial - ville inconnue dans les favoris → Error`() = runTest(dispatcher) {
+    fun `loadInitial - ville inconnue dans les favoris → Error`() = runViewModelTest {
         // Favoris vides → cityId "1" introuvable
         favoritesFlow.value = emptyList()
 
@@ -357,7 +377,7 @@ class CityDetailViewModelTest {
     }
 
     @Test
-    fun `loadInitial - forecast en succès → Loaded`() = runTest(dispatcher) {
+    fun `loadInitial - forecast en succès → Loaded`() = runViewModelTest {
         val forecast = buildForecast(paris)
         coEvery {
             forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
@@ -378,7 +398,7 @@ class CityDetailViewModelTest {
 
     @Test
     fun `evolution - first fresh forecast exposes building history without failing city detail`() =
-        runTest(dispatcher) {
+        runViewModelTest {
             val forecast = buildForecast(paris).copy(fetchedAt = testNow)
             coEvery {
                 forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
@@ -395,7 +415,7 @@ class CityDetailViewModelTest {
 
     @Test
     fun `evolution - local historical samples are wired into a loaded report`() =
-        runTest(dispatcher) {
+        runViewModelTest {
             val gfs = buildForecast(paris, WeatherModel.GFS, 20.0)
             val ecmwf = buildForecast(paris, WeatherModel.ECMWF, 22.0)
             val forecast = gfs.copy(
@@ -432,7 +452,7 @@ class CityDetailViewModelTest {
 
     @Test
     fun `evolution - history failure stays secondary and never replaces loaded city detail`() =
-        runTest(dispatcher) {
+        runViewModelTest {
             val forecast = buildForecast(paris).copy(fetchedAt = testNow)
             coEvery {
                 forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
@@ -448,7 +468,7 @@ class CityDetailViewModelTest {
         }
 
     @Test
-    fun `changement de moteur recalcule Details sans nouvelle requete`() = runTest(dispatcher) {
+    fun `changement de moteur recalcule Details sans nouvelle requete`() = runViewModelTest {
         val forecast = buildScenarioForecast(paris)
         coEvery {
             forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
@@ -476,7 +496,7 @@ class CityDetailViewModelTest {
     }
 
     @Test
-    fun `loadInitial - forecast en erreur sans cache → Error`() = runTest(dispatcher) {
+    fun `loadInitial - forecast en erreur sans cache → Error`() = runViewModelTest {
         coEvery {
             forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
         } returns flowOf(ApiResult.Error(RuntimeException(), "Pas de connexion"))
@@ -491,7 +511,7 @@ class CityDetailViewModelTest {
 
     @Test
     fun `loadInitial - erreur après Loaded n'écrase pas le contenu (philosophie tolerant)`() =
-        runTest(dispatcher) {
+        runViewModelTest {
             // Stream qui émet d'abord Success(cache), puis Error(réseau)
             val cached = buildForecast(paris)
             coEvery {
@@ -519,7 +539,7 @@ class CityDetailViewModelTest {
 
     @Test
     fun `changement de modèles recharge la page et accepte un timestamp identique`() =
-        runTest(dispatcher) {
+        runViewModelTest {
             val fetchedAt = Instant.parse("2026-06-28T10:05:00Z")
             val initial = buildForecast(
                 paris,
@@ -587,7 +607,7 @@ class CityDetailViewModelTest {
 
     @Test
     fun `changement de modeles details accepte un cache plus ancien de la nouvelle selection`() =
-        runTest(dispatcher) {
+        runViewModelTest {
             val initialAt = Instant.parse("2026-06-28T10:05:00Z")
             val selectedCacheAt = Instant.parse("2026-06-28T10:00:00Z")
             val initial = buildForecast(
@@ -636,7 +656,7 @@ class CityDetailViewModelTest {
 
     @Test
     fun `refresh depuis la Home - met à jour la page Détails sans second fetch`() =
-        runTest(dispatcher) {
+        runViewModelTest {
             val initialAt = Instant.parse("2026-06-28T10:00:00Z")
             val refreshedAt = Instant.parse("2026-06-28T10:05:00Z")
             val initial = buildForecast(paris).copy(fetchedAt = initialAt)
@@ -672,7 +692,7 @@ class CityDetailViewModelTest {
 
     @Test
     fun `retour au premier plan relit le cache details sans refresh force`() =
-        runTest(dispatcher) {
+        runViewModelTest {
             val initialAt = Instant.parse("2026-06-28T10:00:00Z")
             val cachedAt = Instant.parse("2026-06-28T10:15:00Z")
             val initial = buildForecast(paris, temperature = 20.0).copy(fetchedAt = initialAt)
@@ -717,7 +737,7 @@ class CityDetailViewModelTest {
         }
 
     @Test
-    fun `retour au premier plan details respecte le mode manuel`() = runTest(dispatcher) {
+    fun `retour au premier plan details respecte le mode manuel`() = runViewModelTest {
         refreshIntervalFlow.value = RefreshInterval.MANUAL
         coEvery {
             forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
@@ -745,7 +765,7 @@ class CityDetailViewModelTest {
     }
 
     @Test
-    fun `refresh externe - ignore autre ville et valeur plus ancienne`() = runTest(dispatcher) {
+    fun `refresh externe - ignore autre ville et valeur plus ancienne`() = runViewModelTest {
         val currentAt = Instant.parse("2026-06-28T10:05:00Z")
         val olderAt = Instant.parse("2026-06-28T10:00:00Z")
         val initial = buildForecast(paris).copy(fetchedAt = currentAt)
@@ -774,7 +794,7 @@ class CityDetailViewModelTest {
     }
 
     @Test
-    fun `refresh - succès émet RefreshFeedback Success`() = runTest(dispatcher) {
+    fun `refresh - succès émet RefreshFeedback Success`() = runViewModelTest {
         coEvery {
             forecastRepo.refreshCityForecast(eq(paris), any(), any())
         } returns ApiResult.Success(buildForecast(paris))
@@ -787,7 +807,7 @@ class CityDetailViewModelTest {
     }
 
     @Test
-    fun `refresh - erreur émet RefreshFeedback Error avec le message`() = runTest(dispatcher) {
+    fun `refresh - erreur émet RefreshFeedback Error avec le message`() = runViewModelTest {
         coEvery {
             forecastRepo.refreshCityForecast(eq(paris), any(), any())
         } returns ApiResult.Error(RuntimeException(), "Timeout réseau")
@@ -803,7 +823,7 @@ class CityDetailViewModelTest {
 
     @Test
     fun `refresh - city introuvable émet RefreshFeedback Error (string stubbée)`() =
-        runTest(dispatcher) {
+        runViewModelTest {
             favoritesFlow.value = emptyList()
 
             val vm = buildViewModel(cityId = "ghost")
@@ -816,7 +836,7 @@ class CityDetailViewModelTest {
         }
 
     @Test
-    fun `refresh - isRefreshing termine à false après l'opération`() = runTest(dispatcher) {
+    fun `refresh - isRefreshing termine à false après l'opération`() = runViewModelTest {
         coEvery {
             forecastRepo.refreshCityForecast(eq(paris), any(), any())
         } returns ApiResult.Success(buildForecast(paris))
@@ -836,7 +856,7 @@ class CityDetailViewModelTest {
 
     @Test
     fun `refresh - DROP_OLDEST sur le channel - 2 refresh rapides ne mettent qu'1 feedback en file`() =
-        runTest(dispatcher) {
+        runViewModelTest {
             // Le channel est créé avec capacity=1 + onBufferOverflow=DROP_OLDEST.
             // Si l'utilisateur spam le bouton, on garde seulement le dernier.
             coEvery {
@@ -858,7 +878,7 @@ class CityDetailViewModelTest {
         }
 
     @Test
-    fun `details avance automatiquement de slot sans refresh reseau`() = runTest(dispatcher) {
+    fun `details avance automatiquement de slot sans refresh reseau`() = runViewModelTest {
         val mutableClock = MutableClock(Instant.parse("2026-06-28T12:29:30Z"))
         val forecast = buildHourlyShiftForecast(paris)
         coEvery {
@@ -894,7 +914,7 @@ class CityDetailViewModelTest {
 
     @Test
     fun `reprise hors ligne remet immediatement les details au bon slot`() =
-        runTest(dispatcher) {
+        runViewModelTest {
             val mutableClock = MutableClock(Instant.parse("2026-06-28T12:29:30Z"))
             coEvery {
                 forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
