@@ -1,3 +1,5 @@
 TODO
 ----
-- Il y a déjà des indications lors de la mise à jour des données météo. Mais mettre en place un vrai système de toast design global et complet pour toutes les actions / erreurs dans l'application
+Faire un audit complet de l'application
+faire une vérification des workflows et en particulier sur la partie refresh
+Faire un nettoyage complet et en profondeur du code

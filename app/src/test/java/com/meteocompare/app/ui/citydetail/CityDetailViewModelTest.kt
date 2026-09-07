@@ -904,7 +904,7 @@ class CityDetailViewModelTest {
             while ((shifted as? CityDetailUiState.Loaded)?.currentTemp != 20.0) {
                 shifted = awaitItem()
             }
-            val loaded = shifted as CityDetailUiState.Loaded
+            val loaded = shifted
             assertEquals(20.0, loaded.currentTemp ?: error("température suivante absente"), 0.001)
             assertEquals(mutableClock.currentInstant, loaded.calculatedAt)
             coVerify(exactly = 0) { forecastRepo.refreshCityForecast(any(), any(), any()) }
