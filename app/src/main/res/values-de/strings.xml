@@ -150,6 +150,24 @@ Daten</string>
     
     <string name="refresh_success">Vorhersage aktualisiert</string>
     <string name="refresh_error">Aktualisierung fehlgeschlagen: %s</string>
+    <string name="toast_dismiss">Schließen</string>
+    <string name="toast_city_added">%1$s zu Favoriten hinzugefügt</string>
+    <string name="toast_city_add_error">%1$s konnte nicht zu Favoriten hinzugefügt werden</string>
+    <string name="toast_city_removed">%1$s aus Favoriten entfernt</string>
+    <string name="toast_city_removed_generic">Ort aus Favoriten entfernt</string>
+    <string name="toast_city_remove_error">Diese Stadt konnte nicht entfernt werden</string>
+    <string name="toast_city_refresh_success">Vorhersage für %1$s aktualisiert</string>
+    <string name="toast_refresh_all_success">Alle Vorhersagen sind aktuell</string>
+    <string name="toast_refresh_all_partial">Einige Orte konnten nicht aktualisiert werden</string>
+    <string name="toast_refresh_all_error">Kein Ort konnte aktualisiert werden: %1$s</string>
+    <string name="toast_model_enabled">%1$s aktiviert</string>
+    <string name="toast_model_disabled">%1$s deaktiviert</string>
+    <string name="toast_theme_updated">Design aktualisiert</string>
+    <string name="toast_refresh_interval_updated">Aktualisierungsintervall aktualisiert</string>
+    <string name="toast_forecast_engine_updated">Vorhersagemodell aktualisiert</string>
+    <string name="toast_settings_save_error">Diese Einstellung konnte nicht gespeichert werden</string>
+    <string name="toast_action_error">Die Aktion konnte nicht ausgeführt werden</string>
+    <string name="toast_open_link_error">Dieser Link konnte nicht geöffnet werden</string>
     <string name="refresh_city_not_found">Ort nicht gefunden</string>
     <string name="error_no_network">Keine Internetverbindung</string>
     <string name="error_timeout">Zeitüberschreitung der Anfrage</string>

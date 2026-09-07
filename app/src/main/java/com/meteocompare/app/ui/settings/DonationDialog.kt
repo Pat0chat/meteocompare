@@ -22,6 +22,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import com.meteocompare.app.R
+import com.meteocompare.app.ui.components.AppToastEvent
+import com.meteocompare.app.ui.components.rememberAppToastDispatcher
 
 /**
  * Dialog des plateformes de don.
@@ -39,14 +41,18 @@ import com.meteocompare.app.R
 @Composable
 fun DonationDialog(onDismiss: () -> Unit) {
     val context = LocalContext.current
+    val showToast = rememberAppToastDispatcher()
 
     fun openUrl(url: String) {
         val intent = Intent(Intent.ACTION_VIEW, url.toUri())
         // FLAG_ACTIVITY_NEW_TASK n'est pas strictement nécessaire ici
         // (LocalContext est l'activity), mais le rend explicite pour
         // les linters statiques.
-        context.startActivity(intent)
-        onDismiss()
+        runCatching { context.startActivity(intent) }
+            .onSuccess { onDismiss() }
+            .onFailure {
+                showToast(AppToastEvent.error(R.string.toast_open_link_error))
+            }
     }
 
     AlertDialog(

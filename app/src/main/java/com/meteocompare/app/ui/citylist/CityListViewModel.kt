@@ -25,6 +25,7 @@ import com.meteocompare.app.domain.util.ForecastAggregates
 import com.meteocompare.app.domain.util.forecastPresentationTicks
 import com.meteocompare.app.domain.util.hasForecastPresentationChanged
 import com.meteocompare.app.domain.util.WeatherScenarioBuilder
+import com.meteocompare.app.ui.components.AppToastEvent
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineStart
@@ -95,6 +96,8 @@ class CityListViewModel @Inject constructor(
     private val marineAvailabilityJobs = mutableMapOf<String, Job>()
     private val _marineFeedback = Channel<MarineFeedback>(capacity = Channel.BUFFERED)
     val marineFeedback = _marineFeedback.receiveAsFlow()
+    private val _actionFeedback = Channel<AppToastEvent>(capacity = Channel.BUFFERED)
+    val actionFeedback = _actionFeedback.receiveAsFlow()
 
     // Tracking des jobs de stream par cityId. Sert à les canceller proprement
     // quand une ville est retirée des favoris ou quand les modèles sélectionnés
@@ -632,7 +635,11 @@ class CityListViewModel @Inject constructor(
 
     fun onAddCity(city: City) {
         viewModelScope.launch {
-            cityRepository.addFavorite(city)
+            val added = runSuspendCatching { cityRepository.addFavorite(city) }
+            if (added.isFailure) {
+                _actionFeedback.send(AppToastEvent.error(R.string.toast_city_add_error, city.name))
+                return@launch
+            }
 
             // Vérification immédiate à l'ajout : ne pas attendre la prochaine émission
             // DataStore/synchronisation des cards. Aucun appel n'est lancé hors France.
@@ -642,6 +649,7 @@ class CityListViewModel @Inject constructor(
                 clearVigilanceTracking(city.id)
             }
             _searchQuery.value = ""
+            _actionFeedback.send(AppToastEvent.success(R.string.toast_city_added, city.name))
         }
     }
 
@@ -655,18 +663,28 @@ class CityListViewModel @Inject constructor(
                 ?.uppercase()
                 ?.takeIf { it.isNotEmpty() }
 
-            cityRepository.removeFavorite(cityId)
+            val removed = runSuspendCatching { cityRepository.removeFavorite(cityId) }
+            if (removed.isFailure) {
+                _actionFeedback.send(AppToastEvent.error(R.string.toast_city_remove_error))
+                return@launch
+            }
             // Nettoyage explicite après la suppression utilisateur. Une émission
             // DataStore vide transitoire ne doit jamais effacer le cache météo.
-            forecastRepository.clearCacheForCity(cityId)
-            marineRepository.clear(cityId)
-            clearVigilanceTracking(cityId)
-            // Le repository Vigilance vérifie les favoris restants avant toute purge :
-            // le cache départemental partagé est conservé tant qu'une autre ville du
-            // même département (ou un favori FR legacy non encore résolu) subsiste.
-            if (vigilanceDepartment != null) {
-                vigilanceRepository.clearCacheForDepartment(vigilanceDepartment)
+            runSuspendCatching {
+                forecastRepository.clearCacheForCity(cityId)
+                marineRepository.clear(cityId)
+                clearVigilanceTracking(cityId)
+                // Le repository Vigilance vérifie les favoris restants avant toute purge :
+                // le cache départemental partagé est conservé tant qu'une autre ville du
+                // même département (ou un favori FR legacy non encore résolu) subsiste.
+                if (vigilanceDepartment != null) {
+                    vigilanceRepository.clearCacheForDepartment(vigilanceDepartment)
+                }
             }
+            _actionFeedback.send(
+                removedCity?.let { AppToastEvent.success(R.string.toast_city_removed, it.name) }
+                    ?: AppToastEvent.success(R.string.toast_city_removed_generic)
+            )
         }
     }
 
@@ -718,6 +736,14 @@ class CityListViewModel @Inject constructor(
                     expectedModels = models.toSet()
                 )
                 refreshVigilance(city, forceRefresh = true)
+                when (result) {
+                    is ApiResult.Success -> _actionFeedback.send(
+                        AppToastEvent.success(R.string.toast_city_refresh_success, city.name)
+                    )
+                    is ApiResult.Error -> _actionFeedback.send(
+                        AppToastEvent.error(R.string.refresh_error, result.message)
+                    )
+                }
             } finally {
                 if (retryJobs[city.id] === ownJob) retryJobs.remove(city.id)
             }
@@ -736,7 +762,7 @@ class CityListViewModel @Inject constructor(
                 val models = userPreferences.observeEnabledModels().first()
                 val expectedGeneration = streamConfigGeneration
                 val limiter = Semaphore(MAX_CONCURRENT_CITY_REFRESHES)
-                coroutineScope {
+                val results = coroutineScope {
                     cities.map { city ->
                         async {
                             limiter.withPermit {
@@ -748,9 +774,23 @@ class CityListViewModel @Inject constructor(
                                     expectedModels = models.toSet()
                                 )
                                 refreshVigilance(city, forceRefresh = true)
+                                result
                             }
                         }
                     }.awaitAll()
+                }
+                val errors = results.filterIsInstance<ApiResult.Error>()
+                when {
+                    results.isEmpty() -> Unit
+                    errors.isEmpty() -> _actionFeedback.send(
+                        AppToastEvent.success(R.string.toast_refresh_all_success)
+                    )
+                    errors.size == results.size -> _actionFeedback.send(
+                        AppToastEvent.error(R.string.toast_refresh_all_error, errors.first().message)
+                    )
+                    else -> _actionFeedback.send(
+                        AppToastEvent.warning(R.string.toast_refresh_all_partial)
+                    )
                 }
             } finally {
                 _isRefreshing.value = false

@@ -44,7 +44,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
@@ -100,6 +99,8 @@ import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.model.VigilanceForecast
 import com.meteocompare.app.domain.usecase.DayConditionsRow
 import com.meteocompare.app.ui.components.AnimatedWeatherIcon
+import com.meteocompare.app.ui.components.AppToastEffect
+import com.meteocompare.app.ui.components.AppToastEvent
 import com.meteocompare.app.ui.components.CollapsibleSectionHeader
 import com.meteocompare.app.ui.components.OfflineDataBanner
 import com.meteocompare.app.ui.components.VigilanceDetailCard
@@ -112,6 +113,7 @@ import com.meteocompare.app.ui.theme.windMetricAccent
 import java.time.Instant
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.flow.map
 import kotlin.math.roundToInt
 
 // ============================================================================
@@ -137,35 +139,29 @@ fun CityDetailScreen(
     val collapsedSections by viewModel.collapsedSections.collectAsStateWithLifecycle()
     val detailViewMode by viewModel.detailViewMode.collectAsStateWithLifecycle()
     val detailContentTab by viewModel.detailContentTab.collectAsStateWithLifecycle()
-    val snackbarHostState = remember { SnackbarHostState() }
-    // Resources observables capturées hors de LaunchedEffect : contrairement à
-    // LocalContext, LocalResources invalide la composition quand la locale ou
-    // une autre configuration de ressources change.
-    val resources = LocalResources.current
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         viewModel.refreshIfStale()
     }
 
-    // Collecte les événements one-shot de refresh — succès ou erreur.
-    // LaunchedEffect avec viewModel comme key : si la VM change (changement
-    // de cityId via nav), on relance la collecte. flowWithLifecycle évite de
-    // collecter quand l'écran est en background — pas indispensable ici car
-    // les events sont rares, mais c'est l'habitude.
-    LaunchedEffect(viewModel) {
-        viewModel.refreshFeedback.collect { feedback ->
+    val refreshToasts = remember(viewModel) {
+        viewModel.refreshFeedback.map { feedback ->
             when (feedback) {
-                RefreshFeedback.Success -> snackbarHostState.showSnackbar(
-                    message = resources.getString(R.string.refresh_success),
-                    duration = SnackbarDuration.Short
+                RefreshFeedback.Success -> AppToastEvent.success(R.string.refresh_success)
+                is RefreshFeedback.Error -> AppToastEvent.error(
+                    R.string.refresh_error,
+                    feedback.message
                 )
-                is RefreshFeedback.Error -> snackbarHostState.showSnackbar(
-                    message = resources.getString(R.string.refresh_error, feedback.message),
-                    duration = SnackbarDuration.Long
+                RefreshFeedback.MarineRefreshed -> AppToastEvent.success(R.string.marine_refreshed)
+                RefreshFeedback.MarineNotCoastal -> AppToastEvent.warning(R.string.marine_not_coastal)
+                is RefreshFeedback.MarineError -> AppToastEvent.error(
+                    R.string.marine_error,
+                    feedback.message
                 )
             }
         }
     }
+    AppToastEffect(refreshToasts)
 
     CityDetailContent(
         state = state,
@@ -178,7 +174,6 @@ fun CityDetailScreen(
         collapsedSections = collapsedSections,
         detailViewMode = detailViewMode,
         detailContentTab = detailContentTab,
-        snackbarHostState = snackbarHostState,
         onBack = onBack,
         onRefresh = viewModel::refresh,
         onRefreshMarine = viewModel::refreshMarine,
@@ -208,7 +203,7 @@ internal fun CityDetailContent(
     collapsedSections: Set<CityDetailSection> = emptySet(),
     detailViewMode: CityDetailViewMode = CityDetailViewMode.DEFAULT,
     detailContentTab: CityDetailContentTab = CityDetailContentTab.DEFAULT,
-    snackbarHostState: SnackbarHostState,
+    snackbarHostState: SnackbarHostState? = null,
     onBack: () -> Unit,
     onRefresh: () -> Unit,
     onRefreshMarine: () -> Unit = {},
@@ -288,7 +283,9 @@ internal fun CityDetailContent(
                 )
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = {
+            if (snackbarHostState != null) SnackbarHost(snackbarHostState)
+        }
     ) { padding ->
         AnimatedContent(
             targetState = state,

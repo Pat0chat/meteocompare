@@ -150,6 +150,24 @@ dato</string>
     
     <string name="refresh_success">Previsione aggiornata</string>
     <string name="refresh_error">Aggiornamento non riuscito: %s</string>
+    <string name="toast_dismiss">Chiudi</string>
+    <string name="toast_city_added">%1$s aggiunta ai preferiti</string>
+    <string name="toast_city_add_error">Impossibile aggiungere %1$s ai preferiti</string>
+    <string name="toast_city_removed">%1$s rimossa dai preferiti</string>
+    <string name="toast_city_removed_generic">Città rimossa dai preferiti</string>
+    <string name="toast_city_remove_error">Impossibile rimuovere questa città</string>
+    <string name="toast_city_refresh_success">Previsione per %1$s aggiornata</string>
+    <string name="toast_refresh_all_success">Tutte le previsioni sono aggiornate</string>
+    <string name="toast_refresh_all_partial">Non è stato possibile aggiornare alcune città</string>
+    <string name="toast_refresh_all_error">Non è stato possibile aggiornare alcuna città: %1$s</string>
+    <string name="toast_model_enabled">%1$s attivato</string>
+    <string name="toast_model_disabled">%1$s disattivato</string>
+    <string name="toast_theme_updated">Tema aggiornato</string>
+    <string name="toast_refresh_interval_updated">Intervallo di aggiornamento aggiornato</string>
+    <string name="toast_forecast_engine_updated">Motore di previsione aggiornato</string>
+    <string name="toast_settings_save_error">Impossibile salvare questa impostazione</string>
+    <string name="toast_action_error">Impossibile completare l’azione</string>
+    <string name="toast_open_link_error">Impossibile aprire questo link</string>
     <string name="refresh_city_not_found">Città non trovata</string>
     <string name="error_no_network">Nessuna connessione Internet</string>
     <string name="error_timeout">Tempo massimo della richiesta scaduto</string>

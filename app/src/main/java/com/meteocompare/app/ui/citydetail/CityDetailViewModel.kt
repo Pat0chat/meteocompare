@@ -73,14 +73,17 @@ import javax.inject.Inject
 /**
  * Événement one-shot du résultat d'un refresh manuel.
  *
- * Différent du state (`isRefreshing`, `state`) : on veut afficher une snackbar
+ * Différent du state (`isRefreshing`, `state`) : on veut afficher une notification
  * UNE seule fois par refresh et qu'elle disparaisse. Si on stockait ça dans
  * un StateFlow, un changement de configuration (rotation, dark mode toggle)
- * relancerait la snackbar — pas voulu.
+ * relancerait le toast — pas voulu.
  */
 sealed interface RefreshFeedback {
     data object Success : RefreshFeedback
     data class Error(val message: String) : RefreshFeedback
+    data object MarineRefreshed : RefreshFeedback
+    data object MarineNotCoastal : RefreshFeedback
+    data class MarineError(val message: String) : RefreshFeedback
 }
 
 @HiltViewModel
@@ -607,11 +610,17 @@ class CityDetailViewModel @Inject constructor(
                     } else {
                         MarineUiState.Error(context.getString(R.string.marine_not_coastal))
                     }
+                    if (forceRefresh) {
+                        _refreshFeedback.trySend(
+                            if (result.data.coastal) RefreshFeedback.MarineRefreshed
+                            else RefreshFeedback.MarineNotCoastal
+                        )
+                    }
                 }
                 is ApiResult.Error -> {
                     _marineState.value = previous ?: MarineUiState.Error(result.message)
-                    if (forceRefresh && previous != null) {
-                        _refreshFeedback.trySend(RefreshFeedback.Error(result.message))
+                    if (forceRefresh) {
+                        _refreshFeedback.trySend(RefreshFeedback.MarineError(result.message))
                     }
                 }
             }
@@ -622,7 +631,7 @@ class CityDetailViewModel @Inject constructor(
      * Pull-to-refresh OU bouton refresh : force le réseau.
      *
      * Envoie un [RefreshFeedback] à la fin pour que l'UI affiche un retour
-     * visuel (snackbar). Sans ce signal, un succès ou un échec sont muets —
+     * visuel global. Sans ce signal, un succès ou un échec sont muets —
      * l'utilisateur doute que son tap ait été reçu.
      */
     fun refresh() {

@@ -63,7 +63,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
@@ -74,7 +73,6 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -118,6 +116,8 @@ import com.meteocompare.app.domain.model.WeatherScenario
 import com.meteocompare.app.domain.model.WeatherScenarioKind
 import com.meteocompare.app.domain.model.WeatherScenarioTiming
 import com.meteocompare.app.ui.components.AnimatedWeatherIcon
+import com.meteocompare.app.ui.components.AppToastEffect
+import com.meteocompare.app.ui.components.AppToastEvent
 import com.meteocompare.app.ui.components.ShimmerBox
 import com.meteocompare.app.ui.components.WeatherMetric
 import com.meteocompare.app.ui.components.VigilanceCompactBanner
@@ -128,6 +128,7 @@ import com.meteocompare.app.ui.theme.precipitationMetricAccent
 import com.meteocompare.app.ui.theme.temperatureMetricAccent
 import com.meteocompare.app.ui.theme.windMetricAccent
 import java.text.NumberFormat
+import kotlinx.coroutines.flow.map
 import kotlin.math.roundToInt
 
 // ============================================================================
@@ -148,27 +149,26 @@ fun CityListScreen(
     val addState by viewModel.addCityState.collectAsStateWithLifecycle()
     var showAddSheet by rememberSaveable { mutableStateOf(false) }
     var showDonationDialog by rememberSaveable { mutableStateOf(false) }
-    val snackbarHostState = remember { SnackbarHostState() }
-    val resources = LocalResources.current
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         viewModel.refreshIfStale()
     }
 
-    LaunchedEffect(viewModel) {
-        viewModel.marineFeedback.collect { feedback ->
-            val message = when (feedback) {
-                MarineFeedback.Enabled -> resources.getString(R.string.marine_enabled)
-                MarineFeedback.Refreshed -> resources.getString(R.string.marine_refreshed)
-                MarineFeedback.NotCoastal -> resources.getString(R.string.marine_not_coastal)
-                is MarineFeedback.Error -> resources.getString(R.string.marine_error, feedback.message)
+    val marineToasts = remember(viewModel) {
+        viewModel.marineFeedback.map { feedback ->
+            when (feedback) {
+                MarineFeedback.Enabled -> AppToastEvent.success(R.string.marine_enabled)
+                MarineFeedback.Refreshed -> AppToastEvent.success(R.string.marine_refreshed)
+                MarineFeedback.NotCoastal -> AppToastEvent.warning(R.string.marine_not_coastal)
+                is MarineFeedback.Error -> AppToastEvent.error(
+                    R.string.marine_error,
+                    feedback.message
+                )
             }
-            snackbarHostState.showSnackbar(
-                message = message,
-                duration = if (feedback is MarineFeedback.Error) SnackbarDuration.Long else SnackbarDuration.Short
-            )
         }
     }
+    AppToastEffect(marineToasts)
+    AppToastEffect(viewModel.actionFeedback)
 
     CityListContent(
         uiState = uiState,
@@ -181,7 +181,6 @@ fun CityListScreen(
         onRetry = viewModel::onRetry,
         onRefresh = viewModel::onRefreshAll,
         onMarineAction = viewModel::onMarineAction,
-        snackbarHostState = snackbarHostState,
         selectedCityId = selectedCityId,
         selectionEnabled = selectionEnabled
     )
@@ -264,10 +263,11 @@ internal fun CityListContent(
     selectedCityId: String? = null,
     selectionEnabled: Boolean = false
 ) {
-    val effectiveSnackbarHostState = snackbarHostState ?: remember { SnackbarHostState() }
     Scaffold(
         containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
-        snackbarHost = { SnackbarHost(effectiveSnackbarHostState) },
+        snackbarHost = {
+            if (snackbarHostState != null) SnackbarHost(snackbarHostState)
+        },
         topBar = {
             TopAppBar(
                 title = {

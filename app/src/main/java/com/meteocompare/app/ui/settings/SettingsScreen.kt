@@ -53,6 +53,7 @@ import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.ThemePreference
 import com.meteocompare.app.domain.model.WeatherModel
+import com.meteocompare.app.ui.components.AppToastEffect
 import com.meteocompare.app.ui.components.ModernStateChip
 import com.meteocompare.app.ui.components.OpenMeteoAttribution
 import com.meteocompare.app.ui.components.ModernSlidingSelector
@@ -102,6 +103,7 @@ fun SettingsScreen(
     val language by viewModel.languagePreference.collectAsStateWithLifecycle()
     val refreshInterval by viewModel.refreshInterval.collectAsStateWithLifecycle()
     val forecastEngine by viewModel.forecastEngine.collectAsStateWithLifecycle()
+    AppToastEffect(viewModel.feedback)
     var showDonationDialog by rememberSaveable { mutableStateOf(false) }
     var biasRefreshRequested by rememberSaveable { mutableStateOf(false) }
     val context = LocalContext.current
@@ -136,8 +138,9 @@ fun SettingsScreen(
                     // La préférence canonique est écrite avant recreate().
                     // attachBaseContext() relit alors immédiatement la nouvelle
                     // valeur, sans copie concurrente dans AppCompat/DataStore.
-                    viewModel.onLanguageSelected(preference)
-                    (context as? android.app.Activity)?.recreate()
+                    if (viewModel.onLanguageSelected(preference)) {
+                        (context as? android.app.Activity)?.recreate()
+                    }
                 }
             },
             refreshInterval = refreshInterval,

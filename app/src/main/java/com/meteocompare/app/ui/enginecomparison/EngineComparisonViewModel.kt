@@ -17,11 +17,13 @@ import com.meteocompare.app.domain.usecase.EngineComparisonBuilder
 import com.meteocompare.app.domain.usecase.EngineComparisonDay
 import com.meteocompare.app.domain.usecase.ForecastEngineContextProvider
 import com.meteocompare.app.domain.util.forecastPresentationTicks
+import com.meteocompare.app.ui.components.AppToastEvent
 import com.meteocompare.app.ui.navigation.Destinations
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -29,6 +31,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -72,6 +75,8 @@ class EngineComparisonViewModel @Inject constructor(
     private val cityId: String = checkNotNull(savedStateHandle[Destinations.CITY_DETAIL_ARG])
     private val _state = MutableStateFlow<EngineComparisonUiState>(EngineComparisonUiState.Loading)
     val state: StateFlow<EngineComparisonUiState> = _state.asStateFlow()
+    private val _feedback = Channel<AppToastEvent>(capacity = Channel.BUFFERED)
+    val feedback = _feedback.receiveAsFlow()
     private var loadJob: Job? = null
     private val presentationMutex = Mutex()
     private var latestForecast: CityForecast? = null
@@ -82,20 +87,28 @@ class EngineComparisonViewModel @Inject constructor(
         load()
     }
 
-    fun retry() = load()
+    fun retry() = load(notifyResult = true)
 
     /** Relit Room au retour au premier plan, sans masquer le contenu chargé. */
     fun refreshIfStale() = load(showLoading = false)
 
-    private fun load(showLoading: Boolean = true) {
+    private fun load(
+        showLoading: Boolean = true,
+        notifyResult: Boolean = false
+    ) {
         loadJob?.cancel()
         if (showLoading || _state.value !is EngineComparisonUiState.Loaded) {
             _state.value = EngineComparisonUiState.Loading
         }
         loadJob = viewModelScope.launch {
+            var resultNotified = false
             val city = cityRepository.observeFavorites().first().firstOrNull { it.id == cityId }
             if (city == null) {
-                _state.value = EngineComparisonUiState.Error(appContext.getString(R.string.city_not_found_in_favorites))
+                val message = appContext.getString(R.string.city_not_found_in_favorites)
+                _state.value = EngineComparisonUiState.Error(message)
+                if (notifyResult) {
+                    _feedback.send(AppToastEvent.error(R.string.refresh_error, message))
+                }
                 return@launch
             }
             combine(
@@ -140,11 +153,25 @@ class EngineComparisonViewModel @Inject constructor(
                                     selectedEngine = selectedEngine,
                                     days = forecastState.days
                                 )
+                                if (notifyResult && !resultNotified) {
+                                    resultNotified = true
+                                    _feedback.send(AppToastEvent.success(R.string.refresh_success))
+                                }
                             }
-                            is EngineComparisonForecastState.Error ->
+                            is EngineComparisonForecastState.Error -> {
                                 if (_state.value !is EngineComparisonUiState.Loaded) {
                                     _state.value = EngineComparisonUiState.Error(forecastState.message)
                                 }
+                                if (notifyResult && !resultNotified) {
+                                    resultNotified = true
+                                    _feedback.send(
+                                        AppToastEvent.error(
+                                            R.string.refresh_error,
+                                            forecastState.message
+                                        )
+                                    )
+                                }
+                            }
                         }
                     }
                 }

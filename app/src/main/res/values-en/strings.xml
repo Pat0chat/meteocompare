@@ -169,6 +169,24 @@
     
     <string name="refresh_success">Forecast updated</string>
     <string name="refresh_error">Update failed: %s</string>
+    <string name="toast_dismiss">Dismiss</string>
+    <string name="toast_city_added">%1$s added to favorites</string>
+    <string name="toast_city_add_error">Could not add %1$s to favorites</string>
+    <string name="toast_city_removed">%1$s removed from favorites</string>
+    <string name="toast_city_removed_generic">City removed from favorites</string>
+    <string name="toast_city_remove_error">Could not remove this city</string>
+    <string name="toast_city_refresh_success">Forecast for %1$s updated</string>
+    <string name="toast_refresh_all_success">All forecasts are up to date</string>
+    <string name="toast_refresh_all_partial">Some cities could not be updated</string>
+    <string name="toast_refresh_all_error">No city could be updated: %1$s</string>
+    <string name="toast_model_enabled">%1$s enabled</string>
+    <string name="toast_model_disabled">%1$s disabled</string>
+    <string name="toast_theme_updated">Theme updated</string>
+    <string name="toast_refresh_interval_updated">Refresh interval updated</string>
+    <string name="toast_forecast_engine_updated">Forecast engine updated</string>
+    <string name="toast_settings_save_error">Could not save this setting</string>
+    <string name="toast_action_error">The action could not be completed</string>
+    <string name="toast_open_link_error">Could not open this link</string>
     <string name="refresh_city_not_found">City not found</string>
     <string name="error_no_network">No Internet connection</string>
     <string name="error_timeout">Request timed out</string>

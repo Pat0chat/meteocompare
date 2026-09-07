@@ -150,6 +150,24 @@ datos</string>
     
     <string name="refresh_success">Previsión actualizada</string>
     <string name="refresh_error">Error al actualizar: %s</string>
+    <string name="toast_dismiss">Cerrar</string>
+    <string name="toast_city_added">%1$s añadida a favoritos</string>
+    <string name="toast_city_add_error">No se pudo añadir %1$s a favoritos</string>
+    <string name="toast_city_removed">%1$s eliminada de favoritos</string>
+    <string name="toast_city_removed_generic">Ciudad eliminada de favoritos</string>
+    <string name="toast_city_remove_error">No se pudo eliminar esta ciudad</string>
+    <string name="toast_city_refresh_success">Previsión de %1$s actualizada</string>
+    <string name="toast_refresh_all_success">Todas las previsiones están actualizadas</string>
+    <string name="toast_refresh_all_partial">Algunas ciudades no se pudieron actualizar</string>
+    <string name="toast_refresh_all_error">No se pudo actualizar ninguna ciudad: %1$s</string>
+    <string name="toast_model_enabled">%1$s activado</string>
+    <string name="toast_model_disabled">%1$s desactivado</string>
+    <string name="toast_theme_updated">Tema actualizado</string>
+    <string name="toast_refresh_interval_updated">Intervalo de actualización actualizado</string>
+    <string name="toast_forecast_engine_updated">Motor de previsión actualizado</string>
+    <string name="toast_settings_save_error">No se pudo guardar este ajuste</string>
+    <string name="toast_action_error">No se pudo completar la acción</string>
+    <string name="toast_open_link_error">No se pudo abrir este enlace</string>
     <string name="refresh_city_not_found">Ciudad no encontrada</string>
     <string name="error_no_network">Sin conexión a Internet</string>
     <string name="error_timeout">La solicitud ha agotado el tiempo de espera</string>

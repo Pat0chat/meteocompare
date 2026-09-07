@@ -66,6 +66,7 @@ import com.meteocompare.app.domain.usecase.EngineComparisonDay
 import com.meteocompare.app.domain.usecase.EngineComparisonMetric
 import com.meteocompare.app.domain.usecase.EngineComparisonValues
 import com.meteocompare.app.domain.usecase.EngineDivergenceLevel
+import com.meteocompare.app.ui.components.AppToastEffect
 import com.meteocompare.app.ui.components.ModernStateChip
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
@@ -78,6 +79,7 @@ fun EngineComparisonScreen(
     viewModel: EngineComparisonViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    AppToastEffect(viewModel.feedback)
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         viewModel.refreshIfStale()
     }

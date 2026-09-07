@@ -9,8 +9,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -18,7 +20,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Air
@@ -716,7 +717,9 @@ private fun EvolutionTrendChart(
             EvolutionSnapshotValues(evolution = evolution, accent = accent)
 
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(IntrinsicSize.Min),
                 horizontalArrangement = Arrangement.spacedBy(7.dp)
             ) {
                 EvolutionThresholdLegend(
@@ -725,7 +728,9 @@ private fun EvolutionTrendChart(
                         formatEvolutionThreshold(stableThreshold, evolution.variable, locale)
                     ),
                     color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
                 )
                 EvolutionThresholdLegend(
                     text = stringResource(
@@ -733,7 +738,9 @@ private fun EvolutionTrendChart(
                         formatEvolutionThreshold(notableThreshold, evolution.variable, locale)
                     ),
                     color = MaterialTheme.colorScheme.tertiary,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
                 )
             }
         }
@@ -755,6 +762,23 @@ private fun EvolutionThresholdLegend(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            Canvas(
+                modifier = Modifier
+                    .width(22.dp)
+                    .height(8.dp)
+            ) {
+                drawLine(
+                    color = color,
+                    start = Offset(0f, size.height / 2f),
+                    end = Offset(size.width, size.height / 2f),
+                    strokeWidth = 2.dp.toPx(),
+                    cap = StrokeCap.Round,
+                    pathEffect = PathEffect.dashPathEffect(
+                        intervals = floatArrayOf(4.dp.toPx(), 3.dp.toPx())
+                    )
+                )
+            }
+            Spacer(Modifier.width(7.dp))
             Text(
                 text = text,
                 style = MaterialTheme.typography.labelSmall,

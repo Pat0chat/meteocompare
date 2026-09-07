@@ -29,6 +29,7 @@ fun OpenMeteoAttribution(
 ) {
     val context = LocalContext.current
     val openDescription = stringResource(R.string.open_meteo_attribution_open)
+    val showToast = rememberAppToastDispatcher()
 
     Text(
         text = text,
@@ -39,6 +40,8 @@ fun OpenMeteoAttribution(
             .clickable(onClickLabel = openDescription) {
                 runCatching {
                     context.startActivity(Intent(Intent.ACTION_VIEW, OPEN_METEO_WEBSITE_URL.toUri()))
+                }.onFailure {
+                    showToast(AppToastEvent.error(R.string.toast_open_link_error))
                 }
             }
             .padding(vertical = 4.dp)

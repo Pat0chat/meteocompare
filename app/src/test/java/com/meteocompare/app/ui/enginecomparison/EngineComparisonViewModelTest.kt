@@ -22,6 +22,7 @@ import com.meteocompare.app.domain.usecase.EngineComparisonBuilder
 import com.meteocompare.app.domain.usecase.EqualWeighting
 import com.meteocompare.app.domain.usecase.ForecastEngineContextProvider
 import com.meteocompare.app.testutil.MutableClock
+import com.meteocompare.app.ui.components.AppToastType
 import com.meteocompare.app.ui.navigation.Destinations
 import io.mockk.coEvery
 import io.mockk.every
@@ -233,6 +234,29 @@ class EngineComparisonViewModelTest {
         )
         verify(exactly = 2) {
             forecastRepository.getCityForecastStream(city, any(), any(), any(), any())
+        }
+    }
+
+    @Test
+    fun `retry successful emits a global success toast`() = runViewModelTest {
+        val viewModel = createViewModel(
+            savedStateHandle = SavedStateHandle(mapOf(Destinations.CITY_DETAIL_ARG to city.id)),
+            cityRepository = cityRepository,
+            forecastRepository = forecastRepository,
+            preferences = preferences,
+            contextProvider = contextProvider,
+            comparisonBuilder = builder,
+            clock = clock,
+            appContext = appContext
+        )
+
+        viewModel.feedback.test {
+            viewModel.retry()
+
+            val event = awaitItem()
+            assertEquals(AppToastType.SUCCESS, event.type)
+            assertEquals(com.meteocompare.app.R.string.refresh_success, event.messageRes)
+            cancelAndIgnoreRemainingEvents()
         }
     }
 

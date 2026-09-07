@@ -167,6 +167,24 @@
     
     <string name="refresh_success">Prévisions mises à jour</string>
     <string name="refresh_error">Échec de la mise à jour : %s</string>
+    <string name="toast_dismiss">Fermer</string>
+    <string name="toast_city_added">%1$s ajoutée aux favoris</string>
+    <string name="toast_city_add_error">Impossible d’ajouter %1$s aux favoris</string>
+    <string name="toast_city_removed">%1$s retirée des favoris</string>
+    <string name="toast_city_removed_generic">Ville retirée des favoris</string>
+    <string name="toast_city_remove_error">Impossible de retirer cette ville</string>
+    <string name="toast_city_refresh_success">Prévisions de %1$s mises à jour</string>
+    <string name="toast_refresh_all_success">Toutes les prévisions sont à jour</string>
+    <string name="toast_refresh_all_partial">Certaines villes n’ont pas pu être actualisées</string>
+    <string name="toast_refresh_all_error">Aucune ville n’a pu être actualisée : %1$s</string>
+    <string name="toast_model_enabled">%1$s activé</string>
+    <string name="toast_model_disabled">%1$s désactivé</string>
+    <string name="toast_theme_updated">Thème mis à jour</string>
+    <string name="toast_refresh_interval_updated">Fréquence de rafraîchissement mise à jour</string>
+    <string name="toast_forecast_engine_updated">Moteur de prévision mis à jour</string>
+    <string name="toast_settings_save_error">Impossible d’enregistrer ce réglage</string>
+    <string name="toast_action_error">L’action n’a pas pu être effectuée</string>
+    <string name="toast_open_link_error">Impossible d’ouvrir ce lien</string>
     <string name="refresh_city_not_found">Ville introuvable</string>
     <string name="error_no_network">Pas de connexion Internet</string>
     <string name="error_timeout">Délai d\'attente dépassé</string>

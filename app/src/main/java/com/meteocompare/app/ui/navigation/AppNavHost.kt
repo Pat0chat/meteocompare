@@ -47,6 +47,7 @@ import com.meteocompare.app.ui.citydetail.CityDetailScreen
 import com.meteocompare.app.ui.citydetail.confidence.ConfidenceExplanationScreen
 import com.meteocompare.app.ui.citylist.CityListScreen
 import com.meteocompare.app.ui.citylist.CityListViewModel
+import com.meteocompare.app.ui.components.AppToastLayer
 import com.meteocompare.app.ui.enginecomparison.EngineComparisonScreen
 import com.meteocompare.app.ui.help.HowItWorksScreen
 import com.meteocompare.app.ui.settings.SettingsScreen
@@ -84,11 +85,13 @@ internal fun resolveSelectedCityId(
  */
 @Composable
 fun AppNavHost() {
-    AdaptiveNavigationContent(
-        phoneContent = { PhoneAppNavHost() },
-        tabletContent = { TabletAppNavHost() },
-        modifier = Modifier.fillMaxSize()
-    )
+    AppToastLayer {
+        AdaptiveNavigationContent(
+            phoneContent = { PhoneAppNavHost() },
+            tabletContent = { TabletAppNavHost() },
+            modifier = Modifier.fillMaxSize()
+        )
+    }
 }
 
 @Composable
