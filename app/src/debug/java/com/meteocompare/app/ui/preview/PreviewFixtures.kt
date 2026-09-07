@@ -605,35 +605,92 @@ internal object PreviewFixtures {
         )
     }
 
-    fun evolutionReport(): ForecastEvolutionReport {
+    fun evolutionReport(
+        primaryVariable: ForecastEvolutionVariable = ForecastEvolutionVariable.TEMPERATURE
+    ): ForecastEvolutionReport {
         val date = BASE_DATE.plusDays(1)
-        val previous = listOf(
-            ForecastEvolutionSnapshot(3, 23.1, models.associateWith { 23.1 + it.ordinal % 3 * 0.2 }, 72, BASE_INSTANT.minusSeconds(72 * 3600L)),
-            ForecastEvolutionSnapshot(2, 23.8, models.associateWith { 23.8 + it.ordinal % 3 * 0.2 }, 48, BASE_INSTANT.minusSeconds(48 * 3600L)),
-            ForecastEvolutionSnapshot(1, 24.4, models.associateWith { 24.4 + it.ordinal % 3 * 0.2 }, 24, BASE_INSTANT.minusSeconds(24 * 3600L))
+        val mediansByVariable = mapOf(
+            ForecastEvolutionVariable.TEMPERATURE to listOf(21.8, 22.5, 23.2, 24.0),
+            ForecastEvolutionVariable.PRECIPITATION to listOf(2.2, 6.4, 3.1, 5.8),
+            ForecastEvolutionVariable.WIND to listOf(34.0, 31.0, 29.5, 25.8)
         )
-        val current = ForecastEvolutionSnapshot(0, 25.1, models.associateWith { 25.1 + it.ordinal % 3 * 0.2 }, 0, BASE_INSTANT)
-        val revision = ForecastRevision(
-            previousDaysAgo = 1,
-            previousAgeHours = 24,
-            medianDelta = 0.7,
-            medianAbsoluteDelta = 0.7,
-            increasedModels = 3,
-            decreasedModels = 0,
-            stableModels = 1,
-            comparedModels = 4,
-            deltasByModel = models.associateWith { 0.5 + (it.ordinal % 3) * 0.15 },
-            trend = ForecastEvolutionTrend.INCREASING
+        val trendByVariable = mapOf(
+            ForecastEvolutionVariable.TEMPERATURE to ForecastEvolutionTrend.INCREASING,
+            ForecastEvolutionVariable.PRECIPITATION to ForecastEvolutionTrend.VOLATILE,
+            ForecastEvolutionVariable.WIND to ForecastEvolutionTrend.DECREASING
         )
-        val variable = VariableForecastEvolution(
-            variable = ForecastEvolutionVariable.TEMPERATURE,
-            targetDate = date,
-            current = current,
-            previous = previous,
-            revision = revision
+        val deltasByVariable = mapOf(
+            ForecastEvolutionVariable.TEMPERATURE to listOf(0.6, 0.9, 0.7, 0.8),
+            ForecastEvolutionVariable.PRECIPITATION to listOf(-1.8, -0.9, 6.3, 7.2),
+            ForecastEvolutionVariable.WIND to listOf(-2.85, -4.2, -3.8, -3.6)
         )
+        val variableOrder = listOf(primaryVariable) +
+            ForecastEvolutionVariable.entries.filterNot { it == primaryVariable }
+        val variables = variableOrder.associateWith { variable ->
+            val medians = mediansByVariable.getValue(variable)
+            val ageHours = listOf(73, 50, 26)
+            val modelScale = when (variable) {
+                ForecastEvolutionVariable.TEMPERATURE -> 0.18
+                ForecastEvolutionVariable.PRECIPITATION -> 0.45
+                ForecastEvolutionVariable.WIND -> 0.75
+            }
+            val valuesForModels: (Double) -> Map<WeatherModel, Double> = { median ->
+                models.mapIndexed { index, model ->
+                    model to median + (index - 1.5) * modelScale
+                }.toMap()
+            }
+            val previous = medians.dropLast(1).mapIndexed { index, median ->
+                ForecastEvolutionSnapshot(
+                    daysAgo = 3 - index,
+                    medianValue = median,
+                    valuesByModel = valuesForModels(median),
+                    ageHours = ageHours[index],
+                    capturedAt = BASE_INSTANT.minusSeconds(ageHours[index] * 3600L)
+                )
+            }
+            val currentMedian = medians.last()
+            val delta = currentMedian - medians[medians.lastIndex - 1]
+            val trend = trendByVariable.getValue(variable)
+            val directionCounts = when (trend) {
+                ForecastEvolutionTrend.INCREASING -> Triple(4, 0, 0)
+                ForecastEvolutionTrend.DECREASING -> Triple(0, 4, 0)
+                ForecastEvolutionTrend.VOLATILE -> Triple(2, 2, 0)
+                else -> Triple(0, 0, 4)
+            }
+            val modelDeltas = deltasByVariable.getValue(variable)
+            val deltasByModel = models.mapIndexed { index, model ->
+                model to modelDeltas[index]
+            }.toMap()
+            val currentValuesByModel = previous.last().valuesByModel.mapValues { (model, value) ->
+                value + deltasByModel.getValue(model)
+            }
+            VariableForecastEvolution(
+                variable = variable,
+                targetDate = date,
+                current = ForecastEvolutionSnapshot(
+                    daysAgo = 0,
+                    medianValue = currentMedian,
+                    valuesByModel = currentValuesByModel,
+                    ageHours = 0,
+                    capturedAt = BASE_INSTANT
+                ),
+                previous = previous,
+                revision = ForecastRevision(
+                    previousDaysAgo = 1,
+                    previousAgeHours = ageHours.last(),
+                    medianDelta = delta,
+                    medianAbsoluteDelta = kotlin.math.abs(delta),
+                    increasedModels = directionCounts.first,
+                    decreasedModels = directionCounts.second,
+                    stableModels = directionCounts.third,
+                    comparedModels = models.size,
+                    deltasByModel = deltasByModel,
+                    trend = trend
+                )
+            )
+        }
         return ForecastEvolutionReport(
-            days = listOf(DayForecastEvolution(date, mapOf(ForecastEvolutionVariable.TEMPERATURE to variable))),
+            days = listOf(DayForecastEvolution(date, variables)),
             fetchedAt = BASE_INSTANT
         )
     }

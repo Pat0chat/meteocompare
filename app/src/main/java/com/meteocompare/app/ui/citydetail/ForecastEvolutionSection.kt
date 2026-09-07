@@ -1,5 +1,6 @@
 package com.meteocompare.app.ui.citydetail
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Air
@@ -43,8 +45,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
@@ -436,7 +440,6 @@ private fun EvolutionAnalysis(evolution: VariableForecastEvolution) {
         }
 
         EvolutionTrendChart(evolution = evolution, accent = accent)
-        EvolutionSnapshotValues(evolution = evolution)
 
         Text(
             text = stringResource(R.string.forecast_evolution_method_hint),
@@ -470,7 +473,6 @@ private fun EvolutionTrendChart(
     val domainRange = (domainMax - domainMin).takeIf { it > 0.0001 } ?: 1.0
     val domainMid = domainMin + domainRange / 2.0
 
-    val lineColor = accent
     val guideColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
     val pointInnerColor = MaterialTheme.colorScheme.surface
     val stableZoneColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.07f)
@@ -478,177 +480,337 @@ private fun EvolutionTrendChart(
     val notableThresholdColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.65f)
     val currentGuideColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.42f)
 
-    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-        Row(modifier = Modifier.fillMaxWidth()) {
-            Column(
-                modifier = Modifier.width(50.dp).height(112.dp).padding(vertical = 8.dp),
-                verticalArrangement = Arrangement.SpaceBetween,
-                horizontalAlignment = Alignment.End
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = accent.copy(alpha = 0.055f),
+        border = BorderStroke(1.dp, accent.copy(alpha = 0.16f))
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 11.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(
-                    text = formatEvolutionAxisValue(domainMax, evolution.variable, locale),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = formatEvolutionAxisValue(domainMid, evolution.variable, locale),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = formatEvolutionAxisValue(domainMin, evolution.variable, locale),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Spacer(Modifier.width(6.dp))
-            Canvas(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(112.dp)
-                    .padding(vertical = 8.dp)
-            ) {
-                val left = 4.dp.toPx()
-                val right = size.width - 4.dp.toPx()
-                val top = 4.dp.toPx()
-                val bottom = size.height - 4.dp.toPx()
-
-                fun yFor(value: Double): Float =
-                    bottom - (((value - domainMin) / domainRange).coerceIn(0.0, 1.0)).toFloat() * (bottom - top)
-
-                // Zone de stabilité autour de la prévision actuelle : elle
-                // matérialise le seuil réellement utilisé par le moteur d'évolution.
-                val stableLow = if (isNonNegative) maxOf(0.0, currentValue - stableThreshold)
-                else currentValue - stableThreshold
-                val stableHigh = currentValue + stableThreshold
-                val stableTop = yFor(stableHigh)
-                val stableBottom = yFor(stableLow)
-                if (stableBottom > stableTop) {
-                    drawRect(
-                        color = stableZoneColor,
-                        topLeft = Offset(left, stableTop),
-                        size = Size(right - left, stableBottom - stableTop)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .background(accent.copy(alpha = 0.13f), RoundedCornerShape(9.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = variableIcon(evolution.variable),
+                            contentDescription = null,
+                            tint = accent,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = stringResource(variableLabel(evolution.variable)),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
-
-                // Grille principale + axe vertical/horizontal.
-                listOf(domainMax, domainMid, domainMin).forEach { value ->
-                    val y = yFor(value)
-                    drawLine(guideColor, Offset(left, y), Offset(right, y), strokeWidth = 1.dp.toPx())
-                }
-                drawLine(guideColor, Offset(left, top), Offset(left, bottom), strokeWidth = 1.dp.toPx())
-                drawLine(guideColor, Offset(left, bottom), Offset(right, bottom), strokeWidth = 1.dp.toPx())
-
-                val stableDash = PathEffect.dashPathEffect(floatArrayOf(5.dp.toPx(), 4.dp.toPx()))
-                val notableDash = PathEffect.dashPathEffect(floatArrayOf(8.dp.toPx(), 5.dp.toPx()))
-
-                // Seuils ± de stabilité.
-                listOf(currentValue - stableThreshold, currentValue + stableThreshold).forEach { threshold ->
-                    if (threshold in domainMin..domainMax && (!isNonNegative || threshold >= 0.0)) {
-                        val y = yFor(threshold)
-                        drawLine(
-                            color = stableThresholdColor,
-                            start = Offset(left, y),
-                            end = Offset(right, y),
-                            strokeWidth = 1.dp.toPx(),
-                            pathEffect = stableDash
+                Surface(
+                    shape = RoundedCornerShape(999.dp),
+                    color = accent.copy(alpha = 0.13f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.forecast_evolution_now),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = formatEvolutionValue(currentValue, evolution.variable, locale),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = accent,
+                            fontWeight = FontWeight.Bold
                         )
                     }
-                }
-
-                // Seuils ± de révision notable.
-                listOf(currentValue - notableThreshold, currentValue + notableThreshold).forEach { threshold ->
-                    if (threshold in domainMin..domainMax && (!isNonNegative || threshold >= 0.0)) {
-                        val y = yFor(threshold)
-                        drawLine(
-                            color = notableThresholdColor,
-                            start = Offset(left, y),
-                            end = Offset(right, y),
-                            strokeWidth = 1.25.dp.toPx(),
-                            pathEffect = notableDash
-                        )
-                    }
-                }
-
-                // Valeur actuelle comme référence centrale.
-                val currentY = yFor(currentValue)
-                drawLine(
-                    color = currentGuideColor,
-                    start = Offset(left, currentY),
-                    end = Offset(right, currentY),
-                    strokeWidth = 1.dp.toPx()
-                )
-
-                val points = values.mapIndexed { index, value ->
-                    val x = if (values.size == 1) size.width / 2f
-                    else left + (right - left) * index / (values.size - 1).toFloat()
-                    Offset(x, yFor(value))
-                }
-                val path = Path().apply {
-                    moveTo(points.first().x, points.first().y)
-                    points.drop(1).forEach { lineTo(it.x, it.y) }
-                }
-                drawPath(path, lineColor, style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round))
-                points.forEach { point ->
-                    drawCircle(lineColor, radius = 4.dp.toPx(), center = point)
-                    drawCircle(pointInnerColor, radius = 1.7.dp.toPx(), center = point)
                 }
             }
-        }
 
+            Row(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier
+                        .width(48.dp)
+                        .height(148.dp)
+                        .padding(vertical = 8.dp),
+                    verticalArrangement = Arrangement.SpaceBetween,
+                    horizontalAlignment = Alignment.End
+                ) {
+                    Text(
+                        text = formatEvolutionAxisValue(domainMax, evolution.variable, locale),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = formatEvolutionAxisValue(domainMid, evolution.variable, locale),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = formatEvolutionAxisValue(domainMin, evolution.variable, locale),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Spacer(Modifier.width(7.dp))
+                Canvas(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(148.dp)
+                        .padding(vertical = 8.dp)
+                ) {
+                    val left = 5.dp.toPx()
+                    val right = size.width - 5.dp.toPx()
+                    val top = 5.dp.toPx()
+                    val bottom = size.height - 5.dp.toPx()
+
+                    fun yFor(value: Double): Float =
+                        bottom - (((value - domainMin) / domainRange).coerceIn(0.0, 1.0)).toFloat() * (bottom - top)
+
+                    val points = values.mapIndexed { index, value ->
+                        val x = left + (right - left) * index / (values.size - 1).toFloat()
+                        Offset(x, yFor(value))
+                    }
+                    fun curvePath(closeToBaseline: Boolean): Path = Path().apply {
+                        moveTo(points.first().x, points.first().y)
+                        for (index in 1 until points.size) {
+                            val previous = points[index - 1]
+                            val current = points[index]
+                            val middleX = (previous.x + current.x) / 2f
+                            cubicTo(
+                                middleX,
+                                previous.y,
+                                middleX,
+                                current.y,
+                                current.x,
+                                current.y
+                            )
+                        }
+                        if (closeToBaseline) {
+                            lineTo(points.last().x, bottom)
+                            lineTo(points.first().x, bottom)
+                            close()
+                        }
+                    }
+
+                    // Zone de stabilité autour de la prévision actuelle : elle
+                    // matérialise le seuil réellement utilisé par le moteur d'évolution.
+                    val stableLow = if (isNonNegative) maxOf(0.0, currentValue - stableThreshold)
+                    else currentValue - stableThreshold
+                    val stableHigh = currentValue + stableThreshold
+                    val stableTop = yFor(stableHigh)
+                    val stableBottom = yFor(stableLow)
+                    if (stableBottom > stableTop) {
+                        drawRoundRect(
+                            color = stableZoneColor,
+                            topLeft = Offset(left, stableTop),
+                            size = Size(right - left, stableBottom - stableTop),
+                            cornerRadius = CornerRadius(8.dp.toPx())
+                        )
+                    }
+                    drawPath(
+                        path = curvePath(closeToBaseline = true),
+                        brush = Brush.verticalGradient(
+                            colors = listOf(accent.copy(alpha = 0.30f), Color.Transparent),
+                            startY = top,
+                            endY = bottom
+                        )
+                    )
+
+                    // Les repères verticaux relient visuellement chaque valeur à sa pastille temporelle.
+                    points.forEach { point ->
+                        drawLine(
+                            color = guideColor.copy(alpha = 0.36f),
+                            start = Offset(point.x, top),
+                            end = Offset(point.x, bottom),
+                            strokeWidth = 1.dp.toPx()
+                        )
+                    }
+
+                    listOf(domainMax, domainMid, domainMin).forEach { value ->
+                        val y = yFor(value)
+                        drawLine(guideColor, Offset(left, y), Offset(right, y), strokeWidth = 1.dp.toPx())
+                    }
+                    drawLine(guideColor, Offset(left, bottom), Offset(right, bottom), strokeWidth = 1.dp.toPx())
+
+                    val stableDash = PathEffect.dashPathEffect(floatArrayOf(5.dp.toPx(), 4.dp.toPx()))
+                    val notableDash = PathEffect.dashPathEffect(floatArrayOf(8.dp.toPx(), 5.dp.toPx()))
+
+                    listOf(currentValue - stableThreshold, currentValue + stableThreshold).forEach { threshold ->
+                        if (threshold in domainMin..domainMax && (!isNonNegative || threshold >= 0.0)) {
+                            val y = yFor(threshold)
+                            drawLine(
+                                color = stableThresholdColor,
+                                start = Offset(left, y),
+                                end = Offset(right, y),
+                                strokeWidth = 1.dp.toPx(),
+                                pathEffect = stableDash
+                            )
+                        }
+                    }
+
+                    listOf(currentValue - notableThreshold, currentValue + notableThreshold).forEach { threshold ->
+                        if (threshold in domainMin..domainMax && (!isNonNegative || threshold >= 0.0)) {
+                            val y = yFor(threshold)
+                            drawLine(
+                                color = notableThresholdColor,
+                                start = Offset(left, y),
+                                end = Offset(right, y),
+                                strokeWidth = 1.25.dp.toPx(),
+                                pathEffect = notableDash
+                            )
+                        }
+                    }
+
+                    val currentY = yFor(currentValue)
+                    drawLine(
+                        color = currentGuideColor,
+                        start = Offset(left, currentY),
+                        end = Offset(right, currentY),
+                        strokeWidth = 1.dp.toPx()
+                    )
+
+                    val linePath = curvePath(closeToBaseline = false)
+                    drawPath(
+                        path = linePath,
+                        color = accent.copy(alpha = 0.14f),
+                        style = Stroke(width = 8.dp.toPx(), cap = StrokeCap.Round)
+                    )
+                    drawPath(
+                        path = linePath,
+                        color = accent,
+                        style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
+                    )
+                    points.forEachIndexed { index, point ->
+                        val isCurrent = index == points.lastIndex
+                        if (isCurrent) {
+                            drawCircle(accent.copy(alpha = 0.16f), radius = 10.dp.toPx(), center = point)
+                        }
+                        drawCircle(
+                            color = accent,
+                            radius = if (isCurrent) 5.5.dp.toPx() else 4.dp.toPx(),
+                            center = point
+                        )
+                        drawCircle(
+                            color = pointInnerColor,
+                            radius = if (isCurrent) 2.2.dp.toPx() else 1.7.dp.toPx(),
+                            center = point
+                        )
+                    }
+                }
+            }
+
+            EvolutionSnapshotValues(evolution = evolution, accent = accent)
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(7.dp)
+            ) {
+                EvolutionThresholdLegend(
+                    text = stringResource(
+                        R.string.forecast_evolution_stable_axis,
+                        formatEvolutionThreshold(stableThreshold, evolution.variable, locale)
+                    ),
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.weight(1f)
+                )
+                EvolutionThresholdLegend(
+                    text = stringResource(
+                        R.string.forecast_evolution_notable_axis,
+                        formatEvolutionThreshold(notableThreshold, evolution.variable, locale)
+                    ),
+                    color = MaterialTheme.colorScheme.tertiary,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun EvolutionThresholdLegend(
+    text: String,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(10.dp),
+        color = color.copy(alpha = 0.08f)
+    ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 56.dp),
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = stringResource(
-                    R.string.forecast_evolution_stable_axis,
-                    formatEvolutionThreshold(stableThreshold, evolution.variable, locale)
-                ),
+                text = text,
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Text(
-                text = stringResource(
-                    R.string.forecast_evolution_notable_axis,
-                    formatEvolutionThreshold(notableThreshold, evolution.variable, locale)
-                ),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.tertiary
+                color = color
             )
         }
     }
 }
 
 @Composable
-private fun EvolutionSnapshotValues(evolution: VariableForecastEvolution) {
+private fun EvolutionSnapshotValues(
+    evolution: VariableForecastEvolution,
+    accent: Color
+) {
     val locale = LocalLocale.current.platformLocale
     val snapshots = evolution.allSnapshotsChronological
     Row(
-        modifier = Modifier.fillMaxWidth().padding(start = 56.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(5.dp)
     ) {
-        snapshots.forEach { snapshot ->
-            Column(
+        snapshots.forEachIndexed { index, snapshot ->
+            val isCurrent = index == snapshots.lastIndex
+            Surface(
                 modifier = Modifier.weight(1f),
-                horizontalAlignment = Alignment.CenterHorizontally
+                shape = RoundedCornerShape(11.dp),
+                color = if (isCurrent) accent.copy(alpha = 0.13f)
+                else MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
+                border = BorderStroke(
+                    1.dp,
+                    if (isCurrent) accent.copy(alpha = 0.24f)
+                    else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
+                )
             ) {
-                Text(
-                    text = if (snapshot.daysAgo == 0) stringResource(R.string.forecast_evolution_now)
-                    else stringResource(
-                        R.string.forecast_evolution_day_ago_short,
-                        snapshot.ageHours
-                    ),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
-                )
-                Text(
-                    text = formatEvolutionValue(snapshot.medianValue, evolution.variable, locale),
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    textAlign = TextAlign.Center
-                )
+                Column(
+                    modifier = Modifier.padding(horizontal = 3.dp, vertical = 7.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = if (snapshot.daysAgo == 0) stringResource(R.string.forecast_evolution_now)
+                        else stringResource(
+                            R.string.forecast_evolution_day_ago_short,
+                            snapshot.ageHours
+                        ),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (isCurrent) accent else MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = if (isCurrent) FontWeight.SemiBold else FontWeight.Normal,
+                        textAlign = TextAlign.Center
+                    )
+                    Text(
+                        text = formatEvolutionValue(snapshot.medianValue, evolution.variable, locale),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (isCurrent) accent else MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
         }
     }

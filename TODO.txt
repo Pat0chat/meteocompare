@@ -1,4 +1,3 @@
 TODO
 ----
-- Améliorer le rendu des graphiques de la section Forecast evolution. Ils sont très austères actuellement. Ajouter un preview dans le dossier debug pour avoir un aperçu rapide.
-- Il y a déjà des indications lors de la mise à jour des données météo. Mais mettre en place un vrai système de toast global et complet pour toutes les actions / erreurs dans l'application
+- Il y a déjà des indications lors de la mise à jour des données météo. Mais mettre en place un vrai système de toast design global et complet pour toutes les actions / erreurs dans l'application
