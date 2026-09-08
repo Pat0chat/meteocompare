@@ -9,6 +9,8 @@ import com.meteocompare.app.core.locale.applyPersistedLocale
 import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.core.network.NetworkMonitor
 import com.meteocompare.app.core.network.apiCall
+import com.meteocompare.app.core.network.toUserMessage
+import com.meteocompare.app.core.util.runSuspendCatching
 import com.meteocompare.app.data.mapper.toDomain
 import com.meteocompare.app.data.remote.MarineApi
 import com.meteocompare.app.di.IoDispatcher
@@ -17,12 +19,16 @@ import com.meteocompare.app.domain.model.MarineForecast
 import com.meteocompare.app.domain.repository.MarineRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import java.io.IOException
 import java.time.Clock
 import java.time.ZoneId
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -38,18 +44,36 @@ class MarineRepositoryImpl @Inject constructor(
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : MarineRepository {
 
-    override suspend fun getMarine(city: City, forceRefresh: Boolean): ApiResult<MarineForecast> =
-        withContext(ioDispatcher) {
+    /** Évite les doublons Home/Détails pour une même ville. */
+    private val requestLocks = ConcurrentHashMap<String, Mutex>()
+
+    override suspend fun getMarine(city: City, forceRefresh: Boolean): ApiResult<MarineForecast> = try {
+        getMarineInternal(city, forceRefresh)
+    } catch (cancellation: CancellationException) {
+        throw cancellation
+    } catch (error: Exception) {
+        ApiResult.Error(error, error.toUserMessage(applyPersistedLocale(context)))
+    }
+
+    private suspend fun getMarineInternal(
+        city: City,
+        forceRefresh: Boolean
+    ): ApiResult<MarineForecast> = withContext(ioDispatcher) {
+        requestLocks.getOrPut(city.id) { Mutex() }.withLock {
+            // Relire sous le verrou : un autre caller a pu remplir le cache
+            // pendant notre attente.
             val cached = readCached(city.id)
-            if (!forceRefresh && cached != null && MarineCachePolicy.isFresh(cached.fetchedAtEpochMs, clock.millis())) {
-                return@withContext ApiResult.Success(cached)
+            if (!forceRefresh && cached != null &&
+                MarineCachePolicy.isFresh(cached.fetchedAtEpochMs, clock.millis())
+            ) {
+                return@withLock ApiResult.Success(cached)
             }
             val localizedContext = applyPersistedLocale(context)
             if (!networkMonitor.isOnline()) {
                 // La page détail peut relire un cache même expiré hors ligne,
                 // mais une activation / actualisation forcée exige une validation réseau fraîche.
-                if (!forceRefresh && cached != null) return@withContext ApiResult.Success(cached)
-                return@withContext ApiResult.Error(
+                if (!forceRefresh && cached != null) return@withLock ApiResult.Success(cached)
+                return@withLock ApiResult.Error(
                     IOException("No network"),
                     localizedContext.getString(R.string.error_no_network)
                 )
@@ -67,9 +91,22 @@ class MarineRepositoryImpl @Inject constructor(
             // peut afficher sa pastille sans revalider une ville intérieure à
             // chaque ouverture. Une activation explicite utilise forceRefresh
             // et contourne donc toujours cette décision mise en cache.
-            if (result is ApiResult.Success) save(city.id, result.data)
+            if (result is ApiResult.Success) {
+                // Le réseau a réussi : une panne DataStore ne doit pas changer
+                // ce succès en erreur utilisateur. Le prochain appel pourra
+                // retenter la persistance.
+                runSuspendCatching { save(city.id, result.data) }
+                    .onFailure { error ->
+                        android.util.Log.w(
+                            "MeteoCompare/Marine",
+                            "Marine cache write failed for city=${city.id}",
+                            error
+                        )
+                    }
+            }
             result
         }
+    }
 
     override suspend fun getCached(cityId: String): MarineForecast? = withContext(ioDispatcher) {
         readCached(cityId)
@@ -102,7 +139,10 @@ class MarineRepositoryImpl @Inject constructor(
 
 internal object MarineCachePolicy {
     fun isFresh(fetchedAtEpochMs: Long, nowEpochMs: Long): Boolean {
-        val ageMs = nowEpochMs - fetchedAtEpochMs
-        return ageMs in 0 until MarineRepository.AVAILABILITY_CACHE_TTL_MS
+        // Une correction NTP ou manuelle peut faire reculer l'horloge. Un
+        // timestamp alors légèrement futur doit être traité comme âgé de zéro,
+        // sinon chaque affichage relancerait inutilement le réseau.
+        val ageMs = (nowEpochMs - fetchedAtEpochMs).coerceAtLeast(0L)
+        return ageMs < MarineRepository.AVAILABILITY_CACHE_TTL_MS
     }
 }

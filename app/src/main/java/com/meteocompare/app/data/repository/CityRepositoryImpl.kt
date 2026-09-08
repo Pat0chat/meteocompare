@@ -10,6 +10,7 @@ import com.meteocompare.app.core.locale.applyPersistedLocale
 import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.core.network.NetworkMonitor
 import com.meteocompare.app.core.network.apiCall
+import com.meteocompare.app.core.util.runSuspendCatching
 import com.meteocompare.app.data.mapper.toDomain
 import com.meteocompare.app.data.remote.GeocodingApi
 import com.meteocompare.app.di.IoDispatcher
@@ -20,12 +21,16 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import java.io.IOException
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -53,6 +58,8 @@ class CityRepositoryImpl @Inject constructor(
     }
 
     private val cityListSerializer = ListSerializer(City.serializer())
+    /** Déduplique l'enrichissement d'un même favori lancé par Home et Détails. */
+    private val departmentResolutionLocks = ConcurrentHashMap<String, Mutex>()
 
     override suspend fun searchCities(query: String): ApiResult<List<City>> =
         withContext(ioDispatcher) {
@@ -138,34 +145,65 @@ class CityRepositoryImpl @Inject constructor(
         val id = city.id.toLongOrNull() ?: return@withContext null
         if (!networkMonitor.isOnline()) return@withContext null
 
-        val localizedContext = applyPersistedLocale(context)
-        val locale = localizedContext.resources.configuration.locales[0]
-        val resolved = runCatching {
-            geocodingApi.get(
-                id = id,
-                language = locale.language.takeIf { it.isNotBlank() } ?: "fr"
-            ).toDomain()
-        }.getOrNull() ?: return@withContext null
-
-        val code = resolved.departmentCode
-        context.favoritesDataStore.edit { prefs ->
-            val current = prefs[FAVORITES_KEY]
-                ?.let { runCatching { json.decodeFromString(cityListSerializer, it) }.getOrDefault(emptyList()) }
-                ?: emptyList()
-            val updated = current.map { favorite ->
-                if (favorite.id == city.id) {
-                    favorite.copy(
-                        countryCode = resolved.countryCode ?: favorite.countryCode,
-                        departmentName = resolved.departmentName ?: favorite.departmentName,
-                        departmentCode = code ?: favorite.departmentCode,
-                        timezone = resolved.timezone ?: favorite.timezone
-                    )
-                } else {
-                    favorite
+        departmentResolutionLocks.getOrPut(city.id) { Mutex() }.withLock {
+            // Un appel concurrent a peut-être déjà enrichi le favori pendant
+            // l'attente du verrou. Relire la source persistée avant le réseau.
+            val persistedDepartment = safeFavorites.first()[FAVORITES_KEY]
+                ?.let { raw ->
+                    runCatching { json.decodeFromString(cityListSerializer, raw) }
+                        .getOrDefault(emptyList())
                 }
+                ?.firstOrNull { it.id == city.id }
+                ?.departmentCode
+            if (!persistedDepartment.isNullOrBlank()) return@withLock persistedDepartment
+
+            // Le réseau peut avoir disparu pendant l'attente du verrou.
+            if (!networkMonitor.isOnline()) return@withLock null
+
+            val localizedContext = applyPersistedLocale(context)
+            val locale = localizedContext.resources.configuration.locales[0]
+            val resolved = runSuspendCatching {
+                geocodingApi.get(
+                    id = id,
+                    language = locale.language.takeIf { it.isNotBlank() } ?: "fr"
+                ).toDomain()
+            }.getOrNull() ?: return@withLock null
+
+            val code = resolved.departmentCode
+            // L'enrichissement est un cache auxiliaire : sa persistance ne doit
+            // pas annuler une résolution réseau déjà réussie. Une prochaine
+            // reprise pourra retenter l'écriture si DataStore est indisponible.
+            runSuspendCatching {
+                context.favoritesDataStore.edit { prefs ->
+                    val current = prefs[FAVORITES_KEY]
+                        ?.let {
+                            runCatching {
+                                json.decodeFromString(cityListSerializer, it)
+                            }.getOrDefault(emptyList())
+                        }
+                        ?: emptyList()
+                    val updated = current.map { favorite ->
+                        if (favorite.id == city.id) {
+                            favorite.copy(
+                                countryCode = resolved.countryCode ?: favorite.countryCode,
+                                departmentName = resolved.departmentName ?: favorite.departmentName,
+                                departmentCode = code ?: favorite.departmentCode,
+                                timezone = resolved.timezone ?: favorite.timezone
+                            )
+                        } else {
+                            favorite
+                        }
+                    }
+                    prefs[FAVORITES_KEY] = json.encodeToString(cityListSerializer, updated)
+                }
+            }.onFailure { error ->
+                android.util.Log.w(
+                    "MeteoCompare/City",
+                    "Unable to persist department for city=${city.id}",
+                    error
+                )
             }
-            prefs[FAVORITES_KEY] = json.encodeToString(cityListSerializer, updated)
+            code
         }
-        code
     }
 }

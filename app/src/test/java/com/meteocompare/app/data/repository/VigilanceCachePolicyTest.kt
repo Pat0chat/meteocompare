@@ -8,11 +8,11 @@ import org.junit.Test
 class VigilanceCachePolicyTest {
 
     @Test
-    fun `un cache date dans le futur nest jamais frais ni utilisable`() {
+    fun `un cache date dans le futur est traite comme tout juste ecrit`() {
         val futureAge = Duration.ofMinutes(-1)
 
-        assertFalse(VigilanceCachePolicy.isFresh(futureAge))
-        assertFalse(VigilanceCachePolicy.isUsableFallback(futureAge))
+        assertTrue(VigilanceCachePolicy.isFresh(futureAge))
+        assertTrue(VigilanceCachePolicy.isUsableFallback(futureAge))
     }
 
     @Test

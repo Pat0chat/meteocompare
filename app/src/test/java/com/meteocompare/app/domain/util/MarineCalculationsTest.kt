@@ -6,7 +6,6 @@ import com.meteocompare.app.domain.model.MarineGrid
 import com.meteocompare.app.domain.model.MarineHourly
 import com.meteocompare.app.domain.model.TideEventType
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MarineCalculationsTest {

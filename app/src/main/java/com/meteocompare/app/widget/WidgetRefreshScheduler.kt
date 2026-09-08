@@ -20,8 +20,10 @@ import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.meteocompare.app.BuildConfig
 import com.meteocompare.app.core.util.runSuspendCatching
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
@@ -273,7 +275,13 @@ internal class WidgetRefreshWorker(
     params: WorkerParameters
 ) : CoroutineWorker(context, params) {
 
-    override suspend fun doWork(): Result = RUN_MUTEX.withLock {
+    override suspend fun doWork(): Result = runSuspendCatching { doWorkLocked() }
+        .getOrElse { error ->
+            android.util.Log.w(WIDGET_LOG_TAG, "Unexpected widget worker failure", error)
+            Result.retry()
+        }
+
+    private suspend fun doWorkLocked(): Result = RUN_MUTEX.withLock {
         val ctx = applicationContext
         val appWidgetManager = AppWidgetManager.getInstance(ctx)
 
@@ -332,6 +340,10 @@ internal class WidgetRefreshWorker(
                             glanceId = glanceId
                         )
                         val lastDispatch = prefs[WidgetPreferences.LastDispatchAtKey] ?: 0L
+                        val refreshTick = nextWidgetRefreshTick(
+                            previousTickMs = prefs[WidgetPreferences.RefreshTickKey],
+                            nowMs = now
+                        )
 
                         if (!isWidgetDispatchDue(
                                 lastDispatchAtMs = lastDispatch,
@@ -348,7 +360,7 @@ internal class WidgetRefreshWorker(
                             glanceId = glanceId
                         ) { current ->
                             current.toMutablePreferences().apply {
-                                this[WidgetPreferences.RefreshTickKey] = now
+                                this[WidgetPreferences.RefreshTickKey] = refreshTick
                                 this[WidgetPreferences.LastDispatchAtKey] = now
                             }
                         }
@@ -363,18 +375,39 @@ internal class WidgetRefreshWorker(
                                 ?.className
                             glanceWidgetForProviderClassName(providerClassName)
                                 .update(ctx, glanceId)
-                        } catch (error: Throwable) {
+                        } catch (error: Exception) {
                             // Le tick a déjà été écrit pour déclencher la composition.
                             // Si l'envoi RemoteViews échoue, restaurer uniquement le
                             // marqueur de cadence afin que le retry ne soit pas filtré.
-                            updateAppWidgetState(
-                                context = ctx,
-                                definition = PreferencesGlanceStateDefinition,
-                                glanceId = glanceId
-                            ) { current ->
-                                current.toMutablePreferences().apply {
-                                    this[WidgetPreferences.LastDispatchAtKey] = lastDispatch
-                                }
+                            // NonCancellable est requis quand WorkManager annule le
+                            // worker précisément pendant update().
+                            val rollbackCompleted = withContext(NonCancellable) {
+                                withTimeoutOrNull(ROLLBACK_TIMEOUT_MS) {
+                                    runSuspendCatching {
+                                        updateAppWidgetState(
+                                            context = ctx,
+                                            definition = PreferencesGlanceStateDefinition,
+                                            glanceId = glanceId
+                                        ) { current ->
+                                            current.toMutablePreferences().apply {
+                                                this[WidgetPreferences.LastDispatchAtKey] = lastDispatch
+                                            }
+                                        }
+                                    }.onFailure { rollbackError ->
+                                        android.util.Log.w(
+                                            WIDGET_LOG_TAG,
+                                            "Unable to restore widget dispatch marker",
+                                            rollbackError
+                                        )
+                                    }
+                                    true
+                                } ?: false
+                            }
+                            if (!rollbackCompleted) {
+                                android.util.Log.w(
+                                    WIDGET_LOG_TAG,
+                                    "Widget dispatch rollback exceeded ${ROLLBACK_TIMEOUT_MS}ms"
+                                )
                             }
                             throw error
                         }
@@ -438,6 +471,7 @@ internal class WidgetRefreshWorker(
         private val RUN_MUTEX = Mutex()
 
         internal const val PER_WIDGET_TIMEOUT_MS: Long = 45_000L
+        internal const val ROLLBACK_TIMEOUT_MS: Long = 5_000L
         internal const val WORK_BUDGET_MS: Long = 8 * 60_000L
     }
 }

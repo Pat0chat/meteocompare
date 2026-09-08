@@ -60,10 +60,27 @@ class MainActivity : ComponentActivity() {
                     applicationContext,
                     AppWidgetManager.getInstance(applicationContext)
                 )
-            }.getOrDefault(false)
+            }.getOrElse { error ->
+                android.util.Log.w(
+                    "MeteoCompare/Widget",
+                    "Unable to inspect installed widgets on app start",
+                    error
+                )
+                false
+            }
             if (hasWidgets) {
-                WidgetRefreshScheduler.schedule(applicationContext)
-                WidgetRefreshScheduler.triggerImmediateRefresh(applicationContext)
+                runCatching {
+                    WidgetRefreshScheduler.schedule(applicationContext)
+                    WidgetRefreshScheduler.triggerImmediateRefresh(applicationContext)
+                }.onFailure { error ->
+                    // Un WorkManager temporairement indisponible ne doit jamais
+                    // faire échouer la reprise de l'activité principale.
+                    android.util.Log.w(
+                        "MeteoCompare/Widget",
+                        "Unable to repair widget refresh on app start",
+                        error
+                    )
+                }
             }
         }
     }

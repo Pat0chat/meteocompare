@@ -2,6 +2,7 @@ package com.meteocompare.app.ui.settings
 
 import android.content.Context
 import app.cash.turbine.test
+import com.meteocompare.app.R
 import com.meteocompare.app.data.worker.BiasRefreshScheduler
 import com.meteocompare.app.domain.model.LanguagePreference
 import com.meteocompare.app.domain.model.ForecastEngine
@@ -10,6 +11,7 @@ import com.meteocompare.app.domain.model.ThemePreference
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
 import com.meteocompare.app.widget.WidgetRefreshScheduler
+import com.meteocompare.app.ui.components.AppToastType
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.coVerifyOrder
@@ -173,6 +175,22 @@ class SettingsViewModelTest {
         }
 
     @Test
+    fun `onModelToggled - preference read failure emits a terminal error toast`() =
+        runTest(dispatcher) {
+            every { prefs.observeEnabledModels() } throws
+                IllegalStateException("datastore unavailable")
+
+            viewModel.feedback.test {
+                viewModel.onModelToggled(WeatherModel.ECMWF, enabled = true)
+
+                val event = awaitItem()
+                assertEquals(AppToastType.ERROR, event.type)
+                assertEquals(R.string.toast_settings_save_error, event.messageRes)
+            }
+            coVerify(exactly = 0) { prefs.setEnabledModels(any()) }
+        }
+
+    @Test
     fun `onBiasRefreshRequested - déclenche uniquement le worker manuel`() {
         viewModel.onBiasRefreshRequested()
 
@@ -304,6 +322,23 @@ class SettingsViewModelTest {
             verify {
                 WidgetRefreshScheduler.triggerImmediateRefresh(appContext)
             }
+        }
+
+    @Test
+    fun `echec du trigger widget ne transforme pas un reglage persiste en echec`() =
+        runTest(dispatcher) {
+            every {
+                WidgetRefreshScheduler.triggerImmediateRefresh(any<Context>())
+            } throws IllegalStateException("WorkManager indisponible")
+
+            viewModel.feedback.test {
+                viewModel.onRefreshIntervalSelected(RefreshInterval.HOURS_3)
+
+                val event = awaitItem()
+                assertEquals(R.string.toast_refresh_interval_updated, event.messageRes)
+                assertEquals(AppToastType.SUCCESS, event.type)
+            }
+            coVerify(exactly = 1) { prefs.setRefreshInterval(RefreshInterval.HOURS_3) }
         }
 
     @Test

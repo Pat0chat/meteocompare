@@ -38,7 +38,13 @@ object DatabaseModule {
             // (drop-and-recreate). Room 2.7+ demande le paramètre explicite pour
             // clarifier qu'on accepte de perdre AUSSI les tables non listées
             // dans le schéma actuel (cache orphelin).
-            .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_4_6, MIGRATION_6_7, MIGRATION_7_8)
+            .addMigrations(
+                MIGRATION_4_5,
+                MIGRATION_5_6,
+                MIGRATION_4_6,
+                MIGRATION_6_7,
+                MIGRATION_7_8
+            )
             .fallbackToDestructiveMigration(dropAllTables = true)
             .build()
 
@@ -57,8 +63,6 @@ object DatabaseModule {
     @Provides
     fun provideForecastEvolutionDao(database: MeteoCompareDatabase): ForecastEvolutionDao =
         database.forecastEvolutionDao()
-
-
 
     /**
      * Ajoute l'échéance explicite des profils historiques. Les enregistrements
@@ -162,9 +166,10 @@ object DatabaseModule {
         }
     }
 
-
-
-    /** Les utilisateurs de la 1.7.x (DB v4) passent d’abord au schéma v6, puis la migration 6→7 applique la séparation ECMWF HRES/legacy. */
+    /**
+     * Les utilisateurs de la 1.7.x (DB v4) passent d’abord au schéma v6,
+     * puis la migration 6→7 applique la séparation ECMWF HRES/legacy.
+     */
     private val MIGRATION_4_6 = object : Migration(4, 6) {
         override fun migrate(db: SupportSQLiteDatabase) {
             createEvolutionSnapshotTable(db)
@@ -199,5 +204,4 @@ object DatabaseModule {
                 "ON `forecast_evolution_samples` (`cityId`, `targetDateEpochDay`)"
         )
     }
-
 }

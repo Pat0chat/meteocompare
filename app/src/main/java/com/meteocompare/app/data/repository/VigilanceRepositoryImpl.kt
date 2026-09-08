@@ -9,6 +9,8 @@ import com.meteocompare.app.core.locale.applyPersistedLocale
 import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.core.network.NetworkMonitor
 import com.meteocompare.app.core.network.apiCall
+import com.meteocompare.app.core.network.toUserMessage
+import com.meteocompare.app.core.util.runSuspendCatching
 import com.meteocompare.app.data.mapper.toDomain
 import com.meteocompare.app.data.remote.MeteoCompareApi
 import com.meteocompare.app.data.remote.dto.VigilanceCacheRecord
@@ -19,13 +21,17 @@ import com.meteocompare.app.domain.repository.CityRepository
 import com.meteocompare.app.domain.repository.VigilanceRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import java.io.IOException
 import java.time.Clock
 import java.time.Duration
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -45,11 +51,25 @@ class VigilanceRepositoryImpl @Inject constructor(
     private val safeCache = context.vigilanceDataStore.data.catch { error ->
         if (error is IOException) emit(emptyPreferences()) else throw error
     }
+    /** Une seule validation réseau à la fois par département et mode côtier. */
+    private val requestLocks = ConcurrentHashMap<String, Mutex>()
 
     override suspend fun getVigilance(
         city: City,
         includeCoast: Boolean,
         forceRefresh: Boolean
+    ): ApiResult<VigilanceForecast?> = try {
+        getVigilanceInternal(city, includeCoast, forceRefresh)
+    } catch (cancellation: CancellationException) {
+        throw cancellation
+    } catch (error: Exception) {
+        ApiResult.Error(error, error.toUserMessage(applyPersistedLocale(context)))
+    }
+
+    private suspend fun getVigilanceInternal(
+        city: City,
+        includeCoast: Boolean,
+        @Suppress("UNUSED_PARAMETER") forceRefresh: Boolean
     ): ApiResult<VigilanceForecast?> = withContext(ioDispatcher) {
         // Garde réseau absolu : aucune résolution de département et aucun appel au Worker
         // pour une ville non française. Les favoris legacy FR sont reconnus par City.
@@ -61,47 +81,63 @@ class VigilanceRepositoryImpl @Inject constructor(
             ?.takeIf { it.isNotEmpty() }
             ?: return@withContext ApiResult.Success(null)
 
-        val now = clock.instant()
-        val key = cacheKey(department, includeCoast)
-        val cachedRecord = readCache(key)
-        val cached = cachedRecord?.forecast
-        val cachedAge = cachedRecord?.let { Duration.between(it.fetchedAt, now) }
+        val requestKey = "$department|$includeCoast"
+        requestLocks.getOrPut(requestKey) { Mutex() }.withLock {
+            // Relire le cache sous le verrou : une autre ville du même département
+            // peut avoir terminé exactement la même requête pendant notre attente.
+            val now = clock.instant()
+            val key = cacheKey(department, includeCoast)
+            val cachedRecord = readCache(key)
+            val cached = cachedRecord?.forecast
+            val cachedAge = cachedRecord?.let { Duration.between(it.fetchedAt, now) }
 
-        // La Vigilance Météo-France est limitée à un rafraîchissement réseau par heure
-        // pour un même département/mode côte, y compris lors d'un refresh manuel global.
-        if (cachedRecord != null && cachedAge != null && VigilanceCachePolicy.isFresh(cachedAge)) {
-            return@withContext ApiResult.Success(cached?.copy(evaluationTime = now))
-        }
-
-        if (!networkMonitor.isOnline()) {
-            return@withContext cached?.takeIf {
-                cachedAge != null && VigilanceCachePolicy.isUsableFallback(cachedAge)
+            // La Vigilance Météo-France est limitée à un rafraîchissement réseau par heure
+            // pour un même département/mode côte, y compris lors d'un refresh manuel global.
+            if (cachedRecord != null && cachedAge != null && VigilanceCachePolicy.isFresh(cachedAge)) {
+                return@withLock ApiResult.Success(cached?.copy(evaluationTime = now))
             }
-                ?.let { ApiResult.Success(it.copy(isStale = true, evaluationTime = now)) }
-                ?: ApiResult.Success(null)
-        }
 
-        val localizedContext = applyPersistedLocale(context)
-        when (val result = apiCall(localizedContext) {
-            api.getVigilance(department = department, coast = if (includeCoast) 1 else null)
-        }) {
-            is ApiResult.Success -> {
-                val response = result.data
-                val domain = response.toDomain(fetchedAt = now)
-                context.vigilanceDataStore.edit { prefs ->
-                    prefs[key] = json.encodeToString(
-                        VigilanceCacheRecord.serializer(),
-                        VigilanceCacheRecord(now.toEpochMilli(), response)
-                    )
-                }
-                ApiResult.Success(domain)
-            }
-            is ApiResult.Error -> {
-                cached?.takeIf {
+            if (!networkMonitor.isOnline()) {
+                return@withLock cached?.takeIf {
                     cachedAge != null && VigilanceCachePolicy.isUsableFallback(cachedAge)
                 }
                     ?.let { ApiResult.Success(it.copy(isStale = true, evaluationTime = now)) }
-                    ?: result
+                    ?: ApiResult.Success(null)
+            }
+
+            val localizedContext = applyPersistedLocale(context)
+            when (val result = apiCall(localizedContext) {
+                api.getVigilance(department = department, coast = if (includeCoast) 1 else null)
+            }) {
+                is ApiResult.Success -> {
+                    val response = result.data
+                    val domain = response.toDomain(fetchedAt = now)
+                    // Même principe que le forecast et le cache marin : une
+                    // écriture locale défaillante ne doit pas masquer une réponse
+                    // réseau valide. L'annulation structurée reste propagée.
+                    runSuspendCatching {
+                        context.vigilanceDataStore.edit { prefs ->
+                            prefs[key] = json.encodeToString(
+                                VigilanceCacheRecord.serializer(),
+                                VigilanceCacheRecord(now.toEpochMilli(), response)
+                            )
+                        }
+                    }.onFailure { error ->
+                        android.util.Log.w(
+                            "MeteoCompare/Vigilance",
+                            "Vigilance cache write failed for department=$department",
+                            error
+                        )
+                    }
+                    ApiResult.Success(domain)
+                }
+                is ApiResult.Error -> {
+                    cached?.takeIf {
+                        cachedAge != null && VigilanceCachePolicy.isUsableFallback(cachedAge)
+                    }
+                        ?.let { ApiResult.Success(it.copy(isStale = true, evaluationTime = now)) }
+                        ?: result
+                }
             }
         }
     }
@@ -161,10 +197,14 @@ internal object VigilanceCachePolicy {
     val MAX_STALE_AGE: Duration = Duration.ofHours(6)
 
     fun isFresh(age: Duration): Boolean =
-        !age.isNegative && age <= FRESH_CACHE_AGE
+        normalizedAge(age) <= FRESH_CACHE_AGE
 
     fun isUsableFallback(age: Duration): Boolean =
-        !age.isNegative && age <= MAX_STALE_AGE
+        normalizedAge(age) <= MAX_STALE_AGE
+
+    /** Voir MarineCachePolicy : un recul d'horloge ne doit pas créer une boucle réseau. */
+    private fun normalizedAge(age: Duration): Duration =
+        if (age.isNegative) Duration.ZERO else age
 }
 
 internal fun isVigilanceDepartmentStillUsed(

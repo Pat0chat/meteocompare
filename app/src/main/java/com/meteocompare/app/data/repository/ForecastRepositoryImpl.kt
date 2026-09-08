@@ -184,7 +184,16 @@ class ForecastRepositoryImpl @Inject constructor(
                 created
             }
         }
-        return deferred.await()
+        return runSuspendCatching { deferred.await() }
+            .getOrElse { error ->
+                // [fetchAndCache] convertit déjà les erreurs réseau et de
+                // parsing attendues. Ce dernier garde couvre les dépendances
+                // inattendues (horloge, monitor, Room...) afin que tous les
+                // consommateurs reçoivent un état terminal plutôt qu'un Flow
+                // interrompu alors que leur UI affiche encore Loading.
+                android.util.Log.w(LOG_TAG, "Unexpected forecast refresh failure", error)
+                ApiResult.Error(error, error.toUserMessage(context))
+            }
     }
 
     override fun getCityForecastStream(
@@ -200,7 +209,7 @@ class ForecastRepositoryImpl @Inject constructor(
 
         // ── Étape 1 : émission immédiate depuis le cache (si non forcé) ──
         if (!forceRefresh) {
-            val cached = readCache(city, models)
+            val cached = readCacheSafely(city, models)
             if (cached != null) {
                 hasCached = true
                 cachedFetchedAtMs = cached.oldestFetchedAtMs
@@ -246,7 +255,7 @@ class ForecastRepositoryImpl @Inject constructor(
                     // Pas de cache pour adoucir l'échec → on remonte l'erreur.
                     // Mais on essaie une dernière fois de lire le cache, au cas
                     // où on avait forceRefresh=true et il existe quand même.
-                    val fallback = readCache(city, models)
+                    val fallback = readCacheSafely(city, models)
                     if (fallback != null) emit(ApiResult.Success(fallback.forecast))
                     else emit(networkResult)
                 }
@@ -296,6 +305,20 @@ class ForecastRepositoryImpl @Inject constructor(
     // ──────────────────────────────────────────────────────────────────────
     //  Internals
     // ──────────────────────────────────────────────────────────────────────
+
+    /**
+     * Une indisponibilité ponctuelle de Room ne doit ni tuer le Flow ni laisser
+     * un écran ou un widget bloqué en chargement. Le chemin normal tentera
+     * ensuite le réseau et produira un [ApiResult] explicite.
+     */
+    private suspend fun readCacheSafely(
+        city: City,
+        models: List<WeatherModel>
+    ): CachedForecast? = runSuspendCatching {
+        readCache(city, models)
+    }.onFailure { error ->
+        android.util.Log.w(LOG_TAG, "Forecast cache read failed for city=${city.id}", error)
+    }.getOrNull()
 
     /**
      * Récupère TOUS les modèles depuis le cache pour cette ville et les
@@ -429,7 +452,13 @@ class ForecastRepositoryImpl @Inject constructor(
         models: List<WeatherModel>,
         forecastDays: Int
     ): ApiResult<CityForecast> = withContext(ioDispatcher) {
-        require(models.isNotEmpty()) { "models must not be empty" }
+        if (models.isEmpty()) {
+            val error = IllegalArgumentException("models must not be empty")
+            return@withContext ApiResult.Error(
+                error,
+                context.getString(R.string.error_no_model_available)
+            )
+        }
 
         // Court-circuit hors-ligne : évite un timeout de 15s pour rien.
         if (!networkMonitor.isOnline()) {
@@ -480,27 +509,32 @@ class ForecastRepositoryImpl @Inject constructor(
         // Parsing, split, mapping et ré-encodage JSON sont du travail CPU :
         // ils tournent sur Default, borné par le nombre de cœurs, et non sur
         // le pool I/O élastique.
-        val processed = withContext(computationDispatcher) {
-            val perModelDtos = BatchedForecastSplitter.split(batched, models)
-            val successes = perModelDtos.mapValues { (model, dto) ->
-                mapper.toSeries(model, dto).also { series ->
-                    logSeriesDiagnostics(series, source = "network")
+        val processed = runSuspendCatching {
+            withContext(computationDispatcher) {
+                val perModelDtos = BatchedForecastSplitter.split(batched, models)
+                val successes = perModelDtos.mapValues { (model, dto) ->
+                    mapper.toSeries(model, dto).also { series ->
+                        logSeriesDiagnostics(series, source = "network")
+                    }
                 }
+                val cacheEntries = perModelDtos.map { (model, dto) ->
+                    ForecastCacheEntity(
+                        cityId = city.id,
+                        modelKey = model.apiKey,
+                        fetchedAtEpochMs = now,
+                        responseJson = json.encodeToString(
+                            ForecastResponseDto.serializer(),
+                            dto
+                        ),
+                        sourceApiKey = model.apiKey,
+                        resolutionKm = model.resolutionKm
+                    )
+                }
+                ProcessedForecast(perModelDtos, successes, cacheEntries)
             }
-            val cacheEntries = perModelDtos.map { (model, dto) ->
-                ForecastCacheEntity(
-                    cityId = city.id,
-                    modelKey = model.apiKey,
-                    fetchedAtEpochMs = now,
-                    responseJson = json.encodeToString(
-                        ForecastResponseDto.serializer(),
-                        dto
-                    ),
-                    sourceApiKey = model.apiKey,
-                    resolutionKm = model.resolutionKm
-                )
-            }
-            ProcessedForecast(perModelDtos, successes, cacheEntries)
+        }.getOrElse { error ->
+            android.util.Log.w(LOG_TAG, "Forecast response processing failed", error)
+            return@withContext ApiResult.Error(error, error.toUserMessage(context))
         }
         val perModelDtos = processed.dtos
         val successes = processed.series

@@ -436,7 +436,7 @@ private fun ValueWidgetError(
         WidgetError.CityNoLongerInFavorites ->
             context.getString(R.string.widget_error_city_gone) to
                 context.getString(R.string.widget_value_open_app)
-        is WidgetError.Fetch ->
+        WidgetError.Fetch ->
             (data.cityName ?: context.getString(R.string.app_name)) to
                 context.getString(R.string.widget_error_fetch)
         null -> "" to ""

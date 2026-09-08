@@ -282,6 +282,23 @@ class CityDetailViewModelTest {
             }
         }
 
+    @Test
+    fun `setSectionExpanded - une erreur de persistance produit un feedback terminal`() =
+        runViewModelTest {
+            coEvery {
+                prefs.setCityDetailSectionCollapsed(
+                    paris.id,
+                    CityDetailSection.PRECIPITATION,
+                    true
+                )
+            } throws IllegalStateException("datastore unavailable")
+            val vm = buildViewModel()
+
+            vm.refreshFeedback.test {
+                vm.setSectionExpanded(CityDetailSection.PRECIPITATION, expanded = false)
+                assertEquals(RefreshFeedback.SettingsSaveError, awaitItem())
+            }
+        }
 
     @Test
     fun `detail preferences - expose et persiste le mode et l onglet`() =
@@ -395,6 +412,19 @@ class CityDetailViewModelTest {
         }
     }
 
+    @Test
+    fun `loadInitial - unexpected stream failure reaches a terminal error`() =
+        runViewModelTest {
+            coEvery {
+                forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
+            } returns flow { throw IllegalStateException("room unavailable") }
+
+            val vm = buildViewModel()
+            runCurrent()
+
+            assertEquals(CityDetailUiState.Error("stubbed-message"), vm.state.value)
+        }
+
 
     @Test
     fun `evolution - first fresh forecast exposes building history without failing city detail`() =
@@ -459,6 +489,24 @@ class CityDetailViewModelTest {
             } returns flowOf(ApiResult.Success(forecast))
             coEvery { evolutionRepo.getPreviousForecasts(any(), any(), any(), any(), any()) } returns
                 ApiResult.Error(IllegalStateException("history unavailable"), "history unavailable")
+
+            val vm = buildViewModel()
+            runCurrent()
+
+            assertTrue(vm.state.value is CityDetailUiState.Loaded)
+            assertTrue(vm.evolutionState.value is ForecastEvolutionState.Error)
+        }
+
+    @Test
+    fun `evolution - unexpected local failure reaches a terminal error state`() =
+        runViewModelTest {
+            val forecast = buildForecast(paris).copy(fetchedAt = testNow)
+            coEvery {
+                forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
+            } returns flowOf(ApiResult.Success(forecast))
+            coEvery {
+                evolutionRepo.getPreviousForecasts(any(), any(), any(), any(), any())
+            } throws IllegalStateException("room unavailable")
 
             val vm = buildViewModel()
             runCurrent()
@@ -763,6 +811,37 @@ class CityDetailViewModelTest {
             forecastRepo.refreshCityForecast(any(), any(), any())
         }
     }
+
+    @Test
+    fun `retour au premier plan revalide aussi la vigilance details`() = runViewModelTest {
+        val vm = buildViewModel()
+        runCurrent()
+
+        coVerify(exactly = 1) {
+            vigilanceRepo.getVigilance(eq(paris), eq(false), eq(false))
+        }
+
+        vm.refreshIfStale()
+        runCurrent()
+
+        coVerify(exactly = 2) {
+            vigilanceRepo.getVigilance(eq(paris), eq(false), eq(false))
+        }
+    }
+
+    @Test
+    fun `exception inattendue pendant refresh rend toujours le spinner terminal`() =
+        runViewModelTest {
+            coEvery { forecastRepo.refreshCityForecast(eq(paris), any(), any()) } throws
+                IllegalStateException("boom")
+            val vm = buildViewModel()
+
+            vm.refreshFeedback.test {
+                vm.refresh()
+                assertTrue(awaitItem() is RefreshFeedback.Error)
+                assertEquals(false, vm.isRefreshing.value)
+            }
+        }
 
     @Test
     fun `refresh externe - ignore autre ville et valeur plus ancienne`() = runViewModelTest {

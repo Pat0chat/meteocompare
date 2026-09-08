@@ -50,7 +50,7 @@ open class MeteoWidgetReceiver : GlanceAppWidgetReceiver() {
         super.onEnabled(context)
         // KEEP est idempotent : un autre receiver peut rappeler schedule
         // sans créer ni remplacer le worker périodique existant.
-        WidgetRefreshScheduler.schedule(context)
+        scheduleRefreshSafely(context, immediate = false)
     }
 
     override fun onUpdate(
@@ -64,9 +64,9 @@ open class MeteoWidgetReceiver : GlanceAppWidgetReceiver() {
         // MIUI). Le job one-shot forcé incrémente RefreshTickKey et pousse
         // explicitement les RemoteViews ; REPLACE déduplique une éventuelle
         // rafale de callbacks de plusieurs providers.
-        WidgetRefreshScheduler.schedule(context)
+        scheduleRefreshSafely(context, immediate = false)
         super.onUpdate(context, appWidgetManager, appWidgetIds)
-        WidgetRefreshScheduler.triggerImmediateRefresh(context)
+        scheduleRefreshSafely(context, immediate = true)
     }
 
     override fun onRestored(
@@ -77,9 +77,9 @@ open class MeteoWidgetReceiver : GlanceAppWidgetReceiver() {
         // Après restauration sur un nouveau téléphone, la base WorkManager
         // n'est pas forcément restaurée avec les AppWidgetIds. Replanifier ici
         // évite un widget figé jusqu'au prochain lancement de l'application.
-        WidgetRefreshScheduler.schedule(context)
+        scheduleRefreshSafely(context, immediate = false)
         super.onRestored(context, oldWidgetIds, newWidgetIds)
-        WidgetRefreshScheduler.triggerImmediateRefresh(context)
+        scheduleRefreshSafely(context, immediate = true)
     }
 
     override fun onDisabled(context: Context) {
@@ -104,6 +104,20 @@ open class MeteoWidgetReceiver : GlanceAppWidgetReceiver() {
 
     override fun onDeleted(context: Context, appWidgetIds: IntArray) {
         super.onDeleted(context, appWidgetIds)
+    }
+}
+
+/** Les callbacks BroadcastReceiver ne doivent pas crasher sur une panne WorkManager. */
+private fun scheduleRefreshSafely(context: Context, immediate: Boolean) {
+    runCatching {
+        if (immediate) WidgetRefreshScheduler.triggerImmediateRefresh(context)
+        else WidgetRefreshScheduler.schedule(context)
+    }.onFailure { error ->
+        android.util.Log.w(
+            "MeteoCompare/Widget",
+            "Unable to ${if (immediate) "trigger" else "schedule"} widget refresh",
+            error
+        )
     }
 }
 

@@ -482,71 +482,16 @@ private fun EvolutionTrendChart(
     val currentGuideColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.42f)
 
     Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        color = accent.copy(alpha = 0.055f),
-        border = BorderStroke(1.dp, accent.copy(alpha = 0.16f))
+        modifier = Modifier.fillMaxWidth()
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 11.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(28.dp)
-                            .background(accent.copy(alpha = 0.13f), RoundedCornerShape(9.dp)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = variableIcon(evolution.variable),
-                            contentDescription = null,
-                            tint = accent,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = stringResource(variableLabel(evolution.variable)),
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-                Surface(
-                    shape = RoundedCornerShape(999.dp),
-                    color = accent.copy(alpha = 0.13f)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(5.dp)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.forecast_evolution_now),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = formatEvolutionValue(currentValue, evolution.variable, locale),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = accent,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
-
             Row(modifier = Modifier.fillMaxWidth()) {
                 Column(
                     modifier = Modifier
-                        .width(48.dp)
-                        .height(148.dp)
-                        .padding(vertical = 8.dp),
+                        .width(32.dp)
+                        .height(148.dp),
                     verticalArrangement = Arrangement.SpaceBetween,
                     horizontalAlignment = Alignment.End
                 ) {
@@ -571,7 +516,6 @@ private fun EvolutionTrendChart(
                     modifier = Modifier
                         .weight(1f)
                         .height(148.dp)
-                        .padding(vertical = 8.dp)
                 ) {
                     val left = 5.dp.toPx()
                     val right = size.width - 5.dp.toPx()
@@ -797,13 +741,13 @@ private fun EvolutionSnapshotValues(
     val snapshots = evolution.allSnapshotsChronological
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(5.dp)
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         snapshots.forEachIndexed { index, snapshot ->
             val isCurrent = index == snapshots.lastIndex
             Surface(
                 modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(11.dp),
+                shape = RoundedCornerShape(14.dp),
                 color = if (isCurrent) accent.copy(alpha = 0.13f)
                 else MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
                 border = BorderStroke(
@@ -813,7 +757,7 @@ private fun EvolutionSnapshotValues(
                 )
             ) {
                 Column(
-                    modifier = Modifier.padding(horizontal = 3.dp, vertical = 7.dp),
+                    modifier = Modifier.padding(horizontal = 0.dp, vertical = 4.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(

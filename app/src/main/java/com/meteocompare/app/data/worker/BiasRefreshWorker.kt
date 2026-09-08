@@ -257,7 +257,13 @@ internal class BiasRefreshWorker(
     params: WorkerParameters
 ) : CoroutineWorker(context, params) {
 
-    override suspend fun doWork(): Result = RUN_MUTEX.withLock {
+    override suspend fun doWork(): Result = runSuspendCatching { doWorkLocked() }
+        .getOrElse { error ->
+            Log.w(LOG_TAG, "Unexpected bias worker failure", error)
+            Result.retry()
+        }
+
+    private suspend fun doWorkLocked(): Result = RUN_MUTEX.withLock {
         val ctx = applicationContext
 
         // Défense en profondeur : le scheduler filtre déjà les kickoffs récents,

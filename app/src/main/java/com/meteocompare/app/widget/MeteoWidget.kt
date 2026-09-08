@@ -1614,13 +1614,13 @@ private fun ErrorLayout(
         WidgetError.NotConfigured -> ctx.getString(R.string.widget_error_not_configured)
         WidgetError.Loading -> ctx.getString(R.string.widget_error_loading)
         WidgetError.CityNoLongerInFavorites -> ctx.getString(R.string.widget_error_city_gone)
-        is WidgetError.Fetch -> ctx.getString(R.string.widget_error_fetch)
+        WidgetError.Fetch -> ctx.getString(R.string.widget_error_fetch)
     }
     val symbol = when (error) {
         WidgetError.NotConfigured -> "+"
         WidgetError.Loading -> "↻"
         WidgetError.CityNoLongerInFavorites -> "⌂"
-        is WidgetError.Fetch -> "!"
+        WidgetError.Fetch -> "!"
     }
     val ultraTiny = widthDp < 68f || heightDp < 58f
     val tiny = widthDp < TINY_MAX_WIDTH_DP && heightDp < TINY_MAX_HEIGHT_DP

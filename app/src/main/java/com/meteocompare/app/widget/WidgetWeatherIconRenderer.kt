@@ -184,27 +184,6 @@ internal object WidgetWeatherIconRenderer {
         }
     }
 
-    private fun drawDrop(canvas: Canvas, scale: Float, cx: Float, cy: Float, size: Float, topColor: Int, bottomColor: Int) {
-        fun f(v: Float) = v * scale
-        val path = Path().apply {
-            moveTo(f(cx), f(cy - size))
-            cubicTo(f(cx + size * 0.12f), f(cy - size * 0.52f), f(cx + size * 0.62f), f(cy - size * 0.08f), f(cx + size * 0.58f), f(cy + size * 0.34f))
-            cubicTo(f(cx + size * 0.54f), f(cy + size * 0.90f), f(cx + size * 0.22f), f(cy + size), f(cx), f(cy + size))
-            cubicTo(f(cx - size * 0.22f), f(cy + size), f(cx - size * 0.54f), f(cy + size * 0.90f), f(cx - size * 0.58f), f(cy + size * 0.34f))
-            cubicTo(f(cx - size * 0.62f), f(cy - size * 0.08f), f(cx - size * 0.12f), f(cy - size * 0.52f), f(cx), f(cy - size))
-            close()
-        }
-        val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            shader = android.graphics.LinearGradient(
-                f(cx), f(cy - size), f(cx), f(cy + size),
-                topColor, bottomColor, android.graphics.Shader.TileMode.CLAMP
-            )
-            style = Paint.Style.FILL
-        }
-        canvas.drawPath(path, fill)
-        canvas.drawPath(path, stroke(adjustAlpha(bottomColor, 0.28f), 0.75f * scale))
-    }
-
     private fun drawLines(canvas: Canvas, scale: Float, color: Int, segments: List<FloatArray>, width: Float) {
         fun f(v: Float) = v * scale
         val p = Paint(Paint.ANTI_ALIAS_FLAG).apply {

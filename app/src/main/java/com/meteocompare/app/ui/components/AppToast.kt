@@ -261,8 +261,7 @@ internal fun AppToastCard(
         shape = RoundedCornerShape(14.dp),
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         contentColor = MaterialTheme.colorScheme.onSurface,
-        border = BorderStroke(1.dp, accent.copy(alpha = 0.30f)),
-        tonalElevation = 1.dp
+        border = BorderStroke(1.dp, accent.copy(alpha = 0.30f))
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 11.dp),

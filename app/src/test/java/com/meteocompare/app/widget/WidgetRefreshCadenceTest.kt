@@ -61,4 +61,14 @@ class WidgetRefreshCadenceTest {
             )
         )
     }
+
+    @Test
+    fun `cle de refresh progresse meme dans la meme milliseconde`() {
+        assertEquals(10_001L, nextWidgetRefreshTick(previousTickMs = 10_000L, nowMs = 10_000L))
+    }
+
+    @Test
+    fun `cle de refresh reste monotone apres un recul dhorloge`() {
+        assertEquals(10_001L, nextWidgetRefreshTick(previousTickMs = 10_000L, nowMs = 5_000L))
+    }
 }

@@ -568,12 +568,6 @@ private fun DrawScope.drawRain(
     val cloudDx = wave(progress, cycles = 1f) * 1.2f * unit * motionScale
     val cloudDy = wave(progress, cycles = 2f, phase = 0.2f) * 0.45f * unit * motionScale
 
-    drawGlow(
-        center = point(50f, 57f, unit),
-        radius = 37f * unit,
-        color = palette.rainLight,
-        alpha = 0.08f
-    )
     drawCloud(
         center = point(50f, 39f, unit) + Offset(cloudDx, cloudDy),
         scale = 1.00f,
@@ -635,12 +629,6 @@ private fun DrawScope.drawFreezingRain(
     unit: Float
 ) {
     val cloudDx = wave(progress, cycles = 1f) * 1f * unit * motionScale
-    drawGlow(
-        center = point(50f, 58f, unit),
-        radius = 38f * unit,
-        color = palette.alert,
-        alpha = 0.12f
-    )
     drawCloud(
         center = point(50f, 39f, unit) + Offset(cloudDx, 0f),
         scale = 1f,
@@ -746,13 +734,6 @@ private fun DrawScope.drawThunderstorm(
         0f
     }
 
-    drawGlow(
-        center = point(52f, 59f, unit),
-        radius = (30f + 8f * flash) * unit,
-        color = palette.lightning,
-        alpha = 0.05f + 0.26f * flash
-    )
-
     drawCloud(
         center = point(50f, 38f, unit) + Offset(cloudDx + shake, 0f),
         scale = 1.03f,
@@ -792,12 +773,6 @@ private fun DrawScope.drawUnknown(
     val floatY = wave(progress, cycles = 1f) * 1.2f * unit * motionScale
     val center = point(50f, 49f, unit) + Offset(0f, floatY)
 
-    drawGlow(
-        center = center,
-        radius = 34f * unit,
-        color = palette.cloudMid,
-        alpha = 0.10f
-    )
     drawCircle(
         brush = Brush.radialGradient(
             colors = listOf(
@@ -1047,69 +1022,6 @@ private fun DrawScope.drawRainStreaks(
     }
 }
 
-private fun DrawScope.drawDrop(
-    center: Offset,
-    size: Float,
-    colorTop: Color,
-    colorBottom: Color
-) {
-    val path = Path().apply {
-        moveTo(center.x, center.y - size)
-        cubicTo(
-            center.x + size * 0.12f,
-            center.y - size * 0.52f,
-            center.x + size * 0.62f,
-            center.y - size * 0.08f,
-            center.x + size * 0.58f,
-            center.y + size * 0.34f
-        )
-        cubicTo(
-            center.x + size * 0.54f,
-            center.y + size * 0.90f,
-            center.x + size * 0.22f,
-            center.y + size,
-            center.x,
-            center.y + size
-        )
-        cubicTo(
-            center.x - size * 0.22f,
-            center.y + size,
-            center.x - size * 0.54f,
-            center.y + size * 0.90f,
-            center.x - size * 0.58f,
-            center.y + size * 0.34f
-        )
-        cubicTo(
-            center.x - size * 0.62f,
-            center.y - size * 0.08f,
-            center.x - size * 0.12f,
-            center.y - size * 0.52f,
-            center.x,
-            center.y - size
-        )
-        close()
-    }
-
-    drawPath(
-        path = path,
-        brush = Brush.linearGradient(
-            colors = listOf(colorTop, colorBottom),
-            start = center - Offset(0f, size),
-            end = center + Offset(0f, size)
-        )
-    )
-    drawPath(
-        path = path,
-        color = blend(colorBottom, Color.Black.copy(alpha = colorBottom.alpha), 0.12f),
-        style = Stroke(width = snappedStroke(size * 0.18f), join = StrokeJoin.Round)
-    )
-    drawCircle(
-        color = Color.White.copy(alpha = colorTop.alpha * 0.20f),
-        radius = size * 0.11f,
-        center = snap(center - Offset(size * 0.18f, size * 0.24f))
-    )
-}
-
 private fun DrawScope.drawSnowflakes(
     progress: Float,
     palette: WeatherIconPalette,
@@ -1215,23 +1127,6 @@ private fun DrawScope.drawLightning(
     )
     drawPath(path = path, color = color)
 }
-
-private fun DrawScope.drawGlow(
-    center: Offset,
-    radius: Float,
-    color: Color,
-    alpha: Float
-) {
-    // Désactivé : même un halo très discret autour du soleil pouvait être
-    // perçu comme un rond disgracieux englobant les rayons.
-}
-
-private data class RainSpec(
-    val x: Float,
-    val phase: Float,
-    val speed: Float,
-    val size: Float
-)
 
 private data class SnowSpec(
     val x: Float,

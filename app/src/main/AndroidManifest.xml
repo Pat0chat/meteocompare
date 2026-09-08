@@ -3,7 +3,8 @@
 
     <!--
         Permissions minimales — strictement nécessaires au fonctionnement.
-        INTERNET : requise pour les requêtes Open-Meteo (seul backend utilisé).
+        INTERNET : requise pour les services météo configurés (Open-Meteo et
+        backend MeteoCompare pour la vigilance).
         ACCESS_NETWORK_STATE : permet de court-circuiter immédiatement les
         requêtes quand aucun réseau Internet validé n'est disponible.
     -->

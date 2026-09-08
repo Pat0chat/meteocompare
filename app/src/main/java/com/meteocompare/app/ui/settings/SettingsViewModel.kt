@@ -80,37 +80,23 @@ class SettingsViewModel @Inject constructor(
             // On sérialise donc les mutations et on relit la source de vérité
             // dans la section critique, sinon deux toggles rapprochés peuvent
             // se réécrire mutuellement à partir d'un StateFlow encore ancien.
-            val feedback = modelUpdateMutex.withLock {
-                val current = prefs.observeEnabledModels().first().toSet()
-                val next = if (enabled) current + model else current - model
-                if (next.isNotEmpty()) {
-                    runSuspendCatching {
+            val feedback = runSuspendCatching {
+                modelUpdateMutex.withLock {
+                    val current = prefs.observeEnabledModels().first().toSet()
+                    val next = if (enabled) current + model else current - model
+                    if (next.isNotEmpty()) {
                         prefs.setEnabledModels(next.toList())
-                        // Le widget lit la liste des modèles activés à chaque
-                        // loadWidgetData. Sans ce trigger, il faudrait attendre le
-                        // prochain tick 15 min pour que le changement se propage —
-                        // frustrant pour l'utilisateur qui vient de faire un choix
-                        // explicite. On force un tick immédiat pour re-fetcher avec
-                        // le nouveau jeu de modèles tout de suite.
-                        //
-                        // Les demandes immédiates sont dédupliquées sous un nom
-                        // WorkManager unique : plusieurs toggles rapides remplacent
-                        // le tick précédent au lieu d'empiler des workers.
-                        WidgetRefreshScheduler.triggerImmediateRefresh(appContext)
-                    }.fold(
-                        onSuccess = {
-                            AppToastEvent.success(
-                                if (enabled) R.string.toast_model_enabled
-                                else R.string.toast_model_disabled,
-                                model.displayName
-                            )
-                        },
-                        onFailure = { AppToastEvent.error(R.string.toast_settings_save_error) }
-                    )
-                } else {
-                    AppToastEvent.warning(R.string.settings_models_min_warning)
+                        triggerWidgetRefreshSafely()
+                        AppToastEvent.success(
+                            if (enabled) R.string.toast_model_enabled
+                            else R.string.toast_model_disabled,
+                            model.displayName
+                        )
+                    } else {
+                        AppToastEvent.warning(R.string.settings_models_min_warning)
+                    }
                 }
-            }
+            }.getOrElse { AppToastEvent.error(R.string.toast_settings_save_error) }
             _feedback.send(feedback)
         }
     }
@@ -162,44 +148,24 @@ class SettingsViewModel @Inject constructor(
      * Persiste le nouvel intervalle de rafraîchissement et propage
      * immédiatement le changement au widget.
      *
-     * ─── Ce qui a changé vs version précédente ──────────────────────────
-     * Avant : on re-programmait le worker WorkManager avec la nouvelle
-     * cadence. Ça avait deux inconvénients :
-     *   - Coupler la fréquence du tick d'affichage à un choix qui
-     *     concerne le fetch réseau. Résultat : en HOURS_3, les labels
-     *     d'heure du widget ne shiftaient qu'une fois toutes les 3h,
-     *     alors que l'utilisateur voulait juste "moins de fetch".
-     *   - Recréer un job périodique à chaque toggle utilisateur.
-     *
-     * Maintenant : la cadence tick est fixe (15 min), la RefreshInterval
-     * sert UNIQUEMENT de seuil `maxCacheAgeMs` lu dynamiquement par
-     * loadWidgetData à chaque tick. Il suffit donc de forcer un tick
-     * immédiat pour que la nouvelle valeur soit prise en compte tout de
-     * suite (sinon jusqu'à 15 min de latence).
-     *
-     * ─── Pourquoi côté VM et pas repository ? ───────────────────────────
-     * Le repository est un pur data holder ; il ne connaît pas WorkManager.
-     * On garde ce couplage explicit du côté de la VM (couche présentation)
-     * plutôt que d'introduire une dépendance repository → WorkManager qui
-     * casserait la testabilité pure du DataStore layer.
-     *
-     * Note : on trigger APRÈS que le DataStore ait persisté la valeur,
-     * sinon le tick qu'on vient de forcer lirait l'ancienne valeur pour
-     * le seuil de fraîcheur cache.
+     * La cadence de présentation du widget reste fixe à 15 minutes ; ce
+     * réglage pilote uniquement `maxCacheAgeMs`. Le tick est déclenché après
+     * la persistance afin qu'il relise immédiatement la nouvelle politique.
      */
     fun onRefreshIntervalSelected(interval: RefreshInterval) {
         viewModelScope.launch {
             val feedback = runSuspendCatching {
                 prefs.setRefreshInterval(interval)
-                WidgetRefreshScheduler.triggerImmediateRefresh(appContext)
             }.fold(
-                onSuccess = { AppToastEvent.success(R.string.toast_refresh_interval_updated) },
+                onSuccess = {
+                    triggerWidgetRefreshSafely()
+                    AppToastEvent.success(R.string.toast_refresh_interval_updated)
+                },
                 onFailure = { AppToastEvent.error(R.string.toast_settings_save_error) }
             )
             _feedback.send(feedback)
         }
     }
-
 
     /**
      * Change uniquement la stratégie de centrale : aucune requête réseau n'est
@@ -210,12 +176,31 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             val feedback = runSuspendCatching {
                 prefs.setForecastEngine(engine)
-                WidgetRefreshScheduler.triggerImmediateRefresh(appContext)
             }.fold(
-                onSuccess = { AppToastEvent.success(R.string.toast_forecast_engine_updated) },
+                onSuccess = {
+                    triggerWidgetRefreshSafely()
+                    AppToastEvent.success(R.string.toast_forecast_engine_updated)
+                },
                 onFailure = { AppToastEvent.error(R.string.toast_settings_save_error) }
             )
             _feedback.send(feedback)
+        }
+    }
+
+    /**
+     * L'écriture DataStore est le résultat métier. La propagation immédiate au
+     * widget est best-effort : une panne WorkManager ne doit pas faire croire
+     * que le réglage n'a pas été enregistré. Le prochain tick le relira.
+     */
+    private fun triggerWidgetRefreshSafely() {
+        runCatching {
+            WidgetRefreshScheduler.triggerImmediateRefresh(appContext)
+        }.onFailure { error ->
+            android.util.Log.w(
+                "MeteoCompare/Widget",
+                "Unable to propagate settings to widgets immediately",
+                error
+            )
         }
     }
 }

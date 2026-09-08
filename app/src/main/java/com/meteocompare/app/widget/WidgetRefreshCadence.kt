@@ -31,3 +31,18 @@ internal fun isWidgetDispatchDue(
     val cadence = widgetDispatchIntervalMs()
     return nowMs / cadence > lastDispatchAtMs / cadence
 }
+
+/**
+ * Produit une clé strictement croissante pour `LaunchedEffect`.
+ *
+ * Deux refreshs forcés peuvent tomber dans la même milliseconde, et une
+ * correction d'horloge peut faire reculer `nowMs`. Utiliser directement
+ * l'heure laisserait alors la clé inchangée (ou plus ancienne) et certains
+ * hosts Glance pourraient conserver le rendu précédent.
+ */
+internal fun nextWidgetRefreshTick(previousTickMs: Long?, nowMs: Long): Long = when {
+    previousTickMs == null -> nowMs
+    nowMs > previousTickMs -> nowMs
+    previousTickMs < Long.MAX_VALUE -> previousTickMs + 1L
+    else -> Long.MAX_VALUE
+}

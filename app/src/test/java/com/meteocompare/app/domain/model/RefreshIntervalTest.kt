@@ -11,11 +11,9 @@ import java.time.Duration
  *  - `fromString` fait le round-trip identité pour toute valeur connue
  *  - `fromString` tombe sur [RefreshInterval.DEFAULT] pour valeurs inconnues
  *    ou null (protection contre les migrations DataStore malformées)
- *  - `millis` = valeur du Duration en millisecondes (invariant essentiel :
- *    utilisé comme `maxCacheAgeMs` dans le repository et comme cadence
- *    WorkManager — une erreur d'unité biaiserait tous les rafraîchissements)
- *  - `MANUAL.duration == Duration.ZERO` — invariant utilisé pour distinguer
- *    "annuler le worker" de "programmer avec cadence courte"
+ *  - `millis` = valeur du Duration en millisecondes (invariant essentiel du
+ *    seuil réseau `maxCacheAgeMs`; le tick WorkManager reste fixe à 15 min)
+ *  - `maxCacheAgeMs` traduit MANUAL en cache illimité pour tous les consumers
  */
 class RefreshIntervalTest {
 
@@ -58,11 +56,19 @@ class RefreshIntervalTest {
 
     @Test
     fun `MANUAL - duration est ZERO`() {
-        // Contrat : le scheduler détecte MANUAL par duration ZERO
-        // (annuler le worker au lieu de programmer une cadence 0 qui
-        // serait ambigüe). Ne pas changer sans mettre à jour le scheduler.
+        // Valeur de domaine neutre. La politique réseau effective est portée
+        // par maxCacheAgeMs ; le worker conserve son tick de présentation.
         assertEquals(Duration.ZERO, RefreshInterval.MANUAL.duration)
         assertEquals(0L, RefreshInterval.MANUAL.millis)
+    }
+
+    @Test
+    fun `maxCacheAgeMs - manuel conserve tout cache existant`() {
+        assertEquals(Long.MAX_VALUE, RefreshInterval.MANUAL.maxCacheAgeMs)
+        assertEquals(
+            RefreshInterval.HOURS_3.millis,
+            RefreshInterval.HOURS_3.maxCacheAgeMs
+        )
     }
 
     @Test

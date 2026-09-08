@@ -8,6 +8,7 @@ import com.meteocompare.app.R
 import com.meteocompare.app.core.util.localDateIn
 import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.core.network.NetworkMonitor
+import com.meteocompare.app.core.network.toUserMessage
 import com.meteocompare.app.core.util.runSuspendCatching
 import com.meteocompare.app.domain.model.BiasSample
 import com.meteocompare.app.domain.model.BiasVariable
@@ -41,6 +42,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -71,10 +73,10 @@ import java.time.LocalDate
 import javax.inject.Inject
 
 /**
- * Événement one-shot du résultat d'un refresh manuel.
+ * Événement one-shot produit par une action de la page Détails.
  *
  * Différent du state (`isRefreshing`, `state`) : on veut afficher une notification
- * UNE seule fois par refresh et qu'elle disparaisse. Si on stockait ça dans
+ * UNE seule fois par action et qu'elle disparaisse. Si on stockait ça dans
  * un StateFlow, un changement de configuration (rotation, dark mode toggle)
  * relancerait le toast — pas voulu.
  */
@@ -84,6 +86,7 @@ sealed interface RefreshFeedback {
     data object MarineRefreshed : RefreshFeedback
     data object MarineNotCoastal : RefreshFeedback
     data class MarineError(val message: String) : RefreshFeedback
+    data object SettingsSaveError : RefreshFeedback
 }
 
 @HiltViewModel
@@ -239,7 +242,16 @@ class CityDetailViewModel @Inject constructor(
      */
     private fun observePresentationTime() {
         viewModelScope.launch {
-            forecastPresentationTicks(clock).collect(::recalculatePresentation)
+            forecastPresentationTicks(clock).collect { now ->
+                runSuspendCatching { recalculatePresentation(now) }
+                    .onFailure { error ->
+                        android.util.Log.w(
+                            "MeteoCompare/CityDetail",
+                            "Unable to update forecast presentation",
+                            error
+                        )
+                    }
+            }
         }
     }
 
@@ -278,7 +290,16 @@ class CityDetailViewModel @Inject constructor(
     private fun observeForecastEngineChanges() {
         viewModelScope.launch {
             combine(userPreferences.observeForecastEngine(), biasState) { engine, _ -> engine }
-                .collect { engine -> recalculateLoadedForecast(engine) }
+                .collect { engine ->
+                    runSuspendCatching { recalculateLoadedForecast(engine) }
+                        .onFailure { error ->
+                            android.util.Log.w(
+                                "MeteoCompare/CityDetail",
+                                "Unable to apply forecast engine change",
+                                error
+                            )
+                        }
+                }
         }
     }
 
@@ -295,7 +316,6 @@ class CityDetailViewModel @Inject constructor(
                 _isOnline.value = online
                 if (online && !wasOnline) {
                     refreshIfStale()
-                    findCity()?.let { city -> launchVigilanceLoad(city, forceRefresh = false) }
                 }
             }
         }
@@ -313,7 +333,14 @@ class CityDetailViewModel @Inject constructor(
         viewModelScope.launch(start = CoroutineStart.UNDISPATCHED) {
             forecastRepository.observeForecastUpdates().collect { forecast ->
                 if (forecast.city.id != cityId) return@collect
-                applyResult(ApiResult.Success(forecast))
+                runSuspendCatching { applyResult(ApiResult.Success(forecast)) }
+                    .onFailure { error ->
+                        android.util.Log.w(
+                            "MeteoCompare/CityDetail",
+                            "Unable to apply external forecast for city=$cityId",
+                            error
+                        )
+                    }
             }
         }
     }
@@ -431,63 +458,72 @@ class CityDetailViewModel @Inject constructor(
      */
     private fun loadInitial() {
         viewModelScope.launch {
-            val city = findCity() ?: run {
-                _state.value = CityDetailUiState.Error(
-                    context.getString(R.string.city_not_found_in_favorites)
-                )
-                return@launch
-            }
-            cityTimezone.value = city.timezone
-            launchVigilanceLoad(city, forceRefresh = false)
-            if (city.marineEnabled) launchMarineLoad(city, forceRefresh = false)
-
-            // Les repères historiques sont indépendantes du jeu de modèles météo, mais leur
-            // premier calcul peut télécharger dix années d'archives. On attend le
-            // premier forecast exploitable avant de les lancer afin de donner la
-            // priorité au contenu principal et à sa première frame.
-            var normalsStarted = false
-
-            // La page peut rester vivante dans la back stack pendant un passage
-            // par Settings. Modèles et intervalle doivent donc être observés,
-            // pas seulement lus une fois au démarrage. distinctUntilChanged
-            // évite toute relance lorsqu'une préférence sans rapport change.
-            combine(
-                userPreferences.observeEnabledModels(),
-                userPreferences.observeRefreshInterval()
-            ) { models, interval -> models to interval }
-                .distinctUntilChanged()
-                .flatMapLatest { (models, interval) ->
-                    policyRefreshJob?.cancel()
-                    manualRefreshJob?.cancel()
-                    forecastConfig = models to interval
-                    forecastConfigGeneration += 1L
-                    val generation = forecastConfigGeneration
-                    val maxCacheAgeMs = if (interval == RefreshInterval.MANUAL) {
-                        Long.MAX_VALUE
-                    } else {
-                        interval.millis
-                    }
-                    forecastRepository.getCityForecastStream(
-                        city = city,
-                        models = models,
-                        forecastDays = 7,
-                        maxCacheAgeMs = maxCacheAgeMs
-                    ).map { result -> Triple(generation, models.toSet(), result) }
-                }
-                .collect { (generation, models, result) ->
-                    applyResult(
-                        result = result,
-                        expectedConfigGeneration = generation,
-                        expectedModels = models
+            try {
+                val city = findCity() ?: run {
+                    _state.value = CityDetailUiState.Error(
+                        context.getString(R.string.city_not_found_in_favorites)
                     )
-                    if (!normalsStarted && result is ApiResult.Success) {
-                        normalsStarted = true
-                        // Le forecast porte le fuseau réparé par Open-Meteo.
-                        // Il doit aussi servir aux repères ERA5 pour les anciens
-                        // favoris dont le timezone était absent/invalide.
-                        launchNormalsLoad(result.data.city)
-                    }
+                    return@launch
                 }
+                cityTimezone.value = city.timezone
+                launchVigilanceLoad(city, forceRefresh = false)
+                if (city.marineEnabled) launchMarineLoad(city, forceRefresh = false)
+
+                // Les repères historiques sont indépendants du jeu de modèles météo,
+                // mais leur premier calcul peut télécharger dix années d'archives.
+                // On attend le premier forecast exploitable avant de les lancer afin
+                // de donner la priorité au contenu principal et à sa première frame.
+                var normalsStarted = false
+
+                // La page peut rester vivante dans la back stack pendant un passage
+                // par Settings. Modèles et intervalle doivent donc être observés,
+                // pas seulement lus une fois au démarrage. distinctUntilChanged
+                // évite toute relance lorsqu'une préférence sans rapport change.
+                combine(
+                    userPreferences.observeEnabledModels(),
+                    userPreferences.observeRefreshInterval()
+                ) { models, interval -> models to interval }
+                    .distinctUntilChanged()
+                    .flatMapLatest { (models, interval) ->
+                        policyRefreshJob?.cancel()
+                        manualRefreshJob?.cancel()
+                        forecastConfig = models to interval
+                        forecastConfigGeneration += 1L
+                        val generation = forecastConfigGeneration
+                        val maxCacheAgeMs = interval.maxCacheAgeMs
+                        forecastRepository.getCityForecastStream(
+                            city = city,
+                            models = models,
+                            forecastDays = 7,
+                            maxCacheAgeMs = maxCacheAgeMs
+                        ).map { result -> Triple(generation, models.toSet(), result) }
+                    }
+                    .collect { (generation, models, result) ->
+                        applyResult(
+                            result = result,
+                            expectedConfigGeneration = generation,
+                            expectedModels = models
+                        )
+                        if (!normalsStarted && result is ApiResult.Success) {
+                            normalsStarted = true
+                            // Le forecast porte le fuseau réparé par Open-Meteo.
+                            // Il doit aussi servir aux repères ERA5 pour les anciens
+                            // favoris dont le timezone était absent/invalide.
+                            launchNormalsLoad(result.data.city)
+                        }
+                    }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: Exception) {
+                android.util.Log.w(
+                    "MeteoCompare/CityDetail",
+                    "Initial forecast stream failed for city=$cityId",
+                    error
+                )
+                if (_state.value !is CityDetailUiState.Loaded) {
+                    _state.value = CityDetailUiState.Error(error.toUserMessage(context))
+                }
+            }
         }
     }
 
@@ -499,6 +535,15 @@ class CityDetailViewModel @Inject constructor(
     fun refreshIfStale() {
         // La vue courante est recalculée depuis le cache même hors connexion.
         viewModelScope.launch { recalculatePresentation(clock.instant()) }
+        // Vigilance et Mer / côte suivent leurs propres politiques de cache.
+        // Un retour au premier plan doit donc les revalider indépendamment du
+        // job forecast (qui peut déjà être actif ou être en mode MANUAL).
+        viewModelScope.launch {
+            findCity()?.let { city ->
+                launchVigilanceLoad(city, forceRefresh = false)
+                if (city.marineEnabled) launchMarineLoad(city, forceRefresh = false)
+            }
+        }
         // La relecture Room reste utile hors ligne ; seul le fetch HTTP est
         // bloqué plus bas par le repository et son NetworkMonitor.
         if (policyRefreshJob?.isActive == true) return
@@ -509,11 +554,7 @@ class CityDetailViewModel @Inject constructor(
             val expectedConfig = models to interval
             val expectedGeneration = forecastConfigGeneration
             if (forecastConfig != expectedConfig) return@launch
-            val maxCacheAgeMs = if (interval == RefreshInterval.MANUAL) {
-                Long.MAX_VALUE
-            } else {
-                interval.millis
-            }
+            val maxCacheAgeMs = interval.maxCacheAgeMs
             runSuspendCatching {
                 forecastRepository.getCityForecastStream(
                     city = city,
@@ -538,7 +579,7 @@ class CityDetailViewModel @Inject constructor(
      * réémet ensuite [collapsedSections], ce qui devient la source de vérité UI.
      */
     fun setSectionExpanded(section: CityDetailSection, expanded: Boolean) {
-        viewModelScope.launch {
+        persistDetailSetting {
             userPreferences.setCityDetailSectionCollapsed(
                 cityId = cityId,
                 section = section,
@@ -548,14 +589,22 @@ class CityDetailViewModel @Inject constructor(
     }
 
     fun setDetailViewMode(mode: CityDetailViewMode) {
-        viewModelScope.launch {
+        persistDetailSetting {
             userPreferences.setCityDetailViewMode(cityId, mode)
         }
     }
 
     fun setDetailContentTab(tab: CityDetailContentTab) {
-        viewModelScope.launch {
+        persistDetailSetting {
             userPreferences.setCityDetailContentTab(cityId, tab)
+        }
+    }
+
+    /** Centralise la protection des écritures DataStore déclenchées par la page. */
+    private fun persistDetailSetting(update: suspend () -> Unit) {
+        viewModelScope.launch {
+            runSuspendCatching { update() }
+                .onFailure { _refreshFeedback.trySend(RefreshFeedback.SettingsSaveError) }
         }
     }
 
@@ -568,13 +617,22 @@ class CityDetailViewModel @Inject constructor(
         vigilanceJob = viewModelScope.launch {
             val previous = (_vigilanceState.value as? VigilanceUiState.Loaded)?.forecast
             if (previous == null) _vigilanceState.value = VigilanceUiState.Loading
-            val cachedCoastal = runCatching { marineRepository.getFreshCached(city.id)?.coastal == true }
+            val cachedCoastal = runSuspendCatching {
+                marineRepository.getFreshCached(city.id)?.coastal == true
+            }
                 .getOrDefault(false)
-            when (val result = vigilanceRepository.getVigilance(
-                city = city,
-                includeCoast = city.marineEnabled || cachedCoastal,
-                forceRefresh = forceRefresh
-            )) {
+            val result = runSuspendCatching {
+                vigilanceRepository.getVigilance(
+                    city = city,
+                    includeCoast = city.marineEnabled || cachedCoastal,
+                    forceRefresh = forceRefresh
+                )
+            }.getOrElse {
+                _vigilanceState.value = previous?.let(VigilanceUiState::Loaded)
+                    ?: VigilanceUiState.Idle
+                return@launch
+            }
+            when (result) {
                 is ApiResult.Success -> {
                     val vigilance = result.data
                     _vigilanceState.value = if (vigilance != null && vigilance.activeAlerts.isNotEmpty()) {
@@ -603,7 +661,17 @@ class CityDetailViewModel @Inject constructor(
         marineJob = viewModelScope.launch {
             val previous = _marineState.value as? MarineUiState.Loaded
             _marineState.value = previous?.copy(isRefreshing = true) ?: MarineUiState.Loading
-            when (val result = marineRepository.getMarine(city, forceRefresh = forceRefresh)) {
+            val result = runSuspendCatching {
+                marineRepository.getMarine(city, forceRefresh = forceRefresh)
+            }.getOrElse { error ->
+                val message = error.toUserMessage(context)
+                _marineState.value = previous ?: MarineUiState.Error(message)
+                if (forceRefresh) {
+                    _refreshFeedback.trySend(RefreshFeedback.MarineError(message))
+                }
+                return@launch
+            }
+            when (result) {
                 is ApiResult.Success -> {
                     _marineState.value = if (result.data.coastal) {
                         MarineUiState.Loaded(result.data)
@@ -666,6 +734,10 @@ class CityDetailViewModel @Inject constructor(
                     is ApiResult.Success -> _refreshFeedback.trySend(RefreshFeedback.Success)
                     is ApiResult.Error -> _refreshFeedback.trySend(RefreshFeedback.Error(result.message))
                 }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: Exception) {
+                _refreshFeedback.trySend(RefreshFeedback.Error(error.toUserMessage(context)))
             } finally {
                 _isRefreshing.value = false
             }
@@ -834,35 +906,41 @@ class CityDetailViewModel @Inject constructor(
         evolutionJob?.cancel()
         evolutionJob = viewModelScope.launch {
             _evolutionState.value = ForecastEvolutionState.Loading
-            when (val result = forecastEvolutionRepository.getPreviousForecasts(
-                city = forecast.city,
-                models = forecast.availableModels,
-                startDate = dates.first(),
-                endDate = dates.last(),
-                referenceAt = forecast.fetchedAt ?: clock.instant()
-            )) {
-                is ApiResult.Success -> {
-                    val report = withContext(computationDispatcher) {
-                        computeForecastEvolution(
-                            currentForecast = forecast,
-                            previousSamples = result.data.samples,
-                            fetchedAt = forecast.fetchedAt
-                        )
-                    }
-                    if (report.hasUsableData) {
-                        val highlight = withContext(computationDispatcher) {
-                            computeForecastEvolution.buildHighlight(report, today)
+            runSuspendCatching {
+                when (val result = forecastEvolutionRepository.getPreviousForecasts(
+                    city = forecast.city,
+                    models = forecast.availableModels,
+                    startDate = dates.first(),
+                    endDate = dates.last(),
+                    referenceAt = forecast.fetchedAt ?: clock.instant()
+                )) {
+                    is ApiResult.Success -> {
+                        val report = withContext(computationDispatcher) {
+                            computeForecastEvolution(
+                                currentForecast = forecast,
+                                previousSamples = result.data.samples,
+                                fetchedAt = forecast.fetchedAt
+                            )
                         }
-                        _evolutionState.value = ForecastEvolutionState.Loaded(report, highlight)
-                    } else {
-                        _evolutionState.value = ForecastEvolutionState.BuildingHistory(
-                            result.data.oldestSnapshotAt
-                        )
+                        if (report.hasUsableData) {
+                            val highlight = withContext(computationDispatcher) {
+                                computeForecastEvolution.buildHighlight(report, today)
+                            }
+                            _evolutionState.value = ForecastEvolutionState.Loaded(report, highlight)
+                        } else {
+                            _evolutionState.value = ForecastEvolutionState.BuildingHistory(
+                                result.data.oldestSnapshotAt
+                            )
+                        }
+                    }
+                    is ApiResult.Error -> {
+                        _evolutionState.value = ForecastEvolutionState.Error(result.message)
                     }
                 }
-                is ApiResult.Error -> {
-                    _evolutionState.value = ForecastEvolutionState.Error(result.message)
-                }
+            }.onFailure { error ->
+                // Un calcul ou un accès local inattendu ne doit jamais laisser
+                // la section figée sur son shimmer.
+                _evolutionState.value = ForecastEvolutionState.Error(error.toUserMessage(context))
             }
         }
     }

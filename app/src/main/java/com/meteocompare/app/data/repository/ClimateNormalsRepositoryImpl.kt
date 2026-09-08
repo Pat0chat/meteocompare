@@ -5,7 +5,9 @@ import com.meteocompare.app.R
 import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.core.network.NetworkMonitor
 import com.meteocompare.app.core.network.apiCall
+import com.meteocompare.app.core.network.toUserMessage
 import com.meteocompare.app.core.util.localDateIn
+import com.meteocompare.app.core.util.runSuspendCatching
 import com.meteocompare.app.data.local.ClimateNormalDao
 import com.meteocompare.app.data.local.ClimateNormalEntity
 import com.meteocompare.app.data.remote.ClimateArchiveApi
@@ -17,6 +19,7 @@ import com.meteocompare.app.domain.model.DayNormals
 import com.meteocompare.app.domain.repository.ClimateNormalsRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.IOException
@@ -159,7 +162,17 @@ class ClimateNormalsRepositoryImpl @Inject constructor(
         private const val MIN_ARCHIVE_COVERAGE_RATIO = 0.95
     }
 
-    override suspend fun getNormalsForCity(city: City): ApiResult<List<DayNormals>> =
+    override suspend fun getNormalsForCity(city: City): ApiResult<List<DayNormals>> = try {
+        getNormalsForCityInternal(city)
+    } catch (cancellation: CancellationException) {
+        throw cancellation
+    } catch (error: Exception) {
+        // Le contrat repository reste total même si Room, le mapping ou
+        // l'agrégation échoue de manière inattendue.
+        ApiResult.Error(error, error.toUserMessage(context))
+    }
+
+    private suspend fun getNormalsForCityInternal(city: City): ApiResult<List<DayNormals>> =
         withContext(io) {
             // 1. Vérifie d'abord le cache ERA5 versionné. Les lignes des
             // versions précédentes utilisaient directement `city.id` et sont
@@ -169,8 +182,10 @@ class ClimateNormalsRepositoryImpl @Inject constructor(
             val cached = dao.getForCity(cacheId)
             if (cached.isNotEmpty()) {
                 val oldest = dao.getOldestComputedAt(cacheId) ?: 0L
-                val ageMs = clock.millis() - oldest
-                val isFresh = ageMs >= 0L && ageMs < CACHE_FRESHNESS_MS
+                // Un recul d'horloge ne doit pas transformer un cache ERA5
+                // valide en refetch de dix années à chaque ouverture.
+                val ageMs = (clock.millis() - oldest).coerceAtLeast(0L)
+                val isFresh = ageMs < CACHE_FRESHNESS_MS
                 if (isFresh) {
                     return@withContext ApiResult.Success(cached.map { it.toDomain() })
                 }
@@ -235,10 +250,21 @@ class ClimateNormalsRepositoryImpl @Inject constructor(
                     val normals = withContext(computation) { aggregate(result.data) }
                     val now = clock.millis()
                     val entities = normals.map { it.toEntity(cacheId, now) }
-                    dao.replaceForCity(cacheId, entities)
-                    // Une fois la source ERA5 matérialisée, l'ancien cache sans
-                    // provenance n'a plus de rôle de fallback et peut être purgé.
-                    if (legacyCached.isNotEmpty()) dao.deleteForCity(city.id)
+                    runSuspendCatching {
+                        dao.replaceForCity(cacheId, entities)
+                        // Une fois la source ERA5 matérialisée, l'ancien cache sans
+                        // provenance n'a plus de rôle de fallback et peut être purgé.
+                        if (legacyCached.isNotEmpty()) dao.deleteForCity(city.id)
+                    }.onFailure { error ->
+                        // La donnée calculée reste affichable même si Room est
+                        // momentanément indisponible ; la persistance sera
+                        // retentée à une prochaine consultation.
+                        android.util.Log.w(
+                            "MeteoCompare/Climate",
+                            "Climate normals cache write failed for city=${city.id}",
+                            error
+                        )
+                    }
                     ApiResult.Success(normals)
                 }
             }

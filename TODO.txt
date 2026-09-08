@@ -1,5 +1,5 @@
 TODO
 ----
-Faire un audit complet de l'application
-faire une vérification des workflows et en particulier sur la partie refresh
-Faire un nettoyage complet et en profondeur du code
+1. Appliquer modification audit
+2. Finaliser "forecast evolution"
+3. Dernière audit dans GPT

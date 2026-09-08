@@ -1,5 +1,7 @@
 package com.meteocompare.app.data.repository
 
+import android.content.Context
+import com.meteocompare.app.R
 import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.data.local.ForecastEvolutionDao
 import com.meteocompare.app.data.local.ForecastEvolutionEntity
@@ -8,6 +10,7 @@ import com.meteocompare.app.domain.model.ForecastEvolutionVariable
 import com.meteocompare.app.domain.model.WeatherModel
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
@@ -18,6 +21,9 @@ import java.time.Instant
 import java.time.LocalDate
 
 class ForecastEvolutionRepositoryImplTest {
+    private val context = mockk<Context> {
+        every { getString(R.string.error_unknown) } returns "localized-error"
+    }
     private val city = City("paris", "Paris", country = "France", latitude = 48.85, longitude = 2.35)
     private val date = LocalDate.of(2026, 8, 18)
     private val reference = Instant.parse("2026-08-16T12:00:00Z")
@@ -116,10 +122,12 @@ class ForecastEvolutionRepositoryImplTest {
         )
 
         assertTrue(result is ApiResult.Error)
+        assertEquals("localized-error", (result as ApiResult.Error).message)
         coVerify(exactly = 1) { dao.getHistoryWindow(any(), any(), any(), any(), any(), any()) }
     }
 
     private fun repository(dao: ForecastEvolutionDao) = ForecastEvolutionRepositoryImpl(
+        context = context,
         dao = dao,
         io = Dispatchers.Unconfined
     )

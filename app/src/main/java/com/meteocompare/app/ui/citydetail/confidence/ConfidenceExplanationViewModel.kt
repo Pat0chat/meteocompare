@@ -6,10 +6,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.meteocompare.app.R
 import com.meteocompare.app.core.network.ApiResult
+import com.meteocompare.app.core.network.toUserMessage
+import com.meteocompare.app.core.util.runSuspendCatching
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DayConfidence
-import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.di.DefaultDispatcher
 import com.meteocompare.app.domain.repository.CityRepository
@@ -141,7 +142,15 @@ class ConfidenceExplanationViewModel @Inject constructor(
             forecastRepository.observeForecastUpdates().collect { forecast ->
                 val date = targetDate ?: return@collect
                 if (forecast.city.id != cityId) return@collect
-                applyResult(forecast.city, date, ApiResult.Success(forecast))
+                runSuspendCatching {
+                    applyResult(forecast.city, date, ApiResult.Success(forecast))
+                }.onFailure { error ->
+                    android.util.Log.w(
+                        "MeteoCompare/Confidence",
+                        "Unable to apply external forecast for city=$cityId",
+                        error
+                    )
+                }
             }
         }
     }
@@ -160,43 +169,52 @@ class ConfidenceExplanationViewModel @Inject constructor(
     private fun load() {
         loadJob?.cancel()
         loadJob = viewModelScope.launch {
-            val date = targetDate ?: run {
-                _state.value = ConfidenceExplanationUiState.Error(
-                    context.getString(R.string.confidence_explanation_invalid_date)
-                )
-                return@launch
-            }
-            val city = findCity() ?: run {
-                _state.value = ConfidenceExplanationUiState.Error(
-                    context.getString(R.string.city_not_found_in_favorites)
-                )
-                return@launch
-            }
-            // Même contrat que Home, Détails et widgets. Si l'utilisateur
-            // modifie les modèles ou la cadence pendant que cette destination
-            // reste dans la back stack, l'explication se réaligne sans recréer
-            // le ViewModel et sans fetch superflu pour une valeur identique.
-            combine(
-                userPreferences.observeEnabledModels(),
-                userPreferences.observeRefreshInterval()
-            ) { models, interval -> models to interval }
-                .distinctUntilChanged()
-                .flatMapLatest { (models, interval) ->
-                    val maxCacheAgeMs = if (interval == RefreshInterval.MANUAL) {
-                        Long.MAX_VALUE
-                    } else {
-                        interval.millis
+            runSuspendCatching {
+                val date = targetDate ?: run {
+                    _state.value = ConfidenceExplanationUiState.Error(
+                        context.getString(R.string.confidence_explanation_invalid_date)
+                    )
+                    return@runSuspendCatching
+                }
+                val city = findCity() ?: run {
+                    _state.value = ConfidenceExplanationUiState.Error(
+                        context.getString(R.string.city_not_found_in_favorites)
+                    )
+                    return@runSuspendCatching
+                }
+                // Même contrat que Home, Détails et widgets. Si l'utilisateur
+                // modifie les modèles ou la cadence pendant que cette destination
+                // reste dans la back stack, l'explication se réaligne sans recréer
+                // le ViewModel et sans fetch superflu pour une valeur identique.
+                combine(
+                    userPreferences.observeEnabledModels(),
+                    userPreferences.observeRefreshInterval()
+                ) { models, interval -> models to interval }
+                    .distinctUntilChanged()
+                    .flatMapLatest { (models, interval) ->
+                        val maxCacheAgeMs = interval.maxCacheAgeMs
+                        forecastRepository.getCityForecastStream(
+                            city = city,
+                            models = models,
+                            forecastDays = 7,
+                            maxCacheAgeMs = maxCacheAgeMs
+                        ).map { result -> models.toSet() to result }
                     }
-                    forecastRepository.getCityForecastStream(
-                        city = city,
-                        models = models,
-                        forecastDays = 7,
-                        maxCacheAgeMs = maxCacheAgeMs
-                    ).map { result -> models.toSet() to result }
+                    .collect { (models, result) ->
+                        applyResult(city, date, result, expectedModels = models)
+                    }
+            }.onFailure { error ->
+                android.util.Log.w(
+                    "MeteoCompare/Confidence",
+                    "Confidence forecast stream failed for city=$cityId",
+                    error
+                )
+                if (_state.value !is ConfidenceExplanationUiState.Loaded) {
+                    _state.value = ConfidenceExplanationUiState.Error(
+                        error.toUserMessage(context)
+                    )
                 }
-                .collect { (models, result) ->
-                    applyResult(city, date, result, expectedModels = models)
-                }
+            }
         }
     }
 

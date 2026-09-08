@@ -17,7 +17,7 @@ class MarineCachePolicyTest {
     }
 
     @Test
-    fun `future dated cache is rejected instead of being fresh forever`() {
-        assertFalse(MarineCachePolicy.isFresh(now + 1, now))
+    fun `future dated cache is treated as just written after clock rollback`() {
+        assertTrue(MarineCachePolicy.isFresh(now + 1, now))
     }
 }

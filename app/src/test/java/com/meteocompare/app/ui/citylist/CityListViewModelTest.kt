@@ -75,11 +75,9 @@ import kotlin.coroutines.CoroutineContext
  *        plutôt qu'un `awaitItem()` strict par étape.
  *
  *   2. **`stateIn(WhileSubscribed)` + `.value`** : sans subscriber actif,
- *      `uiState.value` retourne `initialValue` (CityListUiState vide), pas
- *      le state réel. Donc `onRefreshAll()` qui lit `uiState.value.items`
- *      voit une liste vide → aucun refresh lancé.
- *      → On maintient une souscription via `backgroundScope.launch` avant
- *        d'appeler les actions qui lisent `.value`.
+ *      `uiState.value` peut encore exposer `initialValue`. Les actions métier
+ *      ne doivent donc jamais l'utiliser comme source de vérité ; le refresh
+ *      global s'appuie sur l'index eager des favoris.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class CityListViewModelTest {
@@ -359,6 +357,40 @@ class CityListViewModelTest {
             }
         }
 
+    @Test
+    fun `uiState - unexpected stream failure never leaves the card loading`() =
+        runViewModelTest {
+            coEvery {
+                forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
+            } returns flow { throw IllegalStateException("room unavailable") }
+
+            val vm = createViewModel(
+                cityRepo,
+                forecastRepo,
+                marineRepo,
+                vigilanceRepo,
+                networkMonitor,
+                calculator,
+                prefs,
+                testClock,
+                dispatcher,
+                engineContextProvider
+            )
+
+            vm.uiState.test {
+                awaitItem()
+                favoritesFlow.value = listOf(paris)
+                var state = awaitItem()
+                while (state.items.firstOrNull()?.forecast !is ForecastState.Error) {
+                    state = awaitItem()
+                }
+                assertEquals(
+                    com.meteocompare.app.R.string.error_unknown,
+                    (state.items.single().forecast as ForecastState.Error).messageRes
+                )
+            }
+        }
+
     // ──────────────── Refresh ────────────────
 
     @Test
@@ -577,6 +609,41 @@ class CityListViewModelTest {
         }
 
     @Test
+    fun `retour au premier plan revalide la vigilance apres un premier job termine`() =
+        runViewModelTest {
+            favoritesFlow.value = listOf(paris)
+            runCurrent()
+
+            coVerify(exactly = 1) {
+                vigilanceRepo.getVigilance(eq(paris), eq(false), eq(false))
+            }
+
+            viewModel.refreshIfStale()
+            runCurrent()
+
+            // Le repository applique sa TTL d'une heure. Le ViewModel doit
+            // toutefois lui redonner la main à chaque reprise au lieu de
+            // mémoriser à vie le Job déjà terminé.
+            coVerify(exactly = 2) {
+                vigilanceRepo.getVigilance(eq(paris), eq(false), eq(false))
+            }
+        }
+
+    @Test
+    fun `refresh global utilise les favoris meme sans subscriber uiState`() = runViewModelTest {
+        val forecast = buildForecast(paris, dailyMaxTemp = 22.0)
+        coEvery { forecastRepo.refreshCityForecast(eq(paris), any(), any()) } returns
+            ApiResult.Success(forecast)
+
+        favoritesFlow.value = listOf(paris)
+        runCurrent()
+        viewModel.onRefreshAll()
+        runCurrent()
+
+        coVerify(exactly = 1) { forecastRepo.refreshCityForecast(eq(paris), any(), any()) }
+    }
+
+    @Test
     fun `ajouter un favori ne relance pas le stream fini des villes deja initialisees`() =
         runViewModelTest {
             coEvery {
@@ -656,6 +723,26 @@ class CityListViewModelTest {
             // Et chaque favori a bien été refreshé
             coVerify { forecastRepo.refreshCityForecast(eq(paris), any(), any()) }
             coVerify { forecastRepo.refreshCityForecast(eq(lyon), any(), any()) }
+        }
+
+    @Test
+    fun `onRefreshAll - vigilance failure does not turn weather success into failure`() =
+        runViewModelTest {
+            favoritesFlow.value = listOf(paris)
+            runCurrent()
+            coEvery { forecastRepo.refreshCityForecast(eq(paris), any(), any()) } returns
+                ApiResult.Success(buildForecast(paris, dailyMaxTemp = 20.0))
+            coEvery { vigilanceRepo.getVigilance(eq(paris), any(), eq(true)) } throws
+                IllegalStateException("vigilance unavailable")
+
+            viewModel.actionFeedback.test {
+                viewModel.onRefreshAll()
+
+                assertEquals(
+                    com.meteocompare.app.R.string.toast_refresh_all_success,
+                    awaitItem().messageRes
+                )
+            }
         }
 
     // ──────────────── Retry ────────────────
@@ -765,6 +852,22 @@ class CityListViewModelTest {
         coVerify { cityRepo.removeFavorite(frenchCity.id) }
         coVerify(exactly = 1) { vigilanceRepo.clearCacheForDepartment("75") }
     }
+
+    @Test
+    fun `onRemoveCity - one cache failure does not skip the other cleanups`() =
+        runViewModelTest {
+            val frenchCity = paris.copy(countryCode = "FR", departmentCode = "75")
+            favoritesFlow.value = listOf(frenchCity)
+            runCurrent()
+            coEvery { forecastRepo.clearCacheForCity(frenchCity.id) } throws
+                IllegalStateException("room unavailable")
+
+            viewModel.onRemoveCity(frenchCity.id)
+            runCurrent()
+
+            coVerify(exactly = 1) { marineRepo.clear(frenchCity.id) }
+            coVerify(exactly = 1) { vigilanceRepo.clearCacheForDepartment("75") }
+        }
 
     @Test
     fun `onRemoveCity - délègue au repo`() = runViewModelTest {

@@ -6,10 +6,10 @@ import com.meteocompare.app.core.locale.applyPersistedLocale
 import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.core.util.localDateIn
 import com.meteocompare.app.core.util.resolveZoneOrUtc
+import com.meteocompare.app.core.util.runSuspendCatching
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DayConfidence
 import com.meteocompare.app.domain.model.HourlyConfidenceBand
-import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.ForecastEngineContext
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.usecase.ConfidenceCalculator
@@ -267,7 +267,7 @@ internal sealed class WidgetError {
     /** La ville configurée n'est plus dans les favoris (user l'a supprimée). */
     data object CityNoLongerInFavorites : WidgetError()
     /** Fetch réseau échoué ET pas de cache disponible pour cette ville. */
-    data class Fetch(val message: String) : WidgetError()
+    data object Fetch : WidgetError()
 }
 
 /**
@@ -310,6 +310,30 @@ internal suspend fun loadWidgetData(
     // Glance : le widget provider tourne avec le Context sans configuration
     // AppCompat, donc n'hérite pas de la locale du recreate() de MainActivity.
     val localizedContext = applyPersistedLocale(context)
+    return runSuspendCatching {
+        loadWidgetDataInternal(
+            localizedContext = localizedContext,
+            cityId = cityId,
+            forecastMode = forecastMode,
+            includeValueSnapshot = includeValueSnapshot
+        )
+    }.getOrElse { error ->
+        android.util.Log.w("MeteoCompare/Widget", "Widget data load failed", error)
+        WidgetData.empty(error = WidgetError.Fetch)
+    }
+}
+
+/**
+ * Cœur du chargement. L'enveloppe publique ci-dessus garantit qu'une erreur
+ * Hilt, DataStore, Room ou de calcul devient toujours un état terminal : le
+ * composable Glance ne peut plus rester indéfiniment sur `Loading`.
+ */
+private suspend fun loadWidgetDataInternal(
+    localizedContext: Context,
+    cityId: String,
+    forecastMode: ForecastMode,
+    includeValueSnapshot: Boolean
+): WidgetData {
 
     val entry = EntryPointAccessors.fromApplication(
         localizedContext.applicationContext,
@@ -341,8 +365,7 @@ internal suspend fun loadWidgetData(
     // mêmes lignes de cache → le premier à démarrer sert le second.
     val enabledModels = prefsRepo.observeEnabledModels().first()
     val selectedEngine = prefsRepo.observeForecastEngine().first()
-    val maxCacheAgeMs = if (interval == RefreshInterval.MANUAL) Long.MAX_VALUE
-    else interval.millis
+    val maxCacheAgeMs = interval.maxCacheAgeMs
 
     val result = entry.forecastRepository()
         .getCityForecastStream(
@@ -477,11 +500,11 @@ internal suspend fun loadWidgetData(
         }
         is ApiResult.Error -> WidgetData.empty(
             cityName = city.name,
-            error = WidgetError.Fetch(result.message)
+            error = WidgetError.Fetch
         )
         null -> WidgetData.empty(
             cityName = city.name,
-            error = WidgetError.Fetch("no data")
+            error = WidgetError.Fetch
         )
     }
 }

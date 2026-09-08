@@ -51,6 +51,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
@@ -179,14 +180,27 @@ class CityListViewModel @Inject constructor(
                 flow {
                     _isSearching.value = true
                     _searchError.value = null
-                    when (val result = cityRepository.searchCities(query)) {
-                        is ApiResult.Success -> emit(result.data)
-                        is ApiResult.Error -> {
-                            _searchError.value = result.message
+                    try {
+                        val result = runSuspendCatching {
+                            cityRepository.searchCities(query)
+                        }.getOrElse {
+                            _actionFeedback.send(AppToastEvent.error(R.string.toast_action_error))
                             emit(emptyList())
+                            return@flow
                         }
+                        when (result) {
+                            is ApiResult.Success -> emit(result.data)
+                            is ApiResult.Error -> {
+                                _searchError.value = result.message
+                                emit(emptyList())
+                            }
+                        }
+                    } finally {
+                        // Reste vrai sinon lorsqu'un repository inattendu lève
+                        // pendant la recherche ou quand flatMapLatest annule la
+                        // requête parce que l'utilisateur continue à taper.
+                        _isSearching.value = false
                     }
-                    _isSearching.value = false
                 }
             }
         }
@@ -209,18 +223,17 @@ class CityListViewModel @Inject constructor(
             networkMonitor.observeOnline().collect { online ->
                 val wasOnline = _isOnline.value
                 _isOnline.value = online
-                if (online) {
-                    val cities = favoriteCitiesById.values.toList()
-                    syncMarineAvailability(cities)
-                    if (!wasOnline) {
-                        refreshIfStale()
-                        // Une première tentative Vigilance peut s'être terminée hors ligne.
-                        // On la réarme au retour réseau sans attendre un pull-to-refresh.
-                        vigilanceJobs.values.forEach { it.cancel() }
-                        vigilanceJobs.clear()
-                        vigilanceCoastModeById.clear()
-                        syncVigilance(cities)
-                    }
+                if (online && !wasOnline) {
+                    // Ferme la course où un check Vigilance a observé l'état
+                    // hors ligne mais n'a pas encore quitté sa coroutine : un
+                    // simple appel cache-aware le verrait encore actif et le
+                    // sauterait. Le repository limite toujours le réseau via TTL.
+                    vigilanceJobs.values.forEach { it.cancel() }
+                    vigilanceJobs.clear()
+                    // Une seule porte d'entrée remet à jour prévisions, Mer / côte
+                    // et Vigilance. Les repositories conservent leurs propres TTL :
+                    // ce rappel ne force donc aucune requête superflue.
+                    refreshIfStale()
                 }
             }
         }
@@ -230,22 +243,32 @@ class CityListViewModel @Inject constructor(
         // ni relancer les streams cache/réseau.
         viewModelScope.launch {
             userPreferences.observeForecastEngine().distinctUntilChanged().collectLatest { engine ->
-                rawForecastsById.value.forEach { (id, forecast) ->
-                    if (id !in favoriteCitiesById) return@forEach
-                    val mapped = toForecastState(
-                        result = ApiResult.Success(forecast),
-                        engineOverride = engine
-                    )
-                    // Le calcul quitte Main. Entre-temps un refresh peut avoir
-                    // remplacé le forecast brut ou la ville peut avoir été
-                    // supprimée. Ne jamais réappliquer alors l'ancien snapshot.
-                    forecastsById.update { states ->
-                        if (id !in favoriteCitiesById || rawForecastsById.value[id] !== forecast) {
-                            states
-                        } else {
-                            states + (id to mapped)
+                runSuspendCatching {
+                    rawForecastsById.value.forEach { (id, forecast) ->
+                        if (id !in favoriteCitiesById) return@forEach
+                        val mapped = toForecastState(
+                            result = ApiResult.Success(forecast),
+                            engineOverride = engine
+                        )
+                        // Le calcul quitte Main. Entre-temps un refresh peut avoir
+                        // remplacé le forecast brut ou la ville peut avoir été
+                        // supprimée. Ne jamais réappliquer alors l'ancien snapshot.
+                        forecastsById.update { states ->
+                            if (id !in favoriteCitiesById ||
+                                rawForecastsById.value[id] !== forecast
+                            ) {
+                                states
+                            } else {
+                                states + (id to mapped)
+                            }
                         }
                     }
+                }.onFailure { error ->
+                    android.util.Log.w(
+                        "MeteoCompare/CityList",
+                        "Unable to apply forecast engine change",
+                        error
+                    )
                 }
             }
         }
@@ -287,7 +310,15 @@ class CityListViewModel @Inject constructor(
         viewModelScope.launch {
             forecastRepository.observeForecastUpdates().collect { forecast ->
                 val city = favoriteCitiesById[forecast.city.id] ?: return@collect
-                applyForecastResult(city, ApiResult.Success(forecast))
+                runSuspendCatching {
+                    applyForecastResult(city, ApiResult.Success(forecast))
+                }.onFailure { error ->
+                    android.util.Log.w(
+                        "MeteoCompare/CityList",
+                        "Unable to apply external forecast for city=${city.id}",
+                        error
+                    )
+                }
             }
         }
     }
@@ -299,7 +330,16 @@ class CityListViewModel @Inject constructor(
      */
     private fun observePresentationTime() {
         viewModelScope.launch {
-            forecastPresentationTicks(clock).collect(::recalculatePresentation)
+            forecastPresentationTicks(clock).collect { now ->
+                runSuspendCatching { recalculatePresentation(now) }
+                    .onFailure { error ->
+                        android.util.Log.w(
+                            "MeteoCompare/CityList",
+                            "Unable to update forecast presentation",
+                            error
+                        )
+                    }
+            }
         }
     }
 
@@ -362,23 +402,24 @@ class CityListViewModel @Inject constructor(
         // Toujours remettre la présentation à l'heure, y compris hors ligne.
         // C'est le rattrapage immédiat après une longue veille du process.
         viewModelScope.launch { recalculatePresentation(clock.instant()) }
+        val cities = favoriteCitiesById.values.toList()
+        // Les données auxiliaires ont des TTL indépendantes du forecast. Elles
+        // doivent elles aussi être revalidées à ON_RESUME, même si une lecture
+        // forecast est déjà en cours ou si l'intervalle est MANUAL.
+        syncMarineAvailability(cities)
+        syncVigilance(cities)
         // Ne pas court-circuiter hors ligne : Room peut avoir été actualisée
         // par le widget avant la perte réseau. Le repository émet ce cache et
         // son NetworkMonitor empêche ensuite toute requête HTTP.
         if (policyRefreshJob?.isActive == true) return
         val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
-            val cities = favoriteCitiesById.values.toList()
             if (cities.isEmpty()) return@launch
             val models = userPreferences.observeEnabledModels().first()
             val interval = userPreferences.observeRefreshInterval().first()
             val expectedConfig = models to interval
             val expectedGeneration = streamConfigGeneration
             if (lastStreamConfig != expectedConfig) return@launch
-            val maxCacheAgeMs = if (interval == RefreshInterval.MANUAL) {
-                Long.MAX_VALUE
-            } else {
-                interval.millis
-            }
+            val maxCacheAgeMs = interval.maxCacheAgeMs
             val limiter = Semaphore(MAX_CONCURRENT_CITY_REFRESHES)
             coroutineScope {
                 cities.map { city ->
@@ -487,8 +528,7 @@ class CityListViewModel @Inject constructor(
         //    Si modelsChanged=true, streamJobs est vide → on lance pour toutes
         //    les villes. Si modelsChanged=false, on ne lance que pour les
         //    nouvelles.
-        val maxCacheAgeMs = if (interval == RefreshInterval.MANUAL) Long.MAX_VALUE
-        else interval.millis
+        val maxCacheAgeMs = interval.maxCacheAgeMs
         val expectedGeneration = streamConfigGeneration
         val expectedModels = models.toSet()
         cities.forEach { city ->
@@ -513,6 +553,29 @@ class CityListViewModel @Inject constructor(
                                 )
                             }
                         completedNormally = true
+                    } catch (cancellation: kotlinx.coroutines.CancellationException) {
+                        throw cancellation
+                    } catch (error: Exception) {
+                        // Une dépendance locale ou un calcul inattendu ne doit pas
+                        // laisser cette carte indéfiniment en Loading. Une carte
+                        // déjà chargée reste affichée, comme pour une erreur réseau.
+                        android.util.Log.w(
+                            "MeteoCompare/CityList",
+                            "Forecast stream failed for city=${city.id}",
+                            error
+                        )
+                        forecastsById.update { states ->
+                            when {
+                                expectedGeneration != streamConfigGeneration -> states
+                                city.id !in favoriteCitiesById -> states
+                                states[city.id] is ForecastState.Loaded -> states
+                                else -> states + (
+                                    city.id to ForecastState.Error(
+                                        messageRes = R.string.error_unknown
+                                    )
+                                )
+                            }
+                        }
                     } finally {
                         // La fin normale est mémorisée : ce stream fini ne doit
                         // pas être relancé lors d'un simple ajout de favori.
@@ -552,7 +615,9 @@ class CityListViewModel @Inject constructor(
                 val ownJob = coroutineContext[Job]
                 var checkedWhileOffline = false
                 try {
-                    val cached = runCatching { marineRepository.getFreshCached(city.id) }.getOrNull()
+                    val cached = runSuspendCatching {
+                        marineRepository.getFreshCached(city.id)
+                    }.getOrNull()
                     if (cached != null) {
                         marineAvailabilityCheckedAt[city.id] = cached.fetchedAtEpochMs
                         if (cached.coastal) {
@@ -567,7 +632,9 @@ class CityListViewModel @Inject constructor(
                         // l'indication visuelle. On conserve son timestamp
                         // d'origine afin qu'elle soit revalidée dès le retour
                         // réseau au lieu de prolonger artificiellement sa TTL.
-                        val stale = runCatching { marineRepository.getCached(city.id) }.getOrNull()
+                        val stale = runSuspendCatching {
+                            marineRepository.getCached(city.id)
+                        }.getOrNull()
                         if (stale != null) {
                             marineAvailabilityCheckedAt[city.id] = stale.fetchedAtEpochMs
                             if (stale.coastal) {
@@ -578,7 +645,7 @@ class CityListViewModel @Inject constructor(
                         return@launch
                     }
 
-                    val result = runCatching {
+                    val result = runSuspendCatching {
                         marineRepository.getMarine(city, forceRefresh = false)
                     }.getOrNull()
                     when (result) {
@@ -623,8 +690,11 @@ class CityListViewModel @Inject constructor(
 
     private fun isMarineAvailabilityDecisionFresh(cityId: String): Boolean {
         val checkedAt = marineAvailabilityCheckedAt[cityId] ?: return false
-        val ageMs = clock.millis() - checkedAt
-        return ageMs in 0 until MarineRepository.AVAILABILITY_CACHE_TTL_MS
+        // Une correction NTP peut faire reculer l'horloge après le contrôle.
+        // Traiter alors la décision comme toute fraîche évite un appel réseau
+        // à chaque reprise jusqu'à ce que l'horloge rattrape le timestamp.
+        val ageMs = (clock.millis() - checkedAt).coerceAtLeast(0L)
+        return ageMs < MarineRepository.AVAILABILITY_CACHE_TTL_MS
     }
 
     // ─── Actions utilisateur ────────────────────────────────────────────────
@@ -656,7 +726,9 @@ class CityListViewModel @Inject constructor(
     fun onRemoveCity(cityId: String) {
         viewModelScope.launch {
             val removedCity = favoriteCitiesById[cityId]
-                ?: cityRepository.observeFavorites().first().firstOrNull { it.id == cityId }
+                ?: runSuspendCatching {
+                    cityRepository.observeFavorites().first().firstOrNull { it.id == cityId }
+                }.getOrNull()
             val vigilanceDepartment = (removedCity?.departmentCode
                 ?: vigilanceById.value[cityId]?.department)
                 ?.trim()
@@ -670,15 +742,35 @@ class CityListViewModel @Inject constructor(
             }
             // Nettoyage explicite après la suppression utilisateur. Une émission
             // DataStore vide transitoire ne doit jamais effacer le cache météo.
-            runSuspendCatching {
-                forecastRepository.clearCacheForCity(cityId)
-                marineRepository.clear(cityId)
-                clearVigilanceTracking(cityId)
-                // Le repository Vigilance vérifie les favoris restants avant toute purge :
-                // le cache départemental partagé est conservé tant qu'une autre ville du
-                // même département (ou un favori FR legacy non encore résolu) subsiste.
-                if (vigilanceDepartment != null) {
+            runSuspendCatching { forecastRepository.clearCacheForCity(cityId) }
+                .onFailure { error ->
+                    android.util.Log.w(
+                        "MeteoCompare/CityList",
+                        "Unable to clear forecast cache for city=$cityId",
+                        error
+                    )
+                }
+            runSuspendCatching { marineRepository.clear(cityId) }
+                .onFailure { error ->
+                    android.util.Log.w(
+                        "MeteoCompare/CityList",
+                        "Unable to clear marine cache for city=$cityId",
+                        error
+                    )
+                }
+            clearVigilanceTracking(cityId)
+            // Le repository Vigilance vérifie les favoris restants avant toute purge :
+            // le cache départemental partagé est conservé tant qu'une autre ville du
+            // même département (ou un favori FR legacy non encore résolu) subsiste.
+            if (vigilanceDepartment != null) {
+                runSuspendCatching {
                     vigilanceRepository.clearCacheForDepartment(vigilanceDepartment)
+                }.onFailure { error ->
+                    android.util.Log.w(
+                        "MeteoCompare/CityList",
+                        "Unable to clear vigilance cache for department=$vigilanceDepartment",
+                        error
+                    )
                 }
             }
             _actionFeedback.send(
@@ -695,24 +787,28 @@ class CityListViewModel @Inject constructor(
         viewModelScope.launch {
             marineLoadingIds.update { it + city.id }
             try {
-                when (val result = marineRepository.getMarine(city, forceRefresh = true)) {
-                    is ApiResult.Success -> {
-                        marineAvailabilityCheckedAt[city.id] = result.data.fetchedAtEpochMs
-                        if (!result.data.coastal) {
-                            marineAvailableIds.update { it - city.id }
-                            _marineFeedback.send(MarineFeedback.NotCoastal)
-                        } else {
-                            marineAvailableIds.update { it + city.id }
-                            syncVigilance(listOf(city))
-                            if (!city.marineEnabled) {
-                                cityRepository.setMarineEnabled(city.id, true)
-                                _marineFeedback.send(MarineFeedback.Enabled)
+                runSuspendCatching {
+                    when (val result = marineRepository.getMarine(city, forceRefresh = true)) {
+                        is ApiResult.Success -> {
+                            marineAvailabilityCheckedAt[city.id] = result.data.fetchedAtEpochMs
+                            if (!result.data.coastal) {
+                                marineAvailableIds.update { it - city.id }
+                                _marineFeedback.send(MarineFeedback.NotCoastal)
                             } else {
-                                _marineFeedback.send(MarineFeedback.Refreshed)
+                                marineAvailableIds.update { it + city.id }
+                                syncVigilance(listOf(city))
+                                if (!city.marineEnabled) {
+                                    cityRepository.setMarineEnabled(city.id, true)
+                                    _marineFeedback.send(MarineFeedback.Enabled)
+                                } else {
+                                    _marineFeedback.send(MarineFeedback.Refreshed)
+                                }
                             }
                         }
+                        is ApiResult.Error -> _marineFeedback.send(MarineFeedback.Error(result.message))
                     }
-                    is ApiResult.Error -> _marineFeedback.send(MarineFeedback.Error(result.message))
+                }.onFailure {
+                    _actionFeedback.send(AppToastEvent.error(R.string.toast_action_error))
                 }
             } finally {
                 marineLoadingIds.update { it - city.id }
@@ -724,25 +820,45 @@ class CityListViewModel @Inject constructor(
         if (retryJobs[city.id]?.isActive == true) return
         val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
             val ownJob = coroutineContext[Job]
+            val previous = forecastsById.value[city.id]
             try {
-                forecastsById.update { it + (city.id to ForecastState.Loading) }
-                val models = userPreferences.observeEnabledModels().first()
-                val expectedGeneration = streamConfigGeneration
-                val result = forecastRepository.refreshCityForecast(city, models = models)
-                applyForecastResult(
-                    city = city,
-                    result = result,
-                    expectedConfigGeneration = expectedGeneration,
-                    expectedModels = models.toSet()
-                )
-                refreshVigilance(city, forceRefresh = true)
-                when (result) {
-                    is ApiResult.Success -> _actionFeedback.send(
-                        AppToastEvent.success(R.string.toast_city_refresh_success, city.name)
+                runSuspendCatching {
+                    forecastsById.update { it + (city.id to ForecastState.Loading) }
+                    val models = userPreferences.observeEnabledModels().first()
+                    val expectedGeneration = streamConfigGeneration
+                    val result = forecastRepository.refreshCityForecast(city, models = models)
+                    applyForecastResult(
+                        city = city,
+                        result = result,
+                        expectedConfigGeneration = expectedGeneration,
+                        expectedModels = models.toSet()
                     )
-                    is ApiResult.Error -> _actionFeedback.send(
-                        AppToastEvent.error(R.string.refresh_error, result.message)
-                    )
+                    // La Vigilance est un enrichissement secondaire : une panne
+                    // de ce chemin ne doit jamais annuler un forecast réussi ni
+                    // transformer son toast de succès en erreur générique.
+                    runSuspendCatching {
+                        refreshVigilance(city, forceRefresh = true)
+                    }.onFailure { error ->
+                        android.util.Log.w(
+                            "MeteoCompare/CityList",
+                            "Vigilance retry failed for city=${city.id}",
+                            error
+                        )
+                    }
+                    when (result) {
+                        is ApiResult.Success -> _actionFeedback.send(
+                            AppToastEvent.success(R.string.toast_city_refresh_success, city.name)
+                        )
+                        is ApiResult.Error -> _actionFeedback.send(
+                            AppToastEvent.error(R.string.refresh_error, result.message)
+                        )
+                    }
+                }.onFailure {
+                    forecastsById.update { current ->
+                        if (previous == null) current - city.id
+                        else current + (city.id to previous)
+                    }
+                    _actionFeedback.send(AppToastEvent.error(R.string.toast_action_error))
                 }
             } finally {
                 if (retryJobs[city.id] === ownJob) retryJobs.remove(city.id)
@@ -758,40 +874,70 @@ class CityListViewModel @Inject constructor(
         val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
             _isRefreshing.value = true
             try {
-                val cities = uiState.value.items.map { it.city }
+                // L'index maintenu par syncStreams est la source de vérité.
+                // uiState est WhileSubscribed et peut être momentanément en
+                // retard quand un favori vient d'être ajouté ou supprimé.
+                val cities = favoriteCitiesById.values.toList()
                 val models = userPreferences.observeEnabledModels().first()
                 val expectedGeneration = streamConfigGeneration
                 val limiter = Semaphore(MAX_CONCURRENT_CITY_REFRESHES)
-                val results = coroutineScope {
+                val results = supervisorScope {
                     cities.map { city ->
                         async {
                             limiter.withPermit {
-                                val result = forecastRepository.refreshCityForecast(city, models)
-                                applyForecastResult(
-                                    city = city,
-                                    result = result,
-                                    expectedConfigGeneration = expectedGeneration,
-                                    expectedModels = models.toSet()
-                                )
-                                refreshVigilance(city, forceRefresh = true)
-                                result
+                                runSuspendCatching {
+                                    val result = forecastRepository.refreshCityForecast(city, models)
+                                    applyForecastResult(
+                                        city = city,
+                                        result = result,
+                                        expectedConfigGeneration = expectedGeneration,
+                                        expectedModels = models.toSet()
+                                    )
+                                    runSuspendCatching {
+                                        refreshVigilance(city, forceRefresh = true)
+                                    }.onFailure { error ->
+                                        android.util.Log.w(
+                                            "MeteoCompare/CityList",
+                                            "Vigilance refresh failed for city=${city.id}",
+                                            error
+                                        )
+                                    }
+                                    result
+                                }.getOrNull()
                             }
                         }
                     }.awaitAll()
                 }
                 val errors = results.filterIsInstance<ApiResult.Error>()
+                val failedCount = errors.size + results.count { it == null }
                 when {
                     results.isEmpty() -> Unit
-                    errors.isEmpty() -> _actionFeedback.send(
+                    failedCount == 0 -> _actionFeedback.send(
                         AppToastEvent.success(R.string.toast_refresh_all_success)
                     )
-                    errors.size == results.size -> _actionFeedback.send(
-                        AppToastEvent.error(R.string.toast_refresh_all_error, errors.first().message)
-                    )
+                    failedCount == results.size -> {
+                        val firstMessage = errors.firstOrNull()?.message
+                        _actionFeedback.send(
+                            if (firstMessage != null) {
+                                AppToastEvent.error(R.string.toast_refresh_all_error, firstMessage)
+                            } else {
+                                AppToastEvent.error(R.string.toast_action_error)
+                            }
+                        )
+                    }
                     else -> _actionFeedback.send(
                         AppToastEvent.warning(R.string.toast_refresh_all_partial)
                     )
                 }
+            } catch (cancellation: kotlinx.coroutines.CancellationException) {
+                throw cancellation
+            } catch (error: Exception) {
+                android.util.Log.w(
+                    "MeteoCompare/CityList",
+                    "Global forecast refresh failed",
+                    error
+                )
+                _actionFeedback.send(AppToastEvent.error(R.string.toast_action_error))
             } finally {
                 _isRefreshing.value = false
             }
@@ -818,17 +964,24 @@ class CityListViewModel @Inject constructor(
         val includeCoast = includeCoastForVigilance(city)
         val previousMode = vigilanceCoastModeById[city.id]
         val existingJob = vigilanceJobs[city.id]
-        if (!forceRefresh && previousMode == includeCoast &&
-            (existingJob?.isActive == true || existingJob?.isCompleted == true)
-        ) {
+        if (!forceRefresh && previousMode == includeCoast && existingJob?.isActive == true) {
             return
         }
 
         vigilanceJobs.remove(city.id)?.cancel()
         vigilanceCoastModeById[city.id] = includeCoast
-        vigilanceJobs[city.id] = viewModelScope.launch {
-            refreshVigilance(city, forceRefresh = forceRefresh)
+        val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
+            val ownJob = coroutineContext[Job]
+            try {
+                refreshVigilance(city, forceRefresh = forceRefresh)
+            } finally {
+                if (vigilanceJobs[city.id] === ownJob) {
+                    vigilanceJobs.remove(city.id)
+                }
+            }
         }
+        vigilanceJobs[city.id] = job
+        job.start()
     }
 
     private fun clearVigilanceTracking(cityId: String) {

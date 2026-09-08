@@ -23,6 +23,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -321,6 +322,20 @@ class ConfidenceExplanationViewModelTest {
         val viewModel = viewModel()
 
         assertEquals(ConfidenceExplanationUiState.Error("network"), viewModel.state.value)
+    }
+
+    @Test
+    fun `unexpected forecast failure reaches a terminal localized error`() = runTest(dispatcher) {
+        every {
+            forecastRepository.getCityForecastStream(any(), any(), any(), any(), any())
+        } returns flow { throw IllegalStateException("room unavailable") }
+
+        val viewModel = viewModel()
+
+        assertEquals(
+            ConfidenceExplanationUiState.Error("localized-error"),
+            viewModel.state.value
+        )
     }
 
     @Test

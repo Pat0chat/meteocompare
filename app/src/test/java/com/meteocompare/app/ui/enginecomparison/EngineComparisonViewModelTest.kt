@@ -32,6 +32,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -158,6 +159,33 @@ class EngineComparisonViewModelTest {
             verify(exactly = 0) {
                 forecastRepository.getCityForecastStream(any(), any(), any(), any(), any())
             }
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `unexpected forecast failure reaches a terminal localized error`() = runViewModelTest {
+        every {
+            forecastRepository.getCityForecastStream(city, any(), any(), any(), any())
+        } returns flow { throw IllegalStateException("room unavailable") }
+        every { appContext.getString(com.meteocompare.app.R.string.error_unknown) } returns
+            "Unexpected error"
+
+        val viewModel = createViewModel(
+            savedStateHandle = SavedStateHandle(mapOf(Destinations.CITY_DETAIL_ARG to city.id)),
+            cityRepository = cityRepository,
+            forecastRepository = forecastRepository,
+            preferences = preferences,
+            contextProvider = contextProvider,
+            comparisonBuilder = builder,
+            clock = clock,
+            appContext = appContext
+        )
+
+        viewModel.state.test {
+            var state = awaitItem()
+            while (state is EngineComparisonUiState.Loading) state = awaitItem()
+            assertEquals(EngineComparisonUiState.Error("Unexpected error"), state)
             cancelAndIgnoreRemainingEvents()
         }
     }

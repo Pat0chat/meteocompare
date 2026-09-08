@@ -158,6 +158,8 @@ fun CityDetailScreen(
                     R.string.marine_error,
                     feedback.message
                 )
+                RefreshFeedback.SettingsSaveError ->
+                    AppToastEvent.error(R.string.toast_settings_save_error)
             }
         }
     }

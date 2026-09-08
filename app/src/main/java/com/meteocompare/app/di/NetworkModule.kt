@@ -129,7 +129,6 @@ object NetworkModule {
             .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
             .build()
 
-
     @Provides
     @Singleton
     @PreviousRunsRetrofit
@@ -139,7 +138,6 @@ object NetworkModule {
             .client(client)
             .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
             .build()
-
 
     @Provides
     @Singleton
@@ -180,5 +178,4 @@ object NetworkModule {
     @Singleton
     fun provideMeteoCompareApi(@MeteoCompareRetrofit retrofit: Retrofit): MeteoCompareApi =
         retrofit.create(MeteoCompareApi::class.java)
-
 }

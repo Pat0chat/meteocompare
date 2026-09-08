@@ -151,6 +151,39 @@ class ForecastRepositoryImplTest {
     }
 
     @Test
+    fun `refresh sans modele retourne une erreur au lieu de lever`() = runTest {
+        val result = repository.refreshCityForecast(
+            city = paris,
+            models = emptyList()
+        )
+
+        assertTrue(result is ApiResult.Error)
+        coVerify(exactly = 0) {
+            api.getForecastBatched(
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any()
+            )
+        }
+    }
+
+    @Test
+    fun `stream continue par le reseau si la lecture Room echoue`() = runTest {
+        coEvery { cacheDao.getForCity(paris.id) } throws IllegalStateException("room unavailable")
+        coEvery {
+            api.getForecastBatched(
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any()
+            )
+        } returns batchedResponseWith(modelsWithData = listOf(WeatherModel.GFS))
+
+        val emissions = repository.getCityForecastStream(
+            city = paris,
+            models = listOf(WeatherModel.GFS)
+        ).toList()
+
+        assertEquals(1, emissions.size)
+        assertTrue(emissions.single() is ApiResult.Success)
+    }
+
+    @Test
     fun `timezone API devient le fallback pour un favori ancien sans fuseau`() = runTest {
         coEvery {
             api.getForecastBatched(

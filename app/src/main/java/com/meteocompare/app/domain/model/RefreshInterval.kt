@@ -57,6 +57,17 @@ enum class RefreshInterval(val duration: Duration) {
     /** Millisecondes équivalentes — utile pour les comparaisons de fraîcheur cache. */
     val millis: Long get() = duration.toMillis()
 
+    /**
+     * Âge maximal accepté par les consommateurs cache-aware.
+     *
+     * Le mode manuel ne signifie pas « cache âgé de zéro milliseconde » mais
+     * « ne jamais renouveler automatiquement un cache existant ». Centraliser
+     * cette traduction évite que l'app, les widgets et les écrans secondaires
+     * divergent subtilement dans leur politique de rafraîchissement.
+     */
+    val maxCacheAgeMs: Long
+        get() = if (this == MANUAL) Long.MAX_VALUE else millis
+
     companion object {
         /**
          * Défaut : 1 heure. Compromis batterie/fraîcheur ; ce n'est pas la

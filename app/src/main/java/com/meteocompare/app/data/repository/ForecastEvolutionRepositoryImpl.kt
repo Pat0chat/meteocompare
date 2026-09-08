@@ -1,6 +1,8 @@
 package com.meteocompare.app.data.repository
 
+import android.content.Context
 import com.meteocompare.app.core.network.ApiResult
+import com.meteocompare.app.core.network.toUserMessage
 import com.meteocompare.app.data.local.ForecastEvolutionDao
 import com.meteocompare.app.data.local.ForecastEvolutionEntity
 import com.meteocompare.app.di.IoDispatcher
@@ -10,6 +12,7 @@ import com.meteocompare.app.domain.model.ForecastEvolutionVariable
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.repository.ForecastEvolutionHistoryData
 import com.meteocompare.app.domain.repository.ForecastEvolutionRepository
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
@@ -30,6 +33,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class ForecastEvolutionRepositoryImpl @Inject constructor(
+    @param:ApplicationContext private val context: Context,
     private val dao: ForecastEvolutionDao,
     @param:IoDispatcher private val io: CoroutineDispatcher
 ) : ForecastEvolutionRepository {
@@ -64,9 +68,10 @@ class ForecastEvolutionRepositoryImpl @Inject constructor(
             val oldest = dao.oldestSnapshotAt(city.id, modelKeys)?.let(Instant::ofEpochMilli)
             val samples = selectHistorySamples(entities, referenceAt)
             ApiResult.Success(ForecastEvolutionHistoryData(samples, oldest))
-        } catch (t: Throwable) {
-            if (t is CancellationException) throw t
-            ApiResult.Error(t, t.message ?: "Forecast evolution history unavailable")
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (error: Exception) {
+            ApiResult.Error(error, error.toUserMessage(context))
         }
     }
 
