@@ -2,6 +2,7 @@ package com.meteocompare.app.ui.citylist
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.meteocompare.app.BuildConfig
 import com.meteocompare.app.R
 import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.core.network.NetworkMonitor
@@ -827,7 +828,7 @@ class CityListViewModel @Inject constructor(
                     val models = userPreferences.observeEnabledModels().first()
                     val expectedGeneration = streamConfigGeneration
                     val result = forecastRepository.refreshCityForecast(city, models = models)
-                    applyForecastResult(
+                    val appliedState = applyForecastResult(
                         city = city,
                         result = result,
                         expectedConfigGeneration = expectedGeneration,
@@ -845,12 +846,17 @@ class CityListViewModel @Inject constructor(
                             error
                         )
                     }
-                    when (result) {
-                        is ApiResult.Success -> _actionFeedback.send(
+                    when {
+                        result is ApiResult.Error -> _actionFeedback.send(
+                            AppToastEvent.error(R.string.refresh_error, result.message)
+                        )
+                        appliedState is ForecastState.Loaded -> _actionFeedback.send(
                             AppToastEvent.success(R.string.toast_city_refresh_success, city.name)
                         )
-                        is ApiResult.Error -> _actionFeedback.send(
-                            AppToastEvent.error(R.string.refresh_error, result.message)
+                        appliedState is ForecastState.Error -> _actionFeedback.send(
+                            AppToastEvent.error(
+                                appliedState.messageRes ?: R.string.toast_action_error
+                            )
                         )
                     }
                 }.onFailure {
@@ -1023,10 +1029,10 @@ class CityListViewModel @Inject constructor(
         result: ApiResult<CityForecast>,
         expectedConfigGeneration: Long? = null,
         expectedModels: Set<WeatherModel>? = null
-    ) {
+    ): ForecastState? {
         if (expectedConfigGeneration != null &&
             expectedConfigGeneration != streamConfigGeneration
-        ) return
+        ) return null
 
         val mapped = toForecastState(result)
         // Le calcul quitte Main. Une préférence peut donc changer pendant ce
@@ -1034,7 +1040,7 @@ class CityListViewModel @Inject constructor(
         // en cours ne doit pas revenir polluer la nouvelle configuration.
         if (expectedConfigGeneration != null &&
             expectedConfigGeneration != streamConfigGeneration
-        ) return
+        ) return null
 
         val currentBefore = forecastsById.value[city.id] as? ForecastState.Loaded
         val isFirstForConfiguration = expectedConfigGeneration != null &&
@@ -1100,6 +1106,57 @@ class CityListViewModel @Inject constructor(
                 appliedRequestedModelsByCity[city.id] = expectedModels
             }
         }
+        return mapped
+    }
+
+    /**
+     * Aligne l'instant de présentation sur la journée exposée par une réponse
+     * Open-Meteo fraîche lorsque l'horloge Android est manifestement hors de la
+     * fenêtre reçue (cas typique d'un émulateur restauré depuis un snapshot).
+     *
+     * Open-Meteo construit la fenêtre Forecast à partir de 00:00 « today » dans
+     * le fuseau demandé. Si le device affirme être plusieurs jours avant/après,
+     * utiliser son LocalDate brut transforme une réponse réseau valide en
+     * `forecast_error_no_today`. On conserve l'heure locale du device et on ne
+     * corrige que la composante date, uniquement pour une donnée très récente.
+     * Un vieux cache reste donc refusé comme prévision du jour.
+     */
+    private fun alignPresentationNowToFreshForecast(
+        forecast: CityForecast,
+        rawNow: Instant,
+        zone: java.time.ZoneId
+    ): Instant {
+        val availableDates = forecast.seriesByModel.values
+            .asSequence()
+            .flatMap { it.daily.dates.asSequence() }
+            .distinct()
+            .sorted()
+            .toList()
+        if (availableDates.isEmpty()) return rawNow
+
+        val deviceDate = rawNow.atZone(zone).toLocalDate()
+        if (deviceDate in availableDates) return rawNow
+
+        val fetchedAt = forecast.fetchedAt ?: return rawNow
+        val ageMs = kotlin.math.abs(rawNow.toEpochMilli() - fetchedAt.toEpochMilli())
+        if (ageMs > MAX_FRESH_FORECAST_CLOCK_ALIGNMENT_AGE_MS) return rawNow
+
+        // La première date de la fenêtre Forecast est le « today » de l'API.
+        val apiToday = availableDates.first()
+        val dayShift = apiToday.toEpochDay() - deviceDate.toEpochDay()
+        if (dayShift == 0L) return rawNow
+
+        val aligned = rawNow.atZone(zone).plusDays(dayShift).toInstant()
+        if (BuildConfig.DEBUG) {
+            android.util.Log.w(
+                "MeteoCompare/CityList",
+                "Device/API date mismatch for city=${forecast.city.id}: " +
+                    "deviceDate=$deviceDate apiToday=$apiToday " +
+                    "range=${availableDates.first()}..${availableDates.last()} " +
+                    "timezone=${forecast.city.timezone}; aligning presentation clock"
+            )
+        }
+        return aligned
     }
 
     private suspend fun toForecastState(
@@ -1108,14 +1165,18 @@ class CityListViewModel @Inject constructor(
         calculationNow: Instant = clock.instant()
     ): ForecastState = withContext(computationDispatcher) { when (result) {
         is ApiResult.Success -> {
-            val now = calculationNow
-            val engine = engineOverride ?: userPreferences.observeForecastEngine().first()
-            val engineContext = engineContextProvider.build(result.data, engine, now)
             // Le repository complète le fuseau depuis `timezone=auto` si un
             // favori legacy ne l'avait pas. Utiliser la ville du forecast évite
             // alors de retomber à tort sur UTC pour la Home.
             val forecastCity = result.data.city
             val zone = resolveZoneOrUtc(forecastCity.timezone)
+            val now = alignPresentationNowToFreshForecast(
+                forecast = result.data,
+                rawNow = calculationNow,
+                zone = zone
+            )
+            val engine = engineOverride ?: userPreferences.observeForecastEngine().first()
+            val engineContext = engineContextProvider.build(result.data, engine, now)
             val today = now.atZone(zone).toLocalDate()
             val hasToday = result.data.seriesByModel.values.any { today in it.daily.dates }
             if (hasToday) {
@@ -1180,6 +1241,19 @@ class CityListViewModel @Inject constructor(
                     sunset = sunset
                 )
             } else {
+                if (BuildConfig.DEBUG) {
+                    val ranges = result.data.seriesByModel.entries.joinToString { (model, series) ->
+                        val dates = series.daily.dates
+                        if (dates.isEmpty()) "${model.apiKey}=empty"
+                        else "${model.apiKey}=${dates.first()}..${dates.last()}"
+                    }
+                    android.util.Log.w(
+                        "MeteoCompare/CityList",
+                        "No daily forecast for presentationDate=$today " +
+                            "city=${forecastCity.id} timezone=${forecastCity.timezone} " +
+                            "fetchedAt=${result.data.fetchedAt} ranges=[$ranges]"
+                    )
+                }
                 ForecastState.Error(messageRes = R.string.forecast_error_no_today)
             }
         }
@@ -1189,5 +1263,12 @@ class CityListViewModel @Inject constructor(
     companion object {
         /** Évite de saturer CPU, sockets et quotas lorsqu'il y a beaucoup de favoris. */
         private const val MAX_CONCURRENT_CITY_REFRESHES = 3
+
+        /**
+         * Une correction de date n'est permise que sur une réponse/cache fraîche.
+         * Au-delà, l'absence de la date locale signifie réellement que le cache
+         * est périmé et doit rester présenté comme tel.
+         */
+        private const val MAX_FRESH_FORECAST_CLOCK_ALIGNMENT_AGE_MS = 6L * 60L * 60L * 1000L
     }
 }

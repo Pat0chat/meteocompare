@@ -995,6 +995,105 @@ class CityListViewModelTest {
     }
 
     @Test
+    fun `forecast frais aligne la date de presentation quand lhorloge device est hors fenetre`() =
+        runViewModelTest {
+            // Simule un émulateur restauré avec une date civile en retard d'un jour :
+            // l'API fraîche considère le 29 comme « today », le device croit être le 28.
+            val apiToday = LocalDate.of(2026, 6, 29)
+            val fresh = CityForecast(
+                city = paris,
+                seriesByModel = mapOf(
+                    WeatherModel.GFS to ForecastSeries(
+                        model = WeatherModel.GFS,
+                        hourly = HourlyForecast(
+                            timestamps = listOf(Instant.parse("2026-06-29T12:00:00Z")),
+                            temperature2m = listOf(21.0),
+                            precipitation = listOf(0.0),
+                            windSpeed10m = listOf(7.0)
+                        ),
+                        daily = DailyForecast(
+                            dates = listOf(apiToday, apiToday.plusDays(1)),
+                            tempMax = listOf(25.0, 24.0),
+                            tempMin = listOf(15.0, 14.0),
+                            precipitationSum = listOf(0.0, 1.0),
+                            windSpeedMax = listOf(10.0, 12.0)
+                        )
+                    )
+                ),
+                fetchedAt = testNow
+            )
+            coEvery {
+                forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
+            } returns flowOf(ApiResult.Success(fresh))
+            val vm = createViewModel(
+                cityRepo, forecastRepo, marineRepo, vigilanceRepo, networkMonitor, calculator,
+                prefs, testClock, dispatcher, engineContextProvider
+            )
+
+            vm.uiState.test {
+                awaitItem()
+                favoritesFlow.value = listOf(paris)
+                var state = awaitItem()
+                while (state.items.firstOrNull()?.forecast !is ForecastState.Loaded) state = awaitItem()
+                val loaded = state.items.first().forecast as ForecastState.Loaded
+                assertEquals(apiToday, loaded.today.date)
+                assertEquals(21.0, loaded.currentTemp!!, 0.001)
+            }
+        }
+
+    @Test
+    fun `onRetry - succes reseau sans daily ne produit pas un toast de succes`() = runViewModelTest {
+        coEvery {
+            forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
+        } returns flowOf(ApiResult.Error(RuntimeException(), "boom"))
+
+        val noDaily = CityForecast(
+            city = paris,
+            seriesByModel = mapOf(
+                WeatherModel.GFS to ForecastSeries(
+                    model = WeatherModel.GFS,
+                    hourly = HourlyForecast(
+                        timestamps = listOf(testNow),
+                        temperature2m = listOf(20.0),
+                        precipitation = listOf(0.0),
+                        windSpeed10m = listOf(5.0)
+                    ),
+                    daily = DailyForecast(
+                        dates = emptyList(),
+                        tempMax = emptyList(),
+                        tempMin = emptyList(),
+                        precipitationSum = emptyList(),
+                        windSpeedMax = emptyList()
+                    )
+                )
+            ),
+            fetchedAt = testNow
+        )
+        coEvery {
+            forecastRepo.refreshCityForecast(eq(paris), any(), any())
+        } returns ApiResult.Success(noDaily)
+
+        val vm = createViewModel(
+            cityRepo, forecastRepo, marineRepo, vigilanceRepo, networkMonitor, calculator,
+            prefs, testClock, dispatcher, engineContextProvider
+        )
+
+        vm.uiState.test {
+            awaitItem()
+            favoritesFlow.value = listOf(paris)
+            var state = awaitItem()
+            while (state.items.firstOrNull()?.forecast !is ForecastState.Error) state = awaitItem()
+
+            vm.actionFeedback.test {
+                vm.onRetry(paris)
+                val feedback = awaitItem()
+                assertEquals(com.meteocompare.app.R.string.forecast_error_no_today, feedback.messageRes)
+                assertNotEquals(com.meteocompare.app.R.string.toast_city_refresh_success, feedback.messageRes)
+            }
+        }
+    }
+
+    @Test
     fun `heure de depart mini forecast suit le slot reel et non le plancher de now`() = runViewModelTest {
         val lateNow = Instant.parse("2026-06-28T12:56:00Z")
         val lateClock = Clock.fixed(lateNow, ZoneOffset.UTC)
