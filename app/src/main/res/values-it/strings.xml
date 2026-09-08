@@ -43,10 +43,11 @@
     <string name="settings_about_title">Informazioni</string>
     <string name="settings_about_version">Versione %s</string>
     <string name="settings_about_data_source">Dati meteorologici: Open-Meteo. MeteoCompare aggrega e trasforma questi dati per produrre confronti, scenari e indicatori.</string>
-    <string name="open_meteo_attribution">Dati: Open-Meteo · aggregati e trasformati da MeteoCompare</string>
-    <string name="open_meteo_attribution_open">Apri il sito di Open-Meteo</string>
-    <string name="open_meteo_link_label">Sito di Open-Meteo</string>
-    <string name="widget_open_meteo_attribution">Open-Meteo · dati aggregati</string>
+    <string name="open_meteo_attribution">Dati: Open-Meteo · CC BY 4.0 · aggregati e trasformati da MeteoCompare</string>
+    <string name="open_meteo_attribution_open">Apri la licenza Open-Meteo</string>
+    <string name="open_meteo_link_label">Licenza Open-Meteo</string>
+    <string name="widget_open_meteo_attribution">Open-Meteo · CC BY 4.0</string>
+    <string name="widget_open_meteo_attribution_short">Open-Meteo</string>
     <string name="settings_about_models_credit">Modelli: AROME e ARPEGE di Météo-France, ICON di DWD, GFS e HRRR di NOAA, ECMWF e AIFS del Centro Europeo, UKMO del UK Met Office, GEM di Environment Canada, MET Nordic di MET Norway, HARMONIE di KNMI e DMI, ICON-CH di MeteoSwiss, ACCESS del Bureau of Meteorology (Australia), GRAPES di CMA (Cina).</string>
     <string name="settings_bias_refresh_title">Monitoraggio del bias</string>
     <string name="settings_bias_refresh_desc">Recupera fino a 3 settimane di storico D+1 per avviare l’affidabilità locale. I modelli senza archivio si calibrano gradualmente.</string>

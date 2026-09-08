@@ -43,10 +43,11 @@
     <string name="settings_about_title">Über die App</string>
     <string name="settings_about_version">Version %s</string>
     <string name="settings_about_data_source">Wetterdaten: Open-Meteo. MeteoCompare aggregiert und verarbeitet diese Daten für Vergleiche, Szenarien und Indikatoren.</string>
-    <string name="open_meteo_attribution">Daten: Open-Meteo · von MeteoCompare aggregiert und verarbeitet</string>
-    <string name="open_meteo_attribution_open">Open-Meteo-Website öffnen</string>
-    <string name="open_meteo_link_label">Open-Meteo-Website</string>
-    <string name="widget_open_meteo_attribution">Open-Meteo · aggregierte Daten</string>
+    <string name="open_meteo_attribution">Daten: Open-Meteo · CC BY 4.0 · von MeteoCompare aggregiert und verarbeitet</string>
+    <string name="open_meteo_attribution_open">Open-Meteo-Lizenz öffnen</string>
+    <string name="open_meteo_link_label">Open-Meteo-Lizenz</string>
+    <string name="widget_open_meteo_attribution">Open-Meteo · CC BY 4.0</string>
+    <string name="widget_open_meteo_attribution_short">Open-Meteo</string>
     <string name="settings_about_models_credit">Modelle: AROME und ARPEGE von Météo-France, ICON vom DWD, GFS und HRRR von NOAA, ECMWF und AIFS vom Europäischen Zentrum, UKMO vom UK Met Office, GEM von Environment Canada, MET Nordic von MET Norway, HARMONIE von KNMI und DMI, ICON-CH von MeteoSwiss, ACCESS vom Bureau of Meteorology (Australien), GRAPES von CMA (China).</string>
     <string name="settings_bias_refresh_title">Bias-Verfolgung</string>
     <string name="settings_bias_refresh_desc">Lädt bis zu 3 Wochen D+1-Verlauf für die lokale Zuverlässigkeit. Modelle ohne Archiv kalibrieren sich schrittweise.</string>

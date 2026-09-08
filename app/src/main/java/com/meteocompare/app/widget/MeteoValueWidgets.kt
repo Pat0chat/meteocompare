@@ -1,7 +1,9 @@
 package com.meteocompare.app.widget
 
 import android.content.Context
+import android.content.Intent
 import android.content.res.Configuration
+import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -22,6 +24,7 @@ import androidx.glance.ImageProvider
 import androidx.glance.LocalContext
 import androidx.glance.LocalSize
 import androidx.glance.action.actionStartActivity
+import androidx.glance.appwidget.action.actionStartActivity as actionStartActivityIntent
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.SizeMode
@@ -48,6 +51,7 @@ import androidx.glance.unit.ColorProvider
 import com.meteocompare.app.MainActivity
 import com.meteocompare.app.R
 import com.meteocompare.app.core.locale.applyPersistedLocale
+import com.meteocompare.app.core.network.OPEN_METEO_LICENSE_URL
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.ui.citydetail.ForecastInsightLevel
 import kotlin.math.roundToInt
@@ -144,10 +148,48 @@ private fun InsightWidgetContent(
                 vertical = if (compact) 11.dp else 13.dp
             )
     ) {
-        when (data.error) {
-            null -> InsightWidgetLayout(data, colors, compact)
-            else -> ValueWidgetError(data, colors, compact)
+        Column(modifier = GlanceModifier.fillMaxSize()) {
+            Box(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
+                when (data.error) {
+                    null -> InsightWidgetLayout(data, colors, compact)
+                    else -> ValueWidgetError(data, colors, compact)
+                }
+            }
+            if (data.error == null) {
+                InsightOpenMeteoAttribution(colors.muted, compact)
+            }
         }
+    }
+}
+
+@Composable
+private fun InsightOpenMeteoAttribution(
+    textColor: ColorProvider,
+    compact: Boolean
+) {
+    val context = LocalContext.current
+    val licenseIntent = remember {
+        Intent(Intent.ACTION_VIEW, Uri.parse(OPEN_METEO_LICENSE_URL))
+    }
+    Row(
+        modifier = GlanceModifier
+            .fillMaxWidth()
+            .clickable(actionStartActivityIntent(licenseIntent))
+            .padding(top = 2.dp)
+    ) {
+        Spacer(GlanceModifier.defaultWeight())
+        Text(
+            text = context.getString(
+                if (compact) R.string.widget_open_meteo_attribution_short
+                else R.string.widget_open_meteo_attribution
+            ),
+            style = TextStyle(
+                color = textColor,
+                fontSize = if (compact) 5.sp else 6.sp,
+                fontWeight = FontWeight.Medium
+            ),
+            maxLines = 1
+        )
     }
 }
 

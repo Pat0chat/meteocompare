@@ -1,4 +1,4 @@
 package com.meteocompare.app.core.network
 
-/** Canonical public source URL used by in-app and widget attributions. */
-internal const val OPEN_METEO_WEBSITE_URL = "https://open-meteo.com/"
+/** CC BY 4.0 attribution target used next to weather data and in widgets. */
+internal const val OPEN_METEO_LICENSE_URL = "https://open-meteo.com/en/license"

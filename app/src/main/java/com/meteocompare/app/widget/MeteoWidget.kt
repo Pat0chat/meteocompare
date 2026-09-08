@@ -1,7 +1,9 @@
 package com.meteocompare.app.widget
 
 import android.content.Context
+import android.content.Intent
 import android.content.res.Configuration
+import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -25,6 +27,7 @@ import androidx.glance.ImageProvider
 import androidx.glance.LocalContext
 import androidx.glance.LocalSize
 import androidx.glance.action.actionStartActivity
+import androidx.glance.appwidget.action.actionStartActivity as actionStartActivityIntent
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import com.meteocompare.app.R
@@ -53,6 +56,7 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import com.meteocompare.app.MainActivity
+import com.meteocompare.app.core.network.OPEN_METEO_LICENSE_URL
 import com.meteocompare.app.domain.model.WeatherCondition
 
 // ─── Sélection de layout ────────────────────────────────────────────────────
@@ -379,53 +383,98 @@ private fun WidgetContent(
             .clickable(actionStartActivity<MainActivity>())
             .padding(horizontal = padding.horizontal, vertical = padding.vertical)
     ) {
-        when {
-            data.error != null -> ErrorLayout(
-                error = data.error,
-                onContainer = onContainer,
-                onContainerMuted = onContainerMuted,
-                softSurface = softSurface
-            )
-            else -> when (layoutKind) {
-                WidgetLayoutKind.TINY -> TinyLayout(data, onContainer)
-                WidgetLayoutKind.EXTRA_LARGE -> ExtraLargeLayout(
-                    data = data,
-                    onContainer = onContainer,
-                    onContainerMuted = onContainerMuted,
-                    softSurface = softSurface,
-                    raisedSurface = raisedSurface,
-                    onContainerArgb = baseOnContainerColor.toArgb(),
-                    showFiveItems = extendedForecastItemCount(widthDp) == 5,
-                    showExtras = widthDp >= MEDIUM_MAX_WIDTH_DP
+        Column(modifier = GlanceModifier.fillMaxSize()) {
+            Box(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
+                when {
+                    data.error != null -> ErrorLayout(
+                        error = data.error,
+                        onContainer = onContainer,
+                        onContainerMuted = onContainerMuted,
+                        softSurface = softSurface
+                    )
+                    else -> when (layoutKind) {
+                        WidgetLayoutKind.TINY -> TinyLayout(data, onContainer)
+                        WidgetLayoutKind.EXTRA_LARGE -> ExtraLargeLayout(
+                            data = data,
+                            onContainer = onContainer,
+                            onContainerMuted = onContainerMuted,
+                            softSurface = softSurface,
+                            raisedSurface = raisedSurface,
+                            onContainerArgb = baseOnContainerColor.toArgb(),
+                            showFiveItems = extendedForecastItemCount(widthDp) == 5,
+                            showExtras = widthDp >= MEDIUM_MAX_WIDTH_DP
+                        )
+                        WidgetLayoutKind.COMPACT_TALL -> CompactTallLayout(
+                            data = data,
+                            onContainer = onContainer,
+                            onContainerMuted = onContainerMuted,
+                            softSurface = softSurface,
+                            raisedSurface = raisedSurface,
+                            onContainerArgb = baseOnContainerColor.toArgb()
+                        )
+                        WidgetLayoutKind.WIDE -> LargeLayout(
+                            data = data,
+                            onContainer = onContainer,
+                            onContainerMuted = onContainerMuted,
+                            softSurface = softSurface,
+                            raisedSurface = raisedSurface,
+                            inlineForecastItems = inlineForecastItemCount(widthDp)
+                        )
+                        WidgetLayoutKind.LARGE -> LargeLayout(
+                            data = data,
+                            onContainer = onContainer,
+                            onContainerMuted = onContainerMuted,
+                            softSurface = softSurface,
+                            raisedSurface = raisedSurface,
+                            inlineForecastItems = 0
+                        )
+                        WidgetLayoutKind.MEDIUM -> MediumLayout(data, onContainer, onContainerMuted)
+                        WidgetLayoutKind.SMALL -> SmallLayout(data, onContainer)
+                    }
+                }
+            }
+
+            if (data.error == null) {
+                WidgetOpenMeteoAttribution(
+                    textColor = onContainerMuted,
+                    compact = layoutKind == WidgetLayoutKind.TINY ||
+                        layoutKind == WidgetLayoutKind.SMALL
                 )
-                WidgetLayoutKind.COMPACT_TALL -> CompactTallLayout(
-                    data = data,
-                    onContainer = onContainer,
-                    onContainerMuted = onContainerMuted,
-                    softSurface = softSurface,
-                    raisedSurface = raisedSurface,
-                    onContainerArgb = baseOnContainerColor.toArgb()
-                )
-                WidgetLayoutKind.WIDE -> LargeLayout(
-                    data = data,
-                    onContainer = onContainer,
-                    onContainerMuted = onContainerMuted,
-                    softSurface = softSurface,
-                    raisedSurface = raisedSurface,
-                    inlineForecastItems = inlineForecastItemCount(widthDp)
-                )
-                WidgetLayoutKind.LARGE -> LargeLayout(
-                    data = data,
-                    onContainer = onContainer,
-                    onContainerMuted = onContainerMuted,
-                    softSurface = softSurface,
-                    raisedSurface = raisedSurface,
-                    inlineForecastItems = 0
-                )
-                WidgetLayoutKind.MEDIUM -> MediumLayout(data, onContainer, onContainerMuted)
-                WidgetLayoutKind.SMALL -> SmallLayout(data, onContainer)
             }
         }
+    }
+}
+
+@Composable
+private fun WidgetOpenMeteoAttribution(
+    textColor: ColorProvider,
+    compact: Boolean
+) {
+    val context = LocalContext.current
+    val label = context.getString(
+        if (compact) R.string.widget_open_meteo_attribution_short
+        else R.string.widget_open_meteo_attribution
+    )
+    val licenseIntent = remember {
+        Intent(Intent.ACTION_VIEW, Uri.parse(OPEN_METEO_LICENSE_URL))
+    }
+
+    Row(
+        modifier = GlanceModifier
+            .fillMaxWidth()
+            .clickable(actionStartActivityIntent(licenseIntent))
+            .padding(top = 2.dp)
+    ) {
+        Spacer(GlanceModifier.defaultWeight())
+        Text(
+            text = label,
+            style = TextStyle(
+                color = textColor,
+                fontSize = if (compact) 5.sp else 6.sp,
+                fontWeight = FontWeight.Medium
+            ),
+            maxLines = 1
+        )
     }
 }
 

@@ -3,7 +3,6 @@ package com.meteocompare.app.ui.components
 import android.content.res.Resources
 import androidx.annotation.StringRes
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.PaddingValues
@@ -47,6 +46,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
@@ -246,10 +246,17 @@ internal fun AppToastCard(
     onDismiss: (() -> Unit)? = null
 ) {
     val accent = appToastAccent(type)
+    val scheme = MaterialTheme.colorScheme
+    val lightPalette = scheme.surface.luminance() > 0.5f
+    val toastContainer = if (lightPalette) {
+        scheme.surfaceContainerLow
+    } else {
+        scheme.surfaceContainerHigh
+    }
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .shadow(2.dp, RoundedCornerShape(14.dp))
+            .shadow(1.dp, RoundedCornerShape(14.dp))
             .semantics {
                 liveRegion = if (type == AppToastType.ERROR) {
                     LiveRegionMode.Assertive
@@ -259,9 +266,9 @@ internal fun AppToastCard(
             }
             .testTag("$TAG_APP_TOAST-${type.name.lowercase()}"),
         shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        contentColor = MaterialTheme.colorScheme.onSurface,
-        border = BorderStroke(1.dp, accent.copy(alpha = 0.30f))
+        color = toastContainer,
+        contentColor = scheme.onSurface,
+        border = BorderStroke(1.dp, accent.copy(alpha = 0.22f))
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 11.dp),
@@ -270,7 +277,7 @@ internal fun AppToastCard(
             Surface(
                 modifier = Modifier.size(36.dp),
                 shape = RoundedCornerShape(12.dp),
-                color = accent.copy(alpha = 0.14f),
+                color = accent.copy(alpha = 0.10f),
                 contentColor = accent
             ) {
                 Box(contentAlignment = Alignment.Center) {
@@ -321,7 +328,7 @@ internal fun AppToastCard(
 
 @Composable
 private fun appToastAccent(type: AppToastType): Color {
-    val dark = isSystemInDarkTheme()
+    val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     return when (type) {
         AppToastType.SUCCESS -> if (dark) Color(0xFF81C784) else Color(0xFF2E7D32)
         AppToastType.ERROR -> MaterialTheme.colorScheme.error

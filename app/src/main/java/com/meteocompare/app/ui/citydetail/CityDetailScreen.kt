@@ -103,6 +103,7 @@ import com.meteocompare.app.ui.components.AppToastEffect
 import com.meteocompare.app.ui.components.AppToastEvent
 import com.meteocompare.app.ui.components.CollapsibleSectionHeader
 import com.meteocompare.app.ui.components.OfflineDataBanner
+import com.meteocompare.app.ui.components.OpenMeteoAttribution
 import com.meteocompare.app.ui.components.VigilanceDetailCard
 import com.meteocompare.app.ui.citylist.WeatherAccent
 import com.meteocompare.app.ui.theme.confidenceColor
@@ -747,6 +748,17 @@ private fun LoadedView(
                         onSectionExpandedChange(CityDetailSection.MARINE, expanded)
                     }
                 )
+            }
+        }
+
+        item("open_meteo_attribution") {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                OpenMeteoAttribution()
             }
         }
 

@@ -118,6 +118,7 @@ import com.meteocompare.app.domain.model.WeatherScenarioTiming
 import com.meteocompare.app.ui.components.AnimatedWeatherIcon
 import com.meteocompare.app.ui.components.AppToastEffect
 import com.meteocompare.app.ui.components.AppToastEvent
+import com.meteocompare.app.ui.components.OpenMeteoAttribution
 import com.meteocompare.app.ui.components.ShimmerBox
 import com.meteocompare.app.ui.components.WeatherMetric
 import com.meteocompare.app.ui.components.VigilanceCompactBanner
@@ -396,6 +397,15 @@ internal fun CityList(
                     fadeOutSpec = tween(200)
                 )
             )
+        }
+
+        item(key = "open-meteo-attribution") {
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
+                OpenMeteoAttribution()
+            }
         }
     }
 }

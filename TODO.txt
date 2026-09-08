@@ -1,5 +1,0 @@
-TODO
-----
-1. Appliquer modification audit
-2. Finaliser "forecast evolution"
-3. Dernière audit dans GPT

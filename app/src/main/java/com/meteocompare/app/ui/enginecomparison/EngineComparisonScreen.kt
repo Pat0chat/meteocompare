@@ -68,6 +68,7 @@ import com.meteocompare.app.domain.usecase.EngineComparisonValues
 import com.meteocompare.app.domain.usecase.EngineDivergenceLevel
 import com.meteocompare.app.ui.components.AppToastEffect
 import com.meteocompare.app.ui.components.ModernStateChip
+import com.meteocompare.app.ui.components.OpenMeteoAttribution
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
@@ -143,6 +144,15 @@ internal fun EngineComparisonContent(
                 cityName = state.cityName,
                 selectedEngine = state.selectedEngine
             )
+        }
+
+        item {
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
+                OpenMeteoAttribution()
+            }
         }
 
         item {

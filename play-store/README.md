@@ -71,8 +71,6 @@ Au moment du soumission :
 - [ ] Catégorie : Météo
 - [ ] Contenu : Tous publics
 - [ ] Politique de confidentialité : URL pointant vers `PRIVACY.md` (héberger sur GitHub Pages par exemple)
-- [ ] Section "Data Safety" : déclarer "Aucune donnée collectée, aucune donnée partagée"
-  - Lors du formulaire : tout cocher "Non" sauf les questions sur le stockage local
 - [ ] Permissions sensibles : aucune (l'app n'utilise ni GPS, ni contacts, ni stockage externe)
 - [ ] Annonces : Non (aucune publicité)
 - [ ] Contenu UGC : Non (pas de contenu utilisateur)
