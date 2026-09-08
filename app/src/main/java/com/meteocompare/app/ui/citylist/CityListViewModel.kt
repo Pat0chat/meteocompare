@@ -1175,11 +1175,15 @@ class CityListViewModel @Inject constructor(
                 rawNow = calculationNow,
                 zone = zone
             )
-            val engine = engineOverride ?: userPreferences.observeForecastEngine().first()
-            val engineContext = engineContextProvider.build(result.data, engine, now)
             val today = now.atZone(zone).toLocalDate()
             val hasToday = result.data.seriesByModel.values.any { today in it.daily.dates }
             if (hasToday) {
+                // Ne construit le contexte moteur que lorsqu'une journée exploitable
+                // existe réellement. Un succès HTTP partiel/sans `daily` doit
+                // pouvoir être classé immédiatement en erreur de présentation,
+                // sans dépendre de Room/calibration ni d'un moteur avancé.
+                val engine = engineOverride ?: userPreferences.observeForecastEngine().first()
+                val engineContext = engineContextProvider.build(result.data, engine, now)
                 // ─── Sunrise/sunset : API Open-Meteo en priorité ───────────
                 // Les heures astronomiques sont demandées dans le même appel
                 // forecast. Le calcul NOAA local reste uniquement un secours

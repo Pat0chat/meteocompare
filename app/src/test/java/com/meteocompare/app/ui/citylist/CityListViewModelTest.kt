@@ -1043,10 +1043,6 @@ class CityListViewModelTest {
 
     @Test
     fun `onRetry - succes reseau sans daily ne produit pas un toast de succes`() = runViewModelTest {
-        coEvery {
-            forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
-        } returns flowOf(ApiResult.Error(RuntimeException(), "boom"))
-
         val noDaily = CityForecast(
             city = paris,
             seriesByModel = mapOf(
@@ -1078,18 +1074,18 @@ class CityListViewModelTest {
             prefs, testClock, dispatcher, engineContextProvider
         )
 
-        vm.uiState.test {
-            awaitItem()
-            favoritesFlow.value = listOf(paris)
-            var state = awaitItem()
-            while (state.items.firstOrNull()?.forecast !is ForecastState.Error) state = awaitItem()
-
-            vm.actionFeedback.test {
-                vm.onRetry(paris)
-                val feedback = awaitItem()
-                assertEquals(com.meteocompare.app.R.string.forecast_error_no_today, feedback.messageRes)
-                assertNotEquals(com.meteocompare.app.R.string.toast_city_refresh_success, feedback.messageRes)
-            }
+        // Ce test cible uniquement le contrat de feedback de onRetry.
+        // Attendre auparavant un état Error du stream introduit une course
+        // inutile entre stateIn(WhileSubscribed), syncStreams et Turbine sous
+        // UnconfinedTestDispatcher, et peut provoquer un timeout sans rapport
+        // avec le comportement réellement testé.
+        vm.actionFeedback.test {
+            vm.onRetry(paris)
+            val feedback = awaitItem()
+            assertEquals(com.meteocompare.app.R.string.forecast_error_no_today, feedback.messageRes)
+            assertNotEquals(com.meteocompare.app.R.string.toast_city_refresh_success, feedback.messageRes)
+            assertEquals(com.meteocompare.app.ui.components.AppToastType.ERROR, feedback.type)
+            cancelAndIgnoreRemainingEvents()
         }
     }
 
