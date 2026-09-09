@@ -9,6 +9,95 @@ import org.junit.Test
 class ForecastConsensusTest {
 
     @Test
+    fun `probabilites divergentes ne forcent pas convergence quantite a zero`() {
+        val result = ForecastConsensus.precipitation(
+            rows = listOf(
+                ForecastConsensus.PrecipitationRow(
+                    WeatherModel.GFS,
+                    amountMm = 2.0,
+                    probabilityPercent = 10
+                ),
+                ForecastConsensus.PrecipitationRow(
+                    WeatherModel.ECMWF,
+                    amountMm = 2.2,
+                    probabilityPercent = 55
+                ),
+                ForecastConsensus.PrecipitationRow(
+                    WeatherModel.ARPEGE_EUROPE,
+                    amountMm = 2.4,
+                    probabilityPercent = 95
+                )
+            ),
+            thresholdMm = PrecipitationThresholds.DAILY_OCCURRENCE_MM,
+            amountTightStdDev = 1.0,
+            amountWideStdDev = 8.0
+        )
+
+        assertTrue(
+            requireNotNull(result.amountConvergencePercent) >= 90
+        )
+
+        assertTrue(
+            requireNotNull(result.convergencePercent) <
+                    requireNotNull(result.amountConvergencePercent)
+        )
+    }
+
+    @Test
+    fun `convergence quantite pluie mesure la dispersion des millimetres`() {
+        val close = ForecastConsensus.precipitation(
+            rows = listOf(
+                ForecastConsensus.PrecipitationRow(
+                    WeatherModel.GFS,
+                    amountMm = 2.0,
+                    probabilityPercent = 30
+                ),
+                ForecastConsensus.PrecipitationRow(
+                    WeatherModel.ECMWF,
+                    amountMm = 2.4,
+                    probabilityPercent = 60
+                ),
+                ForecastConsensus.PrecipitationRow(
+                    WeatherModel.ARPEGE_EUROPE,
+                    amountMm = 2.8,
+                    probabilityPercent = 90
+                )
+            ),
+            thresholdMm = PrecipitationThresholds.DAILY_OCCURRENCE_MM,
+            amountTightStdDev = 1.0,
+            amountWideStdDev = 8.0
+        )
+
+        val divergent = ForecastConsensus.precipitation(
+            rows = listOf(
+                ForecastConsensus.PrecipitationRow(
+                    WeatherModel.GFS,
+                    amountMm = 0.0,
+                    probabilityPercent = 30
+                ),
+                ForecastConsensus.PrecipitationRow(
+                    WeatherModel.ECMWF,
+                    amountMm = 8.0,
+                    probabilityPercent = 60
+                ),
+                ForecastConsensus.PrecipitationRow(
+                    WeatherModel.ARPEGE_EUROPE,
+                    amountMm = 15.0,
+                    probabilityPercent = 90
+                )
+            ),
+            thresholdMm = PrecipitationThresholds.DAILY_OCCURRENCE_MM,
+            amountTightStdDev = 1.0,
+            amountWideStdDev = 8.0
+        )
+
+        assertTrue(
+            requireNotNull(close.amountConvergencePercent) >
+                    requireNotNull(divergent.amountConvergencePercent)
+        )
+    }
+
+    @Test
     fun `les trois ICON partagent exactement une voix face a GFS`() {
         val weights = ForecastConsensus.familyBalancedWeights(
             listOf(

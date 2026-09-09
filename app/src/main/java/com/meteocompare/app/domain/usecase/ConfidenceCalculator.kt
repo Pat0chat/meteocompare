@@ -719,7 +719,10 @@ class ConfidenceCalculator @Inject constructor(
             conditionalAmountMm = engineResult.conditionalAmountMm ?: result.conditionalAmountMm,
             expectedAmountMm = engineResult.expectedAmountMm ?: result.expectedAmountMm,
             centralAmountMm = engineResult.centralAmountMm ?: result.centralAmountMm,
+            // Accord sur l'occurrence / la probabilité.
             convergencePercent = result.convergencePercent,
+            // Accord sur la quantité de pluie.
+            amountConvergencePercent = result.amountConvergencePercent,
             familyCount = result.familyCount
         )
         val wetAmounts = rows.mapNotNull { row ->

@@ -12,8 +12,15 @@ data class PrecipitationConsensusMeta(
     val conditionalAmountMm: Double? = null,
     val expectedAmountMm: Double? = null,
     val centralAmountMm: Double? = null,
-    /** Convergence actuelle ; null lorsqu'une seule lignée indépendante contribue. */
+    /** Accord entre familles sur l'occurrence / probabilité de pluie.  */
     val convergencePercent: Int? = null,
+    /**
+     * Accord entre familles sur la quantité de précipitations en mm.
+     *
+     * Contrairement à [convergencePercent], cet indicateur tient compte
+     * de la dispersion des quantités déterministes, y compris les 0 mm.
+     */
+    val amountConvergencePercent: Int? = null,
     val familyCount: Int = 0
 )
 
@@ -35,6 +42,9 @@ sealed interface PrecipitationConfidence {
      */
     val convergencePercent: Int?
         get() = meta.convergencePercent ?: percent.takeIf { meta.familyCount == 0 }
+
+    val amountConvergencePercent: Int?
+        get() = meta.amountConvergencePercent ?: percent.takeIf { meta.familyCount == 0 }
 
     data class NoRain(
         override val percent: Int,

@@ -70,7 +70,10 @@ object ForecastConsensus {
         val conditionalAmountMm: Double?,
         val centralAmountMm: Double?,
         val expectedAmountMm: Double?,
+        /** Convergence sur l'occurrence / probabilité. */
         val convergencePercent: Int?,
+        /** Convergence sur les quantités en mm. */
+        val amountConvergencePercent: Int?,
         val modelCount: Int,
         val familyCount: Int,
         val wetModelCount: Int,
@@ -149,7 +152,7 @@ object ForecastConsensus {
         }.filter { row ->
             row.amountMm != null || row.probabilityPercent != null
         }
-        if (usable.isEmpty()) return Precipitation(null, null, null, null, null, 0, 0, 0, 0, null, null, null, null)
+        if (usable.isEmpty()) return Precipitation(null, null, null, null, null, amountConvergencePercent = null,0, 0, 0, 0, null, null, null, null)
 
         val occurrenceWeights = familyBalancedWeights(usable.map { it.model }, localWeights)
         var probabilitySum = 0.0
@@ -167,17 +170,97 @@ object ForecastConsensus {
             totalWeight += weight
         }
         val p = if (totalWeight > 0.0) probabilitySum / totalWeight else null
-        val wet = usable.filter { (it.amountMm ?: Double.NEGATIVE_INFINITY) > thresholdMm }
-        val wetWeights = familyBalancedWeights(wet.map { it.model }, localWeights)
+
+        val wet = usable.filter {
+            (it.amountMm ?: Double.NEGATIVE_INFINITY) > thresholdMm
+        }
+
+        /*
+         * Quantité conditionnelle : on ne conserve que les scénarios humides.
+         */
+        val wetWeights = familyBalancedWeights(
+            wet.map { it.model },
+            localWeights
+        )
+
         val weightedWet = wet.mapNotNull { row ->
             val amount = row.amountMm ?: return@mapNotNull null
             val weight = wetWeights[row.model] ?: return@mapNotNull null
-            WeightedEntry(row.model, amount, weight)
+
+            WeightedEntry(
+                model = row.model,
+                value = amount,
+                weight = weight
+            )
         }
+
         val conditional = weightedMedian(weightedWet)
-        val amountStats = weightedStats(weightedWet)
-        val familyCount = usable.map { groupFor(it.model) }.distinct().size
-        val wetFamilyCount = wet.map { groupFor(it.model) }.distinct().size
+        val conditionalAmountStats = weightedStats(weightedWet)
+
+        /*
+         * Convergence de quantité :
+         *
+         * contrairement à la quantité conditionnelle, on inclut ici également
+         * les modèles prévoyant 0 mm.
+         *
+         * C'est ce qui permet à la métrique de représenter ce que l'utilisateur
+         * voit réellement dans la dispersion de la Today Summary.
+         */
+        val amountRows = usable.mapNotNull { row ->
+            val amount = row.amountMm
+                ?.takeIf(Double::isFinite)
+                ?: return@mapNotNull null
+
+            row to amount
+        }
+
+        val amountWeights = familyBalancedWeights(
+            models = amountRows.map { (row, _) -> row.model },
+            localWeights = localWeights
+        )
+
+        val weightedAmounts = amountRows.mapNotNull { (row, amount) ->
+            val weight = amountWeights[row.model]
+                ?: return@mapNotNull null
+
+            if (weight <= 0.0) {
+                return@mapNotNull null
+            }
+
+            WeightedEntry(
+                model = row.model,
+                value = amount,
+                weight = weight
+            )
+        }
+
+        val amountStats = weightedStats(weightedAmounts)
+
+        val amountFamilyCount = amountRows
+            .map { (row, _) -> groupFor(row.model) }
+            .distinct()
+            .size
+
+        val amountConvergencePercent =
+            if (amountFamilyCount >= 2 && amountStats != null) {
+                scoreFromDispersion(
+                    stdDev = amountStats.stdDev,
+                    tight = amountTightStdDev,
+                    wide = amountWideStdDev
+                )
+            } else {
+                null
+            }
+
+        val familyCount = usable
+            .map { groupFor(it.model) }
+            .distinct()
+            .size
+
+        val wetFamilyCount = wet
+            .map { groupFor(it.model) }
+            .distinct()
+            .size
 
         // La convergence pluie mesure l'accord entre familles, pas le niveau
         // moyen de probabilité. Ainsi [50,50,50] est parfaitement convergent,
@@ -233,7 +316,8 @@ object ForecastConsensus {
             conditionalAmountMm = conditional,
             centralAmountMm = central,
             expectedAmountMm = expected,
-            convergencePercent = convergence,
+            convergencePercent = convergence, // Accord sur "est-ce qu'il pleut ?"
+            amountConvergencePercent = amountConvergencePercent, // Accord sur "combien de mm ?"
             modelCount = usable.size,
             familyCount = familyCount,
             wetModelCount = wet.size,

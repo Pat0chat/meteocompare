@@ -1619,9 +1619,7 @@ private fun DetailMetricGrid(
                     samples = samples.precipitation,
                     unit = " mm",
                     digits = 1,
-                    convergence = precipitationAmountConvergence(
-                        samples.precipitation
-                    ),
+                    convergence = precipitation.amountConvergencePercent,
                     nonNegative = true,
                     centralTestTag = TAG_TODAY_SUMMARY_PRECIP_CENTRAL,
                     convergenceTestTag = TAG_TODAY_SUMMARY_PRECIP_CONVERGENCE
@@ -2407,37 +2405,6 @@ private fun LegendChipsRow(chips: List<Pair<Color, String>>) {
                 )
             }
         }
-    }
-}
-
-private fun precipitationAmountConvergence(
-    samples: List<DispersionSample>
-): Int? {
-    if (samples.size < 2) return null
-
-    val values = samples
-        .map { it.value }
-        .filter { it.isFinite() }
-
-    if (values.size < 2) return null
-
-    val mean = values.average()
-
-    val variance = values.sumOf { value ->
-        val delta = value - mean
-        delta * delta
-    } / values.size
-
-    val stdDev = kotlin.math.sqrt(variance)
-
-    return when {
-        stdDev <= 1.0 -> 100
-        stdDev >= 8.0 -> 0
-        else -> (
-                100.0 * (1.0 - (stdDev - 1.0) / (8.0 - 1.0))
-                )
-            .roundToInt()
-            .coerceIn(0, 100)
     }
 }
 
