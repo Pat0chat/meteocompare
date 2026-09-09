@@ -295,4 +295,89 @@ class SimplifiedTimelineCardTest {
         }
     }
 
+    @Test
+    fun timeline_layout_selector_switches_from_columns_to_chrono() {
+        val point = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-26T16:00:00Z"),
+            temperatureC = 22.0,
+            cloudCoverPercent = 45,
+            windKmh = 18.0,
+            modelCount = 3,
+            temperatureModelCount = 3,
+            windModelCount = 3,
+            conditionModelCount = 3,
+            hasMultiModelEvidence = true,
+            consensusPercent = 82,
+            consensusLevel = ModelConsensusLevel.HIGH
+        )
+
+        composeRule.setContent {
+            val layout = androidx.compose.runtime.remember {
+                androidx.compose.runtime.mutableStateOf(TimelineLayout.COLUMNS)
+            }
+            MeteoCompareTheme {
+                Surface {
+                    SimplifiedTimelineCard(
+                        points = listOf(point),
+                        mode = DisplayMode.HOURLY,
+                        timezone = "UTC",
+                        layout = layout.value,
+                        onLayoutChange = { layout.value = it }
+                    )
+                }
+            }
+        }
+
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        composeRule.onNodeWithTag(TAG_TIMELINE_LAYOUT_SELECTOR).assertIsDisplayed()
+        composeRule.onNodeWithText(context.getString(R.string.timeline_layout_chrono))
+            .assertIsDisplayed()
+            .performClick()
+        composeRule.onNodeWithTag(TAG_TIMELINE_CHRONO_VIEW).assertIsDisplayed()
+    }
+
+    @Test
+    fun chrono_view_keeps_weather_metrics_on_a_shared_timeline() {
+        val point = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-26T16:00:00Z"),
+            temperatureC = 24.0,
+            precipitationPercent = 70,
+            precipitationConditionalMm = 1.4,
+            cloudCoverPercent = 62,
+            windKmh = 21.0,
+            windGustKmh = 34.0,
+            condition = com.meteocompare.app.domain.model.WeatherCondition.RAIN,
+            modelCount = 4,
+            familyCount = 4,
+            temperatureModelCount = 4,
+            windModelCount = 4,
+            conditionModelCount = 4,
+            hasMultiModelEvidence = true,
+            consensusPercent = 68,
+            consensusLevel = ModelConsensusLevel.MEDIUM
+        )
+
+        composeRule.setContent {
+            MeteoCompareTheme {
+                Surface {
+                    SimplifiedTimelineCard(
+                        points = listOf(point),
+                        mode = DisplayMode.HOURLY,
+                        timezone = "UTC",
+                        layout = TimelineLayout.CHRONO
+                    )
+                }
+            }
+        }
+
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        composeRule.onNodeWithTag(TAG_TIMELINE_CHRONO_VIEW).assertIsDisplayed()
+        composeRule.onNodeWithText(context.getString(R.string.metric_temperature)).assertIsDisplayed()
+        composeRule.onNodeWithText(context.getString(R.string.metric_precipitation)).assertIsDisplayed()
+        composeRule.onNodeWithText(context.getString(R.string.metric_wind)).assertIsDisplayed()
+        composeRule.onNodeWithText("70%").assertIsDisplayed()
+        composeRule.onNodeWithText("62%").assertIsDisplayed()
+        composeRule.onNodeWithText("68%").assertIsDisplayed()
+    }
+
 }

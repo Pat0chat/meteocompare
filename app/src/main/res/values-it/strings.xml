@@ -423,6 +423,9 @@ dato</string>
     <string name="timeline_title_daily">Prossimi giorni</string>
     <string name="timeline_subtitle_hourly">Punti di riferimento ogni ora</string>
     <string name="timeline_subtitle_daily">Consenso dei modelli disponibili per i prossimi giorni</string>
+    <string name="timeline_layout_aria">Visualizzazione della cronologia</string>
+    <string name="timeline_layout_columns">Colonne</string>
+    <string name="timeline_layout_chrono">Linea temporale</string>
     <string name="timeline_disagreement_hint">Il valore mostra la convergenza; le icone segnalano le variabili divergenti.</string>
     <string name="timeline_now">Ora</string>
     <string name="timeline_today">Oggi</string>

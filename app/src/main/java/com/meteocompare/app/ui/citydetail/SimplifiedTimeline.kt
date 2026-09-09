@@ -4,6 +4,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +21,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Air
 import androidx.compose.material.icons.outlined.CheckCircle
@@ -47,8 +50,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -86,6 +91,8 @@ internal fun SimplifiedTimelineCard(
     focusRequestId: Int = 0,
     onModeChange: ((DisplayMode) -> Unit)? = null,
     availableModes: Set<DisplayMode> = setOf(mode),
+    layout: TimelineLayout = TimelineLayout.COLUMNS,
+    onLayoutChange: ((TimelineLayout) -> Unit)? = null,
     now: Instant = Instant.now(),
     expanded: Boolean = true,
     onExpandedChange: (Boolean) -> Unit = {}
@@ -101,15 +108,23 @@ internal fun SimplifiedTimelineCard(
     val precipitationAccent = precipitationMetricAccent()
     val windAccent = windMetricAccent()
     val listState = rememberLazyListState()
+    val chronoScrollState = rememberScrollState()
     val snapFlingBehavior = rememberSnapFlingBehavior(listState)
+    val density = LocalDensity.current
     var highlightedKey by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(focusRequestId, focusPoint, points) {
+    LaunchedEffect(focusRequestId, focusPoint, points, layout, mode) {
         if (focusRequestId <= 0 || focusPoint == null) return@LaunchedEffect
         val index = nearestTimelineDisplayIndex(points, focusPoint)
         if (index < 0) return@LaunchedEffect
         val key = timelinePointKey(points[index])
-        listState.animateScrollToItem(index)
+        when (layout) {
+            TimelineLayout.COLUMNS -> listState.animateScrollToItem(index)
+            TimelineLayout.CHRONO -> {
+                val target = with(density) { (chronoPointWidth(mode) * index.toFloat()).roundToPx() }
+                chronoScrollState.animateScrollTo(target)
+            }
+        }
         highlightedKey = key
         delay(FOCUS_HIGHLIGHT_MILLIS)
         if (highlightedKey == key) highlightedKey = null
@@ -155,69 +170,150 @@ internal fun SimplifiedTimelineCard(
             )
 
             if (expanded) {
-            Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(8.dp))
 
-            LazyRow(
-                state = listState,
-                modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = 10.dp),
-                horizontalArrangement = Arrangement.spacedBy(0.dp),
-                flingBehavior = snapFlingBehavior
-            ) {
-                itemsIndexed(
-                    items = points,
-                    key = { _, point -> timelinePointKey(point) }
-                ) { index, point ->
-                    val labels = timelineLabels(
-                        point = point,
-                        index = index,
+                if (onLayoutChange != null) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TimelineLayoutSelector(
+                            layout = layout,
+                            onLayoutChange = onLayoutChange
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
+
+                when (layout) {
+                    TimelineLayout.COLUMNS -> LazyRow(
+                        state = listState,
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(horizontal = 10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(0.dp),
+                        flingBehavior = snapFlingBehavior
+                    ) {
+                        itemsIndexed(
+                            items = points,
+                            key = { _, point -> timelinePointKey(point) }
+                        ) { index, point ->
+                            val labels = timelineLabels(
+                                point = point,
+                                index = index,
+                                points = points,
+                                mode = mode,
+                                zone = zone,
+                                hourFormatter = hourFormatter,
+                                dayFormatter = dayFormatter,
+                                today = today,
+                                currentHour = currentHour
+                            )
+                            val slotEvents = eventsAssignedToPoint(
+                                point = point,
+                                displayPoints = points,
+                                events = events
+                            )
+                            TimelinePointColumn(
+                                point = point,
+                                mode = mode,
+                                label = labels.timeLabel,
+                                contextLabel = labels.contextLabel,
+                                events = slotEvents,
+                                precipitationAccent = precipitationAccent,
+                                windAccent = windAccent,
+                                isFirst = index == 0,
+                                isLast = index == points.lastIndex,
+                                isFocused = highlightedKey == timelinePointKey(point)
+                            )
+                        }
+                    }
+
+                    TimelineLayout.CHRONO -> ChronoTimelineView(
                         points = points,
                         mode = mode,
-                        zone = zone,
-                        hourFormatter = hourFormatter,
-                        dayFormatter = dayFormatter,
-                        today = today,
-                        currentHour = currentHour
-                    )
-                    val slotEvents = eventsAssignedToPoint(
-                        point = point,
-                        displayPoints = points,
-                        events = events
-                    )
-                    TimelinePointColumn(
-                        point = point,
-                        mode = mode,
-                        label = labels.timeLabel,
-                        contextLabel = labels.contextLabel,
-                        events = slotEvents,
-                        precipitationAccent = precipitationAccent,
-                        windAccent = windAccent,
-                        isFirst = index == 0,
-                        isLast = index == points.lastIndex,
-                        isFocused = highlightedKey == timelinePointKey(point)
+                        timezone = timezone,
+                        now = now,
+                        scrollState = chronoScrollState,
+                        highlightedKey = highlightedKey
                     )
                 }
-            }
 
-            if (points.any { it.isDivergent }) {
-                Row(
-                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.WarningAmber,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.tertiary,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        text = stringResource(R.string.timeline_disagreement_hint),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                if (points.any { it.isDivergent }) {
+                    Row(
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.WarningAmber,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.tertiary,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = stringResource(R.string.timeline_disagreement_hint),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun TimelineLayoutSelector(
+    layout: TimelineLayout,
+    onLayoutChange: (TimelineLayout) -> Unit
+) {
+    val scheme = MaterialTheme.colorScheme
+    val shape = RoundedCornerShape(14.dp)
+    val selectedShape = RoundedCornerShape(11.dp)
+    val ariaLabel = stringResource(R.string.timeline_layout_aria)
+
+    Row(
+        modifier = Modifier
+            .clip(shape)
+            .background(scheme.surfaceContainerLow.copy(alpha = 0.78f))
+            .padding(3.dp)
+            .selectableGroup()
+            .semantics { contentDescription = ariaLabel }
+            .testTag(TAG_TIMELINE_LAYOUT_SELECTOR),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        TimelineLayout.entries.forEach { option ->
+            val selected = option == layout
+            val label = stringResource(
+                when (option) {
+                    TimelineLayout.COLUMNS -> R.string.timeline_layout_columns
+                    TimelineLayout.CHRONO -> R.string.timeline_layout_chrono
+                }
+            )
+            Box(
+                modifier = Modifier
+                    .clip(selectedShape)
+                    .background(
+                        if (selected) scheme.primaryContainer.copy(alpha = 0.84f)
+                        else Color.Transparent
+                    )
+                    .selectable(
+                        selected = selected,
+                        role = Role.RadioButton,
+                        onClick = { if (!selected) onLayoutChange(option) }
+                    )
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                    color = if (selected) scheme.onPrimaryContainer else scheme.onSurfaceVariant,
+                    maxLines = 1
+                )
             }
         }
     }
@@ -888,6 +984,7 @@ private fun divergenceIconTag(reason: DivergenceReason): String = when (reason) 
 }
 
 internal const val TAG_SIMPLIFIED_TIMELINE = "simplified_timeline"
+internal const val TAG_TIMELINE_LAYOUT_SELECTOR = "timeline_layout_selector"
 internal const val TAG_TIMELINE_EVENT_RULER = "timeline_event_ruler"
 internal const val TAG_TIMELINE_EVENT_MARKER = "timeline_event_marker"
 internal const val TAG_TIMELINE_POINT_FOCUSED = "timeline_point_focused"

@@ -381,6 +381,40 @@ private fun SimplifiedTimelinePreview() {
 
 @MeteoScreenPreview
 @Composable
+private fun ChronoTimelineViewPreview() {
+    MeteoPreviewSurface {
+        ChronoTimelineView(
+            points = PreviewFixtures.timelinePoints(),
+            mode = DisplayMode.HOURLY,
+            timezone = "Europe/Paris",
+            now = PreviewFixtures.now,
+            modifier = Modifier.padding(12.dp)
+        )
+    }
+}
+
+@MeteoScreenPreview
+@Composable
+private fun SimplifiedTimelineChronoPreview() {
+    val points = PreviewFixtures.timelinePoints()
+    MeteoPreviewSurface {
+        SimplifiedTimelineCard(
+            points = points,
+            mode = DisplayMode.HOURLY,
+            timezone = "Europe/Paris",
+            events = emptyList(),
+            layout = TimelineLayout.CHRONO,
+            onLayoutChange = {},
+            onModeChange = {},
+            availableModes = DisplayMode.entries.toSet(),
+            now = PreviewFixtures.now,
+            modifier = Modifier.padding(12.dp)
+        )
+    }
+}
+
+@MeteoScreenPreview
+@Composable
 private fun WeatherByModelTablePreview() {
     MeteoPreviewSurface {
         Column(Modifier.padding(8.dp)) {

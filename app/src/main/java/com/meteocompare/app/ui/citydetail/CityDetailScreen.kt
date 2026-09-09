@@ -453,6 +453,12 @@ private fun LoadedView(
         ).toSet()
     }
     var timelineMode by remember(overviewTimeline) { mutableStateOf(overviewTimeline.mode) }
+    var timelineLayoutName by rememberSaveable(forecast.city.id) {
+        mutableStateOf(TimelineLayout.COLUMNS.name)
+    }
+    val timelineLayout = remember(timelineLayoutName) {
+        TimelineLayout.entries.firstOrNull { it.name == timelineLayoutName } ?: TimelineLayout.COLUMNS
+    }
     val timelineAnalysisPoints = when (timelineMode) {
         DisplayMode.HOURLY -> hourlyTimelinePoints
         DisplayMode.DAILY -> dailyTimelinePoints
@@ -641,6 +647,10 @@ private fun LoadedView(
                         focusedTimelinePoint = null
                     },
                     availableModes = timelineAvailableModes,
+                    layout = timelineLayout,
+                    onLayoutChange = { newLayout ->
+                        timelineLayoutName = newLayout.name
+                    },
                     now = presentationNow,
                     expanded = timelineExpanded,
                     onExpandedChange = { expanded ->
