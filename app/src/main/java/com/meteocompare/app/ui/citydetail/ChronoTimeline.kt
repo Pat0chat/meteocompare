@@ -380,7 +380,7 @@ private fun ChronoTemperaturePlot(
                 if (value != null && value.isFinite()) {
                     val inset = 4.dp.toPx()
                     drawRoundRect(
-                        color = temperatureHeatmapColor(value).copy(alpha = 0.055f),
+                        color = temperatureHeatmapColor(value).copy(alpha = 0.10f),
                         topLeft = Offset(index * stepPx + inset, 6.dp.toPx()),
                         size = Size(
                             (stepPx - inset * 2).coerceAtLeast(0f),
@@ -451,7 +451,7 @@ private fun ChronoTemperaturePlot(
                             modifier = Modifier
                                 .offset(y = labelY)
                                 .clip(RoundedCornerShape(7.dp))
-                                .background(scheme.surface.copy(alpha = 0.90f))
+                                .background(scheme.surface.copy(alpha = 0.10f))
                                 .padding(horizontal = 5.dp, vertical = 2.dp)
                         ) {
                             Text(
@@ -781,18 +781,24 @@ private fun ChronoAgreementLane(points: List<SimplifiedTimelinePoint>) {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         reasons.take(3).forEach { reason ->
+                            val reasonAccent = when (reason) {
+                                DivergenceReason.PRECIPITATION -> precipitationMetricAccent()
+                                DivergenceReason.WIND -> windMetricAccent()
+                                DivergenceReason.TEMPERATURE -> temperatureMetricAccent()
+                                DivergenceReason.CONDITION -> scheme.secondary
+                            }
                             Box(
                                 modifier = Modifier
                                     .padding(start = 3.dp)
                                     .size(CHRONO_AGREEMENT_REASON_ICON_BOX_SIZE)
                                     .clip(RoundedCornerShape(6.dp))
-                                    .background(tone.copy(alpha = 0.08f)),
+                                    .background(reasonAccent.copy(alpha = 0.10f)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = chronoDivergenceIcon(reason),
                                     contentDescription = null,
-                                    tint = tone,
+                                    tint = reasonAccent,
                                     modifier = Modifier.size(11.dp)
                                 )
                             }
