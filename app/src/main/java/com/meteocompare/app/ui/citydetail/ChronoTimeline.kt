@@ -59,6 +59,7 @@ import com.meteocompare.app.ui.components.WeatherIconDecorative
 import com.meteocompare.app.ui.components.semanticTint
 import com.meteocompare.app.ui.components.temperatureHeatmapColor
 import com.meteocompare.app.ui.theme.precipitationMetricAccent
+import com.meteocompare.app.ui.theme.temperatureMetricAccent
 import com.meteocompare.app.ui.theme.windMetricAccent
 import java.time.Instant
 import java.time.ZoneId
@@ -224,7 +225,7 @@ private fun ChronoLabelsColumn(
                 title = stringResource(R.string.metric_temperature),
                 support = "°C",
                 height = CHRONO_TEMP_HEIGHT,
-                tint = scheme.tertiary
+                tint = temperatureMetricAccent()
             )
             ChronoRowLabel(
                 icon = Icons.Outlined.Cloud,
@@ -309,20 +310,6 @@ private fun ChronoRowLabel(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Box(
-            modifier = Modifier
-                .size(28.dp)
-                .clip(RoundedCornerShape(9.dp))
-                .background(tint.copy(alpha = 0.10f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = tint,
-                modifier = Modifier.size(16.dp)
-            )
-        }
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
@@ -332,13 +319,25 @@ private fun ChronoRowLabel(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
-            Spacer(Modifier.height(1.dp))
-            Text(
-                text = support,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
-                maxLines = 1
-            )
+            Spacer(Modifier.height(2.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = tint,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = support,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
+                    maxLines = 1
+                )
+            }
         }
     }
 }
