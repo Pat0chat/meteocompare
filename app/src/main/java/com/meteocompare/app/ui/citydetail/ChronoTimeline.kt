@@ -777,7 +777,7 @@ private fun ChronoAgreementLane(points: List<SimplifiedTimelinePoint>) {
                     }
                     Spacer(Modifier.height(6.dp))
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().height(CHRONO_AGREEMENT_REASONS_HEIGHT),
                         horizontalArrangement = Arrangement.End,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -785,7 +785,7 @@ private fun ChronoAgreementLane(points: List<SimplifiedTimelinePoint>) {
                             Box(
                                 modifier = Modifier
                                     .padding(start = 3.dp)
-                                    .size(18.dp)
+                                    .size(CHRONO_AGREEMENT_REASON_ICON_BOX_SIZE)
                                     .clip(RoundedCornerShape(6.dp))
                                     .background(tone.copy(alpha = 0.08f)),
                                 contentAlignment = Alignment.Center
@@ -936,5 +936,7 @@ private val CHRONO_RAIN_HEIGHT = 64.dp
 private val CHRONO_CLOUD_HEIGHT = 56.dp
 private val CHRONO_WIND_HEIGHT = 66.dp
 private val CHRONO_AGREEMENT_HEIGHT = 74.dp
+private val CHRONO_AGREEMENT_REASONS_HEIGHT = 18.dp
+private val CHRONO_AGREEMENT_REASON_ICON_BOX_SIZE = 18.dp
 private val CHRONO_TEMP_PLOT_TOP = 34.dp
 private val CHRONO_TEMP_PLOT_BOTTOM = 104.dp
