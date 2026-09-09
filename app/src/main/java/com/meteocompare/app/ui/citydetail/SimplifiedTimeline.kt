@@ -157,33 +157,49 @@ internal fun SimplifiedTimelineCard(
                     }
                 ),
                 expanded = expanded,
-                onToggle = { onExpandedChange(!expanded) },
-                trailingContent = if (onModeChange != null && availableModes.size > 1) {
-                    {
-                        DisplayModeMenu(
-                            mode = mode,
-                            onModeChange = onModeChange,
-                            availableModes = availableModes
-                        )
-                    }
-                } else null
+                onToggle = { onExpandedChange(!expanded) }
             )
 
             if (expanded) {
                 Spacer(Modifier.height(8.dp))
 
-                if (onLayoutChange != null) {
+                if (
+                    onLayoutChange != null ||
+                    (onModeChange != null && availableModes.size > 1)
+                ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.End
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        TimelineLayoutSelector(
-                            layout = layout,
-                            onLayoutChange = onLayoutChange
-                        )
+                        Box(
+                            modifier = Modifier.weight(1f),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            if (onModeChange != null && availableModes.size > 1) {
+                                TimelineDisplayModeSelector(
+                                    mode = mode,
+                                    availableModes = availableModes,
+                                    onModeChange = onModeChange
+                                )
+                            }
+                        }
+
+                        Box(
+                            modifier = Modifier.weight(1f),
+                            contentAlignment = Alignment.CenterEnd
+                        ) {
+                            if (onLayoutChange != null) {
+                                TimelineLayoutSelector(
+                                    layout = layout,
+                                    onLayoutChange = onLayoutChange
+                                )
+                            }
+                        }
                     }
+
                     Spacer(Modifier.height(8.dp))
                 }
 
@@ -261,6 +277,84 @@ internal fun SimplifiedTimelineCard(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun TimelineDisplayModeSelector(
+    mode: DisplayMode,
+    availableModes: Set<DisplayMode>,
+    onModeChange: (DisplayMode) -> Unit
+) {
+    val scheme = MaterialTheme.colorScheme
+    val shape = RoundedCornerShape(14.dp)
+    val selectedShape = RoundedCornerShape(11.dp)
+
+    Row(
+        modifier = Modifier
+            .clip(shape)
+            .background(
+                scheme.surfaceContainerLow.copy(alpha = 0.78f)
+            )
+            .padding(3.dp)
+            .selectableGroup(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        DisplayMode.entries
+            .filter { it in availableModes }
+            .forEach { option ->
+
+                val selected = option == mode
+
+                val label = stringResource(
+                    when (option) {
+                        DisplayMode.HOURLY -> R.string.display_mode_hourly
+                        DisplayMode.DAILY -> R.string.display_mode_daily
+                    }
+                )
+
+                Box(
+                    modifier = Modifier
+                        .clip(selectedShape)
+                        .background(
+                            if (selected) {
+                                scheme.primaryContainer.copy(alpha = 0.84f)
+                            } else {
+                                Color.Transparent
+                            }
+                        )
+                        .selectable(
+                            selected = selected,
+                            role = Role.RadioButton,
+                            onClick = {
+                                if (!selected) {
+                                    onModeChange(option)
+                                }
+                            }
+                        )
+                        .padding(
+                            horizontal = 12.dp,
+                            vertical = 6.dp
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = if (selected) {
+                            FontWeight.SemiBold
+                        } else {
+                            FontWeight.Medium
+                        },
+                        color = if (selected) {
+                            scheme.onPrimaryContainer
+                        } else {
+                            scheme.onSurfaceVariant
+                        },
+                        maxLines = 1
+                    )
+                }
+            }
     }
 }
 
