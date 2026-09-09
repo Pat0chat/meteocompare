@@ -1,0 +1,1 @@
+- Tablet-Modus, Fehlerbehebungen im Zusammenhang mit der Datenaktualisierung, Verbesserungen der Benutzeroberfläche für bestimmte Komponenten, Hinzufügung eines Zeitleistenmodus, Fehlerbehebungen

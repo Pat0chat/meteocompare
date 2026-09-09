@@ -1,0 +1,1 @@
+- Tablet mode, data refresh bug fixes, UI improvements for certain components, addition of a timeline view mode, bug fixes

@@ -1,0 +1,1 @@
+- Mode tablette, correction de bugs sur le rafraichissement des données, amélioration de l'UI pour certains composants, ajout d'un mode frise dans la chronologie, corrections de bugs

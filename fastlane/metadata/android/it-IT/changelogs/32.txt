@@ -1,0 +1,1 @@
+- Modalità tablet, correzioni di bug relativi all'aggiornamento dei dati, miglioramenti dell'interfaccia utente per alcuni componenti, aggiunta di una modalità timeline, correzioni di bug

@@ -1,0 +1,1 @@
+- Modo tableta, corrección de errores relacionados con la actualización de datos, mejoras en la interfaz de usuario para ciertos componentes, adición de un modo de línea de tiempo, corrección de errores
