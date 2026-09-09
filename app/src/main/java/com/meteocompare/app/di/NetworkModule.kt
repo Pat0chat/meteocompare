@@ -1,6 +1,7 @@
 package com.meteocompare.app.di
 
 import com.meteocompare.app.BuildConfig
+import com.meteocompare.app.core.network.OpenMeteoClockDebugInterceptor
 import com.meteocompare.app.data.remote.ClimateArchiveApi
 import com.meteocompare.app.data.remote.GeocodingApi
 import com.meteocompare.app.data.remote.MarineApi
@@ -73,6 +74,7 @@ object NetworkModule {
             .dispatcher(dispatcher)
             .apply {
                 if (BuildConfig.DEBUG) {
+                    addInterceptor(OpenMeteoClockDebugInterceptor())
                     addInterceptor(HttpLoggingInterceptor().apply {
                         level = HttpLoggingInterceptor.Level.BASIC
                     })
