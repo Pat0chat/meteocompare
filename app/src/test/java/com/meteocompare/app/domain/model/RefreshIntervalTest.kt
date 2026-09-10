@@ -1,8 +1,8 @@
 package com.meteocompare.app.domain.model
 
+import java.time.Duration
 import org.junit.Assert.assertEquals
 import org.junit.Test
-import java.time.Duration
 
 /**
  * Tests unitaires de [RefreshInterval].

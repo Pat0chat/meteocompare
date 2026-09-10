@@ -130,7 +130,6 @@ class SettingsContentTest {
         assertFalse(toggled?.second ?: true)
     }
 
-
     @Test
     fun spanish_german_and_italian_language_options_are_reachable() {
         var language: LanguagePreference? = null
@@ -173,7 +172,6 @@ class SettingsContentTest {
 
         assertTrue(requested)
     }
-
 
     @Test
     fun manual_bias_refresh_action_is_disabled_after_request() {

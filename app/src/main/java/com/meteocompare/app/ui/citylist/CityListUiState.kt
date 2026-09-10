@@ -3,11 +3,12 @@ package com.meteocompare.app.ui.citylist
 import androidx.annotation.StringRes
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.DayConfidence
+import com.meteocompare.app.domain.model.VigilanceForecast
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.model.WeatherScenario
-import com.meteocompare.app.domain.model.VigilanceForecast
 import java.time.Instant
+import java.time.LocalDateTime
 import java.time.LocalTime
 
 /**
@@ -24,6 +25,29 @@ data class CityListUiState(
     val isOnline: Boolean = true
 ) {
     val isEmpty: Boolean get() = items.isEmpty()
+}
+
+/**
+ * Condition qui pilote l'accent de l'écran d'accueil.
+ *
+ * Sur tablette, la ville sélectionnée fournit le contexte. Sur téléphone, la
+ * première favorite chargée est utilisée. Une sélection encore en chargement
+ * ne doit pas reprendre par erreur la couleur d'une autre ville.
+ */
+internal fun CityListUiState.weatherAccentCondition(
+    selectedCityId: String?
+): WeatherCondition? {
+    if (selectedCityId != null) {
+        val selectedForecast = items
+            .firstOrNull { it.city.id == selectedCityId }
+            ?.forecast
+        return (selectedForecast as? ForecastState.Loaded)?.currentCondition
+    }
+
+    return items.asSequence()
+        .mapNotNull { it.forecast as? ForecastState.Loaded }
+        .mapNotNull(ForecastState.Loaded::currentCondition)
+        .firstOrNull()
 }
 
 data class CityCardState(
@@ -93,7 +117,7 @@ sealed interface ForecastState {
         val next12hConditions: List<WeatherCondition?> = emptyList(),
         /** Regroupement pédagogique des modèles sur les 12 prochaines heures. */
         val next12hScenarios: List<WeatherScenario> = emptyList(),
-        val hourlyStartTime: java.time.LocalDateTime? = null,
+        val hourlyStartTime: LocalDateTime? = null,
         val sunrise: LocalTime? = null,
         val sunset: LocalTime? = null
     ) : ForecastState

@@ -35,7 +35,9 @@ private fun CityDetailScreenLoadedPreview() {
         CityDetailContent(
             state = CityDetailUiState.Loaded(
                 forecast = PreviewFixtures.forecast(),
-                weeklyConfidence = List(7) { PreviewFixtures.dayConfidence(PreviewFixtures.today.plusDays(it.toLong())) },
+                weeklyConfidence = List(7) {
+                    PreviewFixtures.dayConfidence(PreviewFixtures.today.plusDays(it.toLong()))
+                },
                 hourlyBands = PreviewFixtures.confidenceBands(),
                 hourlyPrecipBands = PreviewFixtures.confidenceBands(base = 1.2, spread = 1.4, percent = 74),
                 hourlyWindBands = PreviewFixtures.confidenceBands(base = 22.0, spread = 7.0, percent = 78),

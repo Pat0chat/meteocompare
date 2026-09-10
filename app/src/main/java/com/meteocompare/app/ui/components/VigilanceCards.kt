@@ -299,7 +299,6 @@ private fun VigilanceAlertRow(
     }
 }
 
-
 @Composable
 private fun phenomenonTimingLabel(alert: VigilancePhenomenonAlert, timezone: String?): String {
     val windows = mergePhenomenonWindows(alert.intervals)

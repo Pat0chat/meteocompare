@@ -13,15 +13,15 @@ import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.repository.ForecastEvolutionHistoryData
 import com.meteocompare.app.domain.repository.ForecastEvolutionRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.time.Instant
+import java.time.LocalDate
+import javax.inject.Inject
+import javax.inject.Singleton
+import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
-import java.time.Instant
-import java.time.LocalDate
-import kotlin.math.abs
-import kotlin.math.roundToInt
-import javax.inject.Inject
-import javax.inject.Singleton
 
 /**
  * Relit les snapshots locaux proches de H-24/H-48/H-72.

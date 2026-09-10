@@ -17,11 +17,11 @@ import com.meteocompare.app.BuildConfig
 import com.meteocompare.app.core.util.runSuspendCatching
 import com.meteocompare.app.domain.model.BiasVariable
 import dagger.hilt.android.EntryPointAccessors
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
-import java.util.concurrent.TimeUnit
 
 /**
  * Rafraîchissement quotidien des données de suivi de biais.

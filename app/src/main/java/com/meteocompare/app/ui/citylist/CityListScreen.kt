@@ -11,16 +11,14 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,6 +33,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.filled.Add
@@ -79,17 +79,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.platform.LocalLocale
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.platform.LocalLocale
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -98,31 +101,32 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.platform.LocalResources
-import androidx.compose.ui.res.pluralStringResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.meteocompare.app.R
+import com.meteocompare.app.core.locale.weatherConditionLabelRes
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.ConfidenceScore
 import com.meteocompare.app.domain.model.DayConfidence
 import com.meteocompare.app.domain.model.PrecipitationConfidence
+import com.meteocompare.app.domain.model.VigilanceForecast
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherScenario
 import com.meteocompare.app.domain.model.WeatherScenarioKind
 import com.meteocompare.app.domain.model.WeatherScenarioTiming
+import com.meteocompare.app.ui.accessibility.A11yFormatter
 import com.meteocompare.app.ui.components.AnimatedWeatherIcon
 import com.meteocompare.app.ui.components.AppToastEffect
 import com.meteocompare.app.ui.components.AppToastEvent
 import com.meteocompare.app.ui.components.OpenMeteoAttribution
 import com.meteocompare.app.ui.components.ShimmerBox
-import com.meteocompare.app.ui.components.WeatherMetric
 import com.meteocompare.app.ui.components.VigilanceCompactBanner
+import com.meteocompare.app.ui.components.WeatherMetric
 import com.meteocompare.app.ui.components.WeatherMetricLayout
+import com.meteocompare.app.ui.components.rememberFormattedLastUpdated
 import com.meteocompare.app.ui.settings.DonationDialog
 import com.meteocompare.app.ui.theme.WeatherAccent
 import com.meteocompare.app.ui.theme.WeatherAccentTheme
@@ -131,8 +135,12 @@ import com.meteocompare.app.ui.theme.precipitationMetricAccent
 import com.meteocompare.app.ui.theme.temperatureMetricAccent
 import com.meteocompare.app.ui.theme.windMetricAccent
 import java.text.NumberFormat
-import kotlinx.coroutines.flow.map
+import java.time.Instant
+import java.time.LocalDateTime
+import java.time.LocalTime
+import kotlin.math.abs
 import kotlin.math.roundToInt
+import kotlinx.coroutines.flow.map
 
 // ============================================================================
 //  Public screen entry — Hilt + state collection
@@ -210,27 +218,6 @@ fun CityListScreen(
             )
         }
     }
-}
-
-/**
- * La liste n'a pas toujours une ville explicitement active. Sur tablette on
- * suit la selection du volet detail ; sur telephone, la premiere favorite
- * chargee sert de contexte meteo a la barre d'actions et au bouton d'ajout.
- */
-internal fun CityListUiState.weatherAccentCondition(
-    selectedCityId: String?
-): WeatherCondition? {
-    if (selectedCityId != null) {
-        val selectedForecast = items
-            .firstOrNull { it.city.id == selectedCityId }
-            ?.forecast as? ForecastState.Loaded
-        return selectedForecast?.currentCondition
-    }
-
-    return items.asSequence()
-        .mapNotNull { it.forecast as? ForecastState.Loaded }
-        .mapNotNull(ForecastState.Loaded::currentCondition)
-        .firstOrNull()
 }
 
 @Composable
@@ -442,7 +429,7 @@ internal fun CityList(
 @Composable
 private fun OfflineCityListBanner() {
     Surface(
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.62f),
         contentColor = MaterialTheme.colorScheme.onSecondaryContainer
     ) {
@@ -486,7 +473,7 @@ internal fun CityCard(
     selectionEnabled: Boolean = false
 ) {
     val resources = LocalResources.current
-    val a11yDescription = com.meteocompare.app.ui.accessibility.A11yFormatter
+    val a11yDescription = A11yFormatter
         .cityCardDescription(resources, state)
     val loaded = state.forecast as? ForecastState.Loaded
     WeatherAccentTheme(condition = loaded?.currentCondition) {
@@ -623,8 +610,8 @@ internal fun CityCard(
 @Composable
 private fun CityCardHeader(
     city: City,
-    sunrise: java.time.LocalTime?,
-    sunset: java.time.LocalTime?,
+    sunrise: LocalTime?,
+    sunset: LocalTime?,
     marineEnabled: Boolean,
     marineAvailable: Boolean,
     marineLoading: Boolean,
@@ -754,14 +741,14 @@ private fun CityCardLoaded(
     currentTemp: Double?,
     currentCondition: WeatherCondition?,
     currentCloudCover: Int?,
-    fetchedAt: java.time.Instant?,
+    fetchedAt: Instant?,
     next12hTemps: List<Double?>,
     next12hPrecipProb: List<Int?>,
     next12hPrecipMm: List<Double?>,
     next12hConditions: List<WeatherCondition?>,
     next12hScenarios: List<WeatherScenario>,
-    hourlyStartTime: java.time.LocalDateTime?,
-    vigilance: com.meteocompare.app.domain.model.VigilanceForecast?,
+    hourlyStartTime: LocalDateTime?,
+    vigilance: VigilanceForecast?,
     cityTimezone: String?,
     accentColor: Color
 ) {
@@ -879,7 +866,7 @@ private fun CurrentWeatherHero(
 
                 currentCondition?.let {
                     Text(
-                        text = weatherConditionLabel(it),
+                        text = stringResource(weatherConditionLabelRes(it)),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium
                     )
@@ -1151,32 +1138,13 @@ private fun precipitationMetricPresentation(
 }
 
 @Composable
-private fun weatherConditionLabel(condition: WeatherCondition): String = stringResource(
-    when (condition) {
-        WeatherCondition.CLEAR -> R.string.weather_clear
-        WeatherCondition.MAINLY_CLEAR -> R.string.weather_mainly_clear
-        WeatherCondition.PARTLY_CLOUDY -> R.string.weather_partly_cloudy
-        WeatherCondition.OVERCAST -> R.string.weather_overcast
-        WeatherCondition.FOG -> R.string.weather_fog
-        WeatherCondition.DRIZZLE -> R.string.weather_drizzle
-        WeatherCondition.RAIN -> R.string.weather_rain
-        WeatherCondition.FREEZING_RAIN -> R.string.weather_freezing_rain
-        WeatherCondition.SNOW -> R.string.weather_snow
-        WeatherCondition.RAIN_SHOWERS -> R.string.weather_rain_showers
-        WeatherCondition.SNOW_SHOWERS -> R.string.weather_snow_showers
-        WeatherCondition.THUNDERSTORM -> R.string.weather_thunderstorm
-        WeatherCondition.UNKNOWN -> R.string.weather_unknown
-    }
-)
-
-@Composable
 private fun HomeWeatherFooter(
     scenarios: List<WeatherScenario>,
-    fetchedAt: java.time.Instant?
+    fetchedAt: Instant?
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     val lastUpdated = if (fetchedAt != null) {
-        com.meteocompare.app.ui.components.rememberFormattedLastUpdated(fetchedAt)
+        rememberFormattedLastUpdated(fetchedAt)
     } else {
         null
     }
@@ -1445,7 +1413,7 @@ private fun weatherScenarioMetrics(scenario: WeatherScenario): List<String> {
         if (rainMax != null && rainMax >= 0.05) {
             val minText = precipitationFormatter.format(rainMin ?: 0.0)
             val maxText = precipitationFormatter.format(rainMax)
-            add(if ((rainMin ?: 0.0).let { kotlin.math.abs(it - rainMax) } < 0.05) {
+            add(if ((rainMin ?: 0.0).let { abs(it - rainMax) } < 0.05) {
                 "🌧 $maxText mm"
             } else {
                 "🌧 $minText–$maxText mm"

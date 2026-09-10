@@ -51,8 +51,8 @@ import com.meteocompare.app.ui.theme.windMetricAccent
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
-import java.time.format.TextStyle as JavaTextStyle
 import java.time.ZoneId
+import java.time.format.TextStyle as JavaTextStyle
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.roundToInt

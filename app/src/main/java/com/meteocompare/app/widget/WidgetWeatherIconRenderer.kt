@@ -75,7 +75,11 @@ internal object WidgetWeatherIconRenderer {
                 drawSnow(canvas, scale, palette, showers = true)
             }
             WeatherCondition.THUNDERSTORM -> {
-                drawCloud(canvas, scale, palette.copy(cloud = 0xFFB9C6D0.toInt(), cloudDark = 0xFF60717D.toInt()), 0f, -5f, 1f, depth = 0.98f)
+                val stormPalette = palette.copy(
+                    cloud = 0xFFB9C6D0.toInt(),
+                    cloudDark = 0xFF60717D.toInt()
+                )
+                drawCloud(canvas, scale, stormPalette, 0f, -5f, 1f, depth = 0.98f)
                 drawBolt(canvas, scale, palette)
                 drawLines(canvas, scale, palette.rain, listOf(
                     floatArrayOf(18f, 34f, 16f, 40f),
@@ -227,8 +231,20 @@ internal object WidgetWeatherIconRenderer {
             val by = sin(a).toFloat() * radius * 0.42f
             val left = a + 0.55
             val right = a - 0.55
-            canvas.drawLine(f(cx + bx), f(cy + by), f(cx + bx - cos(left).toFloat() * radius * 0.18f), f(cy + by - sin(left).toFloat() * radius * 0.18f), p)
-            canvas.drawLine(f(cx + bx), f(cy + by), f(cx + bx - cos(right).toFloat() * radius * 0.18f), f(cy + by - sin(right).toFloat() * radius * 0.18f), p)
+            canvas.drawLine(
+                f(cx + bx),
+                f(cy + by),
+                f(cx + bx - cos(left).toFloat() * radius * 0.18f),
+                f(cy + by - sin(left).toFloat() * radius * 0.18f),
+                p
+            )
+            canvas.drawLine(
+                f(cx + bx),
+                f(cy + by),
+                f(cx + bx - cos(right).toFloat() * radius * 0.18f),
+                f(cy + by - sin(right).toFloat() * radius * 0.18f),
+                p
+            )
         }
         canvas.drawCircle(f(cx), f(cy), f(0.9f), fill(0xCCFFFFFF.toInt()))
     }
@@ -236,8 +252,13 @@ internal object WidgetWeatherIconRenderer {
     private fun drawBolt(canvas: Canvas, scale: Float, palette: Palette) {
         fun f(v: Float) = v * scale
         val path = Path().apply {
-            moveTo(f(25f), f(28f)); lineTo(f(20f), f(36f)); lineTo(f(25f), f(36f))
-            lineTo(f(22f), f(44f)); lineTo(f(33f), f(33f)); lineTo(f(27f), f(33f)); close()
+            moveTo(f(25f), f(28f))
+            lineTo(f(20f), f(36f))
+            lineTo(f(25f), f(36f))
+            lineTo(f(22f), f(44f))
+            lineTo(f(33f), f(33f))
+            lineTo(f(27f), f(33f))
+            close()
         }
         canvas.drawPath(path, stroke(adjustAlpha(palette.sunEdge, 0.42f), 1.2f * scale))
         canvas.drawPath(path, fill(palette.lightning))
@@ -327,9 +348,35 @@ internal object WidgetWeatherIconRenderer {
         val outline: Int = 0xFF708390.toInt()
     ) {
         val sunEdgeAlpha: Int get() = WidgetWeatherIconRenderer.adjustAlpha(sunEdge, 0.18f)
-        fun outlineAlpha(alpha: Float): Int = WidgetWeatherIconRenderer.adjustAlpha(WidgetWeatherIconRenderer.blend(cloudDark, cloud, 0.14f), 0.78f * alpha)
-        fun cloudForDepth(depth: Float, alpha: Float): Int = WidgetWeatherIconRenderer.adjustAlpha(WidgetWeatherIconRenderer.blend(cloud, 0xFFDCE6EE.toInt(), depth * 0.52f), alpha)
-        fun cloudHighlight(alpha: Float): Int = WidgetWeatherIconRenderer.adjustAlpha(WidgetWeatherIconRenderer.blend(cloud, 0xFFFFFFFF.toInt(), 0.24f), 0.14f * alpha)
-        fun cloudUnderside(depth: Float, alpha: Float): Int = WidgetWeatherIconRenderer.adjustAlpha(WidgetWeatherIconRenderer.blend(cloud, cloudDark, 0.15f + depth * 0.09f), 0.32f * alpha)
+
+        fun outlineAlpha(alpha: Float): Int = WidgetWeatherIconRenderer.adjustAlpha(
+            WidgetWeatherIconRenderer.blend(cloudDark, cloud, 0.14f),
+            0.78f * alpha
+        )
+
+        fun cloudForDepth(depth: Float, alpha: Float): Int =
+            WidgetWeatherIconRenderer.adjustAlpha(
+                WidgetWeatherIconRenderer.blend(
+                    cloud,
+                    0xFFDCE6EE.toInt(),
+                    depth * 0.52f
+                ),
+                alpha
+            )
+
+        fun cloudHighlight(alpha: Float): Int = WidgetWeatherIconRenderer.adjustAlpha(
+            WidgetWeatherIconRenderer.blend(cloud, 0xFFFFFFFF.toInt(), 0.24f),
+            0.14f * alpha
+        )
+
+        fun cloudUnderside(depth: Float, alpha: Float): Int =
+            WidgetWeatherIconRenderer.adjustAlpha(
+                WidgetWeatherIconRenderer.blend(
+                    cloud,
+                    cloudDark,
+                    0.15f + depth * 0.09f
+                ),
+                0.32f * alpha
+            )
     }
 }

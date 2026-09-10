@@ -2,10 +2,10 @@ package com.meteocompare.app.ui.citydetail
 
 import androidx.compose.material3.Surface
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.v2.createComposeRule
-import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.test.platform.app.InstrumentationRegistry
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.CityForecast
@@ -53,16 +53,34 @@ class TodaySummaryCardTest {
             )
         )
 
-        composeRule.onNodeWithText(context.getString(R.string.models_analysed_many, 5), useUnmergedTree = true).assertIsDisplayed()
-        composeRule.onNodeWithText(context.getString(R.string.metric_temperature), useUnmergedTree = true).assertIsDisplayed()
-        composeRule.onNodeWithText(context.getString(R.string.today_summary_temp_min_short), useUnmergedTree = true).assertIsDisplayed()
-        composeRule.onNodeWithText(context.getString(R.string.today_summary_temp_max_short), useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText(
+            context.getString(R.string.models_analysed_many, 5),
+            useUnmergedTree = true
+        ).assertIsDisplayed()
+        composeRule.onNodeWithText(
+            context.getString(R.string.metric_temperature),
+            useUnmergedTree = true
+        ).assertIsDisplayed()
+        composeRule.onNodeWithText(
+            context.getString(R.string.today_summary_temp_min_short),
+            useUnmergedTree = true
+        ).assertIsDisplayed()
+        composeRule.onNodeWithText(
+            context.getString(R.string.today_summary_temp_max_short),
+            useUnmergedTree = true
+        ).assertIsDisplayed()
         composeRule.onNodeWithText(
             context.getString(R.string.metric_summary_range, "14.0° – 17.0°"),
             useUnmergedTree = true
         ).assertDoesNotExist()
-        composeRule.onNodeWithText(context.getString(R.string.var_precipitation), useUnmergedTree = true).assertExists()
-        composeRule.onNodeWithText(context.getString(R.string.metric_detail_wind), useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText(
+            context.getString(R.string.var_precipitation),
+            useUnmergedTree = true
+        ).assertExists()
+        composeRule.onNodeWithText(
+            context.getString(R.string.metric_detail_wind),
+            useUnmergedTree = true
+        ).assertExists()
         composeRule.onNodeWithText(
             context.getString(R.string.metric_detail_gusts),
             useUnmergedTree = true
@@ -78,7 +96,6 @@ class TodaySummaryCardTest {
         composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_TEMP_MAX_CONVERGENCE, useUnmergedTree = true)
             .assertTextEquals("85%")
     }
-
 
     @Test
     fun dispersion_uses_raw_model_values_from_forecast() {
@@ -130,11 +147,26 @@ class TodaySummaryCardTest {
             ),
             modelCount = 3
         )
-        composeRule.onNodeWithText(context.getString(R.string.metric_temperature), useUnmergedTree = true).assertIsDisplayed()
-        composeRule.onNodeWithText(context.getString(R.string.today_summary_temp_max_short), useUnmergedTree = true).assertIsDisplayed()
-        composeRule.onNodeWithText(context.getString(R.string.today_summary_temp_min_short), useUnmergedTree = true).assertDoesNotExist()
-        composeRule.onNodeWithText(context.getString(R.string.var_precipitation), useUnmergedTree = true).assertDoesNotExist()
-        composeRule.onNodeWithText(context.getString(R.string.metric_detail_wind), useUnmergedTree = true).assertDoesNotExist()
+        composeRule.onNodeWithText(
+            context.getString(R.string.metric_temperature),
+            useUnmergedTree = true
+        ).assertIsDisplayed()
+        composeRule.onNodeWithText(
+            context.getString(R.string.today_summary_temp_max_short),
+            useUnmergedTree = true
+        ).assertIsDisplayed()
+        composeRule.onNodeWithText(
+            context.getString(R.string.today_summary_temp_min_short),
+            useUnmergedTree = true
+        ).assertDoesNotExist()
+        composeRule.onNodeWithText(
+            context.getString(R.string.var_precipitation),
+            useUnmergedTree = true
+        ).assertDoesNotExist()
+        composeRule.onNodeWithText(
+            context.getString(R.string.metric_detail_wind),
+            useUnmergedTree = true
+        ).assertDoesNotExist()
     }
 
     @Test

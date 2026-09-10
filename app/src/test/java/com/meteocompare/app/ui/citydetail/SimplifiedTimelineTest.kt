@@ -238,7 +238,6 @@ class SimplifiedTimelineTest {
         assertEquals(3, point.precipitationModelCount)
     }
 
-
     @Test
     fun `sparse probability coverage is explicitly marked mixed`() {
         val models = listOf(

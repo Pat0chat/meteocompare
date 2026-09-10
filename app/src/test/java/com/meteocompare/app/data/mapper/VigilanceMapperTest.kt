@@ -7,11 +7,11 @@ import com.meteocompare.app.data.remote.dto.VigilanceResponseDto
 import com.meteocompare.app.domain.model.VigilanceColor
 import com.meteocompare.app.domain.model.VigilancePhenomenon
 import com.meteocompare.app.domain.model.VigilanceScope
+import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.time.Instant
 
 class VigilanceMapperTest {
 

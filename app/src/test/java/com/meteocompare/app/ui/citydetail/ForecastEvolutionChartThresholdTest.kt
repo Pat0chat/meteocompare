@@ -1,7 +1,6 @@
 package com.meteocompare.app.ui.citydetail
 
 import com.meteocompare.app.domain.model.ForecastEvolutionThresholds
-
 import com.meteocompare.app.domain.model.ForecastEvolutionVariable
 import org.junit.Assert.assertEquals
 import org.junit.Test

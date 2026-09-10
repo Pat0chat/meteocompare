@@ -52,8 +52,8 @@ interface BiasSampleDao {
      *
      * INNER JOIN — on n'émet que les jours pour lesquels ON A LES DEUX :
      * une prévision sans référence (jour futur ou archive pas encore
-     * récupérée) n'entre pas dans le calcul de biais, et un jour sans prévision Previous Runs J+1 ne peut pas devenir un
-     * jour de biais.
+     * récupérée) n'entre pas dans le calcul de biais, et un jour sans prévision
+     * Previous Runs J+1 ne peut pas devenir un jour de biais.
      *
      * L'ORDER BY `issuedAtEpochMs DESC` reste défensif pour les anciennes
      * bases qui peuvent contenir plusieurs captures du même `targetDate`.

@@ -9,11 +9,11 @@ import com.meteocompare.app.domain.model.ForecastEvolutionVariable
 import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.HourlyForecast
 import com.meteocompare.app.domain.model.WeatherModel
+import java.time.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
-import java.time.LocalDate
 
 class ComputeForecastEvolutionUseCaseTest {
     private val useCase = ComputeForecastEvolutionUseCase()
@@ -70,7 +70,6 @@ class ComputeForecastEvolutionUseCaseTest {
         assertEquals(1, revision.decreasedModels)
         assertEquals(1, revision.stableModels)
     }
-
 
     @Test
     fun `all displayed snapshots use the same comparable model cohort`() {
@@ -137,7 +136,6 @@ class ComputeForecastEvolutionUseCaseTest {
         assertEquals(ForecastEvolutionTrend.INCREASING, highlight.trend)
         assertEquals(3, highlight.dominantModels)
     }
-
 
     @Test
     fun `changes inside precipitation stability threshold stay stable`() {

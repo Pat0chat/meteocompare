@@ -80,7 +80,6 @@ class ForecastEngineIntegrationTest {
         assertEquals(multiTempMax.stdDev, calibratedTempMax.stdDev, 1e-9)
     }
 
-
     @Test
     fun `j plus one calibration is never reused at j plus three and exact horizon profile is used`() {
         val date = LocalDate.of(2026, 8, 26)
@@ -164,12 +163,21 @@ class ForecastEngineIntegrationTest {
             )
         )
 
-        val multiTemp = calculator.hourlyTemperatureConfidence(forecast, engineContext = multiContext).single()
-        val calibratedTemp = calculator.hourlyTemperatureConfidence(forecast, engineContext = calibratedContext).single()
+        val multiTemp = calculator.hourlyTemperatureConfidence(
+            forecast,
+            engineContext = multiContext
+        ).single()
+        val calibratedTemp = calculator.hourlyTemperatureConfidence(
+            forecast,
+            engineContext = calibratedContext
+        ).single()
         val multiWind = calculator.hourlyWindConfidence(forecast, engineContext = multiContext).single()
         val calibratedWind = calculator.hourlyWindConfidence(forecast, engineContext = calibratedContext).single()
         val multiRain = calculator.hourlyPrecipitationConfidence(forecast, engineContext = multiContext).single()
-        val calibratedRain = calculator.hourlyPrecipitationConfidence(forecast, engineContext = calibratedContext).single()
+        val calibratedRain = calculator.hourlyPrecipitationConfidence(
+            forecast,
+            engineContext = calibratedContext
+        ).single()
 
         assertEquals(multiTemp, calibratedTemp)
         assertEquals(multiWind, calibratedWind)
@@ -210,7 +218,6 @@ class ForecastEngineIntegrationTest {
             assertTrue(day.divergence.score >= 0.0)
         }
     }
-
 
     @Test
     fun `engine comparison ignores wind only models when deciding single native WMO provenance`() {

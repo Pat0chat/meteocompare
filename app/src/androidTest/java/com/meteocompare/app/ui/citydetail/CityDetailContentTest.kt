@@ -145,7 +145,6 @@ class CityDetailContentTest {
         assertTrue(clickedDate != null)
     }
 
-
     @Test
     fun loaded_state_exposes_engine_comparison_from_top_app_bar() {
         val forecast = TestFixtures.forecast()

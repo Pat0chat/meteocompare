@@ -1,8 +1,8 @@
 package com.meteocompare.app.domain.usecase
 
-import com.meteocompare.app.domain.model.ForecastPhysicalLimits
 import com.meteocompare.app.domain.model.ForecastCalibrationProfile
 import com.meteocompare.app.domain.model.ForecastEngine
+import com.meteocompare.app.domain.model.ForecastPhysicalLimits
 import com.meteocompare.app.domain.model.WeatherModel
 import kotlin.math.abs
 import kotlin.math.max
@@ -115,18 +115,36 @@ object ForecastEngineV3 {
         val amountWide: Double = 8.0
     )
 
-    private data class Balanced(val rows: List<ForecastConsensus.WeightedEntry>, val modelCount: Int, val familyCount: Int)
-    private data class Robust(val central: Double, val stats: ForecastConsensus.Stats, val interval: Interval, val rows: List<ForecastConsensus.WeightedEntry>, val convergence: Int?, val modelCount: Int, val familyCount: Int)
+    private data class Balanced(
+        val rows: List<ForecastConsensus.WeightedEntry>,
+        val modelCount: Int,
+        val familyCount: Int
+    )
 
-    fun continuous(entries: List<ForecastConsensus.Entry<Double>>, options: ContinuousOptions = ContinuousOptions()): ContinuousResult =
-        when (options.engine) {
-            ForecastEngine.CALIBRATION -> calibrationConsensus(entries, options)
-            ForecastEngine.SCENARIOS -> scenarioConsensus(entries, options)
-            ForecastEngine.ADAPTIVE -> adaptiveConsensus(entries, options)
-            ForecastEngine.MULTI_CONSENSUS -> multiConsensus(entries, options)
-        }
+    private data class Robust(
+        val central: Double,
+        val stats: ForecastConsensus.Stats,
+        val interval: Interval,
+        val rows: List<ForecastConsensus.WeightedEntry>,
+        val convergence: Int?,
+        val modelCount: Int,
+        val familyCount: Int
+    )
 
-    fun precipitation(rows: List<ForecastConsensus.PrecipitationRow>, options: PrecipitationOptions = PrecipitationOptions()): PrecipitationResult {
+    fun continuous(
+        entries: List<ForecastConsensus.Entry<Double>>,
+        options: ContinuousOptions = ContinuousOptions()
+    ): ContinuousResult = when (options.engine) {
+        ForecastEngine.CALIBRATION -> calibrationConsensus(entries, options)
+        ForecastEngine.SCENARIOS -> scenarioConsensus(entries, options)
+        ForecastEngine.ADAPTIVE -> adaptiveConsensus(entries, options)
+        ForecastEngine.MULTI_CONSENSUS -> multiConsensus(entries, options)
+    }
+
+    fun precipitation(
+        rows: List<ForecastConsensus.PrecipitationRow>,
+        options: PrecipitationOptions = PrecipitationOptions()
+    ): PrecipitationResult {
         val usable = rows.map { row ->
             row.copy(
                 amountMm = ForecastPhysicalLimits.precipitation(row.amountMm),
@@ -135,20 +153,44 @@ object ForecastEngineV3 {
         }.filter { row ->
             row.amountMm != null || row.probabilityPercent != null
         }
-        if (usable.isEmpty()) return PrecipitationResult(
-            engine = options.engine, effectiveEngine = options.engine, probabilityPercent = null,
-            conditionalAmountMm = null, centralAmountMm = null, expectedAmountMm = null,
-            modelCount = 0, familyCount = 0, wetModelCount = 0, source = null,
-            minMm = null, maxMm = null, conditionalStdDev = null, interval = Interval(null, null),
-            scenarioCount = 0, scenarios = emptyList(), calibrationCoverage = 0.0,
-            calibratedFamilyCount = 0, calibrationStrength = 0.0, occurrenceCalibrationCoverage = 0.0,
-            fallback = false, fallbackReason = null, explanation = null
-        )
+        if (usable.isEmpty()) {
+            return PrecipitationResult(
+                engine = options.engine,
+                effectiveEngine = options.engine,
+                probabilityPercent = null,
+                conditionalAmountMm = null,
+                centralAmountMm = null,
+                expectedAmountMm = null,
+                modelCount = 0,
+                familyCount = 0,
+                wetModelCount = 0,
+                source = null,
+                minMm = null,
+                maxMm = null,
+                conditionalStdDev = null,
+                interval = Interval(null, null),
+                scenarioCount = 0,
+                scenarios = emptyList(),
+                calibrationCoverage = 0.0,
+                calibratedFamilyCount = 0,
+                calibrationStrength = 0.0,
+                occurrenceCalibrationCoverage = 0.0,
+                fallback = false,
+                fallbackReason = null,
+                explanation = null
+            )
+        }
 
-        val occurrenceWeights = ForecastConsensus.familyBalancedWeights(usable.map { it.model }, options.localWeights)
+        val occurrenceWeights = ForecastConsensus.familyBalancedWeights(
+            models = usable.map { it.model },
+            localWeights = options.localWeights
+        )
         val occurrence = occurrenceAdjustment(options.calibration, usable.map { it.model }, options.localWeights)
-        val canCalibrateOccurrence = (options.engine == ForecastEngine.CALIBRATION || options.engine == ForecastEngine.ADAPTIVE) &&
-            occurrence.coverage >= MIN_CALIBRATION_COVERAGE && occurrence.familyCount >= MIN_CALIBRATED_FAMILIES
+        val canCalibrateOccurrence =
+            (options.engine == ForecastEngine.CALIBRATION ||
+                options.engine == ForecastEngine.ADAPTIVE) &&
+                occurrence.coverage >= MIN_CALIBRATION_COVERAGE &&
+                occurrence.familyCount >= MIN_CALIBRATED_FAMILIES
 
         var probabilitySum = 0.0
         var totalWeight = 0.0
@@ -185,8 +227,13 @@ object ForecastEngineV3 {
                 leadDay = profile.leadDay
             )
         }.toMap()
+        val amountEntries = wetRows.mapNotNull { row ->
+            row.amountMm
+                ?.takeIf(Double::isFinite)
+                ?.let { ForecastConsensus.Entry(row.model, it) }
+        }
         val amountResult = continuous(
-            wetRows.mapNotNull { row -> row.amountMm?.takeIf(Double::isFinite)?.let { ForecastConsensus.Entry(row.model, it) } },
+            amountEntries,
             ContinuousOptions(
                 engine = options.engine,
                 localWeights = options.localWeights,
@@ -241,23 +288,40 @@ object ForecastEngineV3 {
         )
     }
 
-    private fun multiConsensus(entries: List<ForecastConsensus.Entry<Double>>, options: ContinuousOptions): ContinuousResult {
+    private fun multiConsensus(
+        entries: List<ForecastConsensus.Entry<Double>>,
+        options: ContinuousOptions
+    ): ContinuousResult {
         val balanced = balance(entries, options.localWeights)
         val robust = robustFromBalanced(balanced, options.tight, options.wide)
             ?: return emptyResult(ForecastEngine.MULTI_CONSENSUS)
         return ContinuousResult(
-            central = bound(robust.central, options.min, options.max), stats = robust.stats, rows = robust.rows,
-            interval = Interval(bound(robust.interval.low, options.min, options.max), bound(robust.interval.high, options.min, options.max)),
-            engine = ForecastEngine.MULTI_CONSENSUS, effectiveEngine = ForecastEngine.MULTI_CONSENSUS,
-            explanation = Explanation.ROBUST_FAMILY_BALANCED, modelCount = robust.modelCount,
-            familyCount = robust.familyCount, engineConvergencePercent = robust.convergence
+            central = bound(robust.central, options.min, options.max),
+            stats = robust.stats,
+            rows = robust.rows,
+            interval = Interval(
+                low = bound(robust.interval.low, options.min, options.max),
+                high = bound(robust.interval.high, options.min, options.max)
+            ),
+            engine = ForecastEngine.MULTI_CONSENSUS,
+            effectiveEngine = ForecastEngine.MULTI_CONSENSUS,
+            explanation = Explanation.ROBUST_FAMILY_BALANCED,
+            modelCount = robust.modelCount,
+            familyCount = robust.familyCount,
+            engineConvergencePercent = robust.convergence
         )
     }
 
-    private fun calibrationConsensus(entries: List<ForecastConsensus.Entry<Double>>, options: ContinuousOptions): ContinuousResult {
+    private fun calibrationConsensus(
+        entries: List<ForecastConsensus.Entry<Double>>,
+        options: ContinuousOptions
+    ): ContinuousResult {
         val usable = entries.filter { it.value.isFinite() }
         if (usable.isEmpty()) return emptyResult(ForecastEngine.CALIBRATION)
-        val familyWeights = ForecastConsensus.familyBalancedWeights(usable.map { it.model }, options.localWeights)
+        val familyWeights = ForecastConsensus.familyBalancedWeights(
+            models = usable.map { it.model },
+            localWeights = options.localWeights
+        )
         val totalMass = familyWeights.values.sum().takeIf { it > 0 } ?: 1.0
         val calibratedIds = mutableListOf<WeatherModel>()
         var calibratedMass = 0.0
@@ -269,7 +333,9 @@ object ForecastEngineV3 {
         val skills = mutableMapOf<WeatherModel, Double>()
 
         val corrected = usable.map { row ->
-            val profile = options.calibration[row.model]?.takeIf { it.bias.isFinite() && it.sampleSize >= MIN_CALIBRATION_SAMPLES }
+            val profile = options.calibration[row.model]?.takeIf {
+                it.bias.isFinite() && it.sampleSize >= MIN_CALIBRATION_SAMPLES
+            }
                 ?: return@map row
             val strength = calibrationStrength(profile)
             val score = profile.score.coerceIn(0, 100).toDouble()
@@ -287,7 +353,13 @@ object ForecastEngineV3 {
             noiseMass += familyWeight
             strengthSum += strength * familyWeight
             skills[row.model] = skill
-            row.copy(value = bound(row.value - profile.bias * strength, options.min, options.max) ?: row.value)
+            row.copy(
+                value = bound(
+                    row.value - profile.bias * strength,
+                    options.min,
+                    options.max
+                ) ?: row.value
+            )
         }
         val coverage = clamp(calibratedMass / totalMass, 0.0, 1.0)
         val calibratedFamilies = calibratedIds.map(ForecastConsensus::groupFor).distinct().size
@@ -295,42 +367,64 @@ object ForecastEngineV3 {
         if (calibratedFamilies < MIN_CALIBRATED_FAMILIES || coverage < MIN_CALIBRATION_COVERAGE) {
             val fallback = multiConsensus(entries, options.copy(engine = ForecastEngine.MULTI_CONSENSUS))
             return fallback.copy(
-                engine = ForecastEngine.CALIBRATION, fallback = true,
+                engine = ForecastEngine.CALIBRATION,
+                fallback = true,
                 fallbackReason = FallbackReason.INSUFFICIENT_CALIBRATION,
-                calibrationCoverage = coverage, calibratedFamilyCount = calibratedFamilies,
+                calibrationCoverage = coverage,
+                calibratedFamilyCount = calibratedFamilies,
                 calibrationStrength = averageStrength
             )
         }
         val skillWeights = options.localWeights.toMutableMap()
-        corrected.forEach { row -> skills[row.model]?.let { skill -> skillWeights[row.model] = (skillWeights[row.model] ?: 1.0) * skill } }
+        corrected.forEach { row ->
+            skills[row.model]?.let { skill ->
+                skillWeights[row.model] = (skillWeights[row.model] ?: 1.0) * skill
+            }
+        }
         val robust = robustFromBalanced(balance(corrected, skillWeights), options.tight, options.wide)
             ?: return emptyResult(ForecastEngine.CALIBRATION)
         val residualNoise = if (noiseMass > 0) noiseSum / noiseMass else 0.0
         val extraSigma = residualNoise * (0.2 + (1.0 - averageStrength) * 0.25)
         val interval = spreadInterval(robust.rows, robust.central, robust.stats.stdDev, extraSigma)
         return ContinuousResult(
-            central = bound(robust.central, options.min, options.max), stats = robust.stats, rows = robust.rows,
-            interval = Interval(bound(interval.low, options.min, options.max), bound(interval.high, options.min, options.max)),
-            engine = ForecastEngine.CALIBRATION, effectiveEngine = ForecastEngine.CALIBRATION,
-            calibrationCoverage = coverage, calibratedFamilyCount = calibratedFamilies,
+            central = bound(robust.central, options.min, options.max),
+            stats = robust.stats,
+            rows = robust.rows,
+            interval = Interval(
+                low = bound(interval.low, options.min, options.max),
+                high = bound(interval.high, options.min, options.max)
+            ),
+            engine = ForecastEngine.CALIBRATION,
+            effectiveEngine = ForecastEngine.CALIBRATION,
+            calibrationCoverage = coverage,
+            calibratedFamilyCount = calibratedFamilies,
             calibrationStrength = averageStrength,
             historicalScore = if (weightedScoreMass > 0) weightedScore / weightedScoreMass else null,
             explanation = Explanation.BIAS_CORRECTED_SKILL_WEIGHTED,
-            modelCount = robust.modelCount, familyCount = robust.familyCount,
+            modelCount = robust.modelCount,
+            familyCount = robust.familyCount,
             engineConvergencePercent = robust.convergence
         )
     }
 
-    private fun scenarioConsensus(entries: List<ForecastConsensus.Entry<Double>>, options: ContinuousOptions): ContinuousResult {
+    private fun scenarioConsensus(
+        entries: List<ForecastConsensus.Entry<Double>>,
+        options: ContinuousOptions
+    ): ContinuousResult {
         val balanced = balance(entries, options.localWeights)
-        val base = robustFromBalanced(balanced, options.tight, options.wide) ?: return emptyResult(ForecastEngine.SCENARIOS)
+        val base = robustFromBalanced(balanced, options.tight, options.wide)
+            ?: return emptyResult(ForecastEngine.SCENARIOS)
         val split = scenarioSplit(balanced.rows, options.tight)
         if (split == null) {
             val fallback = multiConsensus(entries, options.copy(engine = ForecastEngine.MULTI_CONSENSUS))
             return fallback.copy(
-                engine = ForecastEngine.SCENARIOS, effectiveEngine = ForecastEngine.MULTI_CONSENSUS,
-                fallback = true, fallbackReason = FallbackReason.SINGLE_SCENARIO,
-                scenarioCount = 1, dominantShare = 1.0, explanation = Explanation.SINGLE_SCENARIO
+                engine = ForecastEngine.SCENARIOS,
+                effectiveEngine = ForecastEngine.MULTI_CONSENSUS,
+                fallback = true,
+                fallbackReason = FallbackReason.SINGLE_SCENARIO,
+                scenarioCount = 1,
+                dominantShare = 1.0,
+                explanation = Explanation.SINGLE_SCENARIO
             )
         }
         val all = split.first + split.second
@@ -339,7 +433,15 @@ object ForecastEngineV3 {
             val weight = rows.sumOf { it.weight }
             val central = ForecastConsensus.weightedMedian(rows)
             val stats = ForecastConsensus.weightedStats(rows)
-            Cluster(rows, weight, if (totalWeight > 0) weight / totalWeight else 0.0, central, weightedQuantile(rows, .1), weightedQuantile(rows, .9), stats?.stdDev ?: 0.0)
+            Cluster(
+                rows = rows,
+                weight = weight,
+                share = if (totalWeight > 0) weight / totalWeight else 0.0,
+                central = central,
+                low = weightedQuantile(rows, .1),
+                high = weightedQuantile(rows, .9),
+                stdDev = stats?.stdDev ?: 0.0
+            )
         }.sortedByDescending { it.weight }
         val dominant = clusters.first()
         val diagnostics = clusters.map {
@@ -369,25 +471,38 @@ object ForecastEngineV3 {
         val central = dominant.central ?: base.central
         val interval = spreadInterval(dominant.rows, central, dominant.stdDev)
         return ContinuousResult(
-            central = bound(central, options.min, options.max), stats = ForecastConsensus.weightedStats(dominant.rows), rows = dominant.rows,
-            interval = Interval(bound(interval.low, options.min, options.max), bound(interval.high, options.min, options.max)),
-            engine = ForecastEngine.SCENARIOS, effectiveEngine = ForecastEngine.SCENARIOS,
-            scenarioCount = 2, dominantShare = dominant.share, scenarioGap = split.third,
+            central = bound(central, options.min, options.max),
+            stats = ForecastConsensus.weightedStats(dominant.rows),
+            rows = dominant.rows,
+            interval = Interval(
+                low = bound(interval.low, options.min, options.max),
+                high = bound(interval.high, options.min, options.max)
+            ),
+            engine = ForecastEngine.SCENARIOS,
+            effectiveEngine = ForecastEngine.SCENARIOS,
+            scenarioCount = 2,
+            dominantShare = dominant.share,
+            scenarioGap = split.third,
             scenarios = diagnostics,
             explanation = Explanation.DOMINANT_SCENARIO,
-            modelCount = balanced.modelCount, familyCount = balanced.familyCount,
+            modelCount = balanced.modelCount,
+            familyCount = balanced.familyCount,
             engineConvergencePercent = (dominant.share * 100).roundToInt().coerceIn(0, 100)
         )
     }
 
-    private fun adaptiveConsensus(entries: List<ForecastConsensus.Entry<Double>>, options: ContinuousOptions): ContinuousResult {
+    private fun adaptiveConsensus(
+        entries: List<ForecastConsensus.Entry<Double>>,
+        options: ContinuousOptions
+    ): ContinuousResult {
         val multi = multiConsensus(entries, options.copy(engine = ForecastEngine.MULTI_CONSENSUS))
         val calibration = calibrationConsensus(entries, options.copy(engine = ForecastEngine.CALIBRATION))
         val scenarios = scenarioConsensus(entries, options.copy(engine = ForecastEngine.SCENARIOS))
         val scenarioGap = scenarios.scenarioGap
         val strongScenario = scenarios.scenarioCount > 1 &&
             scenarios.effectiveEngine == ForecastEngine.SCENARIOS &&
-            (scenarios.dominantShare ?: 0.0) >= MIN_DOMINANT_SCENARIO_SHARE && (scenarios.dominantShare ?: 1.0) <= 0.82 &&
+            (scenarios.dominantShare ?: 0.0) >= MIN_DOMINANT_SCENARIO_SHARE &&
+            (scenarios.dominantShare ?: 1.0) <= 0.82 &&
             scenarioGap?.isFinite() == true &&
             scenarioGap >= max(options.tight * 1.1, (multi.stats?.stdDev ?: 0.0) * 0.5)
         val components = mapOf(
@@ -396,8 +511,10 @@ object ForecastEngineV3 {
             ForecastEngine.SCENARIOS to scenarios.central
         )
         if (strongScenario) return scenarios.copy(
-            engine = ForecastEngine.ADAPTIVE, effectiveEngine = ForecastEngine.SCENARIOS,
-            adaptiveComponents = components, explanation = Explanation.ADAPTIVE_SCENARIO
+            engine = ForecastEngine.ADAPTIVE,
+            effectiveEngine = ForecastEngine.SCENARIOS,
+            adaptiveComponents = components,
+            explanation = Explanation.ADAPTIVE_SCENARIO
         )
         val calibrationReady = !calibration.fallback && calibration.calibrationCoverage >= 0.5 &&
             calibration.calibratedFamilyCount >= MIN_CALIBRATED_FAMILIES &&
@@ -406,30 +523,59 @@ object ForecastEngineV3 {
             val trust = clamp(
                 0.35 + calibration.calibrationCoverage * 0.25 + calibration.calibrationStrength * 0.2 +
                     ((calibration.historicalScore ?: 50.0) / 100.0) * 0.15,
-                0.5, 0.85
+                0.5,
+                0.85
             )
-            val central = bound(calibration.central * trust + multi.central * (1.0 - trust), options.min, options.max)
+            val central = bound(
+                calibration.central * trust + multi.central * (1.0 - trust),
+                options.min,
+                options.max
+            )
             val sigma = max(calibration.stats?.stdDev ?: 0.0, multi.stats?.stdDev ?: 0.0)
             val intervalRows = calibration.rows.ifEmpty { multi.rows }
             val interval = spreadInterval(intervalRows, central ?: calibration.central, sigma)
             return calibration.copy(
                 central = central,
-                interval = Interval(bound(interval.low, options.min, options.max), bound(interval.high, options.min, options.max)),
-                engine = ForecastEngine.ADAPTIVE, effectiveEngine = ForecastEngine.CALIBRATION,
-                adaptiveTrust = trust, adaptiveComponents = components,
+                interval = Interval(
+                    low = bound(interval.low, options.min, options.max),
+                    high = bound(interval.high, options.min, options.max)
+                ),
+                engine = ForecastEngine.ADAPTIVE,
+                effectiveEngine = ForecastEngine.CALIBRATION,
+                adaptiveTrust = trust,
+                adaptiveComponents = components,
                 explanation = Explanation.ADAPTIVE_CALIBRATION_BLEND
             )
         }
         return multi.copy(
-            engine = ForecastEngine.ADAPTIVE, effectiveEngine = ForecastEngine.MULTI_CONSENSUS,
-            adaptiveComponents = components, explanation = Explanation.ADAPTIVE_ROBUST_FALLBACK
+            engine = ForecastEngine.ADAPTIVE,
+            effectiveEngine = ForecastEngine.MULTI_CONSENSUS,
+            adaptiveComponents = components,
+            explanation = Explanation.ADAPTIVE_ROBUST_FALLBACK
         )
     }
 
-    private data class Cluster(val rows: List<ForecastConsensus.WeightedEntry>, val weight: Double, val share: Double, val central: Double?, val low: Double?, val high: Double?, val stdDev: Double)
-    private data class OccurrenceAdjustment(val delta: Double, val coverage: Double, val familyCount: Int)
+    private data class Cluster(
+        val rows: List<ForecastConsensus.WeightedEntry>,
+        val weight: Double,
+        val share: Double,
+        val central: Double?,
+        val low: Double?,
+        val high: Double?,
+        val stdDev: Double
+    )
 
-    private fun occurrenceAdjustment(calibration: Map<WeatherModel, ForecastCalibrationProfile>, models: List<WeatherModel>, localWeights: Map<WeatherModel, Double>): OccurrenceAdjustment {
+    private data class OccurrenceAdjustment(
+        val delta: Double,
+        val coverage: Double,
+        val familyCount: Int
+    )
+
+    private fun occurrenceAdjustment(
+        calibration: Map<WeatherModel, ForecastCalibrationProfile>,
+        models: List<WeatherModel>,
+        localWeights: Map<WeatherModel, Double>
+    ): OccurrenceAdjustment {
         val ids = models.distinct()
         if (ids.isEmpty()) return OccurrenceAdjustment(0.0, 0.0, 0)
         val balance = ForecastConsensus.familyBalancedWeights(ids, localWeights)
@@ -439,7 +585,12 @@ object ForecastEngineV3 {
         val calibratedIds = mutableListOf<WeatherModel>()
         ids.forEach { model ->
             val profile = calibration[model] ?: return@forEach
-            if (profile.sampleSize < MIN_CALIBRATION_SAMPLES || profile.observedWetDays == null || profile.forecastWetDays == null) return@forEach
+            if (profile.sampleSize < MIN_CALIBRATION_SAMPLES ||
+                profile.observedWetDays == null ||
+                profile.forecastWetDays == null
+            ) {
+                return@forEach
+            }
             val n = max(1, profile.sampleSize)
             val observed = profile.observedWetDays.toDouble() / n
             val forecast = profile.forecastWetDays.toDouble() / n
@@ -461,23 +612,37 @@ object ForecastEngineV3 {
         )
     }
 
-    private fun calibrationStrength(profile: ForecastCalibrationProfile): Double =
-        if (profile.sampleSize < MIN_CALIBRATION_SAMPLES) 0.0 else clamp(profile.sampleSize.toDouble() / FULL_CALIBRATION_SAMPLES, 0.45, 1.0)
+    private fun calibrationStrength(profile: ForecastCalibrationProfile): Double {
+        if (profile.sampleSize < MIN_CALIBRATION_SAMPLES) return 0.0
+        return clamp(
+            value = profile.sampleSize.toDouble() / FULL_CALIBRATION_SAMPLES,
+            min = 0.45,
+            max = 1.0
+        )
+    }
 
-    private fun balance(entries: List<ForecastConsensus.Entry<Double>>, localWeights: Map<WeatherModel, Double>): Balanced {
+    private fun balance(
+        entries: List<ForecastConsensus.Entry<Double>>,
+        localWeights: Map<WeatherModel, Double>
+    ): Balanced {
         val valid = entries.filter { it.value.isFinite() }
         val weights = ForecastConsensus.familyBalancedWeights(valid.map { it.model }, localWeights)
         val rows = valid.mapNotNull { row ->
             val weight = weights[row.model] ?: return@mapNotNull null
             if (weight <= 0.0) null else ForecastConsensus.WeightedEntry(row.model, row.value, weight)
         }
-        return Balanced(rows, valid.map { it.model }.distinct().size, valid.map { ForecastConsensus.groupFor(it.model) }.distinct().size)
+        return Balanced(
+            rows = rows,
+            modelCount = valid.map { it.model }.distinct().size,
+            familyCount = valid.map { ForecastConsensus.groupFor(it.model) }.distinct().size
+        )
     }
 
     private fun robustFromBalanced(balanced: Balanced, tight: Double, wide: Double): Robust? {
         if (balanced.rows.isEmpty()) return null
         val median = ForecastConsensus.weightedMedian(balanced.rows) ?: return null
-        val mad = weightedQuantile(balanced.rows.map { it.copy(value = abs(it.value - median)) }, 0.5) ?: 0.0
+        val deviations = balanced.rows.map { it.copy(value = abs(it.value - median)) }
+        val mad = weightedQuantile(deviations, 0.5) ?: 0.0
         val robustScale = max(tight * 0.35, max(mad * 1.4826, EPS))
         val huberLimit = 1.5 * robustScale
         val rows = balanced.rows.map { row ->
@@ -488,14 +653,27 @@ object ForecastEngineV3 {
         val stats = ForecastConsensus.weightedStats(rows) ?: return null
         val central = weightedMean(rows) ?: return null
         return Robust(
-            central = central, stats = stats, interval = spreadInterval(rows, central, stats.stdDev), rows = rows,
-            convergence = if (balanced.familyCount >= 2) ForecastConsensus.scoreFromDispersion(stats.stdDev, tight, wide) else null,
-            modelCount = balanced.modelCount, familyCount = balanced.familyCount
+            central = central,
+            stats = stats,
+            interval = spreadInterval(rows, central, stats.stdDev),
+            rows = rows,
+            convergence = if (balanced.familyCount >= 2) {
+                ForecastConsensus.scoreFromDispersion(stats.stdDev, tight, wide)
+            } else {
+                null
+            },
+            modelCount = balanced.modelCount,
+            familyCount = balanced.familyCount
         )
     }
 
-    private fun scenarioSplit(rows: List<ForecastConsensus.WeightedEntry>, tight: Double): Triple<List<ForecastConsensus.WeightedEntry>, List<ForecastConsensus.WeightedEntry>, Double>? {
-        val sorted = rows.filter { it.value.isFinite() && it.weight.isFinite() && it.weight > 0 }.sortedBy { it.value }
+    private fun scenarioSplit(
+        rows: List<ForecastConsensus.WeightedEntry>,
+        tight: Double
+    ): Triple<List<ForecastConsensus.WeightedEntry>, List<ForecastConsensus.WeightedEntry>, Double>? {
+        val sorted = rows
+            .filter { it.value.isFinite() && it.weight.isFinite() && it.weight > 0 }
+            .sortedBy { it.value }
         if (sorted.size < 4) return null
         val total = sorted.sumOf { it.weight }
         val center = ForecastConsensus.weightedMedian(sorted) ?: return null
@@ -512,26 +690,47 @@ object ForecastEngineV3 {
             val minority = min(leftWeight, rightWeight) / total
             if (minority < .18 || gap < minimumGap) continue
             val score = gap * (.5 + minority)
-            if (score > bestScore) { bestScore = score; bestIndex = index; bestGap = gap }
+            if (score > bestScore) {
+                bestScore = score
+                bestIndex = index
+                bestGap = gap
+            }
         }
-        return if (bestIndex >= 0) Triple(sorted.take(bestIndex + 1), sorted.drop(bestIndex + 1), bestGap) else null
+        return if (bestIndex >= 0) {
+            Triple(sorted.take(bestIndex + 1), sorted.drop(bestIndex + 1), bestGap)
+        } else {
+            null
+        }
     }
 
-    private fun spreadInterval(rows: List<ForecastConsensus.WeightedEntry>, center: Double, stdDev: Double, extraSigma: Double = 0.0): Interval {
+    private fun spreadInterval(
+        rows: List<ForecastConsensus.WeightedEntry>,
+        center: Double,
+        stdDev: Double,
+        extraSigma: Double = 0.0
+    ): Interval {
         val q10 = weightedQuantile(rows, .1)
         val q90 = weightedQuantile(rows, .9)
         val sigma = sqrt(max(0.0, stdDev * stdDev + extraSigma * extraSigma))
         val normalLow = center - 1.2816 * sigma
         val normalHigh = center + 1.2816 * sigma
-        return Interval(if (q10 != null) min(q10, normalLow) else normalLow, if (q90 != null) max(q90, normalHigh) else normalHigh)
+        return Interval(
+            low = if (q10 != null) min(q10, normalLow) else normalLow,
+            high = if (q90 != null) max(q90, normalHigh) else normalHigh
+        )
     }
 
     private fun weightedQuantile(entries: List<ForecastConsensus.WeightedEntry>, quantile: Double): Double? {
-        val rows = entries.filter { it.value.isFinite() && it.weight.isFinite() && it.weight > 0 }.sortedBy { it.value }
+        val rows = entries
+            .filter { it.value.isFinite() && it.weight.isFinite() && it.weight > 0 }
+            .sortedBy { it.value }
         if (rows.isEmpty()) return null
         val target = clamp(quantile, 0.0, 1.0) * rows.sumOf { it.weight }
         var cumulative = 0.0
-        rows.forEach { row -> cumulative += row.weight; if (cumulative + EPS >= target) return row.value }
+        rows.forEach { row ->
+            cumulative += row.weight
+            if (cumulative + EPS >= target) return row.value
+        }
         return rows.last().value
     }
 
@@ -551,10 +750,16 @@ object ForecastEngineV3 {
         }
     }
 
-    private fun clamp(value: Double, min: Double, max: Double): Double = kotlin.math.max(min, kotlin.math.min(max, value))
+    private fun clamp(value: Double, min: Double, max: Double): Double =
+        kotlin.math.max(min, kotlin.math.min(max, value))
 
     private fun emptyResult(engine: ForecastEngine) = ContinuousResult(
-        central = null, stats = null, interval = Interval(null, null), engine = engine,
-        effectiveEngine = engine, scenarioCount = 0, dominantShare = null
+        central = null,
+        stats = null,
+        interval = Interval(null, null),
+        engine = engine,
+        effectiveEngine = engine,
+        scenarioCount = 0,
+        dominantShare = null
     )
 }

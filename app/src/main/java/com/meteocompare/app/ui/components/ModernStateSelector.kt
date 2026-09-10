@@ -149,7 +149,6 @@ internal fun <T> ModernSlidingSelector(
     }
 }
 
-
 /**
  * Choix exclusif très léger sans conteneur commun.
  *

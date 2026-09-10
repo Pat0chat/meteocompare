@@ -5,10 +5,10 @@ import com.meteocompare.app.domain.model.BiasVariable
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.ConfidenceScore
+import com.meteocompare.app.domain.model.DailyForecast
 import com.meteocompare.app.domain.model.DayConfidence
 import com.meteocompare.app.domain.model.DayForecastEvolution
 import com.meteocompare.app.domain.model.DayNormals
-import com.meteocompare.app.domain.model.DailyForecast
 import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.model.ForecastEvolutionHighlight
 import com.meteocompare.app.domain.model.ForecastEvolutionReport
@@ -30,11 +30,6 @@ import com.meteocompare.app.domain.model.ReliabilityLevel
 import com.meteocompare.app.domain.model.ReliabilityRank
 import com.meteocompare.app.domain.model.ReliabilityTrend
 import com.meteocompare.app.domain.model.VariableForecastEvolution
-import com.meteocompare.app.domain.model.WeatherCondition
-import com.meteocompare.app.domain.model.WeatherModel
-import com.meteocompare.app.domain.model.WeatherScenario
-import com.meteocompare.app.domain.model.WeatherScenarioKind
-import com.meteocompare.app.domain.model.WeatherScenarioTiming
 import com.meteocompare.app.domain.model.VigilanceColor
 import com.meteocompare.app.domain.model.VigilanceForecast
 import com.meteocompare.app.domain.model.VigilanceInterval
@@ -42,6 +37,11 @@ import com.meteocompare.app.domain.model.VigilancePeriod
 import com.meteocompare.app.domain.model.VigilancePhenomenon
 import com.meteocompare.app.domain.model.VigilancePhenomenonAlert
 import com.meteocompare.app.domain.model.VigilanceScope
+import com.meteocompare.app.domain.model.WeatherCondition
+import com.meteocompare.app.domain.model.WeatherModel
+import com.meteocompare.app.domain.model.WeatherScenario
+import com.meteocompare.app.domain.model.WeatherScenarioKind
+import com.meteocompare.app.domain.model.WeatherScenarioTiming
 import com.meteocompare.app.domain.usecase.DayCellExtras
 import com.meteocompare.app.domain.usecase.DayConditionsRow
 import com.meteocompare.app.domain.usecase.EngineComparisonDay
@@ -283,14 +283,18 @@ internal object PreviewFixtures {
                     precipitationProbability = hourlyInstants.indices.map { i ->
                         next12hPrecipProb[i % next12hPrecipProb.size]
                     },
-                    cloudCover = hourlyInstants.indices.map { i -> listOf(25, 30, 45, 55, 70, 85, 95, 80, 55, 35, 20, 15)[i % 12] },
+                    cloudCover = hourlyInstants.indices.map { i ->
+                        listOf(25, 30, 45, 55, 70, 85, 95, 80, 55, 35, 20, 15)[i % 12]
+                    },
                     windGusts10m = hourlyInstants.indices.map { i -> 24.0 + (i % 7) * 2.0 + modelIndex }
                 ),
                 daily = DailyForecast(
                     dates = dailyDates,
                     tempMax = dailyDates.indices.map { i -> 25.0 + i * 0.7 + offset },
                     tempMin = dailyDates.indices.map { i -> 15.5 + i * 0.4 + offset / 2.0 },
-                    precipitationSum = dailyDates.indices.map { i -> listOf(2.8, 0.0, 0.4, 5.2, 1.1, 0.0, 0.0)[i] + modelIndex * 0.1 },
+                    precipitationSum = dailyDates.indices.map { i ->
+                        listOf(2.8, 0.0, 0.4, 5.2, 1.1, 0.0, 0.0)[i] + modelIndex * 0.1
+                    },
                     windSpeedMax = dailyDates.indices.map { i -> 20.0 + i + modelIndex },
                     weatherCode = dailyDates.indices.map { i -> listOf(61, 2, 1, 80, 3, 1, 0)[i] },
                     windDirection10mDominant = dailyDates.indices.map { i -> (220 + i * 15 + modelIndex * 3) % 360 },
@@ -455,7 +459,12 @@ internal object PreviewFixtures {
             timezone = "Europe/Paris",
             grid = MarineGrid(latitude = 43.48, longitude = -1.57, distanceKm = 1.8),
             hourly = MarineHourly(
-                timestamps = List(hourlyCount) { i -> LocalDateTime.ofInstant(Instant.ofEpochMilli(epochs[i]), ZoneOffset.UTC).toString() },
+                timestamps = List(hourlyCount) { i ->
+                    LocalDateTime.ofInstant(
+                        Instant.ofEpochMilli(epochs[i]),
+                        ZoneOffset.UTC
+                    ).toString()
+                },
                 timestampEpochMs = epochs.map(Long::toLong),
                 waveHeight = List(hourlyCount) { i -> 1.0 + 0.45 * sin(i / 5.0) },
                 waveDirection = List(hourlyCount) { i -> 270.0 + 12.0 * sin(i / 7.0) },
@@ -718,7 +727,11 @@ internal object PreviewFixtures {
                 windKmh = 18.0 + index + shift,
                 gustKmh = 31.0 + index * 1.4 + shift,
                 cloudPercent = 40.0 + (index * 7 + engine.ordinal * 6) % 50,
-                condition = if (index in setOf(0, 3, 4)) WeatherCondition.RAIN_SHOWERS else WeatherCondition.PARTLY_CLOUDY
+                condition = if (index in setOf(0, 3, 4)) {
+                    WeatherCondition.RAIN_SHOWERS
+                } else {
+                    WeatherCondition.PARTLY_CLOUDY
+                }
             )
         }
         EngineComparisonDay(

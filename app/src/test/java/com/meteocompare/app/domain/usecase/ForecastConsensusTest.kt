@@ -156,7 +156,6 @@ class ForecastConsensusTest {
         assertEquals(ForecastConsensus.PrecipitationSource.PROBABILITY, result.source)
     }
 
-
     @Test
     fun `probabilite native reste probabiliste meme si tous les deterministes sont humides`() {
         val result = ForecastConsensus.precipitation(
@@ -250,9 +249,21 @@ class ForecastConsensusTest {
     fun `convergence pluie mesure la dispersion et non la probabilite moyenne`() {
         fun convergence(values: List<Int>): Int? = ForecastConsensus.precipitation(
             rows = listOf(
-                ForecastConsensus.PrecipitationRow(WeatherModel.GFS, amountMm = 1.0, probabilityPercent = values[0]),
-                ForecastConsensus.PrecipitationRow(WeatherModel.ECMWF, amountMm = 1.0, probabilityPercent = values[1]),
-                ForecastConsensus.PrecipitationRow(WeatherModel.ARPEGE_EUROPE, amountMm = 1.0, probabilityPercent = values[2])
+                ForecastConsensus.PrecipitationRow(
+                    WeatherModel.GFS,
+                    amountMm = 1.0,
+                    probabilityPercent = values[0]
+                ),
+                ForecastConsensus.PrecipitationRow(
+                    WeatherModel.ECMWF,
+                    amountMm = 1.0,
+                    probabilityPercent = values[1]
+                ),
+                ForecastConsensus.PrecipitationRow(
+                    WeatherModel.ARPEGE_EUROPE,
+                    amountMm = 1.0,
+                    probabilityPercent = values[2]
+                )
             ),
             thresholdMm = 0.1,
             amountTightStdDev = 1.0,
@@ -263,7 +274,6 @@ class ForecastConsensusTest {
         assertEquals(100, convergence(listOf(80, 80, 80)))
         assertTrue(requireNotNull(convergence(listOf(100, 60, 80))) < 100)
     }
-
 
     @Test
     fun `consensus pluie ignore aussi les valeurs physiques impossibles hors mapper`() {

@@ -67,7 +67,6 @@ class WidgetForecastCardLayoutTest {
         assertEquals(2, inlineForecastItemCount(460f))
     }
 
-
     @Test
     fun `two row profile also considers width`() {
         assertEquals(TwoRowWidgetSizeProfile.VERY_DENSE, twoRowWidgetSizeProfile(250f, 190f))
@@ -112,6 +111,5 @@ class WidgetForecastCardLayoutTest {
         assertEquals(14f, forecastPanelHeaderHeightDp(showHeader = true, compact = true))
         assertEquals(18f, forecastPanelHeaderHeightDp(showHeader = true, compact = false))
     }
-
 
 }

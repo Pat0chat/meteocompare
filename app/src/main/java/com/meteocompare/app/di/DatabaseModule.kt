@@ -114,7 +114,8 @@ object DatabaseModule {
             db.execSQL("ALTER TABLE `forecast_evolution_samples` ADD COLUMN `sourceApiKey` TEXT")
             db.execSQL("ALTER TABLE `forecast_evolution_samples` ADD COLUMN `resolutionKm` REAL")
             db.execSQL(
-                "DELETE FROM `forecast_evolution_samples` WHERE `modelKey` = '${WeatherModel.ECMWF_IFS025_LEGACY_MODEL_KEY}'"
+                "DELETE FROM `forecast_evolution_samples` WHERE `modelKey` = " +
+                    "'${WeatherModel.ECMWF_IFS025_LEGACY_MODEL_KEY}'"
             )
             db.execSQL(
                 "UPDATE `forecast_evolution_samples` SET " +

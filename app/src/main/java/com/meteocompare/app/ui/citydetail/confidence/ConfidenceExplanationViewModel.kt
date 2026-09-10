@@ -8,12 +8,13 @@ import com.meteocompare.app.R
 import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.core.network.toUserMessage
 import com.meteocompare.app.core.util.runSuspendCatching
+import com.meteocompare.app.di.DefaultDispatcher
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DayConfidence
+import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
-import com.meteocompare.app.di.DefaultDispatcher
 import com.meteocompare.app.domain.repository.CityRepository
 import com.meteocompare.app.domain.repository.ForecastRepository
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
@@ -21,6 +22,10 @@ import com.meteocompare.app.domain.usecase.ConfidenceCalculator
 import com.meteocompare.app.ui.navigation.Destinations
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.time.Clock
+import java.time.Instant
+import java.time.LocalDate
+import javax.inject.Inject
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
@@ -38,10 +43,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import java.time.Instant
-import java.time.Clock
-import java.time.LocalDate
-import javax.inject.Inject
 
 /**
  * État de l'écran "Pourquoi cette convergence ?".
@@ -304,7 +305,11 @@ class ConfidenceExplanationViewModel @Inject constructor(
     ): List<VariableBreakdown> {
         // Précalcul : (model, série, index-du-jour) pour les modèles qui
         // couvrent la date. Évite de re-faire `dates.indexOf(date)` 4 fois.
-        data class ModelAt(val model: WeatherModel, val idx: Int, val series: com.meteocompare.app.domain.model.ForecastSeries)
+        data class ModelAt(
+            val model: WeatherModel,
+            val idx: Int,
+            val series: ForecastSeries
+        )
 
         val modelsAtDate: List<ModelAt> = forecast.seriesByModel.mapNotNull { (model, series) ->
             val idx = series.daily.dates.indexOf(date)

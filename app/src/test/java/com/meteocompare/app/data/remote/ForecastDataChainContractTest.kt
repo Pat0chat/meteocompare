@@ -3,12 +3,12 @@ package com.meteocompare.app.data.remote
 import com.meteocompare.app.data.mapper.ForecastMapper
 import com.meteocompare.app.data.remote.dto.BatchedForecastResponseDto
 import com.meteocompare.app.domain.model.WeatherModel
+import java.time.Instant
+import java.time.LocalDate
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Test
-import java.time.Instant
-import java.time.LocalDate
 
 /**
  * Contrat de bout en bout Forecast API -> réponse batched -> splitter -> mapper domaine.
@@ -16,7 +16,10 @@ import java.time.LocalDate
  * immédiatement visible dans le test.
  */
 class ForecastDataChainContractTest {
-    private val json = Json { ignoreUnknownKeys = true; explicitNulls = false }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        explicitNulls = false
+    }
     private val mapper = ForecastMapper()
 
     @Test

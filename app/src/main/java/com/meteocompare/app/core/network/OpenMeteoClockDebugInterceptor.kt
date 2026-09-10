@@ -2,14 +2,14 @@ package com.meteocompare.app.core.network
 
 import android.os.SystemClock
 import android.util.Log
-import okhttp3.Interceptor
-import okhttp3.Response
 import java.time.Instant
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.abs
+import okhttp3.Interceptor
+import okhttp3.Response
 
 /**
  * Garde-fou de diagnostic pour les émulateurs/appareils dont l'horloge système

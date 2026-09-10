@@ -40,8 +40,13 @@ internal object WidgetHeatmapForecastRenderer {
         val labelAreaHeight = (heightPx * 0.12f).coerceAtLeast(8f)
         val usableWidth = widthPx - outerPadding * 2f
         val columnWidth = usableWidth / CELL_COUNT
-        val tempBandHeight = ((heightPx - outerPadding * 2f - rowGap - axisGap - labelAreaHeight) * 0.64f).coerceAtLeast(heightPx * 0.55f)
-        val precipBandHeight = (heightPx - outerPadding * 2f - rowGap - axisGap - labelAreaHeight - tempBandHeight).coerceAtLeast(heightPx * 0.05f)
+        val tempBandHeight = (
+            (heightPx - outerPadding * 2f - rowGap - axisGap - labelAreaHeight) * 0.64f
+        ).coerceAtLeast(heightPx * 0.55f)
+        val precipBandHeight = (
+            heightPx - outerPadding * 2f - rowGap - axisGap -
+                labelAreaHeight - tempBandHeight
+        ).coerceAtLeast(heightPx * 0.05f)
         val tempTop = outerPadding
         val tempBottom = tempTop + tempBandHeight
         val precipTop = tempBottom + rowGap
@@ -112,7 +117,9 @@ internal object WidgetHeatmapForecastRenderer {
             val isCurrent = index == 0
             val columnRect = RectF(left, tempTop + 4f, right, tempBottom - 4f)
             val temp = temps.getOrNull(index)
-            val tempColor = temp?.let(WidgetMiniForecastRenderer::temperatureHeatmapArgb) ?: withAlpha(textColorArgb, 0x14)
+            val tempColor = temp
+                ?.let(WidgetMiniForecastRenderer::temperatureHeatmapArgb)
+                ?: withAlpha(textColorArgb, 0x14)
             val tileColor = if (temp == null) tempColor else withAlpha(tempColor, if (isCurrent) 0xEC else 0xD8)
             panelPaint.color = tileColor
             canvas.drawRoundRect(columnRect, 10f, 10f, panelPaint)

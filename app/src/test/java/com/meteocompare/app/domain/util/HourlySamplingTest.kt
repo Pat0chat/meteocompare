@@ -2,9 +2,9 @@ package com.meteocompare.app.domain.util
 
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityForecast
+import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Test
-import java.time.Instant
 
 class HourlySamplingTest {
 
@@ -29,7 +29,6 @@ class HourlySamplingTest {
             HourlySampling.anchor(forecast, now)
         )
     }
-
 
     @Test
     fun `conserve loffset de la seconde heure lors du passage a lheure dhiver`() {

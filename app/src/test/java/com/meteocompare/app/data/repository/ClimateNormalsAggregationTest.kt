@@ -3,12 +3,12 @@ package com.meteocompare.app.data.repository
 import com.meteocompare.app.data.remote.ClimateArchiveApi
 import com.meteocompare.app.data.remote.dto.ArchiveDailyDto
 import com.meteocompare.app.data.remote.dto.ArchiveResponseDto
+import java.time.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.time.LocalDate
 
 /**
  * Tests de la logique d'agrégation des normales.

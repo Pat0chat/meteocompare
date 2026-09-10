@@ -8,20 +8,23 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.meteocompare.app.core.locale.LOCALE_LANGUAGE_TAG_KEY
+import com.meteocompare.app.core.locale.currentPersistedLanguagePreference
 import com.meteocompare.app.core.locale.localePreferences
 import com.meteocompare.app.core.locale.persistLocalePreference
-import com.meteocompare.app.core.locale.currentPersistedLanguagePreference
 import com.meteocompare.app.di.IoDispatcher
-import com.meteocompare.app.domain.model.CityDetailSection
 import com.meteocompare.app.domain.model.CityDetailContentTab
+import com.meteocompare.app.domain.model.CityDetailSection
 import com.meteocompare.app.domain.model.CityDetailViewMode
-import com.meteocompare.app.domain.model.LanguagePreference
 import com.meteocompare.app.domain.model.ForecastEngine
+import com.meteocompare.app.domain.model.LanguagePreference
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.ThemePreference
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.io.IOException
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -30,9 +33,6 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
-import java.io.IOException
-import javax.inject.Inject
-import javax.inject.Singleton
 
 private val Context.preferencesDataStore by preferencesDataStore(name = "user_prefs")
 
@@ -191,7 +191,6 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         }
         Unit
     }
-
 
     override fun observeCityDetailViewMode(cityId: String): Flow<CityDetailViewMode> =
         observeCityChoice(

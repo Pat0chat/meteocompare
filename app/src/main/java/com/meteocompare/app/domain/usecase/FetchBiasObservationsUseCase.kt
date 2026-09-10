@@ -9,13 +9,13 @@ import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.ForecastPhysicalLimits
 import com.meteocompare.app.domain.repository.BiasSampleRepository
 import com.meteocompare.app.domain.repository.ObservationBiasRecord
-import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.withContext
 import java.time.Clock
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.withContext
 
 /**
  * Récupère les données historiques de référence manquantes pour une ville et les

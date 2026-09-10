@@ -1,15 +1,15 @@
 package com.meteocompare.app.ui.citydetail
 
-import com.meteocompare.app.domain.model.PrecipitationThresholds
 import com.meteocompare.app.domain.model.CityForecast
-import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.ForecastEngineContext
 import com.meteocompare.app.domain.model.ForecastEngineVariable
+import com.meteocompare.app.domain.model.ForecastSeries
+import com.meteocompare.app.domain.model.PrecipitationThresholds
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.usecase.ForecastConsensus
-import com.meteocompare.app.domain.usecase.WeatherConditionConsensus
 import com.meteocompare.app.domain.usecase.ForecastEngineV3
+import com.meteocompare.app.domain.usecase.WeatherConditionConsensus
 import com.meteocompare.app.domain.util.dailyCloudCoverMean
 import com.meteocompare.app.domain.util.resolveDailyCondition
 import com.meteocompare.app.domain.util.resolveHourlyCondition
@@ -19,15 +19,17 @@ import java.time.temporal.ChronoUnit
 import kotlin.math.roundToInt
 
 /** Origine du signal pluie affiché dans la chronologie. */
-internal enum class PrecipitationSignalSource {
+internal enum class PrecipitationSignalSource(
+    val usesProbability: Boolean
+) {
     /** Probabilité d'occurrence agrégée et équilibrée par familles. */
-    MODEL_PROBABILITY,
+    MODEL_PROBABILITY(usesProbability = true),
 
     /** Mélange de probabilités natives et de votes déterministes humide/sec. */
-    MIXED,
+    MIXED(usesProbability = true),
 
     /** Part des modèles déterministes qui prévoient un cumul au-dessus du seuil pluie. */
-    MODEL_AGREEMENT
+    MODEL_AGREEMENT(usesProbability = false)
 }
 
 /** Variable principalement responsable d'un désaccord entre les modèles. */
@@ -224,7 +226,10 @@ private data class TimelineSnapshot(
             (condition != null && condition != WeatherCondition.UNKNOWN)
 }
 
-private fun indexHourlySnapshots(model: WeatherModel, series: ForecastSeries): Map<Instant, TimelineSnapshot> = buildMap {
+private fun indexHourlySnapshots(
+    model: WeatherModel,
+    series: ForecastSeries
+): Map<Instant, TimelineSnapshot> = buildMap {
     series.hourly.timestamps.forEachIndexed { index, timestamp ->
         val temperature = series.hourly.temperature2m.getOrNull(index)
         val precipitation = series.hourly.precipitation.getOrNull(index)
@@ -485,29 +490,55 @@ private fun timelinePoint(
     val cloudValues = meaningful.mapNotNull { it.cloudCover }
     val windValues = meaningful.mapNotNull { it.wind }
     val gustValues = meaningful.mapNotNull { it.windGust }
-    val familyCount = listOf(temp.agreement.familyCount, wind.agreement.familyCount, precipitation.familyCount, conditionConsensus.familyCount).maxOrNull() ?: 0
+    val familyCount = listOf(
+        temp.agreement.familyCount,
+        wind.agreement.familyCount,
+        precipitation.familyCount,
+        conditionConsensus.familyCount
+    ).maxOrNull() ?: 0
 
     return SimplifiedTimelinePoint(
-        instant = timestamp, date = date,
+        instant = timestamp,
+        date = date,
         temperatureC = if (hourly) temp.forecastValue.central else null,
-        tempMinC = tempMin?.forecastValue?.central, tempMaxC = if (hourly) null else temp.forecastValue.central,
-        temperatureMinAcrossModels = temperatures.minOrNull(), temperatureMaxAcrossModels = temperatures.maxOrNull(),
-        precipitationPercent = precipitationForecast.probabilityPercent ?: precipitation.probabilityPercent, precipitationSource = source,
-        precipitationModelCount = precipitation.modelCount, wetModelCount = precipitation.wetModelCount,
-        precipitationMm = precipitationForecast.centralAmountMm, precipitationConditionalMm = precipitationForecast.conditionalAmountMm,
+        tempMinC = tempMin?.forecastValue?.central,
+        tempMaxC = if (hourly) null else temp.forecastValue.central,
+        temperatureMinAcrossModels = temperatures.minOrNull(),
+        temperatureMaxAcrossModels = temperatures.maxOrNull(),
+        precipitationPercent = precipitationForecast.probabilityPercent
+            ?: precipitation.probabilityPercent,
+        precipitationSource = source,
+        precipitationModelCount = precipitation.modelCount,
+        wetModelCount = precipitation.wetModelCount,
+        precipitationMm = precipitationForecast.centralAmountMm,
+        precipitationConditionalMm = precipitationForecast.conditionalAmountMm,
         precipitationExpectedMm = precipitationForecast.expectedAmountMm,
-        precipitationMinAcrossModelsMm = precipitationValues.minOrNull(), precipitationMaxAcrossModelsMm = precipitationValues.maxOrNull(),
-        precipitationProbabilityMin = probabilities.minOrNull(), precipitationProbabilityMax = probabilities.maxOrNull(),
+        precipitationMinAcrossModelsMm = precipitationValues.minOrNull(),
+        precipitationMaxAcrossModelsMm = precipitationValues.maxOrNull(),
+        precipitationProbabilityMin = probabilities.minOrNull(),
+        precipitationProbabilityMax = probabilities.maxOrNull(),
         cloudCoverPercent = cloud.forecastValue.central?.roundToInt()?.coerceIn(0, 100),
-        cloudCoverMinAcrossModels = cloudValues.minOrNull(), cloudCoverMaxAcrossModels = cloudValues.maxOrNull(),
+        cloudCoverMinAcrossModels = cloudValues.minOrNull(),
+        cloudCoverMaxAcrossModels = cloudValues.maxOrNull(),
         cloudCoverModelCount = cloud.agreement.modelCount,
-        windKmh = wind.forecastValue.central, windMinAcrossModels = windValues.minOrNull(), windMaxAcrossModels = windValues.maxOrNull(),
-        windGustKmh = gust.forecastValue.central, windGustMinAcrossModels = gustValues.minOrNull(), windGustMaxAcrossModels = gustValues.maxOrNull(),
+        windKmh = wind.forecastValue.central,
+        windMinAcrossModels = windValues.minOrNull(),
+        windMaxAcrossModels = windValues.maxOrNull(),
+        windGustKmh = gust.forecastValue.central,
+        windGustMinAcrossModels = gustValues.minOrNull(),
+        windGustMaxAcrossModels = gustValues.maxOrNull(),
         windGustModelCount = gust.agreement.modelCount,
-        condition = conditionConsensus.value, modelCount = meaningful.size, familyCount = familyCount,
-        temperatureModelCount = temp.agreement.modelCount, windModelCount = wind.agreement.modelCount, conditionModelCount = conditionConsensus.modelCount,
-        hasMultiModelEvidence = metricConsensus.isNotEmpty(), consensusPercent = overall,
-        consensusLevel = overall?.let(::metricLevel), metricConsensus = metricConsensus, divergenceReasons = divergenceReasons
+        condition = conditionConsensus.value,
+        modelCount = meaningful.size,
+        familyCount = familyCount,
+        temperatureModelCount = temp.agreement.modelCount,
+        windModelCount = wind.agreement.modelCount,
+        conditionModelCount = conditionConsensus.modelCount,
+        hasMultiModelEvidence = metricConsensus.isNotEmpty(),
+        consensusPercent = overall,
+        consensusLevel = overall?.let(::metricLevel),
+        metricConsensus = metricConsensus,
+        divergenceReasons = divergenceReasons
     )
 }
 

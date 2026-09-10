@@ -45,7 +45,6 @@ class WidgetLayoutClassifierTest {
         assertEquals(WidgetLayoutKind.EXTRA_LARGE, classifyWidgetLayout(420f, 170f))
     }
 
-
     @Test
     fun `three by two keeps four forecast cards`() {
         assertEquals(4, extendedForecastItemCount(319f))

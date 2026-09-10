@@ -4,10 +4,10 @@ import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.PrecipitationThresholds
 import com.meteocompare.app.domain.model.WeatherCondition
+import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.model.WeatherScenario
 import com.meteocompare.app.domain.model.WeatherScenarioKind
 import com.meteocompare.app.domain.model.WeatherScenarioTiming
-import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.usecase.ForecastConsensus
 import java.time.Instant
 import kotlin.math.roundToInt
@@ -44,7 +44,15 @@ object WeatherScenarioBuilder {
         val totalFamilyCount = modelSummaries.map { ForecastConsensus.groupFor(it.model) }.distinct().size
         val grouped = modelSummaries
             .groupBy { ScenarioKey(it.kind, it.timing) }
-            .map { (key, models) -> models.toScenario(key, totalModelCount, totalFamilyCount, familyWeights, totalVoteWeight) }
+            .map { (key, models) ->
+                models.toScenario(
+                    key,
+                    totalModelCount,
+                    totalFamilyCount,
+                    familyWeights,
+                    totalVoteWeight
+                )
+            }
             .sortedWith(
                 compareByDescending<WeatherScenario> { it.voteSharePercent ?: 0 }
                     .thenByDescending { it.kind.importance }
@@ -280,6 +288,5 @@ object WeatherScenarioBuilder {
         return if (size % 2 == 1) this[middle]
         else ((this[middle - 1] + this[middle]) / 2.0).roundToInt()
     }
-
 
 }

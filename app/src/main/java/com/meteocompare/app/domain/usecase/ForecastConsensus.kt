@@ -128,9 +128,14 @@ object ForecastConsensus {
         }
         val stats = weightedStats(weighted) ?: return Continuous(null, null, 0, 0, null)
         val families = valid.map { groupFor(it.model) }.distinct().size
+        val convergence = if (families >= 2) {
+            scoreFromDispersion(stats.stdDev, tightStdDev, wideStdDev)
+        } else {
+            null
+        }
         return Continuous(
             central = weightedMedian(weighted),
-            convergencePercent = if (families >= 2) scoreFromDispersion(stats.stdDev, tightStdDev, wideStdDev) else null,
+            convergencePercent = convergence,
             modelCount = valid.map { it.model }.distinct().size,
             familyCount = families,
             stats = stats
@@ -152,7 +157,24 @@ object ForecastConsensus {
         }.filter { row ->
             row.amountMm != null || row.probabilityPercent != null
         }
-        if (usable.isEmpty()) return Precipitation(null, null, null, null, null, amountConvergencePercent = null,0, 0, 0, 0, null, null, null, null)
+        if (usable.isEmpty()) {
+            return Precipitation(
+                probabilityPercent = null,
+                conditionalAmountMm = null,
+                centralAmountMm = null,
+                expectedAmountMm = null,
+                convergencePercent = null,
+                amountConvergencePercent = null,
+                modelCount = 0,
+                familyCount = 0,
+                wetModelCount = 0,
+                wetFamilyCount = 0,
+                source = null,
+                minMm = null,
+                maxMm = null,
+                conditionalStdDev = null
+            )
+        }
 
         val occurrenceWeights = familyBalancedWeights(usable.map { it.model }, localWeights)
         var probabilitySum = 0.0
@@ -343,16 +365,23 @@ object ForecastConsensus {
         val value = votes.filterValues { abs(it - top) <= EPS }.keys.maxByOrNull(severity)
         val total = votes.values.sum()
         val families = entries.map { groupFor(it.model) }.distinct().size
+        val percent = if (families >= 2 && total > 0.0) {
+            (top * 100.0 / total).roundToInt().coerceIn(0, 100)
+        } else {
+            null
+        }
         return Vote(
             value = value,
-            percent = if (families >= 2 && total > 0.0) (top * 100.0 / total).roundToInt().coerceIn(0, 100) else null,
+            percent = percent,
             modelCount = entries.map { it.model }.distinct().size,
             familyCount = families
         )
     }
 
     fun weightedMedian(entries: List<WeightedEntry>): Double? {
-        val rows = entries.filter { it.value.isFinite() && it.weight.isFinite() && it.weight > 0.0 }.sortedBy { it.value }
+        val rows = entries
+            .filter { it.value.isFinite() && it.weight.isFinite() && it.weight > 0.0 }
+            .sortedBy { it.value }
         if (rows.isEmpty()) return null
         val total = rows.sumOf { it.weight }
         val half = total / 2.0
@@ -360,7 +389,9 @@ object ForecastConsensus {
         rows.forEachIndexed { index, row ->
             cumulative += row.weight
             if (cumulative > half + EPS) return row.value
-            if (abs(cumulative - half) <= EPS && index + 1 < rows.size) return (row.value + rows[index + 1].value) / 2.0
+            if (abs(cumulative - half) <= EPS && index + 1 < rows.size) {
+                return (row.value + rows[index + 1].value) / 2.0
+            }
         }
         return rows.last().value
     }
@@ -380,6 +411,5 @@ object ForecastConsensus {
         stdDev >= wide -> 0
         else -> (100.0 * (1.0 - (stdDev - tight) / (wide - tight))).roundToInt().coerceIn(0, 100)
     }
-
 
 }

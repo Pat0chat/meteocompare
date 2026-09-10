@@ -3,12 +3,12 @@ package com.meteocompare.app.core.locale
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.meteocompare.app.R
+import java.util.Locale
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
 import org.junit.Before
 import org.junit.Test
-import java.util.Locale
 
 class LocaleUtilsTest {
     private lateinit var context: Context

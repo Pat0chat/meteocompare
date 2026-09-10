@@ -27,12 +27,10 @@ import androidx.glance.ImageProvider
 import androidx.glance.LocalContext
 import androidx.glance.LocalSize
 import androidx.glance.action.actionStartActivity
-import androidx.glance.appwidget.action.actionStartActivity as actionStartActivityIntent
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
-import com.meteocompare.app.R
-import com.meteocompare.app.core.locale.applyPersistedLocale
 import androidx.glance.appwidget.SizeMode
+import androidx.glance.appwidget.action.actionStartActivity as actionStartActivityIntent
 import androidx.glance.appwidget.appWidgetBackground
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
@@ -56,6 +54,9 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import com.meteocompare.app.MainActivity
+import com.meteocompare.app.R
+import com.meteocompare.app.core.locale.applyPersistedLocale
+import com.meteocompare.app.core.locale.weatherConditionLabelRes
 import com.meteocompare.app.core.network.OPEN_METEO_LICENSE_URL
 import com.meteocompare.app.domain.model.WeatherCondition
 
@@ -838,10 +839,14 @@ private fun LargeLayout(
         }
 
         if (inlineForecastItems > 0 && data.forecasts.isNotEmpty()) {
-            Spacer(GlanceModifier.width(if (profile == SingleRowWidgetHeightProfile.VERY_DENSE) 5.dp else 8.dp))
+            val leadingSpacing =
+                if (profile == SingleRowWidgetHeightProfile.VERY_DENSE) 5.dp else 8.dp
+            val itemSpacing =
+                if (profile == SingleRowWidgetHeightProfile.REGULAR) ForecastCardSpacing else 5.dp
+            Spacer(GlanceModifier.width(leadingSpacing))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 data.forecasts.take(inlineForecastItems).forEachIndexed { index, item ->
-                    if (index > 0) Spacer(GlanceModifier.width(if (profile == SingleRowWidgetHeightProfile.REGULAR) ForecastCardSpacing else 5.dp))
+                    if (index > 0) Spacer(GlanceModifier.width(itemSpacing))
                     ForecastItemCard(
                         item = item,
                         onContainer = onContainer,
@@ -1782,26 +1787,9 @@ private fun WeatherGlyph(
     }
     Image(
         provider = ImageProvider(bitmap),
-        contentDescription = context.getString(weatherDescriptionRes(condition)),
+        contentDescription = context.getString(weatherConditionLabelRes(condition)),
         modifier = GlanceModifier.width(sizeDp.dp).height(sizeDp.dp)
     )
-}
-
-private fun weatherDescriptionRes(condition: WeatherCondition?): Int = when (condition) {
-    WeatherCondition.CLEAR -> R.string.weather_clear
-    WeatherCondition.MAINLY_CLEAR -> R.string.weather_mainly_clear
-    WeatherCondition.PARTLY_CLOUDY -> R.string.weather_partly_cloudy
-    WeatherCondition.OVERCAST -> R.string.weather_overcast
-    WeatherCondition.FOG -> R.string.weather_fog
-    WeatherCondition.DRIZZLE -> R.string.weather_drizzle
-    WeatherCondition.RAIN -> R.string.weather_rain
-    WeatherCondition.FREEZING_RAIN -> R.string.weather_freezing_rain
-    WeatherCondition.SNOW -> R.string.weather_snow
-    WeatherCondition.RAIN_SHOWERS -> R.string.weather_rain_showers
-    WeatherCondition.SNOW_SHOWERS -> R.string.weather_snow_showers
-    WeatherCondition.THUNDERSTORM -> R.string.weather_thunderstorm
-    WeatherCondition.UNKNOWN,
-    null -> R.string.weather_unknown
 }
 
 @Composable

@@ -64,7 +64,6 @@ class BiasSampleRepositoryImplTest {
         ).first()
     }
 
-
     @Test
     fun `migrated lead one keeps only capture truly issued one civil day before target`() = runTest {
         val dao = mockk<BiasSampleDao>()

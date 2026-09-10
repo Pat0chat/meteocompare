@@ -5,10 +5,10 @@ import androidx.lifecycle.viewModelScope
 import com.meteocompare.app.domain.model.ThemePreference
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
-import javax.inject.Inject
 
 /**
  * ViewModel racine de l'activité — expose la préférence de thème.

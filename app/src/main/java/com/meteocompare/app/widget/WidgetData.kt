@@ -9,8 +9,8 @@ import com.meteocompare.app.core.util.resolveZoneOrUtc
 import com.meteocompare.app.core.util.runSuspendCatching
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DayConfidence
-import com.meteocompare.app.domain.model.HourlyConfidenceBand
 import com.meteocompare.app.domain.model.ForecastEngineContext
+import com.meteocompare.app.domain.model.HourlyConfidenceBand
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.usecase.ConfidenceCalculator
 import com.meteocompare.app.domain.usecase.ForecastConsensus
@@ -18,12 +18,12 @@ import com.meteocompare.app.domain.util.ForecastAggregates
 import com.meteocompare.app.ui.citydetail.DisplayMode
 import com.meteocompare.app.ui.citydetail.buildSimplifiedTimeline
 import dagger.hilt.android.EntryPointAccessors
+import kotlin.math.roundToInt
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.lastOrNull
 import kotlinx.coroutines.withContext
-import kotlin.math.roundToInt
 
 /**
  * Snapshot des données affichées par le widget, pré-calculé côté suspending
@@ -395,7 +395,8 @@ private suspend fun loadWidgetDataInternal(
 
             // Selon le mode utilisateur, on alimente soit la ligne de prévisions
             // 5 items (HOURLY/DAILY), soit la mini bande de confiance
-            // (CONFIDENCE_*), soit l'une des vues 12 h bitmap (MINI_FORECAST_12H / HEATMAP_CHART_12H / HEATMAP_TREND_12H).
+            // (CONFIDENCE_*), soit l'une des vues 12 h bitmap
+            // (MINI_FORECAST_12H / HEATMAP_CHART_12H / HEATMAP_TREND_12H).
             // Les trois sont exclusifs — c'est ExtraLargeLayout qui aiguille.
             //
             // La confiance placée sous la probabilité de pluie est GLOBALE :
@@ -410,9 +411,18 @@ private suspend fun loadWidgetDataInternal(
             val forecastConfidence = when (forecastMode) {
                 ForecastMode.HOURLY -> WidgetForecastConfidence(
                     hourlyByTimestamp = hourlyForecastConfidenceByTimestamp(
-                        temperatureBands = calc.hourlyTemperatureConfidence(forecast, engineContext = engineContext),
-                        precipitationBands = calc.hourlyPrecipitationConfidence(forecast, engineContext = engineContext),
-                        windBands = calc.hourlyWindConfidence(forecast, engineContext = engineContext),
+                        temperatureBands = calc.hourlyTemperatureConfidence(
+                            forecast,
+                            engineContext = engineContext
+                        ),
+                        precipitationBands = calc.hourlyPrecipitationConfidence(
+                            forecast,
+                            engineContext = engineContext
+                        ),
+                        windBands = calc.hourlyWindConfidence(
+                            forecast,
+                            engineContext = engineContext
+                        ),
                         totalModelCount = totalFamilyCount
                     )
                 )
@@ -508,7 +518,6 @@ private suspend fun loadWidgetDataInternal(
         )
     }
 }
-
 
 /**
  * Attend la fin du flux repository au lieu de s'arrêter sur le cache initial.
@@ -837,9 +846,18 @@ private fun buildConfidenceStrip(
     engineContext: ForecastEngineContext
 ): WidgetConfidenceStrip? {
     val bands = when (mode) {
-        ForecastMode.CONFIDENCE_TEMPERATURE -> calc.hourlyTemperatureConfidence(forecast, engineContext = engineContext)
-        ForecastMode.CONFIDENCE_PRECIPITATION -> calc.hourlyPrecipitationConfidence(forecast, engineContext = engineContext)
-        ForecastMode.CONFIDENCE_WIND -> calc.hourlyWindConfidence(forecast, engineContext = engineContext)
+        ForecastMode.CONFIDENCE_TEMPERATURE -> calc.hourlyTemperatureConfidence(
+            forecast,
+            engineContext = engineContext
+        )
+        ForecastMode.CONFIDENCE_PRECIPITATION -> calc.hourlyPrecipitationConfidence(
+            forecast,
+            engineContext = engineContext
+        )
+        ForecastMode.CONFIDENCE_WIND -> calc.hourlyWindConfidence(
+            forecast,
+            engineContext = engineContext
+        )
         else -> return null // sécurité — signature contrôlée par isConfidenceBand()
     }
     if (bands.size < 2) return null

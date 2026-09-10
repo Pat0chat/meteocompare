@@ -14,23 +14,23 @@ import kotlin.math.max
 import kotlin.math.min
 
 /**
- * Palette meteo partagee par les cartes et par les accents d'interface.
+ * Palette météo partagée par les cartes et par les accents d'interface.
  *
- * Les teintes brutes restent semantiques : une condition donnee garde la meme
- * famille de couleur, meme lorsque Material You fournit le theme de base. Le
- * theme d'accent ci-dessous adapte uniquement leur luminosite quand la couleur
- * porte du texte ou une icone, afin de conserver un contraste accessible.
+ * Les teintes brutes restent sémantiques : une condition donnée garde la même
+ * famille de couleur, même lorsque Material You fournit le thème de base. Le
+ * thème d'accent ci-dessous adapte uniquement leur luminosité quand la couleur
+ * porte du texte ou une icône, afin de conserver un contraste accessible.
  */
 internal object WeatherAccent {
 
-    /** Couleur decorative brute, avec un neutre pour les donnees inconnues. */
+    /** Couleur décorative brute, avec un neutre pour les données inconnues. */
     fun of(condition: WeatherCondition?, isDark: Boolean): Color =
         activeOrNull(condition, isDark)
             ?: if (isDark) NeutralDark else NeutralLight
 
     /**
-     * Accent significatif pour l'interface. Une absence de donnee ne doit pas
-     * repeindre l'application en gris : le theme Material de base est conserve.
+     * Accent significatif pour l'interface. Une absence de donnée ne doit pas
+     * repeindre l'application en gris : le thème Material de base est conservé.
      */
     fun activeOrNull(condition: WeatherCondition?, isDark: Boolean): Color? = when (condition) {
         null,
@@ -63,7 +63,7 @@ internal object WeatherAccent {
     private val SunnyLight = Color(0xFFFFA726)
     private val SunnyDark = Color(0xFFFFB74D)
 
-    // Eclaircies — beige dore, entre soleil et ciel couvert.
+    // Éclaircies — beige doré, entre soleil et ciel couvert.
     private val PartlyCloudyLight = Color(0xFFBCAAA4)
     private val PartlyCloudyDark = Color(0xFFA1887F)
 
@@ -73,7 +73,7 @@ internal object WeatherAccent {
     private val FogLight = Color(0xFF9E9E9E)
     private val FogDark = Color(0xFFBDBDBD)
 
-    // Precipitations.
+    // Précipitations.
     private val RainLight = Color(0xFF3F51B5)
     private val RainDark = Color(0xFF5C6BC0)
     private val FreezingRainLight = Color(0xFF00838F)
@@ -94,12 +94,12 @@ private const val TEXT_CONTRAST_RATIO = 4.5f
 private const val ICON_CONTRAST_RATIO = 3f
 
 /**
- * Applique la meteo de la ville au vocabulaire d'accent Material 3.
+ * Applique la météo de la ville au vocabulaire d'accent Material 3.
  *
- * Seuls les roles primaires changent. Les couleurs error/secondary/tertiary et
- * les accents metriques restent intacts, ce qui preserve leur signification.
- * Le retour au theme de base (chargement, cache ancien, condition inconnue) est
- * anime de la meme maniere qu'un changement de condition.
+ * Seuls les rôles primaires changent. Les couleurs error/secondary/tertiary et
+ * les accents métriques restent intacts, ce qui préserve leur signification.
+ * Le retour au thème de base (chargement, cache ancien, condition inconnue) est
+ * animé de la même manière qu'un changement de condition.
  */
 @Composable
 internal fun WeatherAccentTheme(
@@ -126,9 +126,11 @@ internal fun WeatherAccentTheme(
     } else {
         base.onPrimary
     }
-    val targetOnPrimaryContainer = rawAccent?.let {
+    val targetOnPrimaryContainer = if (hasWeatherAccent) {
         readableAccent(targetPrimary, targetPrimaryContainer)
-    } ?: base.onPrimaryContainer
+    } else {
+        base.onPrimaryContainer
+    }
     val targetInversePrimary = rawAccent?.let {
         readableAccent(it, base.inverseSurface, minimumRatio = ICON_CONTRAST_RATIO)
     } ?: base.inversePrimary
@@ -180,7 +182,7 @@ internal fun WeatherAccentTheme(
     )
 }
 
-/** Teinte legere utilisee par les FAB, selections et cartes mises en avant. */
+/** Teinte légère utilisée par les FAB, sélections et cartes mises en avant. */
 internal fun weatherAccentContainer(
     accent: Color,
     surface: Color,
@@ -189,7 +191,7 @@ internal fun weatherAccentContainer(
 
 /**
  * Conserve autant que possible la teinte d'origine, puis la rapproche du noir
- * ou du blanc jusqu'a atteindre le contraste demande sur [background].
+ * ou du blanc jusqu'à atteindre le contraste demandé sur [background].
  */
 internal fun readableAccent(
     accent: Color,
@@ -208,10 +210,11 @@ internal fun readableAccent(
 }
 
 /** Noir ou blanc, selon celui qui contraste le mieux avec [background]. */
-internal fun highestContrastContent(background: Color): Color =
-    if (accentContrastRatio(Color.Black, background) >=
-        accentContrastRatio(Color.White, background)
-    ) Color.Black else Color.White
+internal fun highestContrastContent(background: Color): Color {
+    val blackContrast = accentContrastRatio(Color.Black, background)
+    val whiteContrast = accentContrastRatio(Color.White, background)
+    return if (blackContrast >= whiteContrast) Color.Black else Color.White
+}
 
 internal fun accentContrastRatio(foreground: Color, background: Color): Float {
     val opaqueForeground = foreground.compositeOver(background)

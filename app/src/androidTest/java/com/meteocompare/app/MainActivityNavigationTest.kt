@@ -22,8 +22,8 @@ import com.meteocompare.app.ui.citydetail.TAG_ENGINE_COMPARISON_ACTION
 import com.meteocompare.app.ui.citydetail.confidence.TAG_CONFIDENCE_EXPLANATION_BACK
 import com.meteocompare.app.ui.citydetail.confidence.TAG_CONFIDENCE_EXPLANATION_ROOT
 import com.meteocompare.app.ui.citylist.TAG_ADD_CITY_RESULT
-import com.meteocompare.app.ui.citylist.TAG_ADD_FAB
 import com.meteocompare.app.ui.citylist.TAG_ADD_CITY_SEARCH_FIELD
+import com.meteocompare.app.ui.citylist.TAG_ADD_FAB
 import com.meteocompare.app.ui.citylist.TAG_CITY_CARD
 import com.meteocompare.app.ui.citylist.TAG_DONATE_BUTTON
 import com.meteocompare.app.ui.citylist.TAG_EMPTY_STATE
@@ -33,13 +33,13 @@ import com.meteocompare.app.ui.settings.TAG_SETTINGS_ENGINE
 import com.meteocompare.app.ui.settings.TAG_SETTINGS_ROOT
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
+import javax.inject.Inject
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
-import javax.inject.Inject
 
 /**
  * Parcours instrumentés de l'application complète.
@@ -83,7 +83,6 @@ class MainActivityNavigationTest {
         composeRule.onNodeWithText(composeRule.activity.getString(R.string.empty_favorites_title))
             .assertIsDisplayed()
     }
-
 
     @Test
     fun home_donation_button_opens_shared_donation_dialog() {

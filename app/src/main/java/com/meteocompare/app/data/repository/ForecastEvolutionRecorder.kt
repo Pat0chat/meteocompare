@@ -6,10 +6,14 @@ import com.meteocompare.app.data.local.ForecastEvolutionEntity
 import com.meteocompare.app.di.IoDispatcher
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.ForecastEvolutionVariable
-import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.withContext
+import com.meteocompare.app.domain.model.ForecastSeries
+import com.meteocompare.app.domain.model.WeatherModel
+import java.time.LocalDate
+import java.time.ZoneId
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.withContext
 
 /**
  * Enregistre localement les prévisions fraîchement récupérées par le Forecast API.
@@ -40,21 +44,51 @@ class ForecastEvolutionRecorder @Inject constructor(
                         series.daily.tempMax.getOrNull(index)
                             ?.takeIf(Double::isFinite)
                             ?.let { value ->
-                                add(entity(forecast.city.id, model, ForecastEvolutionVariable.TEMPERATURE, date.toEpochDay(), bucket, capturedMs, value))
+                                add(
+                                    entity(
+                                        cityId = forecast.city.id,
+                                        model = model,
+                                        variable = ForecastEvolutionVariable.TEMPERATURE,
+                                        targetDateEpochDay = date.toEpochDay(),
+                                        snapshotBucket = bucket,
+                                        snapshotAtEpochMs = capturedMs,
+                                        value = value
+                                    )
+                                )
                             }
                     }
                     if (hasCompleteHourlyCoverage(series, date, ForecastEvolutionVariable.PRECIPITATION, zone)) {
                         series.daily.precipitationSum.getOrNull(index)
                             ?.takeIf { it.isFinite() && it >= 0.0 }
                             ?.let { value ->
-                                add(entity(forecast.city.id, model, ForecastEvolutionVariable.PRECIPITATION, date.toEpochDay(), bucket, capturedMs, value))
+                                add(
+                                    entity(
+                                        cityId = forecast.city.id,
+                                        model = model,
+                                        variable = ForecastEvolutionVariable.PRECIPITATION,
+                                        targetDateEpochDay = date.toEpochDay(),
+                                        snapshotBucket = bucket,
+                                        snapshotAtEpochMs = capturedMs,
+                                        value = value
+                                    )
+                                )
                             }
                     }
                     if (hasCompleteHourlyCoverage(series, date, ForecastEvolutionVariable.WIND, zone)) {
                         series.daily.windSpeedMax.getOrNull(index)
                             ?.takeIf { it.isFinite() && it >= 0.0 }
                             ?.let { value ->
-                                add(entity(forecast.city.id, model, ForecastEvolutionVariable.WIND, date.toEpochDay(), bucket, capturedMs, value))
+                                add(
+                                    entity(
+                                        cityId = forecast.city.id,
+                                        model = model,
+                                        variable = ForecastEvolutionVariable.WIND,
+                                        targetDateEpochDay = date.toEpochDay(),
+                                        snapshotBucket = bucket,
+                                        snapshotAtEpochMs = capturedMs,
+                                        value = value
+                                    )
+                                )
                             }
                     }
                 }
@@ -69,10 +103,10 @@ class ForecastEvolutionRecorder @Inject constructor(
     }
 
     private fun hasCompleteHourlyCoverage(
-        series: com.meteocompare.app.domain.model.ForecastSeries,
-        date: java.time.LocalDate,
+        series: ForecastSeries,
+        date: LocalDate,
         variable: ForecastEvolutionVariable,
-        zone: java.time.ZoneId
+        zone: ZoneId
     ): Boolean {
         val indices = series.hourly.timestamps.indices.filter { index ->
             series.hourly.timestamps[index].atZone(zone).toLocalDate() == date
@@ -100,7 +134,7 @@ class ForecastEvolutionRecorder @Inject constructor(
 
     private fun entity(
         cityId: String,
-        model: com.meteocompare.app.domain.model.WeatherModel,
+        model: WeatherModel,
         variable: ForecastEvolutionVariable,
         targetDateEpochDay: Long,
         snapshotBucket: Long,

@@ -1,7 +1,7 @@
 package com.meteocompare.app.ui.citydetail
 
-import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -99,7 +99,6 @@ class BiasPagesRenderTest {
         ).assertIsDisplayed()
         composeRule.onNodeWithText(formatBiasLabel(selection.bias)).assertIsDisplayed()
     }
-
 
     @Test
     fun variable_bias_page_renders_core_content_in_dark_theme() {

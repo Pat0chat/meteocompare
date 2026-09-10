@@ -1,11 +1,11 @@
 package com.meteocompare.app.domain.usecase
 
 import com.meteocompare.app.domain.model.BiasSample
+import java.time.Instant
+import java.time.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.time.Instant
-import java.time.LocalDate
 
 class SelectPreviousDaySamplesTest {
 

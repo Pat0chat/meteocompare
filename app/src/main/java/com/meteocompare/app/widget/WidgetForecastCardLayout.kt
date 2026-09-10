@@ -35,7 +35,6 @@ internal enum class SingleRowWidgetHeightProfile {
     REGULAR
 }
 
-
 /** Densité des widgets sur deux rangées (3×2 à 5×2). */
 internal enum class TwoRowWidgetSizeProfile {
     VERY_DENSE,
@@ -170,7 +169,6 @@ internal fun miniForecastHeaderHeightBudgetDp(
     compact -> 38f
     else -> 44f
 }
-
 
 /**
  * Budget vertical du petit en-tête "Heures / Jours" placé au-dessus des

@@ -7,12 +7,12 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import java.time.LocalTime
+import java.util.Locale
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
-import java.time.LocalTime
-import java.util.Locale
 
 class SunTimesRowTest {
     @get:Rule val composeRule = createComposeRule()

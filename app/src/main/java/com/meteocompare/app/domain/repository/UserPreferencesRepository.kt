@@ -1,10 +1,10 @@
 package com.meteocompare.app.domain.repository
 
-import com.meteocompare.app.domain.model.CityDetailSection
 import com.meteocompare.app.domain.model.CityDetailContentTab
+import com.meteocompare.app.domain.model.CityDetailSection
 import com.meteocompare.app.domain.model.CityDetailViewMode
-import com.meteocompare.app.domain.model.LanguagePreference
 import com.meteocompare.app.domain.model.ForecastEngine
+import com.meteocompare.app.domain.model.LanguagePreference
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.ThemePreference
 import com.meteocompare.app.domain.model.WeatherModel

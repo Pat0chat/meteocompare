@@ -18,17 +18,17 @@ import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.DayNormals
 import com.meteocompare.app.domain.repository.ClimateNormalsRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.time.Clock
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
-import kotlin.math.ceil
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.math.ceil
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Stratégie identique à la version antérieure :

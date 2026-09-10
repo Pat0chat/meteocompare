@@ -56,7 +56,6 @@ fun parseOpenMeteoTime(time: String, timezone: String): Instant? = try {
     null
 }
 
-
 /**
  * Parse une timeline locale Open-Meteo sans écraser l'heure répétée lors du
  * passage à l'heure d'hiver.

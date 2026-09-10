@@ -29,7 +29,10 @@ import org.junit.Test
  */
 class BatchedForecastSplitterTest {
 
-    private val json = Json { ignoreUnknownKeys = true; explicitNulls = false }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        explicitNulls = false
+    }
 
     // ─────────────────────── Mode single-modèle ───────────────────────
 

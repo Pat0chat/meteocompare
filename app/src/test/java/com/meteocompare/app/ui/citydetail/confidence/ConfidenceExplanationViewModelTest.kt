@@ -20,6 +20,10 @@ import com.meteocompare.app.ui.navigation.Destinations
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import java.time.Clock
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -35,10 +39,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import java.time.Clock
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneOffset
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ConfidenceExplanationViewModelTest {
@@ -152,7 +152,6 @@ class ConfidenceExplanationViewModelTest {
             )
         }
     }
-
 
     @Test
     fun `changing enabled models reloads an open explanation with equal timestamp`() =

@@ -12,14 +12,14 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
 import io.mockk.slot
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneOffset
 
 class ForecastEvolutionRecorderTest {
     private val city = City("paris", "Paris", country = "France", latitude = 48.85, longitude = 2.35)
@@ -37,7 +37,10 @@ class ForecastEvolutionRecorderTest {
         recorder.record(forecast())
 
         assertEquals(6, inserted.captured.size) // 2 modèles × 3 métriques × 1 jour
-        assertEquals(setOf(WeatherModel.GFS.name, WeatherModel.ECMWF.name), inserted.captured.map { it.modelKey }.toSet())
+        assertEquals(
+            setOf(WeatherModel.GFS.name, WeatherModel.ECMWF.name),
+            inserted.captured.map { it.modelKey }.toSet()
+        )
         assertEquals(setOf("TEMPERATURE", "PRECIPITATION", "WIND"), inserted.captured.map { it.variable }.toSet())
         val ecmwfRows = inserted.captured.filter { it.modelKey == WeatherModel.ECMWF.name }
         assertTrue(ecmwfRows.all { it.sourceApiKey == "ecmwf_ifs" && it.resolutionKm == 9.0 })
@@ -54,8 +57,6 @@ class ForecastEvolutionRecorderTest {
         }
         coVerify(exactly = 1) { dao.purgeCapturedBefore(any()) }
     }
-
-
 
     @Test
     fun `invalid or negative daily values are never persisted as valid evolution data`() = runTest {

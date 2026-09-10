@@ -17,12 +17,12 @@ import com.meteocompare.app.testutil.FakeCityRepository
 import com.meteocompare.app.testutil.TestFixtures
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
+import javax.inject.Inject
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
-import javax.inject.Inject
 
 @HiltAndroidTest
 class MeteoWidgetConfigActivityTest {

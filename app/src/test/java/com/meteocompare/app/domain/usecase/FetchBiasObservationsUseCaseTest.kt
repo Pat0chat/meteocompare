@@ -10,12 +10,12 @@ import com.meteocompare.app.domain.repository.ObservationBiasRecord
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
+import java.time.LocalDate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
-import java.time.LocalDate
 
 class FetchBiasObservationsUseCaseTest {
 
@@ -53,7 +53,6 @@ class FetchBiasObservationsUseCaseTest {
             repository.earliestMissingReferenceDate(any(), any())
         } returns today.minusDays(30)
     }
-
 
     @Test
     fun `aucune prévision capturée ne déclenche aucun appel archive`() = runTest {

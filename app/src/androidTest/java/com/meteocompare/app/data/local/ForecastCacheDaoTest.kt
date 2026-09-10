@@ -64,7 +64,6 @@ class ForecastCacheDaoTest {
         assertEquals("keep", rows.getValue("ecmwf").responseJson)
     }
 
-
     @Test
     fun replace_requested_models_does_not_overwrite_a_newer_overlapping_row() = runTest {
         dao.upsertAll(

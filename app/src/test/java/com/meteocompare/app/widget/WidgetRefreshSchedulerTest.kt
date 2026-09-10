@@ -10,10 +10,10 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
+import java.util.concurrent.TimeUnit
+import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
-import org.junit.Assert.assertEquals
-import java.util.concurrent.TimeUnit
 
 /**
  * Tests des CONTRATS de [WidgetRefreshScheduler].
@@ -140,7 +140,6 @@ class WidgetRefreshSchedulerTest {
             networkType
         )
     }
-
 
     @Test
     fun `schedule - ajoute un tag de diagnostic stable`() {

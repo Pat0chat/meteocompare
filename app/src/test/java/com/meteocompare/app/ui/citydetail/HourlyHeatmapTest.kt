@@ -63,18 +63,28 @@ class HourlyHeatmapTest {
         val TEMP_HEATWAVE   = Color(0xFFC62828)  // ≥ 30
 
         // Precip bins (10 colored + null under 0.05)
-        val P1 = Color(0xFFE3F2FD); val P2 = Color(0xFFBBDEFB)
-        val P3 = Color(0xFF90CAF9); val P4 = Color(0xFF64B5F6)
-        val P5 = Color(0xFF42A5F5); val P6 = Color(0xFF2196F3)
-        val P7 = Color(0xFF1E88E5); val P8 = Color(0xFF1976D2)
-        val P9 = Color(0xFF1565C0); val P10 = Color(0xFF0D47A1)
+        val P1 = Color(0xFFE3F2FD)
+        val P2 = Color(0xFFBBDEFB)
+        val P3 = Color(0xFF90CAF9)
+        val P4 = Color(0xFF64B5F6)
+        val P5 = Color(0xFF42A5F5)
+        val P6 = Color(0xFF2196F3)
+        val P7 = Color(0xFF1E88E5)
+        val P8 = Color(0xFF1976D2)
+        val P9 = Color(0xFF1565C0)
+        val P10 = Color(0xFF0D47A1)
 
         // Wind bins (10 colored + null under 20)
-        val W1 = Color(0xFFFFF9C4); val W2 = Color(0xFFFFF176)
-        val W3 = Color(0xFFFFEB3B); val W4 = Color(0xFFFFCA28)
-        val W5 = Color(0xFFFFB74D); val W6 = Color(0xFFFF9800)
-        val W7 = Color(0xFFFB8C00); val W8 = Color(0xFFF57C00)
-        val W9 = Color(0xFFE64A19); val W10 = Color(0xFFC62828)
+        val W1 = Color(0xFFFFF9C4)
+        val W2 = Color(0xFFFFF176)
+        val W3 = Color(0xFFFFEB3B)
+        val W4 = Color(0xFFFFCA28)
+        val W5 = Color(0xFFFFB74D)
+        val W6 = Color(0xFFFF9800)
+        val W7 = Color(0xFFFB8C00)
+        val W8 = Color(0xFFF57C00)
+        val W9 = Color(0xFFE64A19)
+        val W10 = Color(0xFFC62828)
     }
 
     // ─── Helpers de vérification ──────────────────────────────────────────

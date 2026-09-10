@@ -3,9 +3,9 @@ package com.meteocompare.app.domain.repository
 import com.meteocompare.app.domain.model.BiasSample
 import com.meteocompare.app.domain.model.BiasVariable
 import com.meteocompare.app.domain.model.WeatherModel
-import kotlinx.coroutines.flow.Flow
 import java.time.Instant
 import java.time.LocalDate
+import kotlinx.coroutines.flow.Flow
 
 /**
  * Contrat de persistance des données de biais. Deux tables conceptuelles :

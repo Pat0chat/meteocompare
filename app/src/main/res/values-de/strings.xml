@@ -113,7 +113,6 @@ Daten</string>
 
     <string name="no_hourly_data">Keine Stundendaten</string>
 
-
     <string name="updated_just_now">Gerade eben</string>
     <string name="updated_min_ago">Vor %d Min.</string>
     <string name="updated_hour_ago">Vor %d Std.</string>
@@ -252,7 +251,6 @@ Daten</string>
     <string name="confidence_verdict_medium">Die Modellkonvergenz ist nur teilweise gegeben. Exakte Werte bleiben unsicher.</string>
     <string name="confidence_verdict_low">Die Modelle weichen stark voneinander ab. Exakte Werte sollten mit Vorsicht betrachtet werden.</string>
 
-
     <string name="confidence_summary_converged">Alle Modelle liegen nahe bei %1$d%2$s</string>
 
     <string name="confidence_summary_spread">Zwischen %1$d und %2$d%3$s (Streuung %4$d%3$s)</string>
@@ -299,7 +297,6 @@ Daten</string>
     <string name="weather_legend_percent_note" formatted="false">Der % Wert unter einem Symbol = Bewölkung (bewölkt/bedeckt) oder Niederschlagswahrscheinlichkeit (Regen/Schnee/Gewitter).</string>
     <string name="weather_legend_inferred_note">Abgeblendetes Symbol = aus den Variablen dieses Modells abgeleitete Wetterlage.</string>
 
-
     <string name="bias_chip_content_description">Dieses Modell %1$s %2$s im Mittel um %3$s über %4$d Tage. Für Details tippen.</string>
 
     <string name="bias_verb_overestimates">überschätzt</string>
@@ -317,7 +314,6 @@ Daten</string>
 
     <string name="bias_sheet_title_prefix">Mittlere Abweichung </string>
     <string name="bias_sheet_title_suffix"> gegenüber der historischen Referenz.</string>
-
 
     <string name="bias_history_collecting">Der D+1-Verlauf wird gesammelt. Modellbezogene Indikatoren erscheinen nach 14 übereinstimmenden Tagen.</string>
 
@@ -391,7 +387,6 @@ Daten</string>
     <string name="bias_reliability_sample_coverage">Verwendeter Verlauf: %1$d Tage in einem Fenster von %2$d Tagen.</string>
     <string name="bias_reliability_method_note">Lokaler Index aus gespeicherten D+1-Vorhersagen und Open-Meteo-Reanalyse über vergleichbare Daten. Nass ab 0,5 mm. Nur Orientierung, keine offizielle Note.</string>
     <string name="bias_chip_calibrating_progress_a11y">Kalibrierung: %1$d von %2$d Stichproben gesammelt</string>
-
 
     <string name="sun_times_a11y">Sonnenaufgang um %1$s, Sonnenuntergang um %2$s</string>
     <string name="mini_forecast_a11y_no_data">12-Stunden-Vorhersage nicht verfügbar</string>
@@ -633,9 +628,7 @@ Daten</string>
 
     <string name="forecast_evolution_metric_wind_max">Max. Wind</string>
 
-
     <string name="forecast_evolution_metric_a11y">%1$s: %2$s</string>
-
 
     <string name="action_activate_marine">Meer / Küste aktivieren</string>
     <string name="action_refresh_marine">Meer / Küste aktualisieren</string>
@@ -691,7 +684,6 @@ Daten</string>
         <item quantity="other">%d Modelle</item>
     </plurals>
 
-
     <string name="settings_forecast_engine_title">Vorhersage-Engine</string>
     <string name="settings_forecast_engine_desc">Wähle, wie MeteoCompare aus den Modellen eine zentrale Prognose bildet. Die ausgewählte Engine steuert Startseite, Widgets und Stadtdetails.</string>
     <string name="forecast_engine_multi_consensus">Multi-Konsens</string>
@@ -729,14 +721,12 @@ Daten</string>
     <string name="engine_metric_cloud">Wolken</string>
     <string name="engine_comparison_row_values_secondary">Erwartet %1$s mm · Wind %2$s km/h · Böen %3$s km/h · Wolken %4$s%% · %5$s</string>
 
-
     <string name="engine_table_metric">Messwert</string>
     <string name="engine_table_probability">Regenrisiko</string>
     <string name="engine_table_expected_rain">Erwarteter Regen</string>
     <string name="engine_table_condition">Bedingungen</string>
     <string name="forecast_evolution_stable_axis">Stabiler Bereich ± %1$s</string>
     <string name="forecast_evolution_notable_axis">Auffälliger Schwellenwert ± %1$s</string>
-
 
     <string name="action_how_it_works">Wie MeteoCompare funktioniert</string>
     <string name="help_title">Wie funktioniert MeteoCompare?</string>

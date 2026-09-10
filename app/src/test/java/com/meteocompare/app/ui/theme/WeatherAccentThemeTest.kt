@@ -9,7 +9,7 @@ import org.junit.Test
 class WeatherAccentThemeTest {
 
     @Test
-    fun `les accents de texte respectent le contraste AA en theme clair`() {
+    fun `les accents de texte respectent le contraste AA en thème clair`() {
         assertReadableAccents(
             surface = Color.White,
             isDark = false
@@ -17,7 +17,7 @@ class WeatherAccentThemeTest {
     }
 
     @Test
-    fun `les accents de texte respectent le contraste AA en theme sombre`() {
+    fun `les accents de texte respectent le contraste AA en thème sombre`() {
         assertReadableAccents(
             surface = Color(0xFF121212),
             isDark = true
@@ -43,7 +43,7 @@ class WeatherAccentThemeTest {
     }
 
     @Test
-    fun `une condition absente ou inconnue conserve le theme de base`() {
+    fun `une condition absente ou inconnue conserve le thème de base`() {
         assertNull(WeatherAccent.activeOrNull(null, isDark = false))
         assertNull(WeatherAccent.activeOrNull(WeatherCondition.UNKNOWN, isDark = false))
     }

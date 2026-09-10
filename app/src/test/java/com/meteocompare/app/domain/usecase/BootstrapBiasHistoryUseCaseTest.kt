@@ -11,6 +11,8 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
 import io.mockk.slot
+import java.time.LocalDate
+import java.time.ZoneId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonArray
@@ -19,8 +21,6 @@ import kotlinx.serialization.json.JsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
-import java.time.LocalDate
-import java.time.ZoneId
 
 class BootstrapBiasHistoryUseCaseTest {
 
@@ -102,8 +102,6 @@ class BootstrapBiasHistoryUseCaseTest {
             )
         }
     }
-
-
 
     @Test
     fun `bootstrap conserve des profils distincts par lead day et ne fabrique pas les horizons absents`() = runTest {

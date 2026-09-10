@@ -1,8 +1,7 @@
-package com.meteocompare.app.ui.citylist
+package com.meteocompare.app.ui.theme
 
 import androidx.compose.ui.graphics.Color
 import com.meteocompare.app.domain.model.WeatherCondition
-import com.meteocompare.app.ui.theme.WeatherAccent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
@@ -80,7 +79,7 @@ class WeatherAccentTest {
     }
 
     @Test
-    fun `beau temps et orage sont fortement contrastes`() {
+    fun `beau temps et orage sont fortement contrastés`() {
         val sunny = WeatherAccent.of(WeatherCondition.CLEAR, isDark = false)
         val storm = WeatherAccent.of(WeatherCondition.THUNDERSTORM, isDark = false)
         // On mesure la distance euclidienne en RGB. Un contraste "fort" =
@@ -106,7 +105,7 @@ class WeatherAccentTest {
     }
 
     @Test
-    fun `DRIZZLE RAIN et RAIN_SHOWERS partagent la meme couleur`() {
+    fun `DRIZZLE RAIN et RAIN_SHOWERS partagent la même couleur`() {
         // Choix produit : ces 3 variantes sont "de la pluie" pour un utilisateur
         // qui scrolle. Les différencier visuellement rajouterait du bruit sans
         // valeur ajoutée. On pin le comportement ici pour éviter une divergence
@@ -119,7 +118,7 @@ class WeatherAccentTest {
     }
 
     @Test
-    fun `CLEAR et MAINLY_CLEAR partagent la meme couleur`() {
+    fun `CLEAR et MAINLY_CLEAR partagent la même couleur`() {
         // Idem : "clair" et "principalement clair" c'est du beau temps pour
         // l'utilisateur — pas de distinction visuelle utile.
         val clear = WeatherAccent.of(WeatherCondition.CLEAR, isDark = false)

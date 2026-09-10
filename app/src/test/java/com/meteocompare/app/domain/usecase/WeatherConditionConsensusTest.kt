@@ -174,7 +174,6 @@ class WeatherConditionConsensusTest {
         assertEquals(3, result.familyCount)
     }
 
-
     @Test
     fun `unknown est ignore et la nebulosite sert seulement de fallback`() {
         val unknownOnly = listOf(

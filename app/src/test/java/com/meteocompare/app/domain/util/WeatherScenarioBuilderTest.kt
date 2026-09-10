@@ -8,10 +8,10 @@ import com.meteocompare.app.domain.model.HourlyForecast
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.model.WeatherScenarioKind
 import com.meteocompare.app.domain.model.WeatherScenarioTiming
+import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.time.Instant
 
 class WeatherScenarioBuilderTest {
 
@@ -115,7 +115,6 @@ class WeatherScenarioBuilderTest {
         assertTrue(scenarios.all { it.hiddenVariantCount == 1 })
         assertTrue(scenarios.all { it.hiddenModelCount == 1 })
     }
-
 
     @Test
     fun `un ciel sec a 82 pourcent reste variable et non couvert`() {

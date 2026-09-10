@@ -6,6 +6,8 @@ import com.meteocompare.app.data.remote.dto.ForecastResponseDto
 import com.meteocompare.app.data.remote.dto.HourlyDto
 import com.meteocompare.app.domain.model.ForecastPhysicalLimits
 import com.meteocompare.app.domain.model.WeatherModel
+import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
@@ -13,8 +15,6 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.intOrNull
-import kotlin.math.abs
-import kotlin.math.roundToInt
 
 /**
  * Décompose une réponse batched multi-modèles en un [ForecastResponseDto]
@@ -156,7 +156,6 @@ object BatchedForecastSplitter {
             windGusts10m = get.doubles(HourlyVar.WIND_GUSTS_10M)
         )
     }
-
 
     /**
      * Retourne la nébulosité totale fournie par Open-Meteo lorsqu'elle existe.

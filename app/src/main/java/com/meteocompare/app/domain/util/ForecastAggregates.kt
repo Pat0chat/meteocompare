@@ -1,13 +1,13 @@
 package com.meteocompare.app.domain.util
 
-import com.meteocompare.app.domain.model.PrecipitationThresholds
 import com.meteocompare.app.domain.model.CityForecast
-import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.ForecastEngineContext
 import com.meteocompare.app.domain.model.ForecastEngineVariable
+import com.meteocompare.app.domain.model.PrecipitationThresholds
+import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.usecase.ForecastConsensus
-import com.meteocompare.app.domain.usecase.WeatherConditionConsensus
 import com.meteocompare.app.domain.usecase.ForecastEngineV3
+import com.meteocompare.app.domain.usecase.WeatherConditionConsensus
 import java.time.Instant
 
 /** Résultat agrégé utilisé par la liste des villes et le mini-forecast widget. */

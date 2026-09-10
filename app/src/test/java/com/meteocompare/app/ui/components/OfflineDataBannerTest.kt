@@ -1,8 +1,8 @@
 package com.meteocompare.app.ui.components
 
+import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Test
-import java.time.Instant
 
 class OfflineDataBannerTest {
 

@@ -68,7 +68,6 @@ class BiasRefreshSchedulerTest {
         )
     }
 
-
     @Test
     fun `le bootstrap manuel couvre vingt et un jours et le quotidien trois jours`() {
         assertEquals(21, BiasRefreshScheduler.historyLookbackDays(isManual = true))

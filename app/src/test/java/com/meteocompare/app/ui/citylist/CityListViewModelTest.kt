@@ -7,13 +7,13 @@ import com.meteocompare.app.core.network.NetworkMonitor
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DailyForecast
+import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.HourlyForecast
 import com.meteocompare.app.domain.model.MarineForecast
-import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.model.RefreshInterval
-import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.model.WeatherCondition
+import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.repository.CityRepository
 import com.meteocompare.app.domain.repository.ForecastRepository
 import com.meteocompare.app.domain.repository.MarineRepository
@@ -28,6 +28,13 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import java.time.Clock
+import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.ZoneOffset
+import java.util.ArrayDeque
+import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -52,13 +59,6 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import java.time.Clock
-import java.time.Instant
-import java.time.LocalDate
-import java.time.LocalDateTime
-import java.time.ZoneOffset
-import java.util.ArrayDeque
-import kotlin.coroutines.CoroutineContext
 
 /**
  * Tests de [CityListViewModel].
@@ -127,16 +127,16 @@ class CityListViewModelTest {
     private lateinit var viewModel: CityListViewModel
 
     private fun createViewModel(
-        cityRepository: CityRepository,
-        forecastRepository: ForecastRepository,
-        marineRepository: MarineRepository,
-        vigilanceRepository: VigilanceRepository,
-        networkMonitor: NetworkMonitor,
-        confidenceCalculator: ConfidenceCalculator,
-        userPreferences: UserPreferencesRepository,
-        clock: Clock,
-        computationDispatcher: CoroutineDispatcher,
-        engineContextProvider: ForecastEngineContextProvider
+        cityRepository: CityRepository = cityRepo,
+        forecastRepository: ForecastRepository = forecastRepo,
+        marineRepository: MarineRepository = marineRepo,
+        vigilanceRepository: VigilanceRepository = vigilanceRepo,
+        networkMonitor: NetworkMonitor = this.networkMonitor,
+        confidenceCalculator: ConfidenceCalculator = calculator,
+        userPreferences: UserPreferencesRepository = prefs,
+        clock: Clock = testClock,
+        computationDispatcher: CoroutineDispatcher = dispatcher,
+        engineContextProvider: ForecastEngineContextProvider = this.engineContextProvider
     ): CityListViewModel = CityListViewModel(
         cityRepository = cityRepository,
         forecastRepository = forecastRepository,
@@ -187,7 +187,7 @@ class CityListViewModelTest {
             /* ne rien émettre, ne pas terminer */
         }
         every { forecastRepo.observeForecastUpdates() } returns forecastUpdates
-        viewModel = createViewModel(cityRepo, forecastRepo, marineRepo, vigilanceRepo, networkMonitor, calculator, prefs, testClock, dispatcher, engineContextProvider)
+        viewModel = createViewModel()
     }
 
     @After
@@ -242,7 +242,7 @@ class CityListViewModelTest {
         } returns flowOf(ApiResult.Success(forecast))
 
         // Nouvelle VM qui capturera le bon stub
-        val vm = createViewModel(cityRepo, forecastRepo, marineRepo, vigilanceRepo, networkMonitor, calculator, prefs, testClock, dispatcher, engineContextProvider)
+        val vm = createViewModel()
 
         vm.uiState.test {
             awaitItem() // initial vide
@@ -304,10 +304,7 @@ class CityListViewModelTest {
             forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
         } returns flowOf(ApiResult.Success(initial))
 
-        val vm = createViewModel(
-            cityRepo, forecastRepo, marineRepo, vigilanceRepo, networkMonitor, calculator, prefs,
-            testClock, queuedComputation, engineContextProvider
-        )
+        val vm = createViewModel(computationDispatcher = queuedComputation)
         backgroundScope.launch { vm.uiState.collect {} }
         favoritesFlow.value = listOf(paris)
         assertEquals(1, queuedComputation.size)
@@ -343,7 +340,7 @@ class CityListViewModelTest {
                 forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
             } returns flowOf(ApiResult.Error(RuntimeException("net"), "Pas de connexion"))
 
-            val vm = createViewModel(cityRepo, forecastRepo, marineRepo, vigilanceRepo, networkMonitor, calculator, prefs, testClock, dispatcher, engineContextProvider)
+            val vm = createViewModel()
 
             vm.uiState.test {
                 awaitItem()
@@ -364,18 +361,7 @@ class CityListViewModelTest {
                 forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
             } returns flow { throw IllegalStateException("room unavailable") }
 
-            val vm = createViewModel(
-                cityRepo,
-                forecastRepo,
-                marineRepo,
-                vigilanceRepo,
-                networkMonitor,
-                calculator,
-                prefs,
-                testClock,
-                dispatcher,
-                engineContextProvider
-            )
+            val vm = createViewModel()
 
             vm.uiState.test {
                 awaitItem()
@@ -405,7 +391,7 @@ class CityListViewModelTest {
                 forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
             } returns flowOf(ApiResult.Success(initial))
 
-            val vm = createViewModel(cityRepo, forecastRepo, marineRepo, vigilanceRepo, networkMonitor, calculator, prefs, testClock, dispatcher, engineContextProvider)
+            val vm = createViewModel()
 
             vm.uiState.test {
                 awaitItem()
@@ -437,7 +423,6 @@ class CityListViewModelTest {
             }
         }
 
-
     @Test
     fun `refresh externe - accepte un jeu de modèles différent avec le même timestamp`() =
         runViewModelTest {
@@ -457,7 +442,7 @@ class CityListViewModelTest {
                 forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
             } returns flowOf(ApiResult.Success(initial))
 
-            val vm = createViewModel(cityRepo, forecastRepo, marineRepo, vigilanceRepo, networkMonitor, calculator, prefs, testClock, dispatcher, engineContextProvider)
+            val vm = createViewModel()
 
             vm.uiState.test {
                 awaitItem()
@@ -686,7 +671,7 @@ class CityListViewModelTest {
             forecastRepo.refreshCityForecast(eq(paris), any(), any())
         } returns ApiResult.Error(RuntimeException("offline"), "Pas de connexion")
 
-        val vm = createViewModel(cityRepo, forecastRepo, marineRepo, vigilanceRepo, networkMonitor, calculator, prefs, testClock, dispatcher, engineContextProvider)
+        val vm = createViewModel()
         backgroundScope.launch { vm.uiState.collect {} }
         favoritesFlow.value = listOf(paris)
         vm.uiState.first {
@@ -759,7 +744,7 @@ class CityListViewModelTest {
             forecastRepo.refreshCityForecast(eq(paris), any(), any())
         } returns ApiResult.Success(freshForecast)
 
-        val vm = createViewModel(cityRepo, forecastRepo, marineRepo, vigilanceRepo, networkMonitor, calculator, prefs, testClock, dispatcher, engineContextProvider)
+        val vm = createViewModel()
 
         vm.uiState.test {
             awaitItem() // initial vide
@@ -779,7 +764,6 @@ class CityListViewModelTest {
             assertTrue(final.items.first().forecast is ForecastState.Loaded)
         }
     }
-
 
     @Test
     fun `changing refresh interval restarts streams with the new cache policy`() = runViewModelTest {
@@ -980,7 +964,7 @@ class CityListViewModelTest {
         coEvery {
             forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
         } returns flowOf(ApiResult.Success(stale))
-        val vm = createViewModel(cityRepo, forecastRepo, marineRepo, vigilanceRepo, networkMonitor, calculator, prefs, testClock, dispatcher, engineContextProvider)
+        val vm = createViewModel()
 
         vm.uiState.test {
             awaitItem()
@@ -1025,10 +1009,7 @@ class CityListViewModelTest {
             coEvery {
                 forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
             } returns flowOf(ApiResult.Success(fresh))
-            val vm = createViewModel(
-                cityRepo, forecastRepo, marineRepo, vigilanceRepo, networkMonitor, calculator,
-                prefs, testClock, dispatcher, engineContextProvider
-            )
+            val vm = createViewModel()
 
             vm.uiState.test {
                 awaitItem()
@@ -1069,10 +1050,7 @@ class CityListViewModelTest {
             forecastRepo.refreshCityForecast(eq(paris), any(), any())
         } returns ApiResult.Success(noDaily)
 
-        val vm = createViewModel(
-            cityRepo, forecastRepo, marineRepo, vigilanceRepo, networkMonitor, calculator,
-            prefs, testClock, dispatcher, engineContextProvider
-        )
+        val vm = createViewModel()
 
         // Ce test cible uniquement le contrat de feedback de onRetry.
         // Attendre auparavant un état Error du stream introduit une course
@@ -1118,7 +1096,7 @@ class CityListViewModelTest {
         coEvery {
             forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
         } returns flowOf(ApiResult.Success(forecast))
-        val vm = createViewModel(cityRepo, forecastRepo, marineRepo, vigilanceRepo, networkMonitor, calculator, prefs, lateClock, dispatcher, engineContextProvider)
+        val vm = createViewModel(clock = lateClock)
 
         vm.uiState.test {
             awaitItem()
@@ -1137,10 +1115,7 @@ class CityListViewModelTest {
         coEvery {
             forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
         } returns flowOf(ApiResult.Success(forecast))
-        val vm = createViewModel(
-            cityRepo, forecastRepo, marineRepo, vigilanceRepo, networkMonitor, calculator, prefs,
-            mutableClock, dispatcher, engineContextProvider
-        )
+        val vm = createViewModel(clock = mutableClock)
 
         vm.uiState.test {
             awaitItem()
@@ -1177,10 +1152,7 @@ class CityListViewModelTest {
         coEvery {
             forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
         } returns flowOf(ApiResult.Success(buildHourlyShiftForecast(paris)))
-        val vm = createViewModel(
-            cityRepo, forecastRepo, marineRepo, vigilanceRepo, networkMonitor, calculator, prefs,
-            mutableClock, dispatcher, engineContextProvider
-        )
+        val vm = createViewModel(clock = mutableClock)
         backgroundScope.launch { vm.uiState.collect {} }
         favoritesFlow.value = listOf(paris)
         vm.uiState.first {
@@ -1203,56 +1175,52 @@ class CityListViewModelTest {
         }
     }
 
-
     @Test
-    fun `home mini timeline receives condition probability and amount from the same hourly aggregate`() = runViewModelTest {
-        val daily = DailyForecast(
-            dates = listOf(LocalDate.of(2026, 6, 28)),
-            tempMax = listOf(24.0),
-            tempMin = listOf(16.0),
-            precipitationSum = listOf(1.2),
-            windSpeedMax = listOf(10.0)
-        )
-        val forecast = CityForecast(
-            city = paris,
-            seriesByModel = mapOf(
-                WeatherModel.GFS to ForecastSeries(
-                    model = WeatherModel.GFS,
-                    hourly = HourlyForecast(
-                        timestamps = listOf(testNow),
-                        temperature2m = listOf(18.0),
-                        precipitation = listOf(1.2),
-                        windSpeed10m = listOf(8.0),
-                        weatherCode = listOf(61),
-                        precipitationProbability = listOf(80),
-                        cloudCover = listOf(90)
-                    ),
-                    daily = daily
+    fun `home mini timeline receives condition probability and amount from the same hourly aggregate`() =
+        runViewModelTest {
+            val daily = DailyForecast(
+                dates = listOf(LocalDate.of(2026, 6, 28)),
+                tempMax = listOf(24.0),
+                tempMin = listOf(16.0),
+                precipitationSum = listOf(1.2),
+                windSpeedMax = listOf(10.0)
+            )
+            val forecast = CityForecast(
+                city = paris,
+                seriesByModel = mapOf(
+                    WeatherModel.GFS to ForecastSeries(
+                        model = WeatherModel.GFS,
+                        hourly = HourlyForecast(
+                            timestamps = listOf(testNow),
+                            temperature2m = listOf(18.0),
+                            precipitation = listOf(1.2),
+                            windSpeed10m = listOf(8.0),
+                            weatherCode = listOf(61),
+                            precipitationProbability = listOf(80),
+                            cloudCover = listOf(90)
+                        ),
+                        daily = daily
+                    )
                 )
             )
-        )
-        coEvery {
-            forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
-        } returns flowOf(ApiResult.Success(forecast))
-        val vm = createViewModel(
-            cityRepo, forecastRepo, marineRepo, vigilanceRepo, networkMonitor, calculator, prefs,
-            testClock, dispatcher, engineContextProvider
-        )
+            coEvery {
+                forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any())
+            } returns flowOf(ApiResult.Success(forecast))
+            val vm = createViewModel()
 
-        vm.uiState.test {
-            awaitItem()
-            favoritesFlow.value = listOf(paris)
-            var state = awaitItem()
-            while (state.items.firstOrNull()?.forecast !is ForecastState.Loaded) state = awaitItem()
-            val loaded = state.items.first().forecast as ForecastState.Loaded
+            vm.uiState.test {
+                awaitItem()
+                favoritesFlow.value = listOf(paris)
+                var state = awaitItem()
+                while (state.items.firstOrNull()?.forecast !is ForecastState.Loaded) state = awaitItem()
+                val loaded = state.items.first().forecast as ForecastState.Loaded
 
-            assertEquals(18.0, loaded.next12hTemps.first() ?: error("temperature absente"), 0.001)
-            assertEquals(80, loaded.next12hPrecipProb.first())
-            assertEquals(1.2, loaded.next12hPrecipMm.first() ?: error("pluie absente"), 0.001)
-            assertEquals(WeatherCondition.RAIN, loaded.next12hConditions.first())
+                assertEquals(18.0, loaded.next12hTemps.first() ?: error("temperature absente"), 0.001)
+                assertEquals(80, loaded.next12hPrecipProb.first())
+                assertEquals(1.2, loaded.next12hPrecipMm.first() ?: error("pluie absente"), 0.001)
+                assertEquals(WeatherCondition.RAIN, loaded.next12hConditions.first())
+            }
         }
-    }
-
 
     @Test
     fun `marine availability from cache is exposed independently from activation`() = runViewModelTest {
@@ -1344,7 +1312,6 @@ class CityListViewModelTest {
     }
 
     // ──────────────── Helpers ────────────────
-
 
     private fun buildScenarioForecast(city: City): CityForecast {
         val today = LocalDate.of(2026, 6, 28)

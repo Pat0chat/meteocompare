@@ -17,12 +17,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.meteocompare.app.R
 import java.time.Duration
 import java.time.Instant
-import androidx.compose.ui.res.stringResource
 
 /** Niveau visuel d'ancienneté d'une donnée conservée hors connexion. */
 internal enum class OfflineDataAgeLevel { RECENT, AGING, STALE, UNKNOWN }

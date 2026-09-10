@@ -2,8 +2,8 @@ package com.meteocompare.app.data.preferences
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import com.meteocompare.app.domain.model.CityDetailSection
 import com.meteocompare.app.domain.model.CityDetailContentTab
+import com.meteocompare.app.domain.model.CityDetailSection
 import com.meteocompare.app.domain.model.CityDetailViewMode
 import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.model.LanguagePreference

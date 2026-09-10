@@ -16,6 +16,8 @@ import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
+import java.io.IOException
+import java.time.Clock
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
@@ -32,8 +34,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import java.io.IOException
-import java.time.Clock
 
 /**
  * Tests du [ForecastRepositoryImpl] en mode BATCHED (post-optimisation
@@ -59,7 +59,10 @@ class ForecastRepositoryImplTest {
     private lateinit var cacheDao: ForecastCacheDao
     private lateinit var evolutionRecorder: ForecastEvolutionRecorder
     private lateinit var repository: ForecastRepositoryImpl
-    private val json = Json { ignoreUnknownKeys = true; explicitNulls = false }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        explicitNulls = false
+    }
 
     private val paris = City(
         id = "1", name = "Paris", country = "France",
@@ -130,7 +133,6 @@ class ForecastRepositoryImplTest {
         assertEquals(paris.id, update.await().city.id)
         coVerify(exactly = 1) { evolutionRecorder.record(any()) }
     }
-
 
     @Test
     fun `evolution snapshot write failure never breaks the main forecast`() = runTest {
@@ -764,7 +766,6 @@ class ForecastRepositoryImplTest {
         }
     }
 
-
     @Test
     fun `clear cache for city also clears local forecast evolution history`() = runTest {
         coEvery { cacheDao.deleteForCity(paris.id) } returns Unit
@@ -1000,7 +1001,8 @@ class ForecastRepositoryImplTest {
             // Yields laissent les deux async progresser jusqu'au gate.
             // La première atteint la mock, incrémente callCount, suspend.
             // La seconde trouve le Deferred inflight, attend le même gate.
-            yield(); yield()
+            yield()
+            yield()
 
             fakeApi.release()
             a.await()
@@ -1025,7 +1027,8 @@ class ForecastRepositoryImplTest {
             val a = async { repo.refreshCityForecast(paris, models) }
             val b = async { repo.refreshCityForecast(edinburgh, models) }
 
-            yield(); yield()
+            yield()
+            yield()
 
             fakeApi.release()
             a.await()
@@ -1057,7 +1060,6 @@ class ForecastRepositoryImplTest {
         assertEquals(2, fakeApi.callCount.get())
     }
 
-
     @Test
     fun `coalescing - horizons demandes equivalents partagent le meme fetch`() = runTest {
         val fakeApi = GatedForecastApi(
@@ -1070,7 +1072,8 @@ class ForecastRepositoryImplTest {
             val a = async { repo.refreshCityForecast(paris, models, forecastDays = 16) }
             val b = async { repo.refreshCityForecast(paris, models, forecastDays = 30) }
 
-            yield(); yield()
+            yield()
+            yield()
 
             fakeApi.release()
             a.await()
@@ -1098,7 +1101,8 @@ class ForecastRepositoryImplTest {
                 repo.refreshCityForecast(paris, listOf(WeatherModel.ICON_EU, WeatherModel.GFS))
             }
 
-            yield(); yield()
+            yield()
+            yield()
 
             fakeApi.release()
             a.await()

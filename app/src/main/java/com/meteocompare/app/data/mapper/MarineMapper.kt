@@ -1,12 +1,12 @@
 package com.meteocompare.app.data.mapper
 
 import com.meteocompare.app.data.remote.dto.MarineResponseDto
-import com.meteocompare.app.domain.repository.MarineRepository
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.MarineDaily
 import com.meteocompare.app.domain.model.MarineForecast
 import com.meteocompare.app.domain.model.MarineGrid
 import com.meteocompare.app.domain.model.MarineHourly
+import com.meteocompare.app.domain.repository.MarineRepository
 import java.time.LocalDateTime
 import java.time.ZoneId
 import kotlin.math.asin

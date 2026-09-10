@@ -55,8 +55,15 @@ fun MarineForecast.detectTideEvents(
     val gap = minGapHours * 3_600_000L
     for (event in candidates) {
         val previous = out.lastOrNull()
-        if (previous != null && event.type == previous.type && event.epochMs - previous.epochMs < gap) {
-            val better = if (event.type == TideEventType.HIGH) event.value > previous.value else event.value < previous.value
+        if (previous != null &&
+            event.type == previous.type &&
+            event.epochMs - previous.epochMs < gap
+        ) {
+            val better = if (event.type == TideEventType.HIGH) {
+                event.value > previous.value
+            } else {
+                event.value < previous.value
+            }
             if (better) out[out.lastIndex] = event
         } else {
             out += event

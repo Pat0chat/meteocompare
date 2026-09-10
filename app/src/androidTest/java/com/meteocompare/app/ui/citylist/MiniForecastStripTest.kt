@@ -10,9 +10,9 @@ import androidx.compose.ui.test.swipeLeft
 import androidx.test.platform.app.InstrumentationRegistry
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.WeatherCondition
+import java.time.LocalDateTime
 import org.junit.Rule
 import org.junit.Test
-import java.time.LocalDateTime
 
 class MiniForecastStripTest {
     @get:Rule val composeRule = createComposeRule()

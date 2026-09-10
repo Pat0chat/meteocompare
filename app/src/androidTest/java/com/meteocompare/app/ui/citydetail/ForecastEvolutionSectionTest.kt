@@ -1,16 +1,16 @@
 package com.meteocompare.app.ui.citydetail
 
+import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
-import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
-import android.content.Context
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.DayForecastEvolution
 import com.meteocompare.app.domain.model.ForecastEvolutionReport
@@ -49,7 +49,6 @@ class ForecastEvolutionSectionTest {
         composeRule.onNodeWithTag(TAG_FORECAST_EVOLUTION_DETAILS).assertDoesNotExist()
         composeRule.onNodeWithTag(TAG_FORECAST_EVOLUTION_CARD).assertIsDisplayed()
     }
-
 
     @Test
     fun compact_summary_exposes_meaningful_accessibility_description() {

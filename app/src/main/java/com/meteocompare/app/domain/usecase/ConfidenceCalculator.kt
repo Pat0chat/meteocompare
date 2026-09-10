@@ -4,13 +4,13 @@ import com.meteocompare.app.core.util.localDateIn
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.ConfidenceScore
 import com.meteocompare.app.domain.model.DayConfidence
-import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.ForecastEngineContext
 import com.meteocompare.app.domain.model.ForecastEngineVariable
+import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.HourlyConfidenceBand
 import com.meteocompare.app.domain.model.PrecipitationConfidence
-import com.meteocompare.app.domain.model.PrecipitationThresholds
 import com.meteocompare.app.domain.model.PrecipitationConsensusMeta
+import com.meteocompare.app.domain.model.PrecipitationThresholds
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.util.HourlySampling
@@ -355,7 +355,6 @@ class ConfidenceCalculator @Inject constructor(
      */
     private fun exactCurrentIndex(series: ForecastSeries, target: Instant): Int? =
         with(HourlySampling) { series.hourly.timestamps.exactIndex(target) }
-
 
     /**
      * Tableau Jour × Modèle des conditions météo journalières.
@@ -732,16 +731,32 @@ class ConfidenceCalculator @Inject constructor(
         val wetMax = wetAmounts.maxOrNull()
         return when {
             result.wetModelCount == 0 -> PrecipitationConfidence.NoRain(
-                percent = percent, modelCount = result.modelCount, maxAmountMm = result.maxMm ?: 0.0, meta = common
+                percent = percent,
+                modelCount = result.modelCount,
+                maxAmountMm = result.maxMm ?: 0.0,
+                meta = common
             )
             result.wetModelCount == result.modelCount -> PrecipitationConfidence.Rain(
-                percent = percent, modelCount = result.modelCount, minMm = wetMin ?: result.minMm ?: 0.0,
-                maxMm = wetMax ?: result.maxMm ?: 0.0, meanMm = engineResult.conditionalAmountMm ?: result.conditionalAmountMm ?: 0.0, meta = common
+                percent = percent,
+                modelCount = result.modelCount,
+                minMm = wetMin ?: result.minMm ?: 0.0,
+                maxMm = wetMax ?: result.maxMm ?: 0.0,
+                meanMm = engineResult.conditionalAmountMm
+                    ?: result.conditionalAmountMm
+                    ?: 0.0,
+                meta = common
             )
             else -> PrecipitationConfidence.Divided(
-                percent = percent, modelCount = result.modelCount, modelsForRain = result.wetModelCount,
-                modelsAgainstRain = result.modelCount - result.wetModelCount, rainMinMm = wetMin ?: 0.0,
-                rainMaxMm = wetMax ?: 0.0, rainMeanMm = engineResult.conditionalAmountMm ?: result.conditionalAmountMm ?: 0.0, meta = common
+                percent = percent,
+                modelCount = result.modelCount,
+                modelsForRain = result.wetModelCount,
+                modelsAgainstRain = result.modelCount - result.wetModelCount,
+                rainMinMm = wetMin ?: 0.0,
+                rainMaxMm = wetMax ?: 0.0,
+                rainMeanMm = engineResult.conditionalAmountMm
+                    ?: result.conditionalAmountMm
+                    ?: 0.0,
+                meta = common
             )
         }
     }

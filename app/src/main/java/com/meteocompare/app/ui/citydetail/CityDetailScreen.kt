@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -24,12 +25,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.QueryStats
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.QueryStats
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.outlined.Air
 import androidx.compose.material.icons.outlined.Thermostat
@@ -41,7 +43,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -49,6 +50,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
@@ -62,42 +64,50 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.meteocompare.app.R
+import com.meteocompare.app.core.locale.weatherConditionLabelRes
 import com.meteocompare.app.domain.model.BiasVariable
-import com.meteocompare.app.domain.model.CityDetailSection
 import com.meteocompare.app.domain.model.CityDetailContentTab
+import com.meteocompare.app.domain.model.CityDetailSection
 import com.meteocompare.app.domain.model.CityDetailViewMode
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.ConfidenceScore
 import com.meteocompare.app.domain.model.DailyForecast
 import com.meteocompare.app.domain.model.DayConfidence
 import com.meteocompare.app.domain.model.DayNormals
-import com.meteocompare.app.domain.model.HourlyConfidenceBand
 import com.meteocompare.app.domain.model.ForecastEngineContext
+import com.meteocompare.app.domain.model.HourlyConfidenceBand
 import com.meteocompare.app.domain.model.HourlyForecast
+import com.meteocompare.app.domain.model.ModelBias
 import com.meteocompare.app.domain.model.PrecipitationConfidence
-import com.meteocompare.app.domain.usecase.ForecastConsensus
+import com.meteocompare.app.domain.model.VigilanceForecast
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
-import com.meteocompare.app.domain.model.VigilanceForecast
 import com.meteocompare.app.domain.usecase.DayConditionsRow
+import com.meteocompare.app.domain.usecase.ForecastConsensus
+import com.meteocompare.app.ui.accessibility.A11yFormatter
 import com.meteocompare.app.ui.components.AnimatedWeatherIcon
 import com.meteocompare.app.ui.components.AppToastEffect
 import com.meteocompare.app.ui.components.AppToastEvent
@@ -105,6 +115,7 @@ import com.meteocompare.app.ui.components.CollapsibleSectionHeader
 import com.meteocompare.app.ui.components.OfflineDataBanner
 import com.meteocompare.app.ui.components.OpenMeteoAttribution
 import com.meteocompare.app.ui.components.VigilanceDetailCard
+import com.meteocompare.app.ui.components.rememberFormattedLastUpdated
 import com.meteocompare.app.ui.theme.WeatherAccent
 import com.meteocompare.app.ui.theme.WeatherAccentTheme
 import com.meteocompare.app.ui.theme.confidenceColor
@@ -115,8 +126,11 @@ import com.meteocompare.app.ui.theme.windMetricAccent
 import java.time.Instant
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import kotlinx.coroutines.flow.map
+import java.util.Locale
+import kotlin.math.abs
+import kotlin.math.max
 import kotlin.math.roundToInt
+import kotlinx.coroutines.flow.map
 
 // ============================================================================
 //  Public screen entry
@@ -546,15 +560,15 @@ private fun LoadedView(
     //     émettra les samples correspondants.
     val selectedBias: BiasSelection? = remember(selectedModelName, selectedVariableName, biasState) {
         if (selectedModelName.isEmpty() || selectedVariableName.isEmpty()) return@remember null
-        val model = enumValueOrNull<com.meteocompare.app.domain.model.WeatherModel>(selectedModelName)
+        val model = enumValueOrNull<WeatherModel>(selectedModelName)
             ?: return@remember null
-        val variable = enumValueOrNull<com.meteocompare.app.domain.model.BiasVariable>(selectedVariableName)
+        val variable = enumValueOrNull<BiasVariable>(selectedVariableName)
             ?: return@remember null
 
         val varState = when (variable) {
-            com.meteocompare.app.domain.model.BiasVariable.TEMPERATURE   -> biasState.temperature
-            com.meteocompare.app.domain.model.BiasVariable.PRECIPITATION -> biasState.precipitation
-            com.meteocompare.app.domain.model.BiasVariable.WIND_SPEED    -> biasState.wind
+            BiasVariable.TEMPERATURE -> biasState.temperature
+            BiasVariable.PRECIPITATION -> biasState.precipitation
+            BiasVariable.WIND_SPEED -> biasState.wind
         }
         buildBiasSelection(
             model = model,
@@ -607,7 +621,6 @@ private fun LoadedView(
                 )
             }
         }
-
 
         if (hasInsightSection) {
             item("forecast_insights") {
@@ -832,17 +845,17 @@ private fun DetailedForecastSection(
     dailyConditions: List<DayConditionsRow>,
     normals: Map<Int, DayNormals>?,
     presentationNow: Instant,
-    cityToday: java.time.LocalDate,
+    cityToday: LocalDate,
     showBiasHistoryHint: Boolean,
     onModeChange: (DisplayMode) -> Unit,
     onTabChange: (CityDetailContentTab) -> Unit,
-    temperatureBiasProvider: ((WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
-    precipitationBiasProvider: ((WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
-    windBiasProvider: ((WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
+    temperatureBiasProvider: ((WeatherModel) -> ModelBias?)? = null,
+    precipitationBiasProvider: ((WeatherModel) -> ModelBias?)? = null,
+    windBiasProvider: ((WeatherModel) -> ModelBias?)? = null,
     temperatureSampleCountProvider: ((WeatherModel) -> Int)? = null,
     precipitationSampleCountProvider: ((WeatherModel) -> Int)? = null,
     windSampleCountProvider: ((WeatherModel) -> Int)? = null,
-    onBiasChipClick: ((WeatherModel, com.meteocompare.app.domain.model.ModelBias) -> Unit)? = null,
+    onBiasChipClick: ((WeatherModel, ModelBias) -> Unit)? = null,
     expanded: Boolean = true,
     onExpandedChange: (Boolean) -> Unit = {}
 ) {
@@ -909,14 +922,14 @@ private fun DetailedComparisonContent(
     dailyConditions: List<DayConditionsRow>,
     normals: Map<Int, DayNormals>?,
     presentationNow: Instant,
-    cityToday: java.time.LocalDate,
-    temperatureBiasProvider: ((WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
-    precipitationBiasProvider: ((WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
-    windBiasProvider: ((WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
+    cityToday: LocalDate,
+    temperatureBiasProvider: ((WeatherModel) -> ModelBias?)? = null,
+    precipitationBiasProvider: ((WeatherModel) -> ModelBias?)? = null,
+    windBiasProvider: ((WeatherModel) -> ModelBias?)? = null,
     temperatureSampleCountProvider: ((WeatherModel) -> Int)? = null,
     precipitationSampleCountProvider: ((WeatherModel) -> Int)? = null,
     windSampleCountProvider: ((WeatherModel) -> Int)? = null,
-    onBiasChipClick: ((WeatherModel, com.meteocompare.app.domain.model.ModelBias) -> Unit)? = null
+    onBiasChipClick: ((WeatherModel, ModelBias) -> Unit)? = null
 ) {
     Column {
         when (tab) {
@@ -1098,8 +1111,8 @@ private fun ForecastTableContent(
     secondaryFormatter: ((Double) -> String)? = null,
     directionExtractor: ((DailyForecast, Int) -> Int?)? = null,
     legend: @Composable (() -> Unit)? = null,
-    modelBiasProvider: ((WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
-    onBiasChipClick: ((WeatherModel, com.meteocompare.app.domain.model.ModelBias) -> Unit)? = null,
+    modelBiasProvider: ((WeatherModel) -> ModelBias?)? = null,
+    onBiasChipClick: ((WeatherModel, ModelBias) -> Unit)? = null,
     sampleCountProvider: ((WeatherModel) -> Int)? = null
 ) {
     DetailTableCard {
@@ -1265,7 +1278,7 @@ private fun HeatmapGradientLegend(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(14.dp)
-                .clip(androidx.compose.foundation.shape.RoundedCornerShape(3.dp))
+                .clip(RoundedCornerShape(3.dp))
         ) {
             colors.forEach { color ->
                 Box(
@@ -1283,7 +1296,7 @@ private fun HeatmapGradientLegend(
                     text = label,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    textAlign = TextAlign.Center,
                     maxLines = 1,
                     modifier = Modifier.weight(1f)
                 )
@@ -1307,7 +1320,7 @@ internal fun TodaySummaryCard(
     forecast: CityForecast? = null
 ) {
     val resources = LocalResources.current
-    val baseDescription = com.meteocompare.app.ui.accessibility.A11yFormatter
+    val baseDescription = A11yFormatter
         .todaySummaryDescription(resources, today, modelCount)
     val a11yDescription = if (currentTemp != null) {
         resources.getString(R.string.a11y_now_temp, currentTemp.roundToInt()) + ". $baseDescription"
@@ -1395,7 +1408,7 @@ internal fun TodaySummaryCard(
                             )
                             currentCondition?.let { condition ->
                                 Text(
-                                    text = detailWeatherConditionLabel(condition),
+                                    text = stringResource(weatherConditionLabelRes(condition)),
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.Medium
                                 )
@@ -1437,11 +1450,11 @@ private fun DataFreshnessPill(
     ) {
         Text(
             text = if (isOnline) {
-                com.meteocompare.app.ui.components.rememberFormattedLastUpdated(fetchedAt)
+                rememberFormattedLastUpdated(fetchedAt)
             } else {
                 stringResource(
                     R.string.offline_saved_data_age_inline,
-                    com.meteocompare.app.ui.components.rememberFormattedLastUpdated(fetchedAt)
+                    rememberFormattedLastUpdated(fetchedAt)
                 )
             },
             style = MaterialTheme.typography.labelSmall,
@@ -1462,7 +1475,7 @@ private fun DataFreshnessPill(
                     } else {
                         MaterialTheme.colorScheme.error
                     },
-                    shape = androidx.compose.foundation.shape.CircleShape
+                    shape = CircleShape
                 )
         )
     }
@@ -1730,7 +1743,7 @@ private fun SummaryMetricSeparator() {
 @Composable
 private fun SummaryMetricGroupHeader(
     title: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
     accent: Color,
     trailing: String? = null
 ) {
@@ -1765,7 +1778,7 @@ private fun SummaryMetricGroupHeader(
             Spacer(Modifier.width(10.dp))
             Surface(
                 color = accent.copy(alpha = 0.12f),
-                shape = androidx.compose.foundation.shape.CircleShape
+                shape = CircleShape
             ) {
                 Text(
                     text = detail,
@@ -1906,9 +1919,9 @@ private fun RainModelVoteRail(
             val left = index * (segmentWidth + gap)
             drawRoundRect(
                 color = if (index < wetCount) accent else dryColor,
-                topLeft = androidx.compose.ui.geometry.Offset(left, 0f),
-                size = androidx.compose.ui.geometry.Size(segmentWidth, size.height),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.height / 2f)
+                topLeft = Offset(left, 0f),
+                size = Size(segmentWidth, size.height),
+                cornerRadius = CornerRadius(size.height / 2f)
             )
         }
     }
@@ -1927,7 +1940,7 @@ private fun paddedDispersionDomain(
     val padding = if (span > 0.0001) {
         span * 0.16
     } else {
-        kotlin.math.max(kotlin.math.abs(safeMin) * 0.08, 1.0)
+        max(abs(safeMin) * 0.08, 1.0)
     }
     val domainMin = (safeMin - padding).let { if (nonNegative) it.coerceAtLeast(0.0) else it }
     val domainMax = (safeMax + padding).coerceAtLeast(domainMin + 0.0001)
@@ -1979,7 +1992,8 @@ private fun DispersionMetricRow(
     val safeMin = listOf(rawMin, central).filter(Double::isFinite).minOrNull() ?: central
     val safeMax = listOf(rawMax, central).filter(Double::isFinite).maxOrNull() ?: central
     val domain = domainOverride ?: paddedDispersionDomain(safeMin, safeMax, nonNegative)
-    val rangeLabel = "${formatDispersionValue(safeMin, unit, digits, locale)} – ${formatDispersionValue(safeMax, unit, digits, locale)}"
+    val rangeLabel = "${formatDispersionValue(safeMin, unit, digits, locale)} – " +
+        formatDispersionValue(safeMax, unit, digits, locale)
     val centralLabel = formatDispersionValue(central, unit, digits, locale)
     val railDescription = if (samples.isNotEmpty()) {
         "$semanticLabel · " + samples.joinToString(" · ") { sample ->
@@ -2059,7 +2073,7 @@ private fun ConvergenceTonalChip(
     }
     Surface(
         color = tint.copy(alpha = 0.12f),
-        shape = androidx.compose.foundation.shape.CircleShape,
+        shape = CircleShape,
         border = BorderStroke(1.dp, tint.copy(alpha = 0.18f)),
         modifier = Modifier.semantics {
             contentDescription = "$agreementLabel $convergenceLabel"
@@ -2072,7 +2086,7 @@ private fun ConvergenceTonalChip(
             Box(
                 modifier = Modifier
                     .size(6.dp)
-                    .background(tint, androidx.compose.foundation.shape.CircleShape)
+                    .background(tint, CircleShape)
             )
             Spacer(Modifier.width(6.dp))
             Text(
@@ -2096,10 +2110,10 @@ private fun DispersionBoundsLabels(
 ) {
     // Une frise sans dispersion est déjà résumée par la valeur centrale mise
     // en avant. Répéter deux fois la même borne créerait un chevauchement.
-    if (kotlin.math.abs(max - min) <= 0.0001) return
+    if (abs(max - min) <= 0.0001) return
     val mutedColor = MaterialTheme.colorScheme.onSurfaceVariant
 
-    androidx.compose.ui.layout.Layout(
+    Layout(
         modifier = Modifier.fillMaxWidth(),
         content = {
             Text(
@@ -2147,7 +2161,7 @@ private const val DISPERSION_RAIL_END_FRACTION = 0.92f
 
 private fun dispersionRatio(value: Double, min: Double, max: Double): Float {
     val span = max - min
-    if (!value.isFinite() || !span.isFinite() || kotlin.math.abs(span) <= 0.0001) return 0.5f
+    if (!value.isFinite() || !span.isFinite() || abs(span) <= 0.0001) return 0.5f
     return ((value - min) / span).coerceIn(0.0, 1.0).toFloat()
 }
 
@@ -2179,20 +2193,20 @@ private fun DispersionRail(
 
         drawRoundRect(
             color = track,
-            topLeft = androidx.compose.ui.geometry.Offset(startX, centerY - 2.5.dp.toPx()),
-            size = androidx.compose.ui.geometry.Size(endX - startX, 5.dp.toPx()),
-            cornerRadius = androidx.compose.ui.geometry.CornerRadius(99.dp.toPx())
+            topLeft = Offset(startX, centerY - 2.5.dp.toPx()),
+            size = Size(endX - startX, 5.dp.toPx()),
+            cornerRadius = CornerRadius(99.dp.toPx())
         )
         val rangeStart = xFor(rangeMin)
         val rangeEnd = xFor(rangeMax)
         drawRoundRect(
             color = accent.copy(alpha = 0.24f),
-            topLeft = androidx.compose.ui.geometry.Offset(rangeStart, centerY - 5.dp.toPx()),
-            size = androidx.compose.ui.geometry.Size(
+            topLeft = Offset(rangeStart, centerY - 5.dp.toPx()),
+            size = Size(
                 (rangeEnd - rangeStart).coerceAtLeast(3.dp.toPx()),
                 10.dp.toPx()
             ),
-            cornerRadius = androidx.compose.ui.geometry.CornerRadius(99.dp.toPx())
+            cornerRadius = CornerRadius(99.dp.toPx())
         )
 
         samples.forEachIndexed { index, value ->
@@ -2200,21 +2214,21 @@ private fun DispersionRail(
             drawCircle(
                 color = surface,
                 radius = 5.5.dp.toPx(),
-                center = androidx.compose.ui.geometry.Offset(xFor(value), y)
+                center = Offset(xFor(value), y)
             )
             drawCircle(
                 color = accent,
                 radius = 3.75.dp.toPx(),
-                center = androidx.compose.ui.geometry.Offset(xFor(value), y)
+                center = Offset(xFor(value), y)
             )
         }
 
         val centerX = xFor(central)
         drawRoundRect(
             color = centerColor,
-            topLeft = androidx.compose.ui.geometry.Offset(centerX - 1.5.dp.toPx(), 2.dp.toPx()),
-            size = androidx.compose.ui.geometry.Size(3.dp.toPx(), size.height - 4.dp.toPx()),
-            cornerRadius = androidx.compose.ui.geometry.CornerRadius(3.dp.toPx())
+            topLeft = Offset(centerX - 1.5.dp.toPx(), 2.dp.toPx()),
+            size = Size(3.dp.toPx(), size.height - 4.dp.toPx()),
+            cornerRadius = CornerRadius(3.dp.toPx())
         )
     }
 }
@@ -2223,7 +2237,7 @@ private fun formatDispersionValue(
     value: Double,
     unit: String,
     digits: Int,
-    locale: java.util.Locale
+    locale: Locale
 ): String {
     if (!value.isFinite()) return "—"
     val number = if (digits <= 0) {
@@ -2233,25 +2247,6 @@ private fun formatDispersionValue(
     }
     return "$number$unit"
 }
-
-@Composable
-private fun detailWeatherConditionLabel(condition: WeatherCondition): String = stringResource(
-    when (condition) {
-        WeatherCondition.CLEAR -> R.string.weather_clear
-        WeatherCondition.MAINLY_CLEAR -> R.string.weather_mainly_clear
-        WeatherCondition.PARTLY_CLOUDY -> R.string.weather_partly_cloudy
-        WeatherCondition.OVERCAST -> R.string.weather_overcast
-        WeatherCondition.FOG -> R.string.weather_fog
-        WeatherCondition.DRIZZLE -> R.string.weather_drizzle
-        WeatherCondition.RAIN -> R.string.weather_rain
-        WeatherCondition.FREEZING_RAIN -> R.string.weather_freezing_rain
-        WeatherCondition.SNOW -> R.string.weather_snow
-        WeatherCondition.RAIN_SHOWERS -> R.string.weather_rain_showers
-        WeatherCondition.SNOW_SHOWERS -> R.string.weather_snow_showers
-        WeatherCondition.THUNDERSTORM -> R.string.weather_thunderstorm
-        WeatherCondition.UNKNOWN -> R.string.weather_unknown
-    }
-)
 
 @Composable
 private fun ConfidenceBadge(percent: Int, onClick: () -> Unit = {}) {
@@ -2389,7 +2384,7 @@ private fun WindGustLegendHint() {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun LegendChipsRow(chips: List<Pair<Color, String>>) {
-    androidx.compose.foundation.layout.FlowRow(
+    FlowRow(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp),
@@ -2401,7 +2396,7 @@ private fun LegendChipsRow(chips: List<Pair<Color, String>>) {
                     modifier = Modifier
                         .padding(end = 4.dp)
                         .size(10.dp)
-                        .background(color, shape = androidx.compose.foundation.shape.CircleShape)
+                        .background(color, shape = CircleShape)
                 )
                 Text(
                     text = label,

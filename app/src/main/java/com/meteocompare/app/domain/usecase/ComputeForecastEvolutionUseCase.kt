@@ -6,8 +6,8 @@ import com.meteocompare.app.domain.model.ForecastEvolutionHighlight
 import com.meteocompare.app.domain.model.ForecastEvolutionReport
 import com.meteocompare.app.domain.model.ForecastEvolutionSample
 import com.meteocompare.app.domain.model.ForecastEvolutionSnapshot
-import com.meteocompare.app.domain.model.ForecastEvolutionTrend
 import com.meteocompare.app.domain.model.ForecastEvolutionThresholds
+import com.meteocompare.app.domain.model.ForecastEvolutionTrend
 import com.meteocompare.app.domain.model.ForecastEvolutionVariable
 import com.meteocompare.app.domain.model.ForecastRevision
 import com.meteocompare.app.domain.model.VariableForecastEvolution
@@ -154,7 +154,6 @@ class ComputeForecastEvolutionUseCase @Inject constructor() {
             if (value != null) put(model, value)
         }
     }
-
 
     private fun selectComparableHistory(
         currentValues: Map<WeatherModel, Double>,

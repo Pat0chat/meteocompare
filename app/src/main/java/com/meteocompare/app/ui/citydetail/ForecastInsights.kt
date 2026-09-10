@@ -874,7 +874,6 @@ private fun buildTemperatureInsight(
     )
 }
 
-
 private fun followsExpectedDiurnalTemperatureCycle(
     start: java.time.Instant,
     target: java.time.Instant,
@@ -1073,8 +1072,7 @@ private fun isUncertainRainPoint(point: SimplifiedTimelinePoint): Boolean {
     val signal = point.precipitationPercent ?: return false
     return point.precipitationModelCount >= 2 &&
         signal in RAIN_SIGNAL_MIN_PERCENT until LIKELY_RAIN_PERCENT &&
-        (point.precipitationSource in setOf(PrecipitationSignalSource.MODEL_PROBABILITY, PrecipitationSignalSource.MIXED) ||
-            point.isRainDivergent)
+        (point.precipitationSource?.usesProbability == true || point.isRainDivergent)
 }
 
 private fun isLikelyRainPoint(point: SimplifiedTimelinePoint): Boolean {
@@ -1083,7 +1081,8 @@ private fun isLikelyRainPoint(point: SimplifiedTimelinePoint): Boolean {
 }
 
 private fun rainIntensity(point: SimplifiedTimelinePoint): Int = when (point.precipitationSource) {
-    PrecipitationSignalSource.MODEL_PROBABILITY, PrecipitationSignalSource.MIXED -> (point.precipitationPercent ?: 0) / 5
+    PrecipitationSignalSource.MODEL_PROBABILITY,
+    PrecipitationSignalSource.MIXED -> (point.precipitationPercent ?: 0) / 5
     PrecipitationSignalSource.MODEL_AGREEMENT -> {
         val total = point.precipitationModelCount.coerceAtLeast(1)
         point.wetModelCount * 20 / total

@@ -20,13 +20,13 @@ import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.meteocompare.app.BuildConfig
 import com.meteocompare.app.core.util.runSuspendCatching
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.TimeoutException
 
 private const val WIDGET_LOG_TAG = "MeteoCompare/Widget"
 

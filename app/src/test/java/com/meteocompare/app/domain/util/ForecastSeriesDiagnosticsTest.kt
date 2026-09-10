@@ -4,11 +4,11 @@ import com.meteocompare.app.domain.model.DailyForecast
 import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.HourlyForecast
 import com.meteocompare.app.domain.model.WeatherModel
+import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.time.Instant
 
 class ForecastSeriesDiagnosticsTest {
     private val start = Instant.parse("2026-09-02T00:00:00Z")
@@ -23,7 +23,9 @@ class ForecastSeriesDiagnosticsTest {
         val diagnostic = ForecastSeriesDiagnostics.analyze(series)
 
         assertTrue(diagnostic.hasLongInternalMissingSequence)
-        val run = diagnostic.internalMissingRuns.single { it.variable == ForecastSeriesDiagnostics.Variable.TEMPERATURE }
+        val run = diagnostic.internalMissingRuns.single {
+            it.variable == ForecastSeriesDiagnostics.Variable.TEMPERATURE
+        }
         assertEquals(3, run.lengthHours)
         assertEquals(start.plusSeconds(2 * 3_600L), run.startInstant)
     }

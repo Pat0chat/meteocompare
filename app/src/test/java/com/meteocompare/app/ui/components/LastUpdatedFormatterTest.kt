@@ -1,9 +1,9 @@
 package com.meteocompare.app.ui.components
 
-import org.junit.Assert.assertEquals
-import org.junit.Test
 import java.time.Duration
 import java.time.Instant
+import org.junit.Assert.assertEquals
+import org.junit.Test
 
 /**
  * Tests unitaires du contrat de [computeLastUpdatedPalier] et [refreshIntervalMsFor].

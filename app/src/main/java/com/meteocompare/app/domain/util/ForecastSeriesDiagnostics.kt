@@ -70,7 +70,13 @@ internal object ForecastSeriesDiagnostics {
         val runs = buildList {
             addAll(findInternalRuns(Variable.TEMPERATURE, hourly.temperature2m, hourly.timestamps))
             addAll(findInternalRuns(Variable.PRECIPITATION, hourly.precipitation, hourly.timestamps))
-            addAll(findInternalRuns(Variable.PRECIPITATION_PROBABILITY, hourly.precipitationProbability, hourly.timestamps))
+            addAll(
+                findInternalRuns(
+                    Variable.PRECIPITATION_PROBABILITY,
+                    hourly.precipitationProbability,
+                    hourly.timestamps
+                )
+            )
             addAll(findInternalRuns(Variable.CLOUD_COVER, hourly.cloudCover, hourly.timestamps))
             addAll(findInternalRuns(Variable.WIND_SPEED, hourly.windSpeed10m, hourly.timestamps))
             addAll(findInternalRuns(Variable.WIND_GUST, hourly.windGusts10m, hourly.timestamps))

@@ -4,14 +4,14 @@ import android.content.Context
 import app.cash.turbine.test
 import com.meteocompare.app.R
 import com.meteocompare.app.data.worker.BiasRefreshScheduler
-import com.meteocompare.app.domain.model.LanguagePreference
 import com.meteocompare.app.domain.model.ForecastEngine
+import com.meteocompare.app.domain.model.LanguagePreference
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.ThemePreference
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
-import com.meteocompare.app.widget.WidgetRefreshScheduler
 import com.meteocompare.app.ui.components.AppToastType
+import com.meteocompare.app.widget.WidgetRefreshScheduler
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.coVerifyOrder
@@ -362,7 +362,13 @@ class SettingsViewModelTest {
         // exact de la liste — l'ordre d'itération d'un Set + toList() est
         // spécifié pour LinkedHashSet mais on préfère ne pas tester ça ici.
         // Vérification du contenu :
-        coVerify { prefs.setEnabledModels(match { it.containsAll(listOf(WeatherModel.GFS, WeatherModel.ECMWF)) && it.size == 2 }) }
+        coVerify {
+            prefs.setEnabledModels(
+                match {
+                    it.containsAll(listOf(WeatherModel.GFS, WeatherModel.ECMWF)) && it.size == 2
+                }
+            )
+        }
         // Vérification de l'ordre setEnabled → triggerImmediateRefresh :
         coVerifyOrder {
             prefs.setEnabledModels(any())

@@ -39,8 +39,13 @@ internal object WidgetHeatmapTrendForecastRenderer {
         val labelAreaHeight = (heightPx * 0.12f).coerceAtLeast(8f)
         val usableWidth = widthPx - outerPadding * 2f
         val columnWidth = usableWidth / CELL_COUNT
-        val tempBandHeight = ((heightPx - outerPadding * 2f - rowGap - axisGap - labelAreaHeight) * 0.64f).coerceAtLeast(heightPx * 0.55f)
-        val precipBandHeight = (heightPx - outerPadding * 2f - rowGap - axisGap - labelAreaHeight - tempBandHeight).coerceAtLeast(heightPx * 0.05f)
+        val tempBandHeight = (
+            (heightPx - outerPadding * 2f - rowGap - axisGap - labelAreaHeight) * 0.64f
+        ).coerceAtLeast(heightPx * 0.55f)
+        val precipBandHeight = (
+            heightPx - outerPadding * 2f - rowGap - axisGap -
+                labelAreaHeight - tempBandHeight
+        ).coerceAtLeast(heightPx * 0.05f)
         val tempTop = outerPadding
         val tempBottom = tempTop + tempBandHeight
         val precipTop = tempBottom + rowGap
@@ -93,9 +98,19 @@ internal object WidgetHeatmapTrendForecastRenderer {
             val isCurrent = index == 0
 
             val temp = temps.getOrNull(index)
-            val tempColor = temp?.let(WidgetMiniForecastRenderer::temperatureHeatmapArgb) ?: withAlpha(textColorArgb, 0x14)
+            val tempColor = temp
+                ?.let(WidgetMiniForecastRenderer::temperatureHeatmapArgb)
+                ?: withAlpha(textColorArgb, 0x14)
             val tempRect = RectF(left, tempTop + 4f, right, tempBottom - 4f)
-            val gradient = LinearGradient(left, tempTop, left, tempBottom, withAlpha(tempColor, if (isCurrent) 0xF2 else 0xE4), withAlpha(tempColor, if (isCurrent) 0xC8 else 0xB0), Shader.TileMode.CLAMP)
+            val gradient = LinearGradient(
+                left,
+                tempTop,
+                left,
+                tempBottom,
+                withAlpha(tempColor, if (isCurrent) 0xF2 else 0xE4),
+                withAlpha(tempColor, if (isCurrent) 0xC8 else 0xB0),
+                Shader.TileMode.CLAMP
+            )
             panelPaint.shader = gradient
             canvas.drawRoundRect(tempRect, 11f, 11f, panelPaint)
             panelPaint.shader = null
@@ -128,7 +143,11 @@ internal object WidgetHeatmapTrendForecastRenderer {
                     bandHeight = tempBandHeight,
                     profile = profile
                 )
-                val contentColor = if (temp == null) withAlpha(textColorArgb, 0xD8) else WidgetMiniForecastRenderer.heatmapContentColorArgb(tempColor)
+                val contentColor = if (temp == null) {
+                    withAlpha(textColorArgb, 0xD8)
+                } else {
+                    WidgetMiniForecastRenderer.heatmapContentColorArgb(tempColor)
+                }
                 valuePaint.color = contentColor
                 canvas.drawText(
                     temp?.let { "${it.roundToInt()}°" } ?: "—",
@@ -139,16 +158,42 @@ internal object WidgetHeatmapTrendForecastRenderer {
             }
 
             val precipProb = precipProbabilities.getOrNull(index)?.coerceIn(0, 100)
-            val precipColor = WidgetMiniForecastRenderer.precipitationHeatmapArgb(precipProb, precipColorArgb, textColorArgb, precipAmountsMm.getOrNull(index))
+            val precipColor = WidgetMiniForecastRenderer.precipitationHeatmapArgb(
+                probability = precipProb,
+                precipColorArgb = precipColorArgb,
+                textColorArgb = textColorArgb,
+                amountMm = precipAmountsMm.getOrNull(index)
+            )
             val precipRect = RectF(left, precipTop + 2f, right, precipBottom - 2f)
-            val precipGradient = LinearGradient(left, precipTop, right, precipBottom, withAlpha(precipColor, 0xD0), withAlpha(precipColor, 0xF2), Shader.TileMode.CLAMP)
+            val precipGradient = LinearGradient(
+                left,
+                precipTop,
+                right,
+                precipBottom,
+                withAlpha(precipColor, 0xD0),
+                withAlpha(precipColor, 0xF2),
+                Shader.TileMode.CLAMP
+            )
             panelPaint.shader = precipGradient
             canvas.drawRoundRect(precipRect, 8f, 8f, panelPaint)
             panelPaint.shader = null
             if (index in anchors) {
-                valuePaint.color = if (((precipColor ushr 24) and 0xFF) >= 0x72) WidgetMiniForecastRenderer.heatmapContentColorArgb(precipColorArgb) else withAlpha(textColorArgb, 0xD8)
-                canvas.drawText(precipProb?.let { "$it%" } ?: "—", centerX, precipTop + precipBandHeight * 0.62f, valuePaint)
-                labelPaint.color = if (isCurrent) withAlpha(textColorArgb, 0xFF) else withAlpha(textColorArgb, 0xD0)
+                valuePaint.color = if (((precipColor ushr 24) and 0xFF) >= 0x72) {
+                    WidgetMiniForecastRenderer.heatmapContentColorArgb(precipColorArgb)
+                } else {
+                    withAlpha(textColorArgb, 0xD8)
+                }
+                canvas.drawText(
+                    precipProb?.let { "$it%" } ?: "—",
+                    centerX,
+                    precipTop + precipBandHeight * 0.62f,
+                    valuePaint
+                )
+                labelPaint.color = if (isCurrent) {
+                    withAlpha(textColorArgb, 0xFF)
+                } else {
+                    withAlpha(textColorArgb, 0xD0)
+                }
                 val hourLabel = timelineLabels.getOrNull(index) ?: "+${index}h"
                 canvas.drawText(hourLabel, centerX, axisY + labelAreaHeight * 0.55f, labelPaint)
             }

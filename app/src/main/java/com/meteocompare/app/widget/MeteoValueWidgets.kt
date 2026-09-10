@@ -24,10 +24,10 @@ import androidx.glance.ImageProvider
 import androidx.glance.LocalContext
 import androidx.glance.LocalSize
 import androidx.glance.action.actionStartActivity
-import androidx.glance.appwidget.action.actionStartActivity as actionStartActivityIntent
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.SizeMode
+import androidx.glance.appwidget.action.actionStartActivity as actionStartActivityIntent
 import androidx.glance.appwidget.appWidgetBackground
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
@@ -51,6 +51,7 @@ import androidx.glance.unit.ColorProvider
 import com.meteocompare.app.MainActivity
 import com.meteocompare.app.R
 import com.meteocompare.app.core.locale.applyPersistedLocale
+import com.meteocompare.app.core.locale.weatherConditionLabelRes
 import com.meteocompare.app.core.network.OPEN_METEO_LICENSE_URL
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.ui.citydetail.ForecastInsightLevel
@@ -282,7 +283,7 @@ private fun InsightWidgetLayout(
             Spacer(GlanceModifier.width(8.dp))
             Column(modifier = GlanceModifier.defaultWeight()) {
                 Text(
-                    text = context.getString(valueWeatherDescriptionRes(data.currentCondition)),
+                    text = context.getString(weatherConditionLabelRes(data.currentCondition)),
                     style = TextStyle(
                         color = colors.muted,
                         fontSize = if (compact) 10.sp else 12.sp,
@@ -528,7 +529,7 @@ private fun ValueWeatherGlyph(condition: WeatherCondition?, sizeDp: Int) {
     }
     Image(
         provider = ImageProvider(bitmap),
-        contentDescription = context.getString(valueWeatherDescriptionRes(condition)),
+        contentDescription = context.getString(weatherConditionLabelRes(condition)),
         modifier = GlanceModifier.width(sizeDp.dp).height(sizeDp.dp)
     )
 }
@@ -559,21 +560,4 @@ private fun metricLabelRes(type: WidgetMetricType): Int = when (type) {
     WidgetMetricType.TEMPERATURE -> R.string.widget_value_metric_temperature
     WidgetMetricType.PRECIPITATION -> R.string.widget_value_metric_precipitation
     WidgetMetricType.WIND -> R.string.widget_value_metric_wind
-}
-
-private fun valueWeatherDescriptionRes(condition: WeatherCondition?): Int = when (condition) {
-    WeatherCondition.CLEAR -> R.string.weather_clear
-    WeatherCondition.MAINLY_CLEAR -> R.string.weather_mainly_clear
-    WeatherCondition.PARTLY_CLOUDY -> R.string.weather_partly_cloudy
-    WeatherCondition.OVERCAST -> R.string.weather_overcast
-    WeatherCondition.FOG -> R.string.weather_fog
-    WeatherCondition.DRIZZLE -> R.string.weather_drizzle
-    WeatherCondition.RAIN -> R.string.weather_rain
-    WeatherCondition.FREEZING_RAIN -> R.string.weather_freezing_rain
-    WeatherCondition.SNOW -> R.string.weather_snow
-    WeatherCondition.RAIN_SHOWERS -> R.string.weather_rain_showers
-    WeatherCondition.SNOW_SHOWERS -> R.string.weather_snow_showers
-    WeatherCondition.THUNDERSTORM -> R.string.weather_thunderstorm
-    WeatherCondition.UNKNOWN,
-    null -> R.string.weather_unknown
 }

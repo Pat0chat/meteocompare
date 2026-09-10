@@ -4,8 +4,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,7 +18,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Air
 import androidx.compose.material.icons.outlined.SwapVert
@@ -58,9 +58,9 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -820,10 +820,29 @@ private fun ModelEvolutionSheet(
             )
             HorizontalDivider()
             Row(modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.forecast_evolution_model), modifier = Modifier.weight(1.4f), style = MaterialTheme.typography.labelSmall)
-                Text(stringResource(R.string.forecast_evolution_previous), modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.End)
-                Text(stringResource(R.string.forecast_evolution_now), modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.End)
-                Text("Δ", modifier = Modifier.weight(0.8f), style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.End)
+                Text(
+                    text = stringResource(R.string.forecast_evolution_model),
+                    modifier = Modifier.weight(1.4f),
+                    style = MaterialTheme.typography.labelSmall
+                )
+                Text(
+                    text = stringResource(R.string.forecast_evolution_previous),
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.labelSmall,
+                    textAlign = TextAlign.End
+                )
+                Text(
+                    text = stringResource(R.string.forecast_evolution_now),
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.labelSmall,
+                    textAlign = TextAlign.End
+                )
+                Text(
+                    text = "Δ",
+                    modifier = Modifier.weight(0.8f),
+                    style = MaterialTheme.typography.labelSmall,
+                    textAlign = TextAlign.End
+                )
             }
             models.forEach { model ->
                 val current = evolution.current.valuesByModel[model] ?: return@forEach
@@ -843,8 +862,18 @@ private fun ModelEvolutionSheet(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Text(formatEvolutionValue(old, evolution.variable, locale), modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.End)
-                    Text(formatEvolutionValue(current, evolution.variable, locale), modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.End)
+                    Text(
+                        text = formatEvolutionValue(old, evolution.variable, locale),
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = TextAlign.End
+                    )
+                    Text(
+                        text = formatEvolutionValue(current, evolution.variable, locale),
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = TextAlign.End
+                    )
                     Text(
                         text = signedEvolutionValue(delta, evolution.variable, locale),
                         modifier = Modifier.weight(0.8f),
@@ -928,7 +957,11 @@ private fun formatEvolutionThreshold(
     ForecastEvolutionVariable.WIND -> "${value.roundToInt()} km/h"
 }
 
-private fun formatEvolutionValue(value: Double, variable: ForecastEvolutionVariable, locale: Locale): String = when (variable) {
+private fun formatEvolutionValue(
+    value: Double,
+    variable: ForecastEvolutionVariable,
+    locale: Locale
+): String = when (variable) {
     ForecastEvolutionVariable.TEMPERATURE -> "${value.roundToInt()}°"
     ForecastEvolutionVariable.PRECIPITATION -> String.format(locale, "%.1f mm", value)
     ForecastEvolutionVariable.WIND -> "${value.roundToInt()} km/h"

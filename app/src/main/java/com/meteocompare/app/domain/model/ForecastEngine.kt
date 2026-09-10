@@ -58,13 +58,22 @@ data class ForecastCalibrationProfile(
 data class ForecastEngineContext(
     val engine: ForecastEngine = ForecastEngine.DEFAULT,
     /** Compatibilité : profils J+1 historiques. */
-    val calibrationByVariable: Map<ForecastEngineVariable, Map<WeatherModel, ForecastCalibrationProfile>> = emptyMap(),
+    val calibrationByVariable:
+        Map<ForecastEngineVariable, Map<WeatherModel, ForecastCalibrationProfile>> = emptyMap(),
     /** Profils strictement séparés par échéance J+1…J+7. */
-    val calibrationByLeadDay: Map<ForecastEngineVariable, Map<Int, Map<WeatherModel, ForecastCalibrationProfile>>> = emptyMap(),
+    val calibrationByLeadDay:
+        Map<ForecastEngineVariable, Map<Int, Map<WeatherModel, ForecastCalibrationProfile>>> =
+        emptyMap(),
     val localWeightsByVariable: Map<ForecastEngineVariable, Map<WeatherModel, Double>> = emptyMap()
 ) {
-    fun calibration(variable: ForecastEngineVariable, allowCalibration: Boolean = true): Map<WeatherModel, ForecastCalibrationProfile> =
-        calibration(variable, leadDay = 1, allowCalibration = allowCalibration)
+    fun calibration(
+        variable: ForecastEngineVariable,
+        allowCalibration: Boolean = true
+    ): Map<WeatherModel, ForecastCalibrationProfile> = calibration(
+        variable,
+        leadDay = 1,
+        allowCalibration = allowCalibration
+    )
 
     fun calibration(
         variable: ForecastEngineVariable,

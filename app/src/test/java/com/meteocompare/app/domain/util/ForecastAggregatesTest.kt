@@ -3,17 +3,17 @@ package com.meteocompare.app.domain.util
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DailyForecast
-import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.ForecastEngineContext
 import com.meteocompare.app.domain.model.ForecastEngineVariable
+import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.HourlyForecast
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
+import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.time.Instant
 
 class ForecastAggregatesTest {
 
@@ -78,7 +78,6 @@ class ForecastAggregatesTest {
         assertNull(result.precipitationAmountsMm.first())
         assertNull(result.conditions.first())
     }
-
 
     @Test
     fun `un modele sans echeance exacte est exclu sans biaiser le consensus`() {
@@ -190,7 +189,6 @@ class ForecastAggregatesTest {
 
         assertEquals(WeatherCondition.PARTLY_CLOUDY, result.conditions.first())
     }
-
 
     @Test
     fun `avec plusieurs familles WMO le ciel est affine par la nebulosite robuste`() {

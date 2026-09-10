@@ -1,7 +1,7 @@
 package com.meteocompare.app.domain.model
 
-import java.time.LocalDate
 import java.time.Instant
+import java.time.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -81,7 +81,6 @@ class ModelReliabilityCalculatorTest {
         assertTrue(reliability.recentMeanAbsoluteError!! < reliability.previousMeanAbsoluteError!!)
     }
 
-
     @Test
     fun `repartition biais est disjointe entre sous proches et sur`() {
         val samples = samples(20) { index ->
@@ -136,7 +135,6 @@ class ModelReliabilityCalculatorTest {
         assertEquals(8, rain.observedWetDays)
         assertEquals(8, rain.forecastWetDays)
     }
-
 
     @Test
     fun `diagnostic pluie compte une pluie mesurable de deux dixiemes comme humide`() {

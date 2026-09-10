@@ -4,8 +4,8 @@ import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.domain.model.BiasSample
 import com.meteocompare.app.domain.model.BiasVariable
 import com.meteocompare.app.domain.model.City
-import com.meteocompare.app.domain.model.CityDetailSection
 import com.meteocompare.app.domain.model.CityDetailContentTab
+import com.meteocompare.app.domain.model.CityDetailSection
 import com.meteocompare.app.domain.model.CityDetailViewMode
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DayNormals
@@ -14,25 +14,25 @@ import com.meteocompare.app.domain.model.LanguagePreference
 import com.meteocompare.app.domain.model.MarineForecast
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.ThemePreference
-import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.model.VigilanceForecast
+import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.repository.BiasSampleRepository
 import com.meteocompare.app.domain.repository.CityRepository
 import com.meteocompare.app.domain.repository.ClimateNormalsRepository
-import com.meteocompare.app.domain.repository.ForecastRepository
-import com.meteocompare.app.domain.repository.ForecastEvolutionRepository
 import com.meteocompare.app.domain.repository.ForecastEvolutionHistoryData
+import com.meteocompare.app.domain.repository.ForecastEvolutionRepository
+import com.meteocompare.app.domain.repository.ForecastRepository
 import com.meteocompare.app.domain.repository.MarineRepository
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
 import com.meteocompare.app.domain.repository.VigilanceRepository
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.flowOf
 import java.time.Instant
 import java.time.LocalDate
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOf
 
 @Singleton
 class FakeCityRepository @Inject constructor() : CityRepository {
@@ -149,7 +149,6 @@ class FakeMarineRepository @Inject constructor() : MarineRepository {
     fun set(cityId: String, data: MarineForecast) { cache[cityId] = data }
     fun reset() { cache.clear(); nextResult = null }
 }
-
 
 @Singleton
 class FakeVigilanceRepository @Inject constructor() : VigilanceRepository {

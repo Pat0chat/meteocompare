@@ -8,9 +8,18 @@ class WidgetHeatmapForecastRendererTest {
 
     @Test
     fun `anchor indices stay readable on compact profiles`() {
-        assertEquals(listOf(0, 3, 6, 9, 11), WidgetHeatmapForecastRenderer.anchorIndices(MiniForecastSizeProfile.COMPACT_2X2))
-        assertEquals(listOf(0, 2, 4, 6, 8, 10, 11), WidgetHeatmapForecastRenderer.anchorIndices(MiniForecastSizeProfile.MEDIUM_3X2))
-        assertEquals((0..11).toList(), WidgetHeatmapForecastRenderer.anchorIndices(MiniForecastSizeProfile.EXPANDED_4X2))
+        assertEquals(
+            listOf(0, 3, 6, 9, 11),
+            WidgetHeatmapForecastRenderer.anchorIndices(MiniForecastSizeProfile.COMPACT_2X2)
+        )
+        assertEquals(
+            listOf(0, 2, 4, 6, 8, 10, 11),
+            WidgetHeatmapForecastRenderer.anchorIndices(MiniForecastSizeProfile.MEDIUM_3X2)
+        )
+        assertEquals(
+            (0..11).toList(),
+            WidgetHeatmapForecastRenderer.anchorIndices(MiniForecastSizeProfile.EXPANDED_4X2)
+        )
     }
 
     @Test
@@ -26,6 +35,7 @@ class WidgetHeatmapForecastRendererTest {
         val warmY = WidgetHeatmapForecastRenderer.normalizedTemperatureY(20.0, 5.0, 25.0, 0f, 100f)
         assertTrue("Une température plus chaude doit monter dans le graphique", warmY < coldY)
     }
+
     @Test
     fun `temperature curve reserves top space for condition icons`() {
         val y = WidgetHeatmapForecastRenderer.normalizedTemperatureY(
@@ -34,7 +44,9 @@ class WidgetHeatmapForecastRendererTest {
             maxTemp = 25.0,
             top = 0f,
             bottom = 100f,
-            usableTopRatio = WidgetHeatmapForecastRenderer.temperatureCurveTopRatio(MiniForecastSizeProfile.EXPANDED_4X2),
+            usableTopRatio = WidgetHeatmapForecastRenderer.temperatureCurveTopRatio(
+                MiniForecastSizeProfile.EXPANDED_4X2
+            ),
             usableBottomRatio = 0.30f
         )
         assertTrue("La courbe doit commencer sous la zone réservée aux icônes", y >= 30f)

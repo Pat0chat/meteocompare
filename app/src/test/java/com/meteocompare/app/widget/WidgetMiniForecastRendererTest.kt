@@ -103,7 +103,6 @@ class WidgetMiniForecastRendererTest {
         assertTrue("B attendu ~104, obtenu $b", (b - 104).let { it in -1..1 })
     }
 
-
     // ─── precipitationHeatmapArgb ────────────────────────────────────────
 
     @Test
@@ -145,8 +144,6 @@ class WidgetMiniForecastRendererTest {
         assertEquals(0x12, (color ushr 24) and 0xFF)
         assertEquals(text and 0x00FFFFFF, color and 0x00FFFFFF)
     }
-
-
 
     // ─── Icône de condition à côté de la température ────────────────────
 
@@ -283,9 +280,6 @@ class WidgetMiniForecastRendererTest {
         )
     }
 
-
-
-
     @Test
     fun `heure a venir est mise en avant par une carte legerement agrandie`() {
         val compact = WidgetMiniForecastRenderer.upcomingHourHighlightScale(
@@ -327,7 +321,6 @@ class WidgetMiniForecastRendererTest {
         assertTrue("La hauteur doit suivre le redimensionnement: $dense, $medium, $tall", dense < medium)
         assertTrue("La hauteur doit suivre le redimensionnement: $dense, $medium, $tall", medium < tall)
     }
-
 
     @Test
     fun `budget du header 4x2 tient compte de la ligne extras`() {

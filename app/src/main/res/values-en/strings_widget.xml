@@ -49,7 +49,6 @@
     <string name="widget_forecast_confidence_hint">convergence / models</string>
     <string name="widget_forecast_confidence_short">Conv. %1$d%%</string>
 
-
     <!-- MeteoCompare editorial widget -->
     <string name="widget_label_insight">4×2 Key insight</string>
     <string name="widget_description_insight">The most useful weather signal and its level of model convergence.</string>

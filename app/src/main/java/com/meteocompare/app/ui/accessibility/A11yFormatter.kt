@@ -2,6 +2,7 @@ package com.meteocompare.app.ui.accessibility
 
 import android.content.res.Resources
 import com.meteocompare.app.R
+import com.meteocompare.app.core.locale.weatherConditionLabelRes
 import com.meteocompare.app.domain.model.ConfidenceLevel
 import com.meteocompare.app.domain.model.ConfidenceScore
 import com.meteocompare.app.domain.model.DayConfidence
@@ -9,6 +10,7 @@ import com.meteocompare.app.domain.model.HourlyConfidenceBand
 import com.meteocompare.app.domain.model.PrecipitationConfidence
 import com.meteocompare.app.ui.citylist.CityCardState
 import com.meteocompare.app.ui.citylist.ForecastState
+import java.time.Duration
 import kotlin.math.roundToInt
 
 /**
@@ -110,7 +112,7 @@ object A11yFormatter {
                 // suivent dans la lecture TalkBack, ce qui mime la perception
                 // visuelle de l'icône + température côte à côte.
                 f.currentCondition?.let {
-                    parts += resources.getString(weatherConditionStringRes(it))
+                    parts += resources.getString(weatherConditionLabelRes(it))
                 }
                 f.currentTemp?.let { parts += resources.getString(R.string.a11y_now_temp, it.roundToInt()) }
                 f.today.tempMax?.let {
@@ -132,34 +134,11 @@ object A11yFormatter {
         }
     }
 
-    /**
-     * Mapping famille WeatherCondition → string res. Volontairement dupliqué
-     * du composant `WeatherIcon` parce que l'A11yFormatter est dans une couche
-     * différente (a11y/) qui ne devrait pas dépendre de l'UI components, et
-     * inversement. Coût de la duplication = 13 lignes, gain = aucun couplage
-     * entre les deux.
-     */
-    private fun weatherConditionStringRes(c: com.meteocompare.app.domain.model.WeatherCondition): Int = when (c) {
-        com.meteocompare.app.domain.model.WeatherCondition.CLEAR -> R.string.weather_clear
-        com.meteocompare.app.domain.model.WeatherCondition.MAINLY_CLEAR -> R.string.weather_mainly_clear
-        com.meteocompare.app.domain.model.WeatherCondition.PARTLY_CLOUDY -> R.string.weather_partly_cloudy
-        com.meteocompare.app.domain.model.WeatherCondition.OVERCAST -> R.string.weather_overcast
-        com.meteocompare.app.domain.model.WeatherCondition.FOG -> R.string.weather_fog
-        com.meteocompare.app.domain.model.WeatherCondition.DRIZZLE -> R.string.weather_drizzle
-        com.meteocompare.app.domain.model.WeatherCondition.RAIN -> R.string.weather_rain
-        com.meteocompare.app.domain.model.WeatherCondition.FREEZING_RAIN -> R.string.weather_freezing_rain
-        com.meteocompare.app.domain.model.WeatherCondition.SNOW -> R.string.weather_snow
-        com.meteocompare.app.domain.model.WeatherCondition.RAIN_SHOWERS -> R.string.weather_rain_showers
-        com.meteocompare.app.domain.model.WeatherCondition.SNOW_SHOWERS -> R.string.weather_snow_showers
-        com.meteocompare.app.domain.model.WeatherCondition.THUNDERSTORM -> R.string.weather_thunderstorm
-        com.meteocompare.app.domain.model.WeatherCondition.UNKNOWN -> R.string.weather_unknown
-    }
-
     fun hourlyChartDescription(resources: Resources, bands: List<HourlyConfidenceBand>): String {
         if (bands.size < 2) return resources.getString(R.string.a11y_hourly_empty)
         val first = bands.first()
         val last = bands.last()
-        val daysAhead = java.time.Duration
+        val daysAhead = Duration
             .between(first.timestamp, last.timestamp).toDays().toInt()
         val firstTemp = first.meanValue.roundToInt()
         val lastTemp = last.meanValue.roundToInt()

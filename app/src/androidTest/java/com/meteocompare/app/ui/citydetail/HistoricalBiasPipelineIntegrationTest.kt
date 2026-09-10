@@ -88,7 +88,6 @@ class HistoricalBiasPipelineIntegrationTest {
         assertPage(buildBiasSelection(WeatherModel.ICON_GLOBAL, BiasVariable.WIND_SPEED, wind))
     }
 
-
     @Test
     fun room_flow_reemits_after_bootstrap_insertions() = runTest {
         val observed = async(start = CoroutineStart.UNDISPATCHED) {

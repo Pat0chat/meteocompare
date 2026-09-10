@@ -44,6 +44,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -54,12 +55,14 @@ import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.meteocompare.app.R
+import com.meteocompare.app.core.locale.weatherConditionLabelRes
 import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.usecase.EngineComparisonDay
@@ -70,6 +73,7 @@ import com.meteocompare.app.ui.components.AppToastEffect
 import com.meteocompare.app.ui.components.ModernStateChip
 import com.meteocompare.app.ui.components.OpenMeteoAttribution
 import com.meteocompare.app.ui.theme.WeatherAccentTheme
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
@@ -717,19 +721,19 @@ private fun DivergenceScale(
         drawRoundRect(
             color = lowColor.copy(alpha = 0.9f),
             topLeft = Offset(0f, top),
-            size = androidx.compose.ui.geometry.Size(lowEnd, barHeight),
-            cornerRadius = androidx.compose.ui.geometry.CornerRadius(radius, radius)
+            size = Size(lowEnd, barHeight),
+            cornerRadius = CornerRadius(radius, radius)
         )
         drawRect(
             color = mediumColor.copy(alpha = 0.9f),
             topLeft = Offset(lowEnd - radius, top),
-            size = androidx.compose.ui.geometry.Size((mediumEnd - lowEnd) + radius * 2f, barHeight)
+            size = Size((mediumEnd - lowEnd) + radius * 2f, barHeight)
         )
         drawRoundRect(
             color = highColor.copy(alpha = 0.9f),
             topLeft = Offset(mediumEnd - radius, top),
-            size = androidx.compose.ui.geometry.Size(size.width - mediumEnd + radius, barHeight),
-            cornerRadius = androidx.compose.ui.geometry.CornerRadius(radius, radius)
+            size = Size(size.width - mediumEnd + radius, barHeight),
+            cornerRadius = CornerRadius(radius, radius)
         )
 
         val markerX = (size.width * progress.coerceIn(0f, 1f))
@@ -773,7 +777,7 @@ private fun EngineDailyComparisonTable(
 
             val conditionValues = ForecastEngine.entries.associateWith { engine ->
                 day.byEngine[engine]?.condition?.let { condition ->
-                    stringResource(weatherConditionLabel(condition))
+                    stringResource(weatherConditionLabelRes(condition))
                 } ?: "—"
             }
 
@@ -884,7 +888,7 @@ private fun ComparisonTableRow(
 @Composable
 private fun TableCell(
     text: String,
-    width: androidx.compose.ui.unit.Dp,
+    width: Dp,
     emphasized: Boolean,
     accent: Color? = null
 ) {
@@ -1018,21 +1022,5 @@ private fun formatDecimal(value: Double?, locale: Locale, suffix: String): Strin
 private fun formatInteger(value: Double?, locale: Locale, suffix: String): String =
     value?.takeIf(Double::isFinite)?.let { String.format(locale, "%.0f%s", it, suffix) } ?: "—"
 
-private fun weatherConditionLabel(condition: WeatherCondition): Int = when (condition) {
-    WeatherCondition.CLEAR -> R.string.weather_clear
-    WeatherCondition.MAINLY_CLEAR -> R.string.weather_mainly_clear
-    WeatherCondition.PARTLY_CLOUDY -> R.string.weather_partly_cloudy
-    WeatherCondition.OVERCAST -> R.string.weather_overcast
-    WeatherCondition.FOG -> R.string.weather_fog
-    WeatherCondition.DRIZZLE -> R.string.weather_drizzle
-    WeatherCondition.RAIN -> R.string.weather_rain
-    WeatherCondition.FREEZING_RAIN -> R.string.weather_freezing_rain
-    WeatherCondition.SNOW -> R.string.weather_snow
-    WeatherCondition.RAIN_SHOWERS -> R.string.weather_rain_showers
-    WeatherCondition.SNOW_SHOWERS -> R.string.weather_snow_showers
-    WeatherCondition.THUNDERSTORM -> R.string.weather_thunderstorm
-    WeatherCondition.UNKNOWN -> R.string.weather_unknown
-}
-
-private fun formatDate(date: java.time.LocalDate, locale: Locale): String =
+private fun formatDate(date: LocalDate, locale: Locale): String =
     date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale))

@@ -38,8 +38,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -49,9 +49,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.MarineForecast
-import com.meteocompare.app.domain.model.VigilancePhenomenonAlert
 import com.meteocompare.app.domain.model.TideEvent
 import com.meteocompare.app.domain.model.TideEventType
+import com.meteocompare.app.domain.model.VigilancePhenomenonAlert
 import com.meteocompare.app.domain.util.detectTideEvents
 import com.meteocompare.app.domain.util.nearestMarineIndex
 import com.meteocompare.app.domain.util.tideRangeNext24h
@@ -60,11 +60,12 @@ import com.meteocompare.app.ui.components.MarineCoastalVigilanceBanner
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
-import kotlinx.coroutines.delay
 import kotlin.math.max
+import kotlinx.coroutines.delay
 
 internal const val TAG_MARINE_CURRENT_PANEL = "marine-current-panel"
 internal const val TAG_MARINE_WAVE_CHART = "marine-wave-chart"
@@ -537,7 +538,10 @@ private fun MarineDayCard(data: MarineForecast, date: String, index: Int, accent
         shape = MarineContentShape,
         color = accent.copy(alpha = 0.105f)
     ) {
-        Column(Modifier.padding(horizontal = 10.dp, vertical = 9.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Column(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
+            verticalArrangement = Arrangement.spacedBy(3.dp)
+        ) {
             Text(
                 dayLabel,
                 style = MaterialTheme.typography.labelSmall,
@@ -795,7 +799,9 @@ private fun MarineLineChart(
         }
     }
     val timeFormatter = remember(locale) { DateTimeFormatter.ofPattern("EEE\nHH:mm", locale) }
-    val chartZone = remember(timezone) { runCatching { java.time.ZoneId.of(timezone) }.getOrElse { java.time.ZoneId.systemDefault() } }
+    val chartZone = remember(timezone) {
+        runCatching { ZoneId.of(timezone) }.getOrElse { ZoneId.systemDefault() }
+    }
 
     val gridColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.38f)
     val nowColor = accent.copy(alpha = 0.42f)

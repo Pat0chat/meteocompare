@@ -1,7 +1,7 @@
 package com.meteocompare.app.ui.citydetail
 
-import java.time.Instant
 import com.meteocompare.app.core.util.resolveZoneOrUtc
+import java.time.Instant
 import java.time.ZoneId
 
 /**

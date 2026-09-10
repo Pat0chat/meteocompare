@@ -1,13 +1,12 @@
 package com.meteocompare.app.widget
 
-import com.meteocompare.app.core.util.resolveZoneOrUtc
 import android.content.Context
 import com.meteocompare.app.R
+import com.meteocompare.app.core.util.resolveZoneOrUtc
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.ForecastEngineContext
-import com.meteocompare.app.domain.model.WeatherCondition
-import com.meteocompare.app.ui.citydetail.DivergenceReason
 import com.meteocompare.app.ui.citydetail.DisplayMode
+import com.meteocompare.app.ui.citydetail.DivergenceReason
 import com.meteocompare.app.ui.citydetail.ForecastInsight
 import com.meteocompare.app.ui.citydetail.ForecastInsightKind
 import com.meteocompare.app.ui.citydetail.ForecastInsightLevel
@@ -16,6 +15,11 @@ import com.meteocompare.app.ui.citydetail.OverviewTimeline
 import com.meteocompare.app.ui.citydetail.SimplifiedTimelinePoint
 import com.meteocompare.app.ui.citydetail.buildForecastInsights
 import com.meteocompare.app.ui.citydetail.buildOverviewTimeline
+import com.meteocompare.app.ui.citydetail.disagreementTitleRes
+import com.meteocompare.app.ui.citydetail.likelyPrecipitationTitleRes
+import com.meteocompare.app.ui.citydetail.temperatureChangeTitleRes
+import com.meteocompare.app.ui.citydetail.weatherChangeTitleRes
+import com.meteocompare.app.ui.citydetail.windEventTitleRes
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -165,78 +169,13 @@ private fun ForecastInsight.toWidgetKeyInsight(
 private fun widgetInsightTitle(context: Context, insight: ForecastInsight): String = when (insight.kind) {
     ForecastInsightKind.HIGH_AGREEMENT ->
         context.getString(R.string.forecast_insight_title_stable_compact)
-    ForecastInsightKind.DISAGREEMENT -> context.getString(
-        when (primaryDivergenceReason(insight.divergenceReasons)) {
-            DivergenceReason.PRECIPITATION -> R.string.forecast_insight_title_disagreement_rain
-            DivergenceReason.WIND -> R.string.forecast_insight_title_disagreement_wind
-            DivergenceReason.TEMPERATURE -> R.string.forecast_insight_title_disagreement_temperature
-            DivergenceReason.CONDITION -> R.string.forecast_insight_title_disagreement_condition
-            null -> R.string.forecast_insight_title_disagreement
-        }
-    )
-    ForecastInsightKind.RAIN_LIKELY -> context.getString(
-        when (insight.targetCondition) {
-            WeatherCondition.THUNDERSTORM -> R.string.forecast_insight_title_weather_thunderstorm
-            WeatherCondition.FREEZING_RAIN -> R.string.forecast_insight_title_weather_freezing_rain
-            WeatherCondition.SNOW,
-            WeatherCondition.SNOW_SHOWERS -> R.string.forecast_insight_title_weather_snow
-            else -> if (insight.isStrengtheningRainSignal) {
-                R.string.forecast_insight_title_rain_strengthening
-            } else {
-                R.string.forecast_insight_title_rain_likely
-            }
-        }
-    )
+    ForecastInsightKind.DISAGREEMENT -> context.getString(disagreementTitleRes(insight.divergenceReasons))
+    ForecastInsightKind.RAIN_LIKELY -> context.getString(likelyPrecipitationTitleRes(insight))
     ForecastInsightKind.RAIN_UNCERTAIN ->
         context.getString(R.string.forecast_insight_title_rain_uncertain)
-    ForecastInsightKind.WIND_EVENT -> {
-        val baseline = insight.value
-        val target = insight.secondaryValue
-        val delta = if (baseline != null && target != null) target - baseline else 0
-        context.getString(
-            when {
-                (target ?: 0) >= 60 -> R.string.forecast_insight_title_wind_very_strong
-                delta >= 15 -> R.string.forecast_insight_title_wind_rising
-                else -> R.string.forecast_insight_title_wind_strong
-            }
-        )
-    }
-    ForecastInsightKind.TEMPERATURE_CHANGE -> {
-        val target = insight.targetValue
-        val delta = insight.value ?: 0
-        val uncertain = DivergenceReason.TEMPERATURE in insight.divergenceReasons
-        context.getString(
-            when {
-                target != null && target <= 0 -> R.string.forecast_insight_title_temperature_frost
-                target != null && target >= 35 -> R.string.forecast_insight_title_temperature_extreme_heat
-                target != null && target >= 30 -> R.string.forecast_insight_title_temperature_heat
-                uncertain -> R.string.forecast_insight_title_temperature_uncertain
-                delta < 0 -> R.string.forecast_insight_title_temperature_unusual_cooling
-                else -> R.string.forecast_insight_title_temperature_unusual_warming
-            }
-        )
-    }
-    ForecastInsightKind.WEATHER_CHANGE -> context.getString(
-        when (insight.targetCondition) {
-            WeatherCondition.FOG -> R.string.forecast_insight_title_weather_fog
-            WeatherCondition.THUNDERSTORM -> R.string.forecast_insight_title_weather_thunderstorm
-            WeatherCondition.FREEZING_RAIN -> R.string.forecast_insight_title_weather_freezing_rain
-            WeatherCondition.SNOW,
-            WeatherCondition.SNOW_SHOWERS -> R.string.forecast_insight_title_weather_snow
-            else -> {
-                val reference = insight.referenceCondition
-                val target = insight.targetCondition
-                val improves = reference != null && target != null &&
-                    target.severityRank < reference.severityRank
-                when {
-                    improves -> R.string.forecast_insight_title_weather_improving
-                    insight.level == ForecastInsightLevel.INFO ->
-                        R.string.forecast_insight_title_weather_change
-                    else -> R.string.forecast_insight_title_weather_worsening
-                }
-            }
-        }
-    )
+    ForecastInsightKind.WIND_EVENT -> context.getString(windEventTitleRes(insight))
+    ForecastInsightKind.TEMPERATURE_CHANGE -> context.getString(temperatureChangeTitleRes(insight))
+    ForecastInsightKind.WEATHER_CHANGE -> context.getString(weatherChangeTitleRes(insight))
 }
 
 private fun widgetEvidenceRange(context: Context, insight: ForecastInsight): String? {
@@ -373,14 +312,6 @@ private fun comparisonTimeLabel(
         DateTimeFormatter.ofPattern("EEE d", currentLocale(context))
     ) ?: context.getString(R.string.widget_value_next)
 }
-
-private fun primaryDivergenceReason(reasons: Set<DivergenceReason>): DivergenceReason? =
-    listOf(
-        DivergenceReason.PRECIPITATION,
-        DivergenceReason.WIND,
-        DivergenceReason.TEMPERATURE,
-        DivergenceReason.CONDITION
-    ).firstOrNull { it in reasons }
 
 private fun resolveWidgetZone(timezone: String?): ZoneId = resolveZoneOrUtc(timezone)
 
