@@ -1,6 +1,12 @@
 package com.meteocompare.app.ui.citydetail
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.saveable.Saver
+import androidx.compose.ui.graphics.Color
+import com.meteocompare.app.ui.theme.precipitationMetricAccent
+import com.meteocompare.app.ui.theme.temperatureMetricAccent
+import com.meteocompare.app.ui.theme.windMetricAccent
 
 /**
  * Métrique visualisée par la bande de convergence horaire.
@@ -29,4 +35,13 @@ enum class ConfidenceMetric {
             restore = { runCatching { valueOf(it) }.getOrDefault(TEMPERATURE) }
         )
     }
+}
+
+/** Source unique de l'accent d'une courbe ou d'un contrôle de métrique. */
+@Composable
+@ReadOnlyComposable
+internal fun ConfidenceMetric.accentColor(): Color = when (this) {
+    ConfidenceMetric.TEMPERATURE -> temperatureMetricAccent()
+    ConfidenceMetric.PRECIPITATION -> precipitationMetricAccent()
+    ConfidenceMetric.WIND -> windMetricAccent()
 }

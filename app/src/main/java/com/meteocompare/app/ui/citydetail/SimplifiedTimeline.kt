@@ -65,6 +65,7 @@ import com.meteocompare.app.ui.components.WeatherIconDecorative
 import com.meteocompare.app.ui.components.blendedHeatmapColor
 import com.meteocompare.app.ui.components.semanticTint
 import com.meteocompare.app.ui.components.temperatureHeatmapColor
+import com.meteocompare.app.ui.theme.confidenceColor
 import com.meteocompare.app.ui.theme.precipitationMetricAccent
 import com.meteocompare.app.ui.theme.windMetricAccent
 import java.time.Instant
@@ -913,20 +914,18 @@ private fun timelinePrecipitationAmountLabel(point: SimplifiedTimelinePoint): St
 private fun TimelineConsensus(point: SimplifiedTimelinePoint) {
     val reasons = orderedDivergenceReasons(point.divergenceReasons)
     val hasDisagreement = reasons.isNotEmpty()
-    val displayLevel = when {
-        hasDisagreement && point.consensusLevel == ModelConsensusLevel.HIGH ->
-            ModelConsensusLevel.MEDIUM
-        else -> point.consensusLevel
+    val displayLevel = timelineConsensusDisplayLevel(point)
+    val colorAnchor = timelineConsensusColorAnchor(displayLevel)
+    val color = if (colorAnchor != null) {
+        confidenceColor(colorAnchor)
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
     }
-    val (agreementLabel, color) = when (displayLevel) {
-        ModelConsensusLevel.HIGH -> stringResource(R.string.timeline_consensus_high) to
-            MaterialTheme.colorScheme.primary
-        ModelConsensusLevel.MEDIUM -> stringResource(R.string.timeline_consensus_medium) to
-            MaterialTheme.colorScheme.tertiary
-        ModelConsensusLevel.LOW -> stringResource(R.string.timeline_consensus_low) to
-            MaterialTheme.colorScheme.error
-        null -> stringResource(R.string.timeline_consensus_limited) to
-            MaterialTheme.colorScheme.onSurfaceVariant
+    val agreementLabel = when (displayLevel) {
+        ModelConsensusLevel.HIGH -> stringResource(R.string.timeline_consensus_high)
+        ModelConsensusLevel.MEDIUM -> stringResource(R.string.timeline_consensus_medium)
+        ModelConsensusLevel.LOW -> stringResource(R.string.timeline_consensus_low)
+        null -> stringResource(R.string.timeline_consensus_limited)
     }
     val reasonItems = reasons.map { reason ->
         when (reason) {
@@ -988,7 +987,7 @@ private fun TimelineConsensus(point: SimplifiedTimelinePoint) {
             Text(
                 text = point.consensusPercent?.let { "$it%" } ?: "—",
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = color,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1
             )
@@ -1022,6 +1021,25 @@ private fun TimelineConsensus(point: SimplifiedTimelinePoint) {
             }
         }
     }
+}
+
+/** Dégrade une convergence haute dès qu'une variable explicite diverge. */
+internal fun timelineConsensusDisplayLevel(point: SimplifiedTimelinePoint): ModelConsensusLevel? =
+    if (point.divergenceReasons.isNotEmpty() && point.consensusLevel == ModelConsensusLevel.HIGH) {
+        ModelConsensusLevel.MEDIUM
+    } else {
+        point.consensusLevel
+    }
+
+/**
+ * Valeur d'ancrage utilisée uniquement pour sélectionner la palette
+ * vert / orange / rouge de [confidenceColor].
+ */
+internal fun timelineConsensusColorAnchor(level: ModelConsensusLevel?): Int? = when (level) {
+    ModelConsensusLevel.HIGH -> 80
+    ModelConsensusLevel.MEDIUM -> 50
+    ModelConsensusLevel.LOW -> 0
+    null -> null
 }
 
 private fun orderedDivergenceReasons(

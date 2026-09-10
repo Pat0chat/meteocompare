@@ -112,10 +112,7 @@ fun HourlyConfidenceChart(
     val zone = remember(timezone) { resolveCityZone(timezone) }
     val onSurface = MaterialTheme.colorScheme.onSurfaceVariant
     val gridColor = MaterialTheme.colorScheme.outlineVariant
-    val meanLineColor = when (metric) {
-        ConfidenceMetric.WIND -> windMetricAccent()
-        else -> MaterialTheme.colorScheme.primary
-    }
+    val meanLineColor = metric.accentColor()
     val textMeasurer = rememberTextMeasurer()
     val labelStyle = TextStyle(color = onSurface, fontSize = 10.sp)
 

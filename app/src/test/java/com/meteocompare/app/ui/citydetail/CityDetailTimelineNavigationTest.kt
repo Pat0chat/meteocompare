@@ -1,5 +1,6 @@
 package com.meteocompare.app.ui.citydetail
 
+import androidx.compose.ui.unit.dp
 import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
@@ -52,6 +53,24 @@ class CityDetailTimelineNavigationTest {
         assertEquals(0, chronoFocusScrollOffset(index = 0, pointWidthPx = 96))
         assertEquals(0, chronoFocusScrollOffset(index = 1, pointWidthPx = 96))
         assertEquals(1_152, chronoFocusScrollOffset(index = 13, pointWidthPx = 96))
+    }
+
+    @Test
+    fun `chrono fixed label column stays compact on phones and tablets`() {
+        assertEquals(104.dp, chronoLabelColumnWidth(screenWidthDp = 412))
+        assertEquals(128.dp, chronoLabelColumnWidth(screenWidthDp = 800))
+    }
+
+    @Test
+    fun `timeline convergence maps to semantic colors and honors divergence`() {
+        val high = SimplifiedTimelinePoint(consensusLevel = ModelConsensusLevel.HIGH)
+        val divergentHigh = high.copy(divergenceReasons = setOf(DivergenceReason.WIND))
+
+        assertEquals(ModelConsensusLevel.HIGH, timelineConsensusDisplayLevel(high))
+        assertEquals(80, timelineConsensusColorAnchor(timelineConsensusDisplayLevel(high)))
+        assertEquals(ModelConsensusLevel.MEDIUM, timelineConsensusDisplayLevel(divergentHigh))
+        assertEquals(50, timelineConsensusColorAnchor(timelineConsensusDisplayLevel(divergentHigh)))
+        assertEquals(0, timelineConsensusColorAnchor(ModelConsensusLevel.LOW))
     }
 
     @Test

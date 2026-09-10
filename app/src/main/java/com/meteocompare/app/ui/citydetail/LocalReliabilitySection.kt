@@ -46,9 +46,6 @@ import com.meteocompare.app.domain.model.HourlyConfidenceBand
 import com.meteocompare.app.ui.components.CollapsibleSectionHeader
 import com.meteocompare.app.ui.components.ModernTextTabs
 import com.meteocompare.app.ui.theme.confidenceColor
-import com.meteocompare.app.ui.theme.precipitationMetricAccent
-import com.meteocompare.app.ui.theme.temperatureMetricAccent
-import com.meteocompare.app.ui.theme.windMetricAccent
 
 internal const val TAG_LOCAL_RELIABILITY_CARD = "local-reliability-card"
 internal const val TAG_LOCAL_RELIABILITY_HEADER = "local-reliability-header"
@@ -85,7 +82,7 @@ internal fun LocalReliabilitySection(
     val metric = savedMetric.takeIf { it in availableMetrics } ?: availableMetrics.first()
     val activeVariable = metric.toBiasVariable()
     val activeRanking = rankings.forVariable(activeVariable)
-    val activeAccent = metricAccent(metric)
+    val activeAccent = metric.accentColor()
     val bands = when (metric) {
         ConfidenceMetric.TEMPERATURE -> tempBands
         ConfidenceMetric.PRECIPITATION -> precipBands
@@ -239,21 +236,21 @@ private fun ReliabilityWinnersSummary(
     ) {
         ReliabilityWinnerCompact(
             icon = Icons.Outlined.Thermostat,
-            accent = temperatureMetricAccent(),
+            accent = ConfidenceMetric.TEMPERATURE.accentColor(),
             winner = rankings.temperature.winner,
             modifier = Modifier.weight(1f),
             onClick = { onOpenRanking(BiasVariable.TEMPERATURE) }
         )
         ReliabilityWinnerCompact(
             icon = Icons.Outlined.WaterDrop,
-            accent = precipitationMetricAccent(),
+            accent = ConfidenceMetric.PRECIPITATION.accentColor(),
             winner = rankings.precipitation.winner,
             modifier = Modifier.weight(1f),
             onClick = { onOpenRanking(BiasVariable.PRECIPITATION) }
         )
         ReliabilityWinnerCompact(
             icon = Icons.Outlined.Air,
-            accent = windMetricAccent(),
+            accent = ConfidenceMetric.WIND.accentColor(),
             winner = rankings.wind.winner,
             modifier = Modifier.weight(1f),
             onClick = { onOpenRanking(BiasVariable.WIND_SPEED) }
@@ -313,7 +310,7 @@ private fun ReliabilityMetricTabs(
                 }
             )
         },
-        accent = metricAccent(selected),
+        accent = selected.accentColor(),
         modifier = modifier.fillMaxWidth()
     )
 }
@@ -347,13 +344,6 @@ private fun ConfidenceMetric.toBiasVariable(): BiasVariable = when (this) {
     ConfidenceMetric.TEMPERATURE -> BiasVariable.TEMPERATURE
     ConfidenceMetric.PRECIPITATION -> BiasVariable.PRECIPITATION
     ConfidenceMetric.WIND -> BiasVariable.WIND_SPEED
-}
-
-@Composable
-private fun metricAccent(metric: ConfidenceMetric): Color = when (metric) {
-    ConfidenceMetric.TEMPERATURE -> temperatureMetricAccent()
-    ConfidenceMetric.PRECIPITATION -> precipitationMetricAccent()
-    ConfidenceMetric.WIND -> windMetricAccent()
 }
 
 private fun metricIcon(metric: ConfidenceMetric): ImageVector = when (metric) {

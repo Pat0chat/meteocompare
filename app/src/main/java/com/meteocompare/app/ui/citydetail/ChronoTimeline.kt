@@ -58,6 +58,7 @@ import com.meteocompare.app.R
 import com.meteocompare.app.ui.components.WeatherIconDecorative
 import com.meteocompare.app.ui.components.semanticTint
 import com.meteocompare.app.ui.components.temperatureHeatmapColor
+import com.meteocompare.app.ui.theme.confidenceColor
 import com.meteocompare.app.ui.theme.precipitationMetricAccent
 import com.meteocompare.app.ui.theme.temperatureMetricAccent
 import com.meteocompare.app.ui.theme.windMetricAccent
@@ -94,7 +95,7 @@ internal fun ChronoTimelineView(
     val dayFormatter = remember(locale) { DateTimeFormatter.ofPattern("EEE d", locale) }
     val pointWidth = chronoPointWidth(mode)
     val contentWidth = pointWidth * points.size.toFloat()
-    val labelWidth = if (configuration.screenWidthDp >= 600) 138.dp else 116.dp
+    val labelWidth = chronoLabelColumnWidth(configuration.screenWidthDp)
     val scheme = MaterialTheme.colorScheme
     val highlightedIndex = remember(points, highlightedKey) {
         highlightedKey?.let { key -> points.indexOfFirst { timelinePointKey(it) == key } }
@@ -268,7 +269,7 @@ private fun ChronoLabelsColumn(
                 title = stringResource(R.string.home_agreement_label),
                 support = "%",
                 height = CHRONO_AGREEMENT_HEIGHT,
-                tint = scheme.primary
+                tint = confidenceColor(80)
             )
         }
 
@@ -741,20 +742,15 @@ private fun ChronoAgreementLane(points: List<SimplifiedTimelinePoint>) {
         modifier = Modifier
             .fillMaxWidth()
             .height(CHRONO_AGREEMENT_HEIGHT)
-            .background(scheme.primary.copy(alpha = 0.010f))
     ) {
         points.forEach { point ->
             val reasons = chronoOrderedDivergenceReasons(point.divergenceReasons)
-            val displayLevel = when {
-                reasons.isNotEmpty() && point.consensusLevel == ModelConsensusLevel.HIGH ->
-                    ModelConsensusLevel.MEDIUM
-                else -> point.consensusLevel
-            }
-            val tone = when (displayLevel) {
-                ModelConsensusLevel.HIGH -> scheme.primary
-                ModelConsensusLevel.MEDIUM -> scheme.tertiary
-                ModelConsensusLevel.LOW -> scheme.error
-                null -> scheme.onSurfaceVariant
+            val displayLevel = timelineConsensusDisplayLevel(point)
+            val colorAnchor = timelineConsensusColorAnchor(displayLevel)
+            val tone = if (colorAnchor != null) {
+                confidenceColor(colorAnchor)
+            } else {
+                scheme.onSurfaceVariant
             }
             ChronoCell {
                 Column(
@@ -808,24 +804,18 @@ private fun ChronoAgreementLane(points: List<SimplifiedTimelinePoint>) {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         reasons.take(3).forEach { reason ->
-                            val reasonAccent = when (reason) {
-                                DivergenceReason.PRECIPITATION -> precipitationMetricAccent()
-                                DivergenceReason.WIND -> windMetricAccent()
-                                DivergenceReason.TEMPERATURE -> temperatureMetricAccent()
-                                DivergenceReason.CONDITION -> scheme.secondary
-                            }
                             Box(
                                 modifier = Modifier
                                     .padding(start = 3.dp)
                                     .size(CHRONO_AGREEMENT_REASON_ICON_BOX_SIZE)
                                     .clip(RoundedCornerShape(6.dp))
-                                    .background(reasonAccent.copy(alpha = 0.10f)),
+                                    .background(tone.copy(alpha = 0.10f)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = chronoDivergenceIcon(reason),
                                     contentDescription = null,
-                                    tint = reasonAccent,
+                                    tint = tone,
                                     modifier = Modifier.size(11.dp)
                                 )
                             }
@@ -963,6 +953,9 @@ internal fun chronoPointWidth(mode: DisplayMode): Dp = when (mode) {
     DisplayMode.HOURLY -> 96.dp
     DisplayMode.DAILY -> 132.dp
 }
+
+internal fun chronoLabelColumnWidth(screenWidthDp: Int): Dp =
+    if (screenWidthDp >= 600) 128.dp else 104.dp
 
 internal const val TAG_TIMELINE_CHRONO_VIEW = "timeline_chrono_view"
 internal const val TAG_TIMELINE_CHRONO_DATE_LANE = "timeline_chrono_date_lane"
