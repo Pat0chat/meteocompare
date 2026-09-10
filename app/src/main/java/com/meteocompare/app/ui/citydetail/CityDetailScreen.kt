@@ -105,7 +105,8 @@ import com.meteocompare.app.ui.components.CollapsibleSectionHeader
 import com.meteocompare.app.ui.components.OfflineDataBanner
 import com.meteocompare.app.ui.components.OpenMeteoAttribution
 import com.meteocompare.app.ui.components.VigilanceDetailCard
-import com.meteocompare.app.ui.citylist.WeatherAccent
+import com.meteocompare.app.ui.theme.WeatherAccent
+import com.meteocompare.app.ui.theme.WeatherAccentTheme
 import com.meteocompare.app.ui.theme.confidenceColor
 import com.meteocompare.app.ui.theme.precipitationMetricAccent
 import com.meteocompare.app.ui.theme.temperatureMetricAccent
@@ -217,133 +218,137 @@ internal fun CityDetailContent(
     onEngineComparisonClick: () -> Unit = {},
     showBackButton: Boolean = true
 ) {
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
-        topBar = {
-            TopAppBar(
-                title = {
-                    val loaded = state as? CityDetailUiState.Loaded
-                    Column {
-                        Text(
-                            text = loaded?.forecast?.city?.name
-                                ?: stringResource(R.string.title_detail_fallback),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1
-                        )
-                        loaded?.forecast?.city?.let { city ->
-                            val subtitle = city.country
-                            if (subtitle.isNotBlank()) {
-                                Text(
-                                    text = subtitle,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1
+    WeatherAccentTheme(
+        condition = (state as? CityDetailUiState.Loaded)?.currentCondition
+    ) {
+        Scaffold(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+            topBar = {
+                TopAppBar(
+                    title = {
+                        val loaded = state as? CityDetailUiState.Loaded
+                        Column {
+                            Text(
+                                text = loaded?.forecast?.city?.name
+                                    ?: stringResource(R.string.title_detail_fallback),
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1
+                            )
+                            loaded?.forecast?.city?.let { city ->
+                                val subtitle = city.country
+                                if (subtitle.isNotBlank()) {
+                                    Text(
+                                        text = subtitle,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1
+                                    )
+                                }
+                            }
+                        }
+                    },
+                    navigationIcon = {
+                        if (showBackButton) {
+                            IconButton(onClick = onBack) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = stringResource(R.string.nav_back)
                                 )
                             }
                         }
-                    }
-                },
-                navigationIcon = {
-                    if (showBackButton) {
-                        IconButton(onClick = onBack) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = stringResource(R.string.nav_back)
-                            )
+                    },
+                    actions = {
+                        if (state is CityDetailUiState.Loaded) {
+                            IconButton(
+                                onClick = onEngineComparisonClick,
+                                modifier = Modifier.testTag(TAG_ENGINE_COMPARISON_ACTION)
+                            ) {
+                                Icon(
+                                    Icons.Filled.QueryStats,
+                                    contentDescription = stringResource(R.string.engine_comparison_open)
+                                )
+                            }
                         }
-                    }
-                },
-                actions = {
-                    if (state is CityDetailUiState.Loaded) {
-                        IconButton(
-                            onClick = onEngineComparisonClick,
-                            modifier = Modifier.testTag(TAG_ENGINE_COMPARISON_ACTION)
-                        ) {
-                            Icon(
-                                Icons.Filled.QueryStats,
-                                contentDescription = stringResource(R.string.engine_comparison_open)
-                            )
+                        IconButton(onClick = onRefresh, enabled = !isRefreshing) {
+                            if (isRefreshing) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Icon(
+                                    Icons.Default.Refresh,
+                                    contentDescription = stringResource(R.string.action_refresh)
+                                )
+                            }
                         }
-                    }
-                    IconButton(onClick = onRefresh, enabled = !isRefreshing) {
-                        if (isRefreshing) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Icon(
-                                Icons.Default.Refresh,
-                                contentDescription = stringResource(R.string.action_refresh)
-                            )
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest
-                )
-            )
-        },
-        snackbarHost = {
-            if (snackbarHostState != null) SnackbarHost(snackbarHostState)
-        }
-    ) { padding ->
-        AnimatedContent(
-            targetState = state,
-            transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(300)) },
-            label = "detail-state",
-            contentKey = {
-                when (it) {
-                    CityDetailUiState.Loading -> "loading"
-                    is CityDetailUiState.Loaded -> "loaded"
-                    is CityDetailUiState.Error -> "error"
-                }
-            }
-        ) { s ->
-            when (s) {
-                CityDetailUiState.Loading -> LoadingView(padding)
-                is CityDetailUiState.Error -> ErrorView(
-                    message = s.message,
-                    onRetry = onRefresh,
-                    padding = padding
-                )
-                is CityDetailUiState.Loaded -> PullToRefreshBox(
-                    isRefreshing = isRefreshing,
-                    onRefresh = onRefresh,
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    LoadedView(
-                        forecast = s.forecast,
-                        weekly = s.weeklyConfidence,
-                        hourlyBands = s.hourlyBands,
-                        hourlyPrecipBands = s.hourlyPrecipBands,
-                        hourlyWindBands = s.hourlyWindBands,
-                        currentTemp = s.currentTemp,
-                        currentCondition = s.currentCondition,
-                        currentCloudCover = s.currentCloudCover,
-                        dailyConditions = s.dailyConditions,
-                        normals = s.normals,
-                        engineContext = s.engineContext,
-                        calculatedAt = s.calculatedAt,
-                        fetchedAt = s.fetchedAt,
-                        isOnline = isOnline,
-                        biasState = biasState,
-                        evolutionState = evolutionState,
-                        marineState = marineState,
-                        vigilance = (vigilanceState as? VigilanceUiState.Loaded)?.forecast
-                            ?.takeIf { s.forecast.city.isFrenchLocation },
-                        collapsedSections = collapsedSections,
-                        detailViewMode = detailViewMode,
-                        detailContentTab = detailContentTab,
-                        padding = padding,
-                        onSectionExpandedChange = onSectionExpandedChange,
-                        onDetailViewModeChange = onDetailViewModeChange,
-                        onDetailContentTabChange = onDetailContentTabChange,
-                        onRefreshMarine = onRefreshMarine,
-                        onConfidenceClick = onConfidenceClick
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                        scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest
                     )
+                )
+            },
+            snackbarHost = {
+                if (snackbarHostState != null) SnackbarHost(snackbarHostState)
+            }
+        ) { padding ->
+            AnimatedContent(
+                targetState = state,
+                transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(300)) },
+                label = "detail-state",
+                contentKey = {
+                    when (it) {
+                        CityDetailUiState.Loading -> "loading"
+                        is CityDetailUiState.Loaded -> "loaded"
+                        is CityDetailUiState.Error -> "error"
+                    }
+                }
+            ) { s ->
+                when (s) {
+                    CityDetailUiState.Loading -> LoadingView(padding)
+                    is CityDetailUiState.Error -> ErrorView(
+                        message = s.message,
+                        onRetry = onRefresh,
+                        padding = padding
+                    )
+                    is CityDetailUiState.Loaded -> PullToRefreshBox(
+                        isRefreshing = isRefreshing,
+                        onRefresh = onRefresh,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        LoadedView(
+                            forecast = s.forecast,
+                            weekly = s.weeklyConfidence,
+                            hourlyBands = s.hourlyBands,
+                            hourlyPrecipBands = s.hourlyPrecipBands,
+                            hourlyWindBands = s.hourlyWindBands,
+                            currentTemp = s.currentTemp,
+                            currentCondition = s.currentCondition,
+                            currentCloudCover = s.currentCloudCover,
+                            dailyConditions = s.dailyConditions,
+                            normals = s.normals,
+                            engineContext = s.engineContext,
+                            calculatedAt = s.calculatedAt,
+                            fetchedAt = s.fetchedAt,
+                            isOnline = isOnline,
+                            biasState = biasState,
+                            evolutionState = evolutionState,
+                            marineState = marineState,
+                            vigilance = (vigilanceState as? VigilanceUiState.Loaded)?.forecast
+                                ?.takeIf { s.forecast.city.isFrenchLocation },
+                            collapsedSections = collapsedSections,
+                            detailViewMode = detailViewMode,
+                            detailContentTab = detailContentTab,
+                            padding = padding,
+                            onSectionExpandedChange = onSectionExpandedChange,
+                            onDetailViewModeChange = onDetailViewModeChange,
+                            onDetailContentTabChange = onDetailContentTabChange,
+                            onRefreshMarine = onRefreshMarine,
+                            onConfidenceClick = onConfidenceClick
+                        )
+                    }
                 }
             }
         }

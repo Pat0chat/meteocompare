@@ -53,6 +53,7 @@ import com.meteocompare.app.domain.model.PrecipitationConfidence
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.ui.theme.color
 import com.meteocompare.app.ui.theme.confidenceColor
+import com.meteocompare.app.ui.theme.WeatherAccentTheme
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
 
@@ -79,29 +80,33 @@ internal fun ConfidenceExplanationContent(
     state: ConfidenceExplanationUiState,
     onBack: () -> Unit
 ) {
-    Scaffold(
-        modifier = Modifier.testTag(TAG_CONFIDENCE_EXPLANATION_ROOT),
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.confidence_explanation_title)) },
-                navigationIcon = {
-                    IconButton(
-                        onClick = onBack,
-                        modifier = Modifier.testTag(TAG_CONFIDENCE_EXPLANATION_BACK)
-                    ) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.nav_back)
-                        )
+    WeatherAccentTheme(
+        condition = (state as? ConfidenceExplanationUiState.Loaded)?.currentCondition
+    ) {
+        Scaffold(
+            modifier = Modifier.testTag(TAG_CONFIDENCE_EXPLANATION_ROOT),
+            topBar = {
+                TopAppBar(
+                    title = { Text(stringResource(R.string.confidence_explanation_title)) },
+                    navigationIcon = {
+                        IconButton(
+                            onClick = onBack,
+                            modifier = Modifier.testTag(TAG_CONFIDENCE_EXPLANATION_BACK)
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = stringResource(R.string.nav_back)
+                            )
+                        }
                     }
-                }
-            )
-        }
-    ) { padding ->
-        when (state) {
-            ConfidenceExplanationUiState.Loading -> LoadingView(padding)
-            is ConfidenceExplanationUiState.Error -> ErrorView(state.message, padding)
-            is ConfidenceExplanationUiState.Loaded -> LoadedView(state, padding)
+                )
+            }
+        ) { padding ->
+            when (state) {
+                ConfidenceExplanationUiState.Loading -> LoadingView(padding)
+                is ConfidenceExplanationUiState.Error -> ErrorView(state.message, padding)
+                is ConfidenceExplanationUiState.Loaded -> LoadedView(state, padding)
+            }
         }
     }
 }

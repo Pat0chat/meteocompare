@@ -2,6 +2,7 @@ package com.meteocompare.app.ui.citylist
 
 import androidx.compose.ui.graphics.Color
 import com.meteocompare.app.domain.model.WeatherCondition
+import com.meteocompare.app.ui.theme.WeatherAccent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue

@@ -69,6 +69,7 @@ import com.meteocompare.app.domain.usecase.EngineDivergenceLevel
 import com.meteocompare.app.ui.components.AppToastEffect
 import com.meteocompare.app.ui.components.ModernStateChip
 import com.meteocompare.app.ui.components.OpenMeteoAttribution
+import com.meteocompare.app.ui.theme.WeatherAccentTheme
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
@@ -84,47 +85,57 @@ fun EngineComparisonScreen(
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         viewModel.refreshIfStale()
     }
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.engine_comparison_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.nav_back)
-                        )
+    WeatherAccentTheme(condition = state.weatherAccentCondition()) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text(stringResource(R.string.engine_comparison_title)) },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = stringResource(R.string.nav_back)
+                            )
+                        }
+                    }
+                )
+            }
+        ) { padding ->
+            when (val current = state) {
+                EngineComparisonUiState.Loading -> Box(
+                    modifier = Modifier.fillMaxSize().padding(padding),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+
+                is EngineComparisonUiState.Error -> Box(
+                    modifier = Modifier.fillMaxSize().padding(padding).padding(24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(current.message)
+                        TextButton(onClick = viewModel::retry) {
+                            Text(stringResource(R.string.action_retry))
+                        }
                     }
                 }
-            )
-        }
-    ) { padding ->
-        when (val current = state) {
-            EngineComparisonUiState.Loading -> Box(
-                modifier = Modifier.fillMaxSize().padding(padding),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
-            }
 
-            is EngineComparisonUiState.Error -> Box(
-                modifier = Modifier.fillMaxSize().padding(padding).padding(24.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(current.message)
-                    TextButton(onClick = viewModel::retry) {
-                        Text(stringResource(R.string.action_retry))
-                    }
-                }
+                is EngineComparisonUiState.Loaded -> EngineComparisonContent(
+                    state = current,
+                    modifier = Modifier.padding(padding)
+                )
             }
-
-            is EngineComparisonUiState.Loaded -> EngineComparisonContent(
-                state = current,
-                modifier = Modifier.padding(padding)
-            )
         }
     }
+}
+
+/** La premiere echeance est aujourd'hui dans le fuseau de la ville. */
+private fun EngineComparisonUiState.weatherAccentCondition(): WeatherCondition? {
+    val loaded = this as? EngineComparisonUiState.Loaded ?: return null
+    val firstDay = loaded.days.firstOrNull() ?: return null
+    return firstDay.byEngine[loaded.selectedEngine]?.condition
+        ?: firstDay.byEngine.values.asSequence().mapNotNull { it.condition }.firstOrNull()
 }
 
 @OptIn(ExperimentalLayoutApi::class)

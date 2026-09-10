@@ -11,6 +11,7 @@ import com.meteocompare.app.core.util.runSuspendCatching
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DayConfidence
+import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.di.DefaultDispatcher
 import com.meteocompare.app.domain.repository.CityRepository
@@ -38,6 +39,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.time.Instant
+import java.time.Clock
 import java.time.LocalDate
 import javax.inject.Inject
 
@@ -70,7 +72,9 @@ sealed interface ConfidenceExplanationUiState {
         val date: LocalDate,
         val dayConfidence: DayConfidence,
         val variableBreakdowns: List<VariableBreakdown>,
-        val contributingModels: List<WeatherModel>
+        val contributingModels: List<WeatherModel>,
+        /** Condition actuelle de la ville, utilisee par le theme d'accent. */
+        val currentCondition: WeatherCondition? = null
     ) : ConfidenceExplanationUiState
 
     data class Error(val message: String) : ConfidenceExplanationUiState
@@ -105,7 +109,8 @@ class ConfidenceExplanationViewModel @Inject constructor(
     private val forecastRepository: ForecastRepository,
     private val userPreferences: UserPreferencesRepository,
     private val confidenceCalculator: ConfidenceCalculator,
-    @param:DefaultDispatcher private val computationDispatcher: CoroutineDispatcher = Dispatchers.Default
+    @param:DefaultDispatcher private val computationDispatcher: CoroutineDispatcher = Dispatchers.Default,
+    private val clock: Clock = Clock.systemUTC()
 ) : ViewModel() {
 
     private val cityId: String = checkNotNull(
@@ -277,7 +282,11 @@ class ConfidenceExplanationViewModel @Inject constructor(
             date = date,
             dayConfidence = dayConfidence,
             variableBreakdowns = breakdowns,
-            contributingModels = contributing
+            contributingModels = contributing,
+            currentCondition = confidenceCalculator.currentWeatherCondition(
+                forecast = forecast,
+                now = clock.instant()
+            )
         )
     }
 

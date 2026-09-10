@@ -107,9 +107,9 @@ internal fun DetailedComparisonControls(
 }
 
 /**
- * Contrôle de granularité volontairement discret. Il reste identifiable comme
- * un bouton, mais se fond dans la Surface de section. Le menu reprend les tons
- * Material 3 de l'application et réserve l'accent à l'option active.
+ * Contrôle de granularité volontairement compact. Son fond tonal reprend
+ * l'accent météo de la ville et le menu renforce la même teinte sur l'option
+ * active.
  */
 @Composable
 internal fun DisplayModeMenu(
@@ -128,7 +128,7 @@ internal fun DisplayModeMenu(
             modifier = Modifier
                 .height(30.dp)
                 .clip(buttonShape)
-                .background(scheme.surfaceContainerHigh.copy(alpha = 0.38f))
+                .background(scheme.primaryContainer.copy(alpha = 0.62f))
                 .clickable(
                     role = Role.Button,
                     onClick = { expanded = true }
@@ -141,13 +141,13 @@ internal fun DisplayModeMenu(
                 text = stringResource(mode.labelRes),
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Medium,
-                color = scheme.onSurfaceVariant,
+                color = scheme.onPrimaryContainer,
                 maxLines = 1
             )
             Icon(
                 imageVector = Icons.Default.KeyboardArrowDown,
                 contentDescription = null,
-                tint = scheme.onSurfaceVariant.copy(alpha = 0.78f),
+                tint = scheme.primary,
                 modifier = Modifier.size(15.dp)
             )
         }

@@ -124,6 +124,8 @@ import com.meteocompare.app.ui.components.WeatherMetric
 import com.meteocompare.app.ui.components.VigilanceCompactBanner
 import com.meteocompare.app.ui.components.WeatherMetricLayout
 import com.meteocompare.app.ui.settings.DonationDialog
+import com.meteocompare.app.ui.theme.WeatherAccent
+import com.meteocompare.app.ui.theme.WeatherAccentTheme
 import com.meteocompare.app.ui.theme.confidenceColor
 import com.meteocompare.app.ui.theme.precipitationMetricAccent
 import com.meteocompare.app.ui.theme.temperatureMetricAccent
@@ -171,39 +173,64 @@ fun CityListScreen(
     AppToastEffect(marineToasts)
     AppToastEffect(viewModel.actionFeedback)
 
-    CityListContent(
-        uiState = uiState,
-        onCityClick = onCityClick,
-        onAddClick = { showAddSheet = true },
-        onDonateClick = { showDonationDialog = true },
-        onHelpClick = onHelpClick,
-        onSettingsClick = onSettingsClick,
-        onRemoveCity = viewModel::onRemoveCity,
-        onRetry = viewModel::onRetry,
-        onRefresh = viewModel::onRefreshAll,
-        onMarineAction = viewModel::onMarineAction,
-        selectedCityId = selectedCityId,
-        selectionEnabled = selectionEnabled
-    )
-
-    if (showDonationDialog) {
-        DonationDialog(onDismiss = { showDonationDialog = false })
-    }
-
-    if (showAddSheet) {
-        AddCitySheet(
-            state = addState,
-            onQueryChanged = viewModel::onSearchQueryChanged,
-            onCitySelected = { city ->
-                viewModel.onAddCity(city)
-                showAddSheet = false
-            },
-            onDismiss = {
-                showAddSheet = false
-                viewModel.onSearchQueryChanged("")
-            }
+    WeatherAccentTheme(
+        condition = uiState.weatherAccentCondition(selectedCityId)
+    ) {
+        CityListContent(
+            uiState = uiState,
+            onCityClick = onCityClick,
+            onAddClick = { showAddSheet = true },
+            onDonateClick = { showDonationDialog = true },
+            onHelpClick = onHelpClick,
+            onSettingsClick = onSettingsClick,
+            onRemoveCity = viewModel::onRemoveCity,
+            onRetry = viewModel::onRetry,
+            onRefresh = viewModel::onRefreshAll,
+            onMarineAction = viewModel::onMarineAction,
+            selectedCityId = selectedCityId,
+            selectionEnabled = selectionEnabled
         )
+
+        if (showDonationDialog) {
+            DonationDialog(onDismiss = { showDonationDialog = false })
+        }
+
+        if (showAddSheet) {
+            AddCitySheet(
+                state = addState,
+                onQueryChanged = viewModel::onSearchQueryChanged,
+                onCitySelected = { city ->
+                    viewModel.onAddCity(city)
+                    showAddSheet = false
+                },
+                onDismiss = {
+                    showAddSheet = false
+                    viewModel.onSearchQueryChanged("")
+                }
+            )
+        }
     }
+}
+
+/**
+ * La liste n'a pas toujours une ville explicitement active. Sur tablette on
+ * suit la selection du volet detail ; sur telephone, la premiere favorite
+ * chargee sert de contexte meteo a la barre d'actions et au bouton d'ajout.
+ */
+internal fun CityListUiState.weatherAccentCondition(
+    selectedCityId: String?
+): WeatherCondition? {
+    if (selectedCityId != null) {
+        val selectedForecast = items
+            .firstOrNull { it.city.id == selectedCityId }
+            ?.forecast as? ForecastState.Loaded
+        return selectedForecast?.currentCondition
+    }
+
+    return items.asSequence()
+        .mapNotNull { it.forecast as? ForecastState.Loaded }
+        .mapNotNull(ForecastState.Loaded::currentCondition)
+        .firstOrNull()
 }
 
 @Composable
@@ -316,6 +343,8 @@ internal fun CityListContent(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onAddClick,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
                 modifier = Modifier.testTag(TAG_ADD_FAB)
             ) {
                 Icon(Icons.Default.Add, contentDescription = stringResource(R.string.action_add_city))
@@ -459,132 +488,131 @@ internal fun CityCard(
     val resources = LocalResources.current
     val a11yDescription = com.meteocompare.app.ui.accessibility.A11yFormatter
         .cityCardDescription(resources, state)
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val loaded = state.forecast as? ForecastState.Loaded
-    val accentColor = WeatherAccent.of(
-        condition = loaded?.currentCondition,
-        isDark = isDark
-    )
-    val selectionVisuals = cityCardSelectionVisuals(
-        selectionEnabled = selectionEnabled,
-        isSelected = isSelected
-    )
-    val emphasisAlpha by animateFloatAsState(
-        targetValue = selectionVisuals.targetAlpha,
-        animationSpec = tween(durationMillis = 180),
-        label = "city-card-selection-emphasis"
-    )
-    val targetAccentColor = if (
-        selectionVisuals.emphasis == CityCardVisualEmphasis.DEEMPHASIZED
-    ) {
-        deemphasizedCardAccentColor(isDark)
-    } else {
-        accentColor
-    }
-    val displayedAccentColor by animateColorAsState(
-        targetValue = targetAccentColor,
-        animationSpec = tween(durationMillis = 180),
-        label = "city-card-weather-accent"
-    )
-    val targetContainerColor = when {
-        selectionVisuals.usesWeatherTint -> weatherTintedCardColor(
-            baseColor = MaterialTheme.colorScheme.surfaceContainerLow,
-            weatherAccent = accentColor,
-            isDark = isDark
+    WeatherAccentTheme(condition = loaded?.currentCondition) {
+        val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+        val accentColor = WeatherAccent.of(condition = loaded?.currentCondition, isDark = isDark)
+        val selectionVisuals = cityCardSelectionVisuals(
+            selectionEnabled = selectionEnabled,
+            isSelected = isSelected
         )
-        selectionVisuals.emphasis == CityCardVisualEmphasis.DEEMPHASIZED -> {
-            deemphasizedCardContainerColor(isDark)
-        }
-        else -> MaterialTheme.colorScheme.surfaceContainerLow
-    }
-    val containerColor by animateColorAsState(
-        targetValue = targetContainerColor,
-        animationSpec = tween(durationMillis = 180),
-        label = "city-card-container"
-    )
-
-    Card(
-        onClick = onClick,
-        modifier = modifier
-            .fillMaxWidth()
-            .alpha(emphasisAlpha)
-            .testTag("$TAG_CITY_CARD${state.city.id}")
-            .semantics(mergeDescendants = true) {
-                contentDescription = a11yDescription
-                role = Role.Button
-                if (selectionEnabled) this.selected = isSelected
-                this[CityCardVisualEmphasisKey] = selectionVisuals.emphasis
-                this[CityCardTargetAlphaKey] =
-                    (selectionVisuals.targetAlpha * 100).roundToInt()
-            },
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = containerColor
+        val emphasisAlpha by animateFloatAsState(
+            targetValue = selectionVisuals.targetAlpha,
+            animationSpec = tween(durationMillis = 180),
+            label = "city-card-selection-emphasis"
         )
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .drawBehind {
-                    drawRect(
-                        color = displayedAccentColor,
-                        size = Size(
-                            width = 4.dp.toPx(),
-                            height = size.height
-                        )
-                    )
-                }
+        val targetAccentColor = if (
+            selectionVisuals.emphasis == CityCardVisualEmphasis.DEEMPHASIZED
         ) {
+            deemphasizedCardAccentColor(isDark)
+        } else {
+            accentColor
+        }
+        val displayedAccentColor by animateColorAsState(
+            targetValue = targetAccentColor,
+            animationSpec = tween(durationMillis = 180),
+            label = "city-card-weather-accent"
+        )
+        val targetContainerColor = when {
+            selectionVisuals.usesWeatherTint -> weatherTintedCardColor(
+                baseColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                weatherAccent = accentColor,
+                isDark = isDark
+            )
+            selectionVisuals.emphasis == CityCardVisualEmphasis.DEEMPHASIZED -> {
+                deemphasizedCardContainerColor(isDark)
+            }
+            else -> MaterialTheme.colorScheme.surfaceContainerLow
+        }
+        val containerColor by animateColorAsState(
+            targetValue = targetContainerColor,
+            animationSpec = tween(durationMillis = 180),
+            label = "city-card-container"
+        )
 
-            Column(modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp)) {
-                CityCardHeader(
-                    city = state.city,
-                    sunrise = loaded?.sunrise,
-                    sunset = loaded?.sunset,
-                    marineEnabled = state.city.marineEnabled,
-                    marineAvailable = state.isMarineAvailable,
-                    marineLoading = state.isMarineLoading,
-                    onMarineAction = onMarineAction,
-                    onRemove = onRemove
-                )
-
-                AnimatedContent(
-                    targetState = state.forecast,
-                    transitionSpec = { fadeIn(tween(260)) togetherWith fadeOut(tween(220)) },
-                    label = "forecast-state",
-                    contentKey = {
-                        when (it) {
-                            ForecastState.Loading -> "loading"
-                            is ForecastState.Loaded -> "loaded"
-                            is ForecastState.Error -> "error"
-                        }
+        Card(
+            onClick = onClick,
+            modifier = modifier
+                .fillMaxWidth()
+                .alpha(emphasisAlpha)
+                .testTag("$TAG_CITY_CARD${state.city.id}")
+                .semantics(mergeDescendants = true) {
+                    contentDescription = a11yDescription
+                    role = Role.Button
+                    if (selectionEnabled) this.selected = isSelected
+                    this[CityCardVisualEmphasisKey] = selectionVisuals.emphasis
+                    this[CityCardTargetAlphaKey] =
+                        (selectionVisuals.targetAlpha * 100).roundToInt()
+                },
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = containerColor
+            )
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .drawBehind {
+                        drawRect(
+                            color = displayedAccentColor,
+                            size = Size(
+                                width = 4.dp.toPx(),
+                                height = size.height
+                            )
+                        )
                     }
-                ) { forecast ->
-                    when (forecast) {
-                        ForecastState.Loading -> CityCardLoading()
-                        is ForecastState.Loaded -> CityCardLoaded(
-                            today = forecast.today,
-                            currentTemp = forecast.currentTemp,
-                            currentCondition = forecast.currentCondition,
-                            currentCloudCover = forecast.currentCloudCover,
-                            fetchedAt = forecast.fetchedAt,
-                            next12hTemps = forecast.next12hTemps,
-                            next12hPrecipProb = forecast.next12hPrecipProb,
-                            next12hPrecipMm = forecast.next12hPrecipMm,
-                            next12hConditions = forecast.next12hConditions,
-                            next12hScenarios = forecast.next12hScenarios,
-                            hourlyStartTime = forecast.hourlyStartTime,
-                            vigilance = state.vigilance,
-                            cityTimezone = state.city.timezone,
-                            accentColor = accentColor
-                        )
+            ) {
 
-                        is ForecastState.Error -> CityCardError(
-                            message = forecast.message
-                                ?: forecast.messageRes?.let { stringResource(it) }
-                                ?: stringResource(R.string.error_unknown),
-                            onRetry = onRetry
-                        )
+                Column(modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp)) {
+                    CityCardHeader(
+                        city = state.city,
+                        sunrise = loaded?.sunrise,
+                        sunset = loaded?.sunset,
+                        marineEnabled = state.city.marineEnabled,
+                        marineAvailable = state.isMarineAvailable,
+                        marineLoading = state.isMarineLoading,
+                        onMarineAction = onMarineAction,
+                        onRemove = onRemove
+                    )
+
+                    AnimatedContent(
+                        targetState = state.forecast,
+                        transitionSpec = { fadeIn(tween(260)) togetherWith fadeOut(tween(220)) },
+                        label = "forecast-state",
+                        contentKey = {
+                            when (it) {
+                                ForecastState.Loading -> "loading"
+                                is ForecastState.Loaded -> "loaded"
+                                is ForecastState.Error -> "error"
+                            }
+                        }
+                    ) { forecast ->
+                        when (forecast) {
+                            ForecastState.Loading -> CityCardLoading()
+                            is ForecastState.Loaded -> CityCardLoaded(
+                                today = forecast.today,
+                                currentTemp = forecast.currentTemp,
+                                currentCondition = forecast.currentCondition,
+                                currentCloudCover = forecast.currentCloudCover,
+                                fetchedAt = forecast.fetchedAt,
+                                next12hTemps = forecast.next12hTemps,
+                                next12hPrecipProb = forecast.next12hPrecipProb,
+                                next12hPrecipMm = forecast.next12hPrecipMm,
+                                next12hConditions = forecast.next12hConditions,
+                                next12hScenarios = forecast.next12hScenarios,
+                                hourlyStartTime = forecast.hourlyStartTime,
+                                vigilance = state.vigilance,
+                                cityTimezone = state.city.timezone,
+                                accentColor = accentColor
+                            )
+
+                            is ForecastState.Error -> CityCardError(
+                                message = forecast.message
+                                    ?: forecast.messageRes?.let { stringResource(it) }
+                                    ?: stringResource(R.string.error_unknown),
+                                onRetry = onRetry
+                            )
+                        }
                     }
                 }
             }

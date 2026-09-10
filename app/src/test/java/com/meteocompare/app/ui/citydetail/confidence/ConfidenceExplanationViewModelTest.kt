@@ -9,6 +9,7 @@ import com.meteocompare.app.domain.model.DailyForecast
 import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.HourlyForecast
 import com.meteocompare.app.domain.model.RefreshInterval
+import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.repository.CityRepository
 import com.meteocompare.app.domain.repository.ForecastRepository
@@ -34,8 +35,10 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneOffset
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ConfidenceExplanationViewModelTest {
@@ -129,6 +132,7 @@ class ConfidenceExplanationViewModelTest {
             listOf(WeatherModel.ICON_EU, WeatherModel.GFS),
             loaded.contributingModels
         )
+        assertEquals(WeatherCondition.RAIN, loaded.currentCondition)
         assertTrue(loaded.dayConfidence.tempMax != null)
     }
 
@@ -363,7 +367,8 @@ class ConfidenceExplanationViewModelTest {
         forecastRepository = forecastRepository,
         userPreferences = preferences,
         confidenceCalculator = calculator,
-        computationDispatcher = dispatcher
+        computationDispatcher = dispatcher,
+        clock = Clock.fixed(Instant.parse("2026-07-15T12:00:00Z"), ZoneOffset.UTC)
     )
 
     private fun forecast(
@@ -378,7 +383,8 @@ class ConfidenceExplanationViewModelTest {
                     timestamps = listOf(Instant.parse("2026-07-15T12:00:00Z")),
                     temperature2m = listOf(20.0 + index),
                     precipitation = listOf(index.toDouble()),
-                    windSpeed10m = listOf(15.0 + index)
+                    windSpeed10m = listOf(15.0 + index),
+                    weatherCode = listOf(61)
                 ),
                 daily = DailyForecast(
                     dates = listOf(date),
