@@ -113,15 +113,20 @@ internal fun SimplifiedTimelineCard(
     val density = LocalDensity.current
     var highlightedKey by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(focusRequestId, focusPoint, points, layout, mode) {
-        if (focusRequestId <= 0 || focusPoint == null) return@LaunchedEffect
+    LaunchedEffect(focusRequestId, focusPoint, points, layout, mode, expanded) {
+        if (!expanded || focusRequestId <= 0 || focusPoint == null) return@LaunchedEffect
         val index = nearestTimelineDisplayIndex(points, focusPoint)
         if (index < 0) return@LaunchedEffect
         val key = timelinePointKey(points[index])
         when (layout) {
             TimelineLayout.COLUMNS -> listState.animateScrollToItem(index)
             TimelineLayout.CHRONO -> {
-                val target = with(density) { (chronoPointWidth(mode) * index.toFloat()).roundToPx() }
+                val target = with(density) {
+                    chronoFocusScrollOffset(
+                        index = index,
+                        pointWidthPx = chronoPointWidth(mode).roundToPx()
+                    )
+                }
                 chronoScrollState.animateScrollTo(target)
             }
         }
@@ -525,6 +530,10 @@ internal fun nearestTimelineDisplayIndex(
     points: List<SimplifiedTimelinePoint>,
     target: SimplifiedTimelinePoint
 ): Int = points.indices.minByOrNull { index -> timelineDistance(points[index], target) } ?: -1
+
+/** Conserve une échéance de contexte avant le point ciblé dans la vue frise. */
+internal fun chronoFocusScrollOffset(index: Int, pointWidthPx: Int): Int =
+    (index - 1).coerceAtLeast(0) * pointWidthPx.coerceAtLeast(0)
 
 private fun timelineDistance(
     first: SimplifiedTimelinePoint,

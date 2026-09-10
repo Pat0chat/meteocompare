@@ -637,6 +637,7 @@ private fun LoadedView(
                     onInsightClick = { insight ->
                         val target = insightTimelineTarget(insight)
                         if (target != null) {
+                            onSectionExpandedChange(CityDetailSection.TIMELINE, true)
                             when {
                                 target.instant != null && DisplayMode.HOURLY in timelineAvailableModes ->
                                     timelineMode = DisplayMode.HOURLY

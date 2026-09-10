@@ -46,6 +46,14 @@ class CityDetailTimelineNavigationTest {
         assertEquals(13, nearestTimelineDisplayIndex(display, target))
         assertSame(target, display[13])
     }
+
+    @Test
+    fun `chrono focus keeps one preceding point as visual context`() {
+        assertEquals(0, chronoFocusScrollOffset(index = 0, pointWidthPx = 96))
+        assertEquals(0, chronoFocusScrollOffset(index = 1, pointWidthPx = 96))
+        assertEquals(1_152, chronoFocusScrollOffset(index = 13, pointWidthPx = 96))
+    }
+
     @Test
     fun `timeline index inclut la vigilance officielle quand elle est affichee`() {
         assertEquals(2, simplifiedTimelineItemIndex(isOnline = true, hasInsights = false, hasVigilance = true))

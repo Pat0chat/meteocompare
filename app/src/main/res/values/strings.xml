@@ -430,6 +430,7 @@
     <string name="timeline_layout_aria">Affichage de la chronologie</string>
     <string name="timeline_layout_columns">Colonnes</string>
     <string name="timeline_layout_chrono">Frise</string>
+    <string name="timeline_date_label">Date</string>
     <string name="timeline_disagreement_hint">Le score indique la convergence ; les icônes signalent les variables qui divergent.</string>
     <string name="timeline_now">Maintenant</string>
     <string name="timeline_today">Aujourd’hui</string>

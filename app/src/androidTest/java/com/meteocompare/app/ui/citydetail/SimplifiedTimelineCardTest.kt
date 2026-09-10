@@ -14,6 +14,7 @@ import com.meteocompare.app.R
 import com.meteocompare.app.ui.theme.MeteoCompareTheme
 import java.time.Instant
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -372,12 +373,48 @@ class SimplifiedTimelineCardTest {
 
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         composeRule.onNodeWithTag(TAG_TIMELINE_CHRONO_VIEW).assertIsDisplayed()
+        composeRule.onNodeWithTag(TAG_TIMELINE_CHRONO_DATE_LANE).assertIsDisplayed()
+        composeRule.onNodeWithTag(TAG_TIMELINE_CHRONO_CONDITIONS_LANE).assertIsDisplayed()
+        composeRule.onNodeWithText(context.getString(R.string.timeline_date_label)).assertIsDisplayed()
+        composeRule.onNodeWithText("16h").assertIsDisplayed()
+        val dateLaneBounds = composeRule.onNodeWithTag(TAG_TIMELINE_CHRONO_DATE_LANE)
+            .fetchSemanticsNode().boundsInRoot
+        val conditionsLaneBounds = composeRule.onNodeWithTag(TAG_TIMELINE_CHRONO_CONDITIONS_LANE)
+            .fetchSemanticsNode().boundsInRoot
+        val timeBounds = composeRule.onNodeWithText("16h").fetchSemanticsNode().boundsInRoot
+        assertTrue(dateLaneBounds.top < conditionsLaneBounds.top)
+        assertTrue(timeBounds.bottom <= conditionsLaneBounds.top)
         composeRule.onNodeWithText(context.getString(R.string.metric_temperature)).assertIsDisplayed()
         composeRule.onNodeWithText(context.getString(R.string.metric_precipitation)).assertIsDisplayed()
         composeRule.onNodeWithText(context.getString(R.string.metric_wind)).assertIsDisplayed()
         composeRule.onNodeWithText("70%").assertIsDisplayed()
         composeRule.onNodeWithText("62%").assertIsDisplayed()
         composeRule.onNodeWithText("68%").assertIsDisplayed()
+    }
+
+    @Test
+    fun chrono_view_exposes_the_point_highlight_used_by_insight_focus() {
+        val point = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-26T16:00:00Z"),
+            temperatureC = 24.0,
+            condition = com.meteocompare.app.domain.model.WeatherCondition.RAIN
+        )
+
+        composeRule.setContent {
+            MeteoCompareTheme {
+                Surface {
+                    ChronoTimelineView(
+                        points = listOf(point),
+                        mode = DisplayMode.HOURLY,
+                        timezone = "UTC",
+                        now = Instant.parse("2026-07-26T12:00:00Z"),
+                        highlightedKey = timelinePointKey(point)
+                    )
+                }
+            }
+        }
+
+        composeRule.onNodeWithTag(TAG_TIMELINE_POINT_FOCUSED).assertIsDisplayed()
     }
 
 }

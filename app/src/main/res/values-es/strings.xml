@@ -421,6 +421,7 @@ datos</string>
     <string name="timeline_layout_aria">Vista de la cronología</string>
     <string name="timeline_layout_columns">Columnas</string>
     <string name="timeline_layout_chrono">Friso temporal</string>
+    <string name="timeline_date_label">Fecha</string>
     <string name="timeline_disagreement_hint">El valor muestra la convergencia; los iconos señalan las variables que divergen.</string>
     <string name="timeline_now">Ahora</string>
     <string name="timeline_today">Hoy</string>

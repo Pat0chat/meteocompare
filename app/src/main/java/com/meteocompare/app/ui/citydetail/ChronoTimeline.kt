@@ -1,6 +1,5 @@
 package com.meteocompare.app.ui.citydetail
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -24,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Air
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Cloud
+import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material.icons.outlined.Thermostat
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material.icons.outlined.WaterDrop
@@ -62,6 +62,7 @@ import com.meteocompare.app.ui.theme.precipitationMetricAccent
 import com.meteocompare.app.ui.theme.temperatureMetricAccent
 import com.meteocompare.app.ui.theme.windMetricAccent
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
@@ -107,10 +108,9 @@ internal fun ChronoTimelineView(
             .padding(horizontal = 10.dp)
             .testTag(TAG_TIMELINE_CHRONO_VIEW)
             .semantics { contentDescription = ariaLabel },
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(16.dp),
         color = scheme.surfaceContainerLowest,
-        border = BorderStroke(1.dp, scheme.outlineVariant.copy(alpha = 0.30f)),
-        tonalElevation = 1.dp,
+        tonalElevation = 0.dp,
         shadowElevation = 0.dp
     ) {
         Row(modifier = Modifier.fillMaxWidth()) {
@@ -132,19 +132,21 @@ internal fun ChronoTimelineView(
                     )
 
                     Column(modifier = Modifier.fillMaxWidth()) {
-                        ChronoTemperaturePlot(
-                            points = points,
-                            mode = mode
-                        )
-                        ChronoConditionsLane(
+                        ChronoDateLane(
                             points = points,
                             mode = mode,
                             zone = zone,
                             hourFormatter = hourFormatter,
                             dayFormatter = dayFormatter,
                             today = today,
-                            currentHour = currentHour
+                            currentHour = currentHour,
+                            highlightedIndex = highlightedIndex
                         )
+                        ChronoTemperaturePlot(
+                            points = points,
+                            mode = mode
+                        )
+                        ChronoConditionsLane(points = points)
                         ChronoRainLane(points = points)
                         ChronoCloudLane(points = points)
                         ChronoWindLane(points = points)
@@ -163,8 +165,7 @@ private fun ChronoGridBackdrop(
     modifier: Modifier = Modifier
 ) {
     val scheme = MaterialTheme.colorScheme
-    val columnDivider = scheme.outlineVariant.copy(alpha = 0.15f)
-    val rowDivider = scheme.outlineVariant.copy(alpha = 0.24f)
+    val rowDivider = scheme.outlineVariant.copy(alpha = 0.12f)
     val highlight = scheme.primaryContainer.copy(alpha = 0.16f)
     val rowHeights = chronoRowHeights()
 
@@ -184,23 +185,13 @@ private fun ChronoGridBackdrop(
             )
         }
 
-        for (index in 1 until pointCount) {
-            val x = step * index
-            drawLine(
-                color = columnDivider,
-                start = Offset(x, 10.dp.toPx()),
-                end = Offset(x, size.height - 10.dp.toPx()),
-                strokeWidth = 1.dp.toPx()
-            )
-        }
-
         var y = 0f
         rowHeights.dropLast(1).forEach { height ->
             y += height.toPx()
             drawLine(
                 color = rowDivider,
-                start = Offset(0f, y),
-                end = Offset(size.width, y),
+                start = Offset(8.dp.toPx(), y),
+                end = Offset(size.width - 8.dp.toPx(), y),
                 strokeWidth = 1.dp.toPx()
             )
         }
@@ -217,9 +208,22 @@ private fun ChronoLabelsColumn(
     Box(
         modifier = Modifier
             .width(width)
-            .background(scheme.surfaceContainerLow.copy(alpha = 0.72f))
+            .background(scheme.surfaceContainerLow.copy(alpha = 0.42f))
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
+            ChronoRowLabel(
+                icon = Icons.Outlined.DateRange,
+                title = stringResource(R.string.timeline_date_label),
+                support = stringResource(
+                    if (mode == DisplayMode.HOURLY) {
+                        R.string.display_mode_hourly
+                    } else {
+                        R.string.display_mode_daily
+                    }
+                ),
+                height = CHRONO_DATE_HEIGHT,
+                tint = scheme.primary
+            )
             ChronoRowLabel(
                 icon = Icons.Outlined.Thermostat,
                 title = stringResource(R.string.metric_temperature),
@@ -230,7 +234,11 @@ private fun ChronoLabelsColumn(
             ChronoRowLabel(
                 icon = Icons.Outlined.Cloud,
                 title = stringResource(R.string.detail_tab_conditions),
-                support = if (mode == DisplayMode.HOURLY) "24 h" else stringResource(R.string.display_mode_daily),
+                support = if (mode == DisplayMode.HOURLY) {
+                    "24 h"
+                } else {
+                    stringResource(R.string.display_mode_daily)
+                },
                 height = CHRONO_CONDITIONS_HEIGHT,
                 tint = scheme.onSurfaceVariant
             )
@@ -271,7 +279,7 @@ private fun ChronoLabelsColumn(
 @Composable
 private fun ChronoLabelGrid(modifier: Modifier = Modifier) {
     val scheme = MaterialTheme.colorScheme
-    val divider = scheme.outlineVariant.copy(alpha = 0.24f)
+    val divider = scheme.outlineVariant.copy(alpha = 0.10f)
     val rowHeights = chronoRowHeights()
 
     Canvas(modifier = modifier) {
@@ -280,13 +288,13 @@ private fun ChronoLabelGrid(modifier: Modifier = Modifier) {
             y += height.toPx()
             drawLine(
                 color = divider,
-                start = Offset(0f, y),
+                start = Offset(12.dp.toPx(), y),
                 end = Offset(size.width, y),
                 strokeWidth = 1.dp.toPx()
             )
         }
         drawLine(
-            color = scheme.outlineVariant.copy(alpha = 0.42f),
+            color = scheme.outlineVariant.copy(alpha = 0.20f),
             start = Offset(size.width, 10.dp.toPx()),
             end = Offset(size.width, size.height - 10.dp.toPx()),
             strokeWidth = 1.dp.toPx()
@@ -337,6 +345,74 @@ private fun ChronoRowLabel(
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
                     maxLines = 1
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChronoDateLane(
+    points: List<SimplifiedTimelinePoint>,
+    mode: DisplayMode,
+    zone: ZoneId,
+    hourFormatter: DateTimeFormatter,
+    dayFormatter: DateTimeFormatter,
+    today: LocalDate,
+    currentHour: Instant,
+    highlightedIndex: Int?
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(CHRONO_DATE_HEIGHT)
+            .background(MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.22f))
+            .testTag(TAG_TIMELINE_CHRONO_DATE_LANE)
+    ) {
+        points.forEachIndexed { index, point ->
+            val labels = chronoLabels(
+                point = point,
+                index = index,
+                points = points,
+                mode = mode,
+                zone = zone,
+                hourFormatter = hourFormatter,
+                dayFormatter = dayFormatter,
+                today = today,
+                currentHour = currentHour
+            )
+            ChronoCell(
+                modifier = if (index == highlightedIndex) {
+                    Modifier.testTag(TAG_TIMELINE_POINT_FOCUSED)
+                } else {
+                    Modifier
+                }
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                    modifier = Modifier.padding(horizontal = 6.dp)
+                ) {
+                    labels.contextLabel?.let { context ->
+                        Text(
+                            text = context,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    Text(
+                        text = labels.timeLabel,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = if (index == 0) FontWeight.Bold else FontWeight.SemiBold,
+                        color = if (index == 0) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        },
+                        maxLines = 1
+                    )
+                }
             }
         }
     }
@@ -447,21 +523,16 @@ private fun ChronoTemperaturePlot(
                 ) {
                     if (value != null && value.isFinite()) {
                         val labelY = chronoTemperatureLabelOffset(value, min, max)
-                        Box(
+                        Text(
+                            text = chronoTemperatureLabel(point, mode),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = scheme.onSurface,
+                            maxLines = 1,
                             modifier = Modifier
                                 .offset(y = labelY)
-                                .clip(RoundedCornerShape(7.dp))
-                                .background(scheme.surface.copy(alpha = 0.10f))
                                 .padding(horizontal = 5.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = chronoTemperatureLabel(point, mode),
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = scheme.onSurface,
-                                maxLines = 1
-                            )
-                        }
+                        )
                     }
                 }
             }
@@ -470,70 +541,26 @@ private fun ChronoTemperaturePlot(
 }
 
 @Composable
-private fun ChronoConditionsLane(
-    points: List<SimplifiedTimelinePoint>,
-    mode: DisplayMode,
-    zone: ZoneId,
-    hourFormatter: DateTimeFormatter,
-    dayFormatter: DateTimeFormatter,
-    today: java.time.LocalDate,
-    currentHour: Instant
-) {
+private fun ChronoConditionsLane(points: List<SimplifiedTimelinePoint>) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(CHRONO_CONDITIONS_HEIGHT)
+            .testTag(TAG_TIMELINE_CHRONO_CONDITIONS_LANE)
     ) {
-        points.forEachIndexed { index, point ->
-            val labels = chronoLabels(
-                point = point,
-                index = index,
-                points = points,
-                mode = mode,
-                zone = zone,
-                hourFormatter = hourFormatter,
-                dayFormatter = dayFormatter,
-                today = today,
-                currentHour = currentHour
-            )
+        points.forEach { point ->
             ChronoCell {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                    modifier = Modifier.padding(horizontal = 6.dp)
+                Box(
+                    modifier = Modifier.height(34.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Box(
-                        modifier = Modifier.height(32.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        point.condition?.let { condition ->
-                            WeatherIconDecorative(
-                                condition = condition,
-                                size = 28.dp,
-                                tint = condition.semanticTint()
-                            )
-                        } ?: Text("—", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Text(
-                        text = labels.timeLabel,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = if (index == 0) FontWeight.Bold else FontWeight.SemiBold,
-                        color = if (index == 0) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurface
-                        },
-                        maxLines = 1
-                    )
-                    labels.contextLabel?.let { context ->
-                        Text(
-                            text = context,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
+                    point.condition?.let { condition ->
+                        WeatherIconDecorative(
+                            condition = condition,
+                            size = 28.dp,
+                            tint = condition.semanticTint()
                         )
-                    }
+                    } ?: Text("—", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
@@ -812,10 +839,11 @@ private fun ChronoAgreementLane(points: List<SimplifiedTimelinePoint>) {
 
 @Composable
 private fun RowScope.ChronoCell(
+    modifier: Modifier = Modifier,
     content: @Composable () -> Unit
 ) {
     Box(
-        modifier = Modifier
+        modifier = modifier
             .weight(1f)
             .fillMaxHeight(),
         contentAlignment = Alignment.Center
@@ -838,7 +866,7 @@ private fun chronoLabels(
     zone: ZoneId,
     hourFormatter: DateTimeFormatter,
     dayFormatter: DateTimeFormatter,
-    today: java.time.LocalDate,
+    today: LocalDate,
     currentHour: Instant
 ): ChronoLabels {
     if (mode == DisplayMode.DAILY) {
@@ -856,7 +884,9 @@ private fun chronoLabels(
     val currentDate = zoned?.toLocalDate()
     val previousDate = points.getOrNull(index - 1)?.instant?.atZone(zone)?.toLocalDate()
     val context = when {
-        currentDate == null || currentDate == previousDate || currentDate == today -> null
+        currentDate == null -> null
+        index > 0 && currentDate == previousDate -> null
+        currentDate == today -> stringResource(R.string.timeline_today)
         currentDate == today.plusDays(1) -> stringResource(R.string.timeline_tomorrow)
         else -> currentDate.format(dayFormatter).replaceFirstChar { it.uppercase() }
     }
@@ -920,6 +950,7 @@ private fun chronoDivergenceIcon(reason: DivergenceReason): ImageVector = when (
 }
 
 private fun chronoRowHeights(): List<Dp> = listOf(
+    CHRONO_DATE_HEIGHT,
     CHRONO_TEMP_HEIGHT,
     CHRONO_CONDITIONS_HEIGHT,
     CHRONO_RAIN_HEIGHT,
@@ -934,14 +965,17 @@ internal fun chronoPointWidth(mode: DisplayMode): Dp = when (mode) {
 }
 
 internal const val TAG_TIMELINE_CHRONO_VIEW = "timeline_chrono_view"
+internal const val TAG_TIMELINE_CHRONO_DATE_LANE = "timeline_chrono_date_lane"
+internal const val TAG_TIMELINE_CHRONO_CONDITIONS_LANE = "timeline_chrono_conditions_lane"
 
-private val CHRONO_TEMP_HEIGHT = 124.dp
-private val CHRONO_CONDITIONS_HEIGHT = 88.dp
-private val CHRONO_RAIN_HEIGHT = 64.dp
-private val CHRONO_CLOUD_HEIGHT = 56.dp
-private val CHRONO_WIND_HEIGHT = 66.dp
-private val CHRONO_AGREEMENT_HEIGHT = 74.dp
+private val CHRONO_DATE_HEIGHT = 52.dp
+private val CHRONO_TEMP_HEIGHT = 112.dp
+private val CHRONO_CONDITIONS_HEIGHT = 52.dp
+private val CHRONO_RAIN_HEIGHT = 60.dp
+private val CHRONO_CLOUD_HEIGHT = 52.dp
+private val CHRONO_WIND_HEIGHT = 62.dp
+private val CHRONO_AGREEMENT_HEIGHT = 70.dp
 private val CHRONO_AGREEMENT_REASONS_HEIGHT = 18.dp
 private val CHRONO_AGREEMENT_REASON_ICON_BOX_SIZE = 18.dp
-private val CHRONO_TEMP_PLOT_TOP = 34.dp
-private val CHRONO_TEMP_PLOT_BOTTOM = 104.dp
+private val CHRONO_TEMP_PLOT_TOP = 30.dp
+private val CHRONO_TEMP_PLOT_BOTTOM = 94.dp
