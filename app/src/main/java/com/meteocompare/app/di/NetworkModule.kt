@@ -1,6 +1,7 @@
 package com.meteocompare.app.di
 
 import com.meteocompare.app.BuildConfig
+import com.meteocompare.app.core.network.MeteoCompareClientHeaderInterceptor
 import com.meteocompare.app.core.network.OpenMeteoClockDebugInterceptor
 import com.meteocompare.app.data.remote.ClimateArchiveApi
 import com.meteocompare.app.data.remote.GeocodingApi
@@ -47,6 +48,10 @@ annotation class PreviousRunsRetrofit
 @Retention(AnnotationRetention.BINARY)
 annotation class MeteoCompareRetrofit
 
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class MeteoCompareOkHttp
+
 @Module
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
@@ -87,6 +92,18 @@ object NetworkModule {
             .callTimeout(30, TimeUnit.SECONDS)
             .build()
     }
+
+    /**
+     * Client réservé au Worker MeteoCompare. Le client de base reste partagé
+     * avec Open-Meteo, sans lui transmettre l'identité propre à l'application.
+     */
+    @Provides
+    @Singleton
+    @MeteoCompareOkHttp
+    fun provideMeteoCompareOkHttp(client: OkHttpClient): OkHttpClient =
+        client.newBuilder()
+            .addInterceptor(MeteoCompareClientHeaderInterceptor())
+            .build()
 
     @Provides
     @Singleton
@@ -144,7 +161,10 @@ object NetworkModule {
     @Provides
     @Singleton
     @MeteoCompareRetrofit
-    fun provideMeteoCompareRetrofit(client: OkHttpClient, json: Json): Retrofit =
+    fun provideMeteoCompareRetrofit(
+        @MeteoCompareOkHttp client: OkHttpClient,
+        json: Json
+    ): Retrofit =
         Retrofit.Builder()
             .baseUrl(BuildConfig.METEOCOMPARE_BASE_URL)
             .client(client)
