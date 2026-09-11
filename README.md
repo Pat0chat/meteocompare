@@ -331,6 +331,7 @@ Fait :
 - ✅ v1.13.0 — Améliorations des interfaces, mise à jour des icônes, améliorations des moteurs de prévisions / consensus, correction de bugs
 - ✅ v1.13.1 — Améliorations des interfaces, correction de bugs
 - ✅ v1.14.0 — Mode tablette, correction de bugs sur le rafraichissement des données, amélioration de l'UI pour certains composants, ajout d'un mode frise dans la chronologie, corrections de bugs
+- ✅ v1.14.1 — Amélioration du mode tablette, ajout des indications Open Météo, couleurs dynamiques, amélioration de l'UI pour certains composants, corrections de bugs
 
 ## Licence
 

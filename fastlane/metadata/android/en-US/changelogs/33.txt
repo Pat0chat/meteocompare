@@ -1,0 +1,1 @@
+— Tablet mode improvements, addition of OpenWeather data, dynamic colors, UI improvements for certain components, bug fixes

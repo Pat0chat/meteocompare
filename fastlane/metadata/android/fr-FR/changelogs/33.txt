@@ -1,0 +1,1 @@
+— Amélioration du mode tablette, ajout des indications Open Météo, couleurs dynamiques, amélioration de l'UI pour certains composants, corrections de bugs

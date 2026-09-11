@@ -1,0 +1,1 @@
+— Miglioramenti alla modalità tablet, aggiunta di indicatori Open Weather, colori dinamici, miglioramenti all'interfaccia utente per alcuni componenti, correzione di bug
