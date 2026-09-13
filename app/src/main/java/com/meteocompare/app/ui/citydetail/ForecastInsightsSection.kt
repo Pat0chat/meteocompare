@@ -71,9 +71,14 @@ internal fun ForecastInsightsSection(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
+            .padding(horizontal = 0.dp)
             .testTag(TAG_FORECAST_INSIGHTS_SECTION),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(
+            topStart = 12.dp,
+            topEnd = 12.dp,
+            bottomEnd = 0.dp,
+            bottomStart = 0.dp
+        ),
         color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.55f)
     ) {
         Column(

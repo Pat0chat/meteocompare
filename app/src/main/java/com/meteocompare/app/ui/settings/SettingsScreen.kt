@@ -379,6 +379,7 @@ internal fun SettingsContent(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 OpenMeteoAttribution(
+                    home = false,
                     text = stringResource(R.string.open_meteo_link_label),
                     style = MaterialTheme.typography.bodySmall
                 )

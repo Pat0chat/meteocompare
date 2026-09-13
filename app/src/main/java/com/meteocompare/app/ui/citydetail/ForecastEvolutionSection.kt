@@ -134,9 +134,14 @@ internal fun ForecastEvolutionSection(
             Card(
                 modifier = modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
+                    .padding(horizontal = 0.dp)
                     .testTag(TAG_FORECAST_EVOLUTION_CARD),
-                shape = RoundedCornerShape(22.dp),
+                shape = RoundedCornerShape(
+                    topStart = 12.dp,
+                    topEnd = 12.dp,
+                    bottomEnd = 0.dp,
+                    bottomStart = 0.dp
+                ),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.55f)
                 ),

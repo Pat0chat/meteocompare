@@ -46,7 +46,6 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Air
 import androidx.compose.material.icons.outlined.FavoriteBorder
-import androidx.compose.material.icons.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.LocationCity
 import androidx.compose.material.icons.outlined.Thermostat
@@ -384,10 +383,10 @@ internal fun CityList(
             .fillMaxSize()
             .testTag(TAG_CITY_LIST),
         contentPadding = PaddingValues(
-            top = 10.dp,
+            top = 4.dp,
             bottom = 104.dp, // espace pour le FAB
-            start = 16.dp,
-            end = 16.dp
+            start = 14.dp,
+            end = 0.dp
         ),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
@@ -420,7 +419,7 @@ internal fun CityList(
                 modifier = Modifier.fillMaxWidth(),
                 contentAlignment = Alignment.Center
             ) {
-                OpenMeteoAttribution()
+                OpenMeteoAttribution(home = true)
             }
         }
     }
@@ -429,7 +428,12 @@ internal fun CityList(
 @Composable
 private fun OfflineCityListBanner() {
     Surface(
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(
+            topStart = 12.dp,
+            topEnd = 0.dp,
+            bottomEnd = 0.dp,
+            bottomStart = 12.dp
+        ),
         color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.62f),
         contentColor = MaterialTheme.colorScheme.onSecondaryContainer
     ) {
@@ -531,7 +535,12 @@ internal fun CityCard(
                     this[CityCardTargetAlphaKey] =
                         (selectionVisuals.targetAlpha * 100).roundToInt()
                 },
-            shape = RoundedCornerShape(14.dp),
+            shape = RoundedCornerShape(
+                topStart = 12.dp,
+                topEnd = 0.dp,
+                bottomEnd = 0.dp,
+                bottomStart = 12.dp
+            ),
             colors = CardDefaults.cardColors(
                 containerColor = containerColor
             )
@@ -707,7 +716,12 @@ private fun CityCardError(message: String, onRetry: () -> Unit) {
     Surface(
         color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.62f),
         contentColor = MaterialTheme.colorScheme.onErrorContainer,
-        shape = RoundedCornerShape(18.dp)
+        shape = RoundedCornerShape(
+            topStart = 12.dp,
+            topEnd = 0.dp,
+            bottomEnd = 0.dp,
+            bottomStart = 12.dp
+        ),
     ) {
         Row(
             modifier = Modifier
@@ -827,7 +841,7 @@ private fun CurrentWeatherHero(
                         accentColor.copy(
                             alpha = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) 0.14f else 0.08f
                         ),
-                        RoundedCornerShape(18.dp)
+                        RoundedCornerShape(12.dp)
                     ),
                 contentAlignment = Alignment.Center
             ) {
@@ -940,7 +954,7 @@ private fun HomeTemperatureTrendChip(trend: HomeTemperatureTrend) {
         modifier = Modifier
             .testTag(TAG_HOME_TEMPERATURE_TREND)
             .semantics { contentDescription = a11y },
-        shape = RoundedCornerShape(9.dp),
+        shape = RoundedCornerShape(12.dp),
         color = color.copy(alpha = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) 0.16f else 0.10f)
     ) {
         Text(
@@ -958,7 +972,7 @@ private fun HomeAgreementBadge(percent: Int) {
     val color = confidenceColor(percent)
     Surface(
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(12.dp),
         border = BorderStroke(1.dp, color.copy(alpha = 0.28f))
     ) {
         Column(
@@ -995,7 +1009,7 @@ private fun TodayMetricGrid(today: DayConfidence) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 6.dp, bottom = 2.dp),
-        shape = RoundedCornerShape(10.dp),
+        shape = RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.52f)
     ) {
         Row(
@@ -1159,7 +1173,7 @@ private fun HomeWeatherFooter(
             if (scenarios.isNotEmpty()) {
                 Surface(
                     modifier = Modifier.clickable { expanded = !expanded },
-                    shape = RoundedCornerShape(10.dp),
+                    shape = RoundedCornerShape(12.dp),
                     color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.72f)
                 ) {
                     Row(
@@ -1234,7 +1248,7 @@ private fun HomeWeatherFooter(
         ) {
             Surface(
                 modifier = Modifier.padding(vertical = 10.dp),
-                shape = RoundedCornerShape(10.dp),
+                shape = RoundedCornerShape(12.dp),
                 color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.72f)
             ) {
                 Column {

@@ -115,7 +115,10 @@ private fun OfflineDataBannerPreview() {
 @Composable
 private fun OpenMeteoAttributionPreview() {
     MeteoPreviewSurface {
-        OpenMeteoAttribution(Modifier.padding(16.dp))
+        OpenMeteoAttribution(home = false, Modifier.padding(16.dp))
+    }
+    MeteoPreviewSurface {
+        OpenMeteoAttribution(home = true, Modifier.padding(16.dp))
     }
 }
 

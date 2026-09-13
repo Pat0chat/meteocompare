@@ -127,7 +127,12 @@ fun VigilanceDetailCard(
         modifier = modifier
             .fillMaxWidth()
             .testTag(TAG_VIGILANCE_DETAIL),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(
+            topStart = 12.dp,
+            topEnd = 12.dp,
+            bottomEnd = 0.dp,
+            bottomStart = 0.dp
+        ),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
     ) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {

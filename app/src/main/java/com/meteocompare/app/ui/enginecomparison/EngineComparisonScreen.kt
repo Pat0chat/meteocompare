@@ -166,7 +166,7 @@ internal fun EngineComparisonContent(
                 modifier = Modifier.fillMaxWidth(),
                 contentAlignment = Alignment.Center
             ) {
-                OpenMeteoAttribution()
+                OpenMeteoAttribution(home = false)
             }
         }
 

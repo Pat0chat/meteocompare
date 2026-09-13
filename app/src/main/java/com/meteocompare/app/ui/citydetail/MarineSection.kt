@@ -79,7 +79,12 @@ internal const val TAG_MARINE_TIDE_AXES = "marine-tide-axes"
  * 14 dp, accents portés par une petite icône plutôt que par des bordures ou des
  * cartes "hero" spécifiques.
  */
-private val MarineSectionShape = RoundedCornerShape(20.dp)
+private val MarineSectionShape = RoundedCornerShape(
+    topStart = 12.dp,
+    topEnd = 12.dp,
+    bottomEnd = 0.dp,
+    bottomStart = 0.dp
+)
 private val MarineContentShape = RoundedCornerShape(14.dp)
 
 @Composable
@@ -96,7 +101,7 @@ internal fun MarineSection(
     val distance = loaded?.data?.grid?.distanceKm
 
     Surface(
-        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        modifier = modifier.fillMaxWidth().padding(horizontal = 0.dp),
         shape = MarineSectionShape,
         color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.55f),
         tonalElevation = 0.dp,

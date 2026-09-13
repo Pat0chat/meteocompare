@@ -617,7 +617,7 @@ private fun LoadedView(
                 VigilanceDetailCard(
                     vigilance = alertForecast,
                     timezone = forecast.city.timezone,
-                    modifier = Modifier.padding(horizontal = 16.dp)
+                    modifier = Modifier.padding(horizontal = 0.dp)
                 )
             }
         }
@@ -784,10 +784,10 @@ private fun LoadedView(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
+                    .padding(horizontal = 0.dp),
                 contentAlignment = Alignment.Center
             ) {
-                OpenMeteoAttribution()
+                OpenMeteoAttribution(home = false)
             }
         }
 
@@ -863,8 +863,13 @@ private fun DetailedForecastSection(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(14.dp),
+            .padding(horizontal = 0.dp),
+        shape = RoundedCornerShape(
+            topStart = 12.dp,
+            topEnd = 12.dp,
+            bottomEnd = 0.dp,
+            bottomStart = 0.dp
+        ),
         color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.55f),
         tonalElevation = 0.dp,
         shadowElevation = 0.dp
@@ -1337,10 +1342,15 @@ internal fun TodaySummaryCard(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow
         ),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(
+            topStart = 12.dp,
+            topEnd = 12.dp,
+            bottomEnd = 0.dp,
+            bottomStart = 0.dp
+        ),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp)
+            .padding(horizontal = 0.dp)
             .semantics(mergeDescendants = true) {
                 contentDescription = a11yDescription
             }

@@ -32,6 +32,7 @@ import com.meteocompare.app.core.network.OPEN_METEO_LICENSE_URL
  */
 @Composable
 fun OpenMeteoAttribution(
+    home: Boolean,
     modifier: Modifier = Modifier,
     text: String = stringResource(R.string.open_meteo_attribution),
     style: TextStyle = MaterialTheme.typography.labelSmall,
@@ -40,10 +41,20 @@ fun OpenMeteoAttribution(
     val context = LocalContext.current
     val openDescription = stringResource(R.string.open_meteo_attribution_open)
     val showToast = rememberAppToastDispatcher()
+    var shape = RoundedCornerShape(12.dp)
+
+    if (home) {
+        shape = RoundedCornerShape(
+            topStart = 12.dp,
+            topEnd = 0.dp,
+            bottomEnd = 0.dp,
+            bottomStart = 12.dp
+        )
+    }
 
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(14.dp),
+        shape = shape,
         contentColor = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
         Row(
