@@ -173,36 +173,29 @@ internal fun SimplifiedTimelineCard(
                     onLayoutChange != null ||
                     (onModeChange != null && availableModes.size > 1)
                 ) {
+                    val showModeSelector = onModeChange != null && availableModes.size > 1
+                    val showLayoutSelector = onLayoutChange != null
+
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(
-                            modifier = Modifier.weight(1f),
-                            contentAlignment = Alignment.CenterStart
-                        ) {
-                            if (onModeChange != null && availableModes.size > 1) {
-                                TimelineDisplayModeSelector(
-                                    mode = mode,
-                                    availableModes = availableModes,
-                                    onModeChange = onModeChange
-                                )
-                            }
+                        if (showModeSelector) {
+                            TimelineDisplayModeSelector(
+                                mode = mode,
+                                availableModes = availableModes,
+                                onModeChange = requireNotNull(onModeChange)
+                            )
                         }
 
-                        Box(
-                            modifier = Modifier.weight(1f),
-                            contentAlignment = Alignment.CenterEnd
-                        ) {
-                            if (onLayoutChange != null) {
-                                TimelineLayoutSelector(
-                                    layout = layout,
-                                    onLayoutChange = onLayoutChange
-                                )
-                            }
+                        if (showLayoutSelector) {
+                            Spacer(Modifier.weight(1f))
+                            TimelineLayoutSelector(
+                                layout = layout,
+                                onLayoutChange = requireNotNull(onLayoutChange)
+                            )
                         }
                     }
 
@@ -303,7 +296,8 @@ private fun TimelineDisplayModeSelector(
                 scheme.surfaceContainerLow.copy(alpha = 0.78f)
             )
             .padding(3.dp)
-            .selectableGroup(),
+            .selectableGroup()
+            .testTag(TAG_TIMELINE_MODE_SELECTOR),
         verticalAlignment = Alignment.CenterVertically
     ) {
         DisplayMode.entries
@@ -1105,6 +1099,7 @@ private fun divergenceIconTag(reason: DivergenceReason): String = when (reason) 
 }
 
 internal const val TAG_SIMPLIFIED_TIMELINE = "simplified_timeline"
+internal const val TAG_TIMELINE_MODE_SELECTOR = "timeline_mode_selector"
 internal const val TAG_TIMELINE_LAYOUT_SELECTOR = "timeline_layout_selector"
 internal const val TAG_TIMELINE_EVENT_RULER = "timeline_event_ruler"
 internal const val TAG_TIMELINE_EVENT_MARKER = "timeline_event_marker"

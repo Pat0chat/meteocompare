@@ -277,13 +277,16 @@ class SimplifiedTimelineCardTest {
                         mode = DisplayMode.HOURLY,
                         timezone = "UTC",
                         onModeChange = { requestedMode = it },
-                        availableModes = setOf(DisplayMode.HOURLY, DisplayMode.DAILY)
+                        availableModes = setOf(DisplayMode.HOURLY, DisplayMode.DAILY),
+                        onLayoutChange = {}
                     )
                 }
             }
         }
 
         val context = InstrumentationRegistry.getInstrumentation().targetContext
+        composeRule.onNodeWithTag(TAG_TIMELINE_MODE_SELECTOR).assertIsDisplayed()
+        composeRule.onNodeWithTag(TAG_TIMELINE_LAYOUT_SELECTOR).assertIsDisplayed()
         composeRule.onNodeWithText(context.getString(R.string.display_mode_hourly))
             .assertIsDisplayed()
             .performClick()

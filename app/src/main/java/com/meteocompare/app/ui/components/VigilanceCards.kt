@@ -127,12 +127,7 @@ fun VigilanceDetailCard(
         modifier = modifier
             .fillMaxWidth()
             .testTag(TAG_VIGILANCE_DETAIL),
-        shape = RoundedCornerShape(
-            topStart = 12.dp,
-            topEnd = 12.dp,
-            bottomEnd = 0.dp,
-            bottomStart = 0.dp
-        ),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
     ) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
@@ -211,7 +206,7 @@ fun MarineCoastalVigilanceBanner(
         modifier = modifier
             .fillMaxWidth()
             .testTag(TAG_VIGILANCE_MARINE),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(8.dp),
         color = color.copy(alpha = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) 0.28f else 0.16f)
     ) {
         Row(
