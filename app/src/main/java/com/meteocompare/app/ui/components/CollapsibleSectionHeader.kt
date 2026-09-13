@@ -2,12 +2,15 @@ package com.meteocompare.app.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -23,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
@@ -46,9 +50,11 @@ fun CollapsibleSectionHeader(
     onToggle: () -> Unit,
     modifier: Modifier = Modifier,
     subtitle: String? = null,
+    accentColor: Color? = null,
     titleMaxLines: Int = 1,
     trailingContent: (@Composable RowScope.() -> Unit)? = null
 ) {
+    val resolvedAccentColor = accentColor ?: MaterialTheme.colorScheme.primary
     val rotation by animateFloatAsState(
         targetValue = if (expanded) 180f else 0f,
         animationSpec = tween(durationMillis = 180),
@@ -71,6 +77,15 @@ fun CollapsibleSectionHeader(
             .padding(horizontal = 16.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        Box(
+            modifier = Modifier
+                .width(3.dp)
+                .height(if (subtitle.isNullOrBlank()) 24.dp else 38.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(resolvedAccentColor)
+        )
+        Spacer(Modifier.width(10.dp))
+
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = text,

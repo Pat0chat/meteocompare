@@ -136,9 +136,11 @@ class CityCardSelectionTest {
     }
 
     @Test
-    fun tablet_selected_surface_tint_is_softer_than_the_previous_emphasis() {
-        assertTrue(CITY_CARD_SELECTED_TINT_LIGHT < 0.18f)
-        assertTrue(CITY_CARD_SELECTED_TINT_DARK < 0.22f)
+    fun tablet_selected_surface_tint_is_barely_perceptible() {
+        assertTrue(CITY_CARD_SELECTED_TINT_LIGHT in 0f..0.025f)
+        assertTrue(CITY_CARD_SELECTED_TINT_DARK in 0f..0.035f)
+        assertTrue(CITY_CARD_GRADIENT_SELECTED_LIGHT < CITY_CARD_GRADIENT_STANDARD_LIGHT)
+        assertTrue(CITY_CARD_GRADIENT_SELECTED_DARK < CITY_CARD_GRADIENT_STANDARD_DARK)
     }
 
 }

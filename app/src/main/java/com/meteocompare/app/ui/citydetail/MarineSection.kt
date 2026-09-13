@@ -76,15 +76,10 @@ internal const val TAG_MARINE_TIDE_AXES = "marine-tide-axes"
 /**
  * La partie marine suit volontairement le même contrat visuel que les autres
  * sections de CityDetail : conteneur 20 dp, Surface tonale légère, groupes en
- * 14 dp, accents portés par une petite icône plutôt que par des bordures ou des
+ * 16 dp, accents portés par une petite icône plutôt que par des bordures ou des
  * cartes "hero" spécifiques.
  */
-private val MarineSectionShape = RoundedCornerShape(
-    topStart = 12.dp,
-    topEnd = 12.dp,
-    bottomEnd = 0.dp,
-    bottomStart = 0.dp
-)
+private val MarineSectionShape = RoundedCornerShape(16.dp)
 private val MarineContentShape = RoundedCornerShape(14.dp)
 
 @Composable

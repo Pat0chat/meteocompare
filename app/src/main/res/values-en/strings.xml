@@ -423,6 +423,7 @@
     <string name="local_ranking_open_content_description">Open the local model ranking</string>
 
     <string name="forecast_tables_section">Detailed forecasts</string>
+    <string name="forecast_tables_subtitle">Compare models by variable and forecast horizon.</string>
     <string name="timeline_title_hourly">Next 24 hours</string>
     <string name="timeline_title_daily">Next few days</string>
     <string name="timeline_subtitle_hourly">Hourly reference points</string>

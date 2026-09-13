@@ -243,23 +243,17 @@ internal fun CityDetailContent(
                         val loaded = state as? CityDetailUiState.Loaded
                         val city = loaded?.forecast?.city
                         val subtitle = city?.country.orEmpty()
-                        val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-                        val conditionAccent = WeatherAccent.activeOrNull(
-                            condition = loaded?.currentCondition,
-                            isDark = isDark
-                        )
+                        val conditionAccent = MaterialTheme.colorScheme.primary
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            conditionAccent?.let { accent ->
-                                Box(
-                                    modifier = Modifier
-                                        .width(3.dp)
-                                        .height(if (subtitle.isNotBlank()) 38.dp else 28.dp)
-                                        .clip(RoundedCornerShape(2.dp))
-                                        .background(accent)
-                                )
-                                Spacer(Modifier.width(10.dp))
-                            }
+                            Box(
+                                modifier = Modifier
+                                    .width(3.dp)
+                                    .height(if (subtitle.isNotBlank()) 38.dp else 28.dp)
+                                    .clip(RoundedCornerShape(2.dp))
+                                    .background(conditionAccent)
+                            )
+                            Spacer(Modifier.width(10.dp))
                             Column {
                                 Text(
                                     text = city?.name
@@ -598,7 +592,9 @@ private fun LoadedView(
         state = contentListState,
         modifier = Modifier.fillMaxSize().testTag(TAG_DETAIL_LOADED),
         contentPadding = PaddingValues(
+            start = 8.dp,
             top = padding.calculateTopPadding(),
+            end = 8.dp,
             bottom = padding.calculateBottomPadding() + 16.dp
         ),
         verticalArrangement = Arrangement.spacedBy(14.dp)
@@ -881,12 +877,7 @@ private fun DetailedForecastSection(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 0.dp),
-        shape = RoundedCornerShape(
-            topStart = 12.dp,
-            topEnd = 12.dp,
-            bottomEnd = 0.dp,
-            bottomStart = 0.dp
-        ),
+        shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.55f),
         tonalElevation = 0.dp,
         shadowElevation = 0.dp
@@ -1357,14 +1348,9 @@ internal fun TodaySummaryCard(
 
     Card(
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.55f)
         ),
-        shape = RoundedCornerShape(
-            topStart = 12.dp,
-            topEnd = 12.dp,
-            bottomEnd = 0.dp,
-            bottomStart = 0.dp
-        ),
+        shape = RoundedCornerShape(16.dp),
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 0.dp)
@@ -1372,12 +1358,6 @@ internal fun TodaySummaryCard(
                 contentDescription = a11yDescription
             }
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(4.dp)
-                .background(weatherAccent)
-        )
         Column(modifier = Modifier.padding(vertical = 7.dp)) {
             CollapsibleSectionHeader(
                 text = today.date.format(longDateFmt).replaceFirstChar { it.uppercase() },

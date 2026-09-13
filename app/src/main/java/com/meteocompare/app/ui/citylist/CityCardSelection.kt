@@ -23,12 +23,12 @@ internal data class CityCardSelectionVisuals(
 )
 
 internal const val CITY_CARD_DEEMPHASIZED_ALPHA = 0.55f
-internal const val CITY_CARD_SELECTED_TINT_LIGHT = 0.09f
-internal const val CITY_CARD_SELECTED_TINT_DARK = 0.12f
+internal const val CITY_CARD_SELECTED_TINT_LIGHT = 0.018f
+internal const val CITY_CARD_SELECTED_TINT_DARK = 0.026f
 internal const val CITY_CARD_GRADIENT_STANDARD_LIGHT = 0.055f
 internal const val CITY_CARD_GRADIENT_STANDARD_DARK = 0.07f
-internal const val CITY_CARD_GRADIENT_SELECTED_LIGHT = 0.045f
-internal const val CITY_CARD_GRADIENT_SELECTED_DARK = 0.06f
+internal const val CITY_CARD_GRADIENT_SELECTED_LIGHT = 0.025f
+internal const val CITY_CARD_GRADIENT_SELECTED_DARK = 0.03f
 
 private val DeemphasizedContainerLight = Color(0xFFE0E0E0)
 private val DeemphasizedContainerDark = Color(0xFF303030)

@@ -423,6 +423,7 @@
     <string name="local_ranking_open_content_description">Ouvrir le classement local des modèles.</string>
 
     <string name="forecast_tables_section">Prévisions détaillées</string>
+    <string name="forecast_tables_subtitle">Comparer les modèles par variable et par horizon.</string>
     <string name="timeline_title_hourly">Prochaines 24 heures</string>
     <string name="timeline_title_daily">Prochains jours</string>
     <string name="timeline_subtitle_hourly">Repères toutes les heures.</string>

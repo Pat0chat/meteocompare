@@ -94,12 +94,7 @@ internal fun LocalReliabilitySection(
             .fillMaxWidth()
             .padding(horizontal = 0.dp)
             .testTag(TAG_LOCAL_RELIABILITY_CARD),
-        shape = RoundedCornerShape(
-            topStart = 12.dp,
-            topEnd = 12.dp,
-            bottomEnd = 0.dp,
-            bottomStart = 0.dp
-        ),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.55f)
         ),

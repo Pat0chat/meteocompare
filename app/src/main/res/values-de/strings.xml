@@ -414,6 +414,7 @@ Daten</string>
     <string name="local_ranking_method_note">Lokale Rangliste auf denselben Daten (mindestens 14). Nur Orientierung, keine offizielle Modellbewertung.</string>
     <string name="local_ranking_open_content_description">Lokale Modellrangliste öffnen</string>
     <string name="forecast_tables_section">Detaillierte Vorhersagen</string>
+    <string name="forecast_tables_subtitle">Modelle nach Variable und Vorhersagehorizont vergleichen.</string>
     <string name="timeline_title_hourly">Nächste 24 Stunden</string>
     <string name="timeline_title_daily">Nächste Tage</string>
     <string name="timeline_subtitle_hourly">Stündliche Referenzpunkte</string>

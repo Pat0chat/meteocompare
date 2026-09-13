@@ -83,6 +83,7 @@ internal fun DetailedComparisonControls(
     ) {
         CollapsibleSectionHeader(
             text = stringResource(R.string.forecast_tables_section),
+            subtitle = stringResource(R.string.forecast_tables_subtitle),
             expanded = expanded,
             onToggle = { onExpandedChange(!expanded) },
             trailingContent = {

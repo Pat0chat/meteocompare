@@ -414,6 +414,7 @@ datos</string>
     <string name="local_ranking_method_note">Clasificación local sobre las mismas fechas (mínimo 14). Orientativa, no es una evaluación oficial.</string>
     <string name="local_ranking_open_content_description">Abrir la clasificación local de modelos</string>
     <string name="forecast_tables_section">Previsiones detalladas</string>
+    <string name="forecast_tables_subtitle">Comparar modelos por variable y horizonte de previsión.</string>
     <string name="timeline_title_hourly">Próximas 24 horas</string>
     <string name="timeline_title_daily">Próximos días</string>
     <string name="timeline_subtitle_hourly">Puntos de referencia cada hora</string>
