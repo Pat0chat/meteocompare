@@ -84,6 +84,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
@@ -520,6 +521,15 @@ internal fun CityCard(
             animationSpec = tween(durationMillis = 180),
             label = "city-card-container"
         )
+        val targetGradientAccentAlpha = cityCardGradientAccentAlpha(
+            emphasis = selectionVisuals.emphasis,
+            isDark = isDark
+        )
+        val gradientAccentAlpha by animateFloatAsState(
+            targetValue = targetGradientAccentAlpha,
+            animationSpec = tween(durationMillis = 180),
+            label = "city-card-gradient-accent"
+        )
 
         Card(
             onClick = onClick,
@@ -549,6 +559,18 @@ internal fun CityCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .drawBehind {
+                        val gradientStart = displayedAccentColor.copy(alpha = gradientAccentAlpha)
+                        drawRect(
+                            brush = Brush.horizontalGradient(
+                                colors = listOf(
+                                    gradientStart,
+                                    displayedAccentColor.copy(
+                                        alpha = gradientAccentAlpha * 0.35f
+                                    ),
+                                    displayedAccentColor.copy(alpha = 0f)
+                                )
+                            )
+                        )
                         drawRect(
                             color = displayedAccentColor,
                             size = Size(

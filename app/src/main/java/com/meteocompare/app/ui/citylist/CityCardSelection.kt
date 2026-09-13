@@ -23,8 +23,12 @@ internal data class CityCardSelectionVisuals(
 )
 
 internal const val CITY_CARD_DEEMPHASIZED_ALPHA = 0.55f
-internal const val CITY_CARD_SELECTED_TINT_LIGHT = 0.18f
-internal const val CITY_CARD_SELECTED_TINT_DARK = 0.22f
+internal const val CITY_CARD_SELECTED_TINT_LIGHT = 0.09f
+internal const val CITY_CARD_SELECTED_TINT_DARK = 0.12f
+internal const val CITY_CARD_GRADIENT_STANDARD_LIGHT = 0.055f
+internal const val CITY_CARD_GRADIENT_STANDARD_DARK = 0.07f
+internal const val CITY_CARD_GRADIENT_SELECTED_LIGHT = 0.045f
+internal const val CITY_CARD_GRADIENT_SELECTED_DARK = 0.06f
 
 private val DeemphasizedContainerLight = Color(0xFFE0E0E0)
 private val DeemphasizedContainerDark = Color(0xFF303030)
@@ -69,6 +73,19 @@ internal fun weatherTintedCardColor(
     stop = weatherAccent,
     fraction = if (isDark) CITY_CARD_SELECTED_TINT_DARK else CITY_CARD_SELECTED_TINT_LIGHT
 )
+
+internal fun cityCardGradientAccentAlpha(
+    emphasis: CityCardVisualEmphasis,
+    isDark: Boolean
+): Float = when (emphasis) {
+    CityCardVisualEmphasis.STANDARD ->
+        if (isDark) CITY_CARD_GRADIENT_STANDARD_DARK else CITY_CARD_GRADIENT_STANDARD_LIGHT
+
+    CityCardVisualEmphasis.WEATHER_COLORED ->
+        if (isDark) CITY_CARD_GRADIENT_SELECTED_DARK else CITY_CARD_GRADIENT_SELECTED_LIGHT
+
+    CityCardVisualEmphasis.DEEMPHASIZED -> 0f
+}
 
 internal fun deemphasizedCardContainerColor(isDark: Boolean): Color =
     if (isDark) DeemphasizedContainerDark else DeemphasizedContainerLight

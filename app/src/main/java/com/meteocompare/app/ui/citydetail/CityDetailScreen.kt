@@ -241,16 +241,33 @@ internal fun CityDetailContent(
                 TopAppBar(
                     title = {
                         val loaded = state as? CityDetailUiState.Loaded
-                        Column {
-                            Text(
-                                text = loaded?.forecast?.city?.name
-                                    ?: stringResource(R.string.title_detail_fallback),
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1
-                            )
-                            loaded?.forecast?.city?.let { city ->
-                                val subtitle = city.country
+                        val city = loaded?.forecast?.city
+                        val subtitle = city?.country.orEmpty()
+                        val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+                        val conditionAccent = WeatherAccent.activeOrNull(
+                            condition = loaded?.currentCondition,
+                            isDark = isDark
+                        )
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            conditionAccent?.let { accent ->
+                                Box(
+                                    modifier = Modifier
+                                        .width(3.dp)
+                                        .height(if (subtitle.isNotBlank()) 38.dp else 28.dp)
+                                        .clip(RoundedCornerShape(2.dp))
+                                        .background(accent)
+                                )
+                                Spacer(Modifier.width(10.dp))
+                            }
+                            Column {
+                                Text(
+                                    text = city?.name
+                                        ?: stringResource(R.string.title_detail_fallback),
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1
+                                )
                                 if (subtitle.isNotBlank()) {
                                     Text(
                                         text = subtitle,

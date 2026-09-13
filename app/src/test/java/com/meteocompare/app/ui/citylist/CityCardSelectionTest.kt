@@ -101,4 +101,44 @@ class CityCardSelectionTest {
             assertEquals(color.green, color.blue, 0.001f)
         }
     }
+    @Test
+    fun home_cards_use_a_subtle_weather_gradient_without_recoloring_inactive_tablet_cards() {
+        val phoneLight = cityCardGradientAccentAlpha(
+            emphasis = CityCardVisualEmphasis.STANDARD,
+            isDark = false
+        )
+        val phoneDark = cityCardGradientAccentAlpha(
+            emphasis = CityCardVisualEmphasis.STANDARD,
+            isDark = true
+        )
+        val tabletSelectedLight = cityCardGradientAccentAlpha(
+            emphasis = CityCardVisualEmphasis.WEATHER_COLORED,
+            isDark = false
+        )
+        val tabletSelectedDark = cityCardGradientAccentAlpha(
+            emphasis = CityCardVisualEmphasis.WEATHER_COLORED,
+            isDark = true
+        )
+        val tabletInactive = cityCardGradientAccentAlpha(
+            emphasis = CityCardVisualEmphasis.DEEMPHASIZED,
+            isDark = false
+        )
+
+        assertTrue(phoneLight in 0f..0.10f)
+        assertTrue(phoneDark in 0f..0.12f)
+        assertTrue(tabletSelectedLight in 0f..0.10f)
+        assertTrue(tabletSelectedDark in 0f..0.12f)
+        assertTrue(phoneLight > 0f)
+        assertTrue(phoneDark > 0f)
+        assertTrue(tabletSelectedLight > 0f)
+        assertTrue(tabletSelectedDark > 0f)
+        assertEquals(0f, tabletInactive)
+    }
+
+    @Test
+    fun tablet_selected_surface_tint_is_softer_than_the_previous_emphasis() {
+        assertTrue(CITY_CARD_SELECTED_TINT_LIGHT < 0.18f)
+        assertTrue(CITY_CARD_SELECTED_TINT_DARK < 0.22f)
+    }
+
 }
