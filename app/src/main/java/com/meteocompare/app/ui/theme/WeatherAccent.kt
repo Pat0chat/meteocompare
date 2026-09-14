@@ -17,9 +17,12 @@ import kotlin.math.min
  * Palette météo partagée par les cartes et par les accents d'interface.
  *
  * Les teintes brutes restent sémantiques : une condition donnée garde la même
- * famille de couleur, même lorsque Material You fournit le thème de base. Le
- * thème d'accent ci-dessous adapte uniquement leur luminosité quand la couleur
- * porte du texte ou une icône, afin de conserver un contraste accessible.
+ * famille de couleur, même lorsque Material You fournit le thème de base.
+ *
+ * La couleur météo brute devient directement `colorScheme.primary` afin que
+ * tous les accents visuels (FAB, liserets, indicateurs, etc.) utilisent
+ * exactement la même teinte. Le contraste est géré par les rôles de contenu
+ * (`onPrimary`, `onPrimaryContainer`, etc.), pas en modifiant `primary`.
  */
 internal object WeatherAccent {
 
@@ -113,7 +116,10 @@ internal fun WeatherAccentTheme(
     val rawAccent = WeatherAccent.activeOrNull(condition, isDark)
     val hasWeatherAccent = rawAccent != null
 
-    val targetPrimary = rawAccent?.let { readableAccent(it, base.surface) } ?: base.primary
+    // `primary` doit rester strictement identique à l'accent météo utilisé par
+    // les cartes. Ne pas le passer dans `readableAccent` : cela changeait la
+    // teinte (notamment le jaune du beau temps, rendu nettement plus foncé).
+    val targetPrimary = rawAccent ?: base.primary
     val targetPrimaryContainer = rawAccent?.let {
         weatherAccentContainer(
             accent = it,

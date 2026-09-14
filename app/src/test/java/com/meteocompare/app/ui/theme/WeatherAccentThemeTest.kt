@@ -9,19 +9,13 @@ import org.junit.Test
 class WeatherAccentThemeTest {
 
     @Test
-    fun `les accents de texte respectent le contraste AA en thème clair`() {
-        assertReadableAccents(
-            surface = Color.White,
-            isDark = false
-        )
+    fun `le contenu sur accent respecte le contraste AA en thème clair`() {
+        assertReadableOnPrimary(isDark = false)
     }
 
     @Test
-    fun `les accents de texte respectent le contraste AA en thème sombre`() {
-        assertReadableAccents(
-            surface = Color(0xFF121212),
-            isDark = true
-        )
+    fun `le contenu sur accent respecte le contraste AA en thème sombre`() {
+        assertReadableOnPrimary(isDark = true)
     }
 
     @Test
@@ -30,7 +24,7 @@ class WeatherAccentThemeTest {
             val surface = if (isDark) Color(0xFF121212) else Color.White
             activeConditions.forEach { condition ->
                 val raw = requireNotNull(WeatherAccent.activeOrNull(condition, isDark))
-                val primary = readableAccent(raw, surface)
+                val primary = raw
                 val container = weatherAccentContainer(raw, surface, isDark)
                 val onContainer = readableAccent(primary, container)
 
@@ -48,13 +42,13 @@ class WeatherAccentThemeTest {
         assertNull(WeatherAccent.activeOrNull(WeatherCondition.UNKNOWN, isDark = false))
     }
 
-    private fun assertReadableAccents(surface: Color, isDark: Boolean) {
+    private fun assertReadableOnPrimary(isDark: Boolean) {
         activeConditions.forEach { condition ->
-            val raw = requireNotNull(WeatherAccent.activeOrNull(condition, isDark))
-            val primary = readableAccent(raw, surface)
+            val primary = requireNotNull(WeatherAccent.activeOrNull(condition, isDark))
+            val onPrimary = highestContrastContent(primary)
             assertTrue(
-                "$condition manque de contraste",
-                accentContrastRatio(primary, surface) >= 4.5f
+                "$condition manque de contraste pour son contenu",
+                accentContrastRatio(onPrimary, primary) >= 4.5f
             )
         }
     }
