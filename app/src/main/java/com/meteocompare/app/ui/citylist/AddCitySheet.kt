@@ -21,9 +21,11 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -117,9 +119,11 @@ internal fun CityResultRow(city: City, onClick: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .padding(horizontal = 4.dp)
+            .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
             .testTag("$TAG_ADD_CITY_RESULT${city.id}")
-            .padding(vertical = 12.dp, horizontal = 4.dp)
+            .padding(vertical = 12.dp)
     ) {
         Text(city.name, style = MaterialTheme.typography.bodyLarge)
         val subtitle = listOfNotNull(city.admin1, city.country.takeIf { it.isNotBlank() })

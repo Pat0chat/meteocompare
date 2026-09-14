@@ -287,15 +287,14 @@ private fun ReliabilityHero(
                         ),
                         accent = scoreAccent,
                         modifier = if (onOpenRanking != null) {
-                            Modifier
-                                .semantics {
-                                    contentDescription = openRankingDescription
-                                }
-                                .clickable {
-                                    onOpenRanking(selection.model, selection.bias.variable)
-                                }
+                            Modifier.semantics {
+                                contentDescription = openRankingDescription
+                            }
                         } else {
                             Modifier
+                        },
+                        onClick = onOpenRanking?.let { openRanking ->
+                            { openRanking(selection.model, selection.bias.variable) }
                         }
                     )
                 }
@@ -332,12 +331,18 @@ private fun ScoreBar(progress: Float, accent: Color) {
 private fun AccentBadge(
     text: String,
     accent: Color,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null
 ) {
+    val shape = RoundedCornerShape(999.dp)
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(999.dp))
+            .clip(shape)
             .background(accent.copy(alpha = 0.14f))
+            .then(
+                if (onClick != null) Modifier.clickable(onClick = onClick)
+                else Modifier
+            )
             .padding(horizontal = 10.dp, vertical = 6.dp)
     ) {
         Text(

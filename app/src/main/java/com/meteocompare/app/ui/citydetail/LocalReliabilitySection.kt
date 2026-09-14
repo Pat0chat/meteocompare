@@ -183,8 +183,10 @@ internal fun LocalReliabilitySection(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .padding(horizontal = 8.dp)
+                                .clip(RoundedCornerShape(14.dp))
                                 .clickable { onOpenRanking(activeVariable) }
-                                .padding(horizontal = 18.dp, vertical = 11.dp),
+                                .padding(horizontal = 10.dp, vertical = 11.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Box(

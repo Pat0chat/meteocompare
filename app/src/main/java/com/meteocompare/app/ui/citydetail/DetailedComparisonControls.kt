@@ -259,6 +259,7 @@ private fun DetailContentTab(
     Box(
         modifier = modifier
             .height(44.dp)
+            .clip(RoundedCornerShape(10.dp))
             .selectable(
                 selected = selected,
                 onClick = onClick,

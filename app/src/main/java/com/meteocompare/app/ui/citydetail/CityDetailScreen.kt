@@ -8,7 +8,6 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -76,7 +75,6 @@ import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -2260,11 +2258,12 @@ private fun formatDispersionValue(
 private fun ConfidenceBadge(percent: Int, onClick: () -> Unit = {}) {
     val color = confidenceColor(percent)
     val a11yLabel = stringResource(R.string.a11y_open_confidence_explanation, percent)
+    val shape = RoundedCornerShape(14.dp)
     Surface(
+        onClick = onClick,
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
-        shape = RoundedCornerShape(14.dp),
+        shape = shape,
         modifier = Modifier
-            .clickable(role = Role.Button, onClick = onClick)
             .semantics { contentDescription = a11yLabel }
             .testTag(TAG_CONFIDENCE_BADGE),
         border = BorderStroke(1.dp, color.copy(alpha = 0.28f))

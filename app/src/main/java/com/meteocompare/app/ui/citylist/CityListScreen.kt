@@ -18,7 +18,6 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -1194,7 +1193,7 @@ private fun HomeWeatherFooter(
         ) {
             if (scenarios.isNotEmpty()) {
                 Surface(
-                    modifier = Modifier.clickable { expanded = !expanded },
+                    onClick = { expanded = !expanded },
                     shape = RoundedCornerShape(12.dp),
                     color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.72f)
                 ) {
@@ -1493,9 +1492,16 @@ private fun CityCardMenu(
         }
         DropdownMenu(
             expanded = expanded,
-            onDismissRequest = { expanded = false }
+            onDismissRequest = { expanded = false },
+            modifier = Modifier
+                .clip(RoundedCornerShape(14.dp))
+                .padding(vertical = 4.dp)
         ) {
+            val menuItemModifier = Modifier
+                .padding(horizontal = 6.dp, vertical = 2.dp)
+                .clip(RoundedCornerShape(10.dp))
             DropdownMenuItem(
+                modifier = menuItemModifier,
                 text = {
                     Text(
                         stringResource(
@@ -1510,6 +1516,7 @@ private fun CityCardMenu(
                 }
             )
             DropdownMenuItem(
+                modifier = menuItemModifier,
                 text = { Text(stringResource(R.string.action_remove_from_favorites)) },
                 onClick = {
                     expanded = false

@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.FavoriteBorder
@@ -609,8 +610,10 @@ private fun CompactModelRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .padding(horizontal = 6.dp)
+            .clip(RoundedCornerShape(12.dp))
             .let { if (clickable) it.clickable { onToggle(!enabled) } else it }
-            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .padding(horizontal = 10.dp, vertical = 6.dp)
             .testTag("$TAG_SETTINGS_MODEL${model.name}"),
         verticalAlignment = Alignment.CenterVertically
     ) {

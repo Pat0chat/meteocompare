@@ -333,7 +333,7 @@ Fait :
 - ✅ v1.14.0 — Mode tablette, correction de bugs sur le rafraichissement des données, amélioration de l'UI pour certains composants, ajout d'un mode frise dans la chronologie, corrections de bugs
 - ✅ v1.14.1 — Amélioration du mode tablette, ajout des indications Open Météo, couleurs dynamiques, amélioration de l'UI pour certains composants, corrections de bugs
 - ✅ v1.14.2 — Amélioration du mode tablette
-- ✅ v1.14.3 — Corrections de bugs
+- ✅ v1.14.3 -> 4 — Corrections de bugs
 
 ## Licence
 
