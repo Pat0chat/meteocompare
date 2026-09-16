@@ -157,6 +157,7 @@ internal fun DisplayModeMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
             offset = DpOffset(0.dp, 6.dp),
+            shape = RoundedCornerShape(14.dp),
             modifier = Modifier
                 .width(148.dp)
                 .clip(menuShape)
@@ -165,7 +166,7 @@ internal fun DisplayModeMenu(
         ) {
             DisplayMode.entries.filter { it in availableModes }.forEach { option ->
                 val selected = option == mode
-                val itemShape = RoundedCornerShape(10.dp)
+                val itemShape = RoundedCornerShape(14.dp)
                 DropdownMenuItem(
                     modifier = Modifier
                         .padding(horizontal = 6.dp, vertical = 2.dp)

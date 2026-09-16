@@ -123,6 +123,9 @@ private fun PhoneAppNavHost() {
                 onCityClick = { cityId ->
                     navController.navigate(Destinations.cityDetail(cityId))
                 },
+                onGraphicViewClick = { cityId ->
+                    navController.navigate(Destinations.graphicView(cityId))
+                },
                 onSettingsClick = {
                     navController.navigate(Destinations.SETTINGS)
                 },
@@ -176,12 +179,19 @@ private fun TabletHomeScreen(
 ) {
     val listState by cityListViewModel.uiState.collectAsStateWithLifecycle()
     val availableCityIds = listState.items.map { it.city.id }
+    var directGraphicCityId by rememberSaveable { mutableStateOf<String?>(null) }
+    var directGraphicRequest by rememberSaveable { mutableStateOf(0) }
 
     TabletMasterDetailContent(
         availableCityIds = availableCityIds,
         listContent = { activeCityId, onCityClick ->
             CityListScreen(
                 onCityClick = onCityClick,
+                onGraphicViewClick = { cityId ->
+                    onCityClick(cityId)
+                    directGraphicCityId = cityId
+                    directGraphicRequest += 1
+                },
                 onSettingsClick = onSettingsClick,
                 onHelpClick = onHelpClick,
                 selectedCityId = activeCityId,
@@ -193,7 +203,11 @@ private fun TabletHomeScreen(
             // Chaque localité possède ainsi une pile de navigation et un
             // CityDetailViewModel ne contenant que son cityId.
             key(cityId) {
-                TabletDetailNavHost(cityId = cityId)
+                TabletDetailNavHost(
+                    cityId = cityId,
+                    directGraphicRequest = directGraphicRequest
+                        .takeIf { directGraphicCityId == cityId && it > 0 }
+                )
             }
         },
         emptyDetailContent = { TabletDetailPlaceholder() },
@@ -262,8 +276,19 @@ internal fun TabletMasterDetailContent(
 }
 
 @Composable
-private fun TabletDetailNavHost(cityId: String) {
+private fun TabletDetailNavHost(
+    cityId: String,
+    directGraphicRequest: Int? = null
+) {
     val navController = rememberNavController()
+
+    LaunchedEffect(directGraphicRequest) {
+        if (directGraphicRequest != null &&
+            navController.currentDestination?.route != Destinations.GRAPHIC_VIEW
+        ) {
+            navController.navigate(Destinations.graphicView(cityId))
+        }
+    }
 
     NavHost(
         navController = navController,

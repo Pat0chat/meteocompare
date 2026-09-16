@@ -35,8 +35,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -150,6 +152,7 @@ import kotlinx.coroutines.flow.map
 fun CityListScreen(
     onCityClick: (cityId: String) -> Unit,
     onSettingsClick: () -> Unit,
+    onGraphicViewClick: (cityId: String) -> Unit = {},
     onHelpClick: () -> Unit,
     selectedCityId: String? = null,
     selectionEnabled: Boolean = false,
@@ -186,6 +189,7 @@ fun CityListScreen(
         CityListContent(
             uiState = uiState,
             onCityClick = onCityClick,
+            onGraphicViewClick = onGraphicViewClick,
             onAddClick = { showAddSheet = true },
             onDonateClick = { showDonationDialog = true },
             onHelpClick = onHelpClick,
@@ -265,6 +269,7 @@ private fun DonationHeartButton(onClick: () -> Unit) {
 internal fun CityListContent(
     uiState: CityListUiState,
     onCityClick: (cityId: String) -> Unit,
+    onGraphicViewClick: (cityId: String) -> Unit = {},
     onAddClick: () -> Unit,
     onDonateClick: () -> Unit,
     onHelpClick: () -> Unit = {},
@@ -355,6 +360,7 @@ internal fun CityListContent(
                         items = uiState.items,
                         isOnline = uiState.isOnline,
                         onCityClick = onCityClick,
+                        onGraphicViewClick = onGraphicViewClick,
                         onRemove = onRemoveCity,
                         onRetry = onRetry,
                         onMarineAction = onMarineAction,
@@ -372,6 +378,7 @@ internal fun CityList(
     items: List<CityCardState>,
     isOnline: Boolean = true,
     onCityClick: (String) -> Unit,
+    onGraphicViewClick: (String) -> Unit = {},
     onRemove: (String) -> Unit,
     onRetry: (City) -> Unit,
     onMarineAction: (City) -> Unit = {},
@@ -400,6 +407,7 @@ internal fun CityList(
             CityCard(
                 state = state,
                 onClick = { onCityClick(state.city.id) },
+                onGraphicViewClick = { onGraphicViewClick(state.city.id) },
                 onRemove = { onRemove(state.city.id) },
                 onRetry = { onRetry(state.city) },
                 onMarineAction = { onMarineAction(state.city) },
@@ -469,6 +477,7 @@ private fun OfflineCityListBanner() {
 internal fun CityCard(
     state: CityCardState,
     onClick: () -> Unit,
+    onGraphicViewClick: () -> Unit = {},
     onRemove: () -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
@@ -589,6 +598,7 @@ internal fun CityCard(
                         marineAvailable = state.isMarineAvailable,
                         marineLoading = state.isMarineLoading,
                         onMarineAction = onMarineAction,
+                        onGraphicViewClick = onGraphicViewClick,
                         onRemove = onRemove
                     )
 
@@ -646,6 +656,7 @@ private fun CityCardHeader(
     marineAvailable: Boolean,
     marineLoading: Boolean,
     onMarineAction: () -> Unit,
+    onGraphicViewClick: () -> Unit,
     onRemove: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -702,6 +713,7 @@ private fun CityCardHeader(
             marineAvailable = marineAvailable,
             marineLoading = marineLoading,
             onMarineAction = onMarineAction,
+            onGraphicViewClick = onGraphicViewClick,
             onRemove = onRemove
         )
     }
@@ -1472,6 +1484,7 @@ private fun CityCardMenu(
     marineAvailable: Boolean,
     marineLoading: Boolean,
     onMarineAction: () -> Unit,
+    onGraphicViewClick: () -> Unit,
     onRemove: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -1493,13 +1506,14 @@ private fun CityCardMenu(
         DropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
+            shape = RoundedCornerShape(14.dp),
             modifier = Modifier
                 .clip(RoundedCornerShape(14.dp))
                 .padding(vertical = 4.dp)
         ) {
             val menuItemModifier = Modifier
                 .padding(horizontal = 6.dp, vertical = 2.dp)
-                .clip(RoundedCornerShape(10.dp))
+                .clip(RoundedCornerShape(14.dp))
             DropdownMenuItem(
                 modifier = menuItemModifier,
                 text = {
@@ -1509,6 +1523,13 @@ private fun CityCardMenu(
                         )
                     )
                 },
+                leadingIcon = {
+                    Icon(
+                        imageVector = if (marineEnabled) Icons.Filled.Refresh else Icons.Outlined.Waves,
+                        contentDescription = null,
+                        modifier = Modifier.testTag("$TAG_CITY_MARINE_MENU_ICON$cityId")
+                    )
+                },
                 enabled = !marineLoading,
                 onClick = {
                     expanded = false
@@ -1516,8 +1537,30 @@ private fun CityCardMenu(
                 }
             )
             DropdownMenuItem(
+                modifier = menuItemModifier
+                    .testTag("$TAG_CITY_GRAPHIC_VIEW_MENU$cityId"),
+                text = { Text(stringResource(R.string.graphic_view_open)) },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ShowChart,
+                        contentDescription = null
+                    )
+                },
+                onClick = {
+                    expanded = false
+                    onGraphicViewClick()
+                }
+            )
+            DropdownMenuItem(
                 modifier = menuItemModifier,
                 text = { Text(stringResource(R.string.action_remove_from_favorites)) },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Outlined.Delete,
+                        contentDescription = null,
+                        modifier = Modifier.testTag("$TAG_CITY_REMOVE_MENU_ICON$cityId")
+                    )
+                },
                 onClick = {
                     expanded = false
                     onRemove()
@@ -1582,6 +1625,9 @@ internal const val TAG_CITY_LIST = "city_list"
 internal const val TAG_CITY_CARD = "city_card_"
 internal const val TAG_CITY_MARINE_AVAILABLE = "city_marine_available_"
 internal const val TAG_CITY_MARINE_ENABLED = "city_marine_enabled_"
+internal const val TAG_CITY_GRAPHIC_VIEW_MENU = "city_graphic_view_menu_"
+internal const val TAG_CITY_MARINE_MENU_ICON = "city_marine_menu_icon_"
+internal const val TAG_CITY_REMOVE_MENU_ICON = "city_remove_menu_icon_"
 internal const val TAG_EMPTY_STATE = "empty_state"
 internal const val TAG_ADD_FAB = "add_fab"
 internal const val TAG_DONATE_BUTTON = "donate_button"

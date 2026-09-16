@@ -3,6 +3,7 @@ package com.meteocompare.app.ui.citylist
 import androidx.compose.material3.Surface
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -177,6 +178,42 @@ class CityCardTest {
 
         composeRule.onNodeWithTag("$TAG_CITY_MARINE_ENABLED${marineCity.id}", useUnmergedTree = true)
             .assertIsDisplayed()
+    }
+
+    @Test
+    fun menu_graphic_view_entry_forwards_city_action() {
+        var opened = false
+        composeRule.setContent {
+            MeteoCompareTheme {
+                Surface {
+                    CityCard(
+                        state = CityCardState(TestFixtures.paris, ForecastState.Loading),
+                        onClick = {},
+                        onGraphicViewClick = { opened = true },
+                        onRemove = {},
+                        onRetry = {}
+                    )
+                }
+            }
+        }
+
+        composeRule.onNodeWithContentDescription(
+            context.getString(R.string.action_more_options)
+        ).performClick()
+        composeRule.onNodeWithTag(
+            "$TAG_CITY_MARINE_MENU_ICON${TestFixtures.paris.id}",
+            useUnmergedTree = true
+        ).assertIsDisplayed()
+        composeRule.onNodeWithTag(
+            "$TAG_CITY_REMOVE_MENU_ICON${TestFixtures.paris.id}",
+            useUnmergedTree = true
+        ).assertIsDisplayed()
+        composeRule.onNodeWithTag(
+            "$TAG_CITY_GRAPHIC_VIEW_MENU${TestFixtures.paris.id}",
+            useUnmergedTree = true
+        ).assertIsDisplayed().performClick()
+
+        assertTrue(opened)
     }
 
 }
