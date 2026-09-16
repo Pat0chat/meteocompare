@@ -49,6 +49,7 @@ import com.meteocompare.app.ui.citylist.CityListScreen
 import com.meteocompare.app.ui.citylist.CityListViewModel
 import com.meteocompare.app.ui.components.AppToastLayer
 import com.meteocompare.app.ui.enginecomparison.EngineComparisonScreen
+import com.meteocompare.app.ui.graphicview.GraphicForecastScreen
 import com.meteocompare.app.ui.help.HowItWorksScreen
 import com.meteocompare.app.ui.settings.SettingsScreen
 
@@ -360,6 +361,9 @@ private fun NavGraphBuilder.detailDestinations(
             },
             onEngineComparisonClick = {
                 navController.navigate(Destinations.engineComparison(cityId))
+            },
+            onGraphicViewClick = {
+                navController.navigate(Destinations.graphicView(cityId))
             }
         )
     }
@@ -371,6 +375,15 @@ private fun NavGraphBuilder.detailDestinations(
         })
     ) {
         EngineComparisonScreen(onBack = { navController.popBackStack() })
+    }
+
+    composable(
+        route = Destinations.GRAPHIC_VIEW,
+        arguments = listOf(navArgument(Destinations.CITY_DETAIL_ARG) {
+            type = NavType.StringType
+        })
+    ) {
+        GraphicForecastScreen(onBack = { navController.popBackStack() })
     }
 
     // « Pourquoi cette convergence ? » reste une page dédiée : son contenu

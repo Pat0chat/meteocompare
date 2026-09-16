@@ -29,9 +29,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.CompareArrows
+import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.QueryStats
+import androidx.compose.material.icons.filled.CompareArrows
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material.icons.outlined.Air
 import androidx.compose.material.icons.outlined.Thermostat
 import androidx.compose.material.icons.outlined.WaterDrop
@@ -140,6 +143,7 @@ fun CityDetailScreen(
     onBack: () -> Unit,
     onConfidenceClick: (isoDate: String) -> Unit = {},
     onEngineComparisonClick: () -> Unit = {},
+    onGraphicViewClick: () -> Unit = {},
     showBackButton: Boolean = true,
     viewModel: CityDetailViewModel = hiltViewModel()
 ) {
@@ -198,6 +202,7 @@ fun CityDetailScreen(
         onDetailContentTabChange = viewModel::setDetailContentTab,
         onConfidenceClick = onConfidenceClick,
         onEngineComparisonClick = onEngineComparisonClick,
+        onGraphicViewClick = onGraphicViewClick,
         showBackButton = showBackButton
     )
 }
@@ -228,6 +233,7 @@ internal fun CityDetailContent(
     onDetailContentTabChange: (CityDetailContentTab) -> Unit = {},
     onConfidenceClick: (isoDate: String) -> Unit = {},
     onEngineComparisonClick: () -> Unit = {},
+    onGraphicViewClick: () -> Unit = {},
     showBackButton: Boolean = true
 ) {
     WeatherAccentTheme(
@@ -288,8 +294,17 @@ internal fun CityDetailContent(
                                 modifier = Modifier.testTag(TAG_ENGINE_COMPARISON_ACTION)
                             ) {
                                 Icon(
-                                    Icons.Filled.QueryStats,
+                                    Icons.AutoMirrored.Filled.CompareArrows,
                                     contentDescription = stringResource(R.string.engine_comparison_open)
+                                )
+                            }
+                            IconButton(
+                                onClick = onGraphicViewClick,
+                                modifier = Modifier.testTag(TAG_GRAPHIC_VIEW_ACTION)
+                            ) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.ShowChart,
+                                    contentDescription = stringResource(R.string.graphic_view_open)
                                 )
                             }
                         }
@@ -2324,6 +2339,7 @@ internal const val TAG_DETAIL_LOADING = "detail_loading"
 internal const val TAG_DETAIL_ERROR = "detail_error"
 internal const val TAG_DETAIL_LOADED = "detail_loaded"
 internal const val TAG_ENGINE_COMPARISON_ACTION = "engine_comparison_action"
+internal const val TAG_GRAPHIC_VIEW_ACTION = "graphic_view_action"
 internal const val TAG_CONFIDENCE_BADGE = "confidence_badge"
 internal const val TAG_TODAY_SUMMARY_TEMP_MIN_CENTRAL = "today_summary_temp_min_central"
 internal const val TAG_TODAY_SUMMARY_TEMP_MAX_CENTRAL = "today_summary_temp_max_central"

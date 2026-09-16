@@ -19,6 +19,7 @@ import com.meteocompare.app.testutil.TestFixtures
 import com.meteocompare.app.ui.citydetail.TAG_CONFIDENCE_BADGE
 import com.meteocompare.app.ui.citydetail.TAG_DETAIL_LOADED
 import com.meteocompare.app.ui.citydetail.TAG_ENGINE_COMPARISON_ACTION
+import com.meteocompare.app.ui.citydetail.TAG_GRAPHIC_VIEW_ACTION
 import com.meteocompare.app.ui.citydetail.confidence.TAG_CONFIDENCE_EXPLANATION_BACK
 import com.meteocompare.app.ui.citydetail.confidence.TAG_CONFIDENCE_EXPLANATION_ROOT
 import com.meteocompare.app.ui.citylist.TAG_ADD_CITY_RESULT
@@ -131,6 +132,24 @@ class MainActivityNavigationTest {
         composeRule.onNodeWithTag(TAG_ENGINE_COMPARISON_ACTION).performClick()
         composeRule.onNodeWithText(
             composeRule.activity.getString(R.string.engine_comparison_title)
+        ).assertIsDisplayed()
+    }
+
+    @Test
+    fun open_graphic_view_end_to_end() {
+        cities.setFavorites(listOf(TestFixtures.paris))
+        forecasts.setForecast(TestFixtures.paris)
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodes(
+                androidx.compose.ui.test.hasTestTag("$TAG_CITY_CARD${TestFixtures.paris.id}")
+            ).fetchSemanticsNodes().isNotEmpty()
+        }
+
+        composeRule.onNodeWithTag("$TAG_CITY_CARD${TestFixtures.paris.id}").performClick()
+        composeRule.onNodeWithTag(TAG_DETAIL_LOADED).assertIsDisplayed()
+        composeRule.onNodeWithTag(TAG_GRAPHIC_VIEW_ACTION).performClick()
+        composeRule.onNodeWithText(
+            composeRule.activity.getString(R.string.graphic_view_title)
         ).assertIsDisplayed()
     }
 

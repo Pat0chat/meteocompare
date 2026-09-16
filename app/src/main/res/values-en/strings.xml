@@ -712,6 +712,36 @@
     <string name="forecast_engine_scenarios_desc">Detects distinct forecast groups and favours the dominant scenario instead of averaging incompatible scenarios.</string>
     <string name="forecast_engine_adaptive">Adaptive</string>
     <string name="forecast_engine_adaptive_desc">Dynamically chooses between robust consensus, calibration and scenarios based on data, history and multimodality.</string>
+    <!-- Vue graphique 7 jours -->
+    <string name="graphic_view_title">Chart view</string>
+    <string name="graphic_view_open">Open chart view</string>
+    <string name="graphic_view_intro">Explore the next 7 days hour by hour</string>
+    <string name="graphic_view_subtitle">7 days · hour by hour</string>
+    <string name="graphic_view_scroll_hint">Scroll horizontally to explore the 7 days.</string>
+    <string name="graphic_view_touch_hint">Tap an hour on a chart to display its detailed values.</string>
+    <string name="graphic_view_show_convergence">Show convergence</string>
+    <string name="graphic_view_show_convergence_desc">Lightly shades charts according to agreement between model families.</string>
+    <string name="graphic_view_no_data">Hourly data unavailable.</string>
+    <string name="graphic_view_central_forecast">Central forecast</string>
+    <string name="graphic_view_models_count">%1$d models</string>
+    <string name="graphic_view_temperature">Temperature</string>
+    <string name="graphic_view_rain">Rain</string>
+    <string name="graphic_view_wind">Wind</string>
+    <string name="graphic_view_gust_short">gust</string>
+    <string name="graphic_view_gusts">Gusts</string>
+    <string name="graphic_view_model_range_value">Models: %1$s</string>
+    <string name="graphic_view_show_models">Model details</string>
+    <string name="graphic_view_hide_models">Hide models</string>
+    <string name="graphic_view_dispersion">Min–max spread</string>
+    <string name="graphic_view_night">Night</string>
+    <string name="graphic_view_divergence">Divergence</string>
+    <string name="graphic_view_strong_agreement">Strong agreement</string>
+    <string name="graphic_view_time">Time</string>
+    <string name="graphic_view_hour_day">hour · day</string>
+    <string name="graphic_view_vigilance">Warnings</string>
+    <string name="graphic_view_official">official</string>
+    <string name="graphic_view_no_vigilance">No warning over the displayed period</string>
+
     <string name="engine_comparison_title">Engine comparison</string>
     <string name="engine_comparison_intro">See how the four engines interpret the same models and spot the days when their forecasts diverge.</string>
     <string name="engine_comparison_selected">Active engine: %1$s</string>

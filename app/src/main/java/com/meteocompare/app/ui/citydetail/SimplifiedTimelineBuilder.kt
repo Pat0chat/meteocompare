@@ -16,7 +16,11 @@ import com.meteocompare.app.domain.util.resolveHourlyCondition
 import java.time.Instant
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
+import kotlin.math.PI
+import kotlin.math.atan2
+import kotlin.math.cos
 import kotlin.math.roundToInt
+import kotlin.math.sin
 
 /** Origine du signal pluie affiché dans la chronologie. */
 internal enum class PrecipitationSignalSource(
@@ -107,6 +111,8 @@ internal data class SimplifiedTimelinePoint(
     val windGustMinAcrossModels: Double? = null,
     val windGustMaxAcrossModels: Double? = null,
     val windGustModelCount: Int = 0,
+    /** Direction d'origine du vent agrégée circulairement, en degrés météo. */
+    val windDirectionDeg: Int? = null,
     val condition: WeatherCondition? = null,
     /** Nombre de modèles ayant fourni au moins une valeur exploitable à cette échéance. */
     val modelCount: Int = 0,
@@ -139,18 +145,32 @@ internal fun buildSimplifiedTimeline(
     forecast: CityForecast,
     mode: DisplayMode,
     now: Instant = Instant.now(),
-    engineContext: ForecastEngineContext = ForecastEngineContext.DEFAULT
+    engineContext: ForecastEngineContext = ForecastEngineContext.DEFAULT,
+    hourlyHorizonHours: Int = DEFAULT_HOURLY_TIMELINE_HOURS
 ): List<SimplifiedTimelinePoint> = when (mode) {
-    DisplayMode.HOURLY -> buildHourlyTimeline(forecast, now, engineContext)
+    DisplayMode.HOURLY -> buildHourlyTimeline(
+        forecast = forecast,
+        now = now,
+        engineContext = engineContext,
+        horizonHours = hourlyHorizonHours
+    )
     DisplayMode.DAILY -> buildDailyTimeline(forecast, now, engineContext)
 }
 
 private fun buildHourlyTimeline(
     forecast: CityForecast,
     now: Instant,
-    engineContext: ForecastEngineContext
+    engineContext: ForecastEngineContext,
+    horizonHours: Int
 ): List<SimplifiedTimelinePoint> {
-    val (startHour, endExclusive) = computeHourlyHorizon(forecast.city.timezone, now)
+    val zone = resolveCityZone(forecast.city.timezone)
+    val startHour = now.atZone(zone)
+        .withMinute(0)
+        .withSecond(0)
+        .withNano(0)
+        .toInstant()
+    val safeHorizonHours = horizonHours.coerceIn(1, MAX_GRAPHIC_TIMELINE_HOURS)
+    val endExclusive = startHour.plusSeconds(safeHorizonHours * 3_600L)
     val indexed = forecast.seriesByModel.map { (model, series) -> indexHourlySnapshots(model, series) }
     val timestamps = indexed
         .flatMap { it.keys }
@@ -216,6 +236,7 @@ private data class TimelineSnapshot(
     val cloudCover: Int?,
     val wind: Double?,
     val windGust: Double?,
+    val windDirection: Int?,
     val condition: WeatherCondition?,
     val nativeCondition: WeatherCondition? = null
 ) {
@@ -237,6 +258,7 @@ private fun indexHourlySnapshots(
         val cloudCover = series.hourly.cloudCover.getOrNull(index)
         val wind = series.hourly.windSpeed10m.getOrNull(index)
         val windGust = series.hourly.windGusts10m.getOrNull(index)
+        val windDirection = series.hourly.windDirection10m.getOrNull(index)
         val nativeCondition = WeatherCondition.fromWmoCode(series.hourly.weatherCode.getOrNull(index))
             ?.takeUnless { it == WeatherCondition.UNKNOWN }
         val condition = nativeCondition ?: series.resolveHourlyCondition(index)
@@ -250,6 +272,7 @@ private fun indexHourlySnapshots(
             cloudCover = cloudCover,
             wind = wind,
             windGust = windGust,
+            windDirection = windDirection,
             condition = condition,
             nativeCondition = nativeCondition
         )
@@ -270,6 +293,7 @@ private fun indexDailySnapshots(
         val cloudCover = series.dailyCloudCoverMean(date, zone)
         val wind = series.daily.windSpeedMax.getOrNull(index)
         val windGust = series.daily.windGustsMax.getOrNull(index)
+        val windDirection = series.daily.windDirection10mDominant.getOrNull(index)
         val rawDailyCondition = WeatherCondition.fromWmoCode(series.daily.weatherCode.getOrNull(index))
             ?.takeUnless { it == WeatherCondition.UNKNOWN }
         // Le code daily Open-Meteo est un MAX horaire : la nébulosité affine
@@ -287,6 +311,7 @@ private fun indexDailySnapshots(
             cloudCover = cloudCover,
             wind = wind,
             windGust = windGust,
+            windDirection = windDirection,
             condition = condition,
             nativeCondition = nativeCondition
         )
@@ -490,6 +515,7 @@ private fun timelinePoint(
     val cloudValues = meaningful.mapNotNull { it.cloudCover }
     val windValues = meaningful.mapNotNull { it.wind }
     val gustValues = meaningful.mapNotNull { it.windGust }
+    val windDirection = circularMeanDegrees(meaningful.mapNotNull { it.windDirection })
     val familyCount = listOf(
         temp.agreement.familyCount,
         wind.agreement.familyCount,
@@ -528,6 +554,7 @@ private fun timelinePoint(
         windGustMinAcrossModels = gustValues.minOrNull(),
         windGustMaxAcrossModels = gustValues.maxOrNull(),
         windGustModelCount = gust.agreement.modelCount,
+        windDirectionDeg = windDirection,
         condition = conditionConsensus.value,
         modelCount = meaningful.size,
         familyCount = familyCount,
@@ -541,6 +568,19 @@ private fun timelinePoint(
         divergenceReasons = divergenceReasons
     )
 }
+
+private fun circularMeanDegrees(values: List<Int>): Int? {
+    val normalized = values.map { ((it % 360) + 360) % 360 }
+    if (normalized.isEmpty()) return null
+    val x = normalized.sumOf { cos(Math.toRadians(it.toDouble())) }
+    val y = normalized.sumOf { sin(Math.toRadians(it.toDouble())) }
+    if (kotlin.math.abs(x) < 1e-6 && kotlin.math.abs(y) < 1e-6) return normalized.first()
+    val angle = atan2(y, x) * 180.0 / PI
+    return ((angle.roundToInt() % 360) + 360) % 360
+}
+
+private const val DEFAULT_HOURLY_TIMELINE_HOURS = 24
+private const val MAX_GRAPHIC_TIMELINE_HOURS = 24 * 7
 
 /**
  * Sélectionne une grille temporelle prévisible. En mode horaire, une carte est

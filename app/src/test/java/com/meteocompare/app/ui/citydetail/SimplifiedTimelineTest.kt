@@ -53,6 +53,43 @@ class SimplifiedTimelineTest {
     }
 
     @Test
+    fun `hourly analysis can expose the full seven day graphic horizon`() {
+        val hours = 24 * 7
+        val timestamps = List(hours) { index -> now.plusSeconds(index * 3_600L) }
+        val hourlySeries = ForecastSeries(
+            model = WeatherModel.GFS,
+            hourly = HourlyForecast(
+                timestamps = timestamps,
+                temperature2m = List(hours) { 12.0 + it / 24.0 },
+                precipitation = List(hours) { 0.0 },
+                windSpeed10m = List(hours) { 15.0 },
+                windDirection10m = List(hours) { 270 }
+            ),
+            daily = DailyForecast(
+                dates = emptyList(),
+                tempMax = emptyList(),
+                tempMin = emptyList(),
+                precipitationSum = emptyList(),
+                windSpeedMax = emptyList()
+            )
+        )
+        val forecast = CityForecast(paris, mapOf(WeatherModel.GFS to hourlySeries))
+
+        val defaultTimeline = buildSimplifiedTimeline(forecast, DisplayMode.HOURLY, now)
+        val graphicTimeline = buildSimplifiedTimeline(
+            forecast = forecast,
+            mode = DisplayMode.HOURLY,
+            now = now,
+            hourlyHorizonHours = hours
+        )
+
+        assertEquals(24, defaultTimeline.size)
+        assertEquals(168, graphicTimeline.size)
+        assertEquals(270, graphicTimeline.first().windDirectionDeg)
+        assertEquals(270, graphicTimeline.last().windDirectionDeg)
+    }
+
+    @Test
     fun `daily timeline uses V3 robust central values and flags strong disagreement`() {
         val forecast = CityForecast(
             city = paris,

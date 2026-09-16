@@ -22,6 +22,11 @@ object Destinations {
 
     fun engineComparison(cityId: String): String = "$ENGINE_COMPARISON_BASE/$cityId"
 
+    private const val GRAPHIC_VIEW_BASE = "graphic-view"
+    const val GRAPHIC_VIEW = "$GRAPHIC_VIEW_BASE/{$CITY_DETAIL_ARG}"
+
+    fun graphicView(cityId: String): String = "$GRAPHIC_VIEW_BASE/$cityId"
+
     // ─── "Pourquoi cette convergence ?" ──────────────────────────────────────
     //
     // Deux arguments : cityId + date (ISO yyyy-MM-dd). On garde la date dans

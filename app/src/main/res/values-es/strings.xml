@@ -700,6 +700,36 @@ datos</string>
     <string name="forecast_engine_scenarios_desc">Detecta grupos de previsiones distintos y prioriza el escenario dominante en vez de promediar escenarios incompatibles.</string>
     <string name="forecast_engine_adaptive">Adaptativo</string>
     <string name="forecast_engine_adaptive_desc">Elige dinámicamente entre consenso robusto, calibración y escenarios según datos, historial y multimodalidad.</string>
+    <!-- Vue graphique 7 jours -->
+    <string name="graphic_view_title">Vista gráfica</string>
+    <string name="graphic_view_open">Abrir vista gráfica</string>
+    <string name="graphic_view_intro">Explora los próximos 7 días hora a hora</string>
+    <string name="graphic_view_subtitle">7 días · hora a hora</string>
+    <string name="graphic_view_scroll_hint">Desplázate horizontalmente para explorar los 7 días.</string>
+    <string name="graphic_view_touch_hint">Toca una hora del gráfico para mostrar sus valores detallados.</string>
+    <string name="graphic_view_show_convergence">Mostrar convergencia</string>
+    <string name="graphic_view_show_convergence_desc">Colorea ligeramente los gráficos según el acuerdo entre familias de modelos.</string>
+    <string name="graphic_view_no_data">Datos horarios no disponibles.</string>
+    <string name="graphic_view_central_forecast">Previsión central</string>
+    <string name="graphic_view_models_count">%1$d modelos</string>
+    <string name="graphic_view_temperature">Temperatura</string>
+    <string name="graphic_view_rain">Lluvia</string>
+    <string name="graphic_view_wind">Viento</string>
+    <string name="graphic_view_gust_short">racha</string>
+    <string name="graphic_view_gusts">Rachas</string>
+    <string name="graphic_view_model_range_value">Modelos: %1$s</string>
+    <string name="graphic_view_show_models">Detalles por modelo</string>
+    <string name="graphic_view_hide_models">Ocultar modelos</string>
+    <string name="graphic_view_dispersion">Dispersión mín.–máx.</string>
+    <string name="graphic_view_night">Noche</string>
+    <string name="graphic_view_divergence">Divergencia</string>
+    <string name="graphic_view_strong_agreement">Acuerdo fuerte</string>
+    <string name="graphic_view_time">Tiempo</string>
+    <string name="graphic_view_hour_day">hora · día</string>
+    <string name="graphic_view_vigilance">Avisos</string>
+    <string name="graphic_view_official">oficial</string>
+    <string name="graphic_view_no_vigilance">Ningún aviso en el periodo mostrado</string>
+
     <string name="engine_comparison_title">Comparación de motores</string>
     <string name="engine_comparison_intro">Visualiza cómo los cuatro motores interpretan los mismos modelos y detecta los días en que sus previsiones divergen.</string>
     <string name="engine_comparison_selected">Motor activo: %1$s</string>

@@ -696,6 +696,36 @@ Daten</string>
     <string name="forecast_engine_scenarios_desc">Erkennt getrennte Vorhersagegruppen und bevorzugt das dominante Szenario statt inkompatible Szenarien zu mitteln.</string>
     <string name="forecast_engine_adaptive">Adaptiv</string>
     <string name="forecast_engine_adaptive_desc">Wählt dynamisch zwischen robustem Konsens, Kalibrierung und Szenarien je nach Daten, Historie und Multimodalität.</string>
+    <!-- Vue graphique 7 jours -->
+    <string name="graphic_view_title">Grafikansicht</string>
+    <string name="graphic_view_open">Grafikansicht öffnen</string>
+    <string name="graphic_view_intro">Die nächsten 7 Tage stündlich erkunden</string>
+    <string name="graphic_view_subtitle">7 Tage · stündlich</string>
+    <string name="graphic_view_scroll_hint">Horizontal scrollen, um die 7 Tage zu erkunden.</string>
+    <string name="graphic_view_touch_hint">Tippen Sie auf eine Stunde im Diagramm, um Detailwerte anzuzeigen.</string>
+    <string name="graphic_view_show_convergence">Übereinstimmung anzeigen</string>
+    <string name="graphic_view_show_convergence_desc">Färbt die Diagramme leicht nach der Übereinstimmung der Modellfamilien.</string>
+    <string name="graphic_view_no_data">Keine stündlichen Daten verfügbar.</string>
+    <string name="graphic_view_central_forecast">Zentrale Prognose</string>
+    <string name="graphic_view_models_count">%1$d Modelle</string>
+    <string name="graphic_view_temperature">Temperatur</string>
+    <string name="graphic_view_rain">Regen</string>
+    <string name="graphic_view_wind">Wind</string>
+    <string name="graphic_view_gust_short">Böe</string>
+    <string name="graphic_view_gusts">Böen</string>
+    <string name="graphic_view_model_range_value">Modelle: %1$s</string>
+    <string name="graphic_view_show_models">Modelldetails</string>
+    <string name="graphic_view_hide_models">Modelle ausblenden</string>
+    <string name="graphic_view_dispersion">Min–Max-Spanne</string>
+    <string name="graphic_view_night">Nacht</string>
+    <string name="graphic_view_divergence">Abweichung</string>
+    <string name="graphic_view_strong_agreement">Hohe Übereinstimmung</string>
+    <string name="graphic_view_time">Zeit</string>
+    <string name="graphic_view_hour_day">Stunde · Tag</string>
+    <string name="graphic_view_vigilance">Warnungen</string>
+    <string name="graphic_view_official">offiziell</string>
+    <string name="graphic_view_no_vigilance">Keine Warnung im angezeigten Zeitraum</string>
+
     <string name="engine_comparison_title">Vergleich der Prognosemotoren</string>
     <string name="engine_comparison_intro">Sieh, wie die vier Engines dieselben Modelle interpretieren, und erkenne Tage mit abweichenden Prognosen sofort.</string>
     <string name="engine_comparison_selected">Aktiver Motor: %1$s</string>
