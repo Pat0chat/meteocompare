@@ -78,5 +78,12 @@ class GraphicForecastContentTest {
         composeRule.onNodeWithTag(TAG_GRAPHIC_TEMPERATURE_PLOT).assertExists()
         composeRule.onNodeWithTag(TAG_GRAPHIC_RAIN_PLOT).assertExists()
         composeRule.onNodeWithTag(TAG_GRAPHIC_WIND_PLOT).assertExists()
+
+        composeRule.onAllNodesWithTag(TAG_GRAPHIC_AXIS_ICON, useUnmergedTree = true)
+            .assertCountEquals(3)
+        composeRule.onNodeWithTag(TAG_GRAPHIC_WIND_TOOLTIP, useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithTag(TAG_GRAPHIC_WIND_TOOLTIP_MEAN, useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithTag(TAG_GRAPHIC_WIND_TOOLTIP_GUST, useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithTag(TAG_GRAPHIC_WIND_TOOLTIP_DIRECTION, useUnmergedTree = true).assertExists()
     }
 }

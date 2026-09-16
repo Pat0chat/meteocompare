@@ -25,6 +25,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.Air
+import androidx.compose.material.icons.outlined.Thermostat
+import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -56,6 +59,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
@@ -97,13 +101,13 @@ import kotlin.math.max
 import kotlin.math.roundToInt
 
 private val GraphicHourWidth = 40.dp
-private val GraphicAxisWidth = 78.dp
+private val GraphicAxisWidth = 82.dp
 private val TemperaturePlotHeight = 252.dp
 private val RainPlotHeight = 150.dp
 private val WindPlotHeight = 150.dp
 private val TimeAxisHeight = 76.dp
 private val VigilanceLaneHeight = 116.dp
-private val PlotTopPadding = 28.dp
+private val PlotTopPadding = 40.dp
 private val PlotBottomPadding = 18.dp
 
 internal const val TAG_GRAPHIC_HOUR_CELL = "graphic_hour_cell"
@@ -111,6 +115,11 @@ internal const val TAG_GRAPHIC_CONDITION_ICON = "graphic_condition_icon"
 internal const val TAG_GRAPHIC_TEMPERATURE_PLOT = "graphic_temperature_plot"
 internal const val TAG_GRAPHIC_RAIN_PLOT = "graphic_rain_plot"
 internal const val TAG_GRAPHIC_WIND_PLOT = "graphic_wind_plot"
+internal const val TAG_GRAPHIC_WIND_TOOLTIP = "graphic_wind_tooltip"
+internal const val TAG_GRAPHIC_WIND_TOOLTIP_MEAN = "graphic_wind_tooltip_mean"
+internal const val TAG_GRAPHIC_WIND_TOOLTIP_GUST = "graphic_wind_tooltip_gust"
+internal const val TAG_GRAPHIC_WIND_TOOLTIP_DIRECTION = "graphic_wind_tooltip_direction"
+internal const val TAG_GRAPHIC_AXIS_ICON = "graphic_axis_icon"
 
 internal const val GRAPHIC_TEMPERATURE_HEAT_ALPHA = 0.20f
 internal const val GRAPHIC_RAIN_HEAT_ALPHA = 0.22f
@@ -637,6 +646,8 @@ private fun GraphicAxisColumn(
     ) {
         PlotAxis(
             label = stringResource(R.string.graphic_view_temperature),
+            icon = Icons.Outlined.Thermostat,
+            iconTint = temperatureMetricAccent(),
             unit = "°C",
             domain = tempDomain,
             height = TemperaturePlotHeight,
@@ -644,6 +655,8 @@ private fun GraphicAxisColumn(
         )
         PlotAxis(
             label = stringResource(R.string.graphic_view_rain),
+            icon = Icons.Outlined.WaterDrop,
+            iconTint = precipitationMetricAccent(),
             unit = "mm/h",
             domain = rainDomain,
             height = RainPlotHeight,
@@ -651,6 +664,8 @@ private fun GraphicAxisColumn(
         )
         PlotAxis(
             label = stringResource(R.string.graphic_view_wind),
+            icon = Icons.Outlined.Air,
+            iconTint = windMetricAccent(),
             unit = "km/h",
             domain = windDomain,
             height = WindPlotHeight,
@@ -672,6 +687,8 @@ private fun GraphicAxisColumn(
 @Composable
 private fun PlotAxis(
     label: String,
+    icon: ImageVector,
+    iconTint: Color,
     unit: String,
     domain: PlotDomain,
     height: Dp,
@@ -681,11 +698,35 @@ private fun PlotAxis(
         modifier = Modifier
             .fillMaxWidth()
             .height(height)
-            .padding(horizontal = 6.dp)
+            .padding(horizontal = 5.dp)
     ) {
-        Column(Modifier.padding(top = 7.dp)) {
-            Text(label, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-            Text(unit, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Surface(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(top = 6.dp),
+            shape = RoundedCornerShape(9.dp),
+            color = iconTint.copy(alpha = 0.12f),
+            contentColor = iconTint
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = label,
+                    modifier = Modifier.size(16.dp).testTag(TAG_GRAPHIC_AXIS_ICON),
+                    tint = iconTint
+                )
+                Text(
+                    text = unit,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
+                )
+            }
         }
         domain.ticks.forEach { tick ->
             val y = valueToYDp(tick, domain, height)
@@ -693,7 +734,13 @@ private fun PlotAxis(
                 text = format(tick, decimals),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.offset(y = y - 7.dp).align(Alignment.TopEnd)
+                maxLines = 1,
+                softWrap = false,
+                textAlign = TextAlign.End,
+                modifier = Modifier
+                    .offset(y = y - 8.dp)
+                    .align(Alignment.TopEnd)
+                    .width(GraphicAxisWidth - 10.dp)
             )
         }
     }
@@ -980,14 +1027,85 @@ private fun WindPlot(
             }
         }
         points.getOrNull(selectedIndex)?.let { selected ->
-            val mean = selected.windKmh?.let { "${format(it, 0)} km/h" } ?: "—"
-            val gust = selected.windGustKmh?.let { " · $gustShort ${format(it, 0)} km/h" }.orEmpty()
-            val direction = selected.windDirectionDeg?.let { " · ${it}°" }.orEmpty()
-            PlotSelectionBadge(
-                text = mean + gust + direction,
+            WindSelectionBadge(
+                mean = selected.windKmh?.let { "${format(it, 0)} km/h" } ?: "—",
+                gust = selected.windGustKmh?.let { "$gustShort ${format(it, 0)} km/h" },
+                direction = selected.windDirectionDeg?.let { "${it}°" },
                 selectedIndex = selectedIndex,
                 pointCount = points.size
             )
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun WindSelectionBadge(
+    mean: String,
+    gust: String?,
+    direction: String?,
+    selectedIndex: Int,
+    pointCount: Int
+) {
+    val badgeWidth = 224.dp
+    val trackWidth = GraphicHourWidth * pointCount.toFloat()
+    val center = GraphicHourWidth * (selectedIndex + 0.5f)
+    val maxX = (trackWidth - badgeWidth).coerceAtLeast(0.dp)
+    val x = (center - badgeWidth * 0.5f).coerceIn(0.dp, maxX)
+    Surface(
+        modifier = Modifier
+            .offset(x = x, y = 6.dp)
+            .width(badgeWidth)
+            .testTag(TAG_GRAPHIC_WIND_TOOLTIP),
+        shape = RoundedCornerShape(10.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.96f),
+        tonalElevation = 2.dp
+    ) {
+        FlowRow(
+            modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Air,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                    tint = windMetricAccent()
+                )
+                Text(
+                    text = mean,
+                    modifier = Modifier.testTag(TAG_GRAPHIC_WIND_TOOLTIP_MEAN),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = windMetricAccent(),
+                    maxLines = 1,
+                    softWrap = false
+                )
+            }
+            gust?.let {
+                Text(
+                    text = it,
+                    modifier = Modifier.testTag(TAG_GRAPHIC_WIND_TOOLTIP_GUST),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    softWrap = false
+                )
+            }
+            direction?.let {
+                Text(
+                    text = it,
+                    modifier = Modifier.testTag(TAG_GRAPHIC_WIND_TOOLTIP_DIRECTION),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    softWrap = false
+                )
+            }
         }
     }
 }
