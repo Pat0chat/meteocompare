@@ -73,4 +73,12 @@ class GraphicForecastChartMathTest {
         assertTrue(domain.max > 28.0)
         assertEquals(5, domain.ticks.size)
     }
+    @Test
+    fun adaptive_tooltip_position_uses_measured_width_and_stays_inside_track() {
+        assertEquals(400, selectionBadgeStartPx(centerPx = 500f, trackWidthPx = 1_000f, badgeWidthPx = 200))
+        assertEquals(0, selectionBadgeStartPx(centerPx = 50f, trackWidthPx = 1_000f, badgeWidthPx = 200))
+        assertEquals(800, selectionBadgeStartPx(centerPx = 980f, trackWidthPx = 1_000f, badgeWidthPx = 200))
+        assertEquals(500, selectionBadgeStartPx(centerPx = 500f, trackWidthPx = 1_000f, badgeWidthPx = 0))
+    }
+
 }

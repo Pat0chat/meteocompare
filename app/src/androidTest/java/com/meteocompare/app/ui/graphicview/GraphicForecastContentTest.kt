@@ -1,7 +1,6 @@
 package com.meteocompare.app.ui.graphicview
 
 import androidx.compose.ui.test.assertCountEquals
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -11,6 +10,7 @@ import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.ui.citydetail.SimplifiedTimelinePoint
 import com.meteocompare.app.ui.theme.MeteoCompareTheme
 import java.time.Instant
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -91,6 +91,18 @@ class GraphicForecastContentTest {
         composeRule.onNodeWithTag(TAG_GRAPHIC_WIND_TOOLTIP_MEAN, useUnmergedTree = true).assertExists()
         composeRule.onNodeWithTag(TAG_GRAPHIC_WIND_TOOLTIP_GUST, useUnmergedTree = true).assertExists()
         composeRule.onNodeWithTag(TAG_GRAPHIC_WIND_TOOLTIP_DIRECTION, useUnmergedTree = true).assertExists()
+
+        val temperatureTooltipWidth = composeRule
+            .onNodeWithTag(TAG_GRAPHIC_TEMPERATURE_TOOLTIP, useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot.width
+        val windTooltipWidth = composeRule
+            .onNodeWithTag(TAG_GRAPHIC_WIND_TOOLTIP, useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot.width
+        assertTrue(
+            "Les infobulles doivent s'adapter à leur contenu au lieu de partager une largeur fixe",
+            windTooltipWidth > temperatureTooltipWidth
+        )
+
         composeRule.onAllNodesWithTag(TAG_GRAPHIC_WIND_DIRECTION_ARROW, useUnmergedTree = true)
             .assertCountEquals(168)
     }

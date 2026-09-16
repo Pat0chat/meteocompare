@@ -61,13 +61,16 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -1153,58 +1156,82 @@ private fun StructuredSelectionBadge(
     pointCount: Int,
     yOffset: Dp = 6.dp
 ) {
-    val badgeWidth = 224.dp
-    val trackWidth = GraphicHourWidth * pointCount.toFloat()
-    val center = GraphicHourWidth * (selectedIndex + 0.5f)
-    val maxX = (trackWidth - badgeWidth).coerceAtLeast(0.dp)
-    val x = (center - badgeWidth * 0.5f).coerceIn(0.dp, maxX)
-    Surface(
+    val density = LocalDensity.current
+    var badgeWidthPx by remember(containerTag) { mutableIntStateOf(0) }
+    val hourWidthPx = with(density) { GraphicHourWidth.toPx() }
+    val trackWidthPx = hourWidthPx * pointCount
+    val centerPx = hourWidthPx * (selectedIndex + 0.5f)
+    val xPx = selectionBadgeStartPx(
+        centerPx = centerPx,
+        trackWidthPx = trackWidthPx,
+        badgeWidthPx = badgeWidthPx
+    )
+
+    Box(
         modifier = Modifier
-            .offset(x = x, y = yOffset)
-            .width(badgeWidth)
-            .testTag(containerTag),
-        shape = RoundedCornerShape(10.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.96f),
-        tonalElevation = 2.dp
+            .fillMaxWidth()
+            .offset(y = yOffset)
     ) {
-        FlowRow(
-            modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
-            horizontalArrangement = Arrangement.spacedBy(7.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
+        Surface(
+            modifier = Modifier
+                .offset { IntOffset(xPx, 0) }
+                .onSizeChanged { badgeWidthPx = it.width }
+                .testTag(containerTag),
+            shape = RoundedCornerShape(10.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.96f),
+            tonalElevation = 2.dp
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(3.dp)
+            FlowRow(
+                modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                horizontalArrangement = Arrangement.spacedBy(7.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    modifier = Modifier.size(14.dp),
-                    tint = accent
-                )
-                Text(
-                    text = primary,
-                    modifier = Modifier.testTag(primaryTag),
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = accent,
-                    maxLines = 1,
-                    softWrap = false
-                )
-            }
-            secondary.forEach { segment ->
-                Text(
-                    text = segment.text,
-                    modifier = Modifier.testTag(segment.tag),
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    softWrap = false
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(3.dp)
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = accent
+                    )
+                    Text(
+                        text = primary,
+                        modifier = Modifier.testTag(primaryTag),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = accent,
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                }
+                secondary.forEach { segment ->
+                    Text(
+                        text = segment.text,
+                        modifier = Modifier.testTag(segment.tag),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                }
             }
         }
     }
+}
+
+internal fun selectionBadgeStartPx(
+    centerPx: Float,
+    trackWidthPx: Float,
+    badgeWidthPx: Int
+): Int {
+    if (badgeWidthPx <= 0) return centerPx.toInt().coerceAtLeast(0)
+    val maxStart = (trackWidthPx - badgeWidthPx).coerceAtLeast(0f)
+    return (centerPx - badgeWidthPx / 2f)
+        .coerceIn(0f, maxStart)
+        .toInt()
 }
 
 @Composable
