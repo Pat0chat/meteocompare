@@ -42,6 +42,11 @@ internal fun WindArrow(directionDegrees: Int, size: Dp = 12.dp) {
         tint = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier
             .size(size)
-            .rotate(((directionDegrees + 180) % 360).toFloat())
+            .rotate(windArrowRotation(directionDegrees))
     )
+}
+
+internal fun windArrowRotation(directionDegrees: Int): Float {
+    val normalized = ((directionDegrees % 360) + 360) % 360
+    return ((normalized + 180) % 360).toFloat()
 }

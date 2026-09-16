@@ -84,6 +84,7 @@ import com.meteocompare.app.ui.citydetail.SimplifiedTimelinePoint
 import com.meteocompare.app.ui.citydetail.resolveCityZone
 import com.meteocompare.app.ui.components.OpenMeteoAttribution
 import com.meteocompare.app.ui.components.WeatherIconDecorative
+import com.meteocompare.app.ui.components.WindArrow
 import com.meteocompare.app.ui.theme.precipitationMetricAccent
 import com.meteocompare.app.ui.theme.temperatureMetricAccent
 import com.meteocompare.app.ui.components.temperatureHeatmapColor
@@ -115,10 +116,17 @@ internal const val TAG_GRAPHIC_CONDITION_ICON = "graphic_condition_icon"
 internal const val TAG_GRAPHIC_TEMPERATURE_PLOT = "graphic_temperature_plot"
 internal const val TAG_GRAPHIC_RAIN_PLOT = "graphic_rain_plot"
 internal const val TAG_GRAPHIC_WIND_PLOT = "graphic_wind_plot"
+internal const val TAG_GRAPHIC_TEMPERATURE_TOOLTIP = "graphic_temperature_tooltip"
+internal const val TAG_GRAPHIC_TEMPERATURE_TOOLTIP_VALUE = "graphic_temperature_tooltip_value"
+internal const val TAG_GRAPHIC_TEMPERATURE_TOOLTIP_RANGE = "graphic_temperature_tooltip_range"
+internal const val TAG_GRAPHIC_RAIN_TOOLTIP = "graphic_rain_tooltip"
+internal const val TAG_GRAPHIC_RAIN_TOOLTIP_AMOUNT = "graphic_rain_tooltip_amount"
+internal const val TAG_GRAPHIC_RAIN_TOOLTIP_PROBABILITY = "graphic_rain_tooltip_probability"
 internal const val TAG_GRAPHIC_WIND_TOOLTIP = "graphic_wind_tooltip"
 internal const val TAG_GRAPHIC_WIND_TOOLTIP_MEAN = "graphic_wind_tooltip_mean"
 internal const val TAG_GRAPHIC_WIND_TOOLTIP_GUST = "graphic_wind_tooltip_gust"
 internal const val TAG_GRAPHIC_WIND_TOOLTIP_DIRECTION = "graphic_wind_tooltip_direction"
+internal const val TAG_GRAPHIC_WIND_DIRECTION_ARROW = "graphic_wind_direction_arrow"
 internal const val TAG_GRAPHIC_AXIS_ICON = "graphic_axis_icon"
 
 internal const val GRAPHIC_TEMPERATURE_HEAT_ALPHA = 0.20f
@@ -870,8 +878,9 @@ private fun TemperaturePlot(
                 "°C",
                 1
             )
-            PlotSelectionBadge(
-                text = if (range == "—") central else "$central · $range",
+            TemperatureSelectionBadge(
+                value = central,
+                range = range.takeUnless { it == "—" },
                 selectedIndex = selectedIndex,
                 pointCount = points.size,
                 yOffset = 34.dp
@@ -946,9 +955,9 @@ private fun RainPlot(
         }
         points.getOrNull(selectedIndex)?.let { selected ->
             val amount = rainAmount(selected)?.let { "${format(it, 1)} mm" } ?: "—"
-            val probability = selected.precipitationPercent?.let { " · ${it}%" }.orEmpty()
-            PlotSelectionBadge(
-                text = amount + probability,
+            RainSelectionBadge(
+                amount = amount,
+                probability = selected.precipitationPercent?.let { "${it}%" },
                 selectedIndex = selectedIndex,
                 pointCount = points.size
             )
@@ -1026,6 +1035,27 @@ private fun WindPlot(
                 )
             }
         }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(PlotBottomPadding)
+                .align(Alignment.BottomStart)
+        ) {
+            points.forEach { point ->
+                Box(
+                    modifier = Modifier
+                        .width(GraphicHourWidth)
+                        .height(PlotBottomPadding),
+                    contentAlignment = Alignment.Center
+                ) {
+                    point.windDirectionDeg?.let { direction ->
+                        Box(modifier = Modifier.testTag(TAG_GRAPHIC_WIND_DIRECTION_ARROW)) {
+                            WindArrow(directionDegrees = direction, size = 13.dp)
+                        }
+                    }
+                }
+            }
+        }
         points.getOrNull(selectedIndex)?.let { selected ->
             WindSelectionBadge(
                 mean = selected.windKmh?.let { "${format(it, 0)} km/h" } ?: "—",
@@ -1038,7 +1068,50 @@ private fun WindPlot(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun TemperatureSelectionBadge(
+    value: String,
+    range: String?,
+    selectedIndex: Int,
+    pointCount: Int,
+    yOffset: Dp = 6.dp
+) {
+    StructuredSelectionBadge(
+        icon = Icons.Outlined.Thermostat,
+        accent = temperatureMetricAccent(),
+        primary = value,
+        primaryTag = TAG_GRAPHIC_TEMPERATURE_TOOLTIP_VALUE,
+        secondary = listOfNotNull(
+            range?.let { SelectionBadgeSegment(it, TAG_GRAPHIC_TEMPERATURE_TOOLTIP_RANGE) }
+        ),
+        containerTag = TAG_GRAPHIC_TEMPERATURE_TOOLTIP,
+        selectedIndex = selectedIndex,
+        pointCount = pointCount,
+        yOffset = yOffset
+    )
+}
+
+@Composable
+private fun RainSelectionBadge(
+    amount: String,
+    probability: String?,
+    selectedIndex: Int,
+    pointCount: Int
+) {
+    StructuredSelectionBadge(
+        icon = Icons.Outlined.WaterDrop,
+        accent = precipitationMetricAccent(),
+        primary = amount,
+        primaryTag = TAG_GRAPHIC_RAIN_TOOLTIP_AMOUNT,
+        secondary = listOfNotNull(
+            probability?.let { SelectionBadgeSegment(it, TAG_GRAPHIC_RAIN_TOOLTIP_PROBABILITY) }
+        ),
+        containerTag = TAG_GRAPHIC_RAIN_TOOLTIP,
+        selectedIndex = selectedIndex,
+        pointCount = pointCount
+    )
+}
+
 @Composable
 private fun WindSelectionBadge(
     mean: String,
@@ -1047,6 +1120,39 @@ private fun WindSelectionBadge(
     selectedIndex: Int,
     pointCount: Int
 ) {
+    StructuredSelectionBadge(
+        icon = Icons.Outlined.Air,
+        accent = windMetricAccent(),
+        primary = mean,
+        primaryTag = TAG_GRAPHIC_WIND_TOOLTIP_MEAN,
+        secondary = listOfNotNull(
+            gust?.let { SelectionBadgeSegment(it, TAG_GRAPHIC_WIND_TOOLTIP_GUST) },
+            direction?.let { SelectionBadgeSegment(it, TAG_GRAPHIC_WIND_TOOLTIP_DIRECTION) }
+        ),
+        containerTag = TAG_GRAPHIC_WIND_TOOLTIP,
+        selectedIndex = selectedIndex,
+        pointCount = pointCount
+    )
+}
+
+private data class SelectionBadgeSegment(
+    val text: String,
+    val tag: String
+)
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun StructuredSelectionBadge(
+    icon: ImageVector,
+    accent: Color,
+    primary: String,
+    primaryTag: String,
+    secondary: List<SelectionBadgeSegment>,
+    containerTag: String,
+    selectedIndex: Int,
+    pointCount: Int,
+    yOffset: Dp = 6.dp
+) {
     val badgeWidth = 224.dp
     val trackWidth = GraphicHourWidth * pointCount.toFloat()
     val center = GraphicHourWidth * (selectedIndex + 0.5f)
@@ -1054,9 +1160,9 @@ private fun WindSelectionBadge(
     val x = (center - badgeWidth * 0.5f).coerceIn(0.dp, maxX)
     Surface(
         modifier = Modifier
-            .offset(x = x, y = 6.dp)
+            .offset(x = x, y = yOffset)
             .width(badgeWidth)
-            .testTag(TAG_GRAPHIC_WIND_TOOLTIP),
+            .testTag(containerTag),
         shape = RoundedCornerShape(10.dp),
         color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.96f),
         tonalElevation = 2.dp
@@ -1071,72 +1177,33 @@ private fun WindSelectionBadge(
                 horizontalArrangement = Arrangement.spacedBy(3.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Outlined.Air,
+                    imageVector = icon,
                     contentDescription = null,
                     modifier = Modifier.size(14.dp),
-                    tint = windMetricAccent()
+                    tint = accent
                 )
                 Text(
-                    text = mean,
-                    modifier = Modifier.testTag(TAG_GRAPHIC_WIND_TOOLTIP_MEAN),
+                    text = primary,
+                    modifier = Modifier.testTag(primaryTag),
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
-                    color = windMetricAccent(),
+                    color = accent,
                     maxLines = 1,
                     softWrap = false
                 )
             }
-            gust?.let {
+            secondary.forEach { segment ->
                 Text(
-                    text = it,
-                    modifier = Modifier.testTag(TAG_GRAPHIC_WIND_TOOLTIP_GUST),
+                    text = segment.text,
+                    modifier = Modifier.testTag(segment.tag),
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    softWrap = false
-                )
-            }
-            direction?.let {
-                Text(
-                    text = it,
-                    modifier = Modifier.testTag(TAG_GRAPHIC_WIND_TOOLTIP_DIRECTION),
-                    style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     softWrap = false
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun PlotSelectionBadge(
-    text: String,
-    selectedIndex: Int,
-    pointCount: Int,
-    yOffset: Dp = 6.dp
-) {
-    val badgeWidth = 164.dp
-    val trackWidth = GraphicHourWidth * pointCount.toFloat()
-    val center = GraphicHourWidth * (selectedIndex + 0.5f)
-    val maxX = (trackWidth - badgeWidth).coerceAtLeast(0.dp)
-    val x = (center - badgeWidth * 0.5f).coerceIn(0.dp, maxX)
-    Surface(
-        modifier = Modifier.offset(x = x, y = yOffset).width(badgeWidth),
-        shape = RoundedCornerShape(10.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.96f),
-        tonalElevation = 2.dp
-    ) {
-        Text(
-            text = text,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center
-        )
     }
 }
 
