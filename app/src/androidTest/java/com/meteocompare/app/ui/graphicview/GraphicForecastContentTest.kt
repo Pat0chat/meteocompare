@@ -1,6 +1,7 @@
 package com.meteocompare.app.ui.graphicview
 
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -28,6 +29,7 @@ class GraphicForecastContentTest {
                 temperatureMaxAcrossModels = 13.0 + (index % 24) * 0.4,
                 precipitationPercent = (index * 7) % 100,
                 precipitationMm = if (index % 9 == 0) 1.2 else 0.0,
+                precipitationAmountConvergencePercent = if (index == 0) 83 else 72,
                 windKmh = 12.0 + index % 10,
                 windGustKmh = 20.0 + index % 12,
                 windDirectionDeg = (index * 15) % 360,
@@ -81,6 +83,8 @@ class GraphicForecastContentTest {
 
         composeRule.onNodeWithTag(TAG_GRAPHIC_CHART_PANEL, useUnmergedTree = true).assertExists()
         composeRule.onNodeWithTag(TAG_GRAPHIC_SELECTION_HEADER, useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithTag(TAG_GRAPHIC_RAIN_SELECTION_CONVERGENCE, useUnmergedTree = true)
+            .assertTextContains("83%", substring = true)
         composeRule.onNodeWithTag(TAG_GRAPHIC_TEMPERATURE_PLOT).assertExists()
         composeRule.onNodeWithTag(TAG_GRAPHIC_RAIN_PLOT).assertExists()
         composeRule.onNodeWithTag(TAG_GRAPHIC_WIND_PLOT).assertExists()

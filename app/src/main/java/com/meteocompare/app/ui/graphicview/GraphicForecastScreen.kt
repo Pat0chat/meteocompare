@@ -132,6 +132,7 @@ internal const val TAG_GRAPHIC_WIND_DIRECTION_ARROW = "graphic_wind_direction_ar
 internal const val TAG_GRAPHIC_AXIS_ICON = "graphic_axis_icon"
 internal const val TAG_GRAPHIC_CHART_PANEL = "graphic_chart_panel"
 internal const val TAG_GRAPHIC_SELECTION_HEADER = "graphic_selection_header"
+internal const val TAG_GRAPHIC_RAIN_SELECTION_CONVERGENCE = "graphic_rain_selection_convergence"
 internal const val TAG_GRAPHIC_LEGEND_SYMBOL = "graphic_legend_symbol"
 internal const val TAG_GRAPHIC_DAY_HEADER = "graphic_day_header"
 
@@ -270,13 +271,6 @@ internal fun GraphicForecastContent(
             rainDomain = rainDomain,
             windDomain = windDomain,
             horizontalScroll = horizontalScroll
-        )
-
-        Text(
-            text = stringResource(R.string.graphic_view_touch_hint),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
         )
         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             OpenMeteoAttribution(home = false)
@@ -474,7 +468,7 @@ private fun GraphicHeaderCard(
             }
 
             Text(
-                stringResource(R.string.graphic_view_scroll_hint),
+                stringResource(R.string.graphic_view_touch_hint),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -571,7 +565,8 @@ private fun GraphicSelectionHeader(
                     append(formatRange(point.precipitationMinAcrossModelsMm, point.precipitationMaxAcrossModelsMm, "mm", 1))
                     point.precipitationPercent?.let { append(" · ${it}%") }
                 },
-                agreement = point.consensusFor(ForecastMetric.PRECIPITATION)?.percent
+                agreement = point.precipitationAmountConvergencePercent,
+                agreementTestTag = TAG_GRAPHIC_RAIN_SELECTION_CONVERGENCE
             )
             GraphicMetricSummaryChip(
                 label = stringResource(R.string.graphic_view_wind),
@@ -606,17 +601,22 @@ private fun GraphicMetricSummaryChip(
     accent: Color,
     value: String,
     detail: String,
-    agreement: Int?
+    agreement: Int?,
+    agreementTestTag: String? = null
 ) {
-    Surface(
-        shape = RoundedCornerShape(11.dp),
-        color = accent.copy(alpha = 0.075f),
-        contentColor = accent
+    Row(
+        modifier = Modifier.padding(end = 6.dp, top = 2.dp, bottom= 2.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
-        ) {
+        Box(
+            Modifier
+                .width(2.dp)
+                .height(32.dp)
+                .clip(RoundedCornerShape(1.dp))
+                .background(accent.copy(alpha = 0.78f))
+        )
+        Spacer(Modifier.width(6.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -632,6 +632,7 @@ private fun GraphicMetricSummaryChip(
                 agreement?.let {
                     Text(
                         "· $it%",
+                        modifier = agreementTestTag?.let { Modifier.testTag(it) } ?: Modifier,
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = confidenceColor(it),
@@ -719,11 +720,9 @@ private fun GraphicLegend(
     FlowRow(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.42f))
-            .padding(horizontal = 8.dp, vertical = 6.dp),
+            .padding(horizontal = 2.dp, vertical = 2.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalArrangement = Arrangement.spacedBy(7.dp)
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         LegendItem(LegendSymbol.SOLID_LINE_POINT, temperature, stringResource(R.string.graphic_view_temperature))
         LegendItem(LegendSymbol.BAND, temperature.copy(alpha = 0.28f), stringResource(R.string.graphic_view_dispersion))

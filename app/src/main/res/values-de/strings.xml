@@ -701,7 +701,6 @@ Daten</string>
     <string name="graphic_view_open">Grafikansicht öffnen</string>
     <string name="graphic_view_intro">Die nächsten 7 Tage stündlich erkunden</string>
     <string name="graphic_view_subtitle">7 Tage · stündlich</string>
-    <string name="graphic_view_scroll_hint">Horizontal scrollen, um die 7 Tage zu erkunden.</string>
     <string name="graphic_view_touch_hint">Tippen Sie auf eine Stunde im Diagramm, um Detailwerte anzuzeigen.</string>
     <string name="graphic_view_show_convergence">Übereinstimmung anzeigen</string>
     <string name="graphic_view_show_convergence_desc">Färbt die Diagramme leicht nach der Übereinstimmung der Modellfamilien.</string>

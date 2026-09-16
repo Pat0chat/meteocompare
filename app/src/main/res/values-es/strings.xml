@@ -705,7 +705,6 @@ datos</string>
     <string name="graphic_view_open">Abrir vista gráfica</string>
     <string name="graphic_view_intro">Explora los próximos 7 días hora a hora</string>
     <string name="graphic_view_subtitle">7 días · hora a hora</string>
-    <string name="graphic_view_scroll_hint">Desplázate horizontalmente para explorar los 7 días.</string>
     <string name="graphic_view_touch_hint">Toca una hora del gráfico para mostrar sus valores detallados.</string>
     <string name="graphic_view_show_convergence">Mostrar convergencia</string>
     <string name="graphic_view_show_convergence_desc">Colorea ligeramente los gráficos según el acuerdo entre familias de modelos.</string>

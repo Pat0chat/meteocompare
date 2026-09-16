@@ -95,6 +95,8 @@ internal data class SimplifiedTimelinePoint(
     val precipitationExpectedMm: Double? = null,
     val precipitationMinAcrossModelsMm: Double? = null,
     val precipitationMaxAcrossModelsMm: Double? = null,
+    /** Accord entre familles sur la quantité de précipitations (mm), comme dans TodaySummaryCard. */
+    val precipitationAmountConvergencePercent: Int? = null,
     /** Plage de probabilités lorsque plusieurs modèles la fournissent. */
     val precipitationProbabilityMin: Int? = null,
     val precipitationProbabilityMax: Int? = null,
@@ -541,6 +543,7 @@ private fun timelinePoint(
         precipitationExpectedMm = precipitationForecast.expectedAmountMm,
         precipitationMinAcrossModelsMm = precipitationValues.minOrNull(),
         precipitationMaxAcrossModelsMm = precipitationValues.maxOrNull(),
+        precipitationAmountConvergencePercent = precipitation.amountConvergencePercent,
         precipitationProbabilityMin = probabilities.minOrNull(),
         precipitationProbabilityMax = probabilities.maxOrNull(),
         cloudCoverPercent = cloud.forecastValue.central?.roundToInt()?.coerceIn(0, 100),

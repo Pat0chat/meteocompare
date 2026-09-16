@@ -89,6 +89,38 @@ class SimplifiedTimelineTest {
         assertEquals(270, graphicTimeline.last().windDirectionDeg)
     }
 
+
+    @Test
+    fun `hourly timeline exposes rain amount convergence separately from occurrence convergence`() {
+        fun hourly(model: WeatherModel, amount: Double) = ForecastSeries(
+            model = model,
+            hourly = HourlyForecast(
+                timestamps = listOf(now),
+                temperature2m = listOf(18.0),
+                precipitation = listOf(amount),
+                precipitationProbability = listOf(80),
+                windSpeed10m = listOf(12.0),
+                cloudCover = listOf(75)
+            ),
+            daily = DailyForecast(emptyList(), emptyList(), emptyList(), emptyList(), emptyList())
+        )
+        val forecast = CityForecast(
+            city = paris,
+            seriesByModel = linkedMapOf(
+                WeatherModel.GFS to hourly(WeatherModel.GFS, 0.0),
+                WeatherModel.ECMWF to hourly(WeatherModel.ECMWF, 2.0),
+                WeatherModel.ICON_GLOBAL to hourly(WeatherModel.ICON_GLOBAL, 5.0)
+            )
+        )
+
+        val point = buildSimplifiedTimeline(forecast, DisplayMode.HOURLY, now).single()
+
+        assertEquals(100, point.consensusFor(ForecastMetric.PRECIPITATION)?.percent)
+        val amountConvergence = point.precipitationAmountConvergencePercent
+        assertTrue(amountConvergence != null)
+        assertTrue(requireNotNull(amountConvergence) < 100)
+    }
+
     @Test
     fun `daily timeline uses V3 robust central values and flags strong disagreement`() {
         val forecast = CityForecast(
