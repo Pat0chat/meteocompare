@@ -66,8 +66,12 @@ class GraphicForecastContentTest {
 
         composeRule.onAllNodesWithTag(TAG_GRAPHIC_HOUR_CELL, useUnmergedTree = true)
             .assertCountEquals(168)
+        composeRule.onAllNodesWithTag(TAG_GRAPHIC_DAY_HEADER, useUnmergedTree = true)
+            .assertCountEquals(7)
         composeRule.onAllNodesWithTag(TAG_GRAPHIC_CONDITION_ICON, useUnmergedTree = true)
             .assertCountEquals(168)
+        composeRule.onAllNodesWithTag(TAG_GRAPHIC_LEGEND_SYMBOL, useUnmergedTree = true)
+            .assertCountEquals(8)
 
         // 168 h = exactement 7 occurrences de chacune des 24 heures.
         (0..23).forEach { hour ->
@@ -75,9 +79,28 @@ class GraphicForecastContentTest {
                 .assertCountEquals(7)
         }
 
+        composeRule.onNodeWithTag(TAG_GRAPHIC_CHART_PANEL, useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithTag(TAG_GRAPHIC_SELECTION_HEADER, useUnmergedTree = true).assertExists()
         composeRule.onNodeWithTag(TAG_GRAPHIC_TEMPERATURE_PLOT).assertExists()
         composeRule.onNodeWithTag(TAG_GRAPHIC_RAIN_PLOT).assertExists()
         composeRule.onNodeWithTag(TAG_GRAPHIC_WIND_PLOT).assertExists()
+
+        val panelBounds = composeRule
+            .onNodeWithTag(TAG_GRAPHIC_CHART_PANEL, useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot
+        val selectionBounds = composeRule
+            .onNodeWithTag(TAG_GRAPHIC_SELECTION_HEADER, useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot
+        val temperaturePlotBounds = composeRule
+            .onNodeWithTag(TAG_GRAPHIC_TEMPERATURE_PLOT, useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot
+        assertTrue(
+            "Le résumé de l'heure sélectionnée et les graphiques doivent appartenir au même panneau visuel",
+            selectionBounds.top >= panelBounds.top &&
+                selectionBounds.bottom <= panelBounds.bottom &&
+                temperaturePlotBounds.top >= panelBounds.top &&
+                temperaturePlotBounds.bottom <= panelBounds.bottom
+        )
 
         composeRule.onAllNodesWithTag(TAG_GRAPHIC_AXIS_ICON, useUnmergedTree = true)
             .assertCountEquals(3)

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -20,7 +21,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -28,8 +28,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Air
 import androidx.compose.material.icons.outlined.Thermostat
 import androidx.compose.material.icons.outlined.WaterDrop
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -42,6 +40,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -105,11 +104,11 @@ import kotlin.math.max
 import kotlin.math.roundToInt
 
 private val GraphicHourWidth = 40.dp
-private val GraphicAxisWidth = 82.dp
+private val GraphicAxisWidth = 76.dp
 private val TemperaturePlotHeight = 252.dp
 private val RainPlotHeight = 150.dp
 private val WindPlotHeight = 150.dp
-private val TimeAxisHeight = 76.dp
+private val TimeAxisHeight = 70.dp
 private val VigilanceLaneHeight = 116.dp
 private val PlotTopPadding = 40.dp
 private val PlotBottomPadding = 18.dp
@@ -131,6 +130,10 @@ internal const val TAG_GRAPHIC_WIND_TOOLTIP_GUST = "graphic_wind_tooltip_gust"
 internal const val TAG_GRAPHIC_WIND_TOOLTIP_DIRECTION = "graphic_wind_tooltip_direction"
 internal const val TAG_GRAPHIC_WIND_DIRECTION_ARROW = "graphic_wind_direction_arrow"
 internal const val TAG_GRAPHIC_AXIS_ICON = "graphic_axis_icon"
+internal const val TAG_GRAPHIC_CHART_PANEL = "graphic_chart_panel"
+internal const val TAG_GRAPHIC_SELECTION_HEADER = "graphic_selection_header"
+internal const val TAG_GRAPHIC_LEGEND_SYMBOL = "graphic_legend_symbol"
+internal const val TAG_GRAPHIC_DAY_HEADER = "graphic_day_header"
 
 internal const val GRAPHIC_TEMPERATURE_HEAT_ALPHA = 0.20f
 internal const val GRAPHIC_RAIN_HEAT_ALPHA = 0.22f
@@ -154,6 +157,9 @@ internal fun GraphicForecastScreen(
             topBar = {
                 TopAppBar(
                     title = { Text(stringResource(R.string.graphic_view_title)) },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest
+                    ),
                     navigationIcon = {
                         IconButton(onClick = onBack) {
                             Icon(
@@ -236,7 +242,7 @@ internal fun GraphicForecastContent(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(bottom = 20.dp)
+            .padding(bottom = 16.dp)
     ) {
         GraphicHeaderCard(
             cityName = state.city.name,
@@ -248,97 +254,143 @@ internal fun GraphicForecastContent(
             onShowAgreementChange = { showAgreement = it }
         )
 
-        GraphicSelectionCard(
+        GraphicChartPanel(
             point = selectedPoint,
             models = selectedModels,
+            points = state.points,
+            solarByDate = state.solarByDate,
+            vigilance = state.vigilance,
             zone = zone,
             locale = locale,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
-        )
-
-        GraphicLegend(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
+            selectedIndex = selectedIndex,
+            onSelectIndex = { selectedIndex = it },
             showAgreement = showAgreement,
-            agreementPalette = agreementPalette
+            agreementPalette = agreementPalette,
+            tempDomain = tempDomain,
+            rainDomain = rainDomain,
+            windDomain = windDomain,
+            horizontalScroll = horizontalScroll
         )
 
-        Spacer(Modifier.height(8.dp))
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.34f))
-        ) {
-            GraphicAxisColumn(
-                tempDomain = tempDomain,
-                rainDomain = rainDomain,
-                windDomain = windDomain
-            )
-
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .horizontalScroll(horizontalScroll)
-            ) {
-                val chartWidth = GraphicHourWidth * state.points.size.toFloat()
-                TemperaturePlot(
-                    points = state.points,
-                    solarByDate = state.solarByDate,
-                    zone = zone,
-                    domain = tempDomain,
-                    selectedIndex = selectedIndex,
-                    showAgreement = showAgreement,
-                    agreementPalette = agreementPalette,
-                    onSelectIndex = { selectedIndex = it },
-                    modifier = Modifier.width(chartWidth).height(TemperaturePlotHeight).testTag(TAG_GRAPHIC_TEMPERATURE_PLOT)
-                )
-                RainPlot(
-                    points = state.points,
-                    solarByDate = state.solarByDate,
-                    zone = zone,
-                    domain = rainDomain,
-                    selectedIndex = selectedIndex,
-                    showAgreement = showAgreement,
-                    agreementPalette = agreementPalette,
-                    onSelectIndex = { selectedIndex = it },
-                    modifier = Modifier.width(chartWidth).height(RainPlotHeight).testTag(TAG_GRAPHIC_RAIN_PLOT)
-                )
-                WindPlot(
-                    points = state.points,
-                    solarByDate = state.solarByDate,
-                    zone = zone,
-                    domain = windDomain,
-                    selectedIndex = selectedIndex,
-                    showAgreement = showAgreement,
-                    agreementPalette = agreementPalette,
-                    onSelectIndex = { selectedIndex = it },
-                    modifier = Modifier.width(chartWidth).height(WindPlotHeight).testTag(TAG_GRAPHIC_WIND_PLOT)
-                )
-                GraphicTimeAxis(
-                    points = state.points,
-                    zone = zone,
-                    locale = locale,
-                    selectedIndex = selectedIndex,
-                    modifier = Modifier.width(chartWidth).height(TimeAxisHeight)
-                )
-                GraphicVigilanceLane(
-                    vigilance = state.vigilance,
-                    points = state.points,
-                    modifier = Modifier.width(chartWidth).height(VigilanceLaneHeight)
-                )
-            }
-        }
-
-        Spacer(Modifier.height(10.dp))
         Text(
             text = stringResource(R.string.graphic_view_touch_hint),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 16.dp)
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
         )
-        Spacer(Modifier.height(12.dp))
         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             OpenMeteoAttribution(home = false)
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun GraphicChartPanel(
+    point: SimplifiedTimelinePoint,
+    models: List<GraphicModelValue>,
+    points: List<SimplifiedTimelinePoint>,
+    solarByDate: Map<LocalDate, GraphicSolarWindow>,
+    vigilance: VigilanceForecast?,
+    zone: ZoneId,
+    locale: Locale,
+    selectedIndex: Int,
+    onSelectIndex: (Int) -> Unit,
+    showAgreement: Boolean,
+    agreementPalette: AgreementPalette,
+    tempDomain: PlotDomain,
+    rainDomain: PlotDomain,
+    windDomain: PlotDomain,
+    horizontalScroll: androidx.compose.foundation.ScrollState
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .testTag(TAG_GRAPHIC_CHART_PANEL),
+        shape = RoundedCornerShape(22.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        tonalElevation = 0.dp
+    ) {
+        Column {
+            GraphicSelectionHeader(
+                point = point,
+                models = models,
+                zone = zone,
+                locale = locale,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+            )
+
+            Spacer(Modifier.height(1.dp))
+
+            GraphicLegend(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
+                showAgreement = showAgreement,
+                agreementPalette = agreementPalette
+            )
+
+            Spacer(Modifier.height(2.dp))
+
+            Row(modifier = Modifier.fillMaxWidth()) {
+                GraphicAxisColumn(
+                    tempDomain = tempDomain,
+                    rainDomain = rainDomain,
+                    windDomain = windDomain
+                )
+
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .horizontalScroll(horizontalScroll)
+                ) {
+                    val chartWidth = GraphicHourWidth * points.size.toFloat()
+                    TemperaturePlot(
+                        points = points,
+                        solarByDate = solarByDate,
+                        zone = zone,
+                        domain = tempDomain,
+                        selectedIndex = selectedIndex,
+                        showAgreement = showAgreement,
+                        agreementPalette = agreementPalette,
+                        onSelectIndex = onSelectIndex,
+                        modifier = Modifier.width(chartWidth).height(TemperaturePlotHeight).testTag(TAG_GRAPHIC_TEMPERATURE_PLOT)
+                    )
+                    RainPlot(
+                        points = points,
+                        solarByDate = solarByDate,
+                        zone = zone,
+                        domain = rainDomain,
+                        selectedIndex = selectedIndex,
+                        showAgreement = showAgreement,
+                        agreementPalette = agreementPalette,
+                        onSelectIndex = onSelectIndex,
+                        modifier = Modifier.width(chartWidth).height(RainPlotHeight).testTag(TAG_GRAPHIC_RAIN_PLOT)
+                    )
+                    WindPlot(
+                        points = points,
+                        solarByDate = solarByDate,
+                        zone = zone,
+                        domain = windDomain,
+                        selectedIndex = selectedIndex,
+                        showAgreement = showAgreement,
+                        agreementPalette = agreementPalette,
+                        onSelectIndex = onSelectIndex,
+                        modifier = Modifier.width(chartWidth).height(WindPlotHeight).testTag(TAG_GRAPHIC_WIND_PLOT)
+                    )
+                    GraphicTimeAxis(
+                        points = points,
+                        zone = zone,
+                        locale = locale,
+                        selectedIndex = selectedIndex,
+                        modifier = Modifier.width(chartWidth).height(TimeAxisHeight)
+                    )
+                    GraphicVigilanceLane(
+                        vigilance = vigilance,
+                        points = points,
+                        modifier = Modifier.width(chartWidth).height(VigilanceLaneHeight)
+                    )
+                }
+            }
         }
     }
 }
@@ -362,12 +414,12 @@ private fun GraphicHeaderCard(
         else -> "${rangeFormatter.format(firstDate)} – ${rangeFormatter.format(lastDate)}"
     }
 
-    Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        shape = RoundedCornerShape(18.dp)
+    Surface(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow
     ) {
-        Column(Modifier.padding(16.dp)) {
+        Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(cityName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
@@ -381,57 +433,58 @@ private fun GraphicHeaderCard(
                 }
                 if (period.isNotBlank()) {
                     Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                        contentColor = MaterialTheme.colorScheme.primary
                     ) {
                         Text(
                             period,
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                             style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
             }
-            Spacer(Modifier.height(10.dp))
+
+            Spacer(Modifier.height(8.dp))
+
             Text(
                 stringResource(R.string.graphic_view_intro),
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold
             )
             Text(
                 stringResource(R.string.graphic_view_subtitle),
-                style = MaterialTheme.typography.labelMedium,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.primary
             )
-            Text(
-                stringResource(R.string.graphic_view_scroll_hint),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(Modifier.height(10.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        stringResource(R.string.graphic_view_show_convergence),
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Text(
-                        stringResource(R.string.graphic_view_show_convergence_desc),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    stringResource(R.string.graphic_view_show_convergence),
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
                 Switch(checked = showAgreement, onCheckedChange = onShowAgreementChange)
             }
+
+            Text(
+                stringResource(R.string.graphic_view_scroll_hint),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun GraphicSelectionCard(
+private fun GraphicSelectionHeader(
     point: SimplifiedTimelinePoint,
     models: List<GraphicModelValue>,
     zone: ZoneId,
@@ -443,83 +496,103 @@ private fun GraphicSelectionCard(
     val dateLabel = instant?.atZone(zone)?.format(dateTimeFormatter).orEmpty()
     var showModels by remember(instant) { mutableStateOf(false) }
     val condition = point.condition
-    val conditionLabel = if (condition != null) {
-        stringResource(weatherConditionLabelRes(condition))
-    } else null
+    val conditionLabel = if (condition != null) stringResource(weatherConditionLabelRes(condition)) else null
     val gustShort = stringResource(R.string.graphic_view_gust_short)
-    val tempAgreement = point.consensusFor(ForecastMetric.TEMPERATURE)?.percent
-    val rainAgreement = point.consensusFor(ForecastMetric.PRECIPITATION)?.percent
-    val windAgreement = point.consensusFor(ForecastMetric.WIND)?.percent
 
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        shape = RoundedCornerShape(18.dp)
-    ) {
-        Column(Modifier.padding(14.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                WeatherIconDecorative(point.condition, size = 34.dp)
-                Spacer(Modifier.width(10.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(dateLabel, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+    Column(modifier = modifier.fillMaxWidth().testTag(TAG_GRAPHIC_SELECTION_HEADER)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+            ) {
+                Box(Modifier.size(34.dp), contentAlignment = Alignment.Center) {
+                    WeatherIconDecorative(point.condition, size = 25.dp)
+                }
+            }
+            Spacer(Modifier.width(8.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    dateLabel,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1
+                )
+                Text(
+                    conditionLabel ?: stringResource(R.string.graphic_view_central_forecast),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            if (models.isNotEmpty()) {
+                TextButton(onClick = { showModels = !showModels }) {
                     Text(
-                        conditionLabel ?: stringResource(R.string.graphic_view_central_forecast),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        "${stringResource(R.string.graphic_view_models_count, point.modelCount)} ${if (showModels) "▴" else "▾"}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1
                     )
                 }
+            } else {
                 Text(
                     stringResource(R.string.graphic_view_models_count, point.modelCount),
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 8.dp)
                 )
             }
+        }
 
-            Spacer(Modifier.height(10.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f))
-            Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(6.dp))
 
-            GraphicMetricDetailRow(
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
+            GraphicMetricSummaryChip(
                 label = stringResource(R.string.graphic_view_temperature),
+                icon = Icons.Outlined.Thermostat,
+                accent = temperatureMetricAccent(),
                 value = point.temperatureC?.let { "${format(it, 1)} °C" } ?: "—",
-                range = formatRange(point.temperatureMinAcrossModels, point.temperatureMaxAcrossModels, "°C", 1),
-                agreement = tempAgreement
+                detail = formatRange(point.temperatureMinAcrossModels, point.temperatureMaxAcrossModels, "°C", 1),
+                agreement = point.consensusFor(ForecastMetric.TEMPERATURE)?.percent
             )
-            GraphicMetricDetailRow(
+            GraphicMetricSummaryChip(
                 label = stringResource(R.string.graphic_view_rain),
+                icon = Icons.Outlined.WaterDrop,
+                accent = precipitationMetricAccent(),
                 value = rainAmount(point)?.let { "${format(it, 1)} mm" } ?: "—",
-                range = buildString {
+                detail = buildString {
                     append(formatRange(point.precipitationMinAcrossModelsMm, point.precipitationMaxAcrossModelsMm, "mm", 1))
                     point.precipitationPercent?.let { append(" · ${it}%") }
                 },
-                agreement = rainAgreement
+                agreement = point.consensusFor(ForecastMetric.PRECIPITATION)?.percent
             )
-            GraphicMetricDetailRow(
+            GraphicMetricSummaryChip(
                 label = stringResource(R.string.graphic_view_wind),
+                icon = Icons.Outlined.Air,
+                accent = windMetricAccent(),
                 value = point.windKmh?.let { "${format(it, 0)} km/h" } ?: "—",
-                range = buildString {
+                detail = buildString {
                     append(formatRange(point.windMinAcrossModels, point.windMaxAcrossModels, "km/h", 0))
                     point.windGustKmh?.let { append(" · $gustShort ${format(it, 0)}") }
                     point.windDirectionDeg?.let { append(" · ${it}°") }
                 },
-                agreement = windAgreement
+                agreement = point.consensusFor(ForecastMetric.WIND)?.percent
             )
+        }
 
-            if (models.isNotEmpty()) {
-                TextButton(onClick = { showModels = !showModels }) {
-                    Text(
-                        stringResource(
-                            if (showModels) R.string.graphic_view_hide_models
-                            else R.string.graphic_view_show_models
-                        )
-                    )
-                }
-                AnimatedVisibility(showModels) {
-                    Column {
-                        HorizontalDivider()
-                        Spacer(Modifier.height(6.dp))
-                        models.forEach { row -> GraphicModelRow(row) }
-                    }
+        if (models.isNotEmpty()) {
+            AnimatedVisibility(showModels) {
+                Column(modifier = Modifier.padding(top = 5.dp)) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                    Spacer(Modifier.height(3.dp))
+                    models.forEach { row -> GraphicModelRow(row) }
                 }
             }
         }
@@ -527,42 +600,65 @@ private fun GraphicSelectionCard(
 }
 
 @Composable
-private fun GraphicMetricDetailRow(
+private fun GraphicMetricSummaryChip(
     label: String,
+    icon: ImageVector,
+    accent: Color,
     value: String,
-    range: String,
+    detail: String,
     agreement: Int?
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp),
-        verticalAlignment = Alignment.CenterVertically
+    Surface(
+        shape = RoundedCornerShape(11.dp),
+        color = accent.copy(alpha = 0.075f),
+        contentColor = accent
     ) {
-        Text(
-            label,
-            modifier = Modifier.width(88.dp),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Column(Modifier.weight(1f)) {
-            Text(value, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
-            Text(
-                stringResource(R.string.graphic_view_model_range_value, range),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-        if (agreement != null) {
-            val color = confidenceColor(agreement)
-            Surface(shape = CircleShape, color = color.copy(alpha = 0.15f)) {
+        Column(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Icon(icon, contentDescription = null, modifier = Modifier.size(14.dp), tint = accent)
                 Text(
-                    "$agreement%",
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = accent,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1
+                )
+                agreement?.let {
+                    Text(
+                        "· $it%",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = confidenceColor(it),
+                        maxLines = 1
+                    )
+                }
+            }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(5.dp)
+            ) {
+                Text(
+                    value,
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
-                    color = color
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1
                 )
+                if (detail.isNotBlank() && detail != "—") {
+                    Text(
+                        detail,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                }
             }
         }
     }
@@ -602,6 +698,14 @@ private fun GraphicModelRow(row: GraphicModelValue) {
     }
 }
 
+private enum class LegendSymbol {
+    SOLID_LINE_POINT,
+    DASHED_LINE_POINT,
+    BAND,
+    BAR,
+    FILL
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun GraphicLegend(
@@ -613,33 +717,89 @@ private fun GraphicLegend(
     val wind = windMetricAccent()
     val temperature = temperatureMetricAccent()
     FlowRow(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.42f))
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(7.dp)
     ) {
-        LegendChip(temperature, stringResource(R.string.graphic_view_temperature))
-        LegendChip(temperature.copy(alpha = 0.20f), stringResource(R.string.graphic_view_dispersion))
-        LegendChip(rain, stringResource(R.string.graphic_view_rain))
-        LegendChip(wind, stringResource(R.string.graphic_view_wind))
-        LegendChip(MaterialTheme.colorScheme.onSurfaceVariant, stringResource(R.string.graphic_view_gusts))
-        LegendChip(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f), stringResource(R.string.graphic_view_night))
+        LegendItem(LegendSymbol.SOLID_LINE_POINT, temperature, stringResource(R.string.graphic_view_temperature))
+        LegendItem(LegendSymbol.BAND, temperature.copy(alpha = 0.28f), stringResource(R.string.graphic_view_dispersion))
+        LegendItem(LegendSymbol.BAR, rain, stringResource(R.string.graphic_view_rain))
+        LegendItem(LegendSymbol.SOLID_LINE_POINT, wind, stringResource(R.string.graphic_view_wind))
+        LegendItem(LegendSymbol.DASHED_LINE_POINT, MaterialTheme.colorScheme.onSurfaceVariant, stringResource(R.string.graphic_view_gusts))
+        LegendItem(LegendSymbol.FILL, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f), stringResource(R.string.graphic_view_night))
         if (showAgreement) {
-            LegendChip(agreementPalette.low, stringResource(R.string.graphic_view_divergence))
-            LegendChip(agreementPalette.high, stringResource(R.string.graphic_view_strong_agreement))
+            LegendItem(LegendSymbol.FILL, agreementPalette.low, stringResource(R.string.graphic_view_divergence))
+            LegendItem(LegendSymbol.FILL, agreementPalette.high, stringResource(R.string.graphic_view_strong_agreement))
         }
     }
 }
 
 @Composable
-private fun LegendChip(color: Color, label: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            Modifier
-                .size(10.dp)
-                .clip(CircleShape)
-                .background(color)
-        )
-        Spacer(Modifier.width(4.dp))
+private fun LegendItem(symbol: LegendSymbol, color: Color, label: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(5.dp)
+    ) {
+        Canvas(
+            modifier = Modifier
+                .width(26.dp)
+                .height(12.dp)
+                .testTag(TAG_GRAPHIC_LEGEND_SYMBOL)
+        ) {
+            val centerY = size.height / 2f
+            when (symbol) {
+                LegendSymbol.SOLID_LINE_POINT -> {
+                    drawLine(
+                        color = color,
+                        start = Offset(1.dp.toPx(), centerY),
+                        end = Offset(size.width - 1.dp.toPx(), centerY),
+                        strokeWidth = 2.2.dp.toPx(),
+                        cap = StrokeCap.Round
+                    )
+                    drawCircle(color = color, radius = 2.6.dp.toPx(), center = Offset(size.width / 2f, centerY))
+                }
+                LegendSymbol.DASHED_LINE_POINT -> {
+                    drawLine(
+                        color = color,
+                        start = Offset(1.dp.toPx(), centerY),
+                        end = Offset(size.width - 1.dp.toPx(), centerY),
+                        strokeWidth = 1.8.dp.toPx(),
+                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(5.dp.toPx(), 3.dp.toPx())),
+                        cap = StrokeCap.Round
+                    )
+                    drawCircle(color = color, radius = 2.dp.toPx(), center = Offset(size.width / 2f, centerY))
+                }
+                LegendSymbol.BAND -> {
+                    drawRoundRect(
+                        color = color,
+                        topLeft = Offset(1.dp.toPx(), 2.dp.toPx()),
+                        size = Size(size.width - 2.dp.toPx(), size.height - 4.dp.toPx()),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(3.dp.toPx(), 3.dp.toPx())
+                    )
+                }
+                LegendSymbol.BAR -> {
+                    val barWidth = 5.dp.toPx()
+                    drawRoundRect(
+                        color = color.copy(alpha = 0.78f),
+                        topLeft = Offset(size.width / 2f - barWidth / 2f, 1.dp.toPx()),
+                        size = Size(barWidth, size.height - 2.dp.toPx()),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx(), 2.dp.toPx())
+                    )
+                }
+                LegendSymbol.FILL -> {
+                    drawRoundRect(
+                        color = color,
+                        topLeft = Offset(1.dp.toPx(), 2.dp.toPx()),
+                        size = Size(size.width - 2.dp.toPx(), size.height - 4.dp.toPx()),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(3.dp.toPx(), 3.dp.toPx())
+                    )
+                }
+            }
+        }
         Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
@@ -709,6 +869,7 @@ private fun PlotAxis(
         modifier = Modifier
             .fillMaxWidth()
             .height(height)
+            .background(iconTint.copy(alpha = 0.035f))
             .padding(horizontal = 5.dp)
     ) {
         Surface(
@@ -734,7 +895,7 @@ private fun PlotAxis(
                     text = unit,
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = iconTint,
                     maxLines = 1
                 )
             }
@@ -744,7 +905,7 @@ private fun PlotAxis(
             Text(
                 text = format(tick, decimals),
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = iconTint.copy(alpha = 0.92f),
                 maxLines = 1,
                 softWrap = false,
                 textAlign = TextAlign.End,
@@ -1245,52 +1406,117 @@ private fun GraphicTimeAxis(
     val hourFormatter = remember(locale) { DateTimeFormatter.ofPattern("HH'h'", locale) }
     val dayFormatter = remember(locale) { DateTimeFormatter.ofPattern("EEE d MMM", locale) }
     val dates = remember(points, zone) { points.map { it.instant?.atZone(zone)?.toLocalDate() } }
-    Column(modifier.background(MaterialTheme.colorScheme.surfaceContainerLowest)) {
-        Row(Modifier.height(34.dp)) {
-            points.forEachIndexed { index, point ->
-                val zdt = point.instant?.atZone(zone)
-                Box(
-                    modifier = Modifier
-                        .width(GraphicHourWidth)
-                        .fillMaxSize()
-                        .testTag(TAG_GRAPHIC_HOUR_CELL)
-                        .background(
-                            if (index == selectedIndex) MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
-                            else Color.Transparent
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        zdt?.format(hourFormatter) ?: "",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (index == selectedIndex) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        }
-        Row(Modifier.height(42.dp)) {
+    val selectedDate = dates.getOrNull(selectedIndex)
+    val primary = MaterialTheme.colorScheme.primary
+    val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
+    val separator = primary.copy(alpha = 0.30f)
+
+    Column(modifier = modifier.background(MaterialTheme.colorScheme.surfaceContainerLowest)) {
+        Row(Modifier.height(28.dp)) {
             var start = 0
+            var dayIndex = 0
             while (start < points.size) {
                 val date = dates[start]
                 var end = start
                 while (end + 1 < points.size && dates[end + 1] == date) end++
                 val span = end - start + 1
-                Surface(
-                    modifier = Modifier.width(GraphicHourWidth * span.toFloat()).height(42.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerLow,
-                    shape = RoundedCornerShape(0.dp)
+                val isSelectedDay = date != null && date == selectedDate
+                val background = when {
+                    isSelectedDay -> primary.copy(alpha = 0.075f)
+                    dayIndex % 2 == 0 -> MaterialTheme.colorScheme.surfaceContainerLow
+                    else -> MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.45f)
+                }
+                Box(
+                    modifier = Modifier
+                        .width(GraphicHourWidth * span.toFloat())
+                        .height(28.dp)
+                        .background(background)
+                        .testTag(TAG_GRAPHIC_DAY_HEADER)
                 ) {
-                    Box(contentAlignment = Alignment.CenterStart, modifier = Modifier.padding(horizontal = 8.dp)) {
+                    if (dayIndex > 0) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.CenterStart)
+                                .width(2.dp)
+                                .fillMaxHeight()
+                                .background(separator)
+                        )
+                    }
+                    Text(
+                        text = date?.format(dayFormatter) ?: "",
+                        modifier = Modifier.align(Alignment.CenterStart).padding(start = 9.dp, end = 6.dp),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isSelectedDay) primary else MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1
+                    )
+                }
+                start = end + 1
+                dayIndex++
+            }
+        }
+
+        Row(
+            modifier = Modifier
+                .height(42.dp)
+                .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+        ) {
+            points.forEachIndexed { index, point ->
+                val zdt = point.instant?.atZone(zone)
+                val isSelected = index == selectedIndex
+                val isDayStart = index > 0 && dates[index] != dates[index - 1]
+                val isMidnight = zdt?.hour == 0
+                Box(
+                    modifier = Modifier
+                        .width(GraphicHourWidth)
+                        .fillMaxSize()
+                        .testTag(TAG_GRAPHIC_HOUR_CELL),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (isDayStart) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.CenterStart)
+                                .width(2.dp)
+                                .fillMaxHeight()
+                                .background(separator)
+                        )
+                    }
+                    if (isSelected) {
+                        Surface(
+                            shape = RoundedCornerShape(9.dp),
+                            color = primary.copy(alpha = 0.13f),
+                            contentColor = primary
+                        ) {
+                            Text(
+                                text = zdt?.format(hourFormatter) ?: "",
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 5.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1
+                            )
+                        }
+                    } else {
                         Text(
-                            date?.format(dayFormatter) ?: "",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.SemiBold,
+                            text = zdt?.format(hourFormatter) ?: "",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (isMidnight) primary else onSurfaceVariant,
+                            fontWeight = if (isMidnight) FontWeight.SemiBold else FontWeight.Normal,
                             maxLines = 1
                         )
                     }
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = 4.dp)
+                            .width(if (isMidnight) 2.dp else 1.dp)
+                            .height(if (isMidnight) 6.dp else 4.dp)
+                            .background(
+                                if (isMidnight) primary.copy(alpha = 0.55f)
+                                else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
+                            )
+                    )
                 }
-                start = end + 1
             }
         }
     }
