@@ -334,6 +334,7 @@ Fait :
 - ✅ v1.14.1 — Amélioration du mode tablette, ajout des indications Open Météo, couleurs dynamiques, amélioration de l'UI pour certains composants, corrections de bugs
 - ✅ v1.14.2 — Amélioration du mode tablette
 - ✅ v1.14.3 -> 4 — Corrections de bugs
+- ✅ v1.14.5 — Nouvelle vue "Chart View" qui affiche les prévisions par heure sur 7 jours
 
 ## Licence
 

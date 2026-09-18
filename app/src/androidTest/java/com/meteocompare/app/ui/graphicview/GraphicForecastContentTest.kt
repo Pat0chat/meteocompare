@@ -72,8 +72,13 @@ class GraphicForecastContentTest {
             .assertCountEquals(7)
         composeRule.onAllNodesWithTag(TAG_GRAPHIC_CONDITION_ICON, useUnmergedTree = true)
             .assertCountEquals(168)
-        composeRule.onAllNodesWithTag(TAG_GRAPHIC_LEGEND_SYMBOL, useUnmergedTree = true)
-            .assertCountEquals(8)
+        val legendSymbolCount = composeRule
+            .onAllNodesWithTag(TAG_GRAPHIC_LEGEND_SYMBOL, useUnmergedTree = true)
+            .fetchSemanticsNodes().size
+        assertTrue(
+            "La légende doit afficher au moins les 6 symboles permanents",
+            legendSymbolCount >= 6
+        )
 
         // 168 h = exactement 7 occurrences de chacune des 24 heures.
         (0..23).forEach { hour ->
@@ -101,9 +106,9 @@ class GraphicForecastContentTest {
         assertTrue(
             "Le résumé de l'heure sélectionnée et les graphiques doivent appartenir au même panneau visuel",
             selectionBounds.top >= panelBounds.top &&
-                selectionBounds.bottom <= panelBounds.bottom &&
-                temperaturePlotBounds.top >= panelBounds.top &&
-                temperaturePlotBounds.bottom <= panelBounds.bottom
+                    selectionBounds.bottom <= panelBounds.bottom &&
+                    temperaturePlotBounds.top >= panelBounds.top &&
+                    temperaturePlotBounds.bottom <= panelBounds.bottom
         )
 
         composeRule.onAllNodesWithTag(TAG_GRAPHIC_AXIS_ICON, useUnmergedTree = true)

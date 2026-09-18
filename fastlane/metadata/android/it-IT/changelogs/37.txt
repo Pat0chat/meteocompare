@@ -1,0 +1,1 @@
+— Nuova "Visualizzazione grafico" che mostra le previsioni orarie per i successivi 7 giorni

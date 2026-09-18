@@ -1,0 +1,1 @@
+— Nouvelle vue "Chart View" qui affiche les prévisions par heure sur 7 jours
