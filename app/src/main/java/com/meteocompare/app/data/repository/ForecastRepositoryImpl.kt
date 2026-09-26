@@ -18,6 +18,7 @@ import com.meteocompare.app.di.DefaultDispatcher
 import com.meteocompare.app.di.IoDispatcher
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityForecast
+import com.meteocompare.app.domain.model.Coverage
 import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.repository.ForecastRepository
@@ -59,7 +60,7 @@ import kotlinx.serialization.json.Json
  *  │   3. Si maxCacheAgeMs != null ET cache plus récent → RETURN          │
  *  │      (économie batterie/data : le user vient d'ouvrir l'app 2 min    │
  *  │       après un précédent refresh, inutile de re-fetcher)             │
- *  │   4. Fetch réseau BATCHED (1 requête HTTPS pour N modèles)           │
+ *  │   4. Fetch réseau BATCHED (1 requête, +1 repli global si besoin)    │
  *  │   5. Si réseau OK → écriture cache + emit Success(fresh)             │
  *  │   6. Si réseau KO :                                                  │
  *  │      - cache existait → ne pas émettre d'erreur (user voit le cache) │
@@ -71,7 +72,8 @@ import kotlinx.serialization.json.Json
  *
  * ─── Batching multi-modèles ──────────────────────────────────────────────
  * Open-Meteo supporte le multi-modèles en une seule requête HTTPS (variables
- * suffixées). La réponse est décomposée par [BatchedForecastSplitter] en un DTO
+ * suffixées). Hors domaine régional, un second lot limité aux modèles globaux
+ * sélectionnés peut être tenté. La réponse est décomposée par [BatchedForecastSplitter] en un DTO
  * par modèle, puis chaque série est mappée et cachée indépendamment.
  *
  * Le JSON brut reste en cache pour éviter de coupler le schéma Room aux types
@@ -107,7 +109,8 @@ class ForecastRepositoryImpl @Inject constructor(
     // disparu (donnée disponible au prochain démarrage).
     //
     // Impact HTTP réel : N subscribers concurrents pour la même clé →
-    // 1 seul HTTPS. N subscribers pour des clés différentes → toujours N
+    // 1 seul lot partagé (éventuellement + 1 retry global hors couverture).
+    // N subscribers pour des clés différentes → toujours N lots
     // (le coalescing est per-key, il ne sérialise pas).
     private val repoScope = CoroutineScope(SupervisorJob() + ioDispatcher)
     private val inflightMutex = Mutex()
@@ -430,7 +433,8 @@ class ForecastRepositoryImpl @Inject constructor(
     }
 
     /**
-     * Fetch batched multi-modèles (1 requête HTTPS) + écriture cache.
+     * Fetch batched multi-modèles (1 requête normalement, avec un unique
+     * retry global possible hors couverture) + écriture cache.
      *
      * Le fetch batched partage un axe temporel et une réponse réseau pour tous
      * les modèles demandés. Voir [OpenMeteoApi.getForecastBatched].
@@ -470,72 +474,67 @@ class ForecastRepositoryImpl @Inject constructor(
 
         val now = clock.millis()
 
-        // ── Requête batched ────────────────────────────────────────────
-        // Une seule ligne = un seul appel HTTPS. `forecast_days` prend la
-        // valeur max sur les modèles demandés — les modèles à horizon plus
-        // court retournent null au-delà, ce que le mapper gère (aligne les
-        // listes de valeurs sur les timestamps, pad avec null si absent).
-        val effectiveForecastDays = effectiveForecastDays(models, forecastDays)
-
-        // Log explicite pour vérifier en debug que le batching fonctionne
-        // comme prévu. Filtrable par `adb logcat -s MeteoCompare/Net`,
-        // le tag court permet un grep visuel rapide. Un futur regression qui
-        // ferait éclater ce log en N lignes séparées (une par modèle) serait
-        // une régression très visible.
+        // ── Requête batched résiliente ────────────────────────────────
         //
-        // Niveau DEBUG uniquement : aucun URL ni diagnostic réseau n'est
-        // construit ou émis dans les versions release.
-        if (BuildConfig.DEBUG) {
-            android.util.Log.d(
-                LOG_TAG,
-                "Batched fetch: ${models.size} models in 1 HTTPS request " +
-                    "→ ${models.joinToString(",") { it.apiKey }}"
-            )
-        }
+        // Open-Meteo accepte une liste mêlant modèles globaux et régionaux,
+        // mais un modèle régional hors de son domaine peut parfois faire
+        // échouer ou vider tout le lot. On tente d'abord EXACTEMENT la
+        // sélection de l'utilisateur ; uniquement en cas d'échec complet,
+        // on retente les modèles globaux déjà présents dans sa sélection.
+        //
+        // Cette stratégie ne modifie donc jamais silencieusement les choix
+        // utilisateur : elle retire seulement, pour ce retry, les modèles
+        // régionaux qui empêchent potentiellement une ville hors zone de
+        // recevoir les prévisions globales pourtant sélectionnées.
+        val primaryAttempt = requestBatchAttempt(
+            city = city,
+            models = models,
+            forecastDays = forecastDays,
+            fetchedAtEpochMs = now
+        )
+        val primary = primaryAttempt.getOrNull()
+        val globalFallbackModels = models.filter { it.coverage == Coverage.GLOBAL }
+        val canRetryGlobalOnly =
+            globalFallbackModels.isNotEmpty() && globalFallbackModels.size < models.size
 
-        val batched = try {
-            api.getForecastBatched(
-                latitude = city.latitude,
-                longitude = city.longitude,
-                models = models.joinToString(",") { it.apiKey },
-                forecastDays = effectiveForecastDays
-            )
-        } catch (e: kotlinx.coroutines.CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            return@withContext ApiResult.Error(e, e.toUserMessage(context))
-        }
-
-        // Parsing, split, mapping et ré-encodage JSON sont du travail CPU :
-        // ils tournent sur Default, borné par le nombre de cœurs, et non sur
-        // le pool I/O élastique.
-        val processed = runSuspendCatching {
-            withContext(computationDispatcher) {
-                val perModelDtos = BatchedForecastSplitter.split(batched, models)
-                val successes = perModelDtos.mapValues { (model, dto) ->
-                    mapper.toSeries(model, dto).also { series ->
-                        logSeriesDiagnostics(series, source = "network")
-                    }
-                }
-                val cacheEntries = perModelDtos.map { (model, dto) ->
-                    ForecastCacheEntity(
-                        cityId = city.id,
-                        modelKey = model.apiKey,
-                        fetchedAtEpochMs = now,
-                        responseJson = json.encodeToString(
-                            ForecastResponseDto.serializer(),
-                            dto
-                        ),
-                        sourceApiKey = model.apiKey,
-                        resolutionKm = model.resolutionKm
-                    )
-                }
-                ProcessedForecast(perModelDtos, successes, cacheEntries)
+        val selectedAttempt = if (primary?.processed?.series?.isNotEmpty() == true) {
+            primary
+        } else if (canRetryGlobalOnly) {
+            if (BuildConfig.DEBUG) {
+                android.util.Log.w(
+                    LOG_TAG,
+                    "Full model batch unavailable for ${city.id}; retrying " +
+                        "${globalFallbackModels.size} global model(s): " +
+                        globalFallbackModels.joinToString(",") { it.apiKey },
+                    primaryAttempt.exceptionOrNull()
+                )
             }
-        }.getOrElse { error ->
-            android.util.Log.w(LOG_TAG, "Forecast response processing failed", error)
-            return@withContext ApiResult.Error(error, error.toUserMessage(context))
+            requestBatchAttempt(
+                city = city,
+                models = globalFallbackModels,
+                forecastDays = forecastDays,
+                fetchedAtEpochMs = now
+            ).getOrElse { fallbackError ->
+                return@withContext ApiResult.Error(
+                    fallbackError,
+                    fallbackError.toUserMessage(context)
+                )
+            }
+        } else {
+            val error = primaryAttempt.exceptionOrNull()
+                ?: IllegalStateException("No usable model in batched response")
+            return@withContext ApiResult.Error(
+                error,
+                if (primaryAttempt.isFailure) {
+                    error.toUserMessage(context)
+                } else {
+                    context.getString(R.string.error_no_model_available)
+                }
+            )
         }
+
+        val batched = selectedAttempt.response
+        val processed = selectedAttempt.processed
         val perModelDtos = processed.dtos
         val successes = processed.series
         val cacheEntries = processed.cacheEntries
@@ -617,6 +616,68 @@ class ForecastRepositoryImpl @Inject constructor(
             ApiResult.Success(fresh)
         }
     }
+
+    /**
+     * Exécute un lot Open-Meteo et le transforme immédiatement en séries métier.
+     * Le type [Result] permet à [fetchAndCache] de déclencher un retry global
+     * sans capturer les [kotlinx.coroutines.CancellationException].
+     */
+    private suspend fun requestBatchAttempt(
+        city: City,
+        models: List<WeatherModel>,
+        forecastDays: Int,
+        fetchedAtEpochMs: Long
+    ): Result<BatchAttempt> = runSuspendCatching {
+        val effectiveDays = effectiveForecastDays(models, forecastDays)
+
+        if (BuildConfig.DEBUG) {
+            android.util.Log.d(
+                LOG_TAG,
+                "Batched fetch: ${models.size} models in 1 HTTPS request " +
+                    "→ ${models.joinToString(",") { it.apiKey }}"
+            )
+        }
+
+        val batched = api.getForecastBatched(
+            latitude = city.latitude,
+            longitude = city.longitude,
+            models = models.joinToString(",") { it.apiKey },
+            forecastDays = effectiveDays
+        )
+
+        val processed = withContext(computationDispatcher) {
+            val perModelDtos = BatchedForecastSplitter.split(batched, models)
+            val successes = perModelDtos.mapValues { (model, dto) ->
+                mapper.toSeries(model, dto).also { series ->
+                    logSeriesDiagnostics(series, source = "network")
+                }
+            }
+            val cacheEntries = perModelDtos.map { (model, dto) ->
+                ForecastCacheEntity(
+                    cityId = city.id,
+                    modelKey = model.apiKey,
+                    fetchedAtEpochMs = fetchedAtEpochMs,
+                    responseJson = json.encodeToString(
+                        ForecastResponseDto.serializer(),
+                        dto
+                    ),
+                    sourceApiKey = model.apiKey,
+                    resolutionKm = model.resolutionKm
+                )
+            }
+            ProcessedForecast(perModelDtos, successes, cacheEntries)
+        }
+
+        BatchAttempt(
+            response = batched,
+            processed = processed
+        )
+    }
+
+    private data class BatchAttempt(
+        val response: com.meteocompare.app.data.remote.dto.BatchedForecastResponseDto,
+        val processed: ProcessedForecast
+    )
 
     private data class CachedForecast(
         val forecast: CityForecast,

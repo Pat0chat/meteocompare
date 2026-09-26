@@ -291,6 +291,72 @@ class ForecastRepositoryImplTest {
         }
 
     @Test
+    fun `refresh mixte hors zone - retente uniquement les modeles globaux selectionnes`() = runTest {
+        val mixedModels = listOf(WeatherModel.AROME_FRANCE_HD, WeatherModel.GFS, WeatherModel.JMA_GSM)
+        val mixedParam = mixedModels.joinToString(",") { it.apiKey }
+        val globalParam = listOf(WeatherModel.GFS, WeatherModel.JMA_GSM)
+            .joinToString(",") { it.apiKey }
+
+        coEvery {
+            api.getForecastBatched(
+                any(), any(), eq(mixedParam), any(), any(), any(), any(), any(), any(), any()
+            )
+        } throws IOException("No data is available for this location")
+        coEvery {
+            api.getForecastBatched(
+                any(), any(), eq(globalParam), any(), any(), any(), any(), any(), any(), any()
+            )
+        } returns batchedResponseWith(listOf(WeatherModel.GFS, WeatherModel.JMA_GSM))
+
+        val result = repository.refreshCityForecast(
+            city = paris.copy(name = "Tokyo", country = "Japan", latitude = 35.6762, longitude = 139.6503),
+            models = mixedModels
+        )
+
+        assertTrue(result is ApiResult.Success)
+        result as ApiResult.Success
+        assertEquals(setOf(WeatherModel.GFS, WeatherModel.JMA_GSM), result.data.seriesByModel.keys)
+        assertTrue(WeatherModel.AROME_FRANCE_HD in result.data.errors)
+        coVerify(exactly = 1) {
+            api.getForecastBatched(
+                any(), any(), eq(mixedParam), any(), any(), any(), any(), any(), any(), any()
+            )
+        }
+        coVerify(exactly = 1) {
+            api.getForecastBatched(
+                any(), any(), eq(globalParam), any(), any(), any(), any(), any(), any(), any()
+            )
+        }
+    }
+
+    @Test
+    fun `refresh mixte reponse vide - retente les globaux pour eviter un ecran en erreur`() = runTest {
+        val mixedModels = listOf(WeatherModel.ICON_EU, WeatherModel.GFS)
+        val mixedParam = mixedModels.joinToString(",") { it.apiKey }
+
+        coEvery {
+            api.getForecastBatched(
+                any(), any(), eq(mixedParam), any(), any(), any(), any(), any(), any(), any()
+            )
+        } returns batchedResponseWith(emptyList())
+        coEvery {
+            api.getForecastBatched(
+                any(), any(), eq(WeatherModel.GFS.apiKey), any(), any(), any(), any(), any(), any(), any()
+            )
+        } returns batchedResponseWith(listOf(WeatherModel.GFS))
+
+        val result = repository.refreshCityForecast(
+            city = paris.copy(name = "Sydney", country = "Australia", latitude = -33.8688, longitude = 151.2093),
+            models = mixedModels
+        )
+
+        assertTrue(result is ApiResult.Success)
+        result as ApiResult.Success
+        assertEquals(setOf(WeatherModel.GFS), result.data.seriesByModel.keys)
+        assertTrue(WeatherModel.ICON_EU in result.data.errors)
+    }
+
+    @Test
     fun `refresh - ecrit les modeles reussis dans le cache en un lot`() = runTest {
         coEvery {
             api.getForecastBatched(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
