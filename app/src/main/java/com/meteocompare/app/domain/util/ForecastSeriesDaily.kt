@@ -9,12 +9,18 @@ import kotlin.math.roundToInt
 /** Agrégations journalières dérivées uniquement des données du modèle concerné. */
 internal fun ForecastSeries.dailyCloudCoverMean(date: LocalDate, zone: ZoneId): Int? {
     if (hourly.cloudCover.isEmpty()) return null
-    val values = hourly.timestamps.indices.mapNotNull { index ->
-        val timestamp = hourly.timestamps.getOrNull(index) ?: return@mapNotNull null
-        if (timestamp.atZone(zone).toLocalDate() != date) return@mapNotNull null
-        hourly.cloudCover.getOrNull(index)?.takeIf { it in 0..100 }
+    var sum = 0L
+    var count = 0
+    val size = minOf(hourly.timestamps.size, hourly.cloudCover.size)
+    for (index in 0 until size) {
+        val timestamp = hourly.timestamps[index]
+        if (timestamp.atZone(zone).toLocalDate() != date) continue
+        val value = hourly.cloudCover[index] ?: continue
+        if (value !in 0..100) continue
+        sum += value
+        count++
     }
-    return values.takeIf { it.isNotEmpty() }?.average()?.roundToInt()
+    return if (count == 0) null else (sum.toDouble() / count).roundToInt()
 }
 
 /**

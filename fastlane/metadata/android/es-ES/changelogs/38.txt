@@ -1,0 +1,1 @@
+— Nuevos modelos AIGFS y GSM para una mejor cobertura global, horizonte de pronóstico ampliado a 10 días, mejoras de rendimiento, corrección de errores.

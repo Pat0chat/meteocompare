@@ -58,6 +58,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
@@ -85,15 +86,16 @@ import com.meteocompare.app.ui.citydetail.ForecastMetric
 import com.meteocompare.app.ui.citydetail.SimplifiedTimelinePoint
 import com.meteocompare.app.ui.citydetail.resolveCityZone
 import com.meteocompare.app.ui.components.OpenMeteoAttribution
+import com.meteocompare.app.ui.components.StaticWeatherIconStrip
+import com.meteocompare.app.ui.components.windArrowRotation
 import com.meteocompare.app.ui.components.WeatherIconDecorative
-import com.meteocompare.app.ui.components.WindArrow
 import com.meteocompare.app.ui.theme.precipitationMetricAccent
 import com.meteocompare.app.ui.theme.temperatureMetricAccent
 import com.meteocompare.app.ui.components.temperatureHeatmapColor
 import com.meteocompare.app.ui.theme.windMetricAccent
 import com.meteocompare.app.ui.theme.WeatherAccentTheme
 import com.meteocompare.app.ui.theme.confidenceColor
-import java.time.Instant
+
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -101,7 +103,6 @@ import java.util.Locale
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.max
-import kotlin.math.roundToInt
 
 private val GraphicHourWidth = 40.dp
 private val GraphicAxisWidth = 76.dp
@@ -139,6 +140,51 @@ internal const val TAG_GRAPHIC_DAY_HEADER = "graphic_day_header"
 internal const val GRAPHIC_TEMPERATURE_HEAT_ALPHA = 0.20f
 internal const val GRAPHIC_RAIN_HEAT_ALPHA = 0.22f
 internal const val GRAPHIC_WIND_HEAT_ALPHA = 0.18f
+
+/**
+ * Séries prêtes à dessiner pour la Chart View.
+ *
+ * Elles sont construites une seule fois lorsque les prévisions changent afin
+ * d'éviter les `map { ... }`, conversions de fuseau et extractions de consensus
+ * à chaque frame de dessin des trois graphes.
+ */
+internal data class GraphicRenderData(
+    val daylight: List<Boolean>,
+    val hours: List<Int?>,
+    val temperatures: List<Double?>,
+    val temperatureMins: List<Double?>,
+    val temperatureMaxs: List<Double?>,
+    val rainAmounts: List<Double?>,
+    val rainProbabilities: List<Int?>,
+    val winds: List<Double?>,
+    val gusts: List<Double?>,
+    val directions: List<Int?>,
+    val conditions: List<WeatherCondition>,
+    val temperatureAgreement: List<Int?>,
+    val precipitationAgreement: List<Int?>,
+    val windAgreement: List<Int?>
+)
+
+internal fun buildGraphicRenderData(
+    points: List<SimplifiedTimelinePoint>,
+    solarByDate: Map<LocalDate, GraphicSolarWindow>,
+    zone: ZoneId
+): GraphicRenderData = GraphicRenderData(
+    daylight = daylightFlags(points, solarByDate, zone),
+    hours = points.map { point -> point.instant?.atZone(zone)?.hour },
+    temperatures = points.map(SimplifiedTimelinePoint::temperatureC),
+    temperatureMins = points.map(SimplifiedTimelinePoint::temperatureMinAcrossModels),
+    temperatureMaxs = points.map(SimplifiedTimelinePoint::temperatureMaxAcrossModels),
+    rainAmounts = points.map(::rainAmount),
+    rainProbabilities = points.map(SimplifiedTimelinePoint::precipitationPercent),
+    winds = points.map(SimplifiedTimelinePoint::windKmh),
+    gusts = points.map(SimplifiedTimelinePoint::windGustKmh),
+    directions = points.map(SimplifiedTimelinePoint::windDirectionDeg),
+    conditions = points.map { it.condition ?: WeatherCondition.UNKNOWN },
+    temperatureAgreement = points.map { it.consensusFor(ForecastMetric.TEMPERATURE)?.percent },
+    precipitationAgreement = points.map { it.consensusFor(ForecastMetric.PRECIPITATION)?.percent },
+    windAgreement = points.map { it.consensusFor(ForecastMetric.WIND)?.percent }
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -222,6 +268,9 @@ internal fun GraphicForecastContent(
     val selectedPoint = state.points[selectedIndex.coerceIn(state.points.indices)]
     val selectedModels = selectedPoint.instant?.let(state.modelValuesByInstant::get).orEmpty()
     val horizontalScroll = rememberScrollState()
+    val renderData = remember(state.points, state.solarByDate, zone) {
+        buildGraphicRenderData(state.points, state.solarByDate, zone)
+    }
 
     val tempDomain = remember(state.points) { temperatureDomain(state.points) }
     val rainDomain = remember(state.points) { positiveDomain(state.points.mapNotNull(::rainAmount), minimumMax = 1.0) }
@@ -259,7 +308,7 @@ internal fun GraphicForecastContent(
             point = selectedPoint,
             models = selectedModels,
             points = state.points,
-            solarByDate = state.solarByDate,
+            renderData = renderData,
             vigilance = state.vigilance,
             zone = zone,
             locale = locale,
@@ -284,7 +333,7 @@ private fun GraphicChartPanel(
     point: SimplifiedTimelinePoint,
     models: List<GraphicModelValue>,
     points: List<SimplifiedTimelinePoint>,
-    solarByDate: Map<LocalDate, GraphicSolarWindow>,
+    renderData: GraphicRenderData,
     vigilance: VigilanceForecast?,
     zone: ZoneId,
     locale: Locale,
@@ -340,8 +389,7 @@ private fun GraphicChartPanel(
                     val chartWidth = GraphicHourWidth * points.size.toFloat()
                     TemperaturePlot(
                         points = points,
-                        solarByDate = solarByDate,
-                        zone = zone,
+                        renderData = renderData,
                         domain = tempDomain,
                         selectedIndex = selectedIndex,
                         showAgreement = showAgreement,
@@ -351,8 +399,7 @@ private fun GraphicChartPanel(
                     )
                     RainPlot(
                         points = points,
-                        solarByDate = solarByDate,
-                        zone = zone,
+                        renderData = renderData,
                         domain = rainDomain,
                         selectedIndex = selectedIndex,
                         showAgreement = showAgreement,
@@ -362,8 +409,7 @@ private fun GraphicChartPanel(
                     )
                     WindPlot(
                         points = points,
-                        solarByDate = solarByDate,
-                        zone = zone,
+                        renderData = renderData,
                         domain = windDomain,
                         selectedIndex = selectedIndex,
                         showAgreement = showAgreement,
@@ -503,7 +549,7 @@ private fun GraphicSelectionHeader(
                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
             ) {
                 Box(Modifier.size(34.dp), contentAlignment = Alignment.Center) {
-                    WeatherIconDecorative(point.condition, size = 25.dp)
+                     WeatherIconDecorative(point.condition, size = 25.dp)
                 }
             }
             Spacer(Modifier.width(8.dp))
@@ -933,8 +979,7 @@ private fun AxisLabelSlot(title: String, subtitle: String, height: Dp) {
 @Composable
 private fun TemperaturePlot(
     points: List<SimplifiedTimelinePoint>,
-    solarByDate: Map<LocalDate, GraphicSolarWindow>,
-    zone: ZoneId,
+    renderData: GraphicRenderData,
     domain: PlotDomain,
     selectedIndex: Int,
     showAgreement: Boolean,
@@ -948,10 +993,11 @@ private fun TemperaturePlot(
     val night = onSurface.copy(alpha = 0.055f)
     val grid = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.52f)
     val band = temperature.copy(alpha = 0.14f)
-    val daylight = remember(points, solarByDate, zone) { daylightFlags(points, solarByDate, zone) }
-    val heat = remember(points) { points.map { it.temperatureC?.let(::temperatureHeatmapColor) } }
-    val agreement = remember(points, agreementPalette) {
-        points.map { agreementPalette.colorFor(it.consensusFor(ForecastMetric.TEMPERATURE)?.percent) }
+    val heat = remember(renderData) {
+        renderData.temperatures.map { it?.let(::temperatureHeatmapColor) }
+    }
+    val agreement = remember(renderData, agreementPalette) {
+        renderData.temperatureAgreement.map(agreementPalette::colorFor)
     }
 
     Box(modifier) {
@@ -962,48 +1008,70 @@ private fun TemperaturePlot(
                 }
             }
         ) {
-            drawTimelineBackground(points, daylight, heat, agreement, showAgreement, surface, night, heatAlpha = GRAPHIC_TEMPERATURE_HEAT_ALPHA)
-            drawTimelineGrid(points, zone, domain, grid)
+            drawTimelineBackground(
+                pointCount = points.size,
+                daylight = renderData.daylight,
+                heatColors = heat,
+                agreementColors = agreement,
+                showAgreement = showAgreement,
+                surface = surface,
+                night = night,
+                heatAlpha = GRAPHIC_TEMPERATURE_HEAT_ALPHA
+            )
+            drawTimelineGrid(renderData.hours, domain, grid)
 
             val upperPath = Path()
-        val lower = mutableListOf<Offset>()
-        var bandStarted = false
-        points.forEachIndexed { index, point ->
-            val min = point.temperatureMinAcrossModels
-            val max = point.temperatureMaxAcrossModels
-            if (min != null && max != null) {
-                val x = pointCenterX(index, points.size)
-                val upper = Offset(x, valueToYPx(max, domain, size.height))
-                val low = Offset(x, valueToYPx(min, domain, size.height))
-                if (!bandStarted) {
-                    upperPath.moveTo(upper.x, upper.y)
-                    bandStarted = true
-                } else upperPath.lineTo(upper.x, upper.y)
-                lower += low
+            var bandStarted = false
+            var hasLowerEdge = false
+            for (index in points.indices) {
+                val min = renderData.temperatureMins[index]
+                val max = renderData.temperatureMaxs[index]
+                if (min != null && max != null) {
+                    val x = pointCenterX(index, points.size)
+                    val upperY = valueToYPx(max, domain, size.height)
+                    if (!bandStarted) {
+                        upperPath.moveTo(x, upperY)
+                        bandStarted = true
+                    } else {
+                        upperPath.lineTo(x, upperY)
+                    }
+                    // Construit le bord inférieur dans l'ordre inverse sans
+                    // allouer une liste d'Offset à chaque redraw.
+                    hasLowerEdge = true
+                }
             }
-        }
-        if (bandStarted && lower.isNotEmpty()) {
-            lower.asReversed().forEach { upperPath.lineTo(it.x, it.y) }
-            upperPath.close()
-            drawPath(upperPath, color = band)
-        }
+            if (bandStarted && hasLowerEdge) {
+                // Le path inférieur est reconstruit à rebours directement à
+                // partir des séries numériques, toujours sans liste temporaire.
+                for (index in points.indices.reversed()) {
+                    val min = renderData.temperatureMins[index]
+                    if (min != null && renderData.temperatureMaxs[index] != null) {
+                        upperPath.lineTo(
+                            pointCenterX(index, points.size),
+                            valueToYPx(min, domain, size.height)
+                        )
+                    }
+                }
+                upperPath.close()
+                drawPath(upperPath, color = band)
+            }
 
-        drawAgreementHalo(
-            values = points.map { it.temperatureC },
-            domain = domain,
-            colors = agreement,
-            enabled = showAgreement,
-            strokeWidth = 8.dp.toPx()
-        )
-        drawLineSeries(
-            values = points.map { it.temperatureC },
-            domain = domain,
-            color = temperature,
-            strokeWidth = 2.4.dp.toPx(),
-            pointRadius = 2.5.dp.toPx()
-        )
-        drawSelectedRuler(points, selectedIndex, onSurface)
-            points.getOrNull(selectedIndex)?.temperatureC?.let { value ->
+            drawAgreementHalo(
+                values = renderData.temperatures,
+                domain = domain,
+                colors = agreement,
+                enabled = showAgreement,
+                strokeWidth = 8.dp.toPx()
+            )
+            drawLineSeries(
+                values = renderData.temperatures,
+                domain = domain,
+                color = temperature,
+                strokeWidth = 2.4.dp.toPx(),
+                pointRadius = 2.5.dp.toPx()
+            )
+            drawSelectedRuler(points.size, selectedIndex, onSurface)
+            renderData.temperatures.getOrNull(selectedIndex)?.let { value ->
                 drawCircle(
                     color = temperature,
                     radius = 5.dp.toPx(),
@@ -1011,28 +1079,17 @@ private fun TemperaturePlot(
                 )
             }
         }
-        Row(
+        StaticWeatherIconStrip(
+            conditions = renderData.conditions,
+            slotWidth = GraphicHourWidth,
+            iconSize = 19.dp,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(30.dp)
                 .align(Alignment.TopStart)
                 .padding(top = 3.dp)
-        ) {
-            points.forEach { point ->
-                Box(
-                    modifier = Modifier
-                        .width(GraphicHourWidth)
-                        .height(26.dp)
-                        .testTag(TAG_GRAPHIC_CONDITION_ICON),
-                    contentAlignment = Alignment.Center
-                ) {
-                    WeatherIconDecorative(
-                        condition = point.condition ?: WeatherCondition.UNKNOWN,
-                        size = 19.dp
-                    )
-                }
-            }
-        }
+                .testTag(TAG_GRAPHIC_CONDITION_ICON)
+        )
         points.getOrNull(selectedIndex)?.let { selected ->
             val central = selected.temperatureC?.let { "${format(it, 1)} °C" } ?: "—"
             val range = formatRange(
@@ -1055,8 +1112,7 @@ private fun TemperaturePlot(
 @Composable
 private fun RainPlot(
     points: List<SimplifiedTimelinePoint>,
-    solarByDate: Map<LocalDate, GraphicSolarWindow>,
-    zone: ZoneId,
+    renderData: GraphicRenderData,
     domain: PlotDomain,
     selectedIndex: Int,
     showAgreement: Boolean,
@@ -1069,12 +1125,13 @@ private fun RainPlot(
     val onSurface = MaterialTheme.colorScheme.onSurface
     val night = onSurface.copy(alpha = 0.055f)
     val grid = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.52f)
-    val daylight = remember(points, solarByDate, zone) { daylightFlags(points, solarByDate, zone) }
-    val heat = remember(points, rain) {
-        points.map { point -> rain.copy(alpha = ((point.precipitationPercent ?: 0) / 100f).coerceIn(0f, 1f)) }
+    val heat = remember(renderData, rain) {
+        renderData.rainProbabilities.map { probability ->
+            rain.copy(alpha = ((probability ?: 0) / 100f).coerceIn(0f, 1f))
+        }
     }
-    val agreement = remember(points, agreementPalette) {
-        points.map { agreementPalette.colorFor(it.consensusFor(ForecastMetric.PRECIPITATION)?.percent) }
+    val agreement = remember(renderData, agreementPalette) {
+        renderData.precipitationAgreement.map(agreementPalette::colorFor)
     }
 
     Box(modifier) {
@@ -1085,39 +1142,48 @@ private fun RainPlot(
                 }
             }
         ) {
-            drawTimelineBackground(points, daylight, heat, agreement, showAgreement, surface, night, heatAlpha = GRAPHIC_RAIN_HEAT_ALPHA)
-            drawTimelineGrid(points, zone, domain, grid)
-            val baseline = valueToYPx(0.0, domain, size.height)
-        val columnWidth = size.width / points.size
-        points.forEachIndexed { index, point ->
-            val amount = rainAmount(point) ?: return@forEachIndexed
-            val x = index * columnWidth + columnWidth * 0.20f
-            val y = valueToYPx(amount, domain, size.height)
-            val height = (baseline - y).coerceAtLeast(if (amount > 0.0) 2.dp.toPx() else 0f)
-            val agreementColor = agreement[index]
-            val color = if (showAgreement) {
-                agreementColor.copy(alpha = (agreementColor.alpha * 0.88f).coerceIn(0f, 1f))
-            } else rain
-            drawRoundRect(
-                color = rain.copy(alpha = 0.72f),
-                topLeft = Offset(x, baseline - height),
-                size = Size(columnWidth * 0.60f, height),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(3.dp.toPx(), 3.dp.toPx())
+            drawTimelineBackground(
+                pointCount = points.size,
+                daylight = renderData.daylight,
+                heatColors = heat,
+                agreementColors = agreement,
+                showAgreement = showAgreement,
+                surface = surface,
+                night = night,
+                heatAlpha = GRAPHIC_RAIN_HEAT_ALPHA
             )
-            if (showAgreement && height > 1f) {
+            drawTimelineGrid(renderData.hours, domain, grid)
+            val baseline = valueToYPx(0.0, domain, size.height)
+            val columnWidth = size.width / points.size.coerceAtLeast(1)
+            renderData.rainAmounts.forEachIndexed { index, amount ->
+                amount ?: return@forEachIndexed
+                val x = index * columnWidth + columnWidth * 0.20f
+                val y = valueToYPx(amount, domain, size.height)
+                val height = (baseline - y).coerceAtLeast(if (amount > 0.0) 2.dp.toPx() else 0f)
+                val agreementColor = agreement[index]
+                val color = if (showAgreement) {
+                    agreementColor.copy(alpha = (agreementColor.alpha * 0.88f).coerceIn(0f, 1f))
+                } else rain
                 drawRoundRect(
-                    color = color,
+                    color = rain.copy(alpha = 0.72f),
                     topLeft = Offset(x, baseline - height),
                     size = Size(columnWidth * 0.60f, height),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(3.dp.toPx(), 3.dp.toPx()),
-                    style = Stroke(width = 1.3.dp.toPx())
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(3.dp.toPx(), 3.dp.toPx())
                 )
+                if (showAgreement && height > 1f) {
+                    drawRoundRect(
+                        color = color,
+                        topLeft = Offset(x, baseline - height),
+                        size = Size(columnWidth * 0.60f, height),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(3.dp.toPx(), 3.dp.toPx()),
+                        style = Stroke(width = 1.3.dp.toPx())
+                    )
+                }
             }
-        }
-            drawSelectedRuler(points, selectedIndex, onSurface)
+            drawSelectedRuler(points.size, selectedIndex, onSurface)
         }
         points.getOrNull(selectedIndex)?.let { selected ->
-            val amount = rainAmount(selected)?.let { "${format(it, 1)} mm" } ?: "—"
+            val amount = renderData.rainAmounts.getOrNull(selectedIndex)?.let { "${format(it, 1)} mm" } ?: "—"
             RainSelectionBadge(
                 amount = amount,
                 probability = selected.precipitationPercent?.let { "${it}%" },
@@ -1131,8 +1197,7 @@ private fun RainPlot(
 @Composable
 private fun WindPlot(
     points: List<SimplifiedTimelinePoint>,
-    solarByDate: Map<LocalDate, GraphicSolarWindow>,
-    zone: ZoneId,
+    renderData: GraphicRenderData,
     domain: PlotDomain,
     selectedIndex: Int,
     showAgreement: Boolean,
@@ -1145,15 +1210,20 @@ private fun WindPlot(
     val onSurface = MaterialTheme.colorScheme.onSurface
     val night = onSurface.copy(alpha = 0.055f)
     val grid = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.52f)
-    val daylight = remember(points, solarByDate, zone) { daylightFlags(points, solarByDate, zone) }
-    val heat = remember(points, wind, domain.max) {
-        points.map { point ->
-            val strength = (max(point.windKmh ?: 0.0, point.windGustKmh ?: 0.0) / domain.max).toFloat().coerceIn(0f, 1f)
+    val directionColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val heat = remember(renderData, wind, domain.max) {
+        renderData.winds.indices.map { index ->
+            val strength = (
+                max(
+                    renderData.winds[index] ?: 0.0,
+                    renderData.gusts[index] ?: 0.0
+                ) / domain.max
+            ).toFloat().coerceIn(0f, 1f)
             wind.copy(alpha = strength)
         }
     }
-    val agreement = remember(points, agreementPalette) {
-        points.map { agreementPalette.colorFor(it.consensusFor(ForecastMetric.WIND)?.percent) }
+    val agreement = remember(renderData, agreementPalette) {
+        renderData.windAgreement.map(agreementPalette::colorFor)
     }
     val gustShort = stringResource(R.string.graphic_view_gust_short)
 
@@ -1165,60 +1235,61 @@ private fun WindPlot(
                 }
             }
         ) {
-            drawTimelineBackground(points, daylight, heat, agreement, showAgreement, surface, night, heatAlpha = GRAPHIC_WIND_HEAT_ALPHA)
-            drawTimelineGrid(points, zone, domain, grid)
-        drawAgreementHalo(
-            values = points.map { it.windKmh },
-            domain = domain,
-            colors = agreement,
-            enabled = showAgreement,
-            strokeWidth = 7.dp.toPx()
-        )
-        drawLineSeries(
-            values = points.map { it.windGustKmh },
-            domain = domain,
-            color = onSurface.copy(alpha = 0.58f),
-            strokeWidth = 1.6.dp.toPx(),
-            pathEffect = PathEffect.dashPathEffect(floatArrayOf(8.dp.toPx(), 6.dp.toPx())),
-            pointRadius = 1.8.dp.toPx()
-        )
-        drawLineSeries(
-            values = points.map { it.windKmh },
-            domain = domain,
-            color = wind,
-            strokeWidth = 2.4.dp.toPx(),
-            pointRadius = 2.4.dp.toPx()
-        )
-        drawSelectedRuler(points, selectedIndex, onSurface)
-            points.getOrNull(selectedIndex)?.windKmh?.let { value ->
+            drawTimelineBackground(
+                pointCount = points.size,
+                daylight = renderData.daylight,
+                heatColors = heat,
+                agreementColors = agreement,
+                showAgreement = showAgreement,
+                surface = surface,
+                night = night,
+                heatAlpha = GRAPHIC_WIND_HEAT_ALPHA
+            )
+            drawTimelineGrid(renderData.hours, domain, grid)
+            drawAgreementHalo(
+                values = renderData.winds,
+                domain = domain,
+                colors = agreement,
+                enabled = showAgreement,
+                strokeWidth = 7.dp.toPx()
+            )
+            drawLineSeries(
+                values = renderData.gusts,
+                domain = domain,
+                color = onSurface.copy(alpha = 0.58f),
+                strokeWidth = 1.6.dp.toPx(),
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(8.dp.toPx(), 6.dp.toPx())),
+                pointRadius = 1.8.dp.toPx()
+            )
+            drawLineSeries(
+                values = renderData.winds,
+                domain = domain,
+                color = wind,
+                strokeWidth = 2.4.dp.toPx(),
+                pointRadius = 2.4.dp.toPx()
+            )
+            drawSelectedRuler(points.size, selectedIndex, onSurface)
+            renderData.winds.getOrNull(selectedIndex)?.let { value ->
                 drawCircle(
                     color = wind,
                     radius = 4.5.dp.toPx(),
                     center = Offset(pointCenterX(selectedIndex, points.size), valueToYPx(value, domain, size.height))
                 )
             }
+            drawWindDirectionArrows(
+                directions = renderData.directions,
+                color = directionColor
+            )
         }
-        Row(
+        // Un seul noeud de sémantique suffit pour les tests : les 240 flèches
+        // sont désormais dessinées dans le Canvas principal au lieu d'être 240 Icons.
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(PlotBottomPadding)
                 .align(Alignment.BottomStart)
-        ) {
-            points.forEach { point ->
-                Box(
-                    modifier = Modifier
-                        .width(GraphicHourWidth)
-                        .height(PlotBottomPadding),
-                    contentAlignment = Alignment.Center
-                ) {
-                    point.windDirectionDeg?.let { direction ->
-                        Box(modifier = Modifier.testTag(TAG_GRAPHIC_WIND_DIRECTION_ARROW)) {
-                            WindArrow(directionDegrees = direction, size = 13.dp)
-                        }
-                    }
-                }
-            }
-        }
+                .testTag(TAG_GRAPHIC_WIND_DIRECTION_ARROW)
+        )
         points.getOrNull(selectedIndex)?.let { selected ->
             WindSelectionBadge(
                 mean = selected.windKmh?.let { "${format(it, 0)} km/h" } ?: "—",
@@ -1705,7 +1776,7 @@ private fun DrawScope.valueToYPx(value: Double, domain: PlotDomain, heightPx: Fl
 }
 
 private fun DrawScope.drawTimelineBackground(
-    points: List<SimplifiedTimelinePoint>,
+    pointCount: Int,
     daylight: List<Boolean>,
     heatColors: List<Color?>,
     agreementColors: List<Color>,
@@ -1714,11 +1785,12 @@ private fun DrawScope.drawTimelineBackground(
     night: Color,
     heatAlpha: Float = 0.11f
 ) {
-    if (points.isEmpty()) return
-    val width = size.width / points.size
-    points.indices.forEach { index ->
+    if (pointCount <= 0) return
+    val width = size.width / pointCount
+    // Le fond uniforme n'a pas besoin d'être redessiné cellule par cellule.
+    drawRect(surface, topLeft = Offset.Zero, size = size)
+    repeat(pointCount) { index ->
         val left = index * width
-        drawRect(surface, topLeft = Offset(left, 0f), size = Size(width, size.height))
         if (!daylight.getOrElse(index) { true }) {
             drawRect(night, topLeft = Offset(left, 0f), size = Size(width, size.height))
         }
@@ -1741,23 +1813,22 @@ private fun DrawScope.drawTimelineBackground(
 }
 
 private fun DrawScope.drawTimelineGrid(
-    points: List<SimplifiedTimelinePoint>,
-    zone: ZoneId,
+    hours: List<Int?>,
     domain: PlotDomain,
     color: Color
 ) {
-    if (points.isEmpty()) return
+    if (hours.isEmpty()) return
     domain.ticks.forEach { tick ->
         val y = valueToYPx(tick, domain, size.height)
         drawLine(color, Offset(0f, y), Offset(size.width, y), strokeWidth = 1.dp.toPx())
     }
-    val width = size.width / points.size
-    points.forEachIndexed { index, point ->
-        val zdt = point.instant?.atZone(zone) ?: return@forEachIndexed
-        if (index > 0 && zdt.hour == 0) {
+    val width = size.width / hours.size
+    hours.forEachIndexed { index, hour ->
+        hour ?: return@forEachIndexed
+        if (index > 0 && hour == 0) {
             val x = index * width
             drawLine(color.copy(alpha = 0.9f), Offset(x, 0f), Offset(x, size.height), strokeWidth = 1.5.dp.toPx())
-        } else if (zdt.hour % 6 == 0) {
+        } else if (hour % 6 == 0) {
             val x = index * width
             drawLine(color.copy(alpha = 0.55f), Offset(x, 0f), Offset(x, size.height), strokeWidth = 0.8.dp.toPx())
         }
@@ -1808,8 +1879,8 @@ private fun DrawScope.drawLineSeries(
         )
     }
     if (pointRadius > 0f) {
-        seriesMarkerIndices(values).forEach { index ->
-            val value = values[index] ?: return@forEach
+        for (index in values.indices) {
+            val value = values[index] ?: continue
             drawCircle(
                 color = color,
                 radius = pointRadius,
@@ -1822,13 +1893,49 @@ private fun DrawScope.drawLineSeries(
 internal fun seriesMarkerIndices(values: List<Double?>): List<Int> =
     values.indices.filter { values[it] != null }
 
+private fun DrawScope.drawWindDirectionArrows(
+    directions: List<Int?>,
+    color: Color
+) {
+    if (directions.isEmpty()) return
+    val slotWidth = size.width / directions.size
+    val centerY = size.height - PlotBottomPadding.toPx() / 2f
+    val halfLength = 5.2.dp.toPx()
+    val head = 2.8.dp.toPx()
+    val stroke = 1.25.dp.toPx()
+
+    directions.forEachIndexed { index, direction ->
+        direction ?: return@forEachIndexed
+        val center = Offset((index + 0.5f) * slotWidth, centerY)
+        rotate(degrees = windArrowRotation(direction), pivot = center) {
+            val tip = Offset(center.x, center.y - halfLength)
+            val tail = Offset(center.x, center.y + halfLength)
+            drawLine(color, tail, tip, strokeWidth = stroke, cap = StrokeCap.Round)
+            drawLine(
+                color,
+                tip,
+                Offset(center.x - head, center.y - halfLength + head),
+                strokeWidth = stroke,
+                cap = StrokeCap.Round
+            )
+            drawLine(
+                color,
+                tip,
+                Offset(center.x + head, center.y - halfLength + head),
+                strokeWidth = stroke,
+                cap = StrokeCap.Round
+            )
+        }
+    }
+}
+
 private fun DrawScope.drawSelectedRuler(
-    points: List<SimplifiedTimelinePoint>,
+    pointCount: Int,
     selectedIndex: Int,
     color: Color
 ) {
-    if (selectedIndex !in points.indices) return
-    val x = pointCenterX(selectedIndex, points.size)
+    if (selectedIndex !in 0 until pointCount) return
+    val x = pointCenterX(selectedIndex, pointCount)
     drawLine(
         color = color.copy(alpha = 0.38f),
         start = Offset(x, 0f),

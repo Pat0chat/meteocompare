@@ -81,4 +81,33 @@ class GraphicForecastChartMathTest {
         assertEquals(500, selectionBadgeStartPx(centerPx = 500f, trackWidthPx = 1_000f, badgeWidthPx = 0))
     }
 
+    @Test
+    fun render_data_precomputes_long_timeline_series_once() {
+        val zone = ZoneId.of("UTC")
+        val start = Instant.parse("2026-09-16T00:00:00Z")
+        val points = List(240) { index ->
+            SimplifiedTimelinePoint(
+                instant = start.plusSeconds(index * 3_600L),
+                temperatureC = index.toDouble(),
+                temperatureMinAcrossModels = index.toDouble() - 1.0,
+                temperatureMaxAcrossModels = index.toDouble() + 1.0,
+                precipitationMm = (index % 4).toDouble(),
+                precipitationPercent = index % 100,
+                windKmh = 10.0 + index % 8,
+                windGustKmh = 20.0 + index % 10,
+                windDirectionDeg = (index * 15) % 360
+            )
+        }
+
+        val data = buildGraphicRenderData(points, emptyMap(), zone)
+
+        assertEquals(240, data.temperatures.size)
+        assertEquals(240, data.rainAmounts.size)
+        assertEquals(240, data.winds.size)
+        assertEquals(240, data.directions.size)
+        assertEquals(0, data.hours.first())
+        assertEquals(23, data.hours[23])
+        assertTrue(data.daylight.all { it })
+    }
+
 }

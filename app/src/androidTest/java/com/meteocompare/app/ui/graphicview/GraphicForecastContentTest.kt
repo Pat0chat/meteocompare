@@ -70,8 +70,10 @@ class GraphicForecastContentTest {
             .assertCountEquals(240)
         composeRule.onAllNodesWithTag(TAG_GRAPHIC_DAY_HEADER, useUnmergedTree = true)
             .assertCountEquals(10)
+        // Les 240 pictogrammes sont maintenant dessinés dans un seul Canvas
+        // pour éviter 240 sous-compositions dans la longue timeline.
         composeRule.onAllNodesWithTag(TAG_GRAPHIC_CONDITION_ICON, useUnmergedTree = true)
-            .assertCountEquals(240)
+            .assertCountEquals(1)
         val legendSymbolCount = composeRule
             .onAllNodesWithTag(TAG_GRAPHIC_LEGEND_SYMBOL, useUnmergedTree = true)
             .fetchSemanticsNodes().size
@@ -135,7 +137,9 @@ class GraphicForecastContentTest {
             windTooltipWidth > temperatureTooltipWidth
         )
 
+        // Même optimisation pour les directions : un seul calque Canvas
+        // contient les 240 flèches horaires.
         composeRule.onAllNodesWithTag(TAG_GRAPHIC_WIND_DIRECTION_ARROW, useUnmergedTree = true)
-            .assertCountEquals(240)
+            .assertCountEquals(1)
     }
 }

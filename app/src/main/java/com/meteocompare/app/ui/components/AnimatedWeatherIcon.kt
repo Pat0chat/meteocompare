@@ -125,6 +125,45 @@ internal fun AnimatedWeatherIcon(
     }
 }
 
+
+/**
+ * Rend une longue série d’icônes météo statiques dans un unique Canvas.
+ *
+ * Les timelines longues (jusqu’à 240 h) ne doivent pas instancier un arbre
+ * Compose complet par heure : une icône décorative individuelle implique un
+ * Box + Canvas + état de transition. Ici, la même routine de dessin est
+ * réutilisée directement pour chaque créneau, sans sous-composition.
+ */
+@Composable
+internal fun StaticWeatherIconStrip(
+    conditions: List<WeatherCondition>,
+    slotWidth: Dp,
+    iconSize: Dp,
+    modifier: Modifier = Modifier,
+    palette: WeatherIconPalette = WeatherIconDefaults.palette
+) {
+    Canvas(modifier = modifier) {
+        if (conditions.isEmpty()) return@Canvas
+        val slotWidthPx = slotWidth.toPx()
+        val iconSizePx = min(iconSize.toPx(), size.height)
+        val unit = iconSizePx / 100f
+        val top = (size.height - iconSizePx) / 2f
+
+        conditions.forEachIndexed { index, condition ->
+            val left = index * slotWidthPx + (slotWidthPx - iconSizePx) / 2f
+            withTransform({ translate(left = left, top = top) }) {
+                drawWeatherCondition(
+                    condition = condition,
+                    palette = palette,
+                    progress = condition.staticPreviewProgress,
+                    motionScale = 0f,
+                    unit = unit
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun WeatherIconCanvas(
     condition: WeatherCondition,

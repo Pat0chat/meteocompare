@@ -106,7 +106,8 @@ class EngineComparisonViewModelTest {
         contextProvider = contextProvider,
         comparisonBuilder = comparisonBuilder,
         clock = clock,
-        appContext = appContext
+        appContext = appContext,
+        computationDispatcher = dispatcher
     ).also(createdViewModels::add)
 
     /**

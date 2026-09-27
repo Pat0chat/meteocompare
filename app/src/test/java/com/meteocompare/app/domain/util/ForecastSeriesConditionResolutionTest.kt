@@ -163,6 +163,29 @@ class ForecastSeriesConditionResolutionTest {
         assertEquals(false, resolved?.inferred)
     }
 
+    @Test
+    fun `daily cloud mean keeps only valid values from the requested local day`() {
+        val timestamps = listOf(
+            Instant.parse("2026-08-23T20:00:00Z"), // 22:00 le 23 à Paris
+            Instant.parse("2026-08-23T22:00:00Z"), // 00:00 le 24
+            Instant.parse("2026-08-24T10:00:00Z"), // 12:00 le 24
+            Instant.parse("2026-08-24T22:00:00Z")  // 00:00 le 25
+        )
+        val series = ForecastSeries(
+            model = WeatherModel.GFS,
+            hourly = HourlyForecast(
+                timestamps = timestamps,
+                temperature2m = List(4) { 20.0 },
+                precipitation = List(4) { 0.0 },
+                windSpeed10m = List(4) { 10.0 },
+                cloudCover = listOf(5, 20, 80, 95)
+            ),
+            daily = DailyForecast(emptyList(), emptyList(), emptyList(), emptyList(), emptyList())
+        )
+
+        assertEquals(50, series.dailyCloudCoverMean(date, zone))
+    }
+
     private fun series(
         timestamps: List<Instant> = listOf(Instant.parse("2026-08-24T10:00:00Z")),
         dailyCode: Int? = null,
