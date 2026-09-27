@@ -7,10 +7,14 @@
         backend MeteoCompare pour la vigilance).
         ACCESS_NETWORK_STATE : permet de court-circuiter immédiatement les
         requêtes quand aucun réseau Internet validé n'est disponible.
+        POST_NOTIFICATIONS : notifications météo locales, désactivées par
+        défaut. Demandée à l'exécution (Android 13+) uniquement quand
+        l'utilisateur active une notification dans les Réglages.
     -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!--
         Pas de Google Play Services / Firebase / AdMob dans les dépendances,

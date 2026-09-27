@@ -384,7 +384,8 @@ private fun EvolutionHighlightRow(highlight: ForecastEvolutionHighlight) {
     }
 }
 
-private fun evolutionHighlightTitle(highlight: ForecastEvolutionHighlight): Int = when {
+/** Libellé d'un signal d'évolution, partagé avec les notifications de changement de prévision. */
+internal fun evolutionHighlightTitle(highlight: ForecastEvolutionHighlight): Int = when {
     highlight.trend == ForecastEvolutionTrend.VOLATILE -> R.string.forecast_evolution_highlight_volatile
     highlight.variable == ForecastEvolutionVariable.TEMPERATURE &&
         highlight.trend == ForecastEvolutionTrend.INCREASING -> R.string.forecast_evolution_highlight_temp_up

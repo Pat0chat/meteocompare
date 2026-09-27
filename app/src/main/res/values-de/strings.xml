@@ -837,4 +837,23 @@ Daten</string>
     <string name="home_temperature_trend_rising">Temperaturtrend: steigend auf %1$d°</string>
     <string name="home_temperature_trend_falling">Temperaturtrend: fallend auf %1$d°</string>
     <string name="home_temperature_trend_stable">Temperaturtrend: stabil um %1$d°</string>
+
+    <!-- Notifications météo locales -->
+    <string name="notification_channel_daily">Tägliche Zusammenfassung</string>
+    <string name="notification_channel_daily_desc">Zusammenfassung des Tages für die verfolgten Orte zur gewählten Uhrzeit.</string>
+    <string name="notification_channel_divergence">Modellabweichung</string>
+    <string name="notification_channel_divergence_desc">Wenn die Modelle für heute oder morgen deutlich voneinander abweichen.</string>
+    <string name="notification_channel_change">Prognoseänderung</string>
+    <string name="notification_channel_change_desc">Wenn die Prognose deutlich revidiert wird.</string>
+    <string name="notification_daily_title_today">%1$s · heute</string>
+    <string name="notification_daily_title_tomorrow">%1$s · morgen</string>
+    <string name="notification_daily_temperatures">%1$s / %2$s</string>
+    <string name="notification_daily_precipitation">Regen %1$d %%</string>
+    <string name="notification_daily_precipitation_with_amount">Regen %1$d %% (%2$s mm)</string>
+    <string name="notification_daily_precipitation_amount">Regen %1$s mm</string>
+    <string name="notification_divergence_title">%1$s: Modelle weichen ab</string>
+    <string name="notification_divergence_text_today">Heute liegt die Modellkonvergenz nur bei %1$d %%: Die Prognose bleibt unsicher.</string>
+    <string name="notification_divergence_text_tomorrow">Morgen liegt die Modellkonvergenz nur bei %1$d %%: Die Prognose bleibt unsicher.</string>
+    <string name="notification_change_title">%1$s: Die Prognose ändert sich</string>
+    <string name="notification_change_text">%1$s (%2$s). %3$s</string>
 </resources>

@@ -853,4 +853,23 @@
     <string name="home_temperature_trend_rising">Tendance température : hausse vers %1$d°</string>
     <string name="home_temperature_trend_falling">Tendance température : baisse vers %1$d°</string>
     <string name="home_temperature_trend_stable">Tendance température : stable autour de %1$d°</string>
+
+    <!-- Notifications météo locales -->
+    <string name="notification_channel_daily">Résumé quotidien</string>
+    <string name="notification_channel_daily_desc">Résumé de la journée pour les villes suivies, à l’heure choisie.</string>
+    <string name="notification_channel_divergence">Divergence des modèles</string>
+    <string name="notification_channel_divergence_desc">Quand les modèles sont en net désaccord pour aujourd’hui ou demain.</string>
+    <string name="notification_channel_change">Changement de prévision</string>
+    <string name="notification_channel_change_desc">Quand la prévision est nettement révisée.</string>
+    <string name="notification_daily_title_today">%1$s · aujourd’hui</string>
+    <string name="notification_daily_title_tomorrow">%1$s · demain</string>
+    <string name="notification_daily_temperatures">%1$s / %2$s</string>
+    <string name="notification_daily_precipitation">Pluie %1$d %%</string>
+    <string name="notification_daily_precipitation_with_amount">Pluie %1$d %% (%2$s mm)</string>
+    <string name="notification_daily_precipitation_amount">Pluie %1$s mm</string>
+    <string name="notification_divergence_title">%1$s : les modèles divergent</string>
+    <string name="notification_divergence_text_today">Aujourd’hui, la convergence des modèles n’est que de %1$d %% : la prévision reste incertaine.</string>
+    <string name="notification_divergence_text_tomorrow">Demain, la convergence des modèles n’est que de %1$d %% : la prévision reste incertaine.</string>
+    <string name="notification_change_title">%1$s : la prévision évolue</string>
+    <string name="notification_change_text">%1$s (%2$s). %3$s</string>
 </resources>
