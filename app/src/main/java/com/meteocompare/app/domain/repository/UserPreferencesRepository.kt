@@ -5,6 +5,7 @@ import com.meteocompare.app.domain.model.CityDetailSection
 import com.meteocompare.app.domain.model.CityDetailViewMode
 import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.model.LanguagePreference
+import com.meteocompare.app.domain.model.NotificationSettings
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.ThemePreference
 import com.meteocompare.app.domain.model.WeatherModel
@@ -57,4 +58,16 @@ interface UserPreferencesRepository {
     /** Dernière famille de données consultée dans la comparaison détaillée. */
     fun observeCityDetailContentTab(cityId: String): Flow<CityDetailContentTab>
     suspend fun setCityDetailContentTab(cityId: String, tab: CityDetailContentTab)
+
+    /** Notifications météo locales (résumé quotidien, divergence, changement). */
+    fun observeNotificationSettings(): Flow<NotificationSettings>
+
+    /**
+     * Applique [transform] de façon atomique à la valeur persistée et retourne
+     * la nouvelle valeur. Deux modifications rapprochées ne peuvent donc pas se
+     * réécrire mutuellement à partir d'un état UI encore ancien.
+     */
+    suspend fun updateNotificationSettings(
+        transform: (NotificationSettings) -> NotificationSettings
+    ): NotificationSettings
 }
