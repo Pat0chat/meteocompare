@@ -1,6 +1,8 @@
 package com.meteocompare.app.data.remote
 
 import com.meteocompare.app.data.remote.dto.BatchedForecastResponseDto
+import com.meteocompare.app.data.remote.dto.ForecastResponseDto
+import com.meteocompare.app.di.NetworkModule
 import com.meteocompare.app.domain.model.WeatherModel
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
@@ -197,6 +199,53 @@ class BatchedForecastSplitterTest {
         // ECMWF n'a pas de temperature_2m → considéré "no usable data" → filtré
         assertEquals(setOf(WeatherModel.GFS), split.keys)
         assertFalse("ECMWF ne doit pas être dans le split", WeatherModel.ECMWF in split)
+    }
+
+    /**
+     * Régression issue #4 (« Erreur inconnue » hors d'Europe). Forme réelle
+     * d'une réponse Open-Meteo pour Tokyo avec la sélection par défaut : le
+     * premier modèle (AROME HD) ne couvre pas le point, donc la maille est
+     * `null` et les clés du modèle sont omises. Décodée avec la configuration
+     * JSON de production, la réponse doit rester exploitable.
+     */
+    @Test
+    fun `premier modele hors couverture - latitude et longitude null tolerees`() {
+        val productionJson = NetworkModule.provideJson()
+        val response = productionJson.decodeFromString<BatchedForecastResponseDto>(
+            """{
+              "latitude": null, "longitude": null,
+              "generationtime_ms": 0.03,
+              "utc_offset_seconds": 32400,
+              "timezone": "Asia/Tokyo",
+              "timezone_abbreviation": "GMT+9",
+              "hourly": {
+                "time": ["2026-09-28T00:00","2026-09-28T01:00"],
+                "temperature_2m_ncep_gfs_seamless": [21.3, 20.9]
+              },
+              "daily": {
+                "time": ["2026-09-28"],
+                "temperature_2m_max_ncep_gfs_seamless": [24.1],
+                "sunrise_ncep_gfs_seamless": ["2026-09-28T05:33"]
+              }
+            }"""
+        )
+
+        assertNull(response.latitude)
+        assertNull(response.longitude)
+
+        val split = BatchedForecastSplitter.split(
+            response, listOf(WeatherModel.AROME_FRANCE_HD, WeatherModel.GFS)
+        )
+
+        assertEquals(setOf(WeatherModel.GFS), split.keys)
+        val gfs = split.getValue(WeatherModel.GFS)
+        assertEquals("Asia/Tokyo", gfs.timezone)
+        assertEquals(listOf(21.3, 20.9), gfs.hourly?.temperature2m)
+
+        // Le DTO par modèle est ensuite écrit puis relu depuis le cache Room.
+        val cached = productionJson.encodeToString(ForecastResponseDto.serializer(), gfs)
+        val reread = productionJson.decodeFromString(ForecastResponseDto.serializer(), cached)
+        assertEquals(gfs, reread)
     }
 
     @Test
