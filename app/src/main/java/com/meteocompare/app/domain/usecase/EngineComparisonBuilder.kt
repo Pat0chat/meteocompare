@@ -3,6 +3,7 @@ package com.meteocompare.app.domain.usecase
 import com.meteocompare.app.core.util.localDateIn
 import com.meteocompare.app.core.util.resolveZoneOrUtc
 import com.meteocompare.app.domain.model.CityForecast
+import com.meteocompare.app.domain.model.ForecastDisplayHorizon
 import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.model.ForecastEngineContext
 import com.meteocompare.app.domain.model.ForecastEngineVariable
@@ -79,7 +80,7 @@ class EngineComparisonBuilder @Inject constructor(
             .distinct()
             .sorted()
             .filterNot { it.isBefore(today) }
-            .take(7)
+            .take(ForecastDisplayHorizon.DAYS)
         return dates.map { date ->
             val zone = resolveZoneOrUtc(forecast.city.timezone)
             val nativeConditionEntries = forecast.seriesByModel.mapNotNull { (model, series) ->

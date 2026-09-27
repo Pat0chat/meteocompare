@@ -19,9 +19,9 @@ class GraphicForecastContentTest {
     @get:Rule val composeRule = createComposeRule()
 
     @Test
-    fun seven_day_timeline_displays_every_hour_and_every_weather_condition() {
+    fun ten_day_timeline_displays_every_hour_and_every_weather_condition() {
         val start = Instant.parse("2026-09-16T00:00:00Z")
-        val points = List(168) { index ->
+        val points = List(240) { index ->
             SimplifiedTimelinePoint(
                 instant = start.plusSeconds(index * 3_600L),
                 temperatureC = 12.0 + (index % 24) * 0.4,
@@ -67,11 +67,11 @@ class GraphicForecastContentTest {
         }
 
         composeRule.onAllNodesWithTag(TAG_GRAPHIC_HOUR_CELL, useUnmergedTree = true)
-            .assertCountEquals(168)
+            .assertCountEquals(240)
         composeRule.onAllNodesWithTag(TAG_GRAPHIC_DAY_HEADER, useUnmergedTree = true)
-            .assertCountEquals(7)
+            .assertCountEquals(10)
         composeRule.onAllNodesWithTag(TAG_GRAPHIC_CONDITION_ICON, useUnmergedTree = true)
-            .assertCountEquals(168)
+            .assertCountEquals(240)
         val legendSymbolCount = composeRule
             .onAllNodesWithTag(TAG_GRAPHIC_LEGEND_SYMBOL, useUnmergedTree = true)
             .fetchSemanticsNodes().size
@@ -80,10 +80,10 @@ class GraphicForecastContentTest {
             legendSymbolCount >= 6
         )
 
-        // 168 h = exactement 7 occurrences de chacune des 24 heures.
+        // 240 h = exactement 10 occurrences de chacune des 24 heures.
         (0..23).forEach { hour ->
             composeRule.onAllNodesWithText("%02dh".format(hour), useUnmergedTree = true)
-                .assertCountEquals(7)
+                .assertCountEquals(10)
         }
 
         composeRule.onNodeWithTag(TAG_GRAPHIC_CHART_PANEL, useUnmergedTree = true).assertExists()
@@ -136,6 +136,6 @@ class GraphicForecastContentTest {
         )
 
         composeRule.onAllNodesWithTag(TAG_GRAPHIC_WIND_DIRECTION_ARROW, useUnmergedTree = true)
-            .assertCountEquals(168)
+            .assertCountEquals(240)
     }
 }

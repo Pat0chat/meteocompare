@@ -209,6 +209,7 @@ class ForecastRepositoryImpl @Inject constructor(
         var hasCached = false
         var cachedFetchedAtMs: Long? = null
         var cacheComplete = false
+        var cacheCoversRequestedHorizon = false
 
         // ── Étape 1 : émission immédiate depuis le cache (si non forcé) ──
         if (!forceRefresh) {
@@ -217,6 +218,9 @@ class ForecastRepositoryImpl @Inject constructor(
                 hasCached = true
                 cachedFetchedAtMs = cached.oldestFetchedAtMs
                 cacheComplete = cached.isComplete
+                cacheCoversRequestedHorizon = cached.coversForecastHorizon(
+                    effectiveForecastDays(models, forecastDays)
+                )
                 emit(ApiResult.Success(cached.forecast))
             }
         }
@@ -232,7 +236,7 @@ class ForecastRepositoryImpl @Inject constructor(
         // champ fetchedAt), on refetch quand même, pour ne pas laisser le
         // user coincé sur du cache très vieux.
         if (!forceRefresh && maxCacheAgeMs != null && hasCached && cacheComplete &&
-            cachedFetchedAtMs != null) {
+            cacheCoversRequestedHorizon && cachedFetchedAtMs != null) {
             // Une correction NTP ou un changement manuel peut faire reculer
             // l'horloge après l'écriture Room. Le cache paraît alors venir du
             // futur. Le considérer périmé provoquerait un fetch à chaque tick,
@@ -683,7 +687,36 @@ class ForecastRepositoryImpl @Inject constructor(
         val forecast: CityForecast,
         val isComplete: Boolean,
         val oldestFetchedAtMs: Long
-    )
+    ) {
+        /**
+         * Les anciennes versions de l'app ne demandaient que 7 jours. Une entrée
+         * Room peut donc être parfaitement fraîche et complète côté modèles tout
+         * en étant trop courte pour un horizon étendu. Sans ce garde, le stream
+         * court-circuitait le réseau et les vues longues restaient bloquées à 7 jours.
+         *
+         * Pour les horizons historiques (<= 7 jours), on conserve le comportement
+         * précédent afin de ne pas invalider inutilement les caches existants. Pour
+         * un horizon étendu, au moins un modèle capable de l'atteindre doit contenir
+         * des valeurs journalières exploitables jusqu'à cette profondeur.
+         */
+        fun coversForecastHorizon(requestedDays: Int): Boolean {
+            if (requestedDays <= LEGACY_FORECAST_HORIZON_DAYS) return true
+
+            return forecast.seriesByModel.values.any { series ->
+                if (series.model.maxForecastDays < requestedDays) return@any false
+
+                val daily = series.daily
+                val usableDays = daily.dates.indices.count { index ->
+                    daily.tempMax.getOrNull(index) != null ||
+                        daily.tempMin.getOrNull(index) != null ||
+                        daily.precipitationSum.getOrNull(index) != null ||
+                        daily.windSpeedMax.getOrNull(index) != null ||
+                        daily.weatherCode.getOrNull(index) != null
+                }
+                usableDays >= requestedDays
+            }
+        }
+    }
 
     private data class CachedModelEntry(
         val fetchedAtMs: Long,
@@ -745,6 +778,7 @@ class ForecastRepositoryImpl @Inject constructor(
          * multiple (widget + app en même temps).
          */
         private const val LOG_TAG = "MeteoCompare/Net"
+        private const val LEGACY_FORECAST_HORIZON_DAYS = 7
         private const val FORECAST_UPDATE_BUFFER = 8
         private const val MISSING_MODEL_CACHE_SENTINEL =
             "__METEOCOMPARE_MODEL_UNAVAILABLE__"

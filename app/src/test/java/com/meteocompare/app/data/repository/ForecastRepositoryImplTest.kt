@@ -8,6 +8,7 @@ import com.meteocompare.app.data.mapper.ForecastMapper
 import com.meteocompare.app.data.remote.OpenMeteoApi
 import com.meteocompare.app.data.remote.dto.BatchedForecastResponseDto
 import com.meteocompare.app.data.remote.dto.ForecastResponseDto
+import com.meteocompare.app.data.remote.dto.DailyDto
 import com.meteocompare.app.data.remote.dto.HourlyDto
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.WeatherModel
@@ -686,6 +687,86 @@ class ForecastRepositoryImplTest {
             }
             coVerify(exactly = 0) { evolutionRecorder.record(any()) }
         }
+
+    @Test
+    fun `stream cache 7 jours recent refetch quand 10 jours sont demandes`() = runTest {
+        val dates = (23..29).map { day -> "2026-06-${day.toString().padStart(2, '0')}" }
+        val sevenDayDto = sampleDto.copy(
+            daily = DailyDto(
+                time = dates,
+                temperature2mMax = List(7) { 24.0 },
+                temperature2mMin = List(7) { 14.0 },
+                precipitationSum = List(7) { 0.0 },
+                windSpeed10mMax = List(7) { 15.0 },
+                weatherCode = List(7) { 1 }
+            )
+        )
+        val cachedEntity = ForecastCacheEntity(
+            cityId = paris.id,
+            modelKey = WeatherModel.GFS.apiKey,
+            fetchedAtEpochMs = System.currentTimeMillis() - 5_000L,
+            responseJson = json.encodeToString(ForecastResponseDto.serializer(), sevenDayDto)
+        )
+        coEvery { cacheDao.getForCity(paris.id) } returns listOf(cachedEntity)
+
+        val forecastDaysSlot = slot<Int>()
+        coEvery {
+            api.getForecastBatched(
+                any(), any(), any(), any(), any(), any(),
+                capture(forecastDaysSlot), any(), any(), any()
+            )
+        } returns batchedResponseWith(modelsWithData = listOf(WeatherModel.GFS))
+
+        val emissions = repository.getCityForecastStream(
+            city = paris,
+            models = listOf(WeatherModel.GFS),
+            forecastDays = 10,
+            maxCacheAgeMs = 60 * 60 * 1000L
+        ).toList()
+
+        assertEquals("Le cache 7 j est affiché puis étendu par le réseau", 2, emissions.size)
+        assertEquals(10, forecastDaysSlot.captured)
+        coVerify(exactly = 1) {
+            api.getForecastBatched(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        }
+    }
+
+    @Test
+    fun `stream cache 10 jours recent ne refetch pas pour une demande 10 jours`() = runTest {
+        val dates = (0 until 10).map { offset ->
+            java.time.LocalDate.of(2026, 6, 23).plusDays(offset.toLong()).toString()
+        }
+        val tenDayDto = sampleDto.copy(
+            daily = DailyDto(
+                time = dates,
+                temperature2mMax = List(10) { 24.0 },
+                temperature2mMin = List(10) { 14.0 },
+                precipitationSum = List(10) { 0.0 },
+                windSpeed10mMax = List(10) { 15.0 },
+                weatherCode = List(10) { 1 }
+            )
+        )
+        coEvery { cacheDao.getForCity(paris.id) } returns listOf(
+            ForecastCacheEntity(
+                cityId = paris.id,
+                modelKey = WeatherModel.GFS.apiKey,
+                fetchedAtEpochMs = System.currentTimeMillis() - 5_000L,
+                responseJson = json.encodeToString(ForecastResponseDto.serializer(), tenDayDto)
+            )
+        )
+
+        val emissions = repository.getCityForecastStream(
+            city = paris,
+            models = listOf(WeatherModel.GFS),
+            forecastDays = 10,
+            maxCacheAgeMs = 60 * 60 * 1000L
+        ).toList()
+
+        assertEquals(1, emissions.size)
+        coVerify(exactly = 0) {
+            api.getForecastBatched(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        }
+    }
 
     @Test
     fun `stream traite un cache date dans le futur comme recent apres recul dhorloge`() =

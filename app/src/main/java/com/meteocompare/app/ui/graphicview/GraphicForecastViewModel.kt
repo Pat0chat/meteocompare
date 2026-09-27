@@ -11,6 +11,7 @@ import com.meteocompare.app.core.util.runSuspendCatching
 import com.meteocompare.app.di.DefaultDispatcher
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityForecast
+import com.meteocompare.app.domain.model.ForecastDisplayHorizon
 import com.meteocompare.app.domain.model.VigilanceForecast
 import com.meteocompare.app.domain.repository.CityRepository
 import com.meteocompare.app.domain.repository.ForecastRepository
@@ -124,8 +125,8 @@ class GraphicForecastViewModel @Inject constructor(
 
                 preferences.observeEnabledModels()
                     .flatMapLatest { models ->
-                        // Huit jours civils garantissent une fenêtre glissante de
-                        // 168 h depuis l'heure courante pour les modèles qui ont
+                        // Onze jours civils garantissent une fenêtre glissante de
+                        // 240 h depuis l'heure courante pour les modèles qui ont
                         // cet horizon. maxCacheAgeMs=null conserve l'émission du
                         // cache, puis déclenche un fetch afin de compléter la fin
                         // de la timeline même si la page détail vient d'être lue.
@@ -292,7 +293,7 @@ class GraphicForecastViewModel @Inject constructor(
     }
 
     private companion object {
-        const val GRAPHIC_HORIZON_HOURS = 24 * 7
-        const val GRAPHIC_REQUEST_DAYS = 8
+        const val GRAPHIC_HORIZON_HOURS = ForecastDisplayHorizon.GRAPHIC_HOURS
+        const val GRAPHIC_REQUEST_DAYS = ForecastDisplayHorizon.GRAPHIC_REQUEST_DAYS
     }
 }

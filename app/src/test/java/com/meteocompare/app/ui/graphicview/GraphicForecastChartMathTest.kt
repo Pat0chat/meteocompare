@@ -12,7 +12,7 @@ class GraphicForecastChartMathTest {
 
     @Test
     fun line_markers_cover_every_available_hour_and_skip_missing_values() {
-        assertEquals((0 until 168).toList(), seriesMarkerIndices(List(168) { it.toDouble() }))
+        assertEquals((0 until 240).toList(), seriesMarkerIndices(List(240) { it.toDouble() }))
         assertEquals(listOf(0, 2, 4), seriesMarkerIndices(listOf(1.0, null, 2.0, null, 3.0)))
     }
 
@@ -26,10 +26,10 @@ class GraphicForecastChartMathTest {
 
     @Test
     fun touch_selection_maps_the_whole_chart_width_to_hour_indices() {
-        assertEquals(0, indexForX(x = 0f, width = 1680f, count = 168))
-        assertEquals(84, indexForX(x = 845f, width = 1680f, count = 168))
-        assertEquals(167, indexForX(x = 1679f, width = 1680f, count = 168))
-        assertEquals(167, indexForX(x = 9_999f, width = 1680f, count = 168))
+        assertEquals(0, indexForX(x = 0f, width = 2400f, count = 240))
+        assertEquals(120, indexForX(x = 1205f, width = 2400f, count = 240))
+        assertEquals(239, indexForX(x = 2399f, width = 2400f, count = 240))
+        assertEquals(239, indexForX(x = 9_999f, width = 2400f, count = 240))
     }
 
     @Test

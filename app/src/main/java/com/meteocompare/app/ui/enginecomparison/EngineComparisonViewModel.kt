@@ -10,6 +10,7 @@ import com.meteocompare.app.core.network.toUserMessage
 import com.meteocompare.app.core.util.localDateIn
 import com.meteocompare.app.core.util.runSuspendCatching
 import com.meteocompare.app.domain.model.CityForecast
+import com.meteocompare.app.domain.model.ForecastDisplayHorizon
 import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.repository.CityRepository
 import com.meteocompare.app.domain.repository.ForecastRepository
@@ -122,7 +123,12 @@ class EngineComparisonViewModel @Inject constructor(
                         // Seuls les paramètres qui modifient réellement la requête météo
                         // rouvrent le stream. Une réponse de l'ancienne sélection de modèles
                         // est annulée par flatMapLatest et ne peut pas réécrire l'écran.
-                        forecastRepository.getCityForecastStream(city, models, maxCacheAgeMs = maxAge)
+                        forecastRepository.getCityForecastStream(
+                            city = city,
+                            models = models,
+                            forecastDays = ForecastDisplayHorizon.DAYS,
+                            maxCacheAgeMs = maxAge
+                        )
                     }
                     .map { result ->
                         when (result) {

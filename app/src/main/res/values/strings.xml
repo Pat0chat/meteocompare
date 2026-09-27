@@ -715,8 +715,8 @@
     <!-- Vue graphique 7 jours -->
     <string name="graphic_view_title">Vue graphique</string>
     <string name="graphic_view_open">Ouvrir la vue graphique</string>
-    <string name="graphic_view_intro">Explorer les 7 prochains jours heure par heure</string>
-    <string name="graphic_view_subtitle">7 jours · heure par heure</string>
+    <string name="graphic_view_intro">Explorer les 10 prochains jours heure par heure</string>
+    <string name="graphic_view_subtitle">10 jours · heure par heure</string>
     <string name="graphic_view_touch_hint">Touchez une heure sur un graphique pour afficher ses valeurs détaillées.</string>
     <string name="graphic_view_show_convergence">Afficher la convergence</string>
     <string name="graphic_view_show_convergence_desc">Colore légèrement les graphiques selon l’accord entre les familles de modèles.</string>

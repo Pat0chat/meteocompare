@@ -98,6 +98,7 @@ import com.meteocompare.app.domain.model.ConfidenceScore
 import com.meteocompare.app.domain.model.DailyForecast
 import com.meteocompare.app.domain.model.DayConfidence
 import com.meteocompare.app.domain.model.DayNormals
+import com.meteocompare.app.domain.model.ForecastDisplayHorizon
 import com.meteocompare.app.domain.model.ForecastEngineContext
 import com.meteocompare.app.domain.model.HourlyConfidenceBand
 import com.meteocompare.app.domain.model.HourlyForecast
@@ -484,27 +485,42 @@ private fun LoadedView(
     val evolutionHighlight = (evolutionState as? ForecastEvolutionState.Loaded)?.highlight
     val hasInsightSection = insights.isNotEmpty() || evolutionHighlight != null
     val hourlyTimelinePoints = remember(forecast, presentationNow, engineCacheSignature) {
-        buildSimplifiedTimeline(forecast, DisplayMode.HOURLY, presentationNow, engineContext)
+        buildSimplifiedTimeline(
+            forecast = forecast,
+            mode = DisplayMode.HOURLY,
+            now = presentationNow,
+            engineContext = engineContext,
+            hourlyHorizonHours = ForecastDisplayHorizon.HOURLY_HOURS
+        )
     }
     val dailyTimelinePoints = remember(forecast, presentationNow, engineCacheSignature) {
-        buildSimplifiedTimeline(forecast, DisplayMode.DAILY, presentationNow, engineContext)
+        buildSimplifiedTimeline(
+            forecast = forecast,
+            mode = DisplayMode.DAILY,
+            now = presentationNow,
+            engineContext = engineContext,
+            dailyHorizonDays = ForecastDisplayHorizon.DAYS
+        )
     }
-    val timelineAvailableModes = remember(hourlyTimelinePoints, dailyTimelinePoints) {
-        listOfNotNull(
-            DisplayMode.HOURLY.takeIf { hourlyTimelinePoints.isNotEmpty() },
-            DisplayMode.DAILY.takeIf { dailyTimelinePoints.isNotEmpty() }
-        ).toSet()
+    val timelineAvailableRanges = remember(hourlyTimelinePoints, dailyTimelinePoints) {
+        buildSet {
+            if (hourlyTimelinePoints.isNotEmpty()) add(TimelineRange.HOURLY)
+            if (dailyTimelinePoints.isNotEmpty()) add(TimelineRange.DAILY)
+        }
     }
-    var timelineMode by remember(overviewTimeline) { mutableStateOf(overviewTimeline.mode) }
+    var timelineRange by remember(overviewTimeline) {
+        mutableStateOf(TimelineRange.defaultFor(overviewTimeline.mode))
+    }
+    val timelineMode = timelineRange.displayMode
     var timelineLayoutName by rememberSaveable(forecast.city.id) {
         mutableStateOf(TimelineLayout.COLUMNS.name)
     }
     val timelineLayout = remember(timelineLayoutName) {
         TimelineLayout.entries.firstOrNull { it.name == timelineLayoutName } ?: TimelineLayout.COLUMNS
     }
-    val timelineAnalysisPoints = when (timelineMode) {
-        DisplayMode.HOURLY -> hourlyTimelinePoints
-        DisplayMode.DAILY -> dailyTimelinePoints
+    val timelineAnalysisPoints = when (timelineRange) {
+        TimelineRange.HOURLY -> hourlyTimelinePoints
+        TimelineRange.DAILY -> dailyTimelinePoints
     }
     val timelineEvents = remember(timelineMode, timelineAnalysisPoints, forecast.city.timezone) {
         detectForecastEvents(
@@ -515,8 +531,11 @@ private fun LoadedView(
             )
         )
     }
-    val timelineDisplayPoints = remember(timelineAnalysisPoints) {
-        selectRegularTimelinePoints(timelineAnalysisPoints)
+    val timelineDisplayPoints = remember(timelineAnalysisPoints, timelineRange) {
+        selectRegularTimelinePoints(
+            points = timelineAnalysisPoints,
+            maxPoints = timelineRange.maxDisplayPoints
+        )
     }
     var focusedTimelinePoint by remember(overviewTimeline) {
         mutableStateOf<SimplifiedTimelinePoint?>(null)
@@ -538,6 +557,14 @@ private fun LoadedView(
     }
     val cityToday = remember(forecast.city.timezone, presentationNow) {
         cityLocalDate(forecast.city.timezone, presentationNow)
+    }
+    // Toutes les vues approfondies de la page détail partagent le même horizon
+    // de 10 jours. Les séries horaires utilisent la fenêtre glissante commune.
+    val detailedForecast = remember(forecast) {
+        forecast.limitDailyHorizon(ForecastDisplayHorizon.DAYS)
+    }
+    val detailedDailyConditions = remember(dailyConditions) {
+        dailyConditions.take(ForecastDisplayHorizon.DAYS)
     }
     val summaryDay = remember(weekly, cityToday) {
         weekly.firstOrNull { !it.date.isBefore(cityToday) } ?: weekly.lastOrNull()
@@ -665,10 +692,10 @@ private fun LoadedView(
                         if (target != null) {
                             onSectionExpandedChange(CityDetailSection.TIMELINE, true)
                             when {
-                                target.instant != null && DisplayMode.HOURLY in timelineAvailableModes ->
-                                    timelineMode = DisplayMode.HOURLY
-                                target.date != null && DisplayMode.DAILY in timelineAvailableModes ->
-                                    timelineMode = DisplayMode.DAILY
+                                target.instant != null && TimelineRange.HOURLY in timelineAvailableRanges ->
+                                    timelineRange = TimelineRange.HOURLY
+                                target.date != null && TimelineRange.DAILY in timelineAvailableRanges ->
+                                    timelineRange = TimelineRange.DAILY
                             }
                             focusedTimelinePoint = target
                             timelineFocusRequestId += 1
@@ -687,11 +714,12 @@ private fun LoadedView(
                     timezone = forecast.city.timezone,
                     focusPoint = focusedTimelinePoint,
                     focusRequestId = timelineFocusRequestId,
-                    onModeChange = { newMode ->
-                        timelineMode = newMode
+                    range = timelineRange,
+                    onRangeChange = { newRange ->
+                        timelineRange = newRange
                         focusedTimelinePoint = null
                     },
-                    availableModes = timelineAvailableModes,
+                    availableRanges = timelineAvailableRanges,
                     layout = timelineLayout,
                     onLayoutChange = { newLayout ->
                         timelineLayoutName = newLayout.name
@@ -759,8 +787,8 @@ private fun LoadedView(
             DetailedForecastSection(
                 mode = displayMode,
                 tab = detailContentTab,
-                forecast = forecast,
-                dailyConditions = dailyConditions,
+                forecast = detailedForecast,
+                dailyConditions = detailedDailyConditions,
                 normals = normals,
                 presentationNow = presentationNow,
                 cityToday = cityToday,
@@ -858,6 +886,30 @@ private fun LoadedView(
             }
         )
     }
+}
+
+private fun CityForecast.limitDailyHorizon(days: Int): CityForecast {
+    val limit = days.coerceAtLeast(1)
+    return copy(
+        seriesByModel = seriesByModel.mapValues { (_, series) ->
+            val daily = series.daily
+            series.copy(
+                daily = daily.copy(
+                    dates = daily.dates.take(limit),
+                    tempMax = daily.tempMax.take(limit),
+                    tempMin = daily.tempMin.take(limit),
+                    precipitationSum = daily.precipitationSum.take(limit),
+                    windSpeedMax = daily.windSpeedMax.take(limit),
+                    weatherCode = daily.weatherCode.take(limit),
+                    windDirection10mDominant = daily.windDirection10mDominant.take(limit),
+                    precipitationProbabilityMax = daily.precipitationProbabilityMax.take(limit),
+                    windGustsMax = daily.windGustsMax.take(limit),
+                    sunrise = daily.sunrise.take(limit),
+                    sunset = daily.sunset.take(limit)
+                )
+            )
+        }
+    )
 }
 
 // ============================================================================

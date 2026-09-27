@@ -695,7 +695,9 @@ private fun ChronoWindLane(points: List<SimplifiedTimelinePoint>) {
                         Spacer(Modifier.width(5.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = point.windKmh?.let { "${it.roundToInt()}" } ?: "—",
+                                text = point.windKmh?.let {
+                                    stringResource(R.string.forecast_insight_metric_wind, it.roundToInt())
+                                } ?: "—",
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSurface,
@@ -703,7 +705,7 @@ private fun ChronoWindLane(points: List<SimplifiedTimelinePoint>) {
                             )
                             Text(
                                 text = point.windGustKmh?.let {
-                                    "${stringResource(R.string.wind_gust_abbreviation)} ${it.roundToInt()}"
+                                    stringResource(R.string.timeline_wind_gust, it.roundToInt())
                                 } ?: "—",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,

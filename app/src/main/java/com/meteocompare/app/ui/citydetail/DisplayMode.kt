@@ -1,15 +1,15 @@
 package com.meteocompare.app.ui.citydetail
 
 import com.meteocompare.app.core.util.resolveZoneOrUtc
+import com.meteocompare.app.domain.model.ForecastDisplayHorizon
 import java.time.Instant
 import java.time.ZoneId
 
 /**
  * Mode d'affichage des tableaux et graphes de la page détail :
  *
- *   - [DAILY]  : granularité par jour sur ~7 jours. Vue synthétique historique,
- *                rapide à scanner "quel temps globalement cette semaine ?".
- *   - [HOURLY] : granularité par heure sur un horizon glissant de 24 heures.
+ *   - [DAILY]  : granularité par jour sur 10 jours.
+ *   - [HOURLY] : granularité par heure sur les 24 prochaines heures.
  *                Sert quand on planifie une activité
  *                précise "à quelle heure va-t-il pleuvoir aujourd'hui ?".
  *
@@ -22,10 +22,31 @@ enum class DisplayMode {
     DAILY
 }
 
+
 /**
- * Fenêtre horaire glissante utilisée par les tableaux et la chronologie : de
- * l'heure courante arrondie dans le fuseau de la ville jusqu'à 24 heures plus
- * tard. L'horizon reste ainsi utile le soir et traverse naturellement minuit.
+ * Horizon propre à la chronologie synthétique de la page détail.
+ * Il reste volontairement séparé de [DisplayMode], utilisé aussi par les
+ * tableaux détaillés, afin que ceux-ci conservent leur simple choix Hourly/Daily.
+ */
+internal enum class TimelineRange(
+    val displayMode: DisplayMode,
+    val maxDisplayPoints: Int
+) {
+    HOURLY(DisplayMode.HOURLY, ForecastDisplayHorizon.HOURLY_HOURS),
+    DAILY(DisplayMode.DAILY, ForecastDisplayHorizon.DAYS);
+
+    companion object {
+        fun defaultFor(mode: DisplayMode): TimelineRange = when (mode) {
+            DisplayMode.HOURLY -> HOURLY
+            DisplayMode.DAILY -> DAILY
+        }
+    }
+}
+
+/**
+ * Fenêtre horaire glissante utilisée par les tableaux et la chronologie : les
+ * 24 prochaines heures à partir de l'heure courante arrondie dans le fuseau de
+ * la ville. Les vues journalières et la Chart View conservent leur horizon 10 jours.
  *
  * Filtrer avec `timestamp >= start && timestamp < endExclusive`.
  *
@@ -50,10 +71,9 @@ internal fun computeHourlyHorizon(
         .withSecond(0)
         .withNano(0)
         .toInstant()
-    return startHour to startHour.plusSeconds(HOURLY_HORIZON_SECONDS)
+    return startHour to startHour.plusSeconds(ForecastDisplayHorizon.HOURLY_HOURS * 3_600L)
 }
 
-private const val HOURLY_HORIZON_SECONDS = 24L * 60L * 60L
 
 internal fun com.meteocompare.app.domain.model.CityDetailViewMode.toDisplayMode(): DisplayMode =
     when (this) {

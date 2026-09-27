@@ -715,8 +715,8 @@
     <!-- Vue graphique 7 jours -->
     <string name="graphic_view_title">Chart view</string>
     <string name="graphic_view_open">Open chart view</string>
-    <string name="graphic_view_intro">Explore the next 7 days hour by hour</string>
-    <string name="graphic_view_subtitle">7 days · hour by hour</string>
+    <string name="graphic_view_intro">Explore the next 10 days hour by hour</string>
+    <string name="graphic_view_subtitle">10 days · hour by hour</string>
     <string name="graphic_view_touch_hint">Tap an hour on a chart to display its detailed values.</string>
     <string name="graphic_view_show_convergence">Show convergence</string>
     <string name="graphic_view_show_convergence_desc">Lightly shades charts according to agreement between model families.</string>

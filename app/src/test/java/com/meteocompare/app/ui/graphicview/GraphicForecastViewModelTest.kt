@@ -64,8 +64,8 @@ class GraphicForecastViewModelTest {
     }
 
     @Test
-    fun graphic_view_requests_eight_days_and_exposes_a_full_168_hour_timeline() = runTest(dispatcher) {
-        val forecast = sevenDayForecast()
+    fun graphic_view_requests_eleven_days_and_exposes_a_full_240_hour_timeline() = runTest(dispatcher) {
+        val forecast = tenDayForecast()
         val cityRepository = mockk<CityRepository> {
             every { observeFavorites() } returns flowOf(listOf(city))
         }
@@ -101,17 +101,17 @@ class GraphicForecastViewModelTest {
             runCurrent()
             val state = viewModel.state.value as GraphicForecastUiState.Loaded
 
-            assertEquals(168, state.points.size)
+            assertEquals(240, state.points.size)
             assertEquals(now, state.points.first().instant)
-            assertEquals(now.plusSeconds(167 * 3_600L), state.points.last().instant)
-            assertEquals(168, state.modelValuesByInstant.size)
+            assertEquals(now.plusSeconds(239 * 3_600L), state.points.last().instant)
+            assertEquals(240, state.modelValuesByInstant.size)
             assertTrue(state.points.all { it.condition != null })
 
             verify(exactly = 1) {
                 forecastRepository.getCityForecastStream(
                     city = city,
                     models = listOf(WeatherModel.GFS),
-                    forecastDays = 8,
+                    forecastDays = 11,
                     forceRefresh = false,
                     maxCacheAgeMs = null
                 )
@@ -121,18 +121,18 @@ class GraphicForecastViewModelTest {
         }
     }
 
-    private fun sevenDayForecast(): CityForecast {
-        val timestamps = List(168) { index -> now.plusSeconds(index * 3_600L) }
+    private fun tenDayForecast(): CityForecast {
+        val timestamps = List(240) { index -> now.plusSeconds(index * 3_600L) }
         val hourly = HourlyForecast(
             timestamps = timestamps,
-            temperature2m = List(168) { 12.0 + (it % 24) * 0.5 },
-            precipitation = List(168) { if (it % 12 == 0) 1.5 else 0.0 },
-            precipitationProbability = List(168) { if (it % 12 == 0) 75 else 10 },
-            windSpeed10m = List(168) { 10.0 + it % 8 },
-            windGusts10m = List(168) { 20.0 + it % 10 },
-            windDirection10m = List(168) { (it * 15) % 360 },
-            cloudCover = List(168) { (it * 5) % 100 },
-            weatherCode = List(168) { if (it % 12 == 0) 61 else 1 }
+            temperature2m = List(240) { 12.0 + (it % 24) * 0.5 },
+            precipitation = List(240) { if (it % 12 == 0) 1.5 else 0.0 },
+            precipitationProbability = List(240) { if (it % 12 == 0) 75 else 10 },
+            windSpeed10m = List(240) { 10.0 + it % 8 },
+            windGusts10m = List(240) { 20.0 + it % 10 },
+            windDirection10m = List(240) { (it * 15) % 360 },
+            cloudCover = List(240) { (it * 5) % 100 },
+            weatherCode = List(240) { if (it % 12 == 0) 61 else 1 }
         )
         return CityForecast(
             city = city,

@@ -703,8 +703,8 @@ dato</string>
     <!-- Vue graphique 7 jours -->
     <string name="graphic_view_title">Vista grafica</string>
     <string name="graphic_view_open">Apri vista grafica</string>
-    <string name="graphic_view_intro">Esplora i prossimi 7 giorni ora per ora</string>
-    <string name="graphic_view_subtitle">7 giorni · ora per ora</string>
+    <string name="graphic_view_intro">Esplora i prossimi 10 giorni ora per ora</string>
+    <string name="graphic_view_subtitle">10 giorni · ora per ora</string>
     <string name="graphic_view_touch_hint">Tocca un’ora sul grafico per visualizzare i valori dettagliati.</string>
     <string name="graphic_view_show_convergence">Mostra convergenza</string>
     <string name="graphic_view_show_convergence_desc">Colora leggermente i grafici in base all’accordo tra le famiglie di modelli.</string>

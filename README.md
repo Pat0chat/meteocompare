@@ -335,6 +335,7 @@ Fait :
 - ✅ v1.14.2 — Amélioration du mode tablette
 - ✅ v1.14.3 -> 4 — Corrections de bugs
 - ✅ v1.14.5 — Nouvelle vue "Chart View" qui affiche les prévisions par heure sur 7 jours
+- ✅ v1.15.0 - Nouveaux modèles AIGFS et GSM pour mieux couvrir le monde, horizon des prévisions augmenté à 10 jours, corrections de bugs
 
 ## Licence
 
