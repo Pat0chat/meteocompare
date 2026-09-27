@@ -1,5 +1,13 @@
 package com.meteocompare.app.ui.settings
 
+import android.Manifest
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -33,6 +41,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -45,7 +54,11 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.Coverage
@@ -104,11 +117,34 @@ fun SettingsScreen(
     val language by viewModel.languagePreference.collectAsStateWithLifecycle()
     val refreshInterval by viewModel.refreshInterval.collectAsStateWithLifecycle()
     val forecastEngine by viewModel.forecastEngine.collectAsStateWithLifecycle()
+    val notificationSettings by viewModel.notificationSettings.collectAsStateWithLifecycle()
+    val favoriteCities by viewModel.favoriteCities.collectAsStateWithLifecycle()
     AppToastEffect(viewModel.feedback)
     var showDonationDialog by rememberSaveable { mutableStateOf(false) }
     var biasRefreshRequested by rememberSaveable { mutableStateOf(false) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+
+    // Notifications : l'état système est relu à chaque retour sur l'écran
+    // (l'utilisateur a pu les autoriser depuis les réglages Android).
+    var notificationsBlocked by remember { mutableStateOf(!context.canPostNotifications()) }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        notificationsBlocked = !context.canPostNotifications()
+    }
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { notificationsBlocked = !context.canPostNotifications() }
+    // Android 13+ : la permission n'est demandée qu'au moment où l'utilisateur
+    // active une notification, jamais au lancement de l'application.
+    val withNotificationPermission: (Boolean, (Boolean) -> Unit) -> Unit = { enabled, action ->
+        action(enabled)
+        if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -154,7 +190,25 @@ fun SettingsScreen(
                 biasRefreshRequested = true
             },
             onDonateClick = { showDonationDialog = true },
-            padding = padding
+            padding = padding,
+            notificationSection = {
+                NotificationSettingsSection(
+                    settings = notificationSettings,
+                    favorites = favoriteCities,
+                    notificationsBlocked = notificationsBlocked,
+                    onDailySummaryToggled = { withNotificationPermission(it, viewModel::onDailySummaryToggled) },
+                    onDailySummaryTimeSelected = viewModel::onDailySummaryTimeSelected,
+                    onDivergenceAlertsToggled = {
+                        withNotificationPermission(it, viewModel::onDivergenceAlertsToggled)
+                    },
+                    onForecastChangeAlertsToggled = {
+                        withNotificationPermission(it, viewModel::onForecastChangeAlertsToggled)
+                    },
+                    onCityToggled = viewModel::onNotificationCityToggled,
+                    onOpenSystemSettings = { context.openAppNotificationSettings() }
+                )
+                HorizontalDivider()
+            }
         )
     }
 
@@ -178,7 +232,9 @@ internal fun SettingsContent(
     biasRefreshRequested: Boolean,
     onBiasRefreshClick: () -> Unit,
     onDonateClick: () -> Unit,
-    padding: PaddingValues
+    padding: PaddingValues,
+    /** Section Notifications, fournie par l'écran (état, permission, planification). */
+    notificationSection: @Composable () -> Unit = {}
 ) {
     // État du tri des modèles — survit à la rotation et au dark-mode toggle.
     // Défaut ZONE parce que 90% des utilisateurs raisonnent d'abord "modèles
@@ -242,6 +298,8 @@ internal fun SettingsContent(
             }
         }
         item { HorizontalDivider() }
+
+        item { notificationSection() }
 
         item {
             Column(modifier = Modifier.padding(16.dp)) {
@@ -861,3 +919,22 @@ internal const val TAG_SETTINGS_THEME = "settings_theme_"
 internal const val TAG_SETTINGS_LANGUAGE = "settings_language_"
 internal const val TAG_SETTINGS_REFRESH = "settings_refresh_"
 internal const val TAG_SETTINGS_ENGINE = "settings_engine_"
+
+/** Vrai si les notifications sont autorisées (permission Android 13+ et réglage système). */
+private fun Context.canPostNotifications(): Boolean {
+    val permissionGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+        ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
+        PackageManager.PERMISSION_GRANTED
+    return permissionGranted && NotificationManagerCompat.from(this).areNotificationsEnabled()
+}
+
+/** Ouvre la page système des notifications de l'application (Android 8+). */
+private fun Context.openAppNotificationSettings() {
+    runCatching {
+        startActivity(
+            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
+    }
+}
