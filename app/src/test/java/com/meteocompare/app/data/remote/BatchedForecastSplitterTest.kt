@@ -175,6 +175,62 @@ class BatchedForecastSplitterTest {
         )
     }
 
+    // ─────────────────────── Ensemble API (WeatherNext 2) ───────────────────
+
+    @Test
+    fun `ensemble single-modele - membre de controle retenu et membres ignores`() {
+        val response = json.decodeFromString<BatchedForecastResponseDto>(
+            """{
+              "latitude": 48.75, "longitude": 2.25, "timezone": "Europe/Paris",
+              "hourly": {
+                "time": ["2026-09-27T00:00","2026-09-27T01:00"],
+                "temperature_2m": [16.4, 15.6],
+                "temperature_2m_member01": [18.0, 17.0],
+                "temperature_2m_member63": [12.0, 11.0],
+                "weather_code": [1, 2],
+                "weather_code_member01": [61, 61]
+              },
+              "daily": {
+                "time": ["2026-09-27"],
+                "temperature_2m_max": [23.6],
+                "temperature_2m_max_member01": [27.0]
+              }
+            }"""
+        )
+
+        val split = BatchedForecastSplitter.split(
+            response, listOf(WeatherModel.GOOGLE_WEATHERNEXT2)
+        )
+
+        val control = split.getValue(WeatherModel.GOOGLE_WEATHERNEXT2)
+        assertEquals(listOf(16.4, 15.6), control.hourly?.temperature2m)
+        assertEquals(listOf(1, 2), control.hourly?.weatherCode)
+        assertEquals(listOf(23.6), control.daily?.temperature2mMax)
+    }
+
+    @Test
+    fun `ensemble multi-modeles - suffixe de controle distinct des suffixes de membres`() {
+        val key = WeatherModel.GOOGLE_WEATHERNEXT2.apiKey
+        val response = json.decodeFromString<BatchedForecastResponseDto>(
+            """{
+              "latitude": 48.75, "longitude": 2.25, "timezone": "Europe/Paris",
+              "hourly": {
+                "time": ["2026-09-27T00:00"],
+                "temperature_2m_$key": [16.4],
+                "temperature_2m_member01_$key": [18.0],
+                "temperature_2m_ncep_gfs_seamless": [15.0]
+              }
+            }"""
+        )
+
+        val split = BatchedForecastSplitter.split(
+            response, listOf(WeatherModel.GFS, WeatherModel.GOOGLE_WEATHERNEXT2)
+        )
+
+        assertEquals(listOf(16.4), split.getValue(WeatherModel.GOOGLE_WEATHERNEXT2).hourly?.temperature2m)
+        assertEquals(listOf(15.0), split.getValue(WeatherModel.GFS).hourly?.temperature2m)
+    }
+
     // ─────────────────────── Filtrage modèles vides ───────────────────
 
     @Test
