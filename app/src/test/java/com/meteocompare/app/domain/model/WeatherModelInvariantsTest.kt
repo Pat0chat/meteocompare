@@ -237,13 +237,34 @@ class WeatherModelInvariantsTest {
     }
 
     @Test
-    fun `catalogue contient les 22 modeles attendus`() {
-        assertEquals(22, WeatherModel.entries.size)
+    fun `catalogue contient les 23 modeles attendus`() {
+        assertEquals(23, WeatherModel.entries.size)
         assertTrue(WeatherModel.DMI_HARMONIE_EU in WeatherModel.entries)
         assertTrue(WeatherModel.METEOSWISS_ICON_CH2 in WeatherModel.entries)
         assertTrue(WeatherModel.JMA_GSM in WeatherModel.entries)
         assertTrue(WeatherModel.NCEP_AIGFS in WeatherModel.entries)
         assertTrue(WeatherModel.CHMI_ALADIN_CENTRAL_EUROPE in WeatherModel.entries)
+        assertTrue(WeatherModel.GOOGLE_WEATHERNEXT2 in WeatherModel.entries)
+    }
+
+    @Test
+    fun `WeatherNext 2 passe par l'Ensemble API et reste opt-in`() {
+        val model = WeatherModel.GOOGLE_WEATHERNEXT2
+        assertEquals("google_weathernext2_ensemble", model.apiKey)
+        assertEquals(ForecastEndpoint.ENSEMBLE, model.endpoint)
+        assertEquals(Coverage.GLOBAL, model.coverage)
+        assertEquals(ModelFamily.GOOGLE, model.family)
+        assertEquals(15, model.maxForecastDays)
+        assertTrue(model !in WeatherModel.MVP_SELECTION)
+    }
+
+    @Test
+    fun `seuls les modeles d'ensemble quittent la Forecast API`() {
+        assertEquals(
+            listOf(WeatherModel.GOOGLE_WEATHERNEXT2),
+            WeatherModel.entries.filter { it.endpoint != ForecastEndpoint.FORECAST }
+        )
+        assertTrue(WeatherModel.MVP_SELECTION.all { it.endpoint == ForecastEndpoint.FORECAST })
     }
 
 }
