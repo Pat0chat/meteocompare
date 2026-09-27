@@ -856,6 +856,20 @@
     <string name="home_temperature_trend_stable">Temperature trend: stable around %1$d°</string>
 
     <!-- Notifications météo locales -->
+    <string name="settings_notifications_title">Notifications</string>
+    <string name="settings_notifications_desc">Computed on the device from your models and forecast engine, with no server or account. Forecasts are refreshed at the interval chosen above.</string>
+    <string name="settings_notifications_daily">Daily summary</string>
+    <string name="settings_notifications_daily_desc">Every day at the chosen time: the current day, or the next day after 3 pm.</string>
+    <string name="settings_notifications_daily_time">Summary time: %1$s</string>
+    <string name="settings_notifications_time_confirm">OK</string>
+    <string name="settings_notifications_divergence">Model divergence</string>
+    <string name="settings_notifications_divergence_desc" formatted="false">When model convergence drops below 50% for today or tomorrow.</string>
+    <string name="settings_notifications_change">Forecast change</string>
+    <string name="settings_notifications_change_desc">When the forecast is clearly revised for the next three days (same signal as “Key points”).</string>
+    <string name="settings_notifications_cities">Followed cities</string>
+    <string name="settings_notifications_no_city">Add a favourite city to receive notifications.</string>
+    <string name="settings_notifications_blocked">MeteoCompare notifications are disabled on this device.</string>
+    <string name="settings_notifications_open_system">Allow</string>
     <string name="notification_channel_daily">Daily summary</string>
     <string name="notification_channel_daily_desc">Summary of the day for followed cities, at the chosen time.</string>
     <string name="notification_channel_divergence">Model divergence</string>

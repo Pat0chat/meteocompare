@@ -855,6 +855,20 @@
     <string name="home_temperature_trend_stable">Tendance température : stable autour de %1$d°</string>
 
     <!-- Notifications météo locales -->
+    <string name="settings_notifications_title">Notifications</string>
+    <string name="settings_notifications_desc">Calculées sur l’appareil à partir de vos modèles et de votre moteur de prévision, sans serveur ni compte. Les prévisions sont actualisées selon l’intervalle choisi plus haut.</string>
+    <string name="settings_notifications_daily">Résumé quotidien</string>
+    <string name="settings_notifications_daily_desc">Chaque jour à l’heure choisie : la journée en cours, ou le lendemain après 15 h.</string>
+    <string name="settings_notifications_daily_time">Heure du résumé : %1$s</string>
+    <string name="settings_notifications_time_confirm">Valider</string>
+    <string name="settings_notifications_divergence">Divergence des modèles</string>
+    <string name="settings_notifications_divergence_desc" formatted="false">Quand la convergence des modèles passe sous 50 % pour aujourd’hui ou demain.</string>
+    <string name="settings_notifications_change">Changement de prévision</string>
+    <string name="settings_notifications_change_desc">Quand la prévision est nettement révisée sur les trois prochains jours (même signal que « À retenir »).</string>
+    <string name="settings_notifications_cities">Villes suivies</string>
+    <string name="settings_notifications_no_city">Ajoutez une ville en favori pour recevoir des notifications.</string>
+    <string name="settings_notifications_blocked">Les notifications de MeteoCompare sont désactivées sur cet appareil.</string>
+    <string name="settings_notifications_open_system">Autoriser</string>
     <string name="notification_channel_daily">Résumé quotidien</string>
     <string name="notification_channel_daily_desc">Résumé de la journée pour les villes suivies, à l’heure choisie.</string>
     <string name="notification_channel_divergence">Divergence des modèles</string>

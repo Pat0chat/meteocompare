@@ -4,12 +4,16 @@ import android.content.Context
 import app.cash.turbine.test
 import com.meteocompare.app.R
 import com.meteocompare.app.data.worker.BiasRefreshScheduler
+import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.model.LanguagePreference
+import com.meteocompare.app.domain.model.NotificationSettings
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.ThemePreference
 import com.meteocompare.app.domain.model.WeatherModel
+import com.meteocompare.app.domain.repository.CityRepository
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
+import com.meteocompare.app.notification.WeatherNotificationScheduler
 import com.meteocompare.app.ui.components.AppToastType
 import com.meteocompare.app.widget.WidgetRefreshScheduler
 import io.mockk.coEvery
@@ -20,6 +24,8 @@ import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
 import io.mockk.verify
+import java.io.IOException
+import java.time.LocalTime
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -64,12 +70,27 @@ class SettingsViewModelTest {
     private val refreshIntervalFlow = MutableStateFlow(RefreshInterval.DEFAULT)
     private val forecastEngineFlow = MutableStateFlow(ForecastEngine.DEFAULT)
 
+    private val notificationFlow = MutableStateFlow(NotificationSettings())
+    private val paris = City(id = "paris", name = "Paris", country = "France", latitude = 48.85, longitude = 2.35)
+    private val lyon = City(id = "lyon", name = "Lyon", country = "France", latitude = 45.76, longitude = 4.84)
+    private val favoritesFlow = MutableStateFlow(listOf(paris, lyon))
+
     private val prefs: UserPreferencesRepository = mockk(relaxed = true) {
         coEvery { observeEnabledModels() } returns modelsFlow
         coEvery { observeThemePreference() } returns themeFlow
         coEvery { observeLanguagePreference() } returns languageFlow
         coEvery { observeRefreshInterval() } returns refreshIntervalFlow
         every { observeForecastEngine() } returns forecastEngineFlow
+        every { observeNotificationSettings() } returns notificationFlow
+        // Reproduit la mise à jour atomique DataStore sur le flow en mémoire.
+        coEvery { updateNotificationSettings(any()) } answers {
+            val transform = firstArg<(NotificationSettings) -> NotificationSettings>()
+            transform(notificationFlow.value).also { notificationFlow.value = it }
+        }
+    }
+
+    private val cityRepository: CityRepository = mockk(relaxed = true) {
+        every { observeFavorites() } returns favoritesFlow
     }
 
     /**
@@ -102,12 +123,15 @@ class SettingsViewModelTest {
         every { WidgetRefreshScheduler.triggerImmediateRefresh(any<Context>()) } returns Unit
         every { WidgetRefreshScheduler.cancel(any<Context>()) } returns Unit
         every { BiasRefreshScheduler.triggerManualRefresh(any<Context>()) } returns Unit
+        mockkObject(WeatherNotificationScheduler)
+        every { WeatherNotificationScheduler.reschedule(any(), any()) } returns Unit
 
-        viewModel = SettingsViewModel(appContext, prefs)
+        viewModel = SettingsViewModel(appContext, prefs, cityRepository)
     }
 
     @After
     fun tearDown() {
+        unmockkObject(WeatherNotificationScheduler)
         unmockkObject(BiasRefreshScheduler)
         unmockkObject(WidgetRefreshScheduler)
         Dispatchers.resetMain()
@@ -392,4 +416,51 @@ class SettingsViewModelTest {
         }
     }
 
+
+    // ─────────────────────────── Notifications ───────────────────────────
+
+    @Test
+    fun `notifications - premiere activation suit la premiere ville favorite et replanifie`() =
+        runTest(dispatcher) {
+            viewModel.onDailySummaryToggled(true)
+
+            val expected = NotificationSettings(dailySummaryEnabled = true, cityIds = setOf(paris.id))
+            assertEquals(expected, notificationFlow.value)
+            verify(exactly = 1) { WeatherNotificationScheduler.reschedule(appContext, expected) }
+        }
+
+    @Test
+    fun `notifications - une ville decochee n'est pas recochee automatiquement`() = runTest(dispatcher) {
+        notificationFlow.value = NotificationSettings(
+            divergenceAlertsEnabled = true,
+            cityIds = setOf(paris.id)
+        )
+
+        viewModel.onNotificationCityToggled(paris.id, followed = false)
+
+        assertEquals(emptySet<String>(), notificationFlow.value.cityIds)
+    }
+
+    @Test
+    fun `notifications - heure du resume persistee puis replanifiee`() = runTest(dispatcher) {
+        notificationFlow.value = NotificationSettings(dailySummaryEnabled = true, cityIds = setOf(lyon.id))
+
+        viewModel.onDailySummaryTimeSelected(LocalTime.of(6, 30))
+
+        assertEquals(LocalTime.of(6, 30), notificationFlow.value.dailySummaryTime)
+        verify(exactly = 1) {
+            WeatherNotificationScheduler.reschedule(appContext, notificationFlow.value)
+        }
+    }
+
+    @Test
+    fun `notifications - echec d'ecriture signale sans replanifier`() = runTest(dispatcher) {
+        coEvery { prefs.updateNotificationSettings(any()) } throws IOException("disk full")
+
+        viewModel.feedback.test {
+            viewModel.onForecastChangeAlertsToggled(true)
+            assertEquals(AppToastType.ERROR, awaitItem().type)
+        }
+        verify(exactly = 0) { WeatherNotificationScheduler.reschedule(any(), any()) }
+    }
 }

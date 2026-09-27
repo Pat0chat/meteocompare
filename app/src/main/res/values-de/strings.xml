@@ -839,6 +839,20 @@ Daten</string>
     <string name="home_temperature_trend_stable">Temperaturtrend: stabil um %1$d°</string>
 
     <!-- Notifications météo locales -->
+    <string name="settings_notifications_title">Benachrichtigungen</string>
+    <string name="settings_notifications_desc">Auf dem Gerät aus Ihren Modellen und Ihrer Prognose-Engine berechnet, ohne Server oder Konto. Die Prognosen werden im oben gewählten Intervall aktualisiert.</string>
+    <string name="settings_notifications_daily">Tägliche Zusammenfassung</string>
+    <string name="settings_notifications_daily_desc">Jeden Tag zur gewählten Uhrzeit: der aktuelle Tag, ab 15 Uhr der nächste Tag.</string>
+    <string name="settings_notifications_daily_time">Uhrzeit der Zusammenfassung: %1$s</string>
+    <string name="settings_notifications_time_confirm">OK</string>
+    <string name="settings_notifications_divergence">Modellabweichung</string>
+    <string name="settings_notifications_divergence_desc" formatted="false">Wenn die Modellkonvergenz für heute oder morgen unter 50 % fällt.</string>
+    <string name="settings_notifications_change">Prognoseänderung</string>
+    <string name="settings_notifications_change_desc">Wenn die Prognose für die nächsten drei Tage deutlich revidiert wird (gleiches Signal wie „Wichtige Punkte“).</string>
+    <string name="settings_notifications_cities">Verfolgte Orte</string>
+    <string name="settings_notifications_no_city">Fügen Sie einen Favoriten hinzu, um Benachrichtigungen zu erhalten.</string>
+    <string name="settings_notifications_blocked">Benachrichtigungen von MeteoCompare sind auf diesem Gerät deaktiviert.</string>
+    <string name="settings_notifications_open_system">Erlauben</string>
     <string name="notification_channel_daily">Tägliche Zusammenfassung</string>
     <string name="notification_channel_daily_desc">Zusammenfassung des Tages für die verfolgten Orte zur gewählten Uhrzeit.</string>
     <string name="notification_channel_divergence">Modellabweichung</string>

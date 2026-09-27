@@ -6,16 +6,21 @@ import androidx.lifecycle.viewModelScope
 import com.meteocompare.app.R
 import com.meteocompare.app.core.util.runSuspendCatching
 import com.meteocompare.app.data.worker.BiasRefreshScheduler
+import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.model.LanguagePreference
+import com.meteocompare.app.domain.model.NotificationSettings
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.ThemePreference
 import com.meteocompare.app.domain.model.WeatherModel
+import com.meteocompare.app.domain.repository.CityRepository
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
+import com.meteocompare.app.notification.WeatherNotificationScheduler
 import com.meteocompare.app.ui.components.AppToastEvent
 import com.meteocompare.app.widget.WidgetRefreshScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.time.LocalTime
 import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.SharingStarted
@@ -31,7 +36,8 @@ import kotlinx.coroutines.sync.withLock
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     @param:ApplicationContext private val appContext: Context,
-    private val prefs: UserPreferencesRepository
+    private val prefs: UserPreferencesRepository,
+    private val cityRepository: CityRepository
 ) : ViewModel() {
 
     private val modelUpdateMutex = Mutex()
@@ -72,6 +78,21 @@ class SettingsViewModel @Inject constructor(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = ForecastEngine.DEFAULT
+        )
+
+    val notificationSettings: StateFlow<NotificationSettings> = prefs.observeNotificationSettings()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = NotificationSettings()
+        )
+
+    /** Villes proposées pour les notifications : uniquement les favoris. */
+    val favoriteCities: StateFlow<List<City>> = cityRepository.observeFavorites()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = emptyList()
         )
 
     fun onModelToggled(model: WeatherModel, enabled: Boolean) {
@@ -184,6 +205,60 @@ class SettingsViewModel @Inject constructor(
                 onFailure = { AppToastEvent.error(R.string.toast_settings_save_error) }
             )
             _feedback.send(feedback)
+        }
+    }
+
+    fun onDailySummaryToggled(enabled: Boolean) =
+        updateNotificationSettings { it.copy(dailySummaryEnabled = enabled) }
+
+    fun onDailySummaryTimeSelected(time: LocalTime) =
+        updateNotificationSettings { it.copy(dailySummaryTime = time) }
+
+    fun onDivergenceAlertsToggled(enabled: Boolean) =
+        updateNotificationSettings { it.copy(divergenceAlertsEnabled = enabled) }
+
+    fun onForecastChangeAlertsToggled(enabled: Boolean) =
+        updateNotificationSettings { it.copy(forecastChangeAlertsEnabled = enabled) }
+
+    fun onNotificationCityToggled(cityId: String, followed: Boolean) =
+        updateNotificationSettings { settings ->
+            settings.copy(
+                cityIds = if (followed) settings.cityIds + cityId else settings.cityIds - cityId
+            )
+        }
+
+    /**
+     * Persiste atomiquement la modification puis replanifie les travaux.
+     *
+     * À la toute première activation, la première ville favorite est suivie
+     * par défaut : sans ville, une notification activée ne produirait rien et
+     * l'utilisateur pourrait croire la fonction cassée. Une ville décochée
+     * ensuite reste décochée.
+     */
+    private fun updateNotificationSettings(transform: (NotificationSettings) -> NotificationSettings) {
+        viewModelScope.launch {
+            val updated = runSuspendCatching {
+                val favorites = cityRepository.observeFavorites().first()
+                prefs.updateNotificationSettings { current ->
+                    val next = transform(current)
+                    val firstActivation = !current.anyEnabled && next.anyEnabled
+                    if (firstActivation && next.cityIds.isEmpty() && favorites.isNotEmpty()) {
+                        next.copy(cityIds = setOf(favorites.first().id))
+                    } else {
+                        next
+                    }
+                }
+            }.getOrElse {
+                _feedback.send(AppToastEvent.error(R.string.toast_settings_save_error))
+                return@launch
+            }
+            // Comme pour le widget, la planification est best-effort : le
+            // réglage est enregistré et le démarrage suivant la réparera.
+            runCatching {
+                WeatherNotificationScheduler.reschedule(appContext, updated)
+            }.onFailure { error ->
+                android.util.Log.w("MeteoCompare/Notif", "Unable to reschedule notifications", error)
+            }
         }
     }
 
