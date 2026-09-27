@@ -12,6 +12,7 @@ import com.meteocompare.app.domain.model.DayNormals
 import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.model.LanguagePreference
 import com.meteocompare.app.domain.model.MarineForecast
+import com.meteocompare.app.domain.model.NotificationSettings
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.ThemePreference
 import com.meteocompare.app.domain.model.VigilanceForecast
@@ -33,6 +34,7 @@ import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.updateAndGet
 
 @Singleton
 class FakeCityRepository @Inject constructor() : CityRepository {
@@ -220,6 +222,7 @@ class FakeUserPreferencesRepository @Inject constructor() : UserPreferencesRepos
     private val language = MutableStateFlow(LanguagePreference.SYSTEM)
     private val refresh = MutableStateFlow(RefreshInterval.DEFAULT)
     private val forecastEngine = MutableStateFlow(ForecastEngine.DEFAULT)
+    private val notificationSettings = MutableStateFlow(NotificationSettings())
     private val collapsedSectionsByCity =
         ConcurrentHashMap<String, MutableStateFlow<Set<CityDetailSection>>>()
     private val viewModeByCity =
@@ -272,8 +275,15 @@ class FakeUserPreferencesRepository @Inject constructor() : UserPreferencesRepos
         contentTabByCity.getOrPut(cityId) { MutableStateFlow(CityDetailContentTab.DEFAULT) }.value = tab
     }
 
+    override fun observeNotificationSettings(): Flow<NotificationSettings> = notificationSettings
+
+    override suspend fun updateNotificationSettings(
+        transform: (NotificationSettings) -> NotificationSettings
+    ): NotificationSettings = notificationSettings.updateAndGet(transform)
+
     fun reset() {
         models.value = WeatherModel.MVP_SELECTION
+        notificationSettings.value = NotificationSettings()
         theme.value = ThemePreference.SYSTEM
         language.value = LanguagePreference.SYSTEM
         refresh.value = RefreshInterval.DEFAULT
