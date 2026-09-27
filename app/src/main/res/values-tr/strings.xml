@@ -95,7 +95,7 @@
     <string name="open_meteo_attribution">Veri: Open-Meteo · CC BY 4.0 · MeteoCompare tarafından birleştirilip dönüştürüldü</string>
     <string name="open_meteo_attribution_open">Open-Meteo lisansını aç</string>
     <string name="open_meteo_link_label">Open-Meteo lisansı</string>
-    <string name="settings_about_models_credit">Modeller: Météo-France (AROME ve ARPEGE), DWD (ICON), NOAA (GFS, HRRR ve AIGFS), Avrupa Merkezi (ECMWF ve AIFS), İngiliz Met Office (UKMO), Environment Canada (GEM), JMA (GSM), MET Norway (MET Nordic), KNMI ve DMI (HARMONIE), MeteoSwiss (ICON-CH), Bureau of Meteorology (ACCESS, Avustralya), CMA (GRAPES, Çin).</string>
+    <string name="settings_about_models_credit">Modeller: Météo-France (AROME ve ARPEGE), DWD (ICON), NOAA (GFS, HRRR ve AIGFS), Avrupa Merkezi (ECMWF ve AIFS), İngiliz Met Office (UKMO), Environment Canada (GEM), JMA (GSM), MET Norway (MET Nordic), KNMI ve DMI (HARMONIE), MeteoSwiss (ICON-CH), Bureau of Meteorology (ACCESS, Avustralya), CMA (GRAPES, Çin), Google DeepMind (WeatherNext 2).</string>
     <string name="settings_bias_refresh_title">Sapma takibi</string>
     <string name="settings_bias_refresh_desc">Yerel güvenilirliği beslemek için 3 haftaya kadar G+1 geçmişi getirir. Arşivi olmayan modeller kademeli olarak kalibre olur.</string>
     <string name="settings_bias_refresh_action">Başlat veya güncelle</string>

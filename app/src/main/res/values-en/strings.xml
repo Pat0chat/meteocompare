@@ -96,7 +96,7 @@
     <string name="open_meteo_attribution">Data: Open-Meteo · CC BY 4.0 · aggregated and transformed by MeteoCompare</string>
     <string name="open_meteo_attribution_open">Open the Open-Meteo licence</string>
     <string name="open_meteo_link_label">Open-Meteo licence</string>
-    <string name="settings_about_models_credit">Models: AROME and ARPEGE by Météo-France, ICON by DWD, GFS, HRRR and AIGFS by NOAA, ECMWF and AIFS by the European Centre, UKMO by the UK Met Office, GEM by Environment Canada, GSM by JMA, MET Nordic by MET Norway, HARMONIE by KNMI and DMI, ICON-CH by MeteoSwiss, ACCESS by the Bureau of Meteorology (Australia), GRAPES by CMA (China).</string>
+    <string name="settings_about_models_credit">Models: AROME and ARPEGE by Météo-France, ICON by DWD, GFS, HRRR and AIGFS by NOAA, ECMWF and AIFS by the European Centre, UKMO by the UK Met Office, GEM by Environment Canada, GSM by JMA, MET Nordic by MET Norway, HARMONIE by KNMI and DMI, ICON-CH by MeteoSwiss, ACCESS by the Bureau of Meteorology (Australia), GRAPES by CMA (China), WeatherNext 2 by Google DeepMind.</string>
     <string name="settings_bias_refresh_title">Bias tracking</string>
     <string name="settings_bias_refresh_desc">Fetches up to 3 weeks of D+1 history to seed local reliability. Models without archives calibrate progressively.</string>
     <string name="settings_bias_refresh_action">Initialize or update</string>
