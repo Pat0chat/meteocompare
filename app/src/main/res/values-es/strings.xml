@@ -315,7 +315,11 @@ datos</string>
     <string name="bias_sheet_title_prefix">Desviación media </string>
     <string name="bias_sheet_title_suffix"> respecto a la referencia histórica.</string>
 
-    <string name="bias_history_collecting">Se está recopilando el historial D+1. Los indicadores por modelo aparecerán tras 14 días coincidentes.</string>
+    <string name="bias_history_preparing">Fiabilidad local en preparación. Cada día, la previsión emitida la víspera (D+1) por cada modelo se compara con un reanálisis. Sus indicadores aparecen tras %1$d días comparados; el contador bajo su nombre sigue el avance.</string>
+    <string name="bias_history_partial">Indicadores de fiabilidad disponibles para %1$d de %2$d modelos. Los demás se completan cada día; el contador bajo su nombre sigue el avance.</string>
+    <string name="bias_history_best_progress">Modelo más avanzado: %1$d/%2$d días comparados.</string>
+    <string name="bias_history_fetch_action">Recuperar el historial ahora</string>
+    <string name="bias_history_fetch_requested">Recuperación en segundo plano…</string>
 
     <string name="bias_chip_calibrating_content_description">Seguimiento del sesgo en curso para este modelo: aún no hay suficientes datos históricos para evaluar su precisión.</string>
 

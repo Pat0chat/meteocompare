@@ -315,7 +315,11 @@ Daten</string>
     <string name="bias_sheet_title_prefix">Mittlere Abweichung </string>
     <string name="bias_sheet_title_suffix"> gegenüber der historischen Referenz.</string>
 
-    <string name="bias_history_collecting">Der D+1-Verlauf wird gesammelt. Modellbezogene Indikatoren erscheinen nach 14 übereinstimmenden Tagen.</string>
+    <string name="bias_history_preparing">Lokale Zuverlässigkeit wird vorbereitet. Jeden Tag wird die am Vortag (D+1) ausgegebene Prognose jedes Modells mit einer Reanalyse verglichen. Seine Indikatoren erscheinen nach %1$d verglichenen Tagen; der Zähler unter seinem Namen zeigt den Fortschritt.</string>
+    <string name="bias_history_partial">Zuverlässigkeitsindikatoren für %1$d von %2$d Modellen verfügbar. Die übrigen werden täglich ergänzt; der Zähler unter ihrem Namen zeigt den Fortschritt.</string>
+    <string name="bias_history_best_progress">Am weitesten fortgeschrittenes Modell: %1$d/%2$d verglichene Tage.</string>
+    <string name="bias_history_fetch_action">Verlauf jetzt abrufen</string>
+    <string name="bias_history_fetch_requested">Abruf läuft im Hintergrund…</string>
 
     <string name="bias_chip_calibrating_content_description">Bias-Verfolgung für dieses Modell läuft: Es liegen noch nicht genügend historische Daten zur Beurteilung seiner Genauigkeit vor.</string>
 

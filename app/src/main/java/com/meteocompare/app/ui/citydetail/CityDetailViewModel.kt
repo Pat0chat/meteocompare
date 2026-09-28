@@ -10,6 +10,7 @@ import com.meteocompare.app.core.network.NetworkMonitor
 import com.meteocompare.app.core.network.toUserMessage
 import com.meteocompare.app.core.util.localDateIn
 import com.meteocompare.app.core.util.runSuspendCatching
+import com.meteocompare.app.data.worker.BiasRefreshScheduler
 import com.meteocompare.app.di.DefaultDispatcher
 import com.meteocompare.app.domain.model.BiasSample
 import com.meteocompare.app.domain.model.BiasVariable
@@ -87,6 +88,8 @@ sealed interface RefreshFeedback {
     data object MarineNotCoastal : RefreshFeedback
     data class MarineError(val message: String) : RefreshFeedback
     data object SettingsSaveError : RefreshFeedback
+    data object BiasHistoryQueued : RefreshFeedback
+    data object BiasHistoryError : RefreshFeedback
 }
 
 @HiltViewModel
@@ -649,6 +652,22 @@ class CityDetailViewModel @Inject constructor(
     }
 
     /** Rafraîchissement indépendant du mode Mer / côte. */
+    /**
+     * Lance le rattrapage manuel de l'historique de fiabilité (même travail que
+     * le bouton des Réglages) depuis le bandeau d'avancement. Le résultat arrive
+     * par les flows Room déjà observés : bandeau et pastilles se mettent à jour
+     * seuls une fois le travail exécuté.
+     */
+    fun requestBiasHistory() {
+        val feedback = runCatching {
+            BiasRefreshScheduler.triggerManualRefresh(context)
+        }.fold(
+            onSuccess = { RefreshFeedback.BiasHistoryQueued },
+            onFailure = { RefreshFeedback.BiasHistoryError }
+        )
+        _refreshFeedback.trySend(feedback)
+    }
+
     fun refreshMarine() {
         viewModelScope.launch {
             val city = findCity() ?: return@launch
