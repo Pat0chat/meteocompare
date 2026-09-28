@@ -46,7 +46,7 @@ fun HourlyForecastTable(
     directionExtractor: ((HourlyForecast, Int) -> Int?)? = null,
     modelBiasProvider: ((WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
     onBiasChipClick: ((WeatherModel, com.meteocompare.app.domain.model.ModelBias) -> Unit)? = null,
-    sampleCountProvider: ((WeatherModel) -> Int?)? = null
+    sampleCountProvider: ((WeatherModel) -> Int)? = null
 ) {
     val zone = remember(forecast.city.timezone) {
         resolveCityZone(forecast.city.timezone)

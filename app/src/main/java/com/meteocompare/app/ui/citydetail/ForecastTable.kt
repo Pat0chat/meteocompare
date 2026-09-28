@@ -57,7 +57,7 @@ fun ForecastTable(
     directionExtractor: ((DailyForecast, Int) -> Int?)? = null,
     modelBiasProvider: ((WeatherModel) -> com.meteocompare.app.domain.model.ModelBias?)? = null,
     onBiasChipClick: ((WeatherModel, com.meteocompare.app.domain.model.ModelBias) -> Unit)? = null,
-    sampleCountProvider: ((WeatherModel) -> Int?)? = null
+    sampleCountProvider: ((WeatherModel) -> Int)? = null
 ) {
     val dates = remember(forecast) {
         forecast.seriesByModel.values.flatMap { it.daily.dates }.distinct().sorted()

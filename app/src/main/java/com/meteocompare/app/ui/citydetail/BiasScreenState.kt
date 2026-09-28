@@ -2,7 +2,6 @@ package com.meteocompare.app.ui.citydetail
 
 import androidx.compose.runtime.Immutable
 import com.meteocompare.app.domain.model.BiasSample
-import com.meteocompare.app.domain.model.ForecastEndpoint
 import com.meteocompare.app.domain.model.ModelBias
 import com.meteocompare.app.domain.model.WeatherModel
 
@@ -86,12 +85,3 @@ data class VariableBiasState(
         )
     }
 }
-
-/**
- * Compteur « N/14 » affiché sous un modèle en cours de calibration, ou `null`
- * pour un modèle qui ne peut pas être calibré : les modèles publiés
- * uniquement en ensemble n'ont pas d'archive Previous Runs, leur compteur
- * resterait donc à « 0/14 » indéfiniment. La pastille affiche alors « — ».
- */
-internal fun VariableBiasState.calibrationSampleCount(model: WeatherModel): Int? =
-    if (model.endpoint == ForecastEndpoint.FORECAST) historyByModel[model]?.size ?: 0 else null
