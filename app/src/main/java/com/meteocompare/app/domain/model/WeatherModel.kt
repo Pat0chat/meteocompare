@@ -345,8 +345,8 @@ enum class WeatherModel(
      * Pas de rafales ni de probabilité de précipitation dans ce produit : ces
      * séries restent absentes, comme pour les autres modèles qui ne les
      * fournissent pas. Pas de série Previous Runs non plus : le suivi de
-     * fiabilité locale ne dispose donc que des prévisions enregistrées par
-     * l'application elle-même.
+     * fiabilité locale s'appuie sur les prévisions J+1 enregistrées par
+     * l'application elle-même (`LocalLeadOneForecastBackfill`).
      */
     GOOGLE_WEATHERNEXT2(
         apiKey = "google_weathernext2_ensemble",
