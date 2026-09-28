@@ -772,13 +772,13 @@ private fun LoadedView(
                 precipitationBiasProvider = { model -> biasState.precipitation.biasByModel[model] },
                 windBiasProvider = { model -> biasState.wind.biasByModel[model] },
                 temperatureSampleCountProvider = { model ->
-                    biasState.temperature.historyByModel[model]?.size ?: 0
+                    biasState.temperature.calibrationSampleCount(model)
                 },
                 precipitationSampleCountProvider = { model ->
-                    biasState.precipitation.historyByModel[model]?.size ?: 0
+                    biasState.precipitation.calibrationSampleCount(model)
                 },
                 windSampleCountProvider = { model ->
-                    biasState.wind.historyByModel[model]?.size ?: 0
+                    biasState.wind.calibrationSampleCount(model)
                 },
                 onBiasChipClick = { model, bias ->
                     selectedModelName = model.name
@@ -879,9 +879,9 @@ private fun DetailedForecastSection(
     temperatureBiasProvider: ((WeatherModel) -> ModelBias?)? = null,
     precipitationBiasProvider: ((WeatherModel) -> ModelBias?)? = null,
     windBiasProvider: ((WeatherModel) -> ModelBias?)? = null,
-    temperatureSampleCountProvider: ((WeatherModel) -> Int)? = null,
-    precipitationSampleCountProvider: ((WeatherModel) -> Int)? = null,
-    windSampleCountProvider: ((WeatherModel) -> Int)? = null,
+    temperatureSampleCountProvider: ((WeatherModel) -> Int?)? = null,
+    precipitationSampleCountProvider: ((WeatherModel) -> Int?)? = null,
+    windSampleCountProvider: ((WeatherModel) -> Int?)? = null,
     onBiasChipClick: ((WeatherModel, ModelBias) -> Unit)? = null,
     expanded: Boolean = true,
     onExpandedChange: (Boolean) -> Unit = {}
@@ -953,9 +953,9 @@ private fun DetailedComparisonContent(
     temperatureBiasProvider: ((WeatherModel) -> ModelBias?)? = null,
     precipitationBiasProvider: ((WeatherModel) -> ModelBias?)? = null,
     windBiasProvider: ((WeatherModel) -> ModelBias?)? = null,
-    temperatureSampleCountProvider: ((WeatherModel) -> Int)? = null,
-    precipitationSampleCountProvider: ((WeatherModel) -> Int)? = null,
-    windSampleCountProvider: ((WeatherModel) -> Int)? = null,
+    temperatureSampleCountProvider: ((WeatherModel) -> Int?)? = null,
+    precipitationSampleCountProvider: ((WeatherModel) -> Int?)? = null,
+    windSampleCountProvider: ((WeatherModel) -> Int?)? = null,
     onBiasChipClick: ((WeatherModel, ModelBias) -> Unit)? = null
 ) {
     Column {
@@ -1140,7 +1140,7 @@ private fun ForecastTableContent(
     legend: @Composable (() -> Unit)? = null,
     modelBiasProvider: ((WeatherModel) -> ModelBias?)? = null,
     onBiasChipClick: ((WeatherModel, ModelBias) -> Unit)? = null,
-    sampleCountProvider: ((WeatherModel) -> Int)? = null
+    sampleCountProvider: ((WeatherModel) -> Int?)? = null
 ) {
     DetailTableCard {
         ForecastTable(
