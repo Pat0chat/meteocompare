@@ -5,6 +5,7 @@ import com.meteocompare.app.core.network.NetworkMonitor
 import com.meteocompare.app.data.local.ForecastCacheDao
 import com.meteocompare.app.data.local.ForecastCacheEntity
 import com.meteocompare.app.data.mapper.ForecastMapper
+import com.meteocompare.app.data.remote.EnsembleApi
 import com.meteocompare.app.data.remote.OpenMeteoApi
 import com.meteocompare.app.data.remote.dto.BatchedForecastResponseDto
 import com.meteocompare.app.data.remote.dto.ForecastResponseDto
@@ -56,6 +57,7 @@ import org.junit.Test
 class ForecastRepositoryImplTest {
 
     private lateinit var api: OpenMeteoApi
+    private lateinit var ensembleApi: EnsembleApi
     private lateinit var cacheDao: ForecastCacheDao
     private lateinit var evolutionRecorder: ForecastEvolutionRecorder
     private lateinit var repository: ForecastRepositoryImpl
@@ -88,6 +90,7 @@ class ForecastRepositoryImplTest {
     @Before
     fun setUp() {
         api = mockk()
+        ensembleApi = mockk()
         cacheDao = mockk(relaxed = true)
         evolutionRecorder = mockk(relaxed = true)
         val networkMonitor: NetworkMonitor = mockk {
@@ -99,6 +102,7 @@ class ForecastRepositoryImplTest {
         }
         repository = ForecastRepositoryImpl(
             api = api,
+            ensembleApi = ensembleApi,
             mapper = ForecastMapper(),
             cacheDao = cacheDao,
             json = json,
@@ -901,6 +905,153 @@ class ForecastRepositoryImplTest {
      * Réponse minimale : 1 pas de temps + temperature_2m. C'est le contrat
      * du splitter pour "usable data".
      */
+    // ─────────────────── Endpoint Ensemble (WeatherNext 2) ───────────────────
+
+    @Test
+    fun `modele ensemble - requete dediee avec le meme horizon et fusion des series`() = runTest {
+        val forecastModels = slot<String>()
+        val forecastDays = slot<Int>()
+        coEvery {
+            api.getForecastBatched(
+                any(), any(), capture(forecastModels), any(), any(), any(),
+                capture(forecastDays), any(), any(), any()
+            )
+        } returns batchedResponseWith(modelsWithData = listOf(WeatherModel.GFS))
+        val ensembleModels = slot<String>()
+        val ensembleDays = slot<Int>()
+        coEvery {
+            ensembleApi.getEnsembleBatched(
+                any(), any(), capture(ensembleModels), any(), any(), any(),
+                capture(ensembleDays), any(), any(), any()
+            )
+        } returns ensembleControlResponse(controlTemperature = 18.5)
+
+        val result = repository.refreshCityForecast(
+            city = paris,
+            models = listOf(WeatherModel.GFS, WeatherModel.GOOGLE_WEATHERNEXT2)
+        )
+
+        assertTrue(result is ApiResult.Success)
+        result as ApiResult.Success
+        assertEquals(WeatherModel.GFS.apiKey, forecastModels.captured)
+        assertEquals(WeatherModel.GOOGLE_WEATHERNEXT2.apiKey, ensembleModels.captured)
+        assertEquals(forecastDays.captured, ensembleDays.captured)
+        assertEquals(
+            setOf(WeatherModel.GFS, WeatherModel.GOOGLE_WEATHERNEXT2),
+            result.data.seriesByModel.keys
+        )
+        // Membre de contrôle retenu, membres perturbés ignorés.
+        assertEquals(
+            listOf(18.5),
+            result.data.seriesByModel.getValue(WeatherModel.GOOGLE_WEATHERNEXT2).hourly.temperature2m
+        )
+        assertTrue(result.data.errors.isEmpty())
+    }
+
+    @Test
+    fun `sans modele ensemble - l'Ensemble API n'est jamais appelee`() = runTest {
+        coEvery {
+            api.getForecastBatched(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        } returns batchedResponseWith(modelsWithData = listOf(WeatherModel.GFS))
+
+        repository.refreshCityForecast(city = paris, models = listOf(WeatherModel.GFS))
+
+        coVerify(exactly = 0) {
+            ensembleApi.getEnsembleBatched(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        }
+    }
+
+    @Test
+    fun `seulement un modele ensemble - la Forecast API n'est jamais appelee`() = runTest {
+        coEvery {
+            ensembleApi.getEnsembleBatched(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        } returns ensembleControlResponse(controlTemperature = 21.0)
+
+        val result = repository.refreshCityForecast(
+            city = paris,
+            models = listOf(WeatherModel.GOOGLE_WEATHERNEXT2)
+        )
+
+        assertTrue(result is ApiResult.Success)
+        coVerify(exactly = 0) {
+            api.getForecastBatched(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        }
+    }
+
+    @Test
+    fun `echec de l'Ensemble API - autres modeles conserves et cache ensemble preserve`() = runTest {
+        coEvery {
+            api.getForecastBatched(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        } returns batchedResponseWith(modelsWithData = listOf(WeatherModel.GFS))
+        coEvery {
+            ensembleApi.getEnsembleBatched(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        } throws IOException("ensemble indisponible")
+        val requestedKeys = slot<List<String>>()
+        val entries = slot<List<ForecastCacheEntity>>()
+        coEvery {
+            cacheDao.replaceRequestedModels(
+                eq(paris.id),
+                capture(requestedKeys),
+                capture(entries),
+                any()
+            )
+        } returns Unit
+
+        val result = repository.refreshCityForecast(
+            city = paris,
+            models = listOf(WeatherModel.GFS, WeatherModel.GOOGLE_WEATHERNEXT2)
+        )
+
+        assertTrue(result is ApiResult.Success)
+        result as ApiResult.Success
+        assertEquals(setOf(WeatherModel.GFS), result.data.seriesByModel.keys)
+        assertTrue(WeatherModel.GOOGLE_WEATHERNEXT2 in result.data.errors)
+        // Ni remplacement ni marqueur d'indisponibilité pour le modèle dont
+        // l'endpoint a échoué : son ancienne ligne de cache reste utilisable.
+        assertEquals(WeatherModel.GFS.compatibleApiKeys, requestedKeys.captured.toSet())
+        assertEquals(listOf(WeatherModel.GFS.apiKey), entries.captured.map { it.modelKey })
+    }
+
+    @Test
+    fun `echec des deux endpoints - l'erreur de la Forecast API est remontee`() = runTest {
+        val forecastFailure = IOException("forecast indisponible")
+        coEvery {
+            api.getForecastBatched(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        } throws forecastFailure
+        coEvery {
+            ensembleApi.getEnsembleBatched(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        } throws IllegalStateException("ensemble indisponible")
+
+        val result = repository.refreshCityForecast(
+            city = paris,
+            models = listOf(WeatherModel.GFS, WeatherModel.GOOGLE_WEATHERNEXT2)
+        )
+
+        assertTrue(result is ApiResult.Error)
+        assertEquals(forecastFailure, (result as ApiResult.Error).exception)
+        coVerify(exactly = 0) { cacheDao.replaceRequestedModels(any(), any(), any(), any()) }
+    }
+
+    /**
+     * Réponse de l'Ensemble API pour un seul modèle : variables non suffixées
+     * pour le membre de contrôle, suffixe `_memberNN` pour les autres membres.
+     */
+    private fun ensembleControlResponse(controlTemperature: Double): BatchedForecastResponseDto =
+        json.decodeFromString(
+            BatchedForecastResponseDto.serializer(),
+            """{
+              "latitude": 48.75,
+              "longitude": 2.25,
+              "timezone": "Europe/Paris",
+              "hourly": {
+                "time": ["2026-06-23T00:00"],
+                "temperature_2m": [$controlTemperature],
+                "temperature_2m_member01": [30.0],
+                "temperature_2m_member02": [5.0]
+              }
+            }"""
+        )
+
     private fun batchedResponseWith(
         modelsWithData: List<WeatherModel>
     ): BatchedForecastResponseDto {
@@ -974,6 +1125,7 @@ class ForecastRepositoryImplTest {
         }
         return ForecastRepositoryImpl(
             api = fakeApi,
+            ensembleApi = mockk(),
             mapper = ForecastMapper(),
             cacheDao = mockk(relaxed = true),
             json = json,

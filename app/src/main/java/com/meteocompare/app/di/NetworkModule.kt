@@ -4,6 +4,7 @@ import com.meteocompare.app.BuildConfig
 import com.meteocompare.app.core.network.MeteoCompareClientHeaderInterceptor
 import com.meteocompare.app.core.network.OpenMeteoClockDebugInterceptor
 import com.meteocompare.app.data.remote.ClimateArchiveApi
+import com.meteocompare.app.data.remote.EnsembleApi
 import com.meteocompare.app.data.remote.GeocodingApi
 import com.meteocompare.app.data.remote.MarineApi
 import com.meteocompare.app.data.remote.MeteoCompareApi
@@ -27,6 +28,10 @@ import retrofit2.converter.kotlinx.serialization.asConverterFactory
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
 annotation class ForecastRetrofit
+
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class EnsembleRetrofit
 
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
@@ -117,6 +122,18 @@ object NetworkModule {
 
     @Provides
     @Singleton
+    @EnsembleRetrofit
+    fun provideEnsembleRetrofit(client: OkHttpClient, json: Json): Retrofit =
+        Retrofit.Builder()
+            // Modèles publiés uniquement en ensemble (WeatherNext 2). Hôte
+            // distinct de la Forecast API, mêmes paramètres et même format.
+            .baseUrl("https://ensemble-api.open-meteo.com/")
+            .client(client)
+            .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
+            .build()
+
+    @Provides
+    @Singleton
     @GeocodingRetrofit
     fun provideGeocodingRetrofit(client: OkHttpClient, json: Json): Retrofit =
         Retrofit.Builder()
@@ -175,6 +192,11 @@ object NetworkModule {
     @Singleton
     fun provideOpenMeteoApi(@ForecastRetrofit retrofit: Retrofit): OpenMeteoApi =
         retrofit.create(OpenMeteoApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideEnsembleApi(@EnsembleRetrofit retrofit: Retrofit): EnsembleApi =
+        retrofit.create(EnsembleApi::class.java)
 
     @Provides
     @Singleton

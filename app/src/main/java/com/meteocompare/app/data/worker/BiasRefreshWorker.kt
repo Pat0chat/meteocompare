@@ -14,8 +14,10 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.meteocompare.app.BuildConfig
+import com.meteocompare.app.core.util.localDateIn
 import com.meteocompare.app.core.util.runSuspendCatching
 import com.meteocompare.app.domain.model.BiasVariable
+import com.meteocompare.app.domain.model.ForecastEndpoint
 import dagger.hilt.android.EntryPointAccessors
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.flow.first
@@ -312,6 +314,7 @@ internal class BiasRefreshWorker(
         val biasRepo = entry.biasSampleRepository()
         val fetchObs = entry.fetchBiasObservationsUseCase()
         val bootstrapHistory = entry.bootstrapBiasHistoryUseCase()
+        val localBackfill = entry.localLeadOneForecastBackfill()
         val clock = entry.clock()
 
         // Snapshot one-shot des favorites + modèles activés — pas besoin
@@ -355,7 +358,11 @@ internal class BiasRefreshWorker(
                     BiasRefreshScheduler.PER_CITY_OPERATION_TIMEOUT_MS
                 ) {
                     runSuspendCatching {
-                        val bootstrap = if (enabledModels.isEmpty()) {
+                        // Les modèles publiés uniquement en ensemble n'ont pas
+                        // d'archive Previous Runs : sans aucun autre modèle
+                        // actif, l'amorçage n'a rien à récupérer et ne doit
+                        // pas être compté comme un échec de la ville.
+                        val bootstrap = if (enabledModels.none { it.endpoint == ForecastEndpoint.FORECAST }) {
                             null
                         } else {
                             bootstrapHistory(
@@ -366,6 +373,17 @@ internal class BiasRefreshWorker(
                         }
                         if (bootstrap != null && !bootstrap.hasUsableData) {
                             error("Previous Runs returned no usable J+1…J+7 sample for city=${city.id}")
+                        }
+                        // Modèles sans Previous Runs : échantillons J+1 tirés des
+                        // instantanés locaux, avant la collecte des références
+                        // afin que leurs dates soient complétées dans le même cycle.
+                        val localRecords = localBackfill(
+                            city = city,
+                            models = enabledModels,
+                            today = clock.instant().localDateIn(city.timezone)
+                        )
+                        if (BuildConfig.DEBUG && localRecords > 0) {
+                            Log.d(LOG_TAG, "Local D+1 backfill city=${city.id}: records=$localRecords")
                         }
                         val referenceDays = fetchObs(city)
                         if (BuildConfig.DEBUG) {

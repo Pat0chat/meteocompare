@@ -43,7 +43,13 @@ enum class WeatherModel(
      */
     val preferenceApiKeyAliases: Set<String> = emptySet(),
     /** Horizon natif indicatif, distinct du plafond entier utilisé par `forecast_days`. */
-    val forecastHorizonHours: Int = maxForecastDays * 24
+    val forecastHorizonHours: Int = maxForecastDays * 24,
+    /**
+     * Endpoint Open-Meteo qui sert réellement les données du modèle. La quasi-
+     * totalité des modèles passe par la Forecast API ; les modèles publiés
+     * uniquement en ensemble passent par l'Ensemble API (voir [ForecastEndpoint]).
+     */
+    val endpoint: ForecastEndpoint = ForecastEndpoint.FORECAST
 ) {
     AROME_FRANCE_HD(
         apiKey = "meteofrance_arome_france_hd",
@@ -324,6 +330,32 @@ enum class WeatherModel(
         coverage = Coverage.EUROPE,
         family = ModelFamily.METEOSWISS,
         forecastHorizonHours = 120
+    ),
+
+    /**
+     * Google DeepMind WeatherNext 2 — modèle global fondé sur l'IA (0,25°).
+     *
+     * Open-Meteo ne le publie qu'en ensemble (64 membres) et uniquement via
+     * l'Ensemble API : la Forecast API accepte la clé mais ne renvoie que des
+     * valeurs nulles. L'application affiche le MEMBRE DE CONTRÔLE (variables
+     * non suffixées par `_memberNN`), c'est-à-dire un scénario physiquement
+     * cohérent comparable aux autres modèles, et non la moyenne d'ensemble
+     * qui lisserait les extrêmes.
+     *
+     * Pas de rafales ni de probabilité de précipitation dans ce produit : ces
+     * séries restent absentes, comme pour les autres modèles qui ne les
+     * fournissent pas. Pas de série Previous Runs non plus : le suivi de
+     * fiabilité locale s'appuie sur les prévisions J+1 enregistrées par
+     * l'application elle-même (`LocalLeadOneForecastBackfill`).
+     */
+    GOOGLE_WEATHERNEXT2(
+        apiKey = "google_weathernext2_ensemble",
+        displayName = "WeatherNext 2",
+        resolutionKm = 28.0,
+        maxForecastDays = 15,
+        coverage = Coverage.GLOBAL,
+        family = ModelFamily.GOOGLE,
+        endpoint = ForecastEndpoint.ENSEMBLE
     );
 
     /** Clé courante ou alias de MÊME source accepté en lecture de données/cache. */
@@ -351,7 +383,7 @@ enum class WeatherModel(
          * pour utilisateurs européens (ICON EU), 3 globaux occidentaux (GFS,
          * ECMWF, UKMO) et AIFS pour la comparaison IA vs physique. Les nouveaux
          * modèles régionaux/globaux ajoutés ensuite (HRRR, MET Nordic,
-         * HARMONIE KNMI/DMI, BOM, GRAPES, GEM, ICON-D2, ICON-CH2)
+         * HARMONIE KNMI/DMI, BOM, GRAPES, GEM, ICON-D2, ICON-CH2, WeatherNext 2)
          * restent opt-in via Settings — pertinents pour certains utilisateurs
          * mais surchargeraient la 1re impression pour les autres.
          */
@@ -405,5 +437,26 @@ enum class ModelFamily(val displayName: String) {
     BOM("BOM"),
     CMA("CMA"),
     DMI("DMI"),
-    METEOSWISS("MeteoSwiss")
+    METEOSWISS("MeteoSwiss"),
+    GOOGLE("Google DeepMind")
+}
+
+/**
+ * Endpoint Open-Meteo interrogé pour un modèle.
+ *
+ * Les deux endpoints acceptent les mêmes paramètres et renvoient le même
+ * format (variables suffixées par la clé du modèle en multi-modèles), mais
+ * sur des hôtes distincts : une requête batched ne peut donc regrouper que
+ * des modèles d'un même endpoint.
+ */
+enum class ForecastEndpoint {
+    /** `api.open-meteo.com/v1/forecast` — modèles déterministes. */
+    FORECAST,
+
+    /**
+     * `ensemble-api.open-meteo.com/v1/ensemble` — modèles publiés uniquement
+     * en ensemble. Seul le membre de contrôle est exploité ; ces modèles
+     * n'ont pas de série Previous Runs.
+     */
+    ENSEMBLE
 }
