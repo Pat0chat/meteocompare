@@ -595,8 +595,8 @@ private fun GraphicSelectionHeader(
                 shape = RoundedCornerShape(10.dp),
                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
             ) {
-                Box(Modifier.size(34.dp), contentAlignment = Alignment.Center) {
-                    WeatherIconDecorative(point.condition, size = 25.dp)
+                Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
+                    WeatherIconDecorative(point.condition, size = 32.dp)
                 }
             }
             Spacer(Modifier.width(8.dp))
@@ -1135,7 +1135,7 @@ private fun TemperaturePlot(
         StaticWeatherIconStrip(
             conditions = renderData.conditions,
             slotWidth = GraphicHourWidth,
-            iconSize = 19.dp,
+            iconSize = 25.dp,
             visibleRange = visibleRange,
             modifier = Modifier
                 .fillMaxWidth()
