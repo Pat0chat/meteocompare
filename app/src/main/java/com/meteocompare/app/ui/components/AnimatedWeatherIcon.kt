@@ -139,6 +139,7 @@ internal fun StaticWeatherIconStrip(
     conditions: List<WeatherCondition>,
     slotWidth: Dp,
     iconSize: Dp,
+    visibleRange: IntRange = conditions.indices,
     modifier: Modifier = Modifier,
     palette: WeatherIconPalette = WeatherIconDefaults.palette
 ) {
@@ -149,7 +150,8 @@ internal fun StaticWeatherIconStrip(
         val unit = iconSizePx / 100f
         val top = (size.height - iconSizePx) / 2f
 
-        conditions.forEachIndexed { index, condition ->
+        visibleRange.forEach { index ->
+            val condition = conditions.getOrNull(index) ?: return@forEach
             val left = index * slotWidthPx + (slotWidthPx - iconSizePx) / 2f
             withTransform({ translate(left = left, top = top) }) {
                 drawWeatherCondition(

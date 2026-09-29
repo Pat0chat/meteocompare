@@ -11,6 +11,10 @@
 local.properties
 /app/build
 /app/release
+/baselineprofile/build
+/baselineprofile/release
+/benchmark/build
+/benchmark/release
 *.apk
 *.aab
 *.patch

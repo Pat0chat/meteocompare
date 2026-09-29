@@ -42,6 +42,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -140,6 +141,33 @@ internal const val TAG_GRAPHIC_DAY_HEADER = "graphic_day_header"
 internal const val GRAPHIC_TEMPERATURE_HEAT_ALPHA = 0.20f
 internal const val GRAPHIC_RAIN_HEAT_ALPHA = 0.22f
 internal const val GRAPHIC_WIND_HEAT_ALPHA = 0.18f
+
+internal data class GraphicViewportRange(val first: Int, val last: Int) {
+    val indices: IntRange
+        get() = if (last < first) IntRange.EMPTY else first..last
+}
+
+/**
+ * Fenêtre réellement utile de la timeline. Deux créneaux de marge sont gardés
+ * de chaque côté pour que les segments de courbe entrent/sortent du viewport
+ * sans popping pendant le scroll.
+ */
+internal fun graphicViewportRange(
+    scrollPx: Int,
+    viewportWidthPx: Int,
+    slotWidthPx: Float,
+    pointCount: Int,
+    overscan: Int = 2
+): GraphicViewportRange {
+    if (pointCount <= 0 || slotWidthPx <= 0f) return GraphicViewportRange(0, -1)
+    if (viewportWidthPx <= 0) return GraphicViewportRange(0, minOf(pointCount - 1, overscan * 2 + 8))
+    val firstVisible = floor(scrollPx.coerceAtLeast(0) / slotWidthPx).toInt()
+    val lastVisible = ceil((scrollPx.coerceAtLeast(0) + viewportWidthPx) / slotWidthPx).toInt()
+    return GraphicViewportRange(
+        first = (firstVisible - overscan).coerceIn(0, pointCount - 1),
+        last = (lastVisible + overscan).coerceIn(0, pointCount - 1)
+    )
+}
 
 /**
  * Séries prêtes à dessiner pour la Chart View.
@@ -346,6 +374,20 @@ private fun GraphicChartPanel(
     windDomain: PlotDomain,
     horizontalScroll: androidx.compose.foundation.ScrollState
 ) {
+    val density = LocalDensity.current
+    var viewportWidthPx by remember { mutableIntStateOf(0) }
+    val slotWidthPx = with(density) { GraphicHourWidth.toPx() }
+    val viewportRange by remember(horizontalScroll, points.size, viewportWidthPx, slotWidthPx) {
+        derivedStateOf {
+            graphicViewportRange(
+                scrollPx = horizontalScroll.value,
+                viewportWidthPx = viewportWidthPx,
+                slotWidthPx = slotWidthPx,
+                pointCount = points.size
+            )
+        }
+    }
+
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -384,12 +426,14 @@ private fun GraphicChartPanel(
                 Column(
                     modifier = Modifier
                         .weight(1f)
+                        .onSizeChanged { viewportWidthPx = it.width }
                         .horizontalScroll(horizontalScroll)
                 ) {
                     val chartWidth = GraphicHourWidth * points.size.toFloat()
                     TemperaturePlot(
                         points = points,
                         renderData = renderData,
+                        visibleRange = viewportRange.indices,
                         domain = tempDomain,
                         selectedIndex = selectedIndex,
                         showAgreement = showAgreement,
@@ -400,6 +444,7 @@ private fun GraphicChartPanel(
                     RainPlot(
                         points = points,
                         renderData = renderData,
+                        visibleRange = viewportRange.indices,
                         domain = rainDomain,
                         selectedIndex = selectedIndex,
                         showAgreement = showAgreement,
@@ -410,6 +455,7 @@ private fun GraphicChartPanel(
                     WindPlot(
                         points = points,
                         renderData = renderData,
+                        visibleRange = viewportRange.indices,
                         domain = windDomain,
                         selectedIndex = selectedIndex,
                         showAgreement = showAgreement,
@@ -422,6 +468,7 @@ private fun GraphicChartPanel(
                         zone = zone,
                         locale = locale,
                         selectedIndex = selectedIndex,
+                        visibleRange = viewportRange.indices,
                         modifier = Modifier.width(chartWidth).height(TimeAxisHeight)
                     )
                     GraphicVigilanceLane(
@@ -549,7 +596,7 @@ private fun GraphicSelectionHeader(
                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
             ) {
                 Box(Modifier.size(34.dp), contentAlignment = Alignment.Center) {
-                     WeatherIconDecorative(point.condition, size = 25.dp)
+                    WeatherIconDecorative(point.condition, size = 25.dp)
                 }
             }
             Spacer(Modifier.width(8.dp))
@@ -678,7 +725,6 @@ private fun GraphicMetricSummaryChip(
                 agreement?.let {
                     Text(
                         "· $it%",
-                        modifier = agreementTestTag?.let { Modifier.testTag(it) } ?: Modifier,
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = confidenceColor(it),
@@ -980,6 +1026,7 @@ private fun AxisLabelSlot(title: String, subtitle: String, height: Dp) {
 private fun TemperaturePlot(
     points: List<SimplifiedTimelinePoint>,
     renderData: GraphicRenderData,
+    visibleRange: IntRange,
     domain: PlotDomain,
     selectedIndex: Int,
     showAgreement: Boolean,
@@ -1000,14 +1047,17 @@ private fun TemperaturePlot(
         renderData.temperatureAgreement.map(agreementPalette::colorFor)
     }
 
-    Box(modifier) {
-        Canvas(
-            modifier = Modifier.fillMaxSize().pointerInput(points.size) {
-                detectTapGestures { offset ->
-                    onSelectIndex(indexForX(offset.x, size.width.toFloat(), points.size))
-                }
+    Box(
+        modifier = modifier.pointerInput(points.size) {
+            // Le hit-test vit sur le conteneur complet plutôt que sur le Canvas :
+            // les couches décoratives superposées (icônes météo et infobulle)
+            // ne peuvent ainsi pas rendre une partie du graphe non cliquable.
+            detectTapGestures { offset ->
+                onSelectIndex(indexForX(offset.x, size.width.toFloat(), points.size))
             }
-        ) {
+        }
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
             drawTimelineBackground(
                 pointCount = points.size,
                 daylight = renderData.daylight,
@@ -1016,15 +1066,16 @@ private fun TemperaturePlot(
                 showAgreement = showAgreement,
                 surface = surface,
                 night = night,
-                heatAlpha = GRAPHIC_TEMPERATURE_HEAT_ALPHA
+                heatAlpha = GRAPHIC_TEMPERATURE_HEAT_ALPHA,
+                visibleRange = visibleRange
             )
-            drawTimelineGrid(renderData.hours, domain, grid)
+            drawTimelineGrid(renderData.hours, domain, grid, visibleRange)
 
             val upperPath = Path()
             var bandStarted = false
             var hasLowerEdge = false
-            for (index in points.indices) {
-                val min = renderData.temperatureMins[index]
+            for (index in visibleRange) {
+                val min = renderData.temperatureMins.getOrNull(index)
                 val max = renderData.temperatureMaxs[index]
                 if (min != null && max != null) {
                     val x = pointCenterX(index, points.size)
@@ -1043,9 +1094,9 @@ private fun TemperaturePlot(
             if (bandStarted && hasLowerEdge) {
                 // Le path inférieur est reconstruit à rebours directement à
                 // partir des séries numériques, toujours sans liste temporaire.
-                for (index in points.indices.reversed()) {
-                    val min = renderData.temperatureMins[index]
-                    if (min != null && renderData.temperatureMaxs[index] != null) {
+                for (index in visibleRange.reversed()) {
+                    val min = renderData.temperatureMins.getOrNull(index)
+                    if (min != null && renderData.temperatureMaxs.getOrNull(index) != null) {
                         upperPath.lineTo(
                             pointCenterX(index, points.size),
                             valueToYPx(min, domain, size.height)
@@ -1061,14 +1112,16 @@ private fun TemperaturePlot(
                 domain = domain,
                 colors = agreement,
                 enabled = showAgreement,
-                strokeWidth = 8.dp.toPx()
+                strokeWidth = 8.dp.toPx(),
+                visibleRange = visibleRange
             )
             drawLineSeries(
                 values = renderData.temperatures,
                 domain = domain,
                 color = temperature,
                 strokeWidth = 2.4.dp.toPx(),
-                pointRadius = 2.5.dp.toPx()
+                pointRadius = 2.5.dp.toPx(),
+                visibleRange = visibleRange
             )
             drawSelectedRuler(points.size, selectedIndex, onSurface)
             renderData.temperatures.getOrNull(selectedIndex)?.let { value ->
@@ -1083,6 +1136,7 @@ private fun TemperaturePlot(
             conditions = renderData.conditions,
             slotWidth = GraphicHourWidth,
             iconSize = 19.dp,
+            visibleRange = visibleRange,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(30.dp)
@@ -1113,6 +1167,7 @@ private fun TemperaturePlot(
 private fun RainPlot(
     points: List<SimplifiedTimelinePoint>,
     renderData: GraphicRenderData,
+    visibleRange: IntRange,
     domain: PlotDomain,
     selectedIndex: Int,
     showAgreement: Boolean,
@@ -1150,13 +1205,14 @@ private fun RainPlot(
                 showAgreement = showAgreement,
                 surface = surface,
                 night = night,
-                heatAlpha = GRAPHIC_RAIN_HEAT_ALPHA
+                heatAlpha = GRAPHIC_RAIN_HEAT_ALPHA,
+                visibleRange = visibleRange
             )
-            drawTimelineGrid(renderData.hours, domain, grid)
+            drawTimelineGrid(renderData.hours, domain, grid, visibleRange)
             val baseline = valueToYPx(0.0, domain, size.height)
             val columnWidth = size.width / points.size.coerceAtLeast(1)
-            renderData.rainAmounts.forEachIndexed { index, amount ->
-                amount ?: return@forEachIndexed
+            for (index in visibleRange) {
+                val amount = renderData.rainAmounts.getOrNull(index) ?: continue
                 val x = index * columnWidth + columnWidth * 0.20f
                 val y = valueToYPx(amount, domain, size.height)
                 val height = (baseline - y).coerceAtLeast(if (amount > 0.0) 2.dp.toPx() else 0f)
@@ -1198,6 +1254,7 @@ private fun RainPlot(
 private fun WindPlot(
     points: List<SimplifiedTimelinePoint>,
     renderData: GraphicRenderData,
+    visibleRange: IntRange,
     domain: PlotDomain,
     selectedIndex: Int,
     showAgreement: Boolean,
@@ -1243,15 +1300,17 @@ private fun WindPlot(
                 showAgreement = showAgreement,
                 surface = surface,
                 night = night,
-                heatAlpha = GRAPHIC_WIND_HEAT_ALPHA
+                heatAlpha = GRAPHIC_WIND_HEAT_ALPHA,
+                visibleRange = visibleRange
             )
-            drawTimelineGrid(renderData.hours, domain, grid)
+            drawTimelineGrid(renderData.hours, domain, grid, visibleRange)
             drawAgreementHalo(
                 values = renderData.winds,
                 domain = domain,
                 colors = agreement,
                 enabled = showAgreement,
-                strokeWidth = 7.dp.toPx()
+                strokeWidth = 7.dp.toPx(),
+                visibleRange = visibleRange
             )
             drawLineSeries(
                 values = renderData.gusts,
@@ -1259,14 +1318,16 @@ private fun WindPlot(
                 color = onSurface.copy(alpha = 0.58f),
                 strokeWidth = 1.6.dp.toPx(),
                 pathEffect = PathEffect.dashPathEffect(floatArrayOf(8.dp.toPx(), 6.dp.toPx())),
-                pointRadius = 1.8.dp.toPx()
+                pointRadius = 1.8.dp.toPx(),
+                visibleRange = visibleRange
             )
             drawLineSeries(
                 values = renderData.winds,
                 domain = domain,
                 color = wind,
                 strokeWidth = 2.4.dp.toPx(),
-                pointRadius = 2.4.dp.toPx()
+                pointRadius = 2.4.dp.toPx(),
+                visibleRange = visibleRange
             )
             drawSelectedRuler(points.size, selectedIndex, onSurface)
             renderData.winds.getOrNull(selectedIndex)?.let { value ->
@@ -1278,7 +1339,8 @@ private fun WindPlot(
             }
             drawWindDirectionArrows(
                 directions = renderData.directions,
-                color = directionColor
+                color = directionColor,
+                visibleRange = visibleRange
             )
         }
         // Un seul noeud de sémantique suffit pour les tests : les 240 flèches
@@ -1471,39 +1533,37 @@ private fun GraphicTimeAxis(
     zone: ZoneId,
     locale: Locale,
     selectedIndex: Int,
+    visibleRange: IntRange,
     modifier: Modifier = Modifier
 ) {
     val hourFormatter = remember(locale) { DateTimeFormatter.ofPattern("HH'h'", locale) }
     val dayFormatter = remember(locale) { DateTimeFormatter.ofPattern("EEE d MMM", locale) }
     val dates = remember(points, zone) { points.map { it.instant?.atZone(zone)?.toLocalDate() } }
+    val daySpans = remember(dates) { graphicDaySpans(dates) }
     val selectedDate = dates.getOrNull(selectedIndex)
     val primary = MaterialTheme.colorScheme.primary
     val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
     val separator = primary.copy(alpha = 0.30f)
 
     Column(modifier = modifier.background(MaterialTheme.colorScheme.surfaceContainerLowest)) {
-        Row(Modifier.height(28.dp)) {
-            var start = 0
-            var dayIndex = 0
-            while (start < points.size) {
-                val date = dates[start]
-                var end = start
-                while (end + 1 < points.size && dates[end + 1] == date) end++
-                val span = end - start + 1
-                val isSelectedDay = date != null && date == selectedDate
+        Box(Modifier.fillMaxWidth().height(28.dp)) {
+            daySpans.forEach { span ->
+                if (span.last < visibleRange.first || span.first > visibleRange.last) return@forEach
+                val isSelectedDay = span.date != null && span.date == selectedDate
                 val background = when {
                     isSelectedDay -> primary.copy(alpha = 0.075f)
-                    dayIndex % 2 == 0 -> MaterialTheme.colorScheme.surfaceContainerLow
+                    span.dayIndex % 2 == 0 -> MaterialTheme.colorScheme.surfaceContainerLow
                     else -> MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.45f)
                 }
                 Box(
                     modifier = Modifier
-                        .width(GraphicHourWidth * span.toFloat())
+                        .offset(x = GraphicHourWidth * span.first.toFloat())
+                        .width(GraphicHourWidth * (span.last - span.first + 1).toFloat())
                         .height(28.dp)
                         .background(background)
                         .testTag(TAG_GRAPHIC_DAY_HEADER)
                 ) {
-                    if (dayIndex > 0) {
+                    if (span.first > 0) {
                         Box(
                             modifier = Modifier
                                 .align(Alignment.CenterStart)
@@ -1513,7 +1573,7 @@ private fun GraphicTimeAxis(
                         )
                     }
                     Text(
-                        text = date?.format(dayFormatter) ?: "",
+                        text = span.date?.format(dayFormatter) ?: "",
                         modifier = Modifier.align(Alignment.CenterStart).padding(start = 9.dp, end = 6.dp),
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
@@ -1521,25 +1581,26 @@ private fun GraphicTimeAxis(
                         maxLines = 1
                     )
                 }
-                start = end + 1
-                dayIndex++
             }
         }
 
-        Row(
+        Box(
             modifier = Modifier
+                .fillMaxWidth()
                 .height(42.dp)
                 .background(MaterialTheme.colorScheme.surfaceContainerLowest)
         ) {
-            points.forEachIndexed { index, point ->
+            visibleRange.forEach { index ->
+                val point = points.getOrNull(index) ?: return@forEach
                 val zdt = point.instant?.atZone(zone)
                 val isSelected = index == selectedIndex
-                val isDayStart = index > 0 && dates[index] != dates[index - 1]
+                val isDayStart = index > 0 && dates.getOrNull(index) != dates.getOrNull(index - 1)
                 val isMidnight = zdt?.hour == 0
                 Box(
                     modifier = Modifier
+                        .offset(x = GraphicHourWidth * index.toFloat())
                         .width(GraphicHourWidth)
-                        .fillMaxSize()
+                        .fillMaxHeight()
                         .testTag(TAG_GRAPHIC_HOUR_CELL),
                     contentAlignment = Alignment.Center
                 ) {
@@ -1590,6 +1651,29 @@ private fun GraphicTimeAxis(
             }
         }
     }
+}
+
+internal data class GraphicDaySpan(
+    val first: Int,
+    val last: Int,
+    val date: LocalDate?,
+    val dayIndex: Int
+)
+
+internal fun graphicDaySpans(dates: List<LocalDate?>): List<GraphicDaySpan> {
+    if (dates.isEmpty()) return emptyList()
+    val result = ArrayList<GraphicDaySpan>()
+    var start = 0
+    var dayIndex = 0
+    while (start < dates.size) {
+        val date = dates[start]
+        var end = start
+        while (end + 1 < dates.size && dates[end + 1] == date) end++
+        result += GraphicDaySpan(start, end, date, dayIndex)
+        start = end + 1
+        dayIndex++
+    }
+    return result
 }
 
 @Composable
@@ -1783,13 +1867,15 @@ private fun DrawScope.drawTimelineBackground(
     showAgreement: Boolean,
     surface: Color,
     night: Color,
-    heatAlpha: Float = 0.11f
+    heatAlpha: Float = 0.11f,
+    visibleRange: IntRange = 0 until pointCount
 ) {
     if (pointCount <= 0) return
     val width = size.width / pointCount
     // Le fond uniforme n'a pas besoin d'être redessiné cellule par cellule.
     drawRect(surface, topLeft = Offset.Zero, size = size)
-    repeat(pointCount) { index ->
+    visibleRange.forEach { index ->
+        if (index !in 0 until pointCount) return@forEach
         val left = index * width
         if (!daylight.getOrElse(index) { true }) {
             drawRect(night, topLeft = Offset(left, 0f), size = Size(width, size.height))
@@ -1815,7 +1901,8 @@ private fun DrawScope.drawTimelineBackground(
 private fun DrawScope.drawTimelineGrid(
     hours: List<Int?>,
     domain: PlotDomain,
-    color: Color
+    color: Color,
+    visibleRange: IntRange = hours.indices
 ) {
     if (hours.isEmpty()) return
     domain.ticks.forEach { tick ->
@@ -1823,8 +1910,8 @@ private fun DrawScope.drawTimelineGrid(
         drawLine(color, Offset(0f, y), Offset(size.width, y), strokeWidth = 1.dp.toPx())
     }
     val width = size.width / hours.size
-    hours.forEachIndexed { index, hour ->
-        hour ?: return@forEachIndexed
+    visibleRange.forEach { index ->
+        val hour = hours.getOrNull(index) ?: return@forEach
         if (index > 0 && hour == 0) {
             val x = index * width
             drawLine(color.copy(alpha = 0.9f), Offset(x, 0f), Offset(x, size.height), strokeWidth = 1.5.dp.toPx())
@@ -1840,10 +1927,13 @@ private fun DrawScope.drawAgreementHalo(
     domain: PlotDomain,
     colors: List<Color>,
     enabled: Boolean,
-    strokeWidth: Float
+    strokeWidth: Float,
+    visibleRange: IntRange = values.indices
 ) {
     if (!enabled || values.size < 2) return
-    for (index in 0 until values.lastIndex) {
+    val start = visibleRange.first.coerceAtLeast(0)
+    val endExclusive = minOf(visibleRange.last + 1, values.lastIndex)
+    for (index in start until endExclusive) {
         val a = values[index] ?: continue
         val b = values[index + 1] ?: continue
         val agreement = colors.getOrElse(index) { Color.Transparent }
@@ -1863,10 +1953,13 @@ private fun DrawScope.drawLineSeries(
     color: Color,
     strokeWidth: Float,
     pathEffect: PathEffect? = null,
-    pointRadius: Float = 0f
+    pointRadius: Float = 0f,
+    visibleRange: IntRange = values.indices
 ) {
     if (values.isEmpty()) return
-    for (index in 0 until values.lastIndex) {
+    val start = visibleRange.first.coerceAtLeast(0)
+    val endExclusive = minOf(visibleRange.last + 1, values.lastIndex)
+    for (index in start until endExclusive) {
         val a = values[index] ?: continue
         val b = values[index + 1] ?: continue
         drawLine(
@@ -1879,7 +1972,8 @@ private fun DrawScope.drawLineSeries(
         )
     }
     if (pointRadius > 0f) {
-        for (index in values.indices) {
+        for (index in visibleRange) {
+            if (index !in values.indices) continue
             val value = values[index] ?: continue
             drawCircle(
                 color = color,
@@ -1895,7 +1989,8 @@ internal fun seriesMarkerIndices(values: List<Double?>): List<Int> =
 
 private fun DrawScope.drawWindDirectionArrows(
     directions: List<Int?>,
-    color: Color
+    color: Color,
+    visibleRange: IntRange = directions.indices
 ) {
     if (directions.isEmpty()) return
     val slotWidth = size.width / directions.size
@@ -1904,8 +1999,8 @@ private fun DrawScope.drawWindDirectionArrows(
     val head = 2.8.dp.toPx()
     val stroke = 1.25.dp.toPx()
 
-    directions.forEachIndexed { index, direction ->
-        direction ?: return@forEachIndexed
+    visibleRange.forEach { index ->
+        val direction = directions.getOrNull(index) ?: return@forEach
         val center = Offset((index + 0.5f) * slotWidth, centerY)
         rotate(degrees = windArrowRotation(direction), pivot = center) {
             val tip = Offset(center.x, center.y - halfLength)

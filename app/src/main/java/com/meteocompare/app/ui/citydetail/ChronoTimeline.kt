@@ -424,18 +424,37 @@ private fun ChronoTemperaturePlot(
     points: List<SimplifiedTimelinePoint>,
     mode: DisplayMode
 ) {
-    val values = points.map { chronoTemperature(it, mode) }
-    val finiteValues = values.filterNotNull().filter(Double::isFinite)
-    val rawMin = finiteValues.minOrNull() ?: 0.0
-    val rawMax = finiteValues.maxOrNull() ?: 1.0
+    val centralValues = remember(points, mode) { points.map { chronoTemperature(it, mode) } }
+    val minValues = remember(points, mode) {
+        if (mode == DisplayMode.DAILY) points.map(SimplifiedTimelinePoint::tempMinC) else emptyList()
+    }
+    val maxValues = remember(points, mode) {
+        if (mode == DisplayMode.DAILY) points.map(SimplifiedTimelinePoint::tempMaxC) else emptyList()
+    }
+    val domainValues = if (mode == DisplayMode.DAILY) {
+        buildList {
+            minValues.filterTo(this) { it != null && it.isFinite() }
+            maxValues.filterTo(this) { it != null && it.isFinite() }
+        }.filterNotNull()
+    } else {
+        centralValues.filterNotNull().filter(Double::isFinite)
+    }
+    val rawMin = domainValues.minOrNull() ?: 0.0
+    val rawMax = domainValues.maxOrNull() ?: 1.0
     val center = (rawMin + rawMax) / 2.0
     val span = maxOf(5.0, rawMax - rawMin + 3.0)
     val min = center - span / 2.0
     val max = center + span / 2.0
     val scheme = MaterialTheme.colorScheme
-    val lineColors = values.map { value ->
-        value?.takeIf(Double::isFinite)?.let(::temperatureHeatmapColor)
-            ?: scheme.onSurfaceVariant.copy(alpha = 0.34f)
+    val fallbackLineColor = scheme.onSurfaceVariant.copy(alpha = 0.34f)
+    val lineColors = remember(centralValues, fallbackLineColor) {
+        chronoTemperatureHeatmapColors(centralValues, fallbackLineColor)
+    }
+    val minLineColors = remember(minValues, fallbackLineColor) {
+        chronoTemperatureHeatmapColors(minValues, fallbackLineColor)
+    }
+    val maxLineColors = remember(maxValues, fallbackLineColor) {
+        chronoTemperatureHeatmapColors(maxValues, fallbackLineColor)
     }
 
     Box(
@@ -453,7 +472,7 @@ private fun ChronoTemperaturePlot(
             fun y(value: Double): Float =
                 (top + ((max - value) / (max - min) * plotHeight)).toFloat()
 
-            values.forEachIndexed { index, value ->
+            centralValues.forEachIndexed { index, value ->
                 if (value != null && value.isFinite()) {
                     val inset = 4.dp.toPx()
                     drawRoundRect(
@@ -468,78 +487,190 @@ private fun ChronoTemperaturePlot(
                 }
             }
 
-            val path = Path()
-            var started = false
-            values.forEachIndexed { index, value ->
-                if (value == null || !value.isFinite()) return@forEachIndexed
-                val x = index * stepPx + stepPx / 2f
-                val pointY = y(value)
-                if (!started) {
-                    path.moveTo(x, pointY)
-                    started = true
-                } else {
-                    path.lineTo(x, pointY)
-                }
-            }
-
-            if (started) {
-                val brush = Brush.horizontalGradient(
-                    colors = if (lineColors.size >= 2) lineColors else lineColors + lineColors
+            if (mode == DisplayMode.DAILY) {
+                drawChronoTemperatureSeries(
+                    values = maxValues,
+                    lineColors = maxLineColors,
+                    stepPx = stepPx,
+                    pointHaloColor = scheme.surfaceContainerLowest,
+                    y = ::y
                 )
-                drawPath(
-                    path = path,
-                    brush = brush,
-                    style = Stroke(
-                        width = 3.dp.toPx(),
-                        cap = StrokeCap.Round,
-                        join = StrokeJoin.Round
-                    )
+                drawChronoTemperatureSeries(
+                    values = minValues,
+                    lineColors = minLineColors,
+                    stepPx = stepPx,
+                    pointHaloColor = scheme.surfaceContainerLowest,
+                    y = ::y
                 )
-                values.forEachIndexed { index, value ->
+            } else {
+                val path = Path()
+                var started = false
+                centralValues.forEachIndexed { index, value ->
                     if (value == null || !value.isFinite()) return@forEachIndexed
                     val x = index * stepPx + stepPx / 2f
                     val pointY = y(value)
-                    drawCircle(
-                        color = scheme.surfaceContainerLowest,
-                        radius = 5.2.dp.toPx(),
-                        center = Offset(x, pointY)
+                    if (!started) {
+                        path.moveTo(x, pointY)
+                        started = true
+                    } else {
+                        path.lineTo(x, pointY)
+                    }
+                }
+
+                if (started) {
+                    val brush = Brush.horizontalGradient(
+                        colors = if (lineColors.size >= 2) lineColors else lineColors + lineColors
                     )
-                    drawCircle(
-                        color = temperatureHeatmapColor(value),
-                        radius = 3.4.dp.toPx(),
-                        center = Offset(x, pointY)
+                    drawPath(
+                        path = path,
+                        brush = brush,
+                        style = Stroke(
+                            width = CHRONO_TEMP_LINE_WIDTH.toPx(),
+                            cap = StrokeCap.Round,
+                            join = StrokeJoin.Round
+                        )
                     )
+                    centralValues.forEachIndexed { index, value ->
+                        if (value == null || !value.isFinite()) return@forEachIndexed
+                        val x = index * stepPx + stepPx / 2f
+                        val pointY = y(value)
+                        drawCircle(
+                            color = scheme.surfaceContainerLowest,
+                            radius = CHRONO_TEMP_POINT_HALO_RADIUS.toPx(),
+                            center = Offset(x, pointY)
+                        )
+                        drawCircle(
+                            color = temperatureHeatmapColor(value),
+                            radius = CHRONO_TEMP_POINT_RADIUS.toPx(),
+                            center = Offset(x, pointY)
+                        )
+                    }
                 }
             }
         }
 
         Row(modifier = Modifier.fillMaxSize()) {
             points.forEachIndexed { index, point ->
-                val value = values[index]
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight(),
                     contentAlignment = Alignment.TopCenter
                 ) {
-                    if (value != null && value.isFinite()) {
-                        val labelY = chronoTemperatureLabelOffset(value, min, max)
-                        Text(
-                            text = chronoTemperatureLabel(point, mode),
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = scheme.onSurface,
-                            maxLines = 1,
-                            modifier = Modifier
-                                .offset(y = labelY)
-                                .padding(horizontal = 5.dp, vertical = 2.dp)
-                        )
+                    if (mode == DisplayMode.DAILY) {
+                        val high = maxValues.getOrNull(index)
+                        val low = minValues.getOrNull(index)
+                        high?.takeIf(Double::isFinite)?.let { value ->
+                            Text(
+                                text = "${value.roundToInt()}°",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = temperatureHeatmapColor(value),
+                                maxLines = 1,
+                                modifier = Modifier
+                                    .offset(y = chronoDailyHighTemperatureLabelOffset(value, min, max))
+                                    .padding(horizontal = 4.dp, vertical = 1.dp)
+                            )
+                        }
+                        low?.takeIf(Double::isFinite)?.let { value ->
+                            Text(
+                                text = "${value.roundToInt()}°",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = temperatureHeatmapColor(value),
+                                maxLines = 1,
+                                modifier = Modifier
+                                    .offset(y = chronoDailyLowTemperatureLabelOffset(value, min, max))
+                                    .padding(horizontal = 4.dp, vertical = 1.dp)
+                            )
+                        }
+                    } else {
+                        val value = centralValues.getOrNull(index)
+                        if (value != null && value.isFinite()) {
+                            val labelY = chronoTemperatureLabelOffset(value, min, max)
+                            Text(
+                                text = chronoTemperatureLabel(point, mode),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = scheme.onSurface,
+                                maxLines = 1,
+                                modifier = Modifier
+                                    .offset(y = labelY)
+                                    .padding(horizontal = 5.dp, vertical = 2.dp)
+                            )
+                        }
                     }
                 }
             }
         }
     }
 }
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawChronoTemperatureSeries(
+    values: List<Double?>,
+    lineColors: List<Color>,
+    stepPx: Float,
+    pointHaloColor: Color,
+    y: (Double) -> Float
+) {
+    val path = Path()
+    var started = false
+    values.forEachIndexed { index, value ->
+        if (value == null || !value.isFinite()) return@forEachIndexed
+        val x = index * stepPx + stepPx / 2f
+        val pointY = y(value)
+        if (!started) {
+            path.moveTo(x, pointY)
+            started = true
+        } else {
+            path.lineTo(x, pointY)
+        }
+    }
+    if (!started) return
+
+    // Même grammaire visuelle que la courbe horaire : trait arrondi de 3 dp,
+    // puis point cerclé par la couleur de fond avant le cœur coloré.
+    val gradientColors = when {
+        lineColors.size >= 2 -> lineColors
+        lineColors.size == 1 -> listOf(lineColors.first(), lineColors.first())
+        else -> listOf(Color.Transparent, Color.Transparent)
+    }
+    drawPath(
+        path = path,
+        brush = Brush.horizontalGradient(colors = gradientColors),
+        style = Stroke(
+            width = CHRONO_TEMP_LINE_WIDTH.toPx(),
+            cap = StrokeCap.Round,
+            join = StrokeJoin.Round
+        )
+    )
+    values.forEachIndexed { index, value ->
+        if (value == null || !value.isFinite()) return@forEachIndexed
+        val x = index * stepPx + stepPx / 2f
+        val pointY = y(value)
+        drawCircle(
+            color = pointHaloColor,
+            radius = CHRONO_TEMP_POINT_HALO_RADIUS.toPx(),
+            center = Offset(x, pointY)
+        )
+        drawCircle(
+            color = temperatureHeatmapColor(value),
+            radius = CHRONO_TEMP_POINT_RADIUS.toPx(),
+            center = Offset(x, pointY)
+        )
+    }
+}
+
+
+internal fun chronoTemperatureHeatmapColors(
+    values: List<Double?>,
+    fallback: Color
+): List<Color> = values.map { value ->
+    value?.takeIf(Double::isFinite)?.let(::temperatureHeatmapColor) ?: fallback
+}
+
+internal fun chronoDailyTemperatureSeries(points: List<SimplifiedTimelinePoint>): Pair<List<Double?>, List<Double?>> =
+    points.map(SimplifiedTimelinePoint::tempMinC) to points.map(SimplifiedTimelinePoint::tempMaxC)
 
 @Composable
 private fun ChronoConditionsLane(points: List<SimplifiedTimelinePoint>) {
@@ -913,10 +1044,30 @@ private fun chronoTemperatureLabel(point: SimplifiedTimelinePoint, mode: Display
     }
 }
 
-private fun chronoTemperatureLabelOffset(value: Double, min: Double, max: Double): Dp {
+private fun chronoTemperatureValueY(value: Double, min: Double, max: Double): Dp {
     val fraction = ((max - value) / (max - min)).coerceIn(0.0, 1.0).toFloat()
-    val y = CHRONO_TEMP_PLOT_TOP + (CHRONO_TEMP_PLOT_BOTTOM - CHRONO_TEMP_PLOT_TOP) * fraction
+    return CHRONO_TEMP_PLOT_TOP + (CHRONO_TEMP_PLOT_BOTTOM - CHRONO_TEMP_PLOT_TOP) * fraction
+}
+
+private fun chronoTemperatureLabelOffset(value: Double, min: Double, max: Double): Dp {
+    val y = chronoTemperatureValueY(value, min, max)
     return maxOf(3.dp, minOf(y - 23.dp, CHRONO_TEMP_HEIGHT - 28.dp))
+}
+
+/** Place le maximum au-dessus de sa courbe en mode journalier. */
+internal fun chronoDailyHighTemperatureLabelOffset(value: Double, min: Double, max: Double): Dp {
+    val y = chronoTemperatureValueY(value, min, max)
+    return maxOf(3.dp, minOf(y - 23.dp, CHRONO_TEMP_HEIGHT - 28.dp))
+}
+
+/**
+ * Place le minimum sous sa courbe en mode journalier.
+ * Le plot se termine a 94 dp dans un conteneur de 118 dp : il reste donc
+ * suffisamment de place pour le libelle sans qu il traverse le trait/point min.
+ */
+internal fun chronoDailyLowTemperatureLabelOffset(value: Double, min: Double, max: Double): Dp {
+    val y = chronoTemperatureValueY(value, min, max)
+    return maxOf(3.dp, minOf(y + 5.dp, CHRONO_TEMP_HEIGHT - 17.dp))
 }
 
 @Composable
@@ -964,7 +1115,7 @@ internal const val TAG_TIMELINE_CHRONO_DATE_LANE = "timeline_chrono_date_lane"
 internal const val TAG_TIMELINE_CHRONO_CONDITIONS_LANE = "timeline_chrono_conditions_lane"
 
 private val CHRONO_DATE_HEIGHT = 52.dp
-private val CHRONO_TEMP_HEIGHT = 112.dp
+private val CHRONO_TEMP_HEIGHT = 118.dp
 private val CHRONO_CONDITIONS_HEIGHT = 52.dp
 private val CHRONO_RAIN_HEIGHT = 60.dp
 private val CHRONO_CLOUD_HEIGHT = 52.dp
@@ -974,3 +1125,6 @@ private val CHRONO_AGREEMENT_REASONS_HEIGHT = 18.dp
 private val CHRONO_AGREEMENT_REASON_ICON_BOX_SIZE = 18.dp
 private val CHRONO_TEMP_PLOT_TOP = 30.dp
 private val CHRONO_TEMP_PLOT_BOTTOM = 94.dp
+internal val CHRONO_TEMP_LINE_WIDTH = 3.dp
+internal val CHRONO_TEMP_POINT_HALO_RADIUS = 5.2.dp
+internal val CHRONO_TEMP_POINT_RADIUS = 3.4.dp

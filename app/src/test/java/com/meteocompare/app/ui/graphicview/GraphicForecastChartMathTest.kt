@@ -110,4 +110,24 @@ class GraphicForecastChartMathTest {
         assertTrue(data.daylight.all { it })
     }
 
+    @Test
+    fun viewport_range_only_keeps_visible_hours_plus_small_overscan() {
+        assertEquals(GraphicViewportRange(0, 11), graphicViewportRange(0, 360, 40f, 240))
+        assertEquals(GraphicViewportRange(98, 111), graphicViewportRange(4_000, 360, 40f, 240))
+        assertEquals(GraphicViewportRange(228, 239), graphicViewportRange(9_200, 360, 40f, 240))
+    }
+
+    @Test
+    fun day_spans_keep_global_indices_for_virtualized_timeline() {
+        val start = LocalDate.of(2026, 9, 16)
+        val dates = List(48) { index -> start.plusDays((index / 24).toLong()) }
+        assertEquals(
+            listOf(
+                GraphicDaySpan(0, 23, start, 0),
+                GraphicDaySpan(24, 47, start.plusDays(1), 1)
+            ),
+            graphicDaySpans(dates)
+        )
+    }
+
 }

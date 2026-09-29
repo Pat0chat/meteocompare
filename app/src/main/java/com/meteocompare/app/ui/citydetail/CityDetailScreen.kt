@@ -148,16 +148,12 @@ fun CityDetailScreen(
     showBackButton: Boolean = true,
     viewModel: CityDetailViewModel = hiltViewModel()
 ) {
+    // Seuls les états qui pilotent réellement le scaffold sont observés ici.
+    // Les états de sections sont collectés plus bas, dans
+    // CityDetailLoadedStateBridge, afin qu'une évolution marine/biais/etc. ne
+    // recompose pas l'AppBar ni le conteneur Loading/Error.
     val state by viewModel.state.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
-    val isOnline by viewModel.isOnline.collectAsStateWithLifecycle()
-    val biasState by viewModel.biasState.collectAsStateWithLifecycle()
-    val evolutionState by viewModel.evolutionState.collectAsStateWithLifecycle()
-    val marineState by viewModel.marineState.collectAsStateWithLifecycle()
-    val vigilanceState by viewModel.vigilanceState.collectAsStateWithLifecycle()
-    val collapsedSections by viewModel.collapsedSections.collectAsStateWithLifecycle()
-    val detailViewMode by viewModel.detailViewMode.collectAsStateWithLifecycle()
-    val detailContentTab by viewModel.detailContentTab.collectAsStateWithLifecycle()
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         viewModel.refreshIfStale()
@@ -184,27 +180,69 @@ fun CityDetailScreen(
     }
     AppToastEffect(refreshToasts)
 
-    CityDetailContent(
+    CityDetailScaffold(
         state = state,
         isRefreshing = isRefreshing,
+        onBack = onBack,
+        onRefresh = viewModel::refresh,
+        onEngineComparisonClick = onEngineComparisonClick,
+        onGraphicViewClick = onGraphicViewClick,
+        showBackButton = showBackButton
+    ) { loaded, padding ->
+        CityDetailLoadedStateBridge(
+            loaded = loaded,
+            padding = padding,
+            viewModel = viewModel,
+            onConfidenceClick = onConfidenceClick
+        )
+    }
+}
+
+@Composable
+private fun CityDetailLoadedStateBridge(
+    loaded: CityDetailUiState.Loaded,
+    padding: PaddingValues,
+    viewModel: CityDetailViewModel,
+    onConfidenceClick: (isoDate: String) -> Unit
+) {
+    val isOnline by viewModel.isOnline.collectAsStateWithLifecycle()
+    val biasState by viewModel.biasState.collectAsStateWithLifecycle()
+    val evolutionState by viewModel.evolutionState.collectAsStateWithLifecycle()
+    val marineState by viewModel.marineState.collectAsStateWithLifecycle()
+    val vigilanceState by viewModel.vigilanceState.collectAsStateWithLifecycle()
+    val collapsedSections by viewModel.collapsedSections.collectAsStateWithLifecycle()
+    val detailViewMode by viewModel.detailViewMode.collectAsStateWithLifecycle()
+    val detailContentTab by viewModel.detailContentTab.collectAsStateWithLifecycle()
+
+    LoadedView(
+        forecast = loaded.forecast,
+        weekly = loaded.weeklyConfidence,
+        hourlyBands = loaded.hourlyBands,
+        hourlyPrecipBands = loaded.hourlyPrecipBands,
+        hourlyWindBands = loaded.hourlyWindBands,
+        currentTemp = loaded.currentTemp,
+        currentCondition = loaded.currentCondition,
+        currentCloudCover = loaded.currentCloudCover,
+        dailyConditions = loaded.dailyConditions,
+        normals = loaded.normals,
+        engineContext = loaded.engineContext,
+        calculatedAt = loaded.calculatedAt,
+        fetchedAt = loaded.fetchedAt,
         isOnline = isOnline,
         biasState = biasState,
         evolutionState = evolutionState,
         marineState = marineState,
-        vigilanceState = vigilanceState,
+        vigilance = (vigilanceState as? VigilanceUiState.Loaded)?.forecast
+            ?.takeIf { loaded.forecast.city.isFrenchLocation },
         collapsedSections = collapsedSections,
         detailViewMode = detailViewMode,
         detailContentTab = detailContentTab,
-        onBack = onBack,
-        onRefresh = viewModel::refresh,
-        onRefreshMarine = viewModel::refreshMarine,
+        padding = padding,
         onSectionExpandedChange = viewModel::setSectionExpanded,
         onDetailViewModeChange = viewModel::setDetailViewMode,
         onDetailContentTabChange = viewModel::setDetailContentTab,
-        onConfidenceClick = onConfidenceClick,
-        onEngineComparisonClick = onEngineComparisonClick,
-        onGraphicViewClick = onGraphicViewClick,
-        showBackButton = showBackButton
+        onRefreshMarine = viewModel::refreshMarine,
+        onConfidenceClick = onConfidenceClick
     )
 }
 
@@ -236,6 +274,62 @@ internal fun CityDetailContent(
     onEngineComparisonClick: () -> Unit = {},
     onGraphicViewClick: () -> Unit = {},
     showBackButton: Boolean = true
+) {
+    CityDetailScaffold(
+        state = state,
+        isRefreshing = isRefreshing,
+        snackbarHostState = snackbarHostState,
+        onBack = onBack,
+        onRefresh = onRefresh,
+        onEngineComparisonClick = onEngineComparisonClick,
+        onGraphicViewClick = onGraphicViewClick,
+        showBackButton = showBackButton
+    ) { loaded, padding ->
+        LoadedView(
+            forecast = loaded.forecast,
+            weekly = loaded.weeklyConfidence,
+            hourlyBands = loaded.hourlyBands,
+            hourlyPrecipBands = loaded.hourlyPrecipBands,
+            hourlyWindBands = loaded.hourlyWindBands,
+            currentTemp = loaded.currentTemp,
+            currentCondition = loaded.currentCondition,
+            currentCloudCover = loaded.currentCloudCover,
+            dailyConditions = loaded.dailyConditions,
+            normals = loaded.normals,
+            engineContext = loaded.engineContext,
+            calculatedAt = loaded.calculatedAt,
+            fetchedAt = loaded.fetchedAt,
+            isOnline = isOnline,
+            biasState = biasState,
+            evolutionState = evolutionState,
+            marineState = marineState,
+            vigilance = (vigilanceState as? VigilanceUiState.Loaded)?.forecast
+                ?.takeIf { loaded.forecast.city.isFrenchLocation },
+            collapsedSections = collapsedSections,
+            detailViewMode = detailViewMode,
+            detailContentTab = detailContentTab,
+            padding = padding,
+            onSectionExpandedChange = onSectionExpandedChange,
+            onDetailViewModeChange = onDetailViewModeChange,
+            onDetailContentTabChange = onDetailContentTabChange,
+            onRefreshMarine = onRefreshMarine,
+            onConfidenceClick = onConfidenceClick
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CityDetailScaffold(
+    state: CityDetailUiState,
+    isRefreshing: Boolean,
+    snackbarHostState: SnackbarHostState? = null,
+    onBack: () -> Unit,
+    onRefresh: () -> Unit,
+    onEngineComparisonClick: () -> Unit,
+    onGraphicViewClick: () -> Unit,
+    showBackButton: Boolean,
+    loadedContent: @Composable (CityDetailUiState.Loaded, PaddingValues) -> Unit
 ) {
     WeatherAccentTheme(
         condition = (state as? CityDetailUiState.Loaded)?.currentCondition
@@ -344,11 +438,11 @@ internal fun CityDetailContent(
                         is CityDetailUiState.Error -> "error"
                     }
                 }
-            ) { s ->
-                when (s) {
+            ) { current ->
+                when (current) {
                     CityDetailUiState.Loading -> LoadingView(padding)
                     is CityDetailUiState.Error -> ErrorView(
-                        message = s.message,
+                        message = current.message,
                         onRetry = onRefresh,
                         padding = padding
                     )
@@ -357,36 +451,7 @@ internal fun CityDetailContent(
                         onRefresh = onRefresh,
                         modifier = Modifier.fillMaxSize()
                     ) {
-                        LoadedView(
-                            forecast = s.forecast,
-                            weekly = s.weeklyConfidence,
-                            hourlyBands = s.hourlyBands,
-                            hourlyPrecipBands = s.hourlyPrecipBands,
-                            hourlyWindBands = s.hourlyWindBands,
-                            currentTemp = s.currentTemp,
-                            currentCondition = s.currentCondition,
-                            currentCloudCover = s.currentCloudCover,
-                            dailyConditions = s.dailyConditions,
-                            normals = s.normals,
-                            engineContext = s.engineContext,
-                            calculatedAt = s.calculatedAt,
-                            fetchedAt = s.fetchedAt,
-                            isOnline = isOnline,
-                            biasState = biasState,
-                            evolutionState = evolutionState,
-                            marineState = marineState,
-                            vigilance = (vigilanceState as? VigilanceUiState.Loaded)?.forecast
-                                ?.takeIf { s.forecast.city.isFrenchLocation },
-                            collapsedSections = collapsedSections,
-                            detailViewMode = detailViewMode,
-                            detailContentTab = detailContentTab,
-                            padding = padding,
-                            onSectionExpandedChange = onSectionExpandedChange,
-                            onDetailViewModeChange = onDetailViewModeChange,
-                            onDetailContentTabChange = onDetailContentTabChange,
-                            onRefreshMarine = onRefreshMarine,
-                            onConfidenceClick = onConfidenceClick
-                        )
+                        loadedContent(current, padding)
                     }
                 }
             }
