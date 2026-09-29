@@ -33,6 +33,7 @@ private val ModelColorMap: Map<WeatherModel, Color> = mapOf(
     // NOAA — violets : HRRR plus sombre, GFS plus lumineux.
     WeatherModel.HRRR_CONUS to Color(0xFF4A148C),
     WeatherModel.GFS to Color(0xFF7B1FA2),
+    WeatherModel.NCEP_AIGFS to Color(0xFFAB47BC),
 
     // ECMWF — ambres : IFS plus profond, AIFS plus lumineux.
     WeatherModel.ECMWF to Color(0xFFF57F17),
@@ -46,7 +47,8 @@ private val ModelColorMap: Map<WeatherModel, Color> = mapOf(
     WeatherModel.BOM_ACCESS to Color(0xFF283593),
     WeatherModel.CMA_GRAPES to Color(0xFFAD1457),
     WeatherModel.DMI_HARMONIE_EU to Color(0xFF8D6E63),
-    WeatherModel.METEOSWISS_ICON_CH2 to Color(0xFFD32F2F)
+    WeatherModel.METEOSWISS_ICON_CH2 to Color(0xFFD32F2F),
+    WeatherModel.JMA_GSM to Color(0xFF00897B)
 )
 
 /**

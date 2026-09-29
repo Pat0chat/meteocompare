@@ -4,12 +4,8 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.keyframes
-import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -73,6 +69,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -141,6 +138,7 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.map
 
 // ============================================================================
@@ -225,27 +223,25 @@ fun CityListScreen(
 
 @Composable
 private fun DonationHeartButton(onClick: () -> Unit) {
-    val transition = rememberInfiniteTransition(label = "donation-heart")
-    val pulse by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = keyframes {
-                durationMillis = 6_000
-                0f at 0
-                0f at 4_000
-                1f at 4_200
-                0f at 4_450
-                0.7f at 4_600
-                0f at 4_850
-                0f at 6_000
-            },
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "donation-heart-pulse"
-    )
+    // L'ancienne infiniteTransition demandait des frames pendant les 6 secondes
+    // complètes du cycle, y compris les ~5 secondes où la valeur restait à 0.
+    // Un Animatable piloté par delay ne réveille Compose que pendant les courtes
+    // impulsions réellement visibles, ce qui réduit le travail GPU/CPU sur la Home.
+    val pulse = remember { Animatable(0f) }
+    LaunchedEffect(pulse) {
+        while (true) {
+            delay(4_000)
+            pulse.animateTo(1f, animationSpec = tween(200))
+            pulse.animateTo(0f, animationSpec = tween(250))
+            pulse.animateTo(0.7f, animationSpec = tween(150))
+            pulse.animateTo(0f, animationSpec = tween(250))
+            delay(1_150)
+        }
+    }
+
+    val pulseValue = pulse.value
     val baseColor = MaterialTheme.colorScheme.onSurfaceVariant
-    val heartColor = lerp(baseColor, Color(0xFFE53935), pulse)
+    val heartColor = lerp(baseColor, Color(0xFFE53935), pulseValue)
 
     IconButton(
         onClick = onClick,
@@ -255,7 +251,7 @@ private fun DonationHeartButton(onClick: () -> Unit) {
             imageVector = Icons.Outlined.FavoriteBorder,
             contentDescription = stringResource(R.string.action_support_dev),
             tint = heartColor,
-            modifier = Modifier.scale(1f + (0.08f * pulse))
+            modifier = Modifier.scale(1f + (0.08f * pulseValue))
         )
     }
 }

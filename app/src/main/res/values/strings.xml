@@ -49,7 +49,7 @@
     <string name="open_meteo_link_label">Licence Open-Meteo</string>
     <string name="widget_open_meteo_attribution">Open-Meteo · CC BY 4.0</string>
     <string name="widget_open_meteo_attribution_short">Open-Meteo</string>
-    <string name="settings_about_models_credit">Modèles : AROME et ARPEGE par Météo-France, ICON par DWD, GFS et HRRR par NOAA, ECMWF et AIFS par le Centre Européen, UKMO par le UK Met Office, GEM par Environnement Canada, MET Nordic par MET Norway, HARMONIE par KNMI et DMI, ICON-CH par MeteoSwiss, ACCESS par le Bureau of Meteorology (Australie), GRAPES par le CMA (Chine).</string>
+    <string name="settings_about_models_credit">Modèles : AROME et ARPEGE par Météo-France, ICON par DWD, GFS, HRRR et AIGFS par NOAA, ECMWF et AIFS par le Centre Européen, UKMO par le UK Met Office, GEM par Environnement Canada, GSM par JMA, MET Nordic par MET Norway, HARMONIE par KNMI et DMI, ICON-CH par MeteoSwiss, ACCESS par le Bureau of Meteorology (Australie), GRAPES par le CMA (Chine).</string>
     <string name="settings_bias_refresh_title">Suivi des biais</string>
     <string name="settings_bias_refresh_desc">Récupère jusqu’à 3 semaines d’historique J+1 pour amorcer la fiabilité locale. Les modèles sans archive se calibrent progressivement.</string>
     <string name="settings_bias_refresh_action">Initialiser ou mettre à jour</string>
@@ -715,8 +715,8 @@
     <!-- Vue graphique 7 jours -->
     <string name="graphic_view_title">Vue graphique</string>
     <string name="graphic_view_open">Ouvrir la vue graphique</string>
-    <string name="graphic_view_intro">Explorer les 7 prochains jours heure par heure</string>
-    <string name="graphic_view_subtitle">7 jours · heure par heure</string>
+    <string name="graphic_view_intro">Explorer les 10 prochains jours heure par heure</string>
+    <string name="graphic_view_subtitle">10 jours · heure par heure</string>
     <string name="graphic_view_touch_hint">Touchez une heure sur un graphique pour afficher ses valeurs détaillées.</string>
     <string name="graphic_view_show_convergence">Afficher la convergence</string>
     <string name="graphic_view_show_convergence_desc">Colore légèrement les graphiques selon l’accord entre les familles de modèles.</string>

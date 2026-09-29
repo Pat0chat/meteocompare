@@ -48,7 +48,7 @@
     <string name="open_meteo_link_label">Open-Meteo-Lizenz</string>
     <string name="widget_open_meteo_attribution">Open-Meteo · CC BY 4.0</string>
     <string name="widget_open_meteo_attribution_short">Open-Meteo</string>
-    <string name="settings_about_models_credit">Modelle: AROME und ARPEGE von Météo-France, ICON vom DWD, GFS und HRRR von NOAA, ECMWF und AIFS vom Europäischen Zentrum, UKMO vom UK Met Office, GEM von Environment Canada, MET Nordic von MET Norway, HARMONIE von KNMI und DMI, ICON-CH von MeteoSwiss, ACCESS vom Bureau of Meteorology (Australien), GRAPES von CMA (China).</string>
+    <string name="settings_about_models_credit">Modelle: AROME und ARPEGE von Météo-France, ICON vom DWD, GFS, HRRR und AIGFS von NOAA, ECMWF und AIFS vom Europäischen Zentrum, UKMO vom UK Met Office, GEM von Environment Canada, GSM von JMA, MET Nordic von MET Norway, HARMONIE von KNMI und DMI, ICON-CH von MeteoSwiss, ACCESS vom Bureau of Meteorology (Australien), GRAPES von CMA (China).</string>
     <string name="settings_bias_refresh_title">Bias-Verfolgung</string>
     <string name="settings_bias_refresh_desc">Lädt bis zu 3 Wochen D+1-Verlauf für die lokale Zuverlässigkeit. Modelle ohne Archiv kalibrieren sich schrittweise.</string>
     <string name="settings_bias_refresh_action">Initialisieren oder aktualisieren</string>
@@ -699,8 +699,8 @@ Daten</string>
     <!-- Vue graphique 7 jours -->
     <string name="graphic_view_title">Grafikansicht</string>
     <string name="graphic_view_open">Grafikansicht öffnen</string>
-    <string name="graphic_view_intro">Die nächsten 7 Tage stündlich erkunden</string>
-    <string name="graphic_view_subtitle">7 Tage · stündlich</string>
+    <string name="graphic_view_intro">Die nächsten 10 Tage stündlich erkunden</string>
+    <string name="graphic_view_subtitle">10 Tage · stündlich</string>
     <string name="graphic_view_touch_hint">Tippen Sie auf eine Stunde im Diagramm, um Detailwerte anzuzeigen.</string>
     <string name="graphic_view_show_convergence">Übereinstimmung anzeigen</string>
     <string name="graphic_view_show_convergence_desc">Färbt die Diagramme leicht nach der Übereinstimmung der Modellfamilien.</string>

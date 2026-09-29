@@ -11,6 +11,7 @@ import com.meteocompare.app.core.util.runSuspendCatching
 import com.meteocompare.app.di.DefaultDispatcher
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityForecast
+import com.meteocompare.app.domain.model.ForecastDisplayHorizon
 import com.meteocompare.app.domain.model.VigilanceForecast
 import com.meteocompare.app.domain.repository.CityRepository
 import com.meteocompare.app.domain.repository.ForecastRepository
@@ -124,8 +125,8 @@ class GraphicForecastViewModel @Inject constructor(
 
                 preferences.observeEnabledModels()
                     .flatMapLatest { models ->
-                        // Huit jours civils garantissent une fenêtre glissante de
-                        // 168 h depuis l'heure courante pour les modèles qui ont
+                        // Onze jours civils garantissent une fenêtre glissante de
+                        // 240 h depuis l'heure courante pour les modèles qui ont
                         // cet horizon. maxCacheAgeMs=null conserve l'émission du
                         // cache, puis déclenche un fetch afin de compléter la fin
                         // de la timeline même si la page détail vient d'être lue.
@@ -261,38 +262,50 @@ class GraphicForecastViewModel @Inject constructor(
         forecast: CityForecast,
         points: List<SimplifiedTimelinePoint>
     ): Map<Instant, List<GraphicModelValue>> {
-        val indexes = forecast.seriesByModel.mapValues { (_, series) ->
-            series.hourly.timestamps.withIndex().associate { (index, timestamp) -> timestamp to index }
+        // L'ordre d'affichage des modèles est stable pour toutes les heures :
+        // le trier une fois évite jusqu'à 240 petits tris lors du chargement.
+        val orderedSeries = forecast.seriesByModel.entries.sortedBy { it.key.displayName }
+        val indexes = orderedSeries.associate { (model, series) ->
+            model to series.hourly.timestamps.withIndex().associate { (index, timestamp) ->
+                timestamp to index
+            }
         }
-        return points.mapNotNull pointLoop@ { point ->
-            val instant = point.instant ?: return@pointLoop null
-            val rows = forecast.seriesByModel.mapNotNull modelLoop@ { (model, series) ->
-                val index = indexes[model]?.get(instant) ?: return@modelLoop null
-                val temperature = series.hourly.temperature2m.getOrNull(index)
-                val precipitation = series.hourly.precipitation.getOrNull(index)
-                val probability = series.hourly.precipitationProbability.getOrNull(index)
-                val wind = series.hourly.windSpeed10m.getOrNull(index)
-                val gust = series.hourly.windGusts10m.getOrNull(index)
-                val direction = series.hourly.windDirection10m.getOrNull(index)
-                if (temperature == null && precipitation == null && probability == null &&
-                    wind == null && gust == null && direction == null
-                ) return@modelLoop null
-                GraphicModelValue(
-                    modelName = model.displayName,
-                    temperatureC = temperature,
-                    precipitationMm = precipitation,
-                    precipitationProbabilityPercent = probability,
-                    windKmh = wind,
-                    windGustKmh = gust,
-                    windDirectionDeg = direction
-                )
-            }.sortedBy { it.modelName }
-            instant to rows
-        }.toMap()
+
+        return buildMap(points.size) {
+            points.forEach pointLoop@ { point ->
+                val instant = point.instant ?: return@pointLoop
+                val rows = buildList(orderedSeries.size) {
+                    orderedSeries.forEach modelLoop@ { (model, series) ->
+                        val index = indexes[model]?.get(instant) ?: return@modelLoop
+                        val temperature = series.hourly.temperature2m.getOrNull(index)
+                        val precipitation = series.hourly.precipitation.getOrNull(index)
+                        val probability = series.hourly.precipitationProbability.getOrNull(index)
+                        val wind = series.hourly.windSpeed10m.getOrNull(index)
+                        val gust = series.hourly.windGusts10m.getOrNull(index)
+                        val direction = series.hourly.windDirection10m.getOrNull(index)
+                        if (temperature == null && precipitation == null && probability == null &&
+                            wind == null && gust == null && direction == null
+                        ) return@modelLoop
+                        add(
+                            GraphicModelValue(
+                                modelName = model.displayName,
+                                temperatureC = temperature,
+                                precipitationMm = precipitation,
+                                precipitationProbabilityPercent = probability,
+                                windKmh = wind,
+                                windGustKmh = gust,
+                                windDirectionDeg = direction
+                            )
+                        )
+                    }
+                }
+                put(instant, rows)
+            }
+        }
     }
 
     private companion object {
-        const val GRAPHIC_HORIZON_HOURS = 24 * 7
-        const val GRAPHIC_REQUEST_DAYS = 8
+        const val GRAPHIC_HORIZON_HOURS = ForecastDisplayHorizon.GRAPHIC_HOURS
+        const val GRAPHIC_REQUEST_DAYS = ForecastDisplayHorizon.GRAPHIC_REQUEST_DAYS
     }
 }

@@ -53,8 +53,8 @@ class SimplifiedTimelineTest {
     }
 
     @Test
-    fun `hourly analysis can expose the full seven day graphic horizon`() {
-        val hours = 24 * 7
+    fun `hourly analysis can expose the full ten day shared horizon`() {
+        val hours = 24 * 10
         val timestamps = List(hours) { index -> now.plusSeconds(index * 3_600L) }
         val hourlySeries = ForecastSeries(
             model = WeatherModel.GFS,
@@ -84,7 +84,7 @@ class SimplifiedTimelineTest {
         )
 
         assertEquals(24, defaultTimeline.size)
-        assertEquals(168, graphicTimeline.size)
+        assertEquals(240, graphicTimeline.size)
         assertEquals(270, graphicTimeline.first().windDirectionDeg)
         assertEquals(270, graphicTimeline.last().windDirectionDeg)
     }
@@ -119,6 +119,34 @@ class SimplifiedTimelineTest {
         val amountConvergence = point.precipitationAmountConvergencePercent
         assertTrue(amountConvergence != null)
         assertTrue(requireNotNull(amountConvergence) < 100)
+    }
+
+    @Test
+    fun `daily timeline uses the shared ten day horizon`() {
+        val dates = List(12) { today.plusDays(it.toLong()) }
+        val dailySeries = ForecastSeries(
+            model = WeatherModel.GFS,
+            hourly = emptyHourly(),
+            daily = DailyForecast(
+                dates = dates,
+                tempMax = List(12) { 20.0 + it },
+                tempMin = List(12) { 10.0 + it },
+                precipitationSum = List(12) { 0.0 },
+                windSpeedMax = List(12) { 15.0 },
+                weatherCode = List(12) { 1 }
+            )
+        )
+        val forecast = CityForecast(paris, mapOf(WeatherModel.GFS to dailySeries))
+
+        val timeline = buildSimplifiedTimeline(
+            forecast = forecast,
+            mode = DisplayMode.DAILY,
+            now = now,
+            dailyHorizonDays = 10
+        )
+
+        assertEquals(10, timeline.size)
+        assertEquals(dates.take(10), timeline.mapNotNull { it.date })
     }
 
     @Test

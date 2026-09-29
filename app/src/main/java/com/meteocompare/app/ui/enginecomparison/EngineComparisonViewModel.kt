@@ -9,7 +9,9 @@ import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.core.network.toUserMessage
 import com.meteocompare.app.core.util.localDateIn
 import com.meteocompare.app.core.util.runSuspendCatching
+import com.meteocompare.app.di.DefaultDispatcher
 import com.meteocompare.app.domain.model.CityForecast
+import com.meteocompare.app.domain.model.ForecastDisplayHorizon
 import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.repository.CityRepository
 import com.meteocompare.app.domain.repository.ForecastRepository
@@ -25,6 +27,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.Clock
 import java.time.Instant
 import javax.inject.Inject
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -39,6 +43,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 sealed interface EngineComparisonUiState {
     data object Loading : EngineComparisonUiState
@@ -71,7 +76,8 @@ class EngineComparisonViewModel @Inject constructor(
     private val contextProvider: ForecastEngineContextProvider,
     private val comparisonBuilder: EngineComparisonBuilder,
     private val clock: Clock,
-    @param:ApplicationContext private val appContext: Context
+    @param:ApplicationContext private val appContext: Context,
+    @param:DefaultDispatcher private val computationDispatcher: CoroutineDispatcher = Dispatchers.Default
 ) : ViewModel() {
     private val cityId: String = checkNotNull(savedStateHandle[Destinations.CITY_DETAIL_ARG])
     private val _state = MutableStateFlow<EngineComparisonUiState>(EngineComparisonUiState.Loading)
@@ -122,25 +128,33 @@ class EngineComparisonViewModel @Inject constructor(
                         // Seuls les paramètres qui modifient réellement la requête météo
                         // rouvrent le stream. Une réponse de l'ancienne sélection de modèles
                         // est annulée par flatMapLatest et ne peut pas réécrire l'écran.
-                        forecastRepository.getCityForecastStream(city, models, maxCacheAgeMs = maxAge)
+                        forecastRepository.getCityForecastStream(
+                            city = city,
+                            models = models,
+                            forecastDays = ForecastDisplayHorizon.DAYS,
+                            maxCacheAgeMs = maxAge
+                        )
                     }
                     .map { result ->
                         when (result) {
                             is ApiResult.Success -> {
                                 val now = clock.instant()
-                                // ADAPTIVE force le chargement du profil complet ; le builder
-                                // substitue ensuite chacun des quatre moteurs sur le même contexte.
-                                val context = contextProvider.build(
-                                    result.data,
-                                    ForecastEngine.ADAPTIVE,
-                                    now
-                                )
-                                EngineComparisonForecastState.Data(
-                                    cityName = result.data.city.name,
-                                    days = comparisonBuilder.build(result.data, context, now),
-                                    forecast = result.data,
-                                    calculatedAt = now
-                                )
+                                // Le contexte + les quatre scénarios parcourent plusieurs fois
+                                // les séries des modèles. Ce travail est purement CPU et ne doit
+                                // pas monopoliser le Main dispatcher lors de l'ouverture de l'écran.
+                                withContext(computationDispatcher) {
+                                    val context = contextProvider.build(
+                                        result.data,
+                                        ForecastEngine.ADAPTIVE,
+                                        now
+                                    )
+                                    EngineComparisonForecastState.Data(
+                                        cityName = result.data.city.name,
+                                        days = comparisonBuilder.build(result.data, context, now),
+                                        forecast = result.data,
+                                        calculatedAt = now
+                                    )
+                                }
                             }
                             is ApiResult.Error -> EngineComparisonForecastState.Error(result.message)
                         }
@@ -215,8 +229,10 @@ class EngineComparisonViewModel @Inject constructor(
                             now.localDateIn(forecast.city.timezone)
                         ) return@withLock
 
-                        val context = contextProvider.build(forecast, ForecastEngine.ADAPTIVE, now)
-                        val days = comparisonBuilder.build(forecast, context, now)
+                        val days = withContext(computationDispatcher) {
+                            val context = contextProvider.build(forecast, ForecastEngine.ADAPTIVE, now)
+                            comparisonBuilder.build(forecast, context, now)
+                        }
                         val current = _state.value as? EngineComparisonUiState.Loaded
                             ?: return@withLock
                         calculatedAt = now

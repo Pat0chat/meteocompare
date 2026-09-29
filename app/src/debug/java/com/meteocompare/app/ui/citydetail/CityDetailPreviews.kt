@@ -373,8 +373,9 @@ private fun SimplifiedTimelinePreview() {
             timezone = "Europe/Paris",
             events = emptyList(),
             focusPoint = points[6],
-            onModeChange = {},
-            availableModes = DisplayMode.entries.toSet(),
+            range = TimelineRange.HOURLY,
+            onRangeChange = {},
+            availableRanges = TimelineRange.entries.toSet(),
             now = PreviewFixtures.now,
             modifier = Modifier.padding(12.dp)
         )
@@ -407,8 +408,9 @@ private fun SimplifiedTimelineChronoPreview() {
             events = emptyList(),
             layout = TimelineLayout.CHRONO,
             onLayoutChange = {},
-            onModeChange = {},
-            availableModes = DisplayMode.entries.toSet(),
+            range = TimelineRange.HOURLY,
+            onRangeChange = {},
+            availableRanges = TimelineRange.entries.toSet(),
             now = PreviewFixtures.now,
             modifier = Modifier.padding(12.dp)
         )

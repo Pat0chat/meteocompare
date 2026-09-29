@@ -99,6 +99,33 @@ class BatchedForecastSplitterTest {
     }
 
     @Test
+    fun `nouveaux modeles globaux JMA et AIGFS sont lus avec leurs suffixes`() {
+        val response = json.decodeFromString<BatchedForecastResponseDto>(
+            """{
+              "latitude": 35.68,
+              "longitude": 139.65,
+              "timezone": "Asia/Tokyo",
+              "hourly": {
+                "time": ["2026-09-26T12:00"],
+                "temperature_2m_jma_gsm": [24.0],
+                "temperature_2m_ncep_aigfs025": [23.5],
+                "wind_speed_10m_jma_gsm": [14.0],
+                "wind_speed_10m_ncep_aigfs025": [16.0]
+              }
+            }"""
+        )
+
+        val split = BatchedForecastSplitter.split(
+            response,
+            listOf(WeatherModel.JMA_GSM, WeatherModel.NCEP_AIGFS)
+        )
+
+        assertEquals(setOf(WeatherModel.JMA_GSM, WeatherModel.NCEP_AIGFS), split.keys)
+        assertEquals(listOf(24.0), split.getValue(WeatherModel.JMA_GSM).hourly?.temperature2m)
+        assertEquals(listOf(23.5), split.getValue(WeatherModel.NCEP_AIGFS).hourly?.temperature2m)
+    }
+
+    @Test
     fun `multi-models - time partage entre tous les DTOs reconstruits`() {
         val response = json.decodeFromString<BatchedForecastResponseDto>(
             """{

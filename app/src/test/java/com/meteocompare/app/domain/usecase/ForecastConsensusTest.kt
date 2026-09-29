@@ -310,4 +310,16 @@ class ForecastConsensusTest {
         assertEquals(100, fifty.convergencePercent)
     }
 
+    @Test
+    fun `new global models keep consensus families balanced`() {
+        assertEquals(
+            ForecastConsensus.groupFor(WeatherModel.GFS),
+            ForecastConsensus.groupFor(WeatherModel.NCEP_AIGFS)
+        )
+        assertTrue(
+            ForecastConsensus.groupFor(WeatherModel.JMA_GSM) !=
+                ForecastConsensus.groupFor(WeatherModel.GFS)
+        )
+    }
+
 }

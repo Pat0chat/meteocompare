@@ -259,7 +259,7 @@ class SimplifiedTimelineCardTest {
     }
 
     @Test
-    fun timeline_mode_button_uses_the_same_compact_menu_and_requests_daily_mode() {
+    fun timeline_range_selector_exposes_only_hourly_and_daily() {
         val point = SimplifiedTimelinePoint(
             instant = Instant.parse("2026-07-26T16:00:00Z"),
             temperatureC = 22.0,
@@ -267,7 +267,7 @@ class SimplifiedTimelineCardTest {
             temperatureModelCount = 2,
             hasMultiModelEvidence = true
         )
-        var requestedMode: DisplayMode? = null
+        var requestedRange: TimelineRange? = null
 
         composeRule.setContent {
             MeteoCompareTheme {
@@ -276,8 +276,9 @@ class SimplifiedTimelineCardTest {
                         points = listOf(point),
                         mode = DisplayMode.HOURLY,
                         timezone = "UTC",
-                        onModeChange = { requestedMode = it },
-                        availableModes = setOf(DisplayMode.HOURLY, DisplayMode.DAILY),
+                        range = TimelineRange.HOURLY,
+                        onRangeChange = { requestedRange = it },
+                        availableRanges = TimelineRange.entries.toSet(),
                         onLayoutChange = {}
                     )
                 }
@@ -289,13 +290,12 @@ class SimplifiedTimelineCardTest {
         composeRule.onNodeWithTag(TAG_TIMELINE_LAYOUT_SELECTOR).assertIsDisplayed()
         composeRule.onNodeWithText(context.getString(R.string.display_mode_hourly))
             .assertIsDisplayed()
-            .performClick()
         composeRule.onNodeWithText(context.getString(R.string.display_mode_daily))
             .assertIsDisplayed()
             .performClick()
 
         composeRule.runOnIdle {
-            assertEquals(DisplayMode.DAILY, requestedMode)
+            assertEquals(TimelineRange.DAILY, requestedRange)
         }
     }
 
@@ -418,6 +418,36 @@ class SimplifiedTimelineCardTest {
         }
 
         composeRule.onNodeWithTag(TAG_TIMELINE_POINT_FOCUSED).assertIsDisplayed()
+    }
+
+    @Test
+    fun chrono_wind_cells_show_units_for_speed_and_gusts() {
+        val point = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-26T16:00:00Z"),
+            windKmh = 18.0,
+            windGustKmh = 31.0
+        )
+
+        composeRule.setContent {
+            MeteoCompareTheme {
+                Surface {
+                    ChronoTimelineView(
+                        points = listOf(point),
+                        mode = DisplayMode.HOURLY,
+                        timezone = "UTC",
+                        now = Instant.parse("2026-07-26T12:00:00Z")
+                    )
+                }
+            }
+        }
+
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        composeRule.onNodeWithText(
+            context.getString(R.string.forecast_insight_metric_wind, 18)
+        ).assertIsDisplayed()
+        composeRule.onNodeWithText(
+            context.getString(R.string.timeline_wind_gust, 31)
+        ).assertIsDisplayed()
     }
 
 }

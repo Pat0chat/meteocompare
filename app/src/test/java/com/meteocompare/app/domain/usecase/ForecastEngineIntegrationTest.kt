@@ -185,9 +185,9 @@ class ForecastEngineIntegrationTest {
     }
 
     @Test
-    fun `engine comparison uses same forecast filters past days and is limited to seven days`() {
+    fun `engine comparison uses same forecast filters past days and is limited to ten days`() {
         val now = Instant.parse("2026-08-23T05:00:00Z") // 07:00 Europe/Paris
-        val dates = (22..31).map { LocalDate.of(2026, 8, it) }
+        val dates = List(11) { LocalDate.of(2026, 8, 22).plusDays(it.toLong()) }
         val forecast = dailyForecast(dates)
         val calibration = forecast.seriesByModel.keys.associateWith { profile(bias = 2.0) }
         val context = ForecastEngineContext(
@@ -210,9 +210,9 @@ class ForecastEngineIntegrationTest {
         val days = EngineComparisonBuilder(calculator).build(forecast, context, now)
 
         assertEquals(sourceSnapshot, forecast)
-        assertEquals(7, days.size)
+        assertEquals(10, days.size)
         assertEquals(LocalDate.of(2026, 8, 23), days.first().date)
-        assertEquals(LocalDate.of(2026, 8, 29), days.last().date)
+        assertEquals(LocalDate.of(2026, 9, 1), days.last().date)
         days.forEach { day ->
             assertEquals(ForecastEngine.entries.toSet(), day.byEngine.keys)
             assertTrue(day.divergence.score >= 0.0)

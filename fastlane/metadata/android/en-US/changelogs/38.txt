@@ -1,0 +1,1 @@
+— New AIGFS and GSM models for better global coverage, forecast horizon extended to 10 days, performance improvements, bug fixes

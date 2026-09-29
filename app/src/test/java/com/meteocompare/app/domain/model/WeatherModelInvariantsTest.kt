@@ -155,6 +155,14 @@ class WeatherModelInvariantsTest {
         assertEquals(2.0, WeatherModel.METEOSWISS_ICON_CH2.resolutionKm, 0.0)
         assertEquals(5, WeatherModel.METEOSWISS_ICON_CH2.maxForecastDays)
         assertEquals(120, WeatherModel.METEOSWISS_ICON_CH2.forecastHorizonHours)
+        assertEquals("jma_gsm", WeatherModel.JMA_GSM.apiKey)
+        assertEquals(55.0, WeatherModel.JMA_GSM.resolutionKm, 0.0)
+        assertEquals(11, WeatherModel.JMA_GSM.maxForecastDays)
+        assertEquals(Coverage.GLOBAL, WeatherModel.JMA_GSM.coverage)
+        assertEquals("ncep_aigfs025", WeatherModel.NCEP_AIGFS.apiKey)
+        assertEquals(25.0, WeatherModel.NCEP_AIGFS.resolutionKm, 0.0)
+        assertEquals(16, WeatherModel.NCEP_AIGFS.maxForecastDays)
+        assertEquals(Coverage.GLOBAL, WeatherModel.NCEP_AIGFS.coverage)
     }
 
     @Test
@@ -183,10 +191,12 @@ class WeatherModelInvariantsTest {
     }
 
     @Test
-    fun `catalogue contient les 19 modeles attendus`() {
-        assertEquals(19, WeatherModel.entries.size)
+    fun `catalogue contient les 21 modeles attendus`() {
+        assertEquals(21, WeatherModel.entries.size)
         assertTrue(WeatherModel.DMI_HARMONIE_EU in WeatherModel.entries)
         assertTrue(WeatherModel.METEOSWISS_ICON_CH2 in WeatherModel.entries)
+        assertTrue(WeatherModel.JMA_GSM in WeatherModel.entries)
+        assertTrue(WeatherModel.NCEP_AIGFS in WeatherModel.entries)
     }
 
 }
