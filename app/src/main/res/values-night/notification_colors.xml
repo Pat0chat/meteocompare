@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Contraste renforcé pour les spans affichés dans les notifications sombres. -->
+    <color name="notification_text_weather">#FFD08A</color>
+    <color name="notification_text_temperature">#FFB4AB</color>
+    <color name="notification_text_precipitation">#A8C7FA</color>
+    <color name="notification_text_wind">#FFB59B</color>
+    <color name="notification_text_low_confidence">#FFB4AB</color>
+    <color name="notification_text_info">#7DD3FC</color>
+</resources>

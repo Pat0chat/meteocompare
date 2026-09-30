@@ -8,7 +8,14 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Typeface
 import android.os.Build
+import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
+import android.text.style.StyleSpan
+import android.view.View
+import android.widget.RemoteViews
 import androidx.annotation.ColorRes
 import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationCompat
@@ -68,23 +75,7 @@ internal class WeatherNotifier(context: Context) {
         val content = render(notification, res)
         if (!isChannelEnabled(content.channelId)) return PostResult.BLOCKED_CHANNEL
 
-        val built = NotificationCompat.Builder(appContext, content.channelId)
-            .setSmallIcon(R.drawable.ic_stat_meteocompare)
-            .setColor(ContextCompat.getColor(appContext, content.accentColorRes))
-            .setColorized(false)
-            .setCategory(Notification.CATEGORY_STATUS)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setContentTitle(content.title)
-            .setContentText(content.text)
-            .setStyle(
-                NotificationCompat.BigTextStyle()
-                    .setBigContentTitle(content.title)
-                    .bigText(content.bigText)
-            )
-            .setContentIntent(openAppIntent())
-            .setAutoCancel(true)
-            .setOnlyAlertOnce(true)
-            .build()
+        val built = buildNotification(notification, content, res)
         manager.notify(notificationId(notification), built)
         return PostResult.POSTED
     }
@@ -95,6 +86,57 @@ internal class WeatherNotifier(context: Context) {
      */
     internal fun render(notification: WeatherNotification): RenderedContent =
         render(notification, applyPersistedLocale(appContext))
+
+    /**
+     * Construit la Notification et expose les RemoteViews exactes utilisées par
+     * le builder. Les tests instrumentés peuvent ainsi valider le rendu sans
+     * dépendre des champs Notification.contentView/bigContentView dépréciés.
+     */
+    internal fun buildForTest(notification: WeatherNotification): BuiltNotificationForTest {
+        val res = applyPersistedLocale(appContext)
+        val content = render(notification, res)
+        val views = nativeDecoratedViews(notification, content, res)
+        return BuiltNotificationForTest(
+            notification = buildNotification(content, views),
+            compactView = views.compact,
+            expandedView = views.expanded
+        )
+    }
+
+    private fun buildNotification(
+        notification: WeatherNotification,
+        content: RenderedContent,
+        res: Context
+    ): Notification = buildNotification(
+        content = content,
+        views = nativeDecoratedViews(notification, content, res)
+    )
+
+    private fun buildNotification(
+        content: RenderedContent,
+        views: NativeDecoratedViews
+    ): Notification {
+        return NotificationCompat.Builder(appContext, content.channelId)
+            .setSmallIcon(R.drawable.ic_stat_meteocompare)
+            .setColor(ContextCompat.getColor(appContext, content.accentColorRes))
+            .setColorized(false)
+            .setCategory(Notification.CATEGORY_STATUS)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            // Fallbacks utiles pour Wear/Auto/accessibilité et pour les hôtes qui
+            // choisissent de ne pas afficher les RemoteViews personnalisées.
+            .setContentTitle(content.title)
+            .setContentText(content.text)
+            // Le système conserve l'en-tête, l'icône, le nom de l'app et les
+            // affordances. Seule la zone météo est structurée par MeteoCompare.
+            .setStyle(NotificationCompat.DecoratedCustomViewStyle())
+            .setCustomContentView(views.compact)
+            .setCustomBigContentView(views.expanded)
+            .setCustomHeadsUpContentView(views.compact)
+            .setContentIntent(openAppIntent())
+            .setAutoCancel(true)
+            .setOnlyAlertOnce(true)
+            .build()
+    }
 
     private fun render(notification: WeatherNotification, res: Context): RenderedContent = when (notification) {
         is WeatherNotification.DailySummary -> dailySummary(res, notification)
@@ -154,18 +196,63 @@ internal class WeatherNotifier(context: Context) {
             res.getString(R.string.notification_daily_agreement, it)
         }
 
-        val compact = listOfNotNull(condition, temperatures, precipitation)
-            .joinToString(PART_SEPARATOR)
-        val expanded = listOfNotNull(
-            condition,
-            res.getString(
-                R.string.notification_daily_temperature_range,
-                summary.tempMin.formatDegrees(),
-                summary.tempMax.formatDegrees()
+        val tempMin = summary.tempMin.formatDegrees()
+        val tempMax = summary.tempMax.formatDegrees()
+        val weatherColor = ContextCompat.getColor(res, weatherTextColorRes(summary.condition))
+        val temperatureColor = ContextCompat.getColor(res, R.color.notification_text_temperature)
+        val precipitationColor = ContextCompat.getColor(res, R.color.notification_text_precipitation)
+        val agreementColor = ContextCompat.getColor(
+            res,
+            if ((summary.convergencePercent ?: 100) < LOW_CONFIDENCE_PERCENT) {
+                R.color.notification_text_low_confidence
+            } else {
+                R.color.notification_text_info
+            }
+        )
+
+        val compact = joinStyled(
+            listOfNotNull(
+                condition?.let { styledText(it, bold = true, color = weatherColor) },
+                styleValues(temperatures, listOf(tempMin, tempMax), temperatureColor),
+                precipitation?.let {
+                    styleMetricLine(
+                        raw = it,
+                        emphasizedValues = precipitationValues(summary, locale),
+                        valueColor = precipitationColor
+                    )
+                }
             ),
-            precipitation,
-            agreement
-        ).joinToString(LINE_SEPARATOR)
+            PART_SEPARATOR
+        )
+        val expanded = joinStyled(
+            listOfNotNull(
+                condition?.let { styledText(it, bold = true, color = weatherColor) },
+                styleMetricLine(
+                    raw = res.getString(
+                        R.string.notification_daily_temperature_range,
+                        tempMin,
+                        tempMax
+                    ),
+                    emphasizedValues = listOf(tempMin, tempMax),
+                    valueColor = temperatureColor
+                ),
+                precipitation?.let {
+                    styleMetricLine(
+                        raw = it,
+                        emphasizedValues = precipitationValues(summary, locale),
+                        valueColor = precipitationColor
+                    )
+                },
+                agreement?.let {
+                    styleMetricLine(
+                        raw = it,
+                        emphasizedValues = listOf(summary.convergencePercent.toString()),
+                        valueColor = agreementColor
+                    )
+                }
+            ),
+            LINE_SEPARATOR
+        )
 
         return RenderedContent(
             channelId = CHANNEL_DAILY_SUMMARY,
@@ -197,6 +284,16 @@ internal class WeatherNotifier(context: Context) {
         }
     }
 
+    private fun precipitationValues(
+        summary: WeatherNotification.DailySummary,
+        locale: Locale
+    ): List<String> = buildList {
+        summary.precipitationProbabilityPercent?.let { add(it.toString()) }
+        summary.precipitationAmountMm
+            ?.takeIf { it >= MIN_DISPLAYED_PRECIPITATION_MM }
+            ?.let { add(String.format(locale, "%.1f", it)) }
+    }
+
     private fun divergence(res: Context, divergence: WeatherNotification.ModelDivergence): RenderedContent {
         val day = res.getString(
             if (divergence.isToday) R.string.notification_day_today
@@ -204,12 +301,29 @@ internal class WeatherNotifier(context: Context) {
         )
         val title = res.getString(R.string.notification_divergence_title, divergence.city.name)
         val agreement = res.getString(R.string.notification_divergence_agreement, divergence.convergencePercent)
-        val compact = res.getString(R.string.notification_divergence_compact, day, divergence.convergencePercent)
-        val expanded = listOf(
-            day,
-            agreement,
-            res.getString(R.string.notification_divergence_explanation)
-        ).joinToString(LINE_SEPARATOR)
+        val lowConfidenceColor = ContextCompat.getColor(res, R.color.notification_text_low_confidence)
+        val compact = styleValues(
+            raw = res.getString(
+                R.string.notification_divergence_compact,
+                day,
+                divergence.convergencePercent
+            ),
+            values = listOf(day, divergence.convergencePercent.toString()),
+            color = lowConfidenceColor,
+            firstValueBoldOnly = true
+        )
+        val expanded = joinStyled(
+            listOf(
+                styledText(day, bold = true),
+                styleMetricLine(
+                    raw = agreement,
+                    emphasizedValues = listOf(divergence.convergencePercent.toString()),
+                    valueColor = lowConfidenceColor
+                ),
+                styledText(res.getString(R.string.notification_divergence_explanation), italic = true)
+            ),
+            LINE_SEPARATOR
+        )
         return RenderedContent(
             channelId = CHANNEL_DIVERGENCE,
             title = title,
@@ -232,23 +346,25 @@ internal class WeatherNotifier(context: Context) {
         val title = res.getString(R.string.notification_change_title, change.city.name)
 
         val revisionLine: String
-        val compact: String
+        val compactRaw: String
         val consensus: String
+        val delta: String?
         if (highlight.trend == ForecastEvolutionTrend.VOLATILE) {
             revisionLine = res.getString(R.string.notification_change_volatile_line, variable)
-            compact = res.getString(R.string.notification_change_volatile_compact, shortDate, variable)
+            compactRaw = res.getString(R.string.notification_change_volatile_compact, shortDate, variable)
             consensus = res.getString(
                 R.string.notification_change_consensus_volatile,
                 highlight.comparedModels
             )
+            delta = null
         } else {
-            val delta = formatSignedDelta(highlight.medianDelta, highlight.variable, locale)
+            delta = formatSignedDelta(highlight.medianDelta, highlight.variable, locale)
             revisionLine = res.getString(
                 R.string.notification_change_revision_line,
                 res.getString(evolutionHighlightTitleRes(highlight)),
                 delta
             )
-            compact = res.getString(R.string.notification_change_compact, shortDate, variable, delta)
+            compactRaw = res.getString(R.string.notification_change_compact, shortDate, variable, delta)
             consensus = res.getString(
                 R.string.notification_change_consensus,
                 highlight.dominantModels,
@@ -256,12 +372,60 @@ internal class WeatherNotifier(context: Context) {
             )
         }
 
-        val expanded = listOf(
-            longDate,
-            revisionLine,
-            consensus,
-            res.getString(R.string.notification_change_reference, highlight.previousAgeHours)
-        ).joinToString(LINE_SEPARATOR)
+        val evolutionColor = ContextCompat.getColor(res, evolutionTextColorRes(highlight.variable))
+        val lowConfidenceColor = ContextCompat.getColor(res, R.color.notification_text_low_confidence)
+        val compact = if (delta != null) {
+            styleForecastChangeCompact(
+                raw = compactRaw,
+                shortDate = shortDate,
+                variable = variable,
+                delta = delta,
+                valueColor = evolutionColor
+            )
+        } else {
+            styleVolatileCompact(
+                raw = compactRaw,
+                shortDate = shortDate,
+                variable = variable,
+                warningColor = lowConfidenceColor
+            )
+        }
+        val styledRevision = if (delta != null) {
+            styleRevisionLine(
+                raw = revisionLine,
+                delta = delta,
+                valueColor = evolutionColor
+            )
+        } else {
+            styleVolatileRevisionLine(
+                raw = revisionLine,
+                variable = variable,
+                warningColor = lowConfidenceColor
+            )
+        }
+        val expanded = joinStyled(
+            listOf(
+                styledText(longDate, bold = true),
+                styledRevision,
+                styleModelConsensus(
+                    raw = consensus,
+                    values = if (highlight.trend == ForecastEvolutionTrend.VOLATILE) {
+                        listOf(highlight.comparedModels.toString())
+                    } else {
+                        listOf(
+                            highlight.dominantModels.toString(),
+                            highlight.comparedModels.toString()
+                        )
+                    },
+                    italic = highlight.trend == ForecastEvolutionTrend.VOLATILE
+                ),
+                styledText(
+                    res.getString(R.string.notification_change_reference, highlight.previousAgeHours),
+                    italic = true
+                )
+            ),
+            LINE_SEPARATOR
+        )
 
         return RenderedContent(
             channelId = CHANNEL_FORECAST_CHANGE,
@@ -271,6 +435,221 @@ internal class WeatherNotifier(context: Context) {
             accentColorRes = evolutionAccentColorRes(highlight.variable)
         )
     }
+
+
+    /**
+     * Utilise DecoratedCustomViewStyle : contrairement aux spans dans BigTextStyle,
+     * ces TextView sont réellement rendues par RemoteViews. Android garde néanmoins
+     * toute la décoration système de la notification.
+     */
+    private fun nativeDecoratedViews(
+        notification: WeatherNotification,
+        content: RenderedContent,
+        res: Context
+    ): NativeDecoratedViews {
+        val compact = RemoteViews(appContext.packageName, R.layout.notification_weather_compact)
+        val expanded = RemoteViews(appContext.packageName, R.layout.notification_weather_expanded)
+        compact.setTextViewText(R.id.notification_custom_title, content.title)
+        expanded.setTextViewText(R.id.notification_custom_title, content.title)
+
+        val presentation = remotePresentation(notification, res)
+        bindCompact(compact, presentation)
+        bindExpanded(expanded, presentation)
+        return NativeDecoratedViews(compact, expanded)
+    }
+
+    private fun remotePresentation(
+        notification: WeatherNotification,
+        res: Context
+    ): RemotePresentation = when (notification) {
+        is WeatherNotification.DailySummary -> {
+            val locale = res.currentLocale()
+            val condition = notification.condition
+                ?.takeUnless { it == WeatherCondition.UNKNOWN }
+                ?.let { res.getString(weatherConditionLabelRes(it)) }
+                ?: res.getString(R.string.notification_channel_daily)
+            val temperatures = res.getString(
+                R.string.notification_daily_temperatures,
+                notification.tempMin.formatDegrees(),
+                notification.tempMax.formatDegrees()
+            )
+            val precipitation = precipitationText(res, notification, locale)
+            val temperatureLine = res.getString(
+                R.string.notification_daily_temperature_range,
+                notification.tempMin.formatDegrees(),
+                notification.tempMax.formatDegrees()
+            )
+            val agreementLine = notification.convergencePercent?.let {
+                res.getString(R.string.notification_daily_agreement, it)
+            }
+            val weatherColor = ContextCompat.getColor(res, weatherTextColorRes(notification.condition))
+            val temperatureColor = ContextCompat.getColor(res, R.color.notification_text_temperature)
+            val precipitationColor = ContextCompat.getColor(res, R.color.notification_text_precipitation)
+            val agreementColor = ContextCompat.getColor(
+                res,
+                if ((notification.convergencePercent ?: 100) < LOW_CONFIDENCE_PERCENT) {
+                    R.color.notification_text_low_confidence
+                } else {
+                    R.color.notification_text_info
+                }
+            )
+            RemotePresentation(
+                compact = listOfNotNull(
+                    RemoteToken(condition, weatherColor),
+                    RemoteToken(temperatures, temperatureColor),
+                    precipitation?.let { RemoteToken(precipitationMetricValue(it), precipitationColor) }
+                ),
+                hero = RemoteToken(condition, weatherColor),
+                rows = listOfNotNull(
+                    temperatureLine.toMetricRow(temperatureColor),
+                    precipitation?.toPrecipitationMetricRow(precipitationColor),
+                    agreementLine?.toMetricRow(agreementColor)
+                ),
+                detail = null
+            )
+        }
+
+        is WeatherNotification.ModelDivergence -> {
+            val day = res.getString(
+                if (notification.isToday) R.string.notification_day_today
+                else R.string.notification_day_tomorrow
+            )
+            val agreement = res.getString(
+                R.string.notification_divergence_agreement,
+                notification.convergencePercent
+            )
+            val warningColor = ContextCompat.getColor(res, R.color.notification_text_low_confidence)
+            RemotePresentation(
+                compact = listOf(
+                    RemoteToken(day, null),
+                    RemoteToken(agreement, warningColor)
+                ),
+                hero = RemoteToken(day, null),
+                rows = listOf(agreement.toMetricRow(warningColor)),
+                detail = res.getString(R.string.notification_divergence_explanation)
+            )
+        }
+
+        is WeatherNotification.ForecastChange -> {
+            val highlight = notification.highlight
+            val locale = res.currentLocale()
+            val longDate = highlight.targetDate.format(
+                DateTimeFormatter.ofPattern(TARGET_DATE_LONG_PATTERN, locale)
+            )
+            val variable = res.getString(variableLabelRes(highlight.variable))
+            val valueColor = ContextCompat.getColor(
+                res,
+                if (highlight.trend == ForecastEvolutionTrend.VOLATILE) {
+                    R.color.notification_text_low_confidence
+                } else {
+                    evolutionTextColorRes(highlight.variable)
+                }
+            )
+            val value = if (highlight.trend == ForecastEvolutionTrend.VOLATILE) {
+                val volatile = res.getString(R.string.notification_change_volatile_compact, "", variable)
+                volatile.substringAfterLast(PART_SEPARATOR).trim()
+            } else {
+                formatSignedDelta(highlight.medianDelta, highlight.variable, locale)
+            }
+            val hero = if (highlight.trend == ForecastEvolutionTrend.VOLATILE) {
+                res.getString(R.string.notification_change_volatile_line, variable).substringAfter(PART_SEPARATOR)
+            } else {
+                res.getString(evolutionHighlightTitleRes(highlight))
+            }
+            val consensus = if (highlight.trend == ForecastEvolutionTrend.VOLATILE) {
+                res.getString(R.string.notification_change_consensus_volatile, highlight.comparedModels)
+            } else {
+                res.getString(
+                    R.string.notification_change_consensus,
+                    highlight.dominantModels,
+                    highlight.comparedModels
+                )
+            }
+            val reference = res.getString(
+                R.string.notification_change_reference,
+                highlight.previousAgeHours
+            )
+            RemotePresentation(
+                compact = listOf(
+                    RemoteToken(variable, null),
+                    RemoteToken(value, valueColor)
+                ),
+                hero = RemoteToken(hero, valueColor),
+                rows = listOf(
+                    MetricRow(variable, value, valueColor),
+                    MetricRow(consensus, null, null)
+                ),
+                detail = "$longDate\n$reference"
+            )
+        }
+    }
+
+    private fun bindCompact(remoteViews: RemoteViews, presentation: RemotePresentation) {
+        val ids = listOf(
+            R.id.notification_compact_primary,
+            R.id.notification_compact_secondary,
+            R.id.notification_compact_tertiary
+        )
+        ids.forEachIndexed { index, id ->
+            val token = presentation.compact.getOrNull(index)
+            remoteViews.setViewVisibility(id, if (token == null) View.GONE else View.VISIBLE)
+            token?.let {
+                remoteViews.setTextViewText(id, it.text)
+                it.color?.let { color -> remoteViews.setTextColor(id, color) }
+            }
+        }
+        remoteViews.setViewVisibility(
+            R.id.notification_compact_separator_1,
+            if (presentation.compact.size >= 2) View.VISIBLE else View.GONE
+        )
+        remoteViews.setViewVisibility(
+            R.id.notification_compact_separator_2,
+            if (presentation.compact.size >= 3) View.VISIBLE else View.GONE
+        )
+    }
+
+    private fun bindExpanded(remoteViews: RemoteViews, presentation: RemotePresentation) {
+        remoteViews.setViewVisibility(
+            R.id.notification_custom_hero,
+            if (presentation.hero == null) View.GONE else View.VISIBLE
+        )
+        presentation.hero?.let { hero ->
+            remoteViews.setTextViewText(R.id.notification_custom_hero, hero.text)
+            hero.color?.let { remoteViews.setTextColor(R.id.notification_custom_hero, it) }
+        }
+
+        val rowIds = listOf(
+            Triple(R.id.notification_custom_row_1, R.id.notification_custom_row_1_label, R.id.notification_custom_row_1_value),
+            Triple(R.id.notification_custom_row_2, R.id.notification_custom_row_2_label, R.id.notification_custom_row_2_value),
+            Triple(R.id.notification_custom_row_3, R.id.notification_custom_row_3_label, R.id.notification_custom_row_3_value)
+        )
+        rowIds.forEachIndexed { index, ids ->
+            val row = presentation.rows.getOrNull(index)
+            remoteViews.setViewVisibility(ids.first, if (row == null) View.GONE else View.VISIBLE)
+            row?.let {
+                remoteViews.setTextViewText(ids.second, it.label)
+                remoteViews.setViewVisibility(ids.third, if (it.value == null) View.GONE else View.VISIBLE)
+                it.value?.let { value -> remoteViews.setTextViewText(ids.third, value) }
+                it.valueColor?.let { color -> remoteViews.setTextColor(ids.third, color) }
+            }
+        }
+
+        remoteViews.setViewVisibility(
+            R.id.notification_custom_detail,
+            if (presentation.detail.isNullOrBlank()) View.GONE else View.VISIBLE
+        )
+        presentation.detail?.let { remoteViews.setTextViewText(R.id.notification_custom_detail, it) }
+    }
+
+    private data class NativeDecoratedViews(val compact: RemoteViews, val expanded: RemoteViews)
+    private data class RemoteToken(val text: String, val color: Int?)
+    internal data class MetricRow(val label: String, val value: String?, val valueColor: Int?)
+    private data class RemotePresentation(
+        val compact: List<RemoteToken>,
+        val hero: RemoteToken?,
+        val rows: List<MetricRow>,
+        val detail: String?
+    )
 
     /**
      * Même comportement que l'icône du lanceur : ramène la tâche existante au
@@ -297,9 +676,15 @@ internal class WeatherNotifier(context: Context) {
     internal data class RenderedContent(
         val channelId: String,
         val title: String,
-        val text: String,
-        val bigText: String,
-        @ColorRes val accentColorRes: Int
+        val text: CharSequence,
+        val bigText: CharSequence,
+        @param:ColorRes val accentColorRes: Int
+    )
+
+    internal data class BuiltNotificationForTest(
+        val notification: Notification,
+        val compactView: RemoteViews,
+        val expandedView: RemoteViews
     )
 
     companion object {
@@ -312,6 +697,7 @@ internal class WeatherNotifier(context: Context) {
         private const val TARGET_DATE_SHORT_PATTERN = "EEE d MMM"
         private const val TARGET_DATE_LONG_PATTERN = "EEEE d MMMM"
         private const val MIN_DISPLAYED_PRECIPITATION_MM = 0.1
+        private const val LOW_CONFIDENCE_PERCENT = 50
 
         /**
          * Un identifiant stable par (nature, ville) : une nouvelle alerte du
@@ -325,6 +711,191 @@ internal class WeatherNotifier(context: Context) {
             }
             return "$kind|${notification.city.id}".hashCode()
         }
+    }
+}
+
+private fun String.toMetricRow(valueColor: Int): WeatherNotifier.MetricRow =
+    WeatherNotifier.MetricRow(metricLabel(this), metricValue(this), valueColor)
+
+private fun String.toPrecipitationMetricRow(valueColor: Int): WeatherNotifier.MetricRow =
+    WeatherNotifier.MetricRow(
+        substringBefore(' ').trim(),
+        precipitationMetricValue(this),
+        valueColor
+    )
+
+private fun precipitationMetricValue(raw: String): String =
+    raw.substringAfter(' ', raw).trim()
+
+private fun metricLabel(raw: String): String {
+    val separator = raw.indexOf(" · ")
+    if (separator > 0) return raw.substring(0, separator).trim()
+    val firstSpace = raw.indexOf(' ')
+    return if (firstSpace > 0) raw.substring(0, firstSpace).trim() else raw.trim()
+}
+
+private fun metricValue(raw: String): String {
+    val separator = raw.indexOf(" · ")
+    if (separator > 0) return raw.substring(separator + 3).trim()
+    val firstSpace = raw.indexOf(' ')
+    return if (firstSpace > 0) raw.substring(firstSpace + 1).trim() else raw.trim()
+}
+
+private fun styledText(
+    text: CharSequence,
+    bold: Boolean = false,
+    italic: Boolean = false,
+    color: Int? = null
+): CharSequence = SpannableStringBuilder(text).apply {
+    if (isEmpty()) return@apply
+    if (bold) setSpan(StyleSpan(Typeface.BOLD), 0, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+    if (italic) setSpan(StyleSpan(Typeface.ITALIC), 0, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+    if (color != null) setSpan(ForegroundColorSpan(color), 0, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+}
+
+private fun joinStyled(parts: List<CharSequence>, separator: String): CharSequence =
+    SpannableStringBuilder().apply {
+        parts.forEachIndexed { index, part ->
+            if (index > 0) append(separator)
+            append(part)
+        }
+    }
+
+/**
+ * Donne une hiérarchie visuelle à une ligne de métrique sans dépendre de la
+ * langue : le libellé avant le premier séparateur (ou premier espace) est en
+ * gras, et les valeurs transmises sont en gras + couleur sémantique.
+ */
+private fun styleMetricLine(
+    raw: String,
+    emphasizedValues: List<String>,
+    valueColor: Int
+): CharSequence = SpannableStringBuilder(raw).apply {
+    val labelEnd = metricLabelEnd(raw)
+    if (labelEnd > 0) {
+        setSpan(StyleSpan(Typeface.BOLD), 0, labelEnd, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+    }
+    emphasizedValues.filter { it.isNotBlank() }.forEach { value ->
+        applyToOccurrences(value) { start, end ->
+            setSpan(StyleSpan(Typeface.BOLD), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            setSpan(ForegroundColorSpan(valueColor), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+    }
+}
+
+/** Compact : toutes les valeurs sont colorées, la première peut rester neutre. */
+private fun styleValues(
+    raw: String,
+    values: List<String>,
+    color: Int,
+    firstValueBoldOnly: Boolean = false
+): CharSequence = SpannableStringBuilder(raw).apply {
+    values.filter { it.isNotBlank() }.forEachIndexed { index, value ->
+        applyToOccurrences(value) { start, end ->
+            setSpan(StyleSpan(Typeface.BOLD), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            if (!(firstValueBoldOnly && index == 0)) {
+                setSpan(ForegroundColorSpan(color), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+        }
+    }
+}
+
+private fun styleForecastChangeCompact(
+    raw: String,
+    shortDate: String,
+    variable: String,
+    delta: String,
+    valueColor: Int
+): CharSequence = SpannableStringBuilder(raw).apply {
+    applyToOccurrences(shortDate) { start, end ->
+        setSpan(StyleSpan(Typeface.ITALIC), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+    }
+    applyToOccurrences(variable) { start, end ->
+        setSpan(StyleSpan(Typeface.BOLD), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+    }
+    applyToOccurrences(delta) { start, end ->
+        setSpan(StyleSpan(Typeface.BOLD), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        setSpan(ForegroundColorSpan(valueColor), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+    }
+}
+
+private fun styleVolatileCompact(
+    raw: String,
+    shortDate: String,
+    variable: String,
+    warningColor: Int
+): CharSequence = SpannableStringBuilder(raw).apply {
+    applyToOccurrences(shortDate) { start, end ->
+        setSpan(StyleSpan(Typeface.ITALIC), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+    }
+    applyToOccurrences(variable) { start, end ->
+        setSpan(StyleSpan(Typeface.BOLD), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+    }
+    val warningStart = toString().lastIndexOf(" · ").takeIf { it >= 0 }?.plus(3) ?: -1
+    if (warningStart in 0 until length) {
+        setSpan(StyleSpan(Typeface.BOLD), warningStart, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        setSpan(ForegroundColorSpan(warningColor), warningStart, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+    }
+}
+
+private fun styleRevisionLine(raw: String, delta: String, valueColor: Int): CharSequence =
+    SpannableStringBuilder(raw).apply {
+        val separator = toString().indexOf(" · ")
+        if (separator > 0) {
+            setSpan(StyleSpan(Typeface.BOLD), 0, separator, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+        applyToOccurrences(delta) { start, end ->
+            setSpan(StyleSpan(Typeface.BOLD), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            setSpan(ForegroundColorSpan(valueColor), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+    }
+
+private fun styleVolatileRevisionLine(
+    raw: String,
+    variable: String,
+    warningColor: Int
+): CharSequence = SpannableStringBuilder(raw).apply {
+    applyToOccurrences(variable) { start, end ->
+        setSpan(StyleSpan(Typeface.BOLD), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+    }
+    val separator = toString().indexOf(" · ")
+    if (separator >= 0 && separator + 3 < length) {
+        setSpan(StyleSpan(Typeface.ITALIC), separator + 3, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        setSpan(ForegroundColorSpan(warningColor), separator + 3, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+    }
+}
+
+private fun styleModelConsensus(raw: String, values: List<String>, italic: Boolean): CharSequence =
+    SpannableStringBuilder(raw).apply {
+        if (italic && isNotEmpty()) {
+            setSpan(StyleSpan(Typeface.ITALIC), 0, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+        values.filter { it.isNotBlank() }.forEach { value ->
+            applyToOccurrences(value) { start, end ->
+                setSpan(StyleSpan(Typeface.BOLD), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+        }
+    }
+
+private fun metricLabelEnd(raw: String): Int {
+    val separator = raw.indexOf(" · ")
+    if (separator > 0) return separator
+    val firstSpace = raw.indexOf(' ')
+    return if (firstSpace > 0) firstSpace else raw.length
+}
+
+private inline fun SpannableStringBuilder.applyToOccurrences(
+    value: String,
+    action: (start: Int, end: Int) -> Unit
+) {
+    if (value.isEmpty()) return
+    var fromIndex = 0
+    while (fromIndex < length) {
+        val start = toString().indexOf(value, fromIndex)
+        if (start < 0) break
+        val end = start + value.length
+        action(start, end)
+        fromIndex = end
     }
 }
 
@@ -361,6 +932,25 @@ private fun evolutionAccentColorRes(variable: ForecastEvolutionVariable): Int = 
     ForecastEvolutionVariable.TEMPERATURE -> R.color.notification_accent_temperature
     ForecastEvolutionVariable.PRECIPITATION -> R.color.notification_accent_precipitation
     ForecastEvolutionVariable.WIND -> R.color.notification_accent_wind
+}
+
+@ColorRes
+private fun evolutionTextColorRes(variable: ForecastEvolutionVariable): Int = when (variable) {
+    ForecastEvolutionVariable.TEMPERATURE -> R.color.notification_text_temperature
+    ForecastEvolutionVariable.PRECIPITATION -> R.color.notification_text_precipitation
+    ForecastEvolutionVariable.WIND -> R.color.notification_text_wind
+}
+
+@ColorRes
+private fun weatherTextColorRes(condition: WeatherCondition?): Int = when (condition) {
+    WeatherCondition.RAIN,
+    WeatherCondition.RAIN_SHOWERS,
+    WeatherCondition.DRIZZLE,
+    WeatherCondition.FREEZING_RAIN,
+    WeatherCondition.SNOW,
+    WeatherCondition.SNOW_SHOWERS -> R.color.notification_text_precipitation
+    WeatherCondition.THUNDERSTORM -> R.color.notification_text_low_confidence
+    else -> R.color.notification_text_weather
 }
 
 /** Palette cohérente avec WeatherAccent, utilisée ici par le template système. */

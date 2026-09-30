@@ -16,4 +16,16 @@
     <color name="notification_accent_temperature">#C62828</color>
     <color name="notification_accent_precipitation">#1565C0</color>
     <color name="notification_accent_wind">#D84315</color>
+
+    <!--
+      Couleurs réservées aux courts spans du texte enrichi. Elles sont plus
+      sombres que les accents d'icône pour garder un contraste lisible sur les
+      surfaces claires des notifications système.
+    -->
+    <color name="notification_text_weather">#7A4A00</color>
+    <color name="notification_text_temperature">#B3261E</color>
+    <color name="notification_text_precipitation">#0B57D0</color>
+    <color name="notification_text_wind">#9A3412</color>
+    <color name="notification_text_low_confidence">#B3261E</color>
+    <color name="notification_text_info">#075985</color>
 </resources>
