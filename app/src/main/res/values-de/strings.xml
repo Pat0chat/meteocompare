@@ -848,7 +848,7 @@ Daten</string>
     <string name="settings_notifications_divergence">Modellabweichung</string>
     <string name="settings_notifications_divergence_desc" formatted="false">Wenn die Modellkonvergenz für heute oder morgen unter 50 % fällt.</string>
     <string name="settings_notifications_change">Prognoserevisionen</string>
-    <string name="settings_notifications_change_desc">Eine „Wichtige Punkte“-Meldung, wenn sich eine Prognose für die nächsten drei Tage deutlich ändert.</string>
+    <string name="settings_notifications_change_desc">Eine „Wichtige Punkte“-Meldung, wenn sich eine Prognose gegenüber etwa 24 Stunden zuvor deutlich ändert. Zuerst muss sich ein lokaler Verlauf aufbauen.</string>
     <string name="settings_notifications_cities">Verfolgte Orte</string>
     <string name="settings_notifications_no_city">Fügen Sie einen Favoriten hinzu, um Benachrichtigungen zu erhalten.</string>
     <string name="settings_notifications_blocked">Benachrichtigungen von MeteoCompare sind auf diesem Gerät deaktiviert.</string>

@@ -852,7 +852,7 @@ datos</string>
     <string name="settings_notifications_divergence">Divergencia de modelos</string>
     <string name="settings_notifications_divergence_desc" formatted="false">Cuando la convergencia de los modelos baja del 50 % para hoy o mañana.</string>
     <string name="settings_notifications_change">Revisiones de la previsión</string>
-    <string name="settings_notifications_change_desc">Una alerta de «Puntos clave» cuando una previsión cambia claramente en los próximos tres días.</string>
+    <string name="settings_notifications_change_desc">Una alerta de «Puntos clave» cuando una previsión cambia claramente respecto a unas 24 horas antes. Primero debe crearse un historial local.</string>
     <string name="settings_notifications_cities">Ciudades seguidas</string>
     <string name="settings_notifications_no_city">Añade una ciudad a favoritos para recibir notificaciones.</string>
     <string name="settings_notifications_blocked">Las notificaciones de MeteoCompare están desactivadas en este dispositivo.</string>

@@ -94,17 +94,30 @@ internal class WeatherNotificationWorker(
     }
 
     private suspend fun run(kind: Kind, entry: WeatherNotificationEntryPoint): Result {
+        if (BuildConfig.DEBUG) Log.d(LOG_TAG, "Starting notification cycle: $kind")
         val settings = entry.userPreferencesRepository().observeNotificationSettings().first()
-        if (!kind.isEnabledIn(settings)) return Result.success()
+        if (!kind.isEnabledIn(settings)) {
+            if (BuildConfig.DEBUG) Log.d(LOG_TAG, "Skipping $kind: disabled in settings")
+            return Result.success()
+        }
 
         val notifier = WeatherNotifier(applicationContext)
         // Permission refusée ou notifications bloquées : inutile de consommer
         // réseau et batterie pour un résultat qui ne serait pas affiché.
-        if (!notifier.canPost()) return Result.success()
+        if (!notifier.canPost()) {
+            if (BuildConfig.DEBUG) Log.d(LOG_TAG, "Skipping $kind: notifications unavailable")
+            return Result.success()
+        }
 
         val cities = entry.cityRepository().observeFavorites().first()
             .filter { it.id in settings.cityIds }
-        if (cities.isEmpty()) return Result.success()
+        if (cities.isEmpty()) {
+            if (BuildConfig.DEBUG) Log.d(LOG_TAG, "Skipping $kind: no followed favorite city")
+            return Result.success()
+        }
+        if (BuildConfig.DEBUG) {
+            Log.d(LOG_TAG, "Evaluating $kind for ${cities.size} followed city/cities")
+        }
 
         val prefs = entry.userPreferencesRepository()
         val models = prefs.observeEnabledModels().first()

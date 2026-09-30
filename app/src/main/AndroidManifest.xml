@@ -50,6 +50,16 @@
             exported=false : seuls les broadcasts système ciblant l'application
             peuvent l'invoquer. Le travail reste unique et ne se duplique pas.
         -->
+        <!--
+            Déclencheur léger du résumé quotidien. AlarmManager peut réveiller
+            l'application en veille ; le travail météo réel est ensuite confié
+            à WorkManager par le receiver.
+        -->
+        <receiver
+            android:name=".notification.WeatherNotificationAlarmReceiver"
+            android:enabled="true"
+            android:exported="false" />
+
         <receiver
             android:name=".widget.WidgetRefreshRepairReceiver"
             android:enabled="true"

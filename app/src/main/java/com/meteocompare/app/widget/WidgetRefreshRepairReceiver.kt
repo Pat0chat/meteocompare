@@ -48,9 +48,9 @@ class WidgetRefreshRepairReceiver : BroadcastReceiver() {
                     Log.w("MeteoCompare/BiasWorker", "Unable to repair bias scheduling", error)
                 }
 
-                // Le résumé quotidien est un one-shot calculé à partir de
+                // Le résumé quotidien est une alarme RTC calculée à partir de
                 // l'heure murale. Un changement d'heure/fuseau/date invalide
-                // donc son initialDelay : on le remplace immédiatement.
+                // donc son instant absolu : on la remplace immédiatement.
                 runCatching {
                     val settings = EntryPointAccessors
                         .fromApplication(appContext, WeatherNotificationEntryPoint::class.java)
@@ -106,8 +106,9 @@ internal fun isWidgetRefreshRepairAction(action: String?): Boolean =
     action in widgetRefreshRepairActions
 
 /**
- * Les événements qui changent l'heure murale doivent remplacer le one-shot du
- * résumé quotidien. Au boot, KEEP suffit puisque WorkManager restaure ses jobs.
+ * Les événements qui changent l'heure murale doivent remplacer l'alarme du
+ * résumé quotidien. Au boot, ensureScheduled recrée l'alarme perdue au reboot
+ * sans repousser une alarme encore valide dans les autres cas.
  */
 internal fun shouldReplaceWeatherNotificationSchedule(action: String?): Boolean = action in setOf(
     Intent.ACTION_MY_PACKAGE_REPLACED,

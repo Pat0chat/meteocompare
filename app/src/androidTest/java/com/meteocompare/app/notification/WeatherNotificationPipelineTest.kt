@@ -5,6 +5,7 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import android.content.Intent
 import android.os.Build
 import android.os.SystemClock
 import androidx.test.core.app.ApplicationProvider
@@ -143,6 +144,66 @@ class WeatherNotificationPipelineTest {
     }
 
     @Test
+    fun `activation divergence lance un controle immediat sans attendre le periodique`() = runBlocking {
+        val forecast = divergentTomorrowForecast()
+        val engineContext = engineContextProvider.build(
+            forecast = forecast,
+            engine = ForecastEngine.DEFAULT,
+            now = clock.instant()
+        )
+        val expected = requireNotNull(evaluator.modelDivergence(forecast, engineContext, clock.instant()))
+        forecasts.setForecast(TestFixtures.paris, forecast)
+        val settings = preferences.updateNotificationSettings {
+            NotificationSettings(
+                divergenceAlertsEnabled = true,
+                cityIds = setOf(TestFixtures.paris.id)
+            )
+        }
+        val previousWorkIds = workManager
+            .getWorkInfosForUniqueWork(WeatherNotificationScheduler.ALERTS_IMMEDIATE_WORK_NAME)
+            .get(5, TimeUnit.SECONDS)
+            .map { it.id }
+            .toSet()
+
+        WeatherNotificationScheduler.reschedule(context, settings)
+        awaitNewUniqueWorkFinished(
+            WeatherNotificationScheduler.ALERTS_IMMEDIATE_WORK_NAME,
+            previousWorkIds
+        )
+
+        val delivered = activeWeatherNotifications()
+        assertEquals(1, delivered.size)
+        assertEquals(WeatherNotifier.CHANNEL_DIVERGENCE, delivered.single().notification.channelId)
+        assertTrue(dedup.alreadyNotified(expected.dedupKey))
+    }
+
+    @Test
+    fun `alarme quotidienne declenche workmanager notification et deduplication`() {
+        assertTrue("la permission système doit autoriser les notifications", WeatherNotifier(context).canPost())
+        val expectedKey = expectedDailyDedupKey()
+
+        val previousWorkIds = workManager
+            .getWorkInfosForUniqueWork(WeatherNotificationScheduler.DAILY_SUMMARY_WORK_NAME)
+            .get(5, TimeUnit.SECONDS)
+            .map { it.id }
+            .toSet()
+
+        WeatherNotificationAlarmReceiver().onReceive(
+            context,
+            Intent(context, WeatherNotificationAlarmReceiver::class.java)
+                .setAction(WeatherNotificationScheduler.DAILY_SUMMARY_ALARM_ACTION)
+        )
+        awaitNewUniqueWorkFinished(
+            WeatherNotificationScheduler.DAILY_SUMMARY_WORK_NAME,
+            previousWorkIds
+        )
+
+        val delivered = activeWeatherNotifications()
+        assertEquals(1, delivered.size)
+        assertTrue(dedup.alreadyNotified(expectedKey))
+    }
+
+    @Test
     fun `permission canal notification et deduplication fonctionnent de bout en bout`() {
         assertTrue("la permission système doit autoriser les notifications", WeatherNotifier(context).canPost())
         val expectedKey = expectedDailyDedupKey()
@@ -194,6 +255,22 @@ class WeatherNotificationPipelineTest {
         val finalInfo = requireNotNull(info) { "WorkManager ne connaît pas le work $id" }
         assertTrue("WorkManager n'a pas terminé: ${finalInfo.state}", finalInfo.state.isFinished)
         assertEquals(WorkInfo.State.SUCCEEDED, finalInfo.state)
+    }
+
+    private fun awaitNewUniqueWorkFinished(name: String, previousIds: Set<UUID>) {
+        val deadline = SystemClock.elapsedRealtime() + WORK_TIMEOUT_MS
+        var infos = emptyList<WorkInfo>()
+        do {
+            infos = workManager.getWorkInfosForUniqueWork(name).get(5, TimeUnit.SECONDS)
+            val current = infos.firstOrNull { it.id !in previousIds }
+            if (current?.state == WorkInfo.State.SUCCEEDED) return
+            if (current?.state?.isFinished == true) {
+                error("Le nouveau work unique $name a terminé en ${current.state}")
+            }
+            SystemClock.sleep(POLL_MS)
+        } while (SystemClock.elapsedRealtime() < deadline)
+
+        error("Le nouveau work unique $name n'a pas terminé: ${infos.map { it.id to it.state }}")
     }
 
     private fun divergentTomorrowForecast(): CityForecast {
@@ -273,6 +350,8 @@ class WeatherNotificationPipelineTest {
     private fun clearNotificationState() {
         workManager.cancelUniqueWork(WeatherNotificationScheduler.DAILY_SUMMARY_WORK_NAME)
         workManager.cancelUniqueWork(WeatherNotificationScheduler.ALERTS_WORK_NAME)
+        workManager.cancelUniqueWork(WeatherNotificationScheduler.ALERTS_IMMEDIATE_WORK_NAME)
+        WeatherNotificationScheduler.reschedule(context, NotificationSettings())
         platformManager.cancelAll()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             listOf(

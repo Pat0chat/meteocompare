@@ -865,7 +865,7 @@
     <string name="settings_notifications_divergence">Model divergence</string>
     <string name="settings_notifications_divergence_desc" formatted="false">When model convergence drops below 50% for today or tomorrow.</string>
     <string name="settings_notifications_change">Forecast revisions</string>
-    <string name="settings_notifications_change_desc">A “Key point” alert when a forecast changes significantly over the next three days.</string>
+    <string name="settings_notifications_change_desc">A “Key point” alert when a forecast changes significantly compared with about 24 hours earlier. Local history needs time to build first.</string>
     <string name="settings_notifications_cities">Followed cities</string>
     <string name="settings_notifications_no_city">Add a favourite city to receive notifications.</string>
     <string name="settings_notifications_blocked">MeteoCompare notifications are disabled on this device.</string>
