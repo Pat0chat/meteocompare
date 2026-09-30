@@ -31,9 +31,12 @@ If 1.7.0 must be submitted immediately, use the included initial YAML as-is.
 ## Before every release
 
 1. Update `versionName` and increment `versionCode` in `app/build.gradle.kts`.
-2. Add both changelogs:
+2. Add a changelog for every maintained locale:
    - `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt`
    - `fastlane/metadata/android/fr-FR/changelogs/<versionCode>.txt`
+   - `fastlane/metadata/android/es-ES/changelogs/<versionCode>.txt`
+   - `fastlane/metadata/android/de-DE/changelogs/<versionCode>.txt`
+   - `fastlane/metadata/android/it-IT/changelogs/<versionCode>.txt`
 3. Run:
 
    ```bash

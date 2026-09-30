@@ -44,9 +44,12 @@ Play Store exige minimum 2 screenshots par form factor. Recommandations :
 3. **Détail d'une ville — bande de confiance** : c'est LE shot signature.
    Choisir une ville où on voit la bande s'élargir nettement.
 4. **Détail d'une ville — comparaison des modèles** : les courbes superposées.
-5. **Comparaison des moteurs V3** : graphique + frise de divergence + tableau quotidien.
-6. **Mer / côte** : vagues, houle et marées sur une ville côtière.
-7. **Écran Settings** : sélecteur du moteur V3 et liste des **19 modèles**, dont HARMONIE DMI et ICON-CH2.
+5. **Chart View** : afficher la timeline heure par heure sur **10 jours / 240 h**.
+6. **Comparaison des moteurs V3** : graphique + frise de divergence + tableau quotidien.
+7. **Notifications** : réglages des notifications locales (résumé quotidien, divergence, Révision des prévisions / « À retenir »).
+8. **Mode tablette / écran large** : capture paysage montrant la liste des villes et le détail côte à côte.
+9. **Mer / côte** : vagues, houle et marées sur une ville côtière.
+10. **Écran Settings** : sélecteur du moteur V3 et liste des **21 modèles**, en montrant si possible les nouveaux **NOAA AIGFS** et **JMA GSM**.
 
 ### Mode opératoire
 
@@ -71,7 +74,7 @@ Au moment du soumission :
 - [ ] Catégorie : Météo
 - [ ] Contenu : Tous publics
 - [ ] Politique de confidentialité : URL pointant vers `PRIVACY.md` (héberger sur GitHub Pages par exemple)
-- [ ] Permissions sensibles : aucune (l'app n'utilise ni GPS, ni contacts, ni stockage externe)
+- [ ] Permission Android 13+ : `POST_NOTIFICATIONS` uniquement si l’utilisateur active volontairement les notifications ; pas de GPS, contacts ni stockage externe
 - [ ] Annonces : Non (aucune publicité)
 - [ ] Contenu UGC : Non (pas de contenu utilisateur)
 - [ ] Coffre-fort des données : Non requis

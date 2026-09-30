@@ -1,28 +1,45 @@
-Nota: questa scheda Play Store è stata tradotta automaticamente.
+Nota: questa descrizione è stata tradotta automaticamente.
 
-MeteoCompare è un’app meteo multi-modello progettata per mostrare l’incertezza delle previsioni invece di nasconderla dietro un unico valore.
+MeteoCompare è un’app meteo libera, open source e senza pubblicità che confronta più modelli invece di nascondere l’incertezza dietro un’unica previsione.
 
-19 MODELLI METEO
-Confronta le uscite grezze di AROME e ARPEGE (Météo-France), ICON e ICON-D2 (DWD), GFS e HRRR (NOAA), ECMWF IFS e AIFS, UKMO, GEM, MET Nordic, HARMONIE di KNMI e DMI, MeteoSwiss ICON-CH2, ACCESS e GRAPES.
+21 MODELLI · FINO A 10 GIORNI
+Confronta 21 modelli di riferimento: AROME e ARPEGE (Météo-France), ICON e ICON-D2 (DWD), GFS, HRRR e il nuovo NOAA AIGFS, ECMWF IFS e AIFS, UKMO, GEM, il nuovo JMA GSM, MET Nordic, HARMONIE KNMI/DMI, MeteoSwiss ICON-CH2, ACCESS e GRAPES.
+
+Le viste giornaliere coprono ora 10 giorni. I modelli con orizzonte più breve vengono mostrati solo finché i loro dati sono disponibili: MeteoCompare non inventa né prolunga le uscite dei modelli.
+
+CHART VIEW E VISUALIZZAZIONI
+La nuova Chart View permette di esplorare fino a 10 giorni ora per ora su una timeline di 240 ore. Sono inclusi anche:
+- riepilogo di Oggi e timeline oraria;
+- bande min/max e livello di accordo tra modelli;
+- tabelle modello per modello;
+- evoluzione delle previsioni ~24 / ~48 / ~72 h e sezione «Da ricordare»;
+- classifica locale dei modelli;
+- widget ridimensionabili.
+
+NOTIFICHE METEO LOCALI
+Sono facoltative e disattivate per impostazione predefinita. Per le città selezionate MeteoCompare può mostrare:
+- un riepilogo giornaliero all’ora scelta;
+- un avviso quando i modelli divergono molto;
+- una «Revisione delle previsioni» quando il segnale «Da ricordare» rileva un cambiamento importante di temperatura, pioggia o vento.
+
+Tutto viene calcolato sul dispositivo tramite WorkManager, senza server push. Gli eventi vengono deduplicati per evitare ripetizioni inutili.
+
+TABLET, PIEGHEVOLI E SCHERMI GRANDI
+Su finestre ampie MeteoCompare usa un layout master/detail, mantenendo visibili insieme l’elenco delle città e la previsione. L’interfaccia si adatta a tablet, grandi pieghevoli e finestre Android ridimensionabili, conservando il layout compatto sugli smartphone.
 
 4 MOTORI PREVISIONALI V3
-Nelle Impostazioni puoi scegliere come calcolare la previsione centrale:
-- Multi-consenso: sintesi robusta bilanciata per linea numerica dei modelli.
-- Calibrazione: corregge progressivamente alcuni valori giornalieri usando lo storico locale disponibile.
-- Scenari: privilegia gruppi di previsioni coerenti invece di una semplice media.
-- Adattivo: seleziona in modo prudente la strategia più adatta al contesto.
+Scegli come calcolare la previsione centrale: Multi-consenso, Calibrazione locale, Scenari o Adattivo. La pagina Confronto motori applica tutte e quattro le strategie agli stessi dati grezzi.
 
-La pagina Confronto motori applica tutti e quattro i metodi agli stessi identici dati grezzi, con grafici, timeline delle divergenze e tabella giornaliera.
+CAPIRE L’INCERTEZZA
+La convergenza attuale dei modelli resta separata dall’affidabilità storica locale. I modelli imparentati condividono il peso di voto, così le varianti della stessa linea numerica non aumentano artificialmente la fiducia. L’evoluzione mostra inoltre come la previsione è cambiata rispetto a circa 24, 48 e 72 ore prima.
 
-CONVERGENZA E AFFIDABILITÀ LOCALE
-La convergenza corrente viene calcolata solo dalle uscite grezze. L’affidabilità storica locale è separata e usa precedenti previsioni D+1 confrontate con un riferimento storico Open-Meteo. I modelli imparentati condividono il peso di voto per evitare di aumentare artificialmente la confidenza.
+MARE / COSTA E VIGILANZA
+Per le città costiere compatibili: onde, swell, temperatura del mare e maree stimate. Per le città francesi vengono mostrate anche le informazioni ufficiali di Vigilance Météo-France. I dati marini sono indicativi e non destinati alla navigazione.
 
-MARE / COSTA
-Per una città costiera attiva Mare / costa dalla card Home. Un punto blu indica quando la modalità è attiva. Nei Dettagli compaiono onde, swell, temperatura del mare e maree stimate. Informazioni indicative, non destinate alla navigazione.
-
-Sono inclusi anche timeline oraria, bande min/max, tabelle per modello, evoluzione ~24 / ~48 / ~72 h, classifica locale, widget ridimensionabili, cache offline, tema chiaro/scuro e accessibilità TalkBack.
+SOSTIENI METEOCOMPARE
+MeteoCompare viene sviluppato senza pubblicità, abbonamenti o funzioni premium. Se l’app ti è utile, puoi sostenere lo sviluppo tramite Liberapay, GitHub Sponsors o Ko-Fi. Le donazioni sono facoltative e non sbloccano privilegi: l’app resta uguale per tutti.
 
 PRIVACY
-Nessun account, nessuna pubblicità e nessun SDK di analytics. Preferiti, impostazioni, cache e cronologia restano sul dispositivo. I dati meteo e di geocodifica provengono da Open-Meteo.
+Nessun account, nessuna pubblicità e nessun SDK di analytics. Preferiti, impostazioni, cache e cronologia restano sul dispositivo. I dati meteo e di geocodifica provengono principalmente da Open-Meteo.
 
 MeteoCompare è software libero open source con licenza Apache-2.0.

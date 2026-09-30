@@ -1,1 +1,1 @@
-19 Wettermodelle, 4 Prognose-Engines und Küstenbedingungen vergleichen.
+21 Wettermodelle, 10-Tage-Prognosen, lokale Hinweise und Diagramme.
