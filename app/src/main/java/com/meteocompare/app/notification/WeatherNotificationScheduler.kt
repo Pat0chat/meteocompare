@@ -182,7 +182,7 @@ object WeatherNotificationScheduler {
 
         if (stillMatches) {
             if (BuildConfig.DEBUG) {
-                Log.d(LOG_TAG, "Keeping daily alarm for ${stored?.triggerAtMillis}")
+                Log.d(LOG_TAG, "Keeping daily alarm for ${stored.triggerAtMillis}")
             }
             return
         }
