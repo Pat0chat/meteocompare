@@ -30,7 +30,6 @@ import io.mockk.clearMocks
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
-import io.mockk.firstArg
 import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.unmockkObject

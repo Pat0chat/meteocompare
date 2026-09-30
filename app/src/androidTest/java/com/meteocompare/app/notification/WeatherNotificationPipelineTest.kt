@@ -1,6 +1,7 @@
 package com.meteocompare.app.notification
 
 import android.Manifest
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
@@ -38,6 +39,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -153,7 +155,12 @@ class WeatherNotificationPipelineTest {
             WeatherNotifier.notificationId(expectedDailySummary()),
             delivered.single().id
         )
-        assertEquals(WeatherNotifier.CHANNEL_DAILY_SUMMARY, delivered.single().notification.channelId)
+        val posted = delivered.single().notification
+        assertEquals(WeatherNotifier.CHANNEL_DAILY_SUMMARY, posted.channelId)
+        assertEquals(Notification.CATEGORY_STATUS, posted.category)
+        assertNotEquals("la notification doit porter un accent MeteoCompare", 0, posted.color)
+        val expanded = posted.extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString().orEmpty()
+        assertTrue("le rendu développé doit présenter les métriques sur plusieurs lignes", expanded.contains("\n"))
         assertTrue("la livraison doit être inscrite dans le ledger", dedup.alreadyNotified(expectedKey))
 
         // Même événement : le ledger empêche une seconde publication.

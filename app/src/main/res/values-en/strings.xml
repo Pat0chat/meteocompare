@@ -864,8 +864,8 @@
     <string name="settings_notifications_time_confirm">OK</string>
     <string name="settings_notifications_divergence">Model divergence</string>
     <string name="settings_notifications_divergence_desc" formatted="false">When model convergence drops below 50% for today or tomorrow.</string>
-    <string name="settings_notifications_change">Forecast change</string>
-    <string name="settings_notifications_change_desc">When the forecast is clearly revised for the next three days (same signal as “Key points”).</string>
+    <string name="settings_notifications_change">Forecast revisions</string>
+    <string name="settings_notifications_change_desc">A “Key point” alert when a forecast changes significantly over the next three days.</string>
     <string name="settings_notifications_cities">Followed cities</string>
     <string name="settings_notifications_no_city">Add a favourite city to receive notifications.</string>
     <string name="settings_notifications_blocked">MeteoCompare notifications are disabled on this device.</string>
@@ -874,17 +874,33 @@
     <string name="notification_channel_daily_desc">Summary of the day for followed cities, at the chosen time.</string>
     <string name="notification_channel_divergence">Model divergence</string>
     <string name="notification_channel_divergence_desc">When models clearly disagree for today or tomorrow.</string>
-    <string name="notification_channel_change">Forecast change</string>
-    <string name="notification_channel_change_desc">When the forecast is clearly revised.</string>
+    <string name="notification_channel_change">Key points · Revisions</string>
+    <string name="notification_channel_change_desc">When a near-term forecast is significantly revised.</string>
     <string name="notification_daily_title_today">%1$s · today</string>
     <string name="notification_daily_title_tomorrow">%1$s · tomorrow</string>
     <string name="notification_daily_temperatures">%1$s / %2$s</string>
     <string name="notification_daily_precipitation">Rain %1$d%%</string>
-    <string name="notification_daily_precipitation_with_amount">Rain %1$d%% (%2$s mm)</string>
+    <string name="notification_daily_precipitation_with_amount">Rain %1$d%% · %2$s mm</string>
     <string name="notification_daily_precipitation_amount">Rain %1$s mm</string>
-    <string name="notification_divergence_title">%1$s: models disagree</string>
-    <string name="notification_divergence_text_today">Today, model convergence is only %1$d%%: the forecast remains uncertain.</string>
-    <string name="notification_divergence_text_tomorrow">Tomorrow, model convergence is only %1$d%%: the forecast remains uncertain.</string>
-    <string name="notification_change_title">%1$s: the forecast is changing</string>
-    <string name="notification_change_text">%1$s (%2$s). %3$s</string>
+    <string name="notification_divergence_title">%1$s · uncertain forecast</string>
+    <string name="notification_change_title">%1$s · Key point</string>
+
+    <!-- Contenu enrichi des notifications -->
+    <string name="notification_daily_temperature_range">Temperatures · min %1$s · max %2$s</string>
+    <string name="notification_daily_agreement">Model agreement · %1$d%%</string>
+    <string name="notification_day_today">Today</string>
+    <string name="notification_day_tomorrow">Tomorrow</string>
+    <string name="notification_divergence_agreement">Model agreement · %1$d%%</string>
+    <string name="notification_divergence_compact">%1$s · only %2$d%% agreement between models</string>
+    <string name="notification_divergence_explanation">Weather scenarios differ clearly. The forecast may still change.</string>
+    <string name="notification_change_variable_temperature">Max temperature</string>
+    <string name="notification_change_variable_precipitation">Expected rain</string>
+    <string name="notification_change_variable_wind">Max wind</string>
+    <string name="notification_change_revision_line">%1$s · %2$s</string>
+    <string name="notification_change_compact">%1$s · %2$s %3$s</string>
+    <string name="notification_change_volatile_line">%1$s · models are revising in different directions</string>
+    <string name="notification_change_volatile_compact">%1$s · %2$s · uncertain revision</string>
+    <string name="notification_change_consensus">%1$d of %2$d models confirm this change</string>
+    <string name="notification_change_consensus_volatile">%1$d models compared · no dominant trend</string>
+    <string name="notification_change_reference">Compared with the forecast from about %1$d h ago</string>
 </resources>

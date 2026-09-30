@@ -1,0 +1,214 @@
+package com.meteocompare.app.notification
+
+import android.content.Context
+import androidx.test.core.app.ApplicationProvider
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.meteocompare.app.core.locale.persistLocalePreference
+import com.meteocompare.app.core.locale.readPersistedLocaleTag
+import com.meteocompare.app.domain.model.ForecastEvolutionHighlight
+import com.meteocompare.app.domain.model.ForecastEvolutionTrend
+import com.meteocompare.app.domain.model.ForecastEvolutionVariable
+import com.meteocompare.app.domain.model.WeatherCondition
+import com.meteocompare.app.domain.model.WeatherNotification
+import com.meteocompare.app.testutil.TestFixtures
+import java.time.LocalDate
+import java.util.Locale
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+
+/** Vérifie la copie réellement rendue par les notifications, indépendamment des canaux système. */
+@RunWith(AndroidJUnit4::class)
+class WeatherNotifierPresentationTest {
+
+    private val context: Context = ApplicationProvider.getApplicationContext()
+    private lateinit var previousLanguageTag: String
+    private var hadPreviousLanguageTag = false
+    private lateinit var originalLocale: Locale
+
+    @Before
+    fun setUp() {
+        originalLocale = Locale.getDefault()
+        val previous = readPersistedLocaleTag(context)
+        hadPreviousLanguageTag = previous != null
+        previousLanguageTag = previous.orEmpty()
+        check(persistLocalePreference(context, "fr"))
+    }
+
+    @After
+    fun tearDown() {
+        check(persistLocalePreference(context, previousLanguageTag.takeIf { hadPreviousLanguageTag }))
+        Locale.setDefault(originalLocale)
+    }
+
+    @Test
+    fun `resume quotidien se lit en un coup d oeil et detaille les metriques`() {
+        val rendered = WeatherNotifier(context).render(
+            WeatherNotification.DailySummary(
+                city = TestFixtures.paris,
+                date = LocalDate.of(2026, 9, 30),
+                isToday = false,
+                condition = WeatherCondition.CLEAR,
+                tempMin = 9.2,
+                tempMax = 18.1,
+                precipitationProbabilityPercent = 35,
+                precipitationAmountMm = 1.4,
+                convergencePercent = 82
+            )
+        )
+
+        assertEquals("${TestFixtures.paris.name} · demain", rendered.title)
+        assertTrue(rendered.text.contains("Ciel clair"))
+        assertTrue(rendered.text.contains("9° / 18°"))
+        assertTrue(rendered.text.contains("Pluie 35 %"))
+
+        val lines = rendered.bigText.lines()
+        assertEquals(4, lines.size)
+        assertEquals("Ciel clair", lines[0])
+        assertEquals("Températures · min 9° · max 18°", lines[1])
+        assertEquals("Pluie 35 % · 1,4 mm", lines[2])
+        assertEquals("Accord des modèles · 82 %", lines[3])
+    }
+
+    @Test
+    fun `divergence distingue clairement accord faible et probabilite meteo`() {
+        val rendered = WeatherNotifier(context).render(
+            WeatherNotification.ModelDivergence(
+                city = TestFixtures.paris,
+                date = LocalDate.of(2026, 9, 30),
+                isToday = false,
+                convergencePercent = 41
+            )
+        )
+
+        assertEquals("${TestFixtures.paris.name} · prévision incertaine", rendered.title)
+        assertEquals("Demain · seulement 41 % d’accord entre les modèles", rendered.text)
+        assertTrue(rendered.bigText.contains("Accord des modèles · 41 %"))
+        assertTrue(rendered.bigText.contains("scénarios météo divergent"))
+        assertFalse(rendered.bigText.contains("chance"))
+        assertFalse(rendered.bigText.contains("probabilité"))
+    }
+
+    @Test
+    fun `a retenir montre date amplitude consensus et age de la revision`() {
+        val rendered = WeatherNotifier(context).render(
+            WeatherNotification.ForecastChange(
+                city = TestFixtures.paris,
+                highlight = ForecastEvolutionHighlight(
+                    targetDate = LocalDate.of(2026, 9, 30),
+                    variable = ForecastEvolutionVariable.TEMPERATURE,
+                    trend = ForecastEvolutionTrend.INCREASING,
+                    medianDelta = 2.4,
+                    comparedModels = 4,
+                    dominantModels = 3,
+                    previousAgeHours = 24
+                )
+            )
+        )
+
+        assertEquals("${TestFixtures.paris.name} · À retenir", rendered.title)
+        assertTrue(rendered.text.contains("Température max +2,4 °C"))
+
+        val lines = rendered.bigText.lines()
+        assertEquals(4, lines.size)
+        assertTrue(lines[0].contains("30"))
+        assertEquals("La température prévue augmente · +2,4 °C", lines[1])
+        assertEquals("3 modèles sur 4 confirment cette évolution", lines[2])
+        assertEquals("Comparé à la prévision d’il y a environ 24 h", lines[3])
+        assertFalse(rendered.bigText.contains("H−"))
+    }
+
+    @Test
+    fun `revisions pluie et vent utilisent leurs unites naturelles`() {
+        val notifier = WeatherNotifier(context)
+        val rain = notifier.render(
+            WeatherNotification.ForecastChange(
+                city = TestFixtures.paris,
+                highlight = ForecastEvolutionHighlight(
+                    targetDate = LocalDate.of(2026, 10, 1),
+                    variable = ForecastEvolutionVariable.PRECIPITATION,
+                    trend = ForecastEvolutionTrend.DECREASING,
+                    medianDelta = -3.5,
+                    comparedModels = 4,
+                    dominantModels = 3,
+                    previousAgeHours = 25
+                )
+            )
+        )
+        val wind = notifier.render(
+            WeatherNotification.ForecastChange(
+                city = TestFixtures.paris,
+                highlight = ForecastEvolutionHighlight(
+                    targetDate = LocalDate.of(2026, 10, 1),
+                    variable = ForecastEvolutionVariable.WIND,
+                    trend = ForecastEvolutionTrend.DECREASING,
+                    medianDelta = -11.6,
+                    comparedModels = 4,
+                    dominantModels = 4,
+                    previousAgeHours = 25
+                )
+            )
+        )
+
+        assertTrue(rain.text.contains("Pluie prévue −3,5 mm"))
+        assertTrue(rain.bigText.contains("Le scénario pluie s’atténue · −3,5 mm"))
+        assertTrue(wind.text.contains("Vent max −12 km/h"))
+        assertTrue(wind.bigText.contains("Le vent prévu s’atténue · −12 km/h"))
+    }
+
+    @Test
+    fun `a retenir est localise dans toutes les langues supportees`() {
+        val notification = WeatherNotification.ForecastChange(
+            city = TestFixtures.paris,
+            highlight = ForecastEvolutionHighlight(
+                targetDate = LocalDate.of(2026, 10, 1),
+                variable = ForecastEvolutionVariable.WIND,
+                trend = ForecastEvolutionTrend.INCREASING,
+                medianDelta = 9.0,
+                comparedModels = 4,
+                dominantModels = 3,
+                previousAgeHours = 24
+            )
+        )
+        val expectedTitles = mapOf(
+            "fr" to "${TestFixtures.paris.name} · À retenir",
+            "en" to "${TestFixtures.paris.name} · Key point",
+            "de" to "${TestFixtures.paris.name} · Wichtige Punkte",
+            "es" to "${TestFixtures.paris.name} · Puntos clave",
+            "it" to "${TestFixtures.paris.name} · Da ricordare"
+        )
+
+        expectedTitles.forEach { (languageTag, expectedTitle) ->
+            check(persistLocalePreference(context, languageTag))
+            assertEquals(expectedTitle, WeatherNotifier(context).render(notification).title)
+        }
+    }
+
+    @Test
+    fun `revision volatile n affiche pas un delta median trompeur`() {
+        val rendered = WeatherNotifier(context).render(
+            WeatherNotification.ForecastChange(
+                city = TestFixtures.paris,
+                highlight = ForecastEvolutionHighlight(
+                    targetDate = LocalDate.of(2026, 10, 1),
+                    variable = ForecastEvolutionVariable.PRECIPITATION,
+                    trend = ForecastEvolutionTrend.VOLATILE,
+                    medianDelta = 8.7,
+                    comparedModels = 5,
+                    dominantModels = 2,
+                    previousAgeHours = 27
+                )
+            )
+        )
+
+        assertTrue(rendered.text.contains("Pluie prévue · révision incertaine"))
+        assertTrue(rendered.bigText.contains("Pluie prévue · les modèles révisent dans des sens différents"))
+        assertTrue(rendered.bigText.contains("5 modèles comparés · pas de tendance dominante"))
+        assertFalse(rendered.text.contains("8,7"))
+        assertFalse(rendered.bigText.contains("8,7"))
+    }
+}
