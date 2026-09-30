@@ -16,7 +16,7 @@ import java.time.LocalTime
  * @property forecastChangeAlertsEnabled Alerte quand la prévision consensus est
  *           nettement révisée entre deux actualisations (suivi d'évolution local).
  * @property cityIds Villes favorites suivies. Une ville retirée des favoris est
- *           simplement ignorée par le worker.
+ *           purgée de cet ensemble lors de sa suppression.
  */
 data class NotificationSettings(
     val dailySummaryEnabled: Boolean = false,
@@ -32,6 +32,10 @@ data class NotificationSettings(
     /** Vrai si au moins un type de notification est actif. */
     val anyEnabled: Boolean
         get() = dailySummaryEnabled || alertsEnabled
+
+    /** Supprime les références à des villes qui ne sont plus favorites. */
+    fun retainingCities(availableCityIds: Set<String>): NotificationSettings =
+        copy(cityIds = cityIds intersect availableCityIds)
 
     companion object {
         val DEFAULT_DAILY_SUMMARY_TIME: LocalTime = LocalTime.of(7, 0)

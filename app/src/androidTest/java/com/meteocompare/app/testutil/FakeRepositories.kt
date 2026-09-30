@@ -93,6 +93,8 @@ class FakeForecastRepository @Inject constructor() : ForecastRepository {
     private val streams = ConcurrentHashMap<String, MutableStateFlow<ApiResult<CityForecast>>>()
     val clearedCityIds = mutableListOf<String>()
     val refreshRequests = mutableListOf<String>()
+    /** Les workers collectent le stream jusqu'à complétion ; l'UI préfère un StateFlow vivant. */
+    var finiteStreams: Boolean = false
 
     override fun getCityForecastStream(
         city: City,
@@ -100,7 +102,8 @@ class FakeForecastRepository @Inject constructor() : ForecastRepository {
         forecastDays: Int,
         forceRefresh: Boolean,
         maxCacheAgeMs: Long?
-    ): Flow<ApiResult<CityForecast>> = streamFor(city)
+    ): Flow<ApiResult<CityForecast>> =
+        if (finiteStreams) flowOf(streamFor(city).value) else streamFor(city)
 
     override suspend fun refreshCityForecast(
         city: City,
@@ -128,6 +131,7 @@ class FakeForecastRepository @Inject constructor() : ForecastRepository {
         streams.clear()
         clearedCityIds.clear()
         refreshRequests.clear()
+        finiteStreams = false
     }
 
     private fun streamFor(city: City): MutableStateFlow<ApiResult<CityForecast>> =

@@ -2,6 +2,7 @@ package com.meteocompare.app.notification
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -14,11 +15,11 @@ import androidx.core.content.ContextCompat
 import com.meteocompare.app.MainActivity
 import com.meteocompare.app.R
 import com.meteocompare.app.core.locale.applyPersistedLocale
+import com.meteocompare.app.core.locale.evolutionHighlightTitleRes
 import com.meteocompare.app.core.locale.weatherConditionLabelRes
 import com.meteocompare.app.domain.model.ForecastEvolutionTrend
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherNotification
-import com.meteocompare.app.ui.citydetail.evolutionHighlightTitle
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -34,23 +35,33 @@ internal class WeatherNotifier(context: Context) {
 
     private val appContext = context.applicationContext
     private val manager = NotificationManagerCompat.from(appContext)
+    private val platformManager = appContext.getSystemService(NotificationManager::class.java)
 
     /** Faux si l'utilisateur a bloqué les notifications ou refusé la permission (Android 13+). */
     fun canPost(): Boolean = manager.areNotificationsEnabled() && hasPostPermission()
 
-    // La permission POST_NOTIFICATIONS est vérifiée en tête de méthode ;
-    // Lint ne suit pas cette vérification à travers hasPostPermission().
+    /**
+     * Publie [notification] et retourne un résultat explicite. Le worker ne doit
+     * enregistrer la clé de déduplication qu'après [PostResult.POSTED].
+     *
+     * La permission, le réglage global et le canal sont revérifiés ici, juste
+     * avant `notify()`, afin de couvrir un changement système survenu après le
+     * `canPost()` effectué au début du cycle.
+     */
     @SuppressLint("MissingPermission")
-    fun post(notification: WeatherNotification) {
-        if (!hasPostPermission()) return
+    fun post(notification: WeatherNotification): PostResult {
+        if (!hasPostPermission()) return PostResult.BLOCKED_PERMISSION
+        if (!manager.areNotificationsEnabled()) return PostResult.BLOCKED_APP
+
         val res = applyPersistedLocale(appContext)
         createChannels(res)
-
         val content = when (notification) {
             is WeatherNotification.DailySummary -> dailySummary(res, notification)
             is WeatherNotification.ModelDivergence -> divergence(res, notification)
             is WeatherNotification.ForecastChange -> forecastChange(res, notification)
         }
+        if (!isChannelEnabled(content.channelId)) return PostResult.BLOCKED_CHANNEL
+
         val built = NotificationCompat.Builder(appContext, content.channelId)
             .setSmallIcon(R.drawable.ic_stat_meteocompare)
             .setContentTitle(content.title)
@@ -61,6 +72,7 @@ internal class WeatherNotifier(context: Context) {
             .setOnlyAlertOnce(true)
             .build()
         manager.notify(notificationId(notification), built)
+        return PostResult.POSTED
     }
 
     private fun hasPostPermission(): Boolean =
@@ -69,6 +81,12 @@ internal class WeatherNotifier(context: Context) {
                 appContext,
                 Manifest.permission.POST_NOTIFICATIONS
             ) == PackageManager.PERMISSION_GRANTED
+
+    private fun isChannelEnabled(channelId: String): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return true
+        val channel = platformManager.getNotificationChannel(channelId) ?: return false
+        return channel.importance != NotificationManager.IMPORTANCE_NONE
+    }
 
     private fun createChannels(res: Context) {
         manager.createNotificationChannelsCompat(
@@ -162,7 +180,7 @@ internal class WeatherNotifier(context: Context) {
             title = res.getString(R.string.notification_change_title, change.city.name),
             text = res.getString(
                 R.string.notification_change_text,
-                res.getString(evolutionHighlightTitle(highlight)),
+                res.getString(evolutionHighlightTitleRes(highlight)),
                 date,
                 detail
             )
@@ -183,6 +201,13 @@ internal class WeatherNotifier(context: Context) {
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
+
+    internal enum class PostResult {
+        POSTED,
+        BLOCKED_PERMISSION,
+        BLOCKED_APP,
+        BLOCKED_CHANNEL
+    }
 
     private data class Content(val channelId: String, val title: String, val text: String)
 

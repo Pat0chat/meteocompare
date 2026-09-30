@@ -145,10 +145,14 @@ internal class WeatherNotificationWorker(
 
             for (notification in notifications) {
                 if (dedup.alreadyNotified(notification.dedupKey)) continue
-                notifier.post(notification)
-                dedup.markNotified(notification.dedupKey, clock.instant())
-                if (BuildConfig.DEBUG) {
-                    Log.d(LOG_TAG, "Posted ${notification.dedupKey}")
+                val postResult = notifier.post(notification)
+                if (postResult == WeatherNotifier.PostResult.POSTED) {
+                    dedup.markNotified(notification.dedupKey, clock.instant())
+                    if (BuildConfig.DEBUG) {
+                        Log.d(LOG_TAG, "Posted ${notification.dedupKey}")
+                    }
+                } else if (BuildConfig.DEBUG) {
+                    Log.d(LOG_TAG, "Skipped ${notification.dedupKey}: $postResult")
                 }
             }
         }

@@ -56,6 +56,11 @@ internal class NotificationDedupStore(context: Context) {
         }
     }
 
+    /** Utilisé par les tests d'intégration pour isoler chaque pipeline. */
+    internal fun clear() {
+        prefs.edit { remove(ENTRIES_KEY) }
+    }
+
     private fun entries(): Set<String> = prefs.getStringSet(ENTRIES_KEY, null).orEmpty()
 
     private companion object {

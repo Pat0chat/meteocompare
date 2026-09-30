@@ -1,5 +1,6 @@
 package com.meteocompare.app.ui.citylist
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.meteocompare.app.BuildConfig
@@ -26,8 +27,10 @@ import com.meteocompare.app.domain.util.ForecastAggregates
 import com.meteocompare.app.domain.util.WeatherScenarioBuilder
 import com.meteocompare.app.domain.util.forecastPresentationTicks
 import com.meteocompare.app.domain.util.hasForecastPresentationChanged
+import com.meteocompare.app.notification.WeatherNotificationScheduler
 import com.meteocompare.app.ui.components.AppToastEvent
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.Clock
 import java.time.Instant
 import javax.inject.Inject
@@ -70,6 +73,7 @@ sealed interface MarineFeedback {
 @HiltViewModel
 @OptIn(FlowPreview::class, kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class CityListViewModel @Inject constructor(
+    @param:ApplicationContext private val appContext: Context,
     private val cityRepository: CityRepository,
     private val forecastRepository: ForecastRepository,
     private val marineRepository: MarineRepository,
@@ -740,6 +744,32 @@ class CityListViewModel @Inject constructor(
                 _actionFeedback.send(AppToastEvent.error(R.string.toast_city_remove_error))
                 return@launch
             }
+
+            // Une ville supprimée ne doit pas rester suivie silencieusement par
+            // les notifications. La mise à jour atomique évite aussi le cas où
+            // le dernier ID obsolète maintiendrait des workers sans ville réelle.
+            runSuspendCatching {
+                userPreferences.updateNotificationSettings { settings ->
+                    settings.copy(cityIds = settings.cityIds - cityId)
+                }
+            }.onSuccess { notificationSettings ->
+                runCatching {
+                    WeatherNotificationScheduler.reschedule(appContext, notificationSettings)
+                }.onFailure { error ->
+                    android.util.Log.w(
+                        "MeteoCompare/Notif",
+                        "Unable to reschedule notifications after removing city=$cityId",
+                        error
+                    )
+                }
+            }.onFailure { error ->
+                android.util.Log.w(
+                    "MeteoCompare/Notif",
+                    "Unable to remove city=$cityId from notification settings",
+                    error
+                )
+            }
+
             // Nettoyage explicite après la suppression utilisateur. Une émission
             // DataStore vide transitoire ne doit jamais effacer le cache météo.
             runSuspendCatching { forecastRepository.clearCacheForCity(cityId) }

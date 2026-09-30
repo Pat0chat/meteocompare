@@ -129,7 +129,7 @@ class WeatherNotificationSchedulerTest {
     }
 
     @Test
-    fun `alertes - travail periodique avec reseau requis`() {
+    fun `alertes - travail periodique sans contrainte reseau`() {
         val request = slot<PeriodicWorkRequest>()
 
         WeatherNotificationScheduler.apply(
@@ -152,7 +152,8 @@ class WeatherNotificationSchedulerTest {
             TimeUnit.HOURS.toMillis(WeatherNotificationScheduler.ALERTS_INTERVAL_HOURS),
             spec.intervalDuration
         )
-        assertEquals(androidx.work.NetworkType.CONNECTED, spec.constraints.requiredNetworkType)
+        assertEquals(androidx.work.NetworkType.NOT_REQUIRED, spec.constraints.requiredNetworkType)
+        assertEquals(true, spec.constraints.requiresBatteryNotLow())
         assertEquals(
             WeatherNotificationWorker.Kind.ALERTS.name,
             spec.input.getString(WeatherNotificationScheduler.KIND_INPUT_KEY)

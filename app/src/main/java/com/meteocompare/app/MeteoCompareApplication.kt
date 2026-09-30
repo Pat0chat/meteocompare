@@ -91,11 +91,17 @@ class MeteoCompareApplication : Application() {
             // (KEEP) sans décaler une planification valide. Rien n'est planifié
             // tant que l'utilisateur n'a activé aucune notification.
             runCatching {
-                val settings = EntryPointAccessors
+                val entry = EntryPointAccessors
                     .fromApplication(this@MeteoCompareApplication, WeatherNotificationEntryPoint::class.java)
-                    .userPreferencesRepository()
-                    .observeNotificationSettings()
-                    .first()
+                val prefs = entry.userPreferencesRepository()
+                val storedSettings = prefs.observeNotificationSettings().first()
+                val favoriteIds = entry.cityRepository().observeFavorites().first().mapTo(mutableSetOf()) { it.id }
+                val cleanedSettings = storedSettings.retainingCities(favoriteIds)
+                val settings = if (cleanedSettings != storedSettings) {
+                    prefs.updateNotificationSettings { current -> current.retainingCities(favoriteIds) }
+                } else {
+                    storedSettings
+                }
                 WeatherNotificationScheduler.ensureScheduled(this@MeteoCompareApplication, settings)
             }.onFailure { error ->
                 Log.w("MeteoCompare/Notif", "Unable to schedule weather notifications", error)

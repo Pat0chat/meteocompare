@@ -1,5 +1,6 @@
 package com.meteocompare.app.ui.citylist
 
+import android.content.Context
 import androidx.lifecycle.viewModelScope
 import app.cash.turbine.test
 import com.meteocompare.app.core.network.ApiResult
@@ -11,6 +12,7 @@ import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.HourlyForecast
 import com.meteocompare.app.domain.model.MarineForecast
+import com.meteocompare.app.domain.model.NotificationSettings
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
@@ -22,12 +24,17 @@ import com.meteocompare.app.domain.repository.VigilanceRepository
 import com.meteocompare.app.domain.usecase.ConfidenceCalculator
 import com.meteocompare.app.domain.usecase.EqualWeighting
 import com.meteocompare.app.domain.usecase.ForecastEngineContextProvider
+import com.meteocompare.app.notification.WeatherNotificationScheduler
 import com.meteocompare.app.testutil.MutableClock
 import io.mockk.clearMocks
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
+import io.mockk.firstArg
 import io.mockk.mockk
+import io.mockk.mockkObject
+import io.mockk.unmockkObject
+import io.mockk.verify
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
@@ -96,6 +103,8 @@ class CityListViewModelTest {
     private val forecastEngineFlow = MutableStateFlow(ForecastEngine.DEFAULT)
     private val forecastUpdates = MutableSharedFlow<CityForecast>(extraBufferCapacity = 4)
     private val onlineFlow = MutableStateFlow(true)
+    private val notificationSettingsFlow = MutableStateFlow(NotificationSettings())
+    private val appContext: Context = mockk(relaxed = true)
 
     private val cityRepo: CityRepository = mockk(relaxed = true) {
         coEvery { observeFavorites() } returns favoritesFlow
@@ -120,6 +129,11 @@ class CityListViewModelTest {
         // reçu une valeur pour chaque source.
         coEvery { observeRefreshInterval() } returns refreshIntervalFlow
         every { observeForecastEngine() } returns forecastEngineFlow
+        every { observeNotificationSettings() } returns notificationSettingsFlow
+        coEvery { updateNotificationSettings(any()) } answers {
+            val transform = firstArg<(NotificationSettings) -> NotificationSettings>()
+            transform(notificationSettingsFlow.value).also { notificationSettingsFlow.value = it }
+        }
     }
     private val calculator = ConfidenceCalculator(EqualWeighting())
     private val engineContextProvider = ForecastEngineContextProvider(mockk(relaxed = true))
@@ -138,6 +152,7 @@ class CityListViewModelTest {
         computationDispatcher: CoroutineDispatcher = dispatcher,
         engineContextProvider: ForecastEngineContextProvider = this.engineContextProvider
     ): CityListViewModel = CityListViewModel(
+        appContext = appContext,
         cityRepository = cityRepository,
         forecastRepository = forecastRepository,
         marineRepository = marineRepository,
@@ -169,7 +184,10 @@ class CityListViewModelTest {
     @Before
     fun setUp() {
         Dispatchers.setMain(dispatcher)
+        mockkObject(WeatherNotificationScheduler)
+        every { WeatherNotificationScheduler.reschedule(any(), any()) } returns Unit
         favoritesFlow.value = emptyList()
+        notificationSettingsFlow.value = NotificationSettings()
         modelsFlow.value = WeatherModel.MVP_SELECTION
         refreshIntervalFlow.value = RefreshInterval.DEFAULT
         forecastEngineFlow.value = ForecastEngine.DEFAULT
@@ -192,6 +210,7 @@ class CityListViewModelTest {
 
     @After
     fun tearDown() {
+        unmockkObject(WeatherNotificationScheduler)
         Dispatchers.resetMain()
     }
 
@@ -858,6 +877,29 @@ class CityListViewModelTest {
         viewModel.onRemoveCity("1")
         coVerify { cityRepo.removeFavorite("1") }
     }
+
+    @Test
+    fun `onRemoveCity - purge la ville des notifications et annule les workers devenus inutiles`() =
+        runViewModelTest {
+            favoritesFlow.value = listOf(paris)
+            notificationSettingsFlow.value = NotificationSettings(
+                dailySummaryEnabled = true,
+                divergenceAlertsEnabled = true,
+                cityIds = setOf(paris.id)
+            )
+            runCurrent()
+
+            viewModel.onRemoveCity(paris.id)
+            runCurrent()
+
+            assertEquals(emptySet<String>(), notificationSettingsFlow.value.cityIds)
+            verify(exactly = 1) {
+                WeatherNotificationScheduler.reschedule(
+                    appContext,
+                    notificationSettingsFlow.value
+                )
+            }
+        }
 
     @Test
     fun `addCityState - query trop court (1 char) ne déclenche pas de recherche`() =

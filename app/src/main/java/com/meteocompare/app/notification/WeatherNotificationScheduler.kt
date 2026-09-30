@@ -5,7 +5,6 @@ import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
-import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
@@ -29,8 +28,10 @@ import java.util.concurrent.TimeUnit
  *    à l'heure dite, le résumé part du cache si le réseau manque.
  *
  * 2. **Alertes** (divergence, changement de prévision) — un travail
- *    périodique toutes les [ALERTS_INTERVAL_HOURS] heures, avec réseau et
- *    batterie non faible. La fraîcheur réseau suit l'intervalle de
+ *    périodique toutes les [ALERTS_INTERVAL_HOURS] heures, avec batterie non
+ *    faible. Aucune contrainte réseau n'est imposée : le repository peut ainsi
+ *    exploiter un cache valide hors ligne, notamment en mode MANUAL. La fraîcheur
+ *    réseau suit l'intervalle de
  *    rafraîchissement choisi par l'utilisateur (MANUAL = cache seulement).
  *
  * Aucune alarme exacte (permission `SCHEDULE_EXACT_ALARM`) : WorkManager peut
@@ -110,7 +111,6 @@ object WeatherNotificationScheduler {
 
         if (settings.alertsEnabled && hasCities) {
             val constraints = Constraints.Builder()
-                .setRequiredNetworkType(NetworkType.CONNECTED)
                 .setRequiresBatteryNotLow(true)
                 .build()
             val alerts = PeriodicWorkRequestBuilder<WeatherNotificationWorker>(

@@ -131,18 +131,33 @@ fun SettingsScreen(
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         notificationsBlocked = !context.canPostNotifications()
     }
+    var pendingNotificationEnableAction by remember { mutableStateOf<(() -> Unit)?>(null) }
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) { notificationsBlocked = !context.canPostNotifications() }
-    // Android 13+ : la permission n'est demandée qu'au moment où l'utilisateur
-    // active une notification, jamais au lancement de l'application.
+    ) { granted ->
+        notificationsBlocked = !context.canPostNotifications()
+        val pending = pendingNotificationEnableAction
+        pendingNotificationEnableAction = null
+        if (granted) pending?.invoke()
+    }
+    // Android 13+ : une activation n'est persistée qu'après l'accord de la
+    // permission. En cas de refus, le réglage MeteoCompare reste désactivé au
+    // lieu d'afficher un état « activé mais impossible à délivrer ».
     val withNotificationPermission: (Boolean, (Boolean) -> Unit) -> Unit = { enabled, action ->
-        action(enabled)
-        if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
-            PackageManager.PERMISSION_GRANTED
-        ) {
-            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        if (!enabled) {
+            pendingNotificationEnableAction = null
+            action(false)
+        } else {
+            val permissionGranted = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+            if (shouldRequestNotificationPermission(Build.VERSION.SDK_INT, permissionGranted)) {
+                pendingNotificationEnableAction = { action(true) }
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            } else {
+                action(true)
+            }
         }
     }
 
@@ -919,6 +934,9 @@ internal const val TAG_SETTINGS_THEME = "settings_theme_"
 internal const val TAG_SETTINGS_LANGUAGE = "settings_language_"
 internal const val TAG_SETTINGS_REFRESH = "settings_refresh_"
 internal const val TAG_SETTINGS_ENGINE = "settings_engine_"
+
+internal fun shouldRequestNotificationPermission(sdkInt: Int, permissionGranted: Boolean): Boolean =
+    sdkInt >= Build.VERSION_CODES.TIRAMISU && !permissionGranted
 
 /** Vrai si les notifications sont autorisées (permission Android 13+ et réglage système). */
 private fun Context.canPostNotifications(): Boolean {
