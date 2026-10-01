@@ -888,6 +888,7 @@
     <!-- Contenu enrichi des notifications -->
     <string name="notification_daily_temperature_range">Temperatures · min %1$s · max %2$s</string>
     <string name="notification_daily_agreement">Model agreement · %1$d%%</string>
+    <string name="notification_daily_wind">Wind · %1$s km/h</string>
     <string name="notification_day_today">Today</string>
     <string name="notification_day_tomorrow">Tomorrow</string>
     <string name="notification_divergence_agreement">Model agreement · %1$d%%</string>

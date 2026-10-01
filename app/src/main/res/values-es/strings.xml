@@ -875,6 +875,7 @@ datos</string>
     <!-- Contenu enrichi des notifications -->
     <string name="notification_daily_temperature_range">Temperaturas · mín %1$s · máx %2$s</string>
     <string name="notification_daily_agreement">Acuerdo de modelos · %1$d %%</string>
+    <string name="notification_daily_wind">Viento · %1$s km/h</string>
     <string name="notification_day_today">Hoy</string>
     <string name="notification_day_tomorrow">Mañana</string>
     <string name="notification_divergence_agreement">Acuerdo de modelos · %1$d %%</string>

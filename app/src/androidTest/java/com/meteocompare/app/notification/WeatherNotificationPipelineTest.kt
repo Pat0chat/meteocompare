@@ -316,6 +316,7 @@ class WeatherNotificationPipelineTest {
         tempMax = null,
         precipitationProbabilityPercent = null,
         precipitationAmountMm = null,
+        windKmh = null,
         convergencePercent = null
     )
 

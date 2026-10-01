@@ -67,6 +67,7 @@ class WeatherNotificationEvaluator @Inject constructor(
             tempMax = values.tempMax,
             precipitationProbabilityPercent = values.precipitationProbabilityPercent,
             precipitationAmountMm = values.precipitationAmountMm,
+            windKmh = values.windKmh,
             convergencePercent = confidenceCalculator
                 .dayConfidence(forecast, date, engineContext)
                 .convergencePercent

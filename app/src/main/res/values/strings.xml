@@ -878,6 +878,7 @@
     <string name="notification_daily_title_today">%1$s · aujourd’hui</string>
     <string name="notification_daily_title_tomorrow">%1$s · demain</string>
     <string name="notification_daily_temperatures">%1$s / %2$s</string>
+    <string name="notification_temperature_separator" translatable="false">/</string>
     <string name="notification_daily_precipitation">Pluie %1$d %%</string>
     <string name="notification_daily_precipitation_with_amount">Pluie %1$d %% · %2$s mm</string>
     <string name="notification_daily_precipitation_amount">Pluie %1$s mm</string>
@@ -887,6 +888,7 @@
     <!-- Contenu enrichi des notifications -->
     <string name="notification_daily_temperature_range">Températures · min %1$s · max %2$s</string>
     <string name="notification_daily_agreement">Accord des modèles · %1$d %%</string>
+    <string name="notification_daily_wind">Vent · %1$s km/h</string>
     <string name="notification_day_today">Aujourd’hui</string>
     <string name="notification_day_tomorrow">Demain</string>
     <string name="notification_divergence_agreement">Accord des modèles · %1$d %%</string>

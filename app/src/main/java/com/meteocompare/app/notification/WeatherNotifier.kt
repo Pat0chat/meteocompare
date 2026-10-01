@@ -17,6 +17,7 @@ import android.text.style.StyleSpan
 import android.view.View
 import android.widget.RemoteViews
 import androidx.annotation.ColorRes
+import androidx.annotation.DrawableRes
 import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -30,6 +31,7 @@ import com.meteocompare.app.domain.model.ForecastEvolutionTrend
 import com.meteocompare.app.domain.model.ForecastEvolutionVariable
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherNotification
+import com.meteocompare.app.widget.WidgetWeatherIconRenderer
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.abs
@@ -192,6 +194,7 @@ internal class WeatherNotifier(context: Context) {
             summary.tempMax.formatDegrees()
         )
         val precipitation = precipitationText(res, summary, locale)
+        val wind = windText(res, summary)
         val agreement = summary.convergencePercent?.let {
             res.getString(R.string.notification_daily_agreement, it)
         }
@@ -199,8 +202,10 @@ internal class WeatherNotifier(context: Context) {
         val tempMin = summary.tempMin.formatDegrees()
         val tempMax = summary.tempMax.formatDegrees()
         val weatherColor = ContextCompat.getColor(res, weatherTextColorRes(summary.condition))
-        val temperatureColor = ContextCompat.getColor(res, R.color.notification_text_temperature)
+        val tempMinColor = ContextCompat.getColor(res, R.color.notification_text_temperature_min)
+        val tempMaxColor = ContextCompat.getColor(res, R.color.notification_text_temperature)
         val precipitationColor = ContextCompat.getColor(res, R.color.notification_text_precipitation)
+        val windColor = ContextCompat.getColor(res, R.color.notification_text_wind)
         val agreementColor = ContextCompat.getColor(
             res,
             if ((summary.convergencePercent ?: 100) < LOW_CONFIDENCE_PERCENT) {
@@ -213,12 +218,19 @@ internal class WeatherNotifier(context: Context) {
         val compact = joinStyled(
             listOfNotNull(
                 condition?.let { styledText(it, bold = true, color = weatherColor) },
-                styleValues(temperatures, listOf(tempMin, tempMax), temperatureColor),
+                styleTemperatureValues(temperatures, tempMin, tempMax, tempMinColor, tempMaxColor),
                 precipitation?.let {
                     styleMetricLine(
                         raw = it,
                         emphasizedValues = precipitationValues(summary, locale),
                         valueColor = precipitationColor
+                    )
+                },
+                wind?.let {
+                    styleMetricLine(
+                        raw = it,
+                        emphasizedValues = listOf(summary.windKmh.formatWindValue()),
+                        valueColor = windColor
                     )
                 }
             ),
@@ -227,20 +239,29 @@ internal class WeatherNotifier(context: Context) {
         val expanded = joinStyled(
             listOfNotNull(
                 condition?.let { styledText(it, bold = true, color = weatherColor) },
-                styleMetricLine(
+                styleTemperatureValues(
                     raw = res.getString(
                         R.string.notification_daily_temperature_range,
                         tempMin,
                         tempMax
                     ),
-                    emphasizedValues = listOf(tempMin, tempMax),
-                    valueColor = temperatureColor
+                    tempMin = tempMin,
+                    tempMax = tempMax,
+                    tempMinColor = tempMinColor,
+                    tempMaxColor = tempMaxColor
                 ),
                 precipitation?.let {
                     styleMetricLine(
                         raw = it,
                         emphasizedValues = precipitationValues(summary, locale),
                         valueColor = precipitationColor
+                    )
+                },
+                wind?.let {
+                    styleMetricLine(
+                        raw = it,
+                        emphasizedValues = listOf(summary.windKmh.formatWindValue()),
+                        valueColor = windColor
                     )
                 },
                 agreement?.let {
@@ -293,6 +314,13 @@ internal class WeatherNotifier(context: Context) {
             ?.takeIf { it >= MIN_DISPLAYED_PRECIPITATION_MM }
             ?.let { add(String.format(locale, "%.1f", it)) }
     }
+
+    private fun windText(
+        res: Context,
+        summary: WeatherNotification.DailySummary
+    ): String? = summary.windKmh
+        ?.takeIf(Double::isFinite)
+        ?.let { res.getString(R.string.notification_daily_wind, it.roundToInt().toString()) }
 
     private fun divergence(res: Context, divergence: WeatherNotification.ModelDivergence): RenderedContent {
         val day = res.getString(
@@ -468,12 +496,8 @@ internal class WeatherNotifier(context: Context) {
                 ?.takeUnless { it == WeatherCondition.UNKNOWN }
                 ?.let { res.getString(weatherConditionLabelRes(it)) }
                 ?: res.getString(R.string.notification_channel_daily)
-            val temperatures = res.getString(
-                R.string.notification_daily_temperatures,
-                notification.tempMin.formatDegrees(),
-                notification.tempMax.formatDegrees()
-            )
             val precipitation = precipitationText(res, notification, locale)
+            val wind = windText(res, notification)
             val temperatureLine = res.getString(
                 R.string.notification_daily_temperature_range,
                 notification.tempMin.formatDegrees(),
@@ -483,8 +507,10 @@ internal class WeatherNotifier(context: Context) {
                 res.getString(R.string.notification_daily_agreement, it)
             }
             val weatherColor = ContextCompat.getColor(res, weatherTextColorRes(notification.condition))
-            val temperatureColor = ContextCompat.getColor(res, R.color.notification_text_temperature)
+            val tempMinColor = ContextCompat.getColor(res, R.color.notification_text_temperature_min)
+            val tempMaxColor = ContextCompat.getColor(res, R.color.notification_text_temperature)
             val precipitationColor = ContextCompat.getColor(res, R.color.notification_text_precipitation)
+            val windColor = ContextCompat.getColor(res, R.color.notification_text_wind)
             val agreementColor = ContextCompat.getColor(
                 res,
                 if ((notification.convergencePercent ?: 100) < LOW_CONFIDENCE_PERCENT) {
@@ -493,16 +519,61 @@ internal class WeatherNotifier(context: Context) {
                     R.color.notification_text_info
                 }
             )
+            val temperatureRange = TemperatureRange(
+                min = notification.tempMin.formatDegrees(),
+                max = notification.tempMax.formatDegrees(),
+                minColor = tempMinColor,
+                maxColor = tempMaxColor
+            )
             RemotePresentation(
                 compact = listOfNotNull(
-                    RemoteToken(condition, weatherColor),
-                    RemoteToken(temperatures, temperatureColor),
-                    precipitation?.let { RemoteToken(precipitationMetricValue(it), precipitationColor) }
+                    RemoteToken(
+                        text = condition,
+                        color = weatherColor,
+                        icon = RemoteIcon.Condition(notification.condition)
+                    ),
+                    RemoteToken(
+                        text = "",
+                        color = null,
+                        icon = RemoteIcon.Drawable(R.drawable.ic_notification_temperature),
+                        temperatureRange = temperatureRange
+                    ),
+                    precipitation?.let {
+                        RemoteToken(
+                            text = compactPrecipitationMetricValue(it),
+                            color = precipitationColor,
+                            icon = RemoteIcon.Drawable(R.drawable.ic_notification_rain)
+                        )
+                    },
+                    wind?.let {
+                        RemoteToken(
+                            text = metricValue(it),
+                            color = windColor,
+                            icon = RemoteIcon.Drawable(R.drawable.ic_notification_wind)
+                        )
+                    }
                 ),
-                hero = RemoteToken(condition, weatherColor),
+                hero = RemoteToken(
+                    text = condition,
+                    color = weatherColor,
+                    icon = RemoteIcon.Condition(notification.condition)
+                ),
                 rows = listOfNotNull(
-                    temperatureLine.toMetricRow(temperatureColor),
-                    precipitation?.toPrecipitationMetricRow(precipitationColor),
+                    MetricRow(
+                        label = metricLabel(temperatureLine),
+                        value = null,
+                        valueColor = null,
+                        icon = RemoteIcon.Drawable(R.drawable.ic_notification_temperature),
+                        temperatureRange = temperatureRange
+                    ),
+                    precipitation?.toPrecipitationMetricRow(
+                        valueColor = precipitationColor,
+                        icon = RemoteIcon.Drawable(R.drawable.ic_notification_rain)
+                    ),
+                    wind?.toMetricRow(
+                        valueColor = windColor,
+                        icon = RemoteIcon.Drawable(R.drawable.ic_notification_wind)
+                    ),
                     agreementLine?.toMetricRow(agreementColor)
                 ),
                 detail = null
@@ -569,14 +640,15 @@ internal class WeatherNotifier(context: Context) {
                 R.string.notification_change_reference,
                 highlight.previousAgeHours
             )
+            val variableIcon = RemoteIcon.Drawable(variableIconRes(highlight.variable))
             RemotePresentation(
                 compact = listOf(
-                    RemoteToken(variable, null),
+                    RemoteToken(variable, null, icon = variableIcon),
                     RemoteToken(value, valueColor)
                 ),
                 hero = RemoteToken(hero, valueColor),
                 rows = listOf(
-                    MetricRow(variable, value, valueColor),
+                    MetricRow(variable, value, valueColor, icon = variableIcon),
                     MetricRow(consensus, null, null)
                 ),
                 detail = "$longDate\n$reference"
@@ -585,53 +657,109 @@ internal class WeatherNotifier(context: Context) {
     }
 
     private fun bindCompact(remoteViews: RemoteViews, presentation: RemotePresentation) {
-        val ids = listOf(
-            R.id.notification_compact_primary,
-            R.id.notification_compact_secondary,
-            R.id.notification_compact_tertiary
+        val groups = listOf(
+            Triple(R.id.notification_compact_group_1, R.id.notification_compact_primary, R.id.notification_compact_icon_1),
+            Triple(R.id.notification_compact_group_2, R.id.notification_compact_secondary, R.id.notification_compact_icon_2),
+            Triple(R.id.notification_compact_group_3, R.id.notification_compact_tertiary, R.id.notification_compact_icon_3),
+            Triple(R.id.notification_compact_group_4, R.id.notification_compact_quaternary, R.id.notification_compact_icon_4)
         )
-        ids.forEachIndexed { index, id ->
+        groups.forEachIndexed { index, ids ->
             val token = presentation.compact.getOrNull(index)
-            remoteViews.setViewVisibility(id, if (token == null) View.GONE else View.VISIBLE)
-            token?.let {
-                remoteViews.setTextViewText(id, it.text)
-                it.color?.let { color -> remoteViews.setTextColor(id, color) }
+            remoteViews.setViewVisibility(ids.first, if (token == null) View.GONE else View.VISIBLE)
+            if (token == null) return@forEachIndexed
+
+            bindIcon(remoteViews, ids.third, token.icon, compact = true)
+            val isTemperatureRange = index == 1 && token.temperatureRange != null
+            remoteViews.setViewVisibility(ids.second, if (isTemperatureRange) View.GONE else View.VISIBLE)
+            if (!isTemperatureRange) {
+                remoteViews.setTextViewText(ids.second, token.text)
+                token.color?.let { color -> remoteViews.setTextColor(ids.second, color) }
+            }
+            if (index == 1) {
+                bindCompactTemperatureRange(remoteViews, token.temperatureRange)
             }
         }
+        if (presentation.compact.size < 2) {
+            bindCompactTemperatureRange(remoteViews, null)
+        }
+    }
+
+    private fun bindCompactTemperatureRange(
+        remoteViews: RemoteViews,
+        range: TemperatureRange?
+    ) {
         remoteViews.setViewVisibility(
-            R.id.notification_compact_separator_1,
-            if (presentation.compact.size >= 2) View.VISIBLE else View.GONE
+            R.id.notification_compact_temperature_range,
+            if (range == null) View.GONE else View.VISIBLE
         )
-        remoteViews.setViewVisibility(
-            R.id.notification_compact_separator_2,
-            if (presentation.compact.size >= 3) View.VISIBLE else View.GONE
+        if (range == null) return
+        remoteViews.setTextViewText(R.id.notification_compact_temp_min, range.min)
+        remoteViews.setTextViewText(R.id.notification_compact_temp_max, range.max)
+        remoteViews.setTextColor(R.id.notification_compact_temp_min, range.minColor)
+        remoteViews.setTextColor(R.id.notification_compact_temp_max, range.maxColor)
+        remoteViews.setTextColor(
+            R.id.notification_compact_temp_separator,
+            ContextCompat.getColor(appContext, R.color.notification_text_separator)
         )
     }
 
     private fun bindExpanded(remoteViews: RemoteViews, presentation: RemotePresentation) {
         remoteViews.setViewVisibility(
-            R.id.notification_custom_hero,
+            R.id.notification_custom_hero_container,
             if (presentation.hero == null) View.GONE else View.VISIBLE
         )
         presentation.hero?.let { hero ->
             remoteViews.setTextViewText(R.id.notification_custom_hero, hero.text)
             hero.color?.let { remoteViews.setTextColor(R.id.notification_custom_hero, it) }
+            bindIcon(remoteViews, R.id.notification_custom_hero_icon, hero.icon, compact = false)
         }
 
         val rowIds = listOf(
-            Triple(R.id.notification_custom_row_1, R.id.notification_custom_row_1_label, R.id.notification_custom_row_1_value),
-            Triple(R.id.notification_custom_row_2, R.id.notification_custom_row_2_label, R.id.notification_custom_row_2_value),
-            Triple(R.id.notification_custom_row_3, R.id.notification_custom_row_3_label, R.id.notification_custom_row_3_value)
+            RowViewIds(
+                R.id.notification_custom_row_1,
+                R.id.notification_custom_row_1_icon,
+                R.id.notification_custom_row_1_label,
+                R.id.notification_custom_row_1_value
+            ),
+            RowViewIds(
+                R.id.notification_custom_row_2,
+                R.id.notification_custom_row_2_icon,
+                R.id.notification_custom_row_2_label,
+                R.id.notification_custom_row_2_value
+            ),
+            RowViewIds(
+                R.id.notification_custom_row_3,
+                R.id.notification_custom_row_3_icon,
+                R.id.notification_custom_row_3_label,
+                R.id.notification_custom_row_3_value
+            ),
+            RowViewIds(
+                R.id.notification_custom_row_4,
+                R.id.notification_custom_row_4_icon,
+                R.id.notification_custom_row_4_label,
+                R.id.notification_custom_row_4_value
+            )
         )
         rowIds.forEachIndexed { index, ids ->
             val row = presentation.rows.getOrNull(index)
-            remoteViews.setViewVisibility(ids.first, if (row == null) View.GONE else View.VISIBLE)
-            row?.let {
-                remoteViews.setTextViewText(ids.second, it.label)
-                remoteViews.setViewVisibility(ids.third, if (it.value == null) View.GONE else View.VISIBLE)
-                it.value?.let { value -> remoteViews.setTextViewText(ids.third, value) }
-                it.valueColor?.let { color -> remoteViews.setTextColor(ids.third, color) }
+            remoteViews.setViewVisibility(ids.container, if (row == null) View.GONE else View.VISIBLE)
+            if (row == null) return@forEachIndexed
+
+            bindIcon(remoteViews, ids.icon, row.icon, compact = false)
+            remoteViews.setTextViewText(ids.label, row.label)
+
+            val isTemperatureRange = index == 0 && row.temperatureRange != null
+            remoteViews.setViewVisibility(ids.value, if (row.value == null || isTemperatureRange) View.GONE else View.VISIBLE)
+            if (!isTemperatureRange) {
+                row.value?.let { value -> remoteViews.setTextViewText(ids.value, value) }
+                row.valueColor?.let { color -> remoteViews.setTextColor(ids.value, color) }
             }
+            if (index == 0) {
+                bindExpandedTemperatureRange(remoteViews, row.temperatureRange)
+            }
+        }
+        if (presentation.rows.isEmpty()) {
+            bindExpandedTemperatureRange(remoteViews, null)
         }
 
         remoteViews.setViewVisibility(
@@ -641,14 +769,79 @@ internal class WeatherNotifier(context: Context) {
         presentation.detail?.let { remoteViews.setTextViewText(R.id.notification_custom_detail, it) }
     }
 
+    private fun bindExpandedTemperatureRange(
+        remoteViews: RemoteViews,
+        range: TemperatureRange?
+    ) {
+        remoteViews.setViewVisibility(
+            R.id.notification_expanded_temperature_range,
+            if (range == null) View.GONE else View.VISIBLE
+        )
+        if (range == null) return
+        remoteViews.setTextViewText(R.id.notification_expanded_temp_min, range.min)
+        remoteViews.setTextViewText(R.id.notification_expanded_temp_max, range.max)
+        remoteViews.setTextColor(R.id.notification_expanded_temp_min, range.minColor)
+        remoteViews.setTextColor(R.id.notification_expanded_temp_max, range.maxColor)
+        remoteViews.setTextColor(
+            R.id.notification_expanded_temp_separator,
+            ContextCompat.getColor(appContext, R.color.notification_text_separator)
+        )
+    }
+
+    private fun bindIcon(
+        remoteViews: RemoteViews,
+        viewId: Int,
+        icon: RemoteIcon?,
+        compact: Boolean
+    ) {
+        remoteViews.setViewVisibility(viewId, if (icon == null) View.GONE else View.VISIBLE)
+        when (icon) {
+            null -> Unit
+            is RemoteIcon.Drawable -> remoteViews.setImageViewResource(viewId, icon.resId)
+            is RemoteIcon.Condition -> remoteViews.setImageViewBitmap(
+                viewId,
+                WidgetWeatherIconRenderer.render(
+                    condition = icon.condition,
+                    sizePx = dpToPx(if (compact) 18 else 22)
+                )
+            )
+        }
+    }
+
+    private fun dpToPx(dp: Int): Int =
+        (dp * appContext.resources.displayMetrics.density).roundToInt().coerceAtLeast(1)
+
     private data class NativeDecoratedViews(val compact: RemoteViews, val expanded: RemoteViews)
-    private data class RemoteToken(val text: String, val color: Int?)
-    internal data class MetricRow(val label: String, val value: String?, val valueColor: Int?)
+    private data class RemoteToken(
+        val text: String,
+        val color: Int?,
+        val icon: RemoteIcon? = null,
+        val temperatureRange: TemperatureRange? = null
+    )
+    internal data class MetricRow(
+        val label: String,
+        val value: String?,
+        val valueColor: Int?,
+        val icon: RemoteIcon? = null,
+        val temperatureRange: TemperatureRange? = null
+    )
     private data class RemotePresentation(
         val compact: List<RemoteToken>,
         val hero: RemoteToken?,
         val rows: List<MetricRow>,
         val detail: String?
+    )
+    internal data class TemperatureRange(
+        val min: String,
+        val max: String,
+        val minColor: Int,
+        val maxColor: Int
+    )
+    private data class RowViewIds(
+        val container: Int,
+        val icon: Int,
+        val label: Int,
+        val value: Int
     )
 
     /**
@@ -714,18 +907,33 @@ internal class WeatherNotifier(context: Context) {
     }
 }
 
-private fun String.toMetricRow(valueColor: Int): WeatherNotifier.MetricRow =
-    WeatherNotifier.MetricRow(metricLabel(this), metricValue(this), valueColor)
+internal sealed interface RemoteIcon {
+    data class Drawable(@param:DrawableRes val resId: Int) : RemoteIcon
+    data class Condition(val condition: WeatherCondition?) : RemoteIcon
+}
 
-private fun String.toPrecipitationMetricRow(valueColor: Int): WeatherNotifier.MetricRow =
+private fun String.toMetricRow(
+    valueColor: Int,
+    icon: RemoteIcon? = null
+): WeatherNotifier.MetricRow =
+    WeatherNotifier.MetricRow(metricLabel(this), metricValue(this), valueColor, icon = icon)
+
+private fun String.toPrecipitationMetricRow(
+    valueColor: Int,
+    icon: RemoteIcon? = null
+): WeatherNotifier.MetricRow =
     WeatherNotifier.MetricRow(
         substringBefore(' ').trim(),
         precipitationMetricValue(this),
-        valueColor
+        valueColor,
+        icon = icon
     )
 
 private fun precipitationMetricValue(raw: String): String =
     raw.substringAfter(' ', raw).trim()
+
+private fun compactPrecipitationMetricValue(raw: String): String =
+    precipitationMetricValue(raw).substringBefore(" · ").trim()
 
 private fun metricLabel(raw: String): String {
     val separator = raw.indexOf(" · ")
@@ -766,6 +974,33 @@ private fun joinStyled(parts: List<CharSequence>, separator: String): CharSequen
  * langue : le libellé avant le premier séparateur (ou premier espace) est en
  * gras, et les valeurs transmises sont en gras + couleur sémantique.
  */
+private fun styleTemperatureValues(
+    raw: String,
+    tempMin: String,
+    tempMax: String,
+    tempMinColor: Int,
+    tempMaxColor: Int
+): CharSequence = SpannableStringBuilder(raw).apply {
+    val labelEnd = metricLabelEnd(raw)
+    if (labelEnd > 0 && raw.contains(" · ")) {
+        setSpan(StyleSpan(Typeface.BOLD), 0, labelEnd, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+    }
+
+    val minStart = raw.indexOf(tempMin)
+    if (minStart >= 0) {
+        val minEnd = minStart + tempMin.length
+        setSpan(StyleSpan(Typeface.BOLD), minStart, minEnd, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        setSpan(ForegroundColorSpan(tempMinColor), minStart, minEnd, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+
+        val maxStart = raw.indexOf(tempMax, minEnd)
+        if (maxStart >= 0) {
+            val maxEnd = maxStart + tempMax.length
+            setSpan(StyleSpan(Typeface.BOLD), maxStart, maxEnd, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            setSpan(ForegroundColorSpan(tempMaxColor), maxStart, maxEnd, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+    }
+}
+
 private fun styleMetricLine(
     raw: String,
     emphasizedValues: List<String>,
@@ -901,6 +1136,9 @@ private inline fun SpannableStringBuilder.applyToOccurrences(
 
 private fun Double?.formatDegrees(): String = this?.let { "${it.roundToInt()}°" } ?: "–"
 
+private fun Double?.formatWindValue(): String =
+    this?.takeIf(Double::isFinite)?.roundToInt()?.toString() ?: "–"
+
 private fun formatSignedDelta(
     value: Double,
     variable: ForecastEvolutionVariable,
@@ -925,6 +1163,13 @@ private fun variableLabelRes(variable: ForecastEvolutionVariable): Int = when (v
     ForecastEvolutionVariable.TEMPERATURE -> R.string.notification_change_variable_temperature
     ForecastEvolutionVariable.PRECIPITATION -> R.string.notification_change_variable_precipitation
     ForecastEvolutionVariable.WIND -> R.string.notification_change_variable_wind
+}
+
+@DrawableRes
+private fun variableIconRes(variable: ForecastEvolutionVariable): Int = when (variable) {
+    ForecastEvolutionVariable.TEMPERATURE -> R.drawable.ic_notification_temperature
+    ForecastEvolutionVariable.PRECIPITATION -> R.drawable.ic_notification_rain
+    ForecastEvolutionVariable.WIND -> R.drawable.ic_notification_wind
 }
 
 @ColorRes

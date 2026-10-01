@@ -15,17 +15,19 @@
     <color name="notification_accent_low_confidence">#C62828</color>
     <color name="notification_accent_temperature">#C62828</color>
     <color name="notification_accent_precipitation">#1565C0</color>
-    <color name="notification_accent_wind">#D84315</color>
+    <color name="notification_accent_wind">#D7D2DF</color>
 
     <!--
-      Couleurs réservées aux courts spans du texte enrichi. Elles sont plus
-      sombres que les accents d'icône pour garder un contraste lisible sur les
-      surfaces claires des notifications système.
+      Couleurs de contenu pour les RemoteViews de notification. Elles reprennent
+      les accents sémantiques des variables de l'application, avec un contraste
+      adapté aux surfaces claires du système.
     -->
     <color name="notification_text_weather">#7A4A00</color>
     <color name="notification_text_temperature">#B3261E</color>
-    <color name="notification_text_precipitation">#0B57D0</color>
-    <color name="notification_text_wind">#9A3412</color>
+    <color name="notification_text_temperature_min">#1565C0</color>
+    <color name="notification_text_precipitation">#1565C0</color>
+    <color name="notification_text_wind">#D7D2DF</color>
     <color name="notification_text_low_confidence">#B3261E</color>
     <color name="notification_text_info">#075985</color>
+    <color name="notification_text_separator">#FF000000</color>
 </resources>

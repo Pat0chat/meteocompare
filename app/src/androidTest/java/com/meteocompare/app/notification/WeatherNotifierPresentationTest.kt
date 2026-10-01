@@ -7,6 +7,7 @@ import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
 import android.view.View
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.test.core.app.ApplicationProvider
@@ -25,6 +26,7 @@ import java.util.Locale
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -66,6 +68,7 @@ class WeatherNotifierPresentationTest {
                 tempMax = 18.1,
                 precipitationProbabilityPercent = 35,
                 precipitationAmountMm = 1.4,
+                windKmh = 22.4,
                 convergencePercent = 82
             )
         )
@@ -74,22 +77,29 @@ class WeatherNotifierPresentationTest {
         assertTrue(rendered.text.contains("Ciel clair"))
         assertTrue(rendered.text.contains("9° / 18°"))
         assertTrue(rendered.text.contains("Pluie 35 %"))
+        assertTrue(rendered.text.contains("Vent · 22 km/h"))
 
         val lines = rendered.bigText.toString().lines()
-        assertEquals(4, lines.size)
+        assertEquals(5, lines.size)
         assertEquals("Ciel clair", lines[0])
         assertEquals("Températures · min 9° · max 18°", lines[1])
         assertEquals("Pluie 35 % · 1,4 mm", lines[2])
-        assertEquals("Accord des modèles · 82 %", lines[3])
+        assertEquals("Vent · 22 km/h", lines[3])
+        assertEquals("Accord des modèles · 82 %", lines[4])
 
         assertStyle(rendered.bigText, "Ciel clair", Typeface.BOLD)
         assertColor(rendered.bigText, "Ciel clair")
         assertStyle(rendered.bigText, "Températures", Typeface.BOLD)
         assertStyle(rendered.bigText, "9°", Typeface.BOLD)
         assertColor(rendered.bigText, "9°")
+        assertStyle(rendered.bigText, "18°", Typeface.BOLD)
+        assertColor(rendered.bigText, "18°")
         assertStyle(rendered.bigText, "Pluie", Typeface.BOLD)
         assertStyle(rendered.bigText, "35", Typeface.BOLD)
         assertColor(rendered.bigText, "35")
+        assertStyle(rendered.bigText, "Vent", Typeface.BOLD)
+        assertStyle(rendered.bigText, "22", Typeface.BOLD)
+        assertColor(rendered.bigText, "22")
         assertStyle(rendered.bigText, "Accord des modèles", Typeface.BOLD)
         assertStyle(rendered.bigText, "82", Typeface.BOLD)
         assertColor(rendered.bigText, "82")
@@ -276,6 +286,7 @@ class WeatherNotifierPresentationTest {
             tempMax = 18.1,
             precipitationProbabilityPercent = 35,
             precipitationAmountMm = 1.4,
+            windKmh = 22.4,
             convergencePercent = 82
         )
         val built = WeatherNotifier(context).buildForTest(notification)
@@ -284,31 +295,74 @@ class WeatherNotifierPresentationTest {
 
         val compactTitle = compact.findViewById<TextView>(R.id.notification_custom_title)
         val compactCondition = compact.findViewById<TextView>(R.id.notification_compact_primary)
-        val compactTemperature = compact.findViewById<TextView>(R.id.notification_compact_secondary)
+        val compactMin = compact.findViewById<TextView>(R.id.notification_compact_temp_min)
+        val compactSeparator = compact.findViewById<TextView>(R.id.notification_compact_temp_separator)
+        val compactMax = compact.findViewById<TextView>(R.id.notification_compact_temp_max)
+        val compactWind = compact.findViewById<TextView>(R.id.notification_compact_quaternary)
         assertTrue(compactTitle.typeface.isBold)
         assertTrue(compactCondition.typeface.isBold)
-        assertTrue(compactTemperature.typeface.isBold)
+        assertEquals("9°", compactMin.text.toString())
+        assertEquals("18°", compactMax.text.toString())
+        assertEquals("/", compactSeparator.text.toString())
+        assertEquals("22 km/h", compactWind.text.toString())
+        assertEquals(
+            ContextCompat.getColor(context, R.color.notification_text_temperature_min),
+            compactMin.currentTextColor
+        )
         assertEquals(
             ContextCompat.getColor(context, R.color.notification_text_temperature),
-            compactTemperature.currentTextColor
+            compactMax.currentTextColor
         )
+        assertEquals(
+            ContextCompat.getColor(context, R.color.notification_text_separator),
+            compactSeparator.currentTextColor
+        )
+        assertEquals(
+            ContextCompat.getColor(context, R.color.notification_text_wind),
+            compactWind.currentTextColor
+        )
+        assertNotNull(compact.findViewById<ImageView>(R.id.notification_compact_icon_1).drawable)
+        assertNotNull(compact.findViewById<ImageView>(R.id.notification_compact_icon_2).drawable)
+        assertNotNull(compact.findViewById<ImageView>(R.id.notification_compact_icon_3).drawable)
+        assertNotNull(compact.findViewById<ImageView>(R.id.notification_compact_icon_4).drawable)
 
         val hero = expanded.findViewById<TextView>(R.id.notification_custom_hero)
-        val tempValue = expanded.findViewById<TextView>(R.id.notification_custom_row_1_value)
+        val expandedMin = expanded.findViewById<TextView>(R.id.notification_expanded_temp_min)
+        val expandedSeparator = expanded.findViewById<TextView>(R.id.notification_expanded_temp_separator)
+        val expandedMax = expanded.findViewById<TextView>(R.id.notification_expanded_temp_max)
         val rainValue = expanded.findViewById<TextView>(R.id.notification_custom_row_2_value)
-        val agreementValue = expanded.findViewById<TextView>(R.id.notification_custom_row_3_value)
+        val windValue = expanded.findViewById<TextView>(R.id.notification_custom_row_3_value)
+        val agreementValue = expanded.findViewById<TextView>(R.id.notification_custom_row_4_value)
         assertEquals("Ciel clair", hero.text.toString())
         assertTrue(hero.typeface.isBold)
-        assertTrue(tempValue.typeface.isBold)
+        assertEquals("9°", expandedMin.text.toString())
+        assertEquals("18°", expandedMax.text.toString())
+        assertEquals(
+            ContextCompat.getColor(context, R.color.notification_text_temperature_min),
+            expandedMin.currentTextColor
+        )
         assertEquals(
             ContextCompat.getColor(context, R.color.notification_text_temperature),
-            tempValue.currentTextColor
+            expandedMax.currentTextColor
+        )
+        assertEquals(
+            ContextCompat.getColor(context, R.color.notification_text_separator),
+            expandedSeparator.currentTextColor
         )
         assertEquals(
             ContextCompat.getColor(context, R.color.notification_text_precipitation),
             rainValue.currentTextColor
         )
+        assertEquals("22 km/h", windValue.text.toString())
+        assertEquals(
+            ContextCompat.getColor(context, R.color.notification_text_wind),
+            windValue.currentTextColor
+        )
         assertEquals(View.VISIBLE, agreementValue.visibility)
+        assertNotNull(expanded.findViewById<ImageView>(R.id.notification_custom_hero_icon).drawable)
+        assertNotNull(expanded.findViewById<ImageView>(R.id.notification_custom_row_1_icon).drawable)
+        assertNotNull(expanded.findViewById<ImageView>(R.id.notification_custom_row_2_icon).drawable)
+        assertNotNull(expanded.findViewById<ImageView>(R.id.notification_custom_row_3_icon).drawable)
     }
 
     @Test

@@ -21,45 +21,139 @@
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
-        <TextView
-            android:id="@+id/notification_compact_primary"
-            style="@style/TextAppearance.Compat.Notification"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:id="@+id/notification_compact_group_1"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:textStyle="bold" />
+            android:layout_weight="1"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
-        <TextView
-            android:id="@+id/notification_compact_separator_1"
-            style="@style/TextAppearance.Compat.Notification"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text=" · " />
+            <ImageView
+                android:id="@+id/notification_compact_icon_1"
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:layout_marginEnd="3dp"
+                android:contentDescription="@null" />
 
-        <TextView
-            android:id="@+id/notification_compact_secondary"
-            style="@style/TextAppearance.Compat.Notification"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:textStyle="bold" />
+            <TextView
+                android:id="@+id/notification_compact_primary"
+                style="@style/TextAppearance.Compat.Notification"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textStyle="bold" />
+        </LinearLayout>
 
-        <TextView
-            android:id="@+id/notification_compact_separator_2"
-            style="@style/TextAppearance.Compat.Notification"
+        <LinearLayout
+            android:id="@+id/notification_compact_group_2"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text=" · " />
+            android:layout_marginStart="7dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
-        <TextView
-            android:id="@+id/notification_compact_tertiary"
-            style="@style/TextAppearance.Compat.Notification"
+            <ImageView
+                android:id="@+id/notification_compact_icon_2"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_marginEnd="2dp"
+                android:contentDescription="@null" />
+
+            <TextView
+                android:id="@+id/notification_compact_secondary"
+                style="@style/TextAppearance.Compat.Notification"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:maxLines="1"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:id="@+id/notification_compact_temperature_range"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/notification_compact_temp_min"
+                    style="@style/TextAppearance.Compat.Notification"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:maxLines="1"
+                    android:textColor="@color/notification_text_temperature_min"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/notification_compact_temp_separator"
+                    style="@style/TextAppearance.Compat.Notification"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingStart="2dp"
+                    android:paddingEnd="2dp"
+                    android:text="@string/notification_temperature_separator"
+                    android:textColor="@color/notification_text_separator" />
+
+                <TextView
+                    android:id="@+id/notification_compact_temp_max"
+                    style="@style/TextAppearance.Compat.Notification"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:maxLines="1"
+                    android:textColor="@color/notification_text_temperature"
+                    android:textStyle="bold" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/notification_compact_group_3"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:textStyle="bold" />
+            android:layout_marginStart="7dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:id="@+id/notification_compact_icon_3"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_marginEnd="2dp"
+                android:contentDescription="@null" />
+
+            <TextView
+                android:id="@+id/notification_compact_tertiary"
+                style="@style/TextAppearance.Compat.Notification"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:maxLines="1"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/notification_compact_group_4"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="7dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:id="@+id/notification_compact_icon_4"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_marginEnd="2dp"
+                android:contentDescription="@null" />
+
+            <TextView
+                android:id="@+id/notification_compact_quaternary"
+                style="@style/TextAppearance.Compat.Notification"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:maxLines="1"
+                android:textStyle="bold" />
+        </LinearLayout>
     </LinearLayout>
 </LinearLayout>

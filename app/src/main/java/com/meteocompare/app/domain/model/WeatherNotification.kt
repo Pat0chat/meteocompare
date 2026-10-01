@@ -29,6 +29,7 @@ sealed interface WeatherNotification {
         val tempMax: Double?,
         val precipitationProbabilityPercent: Int?,
         val precipitationAmountMm: Double?,
+        val windKmh: Double?,
         val convergencePercent: Int?
     ) : WeatherNotification {
         override val dedupKey: String get() = "daily|${city.id}|$date"

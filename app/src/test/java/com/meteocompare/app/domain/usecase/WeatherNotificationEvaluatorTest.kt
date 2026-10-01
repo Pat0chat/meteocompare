@@ -69,6 +69,7 @@ class WeatherNotificationEvaluatorTest {
         assertTrue(summary.isToday)
         assertEquals(22.0, summary.tempMax!!, 0.01)
         assertEquals(12.0, summary.tempMin!!, 0.01)
+        assertEquals(10.0, summary.windKmh!!, 0.01)
         assertEquals(WeatherCondition.CLEAR, summary.condition)
         assertTrue((summary.convergencePercent ?: 0) >= 80)
         assertEquals("daily|paris|$today", summary.dedupKey)
