@@ -1,1 +1,1 @@
-Compare 19 weather models, 4 forecast engines and coastal conditions.
+Compare 21 weather models, 10-day forecasts, local alerts and detailed charts.

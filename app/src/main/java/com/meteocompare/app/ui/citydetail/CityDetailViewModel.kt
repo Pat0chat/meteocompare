@@ -19,6 +19,7 @@ import com.meteocompare.app.domain.model.CityDetailContentTab
 import com.meteocompare.app.domain.model.CityDetailSection
 import com.meteocompare.app.domain.model.CityDetailViewMode
 import com.meteocompare.app.domain.model.CityForecast
+import com.meteocompare.app.domain.model.ForecastDisplayHorizon
 import com.meteocompare.app.domain.model.DayNormals
 import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.model.ModelBias
@@ -497,7 +498,7 @@ class CityDetailViewModel @Inject constructor(
                         forecastRepository.getCityForecastStream(
                             city = city,
                             models = models,
-                            forecastDays = 7,
+                            forecastDays = ForecastDisplayHorizon.DETAIL_REQUEST_DAYS,
                             maxCacheAgeMs = maxCacheAgeMs
                         ).map { result -> Triple(generation, models.toSet(), result) }
                     }
@@ -562,7 +563,7 @@ class CityDetailViewModel @Inject constructor(
                 forecastRepository.getCityForecastStream(
                     city = city,
                     models = models,
-                    forecastDays = 7,
+                    forecastDays = ForecastDisplayHorizon.DETAIL_REQUEST_DAYS,
                     maxCacheAgeMs = maxCacheAgeMs
                 ).collect { result ->
                     applyResult(
@@ -736,7 +737,7 @@ class CityDetailViewModel @Inject constructor(
                 val result = forecastRepository.refreshCityForecast(
                     city = city,
                     models = models,
-                    forecastDays = 7
+                    forecastDays = ForecastDisplayHorizon.DETAIL_REQUEST_DAYS
                 )
                 // Un refresh réseau réussi est archivé localement par ForecastRepositoryImpl.
                 // La comparaison relit ensuite ces snapshots sans aucun appel réseau

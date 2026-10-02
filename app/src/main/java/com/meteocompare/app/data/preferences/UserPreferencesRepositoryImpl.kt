@@ -2,8 +2,12 @@ package com.meteocompare.app.data.preferences
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.datastore.preferences.core.MutablePreferences
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -17,12 +21,14 @@ import com.meteocompare.app.domain.model.CityDetailSection
 import com.meteocompare.app.domain.model.CityDetailViewMode
 import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.model.LanguagePreference
+import com.meteocompare.app.domain.model.NotificationSettings
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.ThemePreference
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.IOException
+import java.time.LocalTime
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineDispatcher
@@ -46,6 +52,12 @@ private val CITY_DETAIL_VIEW_MODES_KEY =
     stringSetPreferencesKey("city_detail_view_modes")
 private val CITY_DETAIL_CONTENT_TABS_KEY =
     stringSetPreferencesKey("city_detail_content_tabs")
+private val NOTIFICATION_DAILY_SUMMARY_KEY = booleanPreferencesKey("notification_daily_summary")
+private val NOTIFICATION_DAILY_MINUTE_KEY = intPreferencesKey("notification_daily_summary_minute_of_day")
+private val NOTIFICATION_DIVERGENCE_KEY = booleanPreferencesKey("notification_divergence")
+private val NOTIFICATION_FORECAST_CHANGE_KEY = booleanPreferencesKey("notification_forecast_change")
+private val NOTIFICATION_CITY_IDS_KEY = stringSetPreferencesKey("notification_city_ids")
+private const val MINUTES_PER_DAY = 24 * 60
 
 @Singleton
 class UserPreferencesRepositoryImpl @Inject constructor(
@@ -217,6 +229,46 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         cityId: String,
         tab: CityDetailContentTab
     ) = setCityChoice(cityId, CITY_DETAIL_CONTENT_TABS_KEY, tab.name)
+
+    override fun observeNotificationSettings(): Flow<NotificationSettings> =
+        safePreferences.map(::readNotificationSettings).distinctUntilChanged()
+
+    override suspend fun updateNotificationSettings(
+        transform: (NotificationSettings) -> NotificationSettings
+    ): NotificationSettings = withContext(ioDispatcher) {
+        var updated = NotificationSettings()
+        context.preferencesDataStore.edit { prefs ->
+            updated = transform(readNotificationSettings(prefs))
+            writeNotificationSettings(prefs, updated)
+        }
+        updated
+    }
+
+    private fun readNotificationSettings(prefs: Preferences): NotificationSettings {
+        val defaults = NotificationSettings()
+        val minuteOfDay = prefs[NOTIFICATION_DAILY_MINUTE_KEY]
+            ?.takeIf { it in 0 until MINUTES_PER_DAY }
+        return NotificationSettings(
+            dailySummaryEnabled = prefs[NOTIFICATION_DAILY_SUMMARY_KEY] ?: defaults.dailySummaryEnabled,
+            dailySummaryTime = minuteOfDay
+                ?.let { LocalTime.of(it / 60, it % 60) }
+                ?: defaults.dailySummaryTime,
+            divergenceAlertsEnabled = prefs[NOTIFICATION_DIVERGENCE_KEY]
+                ?: defaults.divergenceAlertsEnabled,
+            forecastChangeAlertsEnabled = prefs[NOTIFICATION_FORECAST_CHANGE_KEY]
+                ?: defaults.forecastChangeAlertsEnabled,
+            cityIds = prefs[NOTIFICATION_CITY_IDS_KEY] ?: defaults.cityIds
+        )
+    }
+
+    private fun writeNotificationSettings(prefs: MutablePreferences, settings: NotificationSettings) {
+        prefs[NOTIFICATION_DAILY_SUMMARY_KEY] = settings.dailySummaryEnabled
+        prefs[NOTIFICATION_DAILY_MINUTE_KEY] =
+            settings.dailySummaryTime.hour * 60 + settings.dailySummaryTime.minute
+        prefs[NOTIFICATION_DIVERGENCE_KEY] = settings.divergenceAlertsEnabled
+        prefs[NOTIFICATION_FORECAST_CHANGE_KEY] = settings.forecastChangeAlertsEnabled
+        prefs[NOTIFICATION_CITY_IDS_KEY] = settings.cityIds
+    }
 
     private fun <T> observeCityChoice(
         cityId: String,

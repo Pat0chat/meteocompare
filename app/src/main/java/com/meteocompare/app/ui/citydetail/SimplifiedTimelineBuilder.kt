@@ -1,6 +1,7 @@
 package com.meteocompare.app.ui.citydetail
 
 import com.meteocompare.app.domain.model.CityForecast
+import com.meteocompare.app.domain.model.ForecastDisplayHorizon
 import com.meteocompare.app.domain.model.ForecastEngineContext
 import com.meteocompare.app.domain.model.ForecastEngineVariable
 import com.meteocompare.app.domain.model.ForecastSeries
@@ -148,7 +149,8 @@ internal fun buildSimplifiedTimeline(
     mode: DisplayMode,
     now: Instant = Instant.now(),
     engineContext: ForecastEngineContext = ForecastEngineContext.DEFAULT,
-    hourlyHorizonHours: Int = DEFAULT_HOURLY_TIMELINE_HOURS
+    hourlyHorizonHours: Int = DEFAULT_HOURLY_TIMELINE_HOURS,
+    dailyHorizonDays: Int = DEFAULT_DAILY_TIMELINE_DAYS
 ): List<SimplifiedTimelinePoint> = when (mode) {
     DisplayMode.HOURLY -> buildHourlyTimeline(
         forecast = forecast,
@@ -156,7 +158,12 @@ internal fun buildSimplifiedTimeline(
         engineContext = engineContext,
         horizonHours = hourlyHorizonHours
     )
-    DisplayMode.DAILY -> buildDailyTimeline(forecast, now, engineContext)
+    DisplayMode.DAILY -> buildDailyTimeline(
+        forecast = forecast,
+        now = now,
+        engineContext = engineContext,
+        horizonDays = dailyHorizonDays
+    )
 }
 
 private fun buildHourlyTimeline(
@@ -198,11 +205,13 @@ private fun buildHourlyTimeline(
 private fun buildDailyTimeline(
     forecast: CityForecast,
     now: Instant,
-    engineContext: ForecastEngineContext
+    engineContext: ForecastEngineContext,
+    horizonDays: Int
 ): List<SimplifiedTimelinePoint> {
     val zone = resolveCityZone(forecast.city.timezone)
     val today = now.atZone(zone).toLocalDate()
     val calibrationBaseDate = forecast.fetchedAt?.atZone(zone)?.toLocalDate()
+    val safeHorizonDays = horizonDays.coerceIn(1, MAX_DAILY_TIMELINE_DAYS)
     val indexed = forecast.seriesByModel.map { (model, series) -> indexDailySnapshots(model, series, zone) }
     val dates = indexed
         .flatMap { it.keys }
@@ -211,7 +220,7 @@ private fun buildDailyTimeline(
         // Un cache ancien reste accessible dans les tableaux, mais ne doit pas
         // être présenté comme les « prochains jours » dans la synthèse.
         .filterNot { it.isBefore(today) }
-        .take(MAX_DAILY_POINTS)
+        .take(safeHorizonDays)
 
     return dates.mapNotNull { date ->
         val snapshots = indexed.mapNotNull { it[date] }
@@ -583,11 +592,12 @@ private fun circularMeanDegrees(values: List<Int>): Int? {
 }
 
 private const val DEFAULT_HOURLY_TIMELINE_HOURS = 24
-private const val MAX_GRAPHIC_TIMELINE_HOURS = 24 * 7
+private const val DEFAULT_DAILY_TIMELINE_DAYS = 7
+private const val MAX_GRAPHIC_TIMELINE_HOURS = ForecastDisplayHorizon.GRAPHIC_HOURS
 
 /**
  * Sélectionne une grille temporelle prévisible. En mode horaire, une carte est
- * affichée pour chaque heure de la fenêtre de 24 h à partir de la première
+ * affichée pour chaque heure de la fenêtre demandée à partir de la première
  * échéance disponible. Les événements ne déplacent pas les cartes : ils sont
  * portés par la réglette dédiée dans [SimplifiedTimelineCard].
  */
@@ -599,14 +609,20 @@ internal fun selectRegularTimelinePoints(
     if (maxPoints <= 0 || points.isEmpty()) return emptyList()
     val ordered = points.sortedBy(::timelineSortKey)
     if (ordered.first().instant == null) {
-        return ordered.take(minOf(maxPoints, MAX_DAILY_TIMELINE_DISPLAY_POINTS))
+        return ordered.take(minOf(maxPoints, MAX_DAILY_TIMELINE_DAYS))
     }
 
     val hourly = ordered.filter { it.instant != null }
     val firstInstant = hourly.firstOrNull()?.instant ?: return ordered.take(maxPoints)
+    val lastInstant = hourly.lastOrNull()?.instant ?: firstInstant
+    val stepSeconds = stepHours * 3_600L
+    val availableSlots = (((lastInstant.epochSecond - firstInstant.epochSecond) / stepSeconds) + 1L)
+        .coerceAtLeast(1L)
+        .coerceAtMost(maxPoints.toLong())
+        .toInt()
     val byInstant = hourly.associateBy { requireNotNull(it.instant) }
-    return List(maxPoints) { slot ->
-        val target = firstInstant.plusSeconds(slot * stepHours * 3_600L)
+    return List(availableSlots) { slot ->
+        val target = firstInstant.plusSeconds(slot * stepSeconds)
         byInstant[target] ?: SimplifiedTimelinePoint(instant = target)
     }
 }
@@ -632,7 +648,7 @@ private fun timelineSortKey(point: SimplifiedTimelinePoint): Long = when {
     else -> Long.MAX_VALUE
 }
 
-/** Chronologie principale : 24 heures glissantes, avec repli sur 7 jours. */
+/** Chronologie principale : 24 heures, avec repli sur 10 jours quotidiens. */
 internal data class OverviewTimeline(
     val mode: DisplayMode,
     val analysisPoints: List<SimplifiedTimelinePoint>,
@@ -662,9 +678,8 @@ internal fun buildOverviewTimeline(
     }
 }
 
-private const val MAX_TIMELINE_POINTS = 24
-private const val MAX_DAILY_POINTS = 7
-private const val MAX_DAILY_TIMELINE_DISPLAY_POINTS = 8
+private const val MAX_TIMELINE_POINTS = ForecastDisplayHorizon.HOURLY_HOURS
+private const val MAX_DAILY_TIMELINE_DAYS = ForecastDisplayHorizon.DAYS
 private const val HOURLY_RAIN_THRESHOLD_MM = PrecipitationThresholds.HOURLY_OCCURRENCE_MM
 private const val DAILY_RAIN_THRESHOLD_MM = PrecipitationThresholds.DAILY_OCCURRENCE_MM
 private const val MILLIS_PER_DAY = 86_400_000L

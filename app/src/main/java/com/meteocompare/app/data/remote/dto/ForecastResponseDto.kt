@@ -9,11 +9,15 @@ import kotlinx.serialization.Serializable
  * En production, elle est reconstruite depuis la réponse batched par
  * `BatchedForecastSplitter`, puis sérialisée telle quelle dans le cache Room.
  * Elle reste aussi compatible avec une réponse Open-Meteo mono-modèle non suffixée.
+ *
+ * `latitude`/`longitude` recopient la maille renvoyée par la réponse batched,
+ * qui peut être absente (voir [BatchedForecastResponseDto]). Les rendre
+ * nullables reste compatible avec les entrées de cache déjà écrites.
  */
 @Serializable
 data class ForecastResponseDto(
-    val latitude: Double,
-    val longitude: Double,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
     val timezone: String,
     val hourly: HourlyDto? = null,
     val daily: DailyDto? = null

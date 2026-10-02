@@ -98,6 +98,7 @@ import com.meteocompare.app.domain.model.ConfidenceScore
 import com.meteocompare.app.domain.model.DailyForecast
 import com.meteocompare.app.domain.model.DayConfidence
 import com.meteocompare.app.domain.model.DayNormals
+import com.meteocompare.app.domain.model.ForecastDisplayHorizon
 import com.meteocompare.app.domain.model.ForecastEngineContext
 import com.meteocompare.app.domain.model.HourlyConfidenceBand
 import com.meteocompare.app.domain.model.HourlyForecast
@@ -147,16 +148,12 @@ fun CityDetailScreen(
     showBackButton: Boolean = true,
     viewModel: CityDetailViewModel = hiltViewModel()
 ) {
+    // Seuls les états qui pilotent réellement le scaffold sont observés ici.
+    // Les états de sections sont collectés plus bas, dans
+    // CityDetailLoadedStateBridge, afin qu'une évolution marine/biais/etc. ne
+    // recompose pas l'AppBar ni le conteneur Loading/Error.
     val state by viewModel.state.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
-    val isOnline by viewModel.isOnline.collectAsStateWithLifecycle()
-    val biasState by viewModel.biasState.collectAsStateWithLifecycle()
-    val evolutionState by viewModel.evolutionState.collectAsStateWithLifecycle()
-    val marineState by viewModel.marineState.collectAsStateWithLifecycle()
-    val vigilanceState by viewModel.vigilanceState.collectAsStateWithLifecycle()
-    val collapsedSections by viewModel.collapsedSections.collectAsStateWithLifecycle()
-    val detailViewMode by viewModel.detailViewMode.collectAsStateWithLifecycle()
-    val detailContentTab by viewModel.detailContentTab.collectAsStateWithLifecycle()
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         viewModel.refreshIfStale()
@@ -178,37 +175,74 @@ fun CityDetailScreen(
                 )
                 RefreshFeedback.SettingsSaveError ->
                     AppToastEvent.error(R.string.toast_settings_save_error)
-                RefreshFeedback.BiasHistoryQueued ->
-                    AppToastEvent.info(R.string.settings_bias_refresh_queued)
-                RefreshFeedback.BiasHistoryError ->
-                    AppToastEvent.error(R.string.toast_action_error)
             }
         }
     }
     AppToastEffect(refreshToasts)
 
-    CityDetailContent(
+    CityDetailScaffold(
         state = state,
         isRefreshing = isRefreshing,
+        onBack = onBack,
+        onRefresh = viewModel::refresh,
+        onEngineComparisonClick = onEngineComparisonClick,
+        onGraphicViewClick = onGraphicViewClick,
+        showBackButton = showBackButton
+    ) { loaded, padding ->
+        CityDetailLoadedStateBridge(
+            loaded = loaded,
+            padding = padding,
+            viewModel = viewModel,
+            onConfidenceClick = onConfidenceClick
+        )
+    }
+}
+
+@Composable
+private fun CityDetailLoadedStateBridge(
+    loaded: CityDetailUiState.Loaded,
+    padding: PaddingValues,
+    viewModel: CityDetailViewModel,
+    onConfidenceClick: (isoDate: String) -> Unit
+) {
+    val isOnline by viewModel.isOnline.collectAsStateWithLifecycle()
+    val biasState by viewModel.biasState.collectAsStateWithLifecycle()
+    val evolutionState by viewModel.evolutionState.collectAsStateWithLifecycle()
+    val marineState by viewModel.marineState.collectAsStateWithLifecycle()
+    val vigilanceState by viewModel.vigilanceState.collectAsStateWithLifecycle()
+    val collapsedSections by viewModel.collapsedSections.collectAsStateWithLifecycle()
+    val detailViewMode by viewModel.detailViewMode.collectAsStateWithLifecycle()
+    val detailContentTab by viewModel.detailContentTab.collectAsStateWithLifecycle()
+
+    LoadedView(
+        forecast = loaded.forecast,
+        weekly = loaded.weeklyConfidence,
+        hourlyBands = loaded.hourlyBands,
+        hourlyPrecipBands = loaded.hourlyPrecipBands,
+        hourlyWindBands = loaded.hourlyWindBands,
+        currentTemp = loaded.currentTemp,
+        currentCondition = loaded.currentCondition,
+        currentCloudCover = loaded.currentCloudCover,
+        dailyConditions = loaded.dailyConditions,
+        normals = loaded.normals,
+        engineContext = loaded.engineContext,
+        calculatedAt = loaded.calculatedAt,
+        fetchedAt = loaded.fetchedAt,
         isOnline = isOnline,
         biasState = biasState,
         evolutionState = evolutionState,
         marineState = marineState,
-        vigilanceState = vigilanceState,
+        vigilance = (vigilanceState as? VigilanceUiState.Loaded)?.forecast
+            ?.takeIf { loaded.forecast.city.isFrenchLocation },
         collapsedSections = collapsedSections,
         detailViewMode = detailViewMode,
         detailContentTab = detailContentTab,
-        onBack = onBack,
-        onRefresh = viewModel::refresh,
-        onRefreshMarine = viewModel::refreshMarine,
+        padding = padding,
         onSectionExpandedChange = viewModel::setSectionExpanded,
         onDetailViewModeChange = viewModel::setDetailViewMode,
         onDetailContentTabChange = viewModel::setDetailContentTab,
-        onConfidenceClick = onConfidenceClick,
-        onEngineComparisonClick = onEngineComparisonClick,
-        onGraphicViewClick = onGraphicViewClick,
-        onRequestBiasHistory = viewModel::requestBiasHistory,
-        showBackButton = showBackButton
+        onRefreshMarine = viewModel::refreshMarine,
+        onConfidenceClick = onConfidenceClick
     )
 }
 
@@ -239,8 +273,63 @@ internal fun CityDetailContent(
     onConfidenceClick: (isoDate: String) -> Unit = {},
     onEngineComparisonClick: () -> Unit = {},
     onGraphicViewClick: () -> Unit = {},
-    onRequestBiasHistory: () -> Unit = {},
     showBackButton: Boolean = true
+) {
+    CityDetailScaffold(
+        state = state,
+        isRefreshing = isRefreshing,
+        snackbarHostState = snackbarHostState,
+        onBack = onBack,
+        onRefresh = onRefresh,
+        onEngineComparisonClick = onEngineComparisonClick,
+        onGraphicViewClick = onGraphicViewClick,
+        showBackButton = showBackButton
+    ) { loaded, padding ->
+        LoadedView(
+            forecast = loaded.forecast,
+            weekly = loaded.weeklyConfidence,
+            hourlyBands = loaded.hourlyBands,
+            hourlyPrecipBands = loaded.hourlyPrecipBands,
+            hourlyWindBands = loaded.hourlyWindBands,
+            currentTemp = loaded.currentTemp,
+            currentCondition = loaded.currentCondition,
+            currentCloudCover = loaded.currentCloudCover,
+            dailyConditions = loaded.dailyConditions,
+            normals = loaded.normals,
+            engineContext = loaded.engineContext,
+            calculatedAt = loaded.calculatedAt,
+            fetchedAt = loaded.fetchedAt,
+            isOnline = isOnline,
+            biasState = biasState,
+            evolutionState = evolutionState,
+            marineState = marineState,
+            vigilance = (vigilanceState as? VigilanceUiState.Loaded)?.forecast
+                ?.takeIf { loaded.forecast.city.isFrenchLocation },
+            collapsedSections = collapsedSections,
+            detailViewMode = detailViewMode,
+            detailContentTab = detailContentTab,
+            padding = padding,
+            onSectionExpandedChange = onSectionExpandedChange,
+            onDetailViewModeChange = onDetailViewModeChange,
+            onDetailContentTabChange = onDetailContentTabChange,
+            onRefreshMarine = onRefreshMarine,
+            onConfidenceClick = onConfidenceClick
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CityDetailScaffold(
+    state: CityDetailUiState,
+    isRefreshing: Boolean,
+    snackbarHostState: SnackbarHostState? = null,
+    onBack: () -> Unit,
+    onRefresh: () -> Unit,
+    onEngineComparisonClick: () -> Unit,
+    onGraphicViewClick: () -> Unit,
+    showBackButton: Boolean,
+    loadedContent: @Composable (CityDetailUiState.Loaded, PaddingValues) -> Unit
 ) {
     WeatherAccentTheme(
         condition = (state as? CityDetailUiState.Loaded)?.currentCondition
@@ -349,11 +438,11 @@ internal fun CityDetailContent(
                         is CityDetailUiState.Error -> "error"
                     }
                 }
-            ) { s ->
-                when (s) {
+            ) { current ->
+                when (current) {
                     CityDetailUiState.Loading -> LoadingView(padding)
                     is CityDetailUiState.Error -> ErrorView(
-                        message = s.message,
+                        message = current.message,
                         onRetry = onRefresh,
                         padding = padding
                     )
@@ -362,37 +451,7 @@ internal fun CityDetailContent(
                         onRefresh = onRefresh,
                         modifier = Modifier.fillMaxSize()
                     ) {
-                        LoadedView(
-                            forecast = s.forecast,
-                            weekly = s.weeklyConfidence,
-                            hourlyBands = s.hourlyBands,
-                            hourlyPrecipBands = s.hourlyPrecipBands,
-                            hourlyWindBands = s.hourlyWindBands,
-                            currentTemp = s.currentTemp,
-                            currentCondition = s.currentCondition,
-                            currentCloudCover = s.currentCloudCover,
-                            dailyConditions = s.dailyConditions,
-                            normals = s.normals,
-                            engineContext = s.engineContext,
-                            calculatedAt = s.calculatedAt,
-                            fetchedAt = s.fetchedAt,
-                            isOnline = isOnline,
-                            biasState = biasState,
-                            evolutionState = evolutionState,
-                            marineState = marineState,
-                            vigilance = (vigilanceState as? VigilanceUiState.Loaded)?.forecast
-                                ?.takeIf { s.forecast.city.isFrenchLocation },
-                            collapsedSections = collapsedSections,
-                            detailViewMode = detailViewMode,
-                            detailContentTab = detailContentTab,
-                            padding = padding,
-                            onSectionExpandedChange = onSectionExpandedChange,
-                            onDetailViewModeChange = onDetailViewModeChange,
-                            onDetailContentTabChange = onDetailContentTabChange,
-                            onRefreshMarine = onRefreshMarine,
-                            onConfidenceClick = onConfidenceClick,
-                            onRequestBiasHistory = onRequestBiasHistory
-                        )
+                        loadedContent(current, padding)
                     }
                 }
             }
@@ -469,8 +528,7 @@ private fun LoadedView(
     onDetailViewModeChange: (CityDetailViewMode) -> Unit,
     onDetailContentTabChange: (CityDetailContentTab) -> Unit,
     onRefreshMarine: () -> Unit,
-    onConfidenceClick: (isoDate: String) -> Unit = {},
-    onRequestBiasHistory: () -> Unit = {}
+    onConfidenceClick: (isoDate: String) -> Unit = {}
 ) {
     val displayMode = detailViewMode.toDisplayMode()
     val reliabilityExpanded = CityDetailSection.CONFIDENCE !in collapsedSections
@@ -492,27 +550,42 @@ private fun LoadedView(
     val evolutionHighlight = (evolutionState as? ForecastEvolutionState.Loaded)?.highlight
     val hasInsightSection = insights.isNotEmpty() || evolutionHighlight != null
     val hourlyTimelinePoints = remember(forecast, presentationNow, engineCacheSignature) {
-        buildSimplifiedTimeline(forecast, DisplayMode.HOURLY, presentationNow, engineContext)
+        buildSimplifiedTimeline(
+            forecast = forecast,
+            mode = DisplayMode.HOURLY,
+            now = presentationNow,
+            engineContext = engineContext,
+            hourlyHorizonHours = ForecastDisplayHorizon.HOURLY_HOURS
+        )
     }
     val dailyTimelinePoints = remember(forecast, presentationNow, engineCacheSignature) {
-        buildSimplifiedTimeline(forecast, DisplayMode.DAILY, presentationNow, engineContext)
+        buildSimplifiedTimeline(
+            forecast = forecast,
+            mode = DisplayMode.DAILY,
+            now = presentationNow,
+            engineContext = engineContext,
+            dailyHorizonDays = ForecastDisplayHorizon.DAYS
+        )
     }
-    val timelineAvailableModes = remember(hourlyTimelinePoints, dailyTimelinePoints) {
-        listOfNotNull(
-            DisplayMode.HOURLY.takeIf { hourlyTimelinePoints.isNotEmpty() },
-            DisplayMode.DAILY.takeIf { dailyTimelinePoints.isNotEmpty() }
-        ).toSet()
+    val timelineAvailableRanges = remember(hourlyTimelinePoints, dailyTimelinePoints) {
+        buildSet {
+            if (hourlyTimelinePoints.isNotEmpty()) add(TimelineRange.HOURLY)
+            if (dailyTimelinePoints.isNotEmpty()) add(TimelineRange.DAILY)
+        }
     }
-    var timelineMode by remember(overviewTimeline) { mutableStateOf(overviewTimeline.mode) }
+    var timelineRange by remember(overviewTimeline) {
+        mutableStateOf(TimelineRange.defaultFor(overviewTimeline.mode))
+    }
+    val timelineMode = timelineRange.displayMode
     var timelineLayoutName by rememberSaveable(forecast.city.id) {
         mutableStateOf(TimelineLayout.COLUMNS.name)
     }
     val timelineLayout = remember(timelineLayoutName) {
         TimelineLayout.entries.firstOrNull { it.name == timelineLayoutName } ?: TimelineLayout.COLUMNS
     }
-    val timelineAnalysisPoints = when (timelineMode) {
-        DisplayMode.HOURLY -> hourlyTimelinePoints
-        DisplayMode.DAILY -> dailyTimelinePoints
+    val timelineAnalysisPoints = when (timelineRange) {
+        TimelineRange.HOURLY -> hourlyTimelinePoints
+        TimelineRange.DAILY -> dailyTimelinePoints
     }
     val timelineEvents = remember(timelineMode, timelineAnalysisPoints, forecast.city.timezone) {
         detectForecastEvents(
@@ -523,8 +596,11 @@ private fun LoadedView(
             )
         )
     }
-    val timelineDisplayPoints = remember(timelineAnalysisPoints) {
-        selectRegularTimelinePoints(timelineAnalysisPoints)
+    val timelineDisplayPoints = remember(timelineAnalysisPoints, timelineRange) {
+        selectRegularTimelinePoints(
+            points = timelineAnalysisPoints,
+            maxPoints = timelineRange.maxDisplayPoints
+        )
     }
     var focusedTimelinePoint by remember(overviewTimeline) {
         mutableStateOf<SimplifiedTimelinePoint?>(null)
@@ -546,6 +622,14 @@ private fun LoadedView(
     }
     val cityToday = remember(forecast.city.timezone, presentationNow) {
         cityLocalDate(forecast.city.timezone, presentationNow)
+    }
+    // Toutes les vues approfondies de la page détail partagent le même horizon
+    // de 10 jours. Les séries horaires utilisent la fenêtre glissante commune.
+    val detailedForecast = remember(forecast) {
+        forecast.limitDailyHorizon(ForecastDisplayHorizon.DAYS)
+    }
+    val detailedDailyConditions = remember(dailyConditions) {
+        dailyConditions.take(ForecastDisplayHorizon.DAYS)
     }
     val summaryDay = remember(weekly, cityToday) {
         weekly.firstOrNull { !it.date.isBefore(cityToday) } ?: weekly.lastOrNull()
@@ -673,10 +757,10 @@ private fun LoadedView(
                         if (target != null) {
                             onSectionExpandedChange(CityDetailSection.TIMELINE, true)
                             when {
-                                target.instant != null && DisplayMode.HOURLY in timelineAvailableModes ->
-                                    timelineMode = DisplayMode.HOURLY
-                                target.date != null && DisplayMode.DAILY in timelineAvailableModes ->
-                                    timelineMode = DisplayMode.DAILY
+                                target.instant != null && TimelineRange.HOURLY in timelineAvailableRanges ->
+                                    timelineRange = TimelineRange.HOURLY
+                                target.date != null && TimelineRange.DAILY in timelineAvailableRanges ->
+                                    timelineRange = TimelineRange.DAILY
                             }
                             focusedTimelinePoint = target
                             timelineFocusRequestId += 1
@@ -695,11 +779,12 @@ private fun LoadedView(
                     timezone = forecast.city.timezone,
                     focusPoint = focusedTimelinePoint,
                     focusRequestId = timelineFocusRequestId,
-                    onModeChange = { newMode ->
-                        timelineMode = newMode
+                    range = timelineRange,
+                    onRangeChange = { newRange ->
+                        timelineRange = newRange
                         focusedTimelinePoint = null
                     },
-                    availableModes = timelineAvailableModes,
+                    availableRanges = timelineAvailableRanges,
                     layout = timelineLayout,
                     onLayoutChange = { newLayout ->
                         timelineLayoutName = newLayout.name
@@ -758,29 +843,22 @@ private fun LoadedView(
             }
         }
 
-        // Avancement de la collecte pour la variable de l'onglet affiché : les
-        // pastilles « N/14 » et le bandeau parlent ainsi de la même chose.
-        // L'onglet Conditions n'a pas d'indicateur par modèle, donc pas de bandeau.
-        val biasHistoryProgress = when (detailContentTab) {
-            CityDetailContentTab.TEMPERATURE -> biasState.temperature
-            CityDetailContentTab.PRECIPITATION -> biasState.precipitation
-            CityDetailContentTab.WIND -> biasState.wind
-            CityDetailContentTab.CONDITIONS -> null
-        }
-            ?.historyProgress(forecast.availableModels)
-            ?.takeIf { it.shouldShowBanner }
+        val hasAnyBias =
+            biasState.temperature.biasByModel.values.any { it != null } ||
+                    biasState.precipitation.biasByModel.values.any { it != null } ||
+                    biasState.wind.biasByModel.values.any { it != null }
 
         item("detailed_forecast_section") {
             DetailedForecastSection(
                 mode = displayMode,
                 tab = detailContentTab,
-                forecast = forecast,
-                dailyConditions = dailyConditions,
+                forecast = detailedForecast,
+                dailyConditions = detailedDailyConditions,
                 normals = normals,
                 presentationNow = presentationNow,
                 cityToday = cityToday,
-                biasHistoryProgress = biasHistoryProgress,
-                onRequestBiasHistory = onRequestBiasHistory,
+                showBiasHistoryHint = !hasAnyBias &&
+                        detailContentTab != CityDetailContentTab.CONDITIONS,
                 onModeChange = { onDetailViewModeChange(it.toPreference()) },
                 onTabChange = onDetailContentTabChange,
                 temperatureBiasProvider = { model -> biasState.temperature.biasByModel[model] },
@@ -875,6 +953,30 @@ private fun LoadedView(
     }
 }
 
+private fun CityForecast.limitDailyHorizon(days: Int): CityForecast {
+    val limit = days.coerceAtLeast(1)
+    return copy(
+        seriesByModel = seriesByModel.mapValues { (_, series) ->
+            val daily = series.daily
+            series.copy(
+                daily = daily.copy(
+                    dates = daily.dates.take(limit),
+                    tempMax = daily.tempMax.take(limit),
+                    tempMin = daily.tempMin.take(limit),
+                    precipitationSum = daily.precipitationSum.take(limit),
+                    windSpeedMax = daily.windSpeedMax.take(limit),
+                    weatherCode = daily.weatherCode.take(limit),
+                    windDirection10mDominant = daily.windDirection10mDominant.take(limit),
+                    precipitationProbabilityMax = daily.precipitationProbabilityMax.take(limit),
+                    windGustsMax = daily.windGustsMax.take(limit),
+                    sunrise = daily.sunrise.take(limit),
+                    sunset = daily.sunset.take(limit)
+                )
+            )
+        }
+    )
+}
+
 // ============================================================================
 //  Comparaison détaillée : une seule famille de données à la fois
 // ============================================================================
@@ -888,8 +990,7 @@ private fun DetailedForecastSection(
     normals: Map<Int, DayNormals>?,
     presentationNow: Instant,
     cityToday: LocalDate,
-    biasHistoryProgress: BiasHistoryProgress?,
-    onRequestBiasHistory: () -> Unit,
+    showBiasHistoryHint: Boolean,
     onModeChange: (DisplayMode) -> Unit,
     onTabChange: (CityDetailContentTab) -> Unit,
     temperatureBiasProvider: ((WeatherModel) -> ModelBias?)? = null,
@@ -928,10 +1029,8 @@ private fun DetailedForecastSection(
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.30f)
                 )
 
-                if (biasHistoryProgress != null) {
+                if (showBiasHistoryHint) {
                     BiasHistoryHint(
-                        progress = biasHistoryProgress,
-                        onRequestHistory = onRequestBiasHistory,
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
                     )
                 } else {
@@ -2514,91 +2613,44 @@ private fun windStyle(kmh: Double): ValueStyle? = when {
 // ============================================================================
 
 /**
- * Bandeau d'avancement de la fiabilité locale, affiché au-dessus du tableau
- * de la variable sélectionnée (température, pluie ou vent).
+ * Bandeau discret affiché en tête de la liste tant qu'aucun chip de biais
+ * n'est disponible pour la ville. Communique honnêtement à l'utilisateur que
+ * l'app est en train de collecter l'historique, sans être intrusif.
  *
- * Il explique ce que signifie « J+1 » (la prévision émise la veille, pas
- * « demain »), ce que comptent les pastilles « N/14 » sous chaque modèle, et
- * reste affiché tant qu'une partie des modèles se complète encore, au lieu de
- * disparaître dès le premier modèle prêt sur n'importe quelle variable.
+ * Cas d'affichage :
+ *   - Première utilisation, avant que le worker n'ait fetché l'observation
+ *     J+1 n'ait accumulé assez de jours correspondants.
+ *   - Cas dégénéré où toutes les variables × modèles sont classées
+ *     NOT_SIGNIFICANT (peu probable mais possible avec des modèles très
+ *     calibrés — dans ce cas le hint sur-communique un peu, tradeoff accepté).
  *
- * Le bouton lance le rattrapage manuel (jusqu'à 3 semaines d'archives), déjà
- * proposé dans les Réglages, pour ne pas attendre deux semaines de collecte.
+ * Design : bandeau tonal léger intégré directement dans la Surface des
+ * prévisions détaillées, sans Card imbriquée supplémentaire.
  */
 @Composable
-private fun BiasHistoryHint(
-    progress: BiasHistoryProgress,
-    onRequestHistory: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    var requested by rememberSaveable { mutableStateOf(false) }
-    val target = ModelBias.MIN_SAMPLES_FOR_BIAS
+private fun BiasHistoryHint(modifier: Modifier = Modifier) {
     Row(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
             .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.48f))
-            .padding(horizontal = 14.dp, vertical = 11.dp)
-            .testTag(TAG_BIAS_HISTORY_HINT),
-        verticalAlignment = Alignment.Top,
+            .padding(horizontal = 14.dp, vertical = 11.dp),
+        verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Icon(
             imageVector = Icons.Filled.Info,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 1.dp).size(18.dp)
+            modifier = Modifier.size(18.dp)
         )
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = if (progress.isPreparing) {
-                    stringResource(R.string.bias_history_preparing, target)
-                } else {
-                    stringResource(
-                        R.string.bias_history_partial,
-                        progress.readyModels,
-                        progress.totalModels
-                    )
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            if (progress.bestSampleCount > 0) {
-                Text(
-                    text = stringResource(
-                        R.string.bias_history_best_progress,
-                        progress.bestSampleCount,
-                        target
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
-            }
-            TextButton(
-                onClick = {
-                    requested = true
-                    onRequestHistory()
-                },
-                enabled = !requested,
-                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp),
-                modifier = Modifier.testTag(TAG_BIAS_HISTORY_FETCH)
-            ) {
-                Text(
-                    text = stringResource(
-                        if (requested) R.string.bias_history_fetch_requested
-                        else R.string.bias_history_fetch_action
-                    ),
-                    style = MaterialTheme.typography.labelLarge
-                )
-            }
-        }
+        Text(
+            text = stringResource(R.string.bias_history_collecting),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
-
-internal const val TAG_BIAS_HISTORY_HINT = "bias_history_hint"
-internal const val TAG_BIAS_HISTORY_FETCH = "bias_history_fetch"
 
 /**
  * enumValueOf tolérant aux noms invalides. Utilisé par la reconstruction de

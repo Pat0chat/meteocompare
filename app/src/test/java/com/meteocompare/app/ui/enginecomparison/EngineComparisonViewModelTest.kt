@@ -9,6 +9,7 @@ import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DailyForecast
 import com.meteocompare.app.domain.model.ForecastEngine
+import com.meteocompare.app.domain.model.ForecastDisplayHorizon
 import com.meteocompare.app.domain.model.ForecastEngineContext
 import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.HourlyForecast
@@ -105,7 +106,8 @@ class EngineComparisonViewModelTest {
         contextProvider = contextProvider,
         comparisonBuilder = comparisonBuilder,
         clock = clock,
-        appContext = appContext
+        appContext = appContext,
+        computationDispatcher = dispatcher
     ).also(createdViewModels::add)
 
     /**
@@ -208,9 +210,15 @@ class EngineComparisonViewModelTest {
                 var loaded = awaitItem()
                 while (loaded !is EngineComparisonUiState.Loaded) loaded = awaitItem()
                 assertEquals(ForecastEngine.MULTI_CONSENSUS, loaded.selectedEngine)
-                assertEquals(7, loaded.days.size)
+                assertEquals(10, loaded.days.size)
                 verify(exactly = 1) {
-                    forecastRepository.getCityForecastStream(city, any(), any(), any(), any())
+                    forecastRepository.getCityForecastStream(
+                        city = city,
+                        models = any(),
+                        forecastDays = 10,
+                        forceRefresh = false,
+                        maxCacheAgeMs = RefreshInterval.DEFAULT.millis
+                    )
                 }
 
                 engineFlow.value = ForecastEngine.CALIBRATION
@@ -318,7 +326,8 @@ class EngineComparisonViewModelTest {
                 ) {
                     shifted = awaitItem()
                 }
-                assertEquals(6, shifted.days.size)
+                assertEquals(ForecastDisplayHorizon.DAYS - 1, shifted.days.size)
+                assertEquals(LocalDate.of(2026, 9, 1), shifted.days.last().date)
                 verify(exactly = 1) {
                     forecastRepository.getCityForecastStream(city, any(), any(), any(), any())
                 }
@@ -327,7 +336,7 @@ class EngineComparisonViewModelTest {
         }
 
     private fun buildForecast(): CityForecast {
-        val dates = (23..29).map { LocalDate.of(2026, 8, it) }
+        val dates = List(10) { LocalDate.of(2026, 8, 23).plusDays(it.toLong()) }
         val values = linkedMapOf(
             WeatherModel.GFS to 20.0,
             WeatherModel.ECMWF to 21.0,

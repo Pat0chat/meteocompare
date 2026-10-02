@@ -3,10 +3,12 @@ package com.meteocompare.app.domain.usecase
 import com.meteocompare.app.core.util.localDateIn
 import com.meteocompare.app.core.util.resolveZoneOrUtc
 import com.meteocompare.app.domain.model.CityForecast
+import com.meteocompare.app.domain.model.ForecastDisplayHorizon
 import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.model.ForecastEngineContext
 import com.meteocompare.app.domain.model.ForecastEngineVariable
 import com.meteocompare.app.domain.model.WeatherCondition
+import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.util.dailyCloudCoverMean
 import java.time.Instant
 import java.time.LocalDate
@@ -74,30 +76,24 @@ class EngineComparisonBuilder @Inject constructor(
         now: Instant
     ): List<EngineComparisonDay> {
         val today = now.localDateIn(forecast.city.timezone)
+        val zone = resolveZoneOrUtc(forecast.city.timezone)
         val dates = forecast.seriesByModel.values
             .flatMap { it.daily.dates }
             .distinct()
             .sorted()
             .filterNot { it.isBefore(today) }
-            .take(7)
+            .take(ForecastDisplayHorizon.DAYS)
         return dates.map { date ->
-            val zone = resolveZoneOrUtc(forecast.city.timezone)
-            val nativeConditionEntries = forecast.seriesByModel.mapNotNull { (model, series) ->
-                val index = series.daily.dates.indexOf(date)
-                if (index < 0) return@mapNotNull null
-                val condition = WeatherCondition.fromWmoCode(series.daily.weatherCode.getOrNull(index))
-                    ?.takeUnless { it == WeatherCondition.UNKNOWN }
-                    ?: return@mapNotNull null
-                // Le cloud affine la feuille SKY mais ne remplace jamais la
-                // voix native au niveau racine (sec vs précipitations).
-                ForecastConsensus.Entry(model, condition)
-            }
+            // Ces entrées brutes ne dépendent pas du moteur comparé. Les
+            // calculer une seule fois évite notamment de rescanner 24 h de
+            // nébulosité pour chaque modèle × chacun des quatre moteurs.
+            val inputs = dayInputs(forecast, date, zone)
             val values = ForecastEngine.entries.associateWith { engine ->
                 valuesFor(
-                    forecast,
-                    date,
-                    calibrationContext.withEngine(engine),
-                    nativeConditionEntries
+                    forecast = forecast,
+                    date = date,
+                    context = calibrationContext.withEngine(engine),
+                    inputs = inputs
                 )
             }
             EngineComparisonDay(date, values, divergence(values.values.toList()))
@@ -108,16 +104,11 @@ class EngineComparisonBuilder @Inject constructor(
         forecast: CityForecast,
         date: LocalDate,
         context: ForecastEngineContext,
-        nativeConditionEntries: List<ForecastConsensus.Entry<WeatherCondition>>
+        inputs: EngineComparisonDayInputs
     ): EngineComparisonValues {
         val day = confidenceCalculator.dayConfidence(forecast, date, context)
-        val zone = resolveZoneOrUtc(forecast.city.timezone)
-        val cloudEntries = forecast.seriesByModel.mapNotNull { (model, series) ->
-            series.dailyCloudCoverMean(date, zone)
-                ?.toDouble()?.let { ForecastConsensus.Entry(model, it) }
-        }
         val cloud = ForecastEngineV3.continuous(
-            cloudEntries,
+            inputs.cloudEntries,
             ForecastEngineV3.ContinuousOptions(
                 engine = context.engine,
                 calibration = context.calibration(ForecastEngineVariable.CLOUD, allowCalibration = false),
@@ -129,32 +120,13 @@ class EngineComparisonBuilder @Inject constructor(
             )
         ).central
         val precipitationMeta = day.precipitation?.meta
-        // Même règle que la chronologie et le résumé courant : la provenance
-        // d'une condition ne compte que les modèles ayant fourni au moins un
-        // input utilisé pour cette condition (WMO, température, pluie ou
-        // nébulosité). La simple présence d'une date daily ne suffit pas.
-        val supportModels = buildSet {
-            addAll(nativeConditionEntries.map { it.model })
-            forecast.seriesByModel.forEach { (model, series) ->
-                val index = series.daily.dates.indexOf(date)
-                if (index < 0) return@forEach
-                if (series.daily.tempMin.getOrNull(index)?.isFinite() == true ||
-                    series.daily.tempMax.getOrNull(index)?.isFinite() == true ||
-                    series.daily.precipitationSum.getOrNull(index)?.let { it.isFinite() && it >= 0.0 } == true ||
-                    series.daily.precipitationProbabilityMax.getOrNull(index)?.let { it in 0..100 } == true ||
-                    series.dailyCloudCoverMean(date, zone) != null
-                ) {
-                    add(model)
-                }
-            }
-        }
         val condition = WeatherConditionConsensus.resolveAggregate(
-            nativeEntries = nativeConditionEntries,
+            nativeEntries = inputs.nativeConditionEntries,
             temperatureCentralC = day.tempMin?.meanValue ?: day.tempMax?.meanValue,
             precipitationCentralMm = precipitationMeta?.centralAmountMm,
             cloudCoverPercent = cloud,
-            cloudCoverFamilyCount = cloudEntries.map { ForecastConsensus.groupFor(it.model) }.distinct().size,
-            supportModels = supportModels
+            cloudCoverFamilyCount = inputs.cloudCoverFamilyCount,
+            supportModels = inputs.supportModels
         ).vote.value
         return EngineComparisonValues(
             tempMax = day.tempMax?.meanValue,
@@ -166,6 +138,63 @@ class EngineComparisonBuilder @Inject constructor(
             gustKmh = day.windGustMax?.meanValue,
             cloudPercent = cloud,
             condition = condition
+        )
+    }
+
+    private data class EngineComparisonDayInputs(
+        val nativeConditionEntries: List<ForecastConsensus.Entry<WeatherCondition>>,
+        val cloudEntries: List<ForecastConsensus.Entry<Double>>,
+        val cloudCoverFamilyCount: Int,
+        val supportModels: Set<WeatherModel>
+    )
+
+    private fun dayInputs(
+        forecast: CityForecast,
+        date: LocalDate,
+        zone: java.time.ZoneId
+    ): EngineComparisonDayInputs {
+        val native = ArrayList<ForecastConsensus.Entry<WeatherCondition>>(forecast.seriesByModel.size)
+        val clouds = ArrayList<ForecastConsensus.Entry<Double>>(forecast.seriesByModel.size)
+        val support = LinkedHashSet<WeatherModel>(forecast.seriesByModel.size)
+
+        forecast.seriesByModel.forEach { (model, series) ->
+            // Le cloud était historiquement utilisable même si l'axe daily du
+            // modèle ne contenait pas cette date : préserver exactement cette
+            // sémantique tout en ne faisant qu'un seul scan horaire.
+            val cloud = series.dailyCloudCoverMean(date, zone)
+            if (cloud != null) {
+                clouds += ForecastConsensus.Entry(model, cloud.toDouble())
+            }
+
+            val index = series.daily.dates.indexOf(date)
+            if (index < 0) return@forEach
+
+            WeatherCondition.fromWmoCode(series.daily.weatherCode.getOrNull(index))
+                ?.takeUnless { it == WeatherCondition.UNKNOWN }
+                ?.let { condition ->
+                    native += ForecastConsensus.Entry(model, condition)
+                    support += model
+                }
+
+            if (cloud != null) support += model
+
+            if (series.daily.tempMin.getOrNull(index)?.isFinite() == true ||
+                series.daily.tempMax.getOrNull(index)?.isFinite() == true ||
+                series.daily.precipitationSum.getOrNull(index)?.let { it.isFinite() && it >= 0.0 } == true ||
+                series.daily.precipitationProbabilityMax.getOrNull(index)?.let { it in 0..100 } == true
+            ) {
+                support += model
+            }
+        }
+
+        return EngineComparisonDayInputs(
+            nativeConditionEntries = native,
+            cloudEntries = clouds,
+            cloudCoverFamilyCount = clouds.asSequence()
+                .map { ForecastConsensus.groupFor(it.model) }
+                .distinct()
+                .count(),
+            supportModels = support
         )
     }
 

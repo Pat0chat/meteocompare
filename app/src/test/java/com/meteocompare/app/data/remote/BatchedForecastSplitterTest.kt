@@ -1,6 +1,8 @@
 package com.meteocompare.app.data.remote
 
 import com.meteocompare.app.data.remote.dto.BatchedForecastResponseDto
+import com.meteocompare.app.data.remote.dto.ForecastResponseDto
+import com.meteocompare.app.di.NetworkModule
 import com.meteocompare.app.domain.model.WeatherModel
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
@@ -94,6 +96,33 @@ class BatchedForecastSplitterTest {
         assertEquals(listOf(19.5, 21.0), split.getValue(WeatherModel.ECMWF).hourly?.temperature2m)
         assertEquals(listOf(0.0, 0.2), split.getValue(WeatherModel.GFS).hourly?.precipitation)
         assertEquals(listOf(0.0, 0.1), split.getValue(WeatherModel.ECMWF).hourly?.precipitation)
+    }
+
+    @Test
+    fun `nouveaux modeles globaux JMA et AIGFS sont lus avec leurs suffixes`() {
+        val response = json.decodeFromString<BatchedForecastResponseDto>(
+            """{
+              "latitude": 35.68,
+              "longitude": 139.65,
+              "timezone": "Asia/Tokyo",
+              "hourly": {
+                "time": ["2026-09-26T12:00"],
+                "temperature_2m_jma_gsm": [24.0],
+                "temperature_2m_ncep_aigfs025": [23.5],
+                "wind_speed_10m_jma_gsm": [14.0],
+                "wind_speed_10m_ncep_aigfs025": [16.0]
+              }
+            }"""
+        )
+
+        val split = BatchedForecastSplitter.split(
+            response,
+            listOf(WeatherModel.JMA_GSM, WeatherModel.NCEP_AIGFS)
+        )
+
+        assertEquals(setOf(WeatherModel.JMA_GSM, WeatherModel.NCEP_AIGFS), split.keys)
+        assertEquals(listOf(24.0), split.getValue(WeatherModel.JMA_GSM).hourly?.temperature2m)
+        assertEquals(listOf(23.5), split.getValue(WeatherModel.NCEP_AIGFS).hourly?.temperature2m)
     }
 
     @Test
@@ -197,6 +226,53 @@ class BatchedForecastSplitterTest {
         // ECMWF n'a pas de temperature_2m → considéré "no usable data" → filtré
         assertEquals(setOf(WeatherModel.GFS), split.keys)
         assertFalse("ECMWF ne doit pas être dans le split", WeatherModel.ECMWF in split)
+    }
+
+    /**
+     * Régression issue #4 (« Erreur inconnue » hors d'Europe). Forme réelle
+     * d'une réponse Open-Meteo pour Tokyo avec la sélection par défaut : le
+     * premier modèle (AROME HD) ne couvre pas le point, donc la maille est
+     * `null` et les clés du modèle sont omises. Décodée avec la configuration
+     * JSON de production, la réponse doit rester exploitable.
+     */
+    @Test
+    fun `premier modele hors couverture - latitude et longitude null tolerees`() {
+        val productionJson = NetworkModule.provideJson()
+        val response = productionJson.decodeFromString<BatchedForecastResponseDto>(
+            """{
+              "latitude": null, "longitude": null,
+              "generationtime_ms": 0.03,
+              "utc_offset_seconds": 32400,
+              "timezone": "Asia/Tokyo",
+              "timezone_abbreviation": "GMT+9",
+              "hourly": {
+                "time": ["2026-09-28T00:00","2026-09-28T01:00"],
+                "temperature_2m_ncep_gfs_seamless": [21.3, 20.9]
+              },
+              "daily": {
+                "time": ["2026-09-28"],
+                "temperature_2m_max_ncep_gfs_seamless": [24.1],
+                "sunrise_ncep_gfs_seamless": ["2026-09-28T05:33"]
+              }
+            }"""
+        )
+
+        assertNull(response.latitude)
+        assertNull(response.longitude)
+
+        val split = BatchedForecastSplitter.split(
+            response, listOf(WeatherModel.AROME_FRANCE_HD, WeatherModel.GFS)
+        )
+
+        assertEquals(setOf(WeatherModel.GFS), split.keys)
+        val gfs = split.getValue(WeatherModel.GFS)
+        assertEquals("Asia/Tokyo", gfs.timezone)
+        assertEquals(listOf(21.3, 20.9), gfs.hourly?.temperature2m)
+
+        // Le DTO par modèle est ensuite écrit puis relu depuis le cache Room.
+        val cached = productionJson.encodeToString(ForecastResponseDto.serializer(), gfs)
+        val reread = productionJson.decodeFromString(ForecastResponseDto.serializer(), cached)
+        assertEquals(gfs, reread)
     }
 
     @Test

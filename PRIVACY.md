@@ -153,6 +153,7 @@ réglages du compte de l'utilisateur.
 | `INTERNET` | Appels HTTPS vers Open-Meteo et le Worker MeteoCompare |
 | `ACCESS_NETWORK_STATE` | Détecter l'absence de réseau et adapter l'interface / les requêtes |
 | `RECEIVE_BOOT_COMPLETED` | Reprogrammer proprement l'actualisation périodique des widgets après un redémarrage ou une mise à jour de l'application |
+| `POST_NOTIFICATIONS` | Afficher les notifications météo locales (résumé quotidien, divergence des modèles, changement de prévision), uniquement si l'utilisateur les active dans les Réglages. Elles sont calculées sur l'appareil : aucun service de push, aucun identifiant ni donnée supplémentaire n'est transmis |
 
 MeteoCompare **ne demande pas** :
 

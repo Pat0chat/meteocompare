@@ -48,7 +48,7 @@
     <string name="open_meteo_link_label">Licencia de Open-Meteo</string>
     <string name="widget_open_meteo_attribution">Open-Meteo · CC BY 4.0</string>
     <string name="widget_open_meteo_attribution_short">Open-Meteo</string>
-    <string name="settings_about_models_credit">Modelos: AROME y ARPEGE de Météo-France, ICON de DWD, GFS y HRRR de NOAA, ECMWF y AIFS del Centro Europeo, UKMO del UK Met Office, GEM de Environment Canada, MET Nordic de MET Norway, HARMONIE de KNMI y DMI, ICON-CH de MeteoSwiss, ACCESS del Bureau of Meteorology (Australia) y GRAPES de CMA (China).</string>
+    <string name="settings_about_models_credit">Modelos: AROME y ARPEGE de Météo-France, ICON de DWD, GFS, HRRR y AIGFS de NOAA, ECMWF y AIFS del Centro Europeo, UKMO del UK Met Office, GEM de Environment Canada, GSM de JMA, MET Nordic de MET Norway, HARMONIE de KNMI y DMI, ICON-CH de MeteoSwiss, ACCESS del Bureau of Meteorology (Australia) y GRAPES de CMA (China).</string>
     <string name="settings_bias_refresh_title">Seguimiento del sesgo</string>
     <string name="settings_bias_refresh_desc">Obtiene hasta 3 semanas de historial D+1 para iniciar la fiabilidad local. Los modelos sin archivo se calibran progresivamente.</string>
     <string name="settings_bias_refresh_action">Inicializar o actualizar</string>
@@ -707,8 +707,8 @@ datos</string>
     <!-- Vue graphique 7 jours -->
     <string name="graphic_view_title">Vista gráfica</string>
     <string name="graphic_view_open">Abrir vista gráfica</string>
-    <string name="graphic_view_intro">Explora los próximos 7 días hora a hora</string>
-    <string name="graphic_view_subtitle">7 días · hora a hora</string>
+    <string name="graphic_view_intro">Explora los próximos 10 días hora a hora</string>
+    <string name="graphic_view_subtitle">10 días · hora a hora</string>
     <string name="graphic_view_touch_hint">Toca una hora del gráfico para mostrar sus valores detallados.</string>
     <string name="graphic_view_show_convergence">Mostrar convergencia</string>
     <string name="graphic_view_show_convergence_desc">Colorea ligeramente los gráficos según el acuerdo entre familias de modelos.</string>
@@ -845,4 +845,54 @@ datos</string>
     <string name="home_temperature_trend_rising">Tendencia de temperatura: sube hacia %1$d°</string>
     <string name="home_temperature_trend_falling">Tendencia de temperatura: baja hacia %1$d°</string>
     <string name="home_temperature_trend_stable">Tendencia de temperatura: estable alrededor de %1$d°</string>
+
+    <!-- Notifications météo locales -->
+    <string name="settings_notifications_title">Notificaciones</string>
+    <string name="settings_notifications_desc">Calculadas en el dispositivo a partir de tus modelos y tu motor de previsión, sin servidor ni cuenta. Las previsiones se actualizan con el intervalo elegido arriba.</string>
+    <string name="settings_notifications_daily">Resumen diario</string>
+    <string name="settings_notifications_daily_desc">Cada día a la hora elegida: el día en curso, o el día siguiente a partir de las 15 h.</string>
+    <string name="settings_notifications_daily_time">Hora del resumen: %1$s</string>
+    <string name="settings_notifications_time_confirm">Aceptar</string>
+    <string name="settings_notifications_divergence">Divergencia de modelos</string>
+    <string name="settings_notifications_divergence_desc" formatted="false">Cuando la convergencia de los modelos baja del 50 % para hoy o mañana.</string>
+    <string name="settings_notifications_change">Revisiones de la previsión</string>
+    <string name="settings_notifications_change_desc">Una alerta de «Puntos clave» cuando una previsión cambia claramente respecto a unas 24 horas antes. Primero debe crearse un historial local.</string>
+    <string name="settings_notifications_cities">Ciudades seguidas</string>
+    <string name="settings_notifications_no_city">Añade una ciudad a favoritos para recibir notificaciones.</string>
+    <string name="settings_notifications_blocked">Las notificaciones de MeteoCompare están desactivadas en este dispositivo.</string>
+    <string name="settings_notifications_open_system">Permitir</string>
+    <string name="notification_channel_daily">Resumen diario</string>
+    <string name="notification_channel_daily_desc">Resumen del día para las ciudades seguidas, a la hora elegida.</string>
+    <string name="notification_channel_divergence">Divergencia de modelos</string>
+    <string name="notification_channel_divergence_desc">Cuando los modelos discrepan claramente para hoy o mañana.</string>
+    <string name="notification_channel_change">Puntos clave · Revisiones</string>
+    <string name="notification_channel_change_desc">Cuando una previsión cercana se revisa de forma clara.</string>
+    <string name="notification_daily_title_today">%1$s · hoy</string>
+    <string name="notification_daily_title_tomorrow">%1$s · mañana</string>
+    <string name="notification_daily_temperatures">%1$s / %2$s</string>
+    <string name="notification_daily_precipitation">Lluvia %1$d %%</string>
+    <string name="notification_daily_precipitation_with_amount">Lluvia %1$d %% · %2$s mm</string>
+    <string name="notification_daily_precipitation_amount">Lluvia %1$s mm</string>
+    <string name="notification_divergence_title">%1$s · previsión incierta</string>
+    <string name="notification_change_title">%1$s · Puntos clave</string>
+
+    <!-- Contenu enrichi des notifications -->
+    <string name="notification_daily_temperature_range">Temperaturas · mín %1$s · máx %2$s</string>
+    <string name="notification_daily_agreement">Acuerdo de modelos · %1$d %%</string>
+    <string name="notification_daily_wind">Viento · %1$s km/h</string>
+    <string name="notification_day_today">Hoy</string>
+    <string name="notification_day_tomorrow">Mañana</string>
+    <string name="notification_divergence_agreement">Acuerdo de modelos · %1$d %%</string>
+    <string name="notification_divergence_compact">%1$s · solo %2$d %% de acuerdo entre modelos</string>
+    <string name="notification_divergence_explanation">Los escenarios meteorológicos divergen claramente. La previsión aún puede cambiar.</string>
+    <string name="notification_change_variable_temperature">Temperatura máxima</string>
+    <string name="notification_change_variable_precipitation">Lluvia prevista</string>
+    <string name="notification_change_variable_wind">Viento máximo</string>
+    <string name="notification_change_revision_line">%1$s · %2$s</string>
+    <string name="notification_change_compact">%1$s · %2$s %3$s</string>
+    <string name="notification_change_volatile_line">%1$s · los modelos revisan en direcciones distintas</string>
+    <string name="notification_change_volatile_compact">%1$s · %2$s · revisión incierta</string>
+    <string name="notification_change_consensus">%1$d de %2$d modelos confirman este cambio</string>
+    <string name="notification_change_consensus_volatile">%1$d modelos comparados · sin tendencia dominante</string>
+    <string name="notification_change_reference">Comparado con la previsión de hace unas %1$d h</string>
 </resources>

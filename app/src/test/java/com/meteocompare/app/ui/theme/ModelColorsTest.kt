@@ -56,7 +56,9 @@ class ModelColorsTest {
             WeatherModel.GFS,
             WeatherModel.ECMWF,
             WeatherModel.UKMO_GLOBAL,
-            WeatherModel.ECMWF_AIFS
+            WeatherModel.ECMWF_AIFS,
+            WeatherModel.JMA_GSM,
+            WeatherModel.NCEP_AIGFS
         )
         assertEquals(expected, WeatherModel.MVP_SELECTION.toSet())
     }

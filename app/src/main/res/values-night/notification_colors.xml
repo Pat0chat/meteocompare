@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Variantes de contraste pour les RemoteViews affichées sur surfaces sombres. -->
+    <color name="notification_text_weather">#FFD08A</color>
+    <color name="notification_text_temperature">#FFB4AB</color>
+    <color name="notification_text_temperature_min">#64B5F6</color>
+    <color name="notification_text_precipitation">#42A5F5</color>
+    <color name="notification_text_wind">#FFAB91</color>
+    <color name="notification_text_low_confidence">#FFB4AB</color>
+    <color name="notification_text_info">#7DD3FC</color>
+    <color name="notification_text_separator">#FFFFFFFF</color>
+</resources>

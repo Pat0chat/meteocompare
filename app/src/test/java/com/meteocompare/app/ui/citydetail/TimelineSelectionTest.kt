@@ -55,11 +55,12 @@ class TimelineSelectionTest {
     }
 
     @Test
-    fun `daily timeline remains chronological and capped`() {
-        val points = (0..9).map { day ->
+    fun `daily timeline supports the shared 10 day window`() {
+        val points = (0..11).map { day ->
             SimplifiedTimelinePoint(date = java.time.LocalDate.of(2026, 7, 23).plusDays(day.toLong()))
         }
 
-        assertEquals(points.take(8), selectRegularTimelinePoints(points))
+        assertEquals(points.take(10), selectRegularTimelinePoints(points, maxPoints = 10))
     }
+
 }

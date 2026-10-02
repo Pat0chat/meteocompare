@@ -1,0 +1,282 @@
+name: Build & release APK for F-Droid
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+# Permission minimale nécessaire pour créer / mettre à jour une GitHub Release.
+permissions:
+  contents: write
+
+concurrency:
+  group: fdroid-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-apk:
+    name: Build signed reproducible APK
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      # Vérifie que gradle-wrapper.jar est bien un wrapper Gradle officiel.
+      - name: Validate Gradle Wrapper
+        uses: gradle/actions/wrapper-validation@v6
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      # Sous Windows, le bit exécutable Unix de gradlew peut être facile à perdre.
+      # Ce chmod garantit qu'il sera exécutable sur le runner Linux.
+      - name: Make Gradle Wrapper executable
+        shell: bash
+        run: chmod +x ./gradlew
+
+      - name: Install Android SDK packages
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SDKMANAGER="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager"
+          if [[ ! -x "$SDKMANAGER" ]]; then
+            SDKMANAGER="$(command -v sdkmanager)"
+          fi
+
+          COMPILE_SDK="$(
+            python3 - <<'PY'
+          import tomllib
+          with open("gradle/libs.versions.toml", "rb") as f:
+              data = tomllib.load(f)
+          print(data["versions"]["compileSdk"])
+          PY
+          )"
+
+          echo "compileSdk=${COMPILE_SDK}"
+          echo "sdkmanager=${SDKMANAGER}"
+
+          # AGP 9.3 utilise Build Tools 36 pour construire.
+          # Build Tools 34 est installé séparément uniquement pour apksigner,
+          # car F-Droid recommande apksigner 34 pour les reproducible builds.
+          "$SDKMANAGER" \
+            "platform-tools" \
+            "platforms;android-${COMPILE_SDK}" \
+            "build-tools;36.0.0" \
+            "build-tools;34.0.0"
+
+      - name: Show build environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          java -version
+          ./gradlew --version
+          "${ANDROID_SDK_ROOT}/build-tools/34.0.0/apksigner" version
+
+      # IMPORTANT :
+      # On NE fournit AUCUN secret de signature à Gradle.
+      # Ton app/build.gradle.kts produira donc app-release-unsigned.apk.
+      # Cela évite que Gradle/AGP signe avec apksigner 36.
+      - name: Build unsigned release APK with Gradle
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -f keystore.properties ]]; then
+            echo "::error::keystore.properties ne doit pas être présent dans le dépôt/runner."
+            exit 1
+          fi
+
+          ./gradlew \
+            --no-daemon \
+            --no-build-cache \
+            --no-configuration-cache \
+            --stacktrace \
+            clean \
+            :app:assembleRelease
+
+      - name: Locate unsigned APK and choose release filename
+        id: apk
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          UNSIGNED_APK="$(
+            find app/build/outputs/apk/release \
+              -maxdepth 1 \
+              -type f \
+              -name "*-unsigned.apk" \
+              -print \
+              -quit
+          )"
+
+          if [[ -z "$UNSIGNED_APK" || ! -f "$UNSIGNED_APK" ]]; then
+            echo "::error::APK release non signé introuvable."
+            find app/build/outputs/apk -maxdepth 3 -type f -print || true
+            exit 1
+          fi
+
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            if [[ ! "${GITHUB_REF_NAME}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "::error::Le tag doit être de la forme v1.2.3."
+              exit 1
+            fi
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="manual-${GITHUB_SHA::7}"
+          fi
+
+          SIGNED_APK="${RUNNER_TEMP}/MeteoCompare-${VERSION}.apk"
+
+          echo "unsigned_apk=${UNSIGNED_APK}" >> "$GITHUB_OUTPUT"
+          echo "signed_apk=${SIGNED_APK}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+          echo "Unsigned APK: ${UNSIGNED_APK}"
+          echo "Final APK:    ${SIGNED_APK}"
+
+      - name: Verify APK version matches Git tag
+        if: github.ref_type == 'tag'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          APKANALYZER="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/apkanalyzer"
+          UNSIGNED_APK="${{ steps.apk.outputs.unsigned_apk }}"
+          EXPECTED_VERSION="${{ steps.apk.outputs.version }}"
+
+          if [[ ! -x "$APKANALYZER" ]]; then
+            APKANALYZER="$(command -v apkanalyzer)"
+          fi
+
+          APK_VERSION="$("$APKANALYZER" manifest version-name "$UNSIGNED_APK" | tr -d '\r\n')"
+
+          echo "Tag version: ${EXPECTED_VERSION}"
+          echo "APK version: ${APK_VERSION}"
+
+          if [[ "$APK_VERSION" != "$EXPECTED_VERSION" ]]; then
+            echo "::error::Le versionName de l'APK (${APK_VERSION}) ne correspond pas au tag v${EXPECTED_VERSION}."
+            exit 1
+          fi
+
+      - name: Decode release keystore
+        shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${KEYSTORE_BASE64:-}" ]]; then
+            echo "::error::Secret ANDROID_KEYSTORE_BASE64 absent."
+            exit 1
+          fi
+
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "${RUNNER_TEMP}/release.jks"
+          chmod 600 "${RUNNER_TEMP}/release.jks"
+
+          # Vérification basique : keytool doit pouvoir ouvrir le fichier.
+          test -s "${RUNNER_TEMP}/release.jks"
+
+      - name: Sign APK with apksigner 34
+        shell: bash
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          APKSIGNER="${ANDROID_SDK_ROOT}/build-tools/34.0.0/apksigner"
+          UNSIGNED_APK="${{ steps.apk.outputs.unsigned_apk }}"
+          SIGNED_APK="${{ steps.apk.outputs.signed_apk }}"
+
+          if [[ -z "${KEYSTORE_PASSWORD:-}" || -z "${KEY_ALIAS:-}" || -z "${KEY_PASSWORD:-}" ]]; then
+            echo "::error::Un ou plusieurs secrets de signature sont absents."
+            exit 1
+          fi
+
+          # On signe directement l'APK produit par assembleRelease :
+          # pas de repack, pas de zip supplémentaire, pas d'Android Studio.
+          cp "$UNSIGNED_APK" "$SIGNED_APK"
+
+          "$APKSIGNER" sign \
+            --ks "${RUNNER_TEMP}/release.jks" \
+            --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass env:KEYSTORE_PASSWORD \
+            --key-pass env:KEY_PASSWORD \
+            --v4-signing-enabled false \
+            "$SIGNED_APK"
+
+      - name: Verify APK signature and F-Droid signing key
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          APKSIGNER="${ANDROID_SDK_ROOT}/build-tools/34.0.0/apksigner"
+          SIGNED_APK="${{ steps.apk.outputs.signed_apk }}"
+
+          # Clé actuellement déclarée dans fdroiddata pour com.meteocompare.app.
+          EXPECTED_SHA256="f7b0432751cd0d183c62a40beb989574b488b290f63889fc177c5f93dfee2ab3"
+
+          "$APKSIGNER" verify --verbose "$SIGNED_APK"
+
+          ACTUAL_SHA256="$(
+            "$APKSIGNER" verify --print-certs "$SIGNED_APK" \
+              | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' \
+              | head -n 1 \
+              | tr '[:upper:]' '[:lower:]' \
+              | tr -d ':[:space:]'
+          )"
+
+          echo "Signer SHA-256: ${ACTUAL_SHA256}"
+
+          if [[ "$ACTUAL_SHA256" != "$EXPECTED_SHA256" ]]; then
+            echo "::error::La clé de signature ne correspond pas à AllowedAPKSigningKeys de F-Droid."
+            exit 1
+          fi
+
+          sha256sum "$SIGNED_APK"
+
+      - name: Upload APK as workflow artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: MeteoCompare-${{ steps.apk.outputs.version }}
+          path: ${{ steps.apk.outputs.signed_apk }}
+          if-no-files-found: error
+          retention-days: 30
+
+      # Sur un tag vX.Y.Z, le nom de l'asset est exactement celui attendu par F-Droid :
+      # https://github.com/Pat0chat/meteocompare/releases/download/v%v/MeteoCompare-%v.apk
+      - name: Create or update GitHub Release
+        if: github.event_name == 'push' && github.ref_type == 'tag'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          TAG="${GITHUB_REF_NAME}"
+          APK="${{ steps.apk.outputs.signed_apk }}"
+
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release ${TAG} déjà existante : remplacement de l'APK."
+            gh release upload "$TAG" "$APK" \
+              --repo "$GITHUB_REPOSITORY" \
+              --clobber
+          else
+            echo "Création de la release ${TAG}."
+            gh release create "$TAG" "$APK" \
+              --repo "$GITHUB_REPOSITORY" \
+              --verify-tag \
+              --generate-notes \
+              --title "$TAG"
+          fi

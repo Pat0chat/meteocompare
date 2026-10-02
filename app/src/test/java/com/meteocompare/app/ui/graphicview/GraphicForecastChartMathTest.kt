@@ -12,7 +12,7 @@ class GraphicForecastChartMathTest {
 
     @Test
     fun line_markers_cover_every_available_hour_and_skip_missing_values() {
-        assertEquals((0 until 168).toList(), seriesMarkerIndices(List(168) { it.toDouble() }))
+        assertEquals((0 until 240).toList(), seriesMarkerIndices(List(240) { it.toDouble() }))
         assertEquals(listOf(0, 2, 4), seriesMarkerIndices(listOf(1.0, null, 2.0, null, 3.0)))
     }
 
@@ -26,10 +26,10 @@ class GraphicForecastChartMathTest {
 
     @Test
     fun touch_selection_maps_the_whole_chart_width_to_hour_indices() {
-        assertEquals(0, indexForX(x = 0f, width = 1680f, count = 168))
-        assertEquals(84, indexForX(x = 845f, width = 1680f, count = 168))
-        assertEquals(167, indexForX(x = 1679f, width = 1680f, count = 168))
-        assertEquals(167, indexForX(x = 9_999f, width = 1680f, count = 168))
+        assertEquals(0, indexForX(x = 0f, width = 2400f, count = 240))
+        assertEquals(120, indexForX(x = 1205f, width = 2400f, count = 240))
+        assertEquals(239, indexForX(x = 2399f, width = 2400f, count = 240))
+        assertEquals(239, indexForX(x = 9_999f, width = 2400f, count = 240))
     }
 
     @Test
@@ -79,6 +79,55 @@ class GraphicForecastChartMathTest {
         assertEquals(0, selectionBadgeStartPx(centerPx = 50f, trackWidthPx = 1_000f, badgeWidthPx = 200))
         assertEquals(800, selectionBadgeStartPx(centerPx = 980f, trackWidthPx = 1_000f, badgeWidthPx = 200))
         assertEquals(500, selectionBadgeStartPx(centerPx = 500f, trackWidthPx = 1_000f, badgeWidthPx = 0))
+    }
+
+    @Test
+    fun render_data_precomputes_long_timeline_series_once() {
+        val zone = ZoneId.of("UTC")
+        val start = Instant.parse("2026-09-16T00:00:00Z")
+        val points = List(240) { index ->
+            SimplifiedTimelinePoint(
+                instant = start.plusSeconds(index * 3_600L),
+                temperatureC = index.toDouble(),
+                temperatureMinAcrossModels = index.toDouble() - 1.0,
+                temperatureMaxAcrossModels = index.toDouble() + 1.0,
+                precipitationMm = (index % 4).toDouble(),
+                precipitationPercent = index % 100,
+                windKmh = 10.0 + index % 8,
+                windGustKmh = 20.0 + index % 10,
+                windDirectionDeg = (index * 15) % 360
+            )
+        }
+
+        val data = buildGraphicRenderData(points, emptyMap(), zone)
+
+        assertEquals(240, data.temperatures.size)
+        assertEquals(240, data.rainAmounts.size)
+        assertEquals(240, data.winds.size)
+        assertEquals(240, data.directions.size)
+        assertEquals(0, data.hours.first())
+        assertEquals(23, data.hours[23])
+        assertTrue(data.daylight.all { it })
+    }
+
+    @Test
+    fun viewport_range_only_keeps_visible_hours_plus_small_overscan() {
+        assertEquals(GraphicViewportRange(0, 11), graphicViewportRange(0, 360, 40f, 240))
+        assertEquals(GraphicViewportRange(98, 111), graphicViewportRange(4_000, 360, 40f, 240))
+        assertEquals(GraphicViewportRange(228, 239), graphicViewportRange(9_200, 360, 40f, 240))
+    }
+
+    @Test
+    fun day_spans_keep_global_indices_for_virtualized_timeline() {
+        val start = LocalDate.of(2026, 9, 16)
+        val dates = List(48) { index -> start.plusDays((index / 24).toLong()) }
+        assertEquals(
+            listOf(
+                GraphicDaySpan(0, 23, start, 0),
+                GraphicDaySpan(24, 47, start.plusDays(1), 1)
+            ),
+            graphicDaySpans(dates)
+        )
     }
 
 }

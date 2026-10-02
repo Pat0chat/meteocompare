@@ -1,37 +1,43 @@
-MeteoCompare is a multi-model weather app designed to make forecast uncertainty visible instead of hiding it behind a single prediction.
+MeteoCompare is a free, open-source and ad-free weather app that compares multiple models instead of hiding uncertainty behind a single forecast.
 
-19 WEATHER MODELS
-Compare raw output from reference models: AROME and ARPEGE (Météo-France), ICON and ICON-D2 (DWD), GFS and HRRR (NOAA), ECMWF IFS and AIFS, UKMO, GEM, MET Nordic, KNMI and DMI HARMONIE, MeteoSwiss ICON-CH2, ACCESS and GRAPES.
+21 MODELS · UP TO 10 DAYS
+Compare 21 reference models: AROME and ARPEGE (Météo-France), ICON and ICON-D2 (DWD), GFS, HRRR and the new NOAA AIGFS, ECMWF IFS and AIFS, UKMO, GEM, the new JMA GSM, MET Nordic, KNMI/DMI HARMONIE, MeteoSwiss ICON-CH2, ACCESS and GRAPES.
+
+Daily views now cover 10 days. Shorter-range models are shown only while their own data is available: MeteoCompare never invents or extends model output.
+
+CHART VIEW AND VISUALS
+The new Chart View lets you explore up to 10 days hour by hour on a 240-hour timeline. You also get:
+- Today summary and hourly timeline;
+- min/max spread bands and model agreement levels;
+- model-by-model tables;
+- forecast evolution around 24 / 48 / 72 hours and the “Key takeaway” section;
+- local model ranking;
+- resizable home-screen widgets.
+
+LOCAL WEATHER NOTIFICATIONS
+Notifications are optional and off by default. For selected favorite cities, MeteoCompare can show:
+- a daily summary at the time you choose;
+- an alert when models diverge strongly;
+- a “Forecast revision” when the Key takeaway signal detects a meaningful temperature, rain or wind change.
+
+Everything is computed on-device with WorkManager, with no push server. Events are deduplicated to avoid unnecessary repeated notifications.
+
+TABLETS, FOLDABLES AND LARGE SCREENS
+On wide windows, MeteoCompare switches to a master/detail layout so the city list and forecast can remain visible side by side. The interface adapts to tablets, large foldables and resizable Android windows while keeping the compact phone layout.
 
 4 V3 FORECAST ENGINES
-Choose in Settings how the central forecast is calculated:
-- Multi-consensus: robust synthesis balanced by numerical model lineage.
-- Calibration: progressively adjusts selected daily values using available local history.
-- Scenarios: favors coherent forecast clusters instead of one simple average.
-- Adaptive: conservatively selects the most relevant strategy for the context.
+Choose how the central forecast is calculated: Multi-consensus, Local calibration, Scenarios or Adaptive. A dedicated Engine Comparison page runs all four strategies on the same raw data so their differences stay visible.
 
-A dedicated Engine Comparison page runs all four methods on exactly the same raw forecast, with charts, a divergence timeline and a daily comparison table.
+UNDERSTAND UNCERTAINTY
+MeteoCompare keeps current model convergence separate from local historical reliability. Related models share voting weight so variants from the same numerical lineage cannot artificially increase confidence. Forecast evolution also shows how a forecast changed roughly 24, 48 and 72 hours ago.
 
-CONVERGENCE AND LOCAL RELIABILITY
-MeteoCompare keeps two concepts separate:
-- current convergence, computed only from raw model output;
-- local historical reliability, based on past D+1 forecasts compared with an Open-Meteo historical reference.
+SEA / COAST AND WARNINGS
+For compatible coastal cities: waves, swell, sea temperature and estimated tides. For cities in France, MeteoCompare also relays official Météo-France vigilance information. Marine information is indicative only and is not intended for navigation.
 
-Related models share voting mass so enabling several variants from the same numerical lineage cannot artificially increase confidence.
-
-SEA / COAST
-For coastal cities, enable Sea / coast from the Home card. A blue dot shows when it is active. City Details then includes waves, swell, sea temperature and estimated tides. Marine information is indicative only and is not intended for navigation.
-
-VISUALS
-- Today summary and hourly timeline;
-- min/max spread bands and agreement levels;
-- model-by-model tables;
-- forecast evolution around 24 / 48 / 72 hours;
-- local model ranking;
-- resizable home-screen widgets;
-- offline cache, light/dark themes and TalkBack accessibility.
+SUPPORT METEOCOMPARE
+MeteoCompare is developed without ads, subscriptions or premium features. If the app is useful to you, you can support development through Liberapay, GitHub Sponsors or Ko-Fi. Donations are optional and unlock no privileges: everyone gets the same app.
 
 PRIVACY
-No account, no ads and no analytics SDK. Favorites, preferences, caches and history remain on the device. Weather and geocoding data are provided by Open-Meteo.
+No account, no ads and no analytics SDK. Favorites, preferences, caches and history remain on the device. Weather and geocoding data are mainly provided by Open-Meteo.
 
 MeteoCompare is free and open-source software licensed under Apache-2.0.

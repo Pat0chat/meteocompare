@@ -2,6 +2,7 @@ package com.meteocompare.app.widget
 
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import android.content.Intent
 import org.junit.Test
 
 class WidgetRefreshRepairReceiverTest {
@@ -17,6 +18,20 @@ class WidgetRefreshRepairReceiverTest {
         ).forEach { action ->
             assertTrue("action ignorée: $action", isWidgetRefreshRepairAction(action))
         }
+    }
+
+    @Test
+    fun `changements d heure et remplacement remplacent la planification notifications`() {
+        listOf(
+            Intent.ACTION_MY_PACKAGE_REPLACED,
+            Intent.ACTION_TIME_CHANGED,
+            Intent.ACTION_TIMEZONE_CHANGED,
+            Intent.ACTION_DATE_CHANGED
+        ).forEach { action ->
+            assertTrue("action non replanifiée: $action", shouldReplaceWeatherNotificationSchedule(action))
+        }
+        assertFalse(shouldReplaceWeatherNotificationSchedule(Intent.ACTION_BOOT_COMPLETED))
+        assertFalse(shouldReplaceWeatherNotificationSchedule(null))
     }
 
     @Test

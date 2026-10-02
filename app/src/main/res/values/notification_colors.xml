@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Accent principal MeteoCompare et palette météo alignée sur WeatherAccent. -->
+    <color name="notification_accent_default">#0277BD</color>
+    <color name="notification_accent_sunny">#FFA726</color>
+    <color name="notification_accent_partly_cloudy">#BCAAA4</color>
+    <color name="notification_accent_overcast">#78909C</color>
+    <color name="notification_accent_fog">#9E9E9E</color>
+    <color name="notification_accent_rain">#3F51B5</color>
+    <color name="notification_accent_freezing_rain">#00838F</color>
+    <color name="notification_accent_snow">#81D4FA</color>
+    <color name="notification_accent_thunderstorm">#B71C1C</color>
+
+    <!-- Accents sémantiques déjà utilisés dans l'application. -->
+    <color name="notification_accent_low_confidence">#C62828</color>
+    <color name="notification_accent_temperature">#C62828</color>
+    <color name="notification_accent_precipitation">#1565C0</color>
+    <color name="notification_accent_wind">#D7D2DF</color>
+
+    <!--
+      Couleurs de contenu pour les RemoteViews de notification. Elles reprennent
+      les accents sémantiques des variables de l'application, avec un contraste
+      adapté aux surfaces claires du système.
+    -->
+    <color name="notification_text_weather">#7A4A00</color>
+    <color name="notification_text_temperature">#B3261E</color>
+    <color name="notification_text_temperature_min">#1565C0</color>
+    <color name="notification_text_precipitation">#1565C0</color>
+    <color name="notification_text_wind">#D7D2DF</color>
+    <color name="notification_text_low_confidence">#B3261E</color>
+    <color name="notification_text_info">#075985</color>
+    <color name="notification_text_separator">#FF000000</color>
+</resources>

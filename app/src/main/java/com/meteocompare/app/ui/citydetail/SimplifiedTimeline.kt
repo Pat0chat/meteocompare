@@ -7,6 +7,7 @@ import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -90,8 +91,9 @@ internal fun SimplifiedTimelineCard(
     events: List<ForecastEvent> = emptyList(),
     focusPoint: SimplifiedTimelinePoint? = null,
     focusRequestId: Int = 0,
-    onModeChange: ((DisplayMode) -> Unit)? = null,
-    availableModes: Set<DisplayMode> = setOf(mode),
+    range: TimelineRange = TimelineRange.defaultFor(mode),
+    onRangeChange: ((TimelineRange) -> Unit)? = null,
+    availableRanges: Set<TimelineRange> = setOf(range),
     layout: TimelineLayout = TimelineLayout.COLUMNS,
     onLayoutChange: ((TimelineLayout) -> Unit)? = null,
     now: Instant = Instant.now(),
@@ -171,27 +173,27 @@ internal fun SimplifiedTimelineCard(
 
                 if (
                     onLayoutChange != null ||
-                    (onModeChange != null && availableModes.size > 1)
+                    (onRangeChange != null && availableRanges.size > 1)
                 ) {
-                    val showModeSelector = onModeChange != null && availableModes.size > 1
+                    val showModeSelector = onRangeChange != null && availableRanges.size > 1
                     val showLayoutSelector = onLayoutChange != null
 
-                    Row(
+                    FlowRow(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         if (showModeSelector) {
-                            TimelineDisplayModeSelector(
-                                mode = mode,
-                                availableModes = availableModes,
-                                onModeChange = requireNotNull(onModeChange)
+                            TimelineRangeSelector(
+                                range = range,
+                                availableRanges = availableRanges,
+                                onRangeChange = requireNotNull(onRangeChange)
                             )
                         }
 
                         if (showLayoutSelector) {
-                            Spacer(Modifier.weight(1f))
                             TimelineLayoutSelector(
                                 layout = layout,
                                 onLayoutChange = requireNotNull(onLayoutChange)
@@ -280,10 +282,10 @@ internal fun SimplifiedTimelineCard(
 }
 
 @Composable
-private fun TimelineDisplayModeSelector(
-    mode: DisplayMode,
-    availableModes: Set<DisplayMode>,
-    onModeChange: (DisplayMode) -> Unit
+private fun TimelineRangeSelector(
+    range: TimelineRange,
+    availableRanges: Set<TimelineRange>,
+    onRangeChange: (TimelineRange) -> Unit
 ) {
     val scheme = MaterialTheme.colorScheme
     val shape = RoundedCornerShape(14.dp)
@@ -300,16 +302,16 @@ private fun TimelineDisplayModeSelector(
             .testTag(TAG_TIMELINE_MODE_SELECTOR),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        DisplayMode.entries
-            .filter { it in availableModes }
+        TimelineRange.entries
+            .filter { it in availableRanges }
             .forEach { option ->
 
-                val selected = option == mode
+                val selected = option == range
 
                 val label = stringResource(
                     when (option) {
-                        DisplayMode.HOURLY -> R.string.display_mode_hourly
-                        DisplayMode.DAILY -> R.string.display_mode_daily
+                        TimelineRange.HOURLY -> R.string.display_mode_hourly
+                        TimelineRange.DAILY -> R.string.display_mode_daily
                     }
                 )
 
@@ -328,7 +330,7 @@ private fun TimelineDisplayModeSelector(
                             role = Role.RadioButton,
                             onClick = {
                                 if (!selected) {
-                                    onModeChange(option)
+                                    onRangeChange(option)
                                 }
                             }
                         )

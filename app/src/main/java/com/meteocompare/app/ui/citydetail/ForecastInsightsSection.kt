@@ -43,6 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.meteocompare.app.R
+import com.meteocompare.app.core.locale.evolutionHighlightTitleRes
 import com.meteocompare.app.core.locale.weatherConditionLabelRes
 import com.meteocompare.app.domain.model.ForecastEvolutionHighlight
 import com.meteocompare.app.domain.model.ForecastEvolutionTrend
@@ -332,7 +333,7 @@ private fun EvolutionHighlightRow(highlight: ForecastEvolutionHighlight) {
         ForecastEvolutionVariable.PRECIPITATION -> Icons.Outlined.WaterDrop
         ForecastEvolutionVariable.WIND -> Icons.Outlined.Air
     }
-    val title = stringResource(evolutionHighlightTitle(highlight))
+    val title = stringResource(evolutionHighlightTitleRes(highlight))
     val date = highlight.targetDate.format(DateTimeFormatter.ofPattern("EEE d"))
     Row(
         modifier = Modifier
@@ -382,19 +383,6 @@ private fun EvolutionHighlightRow(highlight: ForecastEvolutionHighlight) {
             )
         }
     }
-}
-
-private fun evolutionHighlightTitle(highlight: ForecastEvolutionHighlight): Int = when {
-    highlight.trend == ForecastEvolutionTrend.VOLATILE -> R.string.forecast_evolution_highlight_volatile
-    highlight.variable == ForecastEvolutionVariable.TEMPERATURE &&
-        highlight.trend == ForecastEvolutionTrend.INCREASING -> R.string.forecast_evolution_highlight_temp_up
-    highlight.variable == ForecastEvolutionVariable.TEMPERATURE -> R.string.forecast_evolution_highlight_temp_down
-    highlight.variable == ForecastEvolutionVariable.PRECIPITATION &&
-        highlight.trend == ForecastEvolutionTrend.INCREASING -> R.string.forecast_evolution_highlight_precip_up
-    highlight.variable == ForecastEvolutionVariable.PRECIPITATION -> R.string.forecast_evolution_highlight_precip_down
-    highlight.variable == ForecastEvolutionVariable.WIND &&
-        highlight.trend == ForecastEvolutionTrend.INCREASING -> R.string.forecast_evolution_highlight_wind_up
-    else -> R.string.forecast_evolution_highlight_wind_down
 }
 
 @Composable

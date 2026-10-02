@@ -40,11 +40,20 @@ import kotlinx.serialization.json.JsonObject
  * API). Le splitter détecte ce cas et fallback sur les clés non-suffixées.
  * Signifie qu'on peut utiliser ce DTO même pour un modèle unique — le
  * pipeline batched devient l'unique code path.
+ *
+ * ─── Corner case : premier modèle hors couverture ─────────────────────
+ * `latitude`/`longitude` décrivent la maille du PREMIER modèle de la liste
+ * `models=`. Quand ce modèle ne couvre pas le point (ex. AROME HD pour une
+ * ville d'Asie ou d'Afrique), Open-Meteo renvoie `"latitude": null,
+ * "longitude": null` tout en fournissant normalement les séries des autres
+ * modèles. Ces champs sont donc nullables : obligatoires, ils faisaient
+ * échouer la désérialisation de toute la réponse (« Erreur inconnue »).
+ * Aucune logique métier ne dépend de ces coordonnées de maille.
  */
 @Serializable
 data class BatchedForecastResponseDto(
-    val latitude: Double,
-    val longitude: Double,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
     val timezone: String,
     /** JSON brut de la section `hourly` — clés dynamiques suffixées par modèle. */
     val hourly: JsonObject? = null,

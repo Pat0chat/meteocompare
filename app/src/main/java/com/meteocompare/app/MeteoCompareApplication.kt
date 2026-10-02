@@ -6,12 +6,16 @@ import android.os.StrictMode
 import android.util.Log
 import com.meteocompare.app.core.locale.initializePersistedLocaleCache
 import com.meteocompare.app.data.worker.BiasRefreshScheduler
+import com.meteocompare.app.notification.WeatherNotificationEntryPoint
+import com.meteocompare.app.notification.WeatherNotificationScheduler
 import com.meteocompare.app.widget.WidgetReceivers
 import com.meteocompare.app.widget.WidgetRefreshScheduler
+import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /**
@@ -24,6 +28,8 @@ import kotlinx.coroutines.launch
  *
  * ## Workers planifiés ici
  *
+ * - [WeatherNotificationScheduler] — notifications météo locales (résumé
+ *   quotidien, alertes), uniquement si l'utilisateur en a activé.
  * - [BiasRefreshScheduler] — fetch delta quotidien des références historiques pour le
  *   feature "suivi de biais" (chip sous les noms de modèle dans CityDetail).
  *   Les démarrages ordinaires utilisent `ExistingPeriodicWorkPolicy.KEEP` :
@@ -79,6 +85,26 @@ class MeteoCompareApplication : Application() {
                 BiasRefreshScheduler.schedule(this@MeteoCompareApplication)
             }.onFailure { error ->
                 Log.w("MeteoCompare/BiasWorker", "Unable to schedule bias refresh", error)
+            }
+
+            // Notifications météo : garantit la présence des travaux attendus
+            // (KEEP) sans décaler une planification valide. Rien n'est planifié
+            // tant que l'utilisateur n'a activé aucune notification.
+            runCatching {
+                val entry = EntryPointAccessors
+                    .fromApplication(this@MeteoCompareApplication, WeatherNotificationEntryPoint::class.java)
+                val prefs = entry.userPreferencesRepository()
+                val storedSettings = prefs.observeNotificationSettings().first()
+                val favoriteIds = entry.cityRepository().observeFavorites().first().mapTo(mutableSetOf()) { it.id }
+                val cleanedSettings = storedSettings.retainingCities(favoriteIds)
+                val settings = if (cleanedSettings != storedSettings) {
+                    prefs.updateNotificationSettings { current -> current.retainingCities(favoriteIds) }
+                } else {
+                    storedSettings
+                }
+                WeatherNotificationScheduler.ensureScheduled(this@MeteoCompareApplication, settings)
+            }.onFailure { error ->
+                Log.w("MeteoCompare/Notif", "Unable to schedule weather notifications", error)
             }
 
             // Garantit la présence du travail sans remplacer une planification
