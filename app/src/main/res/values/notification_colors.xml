@@ -15,7 +15,7 @@
     <color name="notification_accent_low_confidence">#C62828</color>
     <color name="notification_accent_temperature">#C62828</color>
     <color name="notification_accent_precipitation">#1565C0</color>
-    <color name="notification_accent_wind">#D7D2DF</color>
+    <color name="notification_accent_wind">#6B5780</color>
 
     <!--
       Couleurs de contenu pour les RemoteViews de notification. Elles reprennent
@@ -26,7 +26,7 @@
     <color name="notification_text_temperature">#B3261E</color>
     <color name="notification_text_temperature_min">#1565C0</color>
     <color name="notification_text_precipitation">#1565C0</color>
-    <color name="notification_text_wind">#D7D2DF</color>
+    <color name="notification_text_wind">#6B5780</color>
     <color name="notification_text_low_confidence">#B3261E</color>
     <color name="notification_text_info">#075985</color>
     <color name="notification_text_separator">#FF000000</color>
