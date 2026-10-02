@@ -592,7 +592,7 @@ private fun forecastInsightMetrics(insight: ForecastInsight): List<InsightMetric
                     InsightMetric(
                         icon = Icons.Outlined.Air,
                         text = stringResource(R.string.forecast_insight_metric_wind_range,
-                            evidence?.minimumValue ?: min.toDouble(), evidence?.maximumValue ?: max.toDouble())
+                            evidence.minimumValue, evidence.maximumValue)
                     )
                 )
             } else target?.let { targetWind ->
@@ -623,8 +623,8 @@ private fun forecastInsightMetrics(insight: ForecastInsight): List<InsightMetric
                         icon = Icons.Outlined.Thermostat,
                         text = stringResource(
                             R.string.forecast_insight_metric_temperature_scenarios,
-                            evidence?.minimumValue ?: min.toDouble(),
-                            evidence?.maximumValue ?: max.toDouble()
+                            evidence.minimumValue,
+                            evidence.maximumValue
                         )
                     )
                 )

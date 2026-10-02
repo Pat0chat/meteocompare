@@ -233,6 +233,8 @@ dependencies {
     testImplementation(libs.byte.buddy.agent)
     testImplementation(libs.turbine)
     testImplementation(libs.kotlinx.coroutines.test)
+    // Portable on-disk storage for JVM backup/restore tests, including Windows.
+    testImplementation(libs.androidx.datastore.core.okio)
 
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.test.ext.junit)
