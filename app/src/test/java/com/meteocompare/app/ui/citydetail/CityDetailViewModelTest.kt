@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import app.cash.turbine.test
 import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.core.network.NetworkMonitor
+import com.meteocompare.app.data.worker.BiasRefreshScheduler
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityDetailContentTab
 import com.meteocompare.app.domain.model.CityDetailSection
@@ -37,6 +38,9 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkObject
+import io.mockk.unmockkObject
+import io.mockk.verify
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
@@ -297,6 +301,45 @@ class CityDetailViewModelTest {
             vm.refreshFeedback.test {
                 vm.setSectionExpanded(CityDetailSection.PRECIPITATION, expanded = false)
                 assertEquals(RefreshFeedback.SettingsSaveError, awaitItem())
+            }
+        }
+
+    @Test
+    fun `requestBiasHistory - lance le rattrapage manuel et le confirme`() =
+        runViewModelTest {
+            mockkObject(BiasRefreshScheduler)
+            try {
+                every { BiasRefreshScheduler.triggerManualRefresh(any<android.content.Context>()) } returns Unit
+                val vm = buildViewModel()
+
+                vm.refreshFeedback.test {
+                    vm.requestBiasHistory()
+                    assertEquals(RefreshFeedback.BiasHistoryQueued, awaitItem())
+                }
+                verify(exactly = 1) {
+                    BiasRefreshScheduler.triggerManualRefresh(any<android.content.Context>())
+                }
+            } finally {
+                unmockkObject(BiasRefreshScheduler)
+            }
+        }
+
+    @Test
+    fun `requestBiasHistory - un echec WorkManager produit un feedback d erreur`() =
+        runViewModelTest {
+            mockkObject(BiasRefreshScheduler)
+            try {
+                every {
+                    BiasRefreshScheduler.triggerManualRefresh(any<android.content.Context>())
+                } throws IllegalStateException("WorkManager not initialized")
+                val vm = buildViewModel()
+
+                vm.refreshFeedback.test {
+                    vm.requestBiasHistory()
+                    assertEquals(RefreshFeedback.BiasHistoryError, awaitItem())
+                }
+            } finally {
+                unmockkObject(BiasRefreshScheduler)
             }
         }
 
