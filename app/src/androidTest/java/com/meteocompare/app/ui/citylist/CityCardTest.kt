@@ -1,6 +1,9 @@
 package com.meteocompare.app.ui.citylist
 
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.State
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -9,11 +12,15 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.platform.app.InstrumentationRegistry
 import com.meteocompare.app.R
+import com.meteocompare.app.core.units.LocalWeatherUnits
+import com.meteocompare.app.core.units.WeatherUnits
 import com.meteocompare.app.domain.model.ConfidenceScore
 import com.meteocompare.app.domain.model.DayConfidence
 import com.meteocompare.app.domain.model.PrecipitationConfidence
+import com.meteocompare.app.domain.model.UnitSystem
 import com.meteocompare.app.testutil.TestFixtures
 import com.meteocompare.app.ui.theme.MeteoCompareTheme
+import java.util.Locale
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -22,14 +29,20 @@ class CityCardTest {
     @get:Rule val composeRule = createComposeRule()
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
 
-    private fun render(state: ForecastState, onRetry: () -> Unit = {}) {
+    private fun render(
+        state: ForecastState,
+        onRetry: () -> Unit = {},
+        unitSystem: State<UnitSystem> = mutableStateOf(UnitSystem.METRIC)
+    ) {
         composeRule.setContent {
-            MeteoCompareTheme {
-                Surface {
-                    CityCard(
-                        state = CityCardState(TestFixtures.paris, state),
-                        onClick = {}, onRemove = {}, onRetry = onRetry
-                    )
+            CompositionLocalProvider(LocalWeatherUnits provides WeatherUnits(unitSystem.value)) {
+                MeteoCompareTheme {
+                    Surface {
+                        CityCard(
+                            state = CityCardState(TestFixtures.paris, state),
+                            onClick = {}, onRemove = {}, onRetry = onRetry
+                        )
+                    }
                 }
             }
         }
@@ -88,6 +101,7 @@ class CityCardTest {
 
     @Test
     fun loaded_card_formats_divided_precipitation() {
+        val selection = mutableStateOf(UnitSystem.METRIC)
         render(
             ForecastState.Loaded(
                 DayConfidence(
@@ -106,13 +120,26 @@ class CityCardTest {
                     windMax = null
                 ),
                 currentTemp = null
-            )
+            ),
+            unitSystem = selection
         )
-        composeRule.onNodeWithText("2–3", useUnmergedTree = true).assertIsDisplayed()
-        composeRule.onNodeWithText(
-            context.getString(R.string.metric_precip_models_short, 3, 5),
-            useUnmergedTree = true
-        ).assertIsDisplayed()
+        fun assertPrecipitation(range: String, unit: String) {
+            composeRule.onNodeWithText(range, useUnmergedTree = true).assertIsDisplayed()
+            composeRule.onNodeWithText(unit, useUnmergedTree = true).assertIsDisplayed()
+            composeRule.onNodeWithText(
+                context.getString(R.string.metric_precip_models_short, 3, 5),
+                useUnmergedTree = true
+            ).assertIsDisplayed()
+        }
+        // Expected numbers are independent of the production converter; only the
+        // decimal separator follows the locale used by the card.
+        val metricRange = String.format(Locale.getDefault(), "%.1f–%.1f", 1.5, 3.0)
+        val imperialRange = String.format(Locale.getDefault(), "%.2f–%.2f", 0.06, 0.12)
+        assertPrecipitation(metricRange, "mm")
+        composeRule.runOnIdle { selection.value = UnitSystem.IMPERIAL }
+        assertPrecipitation(imperialRange, "in")
+        composeRule.runOnIdle { selection.value = UnitSystem.METRIC }
+        assertPrecipitation(metricRange, "mm")
     }
 
     @Test

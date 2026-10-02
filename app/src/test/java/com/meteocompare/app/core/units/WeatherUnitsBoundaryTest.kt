@@ -6,6 +6,32 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class WeatherUnitsBoundaryTest {
+    @Test fun `render contracts distinguish full and compact temperatures and preserve rain precision`() {
+        val metric = WeatherUnits()
+        val imperial = WeatherUnits(UnitSystem.IMPERIAL)
+        val english = listOf(
+            "0.0 °C", "32.0 °F", "20.0°", "68.0°F",
+            "1.5", "3.0", "0.06", "0.12", "0.1 mm", "<0.01 in"
+        )
+        for (tag in listOf("en", "fr", "de", "es", "it")) {
+            val locale = Locale.forLanguageTag(tag)
+            val expected = if (tag == "en") english else english.map { it.replace('.', ',') }
+            assertEquals(tag, expected, listOf(
+                metric.format(0.0, WeatherUnit.TEMPERATURE, 1, locale),
+                imperial.format(0.0, WeatherUnit.TEMPERATURE, 1, locale),
+                metric.temp(20.0, 1, locale),
+                imperial.temp(20.0, 1, locale),
+                // Even a request for zero digits must retain useful rain precision.
+                metric.value(1.5, WeatherUnit.PRECIPITATION, 0, locale),
+                metric.value(3.0, WeatherUnit.PRECIPITATION, 0, locale),
+                imperial.value(1.5, WeatherUnit.PRECIPITATION, 0, locale),
+                imperial.value(3.0, WeatherUnit.PRECIPITATION, 0, locale),
+                metric.rain(0.05, locale),
+                imperial.rain(0.05, locale)
+            ))
+        }
+    }
+
     @Test fun `existing formatter follows locale changes without changing the selected units`() {
         val original = Locale.getDefault()
         try {

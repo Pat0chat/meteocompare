@@ -2,7 +2,7 @@ package com.meteocompare.app.ui.graphicview
 
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.assertTextEquals
 import com.meteocompare.app.core.units.LocalWeatherUnits
 import com.meteocompare.app.core.units.WeatherUnits
 import com.meteocompare.app.domain.model.UnitSystem
@@ -15,11 +15,15 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.test.platform.app.InstrumentationRegistry
+import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.ui.citydetail.SimplifiedTimelinePoint
 import com.meteocompare.app.ui.theme.MeteoCompareTheme
 import java.time.Instant
+import java.util.Locale
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -43,25 +47,43 @@ class GraphicForecastContentTest {
             points = points, solarByDate = emptyMap(), modelValuesByInstant = emptyMap(),
             vigilance = null, calculatedAt = start
         )
+        val originalPoints = points.map { it.copy() }
         composeRule.setContent {
             CompositionLocalProvider(LocalWeatherUnits provides WeatherUnits(selection.value)) {
                 MeteoCompareTheme { GraphicForecastContent(state) }
             }
         }
-        composeRule.onNodeWithTag(TAG_GRAPHIC_WIND_TOOLTIP_MEAN, true).assertTextContains("16 km/h", substring = true)
+        val locale = Locale.getDefault()
+        val gustLabel = InstrumentationRegistry.getInstrumentation().targetContext
+            .getString(R.string.graphic_view_gust_short)
+        fun assertTooltips(temperature: String, range: String, rain: String, wind: String, gust: String) {
+            composeRule.onNodeWithTag(TAG_GRAPHIC_TEMPERATURE_TOOLTIP_VALUE, useUnmergedTree = true)
+                .assertTextEquals(temperature)
+            composeRule.onNodeWithTag(TAG_GRAPHIC_TEMPERATURE_TOOLTIP_RANGE, useUnmergedTree = true)
+                .assertTextEquals(range)
+            composeRule.onNodeWithTag(TAG_GRAPHIC_RAIN_TOOLTIP_AMOUNT, useUnmergedTree = true)
+                .assertTextEquals(rain)
+            composeRule.onNodeWithTag(TAG_GRAPHIC_RAIN_TOOLTIP_PROBABILITY, useUnmergedTree = true)
+                .assertTextEquals("75%")
+            composeRule.onNodeWithTag(TAG_GRAPHIC_WIND_TOOLTIP_MEAN, useUnmergedTree = true)
+                .assertTextEquals(wind)
+            composeRule.onNodeWithTag(TAG_GRAPHIC_WIND_TOOLTIP_GUST, useUnmergedTree = true)
+                .assertTextEquals("$gustLabel $gust")
+        }
+        val metricTemperature = String.format(locale, "%.1f °C", 0.0)
+        val metricRange = String.format(locale, "%.1f–%.1f °C", -1.0, 1.0)
+        val metricRain = String.format(locale, "%.1f mm", 0.1)
+        assertTooltips(metricTemperature, metricRange, metricRain, "16 km/h", "32 km/h")
         composeRule.runOnIdle { selection.value = UnitSystem.IMPERIAL }
-        composeRule.onNodeWithTag(TAG_GRAPHIC_TEMPERATURE_TOOLTIP_VALUE, true).assertTextContains("32°F", substring = true)
-        composeRule.onNodeWithTag(TAG_GRAPHIC_WIND_TOOLTIP_MEAN, true).assertTextContains("10 mph", substring = true)
-        composeRule.onNodeWithTag(TAG_GRAPHIC_WIND_TOOLTIP_GUST, true).assertTextContains("20 mph", substring = true)
-        composeRule.onNodeWithTag(TAG_GRAPHIC_RAIN_TOOLTIP_AMOUNT, true).assertTextContains("<0", substring = true)
-        composeRule.onNodeWithTag(TAG_GRAPHIC_RAIN_TOOLTIP_AMOUNT, true).assertTextContains("in", substring = true)
-        composeRule.onNodeWithTag(TAG_GRAPHIC_RAIN_TOOLTIP_PROBABILITY, true).assertTextContains("75%", substring = true)
+        assertTooltips(
+            String.format(locale, "%.1f °F", 32.0),
+            String.format(locale, "%.1f–%.1f °F", 30.2, 33.8),
+            String.format(locale, "<%.2f in", 0.01),
+            "10 mph", "20 mph"
+        )
         composeRule.runOnIdle { selection.value = UnitSystem.METRIC }
-        composeRule.onNodeWithTag(TAG_GRAPHIC_TEMPERATURE_TOOLTIP_VALUE, true).assertTextContains("0°", substring = true)
-        composeRule.onNodeWithTag(TAG_GRAPHIC_WIND_TOOLTIP_GUST, true).assertTextContains("32 km/h", substring = true)
-        org.junit.Assert.assertEquals(0.0, points[0].temperatureC!!, 0.0)
-        org.junit.Assert.assertEquals(0.05, points[0].precipitationMm!!, 0.0)
-        org.junit.Assert.assertEquals(start, points[0].instant)
+        assertTooltips(metricTemperature, metricRange, metricRain, "16 km/h", "32 km/h")
+        assertEquals(originalPoints, points)
     }
 
     @Test

@@ -443,10 +443,12 @@ class SimplifiedTimelineCardTest {
 
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         composeRule.onNodeWithText(
-            context.getString(R.string.forecast_insight_metric_wind, 18)
+            context.getString(R.string.forecast_insight_metric_wind, "18", "km/h"),
+            useUnmergedTree = true
         ).assertIsDisplayed()
         composeRule.onNodeWithText(
-            context.getString(R.string.timeline_wind_gust, 31)
+            context.getString(R.string.timeline_wind_gust, "31", "km/h"),
+            useUnmergedTree = true
         ).assertIsDisplayed()
     }
 
