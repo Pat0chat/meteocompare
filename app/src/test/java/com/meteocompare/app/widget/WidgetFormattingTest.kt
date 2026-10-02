@@ -1,5 +1,8 @@
 package com.meteocompare.app.widget
 
+import com.meteocompare.app.core.units.WeatherUnits
+import com.meteocompare.app.domain.model.UnitSystem
+
 import com.meteocompare.app.domain.model.WeatherCondition
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -159,4 +162,26 @@ class WidgetFormattingTest {
         // le signal pour cacher toute la ligne.
         assertEquals("", formatMinMax(min = null, max = null))
     }
+    @Test
+    fun `imperial widgets render converted values while retaining metric snapshots`() {
+        val units = WeatherUnits(UnitSystem.IMPERIAL)
+        val data = WidgetData.empty(cityName = "Paris", error = WidgetError.Loading).copy(
+            unitSystem = UnitSystem.IMPERIAL,
+            currentTemp = 20.0, tempMin = 0.0, tempMax = 30.0,
+            currentWindSpeedKmh = 16.09344, precipMm = 25.4,
+            precipConfidencePct = 78
+        )
+        assertEquals("68°F", formatTemp(data.currentTemp, units))
+        assertEquals("32°F / 86°F", formatMinMax(data.tempMin, data.tempMax, units))
+        val text = buildExtrasLine(data, units)
+        assertEquals(text, buildExtrasLine(data))
+        org.junit.Assert.assertTrue(text.contains("10 mph"))
+        org.junit.Assert.assertTrue(text.contains("in (78%)"))
+        assertEquals(20.0, data.currentTemp!!, 0.0)
+        assertEquals(25.4, data.precipMm!!, 0.0)
+        assertEquals("20°", formatTemp(data.currentTemp))
+        assertEquals("1.00", formatBucketValue(ForecastMode.CONFIDENCE_PRECIPITATION,
+            25.4, java.util.Locale.US, units))
+    }
+
 }

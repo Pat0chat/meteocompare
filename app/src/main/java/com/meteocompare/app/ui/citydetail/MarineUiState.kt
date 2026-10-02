@@ -6,5 +6,8 @@ sealed interface MarineUiState {
     data object Idle : MarineUiState
     data object Loading : MarineUiState
     data class Loaded(val data: MarineForecast, val isRefreshing: Boolean = false) : MarineUiState
-    data class Error(val message: String) : MarineUiState
+    data class Error(
+        val message: String = "",
+        @param:androidx.annotation.StringRes val messageRes: Int? = null
+    ) : MarineUiState
 }

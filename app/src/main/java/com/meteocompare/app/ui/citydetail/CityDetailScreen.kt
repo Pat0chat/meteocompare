@@ -1,5 +1,9 @@
 package com.meteocompare.app.ui.citydetail
 
+import com.meteocompare.app.core.units.WeatherUnit
+import com.meteocompare.app.core.units.WeatherUnits
+import com.meteocompare.app.core.units.LocalWeatherUnits
+
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -77,7 +81,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.stringResource
+import com.meteocompare.app.core.units.weatherStringResource as stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -1073,7 +1077,8 @@ private fun DetailedComparisonContent(
     temperatureSampleCountProvider: ((WeatherModel) -> Int)? = null,
     precipitationSampleCountProvider: ((WeatherModel) -> Int)? = null,
     windSampleCountProvider: ((WeatherModel) -> Int)? = null,
-    onBiasChipClick: ((WeatherModel, ModelBias) -> Unit)? = null
+    onBiasChipClick: ((WeatherModel, ModelBias) -> Unit)? = null,
+    units: WeatherUnits = LocalWeatherUnits.current
 ) {
     Column {
         when (tab) {
@@ -1126,7 +1131,7 @@ private fun DetailedComparisonContent(
                             valueExtractor = { hourly: HourlyForecast, idx ->
                                 hourly.temperature2m.getOrNull(idx)
                             },
-                            valueFormatter = { "${it.roundToInt()}°" },
+                            valueFormatter = { units.temp(it) },
                             heatmapStyler = ::hourlyTemperatureHeatmap,
                             modelBiasProvider = temperatureBiasProvider,
                             sampleCountProvider = temperatureSampleCountProvider,
@@ -1145,7 +1150,7 @@ private fun DetailedComparisonContent(
                         now = presentationNow,
                         extractor = { daily, idx -> daily.precipitationSum.getOrNull(idx) },
                         formatter = { mm ->
-                            if (mm < 0.05) "0" else "${"%.1f".format(mm)} mm"
+                            units.rain(mm)
                         },
                         valueStyler = ::precipitationStyle,
                         modelBiasProvider = precipitationBiasProvider,
@@ -1162,7 +1167,7 @@ private fun DetailedComparisonContent(
                                 hourly.precipitation.getOrNull(idx)
                             },
                             valueFormatter = { mm ->
-                                if (mm < 0.05) "0 mm" else "%.1f mm".format(mm)
+                                units.rain(mm)
                             },
                             heatmapStyler = ::hourlyPrecipitationHeatmap,
                             modelBiasProvider = precipitationBiasProvider,
@@ -1182,7 +1187,7 @@ private fun DetailedComparisonContent(
                         forecast = forecast,
                         now = presentationNow,
                         extractor = { daily, idx -> daily.windSpeedMax.getOrNull(idx) },
-                        formatter = { "${it.roundToInt()} km/h" },
+                        formatter = { units.speed(it) },
                         valueStyler = ::windStyle,
                         secondaryExtractor = { daily, idx -> daily.windGustsMax.getOrNull(idx) },
                         secondaryFormatter = { "$gustAbbreviation ${it.roundToInt()}" },
@@ -1204,7 +1209,7 @@ private fun DetailedComparisonContent(
                             valueExtractor = { hourly: HourlyForecast, idx ->
                                 hourly.windSpeed10m.getOrNull(idx)
                             },
-                            valueFormatter = { "${it.roundToInt()} km/h" },
+                            valueFormatter = { units.speed(it) },
                             heatmapStyler = ::hourlyWindHeatmap,
                             secondaryValueExtractor = { hourly, idx ->
                                 hourly.windGusts10m.getOrNull(idx)
@@ -1309,7 +1314,7 @@ private fun DetailedEmptyState() {
  * position des extrémités du dégradé.
  */
 @Composable
-private fun HourlyTemperatureLegend() {
+private fun HourlyTemperatureLegend(units: WeatherUnits = LocalWeatherUnits.current) {
     HeatmapGradientLegend(
         colors = listOf(
             Color(0xFF0D47A1), Color(0xFF1565C0), Color(0xFF1E88E5),
@@ -1321,8 +1326,9 @@ private fun HourlyTemperatureLegend() {
         // seg1 = "<-10", seg2 = "-10", ..., seg10 = "≥30°".
         // "°" sur les seules bornes extrêmes évite de saturer visuellement.
         tickLabels = listOf(
-            "<-10", "-10", "-5", "0", "5", "10", "15", "20", "25", "≥30°"
-        )
+            "<${units.value(-10.0, WeatherUnit.TEMPERATURE_COMPACT)}", *listOf(-10.0, -5.0, 0.0, 5.0, 10.0, 15.0, 20.0, 25.0).map { units.value(it, WeatherUnit.TEMPERATURE_COMPACT) }.toTypedArray(), "≥${units.value(30.0, WeatherUnit.TEMPERATURE_COMPACT)}"
+        ),
+        unitLabel = units.temperatureUnit
     )
 }
 
@@ -1339,7 +1345,7 @@ private fun HourlyTemperatureLegend() {
  * grandeur sans encombrer.
  */
 @Composable
-private fun HourlyPrecipitationLegend() {
+private fun HourlyPrecipitationLegend(units: WeatherUnits = LocalWeatherUnits.current) {
     HeatmapGradientLegend(
         colors = listOf(
             Color(0xFFE3F2FD), Color(0xFFBBDEFB), Color(0xFF90CAF9),
@@ -1347,9 +1353,12 @@ private fun HourlyPrecipitationLegend() {
             Color(0xFF1E88E5), Color(0xFF1976D2), Color(0xFF1565C0),
             Color(0xFF0D47A1)
         ),
-        tickLabels = listOf(
-            ".05", ".1", ".2", ".5", "1", "2", "3", "5", "7", "≥10 mm"
-        )
+        tickLabels = if (units.imperial) {
+            listOf(0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0).map {
+                units.value(it, WeatherUnit.PRECIPITATION, 3).removePrefix("0")
+            } + "≥${units.value(10.0, WeatherUnit.PRECIPITATION, 3).removePrefix("0")}"
+        } else listOf(".05", ".1", ".2", ".5", "1", "2", "3", "5", "7", "≥10"),
+        unitLabel = units.precipitationUnit
     )
 }
 
@@ -1363,7 +1372,7 @@ private fun HourlyPrecipitationLegend() {
  * modéré/fort" s'estompent perceptivement).
  */
 @Composable
-private fun HourlyWindLegend() {
+private fun HourlyWindLegend(units: WeatherUnits = LocalWeatherUnits.current) {
     Column {
         HeatmapGradientLegend(
             colors = listOf(
@@ -1373,8 +1382,9 @@ private fun HourlyWindLegend() {
                 Color(0xFFC62828)
             ),
             tickLabels = listOf(
-                "20", "30", "40", "50", "60", "70", "80", "90", "100", "≥120 km/h"
-            )
+                *listOf(20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0).map { units.value(it, WeatherUnit.WIND_SPEED) }.toTypedArray(), "≥${units.value(120.0, WeatherUnit.WIND_SPEED)}"
+            ),
+            unitLabel = units.windUnit
         )
         WindGustLegendHint()
     }
@@ -1408,7 +1418,8 @@ private fun HourlyWindLegend() {
 @Composable
 private fun HeatmapGradientLegend(
     colors: List<Color>,
-    tickLabels: List<String>
+    tickLabels: List<String>,
+    unitLabel: String? = null
 ) {
     require(colors.size == tickLabels.size) {
         "colors and tickLabels must have same size (got ${colors.size} vs ${tickLabels.size})"
@@ -1418,6 +1429,11 @@ private fun HeatmapGradientLegend(
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
+        if (unitLabel != null) {
+            Text(unitLabel, style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.align(Alignment.End))
+        }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1461,13 +1477,14 @@ internal fun TodaySummaryCard(
     expanded: Boolean = true,
     onExpandedChange: (Boolean) -> Unit = {},
     onConfidenceClick: () -> Unit = {},
-    forecast: CityForecast? = null
+    forecast: CityForecast? = null,
+    units: WeatherUnits = LocalWeatherUnits.current
 ) {
     val resources = LocalResources.current
     val baseDescription = A11yFormatter
-        .todaySummaryDescription(resources, today, modelCount)
+        .todaySummaryDescription(resources, today, modelCount, units = units)
     val a11yDescription = if (currentTemp != null) {
-        resources.getString(R.string.a11y_now_temp, currentTemp.roundToInt()) + ". $baseDescription"
+        com.meteocompare.app.core.units.weatherString(resources, units, R.string.a11y_now_temp, currentTemp) + ". $baseDescription"
     } else baseDescription
     val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val weatherAccent = WeatherAccent.of(currentCondition, isDark)
@@ -1540,7 +1557,7 @@ internal fun TodaySummaryCard(
 
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = currentTemp?.let { "${it.roundToInt()}°" } ?: "—",
+                                text = currentTemp?.let { units.temp(it) } ?: "—",
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Medium
                             )
@@ -1716,7 +1733,7 @@ private fun DetailMetricGrid(
                         fallbackMin = score.minValue,
                         fallbackMax = score.maxValue,
                         samples = samples.tempMin,
-                        unit = "°",
+                        unit = WeatherUnit.TEMPERATURE_COMPACT,
                         digits = 1,
                         convergence = score.convergencePercent,
                         centralTestTag = TAG_TODAY_SUMMARY_TEMP_MIN_CENTRAL,
@@ -1737,7 +1754,7 @@ private fun DetailMetricGrid(
                         fallbackMin = score.minValue,
                         fallbackMax = score.maxValue,
                         samples = samples.tempMax,
-                        unit = "°",
+                        unit = WeatherUnit.TEMPERATURE_COMPACT,
                         digits = 1,
                         convergence = score.convergencePercent,
                         centralTestTag = TAG_TODAY_SUMMARY_TEMP_MAX_CENTRAL,
@@ -1773,7 +1790,7 @@ private fun DetailMetricGrid(
                     fallbackMin = rain.min,
                     fallbackMax = rain.max,
                     samples = samples.precipitation,
-                    unit = " mm",
+                    unit = WeatherUnit.PRECIPITATION,
                     digits = 1,
                     convergence = precipitation.amountConvergencePercent,
                     nonNegative = true,
@@ -1814,7 +1831,7 @@ private fun DetailMetricGrid(
                         fallbackMin = score.minValue,
                         fallbackMax = score.maxValue,
                         samples = samples.wind,
-                        unit = " km/h",
+                        unit = WeatherUnit.WIND_SPEED,
                         digits = 0,
                         convergence = score.convergencePercent,
                         nonNegative = true,
@@ -1837,7 +1854,7 @@ private fun DetailMetricGrid(
                         fallbackMin = score.minValue,
                         fallbackMax = score.maxValue,
                         samples = samples.windGust,
-                        unit = " km/h",
+                        unit = WeatherUnit.WIND_SPEED,
                         digits = 0,
                         convergence = score.convergencePercent,
                         nonNegative = true,
@@ -1989,7 +2006,8 @@ private fun precipitationDispersionPresentation(
 @Composable
 private fun RainModelSummary(
     presentation: PrecipitationDispersionPresentation,
-    accent: Color
+    accent: Color,
+    units: WeatherUnits = LocalWeatherUnits.current
 ) {
     if (presentation.modelCount <= 0) return
     val locale = LocalLocale.current.platformLocale
@@ -2018,7 +2036,7 @@ private fun RainModelSummary(
                 Text(
                     text = stringResource(
                         R.string.metric_precip_if_rain,
-                        formatDispersionValue(amount, " mm", 1, locale)
+                        formatDispersionValue(amount, WeatherUnit.PRECIPITATION, 1, locale, units = units)
                     ),
                     style = MaterialTheme.typography.labelSmall,
                     color = accent,
@@ -2110,14 +2128,15 @@ private fun DispersionMetricRow(
     fallbackMin: Double,
     fallbackMax: Double,
     samples: List<DispersionSample>,
-    unit: String,
+    unit: WeatherUnit,
     digits: Int,
     convergence: Int?,
     subLabel: String? = null,
     nonNegative: Boolean = false,
     domainOverride: DispersionDomain? = null,
     centralTestTag: String? = null,
-    convergenceTestTag: String? = null
+    convergenceTestTag: String? = null,
+    units: WeatherUnits = LocalWeatherUnits.current
 ) {
     val locale = LocalLocale.current.platformLocale
     val sampleValues = samples.map(DispersionSample::value).filter { it.isFinite() }
@@ -2130,12 +2149,12 @@ private fun DispersionMetricRow(
     val safeMin = listOf(rawMin, central).filter(Double::isFinite).minOrNull() ?: central
     val safeMax = listOf(rawMax, central).filter(Double::isFinite).maxOrNull() ?: central
     val domain = domainOverride ?: paddedDispersionDomain(safeMin, safeMax, nonNegative)
-    val rangeLabel = "${formatDispersionValue(safeMin, unit, digits, locale)} – " +
-        formatDispersionValue(safeMax, unit, digits, locale)
-    val centralLabel = formatDispersionValue(central, unit, digits, locale)
+    val rangeLabel = "${formatDispersionValue(safeMin, unit, digits, locale, units = units)} – " +
+        formatDispersionValue(safeMax, unit, digits, locale, units = units)
+    val centralLabel = formatDispersionValue(central, unit, digits, locale, units = units)
     val railDescription = if (samples.isNotEmpty()) {
         "$semanticLabel · " + samples.joinToString(" · ") { sample ->
-            "${sample.model.displayName} ${formatDispersionValue(sample.value, unit, digits, locale)}"
+            "${sample.model.displayName} ${formatDispersionValue(sample.value, unit, digits, locale, units = units)}"
         }
     } else {
         "$semanticLabel · $rangeLabel"
@@ -2188,8 +2207,8 @@ private fun DispersionMetricRow(
         )
 
         DispersionBoundsLabels(
-            minLabel = formatDispersionValue(safeMin, unit, digits, locale),
-            maxLabel = formatDispersionValue(safeMax, unit, digits, locale),
+            minLabel = formatDispersionValue(safeMin, unit, digits, locale, units = units),
+            maxLabel = formatDispersionValue(safeMax, unit, digits, locale, units = units),
             min = safeMin,
             max = safeMax,
             domain = domain
@@ -2373,17 +2392,12 @@ private fun DispersionRail(
 
 private fun formatDispersionValue(
     value: Double,
-    unit: String,
+    unit: WeatherUnit,
     digits: Int,
-    locale: Locale
+    locale: Locale,
+    units: WeatherUnits
 ): String {
-    if (!value.isFinite()) return "—"
-    val number = if (digits <= 0) {
-        value.roundToInt().toString()
-    } else {
-        String.format(locale, "%.${digits}f", value)
-    }
-    return "$number$unit"
+    return units.format(value, unit, digits, locale)
 }
 
 @Composable

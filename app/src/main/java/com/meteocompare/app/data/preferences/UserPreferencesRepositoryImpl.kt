@@ -1,5 +1,7 @@
 package com.meteocompare.app.data.preferences
 
+import com.meteocompare.app.domain.model.UnitSystem
+
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.datastore.preferences.core.MutablePreferences
@@ -99,6 +101,14 @@ class UserPreferencesRepositoryImpl @Inject constructor(
             }
             Unit
         }
+
+    override fun observeUnitSystem(): Flow<UnitSystem> =
+        safePreferences.map(UnitSystemPreferenceCodec::read).distinctUntilChanged()
+
+    override suspend fun setUnitSystem(system: UnitSystem) = withContext(ioDispatcher) {
+        context.preferencesDataStore.edit { it[UnitSystemPreferenceCodec.key] = system.storageKey }
+        Unit
+    }
 
     override fun observeThemePreference(): Flow<ThemePreference> =
         safePreferences.map { prefs ->

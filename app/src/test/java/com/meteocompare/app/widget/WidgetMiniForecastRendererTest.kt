@@ -24,6 +24,14 @@ import org.junit.Test
  * `rect` et `paint.color` calculés correctement.
  */
 class WidgetMiniForecastRendererTest {
+    @Test
+    fun `invalid rain cannot crash color rendering or masquerade as heavy rain`() {
+        val neutral = WidgetMiniForecastRenderer.precipitationHeatmapArgb(null, 0xFF0000FF.toInt(), 0xFF000000.toInt())
+        for (value in listOf(Double.NaN, Double.POSITIVE_INFINITY, Double.MAX_VALUE)) {
+            assertEquals(neutral, WidgetMiniForecastRenderer.precipitationHeatmapArgb(null, 0xFF0000FF.toInt(), 0xFF000000.toInt(), value))
+        }
+    }
+
 
     // ─── temperatureHeatmapArgb ──────────────────────────────────────────
 

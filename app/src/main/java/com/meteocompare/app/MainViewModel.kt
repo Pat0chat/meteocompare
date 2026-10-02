@@ -1,5 +1,7 @@
 package com.meteocompare.app
 
+import com.meteocompare.app.domain.model.UnitSystem
+
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.meteocompare.app.domain.model.ThemePreference
@@ -20,6 +22,9 @@ import kotlinx.coroutines.flow.stateIn
 class MainViewModel @Inject constructor(
     userPreferences: UserPreferencesRepository
 ) : ViewModel() {
+
+    val unitSystem: StateFlow<UnitSystem> = userPreferences.observeUnitSystem()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, UnitSystem.METRIC)
 
     val themePreference: StateFlow<ThemePreference> =
         userPreferences.observeThemePreference()

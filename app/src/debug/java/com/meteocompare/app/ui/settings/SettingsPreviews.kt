@@ -41,3 +41,25 @@ private fun DonationDialogPreview() {
         DonationDialog(onDismiss = {})
     }
 }
+
+@MeteoScreenPreview
+@Composable
+private fun ImperialUnitsPreview() {
+    MeteoPreviewSurface {
+        UnitSystemSelector(com.meteocompare.app.domain.model.UnitSystem.IMPERIAL, {})
+    }
+}
+
+@MeteoScreenPreview
+@Composable
+private fun NotificationSettingsPreview() {
+    MeteoPreviewSurface {
+        NotificationSettingsSection(
+            settings = com.meteocompare.app.domain.model.NotificationSettings(),
+            favorites = emptyList(), notificationsBlocked = false,
+            onDailySummaryToggled = {}, onDailySummaryTimeSelected = {},
+            onDivergenceAlertsToggled = {}, onForecastChangeAlertsToggled = {},
+            onCityToggled = { _, _ -> }, onOpenSystemSettings = {}
+        )
+    }
+}

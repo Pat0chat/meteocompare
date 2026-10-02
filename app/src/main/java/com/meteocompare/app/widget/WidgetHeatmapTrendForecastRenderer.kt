@@ -1,5 +1,10 @@
 package com.meteocompare.app.widget
 
+import com.meteocompare.app.core.charts.metricPlotValue
+
+import com.meteocompare.app.core.units.WeatherUnit
+import com.meteocompare.app.core.units.WeatherUnits
+
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.LinearGradient
@@ -28,7 +33,8 @@ internal object WidgetHeatmapTrendForecastRenderer {
         precipColorArgb: Int,
         textColorArgb: Int,
         timelineLabels: List<String> = emptyList(),
-        profile: MiniForecastSizeProfile = MiniForecastSizeProfile.EXPANDED_4X2
+        profile: MiniForecastSizeProfile = MiniForecastSizeProfile.EXPANDED_4X2,
+        units: WeatherUnits = WeatherUnits()
     ): Bitmap {
         val bitmap = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
@@ -75,7 +81,7 @@ internal object WidgetHeatmapTrendForecastRenderer {
             }.coerceAtMost(columnWidth * 0.65f)
         }
 
-        val tempValues = temps.filterNotNull()
+        val tempValues = temps.mapNotNull(::metricPlotValue)
         val minTemp = tempValues.minOrNull() ?: 0.0
         val maxTemp = tempValues.maxOrNull() ?: 1.0
         val padded = WidgetHeatmapForecastRenderer.paddedTemperatureRange(minTemp, maxTemp)
@@ -97,7 +103,7 @@ internal object WidgetHeatmapTrendForecastRenderer {
             val centerX = (left + right) / 2f
             val isCurrent = index == 0
 
-            val temp = temps.getOrNull(index)
+            val temp = metricPlotValue(temps.getOrNull(index))
             val tempColor = temp
                 ?.let(WidgetMiniForecastRenderer::temperatureHeatmapArgb)
                 ?: withAlpha(textColorArgb, 0x14)
@@ -150,7 +156,7 @@ internal object WidgetHeatmapTrendForecastRenderer {
                 }
                 valuePaint.color = contentColor
                 canvas.drawText(
-                    temp?.let { "${it.roundToInt()}°" } ?: "—",
+                    temp?.let { units.temp(it) } ?: "—",
                     centerX,
                     temperatureLabelBaseline,
                     valuePaint

@@ -9,6 +9,25 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GraphicForecastChartMathTest {
+    @Test
+    fun invalid_values_leave_gaps_without_mutating_canonical_points_or_chronology() {
+        val start = Instant.parse("2026-09-16T00:00:00Z")
+        val points = listOf(Double.NaN, Double.MAX_VALUE, -5.0, 20.0).mapIndexed { i, v ->
+            SimplifiedTimelinePoint(instant = start.plusSeconds(i * 3600L), temperatureC = v,
+                precipitationMm = if (i == 3) 0.05 else Double.NaN,
+                windKmh = v, windGustKmh = v)
+        }
+        val data = buildGraphicRenderData(points, emptyMap(), ZoneId.of("UTC"))
+        assertEquals(listOf(null, null, -5.0, 20.0), data.temperatures)
+        assertEquals(listOf(0, 1, 2, 3), data.hours)
+        assertEquals(listOf(2, 3), seriesMarkerIndices(data.gusts))
+        assertEquals(0.05, data.rainAmounts[3]!!, 0.0)
+        assertTrue(points[0].temperatureC!!.isNaN())
+        assertEquals(Double.MAX_VALUE, points[1].temperatureC!!, 0.0)
+        val domain = temperatureDomain(points)
+        assertTrue(domain.min.isFinite() && domain.max.isFinite() && domain.max > domain.min)
+    }
+
 
     @Test
     fun line_markers_cover_every_available_hour_and_skip_missing_values() {

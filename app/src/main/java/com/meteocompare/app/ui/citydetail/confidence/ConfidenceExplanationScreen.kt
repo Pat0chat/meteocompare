@@ -1,5 +1,9 @@
 package com.meteocompare.app.ui.citydetail.confidence
 
+import com.meteocompare.app.core.units.WeatherUnit
+import com.meteocompare.app.core.units.WeatherUnits
+import com.meteocompare.app.core.units.LocalWeatherUnits
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -37,7 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.stringResource
+import com.meteocompare.app.core.units.weatherStringResource as stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -297,17 +301,17 @@ private fun SummaryLine(breakdown: VariableBreakdown, dayConfidence: DayConfiden
     when (breakdown.kind) {
         VariableKind.TEMP_MAX -> {
             if (tempMax == null) return
-            text = continuousSummary(tempMax, "°")
+            text = continuousSummary(tempMax, WeatherUnit.TEMPERATURE_COMPACT)
             percent = tempMax.convergencePercent
         }
         VariableKind.TEMP_MIN -> {
             if (tempMin == null) return
-            text = continuousSummary(tempMin, "°")
+            text = continuousSummary(tempMin, WeatherUnit.TEMPERATURE_COMPACT)
             percent = tempMin.convergencePercent
         }
         VariableKind.WIND_MAX -> {
             if (windMax == null) return
-            text = continuousSummary(windMax, " km/h")
+            text = continuousSummary(windMax, WeatherUnit.WIND_SPEED)
             percent = windMax.convergencePercent
         }
         VariableKind.PRECIPITATION -> {
@@ -333,20 +337,20 @@ private fun SummaryLine(breakdown: VariableBreakdown, dayConfidence: DayConfiden
 }
 
 @Composable
-private fun continuousSummary(score: ConfidenceScore, unit: String): String {
+private fun continuousSummary(score: ConfidenceScore, unit: WeatherUnit, units: WeatherUnits = LocalWeatherUnits.current): String {
     return if (score.spread <= 1.0) {
         stringResource(
             R.string.confidence_summary_converged,
-            score.meanValue.roundToInt(),
-            unit
+            units.value(score.meanValue, unit),
+            units.suffix(unit)
         )
     } else {
         stringResource(
             R.string.confidence_summary_spread,
-            score.minValue.roundToInt(),
-            score.maxValue.roundToInt(),
-            unit,
-            score.spread.roundToInt()
+            units.value(score.minValue, unit),
+            units.value(score.maxValue, unit),
+            units.suffix(unit),
+            units.value(score.spread, unit, delta = true)
         )
     }
 }
@@ -356,8 +360,8 @@ private fun precipitationSummary(p: PrecipitationConfidence): String = when (p) 
     is PrecipitationConfidence.NoRain -> stringResource(R.string.confidence_precip_all_dry)
     is PrecipitationConfidence.Rain -> stringResource(
         R.string.confidence_precip_all_rain,
-        p.minMm.roundToInt(),
-        p.maxMm.roundToInt()
+        p.minMm,
+        p.maxMm
     )
     is PrecipitationConfidence.Divided -> stringResource(
         R.string.confidence_precip_divided,
@@ -367,7 +371,7 @@ private fun precipitationSummary(p: PrecipitationConfidence): String = when (p) 
 }
 
 @Composable
-private fun ModelValueRow(mv: ModelValue, kind: VariableKind) {
+private fun ModelValueRow(mv: ModelValue, kind: VariableKind, units: WeatherUnits = LocalWeatherUnits.current) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
@@ -390,14 +394,14 @@ private fun ModelValueRow(mv: ModelValue, kind: VariableKind) {
             Text(
                 text = stringResource(
                     R.string.confidence_model_resolution,
-                    formatResolution(mv.model.resolutionKm)
+                    formatResolution(mv.model.resolutionKm, units = units)
                 ),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
         Text(
-            text = formatValue(mv.value, kind),
+            text = formatValue(mv.value, kind, units = units),
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface
@@ -405,16 +409,10 @@ private fun ModelValueRow(mv: ModelValue, kind: VariableKind) {
     }
 }
 
-private fun formatValue(value: Double, kind: VariableKind): String = when (kind) {
-    VariableKind.TEMP_MAX, VariableKind.TEMP_MIN -> "${value.roundToInt()}°"
-    VariableKind.WIND_MAX -> "${value.roundToInt()} km/h"
-    // Pluie : 1 décimale pour les faibles quantités (0.3 mm), entier au-delà.
-    // Sinon 0.05 mm s'affiche en "0 mm" et perd l'info "léger humide".
-    VariableKind.PRECIPITATION -> when {
-        value < 0.05 -> "0 mm"
-        value < 1.0 -> "%.1f mm".format(value)
-        else -> "${value.roundToInt()} mm"
-    }
+private fun formatValue(value: Double, kind: VariableKind, units: WeatherUnits): String = when (kind) {
+    VariableKind.TEMP_MAX, VariableKind.TEMP_MIN -> units.temp(value)
+    VariableKind.WIND_MAX -> units.speed(value)
+    VariableKind.PRECIPITATION -> units.rain(value)
 }
 
 /**
@@ -423,8 +421,8 @@ private fun formatValue(value: Double, kind: VariableKind): String = when (kind)
  * arrondi entier au-delà (la différence entre 11 et 13 km n'est pas
  * sensorielle pour l'utilisateur).
  */
-private fun formatResolution(km: Double): String =
-    if (km < 5.0) "%.1f km".format(km) else "${km.roundToInt()} km"
+private fun formatResolution(km: Double, units: WeatherUnits): String =
+    units.format(km, WeatherUnit.DISTANCE, if (km < 5.0 || units.imperial) 1 else 0)
 
 @Composable
 private fun interpretationFor(
@@ -513,7 +511,7 @@ private fun WhyModelsDivergeSection(models: List<WeatherModel>) {
 }
 
 @Composable
-private fun ModelResolutionRow(model: WeatherModel) {
+private fun ModelResolutionRow(model: WeatherModel, units: WeatherUnits = LocalWeatherUnits.current) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
@@ -532,7 +530,7 @@ private fun ModelResolutionRow(model: WeatherModel) {
             modifier = Modifier.weight(1f)
         )
         Text(
-            text = formatResolution(model.resolutionKm),
+            text = formatResolution(model.resolutionKm, units = units),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

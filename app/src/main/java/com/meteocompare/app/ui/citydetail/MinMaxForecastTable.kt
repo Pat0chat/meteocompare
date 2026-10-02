@@ -1,5 +1,9 @@
 package com.meteocompare.app.ui.citydetail
 
+import com.meteocompare.app.core.units.WeatherUnit
+import com.meteocompare.app.core.units.WeatherUnits
+import com.meteocompare.app.core.units.LocalWeatherUnits
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,7 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.res.stringResource
+import com.meteocompare.app.core.units.weatherStringResource as stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -251,7 +255,8 @@ private fun MinMaxCell(
     coolColor: Color,
     background: Color,
     height: Dp,
-    palette: DetailTablePalette
+    palette: DetailTablePalette,
+    units: WeatherUnits = LocalWeatherUnits.current
 ) {
     Box(
         modifier = Modifier
@@ -262,7 +267,7 @@ private fun MinMaxCell(
     ) {
         val display = remember(tempMax, tempMin, normal) {
             buildAnnotatedString {
-                val maxText = tempMax?.let { "${it.roundToInt()}°" } ?: "—"
+                val maxText = tempMax?.let { units.temp(it) } ?: "—"
                 val maxColor = colorFor(tempMax, normal?.tempMaxNormal, neutralColor, warmColor, coolColor)
                 withStyle(SpanStyle(color = maxColor, fontWeight = FontWeight.Medium)) {
                     append(maxText)
@@ -272,7 +277,7 @@ private fun MinMaxCell(
                     append(" / ")
                 }
 
-                val minText = tempMin?.let { "${it.roundToInt()}°" } ?: "—"
+                val minText = tempMin?.let { units.temp(it) } ?: "—"
                 val minColor = colorFor(tempMin, normal?.tempMinNormal, neutralColor, warmColor, coolColor)
                 withStyle(SpanStyle(color = minColor)) {
                     append(minText)

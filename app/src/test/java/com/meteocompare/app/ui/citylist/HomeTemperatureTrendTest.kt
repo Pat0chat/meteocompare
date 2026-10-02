@@ -32,4 +32,13 @@ class HomeTemperatureTrendTest {
         assertNull(homeTemperatureTrend(null, listOf(12.0, 13.0, 14.0, 15.0)))
         assertNull(homeTemperatureTrend(12.0, emptyList()))
     }
+    @Test
+    fun `trend retains metric precision for imperial presentation`() {
+        val trend = requireNotNull(homeTemperatureTrend(0.0, listOf(0.0, 0.1, 0.2, 0.4)))
+        assertEquals(0.4, trend.targetTemperatureC, 0.0)
+        val units = com.meteocompare.app.core.units.WeatherUnits(
+            com.meteocompare.app.domain.model.UnitSystem.IMPERIAL)
+        assertEquals("33°F", units.temp(trend.targetTemperatureC, locale = java.util.Locale.US))
+    }
+
 }

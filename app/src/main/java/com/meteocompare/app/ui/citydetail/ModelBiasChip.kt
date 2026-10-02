@@ -1,5 +1,9 @@
 package com.meteocompare.app.ui.citydetail
 
+import com.meteocompare.app.core.units.WeatherUnit
+import com.meteocompare.app.core.units.WeatherUnits
+import com.meteocompare.app.core.units.LocalWeatherUnits
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -47,14 +51,15 @@ import kotlin.math.abs
 internal fun ModelBiasChip(
     bias: ModelBias,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    units: WeatherUnits = LocalWeatherUnits.current
 ) {
     val isCalibrated = bias.significance == BiasSignificance.NOT_SIGNIFICANT
     val palette = biasChipPalette(
         direction = if (isCalibrated) BiasDirection.NEUTRAL else bias.direction,
         pending = false
     )
-    val label = formatBiasLabel(bias)
+    val label = formatBiasLabel(bias, units = units)
     val a11y = biasContentDescription(bias)
     val shape = RoundedCornerShape(6.dp)
 
@@ -200,27 +205,16 @@ internal fun biasChipPalette(
  * ses propres phrases localisées ("de 1,5 millimètres en moyenne"), donc le
  * format visuel compact n'impacte pas TalkBack.
  */
-internal fun formatBiasLabel(bias: ModelBias): String {
-    val abs = abs(bias.meanBias)
-    val sign = when {
-        bias.meanBias > 0.0 -> "+"
-        bias.meanBias < 0.0 -> "−"
-        else -> "±"
-    }
+internal fun formatBiasLabel(bias: ModelBias, units: WeatherUnits = WeatherUnits()): String {
     // 1 décimale pour temp et précip, entier pour vent (biais vent toujours
     // ordre de plusieurs km/h, décimales inutiles).
-    val magnitude = when (bias.variable) {
-        BiasVariable.WIND_SPEED -> "%.0f".format(abs)
-        else                    -> "%.1f".format(abs) // locale-aware
+    val metricUnit = when (bias.variable) {
+        BiasVariable.TEMPERATURE -> WeatherUnit.TEMPERATURE_COMPACT
+        BiasVariable.PRECIPITATION -> WeatherUnit.PRECIPITATION
+        BiasVariable.WIND_SPEED -> WeatherUnit.WIND_SPEED
     }
-    // Unités accolées sans espace pour économiser 1 char de largeur — critique
-    // dans le contexte de header 72dp.
-    val unit = when (bias.variable) {
-        BiasVariable.TEMPERATURE   -> "°"
-        BiasVariable.PRECIPITATION -> "mm"
-        BiasVariable.WIND_SPEED    -> "km/h"
-    }
-    return "$sign$magnitude$unit"
+    return units.signedDelta(bias.meanBias, metricUnit,
+        if (bias.variable == BiasVariable.WIND_SPEED) 0 else 1, compact = true)
 }
 
 /**
@@ -230,7 +224,7 @@ internal fun formatBiasLabel(bias: ModelBias): String {
  * temperature by 1.5° on average over 30 days." en anglais.
  */
 @Composable
-private fun biasContentDescription(bias: ModelBias): String {
+private fun biasContentDescription(bias: ModelBias, units: WeatherUnits = LocalWeatherUnits.current): String {
     val verb = stringResource(
         when (bias.direction) {
             BiasDirection.WARM    -> R.string.bias_verb_overestimates
@@ -245,7 +239,7 @@ private fun biasContentDescription(bias: ModelBias): String {
             BiasVariable.WIND_SPEED    -> R.string.bias_variable_wind_speed
         }
     )
-    val magnitude = formatBiasLabel(bias)
+    val magnitude = formatBiasLabel(bias, units = units)
         .removePrefix("+").removePrefix("−").removePrefix("±")
     return stringResource(
         R.string.bias_chip_content_description,

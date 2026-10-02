@@ -1,5 +1,7 @@
 package com.meteocompare.app.ui.settings
 
+import com.meteocompare.app.domain.model.UnitSystem
+
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -51,6 +53,9 @@ class SettingsViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = WeatherModel.MVP_SELECTION.toSet()
         )
+
+    val unitSystem: StateFlow<UnitSystem> = prefs.observeUnitSystem()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), UnitSystem.METRIC)
 
     val themePreference: StateFlow<ThemePreference> = prefs.observeThemePreference()
         .stateIn(
@@ -136,6 +141,19 @@ class SettingsViewModel @Inject constructor(
             onFailure = { AppToastEvent.error(R.string.toast_action_error) }
         )
         _feedback.trySend(feedback)
+    }
+
+    fun onUnitSystemSelected(system: UnitSystem) {
+        viewModelScope.launch {
+            val feedback = runSuspendCatching { prefs.setUnitSystem(system) }.fold(
+                onSuccess = {
+                    triggerWidgetRefreshSafely()
+                    AppToastEvent.success(R.string.toast_units_updated)
+                },
+                onFailure = { AppToastEvent.error(R.string.toast_settings_save_error) }
+            )
+            _feedback.send(feedback)
+        }
     }
 
     fun onThemeSelected(preference: ThemePreference) {

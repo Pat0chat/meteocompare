@@ -5,6 +5,17 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class WidgetHeatmapForecastRendererTest {
+    @Test
+    fun `invalid and extreme temperatures never produce invalid canvas coordinates`() {
+        for (value in listOf(Double.NaN, Double.POSITIVE_INFINITY, -Double.MAX_VALUE, Double.MAX_VALUE)) {
+            val (min, max) = WidgetHeatmapForecastRenderer.paddedTemperatureRange(value, value)
+            org.junit.Assert.assertTrue(min.isFinite() && max.isFinite() && max > min)
+            val y = WidgetHeatmapForecastRenderer.normalizedTemperatureY(value, min, max, 0f, 100f)
+            org.junit.Assert.assertTrue(y.isFinite() && y in 0f..100f)
+        }
+        org.junit.Assert.assertTrue(WidgetHeatmapForecastRenderer.normalizedTemperatureY(10.0, 10.0, 10.0, 0f, 100f).isFinite())
+    }
+
 
     @Test
     fun `anchor indices stay readable on compact profiles`() {

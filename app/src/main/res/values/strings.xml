@@ -135,15 +135,15 @@
     <string name="wind_legend_strong">fort</string>
     <string name="wind_legend_storm">tempête</string>
 
-    <string name="temp_legend_above_normal">&gt; repère 10 ans + 2°</string>
-    <string name="temp_legend_below_normal">&lt; repère 10 ans − 2°</string>
+    <string name="temp_legend_above_normal">&gt; repère 10 ans + %1$s</string>
+    <string name="temp_legend_below_normal">&lt; repère 10 ans − %1$s</string>
 
     <string name="var_temp_max">Température max</string>
     <string name="var_temp_min">Température min</string>
     <string name="today_summary_temp_min_short">Min</string>
     <string name="today_summary_temp_max_short">Max</string>
-    <string name="var_wind_max">Vent max à 10 m</string>
-    <string name="var_wind_gust_max">Rafales max à 10 m</string>
+    <string name="var_wind_max">Vent max à %1$s</string>
+    <string name="var_wind_gust_max">Rafales max à %1$s</string>
     <string name="var_precipitation">Précipitations</string>
 
     <string name="refresh_success">Prévisions mises à jour</string>
@@ -191,7 +191,6 @@
     <string name="metric_gust_supporting">Raf. %1$s</string>
     <string name="metric_precip_models_short">%1$d/%2$d modèles</string>
     <string name="metric_precip_models_rain">%1$d modèles sur %2$d</string>
-    <string name="metric_gust_detail">Rafales %1$s km/h</string>
     <string name="metric_detail_wind">Vent</string>
     <string name="metric_detail_gusts">Rafales</string>
     <string name="metric_confidence_high">Convergence élevée · %1$d %%</string>
@@ -200,7 +199,7 @@
     <string name="metric_summary_average">Consensus central</string>
     <string name="metric_summary_range">Plage %1$s</string>
     <string name="metric_summary_range_and_spread">Plage %1$s · écart %2$s</string>
-    <string name="metric_summary_max_model_precip">Max modèle %1$.1f mm</string>
+    <string name="metric_summary_max_model_precip">Max modèle %1$s %2$s</string>
 
     <string name="search_city_placeholder">Rechercher une ville…</string>
     <string name="search_no_results">Aucune ville trouvée</string>
@@ -217,21 +216,21 @@
     <string name="a11y_confidence_medium">Convergence moyenne</string>
     <string name="a11y_confidence_low">Convergence faible</string>
     <string name="a11y_open_confidence_explanation">%d %% de convergence entre modèles, ouvrir l\'explication détaillée</string>
-    <string name="a11y_temp_single">%d degrés</string>
-    <string name="a11y_temp_range">entre %1$d et %2$d degrés</string>
+    <string name="a11y_temp_single">%1$s %2$s</string>
+    <string name="a11y_temp_range">entre %1$s et %2$s %3$s</string>
     <string name="a11y_temp_with_confidence">%1$s, %2$s, %3$d pourcent</string>
     <string name="a11y_no_rain">Pas de pluie attendue, convergence %d pourcent</string>
     <string name="a11y_no_rain_no_convergence">Aucune pluie attendue</string>
-    <string name="a11y_rain_no_convergence">Pluie attendue, entre %1$d et %2$d millimètres</string>
-    <string name="a11y_rain">Pluie attendue, entre %1$d et %2$d millimètres, convergence %3$d pourcent</string>
-    <string name="a11y_models_divided">Modèles divisés sur la pluie, %1$d sur %2$d prédisent la pluie, entre %3$d et %4$d millimètres</string>
+    <string name="a11y_rain_no_convergence">Pluie attendue, entre %1$s et %2$s %3$s</string>
+    <string name="a11y_rain">Pluie attendue, entre %1$s et %2$s %4$s, convergence %3$d pourcent</string>
+    <string name="a11y_models_divided">Modèles divisés sur la pluie, %1$d sur %2$d prédisent la pluie, entre %3$s et %4$s %5$s</string>
     <string name="a11y_city_loading">Chargement des prévisions.</string>
     <string name="a11y_city_error">Erreur : %1$s.</string>
-    <string name="a11y_now_temp">Maintenant %d degrés</string>
+    <string name="a11y_now_temp">Maintenant %1$s %2$s</string>
     <string name="a11y_temperature_prefix">Température</string>
     <string name="a11y_overall_confidence">Convergence globale %d pourcent</string>
     <string name="a11y_hourly_empty">Graphique vide, données insuffisantes</string>
-    <string name="a11y_hourly_template">Bande de convergence horaire sur %1$d jours. Température centrale %2$d degrés à l\'heure actuelle, %3$d degrés à la fin de l\'horizon. Divergence entre modèles %4$s. Convergence %5$d pourcent maintenant, %6$d pourcent à J plus %1$d.</string>
+    <string name="a11y_hourly_template">Bande de convergence horaire sur %1$d jours. Température centrale %2$s %7$s à l\'heure actuelle, %3$s %7$s à la fin de l\'horizon. Divergence entre modèles %4$s. Convergence %5$d pourcent maintenant, %6$d pourcent à J plus %1$d.</string>
     <string name="a11y_divergence_strong">qui augmente fortement</string>
     <string name="a11y_divergence_increasing">qui augmente</string>
     <string name="a11y_divergence_stable">globalement stable</string>
@@ -239,7 +238,7 @@
     <string name="a11y_today_summary_many">Résumé d\'aujourd\'hui, %d modèles analysés</string>
     <string name="a11y_temp_max_label">Température max</string>
     <string name="a11y_temp_min_label">Température min</string>
-    <string name="a11y_wind_max_label">Vent max à 10 m</string>
+    <string name="a11y_wind_max_label">Vent max à %1$s</string>
     <string name="a11y_kmh_unit">kilomètres par heure</string>
 
     <string name="confidence_explanation_title">Pourquoi cette convergence ?</string>
@@ -249,12 +248,12 @@
     <string name="confidence_verdict_medium">La convergence des modèles est partielle. Les valeurs exactes restent incertaines.</string>
     <string name="confidence_verdict_low">Les modèles divergent fortement. Les valeurs précises sont à prendre avec précaution.</string>
 
-    <string name="confidence_summary_converged">Tous les modèles s\'alignent autour de %1$d%2$s</string>
+    <string name="confidence_summary_converged">Tous les modèles s\'alignent autour de %1$s%2$s</string>
 
-    <string name="confidence_summary_spread">Entre %1$d et %2$d%3$s (écart de %4$d%3$s)</string>
+    <string name="confidence_summary_spread">Entre %1$s et %2$s%3$s (écart de %4$s%3$s)</string>
     <string name="confidence_precip_all_dry">Tous les modèles annoncent un temps sec</string>
 
-    <string name="confidence_precip_all_rain">Tous prédisent de la pluie : entre %1$d et %2$d mm</string>
+    <string name="confidence_precip_all_rain">Tous prédisent de la pluie : entre %1$s et %2$s %3$s</string>
 
     <string name="confidence_precip_divided">%1$d/%2$d modèles annoncent de la pluie</string>
 
@@ -390,14 +389,14 @@
     <string name="bias_reliability_balance_over_badge">%1$d %% sur</string>
     <string name="bias_reliability_direction_balance">%1$d %% au-dessus · %2$d %% proches · %3$d %% au-dessous</string>
     <string name="bias_reliability_sample_coverage">Historique exploité : %1$d jours sur une fenêtre de %2$d jours.</string>
-    <string name="bias_reliability_method_note">Indice local basé sur les prévisions J+1 enregistrées et la réanalyse Open-Meteo, sur des dates comparables. Pluie : jour humide dès 0,5 mm. Repère indicatif, pas une note officielle.</string>
+    <string name="bias_reliability_method_note">Indice local basé sur les prévisions J+1 enregistrées et la réanalyse Open-Meteo, sur des dates comparables. Pluie : jour humide dès %1$s. Repère indicatif, pas une note officielle.</string>
 
     <string name="bias_chip_calibrating_progress_a11y">En cours de calibration : %1$d échantillons sur %2$d collectés</string>
 
     <string name="sun_times_a11y">Lever du soleil à %1$s, coucher à %2$s</string>
     <string name="mini_forecast_a11y_no_data">Prévision 12h non disponible</string>
-    <string name="mini_forecast_a11y_no_rain">Prévision 12h : entre %1$d et %2$d degrés, pas de pluie prévue</string>
-    <string name="mini_forecast_a11y_with_rain">Prévision 12h : entre %1$d et %2$d degrés, pluie prévue sur %3$d heures</string>
+    <string name="mini_forecast_a11y_no_rain">Prévision 12h : entre %1$s et %2$s %3$s, pas de pluie prévue</string>
+    <string name="mini_forecast_a11y_with_rain">Prévision 12h : entre %1$s et %2$s %4$s, pluie prévue sur %3$d heures</string>
 
     <string name="widget_config_forecast_mode_mini_12h">Mini prévision 12 heures</string>
     <string name="widget_config_forecast_mode_mini_12h_descr">Affiche les prévisions température et précipitation des 12 prochaines heures</string>
@@ -439,11 +438,11 @@
     <string name="timeline_tomorrow_at">Demain · %1$s</string>
     <string name="timeline_precip_probability_source">médiane</string>
     <string name="timeline_precip_models_source">%1$d/%2$d modèles</string>
-    <string name="timeline_precip_amount">%1$.1f mm</string>
-    <string name="timeline_precip_amount_if_rain">%1$.1f mm si pluie</string>
-    <string name="timeline_wind_gust">Raf. %1$d km/h</string>
+    <string name="timeline_precip_amount">%1$s %2$s</string>
+    <string name="timeline_precip_amount_if_rain">%1$s %2$s si pluie</string>
+    <string name="timeline_wind_gust">Raf. %1$s %2$s</string>
     <string name="wind_gust_abbreviation">R</string>
-    <string name="wind_table_legend">Vent à 10 m · R = rafales · km/h</string>
+    <string name="wind_table_legend">Vent à %1$s · R = rafales · %2$s</string>
     <string name="timeline_consensus_high">Convergence élevée</string>
     <string name="timeline_consensus_medium">Convergence moyenne</string>
     <string name="timeline_consensus_low">Convergence faible</string>
@@ -491,8 +490,8 @@
     <string name="forecast_insight_metric_probability">%1$d %%</string>
     <string name="forecast_insight_metric_model_ratio">%1$d/%2$d modèles</string>
     <string name="forecast_insight_metric_coverage">%1$d/%2$d modèles</string>
-    <string name="forecast_insight_metric_wind">%1$d km/h</string>
-    <string name="forecast_insight_metric_temperature_range">%1$d° → %2$d°</string>
+    <string name="forecast_insight_metric_wind">%1$s %2$s</string>
+    <string name="forecast_insight_metric_temperature_range">%1$s%3$s → %2$s%3$s</string>
     <string name="forecast_insight_title_disagreement">Prévision incertaine</string>
     <string name="forecast_insight_title_disagreement_multiple">Prévision très incertaine</string>
     <string name="forecast_insight_title_disagreement_rain">Divergence sur la pluie</string>
@@ -536,8 +535,8 @@
     <string name="forecast_insight_title_stable_compact">Rien de notable sur les prochaines 24 h</string>
     <string name="forecast_insight_detail_stable_compact">Les modèles restent globalement cohérents.</string>
     <string name="forecast_insight_metric_probability_range">%1$d–%2$d %%</string>
-    <string name="forecast_insight_metric_wind_range">%1$d–%2$d km/h</string>
-    <string name="forecast_insight_metric_temperature_scenarios">%1$d–%2$d°</string>
+    <string name="forecast_insight_metric_wind_range">%1$s–%2$s %3$s</string>
+    <string name="forecast_insight_metric_temperature_scenarios">%1$s–%2$s%3$s</string>
     <string name="forecast_insight_detail_rain_fused_uncertainty">Un épisode ressort, mais son intensité ou son horaire varie selon les modèles.</string>
     <string name="forecast_insight_detail_rain_thunderstorm_uncertain">Le risque orageux ressort, avec un horaire encore incertain.</string>
     <string name="forecast_insight_title_temperature_frost">Risque de gel</string>
@@ -546,12 +545,12 @@
     <string name="forecast_insight_title_temperature_uncertain">Température incertaine</string>
     <string name="forecast_insight_title_temperature_unusual_cooling">Refroidissement inhabituel</string>
     <string name="forecast_insight_title_temperature_unusual_warming">Réchauffement inhabituel</string>
-    <string name="forecast_insight_detail_temperature_frost">La température pourrait atteindre ou passer sous 0°.</string>
+    <string name="forecast_insight_detail_temperature_frost">La température pourrait atteindre ou passer sous %1$s.</string>
     <string name="forecast_insight_detail_temperature_heat">Un seuil de chaleur notable pourrait être atteint.</string>
     <string name="forecast_insight_detail_temperature_uncertain">Les scénarios présentent une plage de températures importante.</string>
     <string name="forecast_insight_detail_temperature_unusual">Variation atypique pour cette période de la journée.</string>
-    <string name="forecast_insight_metric_precipitation">%1$.1f mm</string>
-    <string name="forecast_insight_metric_precipitation_range">%1$.1f–%2$.1f mm</string>
+    <string name="forecast_insight_metric_precipitation">%1$s %2$s</string>
+    <string name="forecast_insight_metric_precipitation_range">%1$s–%2$s %3$s</string>
     <string name="timeline_event_marker_precipitation">Événement pluie</string>
     <string name="timeline_event_marker_wind">Événement vent</string>
     <string name="timeline_event_marker_temperature">Événement température</string>
@@ -652,12 +651,12 @@
     <string name="action_refresh_marine">Actualiser Mer / côte</string>
     <string name="marine_enabled">Mode Mer / côte activé</string>
     <string name="marine_refreshed">Données Mer / côte actualisées</string>
-    <string name="marine_not_coastal">Aucun point marin fiable n’a été trouvé à moins de 50 km de cette ville.</string>
+    <string name="marine_not_coastal">Aucun point marin fiable n’a été trouvé à moins de %1$s de cette ville.</string>
     <string name="marine_error">Impossible de charger les données marines : %1$s</string>
     <string name="marine_title">Mer / côte</string>
     <string name="marine_intro">Vagues, houle, mer et marées</string>
     <string name="marine_current_conditions">Conditions actuelles</string>
-    <string name="marine_distance">Données marines à %1$.1f km</string>
+    <string name="marine_distance">Données marines à %1$s %2$s</string>
     <string name="marine_loading">Chargement…</string>
     <string name="marine_wave_height">Hauteur vagues</string>
     <string name="marine_wave_period">Période vagues</string>
@@ -758,7 +757,6 @@
     <string name="engine_divergence_low">Écart faible</string>
     <string name="engine_divergence_medium">Écart modéré</string>
     <string name="engine_divergence_high">Écart marqué</string>
-    <string name="engine_divergence_values">ΔT %1$.1f °C · pluie %2$.1f mm · vent %3$.0f km/h · nuages %4$d %%</string>
     <string name="engine_comparison_row_values">Min %1$s° · Max %2$s° · pluie %3$s mm · probabilité %4$s%%</string>
     <string name="engine_metric_temp_max">T° max</string>
     <string name="engine_metric_temp_min">T° min</string>
@@ -766,7 +764,6 @@
     <string name="engine_metric_wind">Vent</string>
     <string name="engine_metric_gust">Rafales</string>
     <string name="engine_metric_cloud">Nuages</string>
-    <string name="engine_comparison_row_values_secondary">Attendue %1$s mm · vent %2$s km/h · rafales %3$s km/h · nuages %4$s%% · %5$s</string>
 
     <string name="engine_table_metric">Mesure</string>
     <string name="engine_table_probability">Risque pluie</string>
@@ -850,9 +847,9 @@
     <string name="vigilance_phenomenon_avalanches">Avalanches</string>
     <string name="vigilance_phenomenon_coastal_flooding">Vagues-submersion</string>
     <string name="vigilance_phenomenon_unknown">Phénomène météo</string>
-    <string name="home_temperature_trend_rising">Tendance température : hausse vers %1$d°</string>
-    <string name="home_temperature_trend_falling">Tendance température : baisse vers %1$d°</string>
-    <string name="home_temperature_trend_stable">Tendance température : stable autour de %1$d°</string>
+    <string name="home_temperature_trend_rising">Tendance température : hausse vers %1$s%2$s</string>
+    <string name="home_temperature_trend_falling">Tendance température : baisse vers %1$s%2$s</string>
+    <string name="home_temperature_trend_stable">Tendance température : stable autour de %1$s%2$s</string>
 
     <!-- Notifications météo locales -->
     <string name="settings_notifications_title">Notifications</string>
@@ -880,15 +877,15 @@
     <string name="notification_daily_temperatures">%1$s / %2$s</string>
     <string name="notification_temperature_separator" translatable="false">/</string>
     <string name="notification_daily_precipitation">Pluie %1$d %%</string>
-    <string name="notification_daily_precipitation_with_amount">Pluie %1$d %% · %2$s mm</string>
-    <string name="notification_daily_precipitation_amount">Pluie %1$s mm</string>
+    <string name="notification_daily_precipitation_with_amount">Pluie %1$d %% · %2$s %3$s</string>
+    <string name="notification_daily_precipitation_amount">Pluie %1$s %2$s</string>
     <string name="notification_divergence_title">%1$s · prévision incertaine</string>
     <string name="notification_change_title">%1$s · À retenir</string>
 
     <!-- Contenu enrichi des notifications -->
     <string name="notification_daily_temperature_range">Températures · min %1$s · max %2$s</string>
     <string name="notification_daily_agreement">Accord des modèles · %1$d %%</string>
-    <string name="notification_daily_wind">Vent · %1$s km/h</string>
+    <string name="notification_daily_wind">Vent · %1$s %2$s</string>
     <string name="notification_day_today">Aujourd’hui</string>
     <string name="notification_day_tomorrow">Demain</string>
     <string name="notification_divergence_agreement">Accord des modèles · %1$d %%</string>
@@ -904,4 +901,14 @@
     <string name="notification_change_consensus">%1$d modèles sur %2$d confirment cette évolution</string>
     <string name="notification_change_consensus_volatile">%1$d modèles comparés · pas de tendance dominante</string>
     <string name="notification_change_reference">Comparé à la prévision d’il y a environ %1$d h</string>
+    <string name="settings_units">Unités</string>
+    <string name="settings_units_metric">Métrique (%1$s, %2$s, %3$s)</string>
+    <string name="settings_units_imperial">Impérial (%1$s, %2$s, %3$s)</string>
+    <string name="toast_units_updated">Unités mises à jour</string>
+    <string name="unit_degrees_celsius">degrés Celsius</string>
+    <string name="unit_degrees_fahrenheit">degrés Fahrenheit</string>
+    <string name="unit_miles_per_hour">miles par heure</string>
+    <string name="unit_inches">pouces</string>
+    <string name="unit_millimetres">millimètres</string>
+    <string name="a11y_hourly_measure_template">%1$s : %2$s au début, %3$s à la fin. Convergence %4$d pourcent au début, %5$d pourcent à la fin.</string>
 </resources>

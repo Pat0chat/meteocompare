@@ -1,5 +1,9 @@
 package com.meteocompare.app.widget
 
+import com.meteocompare.app.core.units.WeatherUnit
+import com.meteocompare.app.core.units.WeatherUnits
+import com.meteocompare.app.core.units.LocalWeatherUnits
+
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
@@ -93,7 +97,8 @@ internal class MeteoInsightWidget : GlanceAppWidget() {
                 )
             }
 
-            CompositionLocalProvider(LocalContext provides appContext) {
+            CompositionLocalProvider(LocalContext provides appContext,
+                LocalWeatherUnits provides WeatherUnits(data.unitSystem)) {
                 GlanceTheme {
                     InsightWidgetContent(
                         data = data,
@@ -251,7 +256,8 @@ private fun valueWidgetColors(
 private fun InsightWidgetLayout(
     data: WidgetData,
     colors: ValueWidgetColors,
-    compact: Boolean
+    compact: Boolean,
+    units: WeatherUnits = LocalWeatherUnits.current
 ) {
     val context = LocalContext.current
     val insight = data.keyInsight
@@ -272,7 +278,7 @@ private fun InsightWidgetLayout(
             ValueWeatherGlyph(data.currentCondition, if (compact) 36 else 46)
             Spacer(GlanceModifier.width(8.dp))
             Text(
-                text = data.currentTemp?.let { "${it.roundToInt()}°" } ?: "—",
+                text = units.temp(data.currentTemp),
                 style = TextStyle(
                     color = colors.foreground,
                     fontSize = if (compact) 27.sp else 34.sp,
@@ -291,7 +297,7 @@ private fun InsightWidgetLayout(
                     ),
                     maxLines = 1
                 )
-                val minMax = widgetMinMaxLabel(data)
+                val minMax = widgetMinMaxLabel(data, units = units)
                 if (minMax != null) {
                     Text(
                         text = minMax,
@@ -534,10 +540,10 @@ private fun ValueWeatherGlyph(condition: WeatherCondition?, sizeDp: Int) {
     )
 }
 
-private fun widgetMinMaxLabel(data: WidgetData): String? {
-    val min = data.tempMin?.roundToInt()
-    val max = data.tempMax?.roundToInt()
-    return if (min != null && max != null) "$min° / $max°" else null
+private fun widgetMinMaxLabel(data: WidgetData, units: WeatherUnits): String? {
+    val min = data.tempMin
+    val max = data.tempMax
+    return if (min != null && max != null) "${units.temp(min)} / ${units.temp(max)}" else null
 }
 
 private fun insightIconRes(icon: WidgetInsightIcon?): Int = when (icon) {

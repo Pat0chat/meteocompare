@@ -1,5 +1,11 @@
 package com.meteocompare.app.ui.citydetail
 
+import com.meteocompare.app.core.charts.canonicalChartRange
+import com.meteocompare.app.core.charts.metricPlotValue
+import com.meteocompare.app.core.units.WeatherUnit
+import com.meteocompare.app.core.units.WeatherUnits
+import com.meteocompare.app.core.units.LocalWeatherUnits
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -97,9 +103,15 @@ fun HourlyConfidenceChart(
     timezone: String?,
     modifier: Modifier = Modifier,
     metric: ConfidenceMetric = ConfidenceMetric.TEMPERATURE,
-    normals: Map<Int, DayNormals>? = null
+    normals: Map<Int, DayNormals>? = null,
+    units: WeatherUnits = LocalWeatherUnits.current
 ) {
-    if (bands.size < 2) {
+    val displayBands = bands.filter { band ->
+        metricPlotValue(band.minValue) != null && metricPlotValue(band.maxValue) != null &&
+            metricPlotValue(band.meanValue) != null && band.maxValue >= band.minValue
+    }.sortedBy { it.timestamp }
+
+    if (displayBands.size < 2) {
         Box(modifier = modifier.height(ChartCanvasHeight), contentAlignment = Alignment.Center) {
             Text(
                 stringResource(R.string.chart_not_enough_data),
@@ -130,17 +142,17 @@ fun HourlyConfidenceChart(
     val normalsPalette = normalsPalette(isDarkTheme)
 
     // Bornes calculées
-    val firstTs = bands.first().timestamp
-    val lastTs = bands.last().timestamp
+    val firstTs = displayBands.first().timestamp
+    val lastTs = displayBands.last().timestamp
     val totalSeconds = Duration.between(firstTs, lastTs).seconds.coerceAtLeast(1L)
 
     // ─── Bornes Y — intègrent les repères historiques quand présentes ────────────────
-    // Mémorisées avec `remember(bands, metric, normals, zone)` : le calcul
+    // Mémorisées avec `remember(displayBands, metric, normals, zone)` : le calcul
     // itère toutes les bandes (~168 items) + tous les jours-de-l'année
     // couverts, chaque recomposition (theme swap, zoom, resize) refaisait
     // ~500 additions inutilement. La clé de dépendance capture précisément
     // les inputs qui changent la valeur, rien de plus.
-    val (yMin, yMax) = remember(bands, metric, normals, zone) {
+    val (yMin, yMax) = remember(displayBands, metric, normals, zone) {
         // Pour la précipitation, le min est toujours 0 — on force la borne
         // basse à 0 pour que la bande touche le sol (visuellement plus
         // naturel : pas de pluie = ligne à 0). Idem pour le vent (jamais
@@ -148,8 +160,9 @@ fun HourlyConfidenceChart(
         val forceZeroMin = metric == ConfidenceMetric.PRECIPITATION ||
             metric == ConfidenceMetric.WIND
 
-        val allValues = ArrayList<Double>(bands.size * 2 + 16)
-        bands.forEach {
+        val allValues = ArrayList<Double>(displayBands.size * 2 + 16)
+        displayBands.forEach {
+            allValues += it.meanValue
             allValues += it.minValue
             allValues += it.maxValue
         }
@@ -157,7 +170,7 @@ fun HourlyConfidenceChart(
         // la fenêtre visible ; on étend les bornes pour garder les traits
         // pointillés à l'écran.
         if (normals != null) {
-            val datesInRange = bands
+            val datesInRange = displayBands
                 .map { it.timestamp.atZone(zone).toLocalDate() }
                 .distinct()
             datesInRange.forEach { date ->
@@ -174,11 +187,10 @@ fun HourlyConfidenceChart(
                 }
             }
         }
-        val rawMin = allValues.min()
-        val rawMax = allValues.max()
-        val yMinComputed = if (forceZeroMin) 0f else floor(rawMin).toFloat() - 1f
-        val yMaxComputed = ceil(rawMax).toFloat() + 1f
-        yMinComputed to yMaxComputed
+        val bounds = canonicalChartRange(allValues, minimumSpan = 2.0,
+            minimumPadding = 1.0, paddingFraction = 0.0,
+            zeroFloor = forceZeroMin, includeZero = forceZeroMin)
+        floor(bounds.min) to ceil(bounds.max)
     }
 
     // ─── État de zoom ──────────────────────────────────────────────────────
@@ -192,7 +204,11 @@ fun HourlyConfidenceChart(
     // Calcul léger refait à chaque recomposition pertinente afin qu'un
     // changement de langue/configuration soit reflété immédiatement.
     val a11yBase = com.meteocompare.app.ui.accessibility.A11yFormatter
-        .hourlyChartDescription(resources, bands)
+        .hourlyChartDescription(resources, displayBands, units = units, metricUnit = when (metric) {
+            ConfidenceMetric.TEMPERATURE -> WeatherUnit.TEMPERATURE
+            ConfidenceMetric.PRECIPITATION -> WeatherUnit.PRECIPITATION
+            ConfidenceMetric.WIND -> WeatherUnit.WIND_SPEED
+        })
     val a11yZoomedPrefix = stringResource(R.string.chart_zoom_a11y_zoomed)
     val a11yDescription = if (isZoomed) "$a11yZoomedPrefix. $a11yBase" else a11yBase
 
@@ -234,7 +250,7 @@ fun HourlyConfidenceChart(
                 .fillMaxWidth()
                 .height(ChartCanvasHeight)
                 .padding(ChartCanvasPadding)
-                .pointerInput(bands, totalSeconds) {
+                .pointerInput(displayBands, totalSeconds) {
                     val leftPadPx = ChartLeftAxisPad.toPx()
                     val rightPadPx = ChartRightAxisPad.toPx()
                     val chartLeftPx = leftPadPx
@@ -318,7 +334,7 @@ fun HourlyConfidenceChart(
             }
 
             fun yFor(value: Double): Float {
-                return chartBottom - ((value.toFloat() - yMin) / (yMax - yMin)) * chartH
+                return chartBottom - ((value - yMin) / (yMax - yMin)).toFloat() * chartH
             }
 
             // ─── Grille Y + labels valeurs ────────────────────────────────
@@ -334,14 +350,12 @@ fun HourlyConfidenceChart(
                 val axisValue = yMin + (yMax - yMin) * i / yTicks
                 // Format spécifique par métrique — précip en 1 décimale sous 1 mm,
                 // vent et température en entier (précision non signifiante en dessous).
-                val label = when (metric) {
-                    ConfidenceMetric.TEMPERATURE -> "${axisValue.roundToInt()}°"
-                    ConfidenceMetric.PRECIPITATION -> {
-                        if (axisValue < 1f) "%.1f".format(axisValue)
-                        else "${axisValue.roundToInt()}"
-                    }
-                    ConfidenceMetric.WIND -> "${axisValue.roundToInt()}"
+                val unit = when (metric) {
+                    ConfidenceMetric.TEMPERATURE -> WeatherUnit.TEMPERATURE_COMPACT
+                    ConfidenceMetric.PRECIPITATION -> WeatherUnit.PRECIPITATION
+                    ConfidenceMetric.WIND -> WeatherUnit.WIND_SPEED
                 }
+                val label = units.axisValue(axisValue, unit, (yMax - yMin) / yTicks) + units.suffix(unit)
                 val measured = textMeasurer.measure(label, labelStyle)
                 drawText(
                     textLayoutResult = measured,
@@ -354,7 +368,7 @@ fun HourlyConfidenceChart(
 
             // ─── Repères verticaux + labels aux changements de jour ──────
             var currentDate: LocalDate? = null
-            bands.forEach { band ->
+            displayBands.forEach { band ->
                 val localDate = band.timestamp.atZone(zone).toLocalDate()
                 if (localDate != currentDate) {
                     val x = xFor(band.timestamp)
@@ -385,7 +399,7 @@ fun HourlyConfidenceChart(
             }
 
             // ─── Bande SEGMENTÉE colorée par convergence locale ────────────
-            bands.zipWithNext().forEach { (a, b) ->
+            displayBands.zipWithNext().forEach { (a, b) ->
                 val xa = xFor(a.timestamp)
                 val xb = xFor(b.timestamp)
                 val maxYa = yFor(a.maxValue)
@@ -416,7 +430,7 @@ fun HourlyConfidenceChart(
             // les repères historiques sont un contexte historique).
             if (normals != null) {
                 drawNormalsOverlay(
-                    bands = bands,
+                    bands = displayBands,
                     metric = metric,
                     normals = normals,
                     zone = zone,
@@ -430,7 +444,7 @@ fun HourlyConfidenceChart(
 
             // ─── Ligne centrale du moteur sélectionné ──────────────────────────────────
             val meanPath = Path().apply {
-                bands.forEachIndexed { i, b ->
+                displayBands.forEachIndexed { i, b ->
                     val x = xFor(b.timestamp)
                     val y = yFor(b.meanValue)
                     if (i == 0) moveTo(x, y) else lineTo(x, y)
@@ -446,12 +460,12 @@ fun HourlyConfidenceChart(
         // Légende compacte des normales — n'apparaît que si le graphe
         // trace effectivement quelque chose (pour ne pas mentir à
         // l'utilisateur en promettant une donnée absente du cache).
-        val hasNormals = normals != null && hasNormalsForMetric(bands, metric, normals, zone)
+        val hasNormals = normals != null && hasNormalsForMetric(displayBands, metric, normals, zone)
         if (hasNormals) {
             NormalsLegend(metric = metric, palette = normalsPalette)
         }
 
-        ConfidenceTimeline(bands = bands, stripAlpha = timelineStripAlpha)
+        ConfidenceTimeline(bands = displayBands, stripAlpha = timelineStripAlpha)
     }
 }
 
@@ -508,7 +522,8 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawNormalsOverlay(
             val endX = xFor(bands[i].timestamp).coerceAtMost(chartRight)
             if (endX > startX) {
                 val normal = normals[DayNormals.key(date.monthValue, date.dayOfMonth)]
-                if (normal != null) {
+                if (normal != null && metricPlotValue(normal.tempMaxNormal) != null &&
+                    metricPlotValue(normal.tempMinNormal) != null) {
                     if (metric == ConfidenceMetric.TEMPERATURE) {
                         val yMax = yFor(normal.tempMaxNormal)
                         drawLine(

@@ -1,5 +1,12 @@
 package com.meteocompare.app.ui.citydetail
 
+import com.meteocompare.app.core.charts.canonicalChartRange
+import com.meteocompare.app.core.charts.metricPlotValue
+
+import com.meteocompare.app.core.units.WeatherUnit
+import com.meteocompare.app.core.units.WeatherUnits
+import com.meteocompare.app.core.units.LocalWeatherUnits
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -454,25 +461,26 @@ private fun EvolutionAnalysis(evolution: VariableForecastEvolution) {
 @Composable
 private fun EvolutionTrendChart(
     evolution: VariableForecastEvolution,
-    accent: Color
+    accent: Color,
+    units: WeatherUnits = LocalWeatherUnits.current
 ) {
-    val snapshots = evolution.allSnapshotsChronological
+    val snapshots = evolution.allSnapshotsChronological.filter { metricPlotValue(it.medianValue) != null }
     if (snapshots.size < 2) return
 
     val values = snapshots.map(ForecastEvolutionSnapshot::medianValue)
     val locale = LocalLocale.current.platformLocale
-    val currentValue = evolution.current.medianValue
+    val currentValue = metricPlotValue(evolution.current.medianValue) ?: return
     val stableThreshold = ForecastEvolutionThresholds.stable(evolution.variable)
     val notableThreshold = ForecastEvolutionThresholds.notable(evolution.variable)
     val isNonNegative = evolution.variable != ForecastEvolutionVariable.TEMPERATURE
 
-    val rawMin = minOf(values.minOrNull() ?: return, currentValue - notableThreshold)
-    val rawMax = maxOf(values.maxOrNull() ?: return, currentValue + notableThreshold)
-    val rawRange = (rawMax - rawMin).takeIf { it > 0.0001 } ?: 1.0
-    val padding = rawRange * 0.08
-    val domainMin = if (isNonNegative) maxOf(0.0, rawMin - padding) else rawMin - padding
-    val domainMax = rawMax + padding
-    val domainRange = (domainMax - domainMin).takeIf { it > 0.0001 } ?: 1.0
+    val bounds = canonicalChartRange(
+        values + listOf(currentValue - notableThreshold, currentValue + notableThreshold),
+        minimumSpan = 1.0, paddingFraction = 0.08, zeroFloor = isNonNegative
+    )
+    val domainMin = bounds.min
+    val domainMax = bounds.max
+    val domainRange = bounds.span
     val domainMid = domainMin + domainRange / 2.0
 
     val guideColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
@@ -494,23 +502,23 @@ private fun EvolutionTrendChart(
             Row(modifier = Modifier.fillMaxWidth()) {
                 Column(
                     modifier = Modifier
-                        .width(32.dp)
+                        .width(if (units.imperial) 64.dp else 48.dp)
                         .height(148.dp),
                     verticalArrangement = Arrangement.SpaceBetween,
                     horizontalAlignment = Alignment.End
                 ) {
                     Text(
-                        text = formatEvolutionAxisValue(domainMax, evolution.variable, locale),
+                        text = formatEvolutionAxisValue(domainMax, domainRange / 2.0, evolution.variable, locale, units = units),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = formatEvolutionAxisValue(domainMid, evolution.variable, locale),
+                        text = formatEvolutionAxisValue(domainMid, domainRange / 2.0, evolution.variable, locale, units = units),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = formatEvolutionAxisValue(domainMin, evolution.variable, locale),
+                        text = formatEvolutionAxisValue(domainMin, domainRange / 2.0, evolution.variable, locale, units = units),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -673,7 +681,7 @@ private fun EvolutionTrendChart(
                 EvolutionThresholdLegend(
                     text = stringResource(
                         R.string.forecast_evolution_stable_axis,
-                        formatEvolutionThreshold(stableThreshold, evolution.variable, locale)
+                        formatEvolutionThreshold(stableThreshold, evolution.variable, locale, units = units)
                     ),
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier
@@ -683,7 +691,7 @@ private fun EvolutionTrendChart(
                 EvolutionThresholdLegend(
                     text = stringResource(
                         R.string.forecast_evolution_notable_axis,
-                        formatEvolutionThreshold(notableThreshold, evolution.variable, locale)
+                        formatEvolutionThreshold(notableThreshold, evolution.variable, locale, units = units)
                     ),
                     color = MaterialTheme.colorScheme.tertiary,
                     modifier = Modifier
@@ -739,7 +747,8 @@ private fun EvolutionThresholdLegend(
 @Composable
 private fun EvolutionSnapshotValues(
     evolution: VariableForecastEvolution,
-    accent: Color
+    accent: Color,
+    units: WeatherUnits = LocalWeatherUnits.current
 ) {
     val locale = LocalLocale.current.platformLocale
     val snapshots = evolution.allSnapshotsChronological
@@ -776,7 +785,7 @@ private fun EvolutionSnapshotValues(
                         textAlign = TextAlign.Center
                     )
                     Text(
-                        text = formatEvolutionValue(snapshot.medianValue, evolution.variable, locale),
+                        text = formatEvolutionValue(snapshot.medianValue, evolution.variable, locale, units = units),
                         style = MaterialTheme.typography.bodyMedium,
                         color = if (isCurrent) accent else MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Bold,
@@ -792,7 +801,8 @@ private fun EvolutionSnapshotValues(
 @Composable
 private fun ModelEvolutionSheet(
     evolution: VariableForecastEvolution,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    units: WeatherUnits = LocalWeatherUnits.current
 ) {
     val locale = LocalLocale.current.platformLocale
     val revision = evolution.revision ?: return
@@ -867,19 +877,19 @@ private fun ModelEvolutionSheet(
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        text = formatEvolutionValue(old, evolution.variable, locale),
+                        text = formatEvolutionValue(old, evolution.variable, locale, units = units),
                         modifier = Modifier.weight(1f),
                         style = MaterialTheme.typography.bodySmall,
                         textAlign = TextAlign.End
                     )
                     Text(
-                        text = formatEvolutionValue(current, evolution.variable, locale),
+                        text = formatEvolutionValue(current, evolution.variable, locale, units = units),
                         modifier = Modifier.weight(1f),
                         style = MaterialTheme.typography.bodySmall,
                         textAlign = TextAlign.End
                     )
                     Text(
-                        text = signedEvolutionValue(delta, evolution.variable, locale),
+                        text = signedEvolutionValue(delta, evolution.variable, locale, units = units),
                         modifier = Modifier.weight(0.8f),
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.SemiBold,
@@ -941,44 +951,23 @@ private fun variableLabel(variable: ForecastEvolutionVariable): Int = when (vari
     ForecastEvolutionVariable.WIND -> R.string.forecast_evolution_metric_wind_max
 }
 
-private fun formatEvolutionAxisValue(
-    value: Double,
-    variable: ForecastEvolutionVariable,
-    locale: Locale
-): String = when (variable) {
-    ForecastEvolutionVariable.TEMPERATURE -> "${value.roundToInt()}°"
-    ForecastEvolutionVariable.PRECIPITATION -> String.format(locale, "%.1f", value)
-    ForecastEvolutionVariable.WIND -> value.roundToInt().toString()
+private fun evolutionMetricUnit(variable: ForecastEvolutionVariable): WeatherUnit = when (variable) {
+    ForecastEvolutionVariable.TEMPERATURE -> WeatherUnit.TEMPERATURE_COMPACT
+    ForecastEvolutionVariable.PRECIPITATION -> WeatherUnit.PRECIPITATION
+    ForecastEvolutionVariable.WIND -> WeatherUnit.WIND_SPEED
 }
 
-private fun formatEvolutionThreshold(
-    value: Double,
-    variable: ForecastEvolutionVariable,
-    locale: Locale
-): String = when (variable) {
-    ForecastEvolutionVariable.TEMPERATURE -> String.format(locale, "%.1f °C", value)
-    ForecastEvolutionVariable.PRECIPITATION -> String.format(locale, "%.1f mm", value)
-    ForecastEvolutionVariable.WIND -> "${value.roundToInt()} km/h"
-}
+private fun formatEvolutionAxisValue(value: Double, tickStep: Double, variable: ForecastEvolutionVariable, locale: Locale, units: WeatherUnits): String =
+    units.axisValue(value, evolutionMetricUnit(variable), tickStep, if (variable == ForecastEvolutionVariable.PRECIPITATION) 1 else 0, locale) + units.suffix(evolutionMetricUnit(variable))
 
-private fun formatEvolutionValue(
-    value: Double,
-    variable: ForecastEvolutionVariable,
-    locale: Locale
-): String = when (variable) {
-    ForecastEvolutionVariable.TEMPERATURE -> "${value.roundToInt()}°"
-    ForecastEvolutionVariable.PRECIPITATION -> String.format(locale, "%.1f mm", value)
-    ForecastEvolutionVariable.WIND -> "${value.roundToInt()} km/h"
-}
+private fun formatEvolutionThreshold(value: Double, variable: ForecastEvolutionVariable, locale: Locale, units: WeatherUnits): String =
+    units.format(value, evolutionMetricUnit(variable), 1, locale, delta = true)
 
-private fun signedEvolutionValue(value: Double, variable: ForecastEvolutionVariable, locale: Locale): String {
-    val sign = if (value > 0) "+" else ""
-    return when (variable) {
-        ForecastEvolutionVariable.TEMPERATURE -> "$sign${String.format(locale, "%.1f", value)}°"
-        ForecastEvolutionVariable.PRECIPITATION -> "$sign${String.format(locale, "%.1f", value)} mm"
-        ForecastEvolutionVariable.WIND -> "$sign${value.roundToInt()} km/h"
-    }
-}
+private fun formatEvolutionValue(value: Double, variable: ForecastEvolutionVariable, locale: Locale, units: WeatherUnits): String =
+    units.format(value, evolutionMetricUnit(variable), if (variable == ForecastEvolutionVariable.PRECIPITATION) 1 else 0, locale)
+
+private fun signedEvolutionValue(value: Double, variable: ForecastEvolutionVariable, locale: Locale, units: WeatherUnits): String =
+    units.signedDelta(value, evolutionMetricUnit(variable), 1, locale)
 
 private fun shortDate(date: LocalDate, locale: Locale): String =
     date.format(DateTimeFormatter.ofPattern("EEE d", locale))

@@ -1,5 +1,10 @@
 package com.meteocompare.app.widget
 
+import com.meteocompare.app.core.units.WeatherUnit
+import com.meteocompare.app.core.units.WeatherUnits
+
+import com.meteocompare.app.domain.model.UnitSystem
+
 import android.content.Context
 import com.meteocompare.app.R
 import com.meteocompare.app.core.locale.applyPersistedLocale
@@ -36,6 +41,7 @@ import kotlinx.coroutines.withContext
  * "N/A" ou "—" qui bruiterait l'affichage.
  */
 internal data class WidgetData(
+    val unitSystem: UnitSystem = UnitSystem.METRIC,
     val cityName: String?,
     val currentTemp: Double?,
     val currentCondition: WeatherCondition?,
@@ -340,6 +346,7 @@ private suspend fun loadWidgetDataInternal(
         WidgetEntryPoint::class.java
     )
 
+    val units = WeatherUnits(entry.userPreferencesRepository().observeUnitSystem().first())
     val favorites = entry.cityRepository().observeFavorites().first()
     val city = favorites.firstOrNull { it.id == cityId }
         ?: return WidgetData.empty(error = WidgetError.CityNoLongerInFavorites)
@@ -447,7 +454,7 @@ private suspend fun loadWidgetDataInternal(
                 )
             }
             val confidenceStrips = if (forecastMode.isConfidenceBand())
-                buildAllConfidenceStrips(localizedContext, forecast, calc, currentInstant, engineContext)
+                buildAllConfidenceStrips(localizedContext, forecast, calc, currentInstant, engineContext, units = units)
             else emptyList()
 
             // ─── Mini forecast 12h (nouveau mode) ─────────────────────────
@@ -460,7 +467,8 @@ private suspend fun loadWidgetDataInternal(
                     context = localizedContext,
                     forecast = forecast,
                     now = miniForecastNow,
-                    engineContext = engineContext
+                    engineContext = engineContext,
+                    units = units
                 )
             } else {
                 WidgetValueSnapshot(keyInsight = null, comparison = null)
@@ -484,6 +492,7 @@ private suspend fun loadWidgetDataInternal(
             }
 
             WidgetData(
+                unitSystem = units.system,
                 cityName = city.name,
                 currentTemp = calc.currentTemperature(forecast, currentInstant, engineContext),
                 currentCondition = calc.currentWeatherCondition(forecast, currentInstant, engineContext),
@@ -831,10 +840,11 @@ private fun buildAllConfidenceStrips(
     forecast: CityForecast,
     calc: ConfidenceCalculator,
     now: java.time.Instant,
-    engineContext: ForecastEngineContext
+    engineContext: ForecastEngineContext,
+    units: WeatherUnits
 ): List<WidgetConfidenceStrip> = listOfNotNull(
-    buildConfidenceStrip(context, forecast, ForecastMode.CONFIDENCE_TEMPERATURE, calc, now, engineContext),
-    buildConfidenceStrip(context, forecast, ForecastMode.CONFIDENCE_PRECIPITATION, calc, now, engineContext)
+    buildConfidenceStrip(context, forecast, ForecastMode.CONFIDENCE_TEMPERATURE, calc, now, engineContext, units = units),
+    buildConfidenceStrip(context, forecast, ForecastMode.CONFIDENCE_PRECIPITATION, calc, now, engineContext, units = units)
 )
 
 private fun buildConfidenceStrip(
@@ -843,7 +853,8 @@ private fun buildConfidenceStrip(
     mode: ForecastMode,
     calc: ConfidenceCalculator,
     now: java.time.Instant,
-    engineContext: ForecastEngineContext
+    engineContext: ForecastEngineContext,
+    units: WeatherUnits
 ): WidgetConfidenceStrip? {
     val bands = when (mode) {
         ForecastMode.CONFIDENCE_TEMPERATURE -> calc.hourlyTemperatureConfidence(
@@ -905,7 +916,7 @@ private fun buildConfidenceStrip(
         )
         StripBucket(
             percent = conservativePercent,
-            value = formatBucketValue(mode, displayValue),
+            value = formatBucketValue(mode, displayValue, locale, units = units),
             label = if (date == today) nowShortLabel
             else date.dayOfWeek
                 .getDisplayName(java.time.format.TextStyle.SHORT, locale)
@@ -919,11 +930,11 @@ private fun buildConfidenceStrip(
 
     val metricLabel = when (mode) {
         ForecastMode.CONFIDENCE_TEMPERATURE ->
-            context.getString(R.string.widget_metric_temperature)
+            context.getString(R.string.widget_metric_temperature) + " (${units.temperatureUnit})"
         ForecastMode.CONFIDENCE_PRECIPITATION ->
-            context.getString(R.string.widget_metric_precipitation)
+            context.getString(R.string.widget_metric_precipitation) + " (${units.precipitationUnit})"
         ForecastMode.CONFIDENCE_WIND ->
-            context.getString(R.string.widget_metric_wind)
+            context.getString(R.string.widget_metric_wind) + " (${units.windUnit})"
         ForecastMode.HOURLY,
         ForecastMode.DAILY,
         ForecastMode.CONFIDENCE_ALL,
@@ -990,14 +1001,9 @@ internal fun aggregateConfidenceBucketValue(mode: ForecastMode, values: List<Dou
  *           Compromis : format "0.5" seul, on comprend via metricLabel.
  *   Vent  : "18" (2-3 char) — sans unité pour la même raison.
  */
-private fun formatBucketValue(mode: ForecastMode, value: Double): String = when (mode) {
-    ForecastMode.CONFIDENCE_TEMPERATURE -> formatTemp(value)
-    ForecastMode.CONFIDENCE_PRECIPITATION -> {
-        // Précipitation : arrondi à 0 pour valeurs sous 0.1 mm (trace),
-        // sinon 1 décimale. L'unité "mm" est portée par metricLabel="Pluie"
-        // dans la ligne du haut, pour ne pas surcharger la valeur elle-même.
-        if (value < 0.1) "0" else "%.1f".format(value)
-    }
-    ForecastMode.CONFIDENCE_WIND -> "${value.toInt()}"
+internal fun formatBucketValue(mode: ForecastMode, value: Double, locale: java.util.Locale = java.util.Locale.getDefault(), units: WeatherUnits = WeatherUnits()): String = when (mode) {
+    ForecastMode.CONFIDENCE_TEMPERATURE -> units.temp(value, locale = locale)
+    ForecastMode.CONFIDENCE_PRECIPITATION -> units.value(value, WeatherUnit.PRECIPITATION, 1, locale)
+    ForecastMode.CONFIDENCE_WIND -> units.value(value, WeatherUnit.WIND_SPEED, locale = locale)
     else -> ""
 }

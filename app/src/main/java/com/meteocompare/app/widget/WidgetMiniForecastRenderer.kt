@@ -1,5 +1,10 @@
 package com.meteocompare.app.widget
 
+import com.meteocompare.app.core.charts.metricPlotValue
+
+import com.meteocompare.app.core.units.WeatherUnit
+import com.meteocompare.app.core.units.WeatherUnits
+
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
@@ -97,7 +102,8 @@ internal object WidgetMiniForecastRenderer {
         precipColorArgb: Int,
         textColorArgb: Int,
         timelineLabels: List<String> = emptyList(),
-        profile: MiniForecastSizeProfile = MiniForecastSizeProfile.EXPANDED_4X2
+        profile: MiniForecastSizeProfile = MiniForecastSizeProfile.EXPANDED_4X2,
+        units: WeatherUnits = WeatherUnits()
     ): Bitmap {
         require(widthPx > 0) { "widthPx doit être > 0, reçu $widthPx" }
         require(heightPx > 0) { "heightPx doit être > 0, reçu $heightPx" }
@@ -211,7 +217,7 @@ internal object WidgetMiniForecastRenderer {
             // ─── Zone température : grande tuile colorée ─────────────────
             val tempTop = top + cellHeight * 0.045f
             val tempBottom = top + cellHeight * 0.645f
-            val temp = temps.getOrNull(index)
+            val temp = metricPlotValue(temps.getOrNull(index))
             val tempColor = temp?.let(::temperatureHeatmapArgb)
                 ?: withAlpha(textColorArgb, 0x18)
             val tempTileColor = if (temp == null) tempColor else withAlpha(tempColor, 0xE8)
@@ -236,7 +242,7 @@ internal object WidgetMiniForecastRenderer {
                 tempTop + tempZoneHeight * metrics.timeBaselineFraction,
                 timePaint
             )
-            val temperatureText = temp?.let { "${it.roundToInt()}°" } ?: "—"
+            val temperatureText = temp?.let { units.temp(it) } ?: "—"
             val condition = conditions.getOrNull(index)
                 ?.takeUnless { it == WeatherCondition.UNKNOWN }
             val temperatureLine = temperatureContentLayout(
@@ -276,7 +282,7 @@ internal object WidgetMiniForecastRenderer {
             val precipTop = top + cellHeight * 0.705f
             val precipBottom = top + cellHeight * 0.955f
             val probability = precipProbabilities.getOrNull(index)?.coerceIn(0, 100)
-            val amountMm = precipAmountsMm.getOrNull(index)?.coerceAtLeast(0.0)
+            val amountMm = metricPlotValue(precipAmountsMm.getOrNull(index))?.coerceAtLeast(0.0)
             val precipTileColor = precipitationHeatmapArgb(
                 probability = probability,
                 precipColorArgb = precipColorArgb,
@@ -489,9 +495,9 @@ internal object WidgetMiniForecastRenderer {
         textColorArgb: Int,
         amountMm: Double? = null
     ): Int {
-        if (probability == null && amountMm == null) return withAlpha(textColorArgb, 0x12)
+        if (probability == null && metricPlotValue(amountMm) == null) return withAlpha(textColorArgb, 0x12)
         val probabilityScore = probability?.coerceIn(0, 100)?.div(100f) ?: 0f
-        val amountScore = amountMm
+        val amountScore = metricPlotValue(amountMm)
             ?.coerceAtLeast(0.0)
             ?.div(HEAVY_HOURLY_RAIN_MM)
             ?.coerceIn(0.0, 1.0)

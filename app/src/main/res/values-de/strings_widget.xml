@@ -39,10 +39,10 @@
     <string name="widget_value_now">Jetzt</string>
     <string name="widget_value_next">Nächste Vorhersage</string>
     <string name="widget_value_hour">%1$02d:00</string>
-    <string name="widget_value_temperature_range">%1$d–%2$d°</string>
+    <string name="widget_value_temperature_range">%1$s–%2$s%3$s</string>
     <string name="widget_value_probability_range">%1$d–%2$d%%</string>
-    <string name="widget_value_precip_range">%1$.1f–%2$.1f mm</string>
-    <string name="widget_value_wind_range">%1$d–%2$d km/h</string>
+    <string name="widget_value_precip_range">%1$s–%2$s %3$s</string>
+    <string name="widget_value_wind_range">%1$s–%2$s %3$s</string>
     <string name="widget_value_detail_range_consensus">%1$s · %2$d%% Konvergenz</string>
     <plurals name="widget_value_detail_range_models">
         <item quantity="one">%1$s · %2$d Modell</item>

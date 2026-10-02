@@ -1,5 +1,11 @@
 package com.meteocompare.app.ui.enginecomparison
 
+import com.meteocompare.app.core.charts.metricPlotValue
+import com.meteocompare.app.core.charts.canonicalChartRange
+import com.meteocompare.app.core.units.WeatherUnit
+import com.meteocompare.app.core.units.WeatherUnits
+import com.meteocompare.app.core.units.LocalWeatherUnits
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -332,12 +338,13 @@ private fun EngineSectionCard(
 private fun EngineLineChart(
     days: List<EngineComparisonDay>,
     metric: EngineComparisonMetric,
-    selectedEngine: ForecastEngine
+    selectedEngine: ForecastEngine,
+    units: WeatherUnits = LocalWeatherUnits.current
 ) {
     val values = days
         .flatMap { it.byEngine.values }
         .mapNotNull { it.value(metric) }
-        .filter(Double::isFinite)
+        .mapNotNull(::metricPlotValue)
 
     if (days.size < 2 || values.size < 2) {
         Text(
@@ -348,9 +355,10 @@ private fun EngineLineChart(
     }
 
     val locale = LocalLocale.current.platformLocale
-    val minValue = values.minOrNull() ?: return
-    val maxValue = values.maxOrNull() ?: return
-    val range = (maxValue - minValue).takeIf { it > 1e-9 } ?: 1.0
+    val bounds = canonicalChartRange(values, minimumSpan = 1.0, paddingFraction = 0.0)
+    val minValue = bounds.min
+    val maxValue = bounds.max
+    val range = bounds.span
     val topLabel = maxValue
     val midLabel = minValue + range / 2.0
     val bottomLabel = minValue
@@ -387,7 +395,7 @@ private fun EngineLineChart(
                 fontWeight = FontWeight.SemiBold
             )
             Text(
-                text = metricUnit(metric),
+                text = units.label(metricUnit(metric)),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontWeight = FontWeight.SemiBold
@@ -401,9 +409,9 @@ private fun EngineLineChart(
                 verticalArrangement = Arrangement.SpaceBetween,
                 horizontalAlignment = Alignment.End
             ) {
-                Text(chartAxisLabel(topLabel, metric, locale), style = MaterialTheme.typography.labelSmall)
-                Text(chartAxisLabel(midLabel, metric, locale), style = MaterialTheme.typography.labelSmall)
-                Text(chartAxisLabel(bottomLabel, metric, locale), style = MaterialTheme.typography.labelSmall)
+                Text(chartAxisLabel(topLabel, range / 2.0, metric, locale, units = units), style = MaterialTheme.typography.labelSmall)
+                Text(chartAxisLabel(midLabel, range / 2.0, metric, locale, units = units), style = MaterialTheme.typography.labelSmall)
+                Text(chartAxisLabel(bottomLabel, range / 2.0, metric, locale, units = units), style = MaterialTheme.typography.labelSmall)
             }
 
             Canvas(
@@ -456,7 +464,11 @@ private fun EngineLineChart(
                     val path = Path()
                     var started = false
                     days.forEachIndexed { index, day ->
-                        val value = day.byEngine[engine]?.value(metric) ?: return@forEachIndexed
+                        val value = metricPlotValue(day.byEngine[engine]?.value(metric))
+                        if (value == null) {
+                            started = false
+                            return@forEachIndexed
+                        }
                         val x = if (days.size == 1) {
                             left
                         } else {
@@ -478,7 +490,7 @@ private fun EngineLineChart(
                         )
                     }
 
-                    if (started) {
+                    if (!path.isEmpty) {
                         drawPath(
                             path = path,
                             color = engineColors.getValue(engine),
@@ -608,7 +620,7 @@ private fun DivergenceTimeline(days: List<EngineComparisonDay>) {
                 DivergenceMetricCompactRow(
                     label = stringResource(R.string.engine_divergence_variable_temperature),
                     delta = day.divergence.temperatureDelta,
-                    unit = "°C",
+                    unit = WeatherUnit.TEMPERATURE,
                     scaleMax = 4.0,
                     decimals = 1
                 )
@@ -616,7 +628,7 @@ private fun DivergenceTimeline(days: List<EngineComparisonDay>) {
                 DivergenceMetricCompactRow(
                     label = stringResource(R.string.engine_divergence_variable_rain),
                     delta = day.divergence.precipitationDelta,
-                    unit = "mm",
+                    unit = WeatherUnit.PRECIPITATION,
                     scaleMax = 8.0,
                     decimals = 1
                 )
@@ -624,7 +636,7 @@ private fun DivergenceTimeline(days: List<EngineComparisonDay>) {
                 DivergenceMetricCompactRow(
                     label = stringResource(R.string.engine_divergence_variable_wind),
                     delta = day.divergence.windDelta,
-                    unit = "km/h",
+                    unit = WeatherUnit.WIND_SPEED,
                     scaleMax = 15.0,
                     decimals = 0
                 )
@@ -632,7 +644,7 @@ private fun DivergenceTimeline(days: List<EngineComparisonDay>) {
                 DivergenceMetricCompactRow(
                     label = stringResource(R.string.engine_divergence_variable_cloud),
                     delta = day.divergence.cloudDelta,
-                    unit = "%",
+                    unit = WeatherUnit.PERCENT,
                     scaleMax = 50.0,
                     decimals = 0
                 )
@@ -645,9 +657,10 @@ private fun DivergenceTimeline(days: List<EngineComparisonDay>) {
 private fun DivergenceMetricCompactRow(
     label: String,
     delta: Double,
-    unit: String,
+    unit: WeatherUnit,
     scaleMax: Double,
-    decimals: Int
+    decimals: Int,
+    units: WeatherUnits = LocalWeatherUnits.current
 ) {
     val locale = LocalLocale.current.platformLocale
     val lowColor = divergenceLevelColor(EngineDivergenceLevel.LOW)
@@ -660,11 +673,7 @@ private fun DivergenceMetricCompactRow(
         EngineDivergenceLevel.MEDIUM -> mediumColor
         EngineDivergenceLevel.HIGH -> highColor
     }
-    val formattedDelta = when {
-        !delta.isFinite() -> "—"
-        decimals == 0 -> String.format(locale, "Δ %.0f %s", delta, unit)
-        else -> String.format(locale, "Δ %.1f %s", delta, unit)
-    }
+    val formattedDelta = "Δ " + units.format(delta, unit, decimals, locale, delta = true)
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -754,7 +763,8 @@ private fun DivergenceScale(
 @Composable
 private fun EngineDailyComparisonTable(
     days: List<EngineComparisonDay>,
-    selectedEngine: ForecastEngine
+    selectedEngine: ForecastEngine,
+    units: WeatherUnits = LocalWeatherUnits.current
 ) {
     val locale = LocalLocale.current.platformLocale
     val scrollState = rememberScrollState()
@@ -784,17 +794,17 @@ private fun EngineDailyComparisonTable(
             ComparisonTableRow(
                 label = stringResource(R.string.engine_metric_temp_min),
                 selectedEngine = selectedEngine,
-                values = day.valuesForEngines { value -> formatDecimal(value?.tempMin, locale, "°") }
+                values = day.valuesForEngines { value -> formatDecimal(value?.tempMin, locale, WeatherUnit.TEMPERATURE_COMPACT, units = units) }
             )
             ComparisonTableRow(
                 label = stringResource(R.string.engine_metric_temp_max),
                 selectedEngine = selectedEngine,
-                values = day.valuesForEngines { value -> formatDecimal(value?.tempMax, locale, "°") }
+                values = day.valuesForEngines { value -> formatDecimal(value?.tempMax, locale, WeatherUnit.TEMPERATURE_COMPACT, units = units) }
             )
             ComparisonTableRow(
                 label = stringResource(R.string.engine_metric_precipitation),
                 selectedEngine = selectedEngine,
-                values = day.valuesForEngines { value -> formatDecimal(value?.precipitationAmountMm, locale, " mm") }
+                values = day.valuesForEngines { value -> formatDecimal(value?.precipitationAmountMm, locale, WeatherUnit.PRECIPITATION, units = units) }
             )
             ComparisonTableRow(
                 label = stringResource(R.string.engine_table_probability),
@@ -804,22 +814,22 @@ private fun EngineDailyComparisonTable(
             ComparisonTableRow(
                 label = stringResource(R.string.engine_table_expected_rain),
                 selectedEngine = selectedEngine,
-                values = day.valuesForEngines { value -> formatDecimal(value?.precipitationExpectedMm, locale, " mm") }
+                values = day.valuesForEngines { value -> formatDecimal(value?.precipitationExpectedMm, locale, WeatherUnit.PRECIPITATION, units = units) }
             )
             ComparisonTableRow(
                 label = stringResource(R.string.engine_metric_wind),
                 selectedEngine = selectedEngine,
-                values = day.valuesForEngines { value -> formatInteger(value?.windKmh, locale, " km/h") }
+                values = day.valuesForEngines { value -> formatInteger(value?.windKmh, locale, WeatherUnit.WIND_SPEED, units = units) }
             )
             ComparisonTableRow(
                 label = stringResource(R.string.engine_metric_gust),
                 selectedEngine = selectedEngine,
-                values = day.valuesForEngines { value -> formatInteger(value?.gustKmh, locale, " km/h") }
+                values = day.valuesForEngines { value -> formatInteger(value?.gustKmh, locale, WeatherUnit.WIND_SPEED, units = units) }
             )
             ComparisonTableRow(
                 label = stringResource(R.string.engine_metric_cloud),
                 selectedEngine = selectedEngine,
-                values = day.valuesForEngines { value -> formatInteger(value?.cloudPercent, locale, "%") }
+                values = day.valuesForEngines { value -> formatInteger(value?.cloudPercent, locale, WeatherUnit.PERCENT, units = units) }
             )
             ComparisonTableRow(
                 label = stringResource(R.string.engine_table_condition),
@@ -994,33 +1004,27 @@ private fun metricLabel(metric: EngineComparisonMetric): String = stringResource
     }
 )
 
-private fun metricUnit(metric: EngineComparisonMetric): String = when (metric) {
+private fun metricUnit(metric: EngineComparisonMetric): WeatherUnit = when (metric) {
     EngineComparisonMetric.TEMP_MAX,
-    EngineComparisonMetric.TEMP_MIN -> "°C"
-    EngineComparisonMetric.PRECIPITATION -> "mm"
+    EngineComparisonMetric.TEMP_MIN -> WeatherUnit.TEMPERATURE
+    EngineComparisonMetric.PRECIPITATION -> WeatherUnit.PRECIPITATION
     EngineComparisonMetric.WIND,
-    EngineComparisonMetric.GUST -> "km/h"
-    EngineComparisonMetric.CLOUD -> "%"
+    EngineComparisonMetric.GUST -> WeatherUnit.WIND_SPEED
+    EngineComparisonMetric.CLOUD -> WeatherUnit.PERCENT
 }
 
-private fun chartAxisLabel(
-    value: Double,
-    metric: EngineComparisonMetric,
-    locale: Locale
-): String = when (metric) {
-    EngineComparisonMetric.TEMP_MAX,
-    EngineComparisonMetric.TEMP_MIN,
-    EngineComparisonMetric.PRECIPITATION -> String.format(locale, "%.1f", value)
-    EngineComparisonMetric.WIND,
-    EngineComparisonMetric.GUST,
-    EngineComparisonMetric.CLOUD -> String.format(locale, "%.0f", value)
-}
+private fun chartAxisLabel(value: Double, tickStep: Double, metric: EngineComparisonMetric, locale: Locale, units: WeatherUnits): String =
+    units.axisValue(value, metricUnit(metric), tickStep, when (metric) {
+        EngineComparisonMetric.TEMP_MAX, EngineComparisonMetric.TEMP_MIN,
+        EngineComparisonMetric.PRECIPITATION -> 1
+        else -> 0
+    }, locale)
 
-private fun formatDecimal(value: Double?, locale: Locale, suffix: String): String =
-    value?.takeIf(Double::isFinite)?.let { String.format(locale, "%.1f%s", it, suffix) } ?: "—"
+private fun formatDecimal(value: Double?, locale: Locale, suffix: WeatherUnit, units: WeatherUnits): String =
+    units.format(value, suffix, 1, locale)
 
-private fun formatInteger(value: Double?, locale: Locale, suffix: String): String =
-    value?.takeIf(Double::isFinite)?.let { String.format(locale, "%.0f%s", it, suffix) } ?: "—"
+private fun formatInteger(value: Double?, locale: Locale, suffix: WeatherUnit, units: WeatherUnits): String =
+    units.format(value, suffix, 0, locale)
 
 private fun formatDate(date: LocalDate, locale: Locale): String =
     date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale))

@@ -1,5 +1,9 @@
 package com.meteocompare.app.ui.citylist
 
+import com.meteocompare.app.core.units.WeatherUnit
+import com.meteocompare.app.core.units.WeatherUnits
+import com.meteocompare.app.core.units.LocalWeatherUnits
+
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
@@ -90,7 +94,7 @@ import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
-import androidx.compose.ui.res.stringResource
+import com.meteocompare.app.core.units.weatherStringResource as stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -479,11 +483,12 @@ internal fun CityCard(
     modifier: Modifier = Modifier,
     onMarineAction: () -> Unit = {},
     isSelected: Boolean = false,
-    selectionEnabled: Boolean = false
+    selectionEnabled: Boolean = false,
+    units: WeatherUnits = LocalWeatherUnits.current
 ) {
     val resources = LocalResources.current
     val a11yDescription = A11yFormatter
-        .cityCardDescription(resources, state)
+        .cityCardDescription(resources, state, units = units)
     val loaded = state.forecast as? ForecastState.Loaded
     WeatherAccentTheme(condition = loaded?.currentCondition) {
         val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
@@ -852,7 +857,8 @@ private fun CurrentWeatherHero(
     currentCloudCover: Int?,
     agreementPercent: Int?,
     accentColor: Color,
-    hourlyTemps: List<Double?>
+    hourlyTemps: List<Double?>,
+    units: WeatherUnits = LocalWeatherUnits.current
 ) {
     val trend = homeTemperatureTrend(currentTemp, hourlyTemps)
 
@@ -896,7 +902,7 @@ private fun CurrentWeatherHero(
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = currentTemp?.let { "${it.roundToInt()}°" } ?: "—",
+                        text = currentTemp?.let { units.temp(it) } ?: "—",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -938,7 +944,9 @@ internal enum class HomeTemperatureTrendDirection { RISING, FALLING, STABLE }
 
 internal data class HomeTemperatureTrend(
     val direction: HomeTemperatureTrendDirection,
-    val targetTemperature: Int
+    val targetTemperature: Int,
+    /** Keep the source precision until the selected display unit is applied. */
+    val targetTemperatureC: Double = targetTemperature.toDouble()
 )
 
 /** Tendance légère basée sur une échéance proche (~H+3), sans nouveau calcul météo. */
@@ -956,25 +964,25 @@ internal fun homeTemperatureTrend(
         delta <= -HOME_TEMPERATURE_TREND_THRESHOLD_C -> HomeTemperatureTrendDirection.FALLING
         else -> HomeTemperatureTrendDirection.STABLE
     }
-    return HomeTemperatureTrend(direction, target.roundToInt())
+    return HomeTemperatureTrend(direction, target.roundToInt(), target)
 }
 
 @Composable
-private fun HomeTemperatureTrendChip(trend: HomeTemperatureTrend) {
+private fun HomeTemperatureTrendChip(trend: HomeTemperatureTrend, units: WeatherUnits = LocalWeatherUnits.current) {
     val (symbol, a11y, color) = when (trend.direction) {
         HomeTemperatureTrendDirection.RISING -> Triple(
             "↑",
-            stringResource(R.string.home_temperature_trend_rising, trend.targetTemperature),
+            stringResource(R.string.home_temperature_trend_rising, trend.targetTemperatureC),
             temperatureMetricAccent()
         )
         HomeTemperatureTrendDirection.FALLING -> Triple(
             "↓",
-            stringResource(R.string.home_temperature_trend_falling, trend.targetTemperature),
+            stringResource(R.string.home_temperature_trend_falling, trend.targetTemperatureC),
             if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) Color(0xFF90CAF9) else Color(0xFF1565C0)
         )
         HomeTemperatureTrendDirection.STABLE -> Triple(
             "→",
-            stringResource(R.string.home_temperature_trend_stable, trend.targetTemperature),
+            stringResource(R.string.home_temperature_trend_stable, trend.targetTemperatureC),
             MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
@@ -987,7 +995,7 @@ private fun HomeTemperatureTrendChip(trend: HomeTemperatureTrend) {
         color = color.copy(alpha = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) 0.16f else 0.10f)
     ) {
         Text(
-            text = "$symbol ${trend.targetTemperature}°",
+            text = "$symbol ${units.temp(trend.targetTemperatureC)}",
             modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.SemiBold,
@@ -1024,8 +1032,8 @@ private fun HomeAgreementBadge(percent: Int) {
 }
 
 @Composable
-private fun TodayMetricGrid(today: DayConfidence) {
-    val temperature = temperatureMetricPresentation(today.tempMax)
+private fun TodayMetricGrid(today: DayConfidence, units: WeatherUnits = LocalWeatherUnits.current) {
+    val temperature = temperatureMetricPresentation(today.tempMax, units = units)
     val precipitation = precipitationMetricPresentation(today.precipitation)
     val primaryWind = today.windMax ?: today.windGustMax
     val gustOnly = today.windMax == null && today.windGustMax != null
@@ -1110,38 +1118,39 @@ private data class MetricPresentation(
     val supporting: String? = null
 )
 
-private fun temperatureMetricPresentation(score: ConfidenceScore?): MetricPresentation {
+private fun temperatureMetricPresentation(score: ConfidenceScore?, units: WeatherUnits): MetricPresentation {
     if (score == null) return MetricPresentation(value = "—")
     val value = if (score.spread <= 1.0) {
-        score.meanValue.roundToInt().toString()
+        units.value(score.meanValue, WeatherUnit.TEMPERATURE_COMPACT)
     } else {
-        "${score.minValue.roundToInt()}–${score.maxValue.roundToInt()}"
+        "${units.value(score.minValue, WeatherUnit.TEMPERATURE_COMPACT)}–${units.value(score.maxValue, WeatherUnit.TEMPERATURE_COMPACT)}"
     }
-    return MetricPresentation(value = value, unit = "°")
+    return MetricPresentation(value = value, unit = units.temperatureSuffix)
 }
 
-private fun windValue(score: ConfidenceScore?): String {
+private fun windValue(score: ConfidenceScore?, units: WeatherUnits): String {
     if (score == null) return "—"
     return if (score.spread <= 2.0) {
-        score.meanValue.roundToInt().toString()
+        units.value(score.meanValue, WeatherUnit.WIND_SPEED)
     } else {
-        "${score.minValue.roundToInt()}–${score.maxValue.roundToInt()}"
+        "${units.value(score.minValue, WeatherUnit.WIND_SPEED)}–${units.value(score.maxValue, WeatherUnit.WIND_SPEED)}"
     }
 }
 
 @Composable
 private fun windMetricPresentation(
     score: ConfidenceScore?,
-    gust: ConfidenceScore?
+    gust: ConfidenceScore?,
+    units: WeatherUnits = LocalWeatherUnits.current
 ): MetricPresentation {
     if (score == null) return MetricPresentation(value = "—")
     return MetricPresentation(
-        value = windValue(score),
-        unit = "km/h",
+        value = windValue(score, units = units),
+        unit = units.windUnit,
         supporting = gust?.let {
             stringResource(
                 R.string.metric_gust_supporting,
-                it.maxValue.roundToInt().toString()
+                units.value(it.maxValue, WeatherUnit.WIND_SPEED)
             )
         }
     )
@@ -1149,28 +1158,29 @@ private fun windMetricPresentation(
 
 @Composable
 private fun precipitationMetricPresentation(
-    precip: PrecipitationConfidence?
+    precip: PrecipitationConfidence?,
+    units: WeatherUnits = LocalWeatherUnits.current
 ): MetricPresentation = when (precip) {
     null -> MetricPresentation(value = "—")
     is PrecipitationConfidence.NoRain ->
         MetricPresentation(value = stringResource(R.string.precip_dry))
     is PrecipitationConfidence.Rain -> {
-        val value = if (precip.minMm.roundToInt() == precip.maxMm.roundToInt()) {
-            (precip.meta.centralAmountMm ?: precip.meanMm).roundToInt().toString()
+        val value = if (units.sameDisplayedValue(precip.minMm, precip.maxMm, WeatherUnit.PRECIPITATION, 1)) {
+            units.value((precip.meta.centralAmountMm ?: precip.meanMm), WeatherUnit.PRECIPITATION, if (units.imperial) 2 else 0)
         } else {
-            "${precip.minMm.roundToInt()}–${precip.maxMm.roundToInt()}"
+            "${units.value(precip.minMm, WeatherUnit.PRECIPITATION, if (units.imperial) 2 else 0)}–${units.value(precip.maxMm, WeatherUnit.PRECIPITATION, if (units.imperial) 2 else 0)}"
         }
-        MetricPresentation(value = value, unit = "mm")
+        MetricPresentation(value = value, unit = units.precipitationUnit)
     }
     is PrecipitationConfidence.Divided -> {
-        val value = if (precip.rainMinMm.roundToInt() == precip.rainMaxMm.roundToInt()) {
-            (precip.meta.centralAmountMm ?: precip.rainMeanMm).roundToInt().toString()
+        val value = if (units.sameDisplayedValue(precip.rainMinMm, precip.rainMaxMm, WeatherUnit.PRECIPITATION, 1)) {
+            units.value((precip.meta.centralAmountMm ?: precip.rainMeanMm), WeatherUnit.PRECIPITATION, if (units.imperial) 2 else 0)
         } else {
-            "${precip.rainMinMm.roundToInt()}–${precip.rainMaxMm.roundToInt()}"
+            "${units.value(precip.rainMinMm, WeatherUnit.PRECIPITATION, if (units.imperial) 2 else 0)}–${units.value(precip.rainMaxMm, WeatherUnit.PRECIPITATION, if (units.imperial) 2 else 0)}"
         }
         MetricPresentation(
             value = value,
-            unit = "mm",
+            unit = units.precipitationUnit,
             supporting = stringResource(
                 R.string.metric_precip_models_short,
                 precip.modelsForRain,
@@ -1419,7 +1429,7 @@ private fun scenarioRepresentativeCondition(kind: WeatherScenarioKind): WeatherC
 }
 
 @Composable
-private fun weatherScenarioMetrics(scenario: WeatherScenario): List<String> {
+private fun weatherScenarioMetrics(scenario: WeatherScenario, units: WeatherUnits = LocalWeatherUnits.current): List<String> {
     val platformLocale = LocalLocale.current.platformLocale
     val precipitationFormatter = remember(platformLocale) {
         NumberFormat.getNumberInstance(platformLocale).apply {
@@ -1430,10 +1440,10 @@ private fun weatherScenarioMetrics(scenario: WeatherScenario): List<String> {
     val gustMin = scenario.gustMinKmh
     val gustMax = scenario.gustMaxKmh
     val gustMetric = if (gustMin != null && gustMax != null) {
-        val value = if (gustMin.roundToInt() == gustMax.roundToInt()) {
-            "${gustMax.roundToInt()} km/h"
+        val value = if (units.sameDisplayedValue(gustMin, gustMax, WeatherUnit.WIND_SPEED)) {
+            units.speed(gustMax)
         } else {
-            "${gustMin.roundToInt()}–${gustMax.roundToInt()} km/h"
+            "${units.value(gustMin, WeatherUnit.WIND_SPEED)}–${units.speed(gustMax)}"
         }
         "💨 " + stringResource(R.string.home_scenario_gust_short, value)
     } else {
@@ -1444,22 +1454,22 @@ private fun weatherScenarioMetrics(scenario: WeatherScenario): List<String> {
         val tempMin = scenario.temperatureMinC
         val tempMax = scenario.temperatureMaxC
         if (tempMin != null && tempMax != null) {
-            add(if (tempMin.roundToInt() == tempMax.roundToInt()) {
-                "🌡 ${tempMin.roundToInt()}°"
+            add(if (units.sameDisplayedValue(tempMin, tempMax, WeatherUnit.TEMPERATURE_COMPACT)) {
+                "🌡 ${units.temp(tempMin)}"
             } else {
-                "🌡 ${tempMin.roundToInt()}–${tempMax.roundToInt()}°"
+                "🌡 ${units.value(tempMin, WeatherUnit.TEMPERATURE_COMPACT)}–${units.temp(tempMax)}"
             })
         }
 
         val rainMin = scenario.precipitationMinMm
         val rainMax = scenario.precipitationMaxMm
         if (rainMax != null && rainMax >= 0.05) {
-            val minText = precipitationFormatter.format(rainMin ?: 0.0)
-            val maxText = precipitationFormatter.format(rainMax)
+            val minText = units.value(rainMin ?: 0.0, WeatherUnit.PRECIPITATION, 1, platformLocale)
+            val maxText = units.value(rainMax, WeatherUnit.PRECIPITATION, 1, platformLocale)
             add(if ((rainMin ?: 0.0).let { abs(it - rainMax) } < 0.05) {
-                "🌧 $maxText mm"
+                "🌧 $maxText ${units.precipitationUnit}"
             } else {
-                "🌧 $minText–$maxText mm"
+                "🌧 $minText–$maxText ${units.precipitationUnit}"
             })
         }
 

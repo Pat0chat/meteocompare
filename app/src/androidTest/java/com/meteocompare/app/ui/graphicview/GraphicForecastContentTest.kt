@@ -1,5 +1,11 @@
 package com.meteocompare.app.ui.graphicview
 
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.test.assertTextContains
+import com.meteocompare.app.core.units.LocalWeatherUnits
+import com.meteocompare.app.core.units.WeatherUnits
+import com.meteocompare.app.domain.model.UnitSystem
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.click
@@ -20,6 +26,43 @@ import org.junit.Test
 
 class GraphicForecastContentTest {
     @get:Rule val composeRule = createComposeRule()
+
+    @Test
+    fun unit_switch_updates_temperature_rain_wind_and_gust_tooltips_without_changing_points() {
+        val selection = mutableStateOf(UnitSystem.METRIC)
+        val start = Instant.parse("2026-09-16T00:00:00Z")
+        val points = List(3) { index -> SimplifiedTimelinePoint(
+            instant = start.plusSeconds(index * 3600L), temperatureC = 0.0,
+            temperatureMinAcrossModels = -1.0, temperatureMaxAcrossModels = 1.0,
+            precipitationMm = 0.05, precipitationPercent = 75,
+            windKmh = 16.09344, windGustKmh = 32.18688, windDirectionDeg = 90,
+            modelCount = 3
+        ) }
+        val state = GraphicForecastUiState.Loaded(
+            city = City(id = "unit-test", name = "Test", country = "Test", latitude = 0.0, longitude = 0.0, timezone = "UTC", countryCode = "GB"),
+            points = points, solarByDate = emptyMap(), modelValuesByInstant = emptyMap(),
+            vigilance = null, calculatedAt = start
+        )
+        composeRule.setContent {
+            CompositionLocalProvider(LocalWeatherUnits provides WeatherUnits(selection.value)) {
+                MeteoCompareTheme { GraphicForecastContent(state) }
+            }
+        }
+        composeRule.onNodeWithTag(TAG_GRAPHIC_WIND_TOOLTIP_MEAN, true).assertTextContains("16 km/h", substring = true)
+        composeRule.runOnIdle { selection.value = UnitSystem.IMPERIAL }
+        composeRule.onNodeWithTag(TAG_GRAPHIC_TEMPERATURE_TOOLTIP_VALUE, true).assertTextContains("32°F", substring = true)
+        composeRule.onNodeWithTag(TAG_GRAPHIC_WIND_TOOLTIP_MEAN, true).assertTextContains("10 mph", substring = true)
+        composeRule.onNodeWithTag(TAG_GRAPHIC_WIND_TOOLTIP_GUST, true).assertTextContains("20 mph", substring = true)
+        composeRule.onNodeWithTag(TAG_GRAPHIC_RAIN_TOOLTIP_AMOUNT, true).assertTextContains("<0", substring = true)
+        composeRule.onNodeWithTag(TAG_GRAPHIC_RAIN_TOOLTIP_AMOUNT, true).assertTextContains("in", substring = true)
+        composeRule.onNodeWithTag(TAG_GRAPHIC_RAIN_TOOLTIP_PROBABILITY, true).assertTextContains("75%", substring = true)
+        composeRule.runOnIdle { selection.value = UnitSystem.METRIC }
+        composeRule.onNodeWithTag(TAG_GRAPHIC_TEMPERATURE_TOOLTIP_VALUE, true).assertTextContains("0°", substring = true)
+        composeRule.onNodeWithTag(TAG_GRAPHIC_WIND_TOOLTIP_GUST, true).assertTextContains("32 km/h", substring = true)
+        org.junit.Assert.assertEquals(0.0, points[0].temperatureC!!, 0.0)
+        org.junit.Assert.assertEquals(0.05, points[0].precipitationMm!!, 0.0)
+        org.junit.Assert.assertEquals(start, points[0].instant)
+    }
 
     @Test
     fun ten_day_timeline_virtualizes_hours_and_keeps_weather_layers() {

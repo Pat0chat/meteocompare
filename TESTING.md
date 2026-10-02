@@ -76,6 +76,60 @@ Les rapports sont générés dans :
 - `app/build/reports/lint-results-debug.html`
 
 
+## Diagnostic des notifications météo locales
+
+Le résumé quotidien n'utilise plus `WorkManager.setInitialDelay()` comme
+horloge. Une alarme RTC inexacte (`AlarmManager.setAndAllowWhileIdle`) réveille
+l'application autour de l'heure choisie puis déclenche un work immédiat portant
+le tag `meteocompare_notifications`. Les alertes divergence/révision restent
+périodiques, avec un contrôle immédiat lors d'une modification explicite des
+réglages.
+
+Logs utiles :
+
+```powershell
+adb logcat -s MeteoCompare/Notif WM-WorkerWrapper WM-Processor WM-SystemJobService
+adb shell dumpsys alarm | findstr /I "meteocompare WEATHER_NOTIFICATION_DAILY_SUMMARY"
+adb shell dumpsys jobscheduler | findstr /I "meteocompare notifications"
+```
+
+Recette de non-régression du résumé quotidien :
+
+1. choisir une ville et activer son résumé quotidien ;
+2. régler l'heure 3 à 5 minutes dans le futur ;
+3. revenir à l'écran d'accueil Android **sans rouvrir MeteoCompare** ;
+4. vérifier dans logcat `Daily alarm scheduled for ...`, puis
+   `Daily summary alarm fired ...`, `Starting notification cycle: DAILY_SUMMARY`
+   et enfin `Posted daily|...` ;
+5. modifier uniquement l'heure et refaire le test : aucune désactivation / réactivation
+   ne doit être nécessaire ;
+6. répéter après un reboot et après un changement de fuseau/heure système.
+
+Test Doze recommandé :
+
+```powershell
+adb shell dumpsys deviceidle force-idle
+# Laisser passer l'heure choisie, sans ouvrir l'application.
+adb shell dumpsys deviceidle unforce
+adb shell input keyevent KEYCODE_WAKEUP
+```
+
+`setAndAllowWhileIdle()` est volontairement **inexact** : Android ne doit jamais
+notifier avant l'heure choisie, mais peut décaler l'alarme selon ses politiques
+d'économie d'énergie. Le critère de régression essentiel est que la notification
+ne dépende plus de la réouverture de l'application.
+
+Pour les alertes :
+
+- **Divergence des modèles** peut apparaître dès le premier forecast si la
+  convergence passe sous le seuil métier ; un contrôle immédiat est lancé à
+  l'activation puis le suivi continue périodiquement.
+- **Révision des prévisions / À retenir** exige un snapshot historique proche
+  de H−24 (tolérance ±8 h) avec au moins deux modèles comparables : son absence
+  juste après un wipe / une première installation est donc attendue. En pratique,
+  il faut laisser l'historique local se constituer puis disposer d'un nouveau
+  forecast environ un jour plus tard avant de valider ce scénario.
+
 ## Diagnostic du rafraîchissement des widgets
 
 Le travail périodique porte le tag `meteocompare_widget` et le nom unique

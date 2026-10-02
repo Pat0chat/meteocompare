@@ -1,5 +1,9 @@
 package com.meteocompare.app.ui.citydetail
 
+import com.meteocompare.app.core.units.WeatherUnit
+import com.meteocompare.app.core.units.WeatherUnits
+import com.meteocompare.app.core.units.LocalWeatherUnits
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -311,39 +315,34 @@ private fun RankingEmptyState() {
 @Composable
 private fun rankingSupportText(
     reliability: ModelReliability,
-    variable: BiasVariable
+    variable: BiasVariable,
+    units: WeatherUnits = LocalWeatherUnits.current
 ): String {
     return if (variable == BiasVariable.PRECIPITATION) {
         stringResource(
             R.string.local_ranking_rain_support,
-            formatRankingMeasure(reliability.meanAbsoluteError, variable),
+            formatRankingMeasure(reliability.meanAbsoluteError, variable, units = units),
             reliability.precipitation?.falseAlarmCount ?: 0
         )
     } else {
         stringResource(
             R.string.local_ranking_standard_support,
-            formatRankingMeasure(reliability.meanAbsoluteError, variable),
-            formatRankingSignedMeasure(reliability.meanBias, variable)
+            formatRankingMeasure(reliability.meanAbsoluteError, variable, units = units),
+            formatRankingSignedMeasure(reliability.meanBias, variable, units = units)
         )
     }
 }
 
-private fun formatRankingMeasure(value: Double, variable: BiasVariable): String =
-    "%.1f".format(value) + rankingUnit(variable)
+private fun formatRankingMeasure(value: Double, variable: BiasVariable, units: WeatherUnits): String =
+    units.format(value, rankingUnit(variable), 1, delta = true)
 
-private fun formatRankingSignedMeasure(value: Double, variable: BiasVariable): String {
-    val sign = when {
-        value > 0.0 -> "+"
-        value < 0.0 -> "−"
-        else -> "±"
-    }
-    return sign + "%.1f".format(abs(value)) + rankingUnit(variable)
-}
+private fun formatRankingSignedMeasure(value: Double, variable: BiasVariable, units: WeatherUnits): String = units.signedDelta(value, rankingUnit(variable), 1)
 
-private fun rankingUnit(variable: BiasVariable): String = when (variable) {
-    BiasVariable.TEMPERATURE -> "°"
-    BiasVariable.PRECIPITATION -> " mm"
-    BiasVariable.WIND_SPEED -> " km/h"
+
+private fun rankingUnit(variable: BiasVariable): WeatherUnit = when (variable) {
+    BiasVariable.TEMPERATURE -> WeatherUnit.TEMPERATURE_COMPACT
+    BiasVariable.PRECIPITATION -> WeatherUnit.PRECIPITATION
+    BiasVariable.WIND_SPEED -> WeatherUnit.WIND_SPEED
 }
 
 @Composable

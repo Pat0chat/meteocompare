@@ -1,5 +1,10 @@
 package com.meteocompare.app.widget
 
+import com.meteocompare.app.core.units.WeatherUnit
+import com.meteocompare.app.core.units.WeatherUnits
+
+import com.meteocompare.app.core.units.weatherString
+
 import android.content.Context
 import com.meteocompare.app.R
 import com.meteocompare.app.core.util.resolveZoneOrUtc
@@ -75,14 +80,15 @@ internal fun buildWidgetValueSnapshot(
     context: Context,
     forecast: CityForecast,
     now: Instant = Instant.now(),
-    engineContext: ForecastEngineContext = ForecastEngineContext.DEFAULT
+    engineContext: ForecastEngineContext = ForecastEngineContext.DEFAULT,
+    units: WeatherUnits = WeatherUnits()
 ): WidgetValueSnapshot {
     val overview = buildOverviewTimeline(forecast, now, engineContext)
     val insights = buildForecastInsights(overview)
     val comparisonPoint = overview.analysisPoints.firstOrNull { it.hasMultiModelEvidence }
         ?: overview.analysisPoints.firstOrNull()
     val comparison = comparisonPoint?.toWidgetComparisonSnapshot(context, overview, now)
-    val keyInsight = selectWidgetKeyInsight(insights)?.toWidgetKeyInsight(context, overview)
+    val keyInsight = selectWidgetKeyInsight(insights)?.toWidgetKeyInsight(context, overview, units = units)
         ?: comparison?.let { snapshot ->
             WidgetKeyInsight(
                 title = context.getString(R.string.forecast_insight_title_stable_compact),
@@ -122,11 +128,12 @@ private fun insightInstantKey(insight: ForecastInsight): Long =
 
 private fun ForecastInsight.toWidgetKeyInsight(
     context: Context,
-    overview: OverviewTimeline
+    overview: OverviewTimeline,
+    units: WeatherUnits
 ): WidgetKeyInsight {
     val evidence = event?.evidence
     val consensus = evidence?.consensus?.percent
-    val range = widgetEvidenceRange(context, this)
+    val range = widgetEvidenceRange(context, this, units = units)
     val models = evidence?.contributingModelCount?.takeIf { it > 0 }
     val detail = when {
         range != null && consensus != null -> context.getString(
@@ -178,23 +185,23 @@ private fun widgetInsightTitle(context: Context, insight: ForecastInsight): Stri
     ForecastInsightKind.WEATHER_CHANGE -> context.getString(weatherChangeTitleRes(insight))
 }
 
-private fun widgetEvidenceRange(context: Context, insight: ForecastInsight): String? {
+private fun widgetEvidenceRange(context: Context, insight: ForecastInsight, units: WeatherUnits): String? {
     val evidence = insight.event?.evidence ?: return null
     val min = evidence.minimumValue
     val max = evidence.maximumValue
     return when (evidence.metric) {
         ForecastMetric.TEMPERATURE -> if (min != null && max != null) {
-            context.getString(
+            weatherString(context.resources, units,
                 R.string.widget_value_temperature_range,
-                min.roundToInt(),
-                max.roundToInt()
+                min,
+                max
             )
         } else null
         ForecastMetric.WIND -> if (min != null && max != null) {
-            context.getString(
+            weatherString(context.resources, units,
                 R.string.widget_value_wind_range,
-                min.roundToInt(),
-                max.roundToInt()
+                min,
+                max
             )
         } else null
         ForecastMetric.PRECIPITATION -> {
@@ -206,7 +213,7 @@ private fun widgetEvidenceRange(context: Context, insight: ForecastInsight): Str
                     pMin,
                     pMax
                 )
-                min != null && max != null -> context.getString(
+                min != null && max != null -> weatherString(context.resources, units,
                     R.string.widget_value_precip_range,
                     min,
                     max

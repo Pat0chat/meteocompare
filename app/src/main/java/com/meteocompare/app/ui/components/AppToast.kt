@@ -1,5 +1,10 @@
 package com.meteocompare.app.ui.components
 
+import com.meteocompare.app.core.units.WeatherUnit
+import com.meteocompare.app.core.units.LocalWeatherUnits
+import com.meteocompare.app.core.units.WeatherUnits
+import com.meteocompare.app.core.units.weatherString
+
 import android.content.res.Resources
 import androidx.annotation.StringRes
 import androidx.compose.foundation.BorderStroke
@@ -141,10 +146,10 @@ internal data class AppToastVisuals(
 internal class AppToastHostState(
     internal val materialState: SnackbarHostState
 ) {
-    suspend fun show(event: AppToastEvent, resources: Resources): SnackbarResult {
+    suspend fun show(event: AppToastEvent, resources: Resources, units: WeatherUnits = WeatherUnits()): SnackbarResult {
         val result = materialState.showSnackbar(
             AppToastVisuals(
-                message = resources.getString(event.messageRes, *event.formatArgs.toTypedArray()),
+                message = weatherString(resources, units, event.messageRes, *event.formatArgs.toTypedArray()),
                 actionLabel = event.actionLabelRes?.let { resources.getString(it) },
                 withDismissAction = event.type == AppToastType.ERROR ||
                     event.duration == AppToastDuration.INDEFINITE,
@@ -202,8 +207,9 @@ internal fun AppToastLayer(
 internal fun AppToastEffect(events: Flow<AppToastEvent>) {
     val hostState = LocalAppToastHostState.current ?: return
     val resources = LocalResources.current
+    val units = androidx.compose.runtime.rememberUpdatedState(LocalWeatherUnits.current)
     LaunchedEffect(events, hostState, resources) {
-        events.collectLatest { event -> hostState.show(event, resources) }
+        events.collectLatest { event -> hostState.show(event, resources, units.value) }
     }
 }
 
@@ -212,11 +218,12 @@ internal fun AppToastEffect(events: Flow<AppToastEvent>) {
 internal fun rememberAppToastDispatcher(): (AppToastEvent) -> Unit {
     val hostState = LocalAppToastHostState.current
     val resources = LocalResources.current
+    val units = LocalWeatherUnits.current
     val scope = rememberCoroutineScope()
-    return remember(hostState, resources, scope) {
+    return remember(hostState, resources, scope, units) {
         { event ->
             if (hostState != null) {
-                scope.launch { hostState.show(event, resources) }
+                scope.launch { hostState.show(event, resources, units) }
             }
         }
     }

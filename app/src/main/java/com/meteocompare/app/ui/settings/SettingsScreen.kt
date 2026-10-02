@@ -1,5 +1,13 @@
 package com.meteocompare.app.ui.settings
 
+import com.meteocompare.app.core.units.WeatherUnit
+import com.meteocompare.app.core.units.WeatherUnits
+import com.meteocompare.app.core.units.LocalWeatherUnits
+
+import androidx.compose.foundation.selection.selectable
+
+import com.meteocompare.app.domain.model.UnitSystem
+
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -113,6 +121,7 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val enabled by viewModel.enabledModels.collectAsStateWithLifecycle()
+    val unitSystem by viewModel.unitSystem.collectAsStateWithLifecycle()
     val theme by viewModel.themePreference.collectAsStateWithLifecycle()
     val language by viewModel.languagePreference.collectAsStateWithLifecycle()
     val refreshInterval by viewModel.refreshInterval.collectAsStateWithLifecycle()
@@ -182,6 +191,8 @@ fun SettingsScreen(
         SettingsContent(
             enabledModels = enabled,
             onToggle = viewModel::onModelToggled,
+            unitSystem = unitSystem,
+            onUnitSystemSelected = viewModel::onUnitSystemSelected,
             theme = theme,
             onThemeSelected = viewModel::onThemeSelected,
             language = language,
@@ -249,7 +260,9 @@ internal fun SettingsContent(
     onDonateClick: () -> Unit,
     padding: PaddingValues,
     /** Section Notifications, fournie par l'écran (état, permission, planification). */
-    notificationSection: @Composable () -> Unit = {}
+    notificationSection: @Composable () -> Unit = {},
+    unitSystem: UnitSystem = UnitSystem.METRIC,
+    onUnitSystemSelected: (UnitSystem) -> Unit = {}
 ) {
     // État du tri des modèles — survit à la rotation et au dark-mode toggle.
     // Défaut ZONE parce que 90% des utilisateurs raisonnent d'abord "modèles
@@ -288,6 +301,16 @@ internal fun SettingsContent(
                 )
                 Spacer(Modifier.height(8.dp))
                 LanguageSelector(selected = language, onSelect = onLanguageSelected)
+            }
+        }
+        item { HorizontalDivider() }
+
+        item {
+            Column(modifier = Modifier.padding(16.dp).testTag("settings_units")) {
+                Text(stringResource(R.string.settings_units), style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(8.dp))
+                UnitSystemSelector(unitSystem, onUnitSystemSelected)
             }
         }
         item { HorizontalDivider() }
@@ -677,7 +700,8 @@ private fun CompactModelRow(
     model: WeatherModel,
     enabled: Boolean,
     canDisable: Boolean,
-    onToggle: (Boolean) -> Unit
+    onToggle: (Boolean) -> Unit,
+    units: WeatherUnits = LocalWeatherUnits.current
 ) {
     val clickable = canDisable || !enabled
     Row(
@@ -709,7 +733,7 @@ private fun CompactModelRow(
         Text(
             text = stringResource(
                 R.string.model_metadata,
-                formatResolution(model.resolutionKm),
+                formatResolution(model.resolutionKm, units = units),
                 formatForecastHorizon(model.forecastHorizonHours)
             ),
             style = MaterialTheme.typography.labelSmall,
@@ -732,8 +756,8 @@ private fun CompactModelRow(
  * Format compact de la résolution : conserve les décimales réellement utiles
  * (1.5 km, 2.5 km, 5.5 km) mais évite les faux « .0 » (2 km, 7 km, 9 km).
  */
-private fun formatResolution(km: Double): String =
-    if (km % 1.0 == 0.0) "${km.toInt()} km" else "%.1f km".format(km)
+private fun formatResolution(km: Double, units: WeatherUnits): String =
+    units.format(km, WeatherUnit.DISTANCE, if (km % 1.0 == 0.0 && !units.imperial) 0 else 1)
 
 /** Horizon natif affiché sans le confondre avec le `forecast_days` entier de l'API. */
 @Composable
@@ -777,6 +801,29 @@ private fun ModelSortSelector(
         modifier = Modifier.fillMaxWidth(),
         itemModifier = { mode -> Modifier.testTag("$TAG_SETTINGS_SORT${mode.name}") }
     )
+}
+
+@Composable
+internal fun UnitSystemSelector(selected: UnitSystem, onSelect: (UnitSystem) -> Unit) {
+    Column(Modifier.selectableGroup()) {
+        UnitSystem.entries.forEach { system ->
+            Row(
+                modifier = Modifier.fillMaxWidth()
+                    .selectable(selected = system == selected,
+                        role = androidx.compose.ui.semantics.Role.RadioButton,
+                        onClick = { onSelect(system) })
+                    .testTag("settings_units_${system.name}").padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                androidx.compose.material3.RadioButton(selected = system == selected, onClick = null)
+                Spacer(Modifier.width(8.dp))
+                val example = WeatherUnits(system)
+                Text(stringResource(if (system == UnitSystem.METRIC)
+                    R.string.settings_units_metric else R.string.settings_units_imperial,
+                    example.temperatureUnit, example.windUnit, example.precipitationUnit))
+            }
+        }
+    }
 }
 
 @Composable

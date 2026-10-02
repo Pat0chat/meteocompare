@@ -1,5 +1,11 @@
 package com.meteocompare.app.ui.accessibility
 
+import com.meteocompare.app.core.units.WeatherUnit
+import com.meteocompare.app.core.units.WeatherUnits
+
+import com.meteocompare.app.core.units.weatherString
+import com.meteocompare.app.core.units.spokenUnit
+
 import android.content.res.Resources
 import com.meteocompare.app.R
 import com.meteocompare.app.core.locale.weatherConditionLabelRes
@@ -38,30 +44,27 @@ object A11yFormatter {
         ConfidenceLevel.LOW -> resources.getString(R.string.a11y_confidence_low)
     }
 
-    fun temperatureDescription(resources: Resources, score: ConfidenceScore): String {
+    fun temperatureDescription(resources: Resources, score: ConfidenceScore, units: WeatherUnits = WeatherUnits()): String =
+        measureDescription(resources, score, WeatherUnit.TEMPERATURE, units)
+
+    private fun measureDescription(resources: Resources, score: ConfidenceScore, metricUnit: WeatherUnit,
+                                   units: WeatherUnits): String {
+        val locale = resources.configuration.locales[0]
+        val unitLabel = spokenUnit(resources, units, metricUnit)
         val main = if (score.spread <= 1.0) {
-            resources.getString(R.string.a11y_temp_single, score.meanValue.roundToInt())
+            resources.getString(R.string.a11y_temp_single,
+                units.value(score.meanValue, metricUnit, locale = locale), unitLabel)
         } else {
-            resources.getString(
-                R.string.a11y_temp_range,
-                score.minValue.roundToInt(),
-                score.maxValue.roundToInt()
-            )
+            resources.getString(R.string.a11y_temp_range,
+                units.value(score.minValue, metricUnit, locale = locale),
+                units.value(score.maxValue, metricUnit, locale = locale), unitLabel)
         }
         val convergence = score.convergencePercent
-        return if (convergence != null) {
-            resources.getString(
-                R.string.a11y_temp_with_confidence,
-                main,
-                confidenceLevelLabel(resources, score.level).lowercase(),
-                convergence
-            )
-        } else {
-            main
-        }
+        return if (convergence != null) resources.getString(R.string.a11y_temp_with_confidence,
+            main, confidenceLevelLabel(resources, score.level).lowercase(locale), convergence) else main
     }
 
-    fun precipitationDescription(resources: Resources, precip: PrecipitationConfidence): String = when (precip) {
+    fun precipitationDescription(resources: Resources, precip: PrecipitationConfidence, units: WeatherUnits = WeatherUnits()): String = when (precip) {
         is PrecipitationConfidence.NoRain -> {
             val convergence = precip.convergencePercent
             if (convergence != null) resources.getString(R.string.a11y_no_rain, convergence)
@@ -70,31 +73,31 @@ object A11yFormatter {
         is PrecipitationConfidence.Rain -> {
             val convergence = precip.convergencePercent
             if (convergence != null) {
-                resources.getString(
+                weatherString(resources, units,
                     R.string.a11y_rain,
-                    precip.minMm.roundToInt(),
-                    precip.maxMm.roundToInt(),
+                    precip.minMm,
+                    precip.maxMm,
                     convergence
                 )
             } else {
-                resources.getString(
+                weatherString(resources, units,
                     R.string.a11y_rain_no_convergence,
-                    precip.minMm.roundToInt(),
-                    precip.maxMm.roundToInt()
+                    precip.minMm,
+                    precip.maxMm
                 )
             }
         }
         is PrecipitationConfidence.Divided ->
-            resources.getString(
+            weatherString(resources, units,
                 R.string.a11y_models_divided,
                 precip.modelsForRain,
                 precip.modelCount,
-                precip.rainMinMm.roundToInt(),
-                precip.rainMaxMm.roundToInt()
+                precip.rainMinMm,
+                precip.rainMaxMm
             )
     }
 
-    fun cityCardDescription(resources: Resources, state: CityCardState): String {
+    fun cityCardDescription(resources: Resources, state: CityCardState, units: WeatherUnits = WeatherUnits()): String {
         val city = state.city
         val marine = if (city.marineEnabled) ". ${resources.getString(R.string.marine_enabled)}" else ""
         val base = "Ville ${city.name}${city.admin1?.let { ", $it" } ?: ""}$marine"
@@ -114,19 +117,19 @@ object A11yFormatter {
                 f.currentCondition?.let {
                     parts += resources.getString(weatherConditionLabelRes(it))
                 }
-                f.currentTemp?.let { parts += resources.getString(R.string.a11y_now_temp, it.roundToInt()) }
+                f.currentTemp?.let { parts += weatherString(resources, units, R.string.a11y_now_temp, it) }
                 f.today.tempMax?.let {
                     parts += resources.getString(R.string.a11y_temperature_prefix) + " " +
-                        temperatureDescription(resources, it)
+                        temperatureDescription(resources, it, units = units)
                 }
-                f.today.precipitation?.let { parts += precipitationDescription(resources, it) }
+                f.today.precipitation?.let { parts += precipitationDescription(resources, it, units = units) }
                 f.today.windMax?.let {
-                    parts += resources.getString(R.string.a11y_wind_max_label) + " " +
-                        windDescription(resources, it)
+                    parts += weatherString(resources, units, R.string.a11y_wind_max_label) + " " +
+                        windDescription(resources, it, units = units)
                 }
                 f.today.windGustMax?.let {
-                    parts += resources.getString(R.string.var_wind_gust_max) + " " +
-                        windDescription(resources, it)
+                    parts += weatherString(resources, units, R.string.var_wind_gust_max) + " " +
+                        windDescription(resources, it, units = units)
                 }
                 f.today.overallPercent?.let { parts += resources.getString(R.string.a11y_overall_confidence, it) }
                 "$base. " + parts.joinToString(". ") + "."
@@ -134,14 +137,14 @@ object A11yFormatter {
         }
     }
 
-    fun hourlyChartDescription(resources: Resources, bands: List<HourlyConfidenceBand>): String {
+    fun hourlyChartDescription(resources: Resources, bands: List<HourlyConfidenceBand>, units: WeatherUnits = WeatherUnits(), metricUnit: WeatherUnit = WeatherUnit.TEMPERATURE): String {
         if (bands.size < 2) return resources.getString(R.string.a11y_hourly_empty)
         val first = bands.first()
         val last = bands.last()
         val daysAhead = Duration
             .between(first.timestamp, last.timestamp).toDays().toInt()
-        val firstTemp = first.meanValue.roundToInt()
-        val lastTemp = last.meanValue.roundToInt()
+        val firstTemp = first.meanValue
+        val lastTemp = last.meanValue
         val spreadStart = first.maxValue - first.minValue
         val spreadEnd = last.maxValue - last.minValue
         val divergence = when {
@@ -149,40 +152,44 @@ object A11yFormatter {
             spreadEnd > spreadStart * 1.3 -> resources.getString(R.string.a11y_divergence_increasing)
             else -> resources.getString(R.string.a11y_divergence_stable)
         }
-        return resources.getString(
+        if (metricUnit != WeatherUnit.TEMPERATURE) {
+            val locale = resources.configuration.locales[0]
+            return resources.getString(R.string.a11y_hourly_measure_template,
+                resources.getString(if (metricUnit == WeatherUnit.PRECIPITATION) R.string.var_precipitation else R.string.metric_detail_wind),
+                units.format(first.meanValue, metricUnit, if (metricUnit == WeatherUnit.PRECIPITATION) 1 else 0, locale),
+                units.format(last.meanValue, metricUnit, if (metricUnit == WeatherUnit.PRECIPITATION) 1 else 0, locale),
+                first.percent, last.percent)
+        }
+        return weatherString(resources, units,
             R.string.a11y_hourly_template,
             daysAhead, firstTemp, lastTemp, divergence, first.percent, last.percent
         )
     }
 
-    fun todaySummaryDescription(resources: Resources, today: DayConfidence, modelCount: Int): String {
+    fun todaySummaryDescription(resources: Resources, today: DayConfidence, modelCount: Int, units: WeatherUnits = WeatherUnits()): String {
         val header = if (modelCount > 1)
             resources.getString(R.string.a11y_today_summary_many, modelCount)
         else
             resources.getString(R.string.a11y_today_summary_one, modelCount)
         val parts = mutableListOf(header)
         today.tempMax?.let {
-            parts += resources.getString(R.string.a11y_temp_max_label) + " " + temperatureDescription(resources, it)
+            parts += resources.getString(R.string.a11y_temp_max_label) + " " + temperatureDescription(resources, it, units = units)
         }
         today.tempMin?.let {
-            parts += resources.getString(R.string.a11y_temp_min_label) + " " + temperatureDescription(resources, it)
+            parts += resources.getString(R.string.a11y_temp_min_label) + " " + temperatureDescription(resources, it, units = units)
         }
-        today.precipitation?.let { parts += precipitationDescription(resources, it) }
+        today.precipitation?.let { parts += precipitationDescription(resources, it, units = units) }
         today.windMax?.let {
-            parts += resources.getString(R.string.a11y_wind_max_label) + " " +
-                windDescription(resources, it)
+            parts += weatherString(resources, units, R.string.a11y_wind_max_label) + " " +
+                windDescription(resources, it, units = units)
         }
         today.windGustMax?.let {
-            parts += resources.getString(R.string.var_wind_gust_max) + " " +
-                windDescription(resources, it)
+            parts += weatherString(resources, units, R.string.var_wind_gust_max) + " " +
+                windDescription(resources, it, units = units)
         }
         return parts.joinToString(". ") + "."
     }
 
-    /** Même présentation que la température, avec l'unité km/h. */
-    private fun windDescription(resources: Resources, score: ConfidenceScore): String {
-        val degUnit = resources.getString(R.string.a11y_temp_single, 0).removePrefix("0 ")
-        val kmhUnit = resources.getString(R.string.a11y_kmh_unit)
-        return temperatureDescription(resources, score).replace(degUnit, kmhUnit)
-    }
+    private fun windDescription(resources: Resources, score: ConfidenceScore, units: WeatherUnits): String =
+        measureDescription(resources, score, WeatherUnit.WIND_SPEED, units)
 }

@@ -1,5 +1,7 @@
 package com.meteocompare.app.data.preferences
 
+import com.meteocompare.app.domain.model.UnitSystem
+
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.meteocompare.app.domain.model.CityDetailContentTab
@@ -152,6 +154,25 @@ class UserPreferencesRepositoryImplTest {
         repository.setForecastEngine(ForecastEngine.SCENARIOS)
         val recreatedRepository = UserPreferencesRepositoryImpl(context, Dispatchers.IO)
         assertEquals(ForecastEngine.SCENARIOS, recreatedRepository.observeForecastEngine().first())
+    }
+
+    @Test
+    fun unit_choice_survives_recreation_without_changing_forecast_preferences() = runTest {
+        val models = repository.observeEnabledModels().first()
+        val engine = repository.observeForecastEngine().first()
+        try {
+            repository.setUnitSystem(UnitSystem.IMPERIAL)
+            val recreated = UserPreferencesRepositoryImpl(context, Dispatchers.IO)
+            assertEquals(UnitSystem.IMPERIAL, recreated.observeUnitSystem().first())
+            assertEquals(models, recreated.observeEnabledModels().first())
+            assertEquals(engine, recreated.observeForecastEngine().first())
+            repository.setLanguagePreference(LanguagePreference.FRENCH)
+            assertEquals(UnitSystem.IMPERIAL, recreated.observeUnitSystem().first())
+            repository.setUnitSystem(UnitSystem.METRIC)
+            assertEquals(UnitSystem.METRIC, recreated.observeUnitSystem().first())
+        } finally {
+            repository.setUnitSystem(UnitSystem.METRIC)
+        }
     }
 
 }

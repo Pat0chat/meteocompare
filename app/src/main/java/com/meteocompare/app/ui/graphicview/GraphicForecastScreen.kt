@@ -1,5 +1,11 @@
 package com.meteocompare.app.ui.graphicview
 
+import com.meteocompare.app.core.charts.metricPlotValue
+import com.meteocompare.app.core.charts.canonicalChartRange
+import com.meteocompare.app.core.units.WeatherUnit
+import com.meteocompare.app.core.units.WeatherUnits
+import com.meteocompare.app.core.units.LocalWeatherUnits
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -200,13 +206,13 @@ internal fun buildGraphicRenderData(
 ): GraphicRenderData = GraphicRenderData(
     daylight = daylightFlags(points, solarByDate, zone),
     hours = points.map { point -> point.instant?.atZone(zone)?.hour },
-    temperatures = points.map(SimplifiedTimelinePoint::temperatureC),
-    temperatureMins = points.map(SimplifiedTimelinePoint::temperatureMinAcrossModels),
-    temperatureMaxs = points.map(SimplifiedTimelinePoint::temperatureMaxAcrossModels),
-    rainAmounts = points.map(::rainAmount),
+    temperatures = points.map { metricPlotValue(it.temperatureC) },
+    temperatureMins = points.map { metricPlotValue(it.temperatureMinAcrossModels) },
+    temperatureMaxs = points.map { metricPlotValue(it.temperatureMaxAcrossModels) },
+    rainAmounts = points.map { metricPlotValue(rainAmount(it)) },
     rainProbabilities = points.map(SimplifiedTimelinePoint::precipitationPercent),
-    winds = points.map(SimplifiedTimelinePoint::windKmh),
-    gusts = points.map(SimplifiedTimelinePoint::windGustKmh),
+    winds = points.map { metricPlotValue(it.windKmh) },
+    gusts = points.map { metricPlotValue(it.windGustKmh) },
     directions = points.map(SimplifiedTimelinePoint::windDirectionDeg),
     conditions = points.map { it.condition ?: WeatherCondition.UNKNOWN },
     temperatureAgreement = points.map { it.consensusFor(ForecastMetric.TEMPERATURE)?.percent },
@@ -576,7 +582,8 @@ private fun GraphicSelectionHeader(
     models: List<GraphicModelValue>,
     zone: ZoneId,
     locale: Locale,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    units: WeatherUnits = LocalWeatherUnits.current
 ) {
     val instant = point.instant
     val dateTimeFormatter = remember(locale) { DateTimeFormatter.ofPattern("EEE d MMM · HH:mm", locale) }
@@ -645,17 +652,17 @@ private fun GraphicSelectionHeader(
                 label = stringResource(R.string.graphic_view_temperature),
                 icon = Icons.Outlined.Thermostat,
                 accent = temperatureMetricAccent(),
-                value = point.temperatureC?.let { "${format(it, 1)} °C" } ?: "—",
-                detail = formatRange(point.temperatureMinAcrossModels, point.temperatureMaxAcrossModels, "°C", 1),
+                value = point.temperatureC?.let { units.format(it, WeatherUnit.TEMPERATURE, 1) } ?: "—",
+                detail = formatRange(point.temperatureMinAcrossModels, point.temperatureMaxAcrossModels, WeatherUnit.TEMPERATURE, 1, units = units),
                 agreement = point.consensusFor(ForecastMetric.TEMPERATURE)?.percent
             )
             GraphicMetricSummaryChip(
                 label = stringResource(R.string.graphic_view_rain),
                 icon = Icons.Outlined.WaterDrop,
                 accent = precipitationMetricAccent(),
-                value = rainAmount(point)?.let { "${format(it, 1)} mm" } ?: "—",
+                value = rainAmount(point)?.let { units.rain(it) } ?: "—",
                 detail = buildString {
-                    append(formatRange(point.precipitationMinAcrossModelsMm, point.precipitationMaxAcrossModelsMm, "mm", 1))
+                    append(formatRange(point.precipitationMinAcrossModelsMm, point.precipitationMaxAcrossModelsMm, WeatherUnit.PRECIPITATION, 1, units = units))
                     point.precipitationPercent?.let { append(" · ${it}%") }
                 },
                 agreement = point.precipitationAmountConvergencePercent,
@@ -665,10 +672,10 @@ private fun GraphicSelectionHeader(
                 label = stringResource(R.string.graphic_view_wind),
                 icon = Icons.Outlined.Air,
                 accent = windMetricAccent(),
-                value = point.windKmh?.let { "${format(it, 0)} km/h" } ?: "—",
+                value = point.windKmh?.let { units.speed(it) } ?: "—",
                 detail = buildString {
-                    append(formatRange(point.windMinAcrossModels, point.windMaxAcrossModels, "km/h", 0))
-                    point.windGustKmh?.let { append(" · $gustShort ${format(it, 0)}") }
+                    append(formatRange(point.windMinAcrossModels, point.windMaxAcrossModels, WeatherUnit.WIND_SPEED, 0, units = units))
+                    point.windGustKmh?.let { append(" · $gustShort ${units.speed(it)}") }
                     point.windDirectionDeg?.let { append(" · ${it}°") }
                 },
                 agreement = point.consensusFor(ForecastMetric.WIND)?.percent
@@ -758,7 +765,7 @@ private fun GraphicMetricSummaryChip(
 }
 
 @Composable
-private fun GraphicModelRow(row: GraphicModelValue) {
+private fun GraphicModelRow(row: GraphicModelValue, units: WeatherUnits = LocalWeatherUnits.current) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -771,19 +778,19 @@ private fun GraphicModelRow(row: GraphicModelValue) {
             overflow = TextOverflow.Ellipsis
         )
         Text(
-            row.temperatureC?.let { "${format(it, 1)}°" } ?: "—",
+            row.temperatureC?.let { units.temp(it, 1) } ?: "—",
             modifier = Modifier.width(54.dp),
             textAlign = TextAlign.End,
             style = MaterialTheme.typography.bodySmall
         )
         Text(
-            row.precipitationMm?.let { "${format(it, 1)} mm" } ?: "—",
+            row.precipitationMm?.let { units.rain(it) } ?: "—",
             modifier = Modifier.width(70.dp),
             textAlign = TextAlign.End,
             style = MaterialTheme.typography.bodySmall
         )
         Text(
-            row.windKmh?.let { "${format(it, 0)} km/h" } ?: "—",
+            row.windKmh?.let { units.speed(it) } ?: "—",
             modifier = Modifier.width(78.dp),
             textAlign = TextAlign.End,
             style = MaterialTheme.typography.bodySmall
@@ -910,7 +917,7 @@ private fun GraphicAxisColumn(
             label = stringResource(R.string.graphic_view_temperature),
             icon = Icons.Outlined.Thermostat,
             iconTint = temperatureMetricAccent(),
-            unit = "°C",
+            unit = WeatherUnit.TEMPERATURE,
             domain = tempDomain,
             height = TemperaturePlotHeight,
             decimals = 0
@@ -919,7 +926,7 @@ private fun GraphicAxisColumn(
             label = stringResource(R.string.graphic_view_rain),
             icon = Icons.Outlined.WaterDrop,
             iconTint = precipitationMetricAccent(),
-            unit = "mm/h",
+            unit = WeatherUnit.PRECIPITATION_RATE,
             domain = rainDomain,
             height = RainPlotHeight,
             decimals = 1
@@ -928,7 +935,7 @@ private fun GraphicAxisColumn(
             label = stringResource(R.string.graphic_view_wind),
             icon = Icons.Outlined.Air,
             iconTint = windMetricAccent(),
-            unit = "km/h",
+            unit = WeatherUnit.WIND_SPEED,
             domain = windDomain,
             height = WindPlotHeight,
             decimals = 0
@@ -951,10 +958,11 @@ private fun PlotAxis(
     label: String,
     icon: ImageVector,
     iconTint: Color,
-    unit: String,
+    unit: WeatherUnit,
     domain: PlotDomain,
     height: Dp,
-    decimals: Int
+    decimals: Int,
+    units: WeatherUnits = LocalWeatherUnits.current
 ) {
     Box(
         modifier = Modifier
@@ -983,7 +991,7 @@ private fun PlotAxis(
                     tint = iconTint
                 )
                 Text(
-                    text = unit,
+                    text = units.label(unit),
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = iconTint,
@@ -994,7 +1002,7 @@ private fun PlotAxis(
         domain.ticks.forEach { tick ->
             val y = valueToYDp(tick, domain, height)
             Text(
-                text = format(tick, decimals),
+                text = units.axisValue(tick, unit, (domain.max - domain.min) / (domain.ticks.size - 1), decimals),
                 style = MaterialTheme.typography.labelSmall,
                 color = iconTint.copy(alpha = 0.92f),
                 maxLines = 1,
@@ -1032,7 +1040,8 @@ private fun TemperaturePlot(
     showAgreement: Boolean,
     agreementPalette: AgreementPalette,
     onSelectIndex: (Int) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    units: WeatherUnits = LocalWeatherUnits.current
 ) {
     val temperature = temperatureMetricAccent()
     val surface = MaterialTheme.colorScheme.surfaceContainerLow
@@ -1145,12 +1154,13 @@ private fun TemperaturePlot(
                 .testTag(TAG_GRAPHIC_CONDITION_ICON)
         )
         points.getOrNull(selectedIndex)?.let { selected ->
-            val central = selected.temperatureC?.let { "${format(it, 1)} °C" } ?: "—"
+            val central = selected.temperatureC?.let { units.format(it, WeatherUnit.TEMPERATURE, 1) } ?: "—"
             val range = formatRange(
                 selected.temperatureMinAcrossModels,
                 selected.temperatureMaxAcrossModels,
-                "°C",
-                1
+                WeatherUnit.TEMPERATURE,
+                1,
+                units = units
             )
             TemperatureSelectionBadge(
                 value = central,
@@ -1173,7 +1183,8 @@ private fun RainPlot(
     showAgreement: Boolean,
     agreementPalette: AgreementPalette,
     onSelectIndex: (Int) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    units: WeatherUnits = LocalWeatherUnits.current
 ) {
     val rain = precipitationMetricAccent()
     val surface = MaterialTheme.colorScheme.surfaceContainerLow
@@ -1239,7 +1250,7 @@ private fun RainPlot(
             drawSelectedRuler(points.size, selectedIndex, onSurface)
         }
         points.getOrNull(selectedIndex)?.let { selected ->
-            val amount = renderData.rainAmounts.getOrNull(selectedIndex)?.let { "${format(it, 1)} mm" } ?: "—"
+            val amount = renderData.rainAmounts.getOrNull(selectedIndex)?.let { units.rain(it) } ?: "—"
             RainSelectionBadge(
                 amount = amount,
                 probability = selected.precipitationPercent?.let { "${it}%" },
@@ -1260,7 +1271,8 @@ private fun WindPlot(
     showAgreement: Boolean,
     agreementPalette: AgreementPalette,
     onSelectIndex: (Int) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    units: WeatherUnits = LocalWeatherUnits.current
 ) {
     val wind = windMetricAccent()
     val surface = MaterialTheme.colorScheme.surfaceContainerLow
@@ -1354,8 +1366,8 @@ private fun WindPlot(
         )
         points.getOrNull(selectedIndex)?.let { selected ->
             WindSelectionBadge(
-                mean = selected.windKmh?.let { "${format(it, 0)} km/h" } ?: "—",
-                gust = selected.windGustKmh?.let { "$gustShort ${format(it, 0)} km/h" },
+                mean = selected.windKmh?.let { units.speed(it) } ?: "—",
+                gust = selected.windGustKmh?.let { "$gustShort ${units.speed(it)}" },
                 direction = selected.windDirectionDeg?.let { "${it}°" },
                 selectedIndex = selectedIndex,
                 pointCount = points.size
@@ -1816,7 +1828,7 @@ private data class AgreementPalette(
 
 internal fun temperatureDomain(points: List<SimplifiedTimelinePoint>): PlotDomain {
     val values = points.flatMap { point ->
-        listOfNotNull(point.temperatureMinAcrossModels, point.temperatureC, point.temperatureMaxAcrossModels)
+        listOfNotNull(point.temperatureMinAcrossModels, point.temperatureC, point.temperatureMaxAcrossModels).mapNotNull(::metricPlotValue)
     }
     if (values.isEmpty()) return PlotDomain(0.0, 30.0, listOf(0.0, 10.0, 20.0, 30.0))
     val rawMin = values.minOrNull() ?: 0.0
@@ -1828,7 +1840,7 @@ internal fun temperatureDomain(points: List<SimplifiedTimelinePoint>): PlotDomai
 }
 
 private fun positiveDomain(values: List<Double>, minimumMax: Double): PlotDomain {
-    val rawMax = max(minimumMax, values.maxOrNull() ?: minimumMax)
+    val rawMax = max(minimumMax, values.mapNotNull(::metricPlotValue).maxOrNull() ?: minimumMax)
     val step = when {
         rawMax <= 4 -> 1.0
         rawMax <= 10 -> 2.0
@@ -1985,7 +1997,7 @@ private fun DrawScope.drawLineSeries(
 }
 
 internal fun seriesMarkerIndices(values: List<Double?>): List<Int> =
-    values.indices.filter { values[it] != null }
+    values.indices.filter { metricPlotValue(values[it]) != null }
 
 private fun DrawScope.drawWindDirectionArrows(
     directions: List<Int?>,
@@ -2067,5 +2079,5 @@ private fun rainAmount(point: SimplifiedTimelinePoint): Double? =
 private fun format(value: Double, decimals: Int): String =
     "%1$.${decimals}f".format(Locale.getDefault(), value)
 
-private fun formatRange(min: Double?, max: Double?, unit: String, decimals: Int): String =
-    if (min != null && max != null) "${format(min, decimals)}–${format(max, decimals)} $unit" else "—"
+private fun formatRange(min: Double?, max: Double?, unit: WeatherUnit, decimals: Int, units: WeatherUnits): String =
+    if (min != null && max != null) "${units.value(min, unit, decimals)}–${units.format(max, unit, decimals)}" else "—"

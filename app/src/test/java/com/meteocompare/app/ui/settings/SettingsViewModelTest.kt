@@ -1,5 +1,6 @@
 package com.meteocompare.app.ui.settings
 
+
 import android.content.Context
 import app.cash.turbine.test
 import com.meteocompare.app.R
@@ -9,6 +10,7 @@ import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.model.LanguagePreference
 import com.meteocompare.app.domain.model.NotificationSettings
 import com.meteocompare.app.domain.model.RefreshInterval
+import com.meteocompare.app.domain.model.UnitSystem
 import com.meteocompare.app.domain.model.ThemePreference
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.repository.CityRepository
@@ -77,6 +79,7 @@ class SettingsViewModelTest {
 
     private val prefs: UserPreferencesRepository = mockk(relaxed = true) {
         coEvery { observeEnabledModels() } returns modelsFlow
+        every { observeUnitSystem() } returns kotlinx.coroutines.flow.flowOf(UnitSystem.METRIC)
         coEvery { observeThemePreference() } returns themeFlow
         coEvery { observeLanguagePreference() } returns languageFlow
         coEvery { observeRefreshInterval() } returns refreshIntervalFlow
@@ -463,4 +466,31 @@ class SettingsViewModelTest {
         }
         verify(exactly = 0) { WeatherNotificationScheduler.reschedule(any(), any()) }
     }
+    @Test
+    fun `units are persisted before widget refresh and exposed reactively`() = runTest(dispatcher) {
+        val units = MutableStateFlow(UnitSystem.METRIC)
+        every { prefs.observeUnitSystem() } returns units
+        coEvery { prefs.setUnitSystem(any()) } answers { units.value = firstArg() }
+        val vm = SettingsViewModel(appContext, prefs, cityRepository)
+        vm.unitSystem.test {
+            assertEquals(UnitSystem.METRIC, awaitItem())
+            vm.onUnitSystemSelected(UnitSystem.IMPERIAL)
+            assertEquals(UnitSystem.IMPERIAL, awaitItem())
+            coVerifyOrder {
+                prefs.setUnitSystem(UnitSystem.IMPERIAL)
+                WidgetRefreshScheduler.triggerImmediateRefresh(appContext)
+            }
+        }
+    }
+
+    @Test
+    fun `failed unit save reports an error without refreshing widgets`() = runTest(dispatcher) {
+        coEvery { prefs.setUnitSystem(any()) } throws IOException("disk unavailable")
+        viewModel.feedback.test {
+            viewModel.onUnitSystemSelected(UnitSystem.IMPERIAL)
+            assertEquals(AppToastType.ERROR, awaitItem().type)
+        }
+        verify(exactly = 0) { WidgetRefreshScheduler.triggerImmediateRefresh(appContext) }
+    }
+
 }

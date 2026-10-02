@@ -1,5 +1,11 @@
 package com.meteocompare.app.ui.citydetail
 
+import com.meteocompare.app.core.charts.metricPlotValue
+import com.meteocompare.app.core.charts.canonicalChartRange
+import com.meteocompare.app.core.units.WeatherUnit
+import com.meteocompare.app.core.units.WeatherUnits
+import com.meteocompare.app.core.units.LocalWeatherUnits
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -42,7 +48,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.stringResource
+import com.meteocompare.app.core.units.weatherStringResource as stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -152,7 +158,7 @@ internal fun MarineSection(
 
                         is MarineUiState.Error -> {
                             MarineInlineNotice(
-                                primary = state.message,
+                                primary = state.messageRes?.let { stringResource(it) } ?: state.message,
                                 secondary = null,
                                 accent = MaterialTheme.colorScheme.error
                             )
@@ -177,7 +183,8 @@ internal fun MarineSection(
 private fun MarineDashboard(
     data: MarineForecast,
     coastalVigilance: VigilancePhenomenonAlert?,
-    vigilanceTimezone: String?
+    vigilanceTimezone: String?,
+    units: WeatherUnits = LocalWeatherUnits.current
 ) {
     val locale = LocalLocale.current.platformLocale
     val now by produceState(System.currentTimeMillis(), data) {
@@ -211,11 +218,11 @@ private fun MarineDashboard(
             kind = MarineGroupKind.CURRENT
         )
         MarineCurrentSummary(
-            waveHeight = formatMarine(value(h.waveHeight), "m", locale = locale),
-            wavePeriod = formatMarine(value(h.wavePeriod), "s", locale = locale),
+            waveHeight = formatMarine(value(h.waveHeight), WeatherUnit.HEIGHT, locale = locale, units = units),
+            wavePeriod = formatMarine(value(h.wavePeriod), WeatherUnit.SECONDS, locale = locale, units = units),
             waveDirection = value(h.waveDirection)?.let { "${it.toInt()}° ${compass(it)}" } ?: "—",
-            swellHeight = formatMarine(value(h.swellHeight), "m", locale = locale),
-            seaTemperature = formatMarine(value(h.seaSurfaceTemperature), "°C", locale = locale),
+            swellHeight = formatMarine(value(h.swellHeight), WeatherUnit.HEIGHT, locale = locale, units = units),
+            seaTemperature = formatMarine(value(h.seaSurfaceTemperature), WeatherUnit.TEMPERATURE, locale = locale, units = units),
             accent = currentAccent,
             modifier = Modifier.testTag(TAG_MARINE_CURRENT_PANEL)
         )
@@ -235,7 +242,7 @@ private fun MarineDashboard(
                 nowEpochMs = now,
                 hours = 48,
                 accent = waveAccent,
-                yUnit = "m",
+                yUnit = WeatherUnit.HEIGHT,
                 yDigits = 1,
                 timezone = data.timezone,
                 allowNegative = false,
@@ -289,7 +296,7 @@ private fun MarineDashboard(
                 hours = 72,
                 events = tideEvents,
                 accent = tideAccent,
-                yUnit = "m",
+                yUnit = WeatherUnit.HEIGHT,
                 yDigits = 2,
                 timezone = data.timezone,
                 allowNegative = true,
@@ -299,7 +306,7 @@ private fun MarineDashboard(
         }
 
         MarineTideSummary(
-            level = formatMarine(currentLevel, "m", digits = 2, locale = locale),
+            level = formatMarine(currentLevel, WeatherUnit.HEIGHT, digits = 2, locale = locale, units = units),
             trend = trend,
             nextExtremum = tideEvents.firstOrNull()?.let {
                 stringResource(
@@ -308,9 +315,9 @@ private fun MarineDashboard(
                 )
             } ?: "—",
             nextExtremumDetail = tideEvents.firstOrNull()?.let {
-                "${eventTime(it)} · ${formatMarine(it.value, "m", 2, locale)}"
+                "${eventTime(it)} · ${formatMarine(it.value, WeatherUnit.HEIGHT, 2, locale, units = units)}"
             } ?: stringResource(R.string.marine_tide_unavailable),
-            tideRange = tideRange?.let { formatMarine(it.range, "m", 2, locale) } ?: "—",
+            tideRange = tideRange?.let { formatMarine(it.range, WeatherUnit.HEIGHT, 2, locale, units = units) } ?: "—",
             accent = tideAccent,
             modifier = Modifier.testTag(TAG_MARINE_TIDE_PANEL)
         )
@@ -528,7 +535,7 @@ private fun MarineChartSurface(
 }
 
 @Composable
-private fun MarineDayCard(data: MarineForecast, date: String, index: Int, accent: Color) {
+private fun MarineDayCard(data: MarineForecast, date: String, index: Int, accent: Color, units: WeatherUnits = LocalWeatherUnits.current) {
     val locale = LocalLocale.current.platformLocale
     val dayLabel = runCatching {
         LocalDate.parse(date).format(DateTimeFormatter.ofPattern("EEE d MMM", locale))
@@ -549,13 +556,13 @@ private fun MarineDayCard(data: MarineForecast, date: String, index: Int, accent
                 maxLines = 1
             )
             Text(
-                formatMarine(data.daily.waveHeightMax.getOrNull(index), "m", locale = locale),
+                formatMarine(data.daily.waveHeightMax.getOrNull(index), WeatherUnit.HEIGHT, locale = locale, units = units),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold
             )
             Text(
-                "${formatMarine(data.daily.wavePeriodMax.getOrNull(index), "s", locale = locale)} · " +
-                    formatMarine(data.daily.swellHeightMax.getOrNull(index), "m", locale = locale),
+                "${formatMarine(data.daily.wavePeriodMax.getOrNull(index), WeatherUnit.SECONDS, locale = locale, units = units)} · " +
+                    formatMarine(data.daily.swellHeightMax.getOrNull(index), WeatherUnit.HEIGHT, locale = locale, units = units),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
@@ -664,7 +671,7 @@ private fun MarineTideSummary(
 }
 
 @Composable
-private fun TideRow(event: TideEvent, accent: Color) {
+private fun TideRow(event: TideEvent, accent: Color, units: WeatherUnits = LocalWeatherUnits.current) {
     val locale = LocalLocale.current.platformLocale
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
@@ -695,7 +702,7 @@ private fun TideRow(event: TideEvent, accent: Color) {
             )
         }
         Text(
-            formatMarine(event.value, "m", 2, locale),
+            formatMarine(event.value, WeatherUnit.HEIGHT, 2, locale, units = units),
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.SemiBold
         )
@@ -754,13 +761,14 @@ private fun MarineLineChart(
     nowEpochMs: Long,
     hours: Int,
     accent: Color,
-    yUnit: String,
+    yUnit: WeatherUnit,
     yDigits: Int,
     timezone: String,
     allowNegative: Boolean,
     axisTag: String,
     modifier: Modifier = Modifier,
-    events: List<TideEvent> = emptyList()
+    events: List<TideEvent> = emptyList(),
+    units: WeatherUnits = LocalWeatherUnits.current
 ) {
     val locale = LocalLocale.current.platformLocale
     val points = remember(epochs, values, nowEpochMs / 60_000L, hours) {
@@ -768,10 +776,10 @@ private fun MarineLineChart(
             val end = nowEpochMs + hours * 3_600_000L
             for (i in 0 until minOf(epochs.size, values.size)) {
                 val epoch = epochs[i] ?: continue
-                val value = values[i] ?: continue
+                val value = metricPlotValue(values[i]) ?: continue
                 if (value.isFinite() && epoch >= nowEpochMs - 3_600_000L && epoch <= end) add(epoch to value)
             }
-        }
+        }.sortedBy { it.first }.distinctBy { it.first }
     }
     if (points.size < 2) {
         Box(modifier, contentAlignment = Alignment.Center) {
@@ -783,11 +791,11 @@ private fun MarineLineChart(
         return
     }
 
-    val rawMinY = points.minOf { it.second }
-    val rawMaxY = points.maxOf { it.second }
-    val yPadding = max((rawMaxY - rawMinY) * 0.10, if (yDigits >= 2) 0.03 else 0.05)
-    val minY = if (allowNegative) rawMinY - yPadding else max(0.0, rawMinY - yPadding)
-    val maxY = rawMaxY + yPadding
+    val bounds = canonicalChartRange(points.map { it.second },
+        minimumSpan = if (yDigits >= 2) 0.06 else 0.1,
+        minimumPadding = if (yDigits >= 2) 0.03 else 0.05, zeroFloor = !allowNegative)
+    val minY = bounds.min
+    val maxY = bounds.max
     val minX = points.first().first.toDouble()
     val maxX = points.last().first.toDouble()
     val yTicks = remember(minY, maxY) {
@@ -817,7 +825,7 @@ private fun MarineLineChart(
             ) {
                 yTicks.forEach { tick ->
                     Text(
-                        text = formatAxisValue(tick, yUnit, yDigits, locale),
+                        text = units.axisValue(tick, yUnit, (maxY - minY) / 2.0, yDigits, locale) + units.suffix(yUnit),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
@@ -916,15 +924,11 @@ private fun MarineLineChart(
     }
 }
 
-private fun formatAxisValue(value: Double, unit: String, digits: Int, locale: Locale): String =
-    String.format(locale, "%.${digits}f", value) + " $unit"
-
-private fun formatMarine(value: Double?, unit: String, digits: Int = 1, locale: Locale): String =
-    value?.takeIf { it.isFinite() }
-        ?.let { String.format(locale, "%.${digits}f", it) + " $unit" }
-        ?: "—"
+private fun formatMarine(value: Double?, unit: WeatherUnit, digits: Int = 1, locale: Locale, units: WeatherUnits): String =
+    units.format(value, unit, digits, locale)
 
 private fun compass(degrees: Double): String {
+    if (!degrees.isFinite()) return "—"
     val labels = arrayOf("N", "NE", "E", "SE", "S", "SW", "W", "NW")
     val normalized = ((degrees % 360) + 360) % 360
     return labels[((normalized + 22.5) / 45.0).toInt() % 8]

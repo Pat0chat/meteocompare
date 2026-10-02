@@ -1,5 +1,8 @@
 package com.meteocompare.app.notification
 
+import com.meteocompare.app.core.units.WeatherUnit
+import com.meteocompare.app.core.units.WeatherUnits
+
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Notification
@@ -50,7 +53,7 @@ import kotlin.math.roundToInt
  * Les textes sont résolus avec la langue choisie dans l'application (et non
  * celle du système) via [applyPersistedLocale], comme les widgets.
  */
-internal class WeatherNotifier(context: Context) {
+internal class WeatherNotifier(context: Context, private val units: WeatherUnits = WeatherUnits()) {
 
     private val appContext = context.applicationContext
     private val manager = NotificationManagerCompat.from(appContext)
@@ -190,8 +193,8 @@ internal class WeatherNotifier(context: Context) {
             ?.let { res.getString(weatherConditionLabelRes(it)) }
         val temperatures = res.getString(
             R.string.notification_daily_temperatures,
-            summary.tempMin.formatDegrees(),
-            summary.tempMax.formatDegrees()
+            summary.tempMin.formatDegrees(units = units),
+            summary.tempMax.formatDegrees(units = units)
         )
         val precipitation = precipitationText(res, summary, locale)
         val wind = windText(res, summary)
@@ -199,8 +202,8 @@ internal class WeatherNotifier(context: Context) {
             res.getString(R.string.notification_daily_agreement, it)
         }
 
-        val tempMin = summary.tempMin.formatDegrees()
-        val tempMax = summary.tempMax.formatDegrees()
+        val tempMin = summary.tempMin.formatDegrees(units = units)
+        val tempMax = summary.tempMax.formatDegrees(units = units)
         val weatherColor = ContextCompat.getColor(res, weatherTextColorRes(summary.condition))
         val tempMinColor = ContextCompat.getColor(res, R.color.notification_text_temperature_min)
         val tempMaxColor = ContextCompat.getColor(res, R.color.notification_text_temperature)
@@ -229,7 +232,7 @@ internal class WeatherNotifier(context: Context) {
                 wind?.let {
                     styleMetricLine(
                         raw = it,
-                        emphasizedValues = listOf(summary.windKmh.formatWindValue()),
+                        emphasizedValues = listOf(summary.windKmh.formatWindValue(units = units)),
                         valueColor = windColor
                     )
                 }
@@ -260,7 +263,7 @@ internal class WeatherNotifier(context: Context) {
                 wind?.let {
                     styleMetricLine(
                         raw = it,
-                        emphasizedValues = listOf(summary.windKmh.formatWindValue()),
+                        emphasizedValues = listOf(summary.windKmh.formatWindValue(units = units)),
                         valueColor = windColor
                     )
                 },
@@ -291,16 +294,17 @@ internal class WeatherNotifier(context: Context) {
     ): String? {
         val amount = summary.precipitationAmountMm
             ?.takeIf { it >= MIN_DISPLAYED_PRECIPITATION_MM }
-            ?.let { String.format(locale, "%.1f", it) }
+            ?.let { units.value(it, WeatherUnit.PRECIPITATION, 1, locale) }
         val probability = summary.precipitationProbabilityPercent
         return when {
             probability != null && amount != null -> res.getString(
                 R.string.notification_daily_precipitation_with_amount,
                 probability,
-                amount
+                amount,
+                units.precipitationUnit
             )
             probability != null -> res.getString(R.string.notification_daily_precipitation, probability)
-            amount != null -> res.getString(R.string.notification_daily_precipitation_amount, amount)
+            amount != null -> res.getString(R.string.notification_daily_precipitation_amount, amount, units.precipitationUnit)
             else -> null
         }
     }
@@ -312,7 +316,7 @@ internal class WeatherNotifier(context: Context) {
         summary.precipitationProbabilityPercent?.let { add(it.toString()) }
         summary.precipitationAmountMm
             ?.takeIf { it >= MIN_DISPLAYED_PRECIPITATION_MM }
-            ?.let { add(String.format(locale, "%.1f", it)) }
+            ?.let { add(units.value(it, WeatherUnit.PRECIPITATION, 1, locale)) }
     }
 
     private fun windText(
@@ -320,7 +324,7 @@ internal class WeatherNotifier(context: Context) {
         summary: WeatherNotification.DailySummary
     ): String? = summary.windKmh
         ?.takeIf(Double::isFinite)
-        ?.let { res.getString(R.string.notification_daily_wind, it.roundToInt().toString()) }
+        ?.let { res.getString(R.string.notification_daily_wind, units.value(it, WeatherUnit.WIND_SPEED, locale = res.currentLocale()), units.windUnit) }
 
     private fun divergence(res: Context, divergence: WeatherNotification.ModelDivergence): RenderedContent {
         val day = res.getString(
@@ -386,7 +390,7 @@ internal class WeatherNotifier(context: Context) {
             )
             delta = null
         } else {
-            delta = formatSignedDelta(highlight.medianDelta, highlight.variable, locale)
+            delta = formatSignedDelta(highlight.medianDelta, highlight.variable, locale, units = units)
             revisionLine = res.getString(
                 R.string.notification_change_revision_line,
                 res.getString(evolutionHighlightTitleRes(highlight)),
@@ -500,8 +504,8 @@ internal class WeatherNotifier(context: Context) {
             val wind = windText(res, notification)
             val temperatureLine = res.getString(
                 R.string.notification_daily_temperature_range,
-                notification.tempMin.formatDegrees(),
-                notification.tempMax.formatDegrees()
+                notification.tempMin.formatDegrees(units = units),
+                notification.tempMax.formatDegrees(units = units)
             )
             val agreementLine = notification.convergencePercent?.let {
                 res.getString(R.string.notification_daily_agreement, it)
@@ -520,8 +524,8 @@ internal class WeatherNotifier(context: Context) {
                 }
             )
             val temperatureRange = TemperatureRange(
-                min = notification.tempMin.formatDegrees(),
-                max = notification.tempMax.formatDegrees(),
+                min = notification.tempMin.formatDegrees(units = units),
+                max = notification.tempMax.formatDegrees(units = units),
                 minColor = tempMinColor,
                 maxColor = tempMaxColor
             )
@@ -620,7 +624,7 @@ internal class WeatherNotifier(context: Context) {
                 val volatile = res.getString(R.string.notification_change_volatile_compact, "", variable)
                 volatile.substringAfterLast(PART_SEPARATOR).trim()
             } else {
-                formatSignedDelta(highlight.medianDelta, highlight.variable, locale)
+                formatSignedDelta(highlight.medianDelta, highlight.variable, locale, units = units)
             }
             val hero = if (highlight.trend == ForecastEvolutionTrend.VOLATILE) {
                 res.getString(R.string.notification_change_volatile_line, variable).substringAfter(PART_SEPARATOR)
@@ -1134,29 +1138,24 @@ private inline fun SpannableStringBuilder.applyToOccurrences(
     }
 }
 
-private fun Double?.formatDegrees(): String = this?.let { "${it.roundToInt()}°" } ?: "–"
+private fun Double?.formatDegrees(units: WeatherUnits): String = units.temp(this)
 
-private fun Double?.formatWindValue(): String =
-    this?.takeIf(Double::isFinite)?.roundToInt()?.toString() ?: "–"
+private fun Double?.formatWindValue(units: WeatherUnits): String =
+    units.value(this, WeatherUnit.WIND_SPEED)
 
 private fun formatSignedDelta(
     value: Double,
     variable: ForecastEvolutionVariable,
-    locale: Locale
+    locale: Locale,
+    units: WeatherUnits
 ): String {
-    val sign = when {
-        value > 0.0 -> "+"
-        value < 0.0 -> "−"
-        else -> ""
+    val unit = when (variable) {
+        ForecastEvolutionVariable.TEMPERATURE -> WeatherUnit.TEMPERATURE
+        ForecastEvolutionVariable.PRECIPITATION -> WeatherUnit.PRECIPITATION
+        ForecastEvolutionVariable.WIND -> WeatherUnit.WIND_SPEED
     }
-    val magnitude = abs(value)
-    return when (variable) {
-        ForecastEvolutionVariable.TEMPERATURE ->
-            "$sign${String.format(locale, "%.1f", magnitude)} °C"
-        ForecastEvolutionVariable.PRECIPITATION ->
-            "$sign${String.format(locale, "%.1f", magnitude)} mm"
-        ForecastEvolutionVariable.WIND -> "$sign${magnitude.roundToInt()} km/h"
-    }
+    return units.signedDelta(value, unit,
+        if (variable == ForecastEvolutionVariable.WIND) 0 else 1, locale)
 }
 
 private fun variableLabelRes(variable: ForecastEvolutionVariable): Int = when (variable) {

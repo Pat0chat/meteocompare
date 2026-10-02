@@ -37,7 +37,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
-import androidx.compose.ui.res.stringResource
+import com.meteocompare.app.core.units.weatherStringResource as stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -591,14 +591,16 @@ private fun forecastInsightMetrics(insight: ForecastInsight): List<InsightMetric
                 add(
                     InsightMetric(
                         icon = Icons.Outlined.Air,
-                        text = stringResource(R.string.forecast_insight_metric_wind_range, min, max)
+                        text = stringResource(R.string.forecast_insight_metric_wind_range,
+                            evidence?.minimumValue ?: min.toDouble(), evidence?.maximumValue ?: max.toDouble())
                     )
                 )
             } else target?.let { targetWind ->
                 add(
                     InsightMetric(
                         icon = Icons.Outlined.Air,
-                        text = stringResource(R.string.forecast_insight_metric_wind, targetWind)
+                        text = stringResource(R.string.forecast_insight_metric_wind,
+                            insight.point?.windKmh ?: targetWind.toDouble())
                     )
                 )
             }
@@ -621,14 +623,16 @@ private fun forecastInsightMetrics(insight: ForecastInsight): List<InsightMetric
                         icon = Icons.Outlined.Thermostat,
                         text = stringResource(
                             R.string.forecast_insight_metric_temperature_scenarios,
-                            min,
-                            max
+                            evidence?.minimumValue ?: min.toDouble(),
+                            evidence?.maximumValue ?: max.toDouble()
                         )
                     )
                 )
             } else {
-                val reference = insight.referenceValue
-                val target = insight.targetValue
+                val reference = insight.referencePoint?.temperatureC
+                    ?: insight.referencePoint?.tempMaxC ?: insight.referenceValue?.toDouble()
+                val target = insight.point?.temperatureC
+                    ?: insight.point?.tempMaxC ?: insight.targetValue?.toDouble()
                 if (reference != null && target != null) {
                     add(
                         InsightMetric(

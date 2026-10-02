@@ -1,5 +1,9 @@
 package com.meteocompare.app.ui.citylist
 
+import com.meteocompare.app.core.units.WeatherUnit
+import com.meteocompare.app.core.units.WeatherUnits
+import com.meteocompare.app.core.units.LocalWeatherUnits
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -29,7 +33,7 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.stringResource
+import com.meteocompare.app.core.units.weatherStringResource as stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -157,7 +161,8 @@ private fun MiniForecastHour(
     rainStyle: MiniTimelineRainDotStyle?,
     contentColor: Color,
     containerColor: Color,
-    index: Int
+    index: Int,
+    units: WeatherUnits = LocalWeatherUnits.current
 ) {
     val currentHourA11y = stringResource(R.string.mini_forecast_current_hour_a11y)
 
@@ -229,7 +234,7 @@ private fun MiniForecastHour(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = temperature?.let { "${it.roundToInt()}°" } ?: "—",
+                text = temperature?.let { units.temp(it) } ?: "—",
                 color = temperatureContentColor,
                 style = MaterialTheme.typography.labelLarge.copy(
                     fontSize = 11.sp,
@@ -356,9 +361,9 @@ private fun buildA11yLabel(
     temps: List<Double?>,
     precipProbs: List<Int?>
 ): String {
-    val nonNull = temps.filterNotNull()
-    val minT = nonNull.minOrNull()?.roundToInt()
-    val maxT = nonNull.maxOrNull()?.roundToInt()
+    val nonNull = temps.filterNotNull().filter(Double::isFinite)
+    val minT = nonNull.minOrNull()
+    val maxT = nonNull.maxOrNull()
     val rainHours = precipProbs.count { it != null && it >= RAIN_DOT_MIN_PROBABILITY }
 
     return when {

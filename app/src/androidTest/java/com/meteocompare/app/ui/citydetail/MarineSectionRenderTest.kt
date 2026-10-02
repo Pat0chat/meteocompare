@@ -1,6 +1,14 @@
 package com.meteocompare.app.ui.citydetail
 
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithText
+import com.meteocompare.app.R
+import com.meteocompare.app.core.units.LocalWeatherUnits
+import com.meteocompare.app.core.units.WeatherUnits
+import com.meteocompare.app.domain.model.UnitSystem
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -20,6 +28,50 @@ import org.junit.Test
 
 class MarineSectionRenderTest {
     @get:Rule val composeRule = createComposeRule()
+
+    @Test
+    fun marine_wave_temperature_and_negative_tide_recompose_from_metric_data() {
+        val selection = mutableStateOf(UnitSystem.METRIC)
+        val original = forecast()
+        val data = original.copy(hourly = original.hourly.copy(
+            waveHeight = List(80) { 1.524 }, seaSurfaceTemperature = List(80) { 20.0 },
+            seaLevelHeightMsl = List(80) { -3.048 }
+        ))
+        composeRule.setContent {
+            CompositionLocalProvider(LocalWeatherUnits provides WeatherUnits(selection.value)) {
+                MeteoCompareTheme { LazyColumn { item { MarineSection(MarineUiState.Loaded(data), {}) } } }
+            }
+        }
+        composeRule.runOnIdle { selection.value = UnitSystem.IMPERIAL }
+        val locale = java.util.Locale.getDefault()
+        composeRule.onAllNodesWithText(String.format(locale, "%.1f ft", 5.0), useUnmergedTree = true)[0].assertExists()
+        composeRule.onAllNodesWithText(String.format(locale, "%.1f °F", 68.0), useUnmergedTree = true)[0].assertExists()
+        composeRule.onNodeWithTag(TAG_MARINE_TIDE_PANEL).performScrollTo()
+        composeRule.onAllNodesWithText(String.format(locale, "%.2f ft", -10.0), useUnmergedTree = true)[0].assertExists()
+        org.junit.Assert.assertEquals(-3.048, data.hourly.seaLevelHeightMsl[0]!!, 0.0)
+        org.junit.Assert.assertEquals(1.524, data.hourly.waveHeight[0]!!, 0.0)
+    }
+
+    @Test
+    fun non_coastal_notice_updates_distance_when_units_change() {
+        val selection = mutableStateOf(UnitSystem.METRIC)
+        composeRule.setContent {
+            CompositionLocalProvider(LocalWeatherUnits provides WeatherUnits(selection.value)) {
+                MeteoCompareTheme {
+                    MarineSection(
+                        state = MarineUiState.Error(messageRes = R.string.marine_not_coastal),
+                        onRefresh = {}
+                    )
+                }
+            }
+        }
+        composeRule.onNodeWithText("50 km", substring = true).assertIsDisplayed()
+        composeRule.runOnIdle { selection.value = UnitSystem.IMPERIAL }
+        composeRule.onNodeWithText("31 mi", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("50 km", substring = true).assertDoesNotExist()
+        composeRule.runOnIdle { selection.value = UnitSystem.METRIC }
+        composeRule.onNodeWithText("50 km", substring = true).assertIsDisplayed()
+    }
 
     @Test
     fun loaded_dashboard_displays_modern_current_wave_and_tide_panels() {

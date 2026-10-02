@@ -1,6 +1,7 @@
 package com.meteocompare.app.di
 
 import com.meteocompare.app.BuildConfig
+import com.meteocompare.app.core.network.CanonicalMetricUnitsInterceptor
 import com.meteocompare.app.core.network.MeteoCompareClientHeaderInterceptor
 import com.meteocompare.app.core.network.OpenMeteoClockDebugInterceptor
 import com.meteocompare.app.data.remote.ClimateArchiveApi
@@ -77,6 +78,7 @@ object NetworkModule {
         }
         return OkHttpClient.Builder()
             .dispatcher(dispatcher)
+            .addInterceptor(CanonicalMetricUnitsInterceptor())
             .apply {
                 if (BuildConfig.DEBUG) {
                     addInterceptor(OpenMeteoClockDebugInterceptor())

@@ -1,5 +1,7 @@
 package com.meteocompare.app.domain.repository
 
+import com.meteocompare.app.domain.model.UnitSystem
+
 import com.meteocompare.app.domain.model.CityDetailContentTab
 import com.meteocompare.app.domain.model.CityDetailSection
 import com.meteocompare.app.domain.model.CityDetailViewMode
@@ -19,6 +21,10 @@ interface UserPreferencesRepository {
 
     fun observeEnabledModels(): Flow<List<WeatherModel>>
     suspend fun setEnabledModels(models: List<WeatherModel>)
+
+    /** Presentation only; independent of locale and forecast settings. */
+    fun observeUnitSystem(): Flow<UnitSystem>
+    suspend fun setUnitSystem(system: UnitSystem)
 
     fun observeThemePreference(): Flow<ThemePreference>
     suspend fun setThemePreference(preference: ThemePreference)

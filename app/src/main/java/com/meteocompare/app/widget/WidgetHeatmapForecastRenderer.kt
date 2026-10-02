@@ -1,5 +1,10 @@
 package com.meteocompare.app.widget
 
+import com.meteocompare.app.core.charts.metricPlotValue
+
+import com.meteocompare.app.core.units.WeatherUnit
+import com.meteocompare.app.core.units.WeatherUnits
+
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
@@ -27,7 +32,8 @@ internal object WidgetHeatmapForecastRenderer {
         precipColorArgb: Int,
         textColorArgb: Int,
         timelineLabels: List<String> = emptyList(),
-        profile: MiniForecastSizeProfile = MiniForecastSizeProfile.EXPANDED_4X2
+        profile: MiniForecastSizeProfile = MiniForecastSizeProfile.EXPANDED_4X2,
+        units: WeatherUnits = WeatherUnits()
     ): Bitmap {
         require(widthPx > 0) { "widthPx doit être > 0, reçu $widthPx" }
         require(heightPx > 0) { "heightPx doit être > 0, reçu $heightPx" }
@@ -93,7 +99,7 @@ internal object WidgetHeatmapForecastRenderer {
             style = Paint.Style.FILL
         }
         val cardRect = RectF()
-        val tempValues = temps.filterNotNull()
+        val tempValues = temps.mapNotNull(::metricPlotValue)
         val minTemp = tempValues.minOrNull() ?: 0.0
         val maxTemp = tempValues.maxOrNull() ?: 1.0
         val padded = paddedTemperatureRange(minTemp, maxTemp)
@@ -116,7 +122,7 @@ internal object WidgetHeatmapForecastRenderer {
             val centerX = (left + right) / 2f
             val isCurrent = index == 0
             val columnRect = RectF(left, tempTop + 4f, right, tempBottom - 4f)
-            val temp = temps.getOrNull(index)
+            val temp = metricPlotValue(temps.getOrNull(index))
             val tempColor = temp
                 ?.let(WidgetMiniForecastRenderer::temperatureHeatmapArgb)
                 ?: withAlpha(textColorArgb, 0x14)
@@ -157,7 +163,7 @@ internal object WidgetHeatmapForecastRenderer {
                     profile = profile
                 )
                 valuePaint.color = contentColor
-                val tempLabel = temp?.let { "${it.roundToInt()}°" } ?: "—"
+                val tempLabel = temp?.let { units.temp(it) } ?: "—"
                 canvas.drawText(
                     tempLabel,
                     centerX,
@@ -168,7 +174,7 @@ internal object WidgetHeatmapForecastRenderer {
 
             // Bande pluie
             val precipProb = precipProbabilities.getOrNull(index)?.coerceIn(0, 100)
-            val amount = precipAmountsMm.getOrNull(index)?.coerceAtLeast(0.0)
+            val amount = metricPlotValue(precipAmountsMm.getOrNull(index))?.coerceAtLeast(0.0)
             val precipColor = WidgetMiniForecastRenderer.precipitationHeatmapArgb(
                 probability = precipProb,
                 precipColorArgb = precipColorArgb,
@@ -203,7 +209,7 @@ internal object WidgetHeatmapForecastRenderer {
             canvas.drawLine(a.first, a.second, b.first, b.second, linePaint)
         }
         plotPoints.forEachIndexed { index, point ->
-            val temp = temps.getOrNull(index)
+            val temp = metricPlotValue(temps.getOrNull(index))
             pointPaint.color = if (temp != null) {
                 val base = WidgetMiniForecastRenderer.temperatureHeatmapArgb(temp)
                 WidgetMiniForecastRenderer.heatmapContentColorArgb(base)
@@ -224,6 +230,7 @@ internal object WidgetHeatmapForecastRenderer {
     }
 
     internal fun paddedTemperatureRange(minTemp: Double, maxTemp: Double): Pair<Double, Double> {
+        if (metricPlotValue(minTemp) == null || metricPlotValue(maxTemp) == null || maxTemp < minTemp) return -2.0 to 2.0
         if (minTemp == maxTemp) return (minTemp - 2.0) to (maxTemp + 2.0)
         val span = (maxTemp - minTemp).coerceAtLeast(2.0)
         val padding = max(1.5, span * 0.18)
@@ -239,7 +246,9 @@ internal object WidgetHeatmapForecastRenderer {
         usableTopRatio: Float = 0.14f,
         usableBottomRatio: Float = 0.22f
     ): Float {
-        val clamped = ((temperature - minTemp) / (maxTemp - minTemp)).coerceIn(0.0, 1.0)
+        val clamped = if (metricPlotValue(temperature) == null ||
+            metricPlotValue(minTemp) == null || metricPlotValue(maxTemp) == null || maxTemp <= minTemp
+        ) 0.5 else ((temperature - minTemp) / (maxTemp - minTemp)).coerceIn(0.0, 1.0)
         val height = bottom - top
         val usableTop = top + height * usableTopRatio
         // Protection supplémentaire pour les très petits widgets : même si les

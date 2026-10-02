@@ -1,5 +1,7 @@
 package com.meteocompare.app.notification
 
+import com.meteocompare.app.core.units.WeatherUnits
+
 import android.content.Context
 import android.util.Log
 import androidx.work.CoroutineWorker
@@ -101,7 +103,8 @@ internal class WeatherNotificationWorker(
             return Result.success()
         }
 
-        val notifier = WeatherNotifier(applicationContext)
+        val notifier = WeatherNotifier(applicationContext,
+            WeatherUnits(entry.userPreferencesRepository().observeUnitSystem().first()))
         // Permission refusée ou notifications bloquées : inutile de consommer
         // réseau et batterie pour un résultat qui ne serait pas affiché.
         if (!notifier.canPost()) {

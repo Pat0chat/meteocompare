@@ -14,6 +14,7 @@ import com.meteocompare.app.domain.model.LanguagePreference
 import com.meteocompare.app.domain.model.MarineForecast
 import com.meteocompare.app.domain.model.NotificationSettings
 import com.meteocompare.app.domain.model.RefreshInterval
+import com.meteocompare.app.domain.model.UnitSystem
 import com.meteocompare.app.domain.model.ThemePreference
 import com.meteocompare.app.domain.model.VigilanceForecast
 import com.meteocompare.app.domain.model.WeatherModel
@@ -236,6 +237,10 @@ class FakeUserPreferencesRepository @Inject constructor() : UserPreferencesRepos
 
     override fun observeEnabledModels(): Flow<List<WeatherModel>> = models
     override suspend fun setEnabledModels(models: List<WeatherModel>) { this.models.value = models }
+    val unitSystem = MutableStateFlow(UnitSystem.METRIC)
+    override fun observeUnitSystem(): Flow<UnitSystem> = unitSystem
+    override suspend fun setUnitSystem(system: UnitSystem) { unitSystem.value = system }
+
     override fun observeThemePreference(): Flow<ThemePreference> = theme
     override suspend fun setThemePreference(preference: ThemePreference) { theme.value = preference }
     override fun observeLanguagePreference(): Flow<LanguagePreference> = language
@@ -288,6 +293,7 @@ class FakeUserPreferencesRepository @Inject constructor() : UserPreferencesRepos
     fun reset() {
         models.value = WeatherModel.MVP_SELECTION
         notificationSettings.value = NotificationSettings()
+        unitSystem.value = UnitSystem.METRIC
         theme.value = ThemePreference.SYSTEM
         language.value = LanguagePreference.SYSTEM
         refresh.value = RefreshInterval.DEFAULT

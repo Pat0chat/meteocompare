@@ -1,5 +1,9 @@
 package com.meteocompare.app.ui.citydetail
 
+import com.meteocompare.app.core.units.WeatherUnit
+import com.meteocompare.app.core.units.WeatherUnits
+import com.meteocompare.app.core.units.LocalWeatherUnits
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -33,7 +37,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.stringResource
+import com.meteocompare.app.core.units.weatherStringResource as stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
@@ -355,8 +359,8 @@ private fun AccentBadge(
 }
 
 @Composable
-private fun ReliabilitySummary(selection: BiasSelection, accent: Color) {
-    val error = formatMeasure(selection.reliability.meanAbsoluteError, selection.bias.variable)
+private fun ReliabilitySummary(selection: BiasSelection, accent: Color, units: WeatherUnits = LocalWeatherUnits.current) {
+    val error = formatMeasure(selection.reliability.meanAbsoluteError, selection.bias.variable, units = units)
     val tailRes = when {
         selection.bias.significance == BiasSignificance.NOT_SIGNIFICANT ->
             R.string.bias_reliability_summary_calibrated
@@ -415,7 +419,7 @@ private fun SectionTitle(text: String, accent: Color) {
 }
 
 @Composable
-private fun ReliabilityMetricsGrid(selection: BiasSelection) {
+private fun ReliabilityMetricsGrid(selection: BiasSelection, units: WeatherUnits = LocalWeatherUnits.current) {
     val reliability = selection.reliability
     val biasPalette = if (selection.bias.significance == BiasSignificance.NOT_SIGNIFICANT) {
         biasChipPalette(BiasDirection.NEUTRAL, pending = false)
@@ -441,10 +445,10 @@ private fun ReliabilityMetricsGrid(selection: BiasSelection) {
         ) {
             ReliabilityMetricCard(
                 label = stringResource(R.string.bias_reliability_mae),
-                value = formatMeasure(reliability.meanAbsoluteError, reliability.variable),
+                value = formatMeasure(reliability.meanAbsoluteError, reliability.variable, units = units),
                 supporting = stringResource(
                     R.string.bias_reliability_rmse_support,
-                    formatMeasure(reliability.rootMeanSquareError, reliability.variable)
+                    formatMeasure(reliability.rootMeanSquareError, reliability.variable, units = units)
                 ),
                 accent = maeAccent,
                 modifier = Modifier.weight(1f),
@@ -452,7 +456,7 @@ private fun ReliabilityMetricsGrid(selection: BiasSelection) {
             )
             ReliabilityMetricCard(
                 label = stringResource(R.string.bias_reliability_mean_bias),
-                value = formatBiasLabel(selection.bias),
+                value = formatBiasLabel(selection.bias, units = units),
                 supporting = stringResource(biasDirectionSupportResId(selection.bias)),
                 accent = biasPalette.foreground,
                 modifier = Modifier.weight(1f)
@@ -469,14 +473,14 @@ private fun ReliabilityMetricsGrid(selection: BiasSelection) {
                 value = "${(reliability.withinToleranceRate * 100).roundToInt()} %",
                 supporting = stringResource(
                     R.string.bias_reliability_close_days_support,
-                    formatMeasure(reliability.closeTolerance, reliability.variable)
+                    formatMeasure(reliability.closeTolerance, reliability.variable, units = units)
                 ),
                 accent = closeDaysAccent,
                 modifier = Modifier.weight(1f)
             )
             ReliabilityMetricCard(
                 label = stringResource(R.string.bias_reliability_variability),
-                value = formatMeasure(reliability.standardDeviation, reliability.variable),
+                value = formatMeasure(reliability.standardDeviation, reliability.variable, units = units),
                 supporting = stringResource(R.string.bias_reliability_variability_support),
                 accent = variabilityAccent,
                 modifier = Modifier.weight(1f)
@@ -537,7 +541,7 @@ private fun ReliabilityMetricCard(
 }
 
 @Composable
-private fun RecentTrendCard(reliability: ModelReliability) {
+private fun RecentTrendCard(reliability: ModelReliability, units: WeatherUnits = LocalWeatherUnits.current) {
     val accent = trendAccent(reliability.trend)
     val container = accent.copy(alpha = 0.045f)
         .compositeOver(MaterialTheme.colorScheme.surfaceContainerLow)
@@ -579,8 +583,8 @@ private fun RecentTrendCard(reliability: ModelReliability) {
                 Text(
                     text = stringResource(
                         R.string.bias_reliability_trend_values,
-                        formatMeasure(previousError, reliability.variable),
-                        formatMeasure(recentError, reliability.variable)
+                        formatMeasure(previousError, reliability.variable, units = units),
+                        formatMeasure(recentError, reliability.variable, units = units)
                     ),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -594,7 +598,8 @@ private fun RecentTrendCard(reliability: ModelReliability) {
 @Composable
 private fun MultiModelComparisonCard(
     selected: ModelReliability,
-    baseline: ModelReliability
+    baseline: ModelReliability,
+    units: WeatherUnits = LocalWeatherUnits.current
 ) {
     val selectedMae = selected.meanAbsoluteError
     val baselineMae = baseline.meanAbsoluteError
@@ -656,8 +661,8 @@ private fun MultiModelComparisonCard(
                 Text(
                     text = stringResource(
                         R.string.bias_reliability_baseline_values,
-                        formatMeasure(selectedMae, selected.variable),
-                        formatMeasure(baselineMae, baseline.variable)
+                        formatMeasure(selectedMae, selected.variable, units = units),
+                        formatMeasure(baselineMae, baseline.variable, units = units)
                     ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -940,7 +945,7 @@ private fun DirectionBalanceBar(
 
 /** Titre chiffré du biais, désormais replacé dans une section explicative. */
 @Composable
-private fun SheetBiasTitle(bias: ModelBias) {
+private fun SheetBiasTitle(bias: ModelBias, units: WeatherUnits = LocalWeatherUnits.current) {
     val isCalibrated = bias.significance == BiasSignificance.NOT_SIGNIFICANT
     val palette = if (isCalibrated) {
         biasChipPalette(BiasDirection.NEUTRAL, pending = false)
@@ -958,7 +963,7 @@ private fun SheetBiasTitle(bias: ModelBias) {
                 fontWeight = FontWeight.SemiBold,
                 fontFamily = FontFamily.Monospace
             )
-        ) { append(formatBiasLabel(bias)) }
+        ) { append(formatBiasLabel(bias, units = units)) }
         append(" ")
         append(suffix)
     }
@@ -1023,13 +1028,13 @@ private fun metricAccentForError(value: Double, scale: Double): Color {
     return confidenceColor(normalized.roundToInt())
 }
 
-private fun formatMeasure(value: Double, variable: BiasVariable): String =
-    "%.1f".format(value) + unitFor(variable)
+private fun formatMeasure(value: Double, variable: BiasVariable, units: WeatherUnits): String =
+    units.format(value, unitFor(variable), 1, delta = true)
 
-private fun unitFor(variable: BiasVariable): String = when (variable) {
-    BiasVariable.TEMPERATURE -> "°"
-    BiasVariable.PRECIPITATION -> " mm"
-    BiasVariable.WIND_SPEED -> " km/h"
+private fun unitFor(variable: BiasVariable): WeatherUnit = when (variable) {
+    BiasVariable.TEMPERATURE -> WeatherUnit.TEMPERATURE_COMPACT
+    BiasVariable.PRECIPITATION -> WeatherUnit.PRECIPITATION
+    BiasVariable.WIND_SPEED -> WeatherUnit.WIND_SPEED
 }
 
 private fun sheetVariableLabelResId(variable: BiasVariable): Int = when (variable) {

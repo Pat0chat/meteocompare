@@ -1,5 +1,8 @@
 package com.meteocompare.app.notification
 
+import com.meteocompare.app.core.units.WeatherUnits
+import com.meteocompare.app.domain.model.UnitSystem
+
 import android.content.Context
 import android.graphics.Typeface
 import android.text.Spanned
@@ -443,4 +446,22 @@ class WeatherNotifierPresentationTest {
             spanned.getSpans(start, start + token.length, ForegroundColorSpan::class.java).isNotEmpty()
         )
     }
+    @Test
+    fun imperialDailySummaryConvertsValuesAndPreservesWeatherAccent() {
+        val summary = WeatherNotification.DailySummary(
+            city = TestFixtures.paris, date = LocalDate.of(2026, 9, 30), isToday = true,
+            condition = WeatherCondition.RAIN, tempMin = 0.0, tempMax = 20.0,
+            precipitationProbabilityPercent = 80, precipitationAmountMm = 25.4,
+            windKmh = 16.09344, convergencePercent = 82
+        )
+        val metric = WeatherNotifier(context).render(summary)
+        val imperial = WeatherNotifier(context, WeatherUnits(UnitSystem.IMPERIAL)).render(summary)
+        assertTrue(imperial.text.contains("32°F / 68°F"))
+        assertTrue(imperial.bigText.contains("1,00 in"))
+        assertTrue(imperial.bigText.contains("10 mph"))
+        assertTrue(imperial.bigText.contains("82 %"))
+        assertEquals(metric.accentColorRes, imperial.accentColorRes)
+        assertEquals(20.0, summary.tempMax!!, 0.0)
+    }
+
 }

@@ -1,5 +1,9 @@
 package com.meteocompare.app.domain.usecase
 
+import com.meteocompare.app.core.units.WeatherUnit
+import com.meteocompare.app.core.units.WeatherUnits
+import com.meteocompare.app.domain.model.UnitSystem
+
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DailyForecast
@@ -406,4 +410,27 @@ class ForecastEngineIntegrationTest {
             }
         )
     }
+    @Test
+    fun `display unit switches preserve every engine forecast and raw model data`() {
+        val date = LocalDate.of(2026, 8, 24)
+        val forecast = dailyForecast(listOf(date), fetchedAt = Instant.parse("2026-08-23T05:00:00Z"))
+        val rawBefore = forecast.toString()
+        ForecastEngine.entries.forEach { engine ->
+            val context = ForecastEngineContext(engine = engine)
+            val before = calculator.dayConfidence(forecast, date, context)
+            listOf(UnitSystem.METRIC, UnitSystem.IMPERIAL, UnitSystem.METRIC).forEach { system ->
+                val units = WeatherUnits(system)
+                before.tempMax?.let { score ->
+                    units.temp(score.centralValue)
+                    units.format(score.spread, WeatherUnit.TEMPERATURE, delta = true)
+                }
+                before.tempMin?.let { units.temp(it.centralValue) }
+                before.windMax?.let { units.speed(it.centralValue) }
+                val after = calculator.dayConfidence(forecast, date, context)
+                assertEquals(before, after)
+                assertEquals(rawBefore, forecast.toString())
+            }
+        }
+    }
+
 }

@@ -1,5 +1,11 @@
 package com.meteocompare.app.ui.citydetail
 
+import com.meteocompare.app.core.charts.metricPlotValue
+import com.meteocompare.app.core.charts.canonicalChartRange
+import com.meteocompare.app.core.units.WeatherUnit
+import com.meteocompare.app.core.units.WeatherUnits
+import com.meteocompare.app.core.units.LocalWeatherUnits
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -47,7 +53,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.stringResource
+import com.meteocompare.app.core.units.weatherStringResource as stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -202,7 +208,8 @@ private fun ChronoGridBackdrop(
 @Composable
 private fun ChronoLabelsColumn(
     width: Dp,
-    mode: DisplayMode
+    mode: DisplayMode,
+    units: WeatherUnits = LocalWeatherUnits.current
 ) {
     val scheme = MaterialTheme.colorScheme
 
@@ -228,7 +235,7 @@ private fun ChronoLabelsColumn(
             ChronoRowLabel(
                 icon = Icons.Outlined.Thermostat,
                 title = stringResource(R.string.metric_temperature),
-                support = "°C",
+                support = units.temperatureUnit,
                 height = CHRONO_TEMP_HEIGHT,
                 tint = temperatureMetricAccent()
             )
@@ -246,28 +253,28 @@ private fun ChronoLabelsColumn(
             ChronoRowLabel(
                 icon = Icons.Outlined.WaterDrop,
                 title = stringResource(R.string.metric_precipitation),
-                support = "% · mm",
+                support = "% · ${units.precipitationUnit}",
                 height = CHRONO_RAIN_HEIGHT,
                 tint = precipitationMetricAccent()
             )
             ChronoRowLabel(
                 icon = Icons.Outlined.Cloud,
                 title = stringResource(R.string.engine_metric_cloud),
-                support = "%",
+                support = units.label(WeatherUnit.PERCENT),
                 height = CHRONO_CLOUD_HEIGHT,
                 tint = scheme.secondary
             )
             ChronoRowLabel(
                 icon = Icons.Outlined.Air,
                 title = stringResource(R.string.metric_wind),
-                support = "km/h",
+                support = units.windUnit,
                 height = CHRONO_WIND_HEIGHT,
                 tint = windMetricAccent()
             )
             ChronoRowLabel(
                 icon = Icons.Outlined.CheckCircle,
                 title = stringResource(R.string.home_agreement_label),
-                support = "%",
+                support = units.label(WeatherUnit.PERCENT),
                 height = CHRONO_AGREEMENT_HEIGHT,
                 tint = confidenceColor(80)
             )
@@ -422,14 +429,15 @@ private fun ChronoDateLane(
 @Composable
 private fun ChronoTemperaturePlot(
     points: List<SimplifiedTimelinePoint>,
-    mode: DisplayMode
+    mode: DisplayMode,
+    units: WeatherUnits = LocalWeatherUnits.current
 ) {
-    val centralValues = remember(points, mode) { points.map { chronoTemperature(it, mode) } }
+    val centralValues = remember(points, mode) { points.map { metricPlotValue(chronoTemperature(it, mode)) } }
     val minValues = remember(points, mode) {
-        if (mode == DisplayMode.DAILY) points.map(SimplifiedTimelinePoint::tempMinC) else emptyList()
+        if (mode == DisplayMode.DAILY) points.map { metricPlotValue(it.tempMinC) } else emptyList()
     }
     val maxValues = remember(points, mode) {
-        if (mode == DisplayMode.DAILY) points.map(SimplifiedTimelinePoint::tempMaxC) else emptyList()
+        if (mode == DisplayMode.DAILY) points.map { metricPlotValue(it.tempMaxC) } else emptyList()
     }
     val domainValues = if (mode == DisplayMode.DAILY) {
         buildList {
@@ -439,12 +447,9 @@ private fun ChronoTemperaturePlot(
     } else {
         centralValues.filterNotNull().filter(Double::isFinite)
     }
-    val rawMin = domainValues.minOrNull() ?: 0.0
-    val rawMax = domainValues.maxOrNull() ?: 1.0
-    val center = (rawMin + rawMax) / 2.0
-    val span = maxOf(5.0, rawMax - rawMin + 3.0)
-    val min = center - span / 2.0
-    val max = center + span / 2.0
+    val bounds = canonicalChartRange(domainValues, minimumSpan = 5.0, minimumPadding = 1.5, paddingFraction = 0.0)
+    val min = bounds.min
+    val max = bounds.max
     val scheme = MaterialTheme.colorScheme
     val fallbackLineColor = scheme.onSurfaceVariant.copy(alpha = 0.34f)
     val lineColors = remember(centralValues, fallbackLineColor) {
@@ -562,7 +567,7 @@ private fun ChronoTemperaturePlot(
                         val low = minValues.getOrNull(index)
                         high?.takeIf(Double::isFinite)?.let { value ->
                             Text(
-                                text = "${value.roundToInt()}°",
+                                text = units.temp(value),
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = temperatureHeatmapColor(value),
@@ -574,7 +579,7 @@ private fun ChronoTemperaturePlot(
                         }
                         low?.takeIf(Double::isFinite)?.let { value ->
                             Text(
-                                text = "${value.roundToInt()}°",
+                                text = units.temp(value),
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = temperatureHeatmapColor(value),
@@ -589,7 +594,7 @@ private fun ChronoTemperaturePlot(
                         if (value != null && value.isFinite()) {
                             val labelY = chronoTemperatureLabelOffset(value, min, max)
                             Text(
-                                text = chronoTemperatureLabel(point, mode),
+                                text = chronoTemperatureLabel(point, mode, units = units),
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = scheme.onSurface,
@@ -670,7 +675,7 @@ internal fun chronoTemperatureHeatmapColors(
 }
 
 internal fun chronoDailyTemperatureSeries(points: List<SimplifiedTimelinePoint>): Pair<List<Double?>, List<Double?>> =
-    points.map(SimplifiedTimelinePoint::tempMinC) to points.map(SimplifiedTimelinePoint::tempMaxC)
+    points.map { metricPlotValue(it.tempMinC) } to points.map { metricPlotValue(it.tempMaxC) }
 
 @Composable
 private fun ChronoConditionsLane(points: List<SimplifiedTimelinePoint>) {
@@ -827,7 +832,7 @@ private fun ChronoWindLane(points: List<SimplifiedTimelinePoint>) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = point.windKmh?.let {
-                                    stringResource(R.string.forecast_insight_metric_wind, it.roundToInt())
+                                    stringResource(R.string.forecast_insight_metric_wind, it)
                                 } ?: "—",
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.SemiBold,
@@ -836,7 +841,7 @@ private fun ChronoWindLane(points: List<SimplifiedTimelinePoint>) {
                             )
                             Text(
                                 text = point.windGustKmh?.let {
-                                    stringResource(R.string.timeline_wind_gust, it.roundToInt())
+                                    stringResource(R.string.timeline_wind_gust, it)
                                 } ?: "—",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1030,15 +1035,15 @@ private fun chronoTemperature(point: SimplifiedTimelinePoint, mode: DisplayMode)
     }
 }
 
-private fun chronoTemperatureLabel(point: SimplifiedTimelinePoint, mode: DisplayMode): String = when (mode) {
-    DisplayMode.HOURLY -> point.temperatureC?.roundToInt()?.let { "$it°" } ?: "—"
+private fun chronoTemperatureLabel(point: SimplifiedTimelinePoint, mode: DisplayMode, units: WeatherUnits): String = when (mode) {
+    DisplayMode.HOURLY -> units.temp(point.temperatureC)
     DisplayMode.DAILY -> {
-        val high = point.tempMaxC?.roundToInt()
-        val low = point.tempMinC?.roundToInt()
+        val high = point.tempMaxC
+        val low = point.tempMinC
         when {
-            high != null && low != null -> "$high° / $low°"
-            high != null -> "$high°"
-            low != null -> "$low°"
+            high != null && low != null -> "${units.temp(high)} / ${units.temp(low)}"
+            high != null -> units.temp(high)
+            low != null -> units.temp(low)
             else -> "—"
         }
     }

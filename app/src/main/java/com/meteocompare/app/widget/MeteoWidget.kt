@@ -1,5 +1,9 @@
 package com.meteocompare.app.widget
 
+import com.meteocompare.app.core.units.WeatherUnit
+import com.meteocompare.app.core.units.WeatherUnits
+import com.meteocompare.app.core.units.LocalWeatherUnits
+
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
@@ -258,7 +262,8 @@ internal class MeteoWidget : GlanceAppWidget() {
             // docblock du override ci-dessus pour l'étage #2 du fix.
             CompositionLocalProvider(
                 LocalContext provides appCtx,
-                LocalNightMode provides night
+                LocalNightMode provides night,
+                LocalWeatherUnits provides WeatherUnits(data.unitSystem)
             ) {
                 GlanceTheme {
                     WidgetContent(
@@ -507,7 +512,7 @@ private fun WidgetOpenMeteoAttribution(
  * tout débordement sur les grilles de launchers les plus compactes.
  */
 @Composable
-private fun TinyLayout(data: WidgetData, onContainer: ColorProvider) {
+private fun TinyLayout(data: WidgetData, onContainer: ColorProvider, units: WeatherUnits = LocalWeatherUnits.current) {
     val size = LocalSize.current
     val micro = size.height.value < 52f || size.width.value < 52f
     val dense = size.height.value < 72f || size.width.value < 64f
@@ -529,7 +534,7 @@ private fun TinyLayout(data: WidgetData, onContainer: ColorProvider) {
     ) {
         WeatherGlyph(data.currentCondition, sizeDp = glyphSize)
         Text(
-            text = formatTemp(data.currentTemp),
+            text = formatTemp(data.currentTemp, units = units),
             style = TextStyle(
                 color = onContainer,
                 fontSize = tempSize,
@@ -566,7 +571,7 @@ private fun TinyLayout(data: WidgetData, onContainer: ColorProvider) {
  * décoder le nombre.
  */
 @Composable
-private fun SmallLayout(data: WidgetData, onContainer: ColorProvider) {
+private fun SmallLayout(data: WidgetData, onContainer: ColorProvider, units: WeatherUnits = LocalWeatherUnits.current) {
     val size = LocalSize.current
     val profile = singleRowWidgetHeightProfile(size.height.value)
     val showCity = shouldShowCityInSmallWidget(size.width.value, size.height.value)
@@ -614,7 +619,7 @@ private fun SmallLayout(data: WidgetData, onContainer: ColorProvider) {
                 Spacer(GlanceModifier.height(1.dp))
             }
             Text(
-                text = formatTemp(data.currentTemp),
+                text = formatTemp(data.currentTemp, units = units),
                 style = TextStyle(
                     color = onContainer,
                     fontSize = tempSize,
@@ -642,7 +647,8 @@ private fun SmallLayout(data: WidgetData, onContainer: ColorProvider) {
 private fun MediumLayout(
     data: WidgetData,
     onContainer: ColorProvider,
-    onContainerMuted: ColorProvider
+    onContainerMuted: ColorProvider,
+    units: WeatherUnits = LocalWeatherUnits.current
 ) {
     val profile = singleRowWidgetHeightProfile(LocalSize.current.height.value)
     val glyphSize = when (profile) {
@@ -679,7 +685,7 @@ private fun MediumLayout(
             WeatherGlyph(data.currentCondition, sizeDp = glyphSize)
             Spacer(GlanceModifier.width(if (profile == SingleRowWidgetHeightProfile.VERY_DENSE) 4.dp else 6.dp))
             Text(
-                text = formatTemp(data.currentTemp),
+                text = formatTemp(data.currentTemp, units = units),
                 style = TextStyle(
                     color = onContainer,
                     fontSize = tempSize,
@@ -710,7 +716,7 @@ private fun MediumLayout(
                 )
             }
             Text(
-                text = formatMinMax(data.tempMin, data.tempMax),
+                text = formatMinMax(data.tempMin, data.tempMax, units = units),
                 style = TextStyle(color = onContainerMuted, fontSize = minMaxSize),
                 maxLines = 1
             )
@@ -749,7 +755,8 @@ private fun LargeLayout(
     onContainerMuted: ColorProvider,
     softSurface: ColorProvider,
     raisedSurface: ColorProvider,
-    inlineForecastItems: Int = 0
+    inlineForecastItems: Int = 0,
+    units: WeatherUnits = LocalWeatherUnits.current
 ) {
     val size = LocalSize.current
     val profile = singleRowWidgetHeightProfile(size.height.value)
@@ -788,7 +795,7 @@ private fun LargeLayout(
             WeatherGlyph(data.currentCondition, sizeDp = glyphSize)
             Spacer(GlanceModifier.width(if (profile == SingleRowWidgetHeightProfile.VERY_DENSE) 4.dp else 6.dp))
             Text(
-                text = formatTemp(data.currentTemp),
+                text = formatTemp(data.currentTemp, units = units),
                 style = TextStyle(
                     color = onContainer,
                     fontSize = currentTempSize,
@@ -823,11 +830,11 @@ private fun LargeLayout(
                 )
             }
             Text(
-                text = formatMinMax(data.tempMin, data.tempMax),
+                text = formatMinMax(data.tempMin, data.tempMax, units = units),
                 style = TextStyle(color = onContainerMuted, fontSize = minMaxSize),
                 maxLines = 1
             )
-            val extras = buildExtrasLine(data)
+            val extras = buildExtrasLine(data, units = units)
             if (showExtras && extras.isNotEmpty()) {
                 Spacer(GlanceModifier.height(1.dp))
                 Text(
@@ -888,7 +895,8 @@ private fun CompactTallLayout(
     onContainerMuted: ColorProvider,
     softSurface: ColorProvider,
     raisedSurface: ColorProvider,
-    onContainerArgb: Int
+    onContainerArgb: Int,
+    units: WeatherUnits = LocalWeatherUnits.current
 ) {
     val size = LocalSize.current
     val narrow = size.width.value < 150f
@@ -924,7 +932,7 @@ private fun CompactTallLayout(
                     )
                 }
                 Text(
-                    text = formatTemp(data.currentTemp),
+                    text = formatTemp(data.currentTemp, units = units),
                     style = TextStyle(
                         color = onContainer,
                         fontSize = if (narrow) 21.sp else 24.sp,
@@ -932,7 +940,7 @@ private fun CompactTallLayout(
                     ),
                     maxLines = 1
                 )
-                val minMax = formatMinMax(data.tempMin, data.tempMax)
+                val minMax = formatMinMax(data.tempMin, data.tempMax, units = units)
                 if (minMax.isNotEmpty()) {
                     Text(
                         text = minMax,
@@ -995,7 +1003,7 @@ private fun CompactTallLayout(
             )
 
             else -> {
-                val extras = buildExtrasLine(data)
+                val extras = buildExtrasLine(data, units = units)
                 Box(
                     modifier = GlanceModifier
                         .fillMaxWidth()
@@ -1006,7 +1014,7 @@ private fun CompactTallLayout(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = extras.ifEmpty { formatMinMax(data.tempMin, data.tempMax) },
+                        text = extras.ifEmpty { formatMinMax(data.tempMin, data.tempMax, units = units) },
                         style = TextStyle(
                             color = onContainerMuted,
                             fontSize = 10.sp,
@@ -1072,7 +1080,8 @@ private fun ExtraLargeLayout(
     // root en tenant compte du night mode + des overrides utilisateur.
     onContainerArgb: Int,
     showFiveItems: Boolean = false,
-    showExtras: Boolean = true
+    showExtras: Boolean = true,
+    units: WeatherUnits = LocalWeatherUnits.current
 ) {
     val size = LocalSize.current
     val widthDp = size.width.value
@@ -1116,7 +1125,7 @@ private fun ExtraLargeLayout(
             )
             Spacer(GlanceModifier.width(if (veryCompact) 5.dp else 8.dp))
             Text(
-                text = formatTemp(data.currentTemp),
+                text = formatTemp(data.currentTemp, units = units),
                 style = TextStyle(
                     color = onContainer,
                     fontSize = when {
@@ -1147,7 +1156,7 @@ private fun ExtraLargeLayout(
                     )
                 }
                 Text(
-                    text = formatMinMax(data.tempMin, data.tempMax),
+                    text = formatMinMax(data.tempMin, data.tempMax, units = units),
                     style = TextStyle(
                         color = onContainerMuted,
                         fontSize = when {
@@ -1159,7 +1168,7 @@ private fun ExtraLargeLayout(
                     maxLines = 1
                 )
                 if (actualShowExtras) {
-                    val extras = buildExtrasLine(data)
+                    val extras = buildExtrasLine(data, units = units)
                     if (extras.isNotEmpty()) {
                         Spacer(GlanceModifier.height(1.dp))
                         Text(
@@ -1246,7 +1255,8 @@ private fun TwelveHourForecastStrip(
     textColorArgb: Int,
     outerHorizontalPadding: Dp = ExtraLargePadding.horizontal,
     headerHeightBudgetDp: Float,
-    modifier: GlanceModifier = GlanceModifier
+    modifier: GlanceModifier = GlanceModifier,
+    units: WeatherUnits = LocalWeatherUnits.current
 ) {
     val context = LocalContext.current
     val size = LocalSize.current
@@ -1277,10 +1287,11 @@ private fun TwelveHourForecastStrip(
     val precipColorArgb = 0xFF1976D2.toInt()
 
     val is24 = android.text.format.DateFormat.is24HourFormat(context)
-    val formatter = remember(is24) {
+    val displayLocale = context.resources.configuration.locales[0]
+    val formatter = remember(is24, displayLocale) {
         java.time.format.DateTimeFormatter.ofPattern(
             if (is24) "H'h'" else "h a",
-            java.util.Locale.getDefault()
+            displayLocale
         )
     }
     val timelineLabels = data.hourlyStartTime?.let { start ->
@@ -1288,6 +1299,8 @@ private fun TwelveHourForecastStrip(
     } ?: List(12) { offset -> "+${offset}h" }
 
     val bitmap = remember(
+        units,
+        displayLocale,
         data.forecastMode,
         data.next12hTemps,
         data.next12hPrecipProb,
@@ -1310,7 +1323,8 @@ private fun TwelveHourForecastStrip(
                 precipColorArgb = precipColorArgb,
                 textColorArgb = textColorArgb,
                 timelineLabels = timelineLabels,
-                profile = profile
+                profile = profile,
+                units = units
             )
         } else if (data.forecastMode?.isHeatmapChartForecast() == true) {
             WidgetHeatmapForecastRenderer.render(
@@ -1323,7 +1337,8 @@ private fun TwelveHourForecastStrip(
                 precipColorArgb = precipColorArgb,
                 textColorArgb = textColorArgb,
                 timelineLabels = timelineLabels,
-                profile = profile
+                profile = profile,
+                units = units
             )
         } else {
             WidgetMiniForecastRenderer.render(
@@ -1336,7 +1351,8 @@ private fun TwelveHourForecastStrip(
                 precipColorArgb = precipColorArgb,
                 textColorArgb = textColorArgb,
                 timelineLabels = timelineLabels,
-                profile = profile
+                profile = profile,
+                units = units
             )
         }
     }
@@ -1803,7 +1819,8 @@ private fun ForecastItemCard(
     compact: Boolean,
     heightProfile: ForecastCardHeightProfile? = null,
     emphasized: Boolean = false,
-    modifier: GlanceModifier = GlanceModifier
+    modifier: GlanceModifier = GlanceModifier,
+    units: WeatherUnits = LocalWeatherUnits.current
 ) {
     val ctx = LocalContext.current
     val night = LocalNightMode.current
@@ -1900,7 +1917,7 @@ private fun ForecastItemCard(
         }
         WeatherGlyph(condition = item.condition, sizeDp = glyphSize)
         Text(
-            text = formatTemp(item.temp),
+            text = formatTemp(item.temp, units = units),
             style = TextStyle(
                 color = onContainer,
                 fontSize = temperatureSize,

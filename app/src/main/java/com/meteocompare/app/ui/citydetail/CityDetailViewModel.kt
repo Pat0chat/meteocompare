@@ -677,7 +677,7 @@ class CityDetailViewModel @Inject constructor(
                     _marineState.value = if (result.data.coastal) {
                         MarineUiState.Loaded(result.data)
                     } else {
-                        MarineUiState.Error(context.getString(R.string.marine_not_coastal))
+                        MarineUiState.Error(messageRes = R.string.marine_not_coastal)
                     }
                     if (forceRefresh) {
                         _refreshFeedback.trySend(

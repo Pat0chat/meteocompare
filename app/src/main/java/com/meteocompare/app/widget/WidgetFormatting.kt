@@ -1,5 +1,8 @@
 package com.meteocompare.app.widget
 
+import com.meteocompare.app.core.units.WeatherUnit
+import com.meteocompare.app.core.units.WeatherUnits
+
 import com.meteocompare.app.domain.model.WeatherCondition
 import kotlin.math.roundToInt
 
@@ -38,7 +41,7 @@ import kotlin.math.roundToInt
  * Séparateur "·" (middle dot U+00B7) plutôt qu'une virgule : plus léger
  * visuellement à petite taille de police, préférence typographique.
  */
-internal fun buildExtrasLine(data: WidgetData): String {
+internal fun buildExtrasLine(data: WidgetData, units: WeatherUnits = WeatherUnits(data.unitSystem)): String {
     val parts = mutableListOf<String>()
 
     val cond = data.currentCondition
@@ -49,12 +52,12 @@ internal fun buildExtrasLine(data: WidgetData): String {
     }
 
     data.currentWindSpeedKmh?.let { wind ->
-        parts += "↝ ${wind.roundToInt()} km/h"
+        parts += "↝ ${units.speed(wind)}"
     }
 
     data.precipMm?.let { mm ->
         val precip = buildString {
-            append("☂︎ %.1f mm".format(mm))
+            append("☂︎ ${units.rain(mm)}")
             data.precipConfidencePct?.let { append(" ($it%)") }
         }
         parts += precip
@@ -68,17 +71,17 @@ internal fun buildExtrasLine(data: WidgetData): String {
  * si la valeur est null. L'arrondi à l'entier suffit pour un widget — le
  * demi-degré n'est pas actionnable à cette échelle d'affichage.
  */
-internal fun formatTemp(value: Double?): String =
-    if (value == null) "—" else "${value.roundToInt()}°"
+internal fun formatTemp(value: Double?, units: WeatherUnits = WeatherUnits()): String =
+    units.temp(value)
 
 /**
  * Formate min/max pour l'affichage widget : "12° / 22°", ou l'un des deux
  * seul avec préfixe si l'autre manque. Chaîne vide si les deux manquent
  * (le layout appelle isNotEmpty() avant d'afficher).
  */
-internal fun formatMinMax(min: Double?, max: Double?): String = when {
-    min != null && max != null -> "${min.roundToInt()}° / ${max.roundToInt()}°"
-    max != null -> "max ${max.roundToInt()}°"
-    min != null -> "min ${min.roundToInt()}°"
+internal fun formatMinMax(min: Double?, max: Double?, units: WeatherUnits = WeatherUnits()): String = when {
+    min != null && max != null -> "${units.temp(min)} / ${units.temp(max)}"
+    max != null -> "max ${units.temp(max)}"
+    min != null -> "min ${units.temp(min)}"
     else -> ""
 }
