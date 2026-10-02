@@ -32,9 +32,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.CompareArrows
 import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.CompareArrows
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material.icons.outlined.Air
 import androidx.compose.material.icons.outlined.Thermostat
 import androidx.compose.material.icons.outlined.WaterDrop
@@ -175,6 +173,10 @@ fun CityDetailScreen(
                 )
                 RefreshFeedback.SettingsSaveError ->
                     AppToastEvent.error(R.string.toast_settings_save_error)
+                RefreshFeedback.BiasHistoryQueued ->
+                    AppToastEvent.info(R.string.settings_bias_refresh_queued)
+                RefreshFeedback.BiasHistoryError ->
+                    AppToastEvent.error(R.string.toast_action_error)
             }
         }
     }
@@ -242,6 +244,7 @@ private fun CityDetailLoadedStateBridge(
         onDetailViewModeChange = viewModel::setDetailViewMode,
         onDetailContentTabChange = viewModel::setDetailContentTab,
         onRefreshMarine = viewModel::refreshMarine,
+        onRequestBiasHistory = viewModel::requestBiasHistory,
         onConfidenceClick = onConfidenceClick
     )
 }
@@ -273,6 +276,7 @@ internal fun CityDetailContent(
     onConfidenceClick: (isoDate: String) -> Unit = {},
     onEngineComparisonClick: () -> Unit = {},
     onGraphicViewClick: () -> Unit = {},
+    onRequestBiasHistory: () -> Unit = {},
     showBackButton: Boolean = true
 ) {
     CityDetailScaffold(
@@ -313,6 +317,7 @@ internal fun CityDetailContent(
             onDetailViewModeChange = onDetailViewModeChange,
             onDetailContentTabChange = onDetailContentTabChange,
             onRefreshMarine = onRefreshMarine,
+            onRequestBiasHistory = onRequestBiasHistory,
             onConfidenceClick = onConfidenceClick
         )
     }
@@ -528,7 +533,8 @@ private fun LoadedView(
     onDetailViewModeChange: (CityDetailViewMode) -> Unit,
     onDetailContentTabChange: (CityDetailContentTab) -> Unit,
     onRefreshMarine: () -> Unit,
-    onConfidenceClick: (isoDate: String) -> Unit = {}
+    onConfidenceClick: (isoDate: String) -> Unit = {},
+    onRequestBiasHistory: () -> Unit = {}
 ) {
     val displayMode = detailViewMode.toDisplayMode()
     val reliabilityExpanded = CityDetailSection.CONFIDENCE !in collapsedSections
@@ -843,10 +849,17 @@ private fun LoadedView(
             }
         }
 
-        val hasAnyBias =
-            biasState.temperature.biasByModel.values.any { it != null } ||
-                    biasState.precipitation.biasByModel.values.any { it != null } ||
-                    biasState.wind.biasByModel.values.any { it != null }
+        // Avancement de la collecte pour la variable de l'onglet affiché : les
+        // pastilles « N/14 » et le bandeau parlent ainsi de la même chose.
+        // L'onglet Conditions n'a pas d'indicateur par modèle, donc pas de bandeau.
+        val biasHistoryProgress = when (detailContentTab) {
+            CityDetailContentTab.TEMPERATURE -> biasState.temperature
+            CityDetailContentTab.PRECIPITATION -> biasState.precipitation
+            CityDetailContentTab.WIND -> biasState.wind
+            CityDetailContentTab.CONDITIONS -> null
+        }
+            ?.historyProgress(forecast.availableModels)
+            ?.takeIf { it.shouldShowBanner }
 
         item("detailed_forecast_section") {
             DetailedForecastSection(
@@ -857,8 +870,8 @@ private fun LoadedView(
                 normals = normals,
                 presentationNow = presentationNow,
                 cityToday = cityToday,
-                showBiasHistoryHint = !hasAnyBias &&
-                        detailContentTab != CityDetailContentTab.CONDITIONS,
+                biasHistoryProgress = biasHistoryProgress,
+                onRequestBiasHistory = onRequestBiasHistory,
                 onModeChange = { onDetailViewModeChange(it.toPreference()) },
                 onTabChange = onDetailContentTabChange,
                 temperatureBiasProvider = { model -> biasState.temperature.biasByModel[model] },
@@ -990,7 +1003,8 @@ private fun DetailedForecastSection(
     normals: Map<Int, DayNormals>?,
     presentationNow: Instant,
     cityToday: LocalDate,
-    showBiasHistoryHint: Boolean,
+    biasHistoryProgress: BiasHistoryProgress?,
+    onRequestBiasHistory: () -> Unit,
     onModeChange: (DisplayMode) -> Unit,
     onTabChange: (CityDetailContentTab) -> Unit,
     temperatureBiasProvider: ((WeatherModel) -> ModelBias?)? = null,
@@ -1029,8 +1043,10 @@ private fun DetailedForecastSection(
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.30f)
                 )
 
-                if (showBiasHistoryHint) {
+                if (biasHistoryProgress != null) {
                     BiasHistoryHint(
+                        progress = biasHistoryProgress,
+                        onRequestHistory = onRequestBiasHistory,
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
                     )
                 } else {
@@ -2613,44 +2629,91 @@ private fun windStyle(kmh: Double): ValueStyle? = when {
 // ============================================================================
 
 /**
- * Bandeau discret affiché en tête de la liste tant qu'aucun chip de biais
- * n'est disponible pour la ville. Communique honnêtement à l'utilisateur que
- * l'app est en train de collecter l'historique, sans être intrusif.
+ * Bandeau d'avancement de la fiabilité locale, affiché au-dessus du tableau
+ * de la variable sélectionnée (température, pluie ou vent).
  *
- * Cas d'affichage :
- *   - Première utilisation, avant que le worker n'ait fetché l'observation
- *     J+1 n'ait accumulé assez de jours correspondants.
- *   - Cas dégénéré où toutes les variables × modèles sont classées
- *     NOT_SIGNIFICANT (peu probable mais possible avec des modèles très
- *     calibrés — dans ce cas le hint sur-communique un peu, tradeoff accepté).
+ * Il explique ce que signifie « J+1 » (la prévision émise la veille, pas
+ * « demain »), ce que comptent les pastilles « N/14 » sous chaque modèle, et
+ * reste affiché tant qu'une partie des modèles se complète encore, au lieu de
+ * disparaître dès le premier modèle prêt sur n'importe quelle variable.
  *
- * Design : bandeau tonal léger intégré directement dans la Surface des
- * prévisions détaillées, sans Card imbriquée supplémentaire.
+ * Le bouton lance le rattrapage manuel (jusqu'à 3 semaines d'archives), déjà
+ * proposé dans les Réglages, pour ne pas attendre deux semaines de collecte.
  */
 @Composable
-private fun BiasHistoryHint(modifier: Modifier = Modifier) {
+private fun BiasHistoryHint(
+    progress: BiasHistoryProgress,
+    onRequestHistory: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var requested by rememberSaveable { mutableStateOf(false) }
+    val target = ModelBias.MIN_SAMPLES_FOR_BIAS
     Row(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
             .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.48f))
-            .padding(horizontal = 14.dp, vertical = 11.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .padding(horizontal = 14.dp, vertical = 11.dp)
+            .testTag(TAG_BIAS_HISTORY_HINT),
+        verticalAlignment = Alignment.Top,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Icon(
             imageVector = Icons.Filled.Info,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(18.dp)
+            modifier = Modifier.padding(top = 1.dp).size(18.dp)
         )
-        Text(
-            text = stringResource(R.string.bias_history_collecting),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = if (progress.isPreparing) {
+                    stringResource(R.string.bias_history_preparing, target)
+                } else {
+                    stringResource(
+                        R.string.bias_history_partial,
+                        progress.readyModels,
+                        progress.totalModels
+                    )
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (progress.bestSampleCount > 0) {
+                Text(
+                    text = stringResource(
+                        R.string.bias_history_best_progress,
+                        progress.bestSampleCount,
+                        target
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+            TextButton(
+                onClick = {
+                    requested = true
+                    onRequestHistory()
+                },
+                enabled = !requested,
+                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp),
+                modifier = Modifier.testTag(TAG_BIAS_HISTORY_FETCH)
+            ) {
+                Text(
+                    text = stringResource(
+                        if (requested) R.string.bias_history_fetch_requested
+                        else R.string.bias_history_fetch_action
+                    ),
+                    style = MaterialTheme.typography.labelLarge
+                )
+            }
+        }
     }
 }
+
+internal const val TAG_BIAS_HISTORY_HINT = "bias_history_hint"
+internal const val TAG_BIAS_HISTORY_FETCH = "bias_history_fetch"
 
 /**
  * enumValueOf tolérant aux noms invalides. Utilisé par la reconstruction de
