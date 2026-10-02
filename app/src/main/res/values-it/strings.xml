@@ -314,7 +314,11 @@ dato</string>
     <string name="bias_sheet_title_prefix">Deviazione media </string>
     <string name="bias_sheet_title_suffix"> rispetto al riferimento storico.</string>
 
-    <string name="bias_history_collecting">La cronologia D+1 è in fase di raccolta. Gli indicatori per modello compariranno dopo 14 giorni corrispondenti.</string>
+    <string name="bias_history_preparing">Affidabilità locale in preparazione. Ogni giorno la previsione emessa il giorno prima (D+1) da ciascun modello viene confrontata con una rianalisi. I suoi indicatori compaiono dopo %1$d giorni confrontati; il contatore sotto il nome ne segue l’avanzamento.</string>
+    <string name="bias_history_partial">Indicatori di affidabilità disponibili per %1$d modelli su %2$d. Gli altri si completano ogni giorno; il contatore sotto il loro nome ne segue l’avanzamento.</string>
+    <string name="bias_history_best_progress">Modello più avanzato: %1$d/%2$d giorni confrontati.</string>
+    <string name="bias_history_fetch_action">Recupera la cronologia ora</string>
+    <string name="bias_history_fetch_requested">Recupero in background…</string>
 
     <string name="bias_chip_calibrating_content_description">Monitoraggio del bias in corso per questo modello: i dati storici non sono ancora sufficienti per valutarne l’accuratezza.</string>
 

@@ -312,7 +312,11 @@
     <string name="bias_sheet_title_prefix">Mean deviation </string>
     <string name="bias_sheet_title_suffix"> compared with the historical reference.</string>
 
-    <string name="bias_history_collecting">D+1 history is being collected. Per-model indicators will appear after 14 matching days.</string>
+    <string name="bias_history_preparing">Local reliability in preparation. Every day, the forecast each model issued the day before (D+1) is compared with a reanalysis. Its indicators appear after %1$d compared days; the counter under its name tracks progress.</string>
+    <string name="bias_history_partial">Reliability indicators available for %1$d of %2$d models. The others fill in every day; the counter under their name tracks progress.</string>
+    <string name="bias_history_best_progress">Most advanced model: %1$d/%2$d compared days.</string>
+    <string name="bias_history_fetch_action">Fetch history now</string>
+    <string name="bias_history_fetch_requested">Fetching in the background…</string>
 
     <string name="bias_chip_calibrating_content_description">Bias tracking in progress for this model: not enough historical data yet to assess its accuracy.</string>
 
