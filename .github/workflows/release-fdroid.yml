@@ -86,7 +86,7 @@ jobs:
       # On NE fournit AUCUN secret de signature à Gradle.
       # Ton app/build.gradle.kts produira donc app-release-unsigned.apk.
       # Cela évite que Gradle/AGP signe avec apksigner 36.
-      - name: Build unsigned release APK with Gradle
+      - name: Validate tests and lint, then build unsigned release APK
         shell: bash
         run: |
           set -euo pipefail
@@ -98,10 +98,16 @@ jobs:
 
           ./gradlew \
             --no-daemon \
+            --no-parallel \
+            --max-workers=1 \
+            -Dorg.gradle.jvmargs="-Xmx3g -Dfile.encoding=UTF-8" \
             --no-build-cache \
             --no-configuration-cache \
             --stacktrace \
             clean \
+            :app:testDebugUnitTest \
+            :app:testReleaseUnitTest \
+            :app:lintDebug \
             :app:assembleRelease
 
       - name: Locate unsigned APK and choose release filename

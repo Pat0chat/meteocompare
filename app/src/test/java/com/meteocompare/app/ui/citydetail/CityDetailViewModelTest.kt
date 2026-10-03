@@ -1,5 +1,10 @@
 package com.meteocompare.app.ui.citydetail
 
+import com.google.common.util.concurrent.ListenableFuture
+import java.util.concurrent.ExecutionException
+import androidx.work.Operation
+import com.meteocompare.app.data.worker.BiasHistoryRefreshState
+import kotlinx.coroutines.launch
 import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
@@ -309,7 +314,7 @@ class CityDetailViewModelTest {
         runViewModelTest {
             mockkObject(BiasRefreshScheduler)
             try {
-                every { BiasRefreshScheduler.triggerManualRefresh(any<android.content.Context>()) } returns Unit
+                every { BiasRefreshScheduler.triggerManualRefresh(any<android.content.Context>()) } returns enqueueOperation()
                 val vm = buildViewModel()
 
                 vm.refreshFeedback.test {
@@ -342,6 +347,77 @@ class CityDetailViewModelTest {
                 unmockkObject(BiasRefreshScheduler)
             }
         }
+
+    private fun enqueueOperation(error: Throwable? = null): Operation {
+        val future = mockk<ListenableFuture<Operation.State.SUCCESS>> {
+            every { isDone } returns true
+            every { get() } answers {
+                if (error != null) throw ExecutionException(error)
+                Operation.SUCCESS
+            }
+        }
+        return mockk { every { result } returns future }
+    }
+
+    @Test
+    fun `rattrapage - echec asynchrone permet une nouvelle demande puis suit le worker`() = runViewModelTest {
+        mockkObject(BiasRefreshScheduler)
+        try {
+            val work = MutableStateFlow(BiasHistoryRefreshState.IDLE)
+            every { BiasRefreshScheduler.observeManualRefresh(any()) } returns work
+            every { BiasRefreshScheduler.triggerManualRefresh(any<Context>()) } returns
+                enqueueOperation(IllegalStateException("enqueue failed asynchronously"))
+            val vm = buildViewModel()
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                vm.biasHistoryRefreshState.collect {}
+            }
+            vm.requestBiasHistory()
+            runCurrent()
+            assertEquals(BiasHistoryRefreshState.FAILED, vm.biasHistoryRefreshState.value)
+            assertEquals(false, vm.biasHistoryRefreshState.value.isActive)
+            every { BiasRefreshScheduler.triggerManualRefresh(any<Context>()) } answers {
+                work.value = BiasHistoryRefreshState.QUEUED
+                enqueueOperation()
+            }
+            vm.requestBiasHistory()
+            runCurrent()
+            assertEquals(BiasHistoryRefreshState.QUEUED, vm.biasHistoryRefreshState.value)
+            vm.requestBiasHistory()
+            verify(exactly = 2) { BiasRefreshScheduler.triggerManualRefresh(any<Context>()) }
+            work.value = BiasHistoryRefreshState.RUNNING
+            runCurrent()
+            assertEquals(BiasHistoryRefreshState.RUNNING, vm.biasHistoryRefreshState.value)
+            work.value = BiasHistoryRefreshState.SUCCEEDED
+            runCurrent()
+            assertEquals(false, vm.biasHistoryRefreshState.value.isActive)
+            vm.requestBiasHistory()
+            runCurrent()
+            verify(exactly = 3) { BiasRefreshScheduler.triggerManualRefresh(any<Context>()) }
+        } finally {
+            unmockkObject(BiasRefreshScheduler)
+        }
+    }
+
+    @Test
+    fun `rattrapage - nouvel ecran retrouve un travail deja en attente ou termine`() = runViewModelTest {
+        mockkObject(BiasRefreshScheduler)
+        try {
+            val work = MutableStateFlow(BiasHistoryRefreshState.QUEUED)
+            every { BiasRefreshScheduler.observeManualRefresh(any()) } returns work
+            val vm = buildViewModel()
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                vm.biasHistoryRefreshState.collect {}
+            }
+            runCurrent()
+            assertEquals(BiasHistoryRefreshState.QUEUED, vm.biasHistoryRefreshState.value)
+            work.value = BiasHistoryRefreshState.FAILED
+            runCurrent()
+            assertEquals(BiasHistoryRefreshState.FAILED, vm.biasHistoryRefreshState.value)
+            assertEquals(false, vm.biasHistoryRefreshState.value.isActive)
+        } finally {
+            unmockkObject(BiasRefreshScheduler)
+        }
+    }
 
     @Test
     fun `detail preferences - expose et persiste le mode et l onglet`() =

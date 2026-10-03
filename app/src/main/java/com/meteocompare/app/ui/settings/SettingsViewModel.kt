@@ -5,6 +5,7 @@ import com.meteocompare.app.domain.model.UnitSystem
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.await
 import com.meteocompare.app.R
 import com.meteocompare.app.core.util.runSuspendCatching
 import com.meteocompare.app.data.worker.BiasRefreshScheduler
@@ -134,13 +135,15 @@ class SettingsViewModel @Inject constructor(
      * quotidienne normale.
      */
     fun onBiasRefreshRequested() {
-        val feedback = runCatching {
-            BiasRefreshScheduler.triggerManualRefresh(appContext)
-        }.fold(
-            onSuccess = { AppToastEvent.info(R.string.settings_bias_refresh_queued) },
-            onFailure = { AppToastEvent.error(R.string.toast_action_error) }
-        )
-        _feedback.trySend(feedback)
+        viewModelScope.launch {
+            val feedback = runSuspendCatching {
+                BiasRefreshScheduler.triggerManualRefresh(appContext).await()
+            }.fold(
+                onSuccess = { AppToastEvent.info(R.string.settings_bias_refresh_queued) },
+                onFailure = { AppToastEvent.error(R.string.toast_action_error) }
+            )
+            _feedback.send(feedback)
+        }
     }
 
     fun onUnitSystemSelected(system: UnitSystem) {

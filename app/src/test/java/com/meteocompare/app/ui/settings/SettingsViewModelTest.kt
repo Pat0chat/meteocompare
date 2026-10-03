@@ -2,7 +2,10 @@ package com.meteocompare.app.ui.settings
 
 
 import android.content.Context
+import androidx.work.Operation
 import app.cash.turbine.test
+import com.google.common.util.concurrent.ListenableFuture
+import java.util.concurrent.ExecutionException
 import com.meteocompare.app.R
 import com.meteocompare.app.data.worker.BiasRefreshScheduler
 import com.meteocompare.app.domain.model.City
@@ -125,7 +128,7 @@ class SettingsViewModelTest {
         every { WidgetRefreshScheduler.schedule(any<Context>()) } returns Unit
         every { WidgetRefreshScheduler.triggerImmediateRefresh(any<Context>()) } returns Unit
         every { WidgetRefreshScheduler.cancel(any<Context>()) } returns Unit
-        every { BiasRefreshScheduler.triggerManualRefresh(any<Context>()) } returns Unit
+        every { BiasRefreshScheduler.triggerManualRefresh(any<Context>()) } returns enqueueOperation()
         mockkObject(WeatherNotificationScheduler)
         every { WeatherNotificationScheduler.reschedule(any(), any()) } returns Unit
 
@@ -218,12 +221,38 @@ class SettingsViewModelTest {
         }
 
     @Test
-    fun `onBiasRefreshRequested - déclenche uniquement le worker manuel`() {
-        viewModel.onBiasRefreshRequested()
-
-        verify(exactly = 1) {
-            BiasRefreshScheduler.triggerManualRefresh(appContext)
+    fun `onBiasRefreshRequested - déclenche uniquement le worker manuel`() = runTest(dispatcher) {
+        viewModel.feedback.test {
+            viewModel.onBiasRefreshRequested()
+            val event = awaitItem()
+            assertEquals(AppToastType.INFO, event.type)
+            assertEquals(R.string.settings_bias_refresh_queued, event.messageRes)
         }
+        verify(exactly = 1) { BiasRefreshScheduler.triggerManualRefresh(appContext) }
+    }
+
+    @Test
+    fun `onBiasRefreshRequested - un echec asynchrone affiche une erreur`() = runTest(dispatcher) {
+        every { BiasRefreshScheduler.triggerManualRefresh(any<Context>()) } returns
+            enqueueOperation(IllegalStateException("enqueue failed asynchronously"))
+        viewModel.feedback.test {
+            viewModel.onBiasRefreshRequested()
+            val event = awaitItem()
+            assertEquals(AppToastType.ERROR, event.type)
+            assertEquals(R.string.toast_action_error, event.messageRes)
+            expectNoEvents()
+        }
+    }
+
+    private fun enqueueOperation(error: Throwable? = null): Operation {
+        val future = mockk<ListenableFuture<Operation.State.SUCCESS>> {
+            every { isDone } returns true
+            every { get() } answers {
+                if (error != null) throw ExecutionException(error)
+                Operation.SUCCESS
+            }
+        }
+        return mockk { every { result } returns future }
     }
 
     @Test

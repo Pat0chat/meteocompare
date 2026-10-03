@@ -13,7 +13,6 @@ import com.meteocompare.app.core.util.runSuspendCatching
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.NotificationSettings
-import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.model.WeatherNotification
 import com.meteocompare.app.domain.repository.CityRepository
 import com.meteocompare.app.domain.repository.ForecastEvolutionRepository
@@ -28,7 +27,10 @@ import dagger.hilt.components.SingletonComponent
 import java.time.Clock
 import java.time.Instant
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
@@ -74,25 +76,22 @@ internal class WeatherNotificationWorker(
             applicationContext,
             WeatherNotificationEntryPoint::class.java
         )
-        return try {
-            runSuspendCatching { RUN_MUTEX.withLock { run(kind, entry) } }
-                .getOrElse { error ->
-                    Log.w(LOG_TAG, "Notification cycle failed ($kind)", error)
-                    // Le résumé quotidien est replanifié ci-dessous : un retry
-                    // tardif ne serait plus un résumé « du matin ».
-                    if (kind == Kind.ALERTS) Result.retry() else Result.success()
-                }
-        } finally {
-            if (kind == Kind.DAILY_SUMMARY) {
-                runSuspendCatching {
-                    val settings = entry.userPreferencesRepository().observeNotificationSettings().first()
-                    WeatherNotificationScheduler.scheduleNextDailySummary(applicationContext, settings)
-                }.onFailure { error ->
-                    // Réparé au prochain démarrage de l'application (ensureScheduled).
-                    Log.w(LOG_TAG, "Unable to schedule next daily summary", error)
-                }
+        // Réarme avant le réseau et avant l'attente du mutex : une annulation
+        // du calcul ne doit pas supprimer le résumé du lendemain.
+        if (kind == Kind.DAILY_SUMMARY) {
+            runSuspendCatching {
+                val settings = entry.userPreferencesRepository().observeNotificationSettings().first()
+                WeatherNotificationScheduler.scheduleNextDailySummary(applicationContext, settings)
+            }.onFailure { error ->
+                Log.w(LOG_TAG, "Unable to schedule next daily summary", error)
             }
         }
+        return runSuspendCatching { RUN_MUTEX.withLock { run(kind, entry) } }
+            .getOrElse { error ->
+                Log.w(LOG_TAG, "Notification cycle failed ($kind)", error)
+                // Un retry tardif ne serait plus un résumé « du matin ».
+                if (kind == Kind.ALERTS) Result.retry() else Result.success()
+            }
     }
 
     private suspend fun run(kind: Kind, entry: WeatherNotificationEntryPoint): Result {
@@ -130,36 +129,37 @@ internal class WeatherNotificationWorker(
         val clock = entry.clock()
 
         for (city in cities) {
-            val notifications = withTimeoutOrNull(PER_CITY_TIMEOUT_MS) {
-                runSuspendCatching {
-                    val forecast = loadForecast(entry, city, models, maxCacheAgeMs)
-                        ?: return@runSuspendCatching emptyList()
-                    val now = clock.instant()
-                    val engineContext = entry.forecastEngineContextProvider().build(forecast, engine, now)
-                    val evaluator = entry.weatherNotificationEvaluator()
-                    when (kind) {
-                        Kind.DAILY_SUMMARY -> listOfNotNull(
-                            evaluator.dailySummary(forecast, engineContext, now)
-                        )
-                        Kind.ALERTS -> listOfNotNull(
-                            if (settings.divergenceAlertsEnabled) {
-                                evaluator.modelDivergence(forecast, engineContext, now)
-                            } else {
-                                null
-                            },
-                            if (settings.forecastChangeAlertsEnabled) {
-                                forecastChange(entry, forecast, now)
-                            } else {
-                                null
-                            }
-                        )
-                    }
-                }.onFailure { error ->
-                    Log.w(LOG_TAG, "Notification evaluation failed for city=${city.id}", error)
-                }.getOrNull()
-            }.orEmpty()
+            val forecast = latestNotificationForecast(
+                entry.forecastRepository().getCityForecastStream(
+                    city = city, models = models, maxCacheAgeMs = maxCacheAgeMs
+                )
+            ) ?: continue
+            val now = clock.instant()
+            val evaluator = entry.weatherNotificationEvaluator()
+            // Les signaux sont indépendants : un historique lent ne doit pas
+            // faire perdre une divergence déjà calculée. Le chargement garde
+            // 40 s, puis chaque signal suspendu dispose de 10 s (60 s au total).
+            val notifications = buildList {
+                if (kind == Kind.DAILY_SUMMARY || settings.divergenceAlertsEnabled) {
+                    evaluateSignal(city) {
+                        val engineContext = entry.forecastEngineContextProvider().build(forecast, engine, now)
+                        if (kind == Kind.DAILY_SUMMARY) evaluator.dailySummary(forecast, engineContext, now)
+                        else evaluator.modelDivergence(forecast, engineContext, now)
+                    }?.let(::add)
+                }
+                if (kind == Kind.ALERTS && settings.forecastChangeAlertsEnabled) {
+                    evaluateSignal(city) { forecastChange(entry, forecast, now) }?.let(::add)
+                }
+            }
 
             for (notification in notifications) {
+                // UPDATE n'interrompt pas un worker périodique déjà lancé.
+                // Relire les choix après les I/O, juste avant tout effet visible.
+                if (entry.cityRepository().observeFavorites().first().none { it.id == city.id }) continue
+                val currentSettings = prefs.observeNotificationSettings().first()
+                if (!notification.isEnabledIn(currentSettings)) continue
+                currentCoroutineContext().ensureActive()
+                if (isStopped) return Result.success()
                 if (dedup.alreadyNotified(notification.dedupKey)) continue
                 val postResult = notifier.post(notification)
                 if (postResult == WeatherNotifier.PostResult.POSTED) {
@@ -175,17 +175,12 @@ internal class WeatherNotificationWorker(
         return Result.success()
     }
 
-    /** Dernière prévision exploitable : cache frais, sinon réseau, sinon cache ancien. */
-    private suspend fun loadForecast(
-        entry: WeatherNotificationEntryPoint,
-        city: City,
-        models: List<WeatherModel>,
-        maxCacheAgeMs: Long
-    ): CityForecast? = entry.forecastRepository()
-        .getCityForecastStream(city = city, models = models, maxCacheAgeMs = maxCacheAgeMs)
-        .toList()
-        .mapNotNull { result -> (result as? ApiResult.Success)?.data }
-        .lastOrNull()
+    private suspend fun <T> evaluateSignal(city: City, block: suspend () -> T): T? =
+        withTimeoutOrNull(SIGNAL_TIMEOUT_MS) {
+            runSuspendCatching { block() }
+                .onFailure { Log.w(LOG_TAG, "Notification evaluation failed for city=${city.id}", it) }
+                .getOrNull()
+        }
 
     private suspend fun forecastChange(
         entry: WeatherNotificationEntryPoint,
@@ -211,7 +206,31 @@ internal class WeatherNotificationWorker(
 
     companion object {
         private const val LOG_TAG = "MeteoCompare/Notif"
-        private const val PER_CITY_TIMEOUT_MS = 60_000L
+        private const val SIGNAL_TIMEOUT_MS = 10_000L
         private val RUN_MUTEX = Mutex()
     }
 }
+
+/** Conserve le cache déjà émis, même si l'actualisation expire ou échoue. */
+internal suspend fun latestNotificationForecast(
+    stream: Flow<ApiResult<CityForecast>>,
+    timeoutMs: Long = 40_000L
+): CityForecast? {
+    var latest: CityForecast? = null
+    withTimeoutOrNull(timeoutMs) {
+        runSuspendCatching {
+            stream.collect { result ->
+                if (result is ApiResult.Success) latest = result.data
+            }
+        }.onFailure { Log.w("MeteoCompare/Notif", "Unable to refresh notification forecast", it) }
+    }
+    // Une annulation externe reste propagée par withTimeoutOrNull/runSuspendCatching.
+    return latest
+}
+
+private fun WeatherNotification.isEnabledIn(settings: NotificationSettings): Boolean =
+    city.id in settings.cityIds && when (this) {
+        is WeatherNotification.DailySummary -> settings.dailySummaryEnabled
+        is WeatherNotification.ModelDivergence -> settings.divergenceAlertsEnabled
+        is WeatherNotification.ForecastChange -> settings.forecastChangeAlertsEnabled
+    }

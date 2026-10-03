@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.await
 import com.meteocompare.app.R
 import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.core.network.NetworkMonitor
@@ -11,6 +12,7 @@ import com.meteocompare.app.core.network.toUserMessage
 import com.meteocompare.app.core.util.localDateIn
 import com.meteocompare.app.core.util.runSuspendCatching
 import com.meteocompare.app.data.worker.BiasRefreshScheduler
+import com.meteocompare.app.data.worker.BiasHistoryRefreshState
 import com.meteocompare.app.di.DefaultDispatcher
 import com.meteocompare.app.domain.model.BiasSample
 import com.meteocompare.app.domain.model.BiasVariable
@@ -60,8 +62,11 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
@@ -199,6 +204,25 @@ class CityDetailViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5_000L),
             initialValue = BiasScreenState.EMPTY
         )
+
+    private val biasHistoryRequestPending = MutableStateFlow(false)
+    private val biasHistoryRequestFailed = MutableStateFlow(false)
+    val biasHistoryRefreshState: StateFlow<BiasHistoryRefreshState> = combine(
+        flow { emitAll(BiasRefreshScheduler.observeManualRefresh(context)) }
+            .catch { error ->
+                android.util.Log.w("MeteoCompare/BiasWorker", "Unable to observe manual refresh", error)
+                emit(BiasHistoryRefreshState.FAILED)
+            },
+        biasHistoryRequestPending,
+        biasHistoryRequestFailed
+    ) { workState, pending, failed ->
+        when {
+            pending -> BiasHistoryRefreshState.QUEUED
+            workState.isActive -> workState
+            failed -> BiasHistoryRefreshState.FAILED
+            else -> workState
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BiasHistoryRefreshState.IDLE)
 
     /**
      * Sections repliées, persistées dans DataStore séparément pour cette ville.
@@ -660,13 +684,27 @@ class CityDetailViewModel @Inject constructor(
      * seuls une fois le travail exécuté.
      */
     fun requestBiasHistory() {
-        val feedback = runCatching {
-            BiasRefreshScheduler.triggerManualRefresh(context)
-        }.fold(
-            onSuccess = { RefreshFeedback.BiasHistoryQueued },
-            onFailure = { RefreshFeedback.BiasHistoryError }
-        )
-        _refreshFeedback.trySend(feedback)
+        if (biasHistoryRequestPending.value || biasHistoryRefreshState.value.isActive) return
+        biasHistoryRequestPending.value = true
+        biasHistoryRequestFailed.value = false
+        viewModelScope.launch {
+            try {
+                val feedback = runSuspendCatching {
+                    // L'enqueue est asynchrone : son retour immédiat ne prouve
+                    // pas que la demande a été enregistrée par WorkManager.
+                    BiasRefreshScheduler.triggerManualRefresh(context).await()
+                }.fold(
+                    onSuccess = { RefreshFeedback.BiasHistoryQueued },
+                    onFailure = {
+                        biasHistoryRequestFailed.value = true
+                        RefreshFeedback.BiasHistoryError
+                    }
+                )
+                _refreshFeedback.trySend(feedback)
+            } finally {
+                biasHistoryRequestPending.value = false
+            }
+        }
     }
 
     fun refreshMarine() {

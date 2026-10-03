@@ -319,6 +319,7 @@ datos</string>
     <string name="bias_history_best_progress">Modelo más avanzado: %1$d/%2$d días comparados.</string>
     <string name="bias_history_fetch_action">Recuperar el historial ahora</string>
     <string name="bias_history_fetch_requested">Recuperación en segundo plano…</string>
+    <string name="bias_history_fetch_queued">Recuperación pendiente…</string>
 
     <string name="bias_chip_calibrating_content_description">Seguimiento del sesgo en curso para este modelo: aún no hay suficientes datos históricos para evaluar su precisión.</string>
 

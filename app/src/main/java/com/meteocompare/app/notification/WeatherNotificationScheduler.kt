@@ -4,6 +4,7 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.util.Log
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
@@ -32,7 +33,7 @@ import java.util.concurrent.TimeUnit
  *    [AlarmManager.setAndAllowWhileIdle] : elle peut donc réveiller
  *    l'application en Doze sans demander l'accès spécial aux alarmes exactes.
  *    À sa réception, un WorkManager immédiat exécute le pipeline météo. Le
- *    worker planifie l'occurrence suivante en fin de cycle.
+ *    worker planifie l'occurrence suivante avant le calcul météo.
  *
  *    WorkManager reste volontairement l'exécuteur du travail long, mais n'est
  *    plus utilisé comme horloge : un `initialDelay` n'est qu'une date
@@ -100,7 +101,7 @@ object WeatherNotificationScheduler {
     }
 
     /**
-     * Appelé après l'exécution d'un résumé quotidien pour préparer le suivant.
+     * Appelé au début d'un résumé quotidien pour préparer le suivant.
      * Si le résumé a été désactivé entre-temps, l'alarme est supprimée.
      */
     internal fun scheduleNextDailySummary(context: Context, settings: NotificationSettings) {
@@ -264,18 +265,33 @@ object WeatherNotificationScheduler {
         workManager.enqueueUniqueWork(name, policy, request)
     }
 
-    internal fun immediateRequest(kind: WeatherNotificationWorker.Kind): OneTimeWorkRequest =
+    internal fun immediateRequest(
+        kind: WeatherNotificationWorker.Kind,
+        sdkInt: Int = Build.VERSION.SDK_INT
+    ): OneTimeWorkRequest =
         OneTimeWorkRequestBuilder<WeatherNotificationWorker>()
             .setInputData(workDataOf(KIND_INPUT_KEY to kind.name))
-            .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+            .apply {
+                // Avant Android 12, expedited exigerait un service de premier
+                // plan et un ForegroundInfo. Une requête ordinaire suffit ici.
+                if (sdkInt >= Build.VERSION_CODES.S) {
+                    setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+                }
+            }
             .addTag(WORK_TAG)
             .build()
 
-    /** Prochaine occurrence de [time], strictement après [now]. */
+    /**
+     * Prochaine occurrence de [time], strictement après [now]. Une heure
+     * inexistante au printemps est décalée du saut ; en automne on choisit
+     * la première occurrence, sans répéter le résumé dans l'heure doublée.
+     */
     internal fun nextDailyOccurrence(now: ZonedDateTime, time: LocalTime): ZonedDateTime {
-        var next = now.with(time).withSecond(0).withNano(0)
-        if (!next.isAfter(now)) next = next.plusDays(1)
-        return next
+        val date = now.toLocalDate()
+        val minute = time.withSecond(0).withNano(0)
+        val today = date.atTime(minute).atZone(now.zone)
+        return if (today.isAfter(now)) today
+        else date.plusDays(1).atTime(minute).atZone(now.zone)
     }
 
     internal fun delayUntilNext(now: ZonedDateTime, time: LocalTime): Duration =

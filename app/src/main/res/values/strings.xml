@@ -317,6 +317,7 @@
     <string name="bias_history_best_progress">Modèle le plus avancé : %1$d/%2$d jours comparés.</string>
     <string name="bias_history_fetch_action">Récupérer l’historique maintenant</string>
     <string name="bias_history_fetch_requested">Récupération en cours en arrière-plan…</string>
+    <string name="bias_history_fetch_queued">Récupération en attente…</string>
 
     <string name="bias_chip_calibrating_content_description">Suivi de biais en cours pour ce modèle : pas encore assez de données historiques pour évaluer sa précision.</string>
 

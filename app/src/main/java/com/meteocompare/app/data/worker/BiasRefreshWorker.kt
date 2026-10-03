@@ -8,6 +8,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
+import androidx.work.Operation
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
@@ -18,6 +19,8 @@ import com.meteocompare.app.core.util.runSuspendCatching
 import com.meteocompare.app.domain.model.BiasVariable
 import dagger.hilt.android.EntryPointAccessors
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -106,14 +109,21 @@ object BiasRefreshScheduler {
      * en attente ou actif. Une nouvelle action explicite reste possible après
      * la fin du cycle, même si un cycle automatique récent a réussi.
      */
-    fun triggerManualRefresh(context: Context) {
+    fun triggerManualRefresh(context: Context): Operation =
         triggerManualRefresh(
             WorkManager.getInstance(context.applicationContext)
         )
-    }
+
+    /** Le flux est froid : aucune initialisation WorkManager avant observation. */
+    fun observeManualRefresh(context: Context): Flow<BiasHistoryRefreshState> =
+        flow {
+            WorkManager.getInstance(context.applicationContext)
+                .getWorkInfosForUniqueWorkFlow(MANUAL_WORK_NAME)
+                .collect { emit(manualBiasRefreshState(it)) }
+        }
 
     /** Overload testable du déclenchement manuel. */
-    internal fun triggerManualRefresh(workManager: WorkManager) {
+    internal fun triggerManualRefresh(workManager: WorkManager): Operation {
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .setRequiresBatteryNotLow(true)
@@ -130,7 +140,7 @@ object BiasRefreshScheduler {
             .addTag(WORK_TAG)
             .build()
 
-        workManager.enqueueUniqueWork(
+        return workManager.enqueueUniqueWork(
             MANUAL_WORK_NAME,
             ExistingWorkPolicy.KEEP,
             manual

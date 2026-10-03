@@ -90,6 +90,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.meteocompare.app.R
+import com.meteocompare.app.data.worker.BiasHistoryRefreshState
 import com.meteocompare.app.core.locale.weatherConditionLabelRes
 import com.meteocompare.app.domain.model.BiasVariable
 import com.meteocompare.app.domain.model.CityDetailContentTab
@@ -213,6 +214,7 @@ private fun CityDetailLoadedStateBridge(
 ) {
     val isOnline by viewModel.isOnline.collectAsStateWithLifecycle()
     val biasState by viewModel.biasState.collectAsStateWithLifecycle()
+    val biasHistoryRefreshState by viewModel.biasHistoryRefreshState.collectAsStateWithLifecycle()
     val evolutionState by viewModel.evolutionState.collectAsStateWithLifecycle()
     val marineState by viewModel.marineState.collectAsStateWithLifecycle()
     val vigilanceState by viewModel.vigilanceState.collectAsStateWithLifecycle()
@@ -236,6 +238,7 @@ private fun CityDetailLoadedStateBridge(
         fetchedAt = loaded.fetchedAt,
         isOnline = isOnline,
         biasState = biasState,
+        biasHistoryRefreshState = biasHistoryRefreshState,
         evolutionState = evolutionState,
         marineState = marineState,
         vigilance = (vigilanceState as? VigilanceUiState.Loaded)?.forecast
@@ -264,6 +267,7 @@ internal fun CityDetailContent(
     isRefreshing: Boolean,
     isOnline: Boolean = true,
     biasState: BiasScreenState,
+    biasHistoryRefreshState: BiasHistoryRefreshState = BiasHistoryRefreshState.IDLE,
     evolutionState: ForecastEvolutionState = ForecastEvolutionState.Idle,
     marineState: MarineUiState = MarineUiState.Idle,
     vigilanceState: VigilanceUiState = VigilanceUiState.Idle,
@@ -309,6 +313,7 @@ internal fun CityDetailContent(
             fetchedAt = loaded.fetchedAt,
             isOnline = isOnline,
             biasState = biasState,
+            biasHistoryRefreshState = biasHistoryRefreshState,
             evolutionState = evolutionState,
             marineState = marineState,
             vigilance = (vigilanceState as? VigilanceUiState.Loaded)?.forecast
@@ -526,6 +531,7 @@ private fun LoadedView(
     fetchedAt: Instant?,
     isOnline: Boolean,
     biasState: BiasScreenState,
+    biasHistoryRefreshState: BiasHistoryRefreshState,
     evolutionState: ForecastEvolutionState,
     marineState: MarineUiState,
     vigilance: VigilanceForecast?,
@@ -875,6 +881,7 @@ private fun LoadedView(
                 presentationNow = presentationNow,
                 cityToday = cityToday,
                 biasHistoryProgress = biasHistoryProgress,
+                biasHistoryRefreshState = biasHistoryRefreshState,
                 onRequestBiasHistory = onRequestBiasHistory,
                 onModeChange = { onDetailViewModeChange(it.toPreference()) },
                 onTabChange = onDetailContentTabChange,
@@ -1008,6 +1015,7 @@ private fun DetailedForecastSection(
     presentationNow: Instant,
     cityToday: LocalDate,
     biasHistoryProgress: BiasHistoryProgress?,
+    biasHistoryRefreshState: BiasHistoryRefreshState,
     onRequestBiasHistory: () -> Unit,
     onModeChange: (DisplayMode) -> Unit,
     onTabChange: (CityDetailContentTab) -> Unit,
@@ -1050,6 +1058,7 @@ private fun DetailedForecastSection(
                 if (biasHistoryProgress != null) {
                     BiasHistoryHint(
                         progress = biasHistoryProgress,
+                        refreshState = biasHistoryRefreshState,
                         onRequestHistory = onRequestBiasHistory,
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
                     )
@@ -1079,7 +1088,7 @@ private fun DetailedForecastSection(
 }
 
 @Composable
-private fun DetailedComparisonContent(
+internal fun DetailedComparisonContent(
     mode: DisplayMode,
     tab: CityDetailContentTab,
     forecast: CityForecast,
@@ -1206,7 +1215,7 @@ private fun DetailedComparisonContent(
                         formatter = { units.speed(it) },
                         valueStyler = ::windStyle,
                         secondaryExtractor = { daily, idx -> daily.windGustsMax.getOrNull(idx) },
-                        secondaryFormatter = { "$gustAbbreviation ${it.roundToInt()}" },
+                        secondaryFormatter = { "$gustAbbreviation ${units.value(it, WeatherUnit.WIND_SPEED)}" },
                         directionExtractor = { daily, idx ->
                             val speed = daily.windSpeedMax.getOrNull(idx)
                             if (speed == null || speed < 5.0) null
@@ -1230,7 +1239,7 @@ private fun DetailedComparisonContent(
                             secondaryValueExtractor = { hourly, idx ->
                                 hourly.windGusts10m.getOrNull(idx)
                             },
-                            secondaryValueFormatter = { "$gustAbbreviation ${it.roundToInt()}" },
+                            secondaryValueFormatter = { "$gustAbbreviation ${units.value(it, WeatherUnit.WIND_SPEED)}" },
                             directionExtractor = { hourly, idx ->
                                 val speed = hourly.windSpeed10m.getOrNull(idx)
                                 if (speed == null || speed < 5.0) null
@@ -2655,12 +2664,12 @@ private fun windStyle(kmh: Double): ValueStyle? = when {
  * proposé dans les Réglages, pour ne pas attendre deux semaines de collecte.
  */
 @Composable
-private fun BiasHistoryHint(
+internal fun BiasHistoryHint(
     progress: BiasHistoryProgress,
+    refreshState: BiasHistoryRefreshState,
     onRequestHistory: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var requested by rememberSaveable { mutableStateOf(false) }
     val target = ModelBias.MIN_SAMPLES_FOR_BIAS
     Row(
         modifier = modifier
@@ -2706,18 +2715,19 @@ private fun BiasHistoryHint(
                 )
             }
             TextButton(
-                onClick = {
-                    requested = true
-                    onRequestHistory()
-                },
-                enabled = !requested,
+                onClick = onRequestHistory,
+                enabled = !refreshState.isActive,
                 contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp),
                 modifier = Modifier.testTag(TAG_BIAS_HISTORY_FETCH)
             ) {
                 Text(
                     text = stringResource(
-                        if (requested) R.string.bias_history_fetch_requested
-                        else R.string.bias_history_fetch_action
+                        when (refreshState) {
+                            BiasHistoryRefreshState.QUEUED -> R.string.bias_history_fetch_queued
+                            BiasHistoryRefreshState.RUNNING -> R.string.bias_history_fetch_requested
+                            BiasHistoryRefreshState.FAILED -> R.string.action_retry
+                            else -> R.string.bias_history_fetch_action
+                        }
                     ),
                     style = MaterialTheme.typography.labelLarge
                 )

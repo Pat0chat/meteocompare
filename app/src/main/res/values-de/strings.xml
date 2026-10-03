@@ -319,6 +319,7 @@ Daten</string>
     <string name="bias_history_best_progress">Am weitesten fortgeschrittenes Modell: %1$d/%2$d verglichene Tage.</string>
     <string name="bias_history_fetch_action">Verlauf jetzt abrufen</string>
     <string name="bias_history_fetch_requested">Abruf läuft im Hintergrund…</string>
+    <string name="bias_history_fetch_queued">Abruf ausstehend…</string>
 
     <string name="bias_chip_calibrating_content_description">Bias-Verfolgung für dieses Modell läuft: Es liegen noch nicht genügend historische Daten zur Beurteilung seiner Genauigkeit vor.</string>
 

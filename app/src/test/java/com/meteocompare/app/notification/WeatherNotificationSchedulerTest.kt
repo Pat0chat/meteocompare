@@ -70,6 +70,56 @@ class WeatherNotificationSchedulerTest {
         assertEquals(Duration.ofHours(8), Duration.between(evening, next))
     }
 
+    @Test
+    fun `heure inexistante - le lendemain retrouve l heure choisie`() {
+        val afterGap = ZonedDateTime.parse("2026-03-29T04:00:00+02:00[Europe/Paris]")
+        assertEquals(
+            ZonedDateTime.parse("2026-03-30T02:30:00+02:00[Europe/Paris]"),
+            WeatherNotificationScheduler.nextDailyOccurrence(afterGap, LocalTime.of(2, 30))
+        )
+    }
+
+    @Test
+    fun `heure inexistante - occurrence du jour decalee puis retour a la normale`() {
+        val beforeGap = ZonedDateTime.parse("2026-03-29T01:00:00+01:00[Europe/Paris]")
+        val next = WeatherNotificationScheduler.nextDailyOccurrence(beforeGap, LocalTime.of(2, 30))
+        assertEquals(ZonedDateTime.parse("2026-03-29T03:30:00+02:00[Europe/Paris]"), next)
+        assertEquals(
+            ZonedDateTime.parse("2026-03-30T02:30:00+02:00[Europe/Paris]"),
+            WeatherNotificationScheduler.nextDailyOccurrence(next, LocalTime.of(2, 30))
+        )
+    }
+
+    @Test
+    fun `heure double - choisit la premiere occurrence sans repeter le resume`() {
+        val beforeOverlap = ZonedDateTime.parse("2026-10-25T01:00:00+02:00[Europe/Paris]")
+        assertEquals(
+            ZonedDateTime.parse("2026-10-25T02:30:00+02:00[Europe/Paris]"),
+            WeatherNotificationScheduler.nextDailyOccurrence(beforeOverlap, LocalTime.of(2, 30))
+        )
+        for (now in listOf(
+            ZonedDateTime.parse("2026-10-25T02:40:00+02:00[Europe/Paris]"),
+            ZonedDateTime.parse("2026-10-25T02:10:00+01:00[Europe/Paris]")
+        )) {
+            assertEquals(
+                ZonedDateTime.parse("2026-10-26T02:30:00+01:00[Europe/Paris]"),
+                WeatherNotificationScheduler.nextDailyOccurrence(now, LocalTime.of(2, 30))
+            )
+        }
+    }
+
+    @Test
+    fun `expedited reserve a Android 12 et suivant pour tous les travaux immediats`() {
+        for (kind in WeatherNotificationWorker.Kind.entries) {
+            for (sdk in listOf(27, 28, 29, 30, 31, 35, 36)) {
+                val spec = WeatherNotificationScheduler.immediateRequest(kind, sdk).workSpec
+                assertEquals("API $sdk, $kind", sdk >= 31, spec.expedited)
+                assertEquals(0L, spec.initialDelay)
+                assertEquals(kind.name, spec.input.getString(WeatherNotificationScheduler.KIND_INPUT_KEY))
+            }
+        }
+    }
+
     // ───────────────────────────── alertes WorkManager ─────────────────────────────
 
     @Test
@@ -162,7 +212,7 @@ class WeatherNotificationSchedulerTest {
     }
 
     @Test
-    fun `resume declenche par alarme utilise un work expedited sans delai`() {
+    fun `resume declenche par alarme utilise un work sans delai`() {
         val request = WeatherNotificationScheduler.immediateRequest(
             WeatherNotificationWorker.Kind.DAILY_SUMMARY
         )
