@@ -10,6 +10,7 @@ import com.meteocompare.app.domain.model.DailyForecast
 import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.HourlyForecast
+import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.repository.CityRepository
 import com.meteocompare.app.domain.repository.ForecastRepository
@@ -76,12 +77,13 @@ class GraphicForecastViewModelTest {
                     models = any(),
                     forecastDays = any(),
                     forceRefresh = any(),
-                    maxCacheAgeMs = null
+                    maxCacheAgeMs = RefreshInterval.DEFAULT.maxCacheAgeMs
                 )
             } returns flowOf(ApiResult.Success(forecast))
         }
         val preferences = mockk<UserPreferencesRepository> {
             every { observeEnabledModels() } returns flowOf(listOf(WeatherModel.GFS))
+            every { observeRefreshInterval() } returns flowOf(RefreshInterval.DEFAULT)
             every { observeForecastEngine() } returns flowOf(ForecastEngine.MULTI_CONSENSUS)
         }
         val contextProvider = ForecastEngineContextProvider(mockk(relaxed = true))
@@ -113,7 +115,7 @@ class GraphicForecastViewModelTest {
                     models = listOf(WeatherModel.GFS),
                     forecastDays = 11,
                     forceRefresh = false,
-                    maxCacheAgeMs = null
+                    maxCacheAgeMs = RefreshInterval.DEFAULT.maxCacheAgeMs
                 )
             }
         } finally {

@@ -30,6 +30,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
@@ -42,6 +43,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,6 +59,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.appwidget.GlanceAppWidgetManager
+import androidx.glance.appwidget.state.getAppWidgetState
 import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.lifecycle.lifecycleScope
@@ -92,8 +95,8 @@ import kotlinx.coroutines.launch
  *     éviter le sentiment "combien est-ce que je viens de mettre exactement ?".
  *
  * Hilt : @AndroidEntryPoint pour l'injection du CityRepository via l'EntryPoint.
- * On ne fait pas de ViewModel : la config est un one-shot, pas de state à
- * survivre à la rotation critique. LaunchedEffect(Unit) charge les favoris.
+ * LaunchedEffect charge les favoris et les préférences du widget avant le
+ * formulaire ; rememberSaveable conserve les choix en cours après rotation.
  */
 @AndroidEntryPoint
 class MeteoWidgetConfigActivity : ComponentActivity() {
@@ -141,6 +144,7 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
         setContent {
             MeteoCompareTheme {
                 WidgetConfigScreen(
+                    widgetId = widgetId,
                     insightMode = isInsightWidgetProvider(providerClassName),
                     onSave = { cityId, opacityPct, forecastMode, bgColorArgb, textColorArgb ->
                         persistAndFinish(
@@ -313,46 +317,77 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
 
 @Composable
 private fun WidgetConfigScreen(
+    widgetId: Int,
     insightMode: Boolean,
     onSave: (cityId: String, opacityPct: Int, forecastMode: ForecastMode,
              bgColorArgb: Int?, textColorArgb: Int?) -> Unit,
     onCancel: () -> Unit
 ) {
-    val context = LocalContext.current
-
-    // Chargement des favoris via le même EntryPoint que le widget. Un ViewModel
-    // serait plus propre mais surdimensionné pour un écran one-shot sans
-    // navigation ni state complexe — LaunchedEffect + mutableStateOf suffisent.
-    var favorites by remember { mutableStateOf<List<City>>(emptyList()) }
-    var selectedCityId by remember { mutableStateOf<String?>(null) }
-    var opacityPct by remember {
-        mutableFloatStateOf(WidgetPreferences.DEFAULT_OPACITY_PCT.toFloat())
+    val context = LocalContext.current.applicationContext
+    var initialData by remember(widgetId) {
+        mutableStateOf<Pair<List<City>, WidgetConfiguration>?>(null)
     }
-    var forecastMode by remember {
-        mutableStateOf(WidgetPreferences.DEFAULT_FORECAST_MODE)
-    }
-    // Couleurs custom : null = Auto (Material colors via thème système).
-    // C'est le défaut, mis en avant en 1re position de la palette.
-    var bgColorArgb by remember { mutableStateOf<Int?>(null) }
-    var textColorArgb by remember { mutableStateOf<Int?>(null) }
+    var loadFailed by remember(widgetId) { mutableStateOf(false) }
+    var loadAttempt by remember(widgetId) { mutableStateOf(0) }
 
-    LaunchedEffect(Unit) {
-        val entry = EntryPointAccessors.fromApplication(
-            context.applicationContext,
-            WidgetEntryPoint::class.java
-        )
-        // `first()` : on ne veut que la liste actuelle. Les favoris peuvent
-        // changer en arrière-plan mais l'utilisateur est dans un écran de
-        // configuration momentané — pas la peine d'observer les modifications
-        // externes.
-        val list = entry.cityRepository().observeFavorites().first()
-        favorites = list
-        // Auto-sélection de la première ville — la majorité des utilisateurs
-        // n'ont qu'une ville favorite, autant leur épargner un tap.
-        if (list.isNotEmpty()) {
-            selectedCityId = list.first().id
+    LaunchedEffect(widgetId, loadAttempt) {
+        loadFailed = false
+        try {
+            val glanceId = GlanceAppWidgetManager(context).getGlanceIdBy(widgetId)
+            val prefs = getAppWidgetState(context, PreferencesGlanceStateDefinition, glanceId)
+            val entry = EntryPointAccessors.fromApplication(context, WidgetEntryPoint::class.java)
+            val favorites = entry.cityRepository().observeFavorites().first()
+            initialData = favorites to WidgetConfiguration.fromPreferences(prefs)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            Log.w("MeteoCompare/WidgetConfig", "Unable to read widget configuration", error)
+            loadFailed = true
         }
     }
+
+    val loaded = initialData
+    if (loaded == null) {
+        Column(
+            modifier = Modifier.fillMaxSize().systemBarsPadding().padding(24.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            if (loadFailed) {
+                Text(stringResource(R.string.widget_config_load_error))
+                Button(onClick = { loadAttempt++ }) { Text(stringResource(R.string.action_retry)) }
+            } else {
+                CircularProgressIndicator()
+                Text(stringResource(R.string.widget_error_loading))
+            }
+            TextButton(onClick = onCancel, modifier = Modifier.testTag(TAG_WIDGET_CANCEL)) {
+                Text(stringResource(R.string.action_cancel))
+            }
+        }
+        return
+    }
+
+    WidgetConfigForm(widgetId, insightMode, loaded.first, loaded.second, onSave, onCancel)
+}
+
+@Composable
+private fun WidgetConfigForm(
+    widgetId: Int,
+    insightMode: Boolean,
+    favorites: List<City>,
+    initial: WidgetConfiguration,
+    onSave: (cityId: String, opacityPct: Int, forecastMode: ForecastMode,
+             bgColorArgb: Int?, textColorArgb: Int?) -> Unit,
+    onCancel: () -> Unit
+) {
+    var selectedCityId by rememberSaveable(widgetId) {
+        mutableStateOf(initial.selectableCityId(favorites))
+    }
+    var opacityPct by rememberSaveable(widgetId) { mutableFloatStateOf(initial.opacityPct.toFloat()) }
+    var forecastMode by rememberSaveable(widgetId) { mutableStateOf(initial.forecastMode) }
+    // null = couleurs automatiques ; 0 reste une couleur transparente explicite.
+    var bgColorArgb by rememberSaveable(widgetId) { mutableStateOf(initial.backgroundColorArgb) }
+    var textColorArgb by rememberSaveable(widgetId) { mutableStateOf(initial.textColorArgb) }
 
     Column(
         modifier = Modifier

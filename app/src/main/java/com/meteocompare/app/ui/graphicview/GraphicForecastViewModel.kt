@@ -38,6 +38,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.update
@@ -99,12 +100,12 @@ class GraphicForecastViewModel @Inject constructor(
         load()
     }
 
-    fun retry() = load(showLoading = true)
+    fun retry() = load(showLoading = true, forceRefresh = true)
 
     /** Relit d'abord le cache au retour au premier plan et ne masque pas le contenu courant. */
     fun refreshIfStale() = load(showLoading = false)
 
-    private fun load(showLoading: Boolean = true) {
+    private fun load(showLoading: Boolean = true, forceRefresh: Boolean = false) {
         loadJob?.cancel()
         vigilanceJob?.cancel()
         if (showLoading || _state.value !is GraphicForecastUiState.Loaded) {
@@ -123,18 +124,26 @@ class GraphicForecastViewModel @Inject constructor(
 
                 launchVigilance(city)
 
-                preferences.observeEnabledModels()
-                    .flatMapLatest { models ->
-                        // Onze jours civils garantissent une fenêtre glissante de
-                        // 240 h depuis l'heure courante pour les modèles qui ont
-                        // cet horizon. maxCacheAgeMs=null conserve l'émission du
-                        // cache, puis déclenche un fetch afin de compléter la fin
-                        // de la timeline même si la page détail vient d'être lue.
+                var forceNextRequest = forceRefresh
+                combine(
+                    preferences.observeEnabledModels(),
+                    preferences.observeRefreshInterval()
+                ) { models, interval -> models to interval.maxCacheAgeMs }
+                    .distinctUntilChanged()
+                    .flatMapLatest { (models, maxCacheAgeMs) ->
+                        // Un réessai force uniquement sa première requête ; les
+                        // changements de préférences suivants respectent le cache.
+                        val refreshNow = forceNextRequest
+                        forceNextRequest = false
+                        // Le repository vérifie aussi l'horizon : un cache de
+                        // dix jours est complété à onze jours pour couvrir 240 h.
+                        // Une reprise réutilise ensuite ce cache tant qu'il est frais.
                         forecastRepository.getCityForecastStream(
                             city = city,
                             models = models,
                             forecastDays = GRAPHIC_REQUEST_DAYS,
-                            maxCacheAgeMs = null
+                            forceRefresh = refreshNow,
+                            maxCacheAgeMs = maxCacheAgeMs
                         )
                     }
                     .combine(preferences.observeForecastEngine()) { result, engine -> result to engine }

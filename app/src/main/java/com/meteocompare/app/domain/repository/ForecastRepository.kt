@@ -28,6 +28,9 @@ interface ForecastRepository {
      *        fetch réseau. Si le cache est plus récent que cet âge, on émet
      *        uniquement `Success(cached)` sans requête réseau — économie
      *        batterie/data. `null` = comportement historique (toujours fetch).
+     *        Tout chargement automatique (initialisation, reprise, worker) doit
+     *        fournir explicitement `RefreshInterval.maxCacheAgeMs` : omettre cet
+     *        argument revient à demander un téléchargement à chaque collecte.
      *        Ignoré si `forceRefresh=true`.
      */
     fun getCityForecastStream(

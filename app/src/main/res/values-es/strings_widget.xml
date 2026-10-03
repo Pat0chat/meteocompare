@@ -56,4 +56,5 @@
     <string name="widget_value_agreement_short">%1$d%%</string>
     <string name="widget_value_no_comparison">Comparación no disponible</string>
     <string name="widget_value_open_app">Abrir MeteoCompare</string>
+    <string name="widget_config_load_error">No se han podido cargar los ajustes de este widget. Inténtalo de nuevo.</string>
 </resources>
