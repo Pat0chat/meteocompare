@@ -153,22 +153,43 @@ class ForecastRepositoryImpl @Inject constructor(
     }
 
     /**
-     * Version coalescée de [fetchAndCache]. Voir le KDoc du registre pour le
-     * pourquoi. Sémantique identique côté retour : renvoie l'`ApiResult` que
-     * `fetchAndCache` aurait renvoyé pour cette clé.
+     * Partage un téléchargement en cours pour une même clé. Avec une limite
+     * d'âge, partage également la revalidation du cache : un collecteur lent
+     * peut réutiliser le résultat déjà téléchargé par un autre écran.
+     * Sans limite d'âge, conserve la sémantique du refresh explicite.
      */
     private suspend fun coalescedFetchAndCache(
         city: City,
         models: List<WeatherModel>,
-        forecastDays: Int
+        forecastDays: Int,
+        maxCacheAgeMs: Long? = null
     ): ApiResult<CityForecast> {
-        val key = cacheKey(city, models, forecastDays)
+        val forecastKey = cacheKey(city, models, forecastDays)
+        // Le contrôle automatique partage son propre Deferred, puis rejoint
+        // le fetch réseau commun si nécessaire. Un refresh explicite ne peut
+        // ainsi jamais rejoindre un simple contrôle de fraîcheur du cache.
+        val key = if (maxCacheAgeMs == null) forecastKey else "$forecastKey|automatic:$maxCacheAgeMs"
         val deferred = inflightMutex.withLock {
             inflightFetches[key]?.takeIf { !it.isCompleted } ?: run {
                 // Démarrage lazy : le Deferred est enregistré avant que le
                 // travail puisse finir, même avec un dispatcher immédiat.
                 val created = repoScope.async(start = CoroutineStart.LAZY) {
-                    fetchAndCache(city, models, forecastDays)
+                    if (maxCacheAgeMs == null) {
+                        fetchAndCache(city, models, forecastDays)
+                    } else {
+                        // emit(cache) peut suspendre un collecteur pendant qu'un
+                        // autre charge déjà les données. Revalider dans le travail
+                        // partagé évite un second fetch après sa complétion.
+                        val latest = readCacheSafely(city, models)
+                        if (latest != null && latest.isComplete &&
+                            latest.coversForecastHorizon(effectiveForecastDays(models, forecastDays)) &&
+                            (clock.millis() - latest.oldestFetchedAtMs).coerceAtLeast(0L) <= maxCacheAgeMs
+                        ) {
+                            ApiResult.Success(latest.forecast)
+                        } else {
+                            coalescedFetchAndCache(city, models, forecastDays)
+                        }
+                    }
                 }
                 inflightFetches[key] = created
                 created.invokeOnCompletion {
@@ -253,7 +274,10 @@ class ForecastRepositoryImpl @Inject constructor(
         // ── Étape 3 : fetch réseau + écriture cache ──
         // Passe par [coalescedFetchAndCache] pour dédupliquer les fetches
         // concurrents sur la même clé (voir le KDoc du registre).
-        val networkResult = coalescedFetchAndCache(city, models, forecastDays)
+        val networkResult = coalescedFetchAndCache(
+            city, models, forecastDays,
+            maxCacheAgeMs = if (forceRefresh) null else maxCacheAgeMs
+        )
 
         when (networkResult) {
             is ApiResult.Success -> emit(networkResult)

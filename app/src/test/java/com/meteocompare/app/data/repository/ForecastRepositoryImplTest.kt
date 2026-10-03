@@ -112,6 +112,148 @@ class ForecastRepositoryImplTest {
         )
     }
 
+    /** Cache réel en mémoire : les lecteurs suivants voient les écritures du fetch. */
+    private fun installMutableCache(days: Int) {
+        fun dto(count: Int) = sampleDto.copy(daily = DailyDto(
+            time = List(count) { java.time.LocalDate.of(2026, 6, 23).plusDays(it.toLong()).toString() },
+            temperature2mMax = List(count) { 22.0 },
+            temperature2mMin = List(count) { 12.0 }
+        ))
+        var rows = listOf(ForecastCacheEntity(
+            cityId = paris.id, modelKey = WeatherModel.GFS.apiKey,
+            fetchedAtEpochMs = System.currentTimeMillis(),
+            responseJson = json.encodeToString(ForecastResponseDto.serializer(), dto(days))
+        ))
+        coEvery { cacheDao.getForCity(paris.id) } coAnswers { rows }
+        coEvery { cacheDao.replaceRequestedModels(any(), any(), any(), any()) } coAnswers {
+            rows = thirdArg<List<ForecastCacheEntity>>()
+        }
+        coEvery {
+            api.getForecastBatched(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        } returns json.decodeFromString(
+            BatchedForecastResponseDto.serializer(),
+            json.encodeToString(ForecastResponseDto.serializer(), dto(10))
+        )
+    }
+
+    @Test
+    fun `automatic load rechecks cache after a slow cached emission`() = runTest {
+        installMutableCache(7)
+        val held = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        val slowResults = mutableListOf<ApiResult<com.meteocompare.app.domain.model.CityForecast>>()
+        val slow = launch {
+            repository.getCityForecastStream(paris, listOf(WeatherModel.GFS), 10, false, 3_600_000L)
+                .collect { result ->
+                    slowResults += result
+                    if (slowResults.size == 1) {
+                        held.complete(Unit)
+                        release.await()
+                    }
+                }
+        }
+        held.await()
+        repository.getCityForecastStream(paris, listOf(WeatherModel.GFS), 10, false, 3_600_000L).toList()
+        release.complete(Unit)
+        slow.join()
+
+        coVerify(exactly = 1) {
+            api.getForecastBatched(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        }
+        val final = (slowResults.last() as ApiResult.Success).data
+        assertEquals(10, final.seriesByModel.getValue(WeatherModel.GFS).daily.dates.size)
+    }
+
+    @Test
+    fun `fresh automatic cache does not suppress later explicit refreshes`() = runTest {
+        installMutableCache(10)
+        repository.getCityForecastStream(paris, listOf(WeatherModel.GFS), 10, false, 3_600_000L).toList()
+        coVerify(exactly = 0) {
+            api.getForecastBatched(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        }
+        repository.refreshCityForecast(paris, listOf(WeatherModel.GFS), 10)
+        repository.getCityForecastStream(paris, listOf(WeatherModel.GFS), 10, true, 3_600_000L).toList()
+        repository.getCityForecastStream(paris, listOf(WeatherModel.GFS), 10, false, null).toList()
+        coVerify(exactly = 3) {
+            api.getForecastBatched(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        }
+    }
+
+    @Test
+    fun `explicit refresh joins the network request of an automatic load`() = runTest {
+        val fakeApi = GatedForecastApi(batchedResponseWith(listOf(WeatherModel.GFS)))
+        val repo = repositoryWith(fakeApi)
+        val automatic = async(start = CoroutineStart.UNDISPATCHED) {
+            repo.getCityForecastStream(paris, listOf(WeatherModel.GFS), 10, false, 3_600_000L).toList()
+        }
+        val explicit = async(start = CoroutineStart.UNDISPATCHED) {
+            repo.refreshCityForecast(paris, listOf(WeatherModel.GFS), 10)
+        }
+        fakeApi.release()
+        assertEquals(automatic.await().single(), explicit.await())
+        assertEquals(1, fakeApi.callCount.get())
+    }
+
+    @Test
+    fun `concurrent automatic loads share partial responses without retrying`() = runTest {
+        val fakeApi = GatedForecastApi(batchedResponseWith(listOf(WeatherModel.GFS)))
+        val repo = repositoryWith(fakeApi)
+        val models = listOf(WeatherModel.GFS, WeatherModel.ICON_EU)
+        val first = async(start = CoroutineStart.UNDISPATCHED) {
+            repo.getCityForecastStream(paris, models, 10, false, 3_600_000L).toList()
+        }
+        val second = async(start = CoroutineStart.UNDISPATCHED) {
+            repo.getCityForecastStream(paris, models, 10, false, 3_600_000L).toList()
+        }
+        fakeApi.release()
+        assertEquals(first.await(), second.await())
+        assertEquals(1, fakeApi.callCount.get())
+    }
+
+    @Test
+    fun `cancelled automatic collector leaves shared fetch available to other consumers`() = runTest {
+        val fakeApi = GatedForecastApi(batchedResponseWith(listOf(WeatherModel.GFS)))
+        val repo = repositoryWith(fakeApi)
+        val first = async(start = CoroutineStart.UNDISPATCHED) {
+            repo.getCityForecastStream(paris, listOf(WeatherModel.GFS), 10, false, 3_600_000L).toList()
+        }
+        val second = async(start = CoroutineStart.UNDISPATCHED) {
+            repo.getCityForecastStream(paris, listOf(WeatherModel.GFS), 10, false, 3_600_000L).toList()
+        }
+        first.cancel()
+        fakeApi.release()
+        assertTrue(second.await().single() is ApiResult.Success)
+        assertEquals(1, fakeApi.callCount.get())
+        // Le registre est nettoyé : un appel explicite ultérieur repart bien sur le réseau.
+        repo.refreshCityForecast(paris, listOf(WeatherModel.GFS), 10)
+        assertEquals(2, fakeApi.callCount.get())
+    }
+
+    @Test
+    fun `concurrent automatic failures are shared and a later load can retry`() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        coEvery {
+            api.getForecastBatched(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        } coAnswers { gate.await(); throw IOException("offline") }
+        coEvery { cacheDao.getForCity(any()) } returns emptyList()
+        val first = async(start = CoroutineStart.UNDISPATCHED) {
+            repository.getCityForecastStream(paris, listOf(WeatherModel.GFS), 10, false, 3_600_000L).toList()
+        }
+        val second = async(start = CoroutineStart.UNDISPATCHED) {
+            repository.getCityForecastStream(paris, listOf(WeatherModel.GFS), 10, false, 3_600_000L).toList()
+        }
+        gate.complete(Unit)
+        assertTrue(first.await().single() is ApiResult.Error)
+        assertTrue(second.await().single() is ApiResult.Error)
+        coVerify(exactly = 1) {
+            api.getForecastBatched(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        }
+        repository.getCityForecastStream(paris, listOf(WeatherModel.GFS), 10, false, 3_600_000L).toList()
+        coVerify(exactly = 2) {
+            api.getForecastBatched(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        }
+    }
+
     // ─────────────────────── Tests refresh de base ───────────────────────
 
     @Test

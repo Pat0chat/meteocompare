@@ -180,7 +180,9 @@ private fun buildHourlyTimeline(
         .toInstant()
     val safeHorizonHours = horizonHours.coerceIn(1, MAX_GRAPHIC_TIMELINE_HOURS)
     val endExclusive = startHour.plusSeconds(safeHorizonHours * 3_600L)
-    val indexed = forecast.seriesByModel.map { (model, series) -> indexHourlySnapshots(model, series) }
+    val indexed = forecast.seriesByModel.map { (model, series) ->
+        indexHourlySnapshots(model, series, startHour, endExclusive)
+    }
     val timestamps = indexed
         .flatMap { it.keys }
         .distinct()
@@ -260,9 +262,13 @@ private data class TimelineSnapshot(
 
 private fun indexHourlySnapshots(
     model: WeatherModel,
-    series: ForecastSeries
+    series: ForecastSeries,
+    startHour: Instant,
+    endExclusive: Instant
 ): Map<Instant, TimelineSnapshot> = buildMap {
     series.hourly.timestamps.forEachIndexed { index, timestamp ->
+        // La vue 24 h n'a pas besoin d'allouer les snapshots des 10 jours.
+        if (timestamp < startHour || timestamp >= endExclusive) return@forEachIndexed
         val temperature = series.hourly.temperature2m.getOrNull(index)
         val precipitation = series.hourly.precipitation.getOrNull(index)
         val probability = series.hourly.precipitationProbability.getOrNull(index)
@@ -676,6 +682,17 @@ internal fun buildOverviewTimeline(
             timezone = forecast.city.timezone
         )
     }
+}
+
+/** Réutilise les points déjà calculés pour les deux plages du détail. */
+internal fun overviewFromTimelines(
+    hourly: List<SimplifiedTimelinePoint>,
+    daily: List<SimplifiedTimelinePoint>,
+    timezone: String?
+): OverviewTimeline = if (hourly.size >= 2) {
+    OverviewTimeline(DisplayMode.HOURLY, hourly, timezone)
+} else {
+    OverviewTimeline(DisplayMode.DAILY, daily, timezone)
 }
 
 private const val MAX_TIMELINE_POINTS = ForecastDisplayHorizon.HOURLY_HOURS

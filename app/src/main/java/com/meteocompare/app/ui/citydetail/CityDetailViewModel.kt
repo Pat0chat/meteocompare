@@ -317,8 +317,15 @@ class CityDetailViewModel @Inject constructor(
      */
     private fun observeForecastEngineChanges() {
         viewModelScope.launch {
-            combine(userPreferences.observeForecastEngine(), biasState) { engine, _ -> engine }
-                .collect { engine ->
+            combine(userPreferences.observeForecastEngine(), biasState) { engine, bias ->
+                // Seuls Calibration et Adaptatif dépendent de cet historique.
+                // Les autres moteurs gardent leurs prévisions lors des émissions Room.
+                engine to bias.takeIf {
+                    engine == ForecastEngine.CALIBRATION || engine == ForecastEngine.ADAPTIVE
+                }
+            }
+                .distinctUntilChanged()
+                .collect { (engine, _) ->
                     runSuspendCatching { recalculateLoadedForecast(engine) }
                         .onFailure { error ->
                             android.util.Log.w(

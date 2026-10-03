@@ -673,7 +673,7 @@ object ForecastEngineV3 {
     ): Triple<List<ForecastConsensus.WeightedEntry>, List<ForecastConsensus.WeightedEntry>, Double>? {
         val sorted = rows
             .filter { it.value.isFinite() && it.weight.isFinite() && it.weight > 0 }
-            .sortedBy { it.value }
+            .sortedWith { left, right -> left.value.compareTo(right.value) }
         if (sorted.size < 4) return null
         val total = sorted.sumOf { it.weight }
         val center = ForecastConsensus.weightedMedian(sorted) ?: return null
@@ -723,7 +723,7 @@ object ForecastEngineV3 {
     private fun weightedQuantile(entries: List<ForecastConsensus.WeightedEntry>, quantile: Double): Double? {
         val rows = entries
             .filter { it.value.isFinite() && it.weight.isFinite() && it.weight > 0 }
-            .sortedBy { it.value }
+            .sortedWith { left, right -> left.value.compareTo(right.value) }
         if (rows.isEmpty()) return null
         val target = clamp(quantile, 0.0, 1.0) * rows.sumOf { it.weight }
         var cumulative = 0.0

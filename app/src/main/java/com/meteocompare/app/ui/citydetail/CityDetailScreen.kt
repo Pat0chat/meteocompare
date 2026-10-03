@@ -558,13 +558,6 @@ private fun LoadedView(
     // « maintenant » : résumé, chronologie et tableaux restent cohérents.
     val presentationNow = calculatedAt
     val engineCacheSignature = engineContext.cacheSignature
-    val overviewTimeline = remember(forecast, presentationNow, engineCacheSignature) {
-        buildOverviewTimeline(forecast, presentationNow, engineContext)
-    }
-    val forecastEvents = remember(overviewTimeline) { detectForecastEvents(overviewTimeline) }
-    val insights = remember(forecastEvents) { buildForecastInsights(forecastEvents) }
-    val evolutionHighlight = (evolutionState as? ForecastEvolutionState.Loaded)?.highlight
-    val hasInsightSection = insights.isNotEmpty() || evolutionHighlight != null
     val hourlyTimelinePoints = remember(forecast, presentationNow, engineCacheSignature) {
         buildSimplifiedTimeline(
             forecast = forecast,
@@ -583,6 +576,13 @@ private fun LoadedView(
             dailyHorizonDays = ForecastDisplayHorizon.DAYS
         )
     }
+    val overviewTimeline = remember(hourlyTimelinePoints, dailyTimelinePoints, forecast.city.timezone) {
+        overviewFromTimelines(hourlyTimelinePoints, dailyTimelinePoints, forecast.city.timezone)
+    }
+    val forecastEvents = remember(overviewTimeline) { detectForecastEvents(overviewTimeline) }
+    val insights = remember(forecastEvents) { buildForecastInsights(forecastEvents) }
+    val evolutionHighlight = (evolutionState as? ForecastEvolutionState.Loaded)?.highlight
+    val hasInsightSection = insights.isNotEmpty() || evolutionHighlight != null
     val timelineAvailableRanges = remember(hourlyTimelinePoints, dailyTimelinePoints) {
         buildSet {
             if (hourlyTimelinePoints.isNotEmpty()) add(TimelineRange.HOURLY)
