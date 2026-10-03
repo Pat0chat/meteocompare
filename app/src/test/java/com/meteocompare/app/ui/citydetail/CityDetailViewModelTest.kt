@@ -946,7 +946,7 @@ class CityDetailViewModelTest {
                 forecastRepo.getCityForecastStream(
                     eq(paris),
                     any(),
-                    eq(10),
+                    eq(11),
                     eq(false),
                     eq(RefreshInterval.DEFAULT.millis)
                 )
@@ -974,7 +974,7 @@ class CityDetailViewModelTest {
             forecastRepo.getCityForecastStream(
                 eq(paris),
                 any(),
-                eq(10),
+                eq(11),
                 eq(false),
                 eq(Long.MAX_VALUE)
             )

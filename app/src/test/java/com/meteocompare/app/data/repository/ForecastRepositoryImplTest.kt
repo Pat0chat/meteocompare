@@ -71,7 +71,7 @@ class ForecastRepositoryImplTest {
     )
 
     /**
-     * DTO minimal utilisé pour peupler le cache Room dans les tests qui
+     * DTO couvrant l’horizon réseau de onze jours pour peupler le cache des tests qui
      * simulent un cache présent. Il n'a pas besoin d'être suffixé — le
      * cache stocke des DTOs unitaires (un par modèle), le splitter
      * n'intervient qu'en amont sur la réponse réseau.
@@ -83,6 +83,11 @@ class ForecastRepositoryImplTest {
         hourly = HourlyDto(
             time = listOf("2026-06-23T00:00"),
             temperature2m = listOf(20.0)
+        ),
+        daily = DailyDto(
+            time = List(11) { java.time.LocalDate.of(2026, 6, 23).plusDays(it.toLong()).toString() },
+            temperature2mMax = List(11) { 24.0 },
+            temperature2mMin = List(11) { 14.0 }
         )
     )
 
@@ -738,7 +743,8 @@ class ForecastRepositoryImplTest {
     @Test
     fun `cache recent physiquement vide est ignore et ne bloque pas le reseau`() = runTest {
         val invalidDto = sampleDto.copy(
-            hourly = sampleDto.hourly?.copy(temperature2m = listOf(999.0))
+            hourly = sampleDto.hourly?.copy(temperature2m = listOf(999.0)),
+            daily = null
         )
         coEvery { cacheDao.getForCity(paris.id) } returns listOf(
             ForecastCacheEntity(

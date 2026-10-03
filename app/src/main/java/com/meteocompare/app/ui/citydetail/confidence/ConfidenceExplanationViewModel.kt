@@ -202,7 +202,6 @@ class ConfidenceExplanationViewModel @Inject constructor(
                         forecastRepository.getCityForecastStream(
                             city = city,
                             models = models,
-                            forecastDays = 7,
                             maxCacheAgeMs = maxCacheAgeMs
                         ).map { result -> models.toSet() to result }
                     }

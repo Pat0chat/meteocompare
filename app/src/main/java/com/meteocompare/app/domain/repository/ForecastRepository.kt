@@ -3,6 +3,7 @@ package com.meteocompare.app.domain.repository
 import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityForecast
+import com.meteocompare.app.domain.model.ForecastDisplayHorizon
 import com.meteocompare.app.domain.model.WeatherModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
@@ -22,6 +23,9 @@ interface ForecastRepository {
      *      on s'arrête là — pas besoin d'envoyer une erreur à l'UI puisque l'user
      *      voit déjà des données.
      *
+     * @param forecastDays Horizon réseau, commun par défaut à la liste, au détail,
+     *        au graphique, aux widgets et aux notifications. Indépendant de la
+     *        durée affichée, et borné par la disponibilité des modèles choisis.
      * @param forceRefresh Si true, ignore le cache pour la première émission
      *        (cas: pull-to-refresh).
      * @param maxCacheAgeMs Âge maximal du cache au-delà duquel on lance un
@@ -36,18 +40,19 @@ interface ForecastRepository {
     fun getCityForecastStream(
         city: City,
         models: List<WeatherModel> = WeatherModel.MVP_SELECTION,
-        forecastDays: Int = 7,
+        forecastDays: Int = ForecastDisplayHorizon.REQUEST_DAYS,
         forceRefresh: Boolean = false,
         maxCacheAgeMs: Long? = null
     ): Flow<ApiResult<CityForecast>>
 
     /**
      * Fetch one-shot depuis le réseau (toujours), puis cache. Pour le bouton refresh.
+     * Conserve par défaut le même horizon réseau que les chargements automatiques.
      */
     suspend fun refreshCityForecast(
         city: City,
         models: List<WeatherModel> = WeatherModel.MVP_SELECTION,
-        forecastDays: Int = 7
+        forecastDays: Int = ForecastDisplayHorizon.REQUEST_DAYS
     ): ApiResult<CityForecast>
 
     /**

@@ -215,7 +215,7 @@ class EngineComparisonViewModelTest {
                     forecastRepository.getCityForecastStream(
                         city = city,
                         models = any(),
-                        forecastDays = 10,
+                        forecastDays = 11,
                         forceRefresh = false,
                         maxCacheAgeMs = RefreshInterval.DEFAULT.millis
                     )

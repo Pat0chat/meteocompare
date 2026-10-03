@@ -146,7 +146,7 @@ class ConfidenceExplanationViewModelTest {
             forecastRepository.getCityForecastStream(
                 eq(paris),
                 any(),
-                eq(7),
+                eq(11),
                 eq(false),
                 eq(RefreshInterval.HOURS_3.millis)
             )
@@ -314,7 +314,7 @@ class ConfidenceExplanationViewModelTest {
         )
         verify(exactly = 2) {
             forecastRepository.getCityForecastStream(
-                eq(paris), any(), eq(7), eq(false), eq(RefreshInterval.DEFAULT.millis)
+                eq(paris), any(), eq(11), eq(false), eq(RefreshInterval.DEFAULT.millis)
             )
         }
     }

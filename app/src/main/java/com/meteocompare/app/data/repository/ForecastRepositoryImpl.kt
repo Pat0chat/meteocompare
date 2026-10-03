@@ -724,10 +724,16 @@ class ForecastRepositoryImpl @Inject constructor(
          * des valeurs journalières exploitables jusqu'à cette profondeur.
          */
         fun coversForecastHorizon(requestedDays: Int): Boolean {
-            if (requestedDays <= LEGACY_FORECAST_HORIZON_DAYS) return true
+            // Un modèle absent avec un marqueur d’indisponibilité ne peut pas
+            // fournir son horizon théorique. Le contrôle isComplete et l’âge
+            // du lot vérifient séparément la présence et la validité du marqueur.
+            val availableDays = forecast.seriesByModel.keys
+                .maxOfOrNull(WeatherModel::maxForecastDays) ?: return false
+            val requiredDays = minOf(requestedDays, availableDays)
+            if (requiredDays <= LEGACY_FORECAST_HORIZON_DAYS) return true
 
             return forecast.seriesByModel.values.any { series ->
-                if (series.model.maxForecastDays < requestedDays) return@any false
+                if (series.model.maxForecastDays < requiredDays) return@any false
 
                 val daily = series.daily
                 val usableDays = daily.dates.indices.count { index ->
@@ -737,7 +743,7 @@ class ForecastRepositoryImpl @Inject constructor(
                         daily.windSpeedMax.getOrNull(index) != null ||
                         daily.weatherCode.getOrNull(index) != null
                 }
-                usableDays >= requestedDays
+                usableDays >= requiredDays
             }
         }
     }

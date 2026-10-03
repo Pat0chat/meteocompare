@@ -131,7 +131,7 @@ class EngineComparisonViewModel @Inject constructor(
                         forecastRepository.getCityForecastStream(
                             city = city,
                             models = models,
-                            forecastDays = ForecastDisplayHorizon.DAYS,
+                            forecastDays = ForecastDisplayHorizon.REQUEST_DAYS,
                             maxCacheAgeMs = maxAge
                         )
                     }
