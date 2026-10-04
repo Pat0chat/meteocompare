@@ -173,10 +173,12 @@ class WeatherNotificationPipelineTest {
             previousWorkIds
         )
 
-        val delivered = activeWeatherNotifications()
-        assertEquals(1, delivered.size)
+        assertTrue(
+            "la publication doit être inscrite dans le ledger avant vérification système",
+            dedup.alreadyNotified(expected.dedupKey)
+        )
+        val delivered = awaitWeatherNotificationCount(1)
         assertEquals(WeatherNotifier.CHANNEL_DIVERGENCE, delivered.single().notification.channelId)
-        assertTrue(dedup.alreadyNotified(expected.dedupKey))
     }
 
     @Test
@@ -200,9 +202,15 @@ class WeatherNotificationPipelineTest {
             previousWorkIds
         )
 
-        val delivered = activeWeatherNotifications()
-        assertEquals(1, delivered.size)
-        assertTrue(dedup.alreadyNotified(expectedKey))
+        // WorkManager peut terminer juste après NotificationManager.notify(),
+        // alors que activeNotifications n'a pas encore observé le Binder update.
+        // Le ledger est écrit uniquement après POSTED : s'il manque ici, c'est
+        // bien un problème du pipeline métier et non une latence du système.
+        assertTrue(
+            "le résumé doit être marqué comme publié par le pipeline métier",
+            dedup.alreadyNotified(expectedKey)
+        )
+        val delivered = awaitWeatherNotificationCount(1)
     }
 
     @Test
@@ -212,8 +220,11 @@ class WeatherNotificationPipelineTest {
 
         runWorkerThroughWorkManager(WeatherNotificationWorker.Kind.DAILY_SUMMARY)
 
-        val delivered = activeWeatherNotifications()
-        assertEquals(1, delivered.size)
+        assertTrue(
+            "la livraison doit être inscrite dans le ledger",
+            dedup.alreadyNotified(expectedKey)
+        )
+        val delivered = awaitWeatherNotificationCount(1)
         assertEquals(
             WeatherNotifier.notificationId(expectedDailySummary()),
             delivered.single().id
@@ -222,12 +233,11 @@ class WeatherNotificationPipelineTest {
         assertEquals(WeatherNotifier.CHANNEL_DAILY_SUMMARY, posted.channelId)
         assertEquals(Notification.CATEGORY_STATUS, posted.category)
         assertNotEquals("la notification doit porter un accent MeteoCompare", 0, posted.color)
-        assertTrue("la livraison doit être inscrite dans le ledger", dedup.alreadyNotified(expectedKey))
-
         // Même événement : le ledger empêche une seconde publication.
         platformManager.cancel(delivered.single().id)
+        awaitWeatherNotificationCount(0)
         runWorkerThroughWorkManager(WeatherNotificationWorker.Kind.DAILY_SUMMARY)
-        assertEquals(0, activeWeatherNotifications().size)
+        assertEquals(0, awaitWeatherNotificationCount(0).size)
         assertTrue(dedup.alreadyNotified(expectedKey))
     }
 
@@ -339,6 +349,27 @@ class WeatherNotificationPipelineTest {
         )
     }
 
+    /**
+     * NotificationManager.notify() traverse Binder. WorkManager peut donc être
+     * SUCCEEDED quelques millisecondes avant que activeNotifications reflète
+     * la publication/annulation. On attend l'état système sans masquer le
+     * contrat métier, vérifié séparément via NotificationDedupStore.
+     */
+    private fun awaitWeatherNotificationCount(expected: Int): List<android.service.notification.StatusBarNotification> {
+        val deadline = SystemClock.elapsedRealtime() + NOTIFICATION_VISIBILITY_TIMEOUT_MS
+        var current = activeWeatherNotifications()
+        while (current.size != expected && SystemClock.elapsedRealtime() < deadline) {
+            SystemClock.sleep(NOTIFICATION_POLL_MS)
+            current = activeWeatherNotifications()
+        }
+        assertEquals(
+            "NotificationManager n'a pas atteint le nombre attendu dans le délai",
+            expected,
+            current.size
+        )
+        return current
+    }
+
     private fun grantPostNotificationsPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             InstrumentationRegistry.getInstrumentation().uiAutomation.grantRuntimePermission(
@@ -367,5 +398,7 @@ class WeatherNotificationPipelineTest {
     private companion object {
         const val WORK_TIMEOUT_MS = 20_000L
         const val POLL_MS = 100L
+        const val NOTIFICATION_VISIBILITY_TIMEOUT_MS = 3_000L
+        const val NOTIFICATION_POLL_MS = 50L
     }
 }
