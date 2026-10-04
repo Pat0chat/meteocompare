@@ -11,6 +11,7 @@ import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequest
+import androidx.work.Operation
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
 import androidx.work.PeriodicWorkRequestBuilder
@@ -112,12 +113,12 @@ object WeatherNotificationScheduler {
      * Point d'entrée du BroadcastReceiver AlarmManager. L'alarme one-shot est
      * considérée consommée puis le worker réel est lancé immédiatement.
      */
-    internal fun onDailySummaryAlarm(context: Context) {
+    internal fun onDailySummaryAlarm(context: Context): Operation {
         DailyAlarmStateStore(context).clear()
         if (BuildConfig.DEBUG) {
             Log.d(LOG_TAG, "Daily summary alarm fired at ${ZonedDateTime.now()}")
         }
-        enqueueImmediateWorker(
+        return enqueueImmediateWorker(
             workManager = WorkManager.getInstance(context.applicationContext),
             name = DAILY_SUMMARY_WORK_NAME,
             kind = WeatherNotificationWorker.Kind.DAILY_SUMMARY,
@@ -260,9 +261,9 @@ object WeatherNotificationScheduler {
         name: String,
         kind: WeatherNotificationWorker.Kind,
         policy: ExistingWorkPolicy
-    ) {
+    ): Operation {
         val request = immediateRequest(kind)
-        workManager.enqueueUniqueWork(name, policy, request)
+        return workManager.enqueueUniqueWork(name, policy, request)
     }
 
     internal fun immediateRequest(
