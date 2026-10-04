@@ -10,6 +10,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 
 /**
  * Réveille le pipeline du résumé quotidien à l'heure choisie par l'utilisateur.
@@ -36,21 +37,49 @@ class WeatherNotificationAlarmReceiver : BroadcastReceiver() {
         // valides sans changer le comportement en production.
         val pendingResult: BroadcastReceiver.PendingResult? = goAsync()
 
-        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
-            try {
-                WeatherNotificationScheduler.onDailySummaryAlarm(appContext).await()
-                if (BuildConfig.DEBUG) {
-                    Log.d(LOG_TAG, "Daily summary work enqueue committed")
-                }
-            } catch (error: Throwable) {
-                Log.e(LOG_TAG, "Unable to enqueue daily summary work", error)
-            } finally {
-                pendingResult?.finish()
-            }
-        }
+        launchDailySummaryEnqueue(
+            context = appContext,
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+            finish = { pendingResult?.finish() }
+        )
     }
 
     private companion object {
         const val LOG_TAG = "MeteoCompare/Notif"
     }
 }
+
+/**
+ * Partie asynchrone du receiver isolée pour tester la garantie apportée par
+ * goAsync : le broadcast ne doit être libéré qu'après confirmation de
+ * l'enregistrement WorkManager, y compris lorsque cet enregistrement échoue.
+ *
+ * Le lambda suspendu injectable évite de mocker WorkManager/Operation dans le
+ * test JVM et permet de contrôler précisément l'instant où l'enqueue est
+ * considéré comme terminé.
+ */
+internal fun launchDailySummaryEnqueue(
+    context: Context,
+    scope: CoroutineScope,
+    finish: () -> Unit,
+    enqueueAndAwait: suspend (Context) -> Unit = { appContext ->
+        WeatherNotificationScheduler.onDailySummaryAlarm(appContext).await()
+    }
+) {
+    scope.launch {
+        try {
+            withTimeout(DAILY_ENQUEUE_TIMEOUT_MS) {
+                enqueueAndAwait(context)
+            }
+            if (BuildConfig.DEBUG) {
+                Log.d("MeteoCompare/Notif", "Daily summary work enqueue committed")
+            }
+        } catch (error: Throwable) {
+            Log.e("MeteoCompare/Notif", "Unable to enqueue daily summary work", error)
+        } finally {
+            finish()
+        }
+    }
+}
+
+internal const val DAILY_ENQUEUE_TIMEOUT_MS: Long = 8_000L
