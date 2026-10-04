@@ -38,7 +38,7 @@
     <string name="refresh_interval_6_hours">6 h</string>
     <string name="refresh_interval_manual">Manual</string>
     <string name="settings_models_title">Modelos meteorológicos</string>
-    <string name="settings_models_desc">Elige los modelos a comparar. Más modelos enriquecen la comparación, pero cargan más datos.</string>
+    <string name="settings_models_desc">Elige los modelos a comparar. Más modelos enriquecen la comparación, pero cargan más datos. Los cambios se aplican juntos al salir de Ajustes.</string>
     <string name="settings_models_min_warning">Debe quedar al menos un modelo activado.</string>
     <string name="settings_about_title">Acerca de</string>
     <string name="settings_about_version">Versión %s</string>

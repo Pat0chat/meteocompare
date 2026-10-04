@@ -26,8 +26,10 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.LocalTime
 import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -47,8 +49,28 @@ class SettingsViewModel @Inject constructor(
     private val _feedback = Channel<AppToastEvent>(capacity = Channel.BUFFERED)
     val feedback = _feedback.receiveAsFlow()
 
-    val enabledModels: StateFlow<Set<WeatherModel>> = prefs.observeEnabledModels()
+    /**
+     * Sélection persistée, distincte du brouillon de l'écran Settings.
+     *
+     * Les ViewModels météo observent directement [UserPreferencesRepository.observeEnabledModels].
+     * Écrire dans DataStore à chaque case cochée/décochée leur ferait donc annuler/recréer leurs
+     * streams réseau pour chaque tap. On garde ici un brouillon local et on ne publie la sélection
+     * finale qu'une seule fois quand l'utilisateur quitte les réglages.
+     */
+    private val persistedEnabledModels: StateFlow<Set<WeatherModel>> = prefs.observeEnabledModels()
         .map { it.toSet() }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = WeatherModel.MVP_SELECTION.toSet()
+        )
+
+    private val pendingEnabledModels = MutableStateFlow<Set<WeatherModel>?>(null)
+
+    val enabledModels: StateFlow<Set<WeatherModel>> = combine(
+        persistedEnabledModels,
+        pendingEnabledModels
+    ) { persisted, pending -> pending ?: persisted }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
@@ -103,30 +125,66 @@ class SettingsViewModel @Inject constructor(
 
     fun onModelToggled(model: WeatherModel, enabled: Boolean) {
         viewModelScope.launch {
-            // Les taps peuvent arriver plus vite que la réémission DataStore.
-            // On sérialise donc les mutations et on relit la source de vérité
-            // dans la section critique, sinon deux toggles rapprochés peuvent
-            // se réécrire mutuellement à partir d'un StateFlow encore ancien.
-            val feedback = runSuspendCatching {
-                modelUpdateMutex.withLock {
-                    val current = prefs.observeEnabledModels().first().toSet()
-                    val next = if (enabled) current + model else current - model
-                    if (next.isNotEmpty()) {
-                        prefs.setEnabledModels(next.toList())
-                        triggerWidgetRefreshSafely()
-                        AppToastEvent.success(
-                            if (enabled) R.string.toast_model_enabled
-                            else R.string.toast_model_disabled,
-                            model.displayName
-                        )
-                    } else {
-                        AppToastEvent.warning(R.string.settings_models_min_warning)
-                    }
+            val warning = modelUpdateMutex.withLock {
+                // Au tout premier tap, relire la source de vérité plutôt que de
+                // supposer que le StateFlow eager a déjà reçu sa première valeur.
+                // Les taps suivants partent du brouillon local. Le mutex conserve
+                // aussi l'ordre si l'utilisateur coche plusieurs cases très vite.
+                val current = pendingEnabledModels.value
+                    ?: prefs.observeEnabledModels().first().toSet()
+                val next = if (enabled) current + model else current - model
+                if (next.isEmpty()) {
+                    true
+                } else {
+                    // Important : aucune écriture DataStore ici. Tant que
+                    // l'utilisateur édite plusieurs cases, aucun collecteur météo
+                    // ne voit de configuration intermédiaire et donc aucun refresh
+                    // réseau n'est relancé pour chaque tap.
+                    pendingEnabledModels.value = next
+                    false
                 }
-            }.getOrElse { AppToastEvent.error(R.string.toast_settings_save_error) }
-            _feedback.send(feedback)
+            }
+            if (warning) {
+                _feedback.send(AppToastEvent.warning(R.string.settings_models_min_warning))
+            }
         }
     }
+
+    /**
+     * Publie en une seule écriture la sélection finale des modèles.
+     *
+     * Retourne false si la persistance échoue afin que le bouton Back puisse rester
+     * sur l'écran et laisser à l'utilisateur la possibilité de réessayer. Le widget
+     * n'est rafraîchi qu'après une persistance réussie, une seule fois pour tout le lot.
+     */
+    suspend fun commitModelSelection(): Boolean = modelUpdateMutex.withLock {
+        val pending = pendingEnabledModels.value ?: return@withLock true
+        // Relire la source persistée réelle ici : le StateFlow UI possède une
+        // valeur initiale optimiste et ne doit jamais décider qu'un commit est
+        // inutile avant sa première émission DataStore.
+        val persisted = prefs.observeEnabledModels().first().toSet()
+        if (pending == persisted) {
+            pendingEnabledModels.value = null
+            return@withLock true
+        }
+
+        val result = runSuspendCatching {
+            prefs.setEnabledModels(pending.toList())
+            // DataStore.edit() est terminé quand setEnabledModels retourne, mais
+            // attendre la réémission évite un bref retour visuel à l'ancien set
+            // lorsque le brouillon est supprimé.
+            prefs.observeEnabledModels().first { it.toSet() == pending }
+        }
+        if (result.isFailure) {
+            _feedback.send(AppToastEvent.error(R.string.toast_settings_save_error))
+            return@withLock false
+        }
+
+        pendingEnabledModels.value = null
+        triggerWidgetRefreshSafely()
+        true
+    }
+
 
     /**
      * Demande un cycle exceptionnel de collecte des biais. Le scheduler
@@ -258,9 +316,11 @@ class SettingsViewModel @Inject constructor(
      */
     private fun updateNotificationSettings(transform: (NotificationSettings) -> NotificationSettings) {
         viewModelScope.launch {
+            var previous = NotificationSettings()
             val updated = runSuspendCatching {
                 val favorites = cityRepository.observeFavorites().first()
                 prefs.updateNotificationSettings { current ->
+                    previous = current
                     val next = transform(current)
                     val firstActivation = !current.anyEnabled && next.anyEnabled
                     if (firstActivation && next.cityIds.isEmpty() && favorites.isNotEmpty()) {
@@ -276,11 +336,33 @@ class SettingsViewModel @Inject constructor(
             // Comme pour le widget, la planification est best-effort : le
             // réglage est enregistré et le démarrage suivant la réparera.
             runCatching {
-                WeatherNotificationScheduler.reschedule(appContext, updated)
+                WeatherNotificationScheduler.reschedule(
+                    appContext,
+                    updated,
+                    kickAlertsImmediately = shouldKickAlertsImmediately(previous, updated)
+                )
             }.onFailure { error ->
                 android.util.Log.w("MeteoCompare/Notif", "Unable to reschedule notifications", error)
             }
         }
+    }
+
+    /**
+     * Un contrôle d'alertes immédiat peut consommer du réseau si le cache météo
+     * est périmé. Il n'a de sens que lorsqu'une nouvelle alerte devient possible
+     * ou qu'une nouvelle ville entre dans le périmètre. Changer l'heure du résumé
+     * quotidien, désactiver un type d'alerte ou retirer une ville ne doit pas
+     * provoquer un fetch météo supplémentaire.
+     */
+    private fun shouldKickAlertsImmediately(
+        previous: NotificationSettings,
+        updated: NotificationSettings
+    ): Boolean {
+        if (!updated.alertsEnabled || updated.cityIds.isEmpty()) return false
+        return (!previous.alertsEnabled && updated.alertsEnabled) ||
+            (!previous.divergenceAlertsEnabled && updated.divergenceAlertsEnabled) ||
+            (!previous.forecastChangeAlertsEnabled && updated.forecastChangeAlertsEnabled) ||
+            (updated.cityIds - previous.cityIds).isNotEmpty()
     }
 
     /**

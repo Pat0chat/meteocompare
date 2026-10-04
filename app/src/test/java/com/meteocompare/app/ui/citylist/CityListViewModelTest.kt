@@ -184,7 +184,7 @@ class CityListViewModelTest {
     fun setUp() {
         Dispatchers.setMain(dispatcher)
         mockkObject(WeatherNotificationScheduler)
-        every { WeatherNotificationScheduler.reschedule(any(), any()) } returns Unit
+        every { WeatherNotificationScheduler.reschedule(any(), any(), any()) } returns Unit
         favoritesFlow.value = emptyList()
         notificationSettingsFlow.value = NotificationSettings()
         modelsFlow.value = WeatherModel.MVP_SELECTION
@@ -895,7 +895,8 @@ class CityListViewModelTest {
             verify(exactly = 1) {
                 WeatherNotificationScheduler.reschedule(
                     appContext,
-                    notificationSettingsFlow.value
+                    notificationSettingsFlow.value,
+                    kickAlertsImmediately = false
                 )
             }
         }

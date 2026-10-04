@@ -39,7 +39,7 @@
     <string name="refresh_interval_manual">Manual</string>
 
     <string name="settings_models_title">Weather models</string>
-    <string name="settings_models_desc">Choose the models to compare. More models enrich the comparison but require more data.</string>
+    <string name="settings_models_desc">Choose the models to compare. More models enrich the comparison but require more data. Changes are applied together when you leave Settings.</string>
     <string name="settings_models_min_warning">At least one model must remain enabled.</string>
     <string name="settings_about_title">About</string>
     <string name="settings_about_version">Version %s</string>

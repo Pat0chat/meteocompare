@@ -58,7 +58,11 @@ class WidgetRefreshRepairReceiver : BroadcastReceiver() {
                         .observeNotificationSettings()
                         .first()
                     if (shouldReplaceWeatherNotificationSchedule(action)) {
-                        WeatherNotificationScheduler.reschedule(appContext, settings)
+                        WeatherNotificationScheduler.reschedule(
+                            appContext,
+                            settings,
+                            kickAlertsImmediately = false
+                        )
                     } else {
                         WeatherNotificationScheduler.ensureScheduled(appContext, settings)
                     }

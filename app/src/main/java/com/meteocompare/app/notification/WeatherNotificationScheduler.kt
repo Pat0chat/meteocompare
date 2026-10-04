@@ -85,7 +85,11 @@ object WeatherNotificationScheduler {
      * jour les alertes périodiques. Les alertes activées sont également
      * évaluées une fois immédiatement.
      */
-    fun reschedule(context: Context, settings: NotificationSettings) {
+    fun reschedule(
+        context: Context,
+        settings: NotificationSettings,
+        kickAlertsImmediately: Boolean = true
+    ) {
         val appContext = context.applicationContext
         val workManager = WorkManager.getInstance(appContext)
         // Nettoie aussi un ancien résumé différé (migration depuis la version
@@ -97,7 +101,7 @@ object WeatherNotificationScheduler {
             workManager = workManager,
             settings = settings,
             alertsPolicy = ExistingPeriodicWorkPolicy.UPDATE,
-            kickImmediately = true
+            kickImmediately = kickAlertsImmediately
         )
     }
 

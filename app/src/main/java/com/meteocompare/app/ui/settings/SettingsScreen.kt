@@ -14,6 +14,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.provider.Settings
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -133,6 +134,25 @@ fun SettingsScreen(
     var biasRefreshRequested by rememberSaveable { mutableStateOf(false) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    var modelCommitInProgress by remember { mutableStateOf(false) }
+
+    // Les modèles sont édités localement puis persistés en un seul lot.
+    // Cela évite que chaque checkbox réveille les écrans météo encore vivants
+    // dans la back stack et déclenche une nouvelle requête avec une sélection
+    // intermédiaire.
+    val commitModelsAndBack: () -> Unit = {
+        if (!modelCommitInProgress) {
+            modelCommitInProgress = true
+            scope.launch {
+                if (viewModel.commitModelSelection()) {
+                    onBack()
+                } else {
+                    modelCommitInProgress = false
+                }
+            }
+        }
+    }
+    BackHandler(onBack = commitModelsAndBack)
 
     // Notifications : l'état système est relu à chaque retour sur l'écran
     // (l'utilisateur a pu les autoriser depuis les réglages Android).
@@ -176,7 +196,7 @@ fun SettingsScreen(
                 title = { Text(stringResource(R.string.action_settings)) },
                 navigationIcon = {
                     IconButton(
-                        onClick = onBack,
+                        onClick = commitModelsAndBack,
                         modifier = Modifier.testTag(TAG_SETTINGS_BACK)
                     ) {
                         Icon(
@@ -201,7 +221,9 @@ fun SettingsScreen(
                     // La préférence canonique est écrite avant recreate().
                     // attachBaseContext() relit alors immédiatement la nouvelle
                     // valeur, sans copie concurrente dans AppCompat/DataStore.
-                    if (viewModel.onLanguageSelected(preference)) {
+                    if (viewModel.commitModelSelection() &&
+                        viewModel.onLanguageSelected(preference)
+                    ) {
                         (context as? android.app.Activity)?.recreate()
                     }
                 }

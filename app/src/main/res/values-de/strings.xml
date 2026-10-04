@@ -38,7 +38,7 @@
     <string name="refresh_interval_6_hours">6 Std.</string>
     <string name="refresh_interval_manual">Manuell</string>
     <string name="settings_models_title">Wettermodelle</string>
-    <string name="settings_models_desc">Modelle für den Vergleich wählen. Mehr Modelle bereichern den Vergleich, benötigen aber mehr Daten.</string>
+    <string name="settings_models_desc">Modelle für den Vergleich wählen. Mehr Modelle bereichern den Vergleich, benötigen aber mehr Daten. Änderungen werden beim Verlassen der Einstellungen gemeinsam angewendet.</string>
     <string name="settings_models_min_warning">Mindestens ein Modell muss aktiviert bleiben.</string>
     <string name="settings_about_title">Über die App</string>
     <string name="settings_about_version">Version %s</string>

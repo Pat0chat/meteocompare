@@ -754,7 +754,11 @@ class CityListViewModel @Inject constructor(
                 }
             }.onSuccess { notificationSettings ->
                 runCatching {
-                    WeatherNotificationScheduler.reschedule(appContext, notificationSettings)
+                    WeatherNotificationScheduler.reschedule(
+                        appContext,
+                        notificationSettings,
+                        kickAlertsImmediately = false
+                    )
                 }.onFailure { error ->
                     android.util.Log.w(
                         "MeteoCompare/Notif",

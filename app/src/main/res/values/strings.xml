@@ -39,7 +39,7 @@
     <string name="refresh_interval_manual">Manuel</string>
 
     <string name="settings_models_title">Modèles météo</string>
-    <string name="settings_models_desc">Choisissez les modèles comparés. Plus de modèles enrichit la comparaison, mais augmente les données à charger.</string>
+    <string name="settings_models_desc">Choisissez les modèles comparés. Plus de modèles enrichit la comparaison, mais augmente les données à charger. Les changements sont appliqués ensemble en quittant les réglages.</string>
     <string name="settings_models_min_warning">Au moins un modèle doit rester activé.</string>
     <string name="settings_about_title">À propos</string>
     <string name="settings_about_version">Version %s</string>
