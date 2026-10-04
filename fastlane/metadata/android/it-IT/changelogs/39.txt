@@ -1,0 +1,3 @@
+- Aggiunta di un sistema di notifiche (riepilogo giornaliero, variazioni delle previsioni, eventi imminenti)
+- Supporto per le unità imperiali (metriche come impostazione predefinita)
+- Correzione di bug (bias, impostazioni del widget, richieste e GC)

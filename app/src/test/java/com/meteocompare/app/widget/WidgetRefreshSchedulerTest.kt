@@ -184,13 +184,36 @@ class WidgetRefreshSchedulerTest {
             )
         )
         org.junit.Assert.assertTrue(
-            "Le rattrapage OEM doit demander une exécution expedited",
+            "Un refresh explicite doit demander une exécution expedited",
             requestSlot.captured.workSpec.expedited
         )
         // On ne doit surtout PAS avoir touché à l'enqueue périodique.
         verify(exactly = 0) {
             workManager.enqueueUniquePeriodicWork(any(), any(), any())
         }
+    }
+
+
+    @Test
+    fun `triggerCatchUpRefresh - enqueue un ONE-TIME non force pour respecter le garde de cadence`() {
+        WidgetRefreshScheduler.triggerCatchUpRefresh(workManager)
+
+        val requestSlot = slot<OneTimeWorkRequest>()
+        verify(exactly = 1) {
+            workManager.enqueueUniqueWork(
+                WidgetRefreshScheduler.TESTABLE_CATCH_UP_WORK_NAME,
+                ExistingWorkPolicy.KEEP,
+                capture(requestSlot)
+            )
+        }
+        org.junit.Assert.assertFalse(
+            "Le rattrapage au retour dans l'app ne doit pas contourner le garde de 15 minutes",
+            requestSlot.captured.workSpec.input.getBoolean(
+                WidgetRefreshScheduler.FORCE_REFRESH_KEY,
+                false
+            )
+        )
+        org.junit.Assert.assertTrue(requestSlot.captured.workSpec.expedited)
     }
 
     // ─────────────────────── cancel() ────────────────────────────────────
@@ -205,11 +228,12 @@ class WidgetRefreshSchedulerTest {
 
         WidgetRefreshScheduler.cancel(workManager)
 
-        verify(exactly = 2) { workManager.cancelUniqueWork(any()) }
+        verify(exactly = 3) { workManager.cancelUniqueWork(any()) }
         assertEquals(
             setOf(
                 WidgetRefreshScheduler.TESTABLE_WORK_NAME,
-                WidgetRefreshScheduler.TESTABLE_IMMEDIATE_WORK_NAME
+                WidgetRefreshScheduler.TESTABLE_IMMEDIATE_WORK_NAME,
+                WidgetRefreshScheduler.TESTABLE_CATCH_UP_WORK_NAME
             ),
             names.toSet()
         )

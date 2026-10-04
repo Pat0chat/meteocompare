@@ -844,8 +844,8 @@ Daten</string>
     <string name="settings_notifications_title">Benachrichtigungen</string>
     <string name="settings_notifications_desc">Auf dem Gerät aus Ihren Modellen und Ihrer Prognose-Engine berechnet, ohne Server oder Konto. Die Prognosen werden im oben gewählten Intervall aktualisiert.</string>
     <string name="settings_notifications_daily">Tägliche Zusammenfassung</string>
-    <string name="settings_notifications_daily_desc">Jeden Tag zur gewählten Uhrzeit: der aktuelle Tag, ab 15 Uhr der nächste Tag.</string>
-    <string name="settings_notifications_daily_time">Uhrzeit der Zusammenfassung: %1$s</string>
+    <string name="settings_notifications_daily_desc">Jeden Tag ungefähr zur gewählten Uhrzeit: der aktuelle Tag. Android kann die Zustellung je nach Systembedingungen verzögern.</string>
+    <string name="settings_notifications_daily_time">Ungefähre Uhrzeit der Zusammenfassung: %1$s</string>
     <string name="settings_notifications_time_confirm">OK</string>
     <string name="settings_notifications_divergence">Modellabweichung</string>
     <string name="settings_notifications_divergence_desc" formatted="false">Wenn die Modellkonvergenz für heute oder morgen unter 50 % fällt.</string>
@@ -856,7 +856,7 @@ Daten</string>
     <string name="settings_notifications_blocked">Benachrichtigungen von MeteoCompare sind auf diesem Gerät deaktiviert.</string>
     <string name="settings_notifications_open_system">Erlauben</string>
     <string name="notification_channel_daily">Tägliche Zusammenfassung</string>
-    <string name="notification_channel_daily_desc">Zusammenfassung des Tages für die verfolgten Orte zur gewählten Uhrzeit.</string>
+    <string name="notification_channel_daily_desc">Zusammenfassung des Tages für die verfolgten Orte ungefähr zur gewählten Uhrzeit.</string>
     <string name="notification_channel_divergence">Modellabweichung</string>
     <string name="notification_channel_divergence_desc">Wenn die Modelle für heute oder morgen deutlich voneinander abweichen.</string>
     <string name="notification_channel_change">Wichtige Punkte · Revisionen</string>

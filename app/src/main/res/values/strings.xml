@@ -860,8 +860,8 @@
     <string name="settings_notifications_title">Notifications</string>
     <string name="settings_notifications_desc">Calculées sur l’appareil à partir de vos modèles et de votre moteur de prévision, sans serveur ni compte. Les prévisions sont actualisées selon l’intervalle choisi plus haut.</string>
     <string name="settings_notifications_daily">Résumé quotidien</string>
-    <string name="settings_notifications_daily_desc">Chaque jour à l’heure choisie : la journée en cours, ou le lendemain après 15 h.</string>
-    <string name="settings_notifications_daily_time">Heure du résumé : %1$s</string>
+    <string name="settings_notifications_daily_desc">Chaque jour autour de l’heure choisie : la journée en cours. Android peut décaler l’envoi selon les contraintes système.</string>
+    <string name="settings_notifications_daily_time">Heure approximative du résumé : %1$s</string>
     <string name="settings_notifications_time_confirm">Valider</string>
     <string name="settings_notifications_divergence">Divergence des modèles</string>
     <string name="settings_notifications_divergence_desc" formatted="false">Quand la convergence des modèles passe sous 50 % pour aujourd’hui ou demain.</string>
@@ -872,7 +872,7 @@
     <string name="settings_notifications_blocked">Les notifications de MeteoCompare sont désactivées sur cet appareil.</string>
     <string name="settings_notifications_open_system">Autoriser</string>
     <string name="notification_channel_daily">Résumé quotidien</string>
-    <string name="notification_channel_daily_desc">Résumé de la journée pour les villes suivies, à l’heure choisie.</string>
+    <string name="notification_channel_daily_desc">Résumé de la journée pour les villes suivies, autour de l’heure choisie.</string>
     <string name="notification_channel_divergence">Divergence des modèles</string>
     <string name="notification_channel_divergence_desc">Quand les modèles sont en net désaccord pour aujourd’hui ou demain.</string>
     <string name="notification_channel_change">À retenir · Révisions</string>

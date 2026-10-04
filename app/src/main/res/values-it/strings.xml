@@ -848,8 +848,8 @@ dato</string>
     <string name="settings_notifications_title">Notifiche</string>
     <string name="settings_notifications_desc">Calcolate sul dispositivo a partire dai tuoi modelli e dal tuo motore di previsione, senza server né account. Le previsioni vengono aggiornate con l’intervallo scelto sopra.</string>
     <string name="settings_notifications_daily">Riepilogo giornaliero</string>
-    <string name="settings_notifications_daily_desc">Ogni giorno all’ora scelta: la giornata in corso, oppure il giorno dopo a partire dalle 15.</string>
-    <string name="settings_notifications_daily_time">Ora del riepilogo: %1$s</string>
+    <string name="settings_notifications_daily_desc">Ogni giorno circa all’ora scelta: la giornata in corso. Android può ritardare l’invio in base ai vincoli di sistema.</string>
+    <string name="settings_notifications_daily_time">Ora approssimativa del riepilogo: %1$s</string>
     <string name="settings_notifications_time_confirm">OK</string>
     <string name="settings_notifications_divergence">Divergenza dei modelli</string>
     <string name="settings_notifications_divergence_desc" formatted="false">Quando la convergenza dei modelli scende sotto il 50 % per oggi o domani.</string>
@@ -860,7 +860,7 @@ dato</string>
     <string name="settings_notifications_blocked">Le notifiche di MeteoCompare sono disattivate su questo dispositivo.</string>
     <string name="settings_notifications_open_system">Consenti</string>
     <string name="notification_channel_daily">Riepilogo giornaliero</string>
-    <string name="notification_channel_daily_desc">Riepilogo della giornata per le città seguite, all’ora scelta.</string>
+    <string name="notification_channel_daily_desc">Riepilogo della giornata per le città seguite, circa all’ora scelta.</string>
     <string name="notification_channel_divergence">Divergenza dei modelli</string>
     <string name="notification_channel_divergence_desc">Quando i modelli sono in netto disaccordo per oggi o domani.</string>
     <string name="notification_channel_change">Da ricordare · Revisioni</string>
