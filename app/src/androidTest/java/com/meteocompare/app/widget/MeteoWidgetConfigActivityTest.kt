@@ -6,11 +6,8 @@ import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
-import androidx.compose.ui.test.SemanticsMatcher
-import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.assertIsNotSelected
@@ -213,9 +210,15 @@ class MeteoWidgetConfigActivityTest {
     }
 
     private fun assertOpacity(value: Float) {
-        composeRule.onNodeWithTag(TAG_WIDGET_OPACITY).assert(SemanticsMatcher.expectValue(
-            SemanticsProperties.ProgressBarRangeInfo, ProgressBarRangeInfo(value, 0f..100f, 19)
-        ))
+        val rangeInfo = composeRule.onNodeWithTag(TAG_WIDGET_OPACITY)
+            .fetchSemanticsNode().config[SemanticsProperties.ProgressBarRangeInfo]
+
+        // Slider values are Floats and can be restored with a tiny rounding drift
+        // (for example 60f -> 60.000004f). Assert the semantic value with a
+        // tolerance while still checking the slider contract itself.
+        assertEquals(value, rangeInfo.current, 0.01f)
+        assertEquals(0f..100f, rangeInfo.range)
+        assertEquals(19, rangeInfo.steps)
     }
 
     private fun readPreferences(id: Int): Preferences = runBlocking {

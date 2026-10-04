@@ -174,6 +174,8 @@ dato</string>
     <string name="error_server">Errore del server (HTTP %d)</string>
     <string name="error_unknown">Errore sconosciuto</string>
     <string name="error_model_out_of_range">Dati non disponibili per questo modello</string>
+    <string name="error_location_not_supported_by_model">Non supportata dal modello selezionato</string>
+    <string name="error_location_not_supported_by_models">Non supportata dai modelli selezionati</string>
     <string name="error_no_model_available">Nessun dato di modello disponibile per questa città</string>
     <string name="city_not_found_in_favorites">Città non trovata nei preferiti</string>
 

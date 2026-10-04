@@ -1,5 +1,6 @@
 package com.meteocompare.app.data.repository
 
+import com.meteocompare.app.R
 import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.core.network.NetworkMonitor
 import com.meteocompare.app.data.local.ForecastCacheDao
@@ -31,10 +32,14 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.yield
 import kotlinx.serialization.json.Json
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import retrofit2.HttpException
+import retrofit2.Response
 
 /**
  * Tests du [ForecastRepositoryImpl] en mode BATCHED (post-optimisation
@@ -100,7 +105,13 @@ class ForecastRepositoryImplTest {
             every { isOnline() } returns true
         }
         val context: android.content.Context = mockk(relaxed = true) {
-            every { getString(any<Int>()) } returns "stubbed-error"
+            every { getString(any<Int>()) } answers {
+                when (firstArg<Int>()) {
+                    R.string.error_location_not_supported_by_model -> "unsupported-model-location"
+                    R.string.error_location_not_supported_by_models -> "unsupported-models-location"
+                    else -> "stubbed-error"
+                }
+            }
             every { getString(any<Int>(), *anyVararg()) } returns "stubbed-error"
         }
         repository = ForecastRepositoryImpl(
@@ -475,6 +486,50 @@ class ForecastRepositoryImplTest {
                 any(), any(), eq(globalParam), any(), any(), any(), any(), any(), any(), any()
             )
         }
+    }
+
+    @Test
+    fun `refresh modele regional hors couverture - transforme le 400 localisation en message metier`() = runTest {
+        val austin = paris.copy(
+            name = "Austin",
+            country = "United States",
+            latitude = 30.2672,
+            longitude = -97.7431
+        )
+        coEvery {
+            api.getForecastBatched(
+                any(), any(), eq(WeatherModel.AROME_FRANCE_HD.apiKey),
+                any(), any(), any(), any(), any(), any(), any()
+            )
+        } throws openMeteoBadRequest("No data is available for this location")
+
+        val result = repository.refreshCityForecast(
+            city = austin,
+            models = listOf(WeatherModel.AROME_FRANCE_HD)
+        )
+
+        assertTrue(result is ApiResult.Error)
+        result as ApiResult.Error
+        assertEquals("unsupported-model-location", result.message)
+    }
+
+    @Test
+    fun `refresh autre 400 - conserve une erreur technique`() = runTest {
+        coEvery {
+            api.getForecastBatched(
+                any(), any(), eq(WeatherModel.AROME_FRANCE_HD.apiKey),
+                any(), any(), any(), any(), any(), any(), any()
+            )
+        } throws openMeteoBadRequest("Invalid value for forecast_days")
+
+        val result = repository.refreshCityForecast(
+            city = paris,
+            models = listOf(WeatherModel.AROME_FRANCE_HD)
+        )
+
+        assertTrue(result is ApiResult.Error)
+        result as ApiResult.Error
+        assertEquals("stubbed-error", result.message)
     }
 
     @Test
@@ -1406,4 +1461,11 @@ class ForecastRepositoryImplTest {
 
         assertEquals(1, fakeApi.callCount.get())
     }
+
+    private fun openMeteoBadRequest(reason: String): HttpException {
+        val body = """{"error":true,"reason":"$reason"}"""
+            .toResponseBody("application/json".toMediaType())
+        return HttpException(Response.error<BatchedForecastResponseDto>(400, body))
+    }
+
 }

@@ -46,6 +46,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import retrofit2.HttpException
 
 /**
  * Repository avec cache transparent via Room.
@@ -545,7 +546,11 @@ class ForecastRepositoryImpl @Inject constructor(
             ).getOrElse { fallbackError ->
                 return@withContext ApiResult.Error(
                     fallbackError,
-                    fallbackError.toUserMessage(context)
+                    if (fallbackError.isUnsupportedLocationResponse()) {
+                        unsupportedLocationMessage(models)
+                    } else {
+                        fallbackError.toUserMessage(context)
+                    }
                 )
             }
         } else {
@@ -554,7 +559,11 @@ class ForecastRepositoryImpl @Inject constructor(
             return@withContext ApiResult.Error(
                 error,
                 if (primaryAttempt.isFailure) {
-                    error.toUserMessage(context)
+                    if (error.isUnsupportedLocationResponse()) {
+                        unsupportedLocationMessage(models)
+                    } else {
+                        error.toUserMessage(context)
+                    }
                 } else {
                     context.getString(R.string.error_no_model_available)
                 }
@@ -644,6 +653,39 @@ class ForecastRepositoryImpl @Inject constructor(
             ApiResult.Success(fresh)
         }
     }
+
+    /**
+     * Open-Meteo renvoie HTTP 400 lorsqu'un modèle régional ne couvre pas la
+     * localisation demandée. Ce cas est métier (couverture du modèle), pas une
+     * erreur serveur à exposer telle quelle à l'utilisateur.
+     *
+     * On reste volontairement strict sur le corps de réponse : un autre HTTP
+     * 400 (paramètre invalide, régression de requête, etc.) doit continuer à
+     * remonter comme erreur technique afin de ne pas masquer un bug client.
+     */
+    private fun Throwable.isUnsupportedLocationResponse(): Boolean {
+        val http = this as? HttpException ?: return false
+        if (http.code() != 400) return false
+
+        val body = runCatching {
+            http.response()?.errorBody()?.string().orEmpty()
+        }.getOrDefault("")
+        val normalized = body.lowercase()
+
+        return normalized.contains("no data is available for this location") ||
+            (normalized.contains("no data") &&
+                normalized.contains("available") &&
+                normalized.contains("location"))
+    }
+
+    private fun unsupportedLocationMessage(models: List<WeatherModel>): String =
+        context.getString(
+            if (models.size == 1) {
+                R.string.error_location_not_supported_by_model
+            } else {
+                R.string.error_location_not_supported_by_models
+            }
+        )
 
     /**
      * Exécute un lot Open-Meteo et le transforme immédiatement en séries métier.
