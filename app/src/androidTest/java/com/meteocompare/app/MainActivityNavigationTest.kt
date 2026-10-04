@@ -129,7 +129,7 @@ class MainActivityNavigationTest {
         composeRule.onNodeWithTag(TAG_SETTINGS_BACK).performClick()
 
         composeRule.onNodeWithTag("$TAG_CITY_CARD${TestFixtures.paris.id}").performClick()
-        composeRule.onNodeWithTag(TAG_DETAIL_LOADED).assertIsDisplayed()
+        waitForDetailLoaded()
         composeRule.onNodeWithTag(TAG_ENGINE_COMPARISON_ACTION).performClick()
         composeRule.onNodeWithText(
             composeRule.activity.getString(R.string.engine_comparison_title)
@@ -147,7 +147,7 @@ class MainActivityNavigationTest {
         }
 
         composeRule.onNodeWithTag("$TAG_CITY_CARD${TestFixtures.paris.id}").performClick()
-        composeRule.onNodeWithTag(TAG_DETAIL_LOADED).assertIsDisplayed()
+        waitForDetailLoaded()
         composeRule.onNodeWithTag(TAG_GRAPHIC_VIEW_ACTION).performClick()
         composeRule.onNodeWithText(
             composeRule.activity.getString(R.string.graphic_view_title)
@@ -194,7 +194,7 @@ class MainActivityNavigationTest {
             ).fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithTag("$TAG_CITY_CARD${TestFixtures.paris.id}").performClick()
-        composeRule.onNodeWithTag(TAG_DETAIL_LOADED).assertIsDisplayed()
+        waitForDetailLoaded()
     }
 
     @Test
@@ -208,12 +208,12 @@ class MainActivityNavigationTest {
             ).fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithTag("$TAG_CITY_CARD${TestFixtures.paris.id}").performClick()
-        composeRule.onNodeWithTag(TAG_DETAIL_LOADED).assertIsDisplayed()
+        waitForDetailLoaded()
         composeRule.onNodeWithTag(TAG_CONFIDENCE_BADGE, useUnmergedTree = true).performClick()
 
         composeRule.onNodeWithTag(TAG_CONFIDENCE_EXPLANATION_ROOT).assertIsDisplayed()
         composeRule.onNodeWithTag(TAG_CONFIDENCE_EXPLANATION_BACK).performClick()
-        composeRule.onNodeWithTag(TAG_DETAIL_LOADED).assertIsDisplayed()
+        waitForDetailLoaded()
     }
 
     @Test
@@ -235,4 +235,14 @@ class MainActivityNavigationTest {
 
         composeRule.onNodeWithTag(TAG_EMPTY_STATE).assertIsDisplayed()
     }
+
+    private fun waitForDetailLoaded() {
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            runCatching {
+                composeRule.onNodeWithTag(TAG_DETAIL_LOADED).assertIsDisplayed()
+            }.isSuccess
+        }
+        composeRule.onNodeWithTag(TAG_DETAIL_LOADED).assertIsDisplayed()
+    }
+
 }
