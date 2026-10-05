@@ -582,7 +582,7 @@ private fun DrawScope.drawProjectionOverlay(state: RadarUiState.Ready, density: 
     val cells = state.nowcast?.cells.orEmpty().sortedBy { it.impact?.relevanceScore ?: .0 }
     cells.forEachIndexed { index, cell ->
         val projection = projectRainCell(cell, state.horizonMinutes.toDouble()) ?: return@forEachIndexed
-        val geometry = radarNowcastDisplayGeometry(state.range, size.width / density, size.height / density, cell.analysisZoom)
+        val geometry = radarNowcastDisplayGeometry(state.range, (size.width / density).toDouble(), (size.height / density).toDouble(), cell.analysisZoom)
         val color = CELL_COLORS[(cell.colorIndex ?: index) % CELL_COLORS.size]
         val relevance = (cell.impact?.relevanceScore ?: .35).coerceIn(0.0, 1.0)
         val priority = index >= (cells.size - 4).coerceAtLeast(0) || relevance >= .62
@@ -632,12 +632,12 @@ private fun cellPath(
             )
         }
         val first = mapped(loop.first())
-        moveTo(first.x, first.y)
+        path.moveTo(first.x, first.y)
         loop.drop(1).forEach { point ->
             val next = mapped(point)
-            lineTo(next.x, next.y)
+            path.lineTo(next.x, next.y)
         }
-        close()
+        path.close()
     }
     return path
 }
