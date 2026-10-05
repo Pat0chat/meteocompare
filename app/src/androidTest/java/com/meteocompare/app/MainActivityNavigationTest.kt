@@ -29,6 +29,7 @@ import com.meteocompare.app.ui.citylist.TAG_ADD_CITY_SEARCH_FIELD
 import com.meteocompare.app.ui.citylist.TAG_ADD_FAB
 import com.meteocompare.app.ui.citylist.TAG_CITY_CARD
 import com.meteocompare.app.ui.citylist.TAG_CITY_GRAPHIC_VIEW_MENU
+import com.meteocompare.app.ui.citylist.TAG_CITY_RADAR_MENU
 import com.meteocompare.app.ui.citylist.TAG_DONATE_BUTTON
 import com.meteocompare.app.ui.citylist.TAG_EMPTY_STATE
 import com.meteocompare.app.ui.citylist.TAG_SETTINGS_BUTTON
@@ -198,6 +199,29 @@ class MainActivityNavigationTest {
         composeRule.onNodeWithText(
             composeRule.activity.getString(R.string.graphic_view_title)
         ).assertIsDisplayed()
+    }
+
+    @Test
+    fun open_radar_directly_from_home_card_menu() {
+        cities.setFavorites(listOf(TestFixtures.paris))
+        forecasts.setForecast(TestFixtures.paris)
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodes(
+                androidx.compose.ui.test.hasTestTag("$TAG_CITY_CARD${TestFixtures.paris.id}")
+            ).fetchSemanticsNodes().isNotEmpty()
+        }
+
+        composeRule.onNodeWithContentDescription(
+            composeRule.activity.getString(R.string.action_more_options)
+        ).performClick()
+        composeRule.onNodeWithTag(
+            "$TAG_CITY_RADAR_MENU${TestFixtures.paris.id}",
+            useUnmergedTree = true
+        ).performClick()
+        composeRule.onNodeWithText(
+            composeRule.activity.getString(R.string.radar_title)
+        ).assertIsDisplayed()
+        composeRule.onNodeWithTag(TAG_RADAR_STAGE).assertIsDisplayed()
     }
 
     @Test

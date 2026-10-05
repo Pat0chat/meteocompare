@@ -58,6 +58,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -90,6 +91,8 @@ internal const val TAG_RADAR_STAGE = "radar_stage"
 internal const val TAG_RADAR_OBSERVATION = "radar_mode_observation"
 internal const val TAG_RADAR_PROJECTION = "radar_mode_projection"
 internal const val TAG_RADAR_RECALCULATE = "radar_recalculate"
+internal const val RADAR_OBSERVATION_ALPHA = .80f
+internal const val RADAR_PROJECTION_OBSERVATION_ALPHA = .38f
 internal fun radarHorizonTag(minutes: Int) = "radar_horizon_$minutes"
 internal fun radarRangeTag(range: RadarRange) = "radar_range_${range.name.lowercase()}"
 
@@ -148,6 +151,7 @@ fun RadarScreen(
             onFrameChange = viewModel::selectFrame,
             onPlayPause = viewModel::togglePlayback,
             onRecalculate = viewModel::recalculateProjection,
+            onViewportSize = viewModel::setViewportSize,
             modifier = Modifier.padding(padding)
         )
     }
@@ -163,6 +167,7 @@ internal fun RadarContent(
     onFrameChange: (Int) -> Unit = {},
     onPlayPause: () -> Unit = {},
     onRecalculate: () -> Unit = {},
+    onViewportSize: (width: Int, height: Int) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     when (state) {
@@ -178,7 +183,8 @@ internal fun RadarContent(
             }
         }
         is RadarUiState.Ready -> RadarReadyContent(
-            state, onModeChange, onRangeChange, onHorizonChange, onFrameChange, onPlayPause, onRecalculate, modifier
+            state, onModeChange, onRangeChange, onHorizonChange, onFrameChange, onPlayPause, onRecalculate,
+            onViewportSize, modifier
         )
     }
 }
@@ -192,6 +198,7 @@ private fun RadarReadyContent(
     onFrameChange: (Int) -> Unit,
     onPlayPause: () -> Unit,
     onRecalculate: () -> Unit,
+    onViewportSize: (width: Int, height: Int) -> Unit,
     modifier: Modifier
 ) {
     val contentModifier = modifier
@@ -238,7 +245,11 @@ private fun RadarReadyContent(
             shape = if (state.isFullscreen) RoundedCornerShape(0.dp) else MaterialTheme.shapes.large
         ) {
             Box(Modifier.fillMaxSize()) {
-                RadarStage(state = state, modifier = Modifier.fillMaxSize().testTag(TAG_RADAR_STAGE))
+                RadarStage(
+                    state = state,
+                    onViewportSize = onViewportSize,
+                    modifier = Modifier.fillMaxSize().testTag(TAG_RADAR_STAGE)
+                )
                 if (state.isImageLoading || state.isBaseLoading) {
                     CircularProgressIndicator(Modifier.align(Alignment.TopEnd).padding(12.dp).size(24.dp), strokeWidth = 2.dp)
                 }
@@ -515,13 +526,26 @@ private fun RadarProjectionSummary(state: RadarUiState.Ready) {
 }
 
 @Composable
-private fun RadarStage(state: RadarUiState.Ready, modifier: Modifier = Modifier) {
+private fun RadarStage(
+    state: RadarUiState.Ready,
+    onViewportSize: (width: Int, height: Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
     val density = LocalDensity.current.density
     val tileImages = remember(state.baseTiles) { state.baseTiles.map { it to it.image.toImageBitmap() } }
     val radar = remember(state.displayImage) { state.displayImage?.toImageBitmap() }
     val background = MaterialTheme.colorScheme.surfaceVariant
     val markerColor = MaterialTheme.colorScheme.primary
-    Canvas(modifier = modifier.background(background)) {
+    Canvas(
+        modifier = modifier
+            .background(background)
+            .onSizeChanged { size ->
+                onViewportSize(
+                    (size.width / density).roundToInt(),
+                    (size.height / density).roundToInt()
+                )
+            }
+    ) {
         val cx = size.width / 2
         val cy = size.height / 2
         val tilePx = 256f * density
@@ -541,7 +565,7 @@ private fun RadarStage(state: RadarUiState.Ready, modifier: Modifier = Modifier)
                 image = image,
                 dstOffset = androidx.compose.ui.unit.IntOffset((cx - imageSize / 2).roundToInt(), (cy - imageSize / 2).roundToInt()),
                 dstSize = androidx.compose.ui.unit.IntSize(imageSize.roundToInt(), imageSize.roundToInt()),
-                alpha = if (state.mode == RadarMode.PROJECTION) .38f else .86f,
+                alpha = if (state.mode == RadarMode.PROJECTION) RADAR_PROJECTION_OBSERVATION_ALPHA else RADAR_OBSERVATION_ALPHA,
                 filterQuality = FilterQuality.None
             )
         }

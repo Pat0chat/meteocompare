@@ -131,6 +131,9 @@ private fun PhoneAppNavHost() {
                 onGraphicViewClick = { cityId ->
                     navController.navigate(Destinations.graphicView(cityId))
                 },
+                onRadarClick = { cityId ->
+                    navController.navigate(Destinations.radar(cityId))
+                },
                 onSettingsClick = {
                     navController.navigate(Destinations.SETTINGS)
                 },
@@ -184,8 +187,9 @@ private fun TabletHomeScreen(
 ) {
     val listState by cityListViewModel.uiState.collectAsStateWithLifecycle()
     val availableCityIds = listState.items.map { it.city.id }
-    var directGraphicCityId by rememberSaveable { mutableStateOf<String?>(null) }
-    var directGraphicRequest by rememberSaveable { mutableStateOf(0) }
+    var directCityId by rememberSaveable { mutableStateOf<String?>(null) }
+    var directDestination by rememberSaveable { mutableStateOf<String?>(null) }
+    var directRequest by rememberSaveable { mutableStateOf(0) }
 
     TabletMasterDetailContent(
         availableCityIds = availableCityIds,
@@ -194,8 +198,15 @@ private fun TabletHomeScreen(
                 onCityClick = onCityClick,
                 onGraphicViewClick = { cityId ->
                     onCityClick(cityId)
-                    directGraphicCityId = cityId
-                    directGraphicRequest += 1
+                    directCityId = cityId
+                    directDestination = Destinations.GRAPHIC_VIEW
+                    directRequest += 1
+                },
+                onRadarClick = { cityId ->
+                    onCityClick(cityId)
+                    directCityId = cityId
+                    directDestination = Destinations.RADAR
+                    directRequest += 1
                 },
                 onSettingsClick = onSettingsClick,
                 onHelpClick = onHelpClick,
@@ -210,8 +221,8 @@ private fun TabletHomeScreen(
             key(cityId) {
                 TabletDetailNavHost(
                     cityId = cityId,
-                    directGraphicRequest = directGraphicRequest
-                        .takeIf { directGraphicCityId == cityId && it > 0 }
+                    directRequest = directRequest.takeIf { directCityId == cityId && it > 0 },
+                    directDestination = directDestination.takeIf { directCityId == cityId }
                 )
             }
         },
@@ -283,15 +294,16 @@ internal fun TabletMasterDetailContent(
 @Composable
 private fun TabletDetailNavHost(
     cityId: String,
-    directGraphicRequest: Int? = null
+    directRequest: Int? = null,
+    directDestination: String? = null
 ) {
     val navController = rememberNavController()
 
-    LaunchedEffect(directGraphicRequest) {
-        if (directGraphicRequest != null &&
-            navController.currentDestination?.route != Destinations.GRAPHIC_VIEW
-        ) {
-            navController.navigate(Destinations.graphicView(cityId))
+    LaunchedEffect(directRequest, directDestination) {
+        if (directRequest == null) return@LaunchedEffect
+        val route = directDetailRoute(directDestination, cityId) ?: return@LaunchedEffect
+        if (navController.currentDestination?.route != directDestination) {
+            navController.navigate(route)
         }
     }
 
@@ -306,6 +318,12 @@ private fun TabletDetailNavHost(
             initialCityId = cityId
         )
     }
+}
+
+internal fun directDetailRoute(destination: String?, cityId: String): String? = when (destination) {
+    Destinations.GRAPHIC_VIEW -> Destinations.graphicView(cityId)
+    Destinations.RADAR -> Destinations.radar(cityId)
+    else -> null
 }
 
 @Composable

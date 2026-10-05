@@ -53,6 +53,13 @@ class AppNavHostTest {
     }
 
     @Test
+    fun tablet_direct_home_actions_resolve_graphic_and_radar_routes() {
+        assertEquals(Destinations.graphicView("paris"), directDetailRoute(Destinations.GRAPHIC_VIEW, "paris"))
+        assertEquals(Destinations.radar("paris"), directDetailRoute(Destinations.RADAR, "paris"))
+        assertNull(directDetailRoute(null, "paris"))
+    }
+
+    @Test
     fun tablet_clears_the_selection_when_no_city_remains() {
         assertNull(resolveSelectedCityId("paris", emptyList()))
     }

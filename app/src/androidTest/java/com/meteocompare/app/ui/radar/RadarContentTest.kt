@@ -2,6 +2,8 @@ package com.meteocompare.app.ui.radar
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertExists
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -12,6 +14,7 @@ import com.meteocompare.app.domain.radar.RadarMetadata
 import com.meteocompare.app.domain.radar.RadarMode
 import com.meteocompare.app.domain.radar.RadarRange
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -41,6 +44,44 @@ class RadarContentTest {
         }
         composeRule.onNodeWithTag(radarHorizonTag(60)).performScrollTo().performClick()
         assertEquals(60, selectedHorizon)
+    }
+
+    @Test
+    fun selected_projection_horizon_is_exposed_and_web_layer_opacities_match() {
+        composeRule.setContent {
+            MaterialTheme { RadarContent(state = readyState().copy(mode = RadarMode.PROJECTION, horizonMinutes = 45)) }
+        }
+
+        composeRule.onNodeWithTag(radarHorizonTag(45)).performScrollTo().assertIsSelected()
+        assertEquals(.80f, RADAR_OBSERVATION_ALPHA, 0f)
+        assertEquals(.38f, RADAR_PROJECTION_OBSERVATION_ALPHA, 0f)
+    }
+
+    @Test
+    fun recalculation_is_disabled_while_analysis_is_running() {
+        composeRule.setContent {
+            MaterialTheme {
+                RadarContent(state = readyState().copy(mode = RadarMode.PROJECTION, isAnalyzing = true))
+            }
+        }
+        composeRule.onNodeWithTag(TAG_RADAR_RECALCULATE).performScrollTo().assertIsNotEnabled()
+    }
+
+    @Test
+    fun radar_stage_reports_its_real_viewport_for_tile_selection() {
+        var width = 0
+        var height = 0
+        composeRule.setContent {
+            MaterialTheme {
+                RadarContent(
+                    state = readyState(),
+                    onViewportSize = { w, h -> width = w; height = h }
+                )
+            }
+        }
+        composeRule.waitForIdle()
+        assertTrue(width > 0)
+        assertTrue(height > 0)
     }
 
     @Test

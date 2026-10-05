@@ -43,6 +43,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Radar
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Air
@@ -155,6 +156,7 @@ fun CityListScreen(
     onCityClick: (cityId: String) -> Unit,
     onSettingsClick: () -> Unit,
     onGraphicViewClick: (cityId: String) -> Unit = {},
+    onRadarClick: (cityId: String) -> Unit = {},
     onHelpClick: () -> Unit,
     selectedCityId: String? = null,
     selectionEnabled: Boolean = false,
@@ -192,6 +194,7 @@ fun CityListScreen(
             uiState = uiState,
             onCityClick = onCityClick,
             onGraphicViewClick = onGraphicViewClick,
+            onRadarClick = onRadarClick,
             onAddClick = { showAddSheet = true },
             onDonateClick = { showDonationDialog = true },
             onHelpClick = onHelpClick,
@@ -270,6 +273,7 @@ internal fun CityListContent(
     uiState: CityListUiState,
     onCityClick: (cityId: String) -> Unit,
     onGraphicViewClick: (cityId: String) -> Unit = {},
+    onRadarClick: (cityId: String) -> Unit = {},
     onAddClick: () -> Unit,
     onDonateClick: () -> Unit,
     onHelpClick: () -> Unit = {},
@@ -361,6 +365,7 @@ internal fun CityListContent(
                         isOnline = uiState.isOnline,
                         onCityClick = onCityClick,
                         onGraphicViewClick = onGraphicViewClick,
+                        onRadarClick = onRadarClick,
                         onRemove = onRemoveCity,
                         onRetry = onRetry,
                         onMarineAction = onMarineAction,
@@ -379,6 +384,7 @@ internal fun CityList(
     isOnline: Boolean = true,
     onCityClick: (String) -> Unit,
     onGraphicViewClick: (String) -> Unit = {},
+    onRadarClick: (String) -> Unit = {},
     onRemove: (String) -> Unit,
     onRetry: (City) -> Unit,
     onMarineAction: (City) -> Unit = {},
@@ -408,6 +414,7 @@ internal fun CityList(
                 state = state,
                 onClick = { onCityClick(state.city.id) },
                 onGraphicViewClick = { onGraphicViewClick(state.city.id) },
+                onRadarClick = { onRadarClick(state.city.id) },
                 onRemove = { onRemove(state.city.id) },
                 onRetry = { onRetry(state.city) },
                 onMarineAction = { onMarineAction(state.city) },
@@ -478,6 +485,7 @@ internal fun CityCard(
     state: CityCardState,
     onClick: () -> Unit,
     onGraphicViewClick: () -> Unit = {},
+    onRadarClick: () -> Unit = {},
     onRemove: () -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
@@ -600,6 +608,7 @@ internal fun CityCard(
                         marineLoading = state.isMarineLoading,
                         onMarineAction = onMarineAction,
                         onGraphicViewClick = onGraphicViewClick,
+                        onRadarClick = onRadarClick,
                         onRemove = onRemove
                     )
 
@@ -658,6 +667,7 @@ private fun CityCardHeader(
     marineLoading: Boolean,
     onMarineAction: () -> Unit,
     onGraphicViewClick: () -> Unit,
+    onRadarClick: () -> Unit,
     onRemove: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -715,6 +725,7 @@ private fun CityCardHeader(
             marineLoading = marineLoading,
             onMarineAction = onMarineAction,
             onGraphicViewClick = onGraphicViewClick,
+            onRadarClick = onRadarClick,
             onRemove = onRemove
         )
     }
@@ -1491,6 +1502,7 @@ private fun CityCardMenu(
     marineLoading: Boolean,
     onMarineAction: () -> Unit,
     onGraphicViewClick: () -> Unit,
+    onRadarClick: () -> Unit,
     onRemove: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -1555,6 +1567,21 @@ private fun CityCardMenu(
                 onClick = {
                     expanded = false
                     onGraphicViewClick()
+                }
+            )
+            DropdownMenuItem(
+                modifier = menuItemModifier
+                    .testTag("$TAG_CITY_RADAR_MENU$cityId"),
+                text = { Text(stringResource(R.string.radar_open)) },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Filled.Radar,
+                        contentDescription = null
+                    )
+                },
+                onClick = {
+                    expanded = false
+                    onRadarClick()
                 }
             )
             DropdownMenuItem(
@@ -1632,6 +1659,7 @@ internal const val TAG_CITY_CARD = "city_card_"
 internal const val TAG_CITY_MARINE_AVAILABLE = "city_marine_available_"
 internal const val TAG_CITY_MARINE_ENABLED = "city_marine_enabled_"
 internal const val TAG_CITY_GRAPHIC_VIEW_MENU = "city_graphic_view_menu_"
+internal const val TAG_CITY_RADAR_MENU = "city_radar_menu_"
 internal const val TAG_CITY_MARINE_MENU_ICON = "city_marine_menu_icon_"
 internal const val TAG_CITY_REMOVE_MENU_ICON = "city_remove_menu_icon_"
 internal const val TAG_EMPTY_STATE = "empty_state"

@@ -26,9 +26,6 @@ import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -75,6 +72,8 @@ class RadarViewModel @Inject constructor(
     private var identityRegistry: List<RadarIdentityRegistryEntry> = emptyList()
     private var nextCellId = 1
     private val coverageRanges = mutableSetOf<RadarRange>()
+    private var viewportWidth = 0
+    private var viewportHeight = 0
 
     init { load() }
 
@@ -93,9 +92,9 @@ class RadarViewModel @Inject constructor(
     fun setRange(range: RadarRange) {
         val current = _state.value as? RadarUiState.Ready ?: return
         if (current.range == range) return
-        _state.value = current.copy(range = range, isBaseLoading = true)
+        _state.value = current.copy(range = range, isBaseLoading = viewportWidth > 0 && viewportHeight > 0)
         savedStateHandle[RADAR_RANGE_STATE] = range.name
-        loadBaseTiles()
+        if (viewportWidth > 0 && viewportHeight > 0) loadBaseTiles()
         loadDisplayImage()
         if (range == RadarRange.WIDE) augmentWideCoverage()
     }
@@ -157,6 +156,22 @@ class RadarViewModel @Inject constructor(
         val fullscreen = !current.isFullscreen
         _state.value = current.copy(isFullscreen = fullscreen)
         savedStateHandle[RADAR_FULLSCREEN_STATE] = fullscreen
+    }
+
+    /**
+     * The web implementation only requests OSM tiles intersecting the visible map.
+     * Compose reports its viewport in dp-equivalent map pixels so Android can use
+     * the exact same tile-selection rule and avoid a fixed 5×5 over-fetch.
+     */
+    fun setViewportSize(width: Int, height: Int) {
+        val safeWidth = width.coerceAtLeast(280)
+        val safeHeight = height.coerceAtLeast(180)
+        if (safeWidth == viewportWidth && safeHeight == viewportHeight) return
+        viewportWidth = safeWidth
+        viewportHeight = safeHeight
+        val current = _state.value as? RadarUiState.Ready ?: return
+        _state.value = current.copy(isBaseLoading = true)
+        loadBaseTiles()
     }
 
     fun recalculateProjection() {
@@ -246,7 +261,6 @@ class RadarViewModel @Inject constructor(
                     isAnalyzing = true,
                     isFullscreen = persistedFullscreen
                 )
-                loadBaseTiles()
                 loadDisplayImage()
                 analyzeNowcast()
                 if (mode == RadarMode.OBSERVATION && frames.size > 1) togglePlayback()
@@ -289,11 +303,26 @@ class RadarViewModel @Inject constructor(
     private fun loadBaseTiles() {
         baseJob?.cancel()
         val current = _state.value as? RadarUiState.Ready ?: return
+        if (viewportWidth <= 0 || viewportHeight <= 0) return
         val zoom = current.range.mapZoom
+        val width = viewportWidth
+        val height = viewportHeight
         baseJob = viewModelScope.launch {
-            val tiles = runCatching { radarRepository.baseTiles(current.city, zoom) }.getOrDefault(emptyList())
-            _state.update { state ->
-                if (state is RadarUiState.Ready && state.range.mapZoom == zoom) state.copy(baseTiles = tiles, isBaseLoading = false) else state
+            try {
+                val tiles = radarRepository.baseTiles(current.city, zoom, width, height)
+                _state.update { state ->
+                    if (state is RadarUiState.Ready && state.range.mapZoom == zoom &&
+                        viewportWidth == width && viewportHeight == height
+                    ) state.copy(baseTiles = tiles, isBaseLoading = false) else state
+                }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Exception) {
+                _state.update { state ->
+                    if (state is RadarUiState.Ready && state.range.mapZoom == zoom) {
+                        state.copy(isBaseLoading = false)
+                    } else state
+                }
             }
         }
     }
@@ -312,8 +341,11 @@ class RadarViewModel @Inject constructor(
         _state.update { state -> if (state is RadarUiState.Ready) state.copy(isAnalyzing = true) else state }
         try {
             val frames = recentRadarFrameIndices(current.frames.size, 7).mapNotNull(current.frames::getOrNull)
-            val images = coroutineScope {
-                frames.map { frame -> async { frame to radarRepository.radarImage(current.metadata, frame, current.city, RADAR_ANALYSIS_ZOOM) } }.awaitAll()
+            // Mirror the web implementation: process the seven recent frames
+            // sequentially. This avoids a burst of seven 512px downloads/decodes
+            // while still benefiting from the repository cache.
+            val images = frames.map { frame ->
+                frame to radarRepository.radarImage(current.metadata, frame, current.city, RADAR_ANALYSIS_ZOOM)
             }
             val samples = withContext(computationDispatcher) {
                 images.map { (frame, image) -> RadarMaskSample(radarMaskFromArgb(image), frame.timeEpochSeconds) }
@@ -354,10 +386,8 @@ class RadarViewModel @Inject constructor(
         coverageJob = viewModelScope.launch {
             try {
                 val frames = recentRadarFrameIndices(current.frames.size, 7).mapNotNull(current.frames::getOrNull)
-                val images = coroutineScope {
-                    frames.map { frame ->
-                        async { frame to radarRepository.radarImage(current.metadata, frame, current.city, RadarRange.WIDE.radarZoom) }
-                    }.awaitAll()
+                val images = frames.map { frame ->
+                    frame to radarRepository.radarImage(current.metadata, frame, current.city, RadarRange.WIDE.radarZoom)
                 }
                 val samples = withContext(computationDispatcher) {
                     images.map { (frame, image) -> RadarMaskSample(radarMaskFromArgb(image), frame.timeEpochSeconds) }

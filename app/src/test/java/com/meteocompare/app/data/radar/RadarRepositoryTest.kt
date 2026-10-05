@@ -3,6 +3,15 @@ package com.meteocompare.app.data.radar
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.radar.RadarFrame
 import com.meteocompare.app.domain.radar.RadarMetadata
+import java.io.IOException
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
+import okhttp3.Call
+import okhttp3.Callback
+import okhttp3.Request
+import okhttp3.Response
+import okio.Timeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -57,12 +66,56 @@ class RadarRepositoryTest {
     }
 
     @Test
-    fun `base map requests form a centered five by five tile grid`() {
-        val requests = baseTileRequests(city, zoom = 9, radius = 2)
-        assertEquals(25, requests.size)
-        assertTrue(requests.all { it.x in 0 until (1 shl 9) && it.y in 0 until (1 shl 9) })
-        assertTrue(requests.map { it.url }.toSet().size == requests.size)
-        assertTrue(requests.any { it.leftFromCenter <= 0 && it.leftFromCenter + 256 >= 0 })
-        assertTrue(requests.any { it.topFromCenter <= 0 && it.topFromCenter + 256 >= 0 })
+    fun `base map requests only cover the visible viewport like the web radar`() {
+        val phone = baseTileRequests(city, zoom = 9, viewportWidth = 360, viewportHeight = 360)
+        val expanded = baseTileRequests(city, zoom = 9, viewportWidth = 1200, viewportHeight = 800)
+
+        assertEquals(6, phone.size)
+        assertEquals(20, expanded.size)
+        assertTrue(phone.all { it.x in 0 until (1 shl 9) && it.y in 0 until (1 shl 9) })
+        assertEquals(phone.size, phone.map { it.url }.toSet().size)
+        assertTrue(phone.any { it.leftFromCenter <= 0 && it.leftFromCenter + 256 >= 0 })
+        assertTrue(phone.any { it.topFromCenter <= 0 && it.topFromCenter + 256 >= 0 })
+        assertTrue(phone.size < 25)
+    }
+
+    @Test
+    fun `radar caches are bounded for mobile memory pressure`() {
+        // 512x512 ARGB images are ~1 MiB each; 256x256 OSM tiles are ~256 KiB.
+        // These limits keep the theoretical pixel payload around 24 MiB.
+        assertEquals(16, FRAME_CACHE_SIZE)
+        assertEquals(32, TILE_CACHE_SIZE)
+    }
+
+    @Test
+    fun `cancelling coroutine cancels the underlying OkHttp call`() = runTest {
+        val call = HoldingCall()
+        val job = launch { call.awaitBodyBytes() }
+        runCurrent()
+        assertTrue(call.enqueued)
+
+        job.cancel()
+        runCurrent()
+
+        assertTrue(call.cancelled)
+    }
+
+    private class HoldingCall : Call {
+        private val request = Request.Builder().url("https://example.test/radar.png").build()
+        var enqueued = false
+        var cancelled = false
+
+        override fun request(): Request = request
+        override fun execute(): Response = throw IOException("not used")
+        override fun enqueue(responseCallback: Callback) {
+            enqueued = true
+        }
+        override fun cancel() {
+            cancelled = true
+        }
+        override fun isExecuted(): Boolean = enqueued
+        override fun isCanceled(): Boolean = cancelled
+        override fun timeout(): Timeout = Timeout.NONE
+        override fun clone(): Call = HoldingCall()
     }
 }

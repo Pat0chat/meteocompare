@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import com.meteocompare.app.data.radar.RadarRepository
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.repository.CityRepository
+import com.meteocompare.app.domain.radar.RADAR_ANALYSIS_ZOOM
 import com.meteocompare.app.domain.radar.RadarBaseTile
 import com.meteocompare.app.domain.radar.RadarFrame
 import com.meteocompare.app.domain.radar.RadarImage
@@ -14,9 +15,11 @@ import com.meteocompare.app.ui.navigation.Destinations
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -80,6 +83,8 @@ class RadarViewModelTest {
         val repo = FakeRadarRepository()
         val vm = viewModel(repo)
         runCurrent()
+        vm.setViewportSize(360, 360)
+        runCurrent()
         vm.setRange(RadarRange.WIDE)
         runCurrent()
 
@@ -89,6 +94,63 @@ class RadarViewModelTest {
         assertTrue(5 in repo.radarZooms)
     }
 
+
+    @Test
+    fun `nowcast frame downloads stay sequential like the web implementation`() = runTest(dispatcher) {
+        val repo = SequentialAnalysisRepository()
+        val handle = SavedStateHandle(
+            mapOf(
+                Destinations.CITY_DETAIL_ARG to city.id,
+                "radar.mode" to RadarMode.PROJECTION.name,
+                "radar.range" to RadarRange.WIDE.name
+            )
+        )
+        viewModel(repo, handle)
+        advanceUntilIdle()
+
+        assertEquals(7, repo.analysisDownloads)
+        assertEquals(1, repo.maxConcurrentAnalysisDownloads)
+    }
+
+    @Test
+    fun `base tiles wait for the real viewport and identical viewport is not reloaded`() = runTest(dispatcher) {
+        val repo = FakeRadarRepository()
+        val vm = viewModel(repo)
+        runCurrent()
+
+        assertTrue(repo.baseZooms.isEmpty())
+        vm.setViewportSize(360, 360)
+        runCurrent()
+        assertEquals(listOf(9), repo.baseZooms)
+        assertEquals(listOf(360 to 360), repo.baseViewports)
+
+        vm.setViewportSize(360, 360)
+        runCurrent()
+        assertEquals(1, repo.baseZooms.size)
+
+        vm.setViewportSize(1200, 800)
+        runCurrent()
+        assertEquals(listOf(360 to 360, 1200 to 800), repo.baseViewports)
+    }
+
+    @Test
+    fun `changing projection horizon is local and triggers no repository call`() = runTest(dispatcher) {
+        val repo = FakeRadarRepository()
+        val vm = viewModel(repo)
+        runCurrent()
+        val metadataCalls = repo.metadataForceFlags.size
+        val radarCalls = repo.radarZooms.size
+        val baseCalls = repo.baseZooms.size
+
+        vm.setHorizon(15)
+        vm.setHorizon(60)
+        runCurrent()
+
+        assertEquals(metadataCalls, repo.metadataForceFlags.size)
+        assertEquals(radarCalls, repo.radarZooms.size)
+        assertEquals(baseCalls, repo.baseZooms.size)
+        assertEquals(60, (vm.state.value as RadarUiState.Ready).horizonMinutes)
+    }
 
     @Test
     fun `saved radar controls are restored across recreation`() = runTest(dispatcher) {
@@ -166,12 +228,50 @@ class RadarViewModelTest {
         )
     }
 
+    private class SequentialAnalysisRepository : RadarRepository {
+        private val frames = List(7) { i -> RadarFrame(1_700_000_000L + i * 600, "/v2/radar/frame$i") }
+        private val image = RadarImage(8, 8, IntArray(64))
+        var analysisDownloads = 0
+        var maxConcurrentAnalysisDownloads = 0
+        private var activeAnalysisDownloads = 0
+
+        override suspend fun metadata(forceRefresh: Boolean): RadarMetadata =
+            RadarMetadata("https://tilecache.rainviewer.com", frames)
+
+        override suspend fun radarImage(
+            metadata: RadarMetadata,
+            frame: RadarFrame,
+            city: City,
+            zoom: Int
+        ): RadarImage {
+            if (zoom == RADAR_ANALYSIS_ZOOM) {
+                analysisDownloads++
+                activeAnalysisDownloads++
+                maxConcurrentAnalysisDownloads = maxOf(maxConcurrentAnalysisDownloads, activeAnalysisDownloads)
+                try {
+                    delay(1)
+                } finally {
+                    activeAnalysisDownloads--
+                }
+            }
+            return image
+        }
+
+        override suspend fun baseTiles(
+            city: City,
+            zoom: Int,
+            viewportWidth: Int,
+            viewportHeight: Int
+        ): List<RadarBaseTile> = emptyList()
+    }
+
     private class FakeRadarRepository(
         private val failForcedRefresh: Boolean = false
     ) : RadarRepository {
         val metadataForceFlags = mutableListOf<Boolean>()
         val radarZooms = mutableListOf<Int>()
         val baseZooms = mutableListOf<Int>()
+        val baseViewports = mutableListOf<Pair<Int, Int>>()
         private val image = RadarImage(8, 8, IntArray(64))
         private val frames = List(7) { i -> RadarFrame(1_700_000_000L + i * 600, "/v2/radar/frame$i") }
 
@@ -186,8 +286,9 @@ class RadarViewModelTest {
             return image
         }
 
-        override suspend fun baseTiles(city: City, zoom: Int, radius: Int): List<RadarBaseTile> {
+        override suspend fun baseTiles(city: City, zoom: Int, viewportWidth: Int, viewportHeight: Int): List<RadarBaseTile> {
             baseZooms += zoom
+            baseViewports += viewportWidth to viewportHeight
             return emptyList()
         }
     }

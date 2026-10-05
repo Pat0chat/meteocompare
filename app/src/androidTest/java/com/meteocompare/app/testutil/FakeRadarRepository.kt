@@ -42,7 +42,7 @@ class FakeRadarRepository @Inject constructor() : RadarRepository {
         return transparentImage
     }
 
-    override suspend fun baseTiles(city: City, zoom: Int, radius: Int): List<RadarBaseTile> {
+    override suspend fun baseTiles(city: City, zoom: Int, viewportWidth: Int, viewportHeight: Int): List<RadarBaseTile> {
         baseZooms += zoom
         return emptyList()
     }

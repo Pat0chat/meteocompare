@@ -208,6 +208,34 @@ class CityCardTest {
     }
 
     @Test
+    fun menu_radar_entry_forwards_city_action() {
+        var opened = false
+        composeRule.setContent {
+            MeteoCompareTheme {
+                Surface {
+                    CityCard(
+                        state = CityCardState(TestFixtures.paris, ForecastState.Loading),
+                        onClick = {},
+                        onRadarClick = { opened = true },
+                        onRemove = {},
+                        onRetry = {}
+                    )
+                }
+            }
+        }
+
+        composeRule.onNodeWithContentDescription(
+            context.getString(R.string.action_more_options)
+        ).performClick()
+        composeRule.onNodeWithTag(
+            "$TAG_CITY_RADAR_MENU${TestFixtures.paris.id}",
+            useUnmergedTree = true
+        ).assertIsDisplayed().performClick()
+
+        assertTrue(opened)
+    }
+
+    @Test
     fun menu_graphic_view_entry_forwards_city_action() {
         var opened = false
         composeRule.setContent {
