@@ -1,0 +1,4 @@
+- Incorporación de un sistema de notificaciones (resumen diario, cambios en la previsión, próximos eventos)
+- Compatibilidad con unidades imperiales (sistema métrico por defecto)
+- Corrección de errores (sesgo, configuración del widget, solicitudes y GC)
+- Corrección de actualizaciones y consultas innecesarias, corrección de las notificaciones

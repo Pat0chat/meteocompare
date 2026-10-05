@@ -345,6 +345,7 @@ Fait :
 - ✅ v1.14.5 — Nouvelle vue "Chart View", initialement sur 7 jours ; son horizon passe à 10 jours en v1.15.0
 - ✅ v1.15.0 - Nouveaux modèles AIGFS et GSM pour mieux couvrir le monde, horizon des prévisions augmenté à 10 jours, améliorations des perforamnces, corrections de bugs
 - ✅ v1.16.0 - Ajout d'un système de notifications (résumé journalier, changement de prévisions, évènements à venir), prise en charge des unités impériales (métriques par défaut), corrections de bugs (bias, widget's settings, requests et GC)
+- ✅ v1.16.1 - Correction des refreshs et requêtes inutiles, correction des notifications
 
 ## Licence
 

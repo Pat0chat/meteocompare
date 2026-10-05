@@ -1,0 +1,4 @@
+- Ajout d'un système de notifications (résumé journalier, changement de prévisions, évènements à venir)
+- Prise en charge des unités impériales (métriques par défaut)
+- Corrections de bugs (bias, widget's settings, requests et GC)
+- Correction des refreshs et requêtes inutiles, correction des notifications

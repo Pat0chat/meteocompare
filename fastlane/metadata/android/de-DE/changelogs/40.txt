@@ -1,0 +1,4 @@
+- Hinzufügen eines Benachrichtigungssystems (tägliche Zusammenfassung, geänderte Vorhersagen, anstehende Ereignisse)
+- Unterstützung für imperiale Einheiten (standardmäßig metrisch)
+- Fehlerbehebungen (Bias, Widget-Einstellungen, Anfragen und GC)
+- Korrektur unnötiger Aktualisierungen und Abfragen, Korrektur der Benachrichtigungen

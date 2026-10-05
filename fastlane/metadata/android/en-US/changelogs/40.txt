@@ -1,0 +1,4 @@
+- Added a notification system (daily summary, forecast changes, upcoming events)
+- Added support for imperial units (metric by default)
+- Bug fixes (bias, widget settings, requests, and GC)
+- Fixed unnecessary refreshes and requests, fixed notifications.Fixed unnecessary refreshes and requests, fixed notifications
