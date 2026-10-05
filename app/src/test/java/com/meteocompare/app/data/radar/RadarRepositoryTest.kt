@@ -4,11 +4,13 @@ import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.radar.RadarFrame
 import com.meteocompare.app.domain.radar.RadarMetadata
 import java.io.IOException
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.yield
 import okhttp3.Call
 import okhttp3.Callback
+import okhttp3.EventListener
 import okhttp3.Request
 import okhttp3.Response
 import okio.Timeout
@@ -16,6 +18,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlin.reflect.KClass
 
 class RadarRepositoryTest {
     private val city = City(
@@ -91,11 +94,10 @@ class RadarRepositoryTest {
     fun `cancelling coroutine cancels the underlying OkHttp call`() = runTest {
         val call = HoldingCall()
         val job = launch { call.awaitBodyBytes() }
-        runCurrent()
+        yield()
         assertTrue(call.enqueued)
 
-        job.cancel()
-        runCurrent()
+        job.cancelAndJoin()
 
         assertTrue(call.cancelled)
     }
@@ -116,6 +118,11 @@ class RadarRepositoryTest {
         override fun isExecuted(): Boolean = enqueued
         override fun isCanceled(): Boolean = cancelled
         override fun timeout(): Timeout = Timeout.NONE
+        override fun addEventListener(eventListener: EventListener) = Unit
+        override fun <T : Any> tag(type: KClass<T>): T? = null
+        override fun <T> tag(type: Class<out T>): T? = null
+        override fun <T : Any> tag(type: KClass<T>, computeIfAbsent: () -> T): T = computeIfAbsent()
+        override fun <T : Any> tag(type: Class<T>, computeIfAbsent: () -> T): T = computeIfAbsent()
         override fun clone(): Call = HoldingCall()
     }
 }
