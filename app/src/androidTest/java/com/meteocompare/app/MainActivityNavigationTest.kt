@@ -14,12 +14,14 @@ import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.testutil.FakeCityRepository
 import com.meteocompare.app.testutil.FakeClimateNormalsRepository
 import com.meteocompare.app.testutil.FakeForecastRepository
+import com.meteocompare.app.testutil.FakeRadarRepository
 import com.meteocompare.app.testutil.FakeUserPreferencesRepository
 import com.meteocompare.app.testutil.TestFixtures
 import com.meteocompare.app.ui.citydetail.TAG_CONFIDENCE_BADGE
 import com.meteocompare.app.ui.citydetail.TAG_DETAIL_LOADED
 import com.meteocompare.app.ui.citydetail.TAG_ENGINE_COMPARISON_ACTION
 import com.meteocompare.app.ui.citydetail.TAG_GRAPHIC_VIEW_ACTION
+import com.meteocompare.app.ui.citydetail.TAG_RADAR_ACTION
 import com.meteocompare.app.ui.citydetail.confidence.TAG_CONFIDENCE_EXPLANATION_BACK
 import com.meteocompare.app.ui.citydetail.confidence.TAG_CONFIDENCE_EXPLANATION_ROOT
 import com.meteocompare.app.ui.citylist.TAG_ADD_CITY_RESULT
@@ -33,6 +35,7 @@ import com.meteocompare.app.ui.citylist.TAG_SETTINGS_BUTTON
 import com.meteocompare.app.ui.settings.TAG_SETTINGS_BACK
 import com.meteocompare.app.ui.settings.TAG_SETTINGS_ENGINE
 import com.meteocompare.app.ui.settings.TAG_SETTINGS_ROOT
+import com.meteocompare.app.ui.radar.TAG_RADAR_STAGE
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import javax.inject.Inject
@@ -64,6 +67,7 @@ class MainActivityNavigationTest {
     @Inject lateinit var forecasts: FakeForecastRepository
     @Inject lateinit var preferences: FakeUserPreferencesRepository
     @Inject lateinit var normals: FakeClimateNormalsRepository
+    @Inject lateinit var radar: FakeRadarRepository
 
     @Before
     fun setUp() {
@@ -72,6 +76,7 @@ class MainActivityNavigationTest {
         forecasts.reset()
         preferences.reset()
         normals.reset()
+        radar.reset()
         composeRule.waitUntil(timeoutMillis = 5_000) {
             composeRule.onAllNodes(
                 androidx.compose.ui.test.hasTestTag(TAG_EMPTY_STATE)
@@ -134,6 +139,25 @@ class MainActivityNavigationTest {
         composeRule.onNodeWithText(
             composeRule.activity.getString(R.string.engine_comparison_title)
         ).assertIsDisplayed()
+    }
+
+    @Test
+    fun open_radar_end_to_end() {
+        cities.setFavorites(listOf(TestFixtures.paris))
+        forecasts.setForecast(TestFixtures.paris)
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodes(
+                androidx.compose.ui.test.hasTestTag("$TAG_CITY_CARD${TestFixtures.paris.id}")
+            ).fetchSemanticsNodes().isNotEmpty()
+        }
+
+        composeRule.onNodeWithTag("$TAG_CITY_CARD${TestFixtures.paris.id}").performClick()
+        waitForDetailLoaded()
+        composeRule.onNodeWithTag(TAG_RADAR_ACTION).performClick()
+        composeRule.onNodeWithText(
+            composeRule.activity.getString(R.string.radar_title)
+        ).assertIsDisplayed()
+        composeRule.onNodeWithTag(TAG_RADAR_STAGE).assertIsDisplayed()
     }
 
     @Test

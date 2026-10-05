@@ -1,6 +1,6 @@
 # Politique de confidentialité — MeteoCompare
 
-*Dernière mise à jour : 8 septembre 2026*
+*Dernière mise à jour : 5 octobre 2026*
 
 ## TL;DR
 
@@ -13,7 +13,9 @@ informations nécessaires au fonctionnement météo quittent toutefois l'apparei
 une recherche de ville est envoyée au service de géocodage Open-Meteo, et les
 coordonnées des lieux consultés sont envoyées aux API météo Open-Meteo. Pour la
 Vigilance française, un code de département peut être envoyé au Worker public
-MeteoCompare.
+MeteoCompare. Lorsque l’utilisateur ouvre explicitement le radar pluie, les
+coordonnées de la localité sont également utilisées pour charger les images
+RainViewer et les tuiles cartographiques OpenStreetMap.
 
 ---
 
@@ -34,7 +36,7 @@ Concrètement :
 - ❌ Pas de suivi inter-applications
 
 Les seules transmissions réseau effectuées par l'application sont celles nécessaires
-aux fonctions décrites dans les sections 2 et 3.
+aux fonctions décrites dans les sections 2, 3 et 4.
 
 ## 2. Open-Meteo
 
@@ -105,7 +107,28 @@ Les villes hors France ne déclenchent aucun appel Vigilance. Lorsqu'une ville e
 supprimée des favoris, son état Vigilance en mémoire est supprimé et le cache
 persistant correspondant est purgé conformément au fonctionnement de l'application.
 
-## 4. Stockage local sur l'appareil
+## 4. Radar pluie : RainViewer et OpenStreetMap
+
+La vue radar est optionnelle et ne contacte ces services qu'après son ouverture
+explicite depuis la fiche d'une ville.
+
+- **RainViewer** fournit les métadonnées et images des observations radar. Les
+  coordonnées (latitude et longitude) de la localité consultée sont incluses dans
+  la requête d'image afin de centrer la carte radar.
+- **OpenStreetMap** fournit uniquement les tuiles du fond cartographique nécessaires
+  à la zone affichée.
+
+Comme pour toute requête HTTPS, ces services reçoivent aussi l'adresse IP source
+et les informations HTTP techniques nécessaires à l'acheminement. MeteoCompare
+n'envoie ni compte, ni identifiant publicitaire, ni liste de favoris à ces services.
+
+La projection à +15, +30, +45 ou +60 minutes est calculée **localement sur
+l'appareil** à partir des dernières images RainViewer : segmentation des zones de
+pluie, estimation de leur déplacement et extrapolation avec incertitude croissante.
+Aucune donnée future supplémentaire n'est demandée à RainViewer pour produire ce
+nowcast.
+
+## 5. Stockage local sur l'appareil
 
 Les données suivantes sont conservées localement par MeteoCompare :
 
@@ -146,11 +169,11 @@ La désinstallation supprime les données locales de l'application présentes su
 l'appareil. Une sauvegarde Android déjà créée reste gérée par Android et par les
 réglages du compte de l'utilisateur.
 
-## 5. Permissions Android
+## 6. Permissions Android
 
 | Permission | Utilité |
 |---|---|
-| `INTERNET` | Appels HTTPS vers Open-Meteo et le Worker MeteoCompare |
+| `INTERNET` | Appels HTTPS vers Open-Meteo, le Worker MeteoCompare, RainViewer et OpenStreetMap |
 | `ACCESS_NETWORK_STATE` | Détecter l'absence de réseau et adapter l'interface / les requêtes |
 | `RECEIVE_BOOT_COMPLETED` | Reprogrammer proprement l'actualisation périodique des widgets après un redémarrage ou une mise à jour de l'application |
 | `POST_NOTIFICATIONS` | Afficher les notifications météo locales (résumé quotidien, divergence des modèles, changement de prévision), uniquement si l'utilisateur les active dans les Réglages. Elles sont calculées sur l'appareil : aucun service de push, aucun identifiant ni donnée supplémentaire n'est transmis |
@@ -166,19 +189,19 @@ MeteoCompare **ne demande pas** :
 La ville consultée est donc une ville **choisie par l'utilisateur** ; l'application
 ne lit pas la position physique de l'appareil.
 
-## 6. Sécurité des transmissions
+## 7. Sécurité des transmissions
 
 Les services réseau configurés par MeteoCompare utilisent HTTPS. Les données qui
 quittent l'appareil sont donc chiffrées en transit entre l'application et les
 serveurs contactés selon les mécanismes TLS standards de la plateforme Android.
 
-## 7. Public cible
+## 8. Public cible
 
 L'application n'est pas spécifiquement destinée aux enfants de moins de 13 ans.
 Elle ne crée aucun compte, profil publicitaire ou historique serveur MeteoCompare
 associé à une identité utilisateur.
 
-## 8. Modifications de cette politique
+## 9. Modifications de cette politique
 
 Si une mise à jour ajoute une nouvelle collecte, un système de compte, une
 synchronisation cloud, de l'analytics, de la publicité ou une autre transmission
@@ -188,7 +211,7 @@ de la version concernée.
 L'engagement de la branche 1.x reste l'absence d'analytics, de publicité, de
 tracking et de profilage par MeteoCompare.
 
-## 9. Contact
+## 10. Contact
 
 Pour toute question sur cette politique :
 [github.com/Pat0chat/MeteoCompare/issues](https://github.com/Pat0chat/MeteoCompare/issues)

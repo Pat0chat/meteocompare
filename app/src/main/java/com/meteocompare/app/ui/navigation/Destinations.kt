@@ -22,6 +22,12 @@ object Destinations {
 
     fun engineComparison(cityId: String): String = "$ENGINE_COMPARISON_BASE/$cityId"
 
+
+    private const val RADAR_BASE = "radar"
+    const val RADAR = "$RADAR_BASE/{$CITY_DETAIL_ARG}"
+
+    fun radar(cityId: String): String = "$RADAR_BASE/$cityId"
+
     private const val GRAPHIC_VIEW_BASE = "graphic-view"
     const val GRAPHIC_VIEW = "$GRAPHIC_VIEW_BASE/{$CITY_DETAIL_ARG}"
 

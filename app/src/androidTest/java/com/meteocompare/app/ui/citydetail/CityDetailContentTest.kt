@@ -146,6 +146,44 @@ class CityDetailContentTest {
     }
 
     @Test
+    fun loaded_state_exposes_radar_from_top_app_bar() {
+        val forecast = TestFixtures.forecast()
+        val calculator = ConfidenceCalculator(EqualWeighting())
+        var radarClicks = 0
+
+        composeRule.setContent {
+            MeteoCompareTheme {
+                CityDetailContent(
+                    state = CityDetailUiState.Loaded(
+                        forecast = forecast,
+                        weeklyConfidence = calculator.weeklyConfidence(forecast),
+                        hourlyBands = calculator.hourlyTemperatureConfidence(forecast),
+                        hourlyPrecipBands = calculator.hourlyPrecipitationConfidence(forecast),
+                        hourlyWindBands = calculator.hourlyWindConfidence(forecast),
+                        currentTemp = calculator.currentTemperature(forecast),
+                        currentCondition = calculator.currentWeatherCondition(forecast),
+                        currentCloudCover = calculator.currentCloudCover(forecast),
+                        dailyConditions = calculator.dailyConditionsByModel(forecast),
+                        calculatedAt = TestFixtures.now,
+                        fetchedAt = forecast.fetchedAt
+                    ),
+                    isRefreshing = false,
+                    biasState = BiasScreenState.EMPTY,
+                    snackbarHostState = SnackbarHostState(),
+                    onBack = {},
+                    onRefresh = {},
+                    onRadarClick = { radarClicks++ }
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag(TAG_RADAR_ACTION)
+            .assertIsDisplayed()
+            .performClick()
+        assertEquals(1, radarClicks)
+    }
+
+    @Test
     fun loaded_state_exposes_engine_comparison_from_top_app_bar() {
         val forecast = TestFixtures.forecast()
         val calculator = ConfidenceCalculator(EqualWeighting())

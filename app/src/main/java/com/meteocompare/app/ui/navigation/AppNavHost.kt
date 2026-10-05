@@ -53,6 +53,7 @@ import com.meteocompare.app.ui.components.AppToastLayer
 import com.meteocompare.app.ui.enginecomparison.EngineComparisonScreen
 import com.meteocompare.app.ui.graphicview.GraphicForecastScreen
 import com.meteocompare.app.ui.help.HowItWorksScreen
+import com.meteocompare.app.ui.radar.RadarScreen
 import com.meteocompare.app.ui.settings.SettingsScreen
 
 /** Largeur Material 3 « expanded », adaptée à deux volets réellement lisibles. */
@@ -393,6 +394,9 @@ private fun NavGraphBuilder.detailDestinations(
             },
             onGraphicViewClick = {
                 navController.navigate(Destinations.graphicView(cityId))
+            },
+            onRadarClick = {
+                navController.navigate(Destinations.radar(cityId))
             }
         )
     }
@@ -404,6 +408,15 @@ private fun NavGraphBuilder.detailDestinations(
         })
     ) {
         EngineComparisonScreen(onBack = { navController.popBackStack() })
+    }
+
+    composable(
+        route = Destinations.RADAR,
+        arguments = listOf(navArgument(Destinations.CITY_DETAIL_ARG) {
+            type = NavType.StringType
+        })
+    ) {
+        RadarScreen(onBack = { navController.popBackStack() })
     }
 
     composable(

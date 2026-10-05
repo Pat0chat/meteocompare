@@ -37,6 +37,7 @@ import androidx.compose.material.icons.automirrored.filled.CompareArrows
 import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Radar
 import androidx.compose.material.icons.outlined.Air
 import androidx.compose.material.icons.outlined.Thermostat
 import androidx.compose.material.icons.outlined.WaterDrop
@@ -148,6 +149,7 @@ fun CityDetailScreen(
     onConfidenceClick: (isoDate: String) -> Unit = {},
     onEngineComparisonClick: () -> Unit = {},
     onGraphicViewClick: () -> Unit = {},
+    onRadarClick: () -> Unit = {},
     showBackButton: Boolean = true,
     viewModel: CityDetailViewModel = hiltViewModel()
 ) {
@@ -194,6 +196,7 @@ fun CityDetailScreen(
         onRefresh = viewModel::refresh,
         onEngineComparisonClick = onEngineComparisonClick,
         onGraphicViewClick = onGraphicViewClick,
+        onRadarClick = onRadarClick,
         showBackButton = showBackButton
     ) { loaded, padding ->
         CityDetailLoadedStateBridge(
@@ -284,6 +287,7 @@ internal fun CityDetailContent(
     onConfidenceClick: (isoDate: String) -> Unit = {},
     onEngineComparisonClick: () -> Unit = {},
     onGraphicViewClick: () -> Unit = {},
+    onRadarClick: () -> Unit = {},
     onRequestBiasHistory: () -> Unit = {},
     showBackButton: Boolean = true
 ) {
@@ -295,6 +299,7 @@ internal fun CityDetailContent(
         onRefresh = onRefresh,
         onEngineComparisonClick = onEngineComparisonClick,
         onGraphicViewClick = onGraphicViewClick,
+        onRadarClick = onRadarClick,
         showBackButton = showBackButton
     ) { loaded, padding ->
         LoadedView(
@@ -342,6 +347,7 @@ private fun CityDetailScaffold(
     onRefresh: () -> Unit,
     onEngineComparisonClick: () -> Unit,
     onGraphicViewClick: () -> Unit,
+    onRadarClick: () -> Unit,
     showBackButton: Boolean,
     loadedContent: @Composable (CityDetailUiState.Loaded, PaddingValues) -> Unit
 ) {
@@ -398,6 +404,15 @@ private fun CityDetailScaffold(
                     },
                     actions = {
                         if (state is CityDetailUiState.Loaded) {
+                            IconButton(
+                                onClick = onRadarClick,
+                                modifier = Modifier.testTag(TAG_RADAR_ACTION)
+                            ) {
+                                Icon(
+                                    Icons.Default.Radar,
+                                    contentDescription = stringResource(R.string.radar_open)
+                                )
+                            }
                             IconButton(
                                 onClick = onEngineComparisonClick,
                                 modifier = Modifier.testTag(TAG_ENGINE_COMPARISON_ACTION)
@@ -2494,6 +2509,7 @@ private fun PartialErrorsSection(errors: Map<WeatherModel, String>) {
 internal const val TAG_DETAIL_LOADING = "detail_loading"
 internal const val TAG_DETAIL_ERROR = "detail_error"
 internal const val TAG_DETAIL_LOADED = "detail_loaded"
+internal const val TAG_RADAR_ACTION = "radar_action"
 internal const val TAG_ENGINE_COMPARISON_ACTION = "engine_comparison_action"
 internal const val TAG_GRAPHIC_VIEW_ACTION = "graphic_view_action"
 internal const val TAG_CONFIDENCE_BADGE = "confidence_badge"
