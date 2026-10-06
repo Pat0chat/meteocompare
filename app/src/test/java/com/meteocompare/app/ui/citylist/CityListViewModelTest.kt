@@ -902,6 +902,60 @@ class CityListViewModelTest {
         }
 
     @Test
+    fun `onRemoveCity - echec de synchronisation notifications avertit utilisateur`() =
+        runViewModelTest {
+            favoritesFlow.value = listOf(paris)
+            notificationSettingsFlow.value = NotificationSettings(
+                dailySummaryEnabled = true,
+                cityIds = setOf(paris.id)
+            )
+            coEvery { prefs.updateNotificationSettings(any()) } throws
+                IllegalStateException("preferences unavailable")
+            runCurrent()
+
+            viewModel.actionFeedback.test {
+                viewModel.onRemoveCity(paris.id)
+                val event = awaitItem()
+                assertEquals(
+                    com.meteocompare.app.R.string.toast_city_removed_notification_warning,
+                    event.messageRes
+                )
+                assertEquals(
+                    com.meteocompare.app.ui.components.AppToastType.WARNING,
+                    event.type
+                )
+            }
+            coVerify(exactly = 1) { cityRepo.removeFavorite(paris.id) }
+        }
+
+    @Test
+    fun `onRemoveCity - echec de replanification notifications avertit utilisateur`() =
+        runViewModelTest {
+            favoritesFlow.value = listOf(paris)
+            notificationSettingsFlow.value = NotificationSettings(
+                divergenceAlertsEnabled = true,
+                cityIds = setOf(paris.id)
+            )
+            every {
+                WeatherNotificationScheduler.reschedule(any(), any(), any())
+            } throws IllegalStateException("WorkManager unavailable")
+            runCurrent()
+
+            viewModel.actionFeedback.test {
+                viewModel.onRemoveCity(paris.id)
+                val event = awaitItem()
+                assertEquals(
+                    com.meteocompare.app.R.string.toast_city_removed_notification_warning,
+                    event.messageRes
+                )
+                assertEquals(
+                    com.meteocompare.app.ui.components.AppToastType.WARNING,
+                    event.type
+                )
+            }
+        }
+
+    @Test
     fun `addCityState - query trop court (1 char) ne déclenche pas de recherche`() =
         runViewModelTest {
             backgroundScope.launch { viewModel.addCityState.collect {} }

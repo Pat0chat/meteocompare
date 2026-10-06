@@ -42,6 +42,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -202,6 +203,25 @@ class SettingsViewModelTest {
             verify(exactly = 1) {
                 WidgetRefreshScheduler.triggerImmediateRefresh(appContext)
             }
+        }
+
+    @Test
+    fun `commitModelSelectionResult - distingue sauvegarde et absence de changement`() =
+        runTest(dispatcher) {
+            backgroundScope.launch { viewModel.enabledModels.collect {} }
+            modelsFlow.value = listOf(WeatherModel.GFS)
+            viewModel.enabledModels.first { it == setOf(WeatherModel.GFS) }
+
+            assertEquals(
+                ModelSelectionCommitResult.UNCHANGED,
+                viewModel.commitModelSelectionResult()
+            )
+
+            viewModel.onModelToggled(WeatherModel.ECMWF, enabled = true)
+            assertEquals(
+                ModelSelectionCommitResult.SAVED,
+                viewModel.commitModelSelectionResult()
+            )
         }
 
     @Test
@@ -400,7 +420,7 @@ class SettingsViewModelTest {
         }
 
     @Test
-    fun `echec du trigger widget ne transforme pas un reglage persiste en echec`() =
+    fun `echec du trigger widget conserve le reglage et avertit du rafraichissement differe`() =
         runTest(dispatcher) {
             every {
                 WidgetRefreshScheduler.triggerImmediateRefresh(any<Context>())
@@ -410,11 +430,28 @@ class SettingsViewModelTest {
                 viewModel.onRefreshIntervalSelected(RefreshInterval.HOURS_3)
 
                 val event = awaitItem()
-                assertEquals(R.string.toast_refresh_interval_updated, event.messageRes)
-                assertEquals(AppToastType.SUCCESS, event.type)
+                assertEquals(R.string.toast_widget_refresh_delayed, event.messageRes)
+                assertEquals(AppToastType.WARNING, event.type)
             }
             coVerify(exactly = 1) { prefs.setRefreshInterval(RefreshInterval.HOURS_3) }
         }
+
+    @Test
+    fun `commit modeles - echec du refresh widget retourne un succes differe`() = runTest(dispatcher) {
+        backgroundScope.launch { viewModel.enabledModels.collect {} }
+        modelsFlow.value = listOf(WeatherModel.GFS)
+        viewModel.enabledModels.first { it == setOf(WeatherModel.GFS) }
+        viewModel.onModelToggled(WeatherModel.ECMWF, enabled = true)
+        every {
+            WidgetRefreshScheduler.triggerImmediateRefresh(any<Context>())
+        } throws IllegalStateException("WorkManager indisponible")
+
+        assertEquals(
+            ModelSelectionCommitResult.SAVED_WIDGET_REFRESH_DELAYED,
+            viewModel.commitModelSelectionResult()
+        )
+        assertEquals(setOf(WeatherModel.GFS, WeatherModel.ECMWF), modelsFlow.value.toSet())
+    }
 
     @Test
     fun `commit modeles - persiste avant un unique refresh widget`() = runTest(dispatcher) {
@@ -546,6 +583,116 @@ class SettingsViewModelTest {
         }
         verify(exactly = 0) { WeatherNotificationScheduler.reschedule(any(), any(), any()) }
     }
+    @Test
+    fun `notifications - activation du resume confirme le succes`() = runTest(dispatcher) {
+        viewModel.feedback.test {
+            viewModel.onDailySummaryToggled(true)
+
+            val event = awaitItem()
+            assertEquals(AppToastType.SUCCESS, event.type)
+            assertEquals(R.string.toast_notifications_daily_enabled, event.messageRes)
+        }
+    }
+
+    @Test
+    fun `notifications - desactivation du resume confirme le succes`() = runTest(dispatcher) {
+        notificationFlow.value = NotificationSettings(
+            dailySummaryEnabled = true,
+            cityIds = setOf(paris.id)
+        )
+        viewModel.feedback.test {
+            viewModel.onDailySummaryToggled(false)
+
+            val event = awaitItem()
+            assertEquals(AppToastType.SUCCESS, event.type)
+            assertEquals(R.string.toast_notifications_daily_disabled, event.messageRes)
+        }
+    }
+
+    @Test
+    fun `notifications - changement d heure confirme le succes`() = runTest(dispatcher) {
+        notificationFlow.value = NotificationSettings(
+            dailySummaryEnabled = true,
+            dailySummaryTime = LocalTime.of(7, 0),
+            cityIds = setOf(paris.id)
+        )
+        viewModel.feedback.test {
+            viewModel.onDailySummaryTimeSelected(LocalTime.of(6, 30))
+
+            val event = awaitItem()
+            assertEquals(AppToastType.SUCCESS, event.type)
+            assertEquals(R.string.toast_notifications_time_updated, event.messageRes)
+        }
+    }
+
+    @Test
+    fun `notifications - chaque type d alerte confirme activation et desactivation`() =
+        runTest(dispatcher) {
+            notificationFlow.value = NotificationSettings(cityIds = setOf(paris.id))
+            viewModel.feedback.test {
+                viewModel.onDivergenceAlertsToggled(true)
+                assertEquals(R.string.toast_notifications_divergence_enabled, awaitItem().messageRes)
+
+                viewModel.onDivergenceAlertsToggled(false)
+                assertEquals(R.string.toast_notifications_divergence_disabled, awaitItem().messageRes)
+
+                viewModel.onForecastChangeAlertsToggled(true)
+                assertEquals(R.string.toast_notifications_change_enabled, awaitItem().messageRes)
+
+                viewModel.onForecastChangeAlertsToggled(false)
+                assertEquals(R.string.toast_notifications_change_disabled, awaitItem().messageRes)
+            }
+        }
+
+    @Test
+    fun `notifications - changement de ville nomme la ville dans le toast`() = runTest(dispatcher) {
+        notificationFlow.value = NotificationSettings(
+            divergenceAlertsEnabled = true,
+            cityIds = setOf(paris.id)
+        )
+        viewModel.feedback.test {
+            viewModel.onNotificationCityToggled(lyon.id, followed = true)
+            val added = awaitItem()
+            assertEquals(R.string.toast_notifications_city_enabled, added.messageRes)
+            assertEquals(listOf(lyon.name), added.formatArgs)
+
+            viewModel.onNotificationCityToggled(lyon.id, followed = false)
+            val removed = awaitItem()
+            assertEquals(R.string.toast_notifications_city_disabled, removed.messageRes)
+            assertEquals(listOf(lyon.name), removed.formatArgs)
+        }
+    }
+
+    @Test
+    fun `notifications - valeur identique ne replanifie pas et n affiche pas de toast`() =
+        runTest(dispatcher) {
+            notificationFlow.value = NotificationSettings(
+                dailySummaryEnabled = true,
+                cityIds = setOf(paris.id)
+            )
+            viewModel.feedback.test {
+                viewModel.onDailySummaryToggled(true)
+                expectNoEvents()
+            }
+            verify(exactly = 0) { WeatherNotificationScheduler.reschedule(any(), any(), any()) }
+        }
+
+    @Test
+    fun `notifications - echec de replanification avertit mais conserve le reglage`() =
+        runTest(dispatcher) {
+            every {
+                WeatherNotificationScheduler.reschedule(any(), any(), any())
+            } throws IllegalStateException("WorkManager unavailable")
+
+            viewModel.feedback.test {
+                viewModel.onDivergenceAlertsToggled(true)
+                val event = awaitItem()
+                assertEquals(AppToastType.WARNING, event.type)
+                assertEquals(R.string.toast_notifications_schedule_warning, event.messageRes)
+            }
+            assertTrue(notificationFlow.value.divergenceAlertsEnabled)
+        }
+
     @Test
     fun `units are persisted before widget refresh and exposed reactively`() = runTest(dispatcher) {
         val units = MutableStateFlow(UnitSystem.METRIC)

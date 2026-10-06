@@ -64,6 +64,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.meteocompare.app.R
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -169,6 +170,22 @@ internal fun rememberAppToastHostState(): AppToastHostState {
 }
 
 private val LocalAppToastHostState = staticCompositionLocalOf<AppToastHostState?> { null }
+private val LocalAppToastDispatcher = staticCompositionLocalOf<AppToastDispatcher?> { null }
+
+/**
+ * Dispatcher adossé au scope de [AppToastLayer], et non à celui de l'écran appelant.
+ * Un toast déclenché juste avant une navigation reste donc visible après la
+ * disparition du composable source (cas typique : sauvegarde des réglages au Back).
+ */
+@Stable
+private class AppToastDispatcher(
+    private val hostState: AppToastHostState,
+    private val scope: CoroutineScope
+) {
+    fun dispatch(event: AppToastEvent, resources: Resources, units: WeatherUnits) {
+        scope.launch { hostState.show(event, resources, units) }
+    }
+}
 
 /**
  * Couche unique placée au-dessus de toute la navigation téléphone/tablette.
@@ -180,7 +197,12 @@ internal fun AppToastLayer(
     content: @Composable BoxScope.() -> Unit
 ) {
     val hostState = rememberAppToastHostState()
-    CompositionLocalProvider(LocalAppToastHostState provides hostState) {
+    val layerScope = rememberCoroutineScope()
+    val dispatcher = remember(hostState, layerScope) { AppToastDispatcher(hostState, layerScope) }
+    CompositionLocalProvider(
+        LocalAppToastHostState provides hostState,
+        LocalAppToastDispatcher provides dispatcher
+    ) {
         Box(modifier = modifier.fillMaxSize()) {
             content()
             SnackbarHost(
@@ -216,16 +238,11 @@ internal fun AppToastEffect(events: Flow<AppToastEvent>) {
 /** Point d'entrée pour les actions purement UI, comme l'ouverture d'un lien externe. */
 @Composable
 internal fun rememberAppToastDispatcher(): (AppToastEvent) -> Unit {
-    val hostState = LocalAppToastHostState.current
+    val dispatcher = LocalAppToastDispatcher.current
     val resources = LocalResources.current
     val units = LocalWeatherUnits.current
-    val scope = rememberCoroutineScope()
-    return remember(hostState, resources, scope, units) {
-        { event ->
-            if (hostState != null) {
-                scope.launch { hostState.show(event, resources, units) }
-            }
-        }
+    return remember(dispatcher, resources, units) {
+        { event -> dispatcher?.dispatch(event, resources, units) }
     }
 }
 

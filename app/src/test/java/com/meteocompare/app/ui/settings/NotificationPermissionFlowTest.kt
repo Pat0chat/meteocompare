@@ -1,7 +1,11 @@
 package com.meteocompare.app.ui.settings
 
 import android.os.Build
+import com.meteocompare.app.R
+import com.meteocompare.app.ui.components.AppToastType
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -35,4 +39,18 @@ class NotificationPermissionFlowTest {
             )
         )
     }
+    @Test
+    fun `refus de permission avec activation en attente produit un toast explicite`() {
+        val event = notificationPermissionFeedback(granted = false, hadPendingEnable = true)
+
+        assertEquals(R.string.toast_notifications_permission_denied, event?.messageRes)
+        assertEquals(AppToastType.WARNING, event?.type)
+    }
+
+    @Test
+    fun `resultat permission sans activation en attente ne produit pas de toast`() {
+        assertNull(notificationPermissionFeedback(granted = false, hadPendingEnable = false))
+        assertNull(notificationPermissionFeedback(granted = true, hadPendingEnable = true))
+    }
+
 }

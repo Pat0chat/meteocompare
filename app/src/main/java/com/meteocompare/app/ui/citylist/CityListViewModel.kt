@@ -748,6 +748,7 @@ class CityListViewModel @Inject constructor(
             // Une ville supprimée ne doit pas rester suivie silencieusement par
             // les notifications. La mise à jour atomique évite aussi le cas où
             // le dernier ID obsolète maintiendrait des workers sans ville réelle.
+            var notificationCleanupFailed = false
             runSuspendCatching {
                 userPreferences.updateNotificationSettings { settings ->
                     settings.copy(cityIds = settings.cityIds - cityId)
@@ -760,6 +761,7 @@ class CityListViewModel @Inject constructor(
                         kickAlertsImmediately = false
                     )
                 }.onFailure { error ->
+                    notificationCleanupFailed = true
                     android.util.Log.w(
                         "MeteoCompare/Notif",
                         "Unable to reschedule notifications after removing city=$cityId",
@@ -767,6 +769,7 @@ class CityListViewModel @Inject constructor(
                     )
                 }
             }.onFailure { error ->
+                notificationCleanupFailed = true
                 android.util.Log.w(
                     "MeteoCompare/Notif",
                     "Unable to remove city=$cityId from notification settings",
@@ -808,8 +811,12 @@ class CityListViewModel @Inject constructor(
                 }
             }
             _actionFeedback.send(
-                removedCity?.let { AppToastEvent.success(R.string.toast_city_removed, it.name) }
-                    ?: AppToastEvent.success(R.string.toast_city_removed_generic)
+                if (notificationCleanupFailed) {
+                    AppToastEvent.warning(R.string.toast_city_removed_notification_warning)
+                } else {
+                    removedCity?.let { AppToastEvent.success(R.string.toast_city_removed, it.name) }
+                        ?: AppToastEvent.success(R.string.toast_city_removed_generic)
+                }
             )
         }
     }

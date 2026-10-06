@@ -38,6 +38,14 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
+
+enum class ModelSelectionCommitResult {
+    UNCHANGED,
+    SAVED,
+    SAVED_WIDGET_REFRESH_DELAYED,
+    FAILED
+}
+
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     @param:ApplicationContext private val appContext: Context,
@@ -153,19 +161,19 @@ class SettingsViewModel @Inject constructor(
     /**
      * Publie en une seule écriture la sélection finale des modèles.
      *
-     * Retourne false si la persistance échoue afin que le bouton Back puisse rester
-     * sur l'écran et laisser à l'utilisateur la possibilité de réessayer. Le widget
-     * n'est rafraîchi qu'après une persistance réussie, une seule fois pour tout le lot.
+     * Le résultat distingue une vraie sauvegarde d'un simple Back sans changement :
+     * l'écran peut ainsi confirmer uniquement les modifications effectivement persistées.
      */
-    suspend fun commitModelSelection(): Boolean = modelUpdateMutex.withLock {
-        val pending = pendingEnabledModels.value ?: return@withLock true
+    suspend fun commitModelSelectionResult(): ModelSelectionCommitResult = modelUpdateMutex.withLock {
+        val pending = pendingEnabledModels.value
+            ?: return@withLock ModelSelectionCommitResult.UNCHANGED
         // Relire la source persistée réelle ici : le StateFlow UI possède une
         // valeur initiale optimiste et ne doit jamais décider qu'un commit est
         // inutile avant sa première émission DataStore.
         val persisted = prefs.observeEnabledModels().first().toSet()
         if (pending == persisted) {
             pendingEnabledModels.value = null
-            return@withLock true
+            return@withLock ModelSelectionCommitResult.UNCHANGED
         }
 
         val result = runSuspendCatching {
@@ -177,13 +185,20 @@ class SettingsViewModel @Inject constructor(
         }
         if (result.isFailure) {
             _feedback.send(AppToastEvent.error(R.string.toast_settings_save_error))
-            return@withLock false
+            return@withLock ModelSelectionCommitResult.FAILED
         }
 
         pendingEnabledModels.value = null
-        triggerWidgetRefreshSafely()
-        true
+        if (triggerWidgetRefreshSafely()) {
+            ModelSelectionCommitResult.SAVED
+        } else {
+            ModelSelectionCommitResult.SAVED_WIDGET_REFRESH_DELAYED
+        }
     }
+
+    /** Compatibilité avec les appels/tests historiques qui n'ont besoin que du succès. */
+    suspend fun commitModelSelection(): Boolean =
+        commitModelSelectionResult() != ModelSelectionCommitResult.FAILED
 
 
     /**
@@ -208,8 +223,11 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             val feedback = runSuspendCatching { prefs.setUnitSystem(system) }.fold(
                 onSuccess = {
-                    triggerWidgetRefreshSafely()
-                    AppToastEvent.success(R.string.toast_units_updated)
+                    if (triggerWidgetRefreshSafely()) {
+                        AppToastEvent.success(R.string.toast_units_updated)
+                    } else {
+                        AppToastEvent.warning(R.string.toast_widget_refresh_delayed)
+                    }
                 },
                 onFailure = { AppToastEvent.error(R.string.toast_settings_save_error) }
             )
@@ -258,8 +276,11 @@ class SettingsViewModel @Inject constructor(
                 prefs.setRefreshInterval(interval)
             }.fold(
                 onSuccess = {
-                    triggerWidgetRefreshSafely()
-                    AppToastEvent.success(R.string.toast_refresh_interval_updated)
+                    if (triggerWidgetRefreshSafely()) {
+                        AppToastEvent.success(R.string.toast_refresh_interval_updated)
+                    } else {
+                        AppToastEvent.warning(R.string.toast_widget_refresh_delayed)
+                    }
                 },
                 onFailure = { AppToastEvent.error(R.string.toast_settings_save_error) }
             )
@@ -278,8 +299,11 @@ class SettingsViewModel @Inject constructor(
                 prefs.setForecastEngine(engine)
             }.fold(
                 onSuccess = {
-                    triggerWidgetRefreshSafely()
-                    AppToastEvent.success(R.string.toast_forecast_engine_updated)
+                    if (triggerWidgetRefreshSafely()) {
+                        AppToastEvent.success(R.string.toast_forecast_engine_updated)
+                    } else {
+                        AppToastEvent.warning(R.string.toast_widget_refresh_delayed)
+                    }
                 },
                 onFailure = { AppToastEvent.error(R.string.toast_settings_save_error) }
             )
@@ -287,24 +311,59 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun onDailySummaryToggled(enabled: Boolean) =
-        updateNotificationSettings { it.copy(dailySummaryEnabled = enabled) }
+    fun onDailySummaryToggled(enabled: Boolean) = updateNotificationSettings(
+        transform = { it.copy(dailySummaryEnabled = enabled) },
+        successFeedback = { _, _, _ ->
+            AppToastEvent.success(
+                if (enabled) R.string.toast_notifications_daily_enabled
+                else R.string.toast_notifications_daily_disabled
+            )
+        }
+    )
 
-    fun onDailySummaryTimeSelected(time: LocalTime) =
-        updateNotificationSettings { it.copy(dailySummaryTime = time) }
+    fun onDailySummaryTimeSelected(time: LocalTime) = updateNotificationSettings(
+        transform = { it.copy(dailySummaryTime = time) },
+        successFeedback = { _, _, _ ->
+            AppToastEvent.success(R.string.toast_notifications_time_updated)
+        }
+    )
 
-    fun onDivergenceAlertsToggled(enabled: Boolean) =
-        updateNotificationSettings { it.copy(divergenceAlertsEnabled = enabled) }
+    fun onDivergenceAlertsToggled(enabled: Boolean) = updateNotificationSettings(
+        transform = { it.copy(divergenceAlertsEnabled = enabled) },
+        successFeedback = { _, _, _ ->
+            AppToastEvent.success(
+                if (enabled) R.string.toast_notifications_divergence_enabled
+                else R.string.toast_notifications_divergence_disabled
+            )
+        }
+    )
 
-    fun onForecastChangeAlertsToggled(enabled: Boolean) =
-        updateNotificationSettings { it.copy(forecastChangeAlertsEnabled = enabled) }
+    fun onForecastChangeAlertsToggled(enabled: Boolean) = updateNotificationSettings(
+        transform = { it.copy(forecastChangeAlertsEnabled = enabled) },
+        successFeedback = { _, _, _ ->
+            AppToastEvent.success(
+                if (enabled) R.string.toast_notifications_change_enabled
+                else R.string.toast_notifications_change_disabled
+            )
+        }
+    )
 
-    fun onNotificationCityToggled(cityId: String, followed: Boolean) =
-        updateNotificationSettings { settings ->
+    fun onNotificationCityToggled(cityId: String, followed: Boolean) = updateNotificationSettings(
+        transform = { settings ->
             settings.copy(
                 cityIds = if (followed) settings.cityIds + cityId else settings.cityIds - cityId
             )
+        },
+        successFeedback = { _, _, favorites ->
+            favorites.firstOrNull { it.id == cityId }?.let { city ->
+                AppToastEvent.success(
+                    if (followed) R.string.toast_notifications_city_enabled
+                    else R.string.toast_notifications_city_disabled,
+                    city.name
+                )
+            } ?: AppToastEvent.success(R.string.toast_notifications_cities_updated)
         }
+    )
 
     /**
      * Persiste atomiquement la modification puis replanifie les travaux.
@@ -314,11 +373,19 @@ class SettingsViewModel @Inject constructor(
      * l'utilisateur pourrait croire la fonction cassée. Une ville décochée
      * ensuite reste décochée.
      */
-    private fun updateNotificationSettings(transform: (NotificationSettings) -> NotificationSettings) {
+    private fun updateNotificationSettings(
+        transform: (NotificationSettings) -> NotificationSettings,
+        successFeedback: (
+            previous: NotificationSettings,
+            updated: NotificationSettings,
+            favorites: List<City>
+        ) -> AppToastEvent
+    ) {
         viewModelScope.launch {
             var previous = NotificationSettings()
+            var favorites = emptyList<City>()
             val updated = runSuspendCatching {
-                val favorites = cityRepository.observeFavorites().first()
+                favorites = cityRepository.observeFavorites().first()
                 prefs.updateNotificationSettings { current ->
                     previous = current
                     val next = transform(current)
@@ -333,16 +400,31 @@ class SettingsViewModel @Inject constructor(
                 _feedback.send(AppToastEvent.error(R.string.toast_settings_save_error))
                 return@launch
             }
-            // Comme pour le widget, la planification est best-effort : le
-            // réglage est enregistré et le démarrage suivant la réparera.
-            runCatching {
+
+            // Confirmer uniquement une vraie modification. Cela évite aussi un
+            // replanification WorkManager inutile si un composant renvoie sa valeur actuelle.
+            if (updated == previous) return@launch
+
+            // Comme pour le widget, la planification est best-effort : le réglage
+            // reste enregistré. En cas d'échec, l'utilisateur doit toutefois savoir
+            // que la prise en compte système est différée au prochain démarrage.
+            val schedulingFailure = runCatching {
                 WeatherNotificationScheduler.reschedule(
                     appContext,
                     updated,
                     kickAlertsImmediately = shouldKickAlertsImmediately(previous, updated)
                 )
-            }.onFailure { error ->
-                android.util.Log.w("MeteoCompare/Notif", "Unable to reschedule notifications", error)
+            }.exceptionOrNull()
+
+            if (schedulingFailure != null) {
+                android.util.Log.w(
+                    "MeteoCompare/Notif",
+                    "Unable to reschedule notifications",
+                    schedulingFailure
+                )
+                _feedback.send(AppToastEvent.warning(R.string.toast_notifications_schedule_warning))
+            } else {
+                _feedback.send(successFeedback(previous, updated, favorites))
             }
         }
     }
@@ -370,15 +452,17 @@ class SettingsViewModel @Inject constructor(
      * widget est best-effort : une panne WorkManager ne doit pas faire croire
      * que le réglage n'a pas été enregistré. Le prochain tick le relira.
      */
-    private fun triggerWidgetRefreshSafely() {
-        runCatching {
-            WidgetRefreshScheduler.triggerImmediateRefresh(appContext)
-        }.onFailure { error ->
+    private fun triggerWidgetRefreshSafely(): Boolean = runCatching {
+        WidgetRefreshScheduler.triggerImmediateRefresh(appContext)
+    }.fold(
+        onSuccess = { true },
+        onFailure = { error ->
             android.util.Log.w(
                 "MeteoCompare/Widget",
                 "Unable to propagate settings to widgets immediately",
                 error
             )
+            false
         }
-    }
+    )
 }

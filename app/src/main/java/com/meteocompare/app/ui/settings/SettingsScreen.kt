@@ -77,6 +77,8 @@ import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.ThemePreference
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.ui.components.AppToastEffect
+import com.meteocompare.app.ui.components.AppToastEvent
+import com.meteocompare.app.ui.components.rememberAppToastDispatcher
 import com.meteocompare.app.ui.components.ModernSlidingSelector
 import com.meteocompare.app.ui.components.ModernStateChip
 import com.meteocompare.app.ui.components.OpenMeteoAttribution
@@ -134,6 +136,7 @@ fun SettingsScreen(
     var biasRefreshRequested by rememberSaveable { mutableStateOf(false) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val showToast = rememberAppToastDispatcher()
     var modelCommitInProgress by remember { mutableStateOf(false) }
 
     // Les modèles sont édités localement puis persistés en un seul lot.
@@ -144,10 +147,14 @@ fun SettingsScreen(
         if (!modelCommitInProgress) {
             modelCommitInProgress = true
             scope.launch {
-                if (viewModel.commitModelSelection()) {
-                    onBack()
-                } else {
+                val result = viewModel.commitModelSelectionResult()
+                if (result == ModelSelectionCommitResult.FAILED) {
                     modelCommitInProgress = false
+                } else {
+                    // Le dispatcher est porté par AppToastLayer : la confirmation
+                    // reste affichée même après le pop immédiat de Settings.
+                    modelSelectionCommitFeedback(result)?.let(showToast)
+                    onBack()
                 }
             }
         }
@@ -167,7 +174,12 @@ fun SettingsScreen(
         notificationsBlocked = !context.canPostNotifications()
         val pending = pendingNotificationEnableAction
         pendingNotificationEnableAction = null
-        if (granted) pending?.invoke()
+        if (granted) {
+            pending?.invoke()
+        } else {
+            notificationPermissionFeedback(granted = false, hadPendingEnable = pending != null)
+                ?.let(showToast)
+        }
     }
     // Android 13+ : une activation n'est persistée qu'après l'accord de la
     // permission. En cas de refus, le réglage MeteoCompare reste désactivé au
@@ -253,7 +265,11 @@ fun SettingsScreen(
                         withNotificationPermission(it, viewModel::onForecastChangeAlertsToggled)
                     },
                     onCityToggled = viewModel::onNotificationCityToggled,
-                    onOpenSystemSettings = { context.openAppNotificationSettings() }
+                    onOpenSystemSettings = {
+                        if (!context.openAppNotificationSettings()) {
+                            showToast(AppToastEvent.error(R.string.toast_notification_settings_open_error))
+                        }
+                    }
                 )
                 HorizontalDivider()
             }
@@ -1007,6 +1023,25 @@ internal const val TAG_SETTINGS_ENGINE = "settings_engine_"
 internal fun shouldRequestNotificationPermission(sdkInt: Int, permissionGranted: Boolean): Boolean =
     sdkInt >= Build.VERSION_CODES.TIRAMISU && !permissionGranted
 
+internal fun modelSelectionCommitFeedback(
+    result: ModelSelectionCommitResult
+): AppToastEvent? = when (result) {
+    ModelSelectionCommitResult.SAVED -> AppToastEvent.success(R.string.toast_models_updated)
+    ModelSelectionCommitResult.SAVED_WIDGET_REFRESH_DELAYED ->
+        AppToastEvent.warning(R.string.toast_widget_refresh_delayed)
+    ModelSelectionCommitResult.UNCHANGED,
+    ModelSelectionCommitResult.FAILED -> null
+}
+
+internal fun notificationPermissionFeedback(
+    granted: Boolean,
+    hadPendingEnable: Boolean
+): AppToastEvent? = if (!granted && hadPendingEnable) {
+    AppToastEvent.warning(R.string.toast_notifications_permission_denied)
+} else {
+    null
+}
+
 /** Vrai si les notifications sont autorisées (permission Android 13+ et réglage système). */
 private fun Context.canPostNotifications(): Boolean {
     val permissionGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
@@ -1016,12 +1051,10 @@ private fun Context.canPostNotifications(): Boolean {
 }
 
 /** Ouvre la page système des notifications de l'application (Android 8+). */
-private fun Context.openAppNotificationSettings() {
-    runCatching {
-        startActivity(
-            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        )
-    }
-}
+private fun Context.openAppNotificationSettings(): Boolean = runCatching {
+    startActivity(
+        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+            .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    )
+}.isSuccess
