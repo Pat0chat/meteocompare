@@ -85,11 +85,13 @@ async function graphql(query, variables) {
 
 const SPONSORS_QUERY = `
   query Sponsors($login: String!, $cursor: String) {
-    user(login: $login) {
-      ...MaintainerSponsors
-    }
-    organization(login: $login) {
-      ...MaintainerSponsors
+    repositoryOwner(login: $login) {
+      ... on User {
+        ...MaintainerSponsors
+      }
+      ... on Organization {
+        ...MaintainerSponsors
+      }
     }
   }
 
@@ -144,7 +146,7 @@ async function fetchSponsors() {
       cursor
     });
 
-    const sponsorable = data.user ?? data.organization;
+    const sponsorable = data.repositoryOwner;
     if (!sponsorable) {
       throw new Error(
         `GitHub account '${config.sponsorableLogin}' was not found as a user or organization.`
