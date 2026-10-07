@@ -1319,92 +1319,51 @@ class CityListViewModelTest {
         }
 
     @Test
-    fun `marine availability from cache is exposed independently from activation`() = runViewModelTest {
-        val cached = mockk<MarineForecast>()
-        every { cached.coastal } returns true
-        every { cached.fetchedAtEpochMs } returns testClock.millis()
-        coEvery { marineRepo.getFreshCached(paris.id) } returns cached
-
+    fun `adding or resuming a city never probes marine automatically`() = runViewModelTest {
         viewModel.uiState.test {
             awaitItem()
             favoritesFlow.value = listOf(paris)
+
             var state = awaitItem()
-            while (state.items.firstOrNull()?.isMarineAvailable != true) state = awaitItem()
+            while (state.items.none { it.city.id == paris.id }) state = awaitItem()
+            runCurrent()
 
-            val item = state.items.first()
-            assertTrue(item.isMarineAvailable)
-            assertTrue(!item.city.marineEnabled)
-            coVerify(exactly = 0) { marineRepo.getMarine(paris, forceRefresh = false) }
-        }
-    }
+            // Retour au premier plan : prévisions et vigilance peuvent se
+            // revalider, mais la partie marine doit rester 100 % opt-in.
+            viewModel.refreshIfStale()
+            runCurrent()
 
-    @Test
-    fun `expired marine cache triggers a fresh availability check`() = runViewModelTest {
-        val fresh = mockk<MarineForecast>()
-        every { fresh.coastal } returns true
-        every { fresh.fetchedAtEpochMs } returns testClock.millis()
-        coEvery { marineRepo.getFreshCached(paris.id) } returns null
-        coEvery { marineRepo.getMarine(paris, forceRefresh = false) } returns ApiResult.Success(fresh)
-
-        viewModel.uiState.test {
-            awaitItem()
-            favoritesFlow.value = listOf(paris)
-            var state = awaitItem()
-            while (state.items.firstOrNull()?.isMarineAvailable != true) state = awaitItem()
-
-            assertTrue(state.items.first().isMarineAvailable)
-            coVerify(exactly = 1) { marineRepo.getFreshCached(paris.id) }
-            coVerify(exactly = 1) { marineRepo.getMarine(paris, forceRefresh = false) }
-        }
-    }
-
-    @Test
-    fun `expired marine cache is used offline then revalidated when network returns`() = runViewModelTest {
-        val stale = mockk<MarineForecast>()
-        every { stale.coastal } returns true
-        every { stale.fetchedAtEpochMs } returns
-            testClock.millis() - MarineRepository.AVAILABILITY_CACHE_TTL_MS - 1
-        val fresh = mockk<MarineForecast>()
-        every { fresh.coastal } returns true
-        every { fresh.fetchedAtEpochMs } returns testClock.millis()
-        coEvery { marineRepo.getFreshCached(paris.id) } returns null
-        coEvery { marineRepo.getCached(paris.id) } returns stale
-        coEvery { marineRepo.getMarine(paris, forceRefresh = false) } returns ApiResult.Success(fresh)
-
-        onlineFlow.value = false
-        viewModel.uiState.test {
-            awaitItem()
-            favoritesFlow.value = listOf(paris)
-            var state = awaitItem()
-            while (state.items.firstOrNull()?.isMarineAvailable != true) state = awaitItem()
-
-            assertTrue(state.items.first().isMarineAvailable)
-            coVerify(exactly = 1) { marineRepo.getFreshCached(paris.id) }
-            coVerify(exactly = 1) { marineRepo.getCached(paris.id) }
-            coVerify(exactly = 0) { marineRepo.getMarine(paris, forceRefresh = false) }
-
-            // Régression : l'ancien job hors ligne pouvait encore être présent
-            // dans marineAvailabilityJobs au moment exact du retour réseau. Le
-            // collector ignorait alors la revalidation et aucun nouvel événement
-            // ne la relançait après le finally. Le ViewModel ferme désormais cette
-            // fenêtre de concurrence ; runCurrent vide simplement le scheduler afin
-            // d'observer la relance déclenchée par le correctif de production.
+            // Même règle après une reconnexion réseau.
+            onlineFlow.value = false
+            runCurrent()
             onlineFlow.value = true
             runCurrent()
 
-            // Le retour réseau est lui-même une émission de uiState. Il faut
-            // la consommer : sinon Turbine termine le bloc avec un événement
-            // restant et lève TurbineAssertionError alors que les interactions
-            // repository sont déjà correctes.
-            var reconnected = awaitItem()
-            while (!reconnected.isOnline) reconnected = awaitItem()
-            assertTrue(reconnected.items.first().isMarineAvailable)
-
-            coVerify(exactly = 2) { marineRepo.getFreshCached(paris.id) }
-            coVerify(exactly = 1) { marineRepo.getCached(paris.id) }
-            coVerify(exactly = 1) { marineRepo.getMarine(paris, forceRefresh = false) }
+            coVerify(exactly = 0) { marineRepo.getFreshCached(any()) }
+            coVerify(exactly = 0) { marineRepo.getCached(any()) }
+            coVerify(exactly = 0) { marineRepo.getMarine(any(), any()) }
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    @Test
+    fun `marine repository is called only after explicit marine action`() = runViewModelTest {
+        val coastal = mockk<MarineForecast>()
+        every { coastal.coastal } returns true
+        coEvery { marineRepo.getMarine(paris, forceRefresh = true) } returns ApiResult.Success(coastal)
+
+        favoritesFlow.value = listOf(paris)
+        runCurrent()
+
+        // Aucun pré-fetch avant l'action du menu.
+        coVerify(exactly = 0) { marineRepo.getMarine(any(), any()) }
+
+        viewModel.onMarineAction(paris)
+        runCurrent()
+
+        coVerify(exactly = 1) { marineRepo.getMarine(paris, forceRefresh = true) }
+        coVerify(exactly = 0) { marineRepo.getMarine(paris, forceRefresh = false) }
+        coVerify(exactly = 1) { cityRepo.setMarineEnabled(paris.id, true) }
     }
 
     // ──────────────── Helpers ────────────────

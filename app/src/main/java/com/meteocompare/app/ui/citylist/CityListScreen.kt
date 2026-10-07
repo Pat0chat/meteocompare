@@ -32,7 +32,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ShowChart
@@ -604,7 +603,6 @@ internal fun CityCard(
                         sunrise = loaded?.sunrise,
                         sunset = loaded?.sunset,
                         marineEnabled = state.city.marineEnabled,
-                        marineAvailable = state.isMarineAvailable,
                         marineLoading = state.isMarineLoading,
                         onMarineAction = onMarineAction,
                         onGraphicViewClick = onGraphicViewClick,
@@ -663,7 +661,6 @@ private fun CityCardHeader(
     sunrise: LocalTime?,
     sunset: LocalTime?,
     marineEnabled: Boolean,
-    marineAvailable: Boolean,
     marineLoading: Boolean,
     onMarineAction: () -> Unit,
     onGraphicViewClick: () -> Unit,
@@ -721,7 +718,6 @@ private fun CityCardHeader(
         CityCardMenu(
             cityId = city.id,
             marineEnabled = marineEnabled,
-            marineAvailable = marineAvailable,
             marineLoading = marineLoading,
             onMarineAction = onMarineAction,
             onGraphicViewClick = onGraphicViewClick,
@@ -1498,7 +1494,6 @@ private fun weatherScenarioMetrics(scenario: WeatherScenario, units: WeatherUnit
 private fun CityCardMenu(
     cityId: String,
     marineEnabled: Boolean,
-    marineAvailable: Boolean,
     marineLoading: Boolean,
     onMarineAction: () -> Unit,
     onGraphicViewClick: () -> Unit,
@@ -1509,17 +1504,6 @@ private fun CityCardMenu(
     Box {
         IconButton(onClick = { expanded = true }) {
             Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.action_more_options))
-        }
-        if (marineAvailable) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 8.dp, end = 8.dp)
-                    .size(8.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF1976D2))
-                    .testTag("$TAG_CITY_MARINE_AVAILABLE$cityId")
-            )
         }
         DropdownMenu(
             expanded = expanded,
@@ -1533,7 +1517,8 @@ private fun CityCardMenu(
                 .padding(horizontal = 6.dp, vertical = 2.dp)
                 .clip(RoundedCornerShape(14.dp))
             DropdownMenuItem(
-                modifier = menuItemModifier,
+                modifier = menuItemModifier
+                    .testTag("$TAG_CITY_MARINE_MENU$cityId"),
                 text = {
                     Text(
                         stringResource(
@@ -1656,10 +1641,10 @@ internal fun EmptyState(
 // ─── Test tags exposés pour les tests d'instrumentation ─────────────────────
 internal const val TAG_CITY_LIST = "city_list"
 internal const val TAG_CITY_CARD = "city_card_"
-internal const val TAG_CITY_MARINE_AVAILABLE = "city_marine_available_"
 internal const val TAG_CITY_MARINE_ENABLED = "city_marine_enabled_"
 internal const val TAG_CITY_GRAPHIC_VIEW_MENU = "city_graphic_view_menu_"
 internal const val TAG_CITY_RADAR_MENU = "city_radar_menu_"
+internal const val TAG_CITY_MARINE_MENU = "city_marine_menu_"
 internal const val TAG_CITY_MARINE_MENU_ICON = "city_marine_menu_icon_"
 internal const val TAG_CITY_REMOVE_MENU_ICON = "city_remove_menu_icon_"
 internal const val TAG_EMPTY_STATE = "empty_state"

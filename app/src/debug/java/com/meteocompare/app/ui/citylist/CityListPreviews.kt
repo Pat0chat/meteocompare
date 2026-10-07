@@ -39,14 +39,12 @@ private fun homeItems(): List<CityCardState> = listOf(
     CityCardState(
         city = PreviewFixtures.city,
         forecast = loadedForecast(),
-        vigilance = PreviewFixtures.vigilance,
-        isMarineAvailable = false
+        vigilance = PreviewFixtures.vigilance
     ),
     CityCardState(
         city = PreviewFixtures.coastalCity,
         forecast = loadedForecast(19.0, WeatherCondition.RAIN_SHOWERS),
-        vigilance = PreviewFixtures.coastalVigilance,
-        isMarineAvailable = true
+        vigilance = PreviewFixtures.coastalVigilance
     ),
     CityCardState(
         city = City(
@@ -70,8 +68,7 @@ private fun homeItems(): List<CityCardState> = listOf(
             longitude = 7.27,
             timezone = "Europe/Paris"
         ),
-        forecast = ForecastState.Error("Données temporairement indisponibles"),
-        isMarineAvailable = true
+        forecast = ForecastState.Error("Données temporairement indisponibles")
     )
 )
 
@@ -147,7 +144,7 @@ private fun CityCardStatesPreview() {
             )
             Spacer(Modifier.height(12.dp))
             CityCard(
-                state = CityCardState(PreviewFixtures.coastalCity, ForecastState.Loading, isMarineAvailable = true),
+                state = CityCardState(PreviewFixtures.coastalCity, ForecastState.Loading),
                 onClick = {},
                 onRemove = {},
                 onRetry = {}

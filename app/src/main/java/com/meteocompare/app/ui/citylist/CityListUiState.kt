@@ -55,8 +55,6 @@ data class CityCardState(
     val forecast: ForecastState,
     /** Vigilance officielle Météo-France (jaune ou plus affichée dans la card). */
     val vigilance: VigilanceForecast? = null,
-    /** True quand la ville a été validée comme côtière et peut activer Mer / côte. */
-    val isMarineAvailable: Boolean = false,
     val isMarineLoading: Boolean = false
 )
 

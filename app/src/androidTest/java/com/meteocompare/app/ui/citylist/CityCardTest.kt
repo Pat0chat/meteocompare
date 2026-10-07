@@ -168,25 +168,35 @@ class CityCardTest {
         assertTrue(retried)
     }
     @Test
-    fun marine_available_city_displays_blue_menu_dot() {
+    fun marine_action_is_available_only_from_the_explicit_menu() {
+        var requested = false
         val city = TestFixtures.paris.copy(marineEnabled = false)
         composeRule.setContent {
             MeteoCompareTheme {
                 Surface {
                     CityCard(
-                        state = CityCardState(
-                            city = city,
-                            forecast = ForecastState.Loading,
-                            isMarineAvailable = true
-                        ),
-                        onClick = {}, onRemove = {}, onRetry = {}
+                        state = CityCardState(city = city, forecast = ForecastState.Loading),
+                        onClick = {},
+                        onMarineAction = { requested = true },
+                        onRemove = {},
+                        onRetry = {}
                     )
                 }
             }
         }
 
-        composeRule.onNodeWithTag("$TAG_CITY_MARINE_AVAILABLE${city.id}", useUnmergedTree = true)
-            .assertIsDisplayed()
+        // L'action ne part jamais depuis la card elle-même : l'utilisateur doit
+        // ouvrir explicitement le menu puis choisir Mer / côte.
+        assertTrue(!requested)
+        composeRule.onNodeWithContentDescription(
+            context.getString(R.string.action_more_options)
+        ).performClick()
+        composeRule.onNodeWithTag(
+            "$TAG_CITY_MARINE_MENU${city.id}",
+            useUnmergedTree = true
+        ).assertIsDisplayed().performClick()
+
+        assertTrue(requested)
     }
 
     @Test
