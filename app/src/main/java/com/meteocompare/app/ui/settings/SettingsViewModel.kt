@@ -1,7 +1,5 @@
 package com.meteocompare.app.ui.settings
 
-import com.meteocompare.app.domain.model.UnitSystem
-
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -15,6 +13,7 @@ import com.meteocompare.app.domain.model.LanguagePreference
 import com.meteocompare.app.domain.model.NotificationSettings
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.ThemePreference
+import com.meteocompare.app.domain.model.UnitSystem
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.repository.CityRepository
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
@@ -38,11 +37,16 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-
 enum class ModelSelectionCommitResult {
     UNCHANGED,
     SAVED,
     SAVED_WIDGET_REFRESH_DELAYED,
+    FAILED
+}
+
+private enum class PreferenceUpdateResult {
+    UNCHANGED,
+    SAVED,
     FAILED
 }
 
@@ -221,29 +225,40 @@ class SettingsViewModel @Inject constructor(
 
     fun onUnitSystemSelected(system: UnitSystem) {
         viewModelScope.launch {
-            val feedback = runSuspendCatching { prefs.setUnitSystem(system) }.fold(
-                onSuccess = {
-                    if (triggerWidgetRefreshSafely()) {
-                        AppToastEvent.success(R.string.toast_units_updated)
-                    } else {
-                        AppToastEvent.warning(R.string.toast_widget_refresh_delayed)
-                    }
-                },
-                onFailure = { AppToastEvent.error(R.string.toast_settings_save_error) }
-            )
-            _feedback.send(feedback)
+            when (updatePreferenceIfChanged(
+                current = { prefs.observeUnitSystem().first() },
+                target = system,
+                persist = { prefs.setUnitSystem(system) }
+            )) {
+                PreferenceUpdateResult.UNCHANGED -> Unit
+                PreferenceUpdateResult.FAILED ->
+                    _feedback.send(AppToastEvent.error(R.string.toast_settings_save_error))
+                PreferenceUpdateResult.SAVED -> {
+                    _feedback.send(
+                        if (triggerWidgetRefreshSafely()) {
+                            AppToastEvent.success(R.string.toast_units_updated)
+                        } else {
+                            AppToastEvent.warning(R.string.toast_widget_refresh_delayed)
+                        }
+                    )
+                }
+            }
         }
     }
 
     fun onThemeSelected(preference: ThemePreference) {
         viewModelScope.launch {
-            val feedback = runSuspendCatching {
-                prefs.setThemePreference(preference)
-            }.fold(
-                onSuccess = { AppToastEvent.success(R.string.toast_theme_updated) },
-                onFailure = { AppToastEvent.error(R.string.toast_settings_save_error) }
-            )
-            _feedback.send(feedback)
+            when (updatePreferenceIfChanged(
+                current = { prefs.observeThemePreference().first() },
+                target = preference,
+                persist = { prefs.setThemePreference(preference) }
+            )) {
+                PreferenceUpdateResult.UNCHANGED -> Unit
+                PreferenceUpdateResult.FAILED ->
+                    _feedback.send(AppToastEvent.error(R.string.toast_settings_save_error))
+                PreferenceUpdateResult.SAVED ->
+                    _feedback.send(AppToastEvent.success(R.string.toast_theme_updated))
+            }
         }
     }
 
@@ -251,16 +266,24 @@ class SettingsViewModel @Inject constructor(
      * Persiste la langue dans l'unique stockage canonique. Cette fonction est
      * suspendue afin que l'écran puisse attendre la fin de l'écriture avant
      * `Activity.recreate()` et éviter toute course avec attachBaseContext().
+     *
+     * @return `true` uniquement lorsqu'une nouvelle valeur a réellement été
+     * persistée. L'écran évite ainsi un `Activity.recreate()` inutile quand
+     * l'utilisateur retouche la langue déjà active.
      */
-    suspend fun onLanguageSelected(preference: LanguagePreference): Boolean {
-        val result = runSuspendCatching { prefs.setLanguagePreference(preference) }
-        if (result.isFailure) {
-            _feedback.send(AppToastEvent.error(R.string.toast_settings_save_error))
+    suspend fun onLanguageSelected(preference: LanguagePreference): Boolean =
+        when (updatePreferenceIfChanged(
+            current = { prefs.observeLanguagePreference().first() },
+            target = preference,
+            persist = { prefs.setLanguagePreference(preference) }
+        )) {
+            PreferenceUpdateResult.UNCHANGED -> false
+            PreferenceUpdateResult.SAVED -> true
+            PreferenceUpdateResult.FAILED -> {
+                _feedback.send(AppToastEvent.error(R.string.toast_settings_save_error))
+                false
+            }
         }
-        // Le succès est directement matérialisé par la recréation de l'activité.
-        // Une notification lancée juste avant recreate() serait détruite avec elle.
-        return result.isSuccess
-    }
 
     /**
      * Persiste le nouvel intervalle de rafraîchissement et propage
@@ -272,19 +295,24 @@ class SettingsViewModel @Inject constructor(
      */
     fun onRefreshIntervalSelected(interval: RefreshInterval) {
         viewModelScope.launch {
-            val feedback = runSuspendCatching {
-                prefs.setRefreshInterval(interval)
-            }.fold(
-                onSuccess = {
-                    if (triggerWidgetRefreshSafely()) {
-                        AppToastEvent.success(R.string.toast_refresh_interval_updated)
-                    } else {
-                        AppToastEvent.warning(R.string.toast_widget_refresh_delayed)
-                    }
-                },
-                onFailure = { AppToastEvent.error(R.string.toast_settings_save_error) }
-            )
-            _feedback.send(feedback)
+            when (updatePreferenceIfChanged(
+                current = { prefs.observeRefreshInterval().first() },
+                target = interval,
+                persist = { prefs.setRefreshInterval(interval) }
+            )) {
+                PreferenceUpdateResult.UNCHANGED -> Unit
+                PreferenceUpdateResult.FAILED ->
+                    _feedback.send(AppToastEvent.error(R.string.toast_settings_save_error))
+                PreferenceUpdateResult.SAVED -> {
+                    _feedback.send(
+                        if (triggerWidgetRefreshSafely()) {
+                            AppToastEvent.success(R.string.toast_refresh_interval_updated)
+                        } else {
+                            AppToastEvent.warning(R.string.toast_widget_refresh_delayed)
+                        }
+                    )
+                }
+            }
         }
     }
 
@@ -295,19 +323,24 @@ class SettingsViewModel @Inject constructor(
      */
     fun onForecastEngineSelected(engine: ForecastEngine) {
         viewModelScope.launch {
-            val feedback = runSuspendCatching {
-                prefs.setForecastEngine(engine)
-            }.fold(
-                onSuccess = {
-                    if (triggerWidgetRefreshSafely()) {
-                        AppToastEvent.success(R.string.toast_forecast_engine_updated)
-                    } else {
-                        AppToastEvent.warning(R.string.toast_widget_refresh_delayed)
-                    }
-                },
-                onFailure = { AppToastEvent.error(R.string.toast_settings_save_error) }
-            )
-            _feedback.send(feedback)
+            when (updatePreferenceIfChanged(
+                current = { prefs.observeForecastEngine().first() },
+                target = engine,
+                persist = { prefs.setForecastEngine(engine) }
+            )) {
+                PreferenceUpdateResult.UNCHANGED -> Unit
+                PreferenceUpdateResult.FAILED ->
+                    _feedback.send(AppToastEvent.error(R.string.toast_settings_save_error))
+                PreferenceUpdateResult.SAVED -> {
+                    _feedback.send(
+                        if (triggerWidgetRefreshSafely()) {
+                            AppToastEvent.success(R.string.toast_forecast_engine_updated)
+                        } else {
+                            AppToastEvent.warning(R.string.toast_widget_refresh_delayed)
+                        }
+                    )
+                }
+            }
         }
     }
 
@@ -446,6 +479,20 @@ class SettingsViewModel @Inject constructor(
             (!previous.forecastChangeAlertsEnabled && updated.forecastChangeAlertsEnabled) ||
             (updated.cityIds - previous.cityIds).isNotEmpty()
     }
+
+    /** Évite les écritures DataStore, toasts et side-effects pour un choix identique. */
+    private suspend fun <T> updatePreferenceIfChanged(
+        current: suspend () -> T,
+        target: T,
+        persist: suspend () -> Unit
+    ): PreferenceUpdateResult = runSuspendCatching {
+        if (current() == target) {
+            PreferenceUpdateResult.UNCHANGED
+        } else {
+            persist()
+            PreferenceUpdateResult.SAVED
+        }
+    }.getOrElse { PreferenceUpdateResult.FAILED }
 
     /**
      * L'écriture DataStore est le résultat métier. La propagation immédiate au

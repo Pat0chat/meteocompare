@@ -183,8 +183,9 @@ internal object WidgetRefreshScheduler {
      * Déclenche un tick unique en plus du périodique. Utilisé quand une
      * préférence qui affecte le widget change dans Settings :
      *
-     *   - Modèles activés (impacte les URLs Open-Meteo et donc le cache)
+     *   - Modèles activés (impactent les URLs Open-Meteo et donc le cache)
      *   - Intervalle de rafraîchissement (impacte `maxCacheAgeMs`)
+     *   - Unités / moteur (rendu local depuis le même cache, sans forcer le réseau)
      *
      * Sans ce trigger, un toggle de modèle mettrait jusqu'à 15 min à se
      * refléter sur l'écran d'accueil — expérience frustrante quand l'user
@@ -194,8 +195,35 @@ internal object WidgetRefreshScheduler {
      * périodique : même logique, même filtre ghost-IDs.
      */
     fun triggerImmediateRefresh(context: Context) {
-        triggerImmediateRefresh(WorkManager.getInstance(context.applicationContext))
+        val appContext = context.applicationContext
+        val widgetLookup = runCatching {
+            WidgetReceivers.anyAlive(
+                appContext,
+                AppWidgetManager.getInstance(appContext)
+            )
+        }
+        if (!shouldEnqueueImmediateRefresh(widgetLookup)) {
+            return
+        }
+        widgetLookup.exceptionOrNull()?.let { error ->
+            // En cas de launcher/OEM défaillant, préserver l'ancien comportement :
+            // mieux vaut tenter un tick que laisser un widget réellement présent figé.
+            android.util.Log.w(
+                WIDGET_LOG_TAG,
+                "Unable to inspect installed widgets before immediate refresh",
+                error
+            )
+        }
+        triggerImmediateRefresh(WorkManager.getInstance(appContext))
     }
+
+    /**
+     * Décision pure pour le garde d'enqueue immédiat. Un lookup fiable à
+     * `false` supprime le wake-up inutile ; un échec conserve le comportement
+     * historique par sécurité pour les launchers OEM atypiques.
+     */
+    internal fun shouldEnqueueImmediateRefresh(widgetLookup: Result<Boolean>): Boolean =
+        widgetLookup.getOrElse { true }
 
     /** Overload testable : voir [schedule] pour la justification. */
     internal fun triggerImmediateRefresh(workManager: WorkManager) {

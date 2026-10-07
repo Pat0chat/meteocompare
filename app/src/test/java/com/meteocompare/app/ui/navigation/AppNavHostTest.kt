@@ -60,6 +60,35 @@ class AppNavHostTest {
     }
 
     @Test
+    fun tablet_direct_home_action_is_consumed_once_and_not_replayed_on_reselection() {
+        assertEquals(
+            4,
+            pendingDirectDetailRequest(
+                request = 4,
+                handledRequest = 3,
+                requestCityId = "paris",
+                activeCityId = "paris"
+            )
+        )
+        assertNull(
+            pendingDirectDetailRequest(
+                request = 4,
+                handledRequest = 4,
+                requestCityId = "paris",
+                activeCityId = "paris"
+            )
+        )
+        assertNull(
+            pendingDirectDetailRequest(
+                request = 5,
+                handledRequest = 4,
+                requestCityId = "paris",
+                activeCityId = "lyon"
+            )
+        )
+    }
+
+    @Test
     fun tablet_clears_the_selection_when_no_city_remains() {
         assertNull(resolveSelectedCityId("paris", emptyList()))
     }

@@ -155,6 +155,28 @@ class WidgetRefreshSchedulerTest {
         )
     }
 
+    @Test
+    fun `immediate refresh - aucun widget connu supprime le wake-up inutile`() {
+        assertEquals(
+            false,
+            WidgetRefreshScheduler.shouldEnqueueImmediateRefresh(Result.success(false))
+        )
+    }
+
+    @Test
+    fun `immediate refresh - widget present ou lookup launcher en echec conserve le refresh`() {
+        assertEquals(
+            true,
+            WidgetRefreshScheduler.shouldEnqueueImmediateRefresh(Result.success(true))
+        )
+        assertEquals(
+            true,
+            WidgetRefreshScheduler.shouldEnqueueImmediateRefresh(
+                Result.failure(IllegalStateException("launcher unavailable"))
+            )
+        )
+    }
+
     // ─────────────────────── triggerImmediateRefresh() ───────────────────
 
     @Test

@@ -42,6 +42,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -359,6 +360,33 @@ class SettingsViewModelTest {
                 modelsFlow.value.toSet()
             )
             coVerify(exactly = 1) { prefs.setEnabledModels(any()) }
+        }
+
+    @Test
+    fun `selectionner les reglages deja actifs ne persiste ni ne declenche de side effect`() =
+        runTest(dispatcher) {
+            viewModel.feedback.test {
+                viewModel.onUnitSystemSelected(UnitSystem.METRIC)
+                viewModel.onThemeSelected(ThemePreference.SYSTEM)
+                viewModel.onRefreshIntervalSelected(RefreshInterval.DEFAULT)
+                viewModel.onForecastEngineSelected(ForecastEngine.DEFAULT)
+                expectNoEvents()
+            }
+
+            coVerify(exactly = 0) { prefs.setUnitSystem(any()) }
+            coVerify(exactly = 0) { prefs.setThemePreference(any()) }
+            coVerify(exactly = 0) { prefs.setRefreshInterval(any()) }
+            coVerify(exactly = 0) { prefs.setForecastEngine(any()) }
+            verify(exactly = 0) {
+                WidgetRefreshScheduler.triggerImmediateRefresh(any<Context>())
+            }
+        }
+
+    @Test
+    fun `selectionner la langue deja active ne persiste pas et ne recree pas`() =
+        runTest(dispatcher) {
+            assertFalse(viewModel.onLanguageSelected(LanguagePreference.SYSTEM))
+            coVerify(exactly = 0) { prefs.setLanguagePreference(any()) }
         }
 
     // ────────────────────────────────────────────────────────────────────

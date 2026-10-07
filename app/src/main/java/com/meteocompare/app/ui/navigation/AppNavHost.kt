@@ -190,6 +190,7 @@ private fun TabletHomeScreen(
     var directCityId by rememberSaveable { mutableStateOf<String?>(null) }
     var directDestination by rememberSaveable { mutableStateOf<String?>(null) }
     var directRequest by rememberSaveable { mutableStateOf(0) }
+    var handledDirectRequest by rememberSaveable { mutableStateOf(0) }
 
     TabletMasterDetailContent(
         availableCityIds = availableCityIds,
@@ -219,10 +220,19 @@ private fun TabletHomeScreen(
             // Chaque localité possède ainsi une pile de navigation et un
             // CityDetailViewModel ne contenant que son cityId.
             key(cityId) {
+                val pendingRequest = pendingDirectDetailRequest(
+                    request = directRequest,
+                    handledRequest = handledDirectRequest,
+                    requestCityId = directCityId,
+                    activeCityId = cityId
+                )
                 TabletDetailNavHost(
                     cityId = cityId,
-                    directRequest = directRequest.takeIf { directCityId == cityId && it > 0 },
-                    directDestination = directDestination.takeIf { directCityId == cityId }
+                    directRequest = pendingRequest,
+                    directDestination = directDestination.takeIf { pendingRequest != null },
+                    onDirectRequestConsumed = { token ->
+                        if (token > handledDirectRequest) handledDirectRequest = token
+                    }
                 )
             }
         },
@@ -295,16 +305,21 @@ internal fun TabletMasterDetailContent(
 private fun TabletDetailNavHost(
     cityId: String,
     directRequest: Int? = null,
-    directDestination: String? = null
+    directDestination: String? = null,
+    onDirectRequestConsumed: (Int) -> Unit = {}
 ) {
     val navController = rememberNavController()
 
     LaunchedEffect(directRequest, directDestination) {
-        if (directRequest == null) return@LaunchedEffect
-        val route = directDetailRoute(directDestination, cityId) ?: return@LaunchedEffect
-        if (navController.currentDestination?.route != directDestination) {
+        val token = directRequest ?: return@LaunchedEffect
+        val route = directDetailRoute(directDestination, cityId)
+        if (route != null && navController.currentDestination?.route != directDestination) {
             navController.navigate(route)
         }
+        // Une action directe depuis la carte Home est un événement one-shot.
+        // La marquer consommée empêche sa réouverture si la même ville est
+        // sélectionnée normalement plus tard ou après une recréation d'écran.
+        onDirectRequestConsumed(token)
     }
 
     NavHost(
@@ -324,6 +339,15 @@ internal fun directDetailRoute(destination: String?, cityId: String): String? = 
     Destinations.GRAPHIC_VIEW -> Destinations.graphicView(cityId)
     Destinations.RADAR -> Destinations.radar(cityId)
     else -> null
+}
+
+internal fun pendingDirectDetailRequest(
+    request: Int,
+    handledRequest: Int,
+    requestCityId: String?,
+    activeCityId: String
+): Int? = request.takeIf {
+    requestCityId == activeCityId && request > handledRequest
 }
 
 @Composable
