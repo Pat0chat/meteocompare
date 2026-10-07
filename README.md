@@ -308,6 +308,24 @@ MeteoCompare est développé **sans publicité, sans abonnement et sans fonction
 
 Les dons sont **entièrement facultatifs** : aucun privilège, contenu exclusif ou fonction n'est réservé aux donateurs. L'application et le code source restent identiques pour tout le monde. Voir [DONATIONS.md](DONATIONS.md) pour les détails et les autres façons de contribuer.
 
+Merci à toutes les personnes qui soutiennent MeteoCompare.
+
+<!-- SPONSORS:START -->
+<!-- SPONSORS:END -->
+
+Chaque personne qui soutient MeteoCompare peut ajouter le badge suivant à son profil :
+
+```md
+[![MeteoCompare Supporter](https://raw.githubusercontent.com/OWNER/REPO/main/badges/LOGIN.png)](https://github.com/sponsors/SPONSORABLE_LOGIN)
+```
+
+À remplacer :
+
+- `OWNER` : propriétaire du dépôt où se trouvent les badges ;
+- `REPO` : nom de ce dépôt ;
+- `LOGIN` : login GitHub du sponsor en minuscules ;
+- `SPONSORABLE_LOGIN` : ton compte GitHub Sponsors.
+
 ## Roadmap
 
 Fait :

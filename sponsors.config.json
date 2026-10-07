@@ -1,0 +1,16 @@
+{
+  "sponsorableLogin": "Pat0chat",
+  "readmePath": "README.md",
+  "includeOneTime": false,
+  "columns": 3,
+  "avatarSize": 72,
+  "badgeWidth": 150,
+  "tiers": [
+    { "name": "diamond", "min": 40 },
+    { "name": "platinum", "min": 30 },
+    { "name": "gold", "min": 20 },
+    { "name": "silver", "min": 10 },
+    { "name": "bronze", "min": 5 },
+    { "name": "donor", "min": 1 }
+  ]
+}
