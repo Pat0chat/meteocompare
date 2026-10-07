@@ -98,6 +98,10 @@ class MainActivityNavigationTest {
         composeRule.onNodeWithText(
             composeRule.activity.getString(R.string.donations_dialog_title)
         ).assertIsDisplayed()
+        composeRule.onNodeWithText("GitHub Sponsors").assertIsDisplayed()
+        composeRule.onNodeWithText(
+            composeRule.activity.getString(R.string.donations_github_sponsors_desc)
+        ).assertIsDisplayed()
         composeRule.onNodeWithText(
             composeRule.activity.getString(R.string.donations_dialog_close)
         ).performClick()

@@ -227,6 +227,7 @@
     <string name="donations_dialog_body">MeteoCompare est gratuit, sans analytics, sans suivi publicitaire et sans publicité. Si vous souhaitez soutenir le développement :</string>
     <string name="donations_dialog_disclaimer">Aucun privilège n\'est accordé aux donateurs. Le code source et l\'app restent identiques pour tout le monde.</string>
     <string name="donations_liberapay_desc">Contributions périodiques, friendly FOSS</string>
+    <string name="donations_github_sponsors_desc">Soutien récurrent via GitHub Sponsors</string>
     <string name="donations_kofi_desc">Don ponctuel « offre-moi un café »</string>
     <string name="donations_dialog_close">Fermer</string>
 

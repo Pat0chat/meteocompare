@@ -14,7 +14,7 @@ Plateforme FOSS-friendly avec contributions hebdomadaires récurrentes.
 Aucun frais de plateforme (juste les frais du processeur de paiement,
 typiquement < 5 %).
 
-### ❤️ GitHub Sponsors (en attente de validation)
+### ❤️ GitHub Sponsors
 
 [github.com/sponsors/Pat0chat](https://github.com/sponsors/Pat0chat)
 

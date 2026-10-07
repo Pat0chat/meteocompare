@@ -40,6 +40,8 @@ import com.meteocompare.app.ui.components.rememberAppToastDispatcher
  * l'utilisateur de choisir son navigateur (cohérent avec ses
  * préférences système).
  */
+internal const val GITHUB_SPONSORS_URL = "https://github.com/sponsors/Pat0chat"
+
 @Composable
 fun DonationDialog(onDismiss: () -> Unit) {
     val context = LocalContext.current
@@ -72,6 +74,12 @@ fun DonationDialog(onDismiss: () -> Unit) {
                     name = "Liberapay",
                     description = stringResource(R.string.donations_liberapay_desc),
                     onClick = { openUrl("https://liberapay.com/Pat0chat") }
+                )
+                HorizontalDivider()
+                DonationPlatformRow(
+                    name = "GitHub Sponsors",
+                    description = stringResource(R.string.donations_github_sponsors_desc),
+                    onClick = { openUrl(GITHUB_SPONSORS_URL) }
                 )
                 HorizontalDivider()
                 DonationPlatformRow(
