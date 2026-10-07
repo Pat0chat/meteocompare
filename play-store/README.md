@@ -24,7 +24,7 @@ play-store/
 
 Les fiches FR et EN sont les fiches de référence. Les fiches ES, DE et IT sont fournies pour la publication locale et commencent par une mention explicite indiquant qu'elles ont été **traduites automatiquement**. Les mêmes textes sont synchronisés dans `fastlane/metadata/android/{fr-FR,en-US,es-ES,de-DE,it-IT}`.
 
-Le changelog correspondant au `versionCode 24` est disponible dans chaque locale sous `changelogs/24.txt`.
+Le changelog correspondant au `versionCode 41` est disponible dans chaque locale sous `changelogs/41.txt`.
 
 ## Screenshots — à capturer manuellement
 
@@ -70,14 +70,16 @@ Ou via Android Studio : *View → Tool Windows → Logcat → Screenshot icon*.
 
 Au moment du soumission :
 
-- [ ] APK release signé uploadé (issu de `./gradlew :app:bundleRelease`, AAB préféré)
+- [ ] AAB release signé généré avec `./gradlew :app:bundleRelease` et uploadé sur Google Play
 - [ ] Catégorie : Météo
 - [ ] Contenu : Tous publics
 - [ ] Politique de confidentialité : URL pointant vers `PRIVACY.md` (héberger sur GitHub Pages par exemple)
 - [ ] Permission Android 13+ : `POST_NOTIFICATIONS` uniquement si l’utilisateur active volontairement les notifications ; pas de GPS, contacts ni stockage externe
 - [ ] Annonces : Non (aucune publicité)
 - [ ] Contenu UGC : Non (pas de contenu utilisateur)
-- [ ] Coffre-fort des données : Non requis
+- [ ] Formulaire **Sécurité des données** revu et soumis — voir `play-store/DATA_SAFETY.md` (obligatoire même si aucune donnée n’est collectée au sens affiché par Play)
+- [ ] Compatibilité pages mémoire **16 Ko** vérifiée sur l'artefact release (`scripts/verify-16kb-page-size.sh`)
+- [ ] Conditions RainViewer + politique de tuiles OSM revérifiées — voir `THIRD_PARTY_SERVICES.md`
 - [ ] Test interne avant production : recommandé (test track avec 1-3 testeurs)
 
 ## Hébergement de la politique de confidentialité

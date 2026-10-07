@@ -140,6 +140,10 @@ android {
 
     packaging {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        // AGP 9.4 aligne les bibliothèques natives non compressées pour les
+        // appareils à pages mémoire 16 KiB. On rend ce choix explicite afin
+        // d'éviter une régression accidentelle vers le legacy packaging.
+        jniLibs.useLegacyPackaging = false
         // Évite le warning "Unable to strip the following libraries" lors du
         // build sans NDK installé. Ces .so prébuilts viennent de dépendances
         // androidx (graphics.path, datastore.shared_counter) qui sont déjà

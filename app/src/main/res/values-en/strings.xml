@@ -969,6 +969,8 @@
     <string name="radar_reading_title">How to read it</string>
     <string name="radar_reading_body">Observation mode animates the last 2 hours. In Projection mode, choose +15, +30, +45 or +60 minutes: the map shows the projected contour, its probable envelope and the path from the latest observation.</string>
     <string name="radar_privacy_note">The radar contacts RainViewer and OpenStreetMap only when opened. The locality coordinates are used to centre the radar image.</string>
+    <string name="radar_attribution_osm">© OpenStreetMap contributors</string>
+    <string name="radar_attribution_rainviewer">Weather radar by RainViewer</string>
     <string name="radar_recalculation_failed">Recalculation failed; the last available projection is kept.</string>
     <string name="radar_intensity">Intensity</string>
     <string name="radar_intensity_light">Light</string>

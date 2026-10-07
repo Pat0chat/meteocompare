@@ -956,6 +956,8 @@ datos</string>
     <string name="radar_reading_title">Lectura</string>
     <string name="radar_reading_body">El modo Observaciones anima las últimas 2 horas. En Proyección, elige +15, +30, +45 o +60 minutos para ver el contorno proyectado, su zona probable y la trayectoria.</string>
     <string name="radar_privacy_note">El radar contacta con RainViewer y OpenStreetMap solo al abrirse. Las coordenadas de la localidad se usan para centrar la imagen radar.</string>
+    <string name="radar_attribution_osm">© OpenStreetMap contributors</string>
+    <string name="radar_attribution_rainviewer">Radar meteorológico por RainViewer</string>
     <string name="radar_recalculation_failed">El recálculo ha fallado; se conserva la última proyección disponible.</string>
     <string name="radar_intensity">Intensidad</string>
     <string name="radar_intensity_light">Débil</string>

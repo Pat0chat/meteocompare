@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.Paint as AndroidPaint
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -46,6 +47,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -55,6 +57,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
@@ -277,17 +280,7 @@ private fun RadarReadyContent(
                         )
                     }
                 }
-                Surface(
-                    modifier = Modifier.align(Alignment.BottomEnd).padding(6.dp),
-                    color = MaterialTheme.colorScheme.surface.copy(alpha = .78f),
-                    shape = MaterialTheme.shapes.extraSmall
-                ) {
-                    Text(
-                        text = "© OpenStreetMap · RainViewer",
-                        style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
-                    )
-                }
+                RadarAttribution(Modifier.align(Alignment.BottomEnd).padding(6.dp))
                 if (state.isFullscreen) {
                     Surface(
                         modifier = Modifier.align(Alignment.BottomCenter).padding(8.dp),
@@ -338,6 +331,39 @@ private fun RadarReadyContent(
                 }
             }
             Spacer(Modifier.height(8.dp))
+        }
+    }
+}
+
+@Composable
+private fun RadarAttribution(modifier: Modifier = Modifier) {
+    val uriHandler = LocalUriHandler.current
+    Surface(
+        modifier = modifier,
+        color = MaterialTheme.colorScheme.surface.copy(alpha = .82f),
+        shape = MaterialTheme.shapes.extraSmall
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+            horizontalAlignment = Alignment.End,
+            verticalArrangement = Arrangement.spacedBy(1.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.radar_attribution_osm),
+                style = MaterialTheme.typography.labelSmall,
+                textDecoration = TextDecoration.Underline,
+                modifier = Modifier.clickable {
+                    uriHandler.openUri("https://www.openstreetmap.org/copyright")
+                }
+            )
+            Text(
+                text = stringResource(R.string.radar_attribution_rainviewer),
+                style = MaterialTheme.typography.labelSmall,
+                textDecoration = TextDecoration.Underline,
+                modifier = Modifier.clickable {
+                    uriHandler.openUri("https://www.rainviewer.com/")
+                }
+            )
         }
     }
 }

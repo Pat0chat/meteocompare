@@ -3,6 +3,7 @@ package com.meteocompare.app.data.radar
 import android.graphics.BitmapFactory
 import com.meteocompare.app.BuildConfig
 import com.meteocompare.app.di.IoDispatcher
+import com.meteocompare.app.di.RadarOkHttp
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.radar.RadarBaseTile
 import com.meteocompare.app.domain.radar.RadarFrame
@@ -162,7 +163,7 @@ internal suspend fun Call.awaitBodyBytes(urlForError: String = request().url.toS
 
 @Singleton
 class RainViewerRadarRepository @Inject constructor(
-    private val client: OkHttpClient,
+    @param:RadarOkHttp private val client: OkHttpClient,
     private val json: Json,
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : RadarRepository {
@@ -242,7 +243,7 @@ class RainViewerRadarRepository @Inject constructor(
     private suspend fun getBytes(url: String): ByteArray {
         val request = Request.Builder()
             .url(url)
-            .header("User-Agent", "MeteoCompare-Android/${BuildConfig.VERSION_NAME}")
+            .header("User-Agent", "MeteoCompare-Android/${BuildConfig.VERSION_NAME} (+https://github.com/Pat0chat/MeteoCompare)")
             .build()
         return client.newCall(request).awaitBodyBytes(url)
     }

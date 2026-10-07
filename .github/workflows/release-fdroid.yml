@@ -65,7 +65,7 @@ jobs:
           echo "compileSdk=${COMPILE_SDK}"
           echo "sdkmanager=${SDKMANAGER}"
 
-          # AGP 9.3 utilise Build Tools 36 pour construire.
+          # AGP 9.4 utilise Build Tools 36 pour construire.
           # Build Tools 34 est installé séparément uniquement pour apksigner,
           # car F-Droid recommande apksigner 34 pour les reproducible builds.
           "$SDKMANAGER" \
@@ -82,11 +82,18 @@ jobs:
           ./gradlew --version
           "${ANDROID_SDK_ROOT}/build-tools/34.0.0/apksigner" version
 
+      - name: Validate repository release gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/validate-compose-previews.py
+          scripts/validate-fdroid-metadata.sh
+
       # IMPORTANT :
       # On NE fournit AUCUN secret de signature à Gradle.
       # Ton app/build.gradle.kts produira donc app-release-unsigned.apk.
       # Cela évite que Gradle/AGP signe avec apksigner 36.
-      - name: Validate tests and lint, then build unsigned release APK
+      - name: Validate tests and lint, then build unsigned release APK/AAB
         shell: bash
         run: |
           set -euo pipefail
@@ -108,7 +115,20 @@ jobs:
             :app:testDebugUnitTest \
             :app:testReleaseUnitTest \
             :app:lintDebug \
-            :app:assembleRelease
+            :app:assembleRelease \
+            :app:bundleRelease
+
+      - name: Verify Android 16 KiB page-size compatibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name "*-unsigned.apk" -print -quit)"
+          AAB="$(find app/build/outputs/bundle/release -maxdepth 1 -type f -name "*.aab" -print -quit)"
+          if [[ -z "$APK" || -z "$AAB" ]]; then
+            echo "::error::Artefacts release APK/AAB introuvables pour le contrôle 16 KiB."
+            exit 1
+          fi
+          python3 scripts/verify-16kb-page-size.py --apk "$APK" --aab "$AAB"
 
       - name: Locate unsigned APK and choose release filename
         id: apk

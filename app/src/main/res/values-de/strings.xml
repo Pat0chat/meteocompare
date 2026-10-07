@@ -952,6 +952,8 @@ Daten</string>
     <string name="radar_reading_title">Lesart</string>
     <string name="radar_reading_body">Der Beobachtungsmodus animiert die letzten 2 Stunden. Im Projektionsmodus zeigen +15, +30, +45 oder +60 Minuten den projizierten Umriss, den wahrscheinlichen Bereich und die Zugbahn.</string>
     <string name="radar_privacy_note">Das Radar kontaktiert RainViewer und OpenStreetMap nur beim Öffnen. Die Koordinaten des Ortes dienen zum Zentrieren des Radarbilds.</string>
+    <string name="radar_attribution_osm">© OpenStreetMap contributors</string>
+    <string name="radar_attribution_rainviewer">Wetterradar von RainViewer</string>
     <string name="radar_recalculation_failed">Die Neuberechnung ist fehlgeschlagen; die letzte verfügbare Projektion bleibt erhalten.</string>
     <string name="radar_intensity">Intensität</string>
     <string name="radar_intensity_light">Leicht</string>

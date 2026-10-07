@@ -1,6 +1,6 @@
 # Politique de confidentialité — MeteoCompare
 
-*Dernière mise à jour : 5 octobre 2026*
+*Dernière mise à jour : 7 octobre 2026*
 
 ## TL;DR
 
@@ -116,7 +116,9 @@ explicite depuis la fiche d'une ville.
   coordonnées (latitude et longitude) de la localité consultée sont incluses dans
   la requête d'image afin de centrer la carte radar.
 - **OpenStreetMap** fournit uniquement les tuiles du fond cartographique nécessaires
-  à la zone affichée.
+  à la zone affichée. Les tuiles déjà consultées sont conservées dans un cache HTTP
+  local afin d'éviter de les télécharger inutilement à chaque ouverture. Ce cache
+  respecte les directives HTTP du serveur et peut être purgé par Android.
 
 Comme pour toute requête HTTPS, ces services reçoivent aussi l'adresse IP source
 et les informations HTTP techniques nécessaires à l'acheminement. MeteoCompare
@@ -140,6 +142,7 @@ Les données suivantes sont conservées localement par MeteoCompare :
 | Langue de l'application | SharedPreferences interne | Choisir la langue de l'interface et des recherches | Le code de langue peut être envoyé au géocodage pour localiser les résultats |
 | Cache de prévisions et historiques de calcul | Room SQLite | Démarrage rapide, mode hors-ligne, comparaisons | Le contenu du cache n'est pas téléversé comme tel |
 | Cache Vigilance | DataStore Preferences | Limiter les appels réseau et fournir un fallback court | Non comme cache ; de nouvelles requêtes peuvent être faites au Worker |
+| Cache HTTP radar/cartographie | `cacheDir` Android (OkHttp, 64 MiB max) | Réutiliser les réponses HTTP et les tuiles OSM selon leurs en-têtes de cache | Non comme cache ; seules les requêtes manquantes ou expirées repartent vers RainViewer / OpenStreetMap |
 | Préférences des widgets | DataStore Glance | Conserver ville, couleurs et options du widget | La ville configurée peut déclencher les mêmes requêtes météo qu'à l'intérieur de l'app |
 
 La phrase « stocké localement » signifie que MeteoCompare ne synchronise pas ces
@@ -161,9 +164,9 @@ Ces éléments peuvent être sauvegardés ou transférés par Android vers le co
 l'appareil de l'utilisateur selon ses réglages système. MeteoCompare n'a pas accès
 à ces sauvegardes.
 
-Les bases Room de cache météo et les autres fichiers non explicitement inclus dans
-les règles de sauvegarde ne font pas partie de cette sauvegarde applicative
-sélective.
+Les bases Room de cache météo, le cache HTTP situé dans `cacheDir` et les autres
+fichiers non explicitement inclus dans les règles de sauvegarde ne font pas partie de
+cette sauvegarde applicative sélective.
 
 La désinstallation supprime les données locales de l'application présentes sur
 l'appareil. Une sauvegarde Android déjà créée reste gérée par Android et par les
