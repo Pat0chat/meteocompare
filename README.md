@@ -311,6 +311,7 @@ Les dons sont **entièrement facultatifs** : aucun privilège, contenu exclusif 
 Merci à toutes les personnes qui soutiennent MeteoCompare.
 
 <!-- SPONSORS:START -->
+<p>No public sponsors yet ❤️</p>
 <!-- SPONSORS:END -->
 
 Chaque personne qui soutient MeteoCompare peut ajouter le badge suivant à son profil :
