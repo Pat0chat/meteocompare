@@ -109,18 +109,28 @@ def native_entries(zf: zipfile.ZipFile) -> list[zipfile.ZipInfo]:
 
 def verify_apk(path: Path) -> int:
     count = 0
+    print(f"[16KiB] Inspecting APK {path}")
     with zipfile.ZipFile(path) as zf:
         entries = native_entries(zf)
         for info in entries:
             data = zf.read(info)
             verify_elf(data, info.filename)
             count += 1
+            alignments = elf_load_alignments(data, info.filename)
+            zip_alignment = "compressed (not applicable)"
             if info.compress_type == zipfile.ZIP_STORED:
                 offset = local_zip_data_offset(path, info)
                 if offset % PAGE_SIZE != 0:
                     raise VerificationError(
                         f"{info.filename}: uncompressed ZIP data offset {offset} is not 16 KiB aligned"
                     )
+                zip_alignment = f"aligned (offset={offset})"
+            print(
+                f"[16KiB][APK] PASS {info.filename} "
+                f"PT_LOAD(min)={min(alignments)} ZIP={zip_alignment}"
+            )
+        if not entries:
+            print("[16KiB][APK] No packaged native libraries (ELF/ZIP checks not applicable)")
     return count
 
 
@@ -184,6 +194,7 @@ def varint_field(data: bytes, field_number: int) -> int | None:
 
 def verify_aab(path: Path) -> int:
     count = 0
+    print(f"[16KiB] Inspecting AAB {path}")
     with zipfile.ZipFile(path) as zf:
         try:
             config = zf.read("BundleConfig.pb")
@@ -200,10 +211,16 @@ def verify_aab(path: Path) -> int:
             raise VerificationError(
                 f"{path}: BundleConfig native page alignment is {alignment!r}, expected PAGE_ALIGNMENT_16K (2)"
             )
+        print("[16KiB][AAB] PASS BundleConfig.pb: native PAGE_ALIGNMENT_16K")
 
-        for info in native_entries(zf):
-            verify_elf(zf.read(info), info.filename)
+        entries = native_entries(zf)
+        for info in entries:
+            data = zf.read(info)
+            verify_elf(data, info.filename)
             count += 1
+            print(f"[16KiB][AAB] PASS {info.filename} PT_LOAD(min)={min(elf_load_alignments(data, info.filename))}")
+        if not entries:
+            print("[16KiB][AAB] No packaged native libraries (ELF checks not applicable)")
     return count
 
 

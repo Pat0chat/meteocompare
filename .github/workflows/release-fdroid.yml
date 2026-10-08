@@ -88,6 +88,7 @@ jobs:
           set -euo pipefail
           python3 scripts/validate-compose-previews.py
           scripts/validate-fdroid-metadata.sh
+          python3 -m unittest discover -s scripts/tests -p 'test_*.py' -v
 
       # IMPORTANT :
       # On NE fournit AUCUN secret de signature à Gradle.

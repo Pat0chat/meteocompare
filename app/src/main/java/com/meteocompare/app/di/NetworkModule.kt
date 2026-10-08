@@ -1,10 +1,12 @@
 package com.meteocompare.app.di
 
 import android.content.Context
+import android.util.Log
 import com.meteocompare.app.BuildConfig
 import com.meteocompare.app.core.network.CanonicalMetricUnitsInterceptor
 import com.meteocompare.app.core.network.MeteoCompareClientHeaderInterceptor
 import com.meteocompare.app.core.network.OpenMeteoClockDebugInterceptor
+import com.meteocompare.app.core.network.OsmCacheDiagnosticsInterceptor
 import com.meteocompare.app.data.remote.ClimateArchiveApi
 import com.meteocompare.app.data.remote.GeocodingApi
 import com.meteocompare.app.data.remote.MarineApi
@@ -123,6 +125,9 @@ object NetworkModule {
      * ETag et Last-Modified et émet des requêtes conditionnelles lorsque nécessaire.
      * Le cache reste dans cacheDir : il n'est pas sauvegardé par Android et peut
      * être purgé automatiquement par le système en cas de pression disque.
+     * Ce provider est instancié à la demande sur Dispatchers.IO par le dépôt
+     * radar (injection dagger.Lazy) : l'accès à context.cacheDir ne bloque pas
+     * le thread UI et n'entraîne pas de violation StrictMode.
      */
     @Provides
     @Singleton
@@ -130,15 +135,21 @@ object NetworkModule {
     fun provideRadarOkHttp(
         @ApplicationContext context: Context,
         client: OkHttpClient
-    ): OkHttpClient =
-        client.newBuilder()
-            .cache(
-                Cache(
-                    directory = File(context.cacheDir, "radar-http"),
-                    maxSize = 64L * 1024L * 1024L
-                )
-            )
+    ): OkHttpClient {
+        val diskCache = Cache(
+            directory = File(context.cacheDir, "radar-http"),
+            maxSize = 64L * 1024L * 1024L
+        )
+        if (BuildConfig.DEBUG) {
+            Log.d("MeteoCompare/OSMCache", "INIT diskCache=64MiB thread=${Thread.currentThread().name}")
+        }
+        return client.newBuilder()
+            .cache(diskCache)
+            .apply {
+                if (BuildConfig.DEBUG) addInterceptor(OsmCacheDiagnosticsInterceptor())
+            }
             .build()
+    }
 
     @Provides
     @Singleton

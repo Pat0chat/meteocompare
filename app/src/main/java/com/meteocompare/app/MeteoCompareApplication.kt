@@ -3,6 +3,8 @@ package com.meteocompare.app
 import android.app.Application
 import android.appwidget.AppWidgetManager
 import android.os.StrictMode
+import android.system.Os
+import android.system.OsConstants
 import android.util.Log
 import com.meteocompare.app.core.locale.initializePersistedLocaleCache
 import com.meteocompare.app.data.worker.BiasRefreshScheduler
@@ -74,6 +76,18 @@ class MeteoCompareApplication : Application() {
                     .penaltyLog()
                     .build()
             )
+
+            // Diagnostic matériel, pas une preuve de packaging : un émulateur
+            // 4 KiB ne peut PAS valider la compatibilité APK/AAB 16 KiB.
+            // Les vérifications ELF/ZIP/AAB sont faites par le gate de release.
+            val pageSize = runCatching { Os.sysconf(OsConstants._SC_PAGESIZE) }
+                .getOrElse { -1L }
+            val state = when (pageSize) {
+                16_384L -> "RUNTIME_16K: appareil avec pages 16 KiB (tester le chargement des écrans natifs)"
+                4_096L -> "RUNTIME_4K: ce démarrage ne valide PAS les pages 16 KiB"
+                else -> "RUNTIME_UNKNOWN: taille de page inattendue"
+            }
+            Log.i("MeteoCompare/16KiB", "pageSizeBytes=$pageSize $state")
         }
 
         // Les gardes de fraîcheur utilisent SharedPreferences et WorkManager

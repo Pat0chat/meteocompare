@@ -9,6 +9,8 @@ import com.meteocompare.app.domain.radar.RadarBaseTile
 import com.meteocompare.app.domain.radar.RadarFrame
 import com.meteocompare.app.domain.radar.RadarImage
 import com.meteocompare.app.domain.radar.RadarMetadata
+import android.util.Log
+import dagger.Lazy
 import java.io.IOException
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -163,7 +165,10 @@ internal suspend fun Call.awaitBodyBytes(urlForError: String = request().url.toS
 
 @Singleton
 class RainViewerRadarRepository @Inject constructor(
-    @param:RadarOkHttp private val client: OkHttpClient,
+    // L'instance OkHttp du radar est créée à la première requête SUR Dispatchers.IO.
+    // Injecter directement OkHttpClient initialisait context.cacheDir sur le main
+    // thread lors de la création du ViewModel (StrictMode DiskReadViolation).
+    @param:RadarOkHttp private val client: Lazy<OkHttpClient>,
     private val json: Json,
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : RadarRepository {
@@ -223,6 +228,9 @@ class RainViewerRadarRepository @Inject constructor(
             async {
                 try {
                     cacheMutex.withLock { tileCache[tile.url] }?.let { cached ->
+                        if (BuildConfig.DEBUG) {
+                            Log.d("MeteoCompare/OSMCache", "MEMORY_HIT tile=${tile.url.removePrefix("$OSM_TILE_URL/")}")
+                        }
                         return@async RadarBaseTile(tile.leftFromCenter, tile.topFromCenter, cached)
                     }
                     val image = downloadLock(tile.url).withLock {
@@ -240,12 +248,12 @@ class RainViewerRadarRepository @Inject constructor(
         }.awaitAll().filterNotNull()
     }
 
-    private suspend fun getBytes(url: String): ByteArray {
+    private suspend fun getBytes(url: String): ByteArray = withContext(ioDispatcher) {
         val request = Request.Builder()
             .url(url)
             .header("User-Agent", "MeteoCompare-Android/${BuildConfig.VERSION_NAME} (+https://github.com/Pat0chat/MeteoCompare)")
             .build()
-        return client.newCall(request).awaitBodyBytes(url)
+        client.get().newCall(request).awaitBodyBytes(url)
     }
 
     private suspend fun decodeImage(bytes: ByteArray): RadarImage = withContext(ioDispatcher) {
