@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
 import android.net.Uri
+import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -27,12 +28,10 @@ import androidx.glance.Image
 import androidx.glance.ImageProvider
 import androidx.glance.LocalContext
 import androidx.glance.LocalSize
-import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.action.actionStartActivity as actionStartActivityIntent
-import androidx.glance.appwidget.appWidgetBackground
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
@@ -52,8 +51,8 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
-import com.meteocompare.app.MainActivity
 import com.meteocompare.app.R
+import com.meteocompare.app.BuildConfig
 import com.meteocompare.app.core.locale.applyPersistedLocale
 import com.meteocompare.app.core.locale.weatherConditionLabelRes
 import com.meteocompare.app.core.network.OPEN_METEO_LICENSE_URL
@@ -80,6 +79,17 @@ internal class MeteoInsightWidget : GlanceAppWidget() {
             val refreshTick = prefs[WidgetPreferences.RefreshTickKey] ?: 0L
             val customBackground = prefs[WidgetPreferences.BackgroundColorKey]
             val customText = prefs[WidgetPreferences.TextColorKey]
+            val cornerStyle = WidgetCornerStyle.fromStored(prefs[WidgetPreferences.CornerStyleKey])
+            // Diagnostic ponctuel pour confirmer que la vraie surface Glance
+            // relit la forme sauvegardée, et pas seulement l'aperçu Compose.
+            LaunchedEffect(cornerStyle) {
+                if (BuildConfig.DEBUG) {
+                    Log.d("MeteoCompare/WidgetShape", "widget=$id style=${cornerStyle.name} " +
+                        "render=${if (cornerStyle == WidgetCornerStyle.SQUARE) "INSET_RECTANGLE" else "ROUNDED"} " +
+                        "launcherClip=unverified")
+                }
+            }
+
 
             var data by remember {
                 mutableStateOf(
@@ -104,7 +114,8 @@ internal class MeteoInsightWidget : GlanceAppWidget() {
                         data = data,
                         opacityPct = opacityPct,
                         customBackgroundArgb = customBackground,
-                        customTextArgb = customText
+                        customTextArgb = customText,
+                        cornerStyle = cornerStyle
                     )
                 }
             }
@@ -128,7 +139,8 @@ private fun InsightWidgetContent(
     data: WidgetData,
     opacityPct: Int,
     customBackgroundArgb: Int?,
-    customTextArgb: Int?
+    customTextArgb: Int?,
+    cornerStyle: WidgetCornerStyle
 ) {
     val context = LocalContext.current
     val night = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
@@ -140,19 +152,19 @@ private fun InsightWidgetContent(
         customTextArgb = customTextArgb
     )
     val size = LocalSize.current
-    val compact = size.width.value < 220f || size.height.value < 126f
+    val panel = widgetPanelGeometryDp(size.width.value, size.height.value, cornerStyle)
+    val compact = panel.widthDp < 220f || panel.heightDp < 126f
 
-    Box(
-        modifier = GlanceModifier
-            .fillMaxSize()
-            .background(colors.container)
-            .cornerRadius(android.R.dimen.system_app_widget_background_radius)
-            .appWidgetBackground()
-            .clickable(actionStartActivity<MainActivity>())
-            .padding(
-                horizontal = if (compact) 13.dp else 17.dp,
-                vertical = if (compact) 11.dp else 13.dp
-            )
+    WidgetSurface(
+        background = colors.container,
+        cornerStyle = cornerStyle,
+        horizontalPadding = if (compact) 13.dp else 17.dp,
+        verticalPadding = when {
+            cornerStyle == WidgetCornerStyle.SQUARE && compact -> 6.dp
+            cornerStyle == WidgetCornerStyle.SQUARE -> 9.dp
+            compact -> 11.dp
+            else -> 13.dp
+        }
     ) {
         Column(modifier = GlanceModifier.fillMaxSize()) {
             Box(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {

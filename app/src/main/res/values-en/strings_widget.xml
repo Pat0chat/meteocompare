@@ -77,4 +77,15 @@
     <string name="widget_value_open_app">Open MeteoCompare</string>
 
     <string name="widget_config_load_error">Unable to load this widget’s settings. Try again.</string>
+    <!-- Personnalisation libre des couleurs et de la forme -->
+    <string name="widget_color_custom">Custom color</string>
+    <string name="widget_color_picker_hint">Open the color wheel</string>
+    <string name="widget_config_corner_style">Widget corners</string>
+    <string name="widget_corner_rounded">Rounded</string>
+    <string name="widget_corner_square">Square</string>
+    <string name="widget_corner_launcher_note">Square mode requests a rectangular widget background. The launcher may still impose its own corner shape.</string>
+    <string name="widget_color_wheel_title">Choose a color</string>
+    <string name="widget_color_wheel_hint">Hue and saturation</string>
+    <string name="widget_color_brightness">Brightness</string>
+    <string name="widget_color_apply">Apply</string>
 </resources>

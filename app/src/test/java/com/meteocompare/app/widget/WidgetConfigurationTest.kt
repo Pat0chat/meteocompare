@@ -70,4 +70,48 @@ class WidgetConfigurationTest {
         assertEquals(paris.id, second.cityId)
         assertEquals(80, second.opacityPct)
     }
+    @Test fun custom_colors_and_square_corners_round_trip_without_touching_refresh() {
+        val prefs = preferencesOf(
+            WidgetPreferences.CityIdKey to lyon.id,
+            WidgetPreferences.OpacityPctKey to 40,
+            WidgetPreferences.RefreshTickKey to 123456789L,
+            WidgetPreferences.LastDispatchAtKey to 222333444L,
+            WidgetPreferences.ForecastModeKey to ForecastMode.DAILY.name
+        ).toMutablePreferences()
+        val configuration = WidgetConfiguration(
+            cityId = lyon.id, opacityPct = 40, forecastMode = ForecastMode.DAILY,
+            backgroundColorArgb = 0xFF3264AB.toInt(), textColorArgb = 0xFFDDEE33.toInt(),
+            cornerStyle = WidgetCornerStyle.SQUARE
+        )
+        configuration.writeTo(prefs)
+        assertEquals(configuration, WidgetConfiguration.fromPreferences(prefs))
+        assertEquals(123456789L, prefs[WidgetPreferences.RefreshTickKey])
+        assertEquals(222333444L, prefs[WidgetPreferences.LastDispatchAtKey])
+
+        // Simule une réédition qui laisse tout intact.
+        WidgetConfiguration.fromPreferences(prefs).writeTo(prefs)
+        assertEquals(configuration, WidgetConfiguration.fromPreferences(prefs))
+        assertEquals(123456789L, prefs[WidgetPreferences.RefreshTickKey])
+        assertEquals(222333444L, prefs[WidgetPreferences.LastDispatchAtKey])
+
+        // Retour en mode Auto et arrondi ; aucune clé métier affectée.
+        configuration.copy(backgroundColorArgb = null, textColorArgb = null,
+            cornerStyle = WidgetCornerStyle.ROUNDED).writeTo(prefs)
+        assertNull(prefs[WidgetPreferences.BackgroundColorKey])
+        assertNull(prefs[WidgetPreferences.TextColorKey])
+        assertEquals(WidgetCornerStyle.ROUNDED,
+            WidgetConfiguration.fromPreferences(prefs).cornerStyle)
+        assertEquals(123456789L, prefs[WidgetPreferences.RefreshTickKey])
+    }
+
+    @Test fun legacy_and_unknown_corner_values_default_to_rounded() {
+        assertEquals(WidgetCornerStyle.ROUNDED,
+            WidgetConfiguration.fromPreferences(emptyPreferences()).cornerStyle)
+        assertEquals(WidgetCornerStyle.ROUNDED,
+            WidgetConfiguration.fromPreferences(preferencesOf(
+                WidgetPreferences.CornerStyleKey to "CORRUPTED")).cornerStyle)
+        assertEquals(WidgetCornerStyle.SQUARE,
+            WidgetConfiguration.fromPreferences(preferencesOf(
+                WidgetPreferences.CornerStyleKey to "SQUARE")).cornerStyle)
+    }
 }

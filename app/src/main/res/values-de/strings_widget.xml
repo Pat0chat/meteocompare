@@ -56,4 +56,15 @@
     <string name="widget_value_no_comparison">Vergleich nicht verfügbar</string>
     <string name="widget_value_open_app">MeteoCompare öffnen</string>
     <string name="widget_config_load_error">Die Einstellungen dieses Widgets konnten nicht geladen werden. Bitte erneut versuchen.</string>
+    <!-- Personnalisation libre des couleurs et de la forme -->
+    <string name="widget_color_custom">Eigene Farbe</string>
+    <string name="widget_color_picker_hint">Farbrad öffnen</string>
+    <string name="widget_config_corner_style">Widget-Ecken</string>
+    <string name="widget_corner_rounded">Abgerundet</string>
+    <string name="widget_corner_square">Eckig</string>
+    <string name="widget_corner_launcher_note">Der quadratische Modus fordert einen Hintergrund mit geraden Ecken an. Der Launcher kann trotzdem eine eigene Eckform vorgeben.</string>
+    <string name="widget_color_wheel_title">Farbe wählen</string>
+    <string name="widget_color_wheel_hint">Farbton und Sättigung</string>
+    <string name="widget_color_brightness">Helligkeit</string>
+    <string name="widget_color_apply">Anwenden</string>
 </resources>

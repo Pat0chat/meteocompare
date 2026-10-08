@@ -13,6 +13,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -146,7 +147,7 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
                 WidgetConfigScreen(
                     widgetId = widgetId,
                     insightMode = isInsightWidgetProvider(providerClassName),
-                    onSave = { cityId, opacityPct, forecastMode, bgColorArgb, textColorArgb ->
+                    onSave = { cityId, opacityPct, forecastMode, bgColorArgb, textColorArgb, cornerStyle ->
                         persistAndFinish(
                             widgetId = widgetId,
                             expectedProviderClassName = providerClassName,
@@ -154,7 +155,8 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
                             opacityPct = opacityPct,
                             forecastMode = forecastMode,
                             bgColorArgb = bgColorArgb,
-                            textColorArgb = textColorArgb
+                            textColorArgb = textColorArgb,
+                            cornerStyle = cornerStyle
                         )
                     },
                     onCancel = { finish() }
@@ -227,7 +229,8 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
         opacityPct: Int,
         forecastMode: ForecastMode,
         bgColorArgb: Int?,
-        textColorArgb: Int?
+        textColorArgb: Int?,
+        cornerStyle: WidgetCornerStyle
     ) {
         val appCtx = applicationContext
         lifecycleScope.launch {
@@ -254,20 +257,14 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
                     glanceId = glanceId
                 ) { prefs ->
                     prefs.toMutablePreferences().apply {
-                        this[WidgetPreferences.CityIdKey] = cityId
-                        this[WidgetPreferences.OpacityPctKey] = opacityPct
-                        this[WidgetPreferences.ForecastModeKey] = forecastMode.name
-
-                        if (bgColorArgb != null) {
-                            this[WidgetPreferences.BackgroundColorKey] = bgColorArgb
-                        } else {
-                            remove(WidgetPreferences.BackgroundColorKey)
-                        }
-                        if (textColorArgb != null) {
-                            this[WidgetPreferences.TextColorKey] = textColorArgb
-                        } else {
-                            remove(WidgetPreferences.TextColorKey)
-                        }
+                        WidgetConfiguration(
+                            cityId = cityId,
+                            opacityPct = opacityPct,
+                            forecastMode = forecastMode,
+                            backgroundColorArgb = bgColorArgb,
+                            textColorArgb = textColorArgb,
+                            cornerStyle = cornerStyle
+                        ).writeTo(this)
                     }
                 }
 
@@ -320,7 +317,7 @@ private fun WidgetConfigScreen(
     widgetId: Int,
     insightMode: Boolean,
     onSave: (cityId: String, opacityPct: Int, forecastMode: ForecastMode,
-             bgColorArgb: Int?, textColorArgb: Int?) -> Unit,
+             bgColorArgb: Int?, textColorArgb: Int?, cornerStyle: WidgetCornerStyle) -> Unit,
     onCancel: () -> Unit
 ) {
     val context = LocalContext.current.applicationContext
@@ -377,7 +374,7 @@ private fun WidgetConfigForm(
     favorites: List<City>,
     initial: WidgetConfiguration,
     onSave: (cityId: String, opacityPct: Int, forecastMode: ForecastMode,
-             bgColorArgb: Int?, textColorArgb: Int?) -> Unit,
+             bgColorArgb: Int?, textColorArgb: Int?, cornerStyle: WidgetCornerStyle) -> Unit,
     onCancel: () -> Unit
 ) {
     var selectedCityId by rememberSaveable(widgetId) {
@@ -388,6 +385,19 @@ private fun WidgetConfigForm(
     // null = couleurs automatiques ; 0 reste une couleur transparente explicite.
     var bgColorArgb by rememberSaveable(widgetId) { mutableStateOf(initial.backgroundColorArgb) }
     var textColorArgb by rememberSaveable(widgetId) { mutableStateOf(initial.textColorArgb) }
+    var cornerStyle by rememberSaveable(widgetId) { mutableStateOf(initial.cornerStyle) }
+    var editingColor by rememberSaveable(widgetId) { mutableStateOf<String?>(null) }
+
+    if (editingColor != null) {
+        WidgetColorWheelDialog(
+            originalArgb = if (editingColor == "bg") bgColorArgb else textColorArgb,
+            onDismiss = { editingColor = null },
+            onApply = { argb ->
+                if (editingColor == "bg") bgColorArgb = argb else textColorArgb = argb
+                editingColor = null
+            }
+        )
+    }
 
     Column(
         modifier = Modifier
@@ -510,12 +520,15 @@ private fun WidgetConfigForm(
         OpacityPreview(
             opacityPct = opacityPct.toInt(),
             bgColorArgb = bgColorArgb,
-            textColorArgb = textColorArgb
+            textColorArgb = textColorArgb,
+            cornerStyle = cornerStyle
         )
 
         Spacer(Modifier.height(24.dp))
 
         // ─── Section couleurs ────────────────────────────────────
+        // Pastilles rapides + roue HSV pour chaque couleur. Les Int ARGB
+        // existants permettent la reprise exacte de toute couleur libre.
         // Deux palettes indépendantes : fond et texte. Chacune commence par
         // "Auto" (null) qui = thème Material. Les autres options overrident.
         //
@@ -543,25 +556,75 @@ private fun WidgetConfigForm(
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Medium
         )
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(8.dp))
         ColorPaletteRow(
             options = WidgetColorPalette.Backgrounds,
             selectedArgb = bgColorArgb,
             onSelect = { bgColorArgb = it }
         )
 
-        Spacer(Modifier.height(12.dp))
-
+        // Les palettes restent regroupées : les couleurs libres sont une
+        // section À PART, et non une action collée aux dernières pastilles.
+        Spacer(Modifier.height(20.dp))
         Text(
             text = stringResource(R.string.widget_config_colors_text),
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Medium
         )
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(8.dp))
         ColorPaletteRow(
             options = WidgetColorPalette.Texts,
             selectedArgb = textColorArgb,
             onSelect = { textColorArgb = it }
+        )
+        Spacer(Modifier.height(20.dp))
+        Text(
+            text = stringResource(R.string.widget_color_custom),
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium
+        )
+        Spacer(Modifier.height(14.dp))
+        WidgetCustomColorButton(
+            color = bgColorArgb,
+            labelRes = R.string.widget_config_colors_bg,
+            tag = TAG_WIDGET_CUSTOM_BG,
+            onClick = { editingColor = "bg" }
+        )
+        Spacer(Modifier.height(12.dp))
+        WidgetCustomColorButton(
+            color = textColorArgb,
+            labelRes = R.string.widget_config_colors_text,
+            tag = TAG_WIDGET_CUSTOM_TEXT,
+            onClick = { editingColor = "text" }
+        )
+
+        Spacer(Modifier.height(30.dp))
+
+        // Seule la forme du fond EXTERNE change, pas les cartes intérieures.
+        Text(
+            text = stringResource(R.string.widget_config_corner_style),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Medium
+        )
+        Spacer(Modifier.height(8.dp))
+        Row(modifier = Modifier.fillMaxWidth()) {
+            WidgetCornerOption(
+                label = stringResource(R.string.widget_corner_rounded),
+                selected = cornerStyle == WidgetCornerStyle.ROUNDED,
+                tag = TAG_WIDGET_CORNER_ROUNDED,
+                onClick = { cornerStyle = WidgetCornerStyle.ROUNDED }
+            )
+            WidgetCornerOption(
+                label = stringResource(R.string.widget_corner_square),
+                selected = cornerStyle == WidgetCornerStyle.SQUARE,
+                tag = TAG_WIDGET_CORNER_SQUARE,
+                onClick = { cornerStyle = WidgetCornerStyle.SQUARE }
+            )
+        }
+        Text(
+            text = stringResource(R.string.widget_corner_launcher_note),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
         Spacer(Modifier.height(24.dp))
@@ -655,7 +718,7 @@ private fun WidgetConfigForm(
             Button(
                 onClick = {
                     selectedCityId?.let { id ->
-                        onSave(id, opacityPct.toInt(), forecastMode, bgColorArgb, textColorArgb)
+                        onSave(id, opacityPct.toInt(), forecastMode, bgColorArgb, textColorArgb, cornerStyle)
                     }
                 },
                 enabled = selectedCityId != null,
@@ -828,7 +891,8 @@ private fun CityRow(city: City, selected: Boolean, onClick: () -> Unit) {
 private fun OpacityPreview(
     opacityPct: Int,
     bgColorArgb: Int?,
-    textColorArgb: Int?
+    textColorArgb: Int?,
+    cornerStyle: WidgetCornerStyle
 ) {
     val alpha = opacityPct / 100f
     // Résolution du fond : custom ou primaryContainer du thème.
@@ -845,21 +909,26 @@ private fun OpacityPreview(
         alpha < 0.15f -> MaterialTheme.colorScheme.onBackground
         else -> MaterialTheme.colorScheme.onPrimaryContainer
     }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(48.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(baseBg.copy(alpha = alpha)),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center
-    ) {
-        Text(
-            text = stringResource(R.string.widget_config_opacity_preview),
-            color = fg,
-            style = MaterialTheme.typography.bodyMedium,
-            fontSize = 13.sp
-        )
+    // Représenter aussi la marge TRANSPARENTE imposée en mode carré : un
+    // aperçu plein-bord donnait jusqu'ici un résultat trompeur sur Pixel.
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth().height(68.dp)) {
+        val (insetX, insetY) = squarePanelInsetsDp(maxWidth.value, maxHeight.value)
+        Box(
+            modifier = Modifier.fillMaxSize().then(
+                if (cornerStyle == WidgetCornerStyle.SQUARE) {
+                    Modifier.padding(horizontal = insetX.dp, vertical = insetY.dp)
+                } else Modifier
+            ).clip(RoundedCornerShape(if (cornerStyle == WidgetCornerStyle.SQUARE) 0.dp else 16.dp))
+                .background(baseBg.copy(alpha = alpha)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = stringResource(R.string.widget_config_opacity_preview),
+                color = fg,
+                style = MaterialTheme.typography.bodyMedium,
+                fontSize = 13.sp
+            )
+        }
     }
 }
 
@@ -948,6 +1017,10 @@ private fun ColorSwatch(
     }
 }
 
+internal const val TAG_WIDGET_CUSTOM_BG = "widget_custom_bg"
+internal const val TAG_WIDGET_CUSTOM_TEXT = "widget_custom_text"
+internal const val TAG_WIDGET_CORNER_ROUNDED = "widget_corner_rounded"
+internal const val TAG_WIDGET_CORNER_SQUARE = "widget_corner_square"
 internal const val TAG_WIDGET_CONFIG_ROOT = "widget_config_root"
 internal const val TAG_WIDGET_CITY = "widget_city_"
 internal const val TAG_WIDGET_OPACITY = "widget_opacity"

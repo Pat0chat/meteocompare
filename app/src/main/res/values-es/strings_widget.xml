@@ -57,4 +57,15 @@
     <string name="widget_value_no_comparison">Comparación no disponible</string>
     <string name="widget_value_open_app">Abrir MeteoCompare</string>
     <string name="widget_config_load_error">No se han podido cargar los ajustes de este widget. Inténtalo de nuevo.</string>
+    <!-- Personnalisation libre des couleurs et de la forme -->
+    <string name="widget_color_custom">Color personalizado</string>
+    <string name="widget_color_picker_hint">Abrir la rueda de colores</string>
+    <string name="widget_config_corner_style">Esquinas del widget</string>
+    <string name="widget_corner_rounded">Redondeadas</string>
+    <string name="widget_corner_square">Cuadradas</string>
+    <string name="widget_corner_launcher_note">El modo cuadrado solicita un fondo con esquinas rectas. El lanzador puede imponer su propia forma.</string>
+    <string name="widget_color_wheel_title">Elegir un color</string>
+    <string name="widget_color_wheel_hint">Tono y saturación</string>
+    <string name="widget_color_brightness">Brillo</string>
+    <string name="widget_color_apply">Aplicar</string>
 </resources>

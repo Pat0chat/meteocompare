@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
 import android.net.Uri
+import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -30,12 +31,10 @@ import androidx.glance.Image
 import androidx.glance.ImageProvider
 import androidx.glance.LocalContext
 import androidx.glance.LocalSize
-import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.action.actionStartActivity as actionStartActivityIntent
-import androidx.glance.appwidget.appWidgetBackground
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
@@ -57,8 +56,8 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
-import com.meteocompare.app.MainActivity
 import com.meteocompare.app.R
+import com.meteocompare.app.BuildConfig
 import com.meteocompare.app.core.locale.applyPersistedLocale
 import com.meteocompare.app.core.locale.weatherConditionLabelRes
 import com.meteocompare.app.core.network.OPEN_METEO_LICENSE_URL
@@ -239,6 +238,17 @@ internal class MeteoWidget : GlanceAppWidget() {
             // ici — provideGlance se contente de propager la valeur brute.
             val customBgArgb = prefs[WidgetPreferences.BackgroundColorKey]
             val customTextArgb = prefs[WidgetPreferences.TextColorKey]
+            val cornerStyle = WidgetCornerStyle.fromStored(prefs[WidgetPreferences.CornerStyleKey])
+            // Diagnostic ponctuel pour confirmer que la vraie surface Glance
+            // relit la forme sauvegardée, et pas seulement l'aperçu Compose.
+            LaunchedEffect(cornerStyle) {
+                if (BuildConfig.DEBUG) {
+                    Log.d("MeteoCompare/WidgetShape", "widget=$id style=${cornerStyle.name} " +
+                        "render=${if (cornerStyle == WidgetCornerStyle.SQUARE) "INSET_RECTANGLE" else "ROUNDED"} " +
+                        "launcherClip=unverified")
+                }
+            }
+
 
             // Chargement des données asynchrone. `remember` persiste la
             // dernière donnée bonne à travers les recompositions ; LaunchedEffect
@@ -270,7 +280,8 @@ internal class MeteoWidget : GlanceAppWidget() {
                         data = data,
                         opacityPct = opacityPct,
                         customBgArgb = customBgArgb,
-                        customTextArgb = customTextArgb
+                        customTextArgb = customTextArgb,
+                        cornerStyle = cornerStyle
                     )
                 }
             }
@@ -287,7 +298,8 @@ private fun WidgetContent(
     data: WidgetData,
     opacityPct: Int,
     customBgArgb: Int?,
-    customTextArgb: Int?
+    customTextArgb: Int?,
+    cornerStyle: WidgetCornerStyle
 ) {
     // Material 3 / Material Expressive : le mode Auto s'appuie directement
     // sur les rôles de couleur Glance. Sur Android 12+, ils suivent la palette
@@ -346,8 +358,10 @@ private fun WidgetContent(
     }
 
     val size = LocalSize.current
-    val widthDp = size.width.value
-    val heightDp = size.height.value
+    // Le layout est choisi d'après le panneau réellement visible, pas le host.
+    val panel = widgetPanelGeometryDp(size.width.value, size.height.value, cornerStyle)
+    val widthDp = panel.widthDp
+    val heightDp = panel.heightDp
     val layoutKind = classifyWidgetLayout(widthDp, heightDp)
     val padding = when (layoutKind) {
         WidgetLayoutKind.TINY -> WidgetPadding(
@@ -377,17 +391,11 @@ private fun WidgetContent(
         )
     }
 
-    Box(
-        modifier = GlanceModifier
-            .fillMaxSize()
-            .background(container)
-            // Le launcher connaît mieux que l'app le rayon adapté à sa grille.
-            // Utiliser le rayon système évite le clipping et aligne le widget
-            // sur les widgets Android récents.
-            .cornerRadius(android.R.dimen.system_app_widget_background_radius)
-            .appWidgetBackground()
-            .clickable(actionStartActivity<MainActivity>())
-            .padding(horizontal = padding.horizontal, vertical = padding.vertical)
+    WidgetSurface(
+        background = container,
+        cornerStyle = cornerStyle,
+        horizontalPadding = padding.horizontal,
+        verticalPadding = padding.vertical
     ) {
         Column(modifier = GlanceModifier.fillMaxSize()) {
             Box(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
@@ -513,7 +521,7 @@ private fun WidgetOpenMeteoAttribution(
  */
 @Composable
 private fun TinyLayout(data: WidgetData, onContainer: ColorProvider, units: WeatherUnits = LocalWeatherUnits.current) {
-    val size = LocalSize.current
+    val size = widgetPanelSize()
     val micro = size.height.value < 52f || size.width.value < 52f
     val dense = size.height.value < 72f || size.width.value < 64f
     val glyphSize = when {
@@ -572,7 +580,7 @@ private fun TinyLayout(data: WidgetData, onContainer: ColorProvider, units: Weat
  */
 @Composable
 private fun SmallLayout(data: WidgetData, onContainer: ColorProvider, units: WeatherUnits = LocalWeatherUnits.current) {
-    val size = LocalSize.current
+    val size = widgetPanelSize()
     val profile = singleRowWidgetHeightProfile(size.height.value)
     val showCity = shouldShowCityInSmallWidget(size.width.value, size.height.value)
     val glyphSize = when (profile) {
@@ -650,7 +658,7 @@ private fun MediumLayout(
     onContainerMuted: ColorProvider,
     units: WeatherUnits = LocalWeatherUnits.current
 ) {
-    val profile = singleRowWidgetHeightProfile(LocalSize.current.height.value)
+    val profile = singleRowWidgetHeightProfile(widgetPanelSize().height.value)
     val glyphSize = when (profile) {
         SingleRowWidgetHeightProfile.VERY_DENSE -> 30
         SingleRowWidgetHeightProfile.DENSE -> 34
@@ -758,7 +766,7 @@ private fun LargeLayout(
     inlineForecastItems: Int = 0,
     units: WeatherUnits = LocalWeatherUnits.current
 ) {
-    val size = LocalSize.current
+    val size = widgetPanelSize()
     val profile = singleRowWidgetHeightProfile(size.height.value)
     val glyphSize = when (profile) {
         SingleRowWidgetHeightProfile.VERY_DENSE -> 32
@@ -898,7 +906,7 @@ private fun CompactTallLayout(
     onContainerArgb: Int,
     units: WeatherUnits = LocalWeatherUnits.current
 ) {
-    val size = LocalSize.current
+    val size = widgetPanelSize()
     val narrow = size.width.value < 150f
     val headerBudgetDp = compactTallHeaderHeightBudgetDp(narrow)
     val sectionGapDp = 6f
@@ -1083,7 +1091,7 @@ private fun ExtraLargeLayout(
     showExtras: Boolean = true,
     units: WeatherUnits = LocalWeatherUnits.current
 ) {
-    val size = LocalSize.current
+    val size = widgetPanelSize()
     val widthDp = size.width.value
     val heightDp = size.height.value
     val itemCount = if (showFiveItems) 5 else 4
@@ -1259,7 +1267,7 @@ private fun TwelveHourForecastStrip(
     units: WeatherUnits = LocalWeatherUnits.current
 ) {
     val context = LocalContext.current
-    val size = LocalSize.current
+    val size = widgetPanelSize()
     val density = context.resources.displayMetrics.density
     val renderDensity = density.coerceAtMost(2f)
     val profile = miniForecastProfileForWidth(size.width.value)
@@ -1677,7 +1685,7 @@ private fun ErrorLayout(
     softSurface: ColorProvider
 ) {
     val ctx = LocalContext.current
-    val size = LocalSize.current
+    val size = widgetPanelSize()
     val widthDp = size.width.value
     val heightDp = size.height.value
     val message = when (error) {

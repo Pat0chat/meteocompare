@@ -111,4 +111,15 @@
     <string name="widget_value_open_app">Ouvrir MeteoCompare</string>
 
     <string name="widget_config_load_error">Impossible de charger les réglages de ce widget. Réessayez.</string>
+    <!-- Personnalisation libre des couleurs et de la forme -->
+    <string name="widget_color_custom">Couleur personnalisée</string>
+    <string name="widget_color_picker_hint">Ouvrir la roue chromatique</string>
+    <string name="widget_config_corner_style">Coins du widget</string>
+    <string name="widget_corner_rounded">Arrondis</string>
+    <string name="widget_corner_square">Carrés</string>
+    <string name="widget_corner_launcher_note">En mode carré, le widget demande un fond à angles droits. Le lanceur peut néanmoins imposer ses propres coins.</string>
+    <string name="widget_color_wheel_title">Choisir une couleur</string>
+    <string name="widget_color_wheel_hint">Teinte et saturation</string>
+    <string name="widget_color_brightness">Luminosité</string>
+    <string name="widget_color_apply">Appliquer</string>
 </resources>

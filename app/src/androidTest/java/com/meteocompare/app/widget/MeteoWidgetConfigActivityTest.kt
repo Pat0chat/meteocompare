@@ -9,6 +9,7 @@ import android.content.Intent
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
@@ -16,6 +17,7 @@ import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTouchInput
 import androidx.datastore.preferences.core.Preferences
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.state.getAppWidgetState
@@ -168,6 +170,56 @@ class MeteoWidgetConfigActivityTest {
     }
 
     @Test
+    fun wheel_can_choose_an_arbitrary_color_and_reopening_preserves_it() {
+        reopenSavedWidget()
+        composeRule.onNodeWithTag(TAG_WIDGET_CUSTOM_BG).performScrollTo().performClick()
+        composeRule.onNodeWithTag(TAG_WIDGET_COLOR_WHEEL)
+            .performTouchInput { click(percentOffset(0.82f, 0.5f)) }
+        composeRule.onNodeWithTag(TAG_WIDGET_COLOR_BRIGHTNESS)
+            .performSemanticsAction(SemanticsActions.SetProgress) { it(0.73f) }
+        composeRule.onNodeWithTag(TAG_WIDGET_COLOR_APPLY).performClick()
+        // Aucune mutation avant le Save, y compris des anciennes préférences.
+        assertEquals(savedConfiguration, WidgetConfiguration.fromPreferences(readPreferences(widgetId)))
+        composeRule.onNodeWithTag(TAG_WIDGET_SAVE).performScrollTo().performClick()
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            scenario.state == Lifecycle.State.DESTROYED
+        }
+        val updated = WidgetConfiguration.fromPreferences(readPreferences(widgetId))
+        assertTrue(updated.backgroundColorArgb != savedConfiguration.backgroundColorArgb)
+        assertEquals(savedConfiguration.cornerStyle, updated.cornerStyle)
+        assertEquals(savedConfiguration.cityId, updated.cityId)
+        assertEquals(savedConfiguration.forecastMode, updated.forecastMode)
+        assertEquals(savedConfiguration.opacityPct, updated.opacityPct)
+        launchConfiguration(widgetId)
+        composeRule.onNodeWithTag(TAG_WIDGET_CORNER_SQUARE).performScrollTo().assertIsSelected()
+        composeRule.onNodeWithTag(TAG_WIDGET_CUSTOM_BG).performScrollTo().performClick()
+        composeRule.onNodeWithTag(TAG_WIDGET_COLOR_APPLY).performClick()
+        composeRule.onNodeWithTag(TAG_WIDGET_SAVE).performScrollTo().performClick()
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            scenario.state == Lifecycle.State.DESTROYED
+        }
+        assertEquals(updated, WidgetConfiguration.fromPreferences(readPreferences(widgetId)))
+    }
+
+    @Test
+    fun custom_wheel_and_corner_selection_are_drafts_until_save() {
+        reopenSavedWidget()
+        composeRule.onNodeWithTag(TAG_WIDGET_CUSTOM_BG).performScrollTo().performClick()
+        composeRule.onNodeWithTag(TAG_WIDGET_COLOR_WHEEL).assertExists()
+        // Current custom color must reappear when editing an existing widget.
+        composeRule.onNodeWithTag(TAG_WIDGET_COLOR_APPLY).performClick()
+        composeRule.onNodeWithTag(TAG_WIDGET_CORNER_ROUNDED).performScrollTo().performClick()
+        composeRule.onNodeWithTag(TAG_WIDGET_CORNER_ROUNDED).assertIsSelected()
+        assertEquals(savedConfiguration, WidgetConfiguration.fromPreferences(readPreferences(widgetId)))
+        composeRule.onNodeWithTag(TAG_WIDGET_SAVE).performScrollTo().performClick()
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            scenario.state == Lifecycle.State.DESTROYED
+        }
+        assertEquals(savedConfiguration.copy(cornerStyle = WidgetCornerStyle.ROUNDED),
+            WidgetConfiguration.fromPreferences(readPreferences(widgetId)))
+    }
+
+    @Test
     fun cancel_keeps_previously_saved_configuration() {
         reopenSavedWidget()
         composeRule.onNodeWithTag("$TAG_WIDGET_CITY${TestFixtures.paris.id}").performClick()
@@ -194,7 +246,8 @@ class MeteoWidgetConfigActivityTest {
 
     private val savedConfiguration get() = WidgetConfiguration(
         cityId = TestFixtures.lyon.id, opacityPct = 35, forecastMode = ForecastMode.DAILY,
-        backgroundColorArgb = 0xFF123456.toInt(), textColorArgb = 0xFFFFFFFF.toInt()
+        backgroundColorArgb = 0xFF123456.toInt(), textColorArgb = 0xFFFFFFFF.toInt(),
+        cornerStyle = WidgetCornerStyle.SQUARE
     )
 
     private fun reopenSavedWidget() {
@@ -207,6 +260,7 @@ class MeteoWidgetConfigActivityTest {
         composeRule.onNodeWithTag("$TAG_WIDGET_CITY${TestFixtures.lyon.id}").assertIsSelected()
         assertOpacity(35f)
         composeRule.onNodeWithTag("$TAG_WIDGET_MODE${ForecastMode.DAILY.name}").assertIsSelected()
+        composeRule.onNodeWithTag(TAG_WIDGET_CORNER_SQUARE).performScrollTo().assertIsSelected()
     }
 
     private fun assertOpacity(value: Float) {
@@ -235,6 +289,7 @@ class MeteoWidgetConfigActivityTest {
                 this[WidgetPreferences.ForecastModeKey] = configuration.forecastMode.name
                 this[WidgetPreferences.BackgroundColorKey] = checkNotNull(configuration.backgroundColorArgb)
                 this[WidgetPreferences.TextColorKey] = checkNotNull(configuration.textColorArgb)
+                this[WidgetPreferences.CornerStyleKey] = configuration.cornerStyle.name
             }
         }
     }
