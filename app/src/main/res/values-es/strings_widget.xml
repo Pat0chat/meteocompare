@@ -68,4 +68,8 @@
     <string name="widget_color_wheel_hint">Tono y saturación</string>
     <string name="widget_color_brightness">Brillo</string>
     <string name="widget_color_apply">Aplicar</string>
+    <string name="widget_color_hex_label">Color hexadecimal</string>
+    <string name="widget_color_hex_hint">Introduce 6 dígitos hexadecimales (RRGGBB).</string>
+    <string name="widget_color_hex_invalid">Color no válido: usa #RRGGBB.</string>
+    <string name="widget_opacity_manual_label">Valor</string>
 </resources>

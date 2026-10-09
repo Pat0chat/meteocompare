@@ -122,4 +122,8 @@
     <string name="widget_color_wheel_hint">Teinte et saturation</string>
     <string name="widget_color_brightness">Luminosité</string>
     <string name="widget_color_apply">Appliquer</string>
+    <string name="widget_color_hex_label">Couleur hexadécimale</string>
+    <string name="widget_color_hex_hint">Saisir 6 chiffres hexadécimaux (RRGGBB).</string>
+    <string name="widget_color_hex_invalid">Couleur invalide : utiliser #RRGGBB.</string>
+    <string name="widget_opacity_manual_label">Valeur</string>
 </resources>

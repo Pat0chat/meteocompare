@@ -20,12 +20,16 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
@@ -50,6 +54,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.meteocompare.app.R
@@ -96,7 +101,7 @@ internal fun WidgetCustomColorButton(color: Int?, labelRes: Int, tag: String, on
                 )
                 Text(
                     text = color?.let {
-                        "#${(it and 0xFFFFFF).toString(16).uppercase().padStart(6, '0')}"
+                        formatWidgetHexColor(it)
                     } ?: stringResource(R.string.widget_color_picker_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -148,12 +153,19 @@ internal fun WidgetColorWheelDialog(
     var hue by rememberSaveable(originalArgb) { mutableFloatStateOf(initial[0]) }
     var saturation by rememberSaveable(originalArgb) { mutableFloatStateOf(initial[1]) }
     var brightness by rememberSaveable(originalArgb) { mutableFloatStateOf(initial[2]) }
-    // Ouvrir puis valider une ancienne teinte ne doit pas arrondir ses composantes RGB.
+    // The HEX field and wheel edit the same draft. Keep exact RGB when typing:
+    // HSV round-tripping would alter e.g. #123456 on a no-op Save.
+    val initialColor = originalArgb ?: AndroidColor.rgb(25, 118, 210)
+    var hexInput by rememberSaveable(originalArgb) { mutableStateOf(formatWidgetHexColor(initialColor)) }
+    var exactHex by rememberSaveable(originalArgb) { mutableStateOf<Int?>(null) }
     var hasEdited by rememberSaveable(originalArgb) { mutableStateOf(false) }
-
-    val selectedColor = remember(originalArgb, hasEdited, hue, saturation, brightness) {
-        if (!hasEdited && originalArgb != null) originalArgb
-        else AndroidColor.HSVToColor(floatArrayOf(hue, saturation, brightness))
+    val hexIsValid = parseWidgetHexColor(hexInput) != null
+    val selectedColor = remember(originalArgb, hasEdited, exactHex, hue, saturation, brightness) {
+        when {
+            !hasEdited && originalArgb != null -> originalArgb
+            exactHex != null -> exactHex!!
+            else -> AndroidColor.HSVToColor(floatArrayOf(hue, saturation, brightness))
+        }
     }
     val wheelColors = remember {
         (0..36).map { i -> Color(AndroidColor.HSVToColor(floatArrayOf(i * 10f, 1f, 1f))) }
@@ -162,18 +174,25 @@ internal fun WidgetColorWheelDialog(
 
     fun chooseAt(position: Offset, bounds: Size, radiusPadding: Float) {
         hasEdited = true
+        exactHex = null
         val dx = position.x - bounds.width / 2f
         val dy = position.y - bounds.height / 2f
         val radius = (min(bounds.width, bounds.height) / 2f - radiusPadding).coerceAtLeast(1f)
         hue = ((Math.toDegrees(atan2(dy.toDouble(), dx.toDouble())).toFloat() + 360f) % 360f)
         saturation = (hypot(dx, dy) / radius).coerceIn(0f, 1f)
+        hexInput = formatWidgetHexColor(
+            AndroidColor.HSVToColor(floatArrayOf(hue, saturation, brightness))
+        )
     }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.widget_color_wheel_title)) },
         text = {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
                 Text(
                     stringResource(R.string.widget_color_wheel_hint),
                     style = MaterialTheme.typography.bodySmall
@@ -231,20 +250,62 @@ internal fun WidgetColorWheelDialog(
                     style = MaterialTheme.typography.bodySmall)
                 Slider(
                     value = brightness,
-                    onValueChange = { brightness = it; hasEdited = true },
+                    onValueChange = {
+                        brightness = it
+                        exactHex = null
+                        hasEdited = true
+                        hexInput = formatWidgetHexColor(
+                            AndroidColor.HSVToColor(floatArrayOf(hue, saturation, brightness))
+                        )
+                    },
                     valueRange = 0f..1f,
                     modifier = Modifier.fillMaxWidth().testTag(TAG_WIDGET_COLOR_BRIGHTNESS)
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = hexInput,
+                    onValueChange = { newValue ->
+                        if (newValue.length <= 7) {
+                            hexInput = newValue
+                            parseWidgetHexColor(newValue)?.let { argb ->
+                                // Update wheel/brightness while preserving exact typed RGB.
+                                exactHex = argb
+                                val hsv = FloatArray(3)
+                                AndroidColor.colorToHSV(argb, hsv)
+                                hue = hsv[0]
+                                saturation = hsv[1]
+                                brightness = hsv[2]
+                                hasEdited = true
+                            }
+                        }
+                    },
+                    label = { Text(stringResource(R.string.widget_color_hex_label)) },
+                    placeholder = { Text("#RRGGBB") },
+                    supportingText = {
+                        Text(stringResource(
+                            if (hexIsValid) R.string.widget_color_hex_hint
+                            else R.string.widget_color_hex_invalid
+                        ))
+                    },
+                    isError = !hexIsValid,
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
+                    modifier = Modifier.fillMaxWidth().testTag(TAG_WIDGET_COLOR_HEX)
                 )
                 Row(verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center) {
                     Box(Modifier.size(28.dp).background(Color(selectedColor), RoundedCornerShape(6.dp)))
                     Spacer(Modifier.width(10.dp))
-                    Text("#${(selectedColor and 0xFFFFFF).toString(16).uppercase().padStart(6, '0')}")
+                    Text(formatWidgetHexColor(selectedColor))
                 }
             }
         },
         confirmButton = {
-            Button(onClick = { onApply(selectedColor) }, modifier = Modifier.testTag(TAG_WIDGET_COLOR_APPLY)) {
+            Button(
+                onClick = { onApply(selectedColor) },
+                enabled = hexIsValid,
+                modifier = Modifier.testTag(TAG_WIDGET_COLOR_APPLY)
+            ) {
                 Text(stringResource(R.string.widget_color_apply))
             }
         },
@@ -254,6 +315,7 @@ internal fun WidgetColorWheelDialog(
     )
 }
 
+internal const val TAG_WIDGET_COLOR_HEX = "widget_color_hex"
 internal const val TAG_WIDGET_COLOR_WHEEL = "widget_color_wheel"
 internal const val TAG_WIDGET_COLOR_BRIGHTNESS = "widget_color_brightness"
 internal const val TAG_WIDGET_COLOR_APPLY = "widget_color_apply"

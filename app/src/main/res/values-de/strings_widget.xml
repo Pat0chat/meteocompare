@@ -67,4 +67,8 @@
     <string name="widget_color_wheel_hint">Farbton und Sättigung</string>
     <string name="widget_color_brightness">Helligkeit</string>
     <string name="widget_color_apply">Anwenden</string>
+    <string name="widget_color_hex_label">Hexadezimale Farbe</string>
+    <string name="widget_color_hex_hint">6 Hex-Ziffern eingeben (RRGGBB).</string>
+    <string name="widget_color_hex_invalid">Ungültige Farbe: #RRGGBB verwenden.</string>
+    <string name="widget_opacity_manual_label">Wert</string>
 </resources>

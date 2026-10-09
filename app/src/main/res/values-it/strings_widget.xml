@@ -68,4 +68,8 @@
     <string name="widget_color_wheel_hint">Tonalità e saturazione</string>
     <string name="widget_color_brightness">Luminosità</string>
     <string name="widget_color_apply">Applica</string>
+    <string name="widget_color_hex_label">Colore esadecimale</string>
+    <string name="widget_color_hex_hint">Inserisci 6 cifre esadecimali (RRGGBB).</string>
+    <string name="widget_color_hex_invalid">Colore non valido: usa #RRGGBB.</string>
+    <string name="widget_opacity_manual_label">Valore</string>
 </resources>

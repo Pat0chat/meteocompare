@@ -28,11 +28,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
@@ -57,6 +59,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.appwidget.GlanceAppWidgetManager
@@ -74,6 +77,7 @@ import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 /**
  * Activité de configuration ouverte automatiquement par le système quand
@@ -381,6 +385,9 @@ private fun WidgetConfigForm(
         mutableStateOf(initial.selectableCityId(favorites))
     }
     var opacityPct by rememberSaveable(widgetId) { mutableFloatStateOf(initial.opacityPct.toFloat()) }
+    var opacityInput by rememberSaveable(widgetId) { mutableStateOf(initial.opacityPct.toString()) }
+    // Keep draft invalid input visible, but never save it or change the live preview.
+    val opacityIsValid = opacityInput.toIntOrNull()?.let { it in 0..100 } == true
     var forecastMode by rememberSaveable(widgetId) { mutableStateOf(initial.forecastMode) }
     // null = couleurs automatiques ; 0 reste une couleur transparente explicite.
     var bgColorArgb by rememberSaveable(widgetId) { mutableStateOf(initial.backgroundColorArgb) }
@@ -491,20 +498,33 @@ private fun WidgetConfigForm(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Slider(
                 value = opacityPct,
-                onValueChange = { opacityPct = it },
+                onValueChange = {
+                    val percentage = it.roundToInt().coerceIn(0, 100)
+                    opacityPct = percentage.toFloat()
+                    opacityInput = percentage.toString()
+                },
                 valueRange = 0f..100f,
-                // 20 steps = 21 valeurs discrètes (0, 5, 10, …, 100). Assez
-                // fin pour ajuster précisément à un wallpaper, assez grossier
-                // pour que le slider ne "trémble" pas sous le doigt.
-                steps = 19,
+                // 99 intermediate values = every integer percentage from 0 to 100.
+                steps = 99,
                 modifier = Modifier.weight(1f).testTag(TAG_WIDGET_OPACITY)
             )
-            Spacer(Modifier.width(12.dp))
-            Text(
-                text = "${opacityPct.toInt()}%",
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.width(48.dp)
+            Spacer(Modifier.width(8.dp))
+            OutlinedTextField(
+                value = opacityInput,
+                onValueChange = { entered ->
+                    if (entered.length <= 3 && entered.all(Char::isDigit)) {
+                        opacityInput = entered
+                        entered.toIntOrNull()?.takeIf { it in 0..100 }?.let {
+                            opacityPct = it.toFloat()
+                        }
+                    }
+                },
+                modifier = Modifier.width(116.dp).testTag(TAG_WIDGET_OPACITY_INPUT),
+                singleLine = true,
+                isError = !opacityIsValid,
+                suffix = { Text("%") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                label = { Text(stringResource(R.string.widget_opacity_manual_label)) }
             )
         }
 
@@ -721,7 +741,7 @@ private fun WidgetConfigForm(
                         onSave(id, opacityPct.toInt(), forecastMode, bgColorArgb, textColorArgb, cornerStyle)
                     }
                 },
-                enabled = selectedCityId != null,
+                enabled = selectedCityId != null && opacityIsValid,
                 modifier = Modifier.testTag(TAG_WIDGET_SAVE)
             ) {
                 Text(stringResource(R.string.widget_config_save))
@@ -1024,6 +1044,7 @@ internal const val TAG_WIDGET_CORNER_SQUARE = "widget_corner_square"
 internal const val TAG_WIDGET_CONFIG_ROOT = "widget_config_root"
 internal const val TAG_WIDGET_CITY = "widget_city_"
 internal const val TAG_WIDGET_OPACITY = "widget_opacity"
+internal const val TAG_WIDGET_OPACITY_INPUT = "widget_opacity_input"
 internal const val TAG_WIDGET_MODE = "widget_mode_"
 internal const val TAG_WIDGET_INSIGHT_HORIZON = "widget_insight_horizon"
 internal const val TAG_WIDGET_SAVE = "widget_save"

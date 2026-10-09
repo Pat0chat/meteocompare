@@ -9,6 +9,8 @@ import android.content.Intent
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.assertIsNotSelected
@@ -17,6 +19,7 @@ import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.datastore.preferences.core.Preferences
 import androidx.glance.appwidget.GlanceAppWidgetManager
@@ -166,6 +169,55 @@ class MeteoWidgetConfigActivityTest {
         assertOpacity(60f)
         composeRule.onNodeWithTag("$TAG_WIDGET_MODE${ForecastMode.HOURLY.name}").assertIsSelected()
         // Editing a draft must not write to the widget before Save.
+        assertEquals(savedConfiguration, WidgetConfiguration.fromPreferences(readPreferences(widgetId)))
+    }
+
+    @Test
+    fun hex_color_and_one_percent_opacity_survive_reopening() {
+        reopenSavedWidget()
+        composeRule.onNodeWithTag(TAG_WIDGET_CUSTOM_BG).performScrollTo().performClick()
+        composeRule.onNodeWithTag(TAG_WIDGET_COLOR_HEX).performTextReplacement("#A13F7C")
+        composeRule.onNodeWithTag(TAG_WIDGET_COLOR_APPLY).assertIsEnabled().performClick()
+        composeRule.onNodeWithTag(TAG_WIDGET_OPACITY_INPUT).performScrollTo()
+            .performTextReplacement("37")
+        // The previously stored preferences are untouched until Save.
+        assertEquals(savedConfiguration, WidgetConfiguration.fromPreferences(readPreferences(widgetId)))
+        composeRule.onNodeWithTag(TAG_WIDGET_SAVE).performScrollTo().performClick()
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            scenario.state == Lifecycle.State.DESTROYED
+        }
+        val saved = WidgetConfiguration.fromPreferences(readPreferences(widgetId))
+        assertEquals(0xFFA13F7C.toInt(), saved.backgroundColorArgb)
+        assertEquals(37, saved.opacityPct)
+        assertEquals(savedConfiguration.cornerStyle, saved.cornerStyle)
+        assertEquals(savedConfiguration.cityId, saved.cityId)
+        launchConfiguration(widgetId)
+        composeRule.onNodeWithTag(TAG_WIDGET_OPACITY_INPUT).performScrollTo()
+            .assertTextContains("37")
+        composeRule.onNodeWithTag(TAG_WIDGET_CUSTOM_BG).performScrollTo().performClick()
+        composeRule.onNodeWithTag(TAG_WIDGET_COLOR_HEX).assertTextContains("#A13F7C")
+        composeRule.onNodeWithTag(TAG_WIDGET_COLOR_APPLY).performClick()
+        composeRule.onNodeWithTag(TAG_WIDGET_SAVE).performScrollTo().performClick()
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            scenario.state == Lifecycle.State.DESTROYED
+        }
+        assertEquals(saved, WidgetConfiguration.fromPreferences(readPreferences(widgetId)))
+    }
+
+    @Test
+    fun invalid_hex_and_opacity_cannot_be_saved() {
+        reopenSavedWidget()
+        composeRule.onNodeWithTag(TAG_WIDGET_CUSTOM_BG).performScrollTo().performClick()
+        composeRule.onNodeWithTag(TAG_WIDGET_COLOR_HEX).performTextReplacement("#F12")
+        composeRule.onNodeWithTag(TAG_WIDGET_COLOR_APPLY).assertIsNotEnabled()
+        composeRule.onNodeWithTag(TAG_WIDGET_COLOR_HEX).performTextReplacement("#FF1240")
+        composeRule.onNodeWithTag(TAG_WIDGET_COLOR_APPLY).assertIsEnabled().performClick()
+        composeRule.onNodeWithTag(TAG_WIDGET_OPACITY_INPUT).performScrollTo()
+            .performTextReplacement("101")
+        composeRule.onNodeWithTag(TAG_WIDGET_SAVE).performScrollTo().assertIsNotEnabled()
+        composeRule.onNodeWithTag(TAG_WIDGET_OPACITY_INPUT).performScrollTo()
+            .performTextReplacement("1")
+        composeRule.onNodeWithTag(TAG_WIDGET_SAVE).performScrollTo().assertIsEnabled()
         assertEquals(savedConfiguration, WidgetConfiguration.fromPreferences(readPreferences(widgetId)))
     }
 
