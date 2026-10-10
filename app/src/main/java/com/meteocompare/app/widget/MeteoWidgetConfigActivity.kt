@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -215,11 +216,9 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
      *   4. setResult + finish pour valider auprès du système.
      *
      * ─── Broadcast APPWIDGET_UPDATE et receiver dynamique ────────────────
-     * Le broadcast doit cibler le receiver CORRECT parmi les 4 variantes
-     * (Standard / Tiny / Wide / Large). On récupère le nom du provider via
-     * l'AppWidgetProviderInfo du widgetId courant plutôt que de hardcoder
-     * MeteoWidgetReceiver — sinon un widget de variante Large recevrait le
-     * broadcast Standard qui n'en connaît rien.
+     * Le broadcast cible le receiver réellement associé à cet AppWidgetId,
+     * Météo ou À retenir. Il est résolu via AppWidgetProviderInfo pour ne
+     * pas déclencher de mise à jour sur l'autre type de widget.
      *
      * Contexte utilisé : `applicationContext` plutôt que `this@ConfigActivity`
      * — les opérations DataStore et le broadcast doivent survivre à finish()
@@ -418,6 +417,7 @@ private fun WidgetConfigForm(
             // contenu passe sous les system bars — le titre "Configurer le
             // widget" chevauche les icônes système.
             .systemBarsPadding()
+            .imePadding()
             .padding(16.dp)
             // verticalScroll : sur petits écrans (téléphone en portrait avec
             // clavier ouvert, ou écran compact), les 3 sections + boutons
@@ -519,7 +519,9 @@ private fun WidgetConfigForm(
                         }
                     }
                 },
-                modifier = Modifier.width(116.dp).testTag(TAG_WIDGET_OPACITY_INPUT),
+                modifier = Modifier.width(116.dp)
+                    .showWidgetKeyboardOnFocus()
+                    .testTag(TAG_WIDGET_OPACITY_INPUT),
                 singleLine = true,
                 isError = !opacityIsValid,
                 suffix = { Text("%") },

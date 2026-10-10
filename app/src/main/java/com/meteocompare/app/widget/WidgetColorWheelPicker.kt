@@ -290,7 +290,9 @@ internal fun WidgetColorWheelDialog(
                     isError = !hexIsValid,
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
-                    modifier = Modifier.fillMaxWidth().testTag(TAG_WIDGET_COLOR_HEX)
+                    modifier = Modifier.fillMaxWidth()
+                        .showWidgetKeyboardOnFocus()
+                        .testTag(TAG_WIDGET_COLOR_HEX)
                 )
                 Row(verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center) {

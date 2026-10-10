@@ -1,14 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="widget_label_1x1">1×1 Meteo</string>
-    <string name="widget_label_2x1">2×1 Meteo</string>
-    <string name="widget_label_2x2">2×2 Meteo</string>
-    <string name="widget_label_3x1">3×1 Meteo</string>
-    <string name="widget_label_3x2">3×2 Meteo</string>
-    <string name="widget_label_4x1">4×1 Meteo</string>
-    <string name="widget_label_4x2">4×2 Meteo</string>
-    <string name="widget_label_5x1">5×1 Meteo</string>
-    <string name="widget_label_5x2">5×2 Meteo</string>
+    <string name="widget_label_weather">Meteo</string>
     <string name="widget_config_colors_section">Colori</string>
     <string name="widget_config_colors_bg">Sfondo</string>
     <string name="widget_config_colors_text">Testo</string>
@@ -30,7 +22,7 @@
     <string name="widget_forecast_confidence">Convergenza dei modelli</string>
     <string name="widget_forecast_confidence_hint">convergenza / modelli</string>
     <string name="widget_forecast_confidence_short">Conv. %1$d%%</string>
-    <string name="widget_label_insight">4×2 Da ricordare</string>
+    <string name="widget_label_insight">Da ricordare</string>
     <string name="widget_description_insight">Il segnale meteo più utile e il livello di convergenza tra i modelli.</string>
     <string name="widget_config_insight_horizon_note">Il widget Da ricordare analizza sempre le prossime 24 ore.</string>
     <string name="widget_config_insight_horizon">Prossime 24 ore</string>

@@ -63,66 +63,14 @@ import com.meteocompare.app.core.locale.weatherConditionLabelRes
 import com.meteocompare.app.core.network.OPEN_METEO_LICENSE_URL
 import com.meteocompare.app.domain.model.WeatherCondition
 
-// ─── Sélection de layout ────────────────────────────────────────────────────
-//
-// SizeMode.Exact expose la taille RÉELLE du container via LocalSize (par
-// opposition à Responsive qui expose une taille "bucket" pré-configurée). On
-// prend Exact pour éviter le piège : sur un launcher à cellules de 90dp, un
-// widget physique 2×1 fait 180dp de large — pile la valeur d'un bucket
-// "3×1 = 180dp" qui aurait été choisi par Responsive et déclenché MediumLayout
-// (badge à droite) au lieu de SmallLayout (badge sous la temp). Exact permet
-// des seuils ajustés à la réalité des grilles Android (74-130dp par cellule
-// selon launcher).
-//
-// Seuils choisis pour couvrir la variance cross-launcher :
-//   - Tiny : width < 105dp AND height < 105dp. Cible le 1×1 physique. Le
-//     ET sur les deux dimensions évite qu'un widget 2×1 très étroit (édge case
-//     launchers custom) ne soit classé Tiny. En pratique 1×1 = ~40-90dp
-//     dans chaque dim selon le launcher.
-//   - Small : 105dp ≤ width < 210dp. Couvre 2×1 physique jusqu'à ~103dp/cellule
-//     (Samsung).
-//   - Medium : 210 ≤ width < 320dp. Couvre 3×1 physique typique.
-//   - Large : width ≥ 320dp AND width < 380dp. Couvre 4×1 physique.
-//   - WideRow (5×1) : width ≥ 380dp AND height < EXTRA_LARGE_MIN_HEIGHT_DP.
-//     Couvre 5×1. Utilise LargeLayout avec 1-2 items de prévision inline pour
-//     tirer parti de la largeur supplémentaire.
-//   - ExtraLarge (4×2) : width ≥ 220dp AND height ≥ 130dp AND width < 380dp.
-//     La double condition width+height évite de mal classer un widget 1-cellule
-//     sur launcher à cellules hautes.
-//   - ExtraLargeWide (5×2) : width ≥ 380dp AND height ≥ 130dp. Même layout
-//     qu'ExtraLarge mais avec 5 items de prévision au lieu de 4.
-/**
- * Padding intérieur par taille de widget.
- *
- * ─── Pourquoi un padding différent selon la taille ? ─────────────────────
- * L'ancien code utilisait un padding uniforme de 10.dp pour toutes les
- * tailles. Sur 2×1, c'est OK — l'espace est déjà minuscule, tout serré
- * est acceptable. Mais sur 3×1, 4×1 et 4×2 :
- *
- *   - Le contenu touche presque les bords → aspect "collé" peu premium.
- *   - Sur les launchers qui appliquent un liseré léger autour du widget
- *     (One UI, MIUI), le texte semble sortir du cadre.
- *   - Le confidence pill à droite en 3×1/4×1 se retrouve pratiquement
- *     contre le bord droit, sans respiration visuelle.
- *
- * Le padding horizontal reste progressif selon la largeur. Le padding vertical
- * est désormais adaptatif : il conserve les valeurs confortables ci-dessous
- * sur une cellule haute, mais descend jusqu'à 4 dp sur les launchers dont une
- * rangée ne laisse que 55–70 dp au widget.
- *   - Small (2×1)      : 8 dp horizontal, 4–8 dp vertical.
- *   - Medium (3×1)     : 14 dp horizontal, 4–10 dp vertical.
- *   - Large/Wide       : 18 dp horizontal, 4–12 dp vertical.
- *   - ExtraLarge (×2)  : 16 dp horizontal, 7–13 dp vertical.
- *
- * Les valeurs restent SYMÉTRIQUES gauche/droite pour que le contenu reste
- * centré au regard, et légèrement plus resserrées verticalement que
- * horizontalement pour tirer parti de la forme 3-4:1 des layouts.
- */
+// SizeMode.Exact fournit la taille réellement disponible, plutôt qu'une taille
+// pré-calibrée. Le choix du rendu dépend de la largeur ET de la hauteur :
+// compact, horizontal, large, ou avec prévisions supplémentaires.
+// Les seuils s'ajustent aux différences de grilles entre launchers Android.
+// Le padding progresse avec l'espace utile et se resserre dans les widgets bas.
 private data class WidgetPadding(val horizontal: Dp, val vertical: Dp)
 
-// Tiny (1×1) : padding minimum pour préserver le maximum de contenu utile.
-// Sur 40-90dp par côté, 8dp de padding "mange" déjà 20-40% de la surface,
-// mais moins et le contenu touche les bords.
+// Padding minimal pour les widgets très compacts.
 private val TinyPadding = WidgetPadding(6.dp, 4.dp)
 private val SmallPadding = WidgetPadding(8.dp, 8.dp)
 private val MediumPadding = WidgetPadding(14.dp, 10.dp)
@@ -142,7 +90,7 @@ private val ForecastCardSpacing = 8.dp
  * son tour. L'ancienne version appelait `isNightMode()` dans 6+ endroits par
  * render (chaque `onContainerColor()`, `onContainerColorMuted()`,
  * `resolveOnContainerColor()` faisait un accès Configuration + bit-and) — sur
- * un widget avec strip 4×2 c'est ~30 lookups Configuration par recomposition.
+ * un rendu étendu, cela multipliait les lectures par recomposition.
  *
  * Avec ce local, on lit Configuration UNE fois au top du composable et on
  * propage la valeur booléenne — un simple int en pratique. Le gain n'est pas
@@ -152,28 +100,10 @@ private val ForecastCardSpacing = 8.dp
 private val LocalNightMode = staticCompositionLocalOf { false }
 
 /**
- * Widget MeteoCompare — reproduit un résumé compact de la [TodaySummaryCard]
- * sur l'écran d'accueil.
- *
- * Neuf points d'entrée (1×1 à 5×2) sont supportés via [SizeMode.Exact], puis
- * reclassés d'après la taille réellement fournie par le launcher :
- *
- *   - **1×1** : icône, température et confiance en pile compacte.
- *   - **2×1** : icône + température actuelle | ville + confiance dessous.
- *     Mode "coup d'œil" — un pouce sait s'il fait beau et si la prévision est
- *     fiable.
- *
- *   - **3×1** : + min/max du jour + badge de confiance à droite.
- *
- *   - **4×1** : + couverture nuageuse ou pluie avec confiance associée.
- *     Résumé complet, quasi-parité avec la TodaySummaryCard.
- *
- *   - **4×2** : ajoute au 4×1 un strip de 5 prévisions étendues (5 prochaines
- *     heures OU 5 prochains jours selon le paramètre utilisateur).
- *
- * L'utilisateur configure : ville affichée, opacité du fond (0-100%), mode
- * de prévision étendue (Hourly/Daily) — tout accessible via l'activity de
- * config au drop du widget ou via "Reconfigurer" (long-press, Android 12+).
+ * Widget météo dont le contenu s'adapte à l'espace attribué par le launcher.
+ * Selon la place disponible, il affiche les conditions actuelles, la confiance,
+ * les extrêmes du jour et éventuellement des prévisions étendues.
+ * La ville, la couleur et l’opacité se règlent via la configuration.
  *
  * ─── Pattern reactive state ─────────────────────────────────────────────
  * Les prefs sont lues via [currentState] INSIDE [provideContent], pas dans
@@ -213,7 +143,7 @@ internal class MeteoWidget : GlanceAppWidget() {
         //      sont aussi dans la bonne langue.
         //
         // Sans ce override, les widgets étaient TOUJOURS en langue système,
-        // ignorant le réglage app — bug reporté sur les widgets 4×2 avec
+        // ignorant le réglage app — bug reporté sur les grands widgets avec
         // "Vent/Pluie" affichés même quand l'app est en anglais.
         val appCtx = applyPersistedLocale(context.applicationContext)
         provideContent {
@@ -506,7 +436,7 @@ private fun WidgetOpenMeteoAttribution(
  * La ville est OMISE : sur 1×1 il n'y a physiquement pas de place, et
  * l'utilisateur sait quelle ville il a choisie (le widget est le sien).
  * Le min/max, la couverture nuageuse, les prévisions étendues sont aussi
- * omis — le layout 2×1+ les couvre déjà.
+ * omis — les rendus compacts les couvrent déjà.
  *
  * ─── Choix de disposition ────────────────────────────────────────────────
  * Column verticale plutôt que Row horizontale : les cellules 1×1 sont
@@ -567,7 +497,7 @@ private fun TinyLayout(data: WidgetData, onContainer: ColorProvider, units: Weat
 }
 
 /**
- * Layout 2×1 — icône | Column(temp, confidence%).
+ * Rendu compact horizontal — icône | colonne(température, confiance).
  *
  * La CONFIANCE reste affichée sous la température. La ville est conservée sur
  * les cellules normales, puis masquée en priorité lorsque le launcher fournit
@@ -741,20 +671,10 @@ private fun MediumLayout(
 }
 
 /**
- * Layout 4×1 / 5×1 : version enrichie avec 3 lignes centrales — ville,
- * min/max, ligne d'extras contextuels (cloud cover, pluie avec confiance).
- *
- * @param inlineForecastItems Nombre d'items de prévision "inline" à afficher
- *   à droite du bloc principal, AVANT le badge de confiance. Utilisé pour
- *   remplir l'espace supplémentaire en 5×1 sans passer à un vrai layout
- *   2 rangées. 0 = comportement 4×1 historique, 2 = variante 5×1.
- *
- * ─── Pourquoi paramétrer plutôt qu'un layout séparé Wide5x1Layout ? ─────
- * Le composable est presque entièrement identique — seule la Row de droite
- * change (badge vs badge+2 items). Dédupliquer avec un flag évite ~80
- * lignes de copie et garantit que les tweaks futurs (padding, tailles de
- * font, couleurs) s'appliquent aux DEUX variantes automatiquement. Le
- * risque de "flag hell" est faible ici : un seul param, sémantique claire.
+ * Rendu horizontal étendu : ville, extrêmes et informations contextuelles.
+ * Les prévisions inline sont ajoutées seulement si la largeur le permet ;
+ * la même composition sert ainsi aux différentes dimensions du launcher.
+ * @param inlineForecastItems Nombre de prévisions affichées à droite.
  */
 @Composable
 private fun LargeLayout(
@@ -1059,23 +979,12 @@ private fun ColumnScope.CompactConfidenceSummary(
 }
 
 /**
- * Layout 4×2 / 5×2 : top strip identique au 4×1 + bas strip avec 4 ou 5
- * items de prévision étendue (heures ou jours selon la config utilisateur).
- *
- * @param showFiveItems `true` pour les variantes 4×2 et 5×2 — affiche 5 items dans
- *   le bas strip (le 3×2 reste limité à 4). Utilise l'espace supplémentaire en largeur
- *   sans surcharger le rendu.
- * @param showExtras masque la ligne vent/humidité sur le format 3×2, où elle
- *   surcharge le bandeau supérieur. Elle reste affichée à partir du 4×2.
- *
- * Les tailles sont adaptées à la hauteur ET à la largeur exactes : un profil
- * très compact protège les 3×2 et les widgets sous 150 dp, un profil compact
- * couvre les cellules sous 185 dp, puis le rendu confortable prend le relais.
- *
- * Note : quand `showFiveItems=true` et que `data.forecasts` contient moins
- * de 5 items (edge case si le fetch est parti sur un horizon plus court),
- * `.take(n)` renvoie ce qui est disponible sans crash — les weight-column
- * s'adaptent en s'élargissant proportionnellement.
+ * Rendu étendu avec prévisions horaires ou journalières en bas.
+ * Le nombre de cartes, les extras du bandeau et la densité s'adaptent à la
+ * largeur et à la hauteur exactes. Quand il manque des prévisions, `take(n)`
+ * affiche celles disponibles sans laisser de cases vides artificielles.
+ * @param showFiveItems Autorise une cinquième carte si la largeur suffit.
+ * @param showExtras Affiche les métriques annexes quand le bandeau n'est pas étroit.
  */
 @Composable
 private fun ExtraLargeLayout(
@@ -1248,7 +1157,7 @@ private fun ExtraLargeLayout(
 }
 
 /**
- * Mini-prévision 12 h pour les widgets hauts 2×2 à 5×2.
+ * Mini-prévision 12 h, activée si la hauteur du widget le permet.
  *
  * Le bitmap répartit les douze heures sur deux lignes de six cellules. Chaque
  * cellule porte son heure, sa température, la condition météo de consensus et

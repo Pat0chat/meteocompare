@@ -22,9 +22,8 @@ class WidgetPreviewLayoutTest {
     fun scalable_previews_can_be_inflated_as_remote_views() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val layouts = listOf(
-            R.layout.widget_preview_5x1,
-            R.layout.widget_preview,
-            R.layout.widget_preview_large
+            R.layout.widget_preview_weather,
+            R.layout.widget_preview_insight
         )
 
         layouts.forEach { layoutRes ->

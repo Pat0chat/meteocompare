@@ -208,7 +208,7 @@ internal data class WidgetForecastItem(
 /**
  * Snapshot compact d'une bande de confiance pour rendu widget.
  *
- * Le widget 4×2 ne peut pas rendre un vrai Canvas (Glance ne supporte pas
+ * Glance ne peut pas rendre un vrai Canvas (Glance ne supporte pas
  * `androidx.compose.foundation.Canvas` — seulement des primitives Row/Column/
  * Box). On dégrade la bande en une série de "buckets journaliers" alignés
  * horizontalement, chaque bucket portant TROIS informations superposées :
@@ -536,7 +536,7 @@ private suspend fun loadWidgetDataInternal(
 internal suspend fun <T> Flow<T>.awaitWidgetTerminalEmission(): T? = lastOrNull()
 
 /**
- * Construit les 5 items du widget 4×2 à partir de la timeline consensus robuste.
+ * Construit les prévisions étendues à partir de la timeline consensus robuste.
  *
  * Les valeurs ne proviennent plus d'un modèle unique : température, pluie,
  * nuages, condition et convergence utilisent la même prévision centrale que
@@ -892,8 +892,8 @@ private fun buildConfidenceStrip(
         byDay.getOrPut(day) { mutableListOf() }.add(band)
     }
 
-    // Cinq jours correspondent au nombre de colonnes affichées sur les
-    // widgets 4×2 et 5×2. Les formats plus petits en montrent un sous-ensemble.
+    // Les rendus étendus affichent jusqu’à cinq jours ; les rendus compacts
+    // en montrent un sous-ensemble selon la largeur disponible.
     val today = now.atZone(zone).toLocalDate()
     val nowShortLabel = context.getString(R.string.widget_confidence_now_short)
     val totalModels = forecast.seriesByModel.size.coerceAtLeast(1)
@@ -993,7 +993,7 @@ internal fun aggregateConfidenceBucketValue(mode: ForecastMode, values: List<Dou
  * et "demain" pourraient dériver visuellement).
  *
  * ─── Contraintes de largeur ────────────────────────────────────────────
- * Un bucket widget 4×2 fait ~40 dp de large. Le texte doit tenir en 4-5
+ * Une cellule de prévision peut faire ~40 dp de large. Le texte tient en 4-5
  * caractères max :
  *   Temp  : "22°" (3 char) — OK
  *   Précip: "0.5 mm" (6 char) — tight ; on omet l'unité "mm" quand une seule

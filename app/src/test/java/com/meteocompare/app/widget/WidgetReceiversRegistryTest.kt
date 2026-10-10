@@ -6,34 +6,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Tests d'invariance sur [WidgetReceivers.All].
- *
- * ─── Pourquoi c'est important ────────────────────────────────────────
- * Le registry `WidgetReceivers.All` est consulté à deux endroits critiques :
- *
- *   1. [MeteoWidgetReceiver.isAnyReceiverAlive] pour décider si on peut
- *      cancel le worker sur onDisabled. Une classe manquante → un widget
- *      "invisible" pour l'algo → cancel prématuré → widget survivant sans
- *      tick.
- *
- *   2. [WidgetRefreshWorker.doWork] pour cross-checker les glanceIds
- *      contre les vrais widgets vivants. Une classe manquante → tous les
- *      widgets de cette classe traités comme ghosts → aucun tick.
- *
- * Ces deux régressions sont silencieuses en test manuel : l'utilisateur
- * ne voit rien de cassé jusqu'à ce que son widget X ne se mette plus à
- * jour. D'où l'importance d'un test-check.
- *
- * ─── Approche ────────────────────────────────────────────────────────
- * On ne peut pas parser le AndroidManifest.xml en pur JVM test sans dép
- * lourde (pull xmlpull ou lire un asset). À la place, on énumère les
- * classes ATTENDUES dans le registry — un contributeur qui ajoute une
- * variante DOIT :
- *   1. Créer la classe MeteoWidgetReceiverXxx
- *   2. L'ajouter au manifest
- *   3. L'ajouter au registry ET à ce test
- *
- * Les 3 étapes se voient dans la même PR — la review attrape les oublis.
+ * Le registre utilisé par le scheduler doit correspondre exactement aux deux
+ * receivers déclarés dans AndroidManifest.xml, sans doublon.
+ * Une entrée manquante empêcherait la détection et le rafraîchissement
+ * des widgets encore présents sur l'écran d'accueil.
  */
 class WidgetReceiversRegistryTest {
 
@@ -43,15 +19,7 @@ class WidgetReceiversRegistryTest {
      * pour la justification.
      */
     private val expectedReceivers = setOf<Class<out MeteoWidgetReceiver>>(
-        MeteoWidgetReceiver1x1::class.java,
-        MeteoWidgetReceiver2x1::class.java,
-        MeteoWidgetReceiver3x1::class.java,
-        MeteoWidgetReceiver4x1::class.java,
-        MeteoWidgetReceiver5x1::class.java,
-        MeteoWidgetReceiver2x2::class.java,
-        MeteoWidgetReceiver3x2::class.java,
-        MeteoWidgetReceiver4x2::class.java,
-        MeteoWidgetReceiver5x2::class.java,
+        MeteoWeatherWidgetReceiver::class.java,
         MeteoInsightWidgetReceiver::class.java
     )
 
@@ -96,7 +64,7 @@ class WidgetReceiversRegistryTest {
     }
     @Test
     fun `provider ownership requires app package and registered receiver`() {
-        val registered = MeteoWidgetReceiver2x1::class.java.name
+        val registered = MeteoWeatherWidgetReceiver::class.java.name
 
         assertTrue(
             isOwnedWidgetProvider(

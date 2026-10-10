@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextContains
@@ -74,7 +75,7 @@ class MeteoWidgetConfigActivityTest {
         automation.adoptShellPermissionIdentity(Manifest.permission.BIND_APPWIDGET)
         try {
             assertTrue(AppWidgetManager.getInstance(context).bindAppWidgetIdIfAllowed(
-                id, ComponentName(context, MeteoWidgetReceiver2x1::class.java)
+                id, ComponentName(context, MeteoWeatherWidgetReceiver::class.java)
             ))
         } finally {
             automation.dropShellPermissionIdentity()
@@ -170,6 +171,19 @@ class MeteoWidgetConfigActivityTest {
         composeRule.onNodeWithTag("$TAG_WIDGET_MODE${ForecastMode.HOURLY.name}").assertIsSelected()
         // Editing a draft must not write to the widget before Save.
         assertEquals(savedConfiguration, WidgetConfiguration.fromPreferences(readPreferences(widgetId)))
+    }
+
+    @Test
+    fun tapping_opacity_input_grants_edit_focus() {
+        composeRule.onNodeWithTag(TAG_WIDGET_OPACITY_INPUT)
+            .performScrollTo().performClick().assertIsFocused()
+    }
+
+    @Test
+    fun tapping_color_hex_grants_edit_focus_in_dialog() {
+        composeRule.onNodeWithTag(TAG_WIDGET_CUSTOM_BG).performScrollTo().performClick()
+        composeRule.onNodeWithTag(TAG_WIDGET_COLOR_HEX)
+            .performClick().assertIsFocused()
     }
 
     @Test

@@ -17,15 +17,7 @@ class WidgetProviderRefreshFallbackTest {
     fun every_widget_provider_requests_the_thirty_minute_system_fallback() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val providers = listOf(
-            R.xml.meteocompare_widget_info_1x1,
-            R.xml.meteocompare_widget_info_2x1,
-            R.xml.meteocompare_widget_info_3x1,
-            R.xml.meteocompare_widget_info_4x1,
-            R.xml.meteocompare_widget_info_5x1,
-            R.xml.meteocompare_widget_info_2x2,
-            R.xml.meteocompare_widget_info_3x2,
-            R.xml.meteocompare_widget_info_4x2,
-            R.xml.meteocompare_widget_info_5x2,
+            R.xml.meteocompare_widget_info_weather,
             R.xml.meteocompare_widget_info_insight
         )
 

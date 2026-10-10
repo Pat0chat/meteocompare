@@ -23,7 +23,7 @@ internal fun shouldShowForecastCardConfidence(
 }
 
 /**
- * Densité verticale des widgets sur une seule rangée (1×1 à 5×1).
+ * Densité verticale des widgets de faible hauteur.
  *
  * Les launchers ne donnent pas tous la même hauteur à une cellule. Les profils
  * évitent donc d'utiliser les tailles prévues pour ~90 dp dans un bandeau qui
@@ -35,7 +35,7 @@ internal enum class SingleRowWidgetHeightProfile {
     REGULAR
 }
 
-/** Densité des widgets sur deux rangées (3×2 à 5×2). */
+/** Densité des widgets disposant de plus de hauteur. */
 internal enum class TwoRowWidgetSizeProfile {
     VERY_DENSE,
     COMPACT,
@@ -48,7 +48,7 @@ internal fun twoRowWidgetSizeProfile(widthDp: Float, heightDp: Float): TwoRowWid
     else -> TwoRowWidgetSizeProfile.REGULAR
 }
 
-/** Budget du bandeau supérieur du 2×2, où quatre lignes peuvent cohabiter. */
+/** Budget du bandeau supérieur en disposition compacte verticale. */
 internal fun compactTallHeaderHeightBudgetDp(narrow: Boolean): Float =
     if (narrow) 52f else 56f
 
@@ -109,7 +109,7 @@ internal fun singleRowContainerVerticalPaddingDp(
 }
 
 /**
- * Sur un 2×1 très bas, la ville est l'information la moins prioritaire.
+ * Lorsque le widget est très bas, la ville est l'information la moins prioritaire.
  * On la conserve dès que le budget vertical permet trois lignes confortables.
  */
 internal fun shouldShowCityInSmallWidget(widthDp: Float, heightDp: Float): Boolean =

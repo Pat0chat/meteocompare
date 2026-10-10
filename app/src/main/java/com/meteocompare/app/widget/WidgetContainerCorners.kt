@@ -32,7 +32,7 @@ import com.meteocompare.app.MainActivity
  * up to 40dp of widget height and cut the bottom heatmap and daily/hourly cards.
  *
  * Insets are in dp per side. Clamp narrow widgets to leave a minimum content
- * width instead of accidentally reducing a 1x1 widget to a few pixels.
+ * width instead of accidentally reducing a tiny widget to a few pixels.
  */
 internal fun squarePanelInsetsDp(widthDp: Float, heightDp: Float): Pair<Int, Int> {
     val horizontal = when {

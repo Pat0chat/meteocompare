@@ -105,7 +105,7 @@ internal enum class WidgetCornerStyle { ROUNDED, SQUARE;
 }
 
 /**
- * Contenu de la ligne du bas du widget 4×2.
+ * Contenu de la zone des prévisions lorsque le widget est assez haut.
  *
  *   - [HOURLY] : jusqu'à 5 prévisions horaires (labels "14h", "15h", …).
  *     Signal le plus actionnable à courte échéance.
@@ -137,7 +137,7 @@ internal enum class ForecastMode {
      * Mini prévision 12h : grille de deux lignes × six heures, avec heure,
      * température, accent thermique et risque de pluie dans chaque cellule.
      * Rendu via Bitmap ([WidgetMiniForecastRenderer]). Uniquement pertinent
-     * pour les widgets 2-row (2×2, 3×2, 4×2, 5×2).
+     * pour les rendus disposant de deux rangées.
      */
     MINI_FORECAST_12H,
     /**

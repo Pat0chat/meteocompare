@@ -54,6 +54,6 @@ class WidgetValueSnapshotTest {
         )
         assertTrue(glanceWidgetForProviderClassName(null) is MeteoWidget)
         assertTrue(isInsightWidgetProvider(MeteoInsightWidgetReceiver::class.java.name))
-        assertTrue(!isInsightWidgetProvider(MeteoWidgetReceiver4x2::class.java.name))
+        assertTrue(!isInsightWidgetProvider(MeteoWeatherWidgetReceiver::class.java.name))
     }
 }

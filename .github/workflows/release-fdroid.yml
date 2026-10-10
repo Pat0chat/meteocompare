@@ -1,4 +1,4 @@
-name: Build & release APK for F-Droid
+name: Build & release APK (F-Droid) + AAB (Play Store)
 
 on:
   push:
@@ -93,7 +93,8 @@ jobs:
       # IMPORTANT :
       # On NE fournit AUCUN secret de signature à Gradle.
       # Ton app/build.gradle.kts produira donc app-release-unsigned.apk.
-      # Cela évite que Gradle/AGP signe avec apksigner 36.
+      # Cela évite que Gradle/AGP signe l’APK avec apksigner 36.
+      # L’AAB sera signé ensuite avec jarsigner et le même keystore.
       - name: Validate tests and lint, then build unsigned release APK/AAB
         shell: bash
         run: |
@@ -131,8 +132,8 @@ jobs:
           fi
           python3 scripts/verify-16kb-page-size.py --apk "$APK" --aab "$AAB"
 
-      - name: Locate unsigned APK and choose release filename
-        id: apk
+      - name: Locate unsigned APK/AAB and choose release filenames
+        id: release_artifacts
         shell: bash
         run: |
           set -euo pipefail
@@ -146,9 +147,23 @@ jobs:
               -quit
           )"
 
+          UNSIGNED_AAB="$(
+            find app/build/outputs/bundle/release \
+              -maxdepth 1 \
+              -type f \
+              -name "*.aab" \
+              -print \
+              -quit
+          )"
+
           if [[ -z "$UNSIGNED_APK" || ! -f "$UNSIGNED_APK" ]]; then
             echo "::error::APK release non signé introuvable."
             find app/build/outputs/apk -maxdepth 3 -type f -print || true
+            exit 1
+          fi
+          if [[ -z "$UNSIGNED_AAB" || ! -f "$UNSIGNED_AAB" ]]; then
+            echo "::error::Android App Bundle release introuvable."
+            find app/build/outputs/bundle -maxdepth 3 -type f -print || true
             exit 1
           fi
 
@@ -163,13 +178,18 @@ jobs:
           fi
 
           SIGNED_APK="${RUNNER_TEMP}/MeteoCompare-${VERSION}.apk"
+          SIGNED_AAB="${RUNNER_TEMP}/MeteoCompare-${VERSION}.aab"
 
           echo "unsigned_apk=${UNSIGNED_APK}" >> "$GITHUB_OUTPUT"
+          echo "unsigned_aab=${UNSIGNED_AAB}" >> "$GITHUB_OUTPUT"
           echo "signed_apk=${SIGNED_APK}" >> "$GITHUB_OUTPUT"
+          echo "signed_aab=${SIGNED_AAB}" >> "$GITHUB_OUTPUT"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
           echo "Unsigned APK: ${UNSIGNED_APK}"
+          echo "Unsigned AAB: ${UNSIGNED_AAB}"
           echo "Final APK:    ${SIGNED_APK}"
+          echo "Final AAB:    ${SIGNED_AAB}"
 
       - name: Verify APK version matches Git tag
         if: github.ref_type == 'tag'
@@ -178,8 +198,8 @@ jobs:
           set -euo pipefail
 
           APKANALYZER="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/apkanalyzer"
-          UNSIGNED_APK="${{ steps.apk.outputs.unsigned_apk }}"
-          EXPECTED_VERSION="${{ steps.apk.outputs.version }}"
+          UNSIGNED_APK="${{ steps.release_artifacts.outputs.unsigned_apk }}"
+          EXPECTED_VERSION="${{ steps.release_artifacts.outputs.version }}"
 
           if [[ ! -x "$APKANALYZER" ]]; then
             APKANALYZER="$(command -v apkanalyzer)"
@@ -223,8 +243,8 @@ jobs:
           set -euo pipefail
 
           APKSIGNER="${ANDROID_SDK_ROOT}/build-tools/34.0.0/apksigner"
-          UNSIGNED_APK="${{ steps.apk.outputs.unsigned_apk }}"
-          SIGNED_APK="${{ steps.apk.outputs.signed_apk }}"
+          UNSIGNED_APK="${{ steps.release_artifacts.outputs.unsigned_apk }}"
+          SIGNED_APK="${{ steps.release_artifacts.outputs.signed_apk }}"
 
           if [[ -z "${KEYSTORE_PASSWORD:-}" || -z "${KEY_ALIAS:-}" || -z "${KEY_PASSWORD:-}" ]]; then
             echo "::error::Un ou plusieurs secrets de signature sont absents."
@@ -249,7 +269,7 @@ jobs:
           set -euo pipefail
 
           APKSIGNER="${ANDROID_SDK_ROOT}/build-tools/34.0.0/apksigner"
-          SIGNED_APK="${{ steps.apk.outputs.signed_apk }}"
+          SIGNED_APK="${{ steps.release_artifacts.outputs.signed_apk }}"
 
           # Clé actuellement déclarée dans fdroiddata pour com.meteocompare.app.
           EXPECTED_SHA256="f7b0432751cd0d183c62a40beb989574b488b290f63889fc177c5f93dfee2ab3"
@@ -273,16 +293,84 @@ jobs:
 
           sha256sum "$SIGNED_APK"
 
-      - name: Upload APK as workflow artifact
+      # Un AAB est une archive signée au format JAR : apksigner ne sait pas signer
+      # les bundles. jarsigner utilise la même clé de production que l'APK.
+      - name: Sign Android App Bundle with jarsigner
+        shell: bash
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          UNSIGNED_AAB="${{ steps.release_artifacts.outputs.unsigned_aab }}"
+          SIGNED_AAB="${{ steps.release_artifacts.outputs.signed_aab }}"
+
+          if [[ -z "${KEYSTORE_PASSWORD:-}" || -z "${KEY_ALIAS:-}" || -z "${KEY_PASSWORD:-}" ]]; then
+            echo "::error::Un ou plusieurs secrets de signature AAB sont absents."
+            exit 1
+          fi
+
+          jarsigner \
+            -keystore "${RUNNER_TEMP}/release.jks" \
+            -storepass:env KEYSTORE_PASSWORD \
+            -keypass:env KEY_PASSWORD \
+            -digestalg SHA-256 \
+            -signedjar "$SIGNED_AAB" \
+            "$UNSIGNED_AAB" \
+            "$KEY_ALIAS"
+
+      - name: Verify Android App Bundle signature
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SIGNED_AAB="${{ steps.release_artifacts.outputs.signed_aab }}"
+          SIGNED_APK="${{ steps.release_artifacts.outputs.signed_apk }}"
+          APKSIGNER="${ANDROID_SDK_ROOT}/build-tools/34.0.0/apksigner"
+          test -s "$SIGNED_AAB"
+
+          # jarsigner -verify retourne aussi 0 pour un JAR non signé :
+          # contrôler explicitement son message de succès.
+          VERIFY_OUTPUT="$(jarsigner -verify "$SIGNED_AAB")"
+          printf '%s\n' "$VERIFY_OUTPUT"
+          if ! grep -Fxq 'jar verified.' <<< "$VERIFY_OUTPUT"; then
+            echo "::error::L'AAB n'est pas correctement signé."
+            exit 1
+          fi
+
+          # La clé de l'AAB doit être la même que celle de l'APK vérifié.
+          APK_CERT="$("$APKSIGNER" verify --print-certs "$SIGNED_APK" \
+            | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' \
+            | head -n 1 \
+            | tr '[:upper:]' '[:lower:]' \
+            | tr -d ':[:space:]')"
+          AAB_CERT="$(keytool -printcert -jarfile "$SIGNED_AAB" \
+            | sed -n 's/^[[:space:]]*SHA256: //p' \
+            | head -n 1 \
+            | tr '[:upper:]' '[:lower:]' \
+            | tr -d ':[:space:]')"
+          if [[ -z "$APK_CERT" || "$AAB_CERT" != "$APK_CERT" ]]; then
+            echo "::error::Le certificat de l'AAB diffère de celui de l'APK."
+            exit 1
+          fi
+
+          sha256sum "$SIGNED_AAB"
+
+      - name: Upload signed APK and AAB as workflow artifacts
         uses: actions/upload-artifact@v5
         with:
-          name: MeteoCompare-${{ steps.apk.outputs.version }}
-          path: ${{ steps.apk.outputs.signed_apk }}
+          name: MeteoCompare-${{ steps.release_artifacts.outputs.version }}
+          path: |
+            ${{ steps.release_artifacts.outputs.signed_apk }}
+            ${{ steps.release_artifacts.outputs.signed_aab }}
           if-no-files-found: error
           retention-days: 30
 
-      # Sur un tag vX.Y.Z, le nom de l'asset est exactement celui attendu par F-Droid :
+      # Sur un tag vX.Y.Z, conserver le nom exact de l'APK attendu par F-Droid :
       # https://github.com/Pat0chat/meteocompare/releases/download/v%v/MeteoCompare-%v.apk
+      # Publier l'AAB signé à côté, pour la distribution Google Play.
       - name: Create or update GitHub Release
         if: github.event_name == 'push' && github.ref_type == 'tag'
         shell: bash
@@ -292,16 +380,19 @@ jobs:
           set -euo pipefail
 
           TAG="${GITHUB_REF_NAME}"
-          APK="${{ steps.apk.outputs.signed_apk }}"
+          APK="${{ steps.release_artifacts.outputs.signed_apk }}"
+          AAB="${{ steps.release_artifacts.outputs.signed_aab }}"
+          test -s "$APK"
+          test -s "$AAB"
 
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "Release ${TAG} déjà existante : remplacement de l'APK."
-            gh release upload "$TAG" "$APK" \
+            echo "Release ${TAG} déjà existante : remplacement de l'APK et de l'AAB."
+            gh release upload "$TAG" "$APK" "$AAB" \
               --repo "$GITHUB_REPOSITORY" \
               --clobber
           else
             echo "Création de la release ${TAG}."
-            gh release create "$TAG" "$APK" \
+            gh release create "$TAG" "$APK" "$AAB" \
               --repo "$GITHUB_REPOSITORY" \
               --verify-tag \
               --generate-notes \

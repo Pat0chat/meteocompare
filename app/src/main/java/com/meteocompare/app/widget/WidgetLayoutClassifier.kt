@@ -41,8 +41,7 @@ internal fun classifyWidgetLayout(widthDp: Float, heightDp: Float): WidgetLayout
 }
 
 /**
- * Number of forecast cards displayed by two-row widgets.
- * 3×2 remains at four cards; 4×2 and 5×2 use five.
+ * Number of forecast cards based on available width in expanded widgets.
  */
 internal fun extendedForecastItemCount(widthDp: Float): Int =
     if (widthDp >= MEDIUM_MAX_WIDTH_DP) 5 else 4

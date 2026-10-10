@@ -50,7 +50,7 @@ Depuis la v1.0, l'app suit aussi **le biais historique de chaque modèle sur cha
 - **Chronologie visuelle sur la page détail** : timeline compacte des prochaines échéances avec heatmap de température, pluie, vent, accord inter-modèles et mise en évidence des changements significatifs
 - **Highlight du jour courant** (et de l'heure courante en mode hourly) dans tous les tableaux
 - **Notifications météo locales** (désactivées par défaut, villes favorites au choix) : résumé quotidien à l'heure choisie ; alerte de **divergence des modèles** lorsque l'accord devient faible ; et **Révision des prévisions** lorsque « À retenir » détecte un changement important de température, pluie ou vent. Le contenu présente clairement la période, l'amplitude du changement et l'accord des modèles. Tout est calculé sur l'appareil via WorkManager, **sans serveur de push**, avec déduplication des événements
-- **Widgets écran d'accueil** (Glance) redimensionnables 2×1 / 3×1 / 4×1 / 4×2, avec en 4×2 le choix entre 4 prochaines heures, 4 prochains jours, ou une mini bande de confiance (T° / pluie / vent) avec valeurs par jour
+- **Deux widgets écran d'accueil** (Glance) redimensionnables : Météo (adaptatif) et À retenir (synthèse des événements). Le widget Météo peut afficher les prochaines heures, les prochains jours ou une mini bande de confiance (T° / pluie / vent) selon la place disponible
 - **Tri des modèles dans les Settings** par zone / famille / finesse
 - **Batching multi-modèles** : les N modèles activés sont récupérés en 1 seule requête HTTPS (au lieu de N requêtes parallèles) — gain sur la latence et la batterie
 - **Modes clair/sombre**, thème dynamique Material You (Android 12+)
@@ -231,17 +231,10 @@ Clic sur un chip (les deux premiers états) ouvre une sheet avec **sparkline 30 
 
 ## Widgets homescreen
 
-Widget Glance redimensionnable en 4 tailles :
+Deux widgets Glance sont proposés dans le sélecteur Android :
 
-- **2×1** : condition + T° actuelle + badge confiance
-- **3×1** : + nom de la ville
-- **4×1** : + min/max du jour
-- **4×2** : + une ligne du bas configurable parmi 5 modes :
-    - 4 prochaines heures (comportement historique, défaut)
-    - 4 prochains jours
-    - Mini bande de confiance **température** avec valeurs par jour
-    - Mini bande de confiance **précipitations** avec valeurs par jour
-    - Mini bande de confiance **vent** avec valeurs par jour
+- **Météo** : adapte son contenu à l'espace disponible. En version compacte : condition, température actuelle, ville et confiance. En l'agrandissant : min/max, prévisions des prochaines heures ou des prochains jours, ou une bande de confiance (température / pluie / vent) selon les préférences.
+- **À retenir** : met en avant le principal signal météo et la comparaison des modèles, avec un rendu redimensionnable.
 
 Les modes confidence rendent une heatmap horizontale colorée par la confiance sur 7 jours, avec sous chaque cellule la valeur agrégée et le jour de la semaine. C'est le rendu widget de la bande de confiance de l'écran détail.
 
@@ -339,9 +332,9 @@ Fait :
 - ✅ v0.3 — Highlight du jour courant dans les tableaux, correction de bugs
 - ✅ v0.4 — Toggle "par heure / par jour", zoom pincé sur la bande de confiance, badges probabilité de pluie et couverture nuageuse sous les icônes, direction du vent avec flèches downwind, indicateur "mis à jour il y a X", icône composite "partiellement nuageux" (soleil + nuage bi-color), titres du vent clarifiés ("moyenne à 10m" au lieu de "max" ambigu)
 - ✅ v0.5 — Nouvelles données (probabilité de pluie, couverture nuageuse, vent) et correction de bugs
-- ✅ v0.6 — Widget homescreen (Glance) redimensionnable 2×1 / 3×1 / 4×1 avec opacité de fond configurable et sélection de ville favorite ; reproduit un résumé compact de la TodaySummaryCard
+- ✅ v0.6 — Widget homescreen (Glance) redimensionnable à affichage adaptatif avec opacité de fond configurable et sélection de ville favorite ; reproduit un résumé compact de la TodaySummaryCard
 - ✅ v0.7 — Optimisation batterie et CPU pour l'application et widget (WorkManager pour le refresh widget, réduction des recomputes), upgrade de la stack, amélioration des widgets, mise à jour Kotlin 2.x
-- ✅ v0.8 — Batching multi-modèles (1 requête HTTPS au lieu de N), bande de confiance multi-métriques (T° / pluie / vent), repères ERA5 sur 10 ans en overlay, tri des modèles Settings (zone/famille/finesse), ajout HRRR / MET Nordic / KNMI HARMONIE / BOM ACCESS / CMA GRAPES (5 nouveaux modèles), widget 4×2 avec mode bande de confiance, i18n des widgets
+- ✅ v0.8 — Batching multi-modèles (1 requête HTTPS au lieu de N), bande de confiance multi-métriques (T° / pluie / vent), repères ERA5 sur 10 ans en overlay, tri des modèles Settings (zone/famille/finesse), ajout HRRR / MET Nordic / KNMI HARMONIE / BOM ACCESS / CMA GRAPES (5 nouveaux modèles), widget à prévisions étendues et bande de confiance, i18n des widgets
 - ✅ v0.9 — Correction des requêtes dupliquées, correction des widgets fantômes, widgets et application partagent le même espace de données, amélioration des widgets, ajout des heatmaps pour les tableaux par heure
 - ✅ v1.0 — Suivi de biais par modèle et par ville : historique J+1 reconstruit via Previous Runs, références de réanalyse via WorkManager, chip 3 états dans les tableaux (biais significatif / biais faible / en attente), sheet dédiée avec sparkline 30j et texte contextuel, coalescing des fetches HTTP concurrents
 - ✅ v1.1 — Refonte des widgets, ajout des icônes partagées, optimisation globale de l'application, correction de bugs

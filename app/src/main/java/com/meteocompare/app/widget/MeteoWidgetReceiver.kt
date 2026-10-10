@@ -7,40 +7,9 @@ import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 
 /**
- * BroadcastReceiver principal du widget MeteoCompare (variante STANDARD 2×1).
- * Le système Android appelle ce receiver pour les événements de lifecycle du
- * widget : ajout, resize, suppression, mise à jour périodique.
- *
- * ─── Multi-provider (10 receivers au total) ─────────────────────────────
- * Neuf autres receivers frères existent pour exposer différentes tailles
- * cible dans le picker de widgets — voir le docblock du manifest pour la
- * justification (compatibilité Pixel/Samsung launchers, launchers sans
- * resize). Liste complète dans [WidgetReceivers.All].
- *
- * Tous les receivers partagent le même lifecycle WorkManager, les mêmes
- * préférences et la même activité de configuration. Les neuf variantes de
- * taille utilisent [MeteoWidget] avec un dimensionnement exact ; le receiver éditorial
- * remplace uniquement le rendu par [MeteoInsightWidget].
- *
- * Les providers de taille ne diffèrent que par leurs dimensions et leur aperçu
- * dans le picker. Le provider « À retenir » garde sa proposition éditoriale
- * propre tout en restant dans le même pipeline de configuration et de refresh.
- *
- * ─── Lifecycle WorkManager ────────────────────────────────────────────
- *   - onEnabled  : PREMIER widget ajouté pour CE receiver → programme le
- *                  worker périodique. Idempotent (KEEP policy) — si un
- *                  autre receiver frère l'a déjà programmé, no-op.
- *   - onDisabled : DERNIER widget de CE receiver retiré → on ne cancel
- *                  PAS le worker (des frères peuvent encore avoir des
- *                  widgets vivants). Le worker s'auto-noop via son
- *                  early-return `glanceIds.isEmpty()` si vraiment plus
- *                  rien n'est vivant. On cancel seulement si TOUS les
- *                  receivers sont vides — vérifié via [WidgetReceivers.anyAlive].
- *   - onDeleted  : override explicite pour visibilité — la default de
- *                  [GlanceAppWidgetReceiver.onDeleted] appelle déjà
- *                  `cleanUp(appWidgetIds)` qui purge les DataStore Glance
- *                  orphelines. On garde le override pour rendre ce chemin
- *                  explicite au lecteur du code.
+ * Récepteur commun aux deux widgets Android : météo adaptative et « À retenir ».
+ * Partage la planification des rafraîchissements et le cycle de vie Glance.
+ * Le worker n'est arrêté que lorsque tous les widgets ont été retirés.
  */
 open class MeteoWidgetReceiver : GlanceAppWidgetReceiver() {
 
@@ -84,9 +53,7 @@ open class MeteoWidgetReceiver : GlanceAppWidgetReceiver() {
 
     override fun onDisabled(context: Context) {
         super.onDisabled(context)
-        // On cancel le worker UNIQUEMENT si aucun autre receiver frère n'a
-        // encore de widget vivant. Sinon on laisserait des widgets d'autres
-        // variantes sans tick, avec des labels d'heure gelés.
+        // Conserver le worker tant qu'au moins un des deux widgets reste actif.
         val anyWidgetStillAlive = runCatching {
             WidgetReceivers.anyAlive(context, AppWidgetManager.getInstance(context))
         }.getOrElse { error ->
@@ -102,9 +69,6 @@ open class MeteoWidgetReceiver : GlanceAppWidgetReceiver() {
         if (!anyWidgetStillAlive) WidgetRefreshScheduler.cancel(context)
     }
 
-    override fun onDeleted(context: Context, appWidgetIds: IntArray) {
-        super.onDeleted(context, appWidgetIds)
-    }
 }
 
 /** Les callbacks BroadcastReceiver ne doivent pas crasher sur une panne WorkManager. */
@@ -121,63 +85,8 @@ private fun scheduleRefreshSafely(context: Context, immediate: Boolean) {
     }
 }
 
-/**
- * Variante MINI — cible 1×1. Les receivers ci-dessous n'ajoutent aucun
- * comportement propre : ils héritent TOUT de [MeteoWidgetReceiver]. Leur
- * unique raison d'être est d'être une entrée séparée dans le manifest, ce
- * qui crée une entrée séparée dans le picker de widgets Android.
- *
- * ─── Pourquoi vides ? ──────────────────────────────────────────────────
- * Chaque receiver Android est indexé par sa ComponentName (nom de classe
- * qualifié). Le manifest référence ces classes par name, donc elles DOIVENT
- * exister comme classes concrètes distinctes. Mais leur comportement runtime
- * est 100% commun — d'où l'héritage direct sans override.
- *
- * Le rendu ADAPTATIF à la taille (1×1, 2×1, …, 5×2) est géré côté composable
- * dans [MeteoWidget] via [SizeMode.Exact] et `LocalSize.current`. Pas besoin
- * de composables spécialisés par variante.
- */
-class MeteoWidgetReceiver1x1 : MeteoWidgetReceiver()
-
-/**
- * Variante 2×1.
- */
-class MeteoWidgetReceiver2x1 : MeteoWidgetReceiver()
-
-/**
- * Variante 3×1.
- */
-class MeteoWidgetReceiver3x1 : MeteoWidgetReceiver()
-
-/**
- * Variante 4×1.
- */
-class MeteoWidgetReceiver4x1 : MeteoWidgetReceiver()
-
-/**
- * Variante 5×1.
- */
-class MeteoWidgetReceiver5x1 : MeteoWidgetReceiver()
-
-/**
- * Variante 2×2.
- */
-class MeteoWidgetReceiver2x2 : MeteoWidgetReceiver()
-
-/**
- * Variante 3×2.
- */
-class MeteoWidgetReceiver3x2 : MeteoWidgetReceiver()
-
-/**
- * Variante 4×2.
- */
-class MeteoWidgetReceiver4x2 : MeteoWidgetReceiver()
-
-/**
- * Variante 5×2.
- */
-class MeteoWidgetReceiver5x2 : MeteoWidgetReceiver()
+/** Entrée Météo du sélecteur de widgets, adaptative et redimensionnable. */
+class MeteoWeatherWidgetReceiver : MeteoWidgetReceiver()
 
 /** Widget éditorial centré sur le signal principal « À retenir ». */
 class MeteoInsightWidgetReceiver : MeteoWidgetReceiver() {
@@ -211,42 +120,14 @@ internal fun isOwnedWidgetProvider(
         isRegisteredWidgetProviderClassName(providerClassName)
 
 /**
- * Registre central des receivers de widget MeteoCompare.
- *
- * ─── Pourquoi centraliser ? ───────────────────────────────────────────
- * Plusieurs endroits du code doivent itérer sur "tous les receivers" :
- *   - [WidgetReceivers.anyAlive] : check si on peut cancel
- *     le worker.
- *   - [WidgetRefreshWorker.doWork] : cross-check `getAppWidgetIds` sur
- *     chaque ComponentName pour filtrer les ghost glanceIds.
- *
- * Sans ce registre, chaque callsite duplique la liste — un ajout futur
- * de variante (une 6×3 tablette par ex) obligerait à traquer 3-4 endroits.
- * La liste étant courte et statique, une `List<Class<...>>` en `object`
- * suffit — pas besoin de réflexion sur le manifest ni de configuration
- * externalisée.
- *
- * ─── Ordre ─────────────────────────────────────────────────────────────
- * Trié par taille croissante (petit → grand) : d'abord les single-row
- * du 1×1 au 5×1, puis les double-row du 2×2 au 5×2. Cet ordre est
- * cohérent avec l'ordre d'apparition dans AndroidManifest.xml — certains
- * launchers respectent cet ordre dans leur picker de widgets.
- *
- * L'invariant "cette liste = ce qui est déclaré au manifest" est
- * verrouillé par [WidgetReceiversRegistryTest].
+ * Liste des deux receivers déclarés dans le manifeste, utilisée pour
+ * vérifier la présence de widgets actifs et rafraîchir les bons AppWidgetIds.
+ * Garder cette liste synchronisée avec le manifeste et ses tests.
  */
 internal object WidgetReceivers {
     val All: List<Class<out MeteoWidgetReceiver>> = listOf(
-        MeteoWidgetReceiver1x1::class.java,       // 1×1
-        MeteoWidgetReceiver2x1::class.java,       // 2×1 (default)
-        MeteoWidgetReceiver3x1::class.java,       // 3×1
-        MeteoWidgetReceiver4x1::class.java,       // 4×1
-        MeteoWidgetReceiver5x1::class.java,       // 5×1
-        MeteoWidgetReceiver2x2::class.java,       // 2×2
-        MeteoWidgetReceiver3x2::class.java,       // 3×2
-        MeteoWidgetReceiver4x2::class.java,       // 4×2
-        MeteoWidgetReceiver5x2::class.java,       // 5×2
-        MeteoInsightWidgetReceiver::class.java    // 4×2 éditorial
+        MeteoWeatherWidgetReceiver::class.java,
+        MeteoInsightWidgetReceiver::class.java
     )
 
     /**
