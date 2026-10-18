@@ -998,4 +998,12 @@ dato</string>
     <string name="compare_rain_difference">%1$s: %2$s di pioggia in meno rispetto a %3$s</string>
     <string name="home_city_card_expand">Tocca per espandere la scheda</string>
     <string name="home_city_card_open_details">Tocca per aprire i dettagli della città</string>
+    <string name="current_location_title">La mia posizione</string>
+    <string name="current_location_add">Usa la mia posizione</string>
+    <string name="current_location_privacy_hint">Solo posizione approssimativa. Aggiornata nell’app aperta; il widget usa l’ultima zona.</string>
+    <string name="current_location_updated">Posizione aggiornata</string>
+    <string name="current_location_permission_required">Consenti la posizione approssimativa per aggiungere la scheda</string>
+    <string name="current_location_unavailable">Posizione non disponibile. Attiva la posizione e riprova.</string>
+    <string name="current_location_stale">Aggiornare la posizione</string>
+    <string name="current_location_widget_note">Il widget mostra l’ultima zona salvata. Apri MeteoCompare per aggiornare la posizione (nessun accesso in background).</string>
 </resources>

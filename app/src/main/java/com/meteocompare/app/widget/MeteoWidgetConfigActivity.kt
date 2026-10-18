@@ -524,14 +524,24 @@ private fun WidgetConfigForm(
                     favorites.forEach { city ->
                         CityRow(
                             city = city,
-                            selected = city.id == selectedCityId,
-                            onClick = { selectedCityId = city.id }
+                            selected = (if (com.meteocompare.app.data.repository.CurrentLocationStore.isCurrentCity(city.id))
+                                com.meteocompare.app.data.repository.CurrentLocationStore.WIDGET_CITY_ID else city.id) == selectedCityId,
+                            onClick = { selectedCityId = if (com.meteocompare.app.data.repository.CurrentLocationStore.isCurrentCity(city.id))
+                                com.meteocompare.app.data.repository.CurrentLocationStore.WIDGET_CITY_ID else city.id }
                         )
                     }
                 }
             }
         }
 
+        if (selectedCityId == com.meteocompare.app.data.repository.CurrentLocationStore.WIDGET_CITY_ID) {
+            Text(
+                text = stringResource(R.string.current_location_widget_note),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 8.dp)
+            )
+        }
         Spacer(Modifier.height(24.dp))
 
         // ─── Section horizon / mode de prévision ─────────────────────

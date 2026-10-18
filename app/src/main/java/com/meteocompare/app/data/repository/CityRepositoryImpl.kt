@@ -24,6 +24,7 @@ import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
@@ -50,6 +51,8 @@ class CityRepositoryImpl @Inject constructor(
     private val geocodingApi: GeocodingApi,
     private val json: Json,
     private val networkMonitor: NetworkMonitor,
+    private val locationStore: CurrentLocationStore,
+    private val locationController: CurrentLocationController,
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : CityRepository {
 
@@ -92,16 +95,19 @@ class CityRepositoryImpl @Inject constructor(
         }
 
     override fun observeFavorites(): Flow<List<City>> =
-        safeFavorites.map { prefs ->
-            val raw = prefs[FAVORITES_KEY] ?: return@map emptyList()
-            runCatching {
-                json.decodeFromString(cityListSerializer, raw)
-            }.getOrDefault(emptyList())
+        combine(safeFavorites, locationStore.state) { prefs, location ->
+            val favorites = prefs[FAVORITES_KEY]?.let { raw ->
+                runCatching { json.decodeFromString(cityListSerializer, raw) }
+                    .getOrDefault(emptyList())
+            }.orEmpty()
+            val current = location.asCity(context)
+            if (current == null) favorites else favorites + current
         }
             .distinctUntilChanged()
             .flowOn(ioDispatcher)
 
     override suspend fun addFavorite(city: City) = withContext(ioDispatcher) {
+        if (CurrentLocationStore.isCurrentCity(city.id)) return@withContext
         context.favoritesDataStore.edit { prefs ->
             val current = prefs[FAVORITES_KEY]
                 ?.let { runCatching { json.decodeFromString(cityListSerializer, it) }.getOrDefault(emptyList()) }
@@ -114,6 +120,10 @@ class CityRepositoryImpl @Inject constructor(
     }
 
     override suspend fun removeFavorite(cityId: String) = withContext(ioDispatcher) {
+        if (CurrentLocationStore.isCurrentCity(cityId)) {
+            locationController.disable()
+            return@withContext
+        }
         context.favoritesDataStore.edit { prefs ->
             val current = prefs[FAVORITES_KEY]
                 ?.let { runCatching { json.decodeFromString(cityListSerializer, it) }.getOrDefault(emptyList()) }
@@ -124,6 +134,7 @@ class CityRepositoryImpl @Inject constructor(
     }
 
     override suspend fun setMarineEnabled(cityId: String, enabled: Boolean) = withContext(ioDispatcher) {
+        if (CurrentLocationStore.isCurrentCity(cityId)) return@withContext
         context.favoritesDataStore.edit { prefs ->
             val current = prefs[FAVORITES_KEY]
                 ?.let { runCatching { json.decodeFromString(cityListSerializer, it) }.getOrDefault(emptyList()) }
@@ -137,6 +148,7 @@ class CityRepositoryImpl @Inject constructor(
     }
 
     override suspend fun resolveDepartmentCode(city: City): String? = withContext(ioDispatcher) {
+        if (CurrentLocationStore.isCurrentCity(city.id)) return@withContext null
         city.departmentCode?.let { return@withContext it }
         // Cette résolution n'est utilisée que par la Vigilance. Ne jamais appeler
         // Open-Meteo pour enrichir une ville dont on sait déjà qu'elle n'est pas française.

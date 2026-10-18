@@ -179,7 +179,8 @@ class ClimateNormalsRepositoryImpl @Inject constructor(
             // volontairement exclues du calcul de fraîcheur : leur source
             // « Best Match » n'est pas homogène sur 10 ans.
             val cacheId = cacheCityId(city.id)
-            val cached = dao.getForCity(cacheId)
+            val movingZone = CurrentLocationStore.isCurrentCity(city.id)
+            val cached = if (movingZone) emptyList() else dao.getForCity(cacheId)
             if (cached.isNotEmpty()) {
                 val oldest = dao.getOldestComputedAt(cacheId) ?: 0L
                 // Un recul d'horloge ne doit pas transformer un cache ERA5
@@ -194,7 +195,7 @@ class ClimateNormalsRepositoryImpl @Inject constructor(
             // Ancien cache sans provenance : il ne peut jamais être considéré
             // « frais » par cette version, mais reste un fallback de disponibilité
             // si le réseau est absent ou si la réanalyse ne répond pas.
-            val legacyCached = if (cached.isEmpty()) dao.getForCity(city.id) else emptyList()
+            val legacyCached = if (!movingZone && cached.isEmpty()) dao.getForCity(city.id) else emptyList()
             val fallbackCache = cached.ifEmpty { legacyCached }
 
             // 2. Cache absent ou stale → fetch + agrégation
@@ -250,7 +251,7 @@ class ClimateNormalsRepositoryImpl @Inject constructor(
                     val normals = withContext(computation) { aggregate(result.data) }
                     val now = clock.millis()
                     val entities = normals.map { it.toEntity(cacheId, now) }
-                    runSuspendCatching {
+                    if (!movingZone) runSuspendCatching {
                         dao.replaceForCity(cacheId, entities)
                         // Une fois la source ERA5 matérialisée, l'ancien cache sans
                         // provenance n'a plus de rôle de fallback et peut être purgé.

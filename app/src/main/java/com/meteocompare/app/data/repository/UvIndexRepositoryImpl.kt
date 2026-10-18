@@ -64,7 +64,8 @@ class UvIndexRepositoryImpl @Inject constructor(
 
     override suspend fun get(city: City): UvForecast? = withContext(ioDispatcher) {
         val key = locationKey(city)
-        val previous = read(key)
+        val currentZone = CurrentLocationStore.isCurrentCity(city.id)
+        val previous = if (currentZone) null else read(key)
         val now = clock.millis()
         if (previous != null && isUvCacheFresh(previous.fetchedAtMs, now)) {
             return@withContext previous.response.toDomainOrNull()
@@ -77,7 +78,7 @@ class UvIndexRepositoryImpl @Inject constructor(
         val request = mutex.withLock {
             inFlight[key]?.takeIf { !it.isCompleted } ?: scope.async(start = CoroutineStart.LAZY) {
                 // Check again after another subscriber may have completed the fetch.
-                val recent = read(key)
+                val recent = if (currentZone) null else read(key)
                 val requestTime = clock.millis()
                 if (recent != null && isUvCacheFresh(recent.fetchedAtMs, requestTime)) {
                     return@async recent.response.toDomainOrNull()
@@ -91,7 +92,7 @@ class UvIndexRepositoryImpl @Inject constructor(
                     val response = api.getUvForecast(city.latitude, city.longitude)
                     val parsed = response.toDomainOrNull()
                     if (parsed != null) {
-                        prefs.edit {
+                        if (!currentZone) prefs.edit {
                             putString(
                                 key,
                                 json.encodeToString(

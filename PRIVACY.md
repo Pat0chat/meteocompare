@@ -218,3 +218,14 @@ tracking et de profilage par MeteoCompare.
 
 Pour toute question sur cette politique :
 [github.com/Pat0chat/MeteoCompare/issues](https://github.com/Pat0chat/MeteoCompare/issues)
+
+
+## Position approximative (v1.19.0, fonctionnalité facultative)
+
+« Ma position » est désactivée par défaut. L'autorisation Android `ACCESS_COARSE_LOCATION` est demandée seulement après avoir choisi cette option dans la recherche de localités. L'application utilise une localisation ponctuelle lorsqu'elle est visible (à l'activation, au retour dans l'app après le délai de fraîcheur ou lors d'un rafraîchissement explicite). Il n'y a ni permission `ACCESS_FINE_LOCATION`, ni permission `ACCESS_BACKGROUND_LOCATION`, ni SDK de pistage.
+
+La position brute reste uniquement en mémoire pendant la résolution puis réduite localement à une grille de 0,05 degré. Seules les coordonnées de cette cellule et la date de l'actualisation sont stockées dans un DataStore privé `current_location`, non sauvegardé ni transféré. Aucun historique de positions ou de trajectoires n'est enregistré. Les historiques d'évolution des prévisions ne sont pas enregistrés pour cette localité, et le cache précédent est nettoyé lors du changement de cellule ou de la désactivation. Les requêtes de météo des modèles envoient la cellule approximative à Open-Meteo, qui voit également votre adresse IP. Une position approximative reste une donnée de localisation.
+
+Les tuiles de radar consultées peuvent persister temporairement dans le cache HTTP commun jusqu’à éviction. Elles ne sont ni sauvegardées ni transférées, mais restent des données géographiques techniques sur disque.
+
+Les widgets ne déclenchent **jamais** le GPS / la localisation lorsqu'ils sont mis à jour par Android en arrière-plan. Ils utilisent la dernière cellule mémorisée, qui peut donc être ancienne après un déplacement. Pour mettre à jour la position, ouvrez MeteoCompare. Supprimer la carte « Ma position » efface les préférences de localisation locales et le cache associé.

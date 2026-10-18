@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.meteocompare.app.BuildConfig
+import com.meteocompare.app.data.repository.CurrentLocationStore
 import com.meteocompare.app.R
 import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.core.network.NetworkMonitor
@@ -245,7 +246,10 @@ class CityListViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             for (cityId in homeSelectionWrites) {
-                runSuspendCatching { userPreferences.setHomeExpandedCityId(cityId) }
+                runSuspendCatching { userPreferences.setHomeExpandedCityId(
+                    if (CurrentLocationStore.isCurrentCity(cityId)) CurrentLocationStore.WIDGET_CITY_ID
+                    else cityId
+                ) }
                     .onFailure { android.util.Log.w("MeteoCompare/Home", "Unable to save expanded city", it) }
             }
         }
@@ -267,9 +271,25 @@ class CityListViewModel @Inject constructor(
                     } else {
                         restoredId
                     }
+                    // Only the stable logical marker is persisted: never write
+                    // coordinates or a grid ID to backed-up Home preferences.
+                    val resolvedPrior = when {
+                        priorSelection == CurrentLocationStore.WIDGET_CITY_ID ->
+                            cityIds.firstOrNull(CurrentLocationStore::isCurrentCity)
+                        priorSelection != null && CurrentLocationStore.isCurrentCity(priorSelection) &&
+                            priorSelection !in cityIds -> cityIds.firstOrNull(CurrentLocationStore::isCurrentCity)
+                        else -> priorSelection
+                    }
+                    // A new grid cell is NOT a newly added favorite: otherwise
+                    // location movement would steal expansion from a fixed city.
+                    val previousForSelection = if (previousIds?.any(CurrentLocationStore::isCurrentCity) == true &&
+                        cityIds.any(CurrentLocationStore::isCurrentCity)) {
+                        previousIds.filterNot(CurrentLocationStore::isCurrentCity) +
+                            cityIds.filter(CurrentLocationStore::isCurrentCity)
+                    } else previousIds ?: cityIds
                     val active = resolveExpandedCityId(
-                        expandedCityId = priorSelection,
-                        previousCityIds = previousIds ?: cityIds,
+                        expandedCityId = resolvedPrior,
+                        previousCityIds = previousForSelection,
                         cityIds = cityIds
                     )
                     currentHomeCityIds = cityIds

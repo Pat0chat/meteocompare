@@ -16,6 +16,25 @@ class AddCitySheetTest {
     @get:Rule val composeRule = createComposeRule()
 
     @Test
+    fun current_location_requires_an_explicit_click() {
+        var clicked = 0
+        composeRule.setContent {
+            MeteoCompareTheme {
+                AddCitySheet(
+                    state = AddCityUiState(),
+                    onQueryChanged = {},
+                    onCitySelected = {},
+                    onCurrentLocationSelected = { clicked++ },
+                    onDismiss = {}
+                )
+            }
+        }
+        assertEquals(0, clicked)
+        composeRule.onNodeWithTag("add_current_location").performClick()
+        assertEquals(1, clicked)
+    }
+
+    @Test
     fun result_click_returns_selected_city() {
         var selectedId: String? = null
         composeRule.setContent {

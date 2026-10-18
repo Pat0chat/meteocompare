@@ -1012,4 +1012,12 @@
     <string name="compare_rain_difference">%1$s : %2$s de pluie en moins que %3$s</string>
     <string name="home_city_card_expand">Touchez pour déplier la carte</string>
     <string name="home_city_card_open_details">Touchez pour ouvrir les détails de la ville</string>
+    <string name="current_location_title">Ma position</string>
+    <string name="current_location_add">Utiliser ma position</string>
+    <string name="current_location_privacy_hint">Position approximative uniquement. Actualisée dans l’application ; le widget conserve la dernière zone.</string>
+    <string name="current_location_updated">Position actualisée</string>
+    <string name="current_location_permission_required">Autorisez la localisation approximative pour ajouter cette carte</string>
+    <string name="current_location_unavailable">Position indisponible. Activez la localisation puis réessayez.</string>
+    <string name="current_location_stale">Position à actualiser</string>
+    <string name="current_location_widget_note">Le widget affiche la dernière zone enregistrée. Ouvrez MeteoCompare pour actualiser votre position (pas de localisation en arrière-plan).</string>
 </resources>

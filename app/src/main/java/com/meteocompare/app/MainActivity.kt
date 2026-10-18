@@ -19,6 +19,9 @@ import androidx.lifecycle.lifecycleScope
 import com.meteocompare.app.core.locale.applyPersistedLocale
 import com.meteocompare.app.ui.navigation.AppNavHost
 import com.meteocompare.app.ui.theme.MeteoCompareTheme
+import com.meteocompare.app.data.repository.CurrentLocationController
+import javax.inject.Inject
+import kotlinx.coroutines.Job
 import com.meteocompare.app.widget.WidgetReceivers
 import com.meteocompare.app.widget.WidgetRefreshScheduler
 import dagger.hilt.android.AndroidEntryPoint
@@ -29,6 +32,8 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
 
     private val viewModel: MainViewModel by viewModels()
+    @Inject lateinit var currentLocation: CurrentLocationController
+    private var foregroundLocationJob: Job? = null
 
     /**
      * Applique la locale persistée AVANT que les ressources soient résolues.
@@ -62,6 +67,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
+        foregroundLocationJob = lifecycleScope.launch {
+            // No location polling or acquisition from widget workers/background tasks.
+            currentLocation.refreshIfEnabled()
+        }
         // Chaque retour réel au premier plan est une occasion de rattrapage
         // pour les launchers OEM qui ont différé les travaux en arrière-plan.
         // Le travail porte un nom unique et le garde évite tout enqueue quand
@@ -97,6 +106,12 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onStop() {
+        foregroundLocationJob?.cancel()
+        foregroundLocationJob = null
+        super.onStop()
     }
 
 }

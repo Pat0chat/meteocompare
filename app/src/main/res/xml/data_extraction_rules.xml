@@ -5,10 +5,12 @@
         <include domain="file" path="datastore/user_prefs.preferences_pb" />
         <include domain="file" path="datastore/favorites.preferences_pb" />
         <include domain="sharedpref" path="meteocompare_locale_prefs.xml" />
+            <exclude domain="file" path="datastore/current_location.preferences_pb" />
     </cloud-backup>
     <device-transfer>
         <include domain="file" path="datastore/user_prefs.preferences_pb" />
         <include domain="file" path="datastore/favorites.preferences_pb" />
         <include domain="sharedpref" path="meteocompare_locale_prefs.xml" />
+            <exclude domain="file" path="datastore/current_location.preferences_pb" />
     </device-transfer>
 </data-extraction-rules>

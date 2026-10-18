@@ -998,4 +998,12 @@ datos</string>
     <string name="compare_rain_difference">%1$s: %2$s menos lluvia que %3$s</string>
     <string name="home_city_card_expand">Toca para desplegar la tarjeta</string>
     <string name="home_city_card_open_details">Toca para abrir los detalles de la ciudad</string>
+    <string name="current_location_title">Mi ubicación</string>
+    <string name="current_location_add">Usar mi ubicación</string>
+    <string name="current_location_privacy_hint">Solo ubicación aproximada. Se actualiza con la aplicación abierta; el widget usa la última zona.</string>
+    <string name="current_location_updated">Ubicación actualizada</string>
+    <string name="current_location_permission_required">Permite la ubicación aproximada para añadir la tarjeta</string>
+    <string name="current_location_unavailable">Ubicación no disponible. Activa la ubicación y vuelve a intentarlo.</string>
+    <string name="current_location_stale">Actualiza la ubicación</string>
+    <string name="current_location_widget_note">El widget muestra la última zona guardada. Abre MeteoCompare para actualizar tu ubicación (sin acceso en segundo plano).</string>
 </resources>

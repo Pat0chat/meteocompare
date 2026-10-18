@@ -8,6 +8,12 @@ import com.meteocompare.app.core.units.WeatherUnit
 import com.meteocompare.app.core.units.WeatherUnits
 import com.meteocompare.app.core.units.LocalWeatherUnits
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.AnimatedVisibility
@@ -181,6 +187,16 @@ fun CityListScreen(
     selectionEnabled: Boolean = false,
     viewModel: CityListViewModel = hiltViewModel()
 ) {
+    val locationVm: CurrentLocationViewModel = hiltViewModel()
+    val context = LocalContext.current
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted -> if (granted) locationVm.locate() else locationVm.denied() }
+    val requestCurrentLocation = {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED) locationVm.locate()
+        else permissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+    }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val addState by viewModel.addCityState.collectAsStateWithLifecycle()
     val homeExpansion by viewModel.homeExpansion.collectAsStateWithLifecycle()
@@ -206,6 +222,7 @@ fun CityListScreen(
     }
     AppToastEffect(marineToasts)
     AppToastEffect(viewModel.actionFeedback)
+    AppToastEffect(locationVm.feedback)
 
     WeatherAccentTheme(
         condition = uiState.weatherAccentCondition(selectedCityId)
@@ -228,7 +245,7 @@ fun CityListScreen(
             onSettingsClick = onSettingsClick,
             onRemoveCity = viewModel::onRemoveCity,
             onRetry = viewModel::onRetry,
-            onRefresh = viewModel::onRefreshAll,
+            onRefresh = { locationVm.refreshActive(); viewModel.onRefreshAll() },
             onMarineAction = viewModel::onMarineAction,
             selectedCityId = selectedCityId,
             selectionEnabled = selectionEnabled,
@@ -244,6 +261,10 @@ fun CityListScreen(
             AddCitySheet(
                 state = addState,
                 onQueryChanged = viewModel::onSearchQueryChanged,
+                onCurrentLocationSelected = {
+                    showAddSheet = false
+                    requestCurrentLocation()
+                },
                 onCitySelected = { city ->
                     viewModel.onAddCity(city)
                     showAddSheet = false

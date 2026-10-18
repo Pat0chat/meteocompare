@@ -3,6 +3,7 @@ package com.meteocompare.app.widget
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.MutablePreferences
 import com.meteocompare.app.domain.model.City
+import com.meteocompare.app.data.repository.CurrentLocationStore
 
 /** Préférences persistées d'une seule instance de widget. */
 internal data class WidgetConfiguration(
@@ -32,8 +33,11 @@ internal data class WidgetConfiguration(
     }
 
     fun selectableCityId(favorites: List<City>): String? =
-        if (cityId == null) favorites.firstOrNull()?.id
-        else favorites.firstOrNull { it.id == cityId }?.id
+        if (cityId == null) favorites.firstOrNull()?.let {
+            if (CurrentLocationStore.isCurrentCity(it.id)) CurrentLocationStore.WIDGET_CITY_ID else it.id
+        } else if (cityId == CurrentLocationStore.WIDGET_CITY_ID) {
+            cityId.takeIf { favorites.any { city -> CurrentLocationStore.isCurrentCity(city.id) } }
+        } else favorites.firstOrNull { it.id == cityId }?.id
 
     companion object {
         fun fromPreferences(prefs: Preferences): WidgetConfiguration = WidgetConfiguration(

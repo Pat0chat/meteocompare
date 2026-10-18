@@ -5,4 +5,5 @@
     <include domain="file" path="datastore/favorites.preferences_pb" />
     <!-- Source canonique de la langue de l'application. -->
     <include domain="sharedpref" path="meteocompare_locale_prefs.xml" />
+    <exclude domain="file" path="datastore/current_location.preferences_pb" />
 </full-backup-content>

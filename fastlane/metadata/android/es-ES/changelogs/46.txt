@@ -1,0 +1,1 @@
+Tarjeta y widget opcionales de «Mi ubicación». Solo ubicación aproximada con la app abierta, sin acceso en segundo plano ni historial de movimientos. El widget usa la última zona conocida.

@@ -995,4 +995,12 @@ Daten</string>
     <string name="compare_rain_difference">%1$s: %2$s weniger Regen als %3$s</string>
     <string name="home_city_card_expand">Tippen, um die Karte aufzuklappen</string>
     <string name="home_city_card_open_details">Tippen, um die Stadtdetails zu öffnen</string>
+    <string name="current_location_title">Mein Standort</string>
+    <string name="current_location_add">Meinen Standort verwenden</string>
+    <string name="current_location_privacy_hint">Nur ungefährer Standort. Wird in der geöffneten App aktualisiert; das Widget nutzt das letzte Gebiet.</string>
+    <string name="current_location_updated">Standort aktualisiert</string>
+    <string name="current_location_permission_required">Erlaube den ungefähren Standort für diese Karte</string>
+    <string name="current_location_unavailable">Standort nicht verfügbar. Standortdienste aktivieren und erneut versuchen.</string>
+    <string name="current_location_stale">Standort aktualisieren</string>
+    <string name="current_location_widget_note">Das Widget zeigt die zuletzt gespeicherte Region. Öffne MeteoCompare für eine neue Standortbestimmung (kein Hintergrundzugriff).</string>
 </resources>

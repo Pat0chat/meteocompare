@@ -28,6 +28,8 @@ class ForecastEvolutionRecorder @Inject constructor(
     @param:IoDispatcher private val io: CoroutineDispatcher
 ) {
     suspend fun record(forecast: CityForecast) = withContext(io) {
+        // Never build a history of where the user has travelled.
+        if (CurrentLocationStore.isCurrentCity(forecast.city.id)) return@withContext
         val capturedAt = forecast.fetchedAt ?: return@withContext
         val capturedMs = capturedAt.toEpochMilli()
         val bucket = capturedMs / SNAPSHOT_BUCKET_MS

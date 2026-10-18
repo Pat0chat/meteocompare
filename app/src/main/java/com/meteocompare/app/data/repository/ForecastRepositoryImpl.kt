@@ -92,7 +92,8 @@ class ForecastRepositoryImpl @Inject constructor(
     private val evolutionRecorder: ForecastEvolutionRecorder,
     @param:ApplicationContext private val context: Context,
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
-    @param:DefaultDispatcher private val computationDispatcher: CoroutineDispatcher = Dispatchers.Default
+    @param:DefaultDispatcher private val computationDispatcher: CoroutineDispatcher = Dispatchers.Default,
+    private val currentLocationStore: CurrentLocationStore = CurrentLocationStore(context)
 ) : ForecastRepository {
 
     // ── Coalescing des fetch réseau concurrents ───────────────────────────
@@ -350,7 +351,7 @@ class ForecastRepositoryImpl @Inject constructor(
     ): CachedForecast? = runSuspendCatching {
         readCache(city, models)
     }.onFailure { error ->
-        android.util.Log.w(LOG_TAG, "Forecast cache read failed for city=${city.id}", error)
+        android.util.Log.w(LOG_TAG, "Forecast cache read failed", error)
     }.getOrNull()
 
     /**
@@ -625,7 +626,9 @@ class ForecastRepositoryImpl @Inject constructor(
         // ne refont pas une requête toutes les 15 minutes pour une absence inchangée.
         // Si aucun modèle n'est exploitable, on conserve le cache précédent :
         // le refresh est un échec complet et ne doit pas détruire le fallback.
-        if (cacheEntries.isNotEmpty()) {
+        val currentZoneStillActive = !CurrentLocationStore.isCurrentCity(city.id) ||
+            currentLocationStore.snapshot().asCity(context)?.id == city.id
+        if (cacheEntries.isNotEmpty() && currentZoneStillActive) {
             val persistedEntries = cacheEntries + missingModels.map { model ->
                 ForecastCacheEntity(
                     cityId = city.id,
@@ -652,7 +655,7 @@ class ForecastRepositoryImpl @Inject constructor(
             }.onFailure { error ->
                 android.util.Log.w(
                     LOG_TAG,
-                    "Forecast cache write failed for city=${city.id}",
+                    "Forecast cache write failed",
                     error
                 )
             }

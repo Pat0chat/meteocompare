@@ -92,9 +92,12 @@ object NetworkModule {
             .apply {
                 if (BuildConfig.DEBUG) {
                     addInterceptor(OpenMeteoClockDebugInterceptor())
-                    addInterceptor(HttpLoggingInterceptor().apply {
-                        level = HttpLoggingInterceptor.Level.BASIC
-                    })
+                    addInterceptor(HttpLoggingInterceptor { message ->
+                        val safe = message
+                            .replace(Regex("([?&](?:latitude|longitude)=)[^&\\s]+"), "$1[redacted]")
+                            .replace(Regex("(/512/\\d+/)-?\\d+(?:\\.\\d+)?/-?\\d+(?:\\.\\d+)?(?=/)"), "$1[redacted]/[redacted]")
+                        Log.d("MeteoCompare/Http", safe)
+                    }.apply { level = HttpLoggingInterceptor.Level.BASIC })
                 }
             }
             .connectTimeout(15, TimeUnit.SECONDS)

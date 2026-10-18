@@ -8,6 +8,7 @@ import com.meteocompare.app.R
 import com.meteocompare.app.core.util.runSuspendCatching
 import com.meteocompare.app.data.worker.BiasRefreshScheduler
 import com.meteocompare.app.domain.model.ClockFormatPreference
+import com.meteocompare.app.data.repository.CurrentLocationStore
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.model.LanguagePreference
@@ -133,6 +134,7 @@ class SettingsViewModel @Inject constructor(
 
     /** Villes proposées pour les notifications : uniquement les favoris. */
     val favoriteCities: StateFlow<List<City>> = cityRepository.observeFavorites()
+        .map { cities -> cities.filterNot { CurrentLocationStore.isCurrentCity(it.id) } }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
@@ -451,6 +453,7 @@ class SettingsViewModel @Inject constructor(
             var favorites = emptyList<City>()
             val updated = runSuspendCatching {
                 favorites = cityRepository.observeFavorites().first()
+                    .filterNot { CurrentLocationStore.isCurrentCity(it.id) }
                 prefs.updateNotificationSettings { current ->
                     previous = current
                     val next = transform(current)

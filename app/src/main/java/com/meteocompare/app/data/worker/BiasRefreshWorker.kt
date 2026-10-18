@@ -15,6 +15,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.meteocompare.app.BuildConfig
+import com.meteocompare.app.data.repository.CurrentLocationStore
 import com.meteocompare.app.core.util.runSuspendCatching
 import com.meteocompare.app.domain.model.BiasVariable
 import dagger.hilt.android.EntryPointAccessors
@@ -326,8 +327,10 @@ internal class BiasRefreshWorker(
 
         // Snapshot one-shot des favorites + modèles activés — pas besoin
         // d'écouter les Flow (le worker ne vit que le temps d'un cycle).
+        // A moving location is NEVER written to the persistent bias history.
         val favorites = runSuspendCatching { cityRepo.observeFavorites().first() }
             .getOrElse { return@withLock Result.retry() }
+            .filterNot { CurrentLocationStore.isCurrentCity(it.id) }
 
         // Un cycle vide peut tout de même exécuter le housekeeping, mais il ne
         // sera pas marqué comme cycle de collecte réussi. Sinon un kickoff lancé

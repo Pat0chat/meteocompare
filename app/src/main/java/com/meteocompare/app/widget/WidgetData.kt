@@ -363,7 +363,11 @@ private suspend fun loadWidgetDataInternal(
     val units = WeatherUnits(prefsRepo.observeUnitSystem().first())
     val clockPreference = prefsRepo.observeClockFormatPreference().first()
     val favorites = entry.cityRepository().observeFavorites().first()
-    val city = favorites.firstOrNull { it.id == cityId }
+    val city = favorites.firstOrNull { city ->
+        if (cityId == com.meteocompare.app.data.repository.CurrentLocationStore.WIDGET_CITY_ID) {
+            com.meteocompare.app.data.repository.CurrentLocationStore.isCurrentCity(city.id)
+        } else city.id == cityId
+    }
         ?: return WidgetData.empty(error = WidgetError.CityNoLongerInFavorites)
 
     // Lecture de l'intervalle utilisateur pour respecter le seuil de fraîcheur

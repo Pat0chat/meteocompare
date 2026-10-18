@@ -3,6 +3,7 @@ package com.meteocompare.app.ui.citylist
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.material3.TextButton
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -38,6 +39,7 @@ fun AddCitySheet(
     state: AddCityUiState,
     onQueryChanged: (String) -> Unit,
     onCitySelected: (City) -> Unit,
+    onCurrentLocationSelected: () -> Unit = {},
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -56,7 +58,16 @@ fun AddCitySheet(
                 text = stringResource(R.string.action_add_city),
                 style = MaterialTheme.typography.titleLarge
             )
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(8.dp))
+            TextButton(onClick = onCurrentLocationSelected, modifier = Modifier.testTag("add_current_location")) {
+                Text(stringResource(R.string.current_location_add))
+            }
+            Text(
+                text = stringResource(R.string.current_location_privacy_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(12.dp))
 
             OutlinedTextField(
                 value = state.query,

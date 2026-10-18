@@ -19,6 +19,7 @@ import com.meteocompare.app.core.locale.currentPersistedLanguagePreference
 import com.meteocompare.app.core.locale.localePreferences
 import com.meteocompare.app.core.locale.persistLocalePreference
 import com.meteocompare.app.di.IoDispatcher
+import com.meteocompare.app.data.repository.CurrentLocationStore
 import com.meteocompare.app.domain.model.CityDetailContentTab
 import com.meteocompare.app.domain.model.CityDetailSection
 import com.meteocompare.app.domain.model.CityDetailViewMode
@@ -236,7 +237,8 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     override suspend fun setHomeExpandedCityId(cityId: String?) = withContext(ioDispatcher) {
         context.preferencesDataStore.edit { prefs ->
             if (cityId == null) prefs.remove(HOME_EXPANDED_CITY_ID_KEY)
-            else prefs[HOME_EXPANDED_CITY_ID_KEY] = cityId
+            else prefs[HOME_EXPANDED_CITY_ID_KEY] =
+                if (CurrentLocationStore.isCurrentCity(cityId)) CurrentLocationStore.WIDGET_CITY_ID else cityId
         }
         Unit
     }
@@ -275,7 +277,12 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     ): NotificationSettings = withContext(ioDispatcher) {
         var updated = NotificationSettings()
         context.preferencesDataStore.edit { prefs ->
-            updated = transform(readNotificationSettings(prefs))
+            val requested = transform(readNotificationSettings(prefs))
+            // Mobile-grid identifiers contain a location cell; never store them
+            // in backed-up notification preferences or background schedules.
+            updated = requested.copy(cityIds = requested.cityIds.filterNot(
+                CurrentLocationStore::isCurrentCity
+            ).toSet())
             writeNotificationSettings(prefs, updated)
         }
         updated
@@ -343,8 +350,10 @@ class UserPreferencesRepositoryImpl @Inject constructor(
      * Préfixe sans ambiguïté : la longueur du cityId empêche qu'une ville
      * nommée "12" ne capture les préférences d'une ville "123".
      */
-    private fun cityPreferencePrefix(cityId: String): String =
-        "${cityId.length}:$cityId:"
+    private fun cityPreferencePrefix(cityId: String): String {
+        val key = if (CurrentLocationStore.isCurrentCity(cityId)) CurrentLocationStore.WIDGET_CITY_ID else cityId
+        return "${key.length}:$key:"
+    }
 
     private fun collapsedSectionPrefix(cityId: String): String =
         cityPreferencePrefix(cityId)
