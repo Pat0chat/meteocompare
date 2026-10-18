@@ -924,7 +924,9 @@ class CityListViewModel @Inject constructor(
                 // L'index maintenu par syncStreams est la source de vérité.
                 // uiState est WhileSubscribed et peut être momentanément en
                 // retard quand un favori vient d'être ajouté ou supprimé.
-                val cities = favoriteCitiesById.values.toList()
+                // DataStore location updates can precede syncStreams. Read the latest
+                // favorites rather than forcing a fetch for the previous GPS cell.
+                val cities = cityRepository.observeFavorites().first()
                 val models = userPreferences.observeEnabledModels().first()
                 val expectedGeneration = streamConfigGeneration
                 val limiter = Semaphore(MAX_CONCURRENT_CITY_REFRESHES)

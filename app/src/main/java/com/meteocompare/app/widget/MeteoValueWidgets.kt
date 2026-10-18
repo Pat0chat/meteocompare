@@ -100,6 +100,7 @@ internal class MeteoInsightWidget : GlanceAppWidget() {
                 GlanceTheme {
                     InsightWidgetContent(
                         data = data,
+                        isCurrentLocation = shouldShowWidgetLocationAction(cityId),
                         opacityPct = opacityPct,
                         customBackgroundArgb = customBackground,
                         customTextArgb = customText,
@@ -127,6 +128,7 @@ private data class ValueWidgetColors(
 @Composable
 private fun InsightWidgetContent(
     data: WidgetData,
+    isCurrentLocation: Boolean,
     opacityPct: Int,
     customBackgroundArgb: Int?,
     customTextArgb: Int?,
@@ -177,8 +179,12 @@ private fun InsightWidgetContent(
                     else -> ValueWidgetError(data, colors, compact)
                 }
             }
-            if (data.error == null) {
-                InsightOpenMeteoAttribution(colors.muted, compact)
+            if (data.error == null || isCurrentLocation) {
+                InsightOpenMeteoAttribution(
+                    colors.muted, compact,
+                    showAttribution = data.error == null,
+                    showLocationRefresh = isCurrentLocation
+                )
             }
         }
     }
@@ -226,20 +232,20 @@ private fun InsightPillSummary(
 @Composable
 private fun InsightOpenMeteoAttribution(
     textColor: ColorProvider,
-    compact: Boolean
+    compact: Boolean,
+    showAttribution: Boolean = true,
+    showLocationRefresh: Boolean = false
 ) {
     val context = LocalContext.current
     val licenseIntent = remember {
         Intent(Intent.ACTION_VIEW, Uri.parse(OPEN_METEO_LICENSE_URL))
     }
-    Row(
-        modifier = GlanceModifier
-            .fillMaxWidth()
-            .clickable(actionStartActivityIntent(licenseIntent))
-            .padding(top = 2.dp)
-    ) {
+    Row(modifier = GlanceModifier.fillMaxWidth().padding(top = 2.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        if (showLocationRefresh) WidgetCurrentLocationAction(textColor, compact)
         Spacer(GlanceModifier.defaultWeight())
-        Text(
+        if (showAttribution) Text(
+            modifier = GlanceModifier.clickable(actionStartActivityIntent(licenseIntent)),
             text = context.getString(
                 if (compact) R.string.widget_open_meteo_attribution_short
                 else R.string.widget_open_meteo_attribution

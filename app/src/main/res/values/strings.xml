@@ -1019,5 +1019,13 @@
     <string name="current_location_permission_required">Autorisez la localisation approximative pour ajouter cette carte</string>
     <string name="current_location_unavailable">Position indisponible. Activez la localisation puis réessayez.</string>
     <string name="current_location_stale">Position à actualiser</string>
-    <string name="current_location_widget_note">Le widget affiche la dernière zone enregistrée. Ouvrez MeteoCompare pour actualiser votre position (pas de localisation en arrière-plan).</string>
+    <string name="current_location_widget_note">Le widget utilise la dernière zone enregistrée. Touchez ↻ sur le widget ou ouvrez MeteoCompare pour actualiser la position (pas de suivi en arrière-plan).</string>
+    <string name="widget_current_location_refresh">Actualiser ma position</string>
+    <string name="widget_current_location_refresh_short">↻</string>
+    <string name="widget_current_location_refresh_title">Actualisation de la position</string>
+    <string name="widget_current_location_close">Fermer</string>
+    <string name="widget_current_location_recent">Nouvelle tentative possible dans quelques secondes</string>
+    <string name="widget_current_location_disabled">Activez d’abord « Ma position » dans l’application.</string>
+    <string name="widget_current_location_retry">Réessayer</string>
+    <string name="widget_current_location_interrupted">Mise à jour interrompue ; réessayez.</string>
 </resources>

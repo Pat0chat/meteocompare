@@ -21,6 +21,7 @@ import com.meteocompare.app.ui.navigation.AppNavHost
 import com.meteocompare.app.ui.theme.MeteoCompareTheme
 import com.meteocompare.app.data.repository.CurrentLocationController
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import com.meteocompare.app.widget.WidgetReceivers
 import com.meteocompare.app.widget.WidgetRefreshScheduler
@@ -69,7 +70,13 @@ class MainActivity : ComponentActivity() {
         super.onStart()
         foregroundLocationJob = lifecycleScope.launch {
             // No location polling or acquisition from widget workers/background tasks.
-            currentLocation.refreshIfEnabled()
+            try {
+                currentLocation.refreshIfEnabled()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                android.util.Log.w("MeteoCompare/Location", "Foreground location refresh failed", error)
+            }
         }
         // Chaque retour réel au premier plan est une occasion de rattrapage
         // pour les launchers OEM qui ont différé les travaux en arrière-plan.

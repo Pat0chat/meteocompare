@@ -204,7 +204,7 @@ fun CityListScreen(
     var showDonationDialog by rememberSaveable { mutableStateOf(false) }
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
-        viewModel.refreshIfStale()
+        locationVm.refreshOnResume(viewModel::refreshIfStale)
     }
 
     val marineToasts = remember(viewModel) {
@@ -245,7 +245,7 @@ fun CityListScreen(
             onSettingsClick = onSettingsClick,
             onRemoveCity = viewModel::onRemoveCity,
             onRetry = viewModel::onRetry,
-            onRefresh = { locationVm.refreshActive(); viewModel.onRefreshAll() },
+            onRefresh = { locationVm.refreshActive(viewModel::onRefreshAll) },
             onMarineAction = viewModel::onMarineAction,
             selectedCityId = selectedCityId,
             selectionEnabled = selectionEnabled,

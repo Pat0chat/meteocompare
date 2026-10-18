@@ -1005,5 +1005,13 @@ dato</string>
     <string name="current_location_permission_required">Consenti la posizione approssimativa per aggiungere la scheda</string>
     <string name="current_location_unavailable">Posizione non disponibile. Attiva la posizione e riprova.</string>
     <string name="current_location_stale">Aggiornare la posizione</string>
-    <string name="current_location_widget_note">Il widget mostra l’ultima zona salvata. Apri MeteoCompare per aggiornare la posizione (nessun accesso in background).</string>
+    <string name="current_location_widget_note">Il widget usa l’ultima zona salvata. Tocca ↻ sul widget o apri MeteoCompare per aggiornare la posizione (nessun monitoraggio in background).</string>
+    <string name="widget_current_location_refresh">Aggiorna la mia posizione</string>
+    <string name="widget_current_location_refresh_short">↻</string>
+    <string name="widget_current_location_refresh_title">Aggiornamento della posizione</string>
+    <string name="widget_current_location_close">Chiudi</string>
+    <string name="widget_current_location_recent">Puoi riprovare tra qualche secondo</string>
+    <string name="widget_current_location_disabled">Attiva prima «La mia posizione» nell’app.</string>
+    <string name="widget_current_location_retry">Riprova</string>
+    <string name="widget_current_location_interrupted">Aggiornamento interrotto; riprova.</string>
 </resources>

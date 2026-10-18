@@ -102,6 +102,12 @@
                 android:resource="@xml/meteocompare_widget_info_insight" />
         </receiver>
 
+        <!-- User-initiated widget action: visible foreground acquisition only. -->
+        <activity
+            android:name=".widget.WidgetLocationRefreshActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MeteoCompare" />
+
         <!--
             Activity de configuration ouverte par le système à l'ajout du
             widget (et lors du reconfigure Android 12+). Elle attend

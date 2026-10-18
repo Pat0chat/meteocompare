@@ -1019,5 +1019,13 @@
     <string name="current_location_permission_required">Allow approximate location to add this card</string>
     <string name="current_location_unavailable">Position unavailable. Turn on location services and try again.</string>
     <string name="current_location_stale">Location needs updating</string>
-    <string name="current_location_widget_note">The widget shows the last saved area. Open MeteoCompare to update your location (no background location access).</string>
+    <string name="current_location_widget_note">The widget uses the last saved area. Tap ↻ on the widget or open MeteoCompare to update your location (no background tracking).</string>
+    <string name="widget_current_location_refresh">Update my location</string>
+    <string name="widget_current_location_refresh_short">↻</string>
+    <string name="widget_current_location_refresh_title">Updating my location</string>
+    <string name="widget_current_location_close">Close</string>
+    <string name="widget_current_location_recent">You can try again in a few seconds</string>
+    <string name="widget_current_location_disabled">Enable “My location” in the app first.</string>
+    <string name="widget_current_location_retry">Try again</string>
+    <string name="widget_current_location_interrupted">Update interrupted; try again.</string>
 </resources>

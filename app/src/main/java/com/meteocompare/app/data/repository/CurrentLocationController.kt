@@ -10,6 +10,7 @@ import android.os.CancellationSignal
 import androidx.core.content.ContextCompat
 import androidx.core.location.LocationManagerCompat
 import com.meteocompare.app.domain.repository.ForecastRepository
+import com.meteocompare.app.domain.util.LocationRefreshPolicy
 import com.meteocompare.app.widget.WidgetRefreshScheduler
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -35,6 +36,8 @@ class CurrentLocationController @Inject constructor(
     }
 
     private val mutex = Mutex()
+    // Process-local attempt guard. Failed fixes must not cause GPS retries on each resume.
+    private var lastAttemptMs = 0L
 
     fun hasPermission(): Boolean = ContextCompat.checkSelfPermission(
         context, Manifest.permission.ACCESS_COARSE_LOCATION
@@ -46,20 +49,28 @@ class CurrentLocationController @Inject constructor(
     /** Only an explicit UI activation path may change disabled -> enabled. */
     suspend fun enable(): Result = refresh(force = true, allowEnable = true)
 
-    private suspend fun refresh(force: Boolean, allowEnable: Boolean): Result = mutex.withLock {
+    private suspend fun refresh(
+        force: Boolean,
+        allowEnable: Boolean,
+        updateWidgetsOnSameCell: Boolean = false
+    ): Result = mutex.withLock {
         val previous = store.snapshot()
         if (!previous.enabled && !allowEnable) return@withLock Result.Unchanged
         if (!hasPermission()) return@withLock Result.PermissionMissing
         val now = System.currentTimeMillis()
-        if (!force && now - previous.updatedAt in 0L until 5 * 60_000L) {
-            return@withLock Result.Unchanged
-        }
+        if (!LocationRefreshPolicy.shouldAcquire(
+                nowMs = now,
+                lastSuccessfulMs = previous.updatedAt,
+                lastAttemptMs = lastAttemptMs,
+                explicit = force
+            )) return@withLock Result.Unchanged
+        lastAttemptMs = now
         val fix = withTimeoutOrNull(12_000L) { obtainPosition() }
             ?: return@withLock Result.Unavailable
         val cell = runCatching { CurrentLocationStore.grid(fix.latitude, fix.longitude) }
             .getOrNull() ?: return@withLock Result.Unavailable
         // Only cell coordinates are persisted; the raw Location is discarded.
-        store.save(cell, now)
+        store.save(cell, System.currentTimeMillis())
         val oldId = previous.asCity(context)?.id
         val newId = CurrentLocationStore.idFor(cell.first, cell.second)
         if (oldId != null && oldId != newId) {
@@ -67,16 +78,17 @@ class CurrentLocationController @Inject constructor(
             // Do not rollback a successful position update on a DB/cache error.
             runCatching { forecasts.clearCacheForCity(oldId) }
         }
-        if (oldId != newId) {
-            // Render widgets from the new stored cell; worker never queries device GPS.
+        if (oldId != newId || updateWidgetsOnSameCell) {
+            // Exactly one widget refresh for a new cell or a user widget tap.
             runCatching { WidgetRefreshScheduler.triggerImmediateRefresh(context) }
         }
         Result.Updated
     }
 
-    suspend fun refreshExisting(): Result {
+    suspend fun refreshExisting(updateWidgetsOnSameCell: Boolean = false): Result {
         if (!store.snapshot().enabled) return Result.Unchanged
-        return refreshIfEnabled(force = true)
+        return refresh(force = true, allowEnable = false,
+            updateWidgetsOnSameCell = updateWidgetsOnSameCell)
     }
 
     suspend fun disable() = mutex.withLock {
@@ -89,27 +101,38 @@ class CurrentLocationController @Inject constructor(
     }
 
     private suspend fun obtainPosition(): Location? {
-        val manager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-        // Android platform fused provider (API 31+) requires no Google SDK.
-        val preferred = if (Build.VERSION.SDK_INT >= 31)
-            listOf(LocationManager.FUSED_PROVIDER) else emptyList()
-        val provider = (preferred + LocationManager.NETWORK_PROVIDER + LocationManager.PASSIVE_PROVIDER)
-            .firstOrNull { runCatching { manager.isProviderEnabled(it) }.getOrDefault(false) }
-            ?: return null
-        return suspendCancellableCoroutine { continuation ->
-            val cancellation = CancellationSignal()
-            try {
-                LocationManagerCompat.getCurrentLocation(
-                    manager, provider, cancellation, ContextCompat.getMainExecutor(context)
-                ) { location ->
-                    if (continuation.isActive) continuation.resume(location)
-                }
-                continuation.invokeOnCancellation { cancellation.cancel() }
-            } catch (_: SecurityException) {
-                if (continuation.isActive) continuation.resume(null)
-            } catch (_: IllegalArgumentException) {
-                if (continuation.isActive) continuation.resume(null)
-            }
+        val manager = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return null
+        // NETWORK first suits COARSE permission; fused is a fallback when available.
+        // PASSIVE cannot request a fresh fix and is intentionally excluded.
+        val preferred = listOf(LocationManager.NETWORK_PROVIDER) +
+            if (Build.VERSION.SDK_INT >= 31) listOf(LocationManager.FUSED_PROVIDER) else emptyList()
+        val enabled = preferred.filter {
+            runCatching { manager.isProviderEnabled(it) }.getOrDefault(false)
         }
+        for (provider in enabled) {
+            val fix = withTimeoutOrNull(6_000L) {
+                suspendCancellableCoroutine<Location?> { continuation ->
+                    val cancellation = CancellationSignal()
+                    try {
+                        LocationManagerCompat.getCurrentLocation(
+                            manager, provider, cancellation, ContextCompat.getMainExecutor(context)
+                        ) { location ->
+                            if (continuation.isActive) continuation.resume(location)
+                        }
+                        continuation.invokeOnCancellation { cancellation.cancel() }
+                    } catch (_: SecurityException) {
+                        if (continuation.isActive) continuation.resume(null)
+                    } catch (_: IllegalArgumentException) {
+                        if (continuation.isActive) continuation.resume(null)
+                    } catch (error: Exception) {
+                        // A broken provider should not crash the foreground Activity.
+                        android.util.Log.w("MeteoCompare/Location", "Location provider unavailable", error)
+                        if (continuation.isActive) continuation.resume(null)
+                    }
+                }
+            }
+            if (fix != null) return fix
+        }
+        return null
     }
 }

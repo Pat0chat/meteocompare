@@ -180,17 +180,19 @@ réglages du compte de l'utilisateur.
 | `ACCESS_NETWORK_STATE` | Détecter l'absence de réseau et adapter l'interface / les requêtes |
 | `RECEIVE_BOOT_COMPLETED` | Reprogrammer proprement l'actualisation périodique des widgets après un redémarrage ou une mise à jour de l'application |
 | `POST_NOTIFICATIONS` | Afficher les notifications météo locales (résumé quotidien, divergence des modèles, changement de prévision), uniquement si l'utilisateur les active dans les Réglages. Elles sont calculées sur l'appareil : aucun service de push, aucun identifiant ni donnée supplémentaire n'est transmis |
+| `ACCESS_COARSE_LOCATION` | Fonction facultative « Ma position » : localisation approximative et ponctuelle, avec autorisation demandée explicitement. Pas de géolocalisation permanente |
 
 MeteoCompare **ne demande pas** :
 
-- la localisation GPS ou réseau (`ACCESS_FINE_LOCATION` / `ACCESS_COARSE_LOCATION`) ;
+- la localisation précise (`ACCESS_FINE_LOCATION`) ni en arrière-plan (`ACCESS_BACKGROUND_LOCATION`) ;
 - l'accès aux contacts, photos ou fichiers externes ;
 - l'accès au téléphone ou aux SMS ;
 - Bluetooth ou NFC ;
 - l'identifiant publicitaire.
 
-La ville consultée est donc une ville **choisie par l'utilisateur** ; l'application
-ne lit pas la position physique de l'appareil.
+Par défaut, la ville est **choisie par l'utilisateur**. La fonction facultative
+« Ma position » obtient une position approximative uniquement après consentement,
+dans une activité visible ; voir la section dédiée ci-dessous.
 
 ## 7. Sécurité des transmissions
 
@@ -228,4 +230,8 @@ La position brute reste uniquement en mémoire pendant la résolution puis rédu
 
 Les tuiles de radar consultées peuvent persister temporairement dans le cache HTTP commun jusqu’à éviction. Elles ne sont ni sauvegardées ni transférées, mais restent des données géographiques techniques sur disque.
 
-Les widgets ne déclenchent **jamais** le GPS / la localisation lorsqu'ils sont mis à jour par Android en arrière-plan. Ils utilisent la dernière cellule mémorisée, qui peut donc être ancienne après un déplacement. Pour mettre à jour la position, ouvrez MeteoCompare. Supprimer la carte « Ma position » efface les préférences de localisation locales et le cache associé.
+Les widgets ne déclenchent **jamais** le GPS / la localisation lorsqu'ils sont mis à jour par Android en arrière-plan. Ils utilisent la dernière cellule mémorisée, qui peut donc être ancienne après un déplacement. Pour mettre à jour la position, ouvrez MeteoCompare ou touchez l'action ↻
+sur un widget « Ma position » : cela ouvre une activité visible qui peut demander
+l'autorisation approximative, sans suivi en arrière-plan. Une acquisition réussie
+est réutilisée pendant 30 minutes pour les retours automatiques au premier plan ;
+les tentatives trop rapprochées sont limitées. Supprimer la carte « Ma position » efface les préférences de localisation locales et le cache associé.

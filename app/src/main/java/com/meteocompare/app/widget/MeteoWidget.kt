@@ -197,6 +197,7 @@ internal class MeteoWidget : GlanceAppWidget() {
                 GlanceTheme {
                     WidgetContent(
                         data = data,
+                        isCurrentLocation = shouldShowWidgetLocationAction(cityId),
                         opacityPct = opacityPct,
                         customBgArgb = customBgArgb,
                         customTextArgb = customTextArgb,
@@ -217,6 +218,7 @@ internal class MeteoWidget : GlanceAppWidget() {
 @Composable
 private fun WidgetContent(
     data: WidgetData,
+    isCurrentLocation: Boolean,
     opacityPct: Int,
     customBgArgb: Int?,
     customTextArgb: Int?,
@@ -387,11 +389,13 @@ private fun WidgetContent(
                 }
             }
 
-            if (data.error == null) {
+            if (data.error == null || isCurrentLocation) {
                 WidgetOpenMeteoAttribution(
                     textColor = onContainerMuted,
                     compact = layoutKind == WidgetLayoutKind.TINY ||
-                        layoutKind == WidgetLayoutKind.SMALL
+                        layoutKind == WidgetLayoutKind.SMALL,
+                    showAttribution = data.error == null,
+                    showLocationRefresh = isCurrentLocation
                 )
             }
         }
@@ -401,7 +405,9 @@ private fun WidgetContent(
 @Composable
 private fun WidgetOpenMeteoAttribution(
     textColor: ColorProvider,
-    compact: Boolean
+    compact: Boolean,
+    showAttribution: Boolean = true,
+    showLocationRefresh: Boolean = false
 ) {
     val context = LocalContext.current
     val label = context.getString(
@@ -412,15 +418,13 @@ private fun WidgetOpenMeteoAttribution(
         Intent(Intent.ACTION_VIEW, Uri.parse(OPEN_METEO_LICENSE_URL))
     }
 
-    Row(
-        modifier = GlanceModifier
-            .fillMaxWidth()
-            .clickable(actionStartActivityIntent(licenseIntent))
-            .padding(top = 2.dp)
-    ) {
+    Row(modifier = GlanceModifier.fillMaxWidth().padding(top = 2.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        if (showLocationRefresh) WidgetCurrentLocationAction(textColor, compact)
         Spacer(GlanceModifier.defaultWeight())
-        Text(
+        if (showAttribution) Text(
             text = label,
+            modifier = GlanceModifier.clickable(actionStartActivityIntent(licenseIntent)),
             style = TextStyle(
                 color = textColor,
                 fontSize = if (compact) 5.sp else 6.sp,

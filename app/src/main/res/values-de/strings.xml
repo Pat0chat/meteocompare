@@ -1002,5 +1002,13 @@ Daten</string>
     <string name="current_location_permission_required">Erlaube den ungefähren Standort für diese Karte</string>
     <string name="current_location_unavailable">Standort nicht verfügbar. Standortdienste aktivieren und erneut versuchen.</string>
     <string name="current_location_stale">Standort aktualisieren</string>
-    <string name="current_location_widget_note">Das Widget zeigt die zuletzt gespeicherte Region. Öffne MeteoCompare für eine neue Standortbestimmung (kein Hintergrundzugriff).</string>
+    <string name="current_location_widget_note">Das Widget nutzt die zuletzt gespeicherte Region. Tippe auf ↻ im Widget oder öffne MeteoCompare zum Aktualisieren (keine Ortung im Hintergrund).</string>
+    <string name="widget_current_location_refresh">Standort aktualisieren</string>
+    <string name="widget_current_location_refresh_short">↻</string>
+    <string name="widget_current_location_refresh_title">Standort wird aktualisiert</string>
+    <string name="widget_current_location_close">Schließen</string>
+    <string name="widget_current_location_recent">In wenigen Sekunden erneut versuchen</string>
+    <string name="widget_current_location_disabled">Aktiviere zuerst „Mein Standort“ in der App.</string>
+    <string name="widget_current_location_retry">Erneut versuchen</string>
+    <string name="widget_current_location_interrupted">Aktualisierung unterbrochen; erneut versuchen.</string>
 </resources>

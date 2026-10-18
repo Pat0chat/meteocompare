@@ -7,6 +7,8 @@ import com.meteocompare.app.data.repository.CurrentLocationController
 import com.meteocompare.app.ui.components.AppToastEvent
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
@@ -16,6 +18,8 @@ class CurrentLocationViewModel @Inject constructor(
     private val controller: CurrentLocationController
 ) : ViewModel() {
     private val feedbackChannel = Channel<AppToastEvent>(Channel.BUFFERED)
+    private var manualRefreshJob: Job? = null
+    private var foregroundRefreshJob: Job? = null
     val feedback = feedbackChannel.receiveAsFlow()
 
     fun locate() {
@@ -33,10 +37,37 @@ class CurrentLocationViewModel @Inject constructor(
             if (event != null) feedbackChannel.send(event)
         }
     }
-    fun refreshActive() {
-        viewModelScope.launch {
-            // A pull-to-refresh must NOT opt in to location tracking.
-            controller.refreshExisting()
+    /** Location first, then weather for the resolved cell: never fetch the old area. */
+    fun refreshActive(onLocationResolved: () -> Unit) {
+        if (manualRefreshJob?.isActive == true) return
+        manualRefreshJob = viewModelScope.launch {
+            try {
+                // A pull-to-refresh must NOT opt in to location tracking.
+                controller.refreshExisting()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                android.util.Log.w("MeteoCompare/Location", "Manual location refresh failed", error)
+            }
+            // No weather fetch after cancellation. GPS errors must not prevent
+            // weather updates for fixed cities, using the last known cell.
+            onLocationResolved()
+        }
+    }
+
+    fun refreshOnResume(onLocationResolved: () -> Unit) {
+        if (foregroundRefreshJob?.isActive == true) return
+        foregroundRefreshJob = viewModelScope.launch {
+            try {
+                // Foreground policy is shared with MainActivity; the mutex and
+                // minimum interval avoid an extra fix on a second lifecycle callback.
+                controller.refreshIfEnabled()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                android.util.Log.w("MeteoCompare/Location", "Foreground location refresh failed", error)
+            }
+            onLocationResolved()
         }
     }
     fun denied() {

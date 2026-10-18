@@ -69,3 +69,67 @@ def test_backed_up_ui_preferences_never_encode_moving_grid_id():
     assert "CurrentLocationStore.WIDGET_CITY_ID" in home
     assert "cityPreferencePrefix(cityId: String)" in prefs
     assert "CurrentLocationStore::isCurrentCity" in prefs
+
+
+def test_foreground_gps_has_time_gates_and_no_background_job():
+    controller = (JAVA / "data/repository/CurrentLocationController.kt").read_text()
+    policy = (JAVA / "domain/util/LocationRefreshPolicy.kt").read_text()
+    main_activity = (JAVA / "MainActivity.kt").read_text()
+    assert "LocationRefreshPolicy.shouldAcquire" in controller
+    assert "lastAttemptMs = now" in controller
+    assert "mutex.withLock" in controller
+    assert "FOREGROUND_INTERVAL_MS = 30 * 60_000L" in policy
+    assert "AUTO_RETRY_INTERVAL_MS = 2 * 60_000L" in policy
+    assert "TAP_DEBOUNCE_MS = 15_000L" in policy
+    assert "override fun onStart()" in main_activity
+    assert "currentLocation.refreshIfEnabled()" in main_activity
+    assert "override fun onStop()" in main_activity
+    assert "foregroundLocationJob?.cancel()" in main_activity
+
+
+def test_widget_uses_visible_activity_without_receiver_gps_or_new_permission():
+    manifest = content("app/src/main/AndroidManifest.xml")
+    activity = (JAVA / "widget/WidgetLocationRefreshActivity.kt").read_text()
+    action = (JAVA / "widget/WidgetCurrentLocationAction.kt").read_text()
+    widget = (JAVA / "widget/MeteoWidget.kt").read_text()
+    insight = (JAVA / "widget/MeteoValueWidgets.kt").read_text()
+    assert 'android:name=".widget.WidgetLocationRefreshActivity"' in manifest
+    assert 'android:exported="false"' in manifest
+    assert "ComponentActivity" in activity and "@AndroidEntryPoint" in activity
+    assert "registerForActivityResult" in activity
+    assert "controller.refreshExisting(updateWidgetsOnSameCell = true)" in activity
+    assert "getCurrentLocation(" not in activity
+    assert "getCurrentLocation(" not in action
+    assert "actionStartActivity(intent)" in action
+    assert "shouldShowWidgetLocationAction(cityId)" in widget
+    assert "shouldShowWidgetLocationAction(cityId)" in insight
+    assert "WidgetCurrentLocationAction" in widget
+    assert "WidgetCurrentLocationAction" in insight
+
+
+def test_refresh_sequence_avoids_old_area_and_duplicate_widget_enqueues():
+    screen = (JAVA / "ui/citylist/CityListScreen.kt").read_text()
+    vm = (JAVA / "ui/citylist/CurrentLocationViewModel.kt").read_text()
+    city_vm = (JAVA / "ui/citylist/CityListViewModel.kt").read_text()
+    controller = (JAVA / "data/repository/CurrentLocationController.kt").read_text()
+    activity = (JAVA / "widget/WidgetLocationRefreshActivity.kt").read_text()
+    assert "locationVm.refreshActive(viewModel::onRefreshAll)" in screen
+    assert "controller.refreshExisting()" in vm
+    assert "controller.refreshIfEnabled()" in vm
+    assert "onLocationResolved()" in vm
+    assert "cityRepository.observeFavorites().first()" in city_vm
+    assert "oldId != newId || updateWidgetsOnSameCell" in controller
+    assert "WidgetRefreshScheduler.triggerImmediateRefresh" in controller
+    assert "WidgetRefreshScheduler.triggerImmediateRefresh" not in activity
+
+
+def test_privacy_policy_and_widget_config_describe_the_new_action():
+    policy = content("PRIVACY.md")
+    assert '| `ACCESS_COARSE_LOCATION` |' in policy
+    assert 'ACCESS_BACKGROUND_LOCATION' in policy
+    assert 'ne demande pas** :\n\n- la localisation GPS ou réseau' not in policy
+    assert "touchez l'action ↻" in policy
+    for folder in ("values", "values-en", "values-es", "values-de", "values-it"):
+        strings = content(f"app/src/main/res/{folder}/strings.xml")
+        assert 'name="current_location_widget_note"' in strings
+        assert '↻' in strings
