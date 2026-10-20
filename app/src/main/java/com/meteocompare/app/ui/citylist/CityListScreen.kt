@@ -142,6 +142,7 @@ import com.meteocompare.app.ui.components.AppToastEvent
 import com.meteocompare.app.ui.components.OpenMeteoAttribution
 import com.meteocompare.app.ui.components.ShimmerBox
 import com.meteocompare.app.ui.components.VigilanceCompactBanner
+import com.meteocompare.app.ui.components.VigilanceCompactLevelIndicator
 import com.meteocompare.app.ui.components.WeatherMetric
 import com.meteocompare.app.ui.components.WeatherMetricLayout
 import com.meteocompare.app.ui.components.rememberFormattedLastUpdated
@@ -868,6 +869,10 @@ private fun CompactCityCardContent(
         currentTemp = loaded?.currentTemp,
         hourlyTemps = loaded?.next12hTemps.orEmpty()
     )
+    // Already supplied by CityListViewModel; no additional vigilance fetch.
+    val vigilanceLevel = remember(state.city, state.vigilance) {
+        state.compactVigilanceLevel()
+    }
     val cloudCover = MetricPresentation(
         value = loaded?.currentCloudCover?.let { "$it%" } ?: "—"
     )
@@ -986,6 +991,18 @@ private fun CompactCityCardContent(
                 )
                 // Same H+3 forecast and trend chip as on the expanded card.
                 upcomingTemperature?.let { HomeTemperatureTrendChip(it, units) }
+            }
+            // Keep the official vigilance level immediately after the trend,
+            // rather than adding a new line to the condensed card.
+            vigilanceLevel?.let { level ->
+                Spacer(Modifier.width(16.dp))
+                VigilanceCompactLevelIndicator(
+                    level = level,
+                    isStale = state.vigilance?.isStale == true,
+                    modifier = Modifier.testTag(
+                        "$TAG_CITY_CARD_COMPACT_VIGILANCE${state.city.id}"
+                    )
+                )
             }
         }
         Row(

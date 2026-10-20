@@ -35,3 +35,4 @@ internal const val TAG_CITY_CARD_COMPACT_CONDITION_LABEL = "city_card_compact_co
 internal const val TAG_CITY_CARD_COMPACT_RAIN = "city_card_compact_rain_"
 internal const val TAG_CITY_CARD_COMPACT_WIND = "city_card_compact_wind_"
 internal const val TAG_CITY_CARD_COMPACT_CLOUD = "city_card_compact_cloud_"
+internal const val TAG_CITY_CARD_COMPACT_VIGILANCE = "city_card_compact_vigilance_"

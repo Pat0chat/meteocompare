@@ -4,6 +4,7 @@ import androidx.annotation.StringRes
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.DayConfidence
 import com.meteocompare.app.domain.model.VigilanceForecast
+import com.meteocompare.app.domain.model.VigilanceColor
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.UvForecast
 import com.meteocompare.app.domain.model.WeatherModel
@@ -59,6 +60,15 @@ data class CityCardState(
     val isMarineLoading: Boolean = false,
     val uvForecast: UvForecast? = null
 )
+
+/** Reuse the same non-expired official alerts as the expanded card.
+ * Do not display a level for a foreign city, a green status or missing data.
+ * This projection does not perform network or forecast calculations.
+ */
+internal fun CityCardState.compactVigilanceLevel(): VigilanceColor? =
+    if (city.isFrenchLocation) {
+        vigilance?.maxAlertColor?.takeIf { it != VigilanceColor.GREEN }
+    } else null
 
 sealed interface ForecastState {
     data object Loading : ForecastState

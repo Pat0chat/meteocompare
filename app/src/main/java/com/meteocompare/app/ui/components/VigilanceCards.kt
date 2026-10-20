@@ -34,6 +34,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalLocale
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -56,6 +58,51 @@ const val TAG_VIGILANCE_HOME_TEXT = "vigilance-home-text"
 const val TAG_VIGILANCE_DETAIL = "vigilance-detail"
 const val TAG_VIGILANCE_MARINE = "vigilance-marine"
 const val TAG_VIGILANCE_ALERT_TIMING_PREFIX = "vigilance-alert-timing-"
+
+/** Compact Home indicator beside the H+3 temperature trend.
+ * The name accompanies the color so severity is not conveyed by color alone.
+ */
+@Composable
+fun VigilanceCompactLevelIndicator(
+    level: VigilanceColor,
+    isStale: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val levelLabel = vigilanceColorLabel(level)
+    val title = stringResource(R.string.vigilance_title)
+    val description = if (isStale) {
+        "$title : $levelLabel · ${stringResource(R.string.vigilance_source_cached_short)}"
+    } else {
+        "$title : $levelLabel"
+    }
+    val indicatorColor = vigilanceColor(level)
+    Surface(
+        modifier = modifier.semantics(mergeDescendants = true) {
+            contentDescription = description
+        },
+        shape = RoundedCornerShape(8.dp),
+        color = indicatorColor.copy(alpha = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) 0.22f else 0.12f)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 5.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(7.dp)
+                    .background(indicatorColor, androidx.compose.foundation.shape.CircleShape)
+            )
+            Text(
+                text = levelLabel,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1
+            )
+        }
+    }
+}
 
 @Composable
 fun VigilanceCompactBanner(

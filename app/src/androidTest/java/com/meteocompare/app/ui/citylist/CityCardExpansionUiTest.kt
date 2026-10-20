@@ -12,6 +12,13 @@ import androidx.compose.ui.unit.dp
 import com.meteocompare.app.domain.model.ConfidenceScore
 import com.meteocompare.app.domain.model.DayConfidence
 import com.meteocompare.app.domain.model.PrecipitationConfidence
+import com.meteocompare.app.domain.model.VigilanceColor
+import com.meteocompare.app.domain.model.VigilanceForecast
+import com.meteocompare.app.domain.model.VigilanceInterval
+import com.meteocompare.app.domain.model.VigilancePeriod
+import com.meteocompare.app.domain.model.VigilancePhenomenon
+import com.meteocompare.app.domain.model.VigilancePhenomenonAlert
+import com.meteocompare.app.domain.model.VigilanceScope
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.testutil.TestFixtures
 import com.meteocompare.app.ui.theme.MeteoCompareTheme
@@ -42,6 +49,27 @@ class CityCardExpansionUiTest {
         )
     )
     private val lyon = CityCardState(TestFixtures.lyon, ForecastState.Loading)
+
+    private fun warning(level: VigilanceColor): VigilanceForecast {
+        val now = TestFixtures.now
+        return VigilanceForecast(
+            source = "Météo-France", department = "75", includeCoast = false,
+            updateTime = now, productDatetime = now, generationTimestamp = now,
+            fetchedAt = now, evaluationTime = now,
+            periods = listOf(VigilancePeriod(
+                term = "J", begin = now, end = now.plusSeconds(86400),
+                maxColor = level, departmentMaxColor = level, coastMaxColor = null,
+                phenomena = listOf(VigilancePhenomenonAlert(
+                    phenomenon = VigilancePhenomenon.WIND,
+                    maxColor = level,
+                    intervals = listOf(VigilanceInterval(
+                        begin = now, end = now.plusSeconds(3600),
+                        color = level, scope = VigilanceScope.DEPARTMENT
+                    ))
+                ))
+            ))
+        )
+    }
 
     private fun card(cityId: String) = composeRule.onNodeWithTag("$TAG_CITY_CARD$cityId")
 
@@ -187,6 +215,46 @@ class CityCardExpansionUiTest {
         // Only the expanded city renders its full forecast; the compressed card
         // must not keep the three-column temperature range visible.
         composeRule.onNodeWithText("18–22", useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test fun compact_card_shows_french_vigilance_after_temperature_trend() {
+        val vigilance = warning(VigilanceColor.ORANGE)
+        composeRule.setContent {
+            MeteoCompareTheme {
+                CityList(
+                    items = listOf(paris.copy(vigilance = vigilance), lyon),
+                    onCityClick = {}, onRemove = {}, onRetry = {}
+                )
+            }
+        }
+
+        val level = composeRule.onNodeWithTag(
+            "$TAG_CITY_CARD_COMPACT_VIGILANCE${TestFixtures.paris.id}", useUnmergedTree = true
+        )
+        level.assertExists()
+        val levelRect = level.fetchSemanticsNode().boundsInRoot
+        val tempRect = composeRule.onNodeWithTag(
+            "$TAG_CITY_CARD_COMPACT_TEMPERATURES${TestFixtures.paris.id}", useUnmergedTree = true
+        ).fetchSemanticsNode().boundsInRoot
+        val cardRect = card(TestFixtures.paris.id).fetchSemanticsNode().boundsInRoot
+        assertTrue("Vigilance must follow the temperature trend", levelRect.left >= tempRect.right)
+        assertTrue("Vigilance must fit inside the compact card", levelRect.right <= cardRect.right)
+        assertTrue("Vigilance and trend must share a row", abs(levelRect.center.y - tempRect.center.y) < with(composeRule.density) { 6.dp.toPx() })
+    }
+
+    @Test fun compact_card_hides_vigilance_for_foreign_city() {
+        val foreignParis = paris.copy(
+            city = TestFixtures.paris.copy(country = "Germany", countryCode = "DE"),
+            vigilance = warning(VigilanceColor.ORANGE)
+        )
+        composeRule.setContent {
+            MeteoCompareTheme {
+                CityList(items = listOf(foreignParis, lyon), onCityClick = {}, onRemove = {}, onRetry = {})
+            }
+        }
+        composeRule.onNodeWithTag(
+            "$TAG_CITY_CARD_COMPACT_VIGILANCE${TestFixtures.paris.id}", useUnmergedTree = true
+        ).assertDoesNotExist()
     }
 
     @Test fun compact_card_keeps_placeholders_when_forecast_data_is_missing() {
