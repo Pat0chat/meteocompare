@@ -36,7 +36,8 @@ class TodaySummaryCardTest {
         modelCount: Int = 5,
         forecast: CityForecast? = null,
         uvIndex: Double? = null,
-        apparent: Double? = null
+        apparent: Double? = null,
+        currentTemp: Double? = null
     ) {
         composeRule.setContent {
             CompositionLocalProvider(LocalClockFormatPreference provides ClockFormatPreference.HOUR_24) {
@@ -45,7 +46,7 @@ class TodaySummaryCardTest {
                         TodaySummaryCard(
                             today = today,
                             modelCount = modelCount,
-                            currentTemp = null,
+                            currentTemp = currentTemp,
                             currentApparentTemp = apparent,
                             forecast = forecast,
                             uvIndex = uvIndex
@@ -58,10 +59,15 @@ class TodaySummaryCardTest {
 
     @Test
     fun today_summary_shows_estimated_felt_temperature_when_available() {
-        render(today = DayConfidence(TestFixtures.today, null, null, null, null), apparent = 16.0)
-        composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_APPARENT, useUnmergedTree = true).assertIsDisplayed()
-        composeRule.onNodeWithText(context.getString(R.string.apparent_temperature_label, "16°"), useUnmergedTree = true)
+        render(today = DayConfidence(TestFixtures.today, null, null, null, null), currentTemp = 20.0, apparent = 16.0)
+        val feels = composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_APPARENT, useUnmergedTree = true)
             .assertIsDisplayed()
+            .assertTextEquals(context.getString(R.string.apparent_temperature_summary, "16°"))
+            .getUnclippedBoundsInRoot()
+        val temperature = composeRule.onNodeWithText("20°", useUnmergedTree = true)
+            .assertIsDisplayed().getUnclippedBoundsInRoot()
+        assertTrue("Feels-like must be to the right of the air temperature", feels.left >= temperature.right)
+        assertTrue("Both values must stay on the same row", kotlin.math.abs(feels.center.y.value - temperature.center.y.value) <= 12f)
     }
 
     @Test

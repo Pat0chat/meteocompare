@@ -70,8 +70,8 @@ internal fun DetailSolarCard(
     timezone: ZoneId,
     date: LocalDate,
     now: Instant,
-    uvIndex: Double? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    uvIndex: Double? = null
 ) {
     val locale = LocalConfiguration.current.locales[0]
     val formatter = WeatherTimeFormat.clock(locale, LocalClockFormatPreference.current)

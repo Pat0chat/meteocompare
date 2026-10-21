@@ -162,7 +162,6 @@ internal class WeatherNotifier(
             ) == PackageManager.PERMISSION_GRANTED
 
     private fun isChannelEnabled(channelId: String): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return true
         val channel = platformManager.getNotificationChannel(channelId) ?: return false
         return channel.importance != NotificationManager.IMPORTANCE_NONE
     }

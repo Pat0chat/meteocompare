@@ -1,5 +1,6 @@
 package com.meteocompare.app.widget
 
+import androidx.core.graphics.createBitmap
 import com.meteocompare.app.core.charts.metricPlotValue
 
 import com.meteocompare.app.core.units.WeatherUnits
@@ -38,7 +39,7 @@ internal object WidgetHeatmapForecastRenderer {
         require(widthPx > 0) { "widthPx doit être > 0, reçu $widthPx" }
         require(heightPx > 0) { "heightPx doit être > 0, reçu $heightPx" }
 
-        val bitmap = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
+        val bitmap = createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         val outerPadding = (heightPx * 0.02f).coerceAtLeast(1f)
         val rowGap = (heightPx * 0.02f).coerceAtLeast(1.5f)

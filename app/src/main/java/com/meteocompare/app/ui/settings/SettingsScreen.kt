@@ -9,6 +9,7 @@ import androidx.compose.foundation.selection.selectable
 import com.meteocompare.app.domain.model.ClockFormatPreference
 import com.meteocompare.app.domain.model.UnitSystem
 
+import android.annotation.SuppressLint
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -186,6 +187,8 @@ fun SettingsScreen(
     // Android 13+ : une activation n'est persistée qu'après l'accord de la
     // permission. En cas de refus, le réglage MeteoCompare reste désactivé au
     // lieu d'afficher un état « activé mais impossible à délivrer ».
+    // The request is gated by shouldRequestNotificationPermission (API 33+).
+    @SuppressLint("InlinedApi")
     val withNotificationPermission: (Boolean, (Boolean) -> Unit) -> Unit = { enabled, action ->
         if (!enabled) {
             pendingNotificationEnableAction = null

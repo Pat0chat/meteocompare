@@ -2,6 +2,7 @@ package com.meteocompare.app.notification
 
 import android.app.AlarmManager
 import android.app.PendingIntent
+import androidx.core.content.edit
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -327,15 +328,15 @@ private class DailyAlarmStateStore(context: Context) {
     }
 
     fun write(localTime: String, zoneId: String, triggerAtMillis: Long) {
-        prefs.edit()
-            .putString(KEY_LOCAL_TIME, localTime)
-            .putString(KEY_ZONE_ID, zoneId)
-            .putLong(KEY_TRIGGER_AT, triggerAtMillis)
-            .apply()
+        prefs.edit {
+            putString(KEY_LOCAL_TIME, localTime)
+            putString(KEY_ZONE_ID, zoneId)
+            putLong(KEY_TRIGGER_AT, triggerAtMillis)
+        }
     }
 
     fun clear() {
-        prefs.edit().clear().apply()
+        prefs.edit { clear() }
     }
 
     private companion object {

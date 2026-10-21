@@ -185,9 +185,9 @@ internal fun LocalityHourlyChart(
     hourFormatter: DateTimeFormatter,
     selectedHour: Int,
     onHourSelected: (Int) -> Unit,
+    modifier: Modifier = Modifier,
     metric: CompareChartMetric = CompareChartMetric.TEMPERATURE,
-    onMetricSelected: (CompareChartMetric) -> Unit = {},
-    modifier: Modifier = Modifier
+    onMetricSelected: (CompareChartMetric) -> Unit = {}
 ) {
     val palette = MaterialTheme.colorScheme
     val dark = palette.surface.luminance() < .5f

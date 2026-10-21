@@ -1,5 +1,6 @@
 package com.meteocompare.app.widget
 
+import androidx.core.graphics.createBitmap
 import com.meteocompare.app.core.charts.metricPlotValue
 
 import com.meteocompare.app.core.units.WeatherUnits
@@ -36,7 +37,7 @@ internal object WidgetHeatmapTrendForecastRenderer {
         profile: MiniForecastSizeProfile = MiniForecastSizeProfile.EXPANDED_4X2,
         units: WeatherUnits = WeatherUnits()
     ): Bitmap {
-        val bitmap = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
+        val bitmap = createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
 
         val outerPadding = (heightPx * 0.02f).coerceAtLeast(1.0f)

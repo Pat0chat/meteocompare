@@ -1,5 +1,7 @@
 package com.meteocompare.app.widget
 
+import android.os.Build
+
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -113,7 +115,7 @@ internal fun WidgetSurface(
         modifier = GlanceModifier.fillMaxSize()
             .background(background)
             .then(
-                if (cornerStyle == WidgetCornerStyle.ROUNDED) {
+                if (cornerStyle == WidgetCornerStyle.ROUNDED && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     GlanceModifier.cornerRadius(android.R.dimen.system_app_widget_background_radius)
                 } else {
                     GlanceModifier.cornerRadius(radius.dp)

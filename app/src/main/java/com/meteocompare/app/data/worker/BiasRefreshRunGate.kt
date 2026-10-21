@@ -1,5 +1,6 @@
 package com.meteocompare.app.data.worker
 
+import androidx.core.content.edit
 import android.content.Context
 import java.util.concurrent.TimeUnit
 
@@ -31,9 +32,7 @@ internal object BiasRefreshRunGate {
 
     fun markSuccess(context: Context, nowMs: Long = System.currentTimeMillis()) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .putLong(LAST_SUCCESS_KEY, nowMs)
-            .apply()
+            .edit { putLong(LAST_SUCCESS_KEY, nowMs) }
     }
 
     internal fun shouldRun(

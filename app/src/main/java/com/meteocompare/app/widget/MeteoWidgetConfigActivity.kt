@@ -47,6 +47,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -338,7 +339,7 @@ private fun WidgetConfigScreen(
         mutableStateOf<Pair<List<City>, WidgetConfiguration>?>(null)
     }
     var loadFailed by remember(widgetId) { mutableStateOf(false) }
-    var loadAttempt by remember(widgetId) { mutableStateOf(0) }
+    var loadAttempt by remember(widgetId) { mutableIntStateOf(0) }
 
     LaunchedEffect(widgetId, loadAttempt) {
         loadFailed = false

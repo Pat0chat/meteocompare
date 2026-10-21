@@ -22,8 +22,8 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Paris"
-            android:textSize="10sp"
+            android:text="@string/widget_preview_city"
+            android:textSize="11sp"
             android:textStyle="bold"
             android:textColor="?android:attr/textColorPrimary"
             android:maxLines="1"
@@ -32,7 +32,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="18°"
+            android:text="@string/widget_preview_weather_temp"
             android:textSize="18sp"
             android:textStyle="bold"
             android:textColor="?android:attr/textColorPrimary"
@@ -41,8 +41,8 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="85%"
-            android:textSize="9sp"
+            android:text="@string/widget_preview_confidence_value"
+            android:textSize="11sp"
             android:textStyle="bold"
             android:textColor="@color/widget_preview_confidence"
             android:background="@drawable/widget_preview_pill_bg"

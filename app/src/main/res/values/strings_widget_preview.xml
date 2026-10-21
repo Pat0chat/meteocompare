@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Valeurs fictives statiques : aperçu uniquement, non affichées dans les prévisions. -->
+    <string name="widget_preview_city" translatable="false">Paris</string>
+    <string name="widget_preview_models" translatable="false">4 modèles</string>
+    <string name="widget_preview_main_temp" translatable="false">21°</string>
+    <string name="widget_preview_temp_range" translatable="false">16° / 24°</string>
+    <string name="widget_preview_rain_title" translatable="false">Pluie incertaine</string>
+    <string name="widget_preview_rain_detail" translatable="false">40–75 % · 52 % de convergence</string>
+    <string name="widget_preview_hour" translatable="false">18 h</string>
+    <string name="widget_preview_weather_temp" translatable="false">18°</string>
+    <string name="widget_preview_confidence_value" translatable="false">85%</string>
+</resources>

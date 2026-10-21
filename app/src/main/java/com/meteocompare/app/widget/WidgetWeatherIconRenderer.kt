@@ -1,5 +1,6 @@
 package com.meteocompare.app.widget
 
+import androidx.core.graphics.createBitmap
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
@@ -20,7 +21,7 @@ internal object WidgetWeatherIconRenderer {
     fun render(condition: WeatherCondition?, sizePx: Int, isNight: Boolean = false): Bitmap {
         require(sizePx > 0) { "sizePx must be > 0" }
 
-        val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+        val bitmap = createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         val scale = sizePx / 48f
         val palette = paletteFor(condition)

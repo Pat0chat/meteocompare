@@ -1,5 +1,6 @@
 """Static privacy regressions complement JVM/instrumented tests (no Android SDK required)."""
 from pathlib import Path
+from xml.etree import ElementTree
 
 ROOT = Path(__file__).resolve().parents[1]
 JAVA = ROOT / "app/src/main/java/com/meteocompare/app"
@@ -39,8 +40,21 @@ def test_no_position_tracking_from_background_workers():
 
 
 def test_gps_store_is_not_backed_up():
+    # A strict include whitelist excludes every other file implicitly. Adding an
+    # <exclude> outside that whitelist is both redundant and rejected by Lint.
     for filename in ("backup_rules.xml", "data_extraction_rules.xml"):
-        assert 'datastore/current_location.preferences_pb' in content(f"app/src/main/res/xml/{filename}")
+        rules = ElementTree.fromstring(content(f"app/src/main/res/xml/{filename}"))
+        allowed = {
+            ("file", "datastore/user_prefs.preferences_pb"),
+            ("file", "datastore/favorites.preferences_pb"),
+            ("sharedpref", "meteocompare_locale_prefs.xml"),
+        }
+        for scope in (list(rules) if filename == "data_extraction_rules.xml" else [rules]):
+            actual = {(entry.attrib.get("domain"), entry.attrib.get("path"))
+                      for entry in scope.findall("include")}
+            assert actual == allowed, (filename, scope.tag, actual)
+            assert not scope.findall("exclude"), (filename, scope.tag)
+    # DataStore really stores the last cell in a different, non-whitelisted file.
     store = (JAVA / "data/repository/CurrentLocationStore.kt").read_text()
     assert 'preferencesDataStore(name = "current_location")' in store
     assert "fun clear()" in store

@@ -834,6 +834,7 @@ datos</string>
     <plurals name="home_scenario_hidden_variants">
         <item quantity="one">+ %1$d otra variante no mostrada · %2$d/%3$d modelos</item>
         <item quantity="other">+ %1$d otras variantes no mostradas · %2$d/%3$d modelos</item>
+        <item quantity="many">+ %1$d otras variantes no mostradas · %2$d/%3$d modelos</item>
     </plurals>
     <string name="mini_forecast_current_hour_a11y">Hora actual</string>
 
@@ -1014,6 +1015,7 @@ datos</string>
     <string name="widget_current_location_disabled">Activa primero «Mi ubicación» en la aplicación.</string>
     <string name="widget_current_location_retry">Reintentar</string>
     <string name="widget_current_location_interrupted">Actualización interrumpida; vuelve a intentarlo.</string>
+    <string name="apparent_temperature_summary">Sensación %1$s</string>
     <string name="apparent_temperature_label">Sensación estimada %1$s</string>
     <string name="apparent_temperature_title">Temperatura aparente estimada</string>
     <string name="apparent_temperature_explanation">La temperatura aparente estimada se calcula a partir de la temperatura, la humedad, el viento y la radiación solar. No es una medida directa de la sensación personal.</string>

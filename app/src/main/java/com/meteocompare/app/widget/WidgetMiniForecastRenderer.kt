@@ -1,5 +1,6 @@
 package com.meteocompare.app.widget
 
+import androidx.core.graphics.createBitmap
 import com.meteocompare.app.core.charts.metricPlotValue
 
 import com.meteocompare.app.core.units.WeatherUnits
@@ -110,7 +111,7 @@ internal object WidgetMiniForecastRenderer {
         require(heightPx > 0) { "heightPx doit être > 0, reçu $heightPx" }
 
         val metrics = gridMetricsFor(profile)
-        val bitmap = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
+        val bitmap = createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         val shapePaint = Paint(Paint.ANTI_ALIAS_FLAG)
         val iconPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { isFilterBitmap = true }

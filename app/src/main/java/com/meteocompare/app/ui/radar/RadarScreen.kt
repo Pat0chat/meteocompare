@@ -166,6 +166,7 @@ fun RadarScreen(
 @Composable
 internal fun RadarContent(
     state: RadarUiState,
+    modifier: Modifier = Modifier,
     onRetry: () -> Unit = {},
     onModeChange: (RadarMode) -> Unit = {},
     onRangeChange: (RadarRange) -> Unit = {},
@@ -173,8 +174,7 @@ internal fun RadarContent(
     onFrameChange: (Int) -> Unit = {},
     onPlayPause: () -> Unit = {},
     onRecalculate: () -> Unit = {},
-    onViewportSize: (width: Int, height: Int) -> Unit = { _, _ -> },
-    modifier: Modifier = Modifier
+    onViewportSize: (width: Int, height: Int) -> Unit = { _, _ -> }
 ) {
     when (state) {
         RadarUiState.Loading -> Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }

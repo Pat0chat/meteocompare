@@ -1,5 +1,6 @@
 package com.meteocompare.app.widget
 
+import androidx.core.net.toUri
 import com.meteocompare.app.core.locale.WeatherTimeFormat
 
 import com.meteocompare.app.core.units.WeatherUnits
@@ -8,7 +9,6 @@ import com.meteocompare.app.core.units.LocalWeatherUnits
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
-import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -415,7 +415,7 @@ private fun WidgetOpenMeteoAttribution(
         else R.string.widget_open_meteo_attribution
     )
     val licenseIntent = remember {
-        Intent(Intent.ACTION_VIEW, Uri.parse(OPEN_METEO_LICENSE_URL))
+        Intent(Intent.ACTION_VIEW, OPEN_METEO_LICENSE_URL.toUri())
     }
 
     Row(modifier = GlanceModifier.fillMaxWidth().padding(top = 2.dp),

@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -116,7 +117,7 @@ internal fun LocalityCompareContent(
         }
     }
     val selectedDate = runCatching { LocalDate.parse(selectedDateIso) }.getOrDefault(currentDate)
-    var selectedHour by rememberSaveable { mutableStateOf(currentHour.coerceIn(0, 23)) }
+    var selectedHour by rememberSaveable { mutableIntStateOf(currentHour.coerceIn(0, 23)) }
     var chartMetric by rememberSaveable { mutableStateOf(CompareChartMetric.TEMPERATURE) }
     var detailsExpanded by rememberSaveable { mutableStateOf(false) }
     var infoExpanded by rememberSaveable { mutableStateOf(false) }

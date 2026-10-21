@@ -461,7 +461,7 @@ internal fun CityList(
     onHomeCityExpanded: ((String) -> Unit)? = null
 ) {
     val cityIds = items.map { it.city.id }
-    var knownCityIds by rememberSaveable { mutableStateOf(arrayListOf<String>()) }
+    var knownCityIds by rememberSaveable { mutableStateOf<List<String>>(arrayListOf()) }
     var requestedExpandedCityId by rememberSaveable { mutableStateOf<String?>(null) }
     val localExpandedId = resolveExpandedCityId(
         expandedCityId = requestedExpandedCityId,
@@ -593,11 +593,11 @@ private fun OfflineCityListBanner() {
 internal fun CityCard(
     state: CityCardState,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
     onGraphicViewClick: () -> Unit = {},
     onRadarClick: () -> Unit = {},
     onRemove: () -> Unit,
     onRetry: () -> Unit,
-    modifier: Modifier = Modifier,
     onMarineAction: () -> Unit = {},
     isSelected: Boolean = false,
     selectionEnabled: Boolean = false,
@@ -990,11 +990,13 @@ private fun CompactCityCardContent(
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
+                Spacer(Modifier.width(8.dp))
                 // Same H+3 forecast and trend chip as on the expanded card.
                 upcomingTemperature?.let { HomeTemperatureTrendChip(it, units) }
                 // No extra row for apparent temperature; preserve the compact weather metrics.
                 val apparent = loaded?.apparentTemp
                 if (com.meteocompare.app.domain.util.ApparentTemperature.significant(loaded?.currentTemp, apparent)) {
+                    Spacer(Modifier.width(8.dp))
                     Text(
                         text = stringResource(R.string.apparent_temperature_short, units.temp(apparent)),
                         style = MaterialTheme.typography.labelSmall,
@@ -1388,11 +1390,6 @@ private fun CurrentWeatherHero(
                 apparentTemp?.takeIf(Double::isFinite)?.let {
                     Text(
                         text = stringResource(R.string.apparent_temperature_label, units.temp(it)),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = stringResource(R.string.apparent_temperature_explanation),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

@@ -727,7 +727,6 @@ Daten</string>
     <string name="metric_precip_probability_only">Regenrisiko %1$d%%</string>
     <plurals name="summary_dispersion_models">
         <item quantity="one">%d Modell</item>
-        <item quantity="many">%d Modelle</item>
         <item quantity="other">%d Modelle</item>
     </plurals>
 
@@ -1011,6 +1010,7 @@ Daten</string>
     <string name="widget_current_location_disabled">Aktiviere zuerst „Mein Standort“ in der App.</string>
     <string name="widget_current_location_retry">Erneut versuchen</string>
     <string name="widget_current_location_interrupted">Aktualisierung unterbrochen; erneut versuchen.</string>
+    <string name="apparent_temperature_summary">Gefühlt %1$s</string>
     <string name="apparent_temperature_label">Gefühlt geschätzt %1$s</string>
     <string name="apparent_temperature_title">Geschätzte gefühlte Temperatur</string>
     <string name="apparent_temperature_explanation">Die gefühlte Temperatur wird aus Lufttemperatur, Luftfeuchtigkeit, Wind und Sonneneinstrahlung geschätzt. Sie ist keine direkte Messung des persönlichen Empfindens.</string>

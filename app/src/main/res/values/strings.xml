@@ -1028,6 +1028,7 @@
     <string name="widget_current_location_disabled">Activez d’abord « Ma position » dans l’application.</string>
     <string name="widget_current_location_retry">Réessayer</string>
     <string name="widget_current_location_interrupted">Mise à jour interrompue ; réessayez.</string>
+    <string name="apparent_temperature_summary">Ressenti %1$s</string>
     <string name="apparent_temperature_label">Ressenti estimé %1$s</string>
     <string name="apparent_temperature_title">Température ressentie estimée</string>
     <string name="apparent_temperature_explanation">La température ressentie estimée est calculée à partir de la température de l’air, de l’humidité, du vent et du rayonnement solaire. Ce n’est pas une mesure directe du ressenti individuel.</string>

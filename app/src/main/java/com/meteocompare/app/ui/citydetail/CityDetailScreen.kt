@@ -1236,6 +1236,7 @@ internal fun DetailedComparisonContent(
                     }
                     MinMaxForecastLegend(normalsAvailable = normals != null)
                 } else {
+                    val apparentPrefix = stringResource(R.string.apparent_temperature_widget_prefix)
                     DetailTableCard {
                         HourlyForecastTable(
                             forecast = forecast,
@@ -1244,6 +1245,14 @@ internal fun DetailedComparisonContent(
                                 hourly.temperature2m.getOrNull(idx)
                             },
                             valueFormatter = { units.temp(it) },
+                            // One cell per model/hour: air temperature above feels-like.
+                            // Reuses the existing hourly series, without a second table.
+                            secondaryValueExtractor = { hourly: HourlyForecast, idx ->
+                                hourly.apparentTemperature.getOrNull(idx)?.takeIf(Double::isFinite)
+                            },
+                            secondaryValueFormatter = { apparent ->
+                                "$apparentPrefix ${units.temp(apparent)}"
+                            },
                             heatmapStyler = ::hourlyTemperatureHeatmap,
                             modelBiasProvider = temperatureBiasProvider,
                             sampleCountProvider = temperatureSampleCountProvider,
@@ -1252,31 +1261,16 @@ internal fun DetailedComparisonContent(
                         )
                     }
                     HourlyTemperatureLegend()
+                    // Full definition remains available in detailed forecasts, not in Home cards.
                     if (forecast.seriesByModel.values.any { series ->
                             series.hourly.apparentTemperature.any { it?.isFinite() == true }
                         }) {
                         Text(
-                            text = stringResource(R.string.apparent_temperature_title),
-                            style = MaterialTheme.typography.titleSmall,
-                            modifier = Modifier.padding(top = 14.dp, start = 8.dp, end = 8.dp)
-                        )
-                        Text(
                             text = stringResource(R.string.apparent_temperature_explanation),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 4.dp)
                         )
-                        DetailTableCard {
-                            HourlyForecastTable(
-                                forecast = forecast,
-                                now = presentationNow,
-                                valueExtractor = { hourly: HourlyForecast, idx ->
-                                    hourly.apparentTemperature.getOrNull(idx)
-                                },
-                                valueFormatter = { units.temp(it) },
-                                modifier = Modifier.padding(8.dp)
-                            )
-                        }
                     }
                 }
             }
@@ -1652,7 +1646,7 @@ internal fun TodaySummaryCard(
         )
     } else null
     val a11yDescription = temperatureDescription +
-        (validApparent?.let { ". " + resources.getString(R.string.apparent_temperature_label, units.temp(it)) } ?: "") +
+        (validApparent?.let { ". " + resources.getString(R.string.apparent_temperature_summary, units.temp(it)) } ?: "") +
         (uvDescription?.let { ". $it" } ?: "") +
         (solarDescription?.let { ". $it" } ?: "")
     val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
@@ -1731,18 +1725,23 @@ internal fun TodaySummaryCard(
                         Spacer(Modifier.width(16.dp))
 
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = currentTemp?.let { units.temp(it) } ?: "—",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Medium
-                            )
-                            validApparent?.let { apparent ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    text = stringResource(R.string.apparent_temperature_label, units.temp(apparent)),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.testTag(TAG_TODAY_SUMMARY_APPARENT)
+                                    text = currentTemp?.let { units.temp(it) } ?: "—",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Medium
                                 )
+                                validApparent?.let { apparent ->
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        text = stringResource(R.string.apparent_temperature_summary, units.temp(apparent)),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f).testTag(TAG_TODAY_SUMMARY_APPARENT)
+                                    )
+                                }
                             }
                             currentCondition?.let { condition ->
                                 Text(

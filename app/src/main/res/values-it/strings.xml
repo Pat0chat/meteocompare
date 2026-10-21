@@ -834,6 +834,7 @@ dato</string>
     <plurals name="home_scenario_hidden_variants">
         <item quantity="one">+ %1$d altra variante non mostrata · %2$d/%3$d modelli</item>
         <item quantity="other">+ %1$d altre varianti non mostrate · %2$d/%3$d modelli</item>
+        <item quantity="many">+ %1$d altre varianti non mostrate · %2$d/%3$d modelli</item>
     </plurals>
     <string name="mini_forecast_current_hour_a11y">Ora corrente</string>
 
@@ -1014,6 +1015,7 @@ dato</string>
     <string name="widget_current_location_disabled">Attiva prima «La mia posizione» nell’app.</string>
     <string name="widget_current_location_retry">Riprova</string>
     <string name="widget_current_location_interrupted">Aggiornamento interrotto; riprova.</string>
+    <string name="apparent_temperature_summary">Percepita %1$s</string>
     <string name="apparent_temperature_label">Percepita stimata %1$s</string>
     <string name="apparent_temperature_title">Temperatura percepita stimata</string>
     <string name="apparent_temperature_explanation">La temperatura percepita stimata viene calcolata da temperatura, umidità, vento e radiazione solare. Non misura direttamente la sensazione personale.</string>

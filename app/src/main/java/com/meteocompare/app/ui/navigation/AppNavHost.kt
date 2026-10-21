@@ -23,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -196,8 +197,8 @@ private fun TabletHomeScreen(
     val availableCityIds = listState.items.map { it.city.id }
     var directCityId by rememberSaveable { mutableStateOf<String?>(null) }
     var directDestination by rememberSaveable { mutableStateOf<String?>(null) }
-    var directRequest by rememberSaveable { mutableStateOf(0) }
-    var handledDirectRequest by rememberSaveable { mutableStateOf(0) }
+    var directRequest by rememberSaveable { mutableIntStateOf(0) }
+    var handledDirectRequest by rememberSaveable { mutableIntStateOf(0) }
 
     if (!homeExpansion.isReady) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -273,7 +274,7 @@ internal fun TabletMasterDetailContent(
     onHomeCityExpanded: ((String) -> Unit)? = null
 ) {
     var selectedCityId by rememberSaveable { mutableStateOf<String?>(null) }
-    var knownCityIds by rememberSaveable { mutableStateOf(arrayListOf<String>()) }
+    var knownCityIds by rememberSaveable { mutableStateOf<List<String>>(arrayListOf()) }
     val activeCityId = if (onHomeCityExpanded != null) {
         homeExpandedCityId?.takeIf { it in availableCityIds } ?: availableCityIds.lastOrNull()
     } else {

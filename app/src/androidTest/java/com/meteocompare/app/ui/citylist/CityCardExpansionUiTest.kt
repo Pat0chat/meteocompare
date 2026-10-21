@@ -252,6 +252,31 @@ class CityCardExpansionUiTest {
         composeRule.onNodeWithTag("city_card_apparent_${TestFixtures.paris.id}", useUnmergedTree = true).assertExists()
     }
 
+    @Test fun expanded_home_card_has_felt_temperature_without_long_explanation() {
+        val feelsColder = paris.copy(
+            forecast = (paris.forecast as ForecastState.Loaded).copy(apparentTemp = 15.0)
+        )
+        composeRule.setContent {
+            MeteoCompareTheme {
+                CityList(
+                    items = listOf(feelsColder),
+                    homeExpandedCityId = TestFixtures.paris.id,
+                    onCityClick = {}, onRemove = {}, onRetry = {}
+                )
+            }
+        }
+        composeRule.onNodeWithText(
+            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
+                .targetContext.getString(com.meteocompare.app.R.string.apparent_temperature_label, "15°"),
+            useUnmergedTree = true
+        ).assertExists()
+        composeRule.onNodeWithText(
+            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
+                .targetContext.getString(com.meteocompare.app.R.string.apparent_temperature_explanation),
+            useUnmergedTree = true
+        ).assertDoesNotExist()
+    }
+
     @Test fun compact_card_hides_feels_like_when_difference_is_small() {
         val barelyDifferent = paris.copy(forecast = (paris.forecast as ForecastState.Loaded).copy(apparentTemp = 18.1))
         composeRule.setContent {

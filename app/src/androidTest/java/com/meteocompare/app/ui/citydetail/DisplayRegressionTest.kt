@@ -4,6 +4,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -140,6 +141,74 @@ class DisplayRegressionTest {
         composeRule.runOnIdle { units.value = UnitSystem.METRIC }
         composeRule.onAllNodesWithText("$gust 32", useUnmergedTree = true)[0].assertExists()
         assertEquals(32.18688, forecast.seriesByModel.getValue(WeatherModel.GFS).hourly.windGusts10m.first()!!, 0.0)
+    }
+
+    @Test fun hourly_temperature_shows_felt_value_below_air_temp_in_the_same_cell() {
+        val unitSystem = mutableStateOf(UnitSystem.METRIC)
+        val initial = TestFixtures.forecast(models = listOf(WeatherModel.GFS))
+        val forecast = initial.copy(seriesByModel = initial.seriesByModel.mapValues { (_, series) ->
+            series.copy(hourly = series.hourly.copy(
+                apparentTemperature = series.hourly.timestamps.map { 16.0 }
+            ))
+        })
+        composeRule.setContent {
+            CompositionLocalProvider(LocalWeatherUnits provides WeatherUnits(unitSystem.value)) {
+                MeteoCompareTheme {
+                    Surface {
+                        DetailedComparisonContent(
+                            mode = DisplayMode.HOURLY,
+                            tab = CityDetailContentTab.TEMPERATURE,
+                            forecast = forecast,
+                            dailyConditions = emptyList(),
+                            normals = null,
+                            presentationNow = TestFixtures.now,
+                            cityToday = TestFixtures.today
+                        )
+                    }
+                }
+            }
+        }
+
+        val firstTemp = composeRule.onAllNodesWithText("20°", useUnmergedTree = true)[0]
+            .getUnclippedBoundsInRoot()
+        val feels = composeRule.onAllNodesWithText(
+            "${context.getString(R.string.apparent_temperature_widget_prefix)} 16°",
+            useUnmergedTree = true
+        )[0].getUnclippedBoundsInRoot()
+        assertTrue("Feels-like is under temperature", feels.top >= firstTemp.bottom)
+        assertTrue("Both values share the same model and hour cell", kotlin.math.abs(feels.center.x.value - firstTemp.center.x.value) <= 8f)
+        composeRule.runOnIdle { unitSystem.value = UnitSystem.IMPERIAL }
+        composeRule.onAllNodesWithText("68°F", useUnmergedTree = true)[0].assertExists()
+        composeRule.onAllNodesWithText(
+            "${context.getString(R.string.apparent_temperature_widget_prefix)} 61°F",
+            useUnmergedTree = true
+        )[0].assertExists()
+    }
+
+    @Test fun hourly_temperature_does_not_invent_missing_felt_values() {
+        val initial = TestFixtures.forecast(models = listOf(WeatherModel.GFS))
+        val forecast = initial.copy(seriesByModel = initial.seriesByModel.mapValues { (_, series) ->
+            series.copy(hourly = series.hourly.copy(
+                apparentTemperature = series.hourly.timestamps.map { Double.NaN }
+            ))
+        })
+        composeRule.setContent {
+            MeteoCompareTheme {
+                Surface {
+                    DetailedComparisonContent(
+                        mode = DisplayMode.HOURLY,
+                        tab = CityDetailContentTab.TEMPERATURE,
+                        forecast = forecast,
+                        dailyConditions = emptyList(), normals = null,
+                        presentationNow = TestFixtures.now, cityToday = TestFixtures.today
+                    )
+                }
+            }
+        }
+        composeRule.onAllNodesWithText(
+            "${context.getString(R.string.apparent_temperature_widget_prefix)} NaN°",
+            useUnmergedTree = true
+        ).assertCountEquals(0)
     }
 
     @Test fun bias_action_tracks_waiting_running_failure_and_partial_success() {

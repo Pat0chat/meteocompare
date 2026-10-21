@@ -1,16 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <data-extraction-rules>
     <cloud-backup>
-        <!-- Ne jamais restaurer un cache météo/marine périmé sur un nouvel appareil. -->
+        <!-- Liste blanche de sauvegarde : la localisation et les caches ne sont jamais inclus. -->
         <include domain="file" path="datastore/user_prefs.preferences_pb" />
         <include domain="file" path="datastore/favorites.preferences_pb" />
         <include domain="sharedpref" path="meteocompare_locale_prefs.xml" />
-            <exclude domain="file" path="datastore/current_location.preferences_pb" />
     </cloud-backup>
     <device-transfer>
         <include domain="file" path="datastore/user_prefs.preferences_pb" />
         <include domain="file" path="datastore/favorites.preferences_pb" />
         <include domain="sharedpref" path="meteocompare_locale_prefs.xml" />
-            <exclude domain="file" path="datastore/current_location.preferences_pb" />
     </device-transfer>
 </data-extraction-rules>

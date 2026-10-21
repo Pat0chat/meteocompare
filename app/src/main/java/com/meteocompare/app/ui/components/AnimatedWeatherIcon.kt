@@ -144,8 +144,8 @@ internal fun StaticWeatherIconStrip(
     conditions: List<WeatherCondition>,
     slotWidth: Dp,
     iconSize: Dp,
-    visibleRange: IntRange = conditions.indices,
     modifier: Modifier = Modifier,
+    visibleRange: IntRange = conditions.indices,
     palette: WeatherIconPalette = WeatherIconDefaults.palette,
     daylight: List<Boolean>? = null
 ) {

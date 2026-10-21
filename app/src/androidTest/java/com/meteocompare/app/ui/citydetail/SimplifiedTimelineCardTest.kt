@@ -8,6 +8,8 @@ import com.meteocompare.app.domain.model.ClockFormatPreference
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
@@ -76,7 +78,11 @@ class SimplifiedTimelineCardTest {
                     timezone = "UTC", now = Instant.parse("2026-07-26T12:00:00Z"))
             }
         }
-        composeRule.onNodeWithTag(TAG_TIMELINE_CHRONO_APPARENT, useUnmergedTree = true).assertIsDisplayed()
+        val feels = composeRule.onNodeWithTag(TAG_TIMELINE_CHRONO_APPARENT, useUnmergedTree = true)
+            .assertIsDisplayed().getUnclippedBoundsInRoot()
+        val plot = composeRule.onNodeWithTag(TAG_TIMELINE_CHRONO_TEMPERATURE_PLOT, useUnmergedTree = true)
+            .getUnclippedBoundsInRoot()
+        assertTrue("Feels-like label must have breathing room above the heatmap edge", feels.bottom <= plot.bottom - 4.dp)
     }
 
     @Test

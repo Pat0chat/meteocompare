@@ -59,8 +59,9 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import com.meteocompare.app.core.units.weatherStringResource as stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -94,9 +95,9 @@ internal fun ChronoTimelineView(
     mode: DisplayMode,
     timezone: String?,
     now: Instant,
+    modifier: Modifier = Modifier,
     scrollState: androidx.compose.foundation.ScrollState = rememberScrollState(),
-    highlightedKey: String? = null,
-    modifier: Modifier = Modifier
+    highlightedKey: String? = null
 ) {
     if (points.isEmpty()) return
 
@@ -110,7 +111,8 @@ internal fun ChronoTimelineView(
     val dayFormatter = remember(locale) { DateTimeFormatter.ofPattern("EEE d", locale) }
     val pointWidth = chronoPointWidth(mode)
     val contentWidth = pointWidth * points.size.toFloat()
-    val labelWidth = chronoLabelColumnWidth(configuration.screenWidthDp)
+    val availableWidthDp = with(LocalDensity.current) { LocalWindowInfo.current.containerSize.width.toDp().value }
+    val labelWidth = chronoLabelColumnWidth(availableWidthDp.toInt())
     val scheme = MaterialTheme.colorScheme
     val highlightedIndex = remember(points, highlightedKey) {
         highlightedKey?.let { key -> points.indexOfFirst { timelinePointKey(it) == key } }
@@ -476,6 +478,7 @@ private fun ChronoTemperaturePlot(
         modifier = Modifier
             .fillMaxWidth()
             .height(CHRONO_TEMP_HEIGHT)
+            .testTag(TAG_TIMELINE_CHRONO_TEMPERATURE_PLOT)
     ) {
         Canvas(modifier = Modifier.matchParentSize()) {
             if (points.isEmpty()) return@Canvas
@@ -632,6 +635,7 @@ private fun ChronoTemperaturePlot(
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier
                                     .align(Alignment.BottomCenter)
+                                    .offset(y = (-6).dp)
                                     .testTag(TAG_TIMELINE_CHRONO_APPARENT)
                                     .padding(horizontal = 2.dp)
                             )
@@ -1191,6 +1195,7 @@ internal fun chronoLabelColumnWidth(screenWidthDp: Int): Dp =
 internal const val TAG_TIMELINE_CHRONO_VIEW = "timeline_chrono_view"
 internal const val TAG_TIMELINE_CHRONO_DATE_LANE = "timeline_chrono_date_lane"
 internal const val TAG_TIMELINE_CHRONO_APPARENT = "timeline_chrono_apparent"
+internal const val TAG_TIMELINE_CHRONO_TEMPERATURE_PLOT = "timeline_chrono_temperature_plot"
 internal const val TAG_TIMELINE_CHRONO_CONDITIONS_LANE = "timeline_chrono_conditions_lane"
 
 private val CHRONO_DATE_HEIGHT = 52.dp
