@@ -1004,6 +1004,7 @@ dato</string>
     <string name="current_location_privacy_hint">Solo posizione approssimativa. Aggiornata nell’app aperta; il widget usa l’ultima zona.</string>
     <string name="current_location_updated">Posizione aggiornata</string>
     <string name="current_location_permission_required">Consenti la posizione approssimativa per aggiungere la scheda</string>
+    <string name="current_location_services_disabled">Servizi di localizzazione disattivati. Attiva la posizione nelle impostazioni Android.</string>
     <string name="current_location_unavailable">Posizione non disponibile. Attiva la posizione e riprova.</string>
     <string name="current_location_stale">Aggiornare la posizione</string>
     <string name="current_location_widget_note">Il widget usa l’ultima zona salvata. Tocca ↻ sul widget o apri MeteoCompare per aggiornare la posizione (nessun monitoraggio in background).</string>

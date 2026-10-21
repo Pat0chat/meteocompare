@@ -90,7 +90,8 @@ def test_foreground_gps_has_time_gates_and_no_background_job():
     policy = (JAVA / "domain/util/LocationRefreshPolicy.kt").read_text()
     main_activity = (JAVA / "MainActivity.kt").read_text()
     assert "LocationRefreshPolicy.shouldAcquire" in controller
-    assert "lastAttemptMs = now" in controller
+    assert "lastAutomaticAttemptMs = now" in controller
+    assert "lastExplicitAttemptMs = now" in controller
     assert "mutex.withLock" in controller
     assert "FOREGROUND_INTERVAL_MS = 30 * 60_000L" in policy
     assert "AUTO_RETRY_INTERVAL_MS = 2 * 60_000L" in policy

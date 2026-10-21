@@ -999,6 +999,7 @@ Daten</string>
     <string name="current_location_privacy_hint">Nur ungefährer Standort. Wird in der geöffneten App aktualisiert; das Widget nutzt das letzte Gebiet.</string>
     <string name="current_location_updated">Standort aktualisiert</string>
     <string name="current_location_permission_required">Erlaube den ungefähren Standort für diese Karte</string>
+    <string name="current_location_services_disabled">Standortdienste deaktiviert. Aktiviere den Standort in den Android-Einstellungen.</string>
     <string name="current_location_unavailable">Standort nicht verfügbar. Standortdienste aktivieren und erneut versuchen.</string>
     <string name="current_location_stale">Standort aktualisieren</string>
     <string name="current_location_widget_note">Das Widget nutzt die zuletzt gespeicherte Region. Tippe auf ↻ im Widget oder öffne MeteoCompare zum Aktualisieren (keine Ortung im Hintergrund).</string>

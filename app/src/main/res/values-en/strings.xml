@@ -1016,6 +1016,7 @@
     <string name="current_location_privacy_hint">Approximate location only. Updated while the app is open; the widget reuses the last area.</string>
     <string name="current_location_updated">Location updated</string>
     <string name="current_location_permission_required">Allow approximate location to add this card</string>
+    <string name="current_location_services_disabled">Location services are off. Enable location in Android settings.</string>
     <string name="current_location_unavailable">Position unavailable. Turn on location services and try again.</string>
     <string name="current_location_stale">Location needs updating</string>
     <string name="current_location_widget_note">The widget uses the last saved area. Tap ↻ on the widget or open MeteoCompare to update your location (no background tracking).</string>

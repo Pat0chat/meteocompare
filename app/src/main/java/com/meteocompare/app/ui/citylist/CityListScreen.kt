@@ -207,6 +207,9 @@ fun CityListScreen(
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         locationVm.refreshOnResume(viewModel::refreshIfStale)
     }
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) {
+        locationVm.cancelLocationRequests()
+    }
 
     val marineToasts = remember(viewModel) {
         viewModel.marineFeedback.map { feedback ->
@@ -248,6 +251,7 @@ fun CityListScreen(
             onRetry = viewModel::onRetry,
             onRefresh = { locationVm.refreshActive(viewModel::onRefreshAll) },
             onMarineAction = viewModel::onMarineAction,
+            isLocating = locationVm.isLocating,
             selectedCityId = selectedCityId,
             selectionEnabled = selectionEnabled,
             homeExpandedCityId = homeExpansion.expandedCityId,
@@ -334,6 +338,7 @@ internal fun CityListContent(
     onRetry: (City) -> Unit,
     onRefresh: () -> Unit,
     onMarineAction: (City) -> Unit = {},
+    isLocating: Boolean = false,
     snackbarHostState: SnackbarHostState? = null,
     selectedCityId: String? = null,
     selectionEnabled: Boolean = false,
@@ -370,6 +375,13 @@ internal fun CityListContent(
                     containerColor = MaterialTheme.colorScheme.surfaceContainerLowest
                 ),
                 actions = {
+                    if (isLocating) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(22.dp).testTag("current_location_progress"),
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(Modifier.width(12.dp))
+                    }
                     if (uiState.items.size >= 2) {
                         IconButton(
                             onClick = onCompareClick,
