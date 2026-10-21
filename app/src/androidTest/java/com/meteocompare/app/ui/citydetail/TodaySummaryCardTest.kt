@@ -67,7 +67,10 @@ class TodaySummaryCardTest {
         val temperature = composeRule.onNodeWithText("20°", useUnmergedTree = true)
             .assertIsDisplayed().getUnclippedBoundsInRoot()
         assertTrue("Feels-like must be to the right of the air temperature", feels.left >= temperature.right)
-        assertTrue("Both values must stay on the same row", kotlin.math.abs(feels.center.y.value - temperature.center.y.value) <= 12f)
+        assertTrue("Both values must stay on the same row", kotlin.math.abs(
+            (feels.top.value + feels.bottom.value) / 2f -
+                (temperature.top.value + temperature.bottom.value) / 2f
+        ) <= 12f)
     }
 
     @Test

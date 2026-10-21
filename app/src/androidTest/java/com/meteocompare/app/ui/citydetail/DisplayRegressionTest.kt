@@ -176,7 +176,10 @@ class DisplayRegressionTest {
             useUnmergedTree = true
         )[0].getUnclippedBoundsInRoot()
         assertTrue("Feels-like is under temperature", feels.top >= firstTemp.bottom)
-        assertTrue("Both values share the same model and hour cell", kotlin.math.abs(feels.center.x.value - firstTemp.center.x.value) <= 8f)
+        assertTrue("Both values share the same model and hour cell", kotlin.math.abs(
+            (feels.left.value + feels.right.value) / 2f -
+                (firstTemp.left.value + firstTemp.right.value) / 2f
+        ) <= 8f)
         composeRule.runOnIdle { unitSystem.value = UnitSystem.IMPERIAL }
         composeRule.onAllNodesWithText("68°F", useUnmergedTree = true)[0].assertExists()
         composeRule.onAllNodesWithText(
