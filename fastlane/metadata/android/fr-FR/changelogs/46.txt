@@ -1,1 +1,2 @@
-Ma position (facultatif) : carte météo et widgets basés sur une position approximative. Actualisation uniquement lorsque l’application est ouverte. Aucune géolocalisation en arrière-plan, aucun historique de déplacements. Les widgets utilisent la dernière zone connue. Corrections et optimisations des prévisions.
+- Ma position (facultatif) : carte météo et widgets basés sur une position approximative. Actualisation uniquement lorsque l’application est ouverte. Aucune géolocalisation en arrière-plan, aucun historique de déplacements. Les widgets utilisent la dernière zone connue. Corrections et optimisations des prévisions.
+- Température ressentie

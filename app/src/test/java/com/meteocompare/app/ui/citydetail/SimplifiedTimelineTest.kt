@@ -19,6 +19,36 @@ class SimplifiedTimelineTest {
     private val today = LocalDate.of(2026, 7, 23)
 
     @Test
+    fun `today summary does not mistake next available hour for the present`() {
+        val future = SimplifiedTimelinePoint(instant = now.plusSeconds(3600), apparentTemperatureC = 18.0)
+        assertEquals(null, currentHourlyApparentTemperature(listOf(future), now))
+        val current = SimplifiedTimelinePoint(instant = now, apparentTemperatureC = 15.0)
+        assertEquals(15.0, currentHourlyApparentTemperature(listOf(future, current), now)!!, 0.001)
+        assertEquals(null, currentHourlyApparentTemperature(
+            listOf(SimplifiedTimelinePoint(instant = now, apparentTemperatureC = Double.NaN)), now))
+    }
+
+    @Test
+    fun `hourly felt temperature alone remains available without fabricating air temperature`() {
+        val series = ForecastSeries(
+            model = WeatherModel.GFS,
+            hourly = HourlyForecast(
+                timestamps = listOf(now),
+                temperature2m = listOf(null),
+                apparentTemperature = listOf(14.0),
+                precipitation = listOf(null),
+                windSpeed10m = listOf(null)
+            ),
+            daily = DailyForecast(emptyList(), emptyList(), emptyList(), emptyList(), emptyList())
+        )
+        val result = buildSimplifiedTimeline(CityForecast(paris, mapOf(WeatherModel.GFS to series)), DisplayMode.HOURLY, now)
+        assertEquals(1, result.size)
+        assertEquals(null, result.single().temperatureC)
+        assertEquals(14.0, result.single().apparentTemperatureC!!, 0.001)
+        assertEquals(null, result.single().consensusPercent)
+    }
+
+    @Test
     fun `shared overview preserves hourly selection and daily fallback`() {
         for (hourCount in listOf(0, 1, 2, 24)) {
             val series = ForecastSeries(

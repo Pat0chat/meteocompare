@@ -800,6 +800,7 @@ internal fun CityCard(
                                     is ForecastState.Loaded -> CityCardLoaded(
                                         today = forecast.today,
                                         currentTemp = forecast.currentTemp,
+                                        apparentTemp = forecast.apparentTemp,
                                         currentCondition = forecast.currentCondition,
                                         currentCloudCover = forecast.currentCloudCover,
                                         uvIndex = uv,
@@ -965,7 +966,7 @@ private fun CompactCityCardContent(
                     )
                 }
             }
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(16.dp))
             Text(
                 text = conditionLabel,
                 style = MaterialTheme.typography.bodySmall,
@@ -991,17 +992,26 @@ private fun CompactCityCardContent(
                 )
                 // Same H+3 forecast and trend chip as on the expanded card.
                 upcomingTemperature?.let { HomeTemperatureTrendChip(it, units) }
+                // No extra row for apparent temperature; preserve the compact weather metrics.
+                val apparent = loaded?.apparentTemp
+                if (com.meteocompare.app.domain.util.ApparentTemperature.significant(loaded?.currentTemp, apparent)) {
+                    Text(
+                        text = stringResource(R.string.apparent_temperature_short, units.temp(apparent)),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        modifier = Modifier.testTag("city_card_apparent_${state.city.id}")
+                    )
+                }
             }
-            // Keep the official vigilance level immediately after the trend,
-            // rather than adding a new line to the condensed card.
-            vigilanceLevel?.let { level ->
-                Spacer(Modifier.width(16.dp))
+        }
+        // The vigilance sits underneath the temperature row, never to its right.
+        vigilanceLevel?.let { level ->
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 VigilanceCompactLevelIndicator(
                     level = level,
                     isStale = state.vigilance?.isStale == true,
-                    modifier = Modifier.testTag(
-                        "$TAG_CITY_CARD_COMPACT_VIGILANCE${state.city.id}"
-                    )
+                    modifier = Modifier.testTag("$TAG_CITY_CARD_COMPACT_VIGILANCE${state.city.id}")
                 )
             }
         }
@@ -1215,6 +1225,7 @@ private fun CityCardError(message: String, onRetry: () -> Unit) {
 private fun CityCardLoaded(
     today: DayConfidence,
     currentTemp: Double?,
+    apparentTemp: Double?,
     currentCondition: WeatherCondition?,
     currentCloudCover: Int?,
     uvIndex: Double?,
@@ -1252,6 +1263,7 @@ private fun CityCardLoaded(
     Column {
         CurrentWeatherHero(
             currentTemp = currentTemp,
+            apparentTemp = apparentTemp,
             currentCondition = currentCondition,
             currentCloudCover = currentCloudCover,
             agreementPercent = today.overallPercent,
@@ -1310,6 +1322,7 @@ private fun CityCardLoaded(
 @Composable
 private fun CurrentWeatherHero(
     currentTemp: Double?,
+    apparentTemp: Double?,
     currentCondition: WeatherCondition?,
     currentCloudCover: Int?,
     agreementPercent: Int?,
@@ -1372,6 +1385,18 @@ private fun CurrentWeatherHero(
                     }
                 }
 
+                apparentTemp?.takeIf(Double::isFinite)?.let {
+                    Text(
+                        text = stringResource(R.string.apparent_temperature_label, units.temp(it)),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = stringResource(R.string.apparent_temperature_explanation),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 currentCondition?.let {
                     Text(
                         text = stringResource(weatherConditionLabelRes(it)),

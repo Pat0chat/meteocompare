@@ -33,6 +33,7 @@ class ForecastDataChainContractTest {
               "hourly": {
                 "time": ["2026-08-16T12:00"],
                 "temperature_2m_${key}": [21.1],
+                "apparent_temperature_${key}": [18.6],
                 "precipitation_${key}": [2.2],
                 "precipitation_probability_${key}": [33],
                 "cloud_cover_${key}": [44],
@@ -65,6 +66,7 @@ class ForecastDataChainContractTest {
 
         val series = mapper.toSeries(WeatherModel.GFS, dto!!)
         assertEquals(listOf(21.1), series.hourly.temperature2m)
+        assertEquals(listOf(18.6), series.hourly.apparentTemperature)
         assertEquals(listOf(2.2), series.hourly.precipitation)
         assertEquals(listOf(33), series.hourly.precipitationProbability)
         assertEquals(listOf(44), series.hourly.cloudCover)
@@ -103,6 +105,7 @@ class ForecastDataChainContractTest {
               "hourly": {
                 "time": ["2026-08-28T06:00"],
                 "temperature_2m_${key}": [17.4],
+                "apparent_temperature_${key}": [14.9],
                 "precipitation_${key}": [1.2],
                 "precipitation_probability_${key}": [64],
                 "cloud_cover_${key}": [83],
@@ -138,6 +141,7 @@ class ForecastDataChainContractTest {
 
         assertEquals("ecmwf_ifs", WeatherModel.ECMWF.apiKey)
         assertEquals(listOf(17.4), series.hourly.temperature2m)
+        assertEquals(listOf(14.9), series.hourly.apparentTemperature)
         assertEquals(listOf(1.2), series.hourly.precipitation)
         assertEquals(listOf(64), series.hourly.precipitationProbability)
         assertEquals(listOf(83), series.hourly.cloudCover)
@@ -159,7 +163,7 @@ class ForecastDataChainContractTest {
     fun `contrat de variables API reste aligne avec les champs du pipeline`() {
         assertEquals(
             setOf(
-                "temperature_2m", "precipitation", "precipitation_probability",
+                "temperature_2m", "apparent_temperature", "precipitation", "precipitation_probability",
                 "cloud_cover", "cloud_cover_low", "cloud_cover_mid", "cloud_cover_high",
                 "wind_speed_10m", "wind_direction_10m",
                 "wind_gusts_10m", "weather_code"

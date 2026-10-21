@@ -375,6 +375,7 @@ Fait :
 - ✅ v1.17.2 — Choix 12 h / 24 h indépendant de la langue, icônes météo nocturnes, indices UV colorés, refonte du résumé du jour et correctifs de stabilité (publication après validation CI / appareil)
 - ✅ v1.18.0 — Comparateur de localités avec graphiques horaires (axes gradués, palette par métrique, sélection tactile), unités UK et optimisations de calculs.
 - ✅ v1.18.1 — Cartes Home compactes animées et sélection mémorisée, amélioration du vent dans les tableaux, clarification des widgets, cache radar optimisé et correctifs de performance.
+- ✅ v1.19.0
 
 ## Licence
 

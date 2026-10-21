@@ -1,1 +1,2 @@
-Optionale Wetterkarte und Widget für „Mein Standort“. Nur ungefährer Standort bei geöffneter App, kein Hintergrundzugriff und kein Bewegungsprofil. Widgets nutzen die letzte bekannte Region.
+- Optionale Wetterkarte und Widget für „Mein Standort“. Nur ungefährer Standort bei geöffneter App, kein Hintergrundzugriff und kein Bewegungsprofil. Widgets nutzen die letzte bekannte Region.
+- Gefühlte Temperatur

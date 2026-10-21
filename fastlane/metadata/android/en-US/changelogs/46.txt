@@ -1,1 +1,2 @@
-Optional My location weather card and widget. Uses approximate location only while the app is open; no background location and no movement history. Widgets use the last known area. Forecast optimizations and fixes.
+- Optional My location weather card and widget. Uses approximate location only while the app is open; no background location and no movement history. Widgets use the last known area. Forecast optimizations and fixes.
+- Feels-like temperature

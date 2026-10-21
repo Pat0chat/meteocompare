@@ -80,6 +80,8 @@ internal data class SimplifiedTimelinePoint(
     val instant: Instant? = null,
     val date: LocalDate? = null,
     val temperatureC: Double? = null,
+    /** Model median of the estimated apparent temperature, hourly only. */
+    val apparentTemperatureC: Double? = null,
     val tempMinC: Double? = null,
     val tempMaxC: Double? = null,
     /** Étendue de la température principale entre les modèles à cette échéance. */
@@ -148,6 +150,13 @@ internal data class SimplifiedTimelinePoint(
 
     fun consensusFor(metric: ForecastMetric): MetricConsensus? = metricConsensus[metric]
 }
+
+/** The summary must never show a future (or stale) hour as the current felt temperature. */
+internal fun currentHourlyApparentTemperature(
+    points: List<SimplifiedTimelinePoint>,
+    currentHour: Instant
+): Double? = points.firstOrNull { it.instant == currentHour }
+    ?.apparentTemperatureC?.takeIf(Double::isFinite)
 
 /** Align UV to absolute hour / local forecast day; do not interpolate missing values. */
 internal fun List<SimplifiedTimelinePoint>.withUvIndex(uv: UvForecast?): List<SimplifiedTimelinePoint> =
@@ -258,6 +267,7 @@ private fun buildDailyTimeline(
 private data class TimelineSnapshot(
     val model: WeatherModel,
     val temperature: Double?,
+    val apparentTemperature: Double? = null,
     val tempMin: Double?,
     val tempMax: Double?,
     val precipitation: Double?,
@@ -270,7 +280,7 @@ private data class TimelineSnapshot(
     val nativeCondition: WeatherCondition? = null
 ) {
     val hasAnyValue: Boolean
-        get() = temperature != null || tempMin != null || tempMax != null ||
+        get() = temperature != null || apparentTemperature?.isFinite() == true || tempMin != null || tempMax != null ||
             precipitation != null || precipitationProbability != null || cloudCover != null ||
             wind != null || windGust != null ||
             (condition != null && condition != WeatherCondition.UNKNOWN)
@@ -286,6 +296,7 @@ private fun indexHourlySnapshots(
         // La vue 24 h n'a pas besoin d'allouer les snapshots des 10 jours.
         if (timestamp < startHour || timestamp >= endExclusive) return@forEachIndexed
         val temperature = series.hourly.temperature2m.getOrNull(index)
+        val apparentTemperature = series.hourly.apparentTemperature.getOrNull(index)
         val precipitation = series.hourly.precipitation.getOrNull(index)
         val probability = series.hourly.precipitationProbability.getOrNull(index)
         val cloudCover = series.hourly.cloudCover.getOrNull(index)
@@ -298,6 +309,7 @@ private fun indexHourlySnapshots(
         val snapshot = TimelineSnapshot(
             model = model,
             temperature = temperature,
+            apparentTemperature = apparentTemperature,
             tempMin = null,
             tempMax = null,
             precipitation = precipitation,
@@ -406,6 +418,11 @@ private fun timelinePoint(
         { if (hourly) it.temperature else it.tempMax }, ForecastEngineVariable.TEMPERATURE,
         0.5, 3.0, allowCalibration = !hourly
     )
+    // Same forecast engine as temperature, without calibration or new convergence score.
+    val apparent = if (hourly) continuous(
+        { it.apparentTemperature }, ForecastEngineVariable.TEMPERATURE,
+        0.5, 3.0, allowCalibration = false
+    ) else null
     val tempMin = if (hourly) null else continuous(
         { it.tempMin }, ForecastEngineVariable.TEMPERATURE, 0.5, 3.0, allowCalibration = false
     )
@@ -560,6 +577,7 @@ private fun timelinePoint(
         instant = timestamp,
         date = date,
         temperatureC = if (hourly) temp.forecastValue.central else null,
+        apparentTemperatureC = apparent?.forecastValue?.central,
         tempMinC = tempMin?.forecastValue?.central,
         tempMaxC = if (hourly) null else temp.forecastValue.central,
         temperatureMinAcrossModels = temperatures.minOrNull(),

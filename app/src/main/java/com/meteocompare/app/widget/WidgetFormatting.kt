@@ -39,8 +39,11 @@ import com.meteocompare.app.domain.model.WeatherCondition
  * Séparateur "·" (middle dot U+00B7) plutôt qu'une virgule : plus léger
  * visuellement à petite taille de police, préférence typographique.
  */
-internal fun buildExtrasLine(data: WidgetData, units: WeatherUnits = WeatherUnits(data.unitSystem)): String {
+internal fun buildExtrasLine(data: WidgetData, units: WeatherUnits = WeatherUnits(data.unitSystem), includeApparent: Boolean = false, apparentPrefix: String = "Ress."): String {
     val parts = mutableListOf<String>()
+    if (includeApparent) data.apparentTemp?.takeIf(Double::isFinite)?.let {
+        parts += "$apparentPrefix ${units.temp(it)}"
+    }
 
     val cond = data.currentCondition
     val showCloud = data.currentCloudCover != null &&

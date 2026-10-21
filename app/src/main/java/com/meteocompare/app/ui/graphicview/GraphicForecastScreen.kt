@@ -195,6 +195,7 @@ internal data class GraphicRenderData(
     val daylight: List<Boolean>,
     val hours: List<Int?>,
     val temperatures: List<Double?>,
+    val apparentTemperatures: List<Double?>,
     val temperatureMins: List<Double?>,
     val temperatureMaxs: List<Double?>,
     val rainAmounts: List<Double?>,
@@ -216,6 +217,7 @@ internal fun buildGraphicRenderData(
     daylight = daylightFlags(points, solarByDate, zone),
     hours = points.map { point -> point.instant?.atZone(zone)?.hour },
     temperatures = points.map { metricPlotValue(it.temperatureC) },
+    apparentTemperatures = points.map { metricPlotValue(it.apparentTemperatureC) },
     temperatureMins = points.map { metricPlotValue(it.temperatureMinAcrossModels) },
     temperatureMaxs = points.map { metricPlotValue(it.temperatureMaxAcrossModels) },
     rainAmounts = points.map { metricPlotValue(rainAmount(it)) },
@@ -848,6 +850,7 @@ private fun GraphicLegend(
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         LegendItem(LegendSymbol.SOLID_LINE_POINT, temperature, stringResource(R.string.graphic_view_temperature))
+        LegendItem(LegendSymbol.DASHED_LINE_POINT, temperature.copy(alpha = 0.60f), stringResource(R.string.apparent_temperature_title))
         LegendItem(LegendSymbol.BAND, temperature.copy(alpha = 0.28f), stringResource(R.string.graphic_view_dispersion))
         LegendItem(LegendSymbol.BAR, rain, stringResource(R.string.graphic_view_rain))
         LegendItem(LegendSymbol.SOLID_LINE_POINT, wind, stringResource(R.string.graphic_view_wind))
@@ -1200,6 +1203,16 @@ private fun TemperaturePlot(
                 pointRadius = 2.5.dp.toPx(),
                 visibleRange = visibleRange
             )
+            // Derived index: thin dashed line, always below the main temperature line.
+            drawLineSeries(
+                values = renderData.apparentTemperatures,
+                domain = domain,
+                color = temperature.copy(alpha = 0.55f),
+                strokeWidth = 1.3.dp.toPx(),
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 5.dp.toPx())),
+                pointRadius = 0f,
+                visibleRange = visibleRange
+            )
             drawSelectedRuler(points.size, selectedIndex, onSurface)
             renderData.temperatures.getOrNull(selectedIndex)?.let { value ->
                 drawCircle(
@@ -1221,6 +1234,7 @@ private fun TemperaturePlot(
             TemperatureSelectionBadge(
                 value = central,
                 range = range.takeUnless { it == "—" },
+                apparent = selected.apparentTemperatureC?.let { units.temp(it) },
                 selectedIndex = selectedIndex,
                 pointCount = points.size,
                 yOffset = 48.dp
@@ -1436,6 +1450,7 @@ private fun WindPlot(
 private fun TemperatureSelectionBadge(
     value: String,
     range: String?,
+    apparent: String? = null,
     selectedIndex: Int,
     pointCount: Int,
     yOffset: Dp = 6.dp
@@ -1446,7 +1461,10 @@ private fun TemperatureSelectionBadge(
         primary = value,
         primaryTag = TAG_GRAPHIC_TEMPERATURE_TOOLTIP_VALUE,
         secondary = listOfNotNull(
-            range?.let { SelectionBadgeSegment(it, TAG_GRAPHIC_TEMPERATURE_TOOLTIP_RANGE) }
+            range?.let { SelectionBadgeSegment(it, TAG_GRAPHIC_TEMPERATURE_TOOLTIP_RANGE) },
+            apparent?.let { SelectionBadgeSegment(
+                stringResource(R.string.apparent_temperature_label, it), "graphic_apparent_tooltip"
+            ) }
         ),
         containerTag = TAG_GRAPHIC_TEMPERATURE_TOOLTIP,
         selectedIndex = selectedIndex,
@@ -1921,7 +1939,7 @@ private data class AgreementPalette(
 
 internal fun temperatureDomain(points: List<SimplifiedTimelinePoint>): PlotDomain {
     val values = points.flatMap { point ->
-        listOfNotNull(point.temperatureMinAcrossModels, point.temperatureC, point.temperatureMaxAcrossModels).mapNotNull(::metricPlotValue)
+        listOfNotNull(point.temperatureMinAcrossModels, point.temperatureC, point.temperatureMaxAcrossModels, point.apparentTemperatureC).mapNotNull(::metricPlotValue)
     }
     if (values.isEmpty()) return PlotDomain(0.0, 30.0, listOf(0.0, 10.0, 20.0, 30.0))
     val rawMin = values.minOrNull() ?: 0.0

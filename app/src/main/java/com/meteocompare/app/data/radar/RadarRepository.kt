@@ -204,7 +204,13 @@ class RainViewerRadarRepository @Inject constructor(
     @Suppress("DEPRECATION")
     private val memoryCallbacks = object : ComponentCallbacks2 {
         override fun onConfigurationChanged(newConfig: Configuration) = Unit
+        // Android has deprecated this callback, but ComponentCallbacks2 still
+        // invokes it on supported devices; retain the memory-pressure handling.
+        @Suppress("OVERRIDE_DEPRECATION")
         override fun onLowMemory() = clearImageCaches("low_memory")
+        // Android has deprecated this callback, but ComponentCallbacks2 still
+        // invokes it on supported devices; retain the memory-pressure handling.
+        @Suppress("OVERRIDE_DEPRECATION")
         override fun onTrimMemory(level: Int) {
             // UI_HIDDEN (20) is not itself memory pressure. Preserve frames for
             // a quick return to the radar; clear when Android really needs RAM.

@@ -28,6 +28,9 @@ data class HourlyDto(
     val time: List<String>,
     @SerialName("temperature_2m")
     val temperature2m: List<Double?>? = null,
+    /** Derived thermal comfort index supplied by Open-Meteo, in °C. */
+    @SerialName("apparent_temperature")
+    val apparentTemperature: List<Double?>? = null,
     val precipitation: List<Double?>? = null,
     @SerialName("wind_speed_10m")
     val windSpeed10m: List<Double?>? = null,

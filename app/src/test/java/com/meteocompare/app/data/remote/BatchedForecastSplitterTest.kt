@@ -68,6 +68,24 @@ class BatchedForecastSplitterTest {
         assertEquals(listOf(24.0), gfs.daily?.temperature2mMax)
     }
 
+    @Test
+    fun `apparent temperature is aligned per model and missing values stay null`() {
+        val response = json.decodeFromString<BatchedForecastResponseDto>(
+            """{
+              "latitude": 48.85, "longitude": 2.35, "timezone": "Europe/Paris",
+              "hourly": {
+                "time": ["2026-06-23T00:00", "2026-06-23T01:00"],
+                "temperature_2m_ncep_gfs_seamless": [20.0, 21.0],
+                "temperature_2m_ecmwf_ifs": [19.0, 20.0],
+                "apparent_temperature_ncep_gfs_seamless": [17.0, null]
+              }
+            }"""
+        )
+        val split = BatchedForecastSplitter.split(response, listOf(WeatherModel.GFS, WeatherModel.ECMWF))
+        assertEquals(listOf(17.0, null), split.getValue(WeatherModel.GFS).hourly?.apparentTemperature)
+        assertNull(split.getValue(WeatherModel.ECMWF).hourly?.apparentTemperature)
+    }
+
     // ─────────────────────── Mode multi-modèles ───────────────────────
 
     @Test

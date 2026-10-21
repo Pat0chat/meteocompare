@@ -1268,6 +1268,7 @@ class CityListViewModel @Inject constructor(
                 ForecastState.Loaded(
                     today = confidenceCalculator.dayConfidence(result.data, today, engineContext),
                     currentTemp = confidenceCalculator.currentTemperature(result.data, now, engineContext),
+                    apparentTemp = confidenceCalculator.currentApparentTemperature(result.data, now, engineContext),
                     currentCondition = confidenceCalculator.currentWeatherCondition(result.data, now, engineContext),
                     currentCloudCover = confidenceCalculator.currentCloudCover(result.data, now, engineContext),
                     fetchedAt = result.data.fetchedAt,

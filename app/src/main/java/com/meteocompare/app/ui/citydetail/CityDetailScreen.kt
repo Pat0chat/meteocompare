@@ -646,6 +646,12 @@ private fun LoadedView(
             dailyHorizonDays = ForecastDisplayHorizon.DAYS
         )
     }
+    // Reuse the already computed hourly consensus; do not recompute it in TodaySummary.
+    // Only display a value for the *current* hour, never a future first available hour.
+    val currentApparentForSummary = remember(baseHourlyTimeline, presentationNow, forecast.city.timezone) {
+        val currentHour = computeHourlyHorizon(forecast.city.timezone, presentationNow).first
+        currentHourlyApparentTemperature(baseHourlyTimeline, currentHour)
+    }
     val hourlyTimelinePoints = remember(baseHourlyTimeline, uvForecast) {
         baseHourlyTimeline.withUvIndex(uvForecast)
     }
@@ -812,6 +818,7 @@ private fun LoadedView(
                     forecast = forecast,
                     now = presentationNow,
                     currentTemp = currentTemp,
+                    currentApparentTemp = currentApparentForSummary,
                     currentCondition = currentCondition,
                     currentCloudCover = currentCloudCover,
                     uvIndex = uvForecast?.at(presentationNow),
@@ -1245,6 +1252,32 @@ internal fun DetailedComparisonContent(
                         )
                     }
                     HourlyTemperatureLegend()
+                    if (forecast.seriesByModel.values.any { series ->
+                            series.hourly.apparentTemperature.any { it?.isFinite() == true }
+                        }) {
+                        Text(
+                            text = stringResource(R.string.apparent_temperature_title),
+                            style = MaterialTheme.typography.titleSmall,
+                            modifier = Modifier.padding(top = 14.dp, start = 8.dp, end = 8.dp)
+                        )
+                        Text(
+                            text = stringResource(R.string.apparent_temperature_explanation),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                        DetailTableCard {
+                            HourlyForecastTable(
+                                forecast = forecast,
+                                now = presentationNow,
+                                valueExtractor = { hourly: HourlyForecast, idx ->
+                                    hourly.apparentTemperature.getOrNull(idx)
+                                },
+                                valueFormatter = { units.temp(it) },
+                                modifier = Modifier.padding(8.dp)
+                            )
+                        }
+                    }
                 }
             }
 
@@ -1575,6 +1608,7 @@ internal fun TodaySummaryCard(
     today: DayConfidence,
     modelCount: Int,
     currentTemp: Double?,
+    currentApparentTemp: Double? = null,
     currentCondition: WeatherCondition? = null,
     currentCloudCover: Int? = null,
     uvIndex: Double? = null,
@@ -1600,6 +1634,7 @@ internal fun TodaySummaryCard(
     val resources = LocalResources.current
     val baseDescription = A11yFormatter
         .todaySummaryDescription(resources, today, modelCount, units = units)
+    val validApparent = currentApparentTemp?.takeIf(Double::isFinite)
     val temperatureDescription = if (currentTemp != null) {
         com.meteocompare.app.core.units.weatherString(resources, units, R.string.a11y_now_temp, currentTemp) + ". $baseDescription"
     } else baseDescription
@@ -1617,6 +1652,7 @@ internal fun TodaySummaryCard(
         )
     } else null
     val a11yDescription = temperatureDescription +
+        (validApparent?.let { ". " + resources.getString(R.string.apparent_temperature_label, units.temp(it)) } ?: "") +
         (uvDescription?.let { ". $it" } ?: "") +
         (solarDescription?.let { ". $it" } ?: "")
     val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
@@ -1700,6 +1736,14 @@ internal fun TodaySummaryCard(
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Medium
                             )
+                            validApparent?.let { apparent ->
+                                Text(
+                                    text = stringResource(R.string.apparent_temperature_label, units.temp(apparent)),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.testTag(TAG_TODAY_SUMMARY_APPARENT)
+                                )
+                            }
                             currentCondition?.let { condition ->
                                 Text(
                                     text = stringResource(weatherConditionLabelRes(condition)),
@@ -2655,6 +2699,7 @@ internal const val TAG_GRAPHIC_VIEW_ACTION = "graphic_view_action"
 internal const val TAG_CONFIDENCE_BADGE = "confidence_badge"
 internal const val TAG_TODAY_SUMMARY_SECTION_DIVIDER = "today_summary_section_divider"
 internal const val TAG_TODAY_SUMMARY_TEMP_PANEL = "today_summary_temp_panel"
+internal const val TAG_TODAY_SUMMARY_APPARENT = "today_summary_apparent"
 internal const val TAG_TODAY_SUMMARY_PRECIP_PANEL = "today_summary_precip_panel"
 internal const val TAG_TODAY_SUMMARY_WIND_PANEL = "today_summary_wind_panel"
 internal const val TAG_TODAY_SUMMARY_TEMP_MIN_CENTRAL = "today_summary_temp_min_central"

@@ -131,6 +131,15 @@ class WidgetFormattingTest {
         assert(!extras.contains("(")) { "pas de parenthèses sans confidence, actual: $extras" }
     }
 
+    @Test
+    fun `apparent temperature is included only in spacious layouts`() {
+        val data = WidgetData.Loading.copy(apparentTemp = 16.0, currentTemp = 20.0)
+        assertEquals("", buildExtrasLine(data))
+        assertEquals("Feels 16°", buildExtrasLine(data, includeApparent = true, apparentPrefix = "Feels"))
+        val imperial = WeatherUnits(UnitSystem.IMPERIAL)
+        assertEquals("Feels 61°F", buildExtrasLine(data, imperial, includeApparent = true, apparentPrefix = "Feels"))
+    }
+
     // ─── formatTemp ───────────────────────────────────────────────────
 
     @Test

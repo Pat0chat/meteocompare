@@ -947,7 +947,7 @@ private fun CompactTallLayout(
             )
 
             else -> {
-                val extras = buildExtrasLine(data, units = units)
+                val extras = buildExtrasLine(data, units = units, includeApparent = true, apparentPrefix = LocalContext.current.getString(R.string.apparent_temperature_widget_prefix))
                 Box(
                     modifier = GlanceModifier
                         .fillMaxWidth()
@@ -1105,7 +1105,7 @@ private fun ExtraLargeLayout(
                     maxLines = 1
                 )
                 if (actualShowExtras) {
-                    val extras = buildExtrasLine(data, units = units)
+                    val extras = buildExtrasLine(data, units = units, includeApparent = true, apparentPrefix = LocalContext.current.getString(R.string.apparent_temperature_widget_prefix))
                     if (extras.isNotEmpty()) {
                         Spacer(GlanceModifier.height(1.dp))
                         Text(

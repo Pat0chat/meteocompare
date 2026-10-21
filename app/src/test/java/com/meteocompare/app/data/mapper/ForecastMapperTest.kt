@@ -21,6 +21,21 @@ class ForecastMapperTest {
     }
 
     @Test
+    fun `apparent temperature is aligned and invalid values are rejected`() {
+        val dto = ForecastResponseDto(
+            timezone = "UTC",
+            hourly = HourlyDto(
+                time = listOf("2026-07-23T12:00", "bad-timestamp", "2026-07-23T14:00"),
+                temperature2m = listOf(25.0, 26.0, 27.0),
+                apparentTemperature = listOf(21.5, 99.0, Double.NaN)
+            )
+        )
+        val result = mapper.toSeries(WeatherModel.GFS, dto)
+        assertEquals(2, result.hourly.timestamps.size)
+        assertEquals(listOf(21.5, null), result.hourly.apparentTemperature)
+    }
+
+    @Test
     fun `maps hourly temperatures preserving order`() {
         val dto = ForecastResponseDto(
             latitude = 48.85,

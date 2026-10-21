@@ -1,1 +1,2 @@
-Scheda e widget facoltativi «La mia posizione». Solo posizione approssimativa con l’app aperta, senza localizzazione in background né cronologia degli spostamenti. Il widget usa l’ultima zona nota.
+- Scheda e widget facoltativi «La mia posizione». Solo posizione approssimativa con l’app aperta, senza localizzazione in background né cronologia degli spostamenti. Il widget usa l’ultima zona nota.
+- Temperatura percepita

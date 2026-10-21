@@ -1011,4 +1011,9 @@ Daten</string>
     <string name="widget_current_location_disabled">Aktiviere zuerst „Mein Standort“ in der App.</string>
     <string name="widget_current_location_retry">Erneut versuchen</string>
     <string name="widget_current_location_interrupted">Aktualisierung unterbrochen; erneut versuchen.</string>
+    <string name="apparent_temperature_label">Gefühlt geschätzt %1$s</string>
+    <string name="apparent_temperature_title">Geschätzte gefühlte Temperatur</string>
+    <string name="apparent_temperature_explanation">Die gefühlte Temperatur wird aus Lufttemperatur, Luftfeuchtigkeit, Wind und Sonneneinstrahlung geschätzt. Sie ist keine direkte Messung des persönlichen Empfindens.</string>
+    <string name="apparent_temperature_short">Gef. %1$s</string>
+    <string name="apparent_temperature_widget_prefix">Gef.</string>
 </resources>

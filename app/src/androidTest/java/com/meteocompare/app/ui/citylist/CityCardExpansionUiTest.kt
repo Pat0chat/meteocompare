@@ -217,7 +217,7 @@ class CityCardExpansionUiTest {
         composeRule.onNodeWithText("18–22", useUnmergedTree = true).assertDoesNotExist()
     }
 
-    @Test fun compact_card_shows_french_vigilance_after_temperature_trend() {
+    @Test fun compact_card_shows_french_vigilance_below_temperature_trend() {
         val vigilance = warning(VigilanceColor.ORANGE)
         composeRule.setContent {
             MeteoCompareTheme {
@@ -237,9 +237,29 @@ class CityCardExpansionUiTest {
             "$TAG_CITY_CARD_COMPACT_TEMPERATURES${TestFixtures.paris.id}", useUnmergedTree = true
         ).fetchSemanticsNode().boundsInRoot
         val cardRect = card(TestFixtures.paris.id).fetchSemanticsNode().boundsInRoot
-        assertTrue("Vigilance must follow the temperature trend", levelRect.left >= tempRect.right)
+        assertTrue("Vigilance must be below the temperature row", levelRect.top >= tempRect.bottom)
         assertTrue("Vigilance must fit inside the compact card", levelRect.right <= cardRect.right)
-        assertTrue("Vigilance and trend must share a row", abs(levelRect.center.y - tempRect.center.y) < with(composeRule.density) { 6.dp.toPx() })
+        assertTrue("Vigilance must stay within the card", levelRect.bottom <= cardRect.bottom)
+    }
+
+    @Test fun compact_card_shows_feels_like_only_for_significant_difference() {
+        val feelsColder = paris.copy(forecast = (paris.forecast as ForecastState.Loaded).copy(apparentTemp = 15.0))
+        composeRule.setContent {
+            MeteoCompareTheme {
+                CityList(items = listOf(feelsColder, lyon), onCityClick = {}, onRemove = {}, onRetry = {})
+            }
+        }
+        composeRule.onNodeWithTag("city_card_apparent_${TestFixtures.paris.id}", useUnmergedTree = true).assertExists()
+    }
+
+    @Test fun compact_card_hides_feels_like_when_difference_is_small() {
+        val barelyDifferent = paris.copy(forecast = (paris.forecast as ForecastState.Loaded).copy(apparentTemp = 18.1))
+        composeRule.setContent {
+            MeteoCompareTheme {
+                CityList(items = listOf(barelyDifferent, lyon), onCityClick = {}, onRemove = {}, onRetry = {})
+            }
+        }
+        composeRule.onNodeWithTag("city_card_apparent_${TestFixtures.paris.id}", useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test fun compact_card_hides_vigilance_for_foreign_city() {

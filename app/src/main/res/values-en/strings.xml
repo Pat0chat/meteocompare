@@ -1028,4 +1028,9 @@
     <string name="widget_current_location_disabled">Enable “My location” in the app first.</string>
     <string name="widget_current_location_retry">Try again</string>
     <string name="widget_current_location_interrupted">Update interrupted; try again.</string>
+    <string name="apparent_temperature_label">Estimated feels like %1$s</string>
+    <string name="apparent_temperature_title">Feels-like temperature (estimated)</string>
+    <string name="apparent_temperature_explanation">The estimated feels-like temperature is calculated from air temperature, humidity, wind and solar radiation. It is not a direct measurement of personal sensation.</string>
+    <string name="apparent_temperature_short">Feels %1$s</string>
+    <string name="apparent_temperature_widget_prefix">Feels</string>
 </resources>

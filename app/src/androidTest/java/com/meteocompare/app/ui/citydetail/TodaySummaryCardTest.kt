@@ -35,7 +35,8 @@ class TodaySummaryCardTest {
         today: DayConfidence,
         modelCount: Int = 5,
         forecast: CityForecast? = null,
-        uvIndex: Double? = null
+        uvIndex: Double? = null,
+        apparent: Double? = null
     ) {
         composeRule.setContent {
             CompositionLocalProvider(LocalClockFormatPreference provides ClockFormatPreference.HOUR_24) {
@@ -45,6 +46,7 @@ class TodaySummaryCardTest {
                             today = today,
                             modelCount = modelCount,
                             currentTemp = null,
+                            currentApparentTemp = apparent,
                             forecast = forecast,
                             uvIndex = uvIndex
                         )
@@ -52,6 +54,20 @@ class TodaySummaryCardTest {
                 }
             }
         }
+    }
+
+    @Test
+    fun today_summary_shows_estimated_felt_temperature_when_available() {
+        render(today = DayConfidence(TestFixtures.today, null, null, null, null), apparent = 16.0)
+        composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_APPARENT, useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText(context.getString(R.string.apparent_temperature_label, "16°"), useUnmergedTree = true)
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun today_summary_does_not_invent_missing_or_invalid_felt_temperature() {
+        render(today = DayConfidence(TestFixtures.today, null, null, null, null), apparent = Double.NaN)
+        composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_APPARENT, useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test

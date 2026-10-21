@@ -713,6 +713,14 @@ private fun TimelinePointColumn(
             isFirst = isFirst,
             isLast = isLast
         )
+        if (mode == DisplayMode.HOURLY) {
+            TimelineSupportingText(
+                text = point.apparentTemperatureC?.takeIf(Double::isFinite)?.let {
+                    stringResource(R.string.apparent_temperature_short, units.temp(it))
+                } ?: "",
+                modifier = Modifier.testTag(TAG_TIMELINE_COLUMNS_APPARENT)
+            )
+        }
 
         PrecipitationHeatIndicator(
             probability = point.precipitationPercent,
@@ -1094,9 +1102,9 @@ private fun TimelineMetric(
 }
 
 @Composable
-private fun TimelineSupportingText(text: String) {
+private fun TimelineSupportingText(text: String, modifier: Modifier = Modifier) {
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .height(18.dp)
             .padding(horizontal = 4.dp),
@@ -1129,6 +1137,7 @@ internal const val TAG_TIMELINE_DIVERGENCE_REASON = "timeline_divergence_reason"
 internal const val TAG_TIMELINE_CONSENSUS_BADGE = "timeline_consensus_badge"
 internal const val TAG_TIMELINE_DIVERGENCE_ICON_RAIN = "timeline_divergence_icon_rain"
 internal const val TAG_TIMELINE_DIVERGENCE_ICON_WIND = "timeline_divergence_icon_wind"
+internal const val TAG_TIMELINE_COLUMNS_APPARENT = "timeline_columns_apparent"
 internal const val TAG_TIMELINE_HEATMAP_BAND = "timeline_heatmap_band"
 internal const val TAG_TIMELINE_PRECIP_HEAT_DOT = "timeline_precip_heat_dot"
 private const val TAG_TIMELINE_POINT_PREFIX = "timeline_point_"

@@ -163,6 +163,30 @@ class ConfidenceCalculator @Inject constructor(
         ).central
     }
 
+    /** Estimated apparent temperature at the current exact hour.
+     * Uses the configured central-forecast engine without bias calibration; this
+     * derived index deliberately does not contribute to overall convergence.
+     */
+    fun currentApparentTemperature(
+        forecast: CityForecast,
+        now: Instant = Instant.now(),
+        engineContext: ForecastEngineContext = ForecastEngineContext.DEFAULT
+    ): Double? {
+        val target = HourlySampling.anchor(forecast, now)
+        val samples = forecast.seriesByModel.mapNotNull { (model, series) ->
+            val index = exactCurrentIndex(series, target) ?: return@mapNotNull null
+            series.hourly.apparentTemperature.getOrNull(index)
+                ?.takeIf(Double::isFinite)?.let { model to it }
+        }
+        return engineContinuous(
+            samples = samples,
+            thresholds = Thresholds.TEMPERATURE,
+            engineContext = engineContext,
+            variable = ForecastEngineVariable.TEMPERATURE,
+            allowCalibration = false
+        ).central
+    }
+
     /**
      * Condition météo "maintenant" — consensus hiérarchique.
      *

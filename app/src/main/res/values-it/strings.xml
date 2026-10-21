@@ -1014,4 +1014,9 @@ dato</string>
     <string name="widget_current_location_disabled">Attiva prima «La mia posizione» nell’app.</string>
     <string name="widget_current_location_retry">Riprova</string>
     <string name="widget_current_location_interrupted">Aggiornamento interrotto; riprova.</string>
+    <string name="apparent_temperature_label">Percepita stimata %1$s</string>
+    <string name="apparent_temperature_title">Temperatura percepita stimata</string>
+    <string name="apparent_temperature_explanation">La temperatura percepita stimata viene calcolata da temperatura, umidità, vento e radiazione solare. Non misura direttamente la sensazione personale.</string>
+    <string name="apparent_temperature_short">Perc. %1$s</string>
+    <string name="apparent_temperature_widget_prefix">Perc.</string>
 </resources>

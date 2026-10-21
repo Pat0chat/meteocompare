@@ -51,7 +51,9 @@ data class HourlyForecast(
      * Rafales à 10 m en km/h : maximum observé/prévu sur l'heure précédente
      * selon la sémantique Open-Meteo. Vide si absent ou cache antérieur.
      */
-    val windGusts10m: List<Double?> = emptyList()
+    val windGusts10m: List<Double?> = emptyList(),
+    /** Estimated apparent temperature from Open-Meteo; absent for older caches/models. */
+    val apparentTemperature: List<Double?> = emptyList()
 ) {
     val size: Int get() = timestamps.size
 }

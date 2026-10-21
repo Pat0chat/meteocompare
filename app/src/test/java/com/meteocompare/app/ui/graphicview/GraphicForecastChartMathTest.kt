@@ -12,6 +12,20 @@ import org.junit.Test
 
 class GraphicForecastChartMathTest {
     @Test
+    fun apparentTemperatureRendersOnSameAxisWithMissingGaps() {
+        val points = listOf(
+            SimplifiedTimelinePoint(temperatureC = 20.0, apparentTemperatureC = 17.0),
+            SimplifiedTimelinePoint(temperatureC = 21.0, apparentTemperatureC = null),
+            SimplifiedTimelinePoint(temperatureC = 22.0, apparentTemperatureC = 30.0)
+        )
+        val data = buildGraphicRenderData(points, emptyMap(), ZoneId.of("UTC"))
+        assertEquals(listOf(17.0, null, 30.0), data.apparentTemperatures)
+        val domain = temperatureDomain(points)
+        assertTrue(domain.min < 17.0)
+        assertTrue(domain.max > 30.0)
+    }
+
+    @Test
     fun invalid_values_leave_gaps_without_mutating_canonical_points_or_chronology() {
         val start = Instant.parse("2026-09-16T00:00:00Z")
         val points = listOf(Double.NaN, Double.MAX_VALUE, -5.0, 20.0).mapIndexed { i, v ->

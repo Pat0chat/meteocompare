@@ -114,6 +114,8 @@ sealed interface ForecastState {
     data class Loaded(
         val today: DayConfidence,
         val currentTemp: Double?,
+        /** Open-Meteo derived apparent temperature, optional for legacy caches. */
+        val apparentTemp: Double? = null,
         val currentCondition: WeatherCondition? = null,
         val currentCloudCover: Int? = null,
         val fetchedAt: Instant? = null,

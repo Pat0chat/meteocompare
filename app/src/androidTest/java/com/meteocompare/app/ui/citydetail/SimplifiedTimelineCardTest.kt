@@ -36,6 +36,50 @@ class SimplifiedTimelineCardTest {
     }
 
     @Test
+    fun columns_show_estimated_felt_temperature_only_for_hourly_available_values() {
+        val point = SimplifiedTimelinePoint(
+            instant = Instant.parse("2026-07-26T16:00:00Z"),
+            temperatureC = 22.0, apparentTemperatureC = 17.0
+        )
+        setContentWith24HourClock {
+            MeteoCompareTheme {
+                SimplifiedTimelineCard(points = listOf(point), mode = DisplayMode.HOURLY,
+                    timezone = "UTC", now = Instant.parse("2026-07-26T12:00:00Z"))
+            }
+        }
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        composeRule.onNodeWithTag(TAG_TIMELINE_COLUMNS_APPARENT, useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText(context.getString(R.string.apparent_temperature_short, "17°"), useUnmergedTree = true)
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun columns_omit_estimated_felt_temperature_in_daily_mode() {
+        val point = SimplifiedTimelinePoint(date = java.time.LocalDate.of(2026, 7, 26),
+            tempMinC = 11.0, tempMaxC = 22.0, apparentTemperatureC = 17.0)
+        setContentWith24HourClock {
+            MeteoCompareTheme {
+                SimplifiedTimelineCard(points = listOf(point), mode = DisplayMode.DAILY,
+                    timezone = "UTC", now = Instant.parse("2026-07-26T12:00:00Z"))
+            }
+        }
+        composeRule.onNodeWithTag(TAG_TIMELINE_COLUMNS_APPARENT, useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun chrono_view_shows_felt_value_but_not_on_daily_timeline() {
+        val hourly = SimplifiedTimelinePoint(instant = Instant.parse("2026-07-26T16:00:00Z"),
+            temperatureC = 22.0, apparentTemperatureC = 15.0)
+        setContentWith24HourClock {
+            MeteoCompareTheme {
+                ChronoTimelineView(points = listOf(hourly), mode = DisplayMode.HOURLY,
+                    timezone = "UTC", now = Instant.parse("2026-07-26T12:00:00Z"))
+            }
+        }
+        composeRule.onNodeWithTag(TAG_TIMELINE_CHRONO_APPARENT, useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test
     fun disagreement_badge_keeps_the_affected_metric_visible() {
         val point = SimplifiedTimelinePoint(
             instant = Instant.parse("2026-07-26T16:00:00Z"),

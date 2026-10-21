@@ -358,6 +358,13 @@ private fun InsightWidgetLayout(
                     ),
                     maxLines = 1
                 )
+                if (!compact) data.apparentTemp?.takeIf(Double::isFinite)?.let { apparent ->
+                    Text(
+                        text = context.getString(R.string.apparent_temperature_label, units.temp(apparent)),
+                        style = TextStyle(color = colors.muted, fontSize = 10.sp),
+                        maxLines = 1
+                    )
+                }
                 val minMax = widgetMinMaxLabel(data, units = units)
                 if (minMax != null) {
                     Text(

@@ -54,11 +54,13 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import com.meteocompare.app.core.units.weatherStringResource as stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -242,7 +244,9 @@ private fun ChronoLabelsColumn(
             ChronoRowLabel(
                 icon = Icons.Outlined.Thermostat,
                 title = stringResource(R.string.metric_temperature),
-                support = units.temperatureUnit,
+                support = if (mode == DisplayMode.HOURLY) {
+                    units.temperatureUnit + " · " + stringResource(R.string.apparent_temperature_widget_prefix)
+                } else units.temperatureUnit,
                 height = CHRONO_TEMP_HEIGHT,
                 tint = temperatureMetricAccent()
             )
@@ -440,24 +444,23 @@ private fun ChronoTemperaturePlot(
     units: WeatherUnits = LocalWeatherUnits.current
 ) {
     val centralValues = remember(points, mode) { points.map { metricPlotValue(chronoTemperature(it, mode)) } }
+    val apparentValues = remember(points, mode) { chronoApparentTemperatureSeries(points, mode) }
     val minValues = remember(points, mode) {
         if (mode == DisplayMode.DAILY) points.map { metricPlotValue(it.tempMinC) } else emptyList()
     }
     val maxValues = remember(points, mode) {
         if (mode == DisplayMode.DAILY) points.map { metricPlotValue(it.tempMaxC) } else emptyList()
     }
-    val domainValues = if (mode == DisplayMode.DAILY) {
-        buildList {
-            minValues.filterTo(this) { it != null && it.isFinite() }
-            maxValues.filterTo(this) { it != null && it.isFinite() }
-        }.filterNotNull()
-    } else {
-        centralValues.filterNotNull().filter(Double::isFinite)
+    val bounds = remember(centralValues, apparentValues, minValues, maxValues, mode) {
+        chronoTemperaturePlotBounds(centralValues, apparentValues, minValues, maxValues, mode)
     }
-    val bounds = canonicalChartRange(domainValues, minimumSpan = 5.0, minimumPadding = 1.5, paddingFraction = 0.0)
     val min = bounds.min
     val max = bounds.max
     val scheme = MaterialTheme.colorScheme
+    val density = LocalDensity.current
+    val apparentDashEffect = remember(density) {
+        with(density) { PathEffect.dashPathEffect(floatArrayOf(5.dp.toPx(), 4.dp.toPx())) }
+    }
     val fallbackLineColor = scheme.onSurfaceVariant.copy(alpha = 0.34f)
     val lineColors = remember(centralValues, fallbackLineColor) {
         chronoTemperatureHeatmapColors(centralValues, fallbackLineColor)
@@ -529,6 +532,29 @@ private fun ChronoTemperaturePlot(
                     }
                 }
 
+                // The derived feels-like curve is deliberately secondary: same temperature
+                // axis, no additional convergence metric or per-frame forecast calculation.
+                var apparentPath = Path()
+                var previousValid = false
+                apparentValues.forEachIndexed { index, value ->
+                    if (value == null || !value.isFinite()) {
+                        previousValid = false
+                        return@forEachIndexed
+                    }
+                    val x = index * stepPx + stepPx / 2f
+                    if (previousValid) apparentPath.lineTo(x, y(value))
+                    else apparentPath.moveTo(x, y(value))
+                    previousValid = true
+                }
+                drawPath(
+                    path = apparentPath,
+                    color = scheme.onSurfaceVariant.copy(alpha = 0.58f),
+                    style = Stroke(
+                        width = 1.5.dp.toPx(),
+                        cap = StrokeCap.Round,
+                        pathEffect = apparentDashEffect
+                    )
+                )
                 if (started) {
                     val brush = Brush.horizontalGradient(
                         colors = if (lineColors.size >= 2) lineColors else lineColors + lineColors
@@ -597,6 +623,19 @@ private fun ChronoTemperaturePlot(
                             )
                         }
                     } else {
+                        apparentValues.getOrNull(index)?.takeIf(Double::isFinite)?.let { apparent ->
+                            Text(
+                                text = stringResource(R.string.apparent_temperature_short, units.temp(apparent)),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = scheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .testTag(TAG_TIMELINE_CHRONO_APPARENT)
+                                    .padding(horizontal = 2.dp)
+                            )
+                        }
                         val value = centralValues.getOrNull(index)
                         if (value != null && value.isFinite()) {
                             val labelY = chronoTemperatureLabelOffset(value, min, max)
@@ -1040,6 +1079,26 @@ private fun chronoLabels(
     return ChronoLabels(time, context)
 }
 
+/** Use both hourly curves for the shared axis, but only min/max for daily. */
+internal fun chronoTemperaturePlotBounds(
+    temperatures: List<Double?>,
+    apparent: List<Double?>,
+    minimums: List<Double?>,
+    maximums: List<Double?>,
+    mode: DisplayMode
+): com.meteocompare.app.core.charts.CanonicalChartRange {
+    val values = if (mode == DisplayMode.DAILY) minimums + maximums else temperatures + apparent
+    return canonicalChartRange(values, minimumSpan = 5.0, minimumPadding = 1.5, paddingFraction = 0.0)
+}
+
+/** Prepared once per timeline update; invalid/missing readings break the secondary curve. */
+internal fun chronoApparentTemperatureSeries(
+    points: List<SimplifiedTimelinePoint>,
+    mode: DisplayMode
+): List<Double?> = if (mode == DisplayMode.HOURLY) {
+    points.map { metricPlotValue(it.apparentTemperatureC) }
+} else emptyList()
+
 private fun chronoTemperature(point: SimplifiedTimelinePoint, mode: DisplayMode): Double? = when (mode) {
     DisplayMode.HOURLY -> point.temperatureC
     DisplayMode.DAILY -> when {
@@ -1131,6 +1190,7 @@ internal fun chronoLabelColumnWidth(screenWidthDp: Int): Dp =
 
 internal const val TAG_TIMELINE_CHRONO_VIEW = "timeline_chrono_view"
 internal const val TAG_TIMELINE_CHRONO_DATE_LANE = "timeline_chrono_date_lane"
+internal const val TAG_TIMELINE_CHRONO_APPARENT = "timeline_chrono_apparent"
 internal const val TAG_TIMELINE_CHRONO_CONDITIONS_LANE = "timeline_chrono_conditions_lane"
 
 private val CHRONO_DATE_HEIGHT = 52.dp
