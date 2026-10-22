@@ -22,6 +22,17 @@ import org.junit.Test
  */
 class WidgetFormattingTest {
 
+    @Test
+    fun `inline feels-like is shown beside main temperature only on spacious widgets`() {
+        val metric = WeatherUnits(UnitSystem.METRIC)
+        assertEquals("Ress. 16°", inlineApparentTemperature(16.0, metric, "Ress.", show = true))
+        assertEquals(null, inlineApparentTemperature(16.0, metric, "Ress.", show = false))
+        assertEquals(null, inlineApparentTemperature(null, metric, "Ress.", show = true))
+        assertEquals(null, inlineApparentTemperature(Double.NaN, metric, "Ress.", show = true))
+        assertEquals(null, inlineApparentTemperature(Double.POSITIVE_INFINITY, metric, "Ress.", show = true))
+        assertEquals("Feels 61°F", inlineApparentTemperature(16.0, WeatherUnits(UnitSystem.IMPERIAL), "Feels", show = true))
+    }
+
     // ─── buildExtrasLine ───────────────────────────────────────────────
 
     @Test

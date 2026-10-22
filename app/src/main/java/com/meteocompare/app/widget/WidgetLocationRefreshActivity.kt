@@ -46,9 +46,12 @@ class WidgetLocationRefreshActivity : ComponentActivity() {
         ActivityResultContracts.RequestMultiplePermissions()
     ) { _ ->
         permissionRequestPending = false
-        LocationPermissionOffer.recordPermissionResult(this)
-        if (LocationPermissionOffer.hasAny(this)) acquire()
-        else status = R.string.current_location_permission_required
+        lifecycleScope.launch {
+            LocationPermissionOffer.recordPermissionResult(this@WidgetLocationRefreshActivity)
+            if (!lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return@launch
+            if (LocationPermissionOffer.hasAny(this@WidgetLocationRefreshActivity)) acquire()
+            else status = R.string.current_location_permission_required
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -102,15 +105,25 @@ class WidgetLocationRefreshActivity : ComponentActivity() {
         permissionCheckJob = lifecycleScope.launch { checkPermissionAndAcquire() }
     }
 
-    private fun launchLocationPermissionRequest() {
+    private suspend fun launchLocationPermissionRequest() {
         if (permissionRequestPending || !lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
             status = R.string.widget_current_location_interrupted
             return
         }
         permissionRequestPending = true
-        permissionRequestedThisAction = true
-        LocationPermissionOffer.markPrecisionOffered(this, explicitWidgetAction = true)
-        permissionRequest.launch(LocationPermissionOffer.requestedPermissions)
+        try {
+            // Both SharedPreferences initialization and apply() run on Dispatchers.IO.
+            LocationPermissionOffer.markPrecisionOffered(this, explicitWidgetAction = true)
+            if (!lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+                status = R.string.widget_current_location_interrupted
+                return
+            }
+            permissionRequest.launch(LocationPermissionOffer.requestedPermissions)
+            permissionRequestedThisAction = true
+        } finally {
+            // A cancelled Activity must not retain a pending dialog gate.
+            if (!permissionRequestedThisAction) permissionRequestPending = false
+        }
     }
 
     private suspend fun checkPermissionAndAcquire() {

@@ -3,9 +3,9 @@ from pathlib import Path
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
-UI = (ROOT / 'app/src/main/java/com/meteocompare/app/ui/citylist/CityListScreen.kt').read_text()
-VM = (ROOT / 'app/src/main/java/com/meteocompare/app/ui/citylist/CurrentLocationViewModel.kt').read_text()
-CTRL = (ROOT / 'app/src/main/java/com/meteocompare/app/data/repository/CurrentLocationController.kt').read_text()
+UI = (ROOT / 'app/src/main/java/com/meteocompare/app/ui/citylist/CityListScreen.kt').read_text(encoding="utf-8")
+VM = (ROOT / 'app/src/main/java/com/meteocompare/app/ui/citylist/CurrentLocationViewModel.kt').read_text(encoding="utf-8")
+CTRL = (ROOT / 'app/src/main/java/com/meteocompare/app/data/repository/CurrentLocationController.kt').read_text(encoding="utf-8")
 
 
 class CompactLocationContract(unittest.TestCase):

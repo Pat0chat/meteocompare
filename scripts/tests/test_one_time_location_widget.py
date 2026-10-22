@@ -4,7 +4,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SRC = ROOT / 'app/src/main/java/com/meteocompare/app'
 
 def code(rel):
-    return (SRC / rel).read_text()
+    return (SRC / rel).read_text(encoding="utf-8")
 
 def test_one_time_grant_may_expire_while_approximate_grant_survives():
     policy = code('domain/util/LocationPermissionPolicy.kt')
@@ -40,7 +40,7 @@ def test_foreground_acquisition_reports_permission_loss_not_gps_failure():
 
 def test_no_background_location_or_coordinate_persistence_added():
     controller = code('data/repository/CurrentLocationController.kt')
-    manifest = (ROOT / 'app/src/main/AndroidManifest.xml').read_text()
+    manifest = (ROOT / 'app/src/main/AndroidManifest.xml').read_text(encoding="utf-8")
     assert 'ACCESS_BACKGROUND_LOCATION' not in manifest
     assert 'CurrentLocationStore.grid(fix.latitude, fix.longitude)' in controller
     assert 'store.save(cell, System.currentTimeMillis())' in controller

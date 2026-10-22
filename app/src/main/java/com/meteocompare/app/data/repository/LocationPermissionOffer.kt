@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
 import com.meteocompare.app.domain.util.LocationPermissionPolicy
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /** Stores only consent-UI history, never coordinates, accuracy, providers or a location trace. */
 object LocationPermissionOffer {
@@ -31,39 +33,42 @@ object LocationPermissionOffer {
 
     /**
      * Recheck the OS grant at each tap. COARSE may outlive an "Only this time" FINE grant.
+     * Preference file initialization can read disk, so do all consent bookkeeping on IO.
      * Re-offers are bounded: a refusal/approximate choice does not prompt indefinitely.
      */
-    fun shouldRequest(context: Context, explicitWidgetAction: Boolean = false): Boolean {
-        val prefs = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
-        return LocationPermissionPolicy.shouldRequest(
-            coarseGranted = hasCoarse(context),
-            fineGranted = hasFine(context),
-            precisionOffered = prefs.getBoolean(PRECISION_OFFERED, false),
-            previouslyFineGranted = prefs.getBoolean(FINE_GRANTED_BEFORE, false),
-            recoveryOffered = prefs.getBoolean(PRECISION_RECOVERY_OFFERED, false),
-            explicitWidgetAction = explicitWidgetAction,
-            widgetReofferUsed = prefs.getBoolean(WIDGET_REOFFER_USED, false)
-        )
-    }
+    suspend fun shouldRequest(context: Context, explicitWidgetAction: Boolean = false): Boolean =
+        withContext(Dispatchers.IO) {
+            val prefs = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+            LocationPermissionPolicy.shouldRequest(
+                coarseGranted = hasCoarse(context),
+                fineGranted = hasFine(context),
+                precisionOffered = prefs.getBoolean(PRECISION_OFFERED, false),
+                previouslyFineGranted = prefs.getBoolean(FINE_GRANTED_BEFORE, false),
+                recoveryOffered = prefs.getBoolean(PRECISION_RECOVERY_OFFERED, false),
+                explicitWidgetAction = explicitWidgetAction,
+                widgetReofferUsed = prefs.getBoolean(WIDGET_REOFFER_USED, false)
+            )
+        }
 
     /** Called before launching Android's dialog, not after an unsuccessful location fix. */
-    fun markPrecisionOffered(context: Context, explicitWidgetAction: Boolean = false) {
-        val prefs = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
-        val recovery = prefs.getBoolean(FINE_GRANTED_BEFORE, false) &&
-            hasCoarse(context) && !hasFine(context)
-        val editor = prefs.edit().putBoolean(PRECISION_OFFERED, true)
-        if (recovery) editor.putBoolean(PRECISION_RECOVERY_OFFERED, true)
-        if (explicitWidgetAction) editor.putBoolean(WIDGET_REOFFER_USED, true)
-        editor.apply()
-    }
+    suspend fun markPrecisionOffered(context: Context, explicitWidgetAction: Boolean = false) =
+        withContext(Dispatchers.IO) {
+            val prefs = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+            val recovery = prefs.getBoolean(FINE_GRANTED_BEFORE, false) &&
+                hasCoarse(context) && !hasFine(context)
+            val editor = prefs.edit().putBoolean(PRECISION_OFFERED, true)
+            if (recovery) editor.putBoolean(PRECISION_RECOVERY_OFFERED, true)
+            if (explicitWidgetAction) editor.putBoolean(WIDGET_REOFFER_USED, true)
+            editor.apply()
+        }
 
     /** Reset the recovery gate only after Android actually grants precise location. */
-    fun recordPermissionResult(context: Context) {
-        if (!hasFine(context)) return
+    suspend fun recordPermissionResult(context: Context) = withContext(Dispatchers.IO) {
+        if (!hasFine(context)) return@withContext
         val prefs = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
         if (prefs.getBoolean(FINE_GRANTED_BEFORE, false) &&
             !prefs.getBoolean(PRECISION_RECOVERY_OFFERED, false) &&
-            !prefs.getBoolean(WIDGET_REOFFER_USED, false)) return
+            !prefs.getBoolean(WIDGET_REOFFER_USED, false)) return@withContext
         prefs.edit()
             .putBoolean(FINE_GRANTED_BEFORE, true)
             .putBoolean(PRECISION_RECOVERY_OFFERED, false)

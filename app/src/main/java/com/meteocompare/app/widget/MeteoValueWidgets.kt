@@ -338,14 +338,14 @@ private fun InsightWidgetLayout(
         ) {
             ValueWeatherGlyph(data.currentCondition, if (compact) 36 else 46, isNight = data.currentIsNight == true)
             Spacer(GlanceModifier.width(8.dp))
-            Text(
-                text = units.temp(data.currentTemp),
-                style = TextStyle(
-                    color = colors.foreground,
-                    fontSize = if (compact) 27.sp else 34.sp,
-                    fontWeight = FontWeight.Bold
-                ),
-                maxLines = 1
+            WidgetTemperatureWithApparent(
+                data = data,
+                units = units,
+                onContainer = colors.foreground,
+                onContainerMuted = colors.muted,
+                temperatureSize = if (compact) 27.sp else 34.sp,
+                apparentSize = 10.sp,
+                showApparent = !compact
             )
             Spacer(GlanceModifier.width(8.dp))
             Column(modifier = GlanceModifier.defaultWeight()) {
@@ -358,13 +358,6 @@ private fun InsightWidgetLayout(
                     ),
                     maxLines = 1
                 )
-                if (!compact) data.apparentTemp?.takeIf(Double::isFinite)?.let { apparent ->
-                    Text(
-                        text = context.getString(R.string.apparent_temperature_label, units.temp(apparent)),
-                        style = TextStyle(color = colors.muted, fontSize = 10.sp),
-                        maxLines = 1
-                    )
-                }
                 val minMax = widgetMinMaxLabel(data, units = units)
                 if (minMax != null) {
                     Text(

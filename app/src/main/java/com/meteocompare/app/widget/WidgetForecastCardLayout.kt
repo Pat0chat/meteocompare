@@ -1,5 +1,14 @@
 package com.meteocompare.app.widget
 
+/**
+ * Glance/RemoteViews limite chaque Row à dix enfants directs.
+ * Une échéance complète (séparateur inclus) est encapsulée dans un Row enfant :
+ * le Row parent contient exactement N enfants, au maximum cinq.
+ */
+internal const val MAX_GLANCE_FORECAST_TIMELINE_ITEMS = 5
+internal fun forecastTimelineDirectChildren(itemCount: Int): Int =
+    itemCount.coerceIn(0, MAX_GLANCE_FORECAST_TIMELINE_ITEMS)
+
 /** Profils visuels des cartes 5 heures / 5 jours selon leur hauteur utile. */
 internal enum class ForecastCardHeightProfile {
     DENSE,

@@ -7,6 +7,15 @@ import org.junit.Test
 class WidgetForecastCardLayoutTest {
 
     @Test
+    fun `Glance rows never exceed ten direct children for four or five forecasts`() {
+        assertEquals(0, forecastTimelineDirectChildren(0))
+        assertEquals(1, forecastTimelineDirectChildren(1))
+        assertEquals(4, forecastTimelineDirectChildren(4))
+        assertEquals(5, forecastTimelineDirectChildren(5))
+        assertTrue(forecastTimelineDirectChildren(MAX_GLANCE_FORECAST_TIMELINE_ITEMS) <= 10)
+    }
+
+    @Test
     fun `forecast card profile uses the real child height`() {
         assertEquals(ForecastCardHeightProfile.DENSE, forecastCardHeightProfile(60f))
         assertEquals(ForecastCardHeightProfile.COMPACT, forecastCardHeightProfile(84f))

@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.datastore.preferences.core.Preferences
@@ -598,6 +599,45 @@ private fun SmallLayout(
     }
 }
 
+/**
+ * Température et ressenti alignés sur la même ligne, sans nouvelle donnée météo.
+ * Le ressenti est affiché uniquement si la largeur du widget le permet.
+ * Une Row imbriquée ne compte que pour un enfant dans la Row extérieure Glance.
+ */
+@Composable
+internal fun WidgetTemperatureWithApparent(
+    data: WidgetData,
+    units: WeatherUnits,
+    onContainer: ColorProvider,
+    onContainerMuted: ColorProvider,
+    temperatureSize: TextUnit,
+    apparentSize: TextUnit,
+    showApparent: Boolean
+) {
+    val context = LocalContext.current
+    val apparent = inlineApparentTemperature(
+        apparentTemp = data.apparentTemp,
+        units = units,
+        prefix = context.getString(R.string.apparent_temperature_widget_prefix),
+        show = showApparent
+    )
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = formatTemp(data.currentTemp, units = units),
+            style = TextStyle(color = onContainer, fontSize = temperatureSize, fontWeight = FontWeight.Bold),
+            maxLines = 1
+        )
+        apparent?.let { label ->
+            Spacer(GlanceModifier.width(6.dp))
+            Text(
+                text = label,
+                style = TextStyle(color = onContainerMuted, fontSize = apparentSize, fontWeight = FontWeight.Medium),
+                maxLines = 1
+            )
+        }
+    }
+}
+
 /** Layout 3×1 : ligne icône+temp | ville sur min/max | badge de confiance. */
 @Composable
 private fun MediumLayout(
@@ -738,14 +778,14 @@ private fun LargeLayout(
         Row(verticalAlignment = Alignment.CenterVertically) {
             WeatherGlyph(data.currentCondition, isNight = data.currentIsNight == true, sizeDp = glyphSize)
             Spacer(GlanceModifier.width(if (profile == SingleRowWidgetHeightProfile.VERY_DENSE) 4.dp else 6.dp))
-            Text(
-                text = formatTemp(data.currentTemp, units = units),
-                style = TextStyle(
-                    color = onContainer,
-                    fontSize = currentTempSize,
-                    fontWeight = FontWeight.Bold
-                ),
-                maxLines = 1
+            WidgetTemperatureWithApparent(
+                data = data,
+                units = units,
+                onContainer = onContainer,
+                onContainerMuted = onContainerMuted,
+                temperatureSize = currentTempSize,
+                apparentSize = if (profile == SingleRowWidgetHeightProfile.REGULAR) 10.sp else 9.sp,
+                showApparent = size.width.value >= 350f && inlineForecastItems == 0
             )
         }
         Spacer(GlanceModifier.width(if (profile == SingleRowWidgetHeightProfile.REGULAR) 12.dp else 8.dp))
@@ -876,14 +916,14 @@ private fun CompactTallLayout(
                         maxLines = 1
                     )
                 }
-                Text(
-                    text = formatTemp(data.currentTemp, units = units),
-                    style = TextStyle(
-                        color = onContainer,
-                        fontSize = if (narrow) 21.sp else 24.sp,
-                        fontWeight = FontWeight.Bold
-                    ),
-                    maxLines = 1
+                WidgetTemperatureWithApparent(
+                    data = data,
+                    units = units,
+                    onContainer = onContainer,
+                    onContainerMuted = onContainerMuted,
+                    temperatureSize = if (narrow) 21.sp else 24.sp,
+                    apparentSize = 9.sp,
+                    showApparent = size.width.value >= 175f
                 )
                 val minMax = formatMinMax(data.tempMin, data.tempMax, units = units)
                 if (minMax.isNotEmpty()) {
@@ -947,7 +987,7 @@ private fun CompactTallLayout(
             )
 
             else -> {
-                val extras = buildExtrasLine(data, units = units, includeApparent = true, apparentPrefix = LocalContext.current.getString(R.string.apparent_temperature_widget_prefix))
+                val extras = buildExtrasLine(data, units = units)
                 Box(
                     modifier = GlanceModifier
                         .fillMaxWidth()
@@ -1061,18 +1101,18 @@ private fun ExtraLargeLayout(
                 }
             )
             Spacer(GlanceModifier.width(if (veryCompact) 5.dp else 8.dp))
-            Text(
-                text = formatTemp(data.currentTemp, units = units),
-                style = TextStyle(
-                    color = onContainer,
-                    fontSize = when {
-                        veryCompact -> 22.sp
-                        compactHeight -> 25.sp
-                        else -> 28.sp
-                    },
-                    fontWeight = FontWeight.Bold
-                ),
-                maxLines = 1
+            WidgetTemperatureWithApparent(
+                data = data,
+                units = units,
+                onContainer = onContainer,
+                onContainerMuted = onContainerMuted,
+                temperatureSize = when {
+                    veryCompact -> 22.sp
+                    compactHeight -> 25.sp
+                    else -> 28.sp
+                },
+                apparentSize = if (compactHeight) 9.sp else 11.sp,
+                showApparent = !veryCompact && widthDp >= 320f
             )
             Spacer(GlanceModifier.width(if (veryCompact) 7.dp else 12.dp))
 
@@ -1105,7 +1145,7 @@ private fun ExtraLargeLayout(
                     maxLines = 1
                 )
                 if (actualShowExtras) {
-                    val extras = buildExtrasLine(data, units = units, includeApparent = true, apparentPrefix = LocalContext.current.getString(R.string.apparent_temperature_widget_prefix))
+                    val extras = buildExtrasLine(data, units = units)
                     if (extras.isNotEmpty()) {
                         Spacer(GlanceModifier.height(1.dp))
                         Text(
@@ -1338,7 +1378,8 @@ private fun ForecastTimelinePanel(
         ForecastMode.DAILY -> ctx.getString(R.string.widget_forecast_days)
         else -> ctx.getString(R.string.widget_forecast_generic)
     }
-    val visibleItems = items.take(itemCount)
+    val visibleItems = items.take(itemCount.coerceIn(0, MAX_GLANCE_FORECAST_TIMELINE_ITEMS))
+    check(forecastTimelineDirectChildren(visibleItems.size) <= 10)
     val sourceModel = visibleItems.firstOrNull()?.sourceModelName
 
     Column(modifier = modifier) {
@@ -1374,27 +1415,33 @@ private fun ForecastTimelinePanel(
 
         Row(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
             visibleItems.forEachIndexed { index, item ->
-                if (index > 0) {
-                    Spacer(GlanceModifier.width(if (veryCompact) 2.dp else 4.dp))
-                    // Hairline divider instead of individual rounded tiles.
-                    Box(
-                        modifier = GlanceModifier.width(1.dp)
-                            .fillMaxHeight()
-                            .padding(vertical = if (veryCompact) 4.dp else 8.dp)
-                            .background(softSurface)
-                    ) {}
-                    Spacer(GlanceModifier.width(if (veryCompact) 2.dp else 4.dp))
+                // Exactly one direct parent-Row child per forecast. This is robust
+                // against RemoteViews' ten-child limit even if the panel grows.
+                Row(modifier = GlanceModifier.defaultWeight().fillMaxHeight()) {
+                    if (index > 0) {
+                        Box(
+                            modifier = GlanceModifier.width(if (veryCompact) 5.dp else 9.dp).fillMaxHeight(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Box(
+                                modifier = GlanceModifier.width(1.dp)
+                                    .fillMaxHeight()
+                                    .padding(vertical = if (veryCompact) 4.dp else 8.dp)
+                                    .background(softSurface)
+                            ) {}
+                        }
+                    }
+                    ForecastTimelineItem(
+                        item = item,
+                        onContainer = onContainer,
+                        onContainerMuted = onContainerMuted,
+                        mode = normalizedMode,
+                        compact = compact,
+                        heightProfile = heightProfile,
+                        emphasized = index == 0,
+                        modifier = GlanceModifier.defaultWeight().fillMaxHeight()
+                    )
                 }
-                ForecastTimelineItem(
-                    item = item,
-                    onContainer = onContainer,
-                    onContainerMuted = onContainerMuted,
-                    mode = normalizedMode,
-                    compact = compact,
-                    heightProfile = heightProfile,
-                    emphasized = index == 0,
-                    modifier = GlanceModifier.defaultWeight().fillMaxHeight()
-                )
             }
         }
     }
@@ -1486,17 +1533,20 @@ private fun ModernConfidencePanel(
 
         Row(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
             days.forEachIndexed { index, day ->
-                if (index > 0) Spacer(GlanceModifier.width(if (compact) 3.dp else 5.dp))
-                ConfidenceDayCard(
-                    dayIndex = index,
-                    day = day,
-                    strips = visibleStrips,
-                    onContainer = onContainer,
-                    onContainerMuted = onContainerMuted,
-                    raisedSurface = raisedSurface,
-                    compact = compact,
-                    modifier = GlanceModifier.defaultWeight().fillMaxHeight()
-                )
+                // A whole day occupies ONE direct Row child; spacing lives inside it.
+                Row(modifier = GlanceModifier.defaultWeight().fillMaxHeight()) {
+                    if (index > 0) Spacer(GlanceModifier.width(if (compact) 3.dp else 5.dp))
+                    ConfidenceDayCard(
+                        dayIndex = index,
+                        day = day,
+                        strips = visibleStrips,
+                        onContainer = onContainer,
+                        onContainerMuted = onContainerMuted,
+                        raisedSurface = raisedSurface,
+                        compact = compact,
+                        modifier = GlanceModifier.defaultWeight().fillMaxHeight()
+                    )
+                }
             }
         }
     }

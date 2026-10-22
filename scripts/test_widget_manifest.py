@@ -49,7 +49,7 @@ class WidgetContractTests(unittest.TestCase):
             self.assertFalse(any(re.search(r'\d+[x×]\d+', f.stem) for f in directory.iterdir()))
 
     def test_registry_matches_manifest(self):
-        source = (WIDGET_DIR / 'MeteoWidgetReceiver.kt').read_text()
+        source = (WIDGET_DIR / 'MeteoWidgetReceiver.kt').read_text(encoding="utf-8")
         entries = re.search(r'val All: List<.*?> = listOf\((.*?)\n    \)', source, re.S)
         self.assertIsNotNone(entries)
         self.assertEqual(set(EXPECTED), set(re.findall(r'(Meteo\w+Receiver(?:\d+x\d+)?)::class\.java',entries.group(1))))
@@ -58,9 +58,9 @@ class WidgetContractTests(unittest.TestCase):
         activity = self.app.find("activity[@" + ANDROID + "name='.widget.MeteoWidgetConfigActivity']")
         self.assertIsNotNone(activity)
         self.assertEqual(activity.get(ANDROID + 'windowSoftInputMode'), 'adjustResize')
-        form = (WIDGET_DIR / 'MeteoWidgetConfigActivity.kt').read_text()
-        dialog = (WIDGET_DIR / 'WidgetColorWheelPicker.kt').read_text()
-        helper = (WIDGET_DIR / 'WidgetKeyboardFocus.kt').read_text()
+        form = (WIDGET_DIR / 'MeteoWidgetConfigActivity.kt').read_text(encoding="utf-8")
+        dialog = (WIDGET_DIR / 'WidgetColorWheelPicker.kt').read_text(encoding="utf-8")
+        helper = (WIDGET_DIR / 'WidgetKeyboardFocus.kt').read_text(encoding="utf-8")
         self.assertRegex(form, r'(?s)showWidgetKeyboardOnFocus\(\).*?TAG_WIDGET_OPACITY_INPUT')
         self.assertRegex(dialog, r'(?s)showWidgetKeyboardOnFocus\(\).*?TAG_WIDGET_COLOR_HEX')
         self.assertIn('.imePadding()', form)
@@ -68,13 +68,13 @@ class WidgetContractTests(unittest.TestCase):
         self.assertIn('onFocusChanged', helper)
 
     def test_widget_surface_is_edge_to_edge_and_shared_by_both_types(self):
-        surface = (WIDGET_DIR / 'WidgetContainerCorners.kt').read_text()
+        surface = (WIDGET_DIR / 'WidgetContainerCorners.kt').read_text(encoding="utf-8")
         self.assertNotIn('squarePanelInsetsDp', surface)
         self.assertNotIn('widgetPanelGeometryDp', surface)
         self.assertIn('.fillMaxSize()', surface)
         self.assertIn('.appWidgetBackground()', surface)
         for widget in ('MeteoWidget.kt', 'MeteoValueWidgets.kt'):
-            source = (WIDGET_DIR / widget).read_text()
+            source = (WIDGET_DIR / widget).read_text(encoding="utf-8")
             self.assertIn('WidgetSurface(', source)
             self.assertIn('customCornerRadiusDp = customCornerRadiusDp', source)
             self.assertIn('contentSpacing = contentSpacing', source)
@@ -91,7 +91,7 @@ class WidgetContractTests(unittest.TestCase):
             self.assertTrue(set(labels).issubset(values), locale)
 
     def test_settings_group_continuity(self):
-        form = (WIDGET_DIR / 'MeteoWidgetConfigActivity.kt').read_text()
+        form = (WIDGET_DIR / 'MeteoWidgetConfigActivity.kt').read_text(encoding="utf-8")
         # Locality -> forecast content -> appearance -> shape/spacing/colors/opacity.
         ordered = ('widget_config_pick_city', 'widget_config_forecast_mode',
                    'widget_config_appearance', 'widget_config_corner_style',
@@ -105,7 +105,7 @@ class WidgetContractTests(unittest.TestCase):
             self.assertIn(preserved_tag, form)
 
     def test_resize_explanation_localized_and_visible_in_configuration(self):
-        config = (WIDGET_DIR / 'MeteoWidgetConfigActivity.kt').read_text()
+        config = (WIDGET_DIR / 'MeteoWidgetConfigActivity.kt').read_text(encoding="utf-8")
         self.assertIn('if (!insightMode)', config)
         self.assertIn('R.string.widget_resize_tip_body', config)
         self.assertIn('TAG_WIDGET_RESIZE_TIP', config)

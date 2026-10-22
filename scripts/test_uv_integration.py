@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MAIN = ROOT / "app/src/main/java/com/meteocompare/app"
 
 def java(path):
-    return (MAIN / path).read_text()
+    return (MAIN / path).read_text(encoding="utf-8")
 
 class UvContractTests(unittest.TestCase):
     def test_one_endpoint_is_not_added_to_multimodel_batch(self):

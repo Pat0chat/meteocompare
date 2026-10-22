@@ -68,6 +68,20 @@ internal fun buildExtrasLine(data: WidgetData, units: WeatherUnits = WeatherUnit
 }
 
 /**
+ * Libellé concis du ressenti, au même niveau que la température principale.
+ * Les valeurs absentes/non finies et les formats trop étroits ne créent aucun élément Glance.
+ * Le préfixe traduit est fourni par la couche UI (aucune ressource Android ici).
+ */
+internal fun inlineApparentTemperature(
+    apparentTemp: Double?,
+    units: WeatherUnits,
+    prefix: String,
+    show: Boolean
+): String? = if (show) {
+    apparentTemp?.takeIf(Double::isFinite)?.let { "$prefix ${units.temp(it)}" }
+} else null
+
+/**
  * Formate une température (Celsius) pour l'affichage widget : "22°" ou "—"
  * si la valeur est null. L'arrondi à l'entier suffit pour un widget — le
  * demi-degré n'est pas actionnable à cette échelle d'affichage.

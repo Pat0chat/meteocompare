@@ -7,12 +7,12 @@ SRC = ROOT / "app/src/main/java/com/meteocompare/app"
 
 
 def content(rel):
-    return (ROOT / rel).read_text()
+    return (ROOT / rel).read_text(encoding="utf-8")
 
 
 def test_precise_gps_is_conditional_and_approximate_fallback_remains():
-    controller = (SRC / 'data/repository/CurrentLocationController.kt').read_text()
-    policy = (SRC / 'domain/util/LocationProviderPolicy.kt').read_text()
+    controller = (SRC / 'data/repository/CurrentLocationController.kt').read_text(encoding="utf-8")
+    policy = (SRC / 'domain/util/LocationProviderPolicy.kt').read_text(encoding="utf-8")
     assert 'if (fineGranted) add(Source.GPS)' in policy
     assert 'if (apiLevel >= 31) add(Source.FUSED)' in policy
     assert 'add(Source.NETWORK)' in policy
@@ -23,9 +23,9 @@ def test_precise_gps_is_conditional_and_approximate_fallback_remains():
 
 
 def test_android_permission_request_is_batched_and_only_from_foreground_activities():
-    code = (SRC / 'data/repository/LocationPermissionOffer.kt').read_text()
-    home = (SRC / 'ui/citylist/CityListScreen.kt').read_text()
-    widget = (SRC / 'widget/WidgetLocationRefreshActivity.kt').read_text()
+    code = (SRC / 'data/repository/LocationPermissionOffer.kt').read_text(encoding="utf-8")
+    home = (SRC / 'ui/citylist/CityListScreen.kt').read_text(encoding="utf-8")
+    widget = (SRC / 'widget/WidgetLocationRefreshActivity.kt').read_text(encoding="utf-8")
     assert 'Manifest.permission.ACCESS_FINE_LOCATION' in code
     assert 'Manifest.permission.ACCESS_COARSE_LOCATION' in code
     assert 'PRECISION_OFFERED' in code
@@ -41,8 +41,8 @@ def test_android_permission_request_is_batched_and_only_from_foreground_activiti
 
 
 def test_raw_location_remains_ephemeral_and_no_background_location():
-    controller = (SRC / 'data/repository/CurrentLocationController.kt').read_text()
-    store = (SRC / 'data/repository/CurrentLocationStore.kt').read_text()
+    controller = (SRC / 'data/repository/CurrentLocationController.kt').read_text(encoding="utf-8")
+    store = (SRC / 'data/repository/CurrentLocationStore.kt').read_text(encoding="utf-8")
     manifest = content('app/src/main/AndroidManifest.xml')
     assert 'android.permission.ACCESS_FINE_LOCATION' in manifest
     assert 'android.permission.ACCESS_COARSE_LOCATION' in manifest
@@ -56,9 +56,9 @@ def test_raw_location_remains_ephemeral_and_no_background_location():
     assert '"Foreground providers="' in controller
     assert '"latitude="' not in controller
     for p in (SRC / 'widget').glob('*.kt'):
-        assert 'requestLocationUpdates(' not in p.read_text()
+        assert 'requestLocationUpdates(' not in p.read_text(encoding="utf-8")
     for p in (SRC / 'data/worker').glob('*.kt'):
-        assert 'getCurrentLocation(' not in p.read_text()
+        assert 'getCurrentLocation(' not in p.read_text(encoding="utf-8")
 
 
 def test_privacy_explanation_and_actionable_failures_in_five_locales():

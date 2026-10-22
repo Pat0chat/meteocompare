@@ -93,6 +93,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -122,6 +123,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
+import kotlinx.coroutines.launch
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.meteocompare.app.R
@@ -198,27 +200,46 @@ fun CityListScreen(
     val locationState by locationVm.locationState.collectAsStateWithLifecycle(
         initialValue = CurrentLocationSnapshot()
     )
+    val permissionScope = rememberCoroutineScope()
+    var permissionUiBusy by remember { mutableStateOf(false) }
     var refreshLocationOnlyAfterPermission by remember { mutableStateOf(false) }
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { _ ->
-        LocationPermissionOffer.recordPermissionResult(context)
-        if (LocationPermissionOffer.hasAny(context)) {
-            if (refreshLocationOnlyAfterPermission) locationVm.refreshLocationOnly()
-            else locationVm.locate()
-        } else locationVm.denied()
+        // SharedPreferences may synchronously initialize from disk on Windows/emulator
+        // cold starts: keep consent bookkeeping off the Compose input thread.
+        permissionScope.launch {
+            try {
+                LocationPermissionOffer.recordPermissionResult(context)
+                if (LocationPermissionOffer.hasAny(context)) {
+                    if (refreshLocationOnlyAfterPermission) locationVm.refreshLocationOnly()
+                    else locationVm.locate()
+                } else locationVm.denied()
+            } finally {
+                permissionUiBusy = false
+            }
+        }
     }
     val requestCurrentLocation: (Boolean) -> Unit = { locationOnly ->
-        if (!locationVm.isLocating) {
+        if (!locationVm.isLocating && !permissionUiBusy) {
+            permissionUiBusy = true
             refreshLocationOnlyAfterPermission = locationOnly
-            if (LocationPermissionOffer.shouldRequest(context)) {
-                LocationPermissionOffer.markPrecisionOffered(context)
-                // An explicit tap may request a one-time grant; the OS decides its lifetime.
-                permissionLauncher.launch(LocationPermissionOffer.requestedPermissions)
-            } else if (locationOnly) {
-                locationVm.refreshLocationOnly()
-            } else {
-                locationVm.locate()
+            permissionScope.launch {
+                var launchedDialog = false
+                try {
+                    if (LocationPermissionOffer.shouldRequest(context)) {
+                        LocationPermissionOffer.markPrecisionOffered(context)
+                        // Activity-result launch must stay on the foreground main thread.
+                        permissionLauncher.launch(LocationPermissionOffer.requestedPermissions)
+                        launchedDialog = true
+                    } else if (locationOnly) {
+                        locationVm.refreshLocationOnly()
+                    } else {
+                        locationVm.locate()
+                    }
+                } finally {
+                    if (!launchedDialog) permissionUiBusy = false
+                }
             }
         }
     }
@@ -232,6 +253,8 @@ fun CityListScreen(
         locationVm.refreshOnResume(viewModel::refreshIfStale)
     }
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) {
+        // An interrupted Android consent dialog must not leave the GPS control busy.
+        permissionUiBusy = false
         locationVm.cancelLocationRequests()
     }
 

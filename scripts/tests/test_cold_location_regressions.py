@@ -7,7 +7,7 @@ BASE = ROOT / 'app/src/main/java/com/meteocompare/app'
 
 
 def read(path):
-    return (BASE / path).read_text()
+    return (BASE / path).read_text(encoding="utf-8")
 
 
 def test_cold_start_cache_uses_monotonic_age_and_fused_first():
@@ -62,7 +62,7 @@ def test_disabled_location_has_distinct_localized_message():
 
 
 def test_no_precision_escalation_and_no_background_location_jobs():
-    manifest = (ROOT / 'app/src/main/AndroidManifest.xml').read_text()
+    manifest = (ROOT / 'app/src/main/AndroidManifest.xml').read_text(encoding="utf-8")
     assert 'ACCESS_COARSE_LOCATION' in manifest
     assert 'ACCESS_FINE_LOCATION' in manifest
     assert 'ACCESS_BACKGROUND_LOCATION' not in manifest
@@ -72,6 +72,6 @@ def test_no_precision_escalation_and_no_background_location_jobs():
     assert 'CurrentLocationStore.grid(fix.latitude, fix.longitude)' in code
     assert 'location.latitude' not in code.lower()
     for p in (BASE / 'data/worker').glob('*.kt'):
-        assert 'getCurrentLocation(' not in p.read_text()
+        assert 'getCurrentLocation(' not in p.read_text(encoding="utf-8")
     for p in (BASE / 'widget').glob('*.kt'):
-        assert 'requestLocationUpdates(' not in p.read_text()
+        assert 'requestLocationUpdates(' not in p.read_text(encoding="utf-8")

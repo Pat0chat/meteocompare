@@ -43,7 +43,7 @@ def test_no_background_gps_and_store_is_grid_only():
     assert 'prefs[latKey] = cell.first' in store and 'prefs[lonKey] = cell.second' in store
     for folder in ('widget','data/worker'):
         for source in (SRC / folder).glob('*.kt'):
-            assert 'requestLocationUpdates(' not in source.read_text()
+            assert 'requestLocationUpdates(' not in source.read_text(encoding="utf-8")
 
 
 def test_backup_excludes_current_location_and_consent_history():
