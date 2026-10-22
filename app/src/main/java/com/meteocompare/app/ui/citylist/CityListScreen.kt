@@ -4,6 +4,8 @@ import com.meteocompare.app.core.util.windCardinal
 
 import com.meteocompare.app.ui.components.UvIndexGauge
 import com.meteocompare.app.data.repository.LocationPermissionOffer
+import com.meteocompare.app.data.repository.CurrentLocationSnapshot
+import com.meteocompare.app.data.repository.CurrentLocationStore
 
 import com.meteocompare.app.core.units.WeatherUnit
 import com.meteocompare.app.core.units.WeatherUnits
@@ -155,6 +157,9 @@ import java.text.NumberFormat
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.LocalTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
@@ -167,6 +172,7 @@ internal const val CITY_CARD_RESIZE_DURATION_MS = 800
 private const val CITY_CARD_CROSSFADE_DURATION_MS = 620
 private const val CITY_CARD_CROSSFADE_DELAY_MS = 120
 private const val CITY_CARD_EMPHASIS_DURATION_MS = 500
+internal const val TAG_HOME_POSITION_REFRESH = "home_current_location_refresh"
 private val CityCardResizeEasing = CubicBezierEasing(0.33f, 0f, 0.67f, 1f)
 
 // ============================================================================
@@ -188,20 +194,32 @@ fun CityListScreen(
 ) {
     val locationVm: CurrentLocationViewModel = hiltViewModel()
     val context = LocalContext.current
+    val locationState by locationVm.locationState.collectAsStateWithLifecycle(
+        initialValue = CurrentLocationSnapshot()
+    )
+    var refreshLocationOnlyAfterPermission by remember { mutableStateOf(false) }
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { _ ->
         LocationPermissionOffer.recordPermissionResult(context)
-        if (LocationPermissionOffer.hasAny(context)) locationVm.locate()
-        else locationVm.denied()
+        if (LocationPermissionOffer.hasAny(context)) {
+            if (refreshLocationOnlyAfterPermission) locationVm.refreshLocationOnly()
+            else locationVm.locate()
+        } else locationVm.denied()
     }
-    val requestCurrentLocation = {
-        if (LocationPermissionOffer.shouldRequest(context)) {
-            LocationPermissionOffer.markPrecisionOffered(context)
-            // Android 12+ requires FINE and COARSE to be requested together.
-            // The user may choose approximate and the GPS provider stays disabled.
-            permissionLauncher.launch(LocationPermissionOffer.requestedPermissions)
-        } else locationVm.locate()
+    val requestCurrentLocation: (Boolean) -> Unit = { locationOnly ->
+        if (!locationVm.isLocating) {
+            refreshLocationOnlyAfterPermission = locationOnly
+            if (LocationPermissionOffer.shouldRequest(context)) {
+                LocationPermissionOffer.markPrecisionOffered(context)
+                // An explicit tap may request a one-time grant; the OS decides its lifetime.
+                permissionLauncher.launch(LocationPermissionOffer.requestedPermissions)
+            } else if (locationOnly) {
+                locationVm.refreshLocationOnly()
+            } else {
+                locationVm.locate()
+            }
+        }
     }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val addState by viewModel.addCityState.collectAsStateWithLifecycle()
@@ -257,6 +275,8 @@ fun CityListScreen(
             onRefresh = { locationVm.refreshActive(viewModel::onRefreshAll) },
             onMarineAction = viewModel::onMarineAction,
             isLocating = locationVm.isLocating,
+            currentLocationUpdatedAt = locationState.updatedAt.takeIf { locationState.enabled && it > 0L },
+            onCurrentLocationRefresh = { requestCurrentLocation(true) },
             selectedCityId = selectedCityId,
             selectionEnabled = selectionEnabled,
             homeExpandedCityId = homeExpansion.expandedCityId,
@@ -273,7 +293,7 @@ fun CityListScreen(
                 onQueryChanged = viewModel::onSearchQueryChanged,
                 onCurrentLocationSelected = {
                     showAddSheet = false
-                    requestCurrentLocation()
+                    requestCurrentLocation(false)
                 },
                 onCitySelected = { city ->
                     viewModel.onAddCity(city)
@@ -344,6 +364,8 @@ internal fun CityListContent(
     onRefresh: () -> Unit,
     onMarineAction: (City) -> Unit = {},
     isLocating: Boolean = false,
+    currentLocationUpdatedAt: Long? = null,
+    onCurrentLocationRefresh: () -> Unit = {},
     snackbarHostState: SnackbarHostState? = null,
     selectedCityId: String? = null,
     selectionEnabled: Boolean = false,
@@ -451,6 +473,9 @@ internal fun CityListContent(
                         onRemove = onRemoveCity,
                         onRetry = onRetry,
                         onMarineAction = onMarineAction,
+                        currentLocationUpdatedAt = currentLocationUpdatedAt,
+                        onCurrentLocationRefresh = onCurrentLocationRefresh,
+                        isLocating = isLocating,
                         selectedCityId = selectedCityId,
                         selectionEnabled = selectionEnabled,
                         homeExpandedCityId = homeExpandedCityId,
@@ -472,6 +497,9 @@ internal fun CityList(
     onRemove: (String) -> Unit,
     onRetry: (City) -> Unit,
     onMarineAction: (City) -> Unit = {},
+    currentLocationUpdatedAt: Long? = null,
+    onCurrentLocationRefresh: () -> Unit = {},
+    isLocating: Boolean = false,
     selectedCityId: String? = null,
     selectionEnabled: Boolean = false,
     homeExpandedCityId: String? = null,
@@ -540,6 +568,9 @@ internal fun CityList(
                 onRemove = { onRemove(state.city.id) },
                 onRetry = { onRetry(state.city) },
                 onMarineAction = { onMarineAction(state.city) },
+                currentLocationUpdatedAt = currentLocationUpdatedAt,
+                onCurrentLocationRefresh = onCurrentLocationRefresh,
+                isLocating = isLocating,
                 isSelected = state.city.id == selectedCityId,
                 selectionEnabled = selectionEnabled,
                 // Match the card's height morph, instead of using the default
@@ -616,6 +647,9 @@ internal fun CityCard(
     onRemove: () -> Unit,
     onRetry: () -> Unit,
     onMarineAction: () -> Unit = {},
+    currentLocationUpdatedAt: Long? = null,
+    onCurrentLocationRefresh: () -> Unit = {},
+    isLocating: Boolean = false,
     isSelected: Boolean = false,
     selectionEnabled: Boolean = false,
     expanded: Boolean = true,
@@ -833,7 +867,10 @@ internal fun CityCard(
                                         latitude = state.city.latitude,
                                         longitude = state.city.longitude,
                                         accentColor = accentColor,
-                                        windDirectionDeg = forecast.windDirectionDeg
+                                        windDirectionDeg = forecast.windDirectionDeg,
+                                        locationUpdatedAt = if (CurrentLocationStore.isCurrentCity(state.city.id)) currentLocationUpdatedAt else null,
+                                        onLocationRefresh = onCurrentLocationRefresh,
+                                        isLocating = isLocating
                                     )
 
                                     is ForecastState.Error -> CityCardError(
@@ -922,24 +959,32 @@ private fun CompactCityCardContent(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f)
             )
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(6.dp))
+            vigilanceLevel?.let { level ->
+                VigilanceCompactLevelIndicator(
+                    level = level,
+                    isStale = state.vigilance?.isStale == true,
+                    modifier = Modifier.testTag("$TAG_CITY_CARD_COMPACT_VIGILANCE${state.city.id}")
+                )
+                Spacer(Modifier.width(5.dp))
+            }
+            val agreementText = agreement?.let { "$it%" } ?: "—"
+            val agreementDescription = "${stringResource(R.string.home_agreement_label)} $agreementText"
             Surface(
-                modifier = Modifier.testTag("$TAG_CITY_CARD_COMPACT_AGREEMENT${state.city.id}"),
+                modifier = Modifier
+                    .testTag("$TAG_CITY_CARD_COMPACT_AGREEMENT${state.city.id}")
+                    .semantics(mergeDescendants = true) {
+                        contentDescription = agreementDescription
+                    },
                 color = accentColor.copy(alpha = 0.10f),
                 shape = RoundedCornerShape(8.dp)
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = stringResource(R.string.home_agreement_label),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = agreement?.let { "$it%" } ?: "—",
+                        text = agreementText,
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
                         color = if (agreement != null) confidenceColor(agreement)
@@ -1022,16 +1067,6 @@ private fun CompactCityCardContent(
                         modifier = Modifier.testTag("city_card_apparent_${state.city.id}")
                     )
                 }
-            }
-        }
-        // The vigilance sits underneath the temperature row, never to its right.
-        vigilanceLevel?.let { level ->
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                VigilanceCompactLevelIndicator(
-                    level = level,
-                    isStale = state.vigilance?.isStale == true,
-                    modifier = Modifier.testTag("$TAG_CITY_CARD_COMPACT_VIGILANCE${state.city.id}")
-                )
             }
         }
         Row(
@@ -1260,7 +1295,10 @@ private fun CityCardLoaded(
     latitude: Double,
     longitude: Double,
     accentColor: Color,
-    windDirectionDeg: Int? = null
+    windDirectionDeg: Int? = null,
+    locationUpdatedAt: Long? = null,
+    onLocationRefresh: () -> Unit = {},
+    isLocating: Boolean = false
 ) {
     val zone = remember(cityTimezone) {
         try { java.time.ZoneId.of(cityTimezone ?: "UTC") } catch (_: Exception) { java.time.ZoneOffset.UTC }
@@ -1328,11 +1366,14 @@ private fun CityCardLoaded(
             emptyList()
         }
 
-        if (visibleScenarios.isNotEmpty() || fetchedAt != null) {
+        if (visibleScenarios.isNotEmpty() || fetchedAt != null || locationUpdatedAt != null) {
             HomeWeatherFooter(
                 scenarios = visibleScenarios,
                 fetchedAt = fetchedAt,
-                nightFlags = miniNightFlags
+                nightFlags = miniNightFlags,
+                locationUpdatedAt = locationUpdatedAt,
+                onLocationRefresh = onLocationRefresh,
+                isLocating = isLocating
             )
         }
     }
@@ -1694,10 +1735,13 @@ private fun precipitationMetricPresentation(
 }
 
 @Composable
-private fun HomeWeatherFooter(
+internal fun HomeWeatherFooter(
     scenarios: List<WeatherScenario>,
     fetchedAt: Instant?,
-    nightFlags: List<Boolean?> = emptyList()
+    nightFlags: List<Boolean?> = emptyList(),
+    locationUpdatedAt: Long? = null,
+    onLocationRefresh: () -> Unit = {},
+    isLocating: Boolean = false
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     val lastUpdated = if (fetchedAt != null) {
@@ -1781,6 +1825,52 @@ private fun HomeWeatherFooter(
                 )
             } else {
                 Spacer(Modifier.weight(1f))
+            }
+
+            if (locationUpdatedAt != null) {
+                Spacer(Modifier.width(6.dp))
+                val locale = LocalLocale.current.platformLocale
+                val formattedPositionTime = remember(locationUpdatedAt, locale) {
+                    DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT)
+                        .withLocale(locale)
+                        .withZone(ZoneId.systemDefault())
+                        .format(Instant.ofEpochMilli(locationUpdatedAt))
+                }
+                val description = stringResource(
+                    R.string.current_location_refresh_timestamp_description,
+                    formattedPositionTime
+                )
+                Surface(
+                    onClick = onLocationRefresh,
+                    enabled = !isLocating,
+                    modifier = Modifier.testTag(TAG_HOME_POSITION_REFRESH)
+                        .semantics { contentDescription = description },
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.72f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.current_location_last_updated, formattedPositionTime),
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 1,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        if (isLocating) {
+                            CircularProgressIndicator(modifier = Modifier.size(13.dp), strokeWidth = 2.dp)
+                        } else {
+                            Icon(
+                                Icons.Default.Refresh,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
             }
         }
 

@@ -27,13 +27,19 @@ class CurrentLocationViewModel @Inject constructor(
         private set
     private var foregroundRefreshJob: Job? = null
     val feedback = feedbackChannel.receiveAsFlow()
+    val locationState = controller.locationState
 
-    fun locate() {
+    fun locate() = requestPosition(allowEnable = true)
+
+    /** GPS-only action on an existing My location card: no global weather refresh. */
+    fun refreshLocationOnly() = requestPosition(allowEnable = false)
+
+    private fun requestPosition(allowEnable: Boolean) {
         if (locateJob?.isActive == true) return
         locateJob = viewModelScope.launch {
             isLocating = true
             try {
-                val result = controller.enable()
+                val result = if (allowEnable) controller.enable() else controller.refreshExisting()
                 val event = when (result) {
                     CurrentLocationController.Result.Updated ->
                         AppToastEvent.success(R.string.current_location_updated)

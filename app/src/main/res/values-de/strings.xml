@@ -1002,6 +1002,8 @@ Daten</string>
     <string name="current_location_services_disabled">Standortdienste deaktiviert. Aktiviere den Standort in den Android-Einstellungen.</string>
     <string name="current_location_unavailable">Standort nicht verfügbar. Standortdienste aktivieren und erneut versuchen.</string>
     <string name="current_location_approximate_unavailable">Android liefert keinen ungefähren Standort. Im Emulator den genauen Standort in den App-Einstellungen erlauben und erneut versuchen.</string>
+    <string name="current_location_last_updated">Standort: %1$s</string>
+    <string name="current_location_refresh_timestamp_description">Standort zuletzt aktualisiert: %1$s. Tippen, um nur den Standort zu aktualisieren.</string>
     <string name="current_location_stale">Standort aktualisieren</string>
     <string name="current_location_widget_note">Das Widget nutzt die zuletzt gespeicherte Region. Tippe auf ↻ im Widget oder öffne MeteoCompare zum Aktualisieren (keine Ortung im Hintergrund).</string>
     <string name="widget_current_location_refresh">Standort aktualisieren</string>

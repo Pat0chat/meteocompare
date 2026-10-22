@@ -1020,6 +1020,8 @@
     <string name="current_location_services_disabled">Services de localisation désactivés. Activez la position dans les réglages Android.</string>
     <string name="current_location_unavailable">Position indisponible. Activez la localisation puis réessayez.</string>
     <string name="current_location_approximate_unavailable">Aucune position approximative fournie par Android. Sur émulateur, autorisez « Position exacte » dans les paramètres de l’application, puis réessayez.</string>
+    <string name="current_location_last_updated">Position : %1$s</string>
+    <string name="current_location_refresh_timestamp_description">Dernière position actualisée le %1$s. Toucher pour actualiser uniquement ma position.</string>
     <string name="current_location_stale">Position à actualiser</string>
     <string name="current_location_widget_note">Le widget utilise la dernière zone enregistrée. Touchez ↻ sur le widget ou ouvrez MeteoCompare pour actualiser la position (pas de suivi en arrière-plan).</string>
     <string name="widget_current_location_refresh">Actualiser ma position</string>

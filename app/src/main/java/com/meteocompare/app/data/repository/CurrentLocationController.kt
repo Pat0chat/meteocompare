@@ -43,6 +43,8 @@ class CurrentLocationController @Inject constructor(
         data object ApproximateUnavailable : Result
     }
 
+    val locationState = store.state
+
     private val mutex = Mutex()
     // Independent guards: an automatic attempt must never consume a user's explicit tap.
     private var lastAutomaticAttemptMs = 0L

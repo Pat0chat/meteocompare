@@ -217,7 +217,7 @@ class CityCardExpansionUiTest {
         composeRule.onNodeWithText("18–22", useUnmergedTree = true).assertDoesNotExist()
     }
 
-    @Test fun compact_card_shows_french_vigilance_below_temperature_trend() {
+    @Test fun compact_card_shows_french_vigilance_beside_the_convergence_percentage() {
         val vigilance = warning(VigilanceColor.ORANGE)
         composeRule.setContent {
             MeteoCompareTheme {
@@ -233,13 +233,20 @@ class CityCardExpansionUiTest {
         )
         level.assertExists()
         val levelRect = level.fetchSemanticsNode().boundsInRoot
+        val convergenceRect = composeRule.onNodeWithTag(
+            "$TAG_CITY_CARD_COMPACT_AGREEMENT${TestFixtures.paris.id}", useUnmergedTree = true
+        ).fetchSemanticsNode().boundsInRoot
         val tempRect = composeRule.onNodeWithTag(
             "$TAG_CITY_CARD_COMPACT_TEMPERATURES${TestFixtures.paris.id}", useUnmergedTree = true
         ).fetchSemanticsNode().boundsInRoot
         val cardRect = card(TestFixtures.paris.id).fetchSemanticsNode().boundsInRoot
-        assertTrue("Vigilance must be below the temperature row", levelRect.top >= tempRect.bottom)
+        assertTrue("Vigilance must be to the left of convergence", levelRect.right <= convergenceRect.left)
+        assertTrue("Vigilance and convergence must share the header row",
+            abs(levelRect.center.y - convergenceRect.center.y) <= with(composeRule.density) { 3.dp.toPx() })
+        assertTrue("Vigilance must be above the temperature row", levelRect.bottom <= tempRect.top)
         assertTrue("Vigilance must fit inside the compact card", levelRect.right <= cardRect.right)
         assertTrue("Vigilance must stay within the card", levelRect.bottom <= cardRect.bottom)
+        composeRule.onNodeWithText("Convergence", useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test fun compact_card_shows_feels_like_only_for_significant_difference() {
