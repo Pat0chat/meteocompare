@@ -18,6 +18,29 @@ class LocationFixPolicyTest {
         assertFalse(LocationFixPolicy.isRecentCachedFix(now, now + 1_000_000_000L))
     }
 
+    @Test fun `manual refresh refuses old platform position while automatic may use it`() {
+        assertTrue(LocationFixPolicy.isRecentCachedFix(now, now - 10_000_000_000L, explicit = true))
+        assertFalse(LocationFixPolicy.isRecentCachedFix(now, now - 40_000_000_000L, explicit = true))
+        assertTrue(LocationFixPolicy.isRecentCachedFix(now, now - 40_000_000_000L, explicit = false))
+        assertFalse(LocationFixPolicy.isRecentCachedFix(now, now + 1L, explicit = true))
+    }
+
+    @Test fun `disabled or revoked location is never persisted after a slow fix`() {
+        assertTrue(LocationFixPolicy.mayCommitFix(1, 1, true, true, true))
+        assertTrue(LocationFixPolicy.mayCommitFix(1, 1, true, false, false))
+        assertFalse(LocationFixPolicy.mayCommitFix(1, 2, true, true, true))
+        assertFalse(LocationFixPolicy.mayCommitFix(1, 1, false, true, false))
+        // COARSE remains authorized but a one-time FINE grant used for GPS expired.
+        assertFalse(LocationFixPolicy.mayCommitFix(1, 1, true, true, false))
+    }
+
+    @Test fun `clock rollback cannot keep an old location looking fresh forever`() {
+        assertFalse(LocationFixPolicy.isStoredCellStale(1_000_000L, 950_000L))
+        assertTrue(LocationFixPolicy.isStoredCellStale(1_000_000L, 1_000_001L))
+        assertTrue(LocationFixPolicy.isStoredCellStale(1_000_000L, 0L))
+        assertTrue(LocationFixPolicy.isStoredCellStale(50_000_000L, 1_000_000L))
+    }
+
     @Test fun `widget can reuse fresh successful cell without another sensor request`() {
         assertTrue(LocationFixPolicy.canReuseFreshSuccess(2_000_000L, 1_990_000L))
         assertFalse(LocationFixPolicy.canReuseFreshSuccess(2_000_000L, 1_984_999L))

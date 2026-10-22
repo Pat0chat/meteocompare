@@ -1,0 +1,1 @@
+Zuverlässigere Standortfunktion: Manuelle GPS-Aktualisierung hat Vorrang, einmalige Berechtigungen werden erneut geprüft und laufende Abfragen beim Entfernen gestoppt. Frischere Positionsdaten und Stabilitätskorrekturen.

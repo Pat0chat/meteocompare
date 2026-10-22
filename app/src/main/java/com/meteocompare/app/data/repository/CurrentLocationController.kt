@@ -13,6 +13,7 @@ import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.core.location.LocationManagerCompat
 import com.meteocompare.app.domain.repository.ForecastRepository
+import com.meteocompare.app.core.util.runSuspendCatching
 import com.meteocompare.app.domain.util.LocationFixPolicy
 import com.meteocompare.app.domain.util.LocationProviderPolicy
 import com.meteocompare.app.domain.util.LocationRefreshPolicy
@@ -20,7 +21,14 @@ import com.meteocompare.app.widget.WidgetRefreshScheduler
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
+import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -46,6 +54,12 @@ class CurrentLocationController @Inject constructor(
     val locationState = store.state
 
     private val mutex = Mutex()
+    // A foreground user action preempts the automatic fix rather than waiting 12 s.
+    // An explicit opt-out invalidates every already-started acquisition immediately.
+    private val activeFix = AtomicReference<Deferred<Location?>?>(null)
+    private val automaticFix = AtomicReference<Deferred<Location?>?>(null)
+    private val disableGeneration = AtomicLong(0L)
+    private val manualGeneration = AtomicLong(0L)
     // Independent guards: an automatic attempt must never consume a user's explicit tap.
     private var lastAutomaticAttemptMs = 0L
     private var lastExplicitAttemptMs = 0L
@@ -64,65 +78,107 @@ class CurrentLocationController @Inject constructor(
         force: Boolean,
         allowEnable: Boolean,
         updateWidgetsOnSameCell: Boolean = false
-    ): Result = mutex.withLock {
-        val previous = store.snapshot()
-        if (!previous.enabled && !allowEnable) return@withLock Result.Unchanged
-        if (!hasPermission()) return@withLock Result.PermissionMissing
+    ): Result {
+        // Record the intention before entering the mutex: even a manual tap that
+        // races with the automatic preflight can preempt its future provider request.
+        val manualAtStart = if (force) manualGeneration.incrementAndGet()
+            else manualGeneration.get()
+        if (force) automaticFix.get()?.cancel()
+        return mutex.withLock {
+            val generation = disableGeneration.get()
+            val previous = store.snapshot()
+            if (!previous.enabled && !allowEnable) return@withLock Result.Unchanged
+            if (!hasPermission()) return@withLock Result.PermissionMissing
 
-        val manager = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
-            ?: return@withLock Result.Unavailable
-        if (!LocationManagerCompat.isLocationEnabled(manager)) return@withLock Result.ServicesDisabled
+            val manager = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+                ?: return@withLock Result.Unavailable
+            if (!LocationManagerCompat.isLocationEnabled(manager)) return@withLock Result.ServicesDisabled
 
-        val now = System.currentTimeMillis()
-        // If the user has just acquired a position via the app, the widget can refresh
-        // that same cell without initiating a redundant request for another fix.
-        if (force && previous.enabled && previous.latCell != null && previous.lonCell != null &&
-            LocationFixPolicy.canReuseFreshSuccess(now, previous.updatedAt)) {
-            if (updateWidgetsOnSameCell) {
-                runCatching { WidgetRefreshScheduler.triggerImmediateRefresh(context) }
-            }
-            return@withLock Result.Updated
-        }
-
-        val lastAttempt = if (force) lastExplicitAttemptMs else lastAutomaticAttemptMs
-        if (!LocationRefreshPolicy.shouldAcquire(
-                nowMs = now,
-                lastSuccessfulMs = previous.updatedAt,
-                lastAttemptMs = lastAttempt,
-                explicit = force
-            )) return@withLock Result.Unchanged
-        if (force) lastExplicitAttemptMs = now else lastAutomaticAttemptMs = now
-
-        val timeoutMs = if (force) LocationFixPolicy.EXPLICIT_TIMEOUT_MS
-            else LocationFixPolicy.AUTOMATIC_TIMEOUT_MS
-        val fix = withTimeoutOrNull(timeoutMs) { obtainPosition(manager, force) }
-            ?: run {
-                // Android can revoke "Only this time" while an attempt is in flight.
-                // Never misclassify a lost grant as an unavailable GPS provider.
-                if (!hasPermission()) {
-                    Log.w("MeteoCompare/Location", "Foreground location permission expired")
-                    return@withLock Result.PermissionMissing
+            val now = System.currentTimeMillis()
+            // If the user has just acquired a position via the app, the widget can refresh
+            // that same cell without initiating a redundant request for another fix.
+            if (disableGeneration.get() != generation) return@withLock Result.Unchanged
+            if (force && previous.enabled && previous.latCell != null && previous.lonCell != null &&
+                LocationFixPolicy.canReuseFreshSuccess(now, previous.updatedAt)) {
+                if (updateWidgetsOnSameCell) {
+                    runCatching { WidgetRefreshScheduler.triggerImmediateRefresh(context) }
                 }
+                return@withLock Result.Updated
+            }
+
+            val lastAttempt = if (force) lastExplicitAttemptMs else lastAutomaticAttemptMs
+            if (!LocationRefreshPolicy.shouldAcquire(
+                    nowMs = now,
+                    lastSuccessfulMs = previous.updatedAt,
+                    lastAttemptMs = lastAttempt,
+                    explicit = force
+                )) return@withLock Result.Unchanged
+            if (force) lastExplicitAttemptMs = now else lastAutomaticAttemptMs = now
+
+            val fineAtStart = hasFinePermission()
+            val timeoutMs = if (force) LocationFixPolicy.EXPLICIT_TIMEOUT_MS
+                else LocationFixPolicy.AUTOMATIC_TIMEOUT_MS
+            val fix = try {
+                coroutineScope {
+                    val task = async { withTimeoutOrNull(timeoutMs) { obtainPosition(manager, force) } }
+                    activeFix.set(task)
+                    if (!force) automaticFix.set(task)
+                    // Covers disable() or a manual tap racing with task registration.
+                    if (disableGeneration.get() != generation ||
+                        (!force && manualGeneration.get() != manualAtStart)) task.cancel()
+                    try {
+                        task.await()
+                    } finally {
+                        activeFix.compareAndSet(task, null)
+                        automaticFix.compareAndSet(task, null)
+                    }
+                }
+            } catch (cancelled: CancellationException) {
+                // A cancelled parent Activity must still receive cancellation.
+                if (!currentCoroutineContext().isActive) throw cancelled
+                // A user tap preempted an automatic fix, or the location was disabled.
+                return@withLock Result.Unchanged
+            }
+            // A pending opt-out must never save a sample or enqueue widget/network work.
+            if (disableGeneration.get() != generation) return@withLock Result.Unchanged
+            if (!LocationFixPolicy.mayCommitFix(
+                    generation, disableGeneration.get(), hasPermission(),
+                    fineAtStart, hasFinePermission()
+                )) {
+                Log.w("MeteoCompare/Location", "Foreground location permission expired")
+                return@withLock Result.PermissionMissing
+            }
+            if (fix == null) {
                 Log.w("MeteoCompare/Location", "No foreground location fix from enabled providers " +
                     "(precision=" + (if (hasFinePermission()) "exact" else "approximate") + ")")
                 return@withLock if (hasFinePermission()) Result.Unavailable
                     else Result.ApproximateUnavailable
             }
-        val cell = runCatching { CurrentLocationStore.grid(fix.latitude, fix.longitude) }
-            .getOrNull() ?: return@withLock Result.Unavailable
+            val cell = runCatching { CurrentLocationStore.grid(fix.latitude, fix.longitude) }
+                .getOrNull() ?: return@withLock Result.Unavailable
 
-        // Raw coordinates, provider, accuracy and history are never persisted or logged.
-        store.save(cell, System.currentTimeMillis())
-        val oldId = previous.asCity(context)?.id
-        val newId = CurrentLocationStore.idFor(cell.first, cell.second)
-        if (oldId != null && oldId != newId) {
-            // Best-effort purge of the previous region's cache; no rollback of location.
-            runCatching { forecasts.clearCacheForCity(oldId) }
+            // Never publish a fix acquired before an explicit disable/permission revocation.
+            if (disableGeneration.get() != generation) return@withLock Result.Unchanged
+            if (!LocationFixPolicy.mayCommitFix(
+                    generation, disableGeneration.get(), hasPermission(),
+                    fineAtStart, hasFinePermission()
+                )) return@withLock Result.PermissionMissing
+            // Raw coordinates, provider, accuracy and history are never persisted or logged.
+            store.save(cell, System.currentTimeMillis())
+            // If an opt-out was requested during the DataStore write, disable()
+            // will clear the cell under this mutex. Never schedule obsolete work.
+            if (disableGeneration.get() != generation) return@withLock Result.Unchanged
+            val oldId = previous.asCity(context)?.id
+            val newId = CurrentLocationStore.idFor(cell.first, cell.second)
+            if (oldId != null && oldId != newId) {
+                // Best-effort purge of the previous region's cache; no rollback of location.
+                runSuspendCatching { forecasts.clearCacheForCity(oldId) }
+            }
+            if (oldId != newId || updateWidgetsOnSameCell) {
+                runCatching { WidgetRefreshScheduler.triggerImmediateRefresh(context) }
+            }
+            Result.Updated
         }
-        if (oldId != newId || updateWidgetsOnSameCell) {
-            runCatching { WidgetRefreshScheduler.triggerImmediateRefresh(context) }
-        }
-        Result.Updated
     }
 
     suspend fun refreshExisting(updateWidgetsOnSameCell: Boolean = false): Result {
@@ -131,12 +187,17 @@ class CurrentLocationController @Inject constructor(
             updateWidgetsOnSameCell = updateWidgetsOnSameCell)
     }
 
-    suspend fun disable() = mutex.withLock {
-        val oldId = store.snapshot().asCity(context)?.id
-        store.clear()
-        if (oldId != null) {
-            runCatching { forecasts.clearCacheForCity(oldId) }
-            runCatching { WidgetRefreshScheduler.triggerImmediateRefresh(context) }
+    suspend fun disable() {
+        // Do this BEFORE acquiring the mutex: a cold fix cannot re-enable a removed card.
+        disableGeneration.incrementAndGet()
+        activeFix.get()?.cancel()
+        mutex.withLock {
+            val oldId = store.snapshot().asCity(context)?.id
+            store.clear()
+            if (oldId != null) {
+                runSuspendCatching { forecasts.clearCacheForCity(oldId) }
+                runCatching { WidgetRefreshScheduler.triggerImmediateRefresh(context) }
+            }
         }
     }
 
@@ -172,7 +233,7 @@ class CurrentLocationController @Inject constructor(
         val elapsedNanos = SystemClock.elapsedRealtimeNanos()
         val cached = providers.mapNotNull { provider ->
             runCatching { manager.getLastKnownLocation(provider) }.getOrNull()
-                ?.takeIf { LocationFixPolicy.isRecentCachedFix(elapsedNanos, it.elapsedRealtimeNanos) }
+                ?.takeIf { LocationFixPolicy.isRecentCachedFix(elapsedNanos, it.elapsedRealtimeNanos, explicit = explicit) }
         }.minByOrNull { elapsedNanos - it.elapsedRealtimeNanos }
         if (cached != null) return cached
 

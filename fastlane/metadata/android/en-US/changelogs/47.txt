@@ -1,0 +1,1 @@
+My location reliability: manual GPS refresh takes priority, one-time permissions are rechecked, and removing the card safely cancels in-flight fixes. Weather requests unchanged.

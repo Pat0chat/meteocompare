@@ -1,6 +1,8 @@
 # Politique de confidentialité — MeteoCompare
 
-*Dernière mise à jour : 7 octobre 2026*
+*Dernière mise à jour : 22 octobre 2026*
+
+**Langues / Languages / Sprachen / Idiomas / Lingue :** [Français](PRIVACY.md) · [English](PRIVACY.en.md) · [Deutsch](PRIVACY.de.md) · [Español](PRIVACY.es.md) · [Italiano](PRIVACY.it.md)
 
 ## TL;DR
 
@@ -223,7 +225,7 @@ Pour toute question sur cette politique :
 [github.com/Pat0chat/MeteoCompare/issues](https://github.com/Pat0chat/MeteoCompare/issues)
 
 
-## Position approximative (v1.19.0, fonctionnalité facultative)
+## 11. Position approximative (v1.19.0, fonctionnalité facultative)
 
 « Ma position » est désactivée par défaut. Lorsque l’utilisateur choisit cette option, MeteoCompare demande ensemble `ACCESS_COARSE_LOCATION` et `ACCESS_FINE_LOCATION` : sur Android 12+, il peut choisir « Exacte » ou « Approximative ». Si « Approximative » est choisie, MeteoCompare n’interroge **jamais** `GPS_PROVIDER`. Le choix d’une position exacte permet une acquisition GPS ponctuelle, particulièrement utile sur certains émulateurs. L’offre de précision supplémentaire ne se répète pas après le premier consentement : seul un indicateur local « offre présentée » est mémorisé dans les préférences non sauvegardées (aucune position). Un nouveau choix reste possible dans les paramètres Android. Il n’y a ni permission `ACCESS_BACKGROUND_LOCATION` ni SDK de pistage. L’acquisition ne se produit que lorsqu’une activité est visible (activation, retour au premier plan suivant la politique de fraîcheur, ou rafraîchissement explicite).
 

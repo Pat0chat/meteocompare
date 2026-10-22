@@ -1,0 +1,1 @@
+Ubicación más fiable: prioridad a la actualización GPS manual, revisión de permisos de un solo uso y cancelación de búsquedas en curso al quitar la tarjeta. Datos más recientes en la actualización manual y mejoras de estabilidad.

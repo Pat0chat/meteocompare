@@ -1,0 +1,1 @@
+Fiabilité de « Ma position » : mise à jour GPS manuelle prioritaire, respect renforcé des permissions ponctuelles, suppression sécurisée même pendant un relevé. Corrections de stabilité sans modification des requêtes météo.

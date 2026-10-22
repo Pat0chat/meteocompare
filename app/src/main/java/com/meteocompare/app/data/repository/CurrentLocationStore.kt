@@ -14,6 +14,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.meteocompare.app.domain.util.LocationFixPolicy
 import com.meteocompare.app.domain.util.LocationPrivacyGrid
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -33,7 +34,7 @@ data class CurrentLocationSnapshot(
     fun asCity(context: Context): City? {
         if (!enabled || latCell == null || lonCell == null) return null
         val localized = applyPersistedLocale(context)
-        val stale = updatedAt <= 0 || System.currentTimeMillis() - updatedAt > 12 * 60 * 60_000L
+        val stale = LocationFixPolicy.isStoredCellStale(System.currentTimeMillis(), updatedAt)
         val displayName = localized.getString(R.string.current_location_title) +
             if (stale) " · " + localized.getString(R.string.current_location_stale) else ""
         return City(

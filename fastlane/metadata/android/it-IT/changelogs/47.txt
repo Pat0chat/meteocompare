@@ -1,0 +1,1 @@
+Posizione più affidabile: priorità all'aggiornamento GPS manuale, verifica dei permessi una tantum e annullamento delle ricerche quando si rimuove la scheda. Posizione manuale più recente e miglioramenti di stabilità.
