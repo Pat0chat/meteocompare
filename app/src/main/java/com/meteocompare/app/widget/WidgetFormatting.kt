@@ -99,6 +99,22 @@ internal fun apparentNextToMinMax(
 )
 
 /**
+ * Compose un libellé Glance atomique : Min/Max suivi du ressenti, jamais
+ * la température actuelle. Même sur un écran étroit, Glance ne peut pas
+ * placer le ressenti dans une autre cellule de la Row.
+ */
+internal fun minMaxAndApparentText(
+    minMax: String,
+    apparentTemp: Double?,
+    units: WeatherUnits,
+    prefix: String,
+    show: Boolean
+): String {
+    val apparent = apparentNextToMinMax(minMax, apparentTemp, units, prefix, show)
+    return if (apparent != null) "$minMax · $apparent" else minMax
+}
+
+/**
  * Formate une température (Celsius) pour l'affichage widget : "22°" ou "—"
  * si la valeur est null. L'arrondi à l'entier suffit pour un widget — le
  * demi-degré n'est pas actionnable à cette échelle d'affichage.

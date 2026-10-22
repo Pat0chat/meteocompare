@@ -366,7 +366,6 @@ private fun InsightWidgetLayout(
                         units = units,
                         onContainerMuted = colors.muted,
                         minMaxSize = 10.sp,
-                        apparentSize = 9.sp,
                         // La colonne doit contenir les deux valeurs sans chevauchement.
                         showApparent = !compact && LocalSize.current.width.value >= 300f
                     )

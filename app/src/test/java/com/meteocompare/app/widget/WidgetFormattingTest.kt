@@ -48,6 +48,17 @@ class WidgetFormattingTest {
         )
     }
 
+    @Test
+    fun `min max and feels are a single indivisible label`() {
+        val metric = WeatherUnits(UnitSystem.METRIC)
+        val imperial = WeatherUnits(UnitSystem.IMPERIAL)
+        assertEquals("12° / 20° · Ress. 16°", minMaxAndApparentText("12° / 20°", 16.0, metric, "Ress.", show = true))
+        assertEquals("54°F / 68°F · Feels 61°F", minMaxAndApparentText("54°F / 68°F", 16.0, imperial, "Feels", show = true))
+        assertEquals("12° / 20°", minMaxAndApparentText("12° / 20°", 16.0, metric, "Ress.", show = false))
+        assertEquals("12° / 20°", minMaxAndApparentText("12° / 20°", Double.NaN, metric, "Ress.", show = true))
+        assertEquals("", minMaxAndApparentText("", 16.0, metric, "Ress.", show = true))
+    }
+
     // ─── buildExtrasLine ───────────────────────────────────────────────
 
     @Test

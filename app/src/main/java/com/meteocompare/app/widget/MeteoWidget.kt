@@ -600,10 +600,11 @@ private fun SmallLayout(
 }
 
 /**
- * Min/max du jour et température ressentie sur une seule ligne :
- * « 12° / 20°   Ress. 16° ». La température actuelle reste seule à côté de l'icône.
- * Dans les widgets étroits, le ressenti est omis pour conserver les extrêmes lisibles.
- * Une Row imbriquée compte comme un seul enfant de la Row extérieure Glance.
+ * Min/max et ressenti sont UN seul Text Glance : ils ne peuvent donc pas être
+ * séparés, réordonnés ni rendus à côté de la température actuelle. Un Text
+ * unique évite aussi tout enfant de Row supplémentaire dans RemoteViews.
+ * Quand les extrêmes manquent, le ressenti est masqué ; les widgets étroits
+ * gardent uniquement les min/max pour éviter toute troncature.
  */
 @Composable
 internal fun WidgetMinMaxWithApparent(
@@ -612,32 +613,20 @@ internal fun WidgetMinMaxWithApparent(
     units: WeatherUnits,
     onContainerMuted: ColorProvider,
     minMaxSize: TextUnit,
-    apparentSize: TextUnit,
     showApparent: Boolean
 ) {
     val context = LocalContext.current
-    val apparent = apparentNextToMinMax(
-        minMax = minMax,
-        apparentTemp = data.apparentTemp,
-        units = units,
-        prefix = context.getString(R.string.apparent_temperature_widget_prefix),
-        show = showApparent
+    Text(
+        text = minMaxAndApparentText(
+            minMax = minMax,
+            apparentTemp = data.apparentTemp,
+            units = units,
+            prefix = context.getString(R.string.apparent_temperature_widget_prefix),
+            show = showApparent
+        ),
+        style = TextStyle(color = onContainerMuted, fontSize = minMaxSize),
+        maxLines = 1
     )
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            text = minMax,
-            style = TextStyle(color = onContainerMuted, fontSize = minMaxSize),
-            maxLines = 1
-        )
-        apparent?.let { label ->
-            Spacer(GlanceModifier.width(6.dp))
-            Text(
-                text = label,
-                style = TextStyle(color = onContainerMuted, fontSize = apparentSize, fontWeight = FontWeight.Medium),
-                maxLines = 1
-            )
-        }
-    }
 }
 
 /** Layout 3×1 : ligne icône+temp | ville sur min/max | badge de confiance. */
@@ -713,10 +702,14 @@ private fun MediumLayout(
                     maxLines = 1
                 )
             }
-            Text(
-                text = formatMinMax(data.tempMin, data.tempMax, units = units),
-                style = TextStyle(color = onContainerMuted, fontSize = minMaxSize),
-                maxLines = 1
+            WidgetMinMaxWithApparent(
+                minMax = formatMinMax(data.tempMin, data.tempMax, units = units),
+                data = data,
+                units = units,
+                onContainerMuted = onContainerMuted,
+                minMaxSize = minMaxSize,
+                showApparent = LocalSize.current.width.value >= 300f &&
+                    profile == SingleRowWidgetHeightProfile.REGULAR
             )
         }
 
@@ -817,7 +810,6 @@ private fun LargeLayout(
                 units = units,
                 onContainerMuted = onContainerMuted,
                 minMaxSize = minMaxSize,
-                apparentSize = if (profile == SingleRowWidgetHeightProfile.REGULAR) 10.sp else 9.sp,
                 showApparent = size.width.value >= 350f && inlineForecastItems == 0
             )
             val extras = buildExtrasLine(data, units = units)
@@ -935,7 +927,6 @@ private fun CompactTallLayout(
                         units = units,
                         onContainerMuted = onContainerMuted,
                         minMaxSize = if (narrow) 9.sp else 10.sp,
-                        apparentSize = 9.sp,
                         showApparent = size.width.value >= 175f
                     )
                 }
@@ -1145,7 +1136,6 @@ private fun ExtraLargeLayout(
                         compactHeight -> 12.sp
                         else -> 14.sp
                     },
-                    apparentSize = if (compactHeight) 9.sp else 11.sp,
                     showApparent = !veryCompact && widthDp >= 320f
                 )
                 if (actualShowExtras) {

@@ -28,7 +28,8 @@ def test_five_forecasts_are_bounded_and_separators_are_one_direct_child():
 
 def test_extended_widgets_render_feels_beside_min_max_and_no_extra_line_duplicate():
     source = (WIDGET / 'MeteoWidget.kt').read_text(encoding="utf-8")
-    for name, end in [('LargeLayout', 'CompactTallLayout'),
+    for name, end in [('MediumLayout', 'LargeLayout'),
+                      ('LargeLayout', 'CompactTallLayout'),
                       ('CompactTallLayout', 'ColumnScope.CompactConfidenceSummary'),
                       ('ExtraLargeLayout', 'TwelveHourForecastStrip')]:
         assert 'WidgetMinMaxWithApparent(' in _function(source, name, end)
@@ -52,13 +53,41 @@ def test_inline_formatter_rejects_missing_and_non_finite_values():
     assert 'if (show)' in fmt
 
 
-def test_feels_helper_draws_extremes_first_and_does_not_draw_current_temperature():
-    source = (WIDGET / 'MeteoWidget.kt').read_text(encoding="utf-8")
+def test_feels_helper_is_one_atomic_text_next_to_extremes_not_current():
+    source = (WIDGET / 'MeteoWidget.kt').read_text(encoding='utf-8')
     helper = source.split('internal fun WidgetMinMaxWithApparent(', 1)[1].split('/** Layout 3×1', 1)[0]
-    assert 'text = minMax' in helper
-    assert 'apparent?.let' in helper
-    assert helper.index('text = minMax') < helper.index('apparent?.let')
+    assert 'text = minMaxAndApparentText(' in helper
+    assert helper.count('\n    Text(') == 1
+    assert 'Row(' not in helper
     assert 'data.currentTemp' not in helper
-    assert 'apparentNextToMinMax(' in helper
-    formatter = (WIDGET / 'WidgetFormatting.kt').read_text(encoding="utf-8")
+    formatter = (WIDGET / 'WidgetFormatting.kt').read_text(encoding='utf-8')
+    composed = formatter.split('internal fun minMaxAndApparentText(', 1)[1].split('/**', 1)[0]
+    assert 'apparentNextToMinMax(minMax, apparentTemp, units, prefix, show)' in composed
+    assert '"$minMax · $apparent"' in composed
+    assert 'else minMax' in composed
     assert 'show = show && minMax.isNotBlank()' in formatter
+
+
+def test_all_dynamic_glance_rows_are_bounded_for_widget_variants():
+    main = (WIDGET / 'MeteoWidget.kt').read_text(encoding='utf-8')
+    value = (WIDGET / 'MeteoValueWidgets.kt').read_text(encoding='utf-8')
+    layout = (WIDGET / 'WidgetForecastCardLayout.kt').read_text(encoding='utf-8')
+    # Timeline: a single nested Row per forecast, up to five.
+    assert 'itemCount.coerceIn(0, MAX_GLANCE_FORECAST_TIMELINE_ITEMS)' in main
+    assert 'MAX_GLANCE_FORECAST_TIMELINE_ITEMS = 5' in layout
+    assert 'Row(modifier = GlanceModifier.defaultWeight().fillMaxHeight())' in main
+    # Confidence by day: a single nested Row per day, up to five.
+    assert 'bucketCount.coerceIn(1, 5)' in main
+    assert 'days.forEachIndexed { index, day ->' in main
+    # Inline forecast: two items maximum, so at most three Row children
+    # (two cards and a spacer); insight metrics: three + two spacers.
+    assert 'else -> 2' in layout.split('internal fun inlineForecastItemCount(', 1)[1].split('}', 1)[0]
+    assert 'data.forecasts.take(inlineForecastItems).forEachIndexed' in main
+    assert 'data.comparisonSnapshot?.metrics.orEmpty().take(3)' in value
+    # All view types (tiny, small, medium, large, compact-tall, extra-large,
+    # insight and confidence) either have fixed Row structure or a bounded loop.
+    assert 'WidgetMinMaxWithApparent(' in _function(main, 'MediumLayout', 'LargeLayout')
+    assert 'WidgetMinMaxWithApparent(' in _function(main, 'LargeLayout', 'CompactTallLayout')
+    assert 'WidgetMinMaxWithApparent(' in _function(main, 'CompactTallLayout', 'ColumnScope.CompactConfidenceSummary')
+    assert 'WidgetMinMaxWithApparent(' in _function(main, 'ExtraLargeLayout', 'TwelveHourForecastStrip')
+    assert 'WidgetMinMaxWithApparent(' in _function(value, 'InsightWidgetLayout', 'InsightSurface')
