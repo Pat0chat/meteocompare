@@ -95,6 +95,12 @@ class CurrentLocationController @Inject constructor(
             else LocationFixPolicy.AUTOMATIC_TIMEOUT_MS
         val fix = withTimeoutOrNull(timeoutMs) { obtainPosition(manager, force) }
             ?: run {
+                // Android can revoke "Only this time" while an attempt is in flight.
+                // Never misclassify a lost grant as an unavailable GPS provider.
+                if (!hasPermission()) {
+                    Log.w("MeteoCompare/Location", "Foreground location permission expired")
+                    return@withLock Result.PermissionMissing
+                }
                 Log.w("MeteoCompare/Location", "No foreground location fix from enabled providers " +
                     "(precision=" + (if (hasFinePermission()) "exact" else "approximate") + ")")
                 return@withLock if (hasFinePermission()) Result.Unavailable

@@ -191,6 +191,7 @@ fun CityListScreen(
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { _ ->
+        LocationPermissionOffer.recordPermissionResult(context)
         if (LocationPermissionOffer.hasAny(context)) locationVm.locate()
         else locationVm.denied()
     }

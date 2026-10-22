@@ -33,9 +33,9 @@ def test_android_permission_request_is_batched_and_only_from_foreground_activiti
     assert 'RequestMultiplePermissions()' in home
     assert 'RequestMultiplePermissions()' in widget
     assert 'markPrecisionOffered(context)' in home
-    assert 'markPrecisionOffered(this)' in widget
+    assert 'markPrecisionOffered(this, explicitWidgetAction = true)' in widget
     assert 'shouldRequest(context)' in home
-    assert 'shouldRequest(this)' in widget
+    assert 'shouldRequest(this, explicitWidgetAction = true)' in widget
     assert 'LocationPermissionOffer.hasAny' in home
     assert 'LocationPermissionOffer.hasAny' in widget
 

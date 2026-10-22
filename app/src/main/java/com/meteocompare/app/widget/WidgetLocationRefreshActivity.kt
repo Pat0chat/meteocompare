@@ -39,9 +39,14 @@ class WidgetLocationRefreshActivity : ComponentActivity() {
     private var acquisitionJob: Job? = null
     private var permissionCheckJob: Job? = null
     private var status by mutableStateOf<Int?>(null)
+    private var permissionRequestPending = false
+    private var permissionRequestedThisAction = false
+    private var startAttemptOnStart = false
     private val permissionRequest = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { _ ->
+        permissionRequestPending = false
+        LocationPermissionOffer.recordPermissionResult(this)
         if (LocationPermissionOffer.hasAny(this)) acquire()
         else status = R.string.current_location_permission_required
     }
@@ -60,7 +65,7 @@ class WidgetLocationRefreshActivity : ComponentActivity() {
                     else {
                         Text(getString(status ?: R.string.current_location_privacy_hint))
                         Button(onClick = {
-                            permissionCheckJob = lifecycleScope.launch { checkPermissionAndAcquire() }
+                            startExplicitAttempt()
                         }) {
                             Text(getString(R.string.widget_current_location_retry))
                         }
@@ -72,21 +77,57 @@ class WidgetLocationRefreshActivity : ComponentActivity() {
             }
         }
         if (savedInstanceState == null) {
-            permissionCheckJob = lifecycleScope.launch { checkPermissionAndAcquire() }
+            // onCreate can finish before STARTED (especially with a warm DataStore).
+            // Launching the Android dialog earlier may fail silently on widget entry.
+            startAttemptOnStart = true
         } else {
             // An in-flight acquisition was cancelled by recreation; no hidden retry.
             status = R.string.widget_current_location_interrupted
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        if (startAttemptOnStart) {
+            startAttemptOnStart = false
+            startExplicitAttempt()
+        }
+    }
+
+    /** A new widget tap is the only way to restart consent after a refusal. */
+    private fun startExplicitAttempt() {
+        if (inFlight || permissionRequestPending) return
+        permissionRequestedThisAction = false
+        permissionCheckJob?.cancel()
+        permissionCheckJob = lifecycleScope.launch { checkPermissionAndAcquire() }
+    }
+
+    private fun launchLocationPermissionRequest() {
+        if (permissionRequestPending || !lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+            status = R.string.widget_current_location_interrupted
+            return
+        }
+        permissionRequestPending = true
+        permissionRequestedThisAction = true
+        LocationPermissionOffer.markPrecisionOffered(this, explicitWidgetAction = true)
+        permissionRequest.launch(LocationPermissionOffer.requestedPermissions)
+    }
+
     private suspend fun checkPermissionAndAcquire() {
         // A stale widget must not re-enable a user-disabled feature.
         if (!store.snapshot().enabled) {
             status = R.string.widget_current_location_disabled
-        } else if (LocationPermissionOffer.shouldRequest(this)) {
-            LocationPermissionOffer.markPrecisionOffered(this)
-            permissionRequest.launch(LocationPermissionOffer.requestedPermissions)
-        } else acquire()
+        } else {
+            // Read the ACTUAL grant for each tap: "Only this time" may have expired
+            // while an older approximate grant is still present.
+            LocationPermissionOffer.recordPermissionResult(this)
+            val request = LocationPermissionOffer.shouldRequest(this, explicitWidgetAction = true)
+            android.util.Log.d("MeteoCompare/Location", "Widget permission check: " +
+                "coarse=" + LocationPermissionOffer.hasCoarse(this) +
+                ", fine=" + LocationPermissionOffer.hasFine(this) +
+                ", requesting=" + request)
+            if (request) launchLocationPermissionRequest() else acquire()
+        }
     }
 
     private fun acquire() {
@@ -99,14 +140,22 @@ class WidgetLocationRefreshActivity : ComponentActivity() {
         acquisitionJob = lifecycleScope.launch {
             try {
                 val result = controller.refreshExisting(updateWidgetsOnSameCell = true)
-                status = when (result) {
+                val resultStatus = when (result) {
                     CurrentLocationController.Result.Updated -> R.string.current_location_updated
                     CurrentLocationController.Result.Unchanged -> R.string.widget_current_location_recent
-                    CurrentLocationController.Result.PermissionMissing -> R.string.current_location_permission_required
+                    CurrentLocationController.Result.PermissionMissing -> {
+                        // Grant may expire between the preflight check and location API.
+                        // Re-prompt once on this visible action; no automatic dialog loop.
+                        if (!permissionRequestedThisAction && !LocationPermissionOffer.hasAny(this@WidgetLocationRefreshActivity)) {
+                            launchLocationPermissionRequest()
+                        }
+                        R.string.current_location_permission_required
+                    }
                     CurrentLocationController.Result.ServicesDisabled -> R.string.current_location_services_disabled
                     CurrentLocationController.Result.Unavailable -> R.string.current_location_unavailable
                     CurrentLocationController.Result.ApproximateUnavailable -> R.string.current_location_approximate_unavailable
                 }
+                if (!permissionRequestPending) status = resultStatus
                 // Controller owns the single enqueue, including on same-cell updates.
             } catch (cancelled: CancellationException) {
                 throw cancelled
