@@ -13,8 +13,11 @@
     -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <!-- Approximative uniquement, au premier plan et sur demande explicite. -->
+    <!-- Permissions proposées ensemble au premier plan : l'utilisateur peut choisir
+         Exacte ou Approximative. GPS_PROVIDER n'est utilisé que si FINE est accordée.
+         Aucune localisation en arrière-plan ; seule la grille 0,05° est stockée. -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 

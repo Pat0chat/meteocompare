@@ -43,6 +43,8 @@ class CurrentLocationViewModel @Inject constructor(
                         AppToastEvent.warning(R.string.current_location_services_disabled)
                     CurrentLocationController.Result.Unavailable ->
                         AppToastEvent.warning(R.string.current_location_unavailable)
+                    CurrentLocationController.Result.ApproximateUnavailable ->
+                        AppToastEvent.warning(R.string.current_location_approximate_unavailable)
                     CurrentLocationController.Result.Unchanged -> null
                 }
                 if (event != null) feedbackChannel.send(event)

@@ -1001,11 +1001,12 @@ datos</string>
     <string name="home_city_card_open_details">Toca para abrir los detalles de la ciudad</string>
     <string name="current_location_title">Mi ubicación</string>
     <string name="current_location_add">Usar mi ubicación</string>
-    <string name="current_location_privacy_hint">Solo ubicación aproximada. Se actualiza con la aplicación abierta; el widget usa la última zona.</string>
+    <string name="current_location_privacy_hint">La ubicación precisa es opcional y ayuda a localizarte, especialmente en el emulador. Solo se guarda una zona aproximada; sin seguimiento en segundo plano.</string>
     <string name="current_location_updated">Ubicación actualizada</string>
     <string name="current_location_permission_required">Permite la ubicación aproximada para añadir la tarjeta</string>
     <string name="current_location_services_disabled">Los servicios de ubicación están desactivados. Activa la ubicación en los ajustes de Android.</string>
     <string name="current_location_unavailable">Ubicación no disponible. Activa la ubicación y vuelve a intentarlo.</string>
+    <string name="current_location_approximate_unavailable">Android no proporciona una ubicación aproximada. En el emulador, permite la ubicación precisa en los ajustes de la aplicación y vuelve a intentarlo.</string>
     <string name="current_location_stale">Actualiza la ubicación</string>
     <string name="current_location_widget_note">El widget usa la última zona guardada. Toca ↻ en el widget o abre MeteoCompare para actualizar la ubicación (sin seguimiento en segundo plano).</string>
     <string name="widget_current_location_refresh">Actualizar mi ubicación</string>

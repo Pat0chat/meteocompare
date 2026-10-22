@@ -180,11 +180,12 @@ réglages du compte de l'utilisateur.
 | `ACCESS_NETWORK_STATE` | Détecter l'absence de réseau et adapter l'interface / les requêtes |
 | `RECEIVE_BOOT_COMPLETED` | Reprogrammer proprement l'actualisation périodique des widgets après un redémarrage ou une mise à jour de l'application |
 | `POST_NOTIFICATIONS` | Afficher les notifications météo locales (résumé quotidien, divergence des modèles, changement de prévision), uniquement si l'utilisateur les active dans les Réglages. Elles sont calculées sur l'appareil : aucun service de push, aucun identifiant ni donnée supplémentaire n'est transmis |
-| `ACCESS_COARSE_LOCATION` | Fonction facultative « Ma position » : localisation approximative et ponctuelle, avec autorisation demandée explicitement. Pas de géolocalisation permanente |
+| `ACCESS_COARSE_LOCATION` | Fonction facultative « Ma position » : fournisseur réseau/fusionné, avec consentement explicite. |
+| `ACCESS_FINE_LOCATION` | Autorisation facultative : si elle est accordée, acquisition GPS ponctuelle (notamment pour les positions injectées dans l’émulateur). Jamais utilisée en arrière-plan ; la donnée exacte n’est pas stockée. |
 
 MeteoCompare **ne demande pas** :
 
-- la localisation précise (`ACCESS_FINE_LOCATION`) ni en arrière-plan (`ACCESS_BACKGROUND_LOCATION`) ;
+- la localisation en arrière-plan (`ACCESS_BACKGROUND_LOCATION`) ; la localisation précise (`ACCESS_FINE_LOCATION`) est facultative et n’est consultée qu’après consentement au premier plan ;
 - l'accès aux contacts, photos ou fichiers externes ;
 - l'accès au téléphone ou aux SMS ;
 - Bluetooth ou NFC ;
@@ -224,7 +225,7 @@ Pour toute question sur cette politique :
 
 ## Position approximative (v1.19.0, fonctionnalité facultative)
 
-« Ma position » est désactivée par défaut. L'autorisation Android `ACCESS_COARSE_LOCATION` est demandée seulement après avoir choisi cette option dans la recherche de localités. L'application utilise une localisation ponctuelle lorsqu'elle est visible (à l'activation, au retour dans l'app après le délai de fraîcheur ou lors d'un rafraîchissement explicite). Il n'y a ni permission `ACCESS_FINE_LOCATION`, ni permission `ACCESS_BACKGROUND_LOCATION`, ni SDK de pistage.
+« Ma position » est désactivée par défaut. Lorsque l’utilisateur choisit cette option, MeteoCompare demande ensemble `ACCESS_COARSE_LOCATION` et `ACCESS_FINE_LOCATION` : sur Android 12+, il peut choisir « Exacte » ou « Approximative ». Si « Approximative » est choisie, MeteoCompare n’interroge **jamais** `GPS_PROVIDER`. Le choix d’une position exacte permet une acquisition GPS ponctuelle, particulièrement utile sur certains émulateurs. L’offre de précision supplémentaire ne se répète pas après le premier consentement : seul un indicateur local « offre présentée » est mémorisé dans les préférences non sauvegardées (aucune position). Un nouveau choix reste possible dans les paramètres Android. Il n’y a ni permission `ACCESS_BACKGROUND_LOCATION` ni SDK de pistage. L’acquisition ne se produit que lorsqu’une activité est visible (activation, retour au premier plan suivant la politique de fraîcheur, ou rafraîchissement explicite).
 
 La position brute reste uniquement en mémoire pendant la résolution puis réduite localement à une grille de 0,05 degré. Seules les coordonnées de cette cellule et la date de l'actualisation sont stockées dans un DataStore privé `current_location`, non sauvegardé ni transféré. Aucun historique de positions ou de trajectoires n'est enregistré. Les historiques d'évolution des prévisions ne sont pas enregistrés pour cette localité, et le cache précédent est nettoyé lors du changement de cellule ou de la désactivation. Les requêtes de météo des modèles envoient la cellule approximative à Open-Meteo, qui voit également votre adresse IP. Une position approximative reste une donnée de localisation.
 
@@ -232,6 +233,6 @@ Les tuiles de radar consultées peuvent persister temporairement dans le cache H
 
 Les widgets ne déclenchent **jamais** le GPS / la localisation lorsqu'ils sont mis à jour par Android en arrière-plan. Ils utilisent la dernière cellule mémorisée, qui peut donc être ancienne après un déplacement. Pour mettre à jour la position, ouvrez MeteoCompare ou touchez l'action ↻
 sur un widget « Ma position » : cela ouvre une activité visible qui peut demander
-l'autorisation approximative, sans suivi en arrière-plan. Une acquisition réussie
+les autorisations de localisation au premier plan et laisser choisir la précision, sans suivi en arrière-plan. Une acquisition réussie
 est réutilisée pendant 30 minutes pour les retours automatiques au premier plan ;
 les tentatives trop rapprochées sont limitées. Supprimer la carte « Ma position » efface les préférences de localisation locales et le cache associé.

@@ -3,16 +3,14 @@ package com.meteocompare.app.ui.citylist
 import com.meteocompare.app.core.util.windCardinal
 
 import com.meteocompare.app.ui.components.UvIndexGauge
+import com.meteocompare.app.data.repository.LocationPermissionOffer
 
 import com.meteocompare.app.core.units.WeatherUnit
 import com.meteocompare.app.core.units.WeatherUnits
 import com.meteocompare.app.core.units.LocalWeatherUnits
 
-import android.Manifest
-import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.content.ContextCompat
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
@@ -191,12 +189,18 @@ fun CityListScreen(
     val locationVm: CurrentLocationViewModel = hiltViewModel()
     val context = LocalContext.current
     val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted -> if (granted) locationVm.locate() else locationVm.denied() }
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { _ ->
+        if (LocationPermissionOffer.hasAny(context)) locationVm.locate()
+        else locationVm.denied()
+    }
     val requestCurrentLocation = {
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) ==
-            PackageManager.PERMISSION_GRANTED) locationVm.locate()
-        else permissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+        if (LocationPermissionOffer.shouldRequest(context)) {
+            LocationPermissionOffer.markPrecisionOffered(context)
+            // Android 12+ requires FINE and COARSE to be requested together.
+            // The user may choose approximate and the GPS provider stays disabled.
+            permissionLauncher.launch(LocationPermissionOffer.requestedPermissions)
+        } else locationVm.locate()
     }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val addState by viewModel.addCityState.collectAsStateWithLifecycle()

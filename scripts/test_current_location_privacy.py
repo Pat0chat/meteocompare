@@ -10,10 +10,10 @@ def content(path):
     return (ROOT / path).read_text()
 
 
-def test_manifest_requires_only_approximate_location():
+def test_manifest_offers_precise_with_explicit_consent_but_never_background():
     manifest = content("app/src/main/AndroidManifest.xml")
     assert 'android.permission.ACCESS_COARSE_LOCATION' in manifest
-    assert 'android.permission.ACCESS_FINE_LOCATION' not in manifest
+    assert 'android.permission.ACCESS_FINE_LOCATION' in manifest
     assert 'android.permission.ACCESS_BACKGROUND_LOCATION' not in manifest
     assert 'android.permission.FOREGROUND_SERVICE_LOCATION' not in manifest
 
@@ -141,6 +141,7 @@ def test_refresh_sequence_avoids_old_area_and_duplicate_widget_enqueues():
 def test_privacy_policy_and_widget_config_describe_the_new_action():
     policy = content("PRIVACY.md")
     assert '| `ACCESS_COARSE_LOCATION` |' in policy
+    assert '| `ACCESS_FINE_LOCATION` |' in policy
     assert 'ACCESS_BACKGROUND_LOCATION' in policy
     assert 'ne demande pas** :\n\n- la localisation GPS ou réseau' not in policy
     assert "touchez l'action ↻" in policy

@@ -1,7 +1,5 @@
 package com.meteocompare.app.widget
 
-import android.Manifest
-import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -20,12 +18,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.Lifecycle
 import com.meteocompare.app.R
 import com.meteocompare.app.data.repository.CurrentLocationController
 import com.meteocompare.app.data.repository.CurrentLocationStore
+import com.meteocompare.app.data.repository.LocationPermissionOffer
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
@@ -42,9 +40,10 @@ class WidgetLocationRefreshActivity : ComponentActivity() {
     private var permissionCheckJob: Job? = null
     private var status by mutableStateOf<Int?>(null)
     private val permissionRequest = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) acquire() else status = R.string.current_location_permission_required
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { _ ->
+        if (LocationPermissionOffer.hasAny(this)) acquire()
+        else status = R.string.current_location_permission_required
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -84,11 +83,10 @@ class WidgetLocationRefreshActivity : ComponentActivity() {
         // A stale widget must not re-enable a user-disabled feature.
         if (!store.snapshot().enabled) {
             status = R.string.widget_current_location_disabled
-        } else if (ContextCompat.checkSelfPermission(
-                this, Manifest.permission.ACCESS_COARSE_LOCATION
-            ) == PackageManager.PERMISSION_GRANTED
-        ) acquire()
-        else permissionRequest.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+        } else if (LocationPermissionOffer.shouldRequest(this)) {
+            LocationPermissionOffer.markPrecisionOffered(this)
+            permissionRequest.launch(LocationPermissionOffer.requestedPermissions)
+        } else acquire()
     }
 
     private fun acquire() {
@@ -107,6 +105,7 @@ class WidgetLocationRefreshActivity : ComponentActivity() {
                     CurrentLocationController.Result.PermissionMissing -> R.string.current_location_permission_required
                     CurrentLocationController.Result.ServicesDisabled -> R.string.current_location_services_disabled
                     CurrentLocationController.Result.Unavailable -> R.string.current_location_unavailable
+                    CurrentLocationController.Result.ApproximateUnavailable -> R.string.current_location_approximate_unavailable
                 }
                 // Controller owns the single enqueue, including on same-cell updates.
             } catch (cancelled: CancellationException) {

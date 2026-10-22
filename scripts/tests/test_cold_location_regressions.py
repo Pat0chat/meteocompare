@@ -16,7 +16,7 @@ def test_cold_start_cache_uses_monotonic_age_and_fused_first():
     assert 'SystemClock.elapsedRealtimeNanos()' in code
     assert 'manager.getLastKnownLocation(provider)' in code
     assert 'LocationFixPolicy.isRecentCachedFix' in code
-    assert 'LocationManager.FUSED_PROVIDER, LocationManager.NETWORK_PROVIDER' in code
+    assert 'LocationProviderPolicy.priority(Build.VERSION.SDK_INT, hasFinePermission())' in code
     assert 'CACHED_FIX_MAX_AGE_MS = 3 * 60_000L' in policy
     assert 'EXPLICIT_TIMEOUT_MS = 30_000L' in policy
 
@@ -28,7 +28,9 @@ def test_failed_one_shot_uses_bounded_listener_and_unregisters_on_cancel():
     assert 'continuation.invokeOnCancellation' in code
     assert 'manager.removeUpdates(listener)' in code
     assert 'if (explicit)' in code
-    assert 'LocationManager.GPS_PROVIDER' not in code.replace('// GPS_PROVIDER', '')
+    assert 'LocationManager.GPS_PROVIDER' in code
+    assert 'LocationProviderPolicy.priority(Build.VERSION.SDK_INT, hasFinePermission())' in code
+    assert 'LocationProviderPolicy.Source.GPS' in code
 
 
 def test_widget_and_home_share_foreground_controller_and_guards():
@@ -62,7 +64,8 @@ def test_disabled_location_has_distinct_localized_message():
 def test_no_precision_escalation_and_no_background_location_jobs():
     manifest = (ROOT / 'app/src/main/AndroidManifest.xml').read_text()
     assert 'ACCESS_COARSE_LOCATION' in manifest
-    assert 'ACCESS_FINE_LOCATION' not in manifest
+    assert 'ACCESS_FINE_LOCATION' in manifest
+    assert 'ACCESS_BACKGROUND_LOCATION' not in manifest
     assert 'ACCESS_BACKGROUND_LOCATION' not in manifest
     code = read('data/repository/CurrentLocationController.kt')
     assert 'store.save(cell, System.currentTimeMillis())' in code

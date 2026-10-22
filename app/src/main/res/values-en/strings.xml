@@ -1013,11 +1013,12 @@
     <string name="home_city_card_open_details">Tap to open city details</string>
     <string name="current_location_title">My location</string>
     <string name="current_location_add">Use my current location</string>
-    <string name="current_location_privacy_hint">Approximate location only. Updated while the app is open; the widget reuses the last area.</string>
+    <string name="current_location_privacy_hint">Optional precise location helps obtain a fix, especially in an emulator. Only an approximate area is saved; no background tracking.</string>
     <string name="current_location_updated">Location updated</string>
     <string name="current_location_permission_required">Allow approximate location to add this card</string>
     <string name="current_location_services_disabled">Location services are off. Enable location in Android settings.</string>
     <string name="current_location_unavailable">Position unavailable. Turn on location services and try again.</string>
+    <string name="current_location_approximate_unavailable">Android provided no approximate location. On an emulator, allow Precise location in the app settings, then try again.</string>
     <string name="current_location_stale">Location needs updating</string>
     <string name="current_location_widget_note">The widget uses the last saved area. Tap ↻ on the widget or open MeteoCompare to update your location (no background tracking).</string>
     <string name="widget_current_location_refresh">Update my location</string>

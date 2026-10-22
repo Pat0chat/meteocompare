@@ -996,11 +996,12 @@ Daten</string>
     <string name="home_city_card_open_details">Tippen, um die Stadtdetails zu öffnen</string>
     <string name="current_location_title">Mein Standort</string>
     <string name="current_location_add">Meinen Standort verwenden</string>
-    <string name="current_location_privacy_hint">Nur ungefährer Standort. Wird in der geöffneten App aktualisiert; das Widget nutzt das letzte Gebiet.</string>
+    <string name="current_location_privacy_hint">Optionaler genauer Standort verbessert die Ortung, insbesondere im Emulator. Gespeichert wird nur ein ungefähres Gebiet; keine Ortung im Hintergrund.</string>
     <string name="current_location_updated">Standort aktualisiert</string>
     <string name="current_location_permission_required">Erlaube den ungefähren Standort für diese Karte</string>
     <string name="current_location_services_disabled">Standortdienste deaktiviert. Aktiviere den Standort in den Android-Einstellungen.</string>
     <string name="current_location_unavailable">Standort nicht verfügbar. Standortdienste aktivieren und erneut versuchen.</string>
+    <string name="current_location_approximate_unavailable">Android liefert keinen ungefähren Standort. Im Emulator den genauen Standort in den App-Einstellungen erlauben und erneut versuchen.</string>
     <string name="current_location_stale">Standort aktualisieren</string>
     <string name="current_location_widget_note">Das Widget nutzt die zuletzt gespeicherte Region. Tippe auf ↻ im Widget oder öffne MeteoCompare zum Aktualisieren (keine Ortung im Hintergrund).</string>
     <string name="widget_current_location_refresh">Standort aktualisieren</string>

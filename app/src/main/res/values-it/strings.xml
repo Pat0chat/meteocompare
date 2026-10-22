@@ -1001,11 +1001,12 @@ dato</string>
     <string name="home_city_card_open_details">Tocca per aprire i dettagli della città</string>
     <string name="current_location_title">La mia posizione</string>
     <string name="current_location_add">Usa la mia posizione</string>
-    <string name="current_location_privacy_hint">Solo posizione approssimativa. Aggiornata nell’app aperta; il widget usa l’ultima zona.</string>
+    <string name="current_location_privacy_hint">La posizione precisa è facoltativa e facilita la localizzazione, soprattutto nell’emulatore. Si salva solo una zona approssimativa; nessun tracciamento in background.</string>
     <string name="current_location_updated">Posizione aggiornata</string>
     <string name="current_location_permission_required">Consenti la posizione approssimativa per aggiungere la scheda</string>
     <string name="current_location_services_disabled">Servizi di localizzazione disattivati. Attiva la posizione nelle impostazioni Android.</string>
     <string name="current_location_unavailable">Posizione non disponibile. Attiva la posizione e riprova.</string>
+    <string name="current_location_approximate_unavailable">Android non fornisce una posizione approssimativa. Nell’emulatore, consenti la posizione precisa nelle impostazioni dell’app e riprova.</string>
     <string name="current_location_stale">Aggiornare la posizione</string>
     <string name="current_location_widget_note">Il widget usa l’ultima zona salvata. Tocca ↻ sul widget o apri MeteoCompare per aggiornare la posizione (nessun monitoraggio in background).</string>
     <string name="widget_current_location_refresh">Aggiorna la mia posizione</string>
