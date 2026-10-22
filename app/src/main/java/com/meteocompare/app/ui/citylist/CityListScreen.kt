@@ -173,6 +173,7 @@ private const val CITY_CARD_CROSSFADE_DURATION_MS = 620
 private const val CITY_CARD_CROSSFADE_DELAY_MS = 120
 private const val CITY_CARD_EMPHASIS_DURATION_MS = 500
 internal const val TAG_HOME_POSITION_REFRESH = "home_current_location_refresh"
+internal const val TAG_HOME_WEATHER_UPDATED = "home_weather_updated"
 private val CityCardResizeEasing = CubicBezierEasing(0.33f, 0f, 0.67f, 1f)
 
 // ============================================================================
@@ -1810,7 +1811,9 @@ internal fun HomeWeatherFooter(
                 }
             }
 
-            if (lastUpdated != null) {
+            // Fixed cities keep their original single-row footer. On "Ma position",
+            // give the weather timestamp its own full-width line below the GPS button.
+            if (locationUpdatedAt == null && lastUpdated != null) {
                 if (scenarios.isNotEmpty()) {
                     Spacer(Modifier.width(8.dp))
                 }
@@ -1821,7 +1824,7 @@ internal fun HomeWeatherFooter(
                     textAlign = TextAlign.End,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f).testTag(TAG_HOME_WEATHER_UPDATED)
                 )
             } else {
                 Spacer(Modifier.weight(1f))
@@ -1872,6 +1875,22 @@ internal fun HomeWeatherFooter(
                     }
                 }
             }
+        }
+
+        // The GPS action stays in the footer's first row. Weather freshness is
+        // directly beneath it, with the full card width instead of a truncated
+        // remainder beside the scenarios chip and GPS timestamp.
+        if (locationUpdatedAt != null && lastUpdated != null) {
+            Text(
+                text = lastUpdated,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                textAlign = TextAlign.End,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 6.dp, end = 7.dp)
+                    .testTag(TAG_HOME_WEATHER_UPDATED)
+            )
         }
 
         AnimatedVisibility(

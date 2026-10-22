@@ -1,10 +1,9 @@
 package com.meteocompare.app.ui.citylist
 
-import androidx.compose.ui.test.assertDoesNotExist
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.unit.dp
 import com.meteocompare.app.data.repository.CurrentLocationStore
 import com.meteocompare.app.domain.model.ConfidenceScore
 import com.meteocompare.app.domain.model.DayConfidence
@@ -13,6 +12,7 @@ import com.meteocompare.app.testutil.TestFixtures
 import com.meteocompare.app.ui.theme.MeteoCompareTheme
 import java.time.Instant
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -61,6 +61,30 @@ class CurrentLocationCardRefreshTest {
         composeRule.onNodeWithTag(TAG_HOME_POSITION_REFRESH, useUnmergedTree = true).assertExists()
     }
 
+    @Test fun weather_update_uses_a_full_width_line_below_the_gps_timestamp() {
+        composeRule.setContent {
+            MeteoCompareTheme {
+                CityCard(
+                    state = CityCardState(currentCity, forecast),
+                    expanded = true,
+                    onClick = {}, onRemove = {}, onRetry = {},
+                    currentLocationUpdatedAt = 1_760_000_000_000L,
+                    onCurrentLocationRefresh = {}
+                )
+            }
+        }
+        val gps = composeRule.onNodeWithTag(TAG_HOME_POSITION_REFRESH, useUnmergedTree = true)
+            .assertExists().fetchSemanticsNode().boundsInRoot
+        val weather = composeRule.onNodeWithTag(TAG_HOME_WEATHER_UPDATED, useUnmergedTree = true)
+            .assertExists().fetchSemanticsNode().boundsInRoot
+        assertTrue("Weather timestamp must be below the GPS action", weather.top >= gps.bottom)
+        assertTrue("Weather timestamp must have its own full-width line", weather.width > gps.width)
+        assertTrue(
+            "Weather timestamp must be end-aligned with the GPS action",
+            kotlin.math.abs(weather.right - gps.right) <= with(composeRule.density) { 4.dp.toPx() }
+        )
+    }
+
     @Test fun a_fixed_city_never_displays_the_current_location_refresh_button() {
         composeRule.setContent {
             MeteoCompareTheme {
@@ -74,5 +98,7 @@ class CurrentLocationCardRefreshTest {
         }
         composeRule.onNodeWithTag(TAG_HOME_POSITION_REFRESH, useUnmergedTree = true)
             .assertDoesNotExist()
+        composeRule.onNodeWithTag(TAG_HOME_WEATHER_UPDATED, useUnmergedTree = true)
+            .assertExists()
     }
 }

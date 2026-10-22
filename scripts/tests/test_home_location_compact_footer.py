@@ -31,6 +31,18 @@ class CompactLocationContract(unittest.TestCase):
         self.assertNotIn('refreshActive(', code)
         self.assertIn('if (oldId != newId || updateWidgetsOnSameCell)', CTRL)
 
+    def test_weather_timestamp_is_below_gps_only_for_current_location(self):
+        footer = UI.split('internal fun HomeWeatherFooter(', 1)[1].split('AnimatedVisibility(', 1)[0]
+        self.assertIn('if (locationUpdatedAt == null && lastUpdated != null)', footer)
+        self.assertIn('if (locationUpdatedAt != null && lastUpdated != null)', footer)
+        gps_position = footer.index('modifier = Modifier.testTag(TAG_HOME_POSITION_REFRESH)')
+        weather_position = footer.index('if (locationUpdatedAt != null && lastUpdated != null)')
+        self.assertGreater(weather_position, gps_position)
+        self.assertIn('.fillMaxWidth()', footer[weather_position:])
+        self.assertIn('.testTag(TAG_HOME_WEATHER_UPDATED)', footer[weather_position:])
+        self.assertNotIn('maxLines = 1', footer[weather_position:])
+        self.assertIn('modifier = Modifier.weight(1f).testTag(TAG_HOME_WEATHER_UPDATED)', footer[:gps_position])
+
     def test_stored_cell_timestamp_used_without_raw_fix(self):
         self.assertIn('controller.locationState', VM)
         self.assertIn('locationState.updatedAt.takeIf', UI)
