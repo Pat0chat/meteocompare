@@ -23,7 +23,7 @@ import org.junit.Test
 class WidgetFormattingTest {
 
     @Test
-    fun `inline feels-like is shown beside main temperature only on spacious widgets`() {
+    fun `inline feels-like is shown with min-max only on spacious widgets`() {
         val metric = WeatherUnits(UnitSystem.METRIC)
         assertEquals("Ress. 16°", inlineApparentTemperature(16.0, metric, "Ress.", show = true))
         assertEquals(null, inlineApparentTemperature(16.0, metric, "Ress.", show = false))
@@ -31,6 +31,21 @@ class WidgetFormattingTest {
         assertEquals(null, inlineApparentTemperature(Double.NaN, metric, "Ress.", show = true))
         assertEquals(null, inlineApparentTemperature(Double.POSITIVE_INFINITY, metric, "Ress.", show = true))
         assertEquals("Feels 61°F", inlineApparentTemperature(16.0, WeatherUnits(UnitSystem.IMPERIAL), "Feels", show = true))
+    }
+
+    @Test
+    fun `min-max feels-like stays hidden if extremes are unavailable or width insufficient`() {
+        val metric = WeatherUnits(UnitSystem.METRIC)
+        assertEquals("Ress. 16°", apparentNextToMinMax("12° / 20°", 16.0, metric, "Ress.", show = true))
+        assertEquals(null, apparentNextToMinMax("", 16.0, metric, "Ress.", show = true))
+        assertEquals(null, apparentNextToMinMax("  ", 16.0, metric, "Ress.", show = true))
+        assertEquals(null, apparentNextToMinMax("12° / 20°", 16.0, metric, "Ress.", show = false))
+        assertEquals(null, apparentNextToMinMax("12° / 20°", null, metric, "Ress.", show = true))
+        assertEquals(null, apparentNextToMinMax("12° / 20°", Double.NaN, metric, "Ress.", show = true))
+        assertEquals(
+            "Feels 61°F",
+            apparentNextToMinMax("54°F / 68°F", 16.0, WeatherUnits(UnitSystem.IMPERIAL), "Feels", show = true)
+        )
     }
 
     // ─── buildExtrasLine ───────────────────────────────────────────────

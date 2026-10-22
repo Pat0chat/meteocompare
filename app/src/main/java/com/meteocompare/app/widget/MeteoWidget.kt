@@ -600,22 +600,24 @@ private fun SmallLayout(
 }
 
 /**
- * Température et ressenti alignés sur la même ligne, sans nouvelle donnée météo.
- * Le ressenti est affiché uniquement si la largeur du widget le permet.
- * Une Row imbriquée ne compte que pour un enfant dans la Row extérieure Glance.
+ * Min/max du jour et température ressentie sur une seule ligne :
+ * « 12° / 20°   Ress. 16° ». La température actuelle reste seule à côté de l'icône.
+ * Dans les widgets étroits, le ressenti est omis pour conserver les extrêmes lisibles.
+ * Une Row imbriquée compte comme un seul enfant de la Row extérieure Glance.
  */
 @Composable
-internal fun WidgetTemperatureWithApparent(
+internal fun WidgetMinMaxWithApparent(
+    minMax: String,
     data: WidgetData,
     units: WeatherUnits,
-    onContainer: ColorProvider,
     onContainerMuted: ColorProvider,
-    temperatureSize: TextUnit,
+    minMaxSize: TextUnit,
     apparentSize: TextUnit,
     showApparent: Boolean
 ) {
     val context = LocalContext.current
-    val apparent = inlineApparentTemperature(
+    val apparent = apparentNextToMinMax(
+        minMax = minMax,
         apparentTemp = data.apparentTemp,
         units = units,
         prefix = context.getString(R.string.apparent_temperature_widget_prefix),
@@ -623,8 +625,8 @@ internal fun WidgetTemperatureWithApparent(
     )
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
-            text = formatTemp(data.currentTemp, units = units),
-            style = TextStyle(color = onContainer, fontSize = temperatureSize, fontWeight = FontWeight.Bold),
+            text = minMax,
+            style = TextStyle(color = onContainerMuted, fontSize = minMaxSize),
             maxLines = 1
         )
         apparent?.let { label ->
@@ -778,14 +780,10 @@ private fun LargeLayout(
         Row(verticalAlignment = Alignment.CenterVertically) {
             WeatherGlyph(data.currentCondition, isNight = data.currentIsNight == true, sizeDp = glyphSize)
             Spacer(GlanceModifier.width(if (profile == SingleRowWidgetHeightProfile.VERY_DENSE) 4.dp else 6.dp))
-            WidgetTemperatureWithApparent(
-                data = data,
-                units = units,
-                onContainer = onContainer,
-                onContainerMuted = onContainerMuted,
-                temperatureSize = currentTempSize,
-                apparentSize = if (profile == SingleRowWidgetHeightProfile.REGULAR) 10.sp else 9.sp,
-                showApparent = size.width.value >= 350f && inlineForecastItems == 0
+            Text(
+                text = formatTemp(data.currentTemp, units = units),
+                style = TextStyle(color = onContainer, fontSize = currentTempSize, fontWeight = FontWeight.Bold),
+                maxLines = 1
             )
         }
         Spacer(GlanceModifier.width(if (profile == SingleRowWidgetHeightProfile.REGULAR) 12.dp else 8.dp))
@@ -813,10 +811,14 @@ private fun LargeLayout(
                     maxLines = 1
                 )
             }
-            Text(
-                text = formatMinMax(data.tempMin, data.tempMax, units = units),
-                style = TextStyle(color = onContainerMuted, fontSize = minMaxSize),
-                maxLines = 1
+            WidgetMinMaxWithApparent(
+                minMax = formatMinMax(data.tempMin, data.tempMax, units = units),
+                data = data,
+                units = units,
+                onContainerMuted = onContainerMuted,
+                minMaxSize = minMaxSize,
+                apparentSize = if (profile == SingleRowWidgetHeightProfile.REGULAR) 10.sp else 9.sp,
+                showApparent = size.width.value >= 350f && inlineForecastItems == 0
             )
             val extras = buildExtrasLine(data, units = units)
             if (showExtras && extras.isNotEmpty()) {
@@ -916,24 +918,25 @@ private fun CompactTallLayout(
                         maxLines = 1
                     )
                 }
-                WidgetTemperatureWithApparent(
-                    data = data,
-                    units = units,
-                    onContainer = onContainer,
-                    onContainerMuted = onContainerMuted,
-                    temperatureSize = if (narrow) 21.sp else 24.sp,
-                    apparentSize = 9.sp,
-                    showApparent = size.width.value >= 175f
+                Text(
+                    text = formatTemp(data.currentTemp, units = units),
+                    style = TextStyle(
+                        color = onContainer,
+                        fontSize = if (narrow) 21.sp else 24.sp,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    maxLines = 1
                 )
                 val minMax = formatMinMax(data.tempMin, data.tempMax, units = units)
                 if (minMax.isNotEmpty()) {
-                    Text(
-                        text = minMax,
-                        style = TextStyle(
-                            color = onContainerMuted,
-                            fontSize = if (narrow) 9.sp else 10.sp
-                        ),
-                        maxLines = 1
+                    WidgetMinMaxWithApparent(
+                        minMax = minMax,
+                        data = data,
+                        units = units,
+                        onContainerMuted = onContainerMuted,
+                        minMaxSize = if (narrow) 9.sp else 10.sp,
+                        apparentSize = 9.sp,
+                        showApparent = size.width.value >= 175f
                     )
                 }
                 data.confidencePct?.let {
@@ -1101,18 +1104,18 @@ private fun ExtraLargeLayout(
                 }
             )
             Spacer(GlanceModifier.width(if (veryCompact) 5.dp else 8.dp))
-            WidgetTemperatureWithApparent(
-                data = data,
-                units = units,
-                onContainer = onContainer,
-                onContainerMuted = onContainerMuted,
-                temperatureSize = when {
-                    veryCompact -> 22.sp
-                    compactHeight -> 25.sp
-                    else -> 28.sp
-                },
-                apparentSize = if (compactHeight) 9.sp else 11.sp,
-                showApparent = !veryCompact && widthDp >= 320f
+            Text(
+                text = formatTemp(data.currentTemp, units = units),
+                style = TextStyle(
+                    color = onContainer,
+                    fontSize = when {
+                        veryCompact -> 22.sp
+                        compactHeight -> 25.sp
+                        else -> 28.sp
+                    },
+                    fontWeight = FontWeight.Bold
+                ),
+                maxLines = 1
             )
             Spacer(GlanceModifier.width(if (veryCompact) 7.dp else 12.dp))
 
@@ -1132,17 +1135,18 @@ private fun ExtraLargeLayout(
                         maxLines = 1
                     )
                 }
-                Text(
-                    text = formatMinMax(data.tempMin, data.tempMax, units = units),
-                    style = TextStyle(
-                        color = onContainerMuted,
-                        fontSize = when {
-                            veryCompact -> 9.sp
-                            compactHeight -> 12.sp
-                            else -> 14.sp
-                        }
-                    ),
-                    maxLines = 1
+                WidgetMinMaxWithApparent(
+                    minMax = formatMinMax(data.tempMin, data.tempMax, units = units),
+                    data = data,
+                    units = units,
+                    onContainerMuted = onContainerMuted,
+                    minMaxSize = when {
+                        veryCompact -> 9.sp
+                        compactHeight -> 12.sp
+                        else -> 14.sp
+                    },
+                    apparentSize = if (compactHeight) 9.sp else 11.sp,
+                    showApparent = !veryCompact && widthDp >= 320f
                 )
                 if (actualShowExtras) {
                     val extras = buildExtrasLine(data, units = units)

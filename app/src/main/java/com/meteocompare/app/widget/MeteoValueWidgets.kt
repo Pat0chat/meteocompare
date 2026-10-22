@@ -338,14 +338,14 @@ private fun InsightWidgetLayout(
         ) {
             ValueWeatherGlyph(data.currentCondition, if (compact) 36 else 46, isNight = data.currentIsNight == true)
             Spacer(GlanceModifier.width(8.dp))
-            WidgetTemperatureWithApparent(
-                data = data,
-                units = units,
-                onContainer = colors.foreground,
-                onContainerMuted = colors.muted,
-                temperatureSize = if (compact) 27.sp else 34.sp,
-                apparentSize = 10.sp,
-                showApparent = !compact
+            Text(
+                text = formatTemp(data.currentTemp, units = units),
+                style = TextStyle(
+                    color = colors.foreground,
+                    fontSize = if (compact) 27.sp else 34.sp,
+                    fontWeight = FontWeight.Bold
+                ),
+                maxLines = 1
             )
             Spacer(GlanceModifier.width(8.dp))
             Column(modifier = GlanceModifier.defaultWeight()) {
@@ -360,10 +360,15 @@ private fun InsightWidgetLayout(
                 )
                 val minMax = widgetMinMaxLabel(data, units = units)
                 if (minMax != null) {
-                    Text(
-                        text = minMax,
-                        style = TextStyle(color = colors.muted, fontSize = 10.sp),
-                        maxLines = 1
+                    WidgetMinMaxWithApparent(
+                        minMax = minMax,
+                        data = data,
+                        units = units,
+                        onContainerMuted = colors.muted,
+                        minMaxSize = 10.sp,
+                        apparentSize = 9.sp,
+                        // La colonne doit contenir les deux valeurs sans chevauchement.
+                        showApparent = !compact && LocalSize.current.width.value >= 300f
                     )
                 }
             }

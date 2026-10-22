@@ -68,7 +68,7 @@ internal fun buildExtrasLine(data: WidgetData, units: WeatherUnits = WeatherUnit
 }
 
 /**
- * Libellé concis du ressenti, au même niveau que la température principale.
+ * Libellé concis du ressenti destiné à la ligne des températures min/max.
  * Les valeurs absentes/non finies et les formats trop étroits ne créent aucun élément Glance.
  * Le préfixe traduit est fourni par la couche UI (aucune ressource Android ici).
  */
@@ -80,6 +80,23 @@ internal fun inlineApparentTemperature(
 ): String? = if (show) {
     apparentTemp?.takeIf(Double::isFinite)?.let { "$prefix ${units.temp(it)}" }
 } else null
+
+/**
+ * Évite de présenter le ressenti seul dans une ligne dont les min/max sont absents.
+ * Les unités et valeurs manquantes sont gérées par le helper de formatage partagé.
+ */
+internal fun apparentNextToMinMax(
+    minMax: String,
+    apparentTemp: Double?,
+    units: WeatherUnits,
+    prefix: String,
+    show: Boolean
+): String? = inlineApparentTemperature(
+    apparentTemp = apparentTemp,
+    units = units,
+    prefix = prefix,
+    show = show && minMax.isNotBlank()
+)
 
 /**
  * Formate une température (Celsius) pour l'affichage widget : "22°" ou "—"
