@@ -112,6 +112,25 @@ class TodaySummaryCardTest {
             ).getUnclippedBoundsInRoot()
             val feltValue = composeRule.onNodeWithTag("today_apparent_${extreme}_central", useUnmergedTree = true)
                 .getUnclippedBoundsInRoot()
+            val airLabel = composeRule.onNodeWithTag(
+                (if (extreme == "min") TAG_TODAY_SUMMARY_TEMP_MIN_CENTRAL
+                 else TAG_TODAY_SUMMARY_TEMP_MAX_CENTRAL) + "_label", useUnmergedTree = true
+            ).getUnclippedBoundsInRoot()
+            val feelsLabel = composeRule.onNodeWithTag(
+                "today_apparent_${extreme}_central_name", useUnmergedTree = true
+            ).getUnclippedBoundsInRoot()
+            assertTrue("Min/Max label must precede the air value", airLabel.right <= airValue.left)
+            assertTrue("Min/Max must appear directly next to its value",
+                (airValue.left - airLabel.right).value <= 12f)
+            assertTrue("Feels label must precede its value without a legend dot", feelsLabel.right <= feltValue.left)
+            assertTrue("Feels label must sit directly next to its value",
+                (feltValue.left - feelsLabel.right).value <= 12f)
+            assertTrue("Air label and value must be on one line", kotlin.math.abs(
+                (airLabel.top.value + airLabel.bottom.value) - (airValue.top.value + airValue.bottom.value)
+            ) <= 16f)
+            assertTrue("Feels label and value must be on one line", kotlin.math.abs(
+                (feelsLabel.top.value + feelsLabel.bottom.value) - (feltValue.top.value + feltValue.bottom.value)
+            ) <= 16f)
             assertTrue("Air value stays to the left of the plot", airValue.right <= air.left)
             assertTrue("Felt value stays to the left of the plot", feltValue.right <= felt.left)
             assertTrue("Air and felt rails share a right-aligned domain", kotlin.math.abs(air.left.value - felt.left.value) < 1f)
@@ -569,6 +588,26 @@ class TodaySummaryCardTest {
         composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_TEMP_MAX_CENTRAL, useUnmergedTree = true)
             .assertTextEquals("26.0°")
             .assertIsDisplayed()
+    }
+
+    @Test
+    fun compact_summary_keeps_separate_temperature_wind_and_gust_convergence() {
+        render(DayConfidence(
+            date = TestFixtures.today,
+            tempMax = ConfidenceScore(91, 22.0, 25.0, 23.0, 1.1, 5),
+            tempMin = ConfidenceScore(48, 9.0, 12.0, 10.0, 1.3, 5),
+            precipitation = null,
+            windMax = ConfidenceScore(63, 10.0, 18.0, 14.0, 2.1, 5),
+            windGustMax = ConfidenceScore(75, 24.0, 30.0, 27.0, 2.2, 5)
+        ))
+        composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_TEMP_MAX_CONVERGENCE, useUnmergedTree = true)
+            .assertTextEquals("91%").assertIsDisplayed()
+        composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_TEMP_MIN_CONVERGENCE, useUnmergedTree = true)
+            .assertTextEquals("48%").assertIsDisplayed()
+        composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_WIND_CONVERGENCE, useUnmergedTree = true)
+            .assertTextEquals("63%").assertIsDisplayed()
+        composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_GUST_CONVERGENCE, useUnmergedTree = true)
+            .assertTextEquals("75%").assertIsDisplayed()
     }
 
     @Test

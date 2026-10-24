@@ -256,6 +256,13 @@ dato</string>
     <string name="metric_detail_gusts">Raffiche</string>
     <string name="metric_summary_average">Consenso centrale</string>
     <string name="metric_summary_range">Intervallo %1$s</string>
+    <string name="metric_summary_range_short">Intervallo</string>
+    <string name="metric_summary_min_label">Min</string>
+    <string name="metric_summary_max_label">Max</string>
+    <plurals name="metric_summary_models_count">
+        <item quantity="one">%d modello</item>
+        <item quantity="other">%d modelli</item>
+    </plurals>
     <string name="metric_summary_max_model_precip">Modello più alto %1$s %2$s</string>
 
     <string name="search_city_placeholder">Cerca una città…</string>

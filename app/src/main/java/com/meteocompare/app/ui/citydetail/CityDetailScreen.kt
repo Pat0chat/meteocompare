@@ -96,6 +96,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import com.meteocompare.app.core.units.weatherStringResource as stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.Role
@@ -2454,68 +2455,102 @@ private fun CompactSummaryMetricRow(
     val (minimum, maximum) = actualDispersionBounds(score, samples)
     val felt = apparent?.dispersion
     val agreementDescription = "${stringResource(R.string.home_agreement_label)} ${score.convergencePercent?.let { "$it%" } ?: "—"}"
-    // A proportion rather than a fixed width keeps enough chart space on narrow devices.
+    val isTemperature = unit == WeatherUnit.TEMPERATURE_COMPACT
+    // Keep the temperature and feels-like labels next to their values. The
+    // larger label column is limited so the shared-range plot stays readable.
     BoxWithConstraints(Modifier.fillMaxWidth()) {
-        val labelColumnWidth = (maxWidth * 0.42f).coerceIn(108.dp, 150.dp)
+        val labelColumnWidth = (maxWidth * (if (isTemperature) 0.49f else 0.42f))
+            .coerceIn(if (isTemperature) 124.dp else 108.dp, if (isTemperature) 180.dp else 150.dp)
+            .coerceAtMost((maxWidth - 64.dp).coerceAtLeast(80.dp))
         Row(
             modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(9.dp)
         ) {
             Column(modifier = Modifier.width(labelColumnWidth)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = shortLabel,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Spacer(Modifier.width(3.dp))
-                    Text(
-                        text = score.convergencePercent?.let { "$it%" } ?: "—",
-                        modifier = Modifier.testTag(convergenceTestTag).semantics {
-                            contentDescription = agreementDescription
-                        },
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1
-                    )
-                }
-                Text(
-                    text = center,
-                    modifier = Modifier.testTag(centralTestTag),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                if (apparent != null && felt != null) {
-                    val feltLabel = formatDispersionValue(felt.central, unit, digits, locale, units)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(6.dp).background(apparent.accent, CircleShape))
-                        Spacer(Modifier.width(4.dp))
+                if (isTemperature) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
                         Text(
-                            text = apparent.label,
+                            text = shortLabel,
+                            modifier = Modifier.testTag(centralTestTag + "_label"),
                             style = MaterialTheme.typography.labelSmall,
-                            color = apparent.accent,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f)
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1
                         )
-                        Spacer(Modifier.width(3.dp))
                         Text(
-                            text = feltLabel,
-                            modifier = Modifier.testTag(apparent.testTag).semantics {
-                                contentDescription = "${apparent.semanticLabel}: $feltLabel"
-                            },
+                            text = center,
+                            modifier = Modifier.weight(1f).testTag(centralTestTag),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        SummaryConvergenceValue(
+                            percent = score.convergencePercent,
+                            testTag = convergenceTestTag,
+                            description = agreementDescription
+                        )
+                    }
+                } else {
+                    // Longer wind labels and wind-speed units still have two
+                    // lines; this preserves their readability on narrow devices.
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = shortLabel,
+                            modifier = Modifier.weight(1f),
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.SemiBold,
-                            color = apparent.accent,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(Modifier.width(3.dp))
+                        SummaryConvergenceValue(
+                            percent = score.convergencePercent,
+                            testTag = convergenceTestTag,
+                            description = agreementDescription
+                        )
+                    }
+                    Text(
+                        text = center,
+                        modifier = Modifier.testTag(centralTestTag),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                if (apparent != null && felt != null) {
+                    val feltValue = formatDispersionValue(felt.central, unit, digits, locale, units)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = apparent.label,
+                            modifier = Modifier.testTag(apparent.testTag + "_name"),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1
+                        )
+                        Text(
+                            text = feltValue,
+                            modifier = Modifier.weight(1f).testTag(apparent.testTag).semantics {
+                                contentDescription = "${apparent.semanticLabel}: $feltValue"
+                            },
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = apparent.accent,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -2546,13 +2581,26 @@ private fun CompactSummaryMetricRow(
                         unit = unit,
                         digits = digits,
                         units = units,
-                        dotMarker = true,
+                        convergence = felt.convergence,
                         testTag = apparent.testTag.removeSuffix("_central") + "_inline_bar"
                     )
                 }
             }
         }
     }
+}
+
+/** The summary must use the same convergence thresholds/colours as the rest of the app. */
+@Composable
+private fun SummaryConvergenceValue(percent: Int?, testTag: String, description: String) {
+    Text(
+        text = percent?.let { "$it%" } ?: "—",
+        modifier = Modifier.testTag(testTag).semantics { contentDescription = description },
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.Bold,
+        color = if (percent != null) confidenceColor(percent) else MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 1
+    )
 }
 
 @Composable
@@ -2567,36 +2615,52 @@ private fun CompactApparentOnlyRow(
     units: WeatherUnits = LocalWeatherUnits.current
 ) {
     val locale = LocalLocale.current.platformLocale
-    Row(
-        Modifier.fillMaxWidth().padding(vertical = 3.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(9.dp)
-    ) {
-        Column(Modifier.fillMaxWidth(0.42f)) {
-            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(
-                formatDispersionValue(apparent.central, WeatherUnit.TEMPERATURE_COMPACT, 1, locale, units),
-                modifier = Modifier.testTag(testTag),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = accent
-            )
-        }
-        Box(Modifier.weight(1f)) {
-            CompactDispersionRail(
-                label = semanticLabel,
-                rawMin = apparent.min,
-                rawMax = apparent.max,
-                center = apparent.central,
-                samples = samples,
-                domain = domain,
-                accent = accent,
-                unit = WeatherUnit.TEMPERATURE_COMPACT,
-                digits = 1,
-                units = units,
-                dotMarker = true,
-                testTag = testTag.removeSuffix("_central") + "_inline_bar"
-            )
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val labelColumnWidth = (maxWidth * 0.49f).coerceIn(124.dp, 180.dp)
+            .coerceAtMost((maxWidth - 64.dp).coerceAtLeast(80.dp))
+        Row(
+            Modifier.fillMaxWidth().padding(vertical = 3.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(9.dp)
+        ) {
+            Row(
+                modifier = Modifier.width(labelColumnWidth),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = label,
+                    modifier = Modifier.testTag(testTag + "_name"),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
+                )
+                Text(
+                    text = formatDispersionValue(apparent.central, WeatherUnit.TEMPERATURE_COMPACT, 1, locale, units),
+                    modifier = Modifier.weight(1f).testTag(testTag),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = accent,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Box(Modifier.weight(1f)) {
+                CompactDispersionRail(
+                    label = semanticLabel,
+                    rawMin = apparent.min,
+                    rawMax = apparent.max,
+                    center = apparent.central,
+                    samples = samples,
+                    domain = domain,
+                    accent = accent,
+                    unit = WeatherUnit.TEMPERATURE_COMPACT,
+                    digits = 1,
+                    units = units,
+                    convergence = apparent.convergence,
+                    testTag = testTag.removeSuffix("_central") + "_inline_bar"
+                )
+            }
         }
     }
 }
@@ -2614,7 +2678,7 @@ private fun CompactDispersionRail(
     unit: WeatherUnit,
     digits: Int,
     units: WeatherUnits,
-    dotMarker: Boolean = false,
+    convergence: Int? = null,
     testTag: String? = null
 ) {
     val locale = LocalLocale.current.platformLocale
@@ -2656,33 +2720,29 @@ private fun CompactDispersionRail(
             }
         }
         val x = xFor(center)
-        if (dotMarker) {
-            drawCircle(surface, radius = 5.5.dp.toPx(), center = Offset(x, y))
-            drawCircle(accent, radius = 4.dp.toPx(), center = Offset(x, y))
-        } else {
-            drawRoundRect(centerColor, Offset(x - 1.5.dp.toPx(), y - 8.dp.toPx()),
-                Size(3.dp.toPx(), 16.dp.toPx()), cornerRadius = CornerRadius(3.dp.toPx()))
-        }
+        drawRoundRect(
+            centerColor,
+            Offset(x - 1.5.dp.toPx(), y - 8.dp.toPx()),
+            Size(3.dp.toPx(), 16.dp.toPx()),
+            cornerRadius = CornerRadius(3.dp.toPx())
+        )
     }
     if (detailsOpen) {
-        AlertDialog(
-            onDismissRequest = { detailsOpen = false },
-            title = { Text(label) },
-            text = {
-                Column(
-                    modifier = Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Text("${stringResource(R.string.metric_summary_average)}: $median")
-                    Text(stringResource(R.string.metric_summary_range, rangeText))
-                    samples.forEach { sample ->
-                        Text("${sample.model.displayName}: ${formatDispersionValue(sample.value, unit, digits, locale, units)}")
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { detailsOpen = false }) { Text(stringResource(R.string.toast_dismiss)) }
-            }
+        DispersionDetailsDialog(
+            label = label,
+            median = median,
+            rangeText = rangeText,
+            rawMin = rawMin,
+            rawMax = rawMax,
+            center = center,
+            samples = samples,
+            domain = domain,
+            accent = accent,
+            convergence = convergence,
+            unit = unit,
+            digits = digits,
+            units = units,
+            onDismiss = { detailsOpen = false }
         )
     }
 }
@@ -3127,12 +3187,296 @@ private fun DispersionRail(
                 size = Size((end - start).coerceAtLeast(3.dp.toPx()), 5.dp.toPx()),
                 cornerRadius = CornerRadius(99.dp.toPx())
             )
-            drawCircle(
-                color = apparent.accent,
-                radius = 4.dp.toPx(),
-                center = Offset(xFor(apparent.dispersion.central), y)
+            val apparentCenterX = xFor(apparent.dispersion.central)
+            drawRoundRect(
+                color = centerColor,
+                topLeft = Offset(apparentCenterX - 1.5.dp.toPx(), y - 8.dp.toPx()),
+                size = Size(3.dp.toPx(), 16.dp.toPx()),
+                cornerRadius = CornerRadius(3.dp.toPx())
             )
         }
+    }
+}
+
+@Composable
+private fun DispersionDetailsDialog(
+    label: String,
+    median: String,
+    rangeText: String,
+    rawMin: Double,
+    rawMax: Double,
+    center: Double,
+    samples: List<DispersionSample>,
+    domain: DispersionDomain,
+    accent: Color,
+    convergence: Int?,
+    unit: WeatherUnit,
+    digits: Int,
+    units: WeatherUnits,
+    onDismiss: () -> Unit
+) {
+    val locale = LocalLocale.current.platformLocale
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    SummaryDialogValueCard(
+                        title = stringResource(R.string.metric_summary_average),
+                        value = median,
+                        accent = accent,
+                        modifier = Modifier.weight(1f)
+                    )
+                    SummaryDialogValueCard(
+                        title = stringResource(R.string.metric_summary_range_short),
+                        value = rangeText,
+                        accent = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    convergence?.let {
+                        ConvergenceTonalChip(convergence = it, testTag = null)
+                    }
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        shape = CircleShape
+                    ) {
+                        Text(
+                            text = pluralStringResource(R.plurals.metric_summary_models_count, samples.size, samples.size),
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 420.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    shape = RoundedCornerShape(18.dp),
+                    tonalElevation = 0.dp,
+                    border = BorderStroke(1.dp, accent.copy(alpha = 0.18f))
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.metric_summary_range, rangeText),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        DispersionDetailRailPreview(
+                            samples = samples,
+                            rangeMin = rawMin,
+                            rangeMax = rawMax,
+                            domain = domain,
+                            central = center,
+                            accent = accent
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            SummaryDialogMiniStat(
+                                title = stringResource(R.string.metric_summary_min_label),
+                                value = formatDispersionValue(rawMin, unit, digits, locale, units),
+                                accent = accent,
+                                modifier = Modifier.weight(1f)
+                            )
+                            SummaryDialogMiniStat(
+                                title = stringResource(R.string.metric_summary_average),
+                                value = median,
+                                accent = accent,
+                                modifier = Modifier.weight(1f)
+                            )
+                            SummaryDialogMiniStat(
+                                title = stringResource(R.string.metric_summary_max_label),
+                                value = formatDispersionValue(rawMax, unit, digits, locale, units),
+                                accent = accent,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    samples.forEach { sample ->
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceContainerLow,
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier.size(10.dp).background(accent.copy(alpha = 0.9f), CircleShape)
+                                )
+                                Text(
+                                    text = sample.model.displayName,
+                                    modifier = Modifier.weight(1f),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = formatDispersionValue(sample.value, unit, digits, locale, units),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = accent
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.toast_dismiss)) }
+        }
+    )
+}
+
+@Composable
+private fun SummaryDialogValueCard(
+    title: String,
+    value: String,
+    accent: Color,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, accent.copy(alpha = 0.12f))
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = accent,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun SummaryDialogMiniStat(
+    title: String,
+    value: String,
+    accent: Color,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        color = accent.copy(alpha = 0.08f),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(3.dp)
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+    }
+}
+
+@Composable
+private fun DispersionDetailRailPreview(
+    samples: List<DispersionSample>,
+    rangeMin: Double,
+    rangeMax: Double,
+    domain: DispersionDomain,
+    central: Double,
+    accent: Color
+) {
+    val track = MaterialTheme.colorScheme.surfaceContainerHighest
+    val centerColor = MaterialTheme.colorScheme.onSurface
+    val sampleBg = MaterialTheme.colorScheme.surface
+    Canvas(
+        modifier = Modifier.fillMaxWidth().height(34.dp)
+    ) {
+        val startX = size.width * DISPERSION_RAIL_START_FRACTION
+        val endX = size.width * DISPERSION_RAIL_END_FRACTION
+        val y = size.height / 2f
+        fun xFor(value: Double): Float = startX + (endX - startX) * dispersionRatio(value, domain.min, domain.max)
+
+        drawRoundRect(
+            color = track,
+            topLeft = Offset(startX, y - 3.dp.toPx()),
+            size = Size(endX - startX, 6.dp.toPx()),
+            cornerRadius = CornerRadius(99.dp.toPx())
+        )
+        val rangeStart = xFor(rangeMin)
+        val rangeEnd = xFor(rangeMax)
+        drawRoundRect(
+            color = accent.copy(alpha = 0.26f),
+            topLeft = Offset(rangeStart, y - 6.dp.toPx()),
+            size = Size((rangeEnd - rangeStart).coerceAtLeast(4.dp.toPx()), 12.dp.toPx()),
+            cornerRadius = CornerRadius(99.dp.toPx())
+        )
+        samples.forEachIndexed { index, sample ->
+            val point = Offset(xFor(sample.value), y + if (index % 2 == 0) -4.dp.toPx() else 4.dp.toPx())
+            drawCircle(sampleBg, radius = 5.dp.toPx(), center = point)
+            drawCircle(accent, radius = 3.dp.toPx(), center = point)
+        }
+        val centerX = xFor(central)
+        drawRoundRect(
+            color = centerColor,
+            topLeft = Offset(centerX - 1.5.dp.toPx(), y - 10.dp.toPx()),
+            size = Size(3.dp.toPx(), 20.dp.toPx()),
+            cornerRadius = CornerRadius(3.dp.toPx())
+        )
     }
 }
 

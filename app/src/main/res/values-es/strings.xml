@@ -256,6 +256,13 @@ datos</string>
     <string name="metric_detail_gusts">Rachas</string>
     <string name="metric_summary_average">Consenso central</string>
     <string name="metric_summary_range">Rango %1$s</string>
+    <string name="metric_summary_range_short">Rango</string>
+    <string name="metric_summary_min_label">Mín.</string>
+    <string name="metric_summary_max_label">Máx.</string>
+    <plurals name="metric_summary_models_count">
+        <item quantity="one">%d modelo</item>
+        <item quantity="other">%d modelos</item>
+    </plurals>
     <string name="metric_summary_max_model_precip">Modelo más alto %1$s %2$s</string>
 
     <string name="search_city_placeholder">Buscar una ciudad…</string>
