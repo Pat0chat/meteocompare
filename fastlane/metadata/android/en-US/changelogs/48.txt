@@ -1,0 +1,1 @@
+Atmospheric pressure in Details (timeline and columns), city comparison and Chart View. Feels-like min/max added to the existing daily summary bars and city comparison. More compact Chart View charts. Verified translations and unit switching (hPa/inHg, °C/°F).

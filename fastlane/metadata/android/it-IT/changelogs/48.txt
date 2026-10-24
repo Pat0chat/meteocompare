@@ -1,0 +1,1 @@
+Pressione atmosferica nei Dettagli (cronologia e colonne), nel confronto tra città e in Chart View. Minime e massime percepite integrate nelle barre del riepilogo giornaliero e nel confronto. Grafici più compatti in Chart View. Traduzioni e unità (hPa/inHg, °C/°F) verificate.

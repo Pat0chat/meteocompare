@@ -50,6 +50,9 @@ class ReleaseReadinessTests(unittest.TestCase):
         version_code = int(code_match.group(1))
         self.assertRegex(name_match.group(1), r'^\d+\.\d+\.\d+$')
         self.assertGreater(version_code, 0)
+        release_notes = ROOT / '.github/release-notes' / f'v{name_match.group(1)}.md'
+        self.assertTrue(release_notes.is_file(), f'Missing GitHub release notes: {release_notes}')
+        self.assertTrue(release_notes.read_text(encoding='utf-8').strip())
         for locale in LOCALES:
             with self.subTest(locale=locale):
                 changelogs = ROOT / f'fastlane/metadata/android/{locale}/changelogs'

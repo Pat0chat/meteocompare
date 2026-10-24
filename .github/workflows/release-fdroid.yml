@@ -386,17 +386,25 @@ jobs:
           AAB="${{ steps.release_artifacts.outputs.signed_aab }}"
           test -s "$APK"
           test -s "$AAB"
+          NOTES_FILE=".github/release-notes/${TAG}.md"
 
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "Release ${TAG} déjà existante : remplacement de l'APK et de l'AAB."
             gh release upload "$TAG" "$APK" "$AAB" \
               --repo "$GITHUB_REPOSITORY" \
               --clobber
+            if [[ -s "$NOTES_FILE" ]]; then
+              gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file "$NOTES_FILE"
+            fi
           else
             echo "Création de la release ${TAG}."
+            NOTE_ARGS=(--generate-notes)
+            if [[ -s "$NOTES_FILE" ]]; then
+              NOTE_ARGS=(--notes-file "$NOTES_FILE")
+            fi
             gh release create "$TAG" "$APK" "$AAB" \
               --repo "$GITHUB_REPOSITORY" \
               --verify-tag \
-              --generate-notes \
+              "${NOTE_ARGS[@]}" \
               --title "$TAG"
           fi

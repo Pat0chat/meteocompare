@@ -1,0 +1,1 @@
+Pression atmosphérique dans les détails (frise et colonnes), la comparaison de villes et Chart View. Températures ressenties min/max intégrées aux barres du résumé du jour et à la comparaison. Graphiques de Chart View plus compacts. Traductions et unités vérifiées (hPa/inHg, °C/°F).

@@ -1,0 +1,1 @@
+Luftdruck in den Details (Zeitleiste und Spalten), im Städtevergleich und in Chart View. Gefühlte Tages-Tiefst- und Höchstwerte in den bestehenden Balken der Tagesübersicht und im Städtevergleich. Kompaktere Diagramme in Chart View. Übersetzungen und Einheiten (hPa/inHg, °C/°F) geprüft.

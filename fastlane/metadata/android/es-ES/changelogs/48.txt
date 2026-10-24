@@ -1,0 +1,1 @@
+Presión atmosférica en Detalles (cronología y columnas), comparación de ciudades y Chart View. Mínimas y máximas de sensación térmica integradas en las barras del resumen diario y en la comparación. Gráficos más compactos en Chart View. Traducciones y unidades (hPa/inHg, °C/°F) verificadas.

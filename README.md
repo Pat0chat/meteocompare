@@ -375,7 +375,9 @@ Fait :
 - ✅ v1.17.2 — Choix 12 h / 24 h indépendant de la langue, icônes météo nocturnes, indices UV colorés, refonte du résumé du jour et correctifs de stabilité (publication après validation CI / appareil)
 - ✅ v1.18.0 — Comparateur de localités avec graphiques horaires (axes gradués, palette par métrique, sélection tactile), unités UK et optimisations de calculs.
 - ✅ v1.18.1 — Cartes Home compactes animées et sélection mémorisée, amélioration du vent dans les tableaux, clarification des widgets, cache radar optimisé et correctifs de performance.
-- ✅ v1.19.0
+- ✅ v1.19.0 — Ma position (facultatif) : carte météo et widgets basés sur une position approximative. Actualisation uniquement lorsque l’application est ouverte. Aucune géolocalisation en arrière-plan, aucun historique de déplacements. Les widgets utilisent la dernière zone connue. Corrections et optimisations des prévisions. Température ressentie.
+- ✅ v1.19.1 — Fiabilisation de « Ma position » (GPS manuel, permissions ponctuelles et suppression pendant un relevé).
+- ✅ v1.19.2 — Pression atmosphérique dans les détails, la comparaison et Chart View ; températures ressenties min/max dans les graphiques existants ; Chart View compact ; traductions et unités vérifiées (publication après validation).
 
 ## Licence
 
