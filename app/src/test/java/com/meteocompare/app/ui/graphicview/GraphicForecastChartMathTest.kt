@@ -12,6 +12,14 @@ import org.junit.Test
 
 class GraphicForecastChartMathTest {
     @Test
+    fun chart_plots_are_compact_but_keep_room_for_tooltips_and_axis_ticks() {
+        assertTrue(TemperaturePlotHeight.value in 180f..200f)
+        assertTrue(RainPlotHeight.value in 120f..140f)
+        assertTrue(WindPlotHeight.value in 120f..140f)
+        assertTrue(PressurePlotHeight.value in 120f..140f)
+    }
+
+    @Test
     fun apparentTemperatureRendersOnSameAxisWithMissingGaps() {
         val points = listOf(
             SimplifiedTimelinePoint(temperatureC = 20.0, apparentTemperatureC = 17.0),

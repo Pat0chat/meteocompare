@@ -74,6 +74,43 @@ class TodaySummaryCardTest {
     }
 
     @Test
+    fun feels_like_daily_extremes_use_the_existing_min_and_max_rails() {
+        val zone = ZoneId.of("Europe/Paris")
+        val start = TestFixtures.today.atStartOfDay(zone).toInstant()
+        val end = TestFixtures.today.plusDays(1).atStartOfDay(zone).toInstant()
+        val hours = java.time.Duration.between(start, end).toHours().toInt()
+        val forecast = TestFixtures.forecast().copy(
+            seriesByModel = TestFixtures.forecast().seriesByModel.mapValues { (model, series) ->
+                series.copy(hourly = series.hourly.copy(
+                    timestamps = List(hours) { start.plusSeconds(it * 3600L) },
+                    apparentTemperature = List(hours) { 8.0 + it * 0.3 + model.ordinal * 0.2 }
+                ))
+            }
+        )
+        render(
+            today = DayConfidence(
+                date = TestFixtures.today,
+                tempMax = ConfidenceScore(90, 23.0, 27.0, 25.0, 1.0, 3),
+                tempMin = ConfidenceScore(85, 11.0, 15.0, 13.0, 1.0, 3),
+                precipitation = null,
+                windMax = null
+            ),
+            forecast = forecast
+        )
+
+        // Une seule barre de dispersion pour chaque extrême, avec le ressenti
+        // intégré dans le même Canvas plutôt qu'en ligne de graphique séparée.
+        composeRule.onAllNodesWithTag("today_apparent_min_inline_bar", useUnmergedTree = true)
+            .assertCountEquals(1)
+        composeRule.onAllNodesWithTag("today_apparent_max_inline_bar", useUnmergedTree = true)
+            .assertCountEquals(1)
+        composeRule.onNodeWithTag("today_apparent_min_central", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithTag("today_apparent_max_central", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_TEMP_MIN_CENTRAL, useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_TEMP_MAX_CENTRAL, useUnmergedTree = true).assertExists()
+    }
+
+    @Test
     fun today_summary_does_not_invent_missing_or_invalid_felt_temperature() {
         render(today = DayConfidence(TestFixtures.today, null, null, null, null), apparent = Double.NaN)
         composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_APPARENT, useUnmergedTree = true).assertDoesNotExist()

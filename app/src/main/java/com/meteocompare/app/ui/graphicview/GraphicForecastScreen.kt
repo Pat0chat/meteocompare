@@ -122,13 +122,13 @@ import kotlin.math.max
 private val GraphicHourWidth = 40.dp
 private val GraphicAxisWidth = 76.dp
 private val WeatherConditionLaneHeight = 53.dp
-private val TemperaturePlotHeight = 252.dp
-private val RainPlotHeight = 150.dp
-private val WindPlotHeight = 150.dp
-private val PressurePlotHeight = 156.dp
+internal val TemperaturePlotHeight = 192.dp
+internal val RainPlotHeight = 128.dp
+internal val WindPlotHeight = 128.dp
+internal val PressurePlotHeight = 128.dp
 private val TimeAxisHeight = 70.dp
 private val VigilanceLaneHeight = 116.dp
-private val PlotTopPadding = 40.dp
+private val PlotTopPadding = 36.dp
 private val PlotBottomPadding = 18.dp
 
 internal const val TAG_GRAPHIC_HOUR_CELL = "graphic_hour_cell"
@@ -1276,7 +1276,7 @@ private fun TemperaturePlot(
                 apparent = selected.apparentTemperatureC?.let { units.temp(it) },
                 selectedIndex = selectedIndex,
                 pointCount = points.size,
-                yOffset = 48.dp
+                yOffset = 40.dp
             )
         }
     }

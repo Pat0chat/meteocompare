@@ -163,7 +163,7 @@ class ForecastDataChainContractTest {
     fun `contrat de variables API reste aligne avec les champs du pipeline`() {
         assertEquals(
             setOf(
-                "temperature_2m", "apparent_temperature", "precipitation", "precipitation_probability",
+                "temperature_2m", "apparent_temperature", "pressure_msl", "precipitation", "precipitation_probability",
                 "cloud_cover", "cloud_cover_low", "cloud_cover_mid", "cloud_cover_high",
                 "wind_speed_10m", "wind_direction_10m",
                 "wind_gusts_10m", "weather_code"

@@ -1917,6 +1917,39 @@ private fun buildTodaySummaryDispersionSamples(
 
 private data class ApparentDispersion(val central: Double, val min: Double, val max: Double, val convergence: Int?)
 
+/** A thin coloured feels-like range, overlaid on the corresponding air-temperature rail. */
+private data class InlineApparentBar(
+    val dispersion: ApparentDispersion,
+    val label: String,
+    val semanticLabel: String,
+    val accent: Color,
+    val testTag: String
+)
+
+@Composable
+private fun CompactApparentValue(
+    label: String,
+    value: Double,
+    accent: Color,
+    testTag: String,
+    units: WeatherUnits = LocalWeatherUnits.current
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(5.dp)
+    ) {
+        Box(Modifier.size(6.dp).background(accent, CircleShape))
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            text = units.format(value, WeatherUnit.TEMPERATURE_COMPACT, 1, LocalLocale.current.platformLocale),
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.testTag(testTag)
+        )
+    }
+}
+
 private fun apparentDispersion(samples: List<DispersionSample>): ApparentDispersion? {
     val consensus = ForecastConsensus.continuous(
         samples.map { ForecastConsensus.Entry(it.model, it.value) },
@@ -1967,11 +2000,29 @@ private fun DetailMetricGrid(
                         digits = 1,
                         convergence = score.convergencePercent,
                         centralTestTag = TAG_TODAY_SUMMARY_TEMP_MIN_CENTRAL,
-                        convergenceTestTag = TAG_TODAY_SUMMARY_TEMP_MIN_CONVERGENCE
+                        convergenceTestTag = TAG_TODAY_SUMMARY_TEMP_MIN_CONVERGENCE,
+                        inlineApparent = apparentMin?.let {
+                            InlineApparentBar(
+                                dispersion = it,
+                                label = stringResource(R.string.today_apparent_min_short),
+                                semanticLabel = stringResource(R.string.today_apparent_min_accessibility),
+                                accent = temperatureMinMetricAccent(),
+                                testTag = "today_apparent_min_central"
+                            )
+                        }
+                    )
+                } ?: apparentMin?.let {
+                    // Laisser le ressenti visible si les données d'air manquent.
+                    CompactApparentValue(
+                        label = stringResource(R.string.today_apparent_min_short),
+                        value = it.central,
+                        accent = temperatureMinMetricAccent(),
+                        testTag = "today_apparent_min_central"
                     )
                 }
 
-                if (today.tempMin != null && today.tempMax != null) {
+                if ((today.tempMin != null || apparentMin != null) &&
+                    (today.tempMax != null || apparentMax != null)) {
                     Spacer(Modifier.height(5.dp))
                 }
 
@@ -1988,40 +2039,23 @@ private fun DetailMetricGrid(
                         digits = 1,
                         convergence = score.convergencePercent,
                         centralTestTag = TAG_TODAY_SUMMARY_TEMP_MAX_CENTRAL,
-                        convergenceTestTag = TAG_TODAY_SUMMARY_TEMP_MAX_CONVERGENCE
+                        convergenceTestTag = TAG_TODAY_SUMMARY_TEMP_MAX_CONVERGENCE,
+                        inlineApparent = apparentMax?.let {
+                            InlineApparentBar(
+                                dispersion = it,
+                                label = stringResource(R.string.today_apparent_max_short),
+                                semanticLabel = stringResource(R.string.today_apparent_max_accessibility),
+                                accent = temperatureMetricAccent(),
+                                testTag = "today_apparent_max_central"
+                            )
+                        }
                     )
-                }
-
-                apparentMin?.let { score ->
-                    Spacer(Modifier.height(5.dp))
-                    DispersionMetricRow(
-                        semanticLabel = stringResource(R.string.today_apparent_min_accessibility),
-                        subLabel = stringResource(R.string.today_apparent_min_short),
-                        accent = temperatureMinMetricAccent().copy(alpha = 0.78f),
-                        central = score.central,
-                        fallbackMin = score.min,
-                        fallbackMax = score.max,
-                        samples = samples.apparentMin,
-                        unit = WeatherUnit.TEMPERATURE_COMPACT,
-                        digits = 1,
-                        convergence = score.convergence,
-                        centralTestTag = "today_apparent_min_central"
-                    )
-                }
-                apparentMax?.let { score ->
-                    Spacer(Modifier.height(5.dp))
-                    DispersionMetricRow(
-                        semanticLabel = stringResource(R.string.today_apparent_max_accessibility),
-                        subLabel = stringResource(R.string.today_apparent_max_short),
-                        accent = temperatureMetricAccent().copy(alpha = 0.78f),
-                        central = score.central,
-                        fallbackMin = score.min,
-                        fallbackMax = score.max,
-                        samples = samples.apparentMax,
-                        unit = WeatherUnit.TEMPERATURE_COMPACT,
-                        digits = 1,
-                        convergence = score.convergence,
-                        centralTestTag = "today_apparent_max_central"
+                } ?: apparentMax?.let {
+                    CompactApparentValue(
+                        label = stringResource(R.string.today_apparent_max_short),
+                        value = it.central,
+                        accent = temperatureMetricAccent(),
+                        testTag = "today_apparent_max_central"
                     )
                 }
             }
@@ -2368,6 +2402,35 @@ private fun paddedDispersionDomain(
     return DispersionDomain(domainMin, domainMax)
 }
 
+/** Padded domain shared by both rails, in canonical °C (unit conversion happens at display). */
+internal fun combinedTemperatureDispersionDomain(
+    primaryMin: Double,
+    primaryMax: Double,
+    apparentMin: Double?,
+    apparentMax: Double?,
+    apparentCentral: Double?,
+    nonNegative: Boolean = false
+): Pair<Double, Double> {
+    val values = listOfNotNull(primaryMin, primaryMax, apparentMin, apparentMax, apparentCentral)
+        .filter(Double::isFinite)
+    val min = values.minOrNull() ?: 0.0
+    val max = values.maxOrNull() ?: min
+    val domain = paddedDispersionDomain(min, max, nonNegative)
+    return domain.min to domain.max
+}
+
+private fun combinedTemperatureDispersionDomain(
+    primaryMin: Double,
+    primaryMax: Double,
+    apparent: ApparentDispersion?,
+    nonNegative: Boolean
+): DispersionDomain {
+    val bounds = combinedTemperatureDispersionDomain(
+        primaryMin, primaryMax, apparent?.min, apparent?.max, apparent?.central, nonNegative
+    )
+    return DispersionDomain(bounds.first, bounds.second)
+}
+
 private fun windDispersionDomain(
     today: DayConfidence,
     samples: TodaySummaryDispersionSamples
@@ -2400,6 +2463,7 @@ private fun DispersionMetricRow(
     subLabel: String? = null,
     nonNegative: Boolean = false,
     domainOverride: DispersionDomain? = null,
+    inlineApparent: InlineApparentBar? = null,
     centralTestTag: String? = null,
     convergenceTestTag: String? = null,
     units: WeatherUnits = LocalWeatherUnits.current
@@ -2414,7 +2478,11 @@ private fun DispersionMetricRow(
     val rawMax = sampleValues.maxOrNull() ?: fallbackMax
     val safeMin = listOf(rawMin, central).filter(Double::isFinite).minOrNull() ?: central
     val safeMax = listOf(rawMax, central).filter(Double::isFinite).maxOrNull() ?: central
-    val domain = domainOverride ?: paddedDispersionDomain(safeMin, safeMax, nonNegative)
+    // Both air temperature and feels-like must use one domain: their bars are
+    // directly comparable, even when the felt range lies outside the air range.
+    val domain = domainOverride ?: combinedTemperatureDispersionDomain(
+        safeMin, safeMax, inlineApparent?.dispersion, nonNegative
+    )
     val rangeLabel = "${formatDispersionValue(safeMin, unit, digits, locale, units = units)} – " +
         formatDispersionValue(safeMax, unit, digits, locale, units = units)
     val centralLabel = formatDispersionValue(central, unit, digits, locale, units = units)
@@ -2473,7 +2541,9 @@ private fun DispersionMetricRow(
             domain = domain,
             central = central,
             accent = accent,
-            contentDescription = railDescription
+            contentDescription = railDescription,
+            inlineApparent = inlineApparent,
+            units = units
         )
 
         DispersionBoundsLabels(
@@ -2483,6 +2553,29 @@ private fun DispersionMetricRow(
             max = safeMax,
             domain = domain
         )
+        inlineApparent?.let { apparent ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(Modifier.size(6.dp).background(apparent.accent, CircleShape))
+                Spacer(Modifier.width(5.dp))
+                Text(
+                    text = apparent.label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.width(5.dp))
+                Text(
+                    text = formatDispersionValue(apparent.dispersion.central, unit, digits, locale, units),
+                    modifier = Modifier.testTag(apparent.testTag),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = apparent.accent
+                )
+            }
+        }
     }
 }
 
@@ -2612,21 +2705,34 @@ private fun DispersionRail(
     domain: DispersionDomain,
     central: Double,
     accent: Color,
-    contentDescription: String
+    contentDescription: String,
+    inlineApparent: InlineApparentBar? = null,
+    units: WeatherUnits = LocalWeatherUnits.current
 ) {
     val surface = MaterialTheme.colorScheme.surfaceContainer
     val track = MaterialTheme.colorScheme.surfaceContainerHighest
     val centerColor = MaterialTheme.colorScheme.onSurface
+    val locale = LocalLocale.current.platformLocale
+    val secondaryA11y = inlineApparent?.let { apparent ->
+        "$contentDescription · ${apparent.semanticLabel}: " +
+            units.format(apparent.dispersion.min, WeatherUnit.TEMPERATURE_COMPACT, 1, locale) + " – " +
+            units.format(apparent.dispersion.max, WeatherUnit.TEMPERATURE_COMPACT, 1, locale) +
+            " · " + units.format(apparent.dispersion.central, WeatherUnit.TEMPERATURE_COMPACT, 1, locale)
+    } ?: contentDescription
 
     Canvas(
         modifier = Modifier
             .fillMaxWidth()
-            .height(20.dp)
-            .semantics { this.contentDescription = contentDescription }
+            .height(if (inlineApparent != null) 29.dp else 20.dp)
+            .then(
+                inlineApparent?.let { Modifier.testTag(it.testTag.removeSuffix("_central") + "_inline_bar") }
+                    ?: Modifier
+            )
+            .semantics { this.contentDescription = secondaryA11y }
     ) {
         val startX = size.width * DISPERSION_RAIL_START_FRACTION
         val endX = size.width * DISPERSION_RAIL_END_FRACTION
-        val centerY = size.height / 2f
+        val centerY = if (inlineApparent != null) 9.dp.toPx() else size.height / 2f
         fun xFor(value: Double): Float =
             startX + (endX - startX) * dispersionRatio(value, domain.min, domain.max)
 
@@ -2665,10 +2771,29 @@ private fun DispersionRail(
         val centerX = xFor(central)
         drawRoundRect(
             color = centerColor,
-            topLeft = Offset(centerX - 1.5.dp.toPx(), 1.dp.toPx()),
-            size = Size(3.dp.toPx(), size.height - 2.dp.toPx()),
+            topLeft = Offset(
+                centerX - 1.5.dp.toPx(),
+                if (inlineApparent != null) centerY - 8.dp.toPx() else 1.dp.toPx()
+            ),
+            size = Size(3.dp.toPx(), if (inlineApparent != null) 16.dp.toPx() else size.height - 2.dp.toPx()),
             cornerRadius = CornerRadius(3.dp.toPx())
         )
+        inlineApparent?.let { apparent ->
+            val y = 23.dp.toPx()
+            val start = xFor(apparent.dispersion.min)
+            val end = xFor(apparent.dispersion.max)
+            drawRoundRect(
+                color = apparent.accent.copy(alpha = 0.76f),
+                topLeft = Offset(start, y - 2.5.dp.toPx()),
+                size = Size((end - start).coerceAtLeast(3.dp.toPx()), 5.dp.toPx()),
+                cornerRadius = CornerRadius(99.dp.toPx())
+            )
+            drawCircle(
+                color = apparent.accent,
+                radius = 4.dp.toPx(),
+                center = Offset(xFor(apparent.dispersion.central), y)
+            )
+        }
     }
 }
 
