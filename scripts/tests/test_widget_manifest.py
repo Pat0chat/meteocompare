@@ -5,7 +5,7 @@ from xml.etree import ElementTree as ET
 import re
 import unittest
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = ROOT / 'app/src/main/AndroidManifest.xml'
 WIDGET_DIR = ROOT / 'app/src/main/java/com/meteocompare/app/widget'
 RES_DIR = ROOT / 'app/src/main/res'
