@@ -15,12 +15,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -197,6 +199,12 @@ internal fun LocalityHourlyChart(
     metric: CompareChartMetric = CompareChartMetric.TEMPERATURE,
     onMetricSelected: (CompareChartMetric) -> Unit = {}
 ) {
+    // Extra metrics can extend beyond the viewport. Always reveal the metric
+    // selected from the daily overview, not just those composed by LazyRow.
+    val metricListState = rememberLazyListState()
+    LaunchedEffect(metric) {
+        metricListState.scrollToItem(metric.ordinal)
+    }
     val palette = MaterialTheme.colorScheme
     val dark = palette.surface.luminance() < .5f
     // The metric owns the accent; the city keeps a distinct variation within that family.
@@ -242,6 +250,8 @@ internal fun LocalityHourlyChart(
         color = palette.surfaceContainerLow, shape = RoundedCornerShape(22.dp)) {
         Column(modifier = Modifier.padding(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             LazyRow(
+                state = metricListState,
+                modifier = Modifier.testTag("compare_chart_metric_list"),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {

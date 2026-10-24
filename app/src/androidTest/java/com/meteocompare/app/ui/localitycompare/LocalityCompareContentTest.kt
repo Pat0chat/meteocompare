@@ -19,9 +19,9 @@ import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onAllNodesWithTag
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.semantics.SemanticsActions
 import com.meteocompare.app.domain.model.City
@@ -78,6 +78,16 @@ class LocalityCompareContentTest {
             .performClick()
         compose.onNodeWithTag("compare_hour_details_expanded", useUnmergedTree = true)
             .assertExists()
+    }
+
+    /** LazyRow does not compose off-screen metric chips; explicitly scroll to a metric
+     * before attempting a direct click. The overview selection itself auto-reveals it. */
+    private fun revealChartMetric(metric: CompareChartMetric) {
+        compose.onNodeWithTag("compare_chart_metric_list")
+            .performScrollTo()
+            .performScrollToIndex(metric.ordinal)
+        compose.onNodeWithTag("compare_chart_metric_${metric.name.lowercase()}")
+            .assertIsDisplayed()
     }
 
     /** Assert the actual disclosed value, not a transient parent semantics tag. */
@@ -260,6 +270,7 @@ class LocalityCompareContentTest {
         compose.onNodeWithTag("compare_hour_chart")
             .performSemanticsAction(SemanticsActions.SetProgress) { it(14f) }
         compose.onNodeWithTag("compare_selected_hour").assertTextEquals("2 PM")
+        revealChartMetric(CompareChartMetric.RAIN)
         compose.onNodeWithTag("compare_chart_metric_rain").performClick()
         compose.onNodeWithTag("compare_chart_value_paris").assertTextContains("mm", substring = true)
         openComparisonDetails()
@@ -315,7 +326,12 @@ class LocalityCompareContentTest {
         waitForComparison()
         compose.onNodeWithTag("compare_overview_metric_rain").performClick()
         compose.onNodeWithTag("compare_hour_chart").assertExists()
-        compose.onNodeWithTag("compare_chart_metric_rain").assertIsSelected()
+        // The overview must reveal the selected chip even if it was initially
+        // outside LazyRow's composed viewport.
+        compose.onNodeWithTag("compare_chart_metric_list").performScrollTo()
+        compose.onNodeWithTag("compare_chart_metric_rain")
+            .assertIsDisplayed()
+            .assertIsSelected()
         compose.onNodeWithTag("compare_detail_rain_paris", useUnmergedTree = true).assertDoesNotExist()
         openComparisonDetails()
         waitForHourlyDetail("compare_detail_rain_paris")

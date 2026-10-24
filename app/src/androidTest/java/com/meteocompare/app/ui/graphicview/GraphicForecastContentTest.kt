@@ -116,6 +116,7 @@ class GraphicForecastContentTest {
                 windKmh = 12.0 + index % 10,
                 windGustKmh = 20.0 + index % 12,
                 windDirectionDeg = (index * 15) % 360,
+                pressureHpa = 1010.0 + index % 4,
                 condition = when (index % 5) {
                     0 -> WeatherCondition.CLEAR
                     1 -> WeatherCondition.PARTLY_CLOUDY
@@ -189,6 +190,7 @@ class GraphicForecastContentTest {
         composeRule.onNodeWithTag(TAG_GRAPHIC_TEMPERATURE_PLOT).assertExists()
         composeRule.onNodeWithTag(TAG_GRAPHIC_RAIN_PLOT).assertExists()
         composeRule.onNodeWithTag(TAG_GRAPHIC_WIND_PLOT).assertExists()
+        composeRule.onNodeWithTag(TAG_GRAPHIC_PRESSURE_PLOT).assertExists()
 
         val panelBounds = composeRule
             .onNodeWithTag(TAG_GRAPHIC_CHART_PANEL, useUnmergedTree = true)
@@ -225,7 +227,9 @@ class GraphicForecastContentTest {
         )
 
         composeRule.onAllNodesWithTag(TAG_GRAPHIC_AXIS_ICON, useUnmergedTree = true)
-            .assertCountEquals(3)
+            .assertCountEquals(4) // temperature, rain, wind, pressure
+        composeRule.onNodeWithTag(TAG_GRAPHIC_PRESSURE_TOOLTIP, useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithTag("graphic_pressure_tooltip_value", useUnmergedTree = true).assertExists()
         composeRule.onNodeWithTag(TAG_GRAPHIC_TEMPERATURE_TOOLTIP, useUnmergedTree = true).assertExists()
         composeRule.onNodeWithTag(TAG_GRAPHIC_TEMPERATURE_TOOLTIP_VALUE, useUnmergedTree = true).assertExists()
         composeRule.onNodeWithTag(TAG_GRAPHIC_TEMPERATURE_TOOLTIP_RANGE, useUnmergedTree = true).assertExists()
