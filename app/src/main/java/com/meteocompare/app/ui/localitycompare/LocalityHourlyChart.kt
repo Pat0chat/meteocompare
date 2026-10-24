@@ -64,6 +64,8 @@ import kotlin.math.max
 /** A single local wall-clock hour across cities, not a shared UTC instant. */
 internal enum class CompareChartMetric(val labelRes: Int) {
     TEMPERATURE(R.string.compare_hour_temperature),
+    APPARENT(R.string.metric_apparent_temperature),
+    PRESSURE(R.string.metric_pressure_short),
     RAIN(R.string.compare_hour_rain),
     RAIN_RISK(R.string.compare_rain_probability),
     CLOUDS(R.string.compare_hour_cloud_cover),
@@ -74,6 +76,8 @@ internal enum class CompareChartMetric(val labelRes: Int) {
 
     fun rawValue(hour: LocalityHourMetrics?): Double? = when (this) {
         TEMPERATURE -> hour?.temperatureC
+        APPARENT -> hour?.apparentTemperatureC
+        PRESSURE -> hour?.pressureHpa
         RAIN -> hour?.precipitationMm
         RAIN_RISK -> hour?.rainProbabilityPercent?.toDouble()
         CLOUDS -> hour?.cloudCoverPercent?.toDouble()
@@ -86,7 +90,8 @@ internal enum class CompareChartMetric(val labelRes: Int) {
     fun displayValue(hour: LocalityHourMetrics?, units: WeatherUnits, locale: Locale): String {
         val value = rawValue(hour) ?: return "—"
         return when (this) {
-            TEMPERATURE -> units.temp(value, locale = locale)
+            TEMPERATURE, APPARENT -> units.temp(value, locale = locale)
+            PRESSURE -> units.format(value, com.meteocompare.app.core.units.WeatherUnit.PRESSURE, if (units.imperial) 2 else 0, locale)
             RAIN -> units.rain(value, locale)
             WIND -> units.speed(value, locale = locale).let { speed ->
                 windCardinal(hour?.windDirectionDeg, locale)?.let { "$speed · $it" } ?: speed
@@ -100,7 +105,8 @@ internal enum class CompareChartMetric(val labelRes: Int) {
     /** Convert values before drawing so UK mph / °C and other profiles agree with labels. */
     fun plotValue(hour: LocalityHourMetrics?, units: WeatherUnits): Double? = rawValue(hour)?.let {
         when (this) {
-            TEMPERATURE -> units.temperature(it)
+            TEMPERATURE, APPARENT -> units.temperature(it)
+            PRESSURE -> units.pressure(it)
             RAIN -> units.precipitation(it)
             WIND -> units.wind(it)
             else -> it
@@ -130,7 +136,7 @@ internal fun metricChartRange(points: List<List<Double?>>, metric: CompareChartM
     val data = chartRange(points)
     if (!data.hasData) return data
     return when (metric) {
-        CompareChartMetric.TEMPERATURE -> data
+        CompareChartMetric.TEMPERATURE, CompareChartMetric.APPARENT, CompareChartMetric.PRESSURE -> data
         CompareChartMetric.RAIN_RISK, CompareChartMetric.CLOUDS, CompareChartMetric.AGREEMENT ->
             ChartRange(0.0, 100.0, true)
         CompareChartMetric.SUNSHINE -> ChartRange(0.0, 1.0, true)
@@ -143,7 +149,8 @@ internal fun metricChartRange(points: List<List<Double?>>, metric: CompareChartM
 }
 
 internal fun chartAxisUnit(metric: CompareChartMetric, units: WeatherUnits): String = when (metric) {
-    CompareChartMetric.TEMPERATURE -> units.temperatureUnit
+    CompareChartMetric.TEMPERATURE, CompareChartMetric.APPARENT -> units.temperatureUnit
+    CompareChartMetric.PRESSURE -> units.label(com.meteocompare.app.core.units.WeatherUnit.PRESSURE)
     CompareChartMetric.RAIN -> units.precipitationUnit
     CompareChartMetric.WIND -> units.windUnit
     CompareChartMetric.RAIN_RISK, CompareChartMetric.CLOUDS, CompareChartMetric.AGREEMENT -> "%"
@@ -157,7 +164,8 @@ internal fun chartAxisLabel(value: Double, step: Double, metric: CompareChartMet
     val digits = when (metric) {
         CompareChartMetric.RAIN -> if (units.imperial) 2 else if (step < 1) 1 else 0
         CompareChartMetric.SUNSHINE, CompareChartMetric.UV -> if (step < 1) 1 else 0
-        CompareChartMetric.TEMPERATURE, CompareChartMetric.WIND -> if (step < 1) 1 else 0
+        CompareChartMetric.TEMPERATURE, CompareChartMetric.APPARENT, CompareChartMetric.WIND -> if (step < 1) 1 else 0
+        CompareChartMetric.PRESSURE -> if (units.imperial) 2 else if (step < 1) 1 else 0
         else -> 0
     }
     return units.number(value, digits, locale)
@@ -193,7 +201,8 @@ internal fun LocalityHourlyChart(
     val dark = palette.surface.luminance() < .5f
     // The metric owns the accent; the city keeps a distinct variation within that family.
     val accent = when (metric) {
-        CompareChartMetric.TEMPERATURE -> temperatureMetricAccent()
+        CompareChartMetric.TEMPERATURE, CompareChartMetric.APPARENT -> temperatureMetricAccent()
+        CompareChartMetric.PRESSURE -> if (dark) Color(0xFF9DD6D4) else Color(0xFF27817F)
         CompareChartMetric.RAIN, CompareChartMetric.RAIN_RISK -> precipitationMetricAccent()
         CompareChartMetric.CLOUDS -> if (dark) Color(0xFFB2BFF5) else Color(0xFF596BAD)
         CompareChartMetric.WIND -> windMetricAccent()

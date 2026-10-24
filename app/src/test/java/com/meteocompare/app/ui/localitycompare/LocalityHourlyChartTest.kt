@@ -93,4 +93,55 @@ class LocalityHourlyChartTest {
         assertEquals("0,5", chartAxisLabel(0.5, 0.25, CompareChartMetric.SUNSHINE, metric, java.util.Locale.FRANCE))
         assertEquals("0.02", chartAxisLabel(0.02, 0.01, CompareChartMetric.RAIN, imperial, java.util.Locale.US))
     }
+
+    @Test
+    fun atmosphericComparisonFollowsLocaleAndUnitChanges() {
+        val day = com.meteocompare.app.domain.usecase.LocalityDayMetrics(
+            date = java.time.LocalDate.of(2026, 6, 20),
+            minC = null, maxC = null, precipitationMm = null,
+            rainProbabilityPercent = null, cloudCoverPercent = null,
+            maxWindKmh = null, estimatedSunHours = null, agreementPercent = null, modelCount = 2,
+            apparentMinC = 10.0, apparentMaxC = 20.0, pressureHpa = 1013.25
+        )
+        val sample = hour.copy(apparentTemperatureC = 10.0, pressureHpa = 1013.25)
+        val cities = listOf(HourChartCity("a", "A", listOf(sample)))
+        for (language in listOf("fr", "en", "de", "es", "it")) {
+            val locale = java.util.Locale.forLanguageTag(language)
+            val decimal = if (language == "en") "." else ","
+            for (system in com.meteocompare.app.domain.model.UnitSystem.entries) {
+                val units = WeatherUnits(system)
+                val imperial = system == com.meteocompare.app.domain.model.UnitSystem.IMPERIAL
+                assertEquals(if (imperial) "50°F / 68°F" else "10° / 20°",
+                    displayDayMetric(CompareChartMetric.APPARENT, day, units, locale))
+                assertEquals(if (imperial) "29${decimal}92 inHg" else "1013 hPa",
+                    displayDayMetric(CompareChartMetric.PRESSURE, day, units, locale))
+                val pressures = chartPoints(cities, CompareChartMetric.PRESSURE, units).single()
+                assertEquals(if (imperial) 1013.25 / 33.86389 else 1013.25, pressures[0]!!, 0.0001)
+                assertEquals(if (imperial) "50°F" else "10°",
+                    CompareChartMetric.APPARENT.displayValue(sample, units, locale))
+                assertEquals(if (imperial) "29${decimal}92 inHg" else "1013 hPa",
+                    CompareChartMetric.PRESSURE.displayValue(sample, units, locale))
+            }
+        }
+    }
+
+    @Test
+    fun atmosphericMetrics_areSelectableAndPressureHasUnitConvertedYAxis() {
+        val units = WeatherUnits()
+        val imperial = WeatherUnits(com.meteocompare.app.domain.model.UnitSystem.IMPERIAL)
+        val hour = com.meteocompare.app.domain.usecase.LocalityHourMetrics(
+            instant = java.time.Instant.parse("2026-06-20T12:00:00Z"),
+            temperatureC = 20.0, precipitationMm = null, rainProbabilityPercent = null,
+            cloudCoverPercent = null, windKmh = null, estimatedSunHours = null,
+            agreementPercent = null, uvIndex = null, modelCount = 2,
+            apparentTemperatureC = 17.0, pressureHpa = 1013.25
+        )
+        assertEquals(17.0, CompareChartMetric.APPARENT.rawValue(hour)!!, 0.001)
+        assertEquals(1013.25, CompareChartMetric.PRESSURE.rawValue(hour)!!, 0.001)
+        assertEquals("hPa", chartAxisUnit(CompareChartMetric.PRESSURE, units))
+        assertEquals("inHg", chartAxisUnit(CompareChartMetric.PRESSURE, imperial))
+        val displayPressure = CompareChartMetric.PRESSURE.plotValue(hour, imperial)!!
+        assertEquals(29.92, displayPressure, 0.02)
+    }
+
 }

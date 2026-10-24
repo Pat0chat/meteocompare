@@ -220,4 +220,20 @@ class GraphicForecastChartMathTest {
         )
     }
 
+
+    @Test
+    fun pressure_curve_preserves_missing_hours_and_uses_nonzero_axis() {
+        val points = listOf(
+            SimplifiedTimelinePoint(pressureHpa = 999.0),
+            SimplifiedTimelinePoint(pressureHpa = null),
+            SimplifiedTimelinePoint(pressureHpa = 1008.0)
+        )
+        val data = buildGraphicRenderData(points, emptyMap(), ZoneId.of("UTC"))
+        assertEquals(listOf(999.0, null, 1008.0), data.pressures)
+        val domain = pressureDomain(points)
+        assertTrue(domain.min < 999.0)
+        assertTrue(domain.max > 1008.0)
+        assertTrue(domain.min > 800.0)
+    }
+
 }

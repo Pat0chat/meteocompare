@@ -619,4 +619,23 @@ class BatchedForecastSplitterTest {
         assertEquals(listOf(2), dto.hourly?.weatherCode)
     }
 
+
+    @Test
+    fun `pressure_msl is split by model while legacy missing model variable stays absent`() {
+        val response = json.decodeFromString<BatchedForecastResponseDto>(
+            """{
+              "timezone": "UTC",
+              "hourly": {
+                "time": ["2026-06-23T00:00", "2026-06-23T01:00"],
+                "temperature_2m_ncep_gfs_seamless": [20.0, 21.0],
+                "temperature_2m_ecmwf_ifs": [19.0, 20.0],
+                "pressure_msl_ncep_gfs_seamless": [1012.0, null]
+              }
+            }"""
+        )
+        val split = BatchedForecastSplitter.split(response, listOf(WeatherModel.GFS, WeatherModel.ECMWF))
+        assertEquals(listOf(1012.0, null), split.getValue(WeatherModel.GFS).hourly?.pressureMsl)
+        assertNull(split.getValue(WeatherModel.ECMWF).hourly?.pressureMsl)
+    }
+
 }

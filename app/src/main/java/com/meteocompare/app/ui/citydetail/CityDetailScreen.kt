@@ -2,6 +2,7 @@ package com.meteocompare.app.ui.citydetail
 
 import com.meteocompare.app.core.util.windCardinal
 import com.meteocompare.app.domain.util.forecastDailyWindDirection
+import com.meteocompare.app.domain.util.dailyAtmosphericMetrics
 
 import com.meteocompare.app.core.locale.LocalClockFormatPreference
 import com.meteocompare.app.core.locale.WeatherTimeFormat
@@ -1849,6 +1850,8 @@ private data class DispersionSample(
 private data class TodaySummaryDispersionSamples(
     val tempMin: List<DispersionSample> = emptyList(),
     val tempMax: List<DispersionSample> = emptyList(),
+    val apparentMin: List<DispersionSample> = emptyList(),
+    val apparentMax: List<DispersionSample> = emptyList(),
     val precipitation: List<DispersionSample> = emptyList(),
     val wind: List<DispersionSample> = emptyList(),
     val windGust: List<DispersionSample> = emptyList()
@@ -1871,6 +1874,9 @@ private fun buildTodaySummaryDispersionSamples(
 
     val tempMin = mutableListOf<DispersionSample>()
     val tempMax = mutableListOf<DispersionSample>()
+    val apparentMin = mutableListOf<DispersionSample>()
+    val apparentMax = mutableListOf<DispersionSample>()
+    val zone = resolveCityZone(forecast.city.timezone)
     val precipitation = mutableListOf<DispersionSample>()
     val wind = mutableListOf<DispersionSample>()
     val windGust = mutableListOf<DispersionSample>()
@@ -1878,6 +1884,9 @@ private fun buildTodaySummaryDispersionSamples(
     forecast.seriesByModel.forEach { (model, series) ->
         val index = series.daily.dates.indexOf(date)
         if (index < 0) return@forEach
+        val atmospheric = series.dailyAtmosphericMetrics(date, zone)
+        atmospheric.apparentMinC?.let { apparentMin += DispersionSample(model, it) }
+        atmospheric.apparentMaxC?.let { apparentMax += DispersionSample(model, it) }
         series.daily.tempMin.getOrNull(index)?.takeIf { it.isFinite() }?.let {
             tempMin += DispersionSample(model, it)
         }
@@ -1898,10 +1907,25 @@ private fun buildTodaySummaryDispersionSamples(
     return TodaySummaryDispersionSamples(
         tempMin = tempMin,
         tempMax = tempMax,
+        apparentMin = apparentMin,
+        apparentMax = apparentMax,
         precipitation = precipitation,
         wind = wind,
         windGust = windGust
     )
+}
+
+private data class ApparentDispersion(val central: Double, val min: Double, val max: Double, val convergence: Int?)
+
+private fun apparentDispersion(samples: List<DispersionSample>): ApparentDispersion? {
+    val consensus = ForecastConsensus.continuous(
+        samples.map { ForecastConsensus.Entry(it.model, it.value) },
+        tightStdDev = 0.5,
+        wideStdDev = 3.0
+    )
+    return consensus.central?.let { central ->
+        ApparentDispersion(central, samples.minOf { it.value }, samples.maxOf { it.value }, consensus.convergencePercent)
+    }
 }
 
 @Composable
@@ -1910,7 +1934,9 @@ private fun DetailMetricGrid(
     samples: TodaySummaryDispersionSamples,
     windDirectionLabel: String?
 ) {
-    val hasAnyMetric = today.tempMin != null || today.tempMax != null ||
+    val apparentMin = remember(samples.apparentMin) { apparentDispersion(samples.apparentMin) }
+    val apparentMax = remember(samples.apparentMax) { apparentDispersion(samples.apparentMax) }
+    val hasAnyMetric = apparentMin != null || apparentMax != null || today.tempMin != null || today.tempMax != null ||
             today.precipitation != null || today.windMax != null || today.windGustMax != null
     if (!hasAnyMetric) return
 
@@ -1920,7 +1946,7 @@ private fun DetailMetricGrid(
             .padding(top = 2.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        if (today.tempMin != null || today.tempMax != null) {
+        if (today.tempMin != null || today.tempMax != null || apparentMin != null || apparentMax != null) {
             SummaryMetricSection(tag = TAG_TODAY_SUMMARY_TEMP_PANEL) {
                 SummaryMetricGroupHeader(
                     title = stringResource(R.string.metric_temperature),
@@ -1963,6 +1989,39 @@ private fun DetailMetricGrid(
                         convergence = score.convergencePercent,
                         centralTestTag = TAG_TODAY_SUMMARY_TEMP_MAX_CENTRAL,
                         convergenceTestTag = TAG_TODAY_SUMMARY_TEMP_MAX_CONVERGENCE
+                    )
+                }
+
+                apparentMin?.let { score ->
+                    Spacer(Modifier.height(5.dp))
+                    DispersionMetricRow(
+                        semanticLabel = stringResource(R.string.today_apparent_min_accessibility),
+                        subLabel = stringResource(R.string.today_apparent_min_short),
+                        accent = temperatureMinMetricAccent().copy(alpha = 0.78f),
+                        central = score.central,
+                        fallbackMin = score.min,
+                        fallbackMax = score.max,
+                        samples = samples.apparentMin,
+                        unit = WeatherUnit.TEMPERATURE_COMPACT,
+                        digits = 1,
+                        convergence = score.convergence,
+                        centralTestTag = "today_apparent_min_central"
+                    )
+                }
+                apparentMax?.let { score ->
+                    Spacer(Modifier.height(5.dp))
+                    DispersionMetricRow(
+                        semanticLabel = stringResource(R.string.today_apparent_max_accessibility),
+                        subLabel = stringResource(R.string.today_apparent_max_short),
+                        accent = temperatureMetricAccent().copy(alpha = 0.78f),
+                        central = score.central,
+                        fallbackMin = score.min,
+                        fallbackMax = score.max,
+                        samples = samples.apparentMax,
+                        unit = WeatherUnit.TEMPERATURE_COMPACT,
+                        digits = 1,
+                        convergence = score.convergence,
+                        centralTestTag = "today_apparent_max_central"
                     )
                 }
             }

@@ -15,6 +15,10 @@ object ForecastPhysicalLimits {
     const val MAX_WIND_KMH = 500.0
     const val MAX_GUST_KMH = 600.0
 
+    /** Wide physical guardrails for sea-level pressure (hPa). */
+    fun pressure(value: Double?): Double? =
+        value?.takeIf { it.isFinite() && it in 800.0..1100.0 }
+
     fun temperature(value: Double?): Double? =
         value?.takeIf { it.isFinite() && it in MIN_TEMPERATURE_C..MAX_TEMPERATURE_C }
 

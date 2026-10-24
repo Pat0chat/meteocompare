@@ -303,4 +303,21 @@ class ForecastMapperTest {
         assertNull(series.daily.windGustsMax.single())
     }
 
+
+    @Test
+    fun `pressure_msl aligns to timestamps and rejects physically impossible readings`() {
+        val dto = ForecastResponseDto(
+            timezone = "UTC",
+            hourly = HourlyDto(
+                time = listOf("2026-07-23T12:00", "invalid", "2026-07-23T14:00", "2026-07-23T15:00"),
+                pressureMsl = listOf(1014.5, 1012.0, 1200.0, 998.0)
+            )
+        )
+        val mapped = mapper.toSeries(WeatherModel.GFS, dto)
+        assertEquals(listOf(1014.5, null, 998.0), mapped.hourly.pressureMsl)
+        val legacy = mapper.toSeries(WeatherModel.GFS,
+            ForecastResponseDto(timezone = "UTC", hourly = HourlyDto(time = listOf("2026-07-23T12:00"))))
+        assertEquals(listOf<Double?>(null), legacy.hourly.pressureMsl)
+    }
+
 }

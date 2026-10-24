@@ -37,6 +37,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Air
+import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.Thermostat
@@ -740,6 +741,14 @@ private fun TimelinePointColumn(
             icon = Icons.Outlined.Cloud,
             value = point.cloudCoverPercent?.let { "$it%" } ?: "—",
             tint = MaterialTheme.colorScheme.secondary
+        )
+
+        TimelineMetric(
+            icon = Icons.Outlined.Speed,
+            value = point.pressureHpa?.let {
+                units.format(it, com.meteocompare.app.core.units.WeatherUnit.PRESSURE, if (units.imperial) 2 else 0)
+            } ?: "—",
+            tint = MaterialTheme.colorScheme.tertiary
         )
 
         TimelineMetric(

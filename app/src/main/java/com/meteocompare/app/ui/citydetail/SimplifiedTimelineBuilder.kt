@@ -1,5 +1,7 @@
 package com.meteocompare.app.ui.citydetail
 
+import com.meteocompare.app.domain.util.dailyAtmosphericMetrics
+
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.UvForecast
 import com.meteocompare.app.domain.model.ForecastDisplayHorizon
@@ -82,6 +84,8 @@ internal data class SimplifiedTimelinePoint(
     val temperatureC: Double? = null,
     /** Model median of the estimated apparent temperature, hourly only. */
     val apparentTemperatureC: Double? = null,
+    /** Sea-level atmospheric pressure (hPa), hourly or daily mean. */
+    val pressureHpa: Double? = null,
     val tempMinC: Double? = null,
     val tempMaxC: Double? = null,
     /** Étendue de la température principale entre les modèles à cette échéance. */
@@ -268,6 +272,7 @@ private data class TimelineSnapshot(
     val model: WeatherModel,
     val temperature: Double?,
     val apparentTemperature: Double? = null,
+    val pressure: Double? = null,
     val tempMin: Double?,
     val tempMax: Double?,
     val precipitation: Double?,
@@ -280,7 +285,7 @@ private data class TimelineSnapshot(
     val nativeCondition: WeatherCondition? = null
 ) {
     val hasAnyValue: Boolean
-        get() = temperature != null || apparentTemperature?.isFinite() == true || tempMin != null || tempMax != null ||
+        get() = temperature != null || apparentTemperature?.isFinite() == true || pressure?.isFinite() == true || tempMin != null || tempMax != null ||
             precipitation != null || precipitationProbability != null || cloudCover != null ||
             wind != null || windGust != null ||
             (condition != null && condition != WeatherCondition.UNKNOWN)
@@ -297,6 +302,7 @@ private fun indexHourlySnapshots(
         if (timestamp < startHour || timestamp >= endExclusive) return@forEachIndexed
         val temperature = series.hourly.temperature2m.getOrNull(index)
         val apparentTemperature = series.hourly.apparentTemperature.getOrNull(index)
+        val pressure = series.hourly.pressureMsl.getOrNull(index)
         val precipitation = series.hourly.precipitation.getOrNull(index)
         val probability = series.hourly.precipitationProbability.getOrNull(index)
         val cloudCover = series.hourly.cloudCover.getOrNull(index)
@@ -310,6 +316,7 @@ private fun indexHourlySnapshots(
             model = model,
             temperature = temperature,
             apparentTemperature = apparentTemperature,
+            pressure = pressure,
             tempMin = null,
             tempMax = null,
             precipitation = precipitation,
@@ -336,6 +343,7 @@ private fun indexDailySnapshots(
         val precipitation = series.daily.precipitationSum.getOrNull(index)
         val probability = series.daily.precipitationProbabilityMax.getOrNull(index)
         val cloudCover = series.dailyCloudCoverMean(date, zone)
+        val pressure = series.dailyAtmosphericMetrics(date, zone).meanPressureHpa
         val wind = series.daily.windSpeedMax.getOrNull(index)
         val windGust = series.daily.windGustsMax.getOrNull(index)
         val windDirection = series.daily.windDirection10mDominant.getOrNull(index)
@@ -351,6 +359,7 @@ private fun indexDailySnapshots(
             temperature = null,
             tempMin = min,
             tempMax = max,
+            pressure = pressure,
             precipitation = precipitation,
             precipitationProbability = probability,
             cloudCover = cloudCover,
@@ -423,6 +432,10 @@ private fun timelinePoint(
         { it.apparentTemperature }, ForecastEngineVariable.TEMPERATURE,
         0.5, 3.0, allowCalibration = false
     ) else null
+    val pressure = continuous(
+        { it.pressure }, ForecastEngineVariable.TEMPERATURE,
+        1.5, 8.0, allowCalibration = false, min = 800.0, max = 1100.0
+    )
     val tempMin = if (hourly) null else continuous(
         { it.tempMin }, ForecastEngineVariable.TEMPERATURE, 0.5, 3.0, allowCalibration = false
     )
@@ -578,6 +591,7 @@ private fun timelinePoint(
         date = date,
         temperatureC = if (hourly) temp.forecastValue.central else null,
         apparentTemperatureC = apparent?.forecastValue?.central,
+        pressureHpa = pressure.forecastValue.central,
         tempMinC = tempMin?.forecastValue?.central,
         tempMaxC = if (hourly) null else temp.forecastValue.central,
         temperatureMinAcrossModels = temperatures.minOrNull(),

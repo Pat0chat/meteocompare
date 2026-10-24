@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Opacity
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Thermostat
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.filled.WbSunny
@@ -62,6 +63,8 @@ private data class OverviewMetric(
 
 private val overviewMetrics = listOf(
     OverviewMetric(CompareChartMetric.TEMPERATURE, R.string.compare_temperature, Icons.Default.Thermostat),
+    OverviewMetric(CompareChartMetric.APPARENT, R.string.metric_apparent_temperature, Icons.Default.Thermostat),
+    OverviewMetric(CompareChartMetric.PRESSURE, R.string.metric_pressure_short, Icons.Default.Speed),
     OverviewMetric(CompareChartMetric.RAIN, R.string.compare_rain, Icons.Default.WaterDrop),
     OverviewMetric(CompareChartMetric.RAIN_RISK, R.string.compare_rain_probability, Icons.Default.Opacity),
     OverviewMetric(CompareChartMetric.CLOUDS, R.string.compare_cloud_cover, Icons.Default.Cloud),
@@ -247,6 +250,8 @@ internal fun displayDayMetric(
     locale: Locale
 ): String = when (metric) {
     CompareChartMetric.TEMPERATURE -> "${units.temp(day.minC, locale = locale)} / ${units.temp(day.maxC, locale = locale)}"
+    CompareChartMetric.APPARENT -> "${units.temp(day.apparentMinC, locale = locale)} / ${units.temp(day.apparentMaxC, locale = locale)}"
+    CompareChartMetric.PRESSURE -> units.format(day.pressureHpa, com.meteocompare.app.core.units.WeatherUnit.PRESSURE, if (units.imperial) 2 else 0, locale)
     CompareChartMetric.RAIN -> units.rain(day.precipitationMm, locale)
     CompareChartMetric.RAIN_RISK -> day.rainProbabilityPercent?.let { "$it %" } ?: "—"
     CompareChartMetric.CLOUDS -> day.cloudCoverPercent?.let { "$it %" } ?: "—"

@@ -1025,4 +1025,12 @@ dato</string>
     <string name="apparent_temperature_explanation">La temperatura percepita stimata viene calcolata da temperatura, umidità, vento e radiazione solare. Non misura direttamente la sensazione personale.</string>
     <string name="apparent_temperature_short">Perc. %1$s</string>
     <string name="apparent_temperature_widget_prefix">Perc.</string>
+
+    <string name="metric_apparent_temperature">Temperatura percepita</string>
+    <string name="metric_atmospheric_pressure">Pressione atmosferica (livello del mare)</string>
+    <string name="metric_pressure_short">Pressione</string>
+    <string name="today_apparent_min_short">Perc. min</string>
+    <string name="today_apparent_max_short">Perc. max</string>
+    <string name="today_apparent_max_accessibility">Temperatura percepita massima</string>
+    <string name="today_apparent_min_accessibility">Temperatura percepita minima</string>
 </resources>

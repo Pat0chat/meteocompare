@@ -148,6 +148,7 @@ object BatchedForecastSplitter {
             time = sharedTime,
             temperature2m = get.doubles(HourlyVar.TEMPERATURE_2M),
             apparentTemperature = get.doubles(HourlyVar.APPARENT_TEMPERATURE),
+            pressureMsl = get.doubles(HourlyVar.PRESSURE_MSL),
             precipitation = get.doubles(HourlyVar.PRECIPITATION),
             windSpeed10m = get.doubles(HourlyVar.WIND_SPEED_10M),
             weatherCode = get.ints(HourlyVar.WEATHER_CODE),
@@ -322,6 +323,7 @@ object BatchedForecastSplitter {
     private object HourlyVar {
         const val TEMPERATURE_2M = "temperature_2m"
         const val APPARENT_TEMPERATURE = "apparent_temperature"
+        const val PRESSURE_MSL = "pressure_msl"
         const val PRECIPITATION = "precipitation"
         const val WIND_SPEED_10M = "wind_speed_10m"
         const val WEATHER_CODE = "weather_code"

@@ -1025,4 +1025,12 @@ datos</string>
     <string name="apparent_temperature_explanation">La temperatura aparente estimada se calcula a partir de la temperatura, la humedad, el viento y la radiación solar. No es una medida directa de la sensación personal.</string>
     <string name="apparent_temperature_short">Sens. %1$s</string>
     <string name="apparent_temperature_widget_prefix">Sens.</string>
+
+    <string name="metric_apparent_temperature">Temperatura aparente</string>
+    <string name="metric_atmospheric_pressure">Presión atmosférica (nivel del mar)</string>
+    <string name="metric_pressure_short">Presión</string>
+    <string name="today_apparent_min_short">Sens. mín.</string>
+    <string name="today_apparent_max_short">Sens. máx.</string>
+    <string name="today_apparent_max_accessibility">Temperatura aparente máxima</string>
+    <string name="today_apparent_min_accessibility">Temperatura aparente mínima</string>
 </resources>

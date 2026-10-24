@@ -2,6 +2,7 @@ package com.meteocompare.app.domain.usecase
 
 import com.meteocompare.app.core.util.resolveZoneOrUtc
 import com.meteocompare.app.core.util.meanWindDirection
+import com.meteocompare.app.domain.util.dailyAtmosphericMetrics
 import com.meteocompare.app.domain.util.forecastDailyWindDirection
 import com.meteocompare.app.domain.model.UvForecast
 import com.meteocompare.app.domain.model.validUvIndexOrNull
@@ -34,7 +35,10 @@ data class LocalityDayMetrics(
     val agreementPercent: Int?,
     val modelCount: Int,
     val uvMax: Double? = null,
-    val windDirectionDeg: Int? = null
+    val windDirectionDeg: Int? = null,
+    val apparentMinC: Double? = null,
+    val apparentMaxC: Double? = null,
+    val pressureHpa: Double? = null
 )
 
 /**
@@ -49,6 +53,11 @@ fun buildLocalityDayMetrics(
 ): LocalityDayMetrics? {
     if (forecast.seriesByModel.values.none { date in it.daily.dates }) return null
     val daily = calculator.dayConfidence(forecast, date)
+    val zone = resolveZoneOrUtc(forecast.city.timezone)
+    val atmospheric = forecast.seriesByModel.values.map { it.dailyAtmosphericMetrics(date, zone) }
+    val apparentMin = medianAvailable(atmospheric.mapNotNull { it.apparentMinC })
+    val apparentMax = medianAvailable(atmospheric.mapNotNull { it.apparentMaxC })
+    val pressure = medianAvailable(atmospheric.mapNotNull { it.meanPressureHpa })
     val precipitation = daily.precipitation
     val centralRain = when (precipitation) {
         null -> null
@@ -76,7 +85,10 @@ fun buildLocalityDayMetrics(
         agreementPercent = daily.convergencePercent?.coerceIn(0, 100),
         modelCount = count,
         uvMax = uv?.maxOn(date)?.validUvIndexOrNull(),
-        windDirectionDeg = forecastDailyWindDirection(forecast, date)
+        windDirectionDeg = forecastDailyWindDirection(forecast, date),
+        apparentMinC = apparentMin,
+        apparentMaxC = apparentMax,
+        pressureHpa = pressure
     )
 }
 
@@ -192,7 +204,9 @@ data class LocalityHourMetrics(
     val agreementPercent: Int?,
     val uvIndex: Double?,
     val modelCount: Int,
-    val windDirectionDeg: Int? = null
+    val windDirectionDeg: Int? = null,
+    val apparentTemperatureC: Double? = null,
+    val pressureHpa: Double? = null
 )
 
 /** No implicit DST gap-shifting: e.g. 02:00 on a spring-forward day is missing. */
@@ -234,6 +248,12 @@ fun buildLocalityHourMetrics(
     val temperature = medianAvailable(samples.mapNotNull { (data, i) ->
         data.temperature2m.getOrNull(i)?.takeIf(Double::isFinite)
     })
+    val apparent = medianAvailable(samples.mapNotNull { (data, i) ->
+        data.apparentTemperature.getOrNull(i)?.takeIf(Double::isFinite)
+    })
+    val pressure = medianAvailable(samples.mapNotNull { (data, i) ->
+        data.pressureMsl.getOrNull(i)?.takeIf(Double::isFinite)
+    })
     val rain = medianAvailable(samples.mapNotNull { (data, i) ->
         data.precipitation.getOrNull(i)?.takeIf { it.isFinite() && it >= 0.0 }
     })
@@ -271,6 +291,8 @@ fun buildLocalityHourMetrics(
         // An IANA local hour can fall at :15/:30/:45 UTC; do not truncate UTC hours.
         uvIndex = uv?.hourly?.get(instant)?.validUvIndexOrNull(),
         modelCount = samples.size,
-        windDirectionDeg = windDirection
+        windDirectionDeg = windDirection,
+        apparentTemperatureC = apparent,
+        pressureHpa = pressure
     )
 }

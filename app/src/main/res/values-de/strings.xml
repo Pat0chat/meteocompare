@@ -1020,4 +1020,12 @@ Daten</string>
     <string name="apparent_temperature_explanation">Die gefühlte Temperatur wird aus Lufttemperatur, Luftfeuchtigkeit, Wind und Sonneneinstrahlung geschätzt. Sie ist keine direkte Messung des persönlichen Empfindens.</string>
     <string name="apparent_temperature_short">Gef. %1$s</string>
     <string name="apparent_temperature_widget_prefix">Gef.</string>
+
+    <string name="metric_apparent_temperature">Gefühlte Temperatur</string>
+    <string name="metric_atmospheric_pressure">Luftdruck (auf Meereshöhe reduziert)</string>
+    <string name="metric_pressure_short">Luftdruck</string>
+    <string name="today_apparent_min_short">Gef. Min.</string>
+    <string name="today_apparent_max_short">Gef. Max.</string>
+    <string name="today_apparent_max_accessibility">Maximale gefühlte Temperatur</string>
+    <string name="today_apparent_min_accessibility">Minimale gefühlte Temperatur</string>
 </resources>

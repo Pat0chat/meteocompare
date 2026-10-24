@@ -38,6 +38,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Air
+import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.Thermostat
 import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.material3.CircularProgressIndicator
@@ -124,6 +125,7 @@ private val WeatherConditionLaneHeight = 53.dp
 private val TemperaturePlotHeight = 252.dp
 private val RainPlotHeight = 150.dp
 private val WindPlotHeight = 150.dp
+private val PressurePlotHeight = 156.dp
 private val TimeAxisHeight = 70.dp
 private val VigilanceLaneHeight = 116.dp
 private val PlotTopPadding = 40.dp
@@ -135,6 +137,8 @@ internal const val TAG_GRAPHIC_UV_LANE = "graphic_uv_lane"
 internal const val TAG_GRAPHIC_TEMPERATURE_PLOT = "graphic_temperature_plot"
 internal const val TAG_GRAPHIC_RAIN_PLOT = "graphic_rain_plot"
 internal const val TAG_GRAPHIC_WIND_PLOT = "graphic_wind_plot"
+internal const val TAG_GRAPHIC_PRESSURE_PLOT = "graphic_pressure_plot"
+internal const val TAG_GRAPHIC_PRESSURE_TOOLTIP = "graphic_pressure_tooltip"
 internal const val TAG_GRAPHIC_TEMPERATURE_TOOLTIP = "graphic_temperature_tooltip"
 internal const val TAG_GRAPHIC_TEMPERATURE_TOOLTIP_VALUE = "graphic_temperature_tooltip_value"
 internal const val TAG_GRAPHIC_TEMPERATURE_TOOLTIP_RANGE = "graphic_temperature_tooltip_range"
@@ -202,6 +206,7 @@ internal data class GraphicRenderData(
     val rainProbabilities: List<Int?>,
     val winds: List<Double?>,
     val gusts: List<Double?>,
+    val pressures: List<Double?>,
     val directions: List<Int?>,
     val conditions: List<WeatherCondition>,
     val temperatureAgreement: List<Int?>,
@@ -224,6 +229,7 @@ internal fun buildGraphicRenderData(
     rainProbabilities = points.map(SimplifiedTimelinePoint::precipitationPercent),
     winds = points.map { metricPlotValue(it.windKmh) },
     gusts = points.map { metricPlotValue(it.windGustKmh) },
+    pressures = points.map { metricPlotValue(it.pressureHpa) },
     directions = points.map(SimplifiedTimelinePoint::windDirectionDeg),
     conditions = points.map { it.condition ?: WeatherCondition.UNKNOWN },
     temperatureAgreement = points.map { it.consensusFor(ForecastMetric.TEMPERATURE)?.percent },
@@ -327,6 +333,8 @@ internal fun GraphicForecastContent(
         )
     }
 
+    val pressureDomain = remember(state.points) { pressureDomain(state.points) }
+
     val highAgreement = confidenceColor(90)
     val mediumAgreement = confidenceColor(65)
     val lowAgreement = confidenceColor(30)
@@ -365,6 +373,7 @@ internal fun GraphicForecastContent(
             tempDomain = tempDomain,
             rainDomain = rainDomain,
             windDomain = windDomain,
+            pressureDomain = pressureDomain,
             horizontalScroll = horizontalScroll
         )
         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -390,6 +399,7 @@ private fun GraphicChartPanel(
     tempDomain: PlotDomain,
     rainDomain: PlotDomain,
     windDomain: PlotDomain,
+    pressureDomain: PlotDomain,
     horizontalScroll: androidx.compose.foundation.ScrollState
 ) {
     val density = LocalDensity.current
@@ -439,7 +449,8 @@ private fun GraphicChartPanel(
                 GraphicAxisColumn(
                     tempDomain = tempDomain,
                     rainDomain = rainDomain,
-                    windDomain = windDomain
+                    windDomain = windDomain,
+                    pressureDomain = pressureDomain
                 )
 
                 Column(
@@ -489,6 +500,16 @@ private fun GraphicChartPanel(
                         agreementPalette = agreementPalette,
                         onSelectIndex = onSelectIndex,
                         modifier = Modifier.width(chartWidth).height(WindPlotHeight).testTag(TAG_GRAPHIC_WIND_PLOT)
+                    )
+                    PressurePlot(
+                        points = points,
+                        renderData = renderData,
+                        visibleRange = viewportRange.indices,
+                        domain = pressureDomain,
+                        selectedIndex = selectedIndex,
+                        onSelectIndex = onSelectIndex,
+                        modifier = Modifier.width(chartWidth).height(PressurePlotHeight)
+                            .testTag(TAG_GRAPHIC_PRESSURE_PLOT)
                     )
                     GraphicTimeAxis(
                         points = points,
@@ -705,6 +726,14 @@ private fun GraphicSelectionHeader(
                     }
                 },
                 agreement = point.consensusFor(ForecastMetric.WIND)?.percent
+            )
+            GraphicMetricSummaryChip(
+                label = stringResource(R.string.metric_atmospheric_pressure),
+                icon = Icons.Outlined.Speed,
+                accent = MaterialTheme.colorScheme.tertiary,
+                value = units.format(point.pressureHpa, WeatherUnit.PRESSURE, if (units.imperial) 2 else 0),
+                detail = "",
+                agreement = null
             )
         }
 
@@ -933,7 +962,8 @@ private fun LegendItem(symbol: LegendSymbol, color: Color, label: String) {
 private fun GraphicAxisColumn(
     tempDomain: PlotDomain,
     rainDomain: PlotDomain,
-    windDomain: PlotDomain
+    windDomain: PlotDomain,
+    pressureDomain: PlotDomain
 ) {
     Column(
         modifier = Modifier
@@ -967,6 +997,15 @@ private fun GraphicAxisColumn(
             unit = WeatherUnit.WIND_SPEED,
             domain = windDomain,
             height = WindPlotHeight,
+            decimals = 0
+        )
+        PlotAxis(
+            label = stringResource(R.string.metric_pressure_short),
+            icon = Icons.Outlined.Speed,
+            iconTint = MaterialTheme.colorScheme.tertiary,
+            unit = WeatherUnit.PRESSURE,
+            domain = pressureDomain,
+            height = PressurePlotHeight,
             decimals = 0
         )
         AxisLabelSlot(
@@ -1441,6 +1480,86 @@ private fun WindPlot(
                 direction = windCardinal(selected.windDirectionDeg, androidx.compose.ui.platform.LocalConfiguration.current.locales[0]),
                 selectedIndex = selectedIndex,
                 pointCount = points.size
+            )
+        }
+    }
+}
+
+/** Independent pressure series: a zero baseline would hide realistic hPa variations. */
+internal fun pressureDomain(points: List<SimplifiedTimelinePoint>): PlotDomain {
+    val values = points.mapNotNull { metricPlotValue(it.pressureHpa) }
+    if (values.isEmpty()) return PlotDomain(980.0, 1040.0, listOf(980.0, 1000.0, 1020.0, 1040.0))
+    val lo = values.minOrNull() ?: 980.0
+    val hi = values.maxOrNull() ?: 1040.0
+    val pad = max(2.0, (hi - lo) * 0.15)
+    val min = floor(lo - pad)
+    val max = ceil(hi + pad).coerceAtLeast(min + 4.0)
+    return PlotDomain(min, max, linearTicks(min, max, 5))
+}
+
+@Composable
+private fun PressurePlot(
+    points: List<SimplifiedTimelinePoint>,
+    renderData: GraphicRenderData,
+    visibleRange: IntRange,
+    domain: PlotDomain,
+    selectedIndex: Int,
+    onSelectIndex: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    units: WeatherUnits = LocalWeatherUnits.current
+) {
+    val accent = MaterialTheme.colorScheme.tertiary
+    val surface = MaterialTheme.colorScheme.surfaceContainerLow
+    val onSurface = MaterialTheme.colorScheme.onSurface
+    val grid = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.52f)
+    Box(modifier) {
+        Canvas(
+            modifier = Modifier.fillMaxSize().pointerInput(points.size) {
+                detectTapGestures { offset ->
+                    onSelectIndex(indexForX(offset.x, size.width.toFloat(), points.size))
+                }
+            }
+        ) {
+            drawTimelineBackground(
+                pointCount = points.size,
+                daylight = renderData.daylight,
+                heatColors = emptyList(),
+                agreementColors = emptyList(),
+                showAgreement = false,
+                surface = surface,
+                night = onSurface.copy(alpha = 0.055f),
+                heatAlpha = 0f,
+                visibleRange = visibleRange
+            )
+            drawTimelineGrid(renderData.hours, domain, grid, visibleRange)
+            drawLineSeries(
+                values = renderData.pressures,
+                domain = domain,
+                color = accent,
+                strokeWidth = 2.5.dp.toPx(),
+                pointRadius = 2.dp.toPx(),
+                visibleRange = visibleRange
+            )
+            drawSelectedRuler(points.size, selectedIndex, onSurface)
+            renderData.pressures.getOrNull(selectedIndex)?.let { value ->
+                drawCircle(
+                    color = accent,
+                    radius = 4.5.dp.toPx(),
+                    center = Offset(pointCenterX(selectedIndex, points.size), valueToYPx(value, domain, size.height))
+                )
+            }
+        }
+        points.getOrNull(selectedIndex)?.let { selected ->
+            StructuredSelectionBadge(
+                icon = Icons.Outlined.Speed,
+                accent = accent,
+                primary = units.format(selected.pressureHpa, WeatherUnit.PRESSURE, if (units.imperial) 2 else 0),
+                primaryTag = "graphic_pressure_tooltip_value",
+                secondary = emptyList(),
+                containerTag = TAG_GRAPHIC_PRESSURE_TOOLTIP,
+                selectedIndex = selectedIndex,
+                pointCount = points.size,
+                yOffset = 45.dp
             )
         }
     }

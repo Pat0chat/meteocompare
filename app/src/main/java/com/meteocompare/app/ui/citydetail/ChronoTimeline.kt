@@ -34,6 +34,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Air
+import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.DateRange
@@ -167,6 +168,7 @@ internal fun ChronoTimelineView(
                         ChronoConditionsLane(points = points)
                         ChronoRainLane(points = points)
                         ChronoCloudLane(points = points)
+                        ChronoPressureLane(points = points)
                         ChronoWindLane(points = points)
                         ChronoAgreementLane(points = points)
                     }
@@ -276,6 +278,13 @@ private fun ChronoLabelsColumn(
                 support = units.label(WeatherUnit.PERCENT),
                 height = CHRONO_CLOUD_HEIGHT,
                 tint = scheme.secondary
+            )
+            ChronoRowLabel(
+                icon = Icons.Outlined.Speed,
+                title = stringResource(R.string.metric_pressure_short),
+                support = units.label(WeatherUnit.PRESSURE),
+                height = CHRONO_PRESSURE_HEIGHT,
+                tint = scheme.tertiary
             )
             ChronoRowLabel(
                 icon = Icons.Outlined.Air,
@@ -855,6 +864,33 @@ private fun ChronoCloudLane(points: List<SimplifiedTimelinePoint>) {
 }
 
 @Composable
+private fun ChronoPressureLane(
+    points: List<SimplifiedTimelinePoint>,
+    units: WeatherUnits = LocalWeatherUnits.current
+) {
+    val accent = MaterialTheme.colorScheme.tertiary
+    Row(
+        modifier = Modifier.fillMaxWidth().height(CHRONO_PRESSURE_HEIGHT)
+            .background(accent.copy(alpha = 0.025f)).testTag("timeline_chrono_pressure_lane")
+    ) {
+        points.forEach { point ->
+            ChronoCell {
+                Text(
+                    text = point.pressureHpa?.let {
+                        units.format(it, WeatherUnit.PRESSURE, if (units.imperial) 2 else 0)
+                    } ?: "—",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    modifier = Modifier.padding(horizontal = 3.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun ChronoWindLane(points: List<SimplifiedTimelinePoint>) {
     val accent = windMetricAccent()
     val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
@@ -1180,6 +1216,7 @@ private fun chronoRowHeights(): List<Dp> = listOf(
     CHRONO_CONDITIONS_HEIGHT,
     CHRONO_RAIN_HEIGHT,
     CHRONO_CLOUD_HEIGHT,
+    CHRONO_PRESSURE_HEIGHT,
     CHRONO_WIND_HEIGHT,
     CHRONO_AGREEMENT_HEIGHT
 )
@@ -1203,6 +1240,7 @@ private val CHRONO_TEMP_HEIGHT = 118.dp
 private val CHRONO_CONDITIONS_HEIGHT = 65.dp
 private val CHRONO_RAIN_HEIGHT = 60.dp
 private val CHRONO_CLOUD_HEIGHT = 52.dp
+private val CHRONO_PRESSURE_HEIGHT = 52.dp
 private val CHRONO_WIND_HEIGHT = 62.dp
 private val CHRONO_AGREEMENT_HEIGHT = 70.dp
 private val CHRONO_AGREEMENT_REASONS_HEIGHT = 18.dp

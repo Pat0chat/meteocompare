@@ -1037,4 +1037,12 @@
     <string name="apparent_temperature_explanation">The estimated feels-like temperature is calculated from air temperature, humidity, wind and solar radiation. It is not a direct measurement of personal sensation.</string>
     <string name="apparent_temperature_short">Feels %1$s</string>
     <string name="apparent_temperature_widget_prefix">Feels</string>
+
+    <string name="metric_apparent_temperature">Feels-like temperature</string>
+    <string name="metric_atmospheric_pressure">Atmospheric pressure (sea level)</string>
+    <string name="metric_pressure_short">Pressure</string>
+    <string name="today_apparent_min_short">Feels min</string>
+    <string name="today_apparent_max_short">Feels max</string>
+    <string name="today_apparent_max_accessibility">Maximum feels-like temperature</string>
+    <string name="today_apparent_min_accessibility">Minimum feels-like temperature</string>
 </resources>

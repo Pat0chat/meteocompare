@@ -1038,4 +1038,12 @@
     <string name="apparent_temperature_explanation">La température ressentie estimée est calculée à partir de la température de l’air, de l’humidité, du vent et du rayonnement solaire. Ce n’est pas une mesure directe du ressenti individuel.</string>
     <string name="apparent_temperature_short">Ress. %1$s</string>
     <string name="apparent_temperature_widget_prefix">Ress.</string>
+
+    <string name="metric_apparent_temperature">Température ressentie</string>
+    <string name="metric_atmospheric_pressure">Pression atmosphérique (niveau de la mer)</string>
+    <string name="metric_pressure_short">Pression</string>
+    <string name="today_apparent_min_short">Ress. min</string>
+    <string name="today_apparent_max_short">Ress. max</string>
+    <string name="today_apparent_max_accessibility">Température ressentie maximale</string>
+    <string name="today_apparent_min_accessibility">Température ressentie minimale</string>
 </resources>
