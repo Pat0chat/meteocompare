@@ -119,9 +119,20 @@ class TodaySummaryCardTest {
             val feelsLabel = composeRule.onNodeWithTag(
                 "today_apparent_${extreme}_central_name", useUnmergedTree = true
             ).getUnclippedBoundsInRoot()
-            assertTrue("Min/Max label must precede the air value", airLabel.right <= airValue.left)
-            assertTrue("Min/Max must appear directly next to its value",
-                (airValue.left - airLabel.right).value <= 12f)
+            val airConvergence = composeRule.onNodeWithTag(
+                if (extreme == "min") TAG_TODAY_SUMMARY_TEMP_MIN_CONVERGENCE
+                else TAG_TODAY_SUMMARY_TEMP_MAX_CONVERGENCE, useUnmergedTree = true
+            ).getUnclippedBoundsInRoot()
+            // The uploaded CityDetailScreen places Min/Max, convergence and
+            // temperature on one line, in that order. The intervening percentage
+            // must not cause overlap or push the central value onto the rail.
+            assertTrue("Min/Max label must precede convergence", airLabel.right <= airConvergence.left)
+            assertTrue("Convergence must precede the air value", airConvergence.right <= airValue.left)
+            assertTrue("Min/Max, convergence and temperature stay on the same row",
+                kotlin.math.abs((airLabel.top.value + airLabel.bottom.value) -
+                    (airValue.top.value + airValue.bottom.value)) <= 16f &&
+                    kotlin.math.abs((airConvergence.top.value + airConvergence.bottom.value) -
+                    (airValue.top.value + airValue.bottom.value)) <= 16f)
             assertTrue("Feels label must precede its value without a legend dot", feelsLabel.right <= feltValue.left)
             assertTrue("Feels label must sit directly next to its value",
                 (feltValue.left - feelsLabel.right).value <= 12f)
@@ -559,7 +570,7 @@ class TodaySummaryCardTest {
             .assertTextEquals("12.0°")
             .assertIsDisplayed()
         composeRule.onNodeWithTag("today_summary_temp_min_rail", useUnmergedTree = true).performClick()
-        composeRule.onNodeWithText("18.0°", substring = true, useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText("18.0°", useUnmergedTree = true).assertExists()
     }
 
     @Test
@@ -584,7 +595,7 @@ class TodaySummaryCardTest {
 
         // Même garantie lorsque le consensus coïncide avec la borne haute.
         composeRule.onNodeWithTag("today_summary_temp_max_rail", useUnmergedTree = true).performClick()
-        composeRule.onNodeWithText("20.0°", substring = true, useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText("20.0°", useUnmergedTree = true).assertExists()
         composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_TEMP_MAX_CENTRAL, useUnmergedTree = true)
             .assertTextEquals("26.0°")
             .assertIsDisplayed()
@@ -623,19 +634,27 @@ class TodaySummaryCardTest {
             TAG_TODAY_SUMMARY_TEMP_MIN_CENTRAL to TAG_TODAY_SUMMARY_TEMP_MIN_CONVERGENCE,
             TAG_TODAY_SUMMARY_TEMP_MAX_CENTRAL to TAG_TODAY_SUMMARY_TEMP_MAX_CONVERGENCE
         )) {
+            val label = composeRule.onNodeWithTag(valueTag + "_label", useUnmergedTree = true)
+                .assertIsDisplayed().getUnclippedBoundsInRoot()
             val value = composeRule.onNodeWithTag(valueTag, useUnmergedTree = true)
                 .assertIsDisplayed().getUnclippedBoundsInRoot()
             val agreement = composeRule.onNodeWithTag(agreementTag, useUnmergedTree = true)
                 .assertIsDisplayed().getUnclippedBoundsInRoot()
-            // Normal-width layouts keep a visible 10dp gap; very small phones
-            // or large fonts may put the convergence on the next line.
-            if (kotlin.math.abs(value.top.value - agreement.top.value) <= 8f) {
-                val gap = (agreement.left - value.right).value
-                assertTrue("Convergence must not touch the temperature", gap >= 7f)
-                assertTrue("Convergence must remain visually grouped with the temperature", gap <= 18f)
-            } else {
-                assertTrue("Wrapped convergence must sit below the value", agreement.top >= value.bottom)
-            }
+            // The user's updated layout intentionally places convergence between
+            // the short label and the temperature (each separated by 12dp).
+            assertTrue("Convergence must follow Min/Max without overlapping it",
+                label.right <= agreement.left)
+            assertTrue("Temperature must follow convergence without overlapping it",
+                agreement.right <= value.left)
+            val labelGap = (agreement.left - label.right).value
+            val valueGap = (value.left - agreement.right).value
+            assertTrue("Convergence should remain close to Min/Max", labelGap in 6f..20f)
+            assertTrue("Convergence and temperature should have a readable gap", valueGap in 6f..20f)
+            assertTrue("Min/Max, convergence and temperature must share a line",
+                kotlin.math.abs((label.top.value + label.bottom.value) -
+                    (value.top.value + value.bottom.value)) <= 16f &&
+                    kotlin.math.abs((agreement.top.value + agreement.bottom.value) -
+                    (value.top.value + value.bottom.value)) <= 16f)
         }
     }
 
@@ -682,7 +701,8 @@ class TodaySummaryCardTest {
                 .getUnclippedBoundsInRoot()
             if (kotlin.math.abs(label.top.value - convergence.top.value) <= 8f) {
                 val gap = (convergence.left - label.right).value
-                assertTrue("Wind convergence must be near its label", gap in 0f..12f)
+                // FlowRow now has a 12dp gap; allow for rounding at device density.
+                assertTrue("Wind convergence must be near its label", gap in 7f..20f)
             } else {
                 assertTrue("Wrapped convergence must sit below wind/gust label", convergence.top >= label.bottom)
             }

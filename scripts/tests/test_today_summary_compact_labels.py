@@ -35,7 +35,7 @@ class TodaySummaryCompactLabelTests(unittest.TestCase):
         self.assertIn('modifier = Modifier.testTag(centralTestTag)', code)
         self.assertNotIn('modifier = Modifier.weight(1f).testTag(centralTestTag)', code)
         self.assertIn('compactSummaryLabelWidth(maxWidth, temperature = isTemperature)', code)
-        self.assertIn('horizontalArrangement = Arrangement.spacedBy(12.dp)', code)
+        self.assertIn('horizontalArrangement = Arrangement.spacedBy(20.dp)', code)
         self.assertIn('convergence = score.convergencePercent', code)
         self.assertIn('testTag = apparent.testTag.removeSuffix("_central") + "_inline_bar"', code)
 
@@ -57,6 +57,20 @@ class TodaySummaryCompactLabelTests(unittest.TestCase):
         self.assertIn('COMPACT_RAIL_END_FRACTION', rail)
         self.assertIn('private const val COMPACT_RAIL_START_FRACTION = 0.05f', self.source)
         self.assertIn('private const val COMPACT_RAIL_END_FRACTION = 0.95f', self.source)
+
+    def test_uploaded_temperature_order_label_convergence_value(self):
+        """Match the current layout without silently changing the user's Kotlin file."""
+        body = self.source.split('private fun CompactSummaryMetricRow(', 1)[1].split(
+            'private fun SummaryConvergenceValue(', 1
+        )[0]
+        temperature = body.split('if (isTemperature) {', 1)[1].split('} else {', 1)[0]
+        label = temperature.index('modifier = Modifier.testTag(centralTestTag + "_label")')
+        agreement = temperature.index('SummaryConvergenceValue(')
+        central = temperature.index('modifier = Modifier.testTag(centralTestTag)')
+        self.assertLess(label, agreement)
+        self.assertLess(agreement, central)
+        self.assertIn('Arrangement.spacedBy(12.dp)', temperature)
+        self.assertIn('Arrangement.spacedBy(20.dp)', temperature)
 
     def test_wind_convergence_does_not_expand_across_left_column(self):
         wind = self.source.split('// A fixed gap keeps Wind/Gusts', 1)[1].split('text = center,', 1)[0]
