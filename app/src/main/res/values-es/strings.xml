@@ -1033,4 +1033,18 @@ datos</string>
     <string name="today_apparent_max_short">Sens. máx.</string>
     <string name="today_apparent_max_accessibility">Temperatura aparente máxima</string>
     <string name="today_apparent_min_accessibility">Temperatura aparente mínima</string>
+
+    <!-- Écran de mise à jour de la localisation depuis le widget -->
+    <string name="widget_location_widget_context">Actualización del widget</string>
+    <string name="widget_location_checking_title">Preparando la ubicación</string>
+    <string name="widget_location_checking_description">Comprobando los ajustes y permisos de ubicación…</string>
+    <string name="widget_location_permission_title">Permiso necesario</string>
+    <string name="widget_location_permission_description">Responde a la solicitud de ubicación de Android para continuar.</string>
+    <string name="widget_location_locating_title">Buscando tu ubicación…</string>
+    <string name="widget_location_locating_description">La búsqueda está en curso. Mantén esta pantalla abierta hasta que termine.</string>
+    <string name="widget_location_success_title">Ubicación actualizada</string>
+    <string name="widget_location_success_description">La zona guardada está actualizada. El widget la utilizará para los próximos datos meteorológicos.</string>
+    <string name="widget_location_no_change_title">No hay nueva ubicación</string>
+    <string name="widget_location_error_title">Ubicación no actualizada</string>
+    <string name="widget_location_privacy_note">Solo se guarda una zona aproximada. No se rastrea la ubicación en segundo plano.</string>
 </resources>

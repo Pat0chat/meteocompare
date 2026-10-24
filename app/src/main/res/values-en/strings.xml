@@ -1045,4 +1045,18 @@
     <string name="today_apparent_max_short">Feels max</string>
     <string name="today_apparent_max_accessibility">Maximum feels-like temperature</string>
     <string name="today_apparent_min_accessibility">Minimum feels-like temperature</string>
+
+    <!-- Écran de mise à jour de la localisation depuis le widget -->
+    <string name="widget_location_widget_context">Widget location update</string>
+    <string name="widget_location_checking_title">Preparing location update</string>
+    <string name="widget_location_checking_description">Checking location settings and permissions…</string>
+    <string name="widget_location_permission_title">Permission needed</string>
+    <string name="widget_location_permission_description">Respond to the Android location permission request to continue.</string>
+    <string name="widget_location_locating_title">Finding your location…</string>
+    <string name="widget_location_locating_description">Locating your device. Keep this screen open until the search completes.</string>
+    <string name="widget_location_success_title">Location updated</string>
+    <string name="widget_location_success_description">Your saved area is up to date. The widget will use it for future weather data.</string>
+    <string name="widget_location_no_change_title">No new location</string>
+    <string name="widget_location_error_title">Location not updated</string>
+    <string name="widget_location_privacy_note">Only an approximate area is saved. No background location tracking.</string>
 </resources>

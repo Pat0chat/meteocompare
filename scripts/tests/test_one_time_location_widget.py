@@ -20,7 +20,7 @@ def test_one_time_grant_may_expire_while_approximate_grant_survives():
 
 def test_explicit_widget_request_is_foreground_and_bounded():
     activity = code('widget/WidgetLocationRefreshActivity.kt')
-    assert 'private var permissionRequestPending = false' in activity
+    assert 'private var permissionRequestPending by mutableStateOf(false)' in activity
     assert 'private var permissionRequestedThisAction = false' in activity
     assert 'startAttemptOnStart = true' in activity
     assert 'override fun onStart()' in activity

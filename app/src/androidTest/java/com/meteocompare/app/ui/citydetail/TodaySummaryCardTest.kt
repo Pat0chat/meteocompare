@@ -130,6 +130,20 @@ class TodaySummaryCardTest {
             )
             assertTrue("Felt value must not overflow left", feltValue.left >= rail.left)
             assertTrue("Felt value must not overflow right", feltValue.right <= rail.right)
+            val feltName = composeRule.onNodeWithTag("${tag}_central_name", useUnmergedTree = true)
+                .getUnclippedBoundsInRoot()
+            assertTrue("Feels label sits next to its value", feltName.left >= feltValue.right)
+            assertTrue("Feels label stays on the same line", kotlin.math.abs(
+                ((feltName.top + feltName.bottom) / 2).value -
+                    ((feltValue.top + feltValue.bottom) / 2).value
+            ) <= 8f)
+            val airCentral = composeRule.onNodeWithTag(
+                if (extreme == "min") TAG_TODAY_SUMMARY_TEMP_MIN_CENTRAL
+                else TAG_TODAY_SUMMARY_TEMP_MAX_CENTRAL, useUnmergedTree = true
+            ).getUnclippedBoundsInRoot()
+            assertTrue("Air central value must be over its black marker", airCentral.bottom <= rail.top)
+            assertTrue("Air central value must stay inside chart", airCentral.left >= rail.left)
+            assertTrue("Air central value must stay inside chart", airCentral.right <= rail.right)
         }
     }
 
@@ -570,6 +584,27 @@ class TodaySummaryCardTest {
         composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_TEMP_MAX_CENTRAL, useUnmergedTree = true)
             .assertTextEquals("26.0°")
             .assertIsDisplayed()
+    }
+
+    @Test
+    fun wind_and_gust_central_values_are_over_their_black_markers() {
+        render(DayConfidence(
+            date = TestFixtures.today,
+            tempMax = null,
+            tempMin = null,
+            precipitation = null,
+            windMax = ConfidenceScore(72, 12.0, 18.0, 15.0, 2.5, 5),
+            windGustMax = ConfidenceScore(68, 28.0, 36.0, 32.0, 3.2, 5)
+        ))
+        val windCenter = composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_WIND_CENTRAL, useUnmergedTree = true)
+            .getUnclippedBoundsInRoot()
+        val gustCenter = composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_GUST_CENTRAL, useUnmergedTree = true)
+            .getUnclippedBoundsInRoot()
+        assertTrue("Wind center is on the wind row", gustCenter.top > windCenter.bottom)
+        val panel = composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_WIND_PANEL, useUnmergedTree = true)
+            .getUnclippedBoundsInRoot()
+        assertTrue("Wind central value stays within the chart", windCenter.left >= panel.left)
+        assertTrue("Gust central value stays within the chart", gustCenter.right <= panel.right)
     }
 
     @Test

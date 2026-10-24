@@ -2486,6 +2486,9 @@ private fun DispersionMetricRow(
     val rangeLabel = "${formatDispersionValue(safeMin, unit, digits, locale, units = units)} – " +
         formatDispersionValue(safeMax, unit, digits, locale, units = units)
     val centralLabel = formatDispersionValue(central, unit, digits, locale, units = units)
+    // Temps min/max et vent/rafales : la valeur suit son repère noir.
+    // La pluie conserve sa présentation numérique dans l'en-tête.
+    val centralOnRail = unit == WeatherUnit.TEMPERATURE_COMPACT || unit == WeatherUnit.WIND_SPEED
     val railDescription = if (samples.isNotEmpty()) {
         "$semanticLabel · " + samples.joinToString(" · ") { sample ->
             "${sample.model.displayName} ${formatDispersionValue(sample.value, unit, digits, locale, units = units)}"
@@ -2516,14 +2519,16 @@ private fun DispersionMetricRow(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f)
                 )
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    text = centralLabel,
-                    modifier = if (centralTestTag != null) Modifier.testTag(centralTestTag) else Modifier,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+                if (!centralOnRail) {
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = centralLabel,
+                        modifier = if (centralTestTag != null) Modifier.testTag(centralTestTag) else Modifier,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
             }
             if (showConvergence) {
                 Spacer(Modifier.width(8.dp))
@@ -2544,6 +2549,15 @@ private fun DispersionMetricRow(
                 max = safeMax,
                 domain = domain,
                 testTagPrefix = inlineApparent.testTag.removeSuffix("_central") + "_air"
+            )
+        }
+
+        if (centralOnRail) {
+            DispersionCentralValueLabel(
+                label = centralLabel,
+                central = central,
+                domain = domain,
+                testTag = centralTestTag
             )
         }
 
@@ -2577,10 +2591,45 @@ private fun DispersionMetricRow(
     }
 }
 
+/** Valeur centrale juste au-dessus du repère noir, bornée à la largeur de la carte. */
+@Composable
+private fun DispersionCentralValueLabel(
+    label: String,
+    central: Double,
+    domain: DispersionDomain,
+    testTag: String?
+) {
+    Layout(
+        modifier = Modifier.fillMaxWidth(),
+        content = {
+            Text(
+                text = label,
+                modifier = if (testTag != null) Modifier.testTag(testTag) else Modifier,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    ) { measurables, constraints ->
+        val labelPlaceable = measurables.single().measure(
+            constraints.copy(minWidth = 0, minHeight = 0)
+        )
+        val width = constraints.maxWidth
+        val centerX = width * (DISPERSION_RAIL_START_FRACTION +
+            (DISPERSION_RAIL_END_FRACTION - DISPERSION_RAIL_START_FRACTION) *
+                dispersionRatio(central, domain.min, domain.max))
+        val x = centeredDispersionLabelStart(width, labelPlaceable.width, centerX)
+        layout(width, labelPlaceable.height) {
+            labelPlaceable.placeRelative(x, 0)
+        }
+    }
+}
+
 /**
- * Aligne la valeur du ressenti sous son marqueur, sans jamais la laisser
- * déborder horizontalement de la carte (petit écran, grandes polices).
- * Les deux bornes de l'air sont sur une autre ligne pour éviter toute collision.
+ * Aligne la valeur et le libellé du ressenti sur une seule ligne sous son point,
+ * sans jamais les laisser déborder horizontalement de la carte.
  */
 @Composable
 private fun InlineApparentValueLabel(
@@ -2591,7 +2640,10 @@ private fun InlineApparentValueLabel(
     Layout(
         modifier = Modifier.fillMaxWidth().testTag(apparent.testTag + "_below_bar"),
         content = {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
                 Text(
                     text = value,
                     modifier = Modifier.testTag(apparent.testTag),
@@ -2603,6 +2655,7 @@ private fun InlineApparentValueLabel(
                 )
                 Text(
                     text = apparent.label,
+                    modifier = Modifier.testTag(apparent.testTag + "_name"),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,

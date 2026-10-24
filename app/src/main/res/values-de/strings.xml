@@ -1028,4 +1028,18 @@ Daten</string>
     <string name="today_apparent_max_short">Gef. Max.</string>
     <string name="today_apparent_max_accessibility">Maximale gefühlte Temperatur</string>
     <string name="today_apparent_min_accessibility">Minimale gefühlte Temperatur</string>
+
+    <!-- Écran de mise à jour de la localisation depuis le widget -->
+    <string name="widget_location_widget_context">Standortaktualisierung für das Widget</string>
+    <string name="widget_location_checking_title">Standortaktualisierung wird vorbereitet</string>
+    <string name="widget_location_checking_description">Standorteinstellungen und Berechtigungen werden geprüft…</string>
+    <string name="widget_location_permission_title">Berechtigung erforderlich</string>
+    <string name="widget_location_permission_description">Bitte bestätige die Android-Standortabfrage, um fortzufahren.</string>
+    <string name="widget_location_locating_title">Standort wird ermittelt…</string>
+    <string name="widget_location_locating_description">Die Standortsuche läuft. Lass diesen Bildschirm bis zum Abschluss geöffnet.</string>
+    <string name="widget_location_success_title">Standort aktualisiert</string>
+    <string name="widget_location_success_description">Dein gespeicherter Bereich ist aktuell. Das Widget verwendet ihn für künftige Wetterdaten.</string>
+    <string name="widget_location_no_change_title">Kein neuer Standort</string>
+    <string name="widget_location_error_title">Standort nicht aktualisiert</string>
+    <string name="widget_location_privacy_note">Es wird nur ein ungefährer Bereich gespeichert. Keine Standortverfolgung im Hintergrund.</string>
 </resources>
