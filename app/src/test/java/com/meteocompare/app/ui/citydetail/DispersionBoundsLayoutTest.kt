@@ -49,6 +49,19 @@ class DispersionBoundsLayoutTest {
         assertTrue(placement.maxX + 70 <= 200)
     }
 
+    @Test fun felt_value_stays_centered_directly_below_its_point() {
+        assertEquals(110, centeredDispersionLabelStart(width = 300, labelWidth = 80, center = 150f))
+    }
+
+    @Test fun felt_value_at_both_edges_remains_inside_graph() {
+        assertEquals(0, centeredDispersionLabelStart(width = 220, labelWidth = 96, center = 4f))
+        assertEquals(124, centeredDispersionLabelStart(width = 220, labelWidth = 96, center = 219f))
+    }
+
+    @Test fun large_type_on_narrow_screen_never_produces_negative_positions() {
+        assertEquals(0, centeredDispersionLabelStart(width = 48, labelWidth = 80, center = 30f))
+    }
+
     @Test fun narrow_screen_or_large_font_uses_two_lines() {
         val placement = dispersionBoundsPlacement(
             width = 88,

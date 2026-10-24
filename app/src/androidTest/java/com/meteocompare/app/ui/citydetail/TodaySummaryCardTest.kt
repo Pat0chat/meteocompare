@@ -108,6 +108,29 @@ class TodaySummaryCardTest {
         composeRule.onNodeWithTag("today_apparent_max_central", useUnmergedTree = true).assertExists()
         composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_TEMP_MIN_CENTRAL, useUnmergedTree = true).assertExists()
         composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_TEMP_MAX_CENTRAL, useUnmergedTree = true).assertExists()
+
+        // Les bornes de l'air sont au-dessus des rails; la valeur ressentie est
+        // immédiatement sous son point. Aucun chevauchement, même proche.
+        for (extreme in listOf("min", "max")) {
+            val tag = "today_apparent_${extreme}"
+            val rail = composeRule.onNodeWithTag("${tag}_inline_bar", useUnmergedTree = true)
+                .getUnclippedBoundsInRoot()
+            val airLower = composeRule.onNodeWithTag("${tag}_air_lower", useUnmergedTree = true)
+                .getUnclippedBoundsInRoot()
+            val airUpper = composeRule.onNodeWithTag("${tag}_air_upper", useUnmergedTree = true)
+                .getUnclippedBoundsInRoot()
+            val feltValue = composeRule.onNodeWithTag("${tag}_central", useUnmergedTree = true)
+                .getUnclippedBoundsInRoot()
+            assertTrue("Air bounds must be above the ${extreme} chart", airLower.bottom <= rail.top)
+            assertTrue("Air bounds must be above the ${extreme} chart", airUpper.bottom <= rail.top)
+            assertTrue("Felt value must be under the ${extreme} marker", feltValue.top >= rail.bottom)
+            assertTrue(
+                "Air bounds must never overlap",
+                airLower.right <= airUpper.left || airLower.bottom <= airUpper.top
+            )
+            assertTrue("Felt value must not overflow left", feltValue.left >= rail.left)
+            assertTrue("Felt value must not overflow right", feltValue.right <= rail.right)
+        }
     }
 
     @Test

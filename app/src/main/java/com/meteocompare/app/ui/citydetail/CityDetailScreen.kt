@@ -2534,6 +2534,19 @@ private fun DispersionMetricRow(
             }
         }
 
+        // Placer les bornes de la température de l'air au-dessus des deux
+        // bandes : la valeur ressentie reste ainsi juste sous son propre point.
+        if (inlineApparent != null) {
+            DispersionBoundsLabels(
+                minLabel = formatDispersionValue(safeMin, unit, digits, locale, units),
+                maxLabel = formatDispersionValue(safeMax, unit, digits, locale, units),
+                min = safeMin,
+                max = safeMax,
+                domain = domain,
+                testTagPrefix = inlineApparent.testTag.removeSuffix("_central") + "_air"
+            )
+        }
+
         DispersionRail(
             samples = sampleValues,
             rangeMin = safeMin,
@@ -2546,35 +2559,66 @@ private fun DispersionMetricRow(
             units = units
         )
 
-        DispersionBoundsLabels(
-            minLabel = formatDispersionValue(safeMin, unit, digits, locale, units = units),
-            maxLabel = formatDispersionValue(safeMax, unit, digits, locale, units = units),
-            min = safeMin,
-            max = safeMax,
-            domain = domain
-        )
-        inlineApparent?.let { apparent ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(Modifier.size(6.dp).background(apparent.accent, CircleShape))
-                Spacer(Modifier.width(5.dp))
+        if (inlineApparent == null) {
+            DispersionBoundsLabels(
+                minLabel = formatDispersionValue(safeMin, unit, digits, locale, units),
+                maxLabel = formatDispersionValue(safeMax, unit, digits, locale, units),
+                min = safeMin,
+                max = safeMax,
+                domain = domain
+            )
+        } else {
+            InlineApparentValueLabel(
+                apparent = inlineApparent,
+                domain = domain,
+                value = formatDispersionValue(inlineApparent.dispersion.central, unit, digits, locale, units)
+            )
+        }
+    }
+}
+
+/**
+ * Aligne la valeur du ressenti sous son marqueur, sans jamais la laisser
+ * déborder horizontalement de la carte (petit écran, grandes polices).
+ * Les deux bornes de l'air sont sur une autre ligne pour éviter toute collision.
+ */
+@Composable
+private fun InlineApparentValueLabel(
+    apparent: InlineApparentBar,
+    domain: DispersionDomain,
+    value: String
+) {
+    Layout(
+        modifier = Modifier.fillMaxWidth().testTag(apparent.testTag + "_below_bar"),
+        content = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = value,
+                    modifier = Modifier.testTag(apparent.testTag),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = apparent.accent,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
                 Text(
                     text = apparent.label,
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(Modifier.width(5.dp))
-                Text(
-                    text = formatDispersionValue(apparent.dispersion.central, unit, digits, locale, units),
-                    modifier = Modifier.testTag(apparent.testTag),
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = apparent.accent
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
+        }
+    ) { measurables, constraints ->
+        val label = measurables.single().measure(constraints.copy(minWidth = 0, minHeight = 0))
+        val width = constraints.maxWidth
+        val center = width * (DISPERSION_RAIL_START_FRACTION +
+            (DISPERSION_RAIL_END_FRACTION - DISPERSION_RAIL_START_FRACTION) *
+                dispersionRatio(apparent.dispersion.central, domain.min, domain.max))
+        val x = centeredDispersionLabelStart(width, label.width, center)
+        layout(width, label.height) {
+            label.placeRelative(x, 0)
         }
     }
 }
@@ -2626,7 +2670,8 @@ private fun DispersionBoundsLabels(
     maxLabel: String,
     min: Double,
     max: Double,
-    domain: DispersionDomain
+    domain: DispersionDomain,
+    testTagPrefix: String? = null
 ) {
     // Une même valeur affichée (arrondis inclus) n'a pas besoin d'être
     // répétée deux fois : le consensus est déjà visible dans l'en-tête.
@@ -2640,6 +2685,7 @@ private fun DispersionBoundsLabels(
         content = {
             Text(
                 text = minLabel,
+                modifier = testTagPrefix?.let { Modifier.testTag(it + "_lower") } ?: Modifier,
                 style = MaterialTheme.typography.labelSmall,
                 color = mutedColor,
                 maxLines = 1,
@@ -2647,6 +2693,7 @@ private fun DispersionBoundsLabels(
             )
             Text(
                 text = maxLabel,
+                modifier = testTagPrefix?.let { Modifier.testTag(it + "_upper") } ?: Modifier,
                 style = MaterialTheme.typography.labelSmall,
                 color = mutedColor,
                 maxLines = 1,

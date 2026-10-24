@@ -52,3 +52,8 @@ internal fun dispersionBoundsPlacement(
         maxOnSecondLine = false
     )
 }
+
+/** Centre une étiquette sous son point, ou la colle au bord intérieur si nécessaire. */
+internal fun centeredDispersionLabelStart(width: Int, labelWidth: Int, center: Float): Int =
+    (center - labelWidth.coerceAtLeast(0) / 2f).roundToInt()
+        .coerceIn(0, (width.coerceAtLeast(0) - labelWidth.coerceAtLeast(0)).coerceAtLeast(0))
