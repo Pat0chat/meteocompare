@@ -611,6 +611,103 @@ class TodaySummaryCardTest {
     }
 
     @Test
+    fun compact_temperature_keeps_a_readable_gap_before_convergence() {
+        render(DayConfidence(
+            date = TestFixtures.today,
+            tempMax = ConfidenceScore(91, 22.0, 25.0, 23.0, 1.1, 5),
+            tempMin = ConfidenceScore(48, 9.0, 12.0, 10.0, 1.3, 5),
+            precipitation = null,
+            windMax = null
+        ))
+        for ((valueTag, agreementTag) in listOf(
+            TAG_TODAY_SUMMARY_TEMP_MIN_CENTRAL to TAG_TODAY_SUMMARY_TEMP_MIN_CONVERGENCE,
+            TAG_TODAY_SUMMARY_TEMP_MAX_CENTRAL to TAG_TODAY_SUMMARY_TEMP_MAX_CONVERGENCE
+        )) {
+            val value = composeRule.onNodeWithTag(valueTag, useUnmergedTree = true)
+                .assertIsDisplayed().getUnclippedBoundsInRoot()
+            val agreement = composeRule.onNodeWithTag(agreementTag, useUnmergedTree = true)
+                .assertIsDisplayed().getUnclippedBoundsInRoot()
+            // Normal-width layouts keep a visible 10dp gap; very small phones
+            // or large fonts may put the convergence on the next line.
+            if (kotlin.math.abs(value.top.value - agreement.top.value) <= 8f) {
+                val gap = (agreement.left - value.right).value
+                assertTrue("Convergence must not touch the temperature", gap >= 7f)
+                assertTrue("Convergence must remain visually grouped with the temperature", gap <= 18f)
+            } else {
+                assertTrue("Wrapped convergence must sit below the value", agreement.top >= value.bottom)
+            }
+        }
+    }
+
+    @Test
+    fun temperature_rails_take_most_of_the_compact_row_width() {
+        render(DayConfidence(
+            date = TestFixtures.today,
+            tempMax = ConfidenceScore(91, 20.0, 26.0, 23.0, 1.3, 5),
+            tempMin = ConfidenceScore(84, 8.0, 13.0, 10.0, 1.1, 5),
+            precipitation = null,
+            windMax = null
+        ))
+        val panel = composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_TEMP_PANEL, useUnmergedTree = true)
+            .getUnclippedBoundsInRoot()
+        for (extreme in listOf("min", "max")) {
+            val rail = composeRule.onNodeWithTag("today_summary_temp_${extreme}_rail", useUnmergedTree = true)
+                .getUnclippedBoundsInRoot()
+            assertTrue("Temperature rail should use more than half the panel width",
+                (rail.right - rail.left).value >= (panel.right - panel.left).value * 0.55f)
+        }
+    }
+
+    @Test
+    fun wind_convergence_stays_near_its_label_and_rails_are_wide() {
+        render(DayConfidence(
+            date = TestFixtures.today,
+            tempMax = null,
+            tempMin = null,
+            precipitation = null,
+            windMax = ConfidenceScore(72, 12.0, 18.0, 15.0, 2.5, 5),
+            windGustMax = ConfidenceScore(68, 28.0, 36.0, 32.0, 3.2, 5)
+        ))
+        val panel = composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_WIND_PANEL, useUnmergedTree = true)
+            .getUnclippedBoundsInRoot()
+        for ((centralTag, convergenceTag, railTag) in listOf(
+            Triple(TAG_TODAY_SUMMARY_WIND_CENTRAL, TAG_TODAY_SUMMARY_WIND_CONVERGENCE, "today_summary_wind_rail"),
+            Triple(TAG_TODAY_SUMMARY_GUST_CENTRAL, TAG_TODAY_SUMMARY_GUST_CONVERGENCE, "today_summary_gust_rail")
+        )) {
+            val label = composeRule.onNodeWithTag(centralTag + "_label", useUnmergedTree = true)
+                .getUnclippedBoundsInRoot()
+            val convergence = composeRule.onNodeWithTag(convergenceTag, useUnmergedTree = true)
+                .getUnclippedBoundsInRoot()
+            val rail = composeRule.onNodeWithTag(railTag, useUnmergedTree = true)
+                .getUnclippedBoundsInRoot()
+            if (kotlin.math.abs(label.top.value - convergence.top.value) <= 8f) {
+                val gap = (convergence.left - label.right).value
+                assertTrue("Wind convergence must be near its label", gap in 0f..12f)
+            } else {
+                assertTrue("Wrapped convergence must sit below wind/gust label", convergence.top >= label.bottom)
+            }
+            assertTrue("Wind and gust rails should have more width than the labels",
+                (rail.right - rail.left).value >= (panel.right - panel.left).value * 0.58f)
+        }
+    }
+
+    @Test
+    fun temperature_detail_shows_a_visual_chart_and_its_colored_convergence() {
+        render(DayConfidence(
+            date = TestFixtures.today,
+            tempMax = ConfidenceScore(91, 22.0, 25.0, 23.0, 1.1, 5),
+            tempMin = null,
+            precipitation = null,
+            windMax = null
+        ))
+        composeRule.onNodeWithTag("today_summary_temp_max_rail", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithTag("summary_dispersion_dialog_preview", useUnmergedTree = true)
+            .assertIsDisplayed()
+        composeRule.onNodeWithTag("summary_dispersion_dialog_convergence", useUnmergedTree = true)
+            .assertTextEquals("91%").assertIsDisplayed()
+    }
+
+    @Test
     fun wind_and_gust_central_values_are_over_their_black_markers() {
         render(DayConfidence(
             date = TestFixtures.today,

@@ -32,8 +32,46 @@ class TodaySummaryCompactLabelTests(unittest.TestCase):
         code = self.source.split("private fun CompactSummaryMetricRow(", 1)[1].split(
             "private fun CompactApparentOnlyRow(", 1)[0]
         self.assertIn('modifier = Modifier.testTag(centralTestTag + "_label")', code)
-        self.assertIn('modifier = Modifier.weight(1f).testTag(centralTestTag)', code)
+        self.assertIn('modifier = Modifier.testTag(centralTestTag)', code)
+        self.assertNotIn('modifier = Modifier.weight(1f).testTag(centralTestTag)', code)
+        self.assertIn('compactSummaryLabelWidth(maxWidth, temperature = isTemperature)', code)
+        self.assertIn('horizontalArrangement = Arrangement.spacedBy(12.dp)', code)
+        self.assertIn('convergence = score.convergencePercent', code)
         self.assertIn('testTag = apparent.testTag.removeSuffix("_central") + "_inline_bar"', code)
+
+    def test_wider_rails_with_localized_label_fallback(self):
+        column = self.source.split("private fun compactSummaryLabelWidth(", 1)[1].split("/**", 1)[0]
+        self.assertIn('if (temperature) 0.36f else 0.32f', column)
+        self.assertIn('if (temperature) 128.dp else 116.dp', column)
+        self.assertIn('availableWidth - 104.dp', column)
+        compact = self.source.split("private fun CompactSummaryMetricRow(", 1)[1].split(
+            "private fun SummaryConvergenceValue(", 1)[0]
+        self.assertIn('horizontalArrangement = Arrangement.spacedBy(6.dp)', compact)
+        self.assertIn('FlowRow(', compact)  # big fonts can wrap instead of colliding
+        felt = self.source.split("private fun CompactApparentOnlyRow(", 1)[1].split(
+            "private fun CompactDispersionRail(", 1)[0]
+        self.assertIn('compactSummaryLabelWidth(maxWidth, temperature = true)', felt)
+        rail = self.source.split('private fun CompactDispersionRail(', 1)[1].split(
+            'private fun DispersionMetricRow(', 1)[0]
+        self.assertIn('COMPACT_RAIL_START_FRACTION', rail)
+        self.assertIn('COMPACT_RAIL_END_FRACTION', rail)
+        self.assertIn('private const val COMPACT_RAIL_START_FRACTION = 0.05f', self.source)
+        self.assertIn('private const val COMPACT_RAIL_END_FRACTION = 0.95f', self.source)
+
+    def test_wind_convergence_does_not_expand_across_left_column(self):
+        wind = self.source.split('// A fixed gap keeps Wind/Gusts', 1)[1].split('text = center,', 1)[0]
+        self.assertIn('Arrangement.spacedBy(12.dp)', wind)
+        self.assertNotIn('Modifier.weight(1f)', wind)
+
+    def test_dialog_receives_air_and_wind_convergence(self):
+        code = self.source.split('private fun CompactDispersionRail(', 1)[1].split('private fun DispersionMetricRow(', 1)[0]
+        self.assertIn('convergence = convergence', code)
+        self.assertIn('DispersionDetailsDialog(', code)
+
+    def test_obsolete_inline_rails_are_gone(self):
+        self.assertNotIn('private fun DispersionCentralValueLabel(', self.source)
+        self.assertNotIn('private fun InlineApparentValueLabel(', self.source)
+        self.assertNotIn('dotMarker:', self.source)
 
 
 if __name__ == "__main__":

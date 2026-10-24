@@ -105,6 +105,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -2070,13 +2071,9 @@ private fun DetailMetricGrid(
                     samples = samples.precipitation,
                     unit = WeatherUnit.PRECIPITATION,
                     digits = 1,
-                    convergence = precipitation.amountConvergencePercent,
-                    // La probabilité et la répartition des moteurs décrivent déjà la pluie.
-                    // Pas de pastille « convergence » supplémentaire ici.
-                    showConvergence = false,
+                    // The rain probability and model split already explain uncertainty.
                     nonNegative = true,
-                    centralTestTag = TAG_TODAY_SUMMARY_PRECIP_CENTRAL,
-                    convergenceTestTag = TAG_TODAY_SUMMARY_PRECIP_CONVERGENCE
+                    centralTestTag = TAG_TODAY_SUMMARY_PRECIP_CENTRAL
                 )
                 RainModelSummary(
                     presentation = rain,
@@ -2379,18 +2376,6 @@ internal fun combinedTemperatureDispersionDomain(
     return domain.min to domain.max
 }
 
-private fun combinedTemperatureDispersionDomain(
-    primaryMin: Double,
-    primaryMax: Double,
-    apparent: ApparentDispersion?,
-    nonNegative: Boolean
-): DispersionDomain {
-    val bounds = combinedTemperatureDispersionDomain(
-        primaryMin, primaryMax, apparent?.min, apparent?.max, apparent?.central, nonNegative
-    )
-    return DispersionDomain(bounds.first, bounds.second)
-}
-
 /** Prefer the observed model envelope; use forecast-score bounds only without raw samples. */
 private fun actualDispersionBounds(
     score: ConfidenceScore,
@@ -2425,7 +2410,24 @@ private fun compactTemperatureDispersionDomain(
         today.tempMax?.let { actualDispersionBounds(it, samples.tempMax).let { (low, high) -> add(low); add(high) } }
         listOfNotNull(apparentMin, apparentMax).forEach { addAll(listOf(it.min, it.central, it.max)) }
     }.filter(Double::isFinite)
-    return paddedDispersionDomain(values.minOrNull() ?: 0.0, values.maxOrNull() ?: 0.0, false)
+    val (lower, upper) = combinedTemperatureDispersionDomain(
+        values.minOrNull() ?: 0.0, values.maxOrNull() ?: 0.0,
+        apparentMin = null, apparentMax = null, apparentCentral = null
+    )
+    return DispersionDomain(lower, upper)
+}
+
+/** Keep most of the row for the comparison rails, including on compact phones.
+ * The upper bound prevents a wide device from growing the text column forever;
+ * the plot reserve prevents oversized fonts from consuming the entire rail.
+ */
+private fun compactSummaryLabelWidth(availableWidth: Dp, temperature: Boolean): Dp {
+    val preferred = availableWidth * (if (temperature) 0.36f else 0.32f)
+    val bounded = preferred.coerceIn(
+        if (temperature) 104.dp else 92.dp,
+        if (temperature) 128.dp else 116.dp
+    )
+    return bounded.coerceAtMost((availableWidth - 104.dp).coerceAtLeast(88.dp))
 }
 
 /**
@@ -2434,6 +2436,7 @@ private fun compactTemperatureDispersionDomain(
  * the right. No numerical labels can collide with a marker, even when the
  * model range is very narrow or the phone has a large display font.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun CompactSummaryMetricRow(
     semanticLabel: String,
@@ -2456,61 +2459,66 @@ private fun CompactSummaryMetricRow(
     val felt = apparent?.dispersion
     val agreementDescription = "${stringResource(R.string.home_agreement_label)} ${score.convergencePercent?.let { "$it%" } ?: "—"}"
     val isTemperature = unit == WeatherUnit.TEMPERATURE_COMPACT
-    // Keep the temperature and feels-like labels next to their values. The
-    // larger label column is limited so the shared-range plot stays readable.
+    // Values and convergence stay grouped, while the rails get more width.
     BoxWithConstraints(Modifier.fillMaxWidth()) {
-        val labelColumnWidth = (maxWidth * (if (isTemperature) 0.49f else 0.42f))
-            .coerceIn(if (isTemperature) 124.dp else 108.dp, if (isTemperature) 180.dp else 150.dp)
-            .coerceAtMost((maxWidth - 64.dp).coerceAtLeast(80.dp))
+        val labelColumnWidth = compactSummaryLabelWidth(maxWidth, temperature = isTemperature)
         Row(
             modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(9.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Column(modifier = Modifier.width(labelColumnWidth)) {
                 if (isTemperature) {
-                    Row(
+                    // Wrap only on tiny screens or enlarged fonts: normal text stays inline.
+                    FlowRow(
                         modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        // Deliberate breathing room AFTER the temperature, not
+                        // between the short Min/Max label and its value.
+                        horizontalArrangement = Arrangement.spacedBy(20.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Text(
+                                text = shortLabel,
+                                modifier = Modifier.testTag(centralTestTag + "_label"),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1
+                            )
+                            SummaryConvergenceValue(
+                                percent = score.convergencePercent,
+                                testTag = convergenceTestTag,
+                                description = agreementDescription
+                            )
+                            Text(
+                                text = center,
+                                modifier = Modifier.testTag(centralTestTag),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1
+                            )
+                        }
+                    }
+                } else {
+                    // A fixed gap keeps Wind/Gusts and convergence together.
+                    // FlowRow wraps cleanly if large fonts need more space.
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         Text(
                             text = shortLabel,
                             modifier = Modifier.testTag(centralTestTag + "_label"),
                             style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1
-                        )
-                        Text(
-                            text = center,
-                            modifier = Modifier.weight(1f).testTag(centralTestTag),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        SummaryConvergenceValue(
-                            percent = score.convergencePercent,
-                            testTag = convergenceTestTag,
-                            description = agreementDescription
-                        )
-                    }
-                } else {
-                    // Longer wind labels and wind-speed units still have two
-                    // lines; this preserves their readability on narrow devices.
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = shortLabel,
-                            modifier = Modifier.weight(1f),
-                            style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
-                        Spacer(Modifier.width(3.dp))
                         SummaryConvergenceValue(
                             percent = score.convergencePercent,
                             testTag = convergenceTestTag,
@@ -2567,6 +2575,7 @@ private fun CompactSummaryMetricRow(
                     unit = unit,
                     digits = digits,
                     units = units,
+                    convergence = score.convergencePercent,
                     testTag = centralTestTag.removeSuffix("_central") + "_rail"
                 )
                 if (apparent != null && felt != null) {
@@ -2616,12 +2625,12 @@ private fun CompactApparentOnlyRow(
 ) {
     val locale = LocalLocale.current.platformLocale
     BoxWithConstraints(Modifier.fillMaxWidth()) {
-        val labelColumnWidth = (maxWidth * 0.49f).coerceIn(124.dp, 180.dp)
-            .coerceAtMost((maxWidth - 64.dp).coerceAtLeast(80.dp))
+        // Match the width of the air-temperature rows even when only feels-like is available.
+        val labelColumnWidth = compactSummaryLabelWidth(maxWidth, temperature = true)
         Row(
             Modifier.fillMaxWidth().padding(vertical = 3.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(9.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Row(
                 modifier = Modifier.width(labelColumnWidth),
@@ -2665,6 +2674,10 @@ private fun CompactApparentOnlyRow(
     }
 }
 
+// Give the summary rails a wider visual span without changing their shared domains.
+private const val COMPACT_RAIL_START_FRACTION = 0.05f
+private const val COMPACT_RAIL_END_FRACTION = 0.95f
+
 /** Tap for model-level values; the compact summary never displays colliding bounds. */
 @Composable
 private fun CompactDispersionRail(
@@ -2701,8 +2714,8 @@ private fun CompactDispersionRail(
             .clickable(onClick = { detailsOpen = true })
             .semantics { contentDescription = content; role = Role.Button }
     ) {
-        val start = size.width * DISPERSION_RAIL_START_FRACTION
-        val end = size.width * DISPERSION_RAIL_END_FRACTION
+        val start = size.width * COMPACT_RAIL_START_FRACTION
+        val end = size.width * COMPACT_RAIL_END_FRACTION
         fun xFor(value: Double): Float = start + (end - start) * dispersionRatio(value, domain.min, domain.max)
         val y = size.height / 2f
         drawRoundRect(track, Offset(start, y - 2.5.dp.toPx()), Size(end - start, 5.dp.toPx()),
@@ -2747,6 +2760,7 @@ private fun CompactDispersionRail(
     }
 }
 
+/** Compact rain-amount row: temperature and wind use CompactSummaryMetricRow instead. */
 @Composable
 private fun DispersionMetricRow(
     semanticLabel: String,
@@ -2757,109 +2771,48 @@ private fun DispersionMetricRow(
     samples: List<DispersionSample>,
     unit: WeatherUnit,
     digits: Int,
-    convergence: Int?,
-    showConvergence: Boolean = true,
     subLabel: String? = null,
     nonNegative: Boolean = false,
-    domainOverride: DispersionDomain? = null,
-    inlineApparent: InlineApparentBar? = null,
     centralTestTag: String? = null,
-    convergenceTestTag: String? = null,
     units: WeatherUnits = LocalWeatherUnits.current
 ) {
     val locale = LocalLocale.current.platformLocale
-    val sampleValues = samples.map(DispersionSample::value).filter { it.isFinite() }
-    // La centrale du moteur peut légitimement sortir de l’enveloppe des runs bruts
-    // (ex. pluie : P < 50 % => centrale 0 mm alors que les runs déterministes
-    // humides donnent tous une quantité > 0). L’axe doit toujours contenir la
-    // centrale afin de ne pas la plaquer artificiellement sur une borne.
+    val sampleValues = samples.map(DispersionSample::value).filter(Double::isFinite)
+    // The consensus may be outside raw wet-model bounds when dry probability dominates.
     val rawMin = sampleValues.minOrNull() ?: fallbackMin
     val rawMax = sampleValues.maxOrNull() ?: fallbackMax
     val safeMin = listOf(rawMin, central).filter(Double::isFinite).minOrNull() ?: central
     val safeMax = listOf(rawMax, central).filter(Double::isFinite).maxOrNull() ?: central
-    // Both air temperature and feels-like must use one domain: their bars are
-    // directly comparable, even when the felt range lies outside the air range.
-    val domain = domainOverride ?: combinedTemperatureDispersionDomain(
-        safeMin, safeMax, inlineApparent?.dispersion, nonNegative
-    )
-    val rangeLabel = "${formatDispersionValue(safeMin, unit, digits, locale, units = units)} – " +
-        formatDispersionValue(safeMax, unit, digits, locale, units = units)
-    val centralLabel = formatDispersionValue(central, unit, digits, locale, units = units)
-    // Temps min/max et vent/rafales : la valeur suit son repère noir.
-    // La pluie conserve sa présentation numérique dans l'en-tête.
-    val centralOnRail = unit == WeatherUnit.TEMPERATURE_COMPACT || unit == WeatherUnit.WIND_SPEED
+    val domain = paddedDispersionDomain(safeMin, safeMax, nonNegative)
+    val minLabel = formatDispersionValue(safeMin, unit, digits, locale, units)
+    val maxLabel = formatDispersionValue(safeMax, unit, digits, locale, units)
     val railDescription = if (samples.isNotEmpty()) {
         "$semanticLabel · " + samples.joinToString(" · ") { sample ->
-            "${sample.model.displayName} ${formatDispersionValue(sample.value, unit, digits, locale, units = units)}"
+            "${sample.model.displayName} ${formatDispersionValue(sample.value, unit, digits, locale, units)}"
         }
     } else {
-        "$semanticLabel · $rangeLabel"
+        "$semanticLabel · $minLabel – $maxLabel"
     }
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 0.dp),
-        verticalArrangement = Arrangement.spacedBy(0.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = subLabel ?: semanticLabel,
                 modifier = Modifier.weight(1f),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = subLabel ?: semanticLabel,
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
-                )
-                if (!centralOnRail) {
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        text = centralLabel,
-                        modifier = if (centralTestTag != null) Modifier.testTag(centralTestTag) else Modifier,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-            }
-            if (showConvergence) {
-                Spacer(Modifier.width(8.dp))
-                ConvergenceTonalChip(
-                    convergence = convergence,
-                    testTag = convergenceTestTag
-                )
-            }
-        }
-
-        // Placer les bornes de la température de l'air au-dessus des deux
-        // bandes : la valeur ressentie reste ainsi juste sous son propre point.
-        if (inlineApparent != null) {
-            DispersionBoundsLabels(
-                minLabel = formatDispersionValue(safeMin, unit, digits, locale, units),
-                maxLabel = formatDispersionValue(safeMax, unit, digits, locale, units),
-                min = safeMin,
-                max = safeMax,
-                domain = domain,
-                testTagPrefix = inlineApparent.testTag.removeSuffix("_central") + "_air"
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
+                text = formatDispersionValue(central, unit, digits, locale, units),
+                modifier = centralTestTag?.let { Modifier.testTag(it) } ?: Modifier,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface
             )
         }
-
-        if (centralOnRail) {
-            DispersionCentralValueLabel(
-                label = centralLabel,
-                central = central,
-                domain = domain,
-                testTag = centralTestTag
-            )
-        }
-
         DispersionRail(
             samples = sampleValues,
             rangeMin = safeMin,
@@ -2867,111 +2820,15 @@ private fun DispersionMetricRow(
             domain = domain,
             central = central,
             accent = accent,
-            contentDescription = railDescription,
-            inlineApparent = inlineApparent,
-            units = units
+            contentDescription = railDescription
         )
-
-        if (inlineApparent == null) {
-            DispersionBoundsLabels(
-                minLabel = formatDispersionValue(safeMin, unit, digits, locale, units),
-                maxLabel = formatDispersionValue(safeMax, unit, digits, locale, units),
-                min = safeMin,
-                max = safeMax,
-                domain = domain
-            )
-        } else {
-            InlineApparentValueLabel(
-                apparent = inlineApparent,
-                domain = domain,
-                value = formatDispersionValue(inlineApparent.dispersion.central, unit, digits, locale, units)
-            )
-        }
-    }
-}
-
-/** Valeur centrale juste au-dessus du repère noir, bornée à la largeur de la carte. */
-@Composable
-private fun DispersionCentralValueLabel(
-    label: String,
-    central: Double,
-    domain: DispersionDomain,
-    testTag: String?
-) {
-    Layout(
-        modifier = Modifier.fillMaxWidth(),
-        content = {
-            Text(
-                text = label,
-                modifier = if (testTag != null) Modifier.testTag(testTag) else Modifier,
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-    ) { measurables, constraints ->
-        val labelPlaceable = measurables.single().measure(
-            constraints.copy(minWidth = 0, minHeight = 0)
+        DispersionBoundsLabels(
+            minLabel = minLabel,
+            maxLabel = maxLabel,
+            min = safeMin,
+            max = safeMax,
+            domain = domain
         )
-        val width = constraints.maxWidth
-        val centerX = width * (DISPERSION_RAIL_START_FRACTION +
-            (DISPERSION_RAIL_END_FRACTION - DISPERSION_RAIL_START_FRACTION) *
-                dispersionRatio(central, domain.min, domain.max))
-        val x = centeredDispersionLabelStart(width, labelPlaceable.width, centerX)
-        layout(width, labelPlaceable.height) {
-            labelPlaceable.placeRelative(x, 0)
-        }
-    }
-}
-
-/**
- * Aligne la valeur et le libellé du ressenti sur une seule ligne sous son point,
- * sans jamais les laisser déborder horizontalement de la carte.
- */
-@Composable
-private fun InlineApparentValueLabel(
-    apparent: InlineApparentBar,
-    domain: DispersionDomain,
-    value: String
-) {
-    Layout(
-        modifier = Modifier.fillMaxWidth().testTag(apparent.testTag + "_below_bar"),
-        content = {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    text = value,
-                    modifier = Modifier.testTag(apparent.testTag),
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = apparent.accent,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = apparent.label,
-                    modifier = Modifier.testTag(apparent.testTag + "_name"),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
-    ) { measurables, constraints ->
-        val label = measurables.single().measure(constraints.copy(minWidth = 0, minHeight = 0))
-        val width = constraints.maxWidth
-        val center = width * (DISPERSION_RAIL_START_FRACTION +
-            (DISPERSION_RAIL_END_FRACTION - DISPERSION_RAIL_START_FRACTION) *
-                dispersionRatio(apparent.dispersion.central, domain.min, domain.max))
-        val x = centeredDispersionLabelStart(width, label.width, center)
-        layout(width, label.height) {
-            label.placeRelative(x, 0)
-        }
     }
 }
 
@@ -3022,8 +2879,7 @@ private fun DispersionBoundsLabels(
     maxLabel: String,
     min: Double,
     max: Double,
-    domain: DispersionDomain,
-    testTagPrefix: String? = null
+    domain: DispersionDomain
 ) {
     // Une même valeur affichée (arrondis inclus) n'a pas besoin d'être
     // répétée deux fois : le consensus est déjà visible dans l'en-tête.
@@ -3037,7 +2893,7 @@ private fun DispersionBoundsLabels(
         content = {
             Text(
                 text = minLabel,
-                modifier = testTagPrefix?.let { Modifier.testTag(it + "_lower") } ?: Modifier,
+                modifier = Modifier,
                 style = MaterialTheme.typography.labelSmall,
                 color = mutedColor,
                 maxLines = 1,
@@ -3045,7 +2901,7 @@ private fun DispersionBoundsLabels(
             )
             Text(
                 text = maxLabel,
-                modifier = testTagPrefix?.let { Modifier.testTag(it + "_upper") } ?: Modifier,
+                modifier = Modifier,
                 style = MaterialTheme.typography.labelSmall,
                 color = mutedColor,
                 maxLines = 1,
@@ -3096,6 +2952,7 @@ private fun dispersionRatio(value: Double, min: Double, max: Double): Float {
     return ((value - min) / span).coerceIn(0.0, 1.0).toFloat()
 }
 
+/** Precipitation-only plot, without the obsolete inline feels-like branch. */
 @Composable
 private fun DispersionRail(
     samples: List<Double>,
@@ -3104,37 +2961,20 @@ private fun DispersionRail(
     domain: DispersionDomain,
     central: Double,
     accent: Color,
-    contentDescription: String,
-    inlineApparent: InlineApparentBar? = null,
-    units: WeatherUnits = LocalWeatherUnits.current
+    contentDescription: String
 ) {
     val surface = MaterialTheme.colorScheme.surfaceContainer
     val track = MaterialTheme.colorScheme.surfaceContainerHighest
     val centerColor = MaterialTheme.colorScheme.onSurface
-    val locale = LocalLocale.current.platformLocale
-    val secondaryA11y = inlineApparent?.let { apparent ->
-        "$contentDescription · ${apparent.semanticLabel}: " +
-            units.format(apparent.dispersion.min, WeatherUnit.TEMPERATURE_COMPACT, 1, locale) + " – " +
-            units.format(apparent.dispersion.max, WeatherUnit.TEMPERATURE_COMPACT, 1, locale) +
-            " · " + units.format(apparent.dispersion.central, WeatherUnit.TEMPERATURE_COMPACT, 1, locale)
-    } ?: contentDescription
-
     Canvas(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(if (inlineApparent != null) 29.dp else 20.dp)
-            .then(
-                inlineApparent?.let { Modifier.testTag(it.testTag.removeSuffix("_central") + "_inline_bar") }
-                    ?: Modifier
-            )
-            .semantics { this.contentDescription = secondaryA11y }
+        modifier = Modifier.fillMaxWidth().height(20.dp)
+            .semantics { this.contentDescription = contentDescription }
     ) {
         val startX = size.width * DISPERSION_RAIL_START_FRACTION
         val endX = size.width * DISPERSION_RAIL_END_FRACTION
-        val centerY = if (inlineApparent != null) 9.dp.toPx() else size.height / 2f
+        val centerY = size.height / 2f
         fun xFor(value: Double): Float =
             startX + (endX - startX) * dispersionRatio(value, domain.min, domain.max)
-
         drawRoundRect(
             color = track,
             topLeft = Offset(startX, centerY - 2.5.dp.toPx()),
@@ -3146,55 +2986,21 @@ private fun DispersionRail(
         drawRoundRect(
             color = accent.copy(alpha = 0.24f),
             topLeft = Offset(rangeStart, centerY - 5.dp.toPx()),
-            size = Size(
-                (rangeEnd - rangeStart).coerceAtLeast(3.dp.toPx()),
-                10.dp.toPx()
-            ),
+            size = Size((rangeEnd - rangeStart).coerceAtLeast(3.dp.toPx()), 10.dp.toPx()),
             cornerRadius = CornerRadius(99.dp.toPx())
         )
-
         samples.forEachIndexed { index, value ->
             val y = centerY + if (index % 2 == 0) -3.dp.toPx() else 3.dp.toPx()
-            drawCircle(
-                color = surface,
-                radius = 5.5.dp.toPx(),
-                center = Offset(xFor(value), y)
-            )
-            drawCircle(
-                color = accent,
-                radius = 3.75.dp.toPx(),
-                center = Offset(xFor(value), y)
-            )
+            drawCircle(color = surface, radius = 5.5.dp.toPx(), center = Offset(xFor(value), y))
+            drawCircle(color = accent, radius = 3.75.dp.toPx(), center = Offset(xFor(value), y))
         }
-
         val centerX = xFor(central)
         drawRoundRect(
             color = centerColor,
-            topLeft = Offset(
-                centerX - 1.5.dp.toPx(),
-                if (inlineApparent != null) centerY - 8.dp.toPx() else 1.dp.toPx()
-            ),
-            size = Size(3.dp.toPx(), if (inlineApparent != null) 16.dp.toPx() else size.height - 2.dp.toPx()),
+            topLeft = Offset(centerX - 1.5.dp.toPx(), 1.dp.toPx()),
+            size = Size(3.dp.toPx(), size.height - 2.dp.toPx()),
             cornerRadius = CornerRadius(3.dp.toPx())
         )
-        inlineApparent?.let { apparent ->
-            val y = 23.dp.toPx()
-            val start = xFor(apparent.dispersion.min)
-            val end = xFor(apparent.dispersion.max)
-            drawRoundRect(
-                color = apparent.accent.copy(alpha = 0.76f),
-                topLeft = Offset(start, y - 2.5.dp.toPx()),
-                size = Size((end - start).coerceAtLeast(3.dp.toPx()), 5.dp.toPx()),
-                cornerRadius = CornerRadius(99.dp.toPx())
-            )
-            val apparentCenterX = xFor(apparent.dispersion.central)
-            drawRoundRect(
-                color = centerColor,
-                topLeft = Offset(apparentCenterX - 1.5.dp.toPx(), y - 8.dp.toPx()),
-                size = Size(3.dp.toPx(), 16.dp.toPx()),
-                cornerRadius = CornerRadius(3.dp.toPx())
-            )
-        }
     }
 }
 
@@ -3249,7 +3055,7 @@ private fun DispersionDetailsDialog(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     convergence?.let {
-                        ConvergenceTonalChip(convergence = it, testTag = null)
+                        ConvergenceTonalChip(convergence = it, testTag = "summary_dispersion_dialog_convergence")
                     }
                     Surface(
                         color = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -3445,6 +3251,7 @@ private fun DispersionDetailRailPreview(
     val sampleBg = MaterialTheme.colorScheme.surface
     Canvas(
         modifier = Modifier.fillMaxWidth().height(34.dp)
+            .testTag("summary_dispersion_dialog_preview")
     ) {
         val startX = size.width * DISPERSION_RAIL_START_FRACTION
         val endX = size.width * DISPERSION_RAIL_END_FRACTION
