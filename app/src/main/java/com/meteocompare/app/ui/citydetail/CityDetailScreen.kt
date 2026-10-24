@@ -21,10 +21,14 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
@@ -34,6 +38,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -53,6 +58,7 @@ import androidx.compose.material.icons.filled.Radar
 import androidx.compose.material.icons.outlined.Air
 import androidx.compose.material.icons.outlined.Thermostat
 import androidx.compose.material.icons.outlined.WaterDrop
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -92,6 +98,8 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
 import com.meteocompare.app.core.units.weatherStringResource as stringResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -1926,30 +1934,6 @@ private data class InlineApparentBar(
     val testTag: String
 )
 
-@Composable
-private fun CompactApparentValue(
-    label: String,
-    value: Double,
-    accent: Color,
-    testTag: String,
-    units: WeatherUnits = LocalWeatherUnits.current
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(5.dp)
-    ) {
-        Box(Modifier.size(6.dp).background(accent, CircleShape))
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(
-            text = units.format(value, WeatherUnit.TEMPERATURE_COMPACT, 1, LocalLocale.current.platformLocale),
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.testTag(testTag)
-        )
-    }
-}
-
 private fun apparentDispersion(samples: List<DispersionSample>): ApparentDispersion? {
     val consensus = ForecastConsensus.continuous(
         samples.map { ForecastConsensus.Entry(it.model, it.value) },
@@ -1970,38 +1954,35 @@ private fun DetailMetricGrid(
     val apparentMin = remember(samples.apparentMin) { apparentDispersion(samples.apparentMin) }
     val apparentMax = remember(samples.apparentMax) { apparentDispersion(samples.apparentMax) }
     val hasAnyMetric = apparentMin != null || apparentMax != null || today.tempMin != null || today.tempMax != null ||
-            today.precipitation != null || today.windMax != null || today.windGustMax != null
+        today.precipitation != null || today.windMax != null || today.windGustMax != null
     if (!hasAnyMetric) return
 
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 2.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+        verticalArrangement = Arrangement.spacedBy(7.dp)
     ) {
         if (today.tempMin != null || today.tempMax != null || apparentMin != null || apparentMax != null) {
+            // One °C domain for all four bands: air Min/Max and feels-like Min/Max.
+            val tempDomain = compactTemperatureDispersionDomain(today, samples, apparentMin, apparentMax)
             SummaryMetricSection(tag = TAG_TODAY_SUMMARY_TEMP_PANEL) {
                 SummaryMetricGroupHeader(
                     title = stringResource(R.string.metric_temperature),
                     icon = Icons.Outlined.Thermostat,
                     accent = temperatureMetricAccent()
                 )
-
                 today.tempMin?.let { score ->
-                    DispersionMetricRow(
+                    CompactSummaryMetricRow(
                         semanticLabel = stringResource(R.string.var_temp_min),
-                        subLabel = stringResource(R.string.today_summary_temp_min_short),
-                        accent = temperatureMinMetricAccent(),
-                        central = score.centralValue,
-                        fallbackMin = score.minValue,
-                        fallbackMax = score.maxValue,
+                        shortLabel = stringResource(R.string.today_summary_temp_min_short),
+                        score = score,
                         samples = samples.tempMin,
                         unit = WeatherUnit.TEMPERATURE_COMPACT,
                         digits = 1,
-                        convergence = score.convergencePercent,
+                        accent = temperatureMinMetricAccent(),
+                        domain = tempDomain,
                         centralTestTag = TAG_TODAY_SUMMARY_TEMP_MIN_CENTRAL,
                         convergenceTestTag = TAG_TODAY_SUMMARY_TEMP_MIN_CONVERGENCE,
-                        inlineApparent = apparentMin?.let {
+                        apparent = apparentMin?.let {
                             InlineApparentBar(
                                 dispersion = it,
                                 label = stringResource(R.string.today_apparent_min_short),
@@ -2009,38 +1990,35 @@ private fun DetailMetricGrid(
                                 accent = temperatureMinMetricAccent(),
                                 testTag = "today_apparent_min_central"
                             )
-                        }
+                        },
+                        apparentSamples = samples.apparentMin
                     )
-                } ?: apparentMin?.let {
-                    // Laisser le ressenti visible si les données d'air manquent.
-                    CompactApparentValue(
+                } ?: apparentMin?.let { felt ->
+                    CompactApparentOnlyRow(
                         label = stringResource(R.string.today_apparent_min_short),
-                        value = it.central,
+                        semanticLabel = stringResource(R.string.today_apparent_min_accessibility),
+                        apparent = felt,
+                        samples = samples.apparentMin,
                         accent = temperatureMinMetricAccent(),
+                        domain = tempDomain,
                         testTag = "today_apparent_min_central"
                     )
                 }
-
                 if ((today.tempMin != null || apparentMin != null) &&
-                    (today.tempMax != null || apparentMax != null)) {
-                    Spacer(Modifier.height(5.dp))
-                }
-
+                    (today.tempMax != null || apparentMax != null)) Spacer(Modifier.height(5.dp))
                 today.tempMax?.let { score ->
-                    DispersionMetricRow(
+                    CompactSummaryMetricRow(
                         semanticLabel = stringResource(R.string.var_temp_max),
-                        subLabel = stringResource(R.string.today_summary_temp_max_short),
-                        accent = temperatureMetricAccent(),
-                        central = score.centralValue,
-                        fallbackMin = score.minValue,
-                        fallbackMax = score.maxValue,
+                        shortLabel = stringResource(R.string.today_summary_temp_max_short),
+                        score = score,
                         samples = samples.tempMax,
                         unit = WeatherUnit.TEMPERATURE_COMPACT,
                         digits = 1,
-                        convergence = score.convergencePercent,
+                        accent = temperatureMetricAccent(),
+                        domain = tempDomain,
                         centralTestTag = TAG_TODAY_SUMMARY_TEMP_MAX_CENTRAL,
                         convergenceTestTag = TAG_TODAY_SUMMARY_TEMP_MAX_CONVERGENCE,
-                        inlineApparent = apparentMax?.let {
+                        apparent = apparentMax?.let {
                             InlineApparentBar(
                                 dispersion = it,
                                 label = stringResource(R.string.today_apparent_max_short),
@@ -2048,13 +2026,17 @@ private fun DetailMetricGrid(
                                 accent = temperatureMetricAccent(),
                                 testTag = "today_apparent_max_central"
                             )
-                        }
+                        },
+                        apparentSamples = samples.apparentMax
                     )
-                } ?: apparentMax?.let {
-                    CompactApparentValue(
+                } ?: apparentMax?.let { felt ->
+                    CompactApparentOnlyRow(
                         label = stringResource(R.string.today_apparent_max_short),
-                        value = it.central,
+                        semanticLabel = stringResource(R.string.today_apparent_max_accessibility),
+                        apparent = felt,
+                        samples = samples.apparentMax,
                         accent = temperatureMetricAccent(),
+                        domain = tempDomain,
                         testTag = "today_apparent_max_central"
                     )
                 }
@@ -2062,7 +2044,7 @@ private fun DetailMetricGrid(
         }
 
         today.precipitation?.let { precipitation ->
-            if (today.tempMin != null || today.tempMax != null) {
+            if (today.tempMin != null || today.tempMax != null || apparentMin != null || apparentMax != null) {
                 SummarySectionDivider()
             }
             val rain = precipitationDispersionPresentation(precipitation)
@@ -2103,69 +2085,46 @@ private fun DetailMetricGrid(
         }
 
         if (today.windMax != null || today.windGustMax != null) {
-            if (today.tempMin != null || today.tempMax != null || today.precipitation != null) {
+            if (today.tempMin != null || today.tempMax != null || apparentMin != null || apparentMax != null || today.precipitation != null) {
                 SummarySectionDivider()
             }
             val isGustOnly = today.windMax == null
             val sharedDomain = windDispersionDomain(today, samples)
-
             SummaryMetricSection(tag = TAG_TODAY_SUMMARY_WIND_PANEL) {
                 SummaryMetricGroupHeader(
-                    title = stringResource(
-                        if (isGustOnly) R.string.var_wind_gust_max else R.string.var_wind_max
-                    ),
+                    title = if (isGustOnly) stringResource(R.string.metric_detail_gusts)
+                        else stringResource(R.string.metric_detail_wind) + " / " + stringResource(R.string.metric_detail_gusts),
                     icon = Icons.Outlined.Air,
                     accent = windMetricAccent(),
                     trailing = windDirectionLabel
                 )
-
                 today.windMax?.let { score ->
-                    DispersionMetricRow(
+                    CompactSummaryMetricRow(
                         semanticLabel = stringResource(R.string.metric_detail_wind),
-                        subLabel = stringResource(R.string.metric_detail_wind),
-                        accent = windMetricAccent(),
-                        central = score.centralValue,
-                        fallbackMin = score.minValue,
-                        fallbackMax = score.maxValue,
+                        shortLabel = stringResource(R.string.metric_detail_wind),
+                        score = score,
                         samples = samples.wind,
                         unit = WeatherUnit.WIND_SPEED,
                         digits = 0,
-                        convergence = score.convergencePercent,
-                        nonNegative = true,
-                        domainOverride = sharedDomain,
+                        accent = windMetricAccent(),
+                        domain = sharedDomain,
                         centralTestTag = TAG_TODAY_SUMMARY_WIND_CENTRAL,
                         convergenceTestTag = TAG_TODAY_SUMMARY_WIND_CONVERGENCE
                     )
                 }
-
-                if (today.windMax != null && today.windGustMax != null) {
-                    Spacer(Modifier.height(5.dp))
-                }
-
+                if (today.windMax != null && today.windGustMax != null) Spacer(Modifier.height(5.dp))
                 today.windGustMax?.let { score ->
-                    DispersionMetricRow(
+                    CompactSummaryMetricRow(
                         semanticLabel = stringResource(R.string.metric_detail_gusts),
-                        subLabel = stringResource(R.string.metric_detail_gusts),
-                        accent = windMetricAccent(),
-                        central = score.centralValue,
-                        fallbackMin = score.minValue,
-                        fallbackMax = score.maxValue,
+                        shortLabel = stringResource(R.string.metric_detail_gusts),
+                        score = score,
                         samples = samples.windGust,
                         unit = WeatherUnit.WIND_SPEED,
                         digits = 0,
-                        convergence = score.convergencePercent,
-                        nonNegative = true,
-                        domainOverride = sharedDomain,
-                        centralTestTag = if (isGustOnly) {
-                            TAG_TODAY_SUMMARY_WIND_CENTRAL
-                        } else {
-                            TAG_TODAY_SUMMARY_GUST_CENTRAL
-                        },
-                        convergenceTestTag = if (isGustOnly) {
-                            TAG_TODAY_SUMMARY_WIND_CONVERGENCE
-                        } else {
-                            TAG_TODAY_SUMMARY_GUST_CONVERGENCE
-                        }
+                        accent = windMetricAccent(),
+                        domain = sharedDomain,
+                        centralTestTag = if (isGustOnly) TAG_TODAY_SUMMARY_WIND_CENTRAL else TAG_TODAY_SUMMARY_GUST_CENTRAL,
+                        convergenceTestTag = if (isGustOnly) TAG_TODAY_SUMMARY_WIND_CONVERGENCE else TAG_TODAY_SUMMARY_GUST_CONVERGENCE
                     )
                 }
             }
@@ -2431,21 +2390,301 @@ private fun combinedTemperatureDispersionDomain(
     return DispersionDomain(bounds.first, bounds.second)
 }
 
+/** Prefer the observed model envelope; use forecast-score bounds only without raw samples. */
+private fun actualDispersionBounds(
+    score: ConfidenceScore,
+    samples: List<DispersionSample>
+): Pair<Double, Double> {
+    val values = samples.map(DispersionSample::value).filter(Double::isFinite)
+    val effective = (if (values.isEmpty()) listOf(score.minValue, score.maxValue) else values) + score.centralValue
+    val finite = effective.filter(Double::isFinite)
+    return (finite.minOrNull() ?: 0.0) to (finite.maxOrNull() ?: 0.0)
+}
+
 private fun windDispersionDomain(
     today: DayConfidence,
     samples: TodaySummaryDispersionSamples
 ): DispersionDomain {
     val values = buildList {
-        addAll(samples.wind.map(DispersionSample::value))
-        addAll(samples.windGust.map(DispersionSample::value))
-        today.windMax?.let { addAll(listOf(it.minValue, it.centralValue, it.maxValue)) }
-        today.windGustMax?.let { addAll(listOf(it.minValue, it.centralValue, it.maxValue)) }
+        today.windMax?.let { actualDispersionBounds(it, samples.wind).let { (low, high) -> add(low); add(high) } }
+        today.windGustMax?.let { actualDispersionBounds(it, samples.windGust).let { (low, high) -> add(low); add(high) } }
     }.filter(Double::isFinite)
-    return paddedDispersionDomain(
-        min = values.minOrNull() ?: 0.0,
-        max = values.maxOrNull() ?: 0.0,
-        nonNegative = true
-    )
+    return paddedDispersionDomain(values.minOrNull() ?: 0.0, values.maxOrNull() ?: 0.0, true)
+}
+
+/** Common axis for air and apparent temperatures of both daily extremes (canonical °C). */
+private fun compactTemperatureDispersionDomain(
+    today: DayConfidence,
+    samples: TodaySummaryDispersionSamples,
+    apparentMin: ApparentDispersion?,
+    apparentMax: ApparentDispersion?
+): DispersionDomain {
+    val values = buildList {
+        today.tempMin?.let { actualDispersionBounds(it, samples.tempMin).let { (low, high) -> add(low); add(high) } }
+        today.tempMax?.let { actualDispersionBounds(it, samples.tempMax).let { (low, high) -> add(low); add(high) } }
+        listOfNotNull(apparentMin, apparentMax).forEach { addAll(listOf(it.min, it.central, it.max)) }
+    }.filter(Double::isFinite)
+    return paddedDispersionDomain(values.minOrNull() ?: 0.0, values.maxOrNull() ?: 0.0, false)
+}
+
+/**
+ * The summary is a dashboard, not a chart detail view. Values live in a fixed
+ * left column, with the air/model dispersion and optional feels-like rail on
+ * the right. No numerical labels can collide with a marker, even when the
+ * model range is very narrow or the phone has a large display font.
+ */
+@Composable
+private fun CompactSummaryMetricRow(
+    semanticLabel: String,
+    shortLabel: String,
+    score: ConfidenceScore,
+    samples: List<DispersionSample>,
+    unit: WeatherUnit,
+    digits: Int,
+    accent: Color,
+    domain: DispersionDomain,
+    centralTestTag: String,
+    convergenceTestTag: String,
+    apparent: InlineApparentBar? = null,
+    apparentSamples: List<DispersionSample> = emptyList(),
+    units: WeatherUnits = LocalWeatherUnits.current
+) {
+    val locale = LocalLocale.current.platformLocale
+    val center = formatDispersionValue(score.centralValue, unit, digits, locale, units)
+    val (minimum, maximum) = actualDispersionBounds(score, samples)
+    val felt = apparent?.dispersion
+    val agreementDescription = "${stringResource(R.string.home_agreement_label)} ${score.convergencePercent?.let { "$it%" } ?: "—"}"
+    // A proportion rather than a fixed width keeps enough chart space on narrow devices.
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val labelColumnWidth = (maxWidth * 0.42f).coerceIn(108.dp, 150.dp)
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(9.dp)
+        ) {
+            Column(modifier = Modifier.width(labelColumnWidth)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = shortLabel,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Spacer(Modifier.width(3.dp))
+                    Text(
+                        text = score.convergencePercent?.let { "$it%" } ?: "—",
+                        modifier = Modifier.testTag(convergenceTestTag).semantics {
+                            contentDescription = agreementDescription
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1
+                    )
+                }
+                Text(
+                    text = center,
+                    modifier = Modifier.testTag(centralTestTag),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (apparent != null && felt != null) {
+                    val feltLabel = formatDispersionValue(felt.central, unit, digits, locale, units)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(6.dp).background(apparent.accent, CircleShape))
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = apparent.label,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = apparent.accent,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Spacer(Modifier.width(3.dp))
+                        Text(
+                            text = feltLabel,
+                            modifier = Modifier.testTag(apparent.testTag).semantics {
+                                contentDescription = "${apparent.semanticLabel}: $feltLabel"
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = apparent.accent,
+                            maxLines = 1
+                        )
+                    }
+                }
+            }
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                CompactDispersionRail(
+                    label = semanticLabel,
+                    rawMin = minimum,
+                    rawMax = maximum,
+                    center = score.centralValue,
+                    samples = samples,
+                    domain = domain,
+                    accent = accent,
+                    unit = unit,
+                    digits = digits,
+                    units = units,
+                    testTag = centralTestTag.removeSuffix("_central") + "_rail"
+                )
+                if (apparent != null && felt != null) {
+                    CompactDispersionRail(
+                        label = apparent.semanticLabel,
+                        rawMin = felt.min,
+                        rawMax = felt.max,
+                        center = felt.central,
+                        samples = apparentSamples,
+                        domain = domain,
+                        accent = apparent.accent,
+                        unit = unit,
+                        digits = digits,
+                        units = units,
+                        dotMarker = true,
+                        testTag = apparent.testTag.removeSuffix("_central") + "_inline_bar"
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CompactApparentOnlyRow(
+    label: String,
+    semanticLabel: String,
+    apparent: ApparentDispersion,
+    samples: List<DispersionSample>,
+    accent: Color,
+    domain: DispersionDomain,
+    testTag: String,
+    units: WeatherUnits = LocalWeatherUnits.current
+) {
+    val locale = LocalLocale.current.platformLocale
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(9.dp)
+    ) {
+        Column(Modifier.fillMaxWidth(0.42f)) {
+            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                formatDispersionValue(apparent.central, WeatherUnit.TEMPERATURE_COMPACT, 1, locale, units),
+                modifier = Modifier.testTag(testTag),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = accent
+            )
+        }
+        Box(Modifier.weight(1f)) {
+            CompactDispersionRail(
+                label = semanticLabel,
+                rawMin = apparent.min,
+                rawMax = apparent.max,
+                center = apparent.central,
+                samples = samples,
+                domain = domain,
+                accent = accent,
+                unit = WeatherUnit.TEMPERATURE_COMPACT,
+                digits = 1,
+                units = units,
+                dotMarker = true,
+                testTag = testTag.removeSuffix("_central") + "_inline_bar"
+            )
+        }
+    }
+}
+
+/** Tap for model-level values; the compact summary never displays colliding bounds. */
+@Composable
+private fun CompactDispersionRail(
+    label: String,
+    rawMin: Double,
+    rawMax: Double,
+    center: Double,
+    samples: List<DispersionSample>,
+    domain: DispersionDomain,
+    accent: Color,
+    unit: WeatherUnit,
+    digits: Int,
+    units: WeatherUnits,
+    dotMarker: Boolean = false,
+    testTag: String? = null
+) {
+    val locale = LocalLocale.current.platformLocale
+    val lower = formatDispersionValue(rawMin, unit, digits, locale, units)
+    val upper = formatDispersionValue(rawMax, unit, digits, locale, units)
+    val median = formatDispersionValue(center, unit, digits, locale, units)
+    val rangeText = "$lower – $upper"
+    val modelTexts = samples.joinToString(" · ") { sample ->
+        "${sample.model.displayName}: ${formatDispersionValue(sample.value, unit, digits, locale, units)}"
+    }
+    val content = "$label · $median · $rangeText" + if (modelTexts.isNotEmpty()) " · $modelTexts" else ""
+    var detailsOpen by remember { mutableStateOf(false) }
+    val track = MaterialTheme.colorScheme.surfaceContainerHighest
+    val surface = MaterialTheme.colorScheme.surfaceContainer
+    val centerColor = MaterialTheme.colorScheme.onSurface
+
+    Canvas(
+        modifier = Modifier.fillMaxWidth().height(19.dp)
+            .then(if (testTag != null) Modifier.testTag(testTag) else Modifier)
+            .clickable(onClick = { detailsOpen = true })
+            .semantics { contentDescription = content; role = Role.Button }
+    ) {
+        val start = size.width * DISPERSION_RAIL_START_FRACTION
+        val end = size.width * DISPERSION_RAIL_END_FRACTION
+        fun xFor(value: Double): Float = start + (end - start) * dispersionRatio(value, domain.min, domain.max)
+        val y = size.height / 2f
+        drawRoundRect(track, Offset(start, y - 2.5.dp.toPx()), Size(end - start, 5.dp.toPx()),
+            cornerRadius = CornerRadius(99.dp.toPx()))
+        val xMin = xFor(rawMin)
+        val xMax = xFor(rawMax)
+        drawRoundRect(accent.copy(alpha = 0.36f), Offset(xMin, y - 4.5.dp.toPx()),
+            Size((xMax - xMin).coerceAtLeast(3.dp.toPx()), 9.dp.toPx()),
+            cornerRadius = CornerRadius(99.dp.toPx()))
+        samples.forEachIndexed { index, sample ->
+            if (sample.value.isFinite()) {
+                val point = Offset(xFor(sample.value), y + if (index % 2 == 0) -2.dp.toPx() else 2.dp.toPx())
+                drawCircle(surface, radius = 4.3.dp.toPx(), center = point)
+                drawCircle(accent, radius = 2.7.dp.toPx(), center = point)
+            }
+        }
+        val x = xFor(center)
+        if (dotMarker) {
+            drawCircle(surface, radius = 5.5.dp.toPx(), center = Offset(x, y))
+            drawCircle(accent, radius = 4.dp.toPx(), center = Offset(x, y))
+        } else {
+            drawRoundRect(centerColor, Offset(x - 1.5.dp.toPx(), y - 8.dp.toPx()),
+                Size(3.dp.toPx(), 16.dp.toPx()), cornerRadius = CornerRadius(3.dp.toPx()))
+        }
+    }
+    if (detailsOpen) {
+        AlertDialog(
+            onDismissRequest = { detailsOpen = false },
+            title = { Text(label) },
+            text = {
+                Column(
+                    modifier = Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("${stringResource(R.string.metric_summary_average)}: $median")
+                    Text(stringResource(R.string.metric_summary_range, rangeText))
+                    samples.forEach { sample ->
+                        Text("${sample.model.displayName}: ${formatDispersionValue(sample.value, unit, digits, locale, units)}")
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { detailsOpen = false }) { Text(stringResource(R.string.toast_dismiss)) }
+            }
+        )
+    }
 }
 
 @Composable

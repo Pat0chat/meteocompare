@@ -13,6 +13,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.test.platform.app.InstrumentationRegistry
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.CityForecast
@@ -98,53 +99,34 @@ class TodaySummaryCardTest {
             forecast = forecast
         )
 
-        // Une seule barre de dispersion pour chaque extrême, avec le ressenti
-        // intégré dans le même Canvas plutôt qu'en ligne de graphique séparée.
-        composeRule.onAllNodesWithTag("today_apparent_min_inline_bar", useUnmergedTree = true)
-            .assertCountEquals(1)
-        composeRule.onAllNodesWithTag("today_apparent_max_inline_bar", useUnmergedTree = true)
-            .assertCountEquals(1)
-        composeRule.onNodeWithTag("today_apparent_min_central", useUnmergedTree = true).assertExists()
-        composeRule.onNodeWithTag("today_apparent_max_central", useUnmergedTree = true).assertExists()
-        composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_TEMP_MIN_CENTRAL, useUnmergedTree = true).assertExists()
-        composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_TEMP_MAX_CENTRAL, useUnmergedTree = true).assertExists()
-
-        // Les bornes de l'air sont au-dessus des rails; la valeur ressentie est
-        // immédiatement sous son point. Aucun chevauchement, même proche.
+        // Each min/max has two aligned, independently readable rails, without
+        // numeric labels floating over the chart. All values stay in the left column.
         for (extreme in listOf("min", "max")) {
-            val tag = "today_apparent_${extreme}"
-            val rail = composeRule.onNodeWithTag("${tag}_inline_bar", useUnmergedTree = true)
+            val air = composeRule.onNodeWithTag("today_summary_temp_${extreme}_rail", useUnmergedTree = true)
                 .getUnclippedBoundsInRoot()
-            val airLower = composeRule.onNodeWithTag("${tag}_air_lower", useUnmergedTree = true)
+            val felt = composeRule.onNodeWithTag("today_apparent_${extreme}_inline_bar", useUnmergedTree = true)
                 .getUnclippedBoundsInRoot()
-            val airUpper = composeRule.onNodeWithTag("${tag}_air_upper", useUnmergedTree = true)
-                .getUnclippedBoundsInRoot()
-            val feltValue = composeRule.onNodeWithTag("${tag}_central", useUnmergedTree = true)
-                .getUnclippedBoundsInRoot()
-            assertTrue("Air bounds must be above the ${extreme} chart", airLower.bottom <= rail.top)
-            assertTrue("Air bounds must be above the ${extreme} chart", airUpper.bottom <= rail.top)
-            assertTrue("Felt value must be under the ${extreme} marker", feltValue.top >= rail.bottom)
-            assertTrue(
-                "Air bounds must never overlap",
-                airLower.right <= airUpper.left || airLower.bottom <= airUpper.top
-            )
-            assertTrue("Felt value must not overflow left", feltValue.left >= rail.left)
-            assertTrue("Felt value must not overflow right", feltValue.right <= rail.right)
-            val feltName = composeRule.onNodeWithTag("${tag}_central_name", useUnmergedTree = true)
-                .getUnclippedBoundsInRoot()
-            assertTrue("Feels label sits next to its value", feltName.left >= feltValue.right)
-            assertTrue("Feels label stays on the same line", kotlin.math.abs(
-                ((feltName.top + feltName.bottom) / 2).value -
-                    ((feltValue.top + feltValue.bottom) / 2).value
-            ) <= 8f)
-            val airCentral = composeRule.onNodeWithTag(
+            val airValue = composeRule.onNodeWithTag(
                 if (extreme == "min") TAG_TODAY_SUMMARY_TEMP_MIN_CENTRAL
                 else TAG_TODAY_SUMMARY_TEMP_MAX_CENTRAL, useUnmergedTree = true
             ).getUnclippedBoundsInRoot()
-            assertTrue("Air central value must be over its black marker", airCentral.bottom <= rail.top)
-            assertTrue("Air central value must stay inside chart", airCentral.left >= rail.left)
-            assertTrue("Air central value must stay inside chart", airCentral.right <= rail.right)
+            val feltValue = composeRule.onNodeWithTag("today_apparent_${extreme}_central", useUnmergedTree = true)
+                .getUnclippedBoundsInRoot()
+            assertTrue("Air value stays to the left of the plot", airValue.right <= air.left)
+            assertTrue("Felt value stays to the left of the plot", feltValue.right <= felt.left)
+            assertTrue("Air and felt rails share a right-aligned domain", kotlin.math.abs(air.left.value - felt.left.value) < 1f)
+            assertTrue("Felt rail remains below air rail", air.bottom <= felt.top)
+            assertTrue("Values don't overlap", airValue.bottom <= feltValue.top)
+            composeRule.onNodeWithTag("today_apparent_${extreme}_central", useUnmergedTree = true).assertIsDisplayed()
         }
+        // The min and max rows should not be extra full-size charts.
+        val minRail = composeRule.onNodeWithTag("today_summary_temp_min_rail", useUnmergedTree = true)
+            .getUnclippedBoundsInRoot()
+        val maxRail = composeRule.onNodeWithTag("today_summary_temp_max_rail", useUnmergedTree = true)
+            .getUnclippedBoundsInRoot()
+        assertTrue("Min and max rails have compact height", (minRail.bottom - minRail.top).value <= 24f)
+        assertTrue("Max remains below min", maxRail.top > minRail.bottom)
+
     }
 
     @Test
@@ -416,20 +398,21 @@ class TodaySummaryCardTest {
             forecast = forecast
         )
 
-        // Les fixtures donnent 15.0 / 15.8 / 16.6 °C aujourd'hui. Les bornes
-        // visibles de la frise doivent donc venir des modèles bruts, pas du
-        // fallback 10–20 °C. Le range textuel et le nombre de modèles sont
-        // volontairement supprimés pour compacter la card.
-        composeRule.onNodeWithText("15.0°", useUnmergedTree = true).assertIsDisplayed()
-        composeRule.onNodeWithText("16.6°", useUnmergedTree = true).assertIsDisplayed()
+        // Model extremes are hidden in the compact view and revealed on tapping
+        // the rail, without changing the central score or adding a new network call.
+        composeRule.onNodeWithText("15.0°", useUnmergedTree = true).assertDoesNotExist()
+        composeRule.onNodeWithText("16.6°", useUnmergedTree = true).assertDoesNotExist()
+        composeRule.onNodeWithTag("today_summary_temp_min_rail", useUnmergedTree = true).performClick()
         composeRule.onNodeWithText(
             context.getString(R.string.metric_summary_range, "15.0° – 16.6°"),
             useUnmergedTree = true
-        ).assertDoesNotExist()
+        ).assertExists()
+        composeRule.onNodeWithText(context.getString(R.string.toast_dismiss), useUnmergedTree = true).performClick()
         composeRule.onNodeWithText(
             context.resources.getQuantityString(R.plurals.summary_dispersion_models, 3, 3),
             useUnmergedTree = true
         ).assertDoesNotExist()
+
     }
 
     @Test
@@ -556,7 +539,8 @@ class TodaySummaryCardTest {
         composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_TEMP_MIN_CENTRAL, useUnmergedTree = true)
             .assertTextEquals("12.0°")
             .assertIsDisplayed()
-        composeRule.onNodeWithText("18.0°", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithTag("today_summary_temp_min_rail", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithText("18.0°", substring = true, useUnmergedTree = true).assertExists()
     }
 
     @Test
@@ -580,7 +564,8 @@ class TodaySummaryCardTest {
         )
 
         // Même garantie lorsque le consensus coïncide avec la borne haute.
-        composeRule.onNodeWithText("20.0°", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithTag("today_summary_temp_max_rail", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithText("20.0°", substring = true, useUnmergedTree = true).assertExists()
         composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_TEMP_MAX_CENTRAL, useUnmergedTree = true)
             .assertTextEquals("26.0°")
             .assertIsDisplayed()
@@ -605,6 +590,30 @@ class TodaySummaryCardTest {
             .getUnclippedBoundsInRoot()
         assertTrue("Wind central value stays within the chart", windCenter.left >= panel.left)
         assertTrue("Gust central value stays within the chart", gustCenter.right <= panel.right)
+    }
+
+    @Test
+    fun wind_and_gust_use_two_aligned_compact_rails_without_overlapping_values() {
+        render(DayConfidence(
+            date = TestFixtures.today,
+            tempMax = null,
+            tempMin = null,
+            precipitation = null,
+            windMax = ConfidenceScore(72, 12.0, 18.0, 15.0, 2.5, 5),
+            windGustMax = ConfidenceScore(68, 28.0, 36.0, 32.0, 3.2, 5)
+        ))
+        val windRail = composeRule.onNodeWithTag("today_summary_wind_rail", useUnmergedTree = true)
+            .getUnclippedBoundsInRoot()
+        val gustRail = composeRule.onNodeWithTag("today_summary_gust_rail", useUnmergedTree = true)
+            .getUnclippedBoundsInRoot()
+        val windValue = composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_WIND_CENTRAL, useUnmergedTree = true)
+            .getUnclippedBoundsInRoot()
+        val gustValue = composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_GUST_CENTRAL, useUnmergedTree = true)
+            .getUnclippedBoundsInRoot()
+        assertTrue("Wind number is to the left of its band", windValue.right <= windRail.left)
+        assertTrue("Gust number is to the left of its band", gustValue.right <= gustRail.left)
+        assertTrue("Wind and gust bands align", kotlin.math.abs(windRail.left.value - gustRail.left.value) < 1f)
+        assertTrue("Wind and gust numbers are on separate rows", windValue.bottom <= gustValue.top)
     }
 
     @Test
@@ -648,8 +657,11 @@ class TodaySummaryCardTest {
         composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_PRECIP_PANEL, useUnmergedTree = true)
             .assertDoesNotExist()
 
-        composeRule.onNodeWithText("30 km/h", useUnmergedTree = true).assertIsDisplayed()
-        composeRule.onNodeWithText("34 km/h", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithTag("today_summary_wind_rail", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithText(
+            context.getString(R.string.metric_summary_range, "30 km/h – 34 km/h"),
+            useUnmergedTree = true
+        ).assertExists()
         composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_WIND_CENTRAL, useUnmergedTree = true)
             .assertTextEquals("32 km/h")
             .assertIsDisplayed()
