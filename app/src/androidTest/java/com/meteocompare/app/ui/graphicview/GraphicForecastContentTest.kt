@@ -127,6 +127,11 @@ class GraphicForecastContentTest {
             assertTrue("Rain unit must have visible width", unitBounds.width > 0f)
             assertTrue("Rain unit must stay below the icon and inside the header",
                 unitBounds.top >= header.top - 1f && unitBounds.bottom <= header.bottom + 1f)
+            val firstTick = composeRule.onNodeWithTag(
+                TAG_GRAPHIC_RAIN_AXIS_TOP_TICK, useUnmergedTree = true
+            ).fetchSemanticsNode().boundsInRoot
+            assertTrue("Rain intensity tick must be completely below the rain header ($system)",
+                firstTick.top >= header.bottom + 1f)
         }
     }
 

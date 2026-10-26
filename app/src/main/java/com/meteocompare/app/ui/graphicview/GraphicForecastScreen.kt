@@ -70,6 +70,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
@@ -128,12 +129,15 @@ private val GraphicAxisWidth = 76.dp
 private val RainAxisWidth = 50.dp
 private val WeatherConditionLaneHeight = 53.dp
 internal val TemperaturePlotHeight = 192.dp
-internal val RainPlotHeight = 128.dp
-internal val WindPlotHeight = 124.dp
-internal val PressurePlotHeight = 124.dp
+internal val RainPlotHeight = 160.dp
+internal val WindPlotHeight = 128.dp
+internal val PressurePlotHeight = 132.dp
 private val TimeAxisHeight = 70.dp
 private val VigilanceLaneHeight = 116.dp
 private val PlotTopPadding = 36.dp
+// The stacked rain icon and unit must not cover the top rain-intensity tick.
+// Keep the rain/humidity plotting area unchanged by increasing its lane height.
+internal val RainPlotTopPadding = 68.dp
 private val PlotBottomPadding = 18.dp
 private val HUMIDITY_DOMAIN = PlotDomain(0.0, 100.0, listOf(0.0, 25.0, 50.0, 75.0, 100.0))
 
@@ -148,6 +152,7 @@ internal const val TAG_GRAPHIC_HUMIDITY_PLOT = "graphic_humidity_plot"
 internal const val TAG_GRAPHIC_DEW_POINT_PLOT = "graphic_dew_point_plot"
 internal const val TAG_GRAPHIC_RAIN_AXIS_HEADER = "graphic_rain_axis_header"
 internal const val TAG_GRAPHIC_RAIN_AXIS_UNIT = "graphic_rain_axis_unit"
+internal const val TAG_GRAPHIC_RAIN_AXIS_TOP_TICK = "graphic_rain_axis_top_tick"
 internal const val TAG_GRAPHIC_PRESSURE_TOOLTIP = "graphic_pressure_tooltip"
 internal const val TAG_GRAPHIC_TEMPERATURE_TOOLTIP = "graphic_temperature_tooltip"
 internal const val TAG_GRAPHIC_TEMPERATURE_TOOLTIP_VALUE = "graphic_temperature_tooltip_value"
@@ -1061,7 +1066,8 @@ private fun GraphicAxisColumn(
                     height = RainPlotHeight,
                     decimals = 1,
                     axisWidth = RainAxisWidth,
-                    compactHeader = true
+                    compactHeader = true,
+                    topPadding = RainPlotTopPadding
                 )
             }
             HumidityPercentAxis()
@@ -1108,6 +1114,7 @@ private fun PlotAxis(
     decimals: Int,
     axisWidth: Dp = GraphicAxisWidth,
     compactHeader: Boolean = false,
+    topPadding: Dp = PlotTopPadding,
     units: WeatherUnits = LocalWeatherUnits.current
 ) {
     Box(
@@ -1173,7 +1180,7 @@ private fun PlotAxis(
             }
         }
         domain.ticks.forEach { tick ->
-            val y = valueToYDp(tick, domain, height)
+            val y = valueToYDp(tick, domain, height, topPadding)
             Text(
                 text = units.axisValue(tick, unit, (domain.max - domain.min) / (domain.ticks.size - 1), decimals),
                 style = MaterialTheme.typography.labelSmall,
@@ -1185,6 +1192,8 @@ private fun PlotAxis(
                     .offset(y = y - 8.dp)
                     .align(Alignment.TopEnd)
                     .width(axisWidth - 10.dp)
+                    .then(if (compactHeader && tick == domain.max)
+                        Modifier.testTag(TAG_GRAPHIC_RAIN_AXIS_TOP_TICK) else Modifier)
             )
         }
     }
@@ -1213,7 +1222,7 @@ private fun HumidityPercentAxis() {
                 softWrap = false,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.align(Alignment.TopCenter)
-                    .offset(y = valueToYDp(tick.toDouble(), HUMIDITY_DOMAIN, RainPlotHeight) - 8.dp)
+                    .offset(y = valueToYDp(tick.toDouble(), HUMIDITY_DOMAIN, RainPlotHeight, RainPlotTopPadding) - 8.dp)
             )
         }
     }
@@ -1483,13 +1492,13 @@ private fun RainPlot(
                 heatAlpha = GRAPHIC_RAIN_HEAT_ALPHA,
                 visibleRange = visibleRange
             )
-            drawTimelineGrid(renderData.hours, domain, grid, visibleRange)
-            val baseline = valueToYPx(0.0, domain, size.height)
+            drawTimelineGrid(renderData.hours, domain, grid, visibleRange, RainPlotTopPadding)
+            val baseline = valueToYPx(0.0, domain, size.height, RainPlotTopPadding)
             val columnWidth = size.width / points.size.coerceAtLeast(1)
             for (index in visibleRange) {
                 val amount = renderData.rainAmounts.getOrNull(index) ?: continue
                 val x = index * columnWidth + columnWidth * 0.20f
-                val y = valueToYPx(amount, domain, size.height)
+                val y = valueToYPx(amount, domain, size.height, RainPlotTopPadding)
                 val height = (baseline - y).coerceAtLeast(if (amount > 0.0) 2.dp.toPx() else 0f)
                 val agreementColor = agreement[index]
                 val color = if (showAgreement) {
@@ -1519,14 +1528,15 @@ private fun RainPlot(
                 color = humidityAccent,
                 strokeWidth = 2.3.dp.toPx(),
                 pointRadius = 1.6.dp.toPx(),
-                visibleRange = visibleRange
+                visibleRange = visibleRange,
+                topPadding = RainPlotTopPadding
             )
             drawSelectedRuler(points.size, selectedIndex, onSurface)
             renderData.humidities.getOrNull(selectedIndex)?.let { humidity ->
                 drawCircle(
                     color = humidityAccent,
                     radius = 4.dp.toPx(),
-                    center = Offset(pointCenterX(selectedIndex, points.size), valueToYPx(humidity, humidityDomain, size.height))
+                    center = Offset(pointCenterX(selectedIndex, points.size), valueToYPx(humidity, humidityDomain, size.height, RainPlotTopPadding))
                 )
             }
         }
@@ -2268,14 +2278,14 @@ private fun positiveDomain(values: List<Double>, minimumMax: Double): PlotDomain
 private fun linearTicks(min: Double, max: Double, count: Int): List<Double> =
     (0 until count).map { index -> min + (max - min) * index / (count - 1).coerceAtLeast(1) }
 
-private fun valueToYDp(value: Double, domain: PlotDomain, height: Dp): Dp {
-    val usable = height - PlotTopPadding - PlotBottomPadding
+private fun valueToYDp(value: Double, domain: PlotDomain, height: Dp, topPadding: Dp = PlotTopPadding): Dp {
+    val usable = height - topPadding - PlotBottomPadding
     val fraction = ((domain.max - value) / (domain.max - domain.min)).coerceIn(0.0, 1.0).toFloat()
-    return PlotTopPadding + usable * fraction
+    return topPadding + usable * fraction
 }
 
-private fun DrawScope.valueToYPx(value: Double, domain: PlotDomain, heightPx: Float): Float {
-    val top = PlotTopPadding.toPx()
+private fun DrawScope.valueToYPx(value: Double, domain: PlotDomain, heightPx: Float, topPadding: Dp = PlotTopPadding): Float {
+    val top = topPadding.toPx()
     val bottom = PlotBottomPadding.toPx()
     val usable = (heightPx - top - bottom).coerceAtLeast(1f)
     val fraction = ((domain.max - value) / (domain.max - domain.min)).coerceIn(0.0, 1.0).toFloat()
@@ -2325,11 +2335,12 @@ private fun DrawScope.drawTimelineGrid(
     hours: List<Int?>,
     domain: PlotDomain,
     color: Color,
-    visibleRange: IntRange = hours.indices
+    visibleRange: IntRange = hours.indices,
+    topPadding: Dp = PlotTopPadding
 ) {
     if (hours.isEmpty()) return
     domain.ticks.forEach { tick ->
-        val y = valueToYPx(tick, domain, size.height)
+        val y = valueToYPx(tick, domain, size.height, topPadding)
         drawLine(color, Offset(0f, y), Offset(size.width, y), strokeWidth = 1.dp.toPx())
     }
     val width = size.width / hours.size
@@ -2345,6 +2356,28 @@ private fun DrawScope.drawTimelineGrid(
     }
 }
 
+/**
+ * Shape-preserving cubic controls for evenly spaced hourly samples.
+ * The harmonic-mean tangents flatten at extrema and cannot create new peaks.
+ * Unlike Catmull-Rom smoothing, this never overshoots the adjacent forecasts.
+ */
+internal data class GraphicSmoothControls(val first: Double, val second: Double)
+
+internal fun graphicSmoothControls(
+    previous: Double?, start: Double, end: Double, next: Double?
+): GraphicSmoothControls {
+    val change = end - start
+    fun tangent(before: Double?, after: Double?): Double {
+        val incoming = before ?: return change
+        val outgoing = after ?: return change
+        if (incoming == 0.0 || outgoing == 0.0 || (incoming > 0.0) != (outgoing > 0.0)) return 0.0
+        return 2.0 * incoming * outgoing / (incoming + outgoing)
+    }
+    val left = tangent(previous?.let { start - it }, change)
+    val right = tangent(change, next?.let { it - end })
+    return GraphicSmoothControls(start + left / 3.0, end - right / 3.0)
+}
+
 private fun DrawScope.drawAgreementHalo(
     values: List<Double?>,
     domain: PlotDomain,
@@ -2356,20 +2389,31 @@ private fun DrawScope.drawAgreementHalo(
     if (!enabled || values.size < 2) return
     val start = visibleRange.first.coerceAtLeast(0)
     val endExclusive = minOf(visibleRange.last + 1, values.lastIndex)
+    val segment = Path()
+    val slotWidth = size.width / values.size
     for (index in start until endExclusive) {
         val a = values[index] ?: continue
         val b = values[index + 1] ?: continue
+        val controls = graphicSmoothControls(values.getOrNull(index - 1), a, b, values.getOrNull(index + 2))
+        val x = pointCenterX(index, values.size)
+        val nextX = x + slotWidth
+        segment.reset()
+        segment.moveTo(x, valueToYPx(a, domain, size.height))
+        segment.cubicTo(
+            x + slotWidth / 3f, valueToYPx(controls.first, domain, size.height),
+            nextX - slotWidth / 3f, valueToYPx(controls.second, domain, size.height),
+            nextX, valueToYPx(b, domain, size.height)
+        )
         val agreement = colors.getOrElse(index) { Color.Transparent }
-        drawLine(
+        drawPath(
+            path = segment,
             color = agreement.copy(alpha = (agreement.alpha * 0.34f).coerceIn(0f, 1f)),
-            start = Offset(pointCenterX(index, values.size), valueToYPx(a, domain, size.height)),
-            end = Offset(pointCenterX(index + 1, values.size), valueToYPx(b, domain, size.height)),
-            strokeWidth = strokeWidth,
-            cap = StrokeCap.Round
+            style = Stroke(width = strokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
         )
     }
 }
 
+/** Renders one continuous anti-aliased curve per uninterrupted run of hourly values. */
 private fun DrawScope.drawLineSeries(
     values: List<Double?>,
     domain: PlotDomain,
@@ -2377,21 +2421,43 @@ private fun DrawScope.drawLineSeries(
     strokeWidth: Float,
     pathEffect: PathEffect? = null,
     pointRadius: Float = 0f,
-    visibleRange: IntRange = values.indices
+    visibleRange: IntRange = values.indices,
+    topPadding: Dp = PlotTopPadding
 ) {
     if (values.isEmpty()) return
     val start = visibleRange.first.coerceAtLeast(0)
     val endExclusive = minOf(visibleRange.last + 1, values.lastIndex)
+    val path = Path()
+    val slotWidth = size.width / values.size
+    var segmentStarted = false
+    var hasSegments = false
     for (index in start until endExclusive) {
-        val a = values[index] ?: continue
-        val b = values[index + 1] ?: continue
-        drawLine(
+        val a = values[index]
+        val b = values[index + 1]
+        if (a == null || b == null) {
+            segmentStarted = false // Break across missing model values.
+            continue
+        }
+        val x = pointCenterX(index, values.size)
+        val nextX = x + slotWidth
+        if (!segmentStarted) {
+            path.moveTo(x, valueToYPx(a, domain, size.height, topPadding))
+            segmentStarted = true
+        }
+        val controls = graphicSmoothControls(values.getOrNull(index - 1), a, b, values.getOrNull(index + 2))
+        path.cubicTo(
+            x + slotWidth / 3f, valueToYPx(controls.first, domain, size.height, topPadding),
+            nextX - slotWidth / 3f, valueToYPx(controls.second, domain, size.height, topPadding),
+            nextX, valueToYPx(b, domain, size.height, topPadding)
+        )
+        hasSegments = true
+    }
+    if (hasSegments) {
+        drawPath(
+            path = path,
             color = color,
-            start = Offset(pointCenterX(index, values.size), valueToYPx(a, domain, size.height)),
-            end = Offset(pointCenterX(index + 1, values.size), valueToYPx(b, domain, size.height)),
-            strokeWidth = strokeWidth,
-            cap = StrokeCap.Round,
-            pathEffect = pathEffect
+            style = Stroke(width = strokeWidth, cap = StrokeCap.Round,
+                join = StrokeJoin.Round, pathEffect = pathEffect)
         )
     }
     if (pointRadius > 0f) {
@@ -2401,7 +2467,8 @@ private fun DrawScope.drawLineSeries(
             drawCircle(
                 color = color,
                 radius = pointRadius,
-                center = Offset(pointCenterX(index, values.size), valueToYPx(value, domain, size.height))
+                center = Offset(pointCenterX(index, values.size),
+                    valueToYPx(value, domain, size.height, topPadding))
             )
         }
     }

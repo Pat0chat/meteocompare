@@ -14,9 +14,42 @@ class GraphicForecastChartMathTest {
     @Test
     fun chart_plots_are_compact_but_keep_room_for_tooltips_and_axis_ticks() {
         assertTrue(TemperaturePlotHeight.value in 180f..200f)
-        assertTrue(RainPlotHeight.value in 120f..140f)
+        assertTrue(RainPlotHeight.value in 155f..165f)
+        assertEquals(74f, RainPlotHeight.value - RainPlotTopPadding.value - 18f, 0f)
         assertTrue(WindPlotHeight.value in 120f..140f)
         assertTrue(PressurePlotHeight.value in 120f..140f)
+    }
+
+    @Test
+    fun smooth_hourly_curve_passes_through_values_without_adding_peaks() {
+        val samples = listOf(9.0, 12.0, 28.0, 17.0, 17.0, 21.0, 13.0)
+        samples.zipWithNext().forEachIndexed { i, (start, end) ->
+            val controls = graphicSmoothControls(samples.getOrNull(i - 1), start,
+                end, samples.getOrNull(i + 2))
+            val lower = minOf(start, end)
+            val upper = maxOf(start, end)
+            assertTrue("First Bézier control must not overshoot the sampled range",
+                controls.first in lower..upper)
+            assertTrue("Second Bézier control must not overshoot the sampled range",
+                controls.second in lower..upper)
+            // Bézier endpoints are the original samples; only the path between
+            // them is smoothed, preserving measured values and hourly selection.
+        }
+        val peak = graphicSmoothControls(9.0, 12.0, 28.0, 17.0)
+        assertEquals(28.0, peak.second, 1e-9)
+        val plateau = graphicSmoothControls(17.0, 17.0, 17.0, 21.0)
+        assertEquals(17.0, plateau.first, 1e-9)
+        assertEquals(17.0, plateau.second, 1e-9)
+    }
+
+    @Test
+    fun smoothed_series_with_missing_neighbours_stays_linear_at_the_gap() {
+        val a = graphicSmoothControls(null, 13.0, 19.0, null)
+        assertEquals(15.0, a.first, 1e-9)
+        assertEquals(17.0, a.second, 1e-9)
+        val descending = graphicSmoothControls(null, 20.0, 11.0, null)
+        assertTrue(descending.first in 11.0..20.0)
+        assertTrue(descending.second in 11.0..20.0)
     }
 
     @Test
@@ -259,7 +292,8 @@ class GraphicForecastChartMathTest {
         assertTrue(domain.max > 27.0)
         // Humidity uses its own 0–100 % domain superimposed on rain, without
         // inflating the precipitation axis or creating a separate panel.
-        assertTrue(RainPlotHeight.value in 120f..140f)
+        assertTrue(RainPlotHeight.value in 155f..165f)
+        assertEquals(74f, RainPlotHeight.value - RainPlotTopPadding.value - 18f, 0f)
     }
 
 }
