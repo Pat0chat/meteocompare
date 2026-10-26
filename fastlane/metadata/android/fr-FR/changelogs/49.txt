@@ -1,0 +1,1 @@
+Humidité relative et point de rosée : affichage sur la Home et Today Summary, chronologies, Chart View et comparaison des villes. Icône d’humidité clarifiée (%), échelle pluie/humidité rendue lisible et vérifications de stabilité.

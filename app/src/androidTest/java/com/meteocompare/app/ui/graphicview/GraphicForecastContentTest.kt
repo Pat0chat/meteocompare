@@ -89,6 +89,48 @@ class GraphicForecastContentTest {
     }
 
     @Test
+    fun combined_rain_humidity_axis_keeps_precipitation_unit_inside_its_header() {
+        val selectedUnits = mutableStateOf(UnitSystem.METRIC)
+        val start = Instant.parse("2026-10-26T09:00:00Z")
+        val state = GraphicForecastUiState.Loaded(
+            city = City(id = "rain-axis", name = "Test", country = "Test",
+                latitude = 0.0, longitude = 0.0, timezone = "UTC", countryCode = "GB"),
+            points = List(3) { i -> SimplifiedTimelinePoint(
+                instant = start.plusSeconds(i * 3600L), temperatureC = 14.0,
+                precipitationMm = 1.2, humidityPercent = 87, modelCount = 3
+            ) },
+            solarByDate = emptyMap(), modelValuesByInstant = emptyMap(),
+            calculatedAt = start
+        )
+        composeRule.setContent {
+            CompositionLocalProvider(LocalWeatherUnits provides WeatherUnits(selectedUnits.value)) {
+                MeteoCompareTheme { GraphicForecastContent(state) }
+            }
+        }
+        for (system in listOf(UnitSystem.METRIC, UnitSystem.IMPERIAL)) {
+            composeRule.runOnIdle { selectedUnits.value = system }
+            composeRule.waitForIdle()
+            val header = composeRule.onNodeWithTag(
+                TAG_GRAPHIC_RAIN_AXIS_HEADER, useUnmergedTree = true
+            ).fetchSemanticsNode().boundsInRoot
+            val unit = composeRule.onNodeWithTag(
+                TAG_GRAPHIC_RAIN_AXIS_UNIT, useUnmergedTree = true
+            )
+            unit.assertTextEquals(
+                WeatherUnits(system).label(com.meteocompare.app.core.units.WeatherUnit.PRECIPITATION_RATE)
+            )
+            val unitBounds = unit.fetchSemanticsNode().boundsInRoot
+            // The rain symbol and its unit must fit in the narrow lane, not
+            // disappear underneath the adjacent 0–100 % humidity graduation.
+            assertTrue("Rain unit must stay inside the rain header ($system)",
+                unitBounds.left >= header.left - 1f && unitBounds.right <= header.right + 1f)
+            assertTrue("Rain unit must have visible width", unitBounds.width > 0f)
+            assertTrue("Rain unit must stay below the icon and inside the header",
+                unitBounds.top >= header.top - 1f && unitBounds.bottom <= header.bottom + 1f)
+        }
+    }
+
+    @Test
     fun hourly_axis_respects_explicit_clock_preference_independent_of_language() {
         val points = listOf(0L, 1L, 12L, 16L).map { hour ->
             SimplifiedTimelinePoint(instant = Instant.parse("2026-08-29T00:00:00Z").plusSeconds(hour * 3600L))

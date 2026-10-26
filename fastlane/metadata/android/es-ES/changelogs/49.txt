@@ -1,0 +1,1 @@
+Humedad relativa y punto de rocío en Inicio, resumen del día, cronologías, Chart View y comparación de ciudades. Icono de porcentaje más claro, ejes de lluvia/humedad corregidos y revisiones de estabilidad.

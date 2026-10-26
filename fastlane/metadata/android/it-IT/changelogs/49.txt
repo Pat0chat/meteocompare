@@ -1,0 +1,1 @@
+Umidità relativa e punto di rugiada nella Home, nel riepilogo giornaliero, nelle cronologie, in Chart View e nel confronto città. Icona percentuale più chiara, assi pioggia/umidità corretti e verifiche di stabilità.

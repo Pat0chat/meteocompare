@@ -123,9 +123,12 @@ import kotlin.math.max
 
 private val GraphicHourWidth = 40.dp
 private val GraphicAxisWidth = 76.dp
+// Rain and relative humidity share the plot, not the units. The narrow left axis
+// stacks its pictogram and unit to prevent clipping at 76 dp total width.
+private val RainAxisWidth = 50.dp
 private val WeatherConditionLaneHeight = 53.dp
 internal val TemperaturePlotHeight = 192.dp
-internal val RainPlotHeight = 124.dp
+internal val RainPlotHeight = 128.dp
 internal val WindPlotHeight = 124.dp
 internal val PressurePlotHeight = 124.dp
 private val TimeAxisHeight = 70.dp
@@ -143,6 +146,8 @@ internal const val TAG_GRAPHIC_WIND_PLOT = "graphic_wind_plot"
 internal const val TAG_GRAPHIC_PRESSURE_PLOT = "graphic_pressure_plot"
 internal const val TAG_GRAPHIC_HUMIDITY_PLOT = "graphic_humidity_plot"
 internal const val TAG_GRAPHIC_DEW_POINT_PLOT = "graphic_dew_point_plot"
+internal const val TAG_GRAPHIC_RAIN_AXIS_HEADER = "graphic_rain_axis_header"
+internal const val TAG_GRAPHIC_RAIN_AXIS_UNIT = "graphic_rain_axis_unit"
 internal const val TAG_GRAPHIC_PRESSURE_TOOLTIP = "graphic_pressure_tooltip"
 internal const val TAG_GRAPHIC_TEMPERATURE_TOOLTIP = "graphic_temperature_tooltip"
 internal const val TAG_GRAPHIC_TEMPERATURE_TOOLTIP_VALUE = "graphic_temperature_tooltip_value"
@@ -1046,7 +1051,7 @@ private fun GraphicAxisColumn(
         // Double graduation : pluie en mm/h (gauche), humidité en % (droite).
         // Les deux courbes partagent la surface mais PAS l'unité ni le domaine.
         Row(modifier = Modifier.fillMaxWidth().height(RainPlotHeight)) {
-            Box(modifier = Modifier.width(48.dp)) {
+            Box(modifier = Modifier.width(RainAxisWidth)) {
                 PlotAxis(
                     label = stringResource(R.string.graphic_view_rain),
                     icon = Icons.Outlined.WaterDrop,
@@ -1055,7 +1060,8 @@ private fun GraphicAxisColumn(
                     domain = rainDomain,
                     height = RainPlotHeight,
                     decimals = 1,
-                    axisWidth = 48.dp
+                    axisWidth = RainAxisWidth,
+                    compactHeader = true
                 )
             }
             HumidityPercentAxis()
@@ -1101,6 +1107,7 @@ private fun PlotAxis(
     height: Dp,
     decimals: Int,
     axisWidth: Dp = GraphicAxisWidth,
+    compactHeader: Boolean = false,
     units: WeatherUnits = LocalWeatherUnits.current
 ) {
     Box(
@@ -1113,29 +1120,56 @@ private fun PlotAxis(
         Surface(
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(top = 6.dp),
+                .padding(top = 6.dp)
+                .then(if (compactHeader) Modifier.width(axisWidth - 10.dp)
+                      .testTag(TAG_GRAPHIC_RAIN_AXIS_HEADER) else Modifier),
             shape = RoundedCornerShape(9.dp),
             color = iconTint.copy(alpha = 0.12f),
             contentColor = iconTint
         ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(3.dp)
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = label,
-                    modifier = Modifier.size(16.dp).testTag(TAG_GRAPHIC_AXIS_ICON),
-                    tint = iconTint
-                )
-                Text(
-                    text = units.label(unit),
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = iconTint,
-                    maxLines = 1
-                )
+            if (compactHeader) {
+                // A horizontal icon + unit cannot fit beside the humidity scale.
+                // Both items are centered in the available width (mm/h and in/h).
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = label,
+                        modifier = Modifier.size(15.dp).testTag(TAG_GRAPHIC_AXIS_ICON),
+                        tint = iconTint
+                    )
+                    Text(
+                        text = units.label(unit),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = iconTint,
+                        maxLines = 1,
+                        softWrap = false,
+                        modifier = Modifier.testTag(TAG_GRAPHIC_RAIN_AXIS_UNIT)
+                    )
+                }
+            } else {
+                Row(
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(3.dp)
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = label,
+                        modifier = Modifier.size(16.dp).testTag(TAG_GRAPHIC_AXIS_ICON),
+                        tint = iconTint
+                    )
+                    Text(
+                        text = units.label(unit),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = iconTint,
+                        maxLines = 1
+                    )
+                }
             }
         }
         domain.ticks.forEach { tick ->
@@ -1161,7 +1195,7 @@ private fun PlotAxis(
 private fun HumidityPercentAxis() {
     val accent = MaterialTheme.colorScheme.secondary
     Box(
-        modifier = Modifier.width(GraphicAxisWidth - 48.dp).height(RainPlotHeight)
+        modifier = Modifier.width(GraphicAxisWidth - RainAxisWidth).height(RainPlotHeight)
             .background(accent.copy(alpha = 0.045f))
     ) {
         Icon(

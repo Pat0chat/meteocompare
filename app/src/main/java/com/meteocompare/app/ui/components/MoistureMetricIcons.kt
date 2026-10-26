@@ -8,32 +8,36 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
 
-/** Hygrometer gauge with three vapour dots: never confused with the rain drop. */
+/**
+ * Relative humidity: a recognisable percent sign inside a round gauge.
+ * No drop shape: that pictogram is reserved for precipitation throughout the app.
+ * Vector strokes, not font glyphs, keep the symbol readable at 13–18 dp.
+ */
 val HumidityMetricIcon: ImageVector by lazy {
     ImageVector.Builder(
         name = "HumidityGauge", defaultWidth = 24.dp, defaultHeight = 24.dp,
         viewportWidth = 24f, viewportHeight = 24f
     ).apply {
-        path(fill = null, stroke = SolidColor(Color.Black), strokeLineWidth = 1.8f,
-            strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
-            moveTo(7.2f, 4.4f)
-            curveTo(9.9f, 2.7f, 14.4f, 2.9f, 17f, 4.8f)
-            moveTo(19.4f, 8f)
-            curveTo(21f, 11f, 20.5f, 15.5f, 18f, 18.2f)
-            curveTo(15.5f, 20.9f, 10f, 21.6f, 6.5f, 19f)
-            curveTo(3.4f, 16.7f, 2.5f, 11.6f, 4.3f, 8.2f)
-            moveTo(8f, 12f)
-            curveTo(9.9f, 10.5f, 14.1f, 10.5f, 16f, 12f)
-            moveTo(9.5f, 16f)
-            curveTo(11.2f, 16.8f, 13f, 16.8f, 14.5f, 16f)
-        }
-        path(fill = SolidColor(Color.Black)) {
-            moveTo(8f, 7f); curveTo(8f, 8.2f, 6.2f, 8.2f, 6.2f, 7f)
-            curveTo(6.2f, 5.8f, 8f, 5.8f, 8f, 7f)
-            moveTo(13f, 7f); curveTo(13f, 8.2f, 11.2f, 8.2f, 11.2f, 7f)
-            curveTo(11.2f, 5.8f, 13f, 5.8f, 13f, 7f)
-            moveTo(18f, 7f); curveTo(18f, 8.2f, 16.2f, 8.2f, 16.2f, 7f)
-            curveTo(16.2f, 5.8f, 18f, 5.8f, 18f, 7f)
+        path(
+            fill = null, stroke = SolidColor(Color.Black), strokeLineWidth = 1.75f,
+            strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round
+        ) {
+            // Circular gauge border, visually distinct from the rain icon.
+            moveTo(12f, 2.5f)
+            curveTo(6.75f, 2.5f, 2.5f, 6.75f, 2.5f, 12f)
+            curveTo(2.5f, 17.25f, 6.75f, 21.5f, 12f, 21.5f)
+            curveTo(17.25f, 21.5f, 21.5f, 17.25f, 21.5f, 12f)
+            curveTo(21.5f, 6.75f, 17.25f, 2.5f, 12f, 2.5f)
+            close()
+            // Percent sign: slash and the two circular counters.
+            moveTo(8.25f, 15.9f)
+            lineTo(15.75f, 8.1f)
+            moveTo(10.4f, 8.7f)
+            curveTo(10.4f, 10.9f, 7.1f, 10.9f, 7.1f, 8.7f)
+            curveTo(7.1f, 6.5f, 10.4f, 6.5f, 10.4f, 8.7f)
+            moveTo(16.9f, 15.3f)
+            curveTo(16.9f, 17.5f, 13.6f, 17.5f, 13.6f, 15.3f)
+            curveTo(13.6f, 13.1f, 16.9f, 13.1f, 16.9f, 15.3f)
         }
     }.build()
 }

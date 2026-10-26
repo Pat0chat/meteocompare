@@ -1,0 +1,1 @@
+Relative Luftfeuchtigkeit und Taupunkt auf Startseite, Tagesübersicht, Zeitachsen, in Chart View und im Städtevergleich. Klareres Prozent-Symbol, korrigierte Regen-/Feuchteskalen und Stabilitätsprüfungen.

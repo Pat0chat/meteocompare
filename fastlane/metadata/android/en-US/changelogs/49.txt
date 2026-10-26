@@ -1,0 +1,1 @@
+Relative humidity and dew point across Home, Today Summary, timelines, Chart View and city comparisons. Clearer percent-gauge icon, fixed rain/humidity axis labels, and stability checks.
