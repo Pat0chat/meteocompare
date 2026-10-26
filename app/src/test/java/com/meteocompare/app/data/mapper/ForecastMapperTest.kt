@@ -36,6 +36,23 @@ class ForecastMapperTest {
     }
 
     @Test
+    fun `humidity and dew point are aligned and physically sanitized`() {
+        val dto = ForecastResponseDto(
+            timezone = "UTC",
+            hourly = HourlyDto(
+                time = listOf("2026-07-23T12:00", "invalid", "2026-07-23T14:00"),
+                temperature2m = listOf(24.0, 25.0, 26.0),
+                relativeHumidity2m = listOf(67, 60, 110),
+                dewPoint2m = listOf(16.5, 17.0, Double.NaN)
+            )
+        )
+        val hourly = mapper.toSeries(WeatherModel.GFS, dto).hourly
+        assertEquals(2, hourly.timestamps.size)
+        assertEquals(listOf(67, null), hourly.relativeHumidity2m)
+        assertEquals(listOf(16.5, null), hourly.dewPoint2m)
+    }
+
+    @Test
     fun `maps hourly temperatures preserving order`() {
         val dto = ForecastResponseDto(
             latitude = 48.85,

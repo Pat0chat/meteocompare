@@ -41,6 +41,10 @@ class ForecastMapper @Inject constructor() {
                     .map(ForecastPhysicalLimits::temperature),
                 apparentTemperature = alignNonNullTimes(times, h.apparentTemperature)
                     .map(ForecastPhysicalLimits::temperature),
+                relativeHumidity2m = alignNonNullTimesInt(times, h.relativeHumidity2m)
+                    .map(ForecastPhysicalLimits::percentage),
+                dewPoint2m = alignNonNullTimes(times, h.dewPoint2m)
+                    .map(ForecastPhysicalLimits::dewPoint),
                 pressureMsl = alignNonNullTimes(times, h.pressureMsl)
                     .map(ForecastPhysicalLimits::pressure),
                 precipitation = alignNonNullTimes(times, h.precipitation)

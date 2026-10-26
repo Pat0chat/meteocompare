@@ -1067,4 +1067,6 @@
     <string name="widget_location_no_change_title">Aucune nouvelle position</string>
     <string name="widget_location_error_title">Localisation non actualisée</string>
     <string name="widget_location_privacy_note">Seule une zone approximative est enregistrée. Aucune localisation n’est effectuée en arrière-plan.</string>
+    <string name="metric_humidity">Humidité</string>
+    <string name="metric_dew_point">Point de rosée</string>
 </resources>

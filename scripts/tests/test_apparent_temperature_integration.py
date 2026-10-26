@@ -18,7 +18,7 @@ class ApparentTemperatureIntegrationTests(unittest.TestCase):
         api = source('data/remote/OpenMeteoApi.kt')
         # Pressure is requested in the same existing forecast batch since 1.19.2.
         # Do not assume precipitation follows the apparent-temperature field directly.
-        self.assertEqual(api.count('"temperature_2m,apparent_temperature,pressure_msl,precipitation'), 1)
+        self.assertEqual(api.count('"temperature_2m,apparent_temperature,relative_humidity_2m,dew_point_2m,pressure_msl,precipitation'), 1)
         self.assertIn('const val APPARENT_TEMPERATURE = "apparent_temperature"',
                       source('data/remote/BatchedForecastSplitter.kt'))
 

@@ -55,7 +55,11 @@ data class HourlyForecast(
     /** Estimated apparent temperature from Open-Meteo; absent for older caches/models. */
     val apparentTemperature: List<Double?> = emptyList(),
     /** Mean sea-level pressure (hPa). Empty for models or caches without this field. */
-    val pressureMsl: List<Double?> = emptyList()
+    val pressureMsl: List<Double?> = emptyList(),
+    /** Relative humidity at 2 m, 0–100 % (optional for cached/unsupported models). */
+    val relativeHumidity2m: List<Int?> = emptyList(),
+    /** Dew-point temperature in °C (optional for cached/unsupported models). */
+    val dewPoint2m: List<Double?> = emptyList()
 ) {
     val size: Int get() = timestamps.size
 }

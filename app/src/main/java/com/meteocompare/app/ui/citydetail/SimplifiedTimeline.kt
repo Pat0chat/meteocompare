@@ -744,6 +744,23 @@ private fun TimelinePointColumn(
         )
 
         TimelineMetric(
+            icon = Icons.Outlined.WaterDrop,
+            value = point.humidityPercent?.let { "$it %" } ?: "—",
+            tint = MaterialTheme.colorScheme.secondary
+        )
+        TimelineSupportingText(
+            text = stringResource(R.string.metric_humidity)
+        )
+        TimelineMetric(
+            icon = Icons.Outlined.Thermostat,
+            value = point.dewPointC?.let { units.temp(it) } ?: "—",
+            tint = MaterialTheme.colorScheme.tertiary
+        )
+        TimelineSupportingText(
+            text = stringResource(R.string.metric_dew_point)
+        )
+
+        TimelineMetric(
             icon = Icons.Outlined.Speed,
             value = point.pressureHpa?.let {
                 units.format(it, com.meteocompare.app.core.units.WeatherUnit.PRESSURE, if (units.imperial) 2 else 0)

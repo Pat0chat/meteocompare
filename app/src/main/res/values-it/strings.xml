@@ -1054,4 +1054,6 @@ dato</string>
     <string name="widget_location_no_change_title">Nessuna nuova posizione</string>
     <string name="widget_location_error_title">Posizione non aggiornata</string>
     <string name="widget_location_privacy_note">Viene salvata solo un’area approssimativa. Nessun tracciamento in background.</string>
+    <string name="metric_humidity">Umidità</string>
+    <string name="metric_dew_point">Punto di rugiada</string>
 </resources>

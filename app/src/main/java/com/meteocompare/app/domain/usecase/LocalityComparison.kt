@@ -3,6 +3,7 @@ package com.meteocompare.app.domain.usecase
 import com.meteocompare.app.core.util.resolveZoneOrUtc
 import com.meteocompare.app.core.util.meanWindDirection
 import com.meteocompare.app.domain.util.dailyAtmosphericMetrics
+import com.meteocompare.app.domain.util.dailyMoisture
 import com.meteocompare.app.domain.util.forecastDailyWindDirection
 import com.meteocompare.app.domain.model.UvForecast
 import com.meteocompare.app.domain.model.validUvIndexOrNull
@@ -38,7 +39,9 @@ data class LocalityDayMetrics(
     val windDirectionDeg: Int? = null,
     val apparentMinC: Double? = null,
     val apparentMaxC: Double? = null,
-    val pressureHpa: Double? = null
+    val pressureHpa: Double? = null,
+    val humidityPercent: Int? = null,
+    val dewPointC: Double? = null
 )
 
 /**
@@ -58,6 +61,9 @@ fun buildLocalityDayMetrics(
     val apparentMin = medianAvailable(atmospheric.mapNotNull { it.apparentMinC })
     val apparentMax = medianAvailable(atmospheric.mapNotNull { it.apparentMaxC })
     val pressure = medianAvailable(atmospheric.mapNotNull { it.meanPressureHpa })
+    val moisture = forecast.seriesByModel.values.map { it.dailyMoisture(date, zone) }
+    val humidity = medianAvailable(moisture.mapNotNull { it.humidityPercent })?.roundToInt()
+    val dewPoint = medianAvailable(moisture.mapNotNull { it.dewPointC })
     val precipitation = daily.precipitation
     val centralRain = when (precipitation) {
         null -> null
@@ -88,7 +94,9 @@ fun buildLocalityDayMetrics(
         windDirectionDeg = forecastDailyWindDirection(forecast, date),
         apparentMinC = apparentMin,
         apparentMaxC = apparentMax,
-        pressureHpa = pressure
+        pressureHpa = pressure,
+        humidityPercent = humidity,
+        dewPointC = dewPoint
     )
 }
 
@@ -206,7 +214,9 @@ data class LocalityHourMetrics(
     val modelCount: Int,
     val windDirectionDeg: Int? = null,
     val apparentTemperatureC: Double? = null,
-    val pressureHpa: Double? = null
+    val pressureHpa: Double? = null,
+    val humidityPercent: Int? = null,
+    val dewPointC: Double? = null
 )
 
 /** No implicit DST gap-shifting: e.g. 02:00 on a spring-forward day is missing. */
@@ -254,6 +264,12 @@ fun buildLocalityHourMetrics(
     val pressure = medianAvailable(samples.mapNotNull { (data, i) ->
         data.pressureMsl.getOrNull(i)?.takeIf(Double::isFinite)
     })
+    val humidity = medianAvailable(samples.mapNotNull { (data, i) ->
+        data.relativeHumidity2m.getOrNull(i)?.takeIf { it in 0..100 }?.toDouble()
+    })?.roundToInt()
+    val dewPoint = medianAvailable(samples.mapNotNull { (data, i) ->
+        data.dewPoint2m.getOrNull(i)?.takeIf(Double::isFinite)
+    })
     val rain = medianAvailable(samples.mapNotNull { (data, i) ->
         data.precipitation.getOrNull(i)?.takeIf { it.isFinite() && it >= 0.0 }
     })
@@ -293,6 +309,8 @@ fun buildLocalityHourMetrics(
         modelCount = samples.size,
         windDirectionDeg = windDirection,
         apparentTemperatureC = apparent,
-        pressureHpa = pressure
+        pressureHpa = pressure,
+        humidityPercent = humidity,
+        dewPointC = dewPoint
     )
 }

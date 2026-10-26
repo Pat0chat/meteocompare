@@ -1,6 +1,7 @@
 package com.meteocompare.app.ui.citydetail
 
 import com.meteocompare.app.domain.util.dailyAtmosphericMetrics
+import com.meteocompare.app.domain.util.dailyMoisture
 
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.UvForecast
@@ -86,6 +87,10 @@ internal data class SimplifiedTimelinePoint(
     val apparentTemperatureC: Double? = null,
     /** Sea-level atmospheric pressure (hPa), hourly or daily mean. */
     val pressureHpa: Double? = null,
+    /** Multi-model central relative humidity (%), hourly or daily mean. */
+    val humidityPercent: Int? = null,
+    /** Multi-model central dew point (°C), hourly or daily mean. */
+    val dewPointC: Double? = null,
     val tempMinC: Double? = null,
     val tempMaxC: Double? = null,
     /** Étendue de la température principale entre les modèles à cette échéance. */
@@ -273,6 +278,8 @@ private data class TimelineSnapshot(
     val temperature: Double?,
     val apparentTemperature: Double? = null,
     val pressure: Double? = null,
+    val humidity: Double? = null,
+    val dewPoint: Double? = null,
     val tempMin: Double?,
     val tempMax: Double?,
     val precipitation: Double?,
@@ -285,7 +292,8 @@ private data class TimelineSnapshot(
     val nativeCondition: WeatherCondition? = null
 ) {
     val hasAnyValue: Boolean
-        get() = temperature != null || apparentTemperature?.isFinite() == true || pressure?.isFinite() == true || tempMin != null || tempMax != null ||
+        get() = temperature != null || apparentTemperature?.isFinite() == true || pressure?.isFinite() == true ||
+            humidity?.isFinite() == true || dewPoint?.isFinite() == true || tempMin != null || tempMax != null ||
             precipitation != null || precipitationProbability != null || cloudCover != null ||
             wind != null || windGust != null ||
             (condition != null && condition != WeatherCondition.UNKNOWN)
@@ -303,6 +311,8 @@ private fun indexHourlySnapshots(
         val temperature = series.hourly.temperature2m.getOrNull(index)
         val apparentTemperature = series.hourly.apparentTemperature.getOrNull(index)
         val pressure = series.hourly.pressureMsl.getOrNull(index)
+        val humidity = series.hourly.relativeHumidity2m.getOrNull(index)?.toDouble()
+        val dewPoint = series.hourly.dewPoint2m.getOrNull(index)
         val precipitation = series.hourly.precipitation.getOrNull(index)
         val probability = series.hourly.precipitationProbability.getOrNull(index)
         val cloudCover = series.hourly.cloudCover.getOrNull(index)
@@ -317,6 +327,8 @@ private fun indexHourlySnapshots(
             temperature = temperature,
             apparentTemperature = apparentTemperature,
             pressure = pressure,
+            humidity = humidity,
+            dewPoint = dewPoint,
             tempMin = null,
             tempMax = null,
             precipitation = precipitation,
@@ -344,6 +356,7 @@ private fun indexDailySnapshots(
         val probability = series.daily.precipitationProbabilityMax.getOrNull(index)
         val cloudCover = series.dailyCloudCoverMean(date, zone)
         val pressure = series.dailyAtmosphericMetrics(date, zone).meanPressureHpa
+        val moisture = series.dailyMoisture(date, zone)
         val wind = series.daily.windSpeedMax.getOrNull(index)
         val windGust = series.daily.windGustsMax.getOrNull(index)
         val windDirection = series.daily.windDirection10mDominant.getOrNull(index)
@@ -360,6 +373,8 @@ private fun indexDailySnapshots(
             tempMin = min,
             tempMax = max,
             pressure = pressure,
+            humidity = moisture.humidityPercent,
+            dewPoint = moisture.dewPointC,
             precipitation = precipitation,
             precipitationProbability = probability,
             cloudCover = cloudCover,
@@ -432,6 +447,19 @@ private fun timelinePoint(
         { it.apparentTemperature }, ForecastEngineVariable.TEMPERATURE,
         0.5, 3.0, allowCalibration = false
     ) else null
+    // Independent family-balanced medians for moisture. They are informative
+    // forecasts, not extra inputs to the app's temperature/weather convergence.
+    // The same algorithm is used by the current-hour Today Summary tiles.
+    val humidity = ForecastConsensus.continuous(
+        meaningful.mapNotNull { snapshot ->
+            snapshot.humidity?.let { ForecastConsensus.Entry(snapshot.model, it) }
+        }, tightStdDev = 5.0, wideStdDev = 25.0
+    )
+    val dewPoint = ForecastConsensus.continuous(
+        meaningful.mapNotNull { snapshot ->
+            snapshot.dewPoint?.let { ForecastConsensus.Entry(snapshot.model, it) }
+        }, tightStdDev = 0.5, wideStdDev = 3.0
+    )
     val pressure = continuous(
         { it.pressure }, ForecastEngineVariable.TEMPERATURE,
         1.5, 8.0, allowCalibration = false, min = 800.0, max = 1100.0
@@ -592,6 +620,8 @@ private fun timelinePoint(
         temperatureC = if (hourly) temp.forecastValue.central else null,
         apparentTemperatureC = apparent?.forecastValue?.central,
         pressureHpa = pressure.forecastValue.central,
+        humidityPercent = humidity.central?.roundToInt()?.coerceIn(0, 100),
+        dewPointC = dewPoint.central,
         tempMinC = tempMin?.forecastValue?.central,
         tempMaxC = if (hourly) null else temp.forecastValue.central,
         temperatureMinAcrossModels = temperatures.minOrNull(),

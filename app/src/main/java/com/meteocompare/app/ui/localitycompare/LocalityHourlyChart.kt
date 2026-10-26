@@ -68,6 +68,8 @@ internal enum class CompareChartMetric(val labelRes: Int) {
     TEMPERATURE(R.string.compare_hour_temperature),
     APPARENT(R.string.metric_apparent_temperature),
     PRESSURE(R.string.metric_pressure_short),
+    HUMIDITY(R.string.metric_humidity),
+    DEW_POINT(R.string.metric_dew_point),
     RAIN(R.string.compare_hour_rain),
     RAIN_RISK(R.string.compare_rain_probability),
     CLOUDS(R.string.compare_hour_cloud_cover),
@@ -80,6 +82,8 @@ internal enum class CompareChartMetric(val labelRes: Int) {
         TEMPERATURE -> hour?.temperatureC
         APPARENT -> hour?.apparentTemperatureC
         PRESSURE -> hour?.pressureHpa
+        HUMIDITY -> hour?.humidityPercent?.toDouble()
+        DEW_POINT -> hour?.dewPointC
         RAIN -> hour?.precipitationMm
         RAIN_RISK -> hour?.rainProbabilityPercent?.toDouble()
         CLOUDS -> hour?.cloudCoverPercent?.toDouble()
@@ -92,13 +96,13 @@ internal enum class CompareChartMetric(val labelRes: Int) {
     fun displayValue(hour: LocalityHourMetrics?, units: WeatherUnits, locale: Locale): String {
         val value = rawValue(hour) ?: return "—"
         return when (this) {
-            TEMPERATURE, APPARENT -> units.temp(value, locale = locale)
+            TEMPERATURE, APPARENT, DEW_POINT -> units.temp(value, locale = locale)
             PRESSURE -> units.format(value, com.meteocompare.app.core.units.WeatherUnit.PRESSURE, if (units.imperial) 2 else 0, locale)
             RAIN -> units.rain(value, locale)
             WIND -> units.speed(value, locale = locale).let { speed ->
                 windCardinal(hour?.windDirectionDeg, locale)?.let { "$speed · $it" } ?: speed
             }
-            RAIN_RISK, CLOUDS, AGREEMENT -> "${value.roundToInt()} %"
+            RAIN_RISK, CLOUDS, HUMIDITY, AGREEMENT -> "${value.roundToInt()} %"
             SUNSHINE -> "${units.number(value, 1, locale)} h"
             UV -> units.number(value, 1, locale)
         }
@@ -107,7 +111,7 @@ internal enum class CompareChartMetric(val labelRes: Int) {
     /** Convert values before drawing so UK mph / °C and other profiles agree with labels. */
     fun plotValue(hour: LocalityHourMetrics?, units: WeatherUnits): Double? = rawValue(hour)?.let {
         when (this) {
-            TEMPERATURE, APPARENT -> units.temperature(it)
+            TEMPERATURE, APPARENT, DEW_POINT -> units.temperature(it)
             PRESSURE -> units.pressure(it)
             RAIN -> units.precipitation(it)
             WIND -> units.wind(it)
@@ -138,8 +142,8 @@ internal fun metricChartRange(points: List<List<Double?>>, metric: CompareChartM
     val data = chartRange(points)
     if (!data.hasData) return data
     return when (metric) {
-        CompareChartMetric.TEMPERATURE, CompareChartMetric.APPARENT, CompareChartMetric.PRESSURE -> data
-        CompareChartMetric.RAIN_RISK, CompareChartMetric.CLOUDS, CompareChartMetric.AGREEMENT ->
+        CompareChartMetric.TEMPERATURE, CompareChartMetric.APPARENT, CompareChartMetric.PRESSURE, CompareChartMetric.DEW_POINT -> data
+        CompareChartMetric.RAIN_RISK, CompareChartMetric.CLOUDS, CompareChartMetric.HUMIDITY, CompareChartMetric.AGREEMENT ->
             ChartRange(0.0, 100.0, true)
         CompareChartMetric.SUNSHINE -> ChartRange(0.0, 1.0, true)
         else -> {
@@ -151,11 +155,11 @@ internal fun metricChartRange(points: List<List<Double?>>, metric: CompareChartM
 }
 
 internal fun chartAxisUnit(metric: CompareChartMetric, units: WeatherUnits): String = when (metric) {
-    CompareChartMetric.TEMPERATURE, CompareChartMetric.APPARENT -> units.temperatureUnit
+    CompareChartMetric.TEMPERATURE, CompareChartMetric.APPARENT, CompareChartMetric.DEW_POINT -> units.temperatureUnit
     CompareChartMetric.PRESSURE -> units.label(com.meteocompare.app.core.units.WeatherUnit.PRESSURE)
     CompareChartMetric.RAIN -> units.precipitationUnit
     CompareChartMetric.WIND -> units.windUnit
-    CompareChartMetric.RAIN_RISK, CompareChartMetric.CLOUDS, CompareChartMetric.AGREEMENT -> "%"
+    CompareChartMetric.RAIN_RISK, CompareChartMetric.CLOUDS, CompareChartMetric.HUMIDITY, CompareChartMetric.AGREEMENT -> "%"
     CompareChartMetric.SUNSHINE -> "h"
     CompareChartMetric.UV -> "UV"
 }
@@ -166,7 +170,7 @@ internal fun chartAxisLabel(value: Double, step: Double, metric: CompareChartMet
     val digits = when (metric) {
         CompareChartMetric.RAIN -> if (units.imperial) 2 else if (step < 1) 1 else 0
         CompareChartMetric.SUNSHINE, CompareChartMetric.UV -> if (step < 1) 1 else 0
-        CompareChartMetric.TEMPERATURE, CompareChartMetric.APPARENT, CompareChartMetric.WIND -> if (step < 1) 1 else 0
+        CompareChartMetric.TEMPERATURE, CompareChartMetric.APPARENT, CompareChartMetric.DEW_POINT, CompareChartMetric.WIND -> if (step < 1) 1 else 0
         CompareChartMetric.PRESSURE -> if (units.imperial) 2 else if (step < 1) 1 else 0
         else -> 0
     }
@@ -210,7 +214,8 @@ internal fun LocalityHourlyChart(
     // The metric owns the accent; the city keeps a distinct variation within that family.
     val accent = when (metric) {
         CompareChartMetric.TEMPERATURE, CompareChartMetric.APPARENT -> temperatureMetricAccent()
-        CompareChartMetric.PRESSURE -> if (dark) Color(0xFF9DD6D4) else Color(0xFF27817F)
+        CompareChartMetric.PRESSURE, CompareChartMetric.HUMIDITY -> if (dark) Color(0xFF9DD6D4) else Color(0xFF27817F)
+        CompareChartMetric.DEW_POINT -> temperatureMetricAccent()
         CompareChartMetric.RAIN, CompareChartMetric.RAIN_RISK -> precipitationMetricAccent()
         CompareChartMetric.CLOUDS -> if (dark) Color(0xFFB2BFF5) else Color(0xFF596BAD)
         CompareChartMetric.WIND -> windMetricAccent()

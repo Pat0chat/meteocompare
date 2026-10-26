@@ -86,6 +86,27 @@ class BatchedForecastSplitterTest {
         assertNull(split.getValue(WeatherModel.ECMWF).hourly?.apparentTemperature)
     }
 
+    @Test
+    fun `humidity and dew point remain aligned and missing models are null`() {
+        val response = json.decodeFromString<BatchedForecastResponseDto>(
+            """{
+              "timezone": "UTC",
+              "hourly": {
+                "time": ["2026-10-25T00:00", "2026-10-25T01:00", "2026-10-25T02:00"],
+                "temperature_2m_ncep_gfs_seamless": [10, 11, 12],
+                "temperature_2m_ecmwf_ifs": [10, 12, 14],
+                "relative_humidity_2m_ncep_gfs_seamless": [72, null, 80.0],
+                "dew_point_2m_ncep_gfs_seamless": [5.5, null, 6.0]
+              }
+            }"""
+        )
+        val split = BatchedForecastSplitter.split(response, listOf(WeatherModel.GFS, WeatherModel.ECMWF))
+        assertEquals(listOf(72, null, 80), split.getValue(WeatherModel.GFS).hourly?.relativeHumidity2m)
+        assertEquals(listOf(5.5, null, 6.0), split.getValue(WeatherModel.GFS).hourly?.dewPoint2m)
+        assertNull(split.getValue(WeatherModel.ECMWF).hourly?.relativeHumidity2m)
+        assertNull(split.getValue(WeatherModel.ECMWF).hourly?.dewPoint2m)
+    }
+
     // ─────────────────────── Mode multi-modèles ───────────────────────
 
     @Test

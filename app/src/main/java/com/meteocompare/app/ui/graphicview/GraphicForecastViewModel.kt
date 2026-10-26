@@ -60,7 +60,9 @@ internal data class GraphicModelValue(
     val precipitationProbabilityPercent: Int?,
     val windKmh: Double?,
     val windGustKmh: Double?,
-    val windDirectionDeg: Int?
+    val windDirectionDeg: Int?,
+    val humidityPercent: Int? = null,
+    val dewPointC: Double? = null
 )
 
 internal sealed interface GraphicForecastUiState {
@@ -292,13 +294,16 @@ class GraphicForecastViewModel @Inject constructor(
                     orderedSeries.forEach modelLoop@ { (model, series) ->
                         val index = indexes[model]?.get(instant) ?: return@modelLoop
                         val temperature = series.hourly.temperature2m.getOrNull(index)
+                        val humidity = series.hourly.relativeHumidity2m.getOrNull(index)
+                        val dewPoint = series.hourly.dewPoint2m.getOrNull(index)
                         val precipitation = series.hourly.precipitation.getOrNull(index)
                         val probability = series.hourly.precipitationProbability.getOrNull(index)
                         val wind = series.hourly.windSpeed10m.getOrNull(index)
                         val gust = series.hourly.windGusts10m.getOrNull(index)
                         val direction = series.hourly.windDirection10m.getOrNull(index)
                         if (temperature == null && precipitation == null && probability == null &&
-                            wind == null && gust == null && direction == null
+                            wind == null && gust == null && direction == null &&
+                            humidity == null && dewPoint == null
                         ) return@modelLoop
                         add(
                             GraphicModelValue(
@@ -308,7 +313,9 @@ class GraphicForecastViewModel @Inject constructor(
                                 precipitationProbabilityPercent = probability,
                                 windKmh = wind,
                                 windGustKmh = gust,
-                                windDirectionDeg = direction
+                                windDirectionDeg = direction,
+                                humidityPercent = humidity,
+                                dewPointC = dewPoint
                             )
                         )
                     }

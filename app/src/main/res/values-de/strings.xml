@@ -1049,4 +1049,6 @@ Daten</string>
     <string name="widget_location_no_change_title">Kein neuer Standort</string>
     <string name="widget_location_error_title">Standort nicht aktualisiert</string>
     <string name="widget_location_privacy_note">Es wird nur ein ungefährer Bereich gespeichert. Keine Standortverfolgung im Hintergrund.</string>
+    <string name="metric_humidity">Feuchte</string>
+    <string name="metric_dew_point">Taupunkt</string>
 </resources>

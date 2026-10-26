@@ -1066,4 +1066,6 @@
     <string name="widget_location_no_change_title">No new location</string>
     <string name="widget_location_error_title">Location not updated</string>
     <string name="widget_location_privacy_note">Only an approximate area is saved. No background location tracking.</string>
+    <string name="metric_humidity">Humidity</string>
+    <string name="metric_dew_point">Dew point</string>
 </resources>

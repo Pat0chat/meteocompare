@@ -244,4 +244,19 @@ class GraphicForecastChartMathTest {
         assertTrue(domain.min > 800.0)
     }
 
+    @Test
+    fun moistureCurvesKeepMissingHoursAndDewPointSharesTheAirScale() {
+        val points = listOf(
+            SimplifiedTimelinePoint(temperatureC = 25.0, humidityPercent = 70, dewPointC = 8.0),
+            SimplifiedTimelinePoint(temperatureC = 26.0, humidityPercent = null, dewPointC = null),
+            SimplifiedTimelinePoint(temperatureC = 27.0, humidityPercent = 65, dewPointC = 10.0)
+        )
+        val data = buildGraphicRenderData(points, emptyMap(), ZoneId.of("UTC"))
+        assertEquals(listOf(70.0, null, 65.0), data.humidities)
+        assertEquals(listOf(8.0, null, 10.0), data.dewPoints)
+        val domain = dewPointDomain(points)
+        assertTrue(domain.min < 8.0)
+        assertTrue(domain.max > 27.0)
+    }
+
 }

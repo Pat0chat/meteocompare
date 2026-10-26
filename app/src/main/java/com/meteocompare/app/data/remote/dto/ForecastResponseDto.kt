@@ -31,6 +31,10 @@ data class HourlyDto(
     /** Derived thermal comfort index supplied by Open-Meteo, in °C. */
     @SerialName("apparent_temperature")
     val apparentTemperature: List<Double?>? = null,
+    @SerialName("relative_humidity_2m")
+    val relativeHumidity2m: List<Int?>? = null,
+    @SerialName("dew_point_2m")
+    val dewPoint2m: List<Double?>? = null,
     /** Mean sea-level atmospheric pressure, hPa (nullable for older caches). */
     @SerialName("pressure_msl")
     val pressureMsl: List<Double?>? = null,

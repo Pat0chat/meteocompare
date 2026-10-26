@@ -33,6 +33,9 @@ object ForecastPhysicalLimits {
 
     fun percentage(value: Int?): Int? = value?.takeIf { it in 0..100 }
 
+    /** Dew point cannot physically be warmer than air temperature; caller checks the pair. */
+    fun dewPoint(value: Double?): Double? = temperature(value)
+
     fun direction(value: Int?): Int? = value?.takeIf { it in 0..360 }
 
     /** Codes WMO effectivement utilisés par l'API Open-Meteo. */

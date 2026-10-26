@@ -1272,6 +1272,33 @@ internal fun DetailedComparisonContent(
                         )
                     }
                     HourlyTemperatureLegend()
+                    if (forecast.seriesByModel.values.any { series ->
+                            series.hourly.relativeHumidity2m.any { it != null } ||
+                                series.hourly.dewPoint2m.any { it?.isFinite() == true }
+                        }) {
+                        Text(
+                            text = stringResource(R.string.metric_humidity) + " / " +
+                                stringResource(R.string.metric_dew_point),
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 5.dp)
+                        )
+                        DetailTableCard {
+                            HourlyForecastTable(
+                                forecast = forecast,
+                                now = presentationNow,
+                                valueExtractor = { hourly, idx ->
+                                    hourly.relativeHumidity2m.getOrNull(idx)?.toDouble()
+                                },
+                                valueFormatter = { "${units.number(it)} %" },
+                                secondaryValueExtractor = { hourly, idx ->
+                                    hourly.dewPoint2m.getOrNull(idx)
+                                },
+                                secondaryValueFormatter = { units.temp(it) },
+                                modifier = Modifier.padding(8.dp)
+                            )
+                        }
+                    }
                     // Full definition remains available in detailed forecasts, not in Home cards.
                     if (forecast.seriesByModel.values.any { series ->
                             series.hourly.apparentTemperature.any { it?.isFinite() == true }
@@ -1640,6 +1667,34 @@ internal fun TodaySummaryCard(
     val baseDescription = A11yFormatter
         .todaySummaryDescription(resources, today, modelCount, units = units)
     val validApparent = currentApparentTemp?.takeIf(Double::isFinite)
+    val moistureHour = remember(forecast, now) {
+        val hour = computeHourlyHorizon(forecast?.city?.timezone, now).first
+        val series = forecast?.seriesByModel.orEmpty()
+        val humidity = series.mapNotNull { (model, values) ->
+            val index = values.hourly.timestamps.indexOf(hour)
+            values.hourly.relativeHumidity2m.getOrNull(index)?.let { ForecastConsensus.Entry(model, it.toDouble()) }
+        }
+        val dewPoint = series.mapNotNull { (model, values) ->
+            val index = values.hourly.timestamps.indexOf(hour)
+            values.hourly.dewPoint2m.getOrNull(index)?.let { ForecastConsensus.Entry(model, it) }
+        }
+        ForecastConsensus.continuous(humidity, tightStdDev = 5.0, wideStdDev = 25.0).central
+            ?.roundToInt()?.coerceIn(0, 100) to
+            ForecastConsensus.continuous(dewPoint, tightStdDev = 0.5, wideStdDev = 3.0).central
+    }
+    val moistureModelValues = remember(forecast, now) {
+        val hour = computeHourlyHorizon(forecast?.city?.timezone, now).first
+        val series = forecast?.seriesByModel.orEmpty()
+        val humidity = series.mapNotNull { (model, values) ->
+            val index = values.hourly.timestamps.indexOf(hour)
+            values.hourly.relativeHumidity2m.getOrNull(index)?.let { model.displayName to it }
+        }.sortedBy { it.first }
+        val dewPoint = series.mapNotNull { (model, values) ->
+            val index = values.hourly.timestamps.indexOf(hour)
+            values.hourly.dewPoint2m.getOrNull(index)?.let { model.displayName to it }
+        }.sortedBy { it.first }
+        humidity to dewPoint
+    }
     val temperatureDescription = if (currentTemp != null) {
         com.meteocompare.app.core.units.weatherString(resources, units, R.string.a11y_now_temp, currentTemp) + ". $baseDescription"
     } else baseDescription
@@ -1775,6 +1830,26 @@ internal fun TodaySummaryCard(
                         }
                     }
 
+                    if (moistureHour.first != null || moistureHour.second != null) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(top = 9.dp, bottom = 3.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            MoistureTodayValue(
+                                label = stringResource(R.string.metric_humidity),
+                                value = moistureHour.first?.let { "$it %" } ?: "—",
+                                modelValues = moistureModelValues.first.map { (model, humidity) -> model to "$humidity %" },
+                                modifier = Modifier.weight(1f).testTag("today_summary_humidity")
+                            )
+                            MoistureTodayValue(
+                                label = stringResource(R.string.metric_dew_point),
+                                value = moistureHour.second?.let { units.temp(it) } ?: "—",
+                                modelValues = moistureModelValues.second.map { (model, dewPoint) -> model to units.temp(dewPoint) },
+                                modifier = Modifier.weight(1f).testTag("today_summary_dew_point")
+                            )
+                        }
+                    }
+
                     if (solarWindow != null) {
                         Spacer(Modifier.height(8.dp))
                         DetailSolarCard(
@@ -1807,6 +1882,83 @@ internal fun TodaySummaryCard(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun MoistureTodayValue(
+    label: String,
+    value: String,
+    modelValues: List<Pair<String, String>>,
+    modifier: Modifier = Modifier
+) {
+    var detailsOpen by remember { mutableStateOf(false) }
+    Surface(
+        onClick = { detailsOpen = true },
+        enabled = modelValues.isNotEmpty(),
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.65f)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(label, style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1,
+                overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            Text(value, style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold, maxLines = 1)
+        }
+    }
+    if (detailsOpen) {
+        AlertDialog(
+            onDismissRequest = { detailsOpen = false },
+            title = { Text(label, style = MaterialTheme.typography.titleMedium) },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 380.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(7.dp)
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(stringResource(R.string.metric_summary_average),
+                                style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
+                            Text(value, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    modelValues.forEach { (model, modelValue) ->
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(model, style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.weight(1f))
+                                Text(modelValue, style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { detailsOpen = false }) {
+                    Text(stringResource(R.string.toast_dismiss))
+                }
+            }
+        )
     }
 }
 

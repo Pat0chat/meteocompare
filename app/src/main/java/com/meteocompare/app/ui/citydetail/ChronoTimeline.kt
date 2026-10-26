@@ -169,6 +169,8 @@ internal fun ChronoTimelineView(
                         ChronoRainLane(points = points)
                         ChronoCloudLane(points = points)
                         ChronoPressureLane(points = points)
+                        ChronoMoistureLane(points = points, humidity = true)
+                        ChronoMoistureLane(points = points, humidity = false)
                         ChronoWindLane(points = points)
                         ChronoAgreementLane(points = points)
                     }
@@ -284,6 +286,20 @@ private fun ChronoLabelsColumn(
                 title = stringResource(R.string.metric_pressure_short),
                 support = units.label(WeatherUnit.PRESSURE),
                 height = CHRONO_PRESSURE_HEIGHT,
+                tint = scheme.tertiary
+            )
+            ChronoRowLabel(
+                icon = Icons.Outlined.WaterDrop,
+                title = stringResource(R.string.metric_humidity),
+                support = "%",
+                height = CHRONO_MOISTURE_HEIGHT,
+                tint = scheme.secondary
+            )
+            ChronoRowLabel(
+                icon = Icons.Outlined.Thermostat,
+                title = stringResource(R.string.metric_dew_point),
+                support = units.temperatureUnit,
+                height = CHRONO_MOISTURE_HEIGHT,
                 tint = scheme.tertiary
             )
             ChronoRowLabel(
@@ -891,6 +907,34 @@ private fun ChronoPressureLane(
 }
 
 @Composable
+private fun ChronoMoistureLane(
+    points: List<SimplifiedTimelinePoint>,
+    humidity: Boolean,
+    units: WeatherUnits = LocalWeatherUnits.current
+) {
+    val tint = if (humidity) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.tertiary
+    Row(
+        modifier = Modifier.fillMaxWidth().height(CHRONO_MOISTURE_HEIGHT)
+            .background(tint.copy(alpha = 0.025f))
+            .testTag(if (humidity) "timeline_chrono_humidity_lane" else "timeline_chrono_dew_point_lane")
+    ) {
+        points.forEach { point ->
+            ChronoCell {
+                Text(
+                    text = if (humidity) point.humidityPercent?.let { "$it %" } ?: "—"
+                        else units.temp(point.dewPointC),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    modifier = Modifier.padding(horizontal = 3.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun ChronoWindLane(points: List<SimplifiedTimelinePoint>) {
     val accent = windMetricAccent()
     val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
@@ -1217,6 +1261,8 @@ private fun chronoRowHeights(): List<Dp> = listOf(
     CHRONO_RAIN_HEIGHT,
     CHRONO_CLOUD_HEIGHT,
     CHRONO_PRESSURE_HEIGHT,
+    CHRONO_MOISTURE_HEIGHT,
+    CHRONO_MOISTURE_HEIGHT,
     CHRONO_WIND_HEIGHT,
     CHRONO_AGREEMENT_HEIGHT
 )
@@ -1241,6 +1287,7 @@ private val CHRONO_CONDITIONS_HEIGHT = 65.dp
 private val CHRONO_RAIN_HEIGHT = 60.dp
 private val CHRONO_CLOUD_HEIGHT = 52.dp
 private val CHRONO_PRESSURE_HEIGHT = 52.dp
+private val CHRONO_MOISTURE_HEIGHT = 49.dp
 private val CHRONO_WIND_HEIGHT = 62.dp
 private val CHRONO_AGREEMENT_HEIGHT = 70.dp
 private val CHRONO_AGREEMENT_REASONS_HEIGHT = 18.dp
