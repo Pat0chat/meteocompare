@@ -6,6 +6,8 @@ import com.meteocompare.app.core.locale.LocalClockFormatPreference
 import com.meteocompare.app.core.locale.WeatherTimeFormat
 
 import com.meteocompare.app.ui.components.UvIndexCompact
+import com.meteocompare.app.ui.components.HumidityMetricIcon
+import com.meteocompare.app.ui.components.DewPointMetricIcon
 
 import com.meteocompare.app.core.charts.metricPlotValue
 import com.meteocompare.app.core.charts.canonicalChartRange
@@ -289,14 +291,14 @@ private fun ChronoLabelsColumn(
                 tint = scheme.tertiary
             )
             ChronoRowLabel(
-                icon = Icons.Outlined.WaterDrop,
+                icon = HumidityMetricIcon,
                 title = stringResource(R.string.metric_humidity),
                 support = "%",
                 height = CHRONO_MOISTURE_HEIGHT,
                 tint = scheme.secondary
             )
             ChronoRowLabel(
-                icon = Icons.Outlined.Thermostat,
+                icon = DewPointMetricIcon,
                 title = stringResource(R.string.metric_dew_point),
                 support = units.temperatureUnit,
                 height = CHRONO_MOISTURE_HEIGHT,

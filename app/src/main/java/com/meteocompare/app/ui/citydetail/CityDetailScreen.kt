@@ -136,6 +136,8 @@ import com.meteocompare.app.domain.usecase.DayConditionsRow
 import com.meteocompare.app.domain.usecase.ForecastConsensus
 import com.meteocompare.app.ui.accessibility.A11yFormatter
 import com.meteocompare.app.ui.components.AnimatedWeatherIcon
+import com.meteocompare.app.ui.components.HumidityMetricIcon
+import com.meteocompare.app.ui.components.DewPointMetricIcon
 import com.meteocompare.app.ui.components.AppToastEffect
 import com.meteocompare.app.ui.components.AppToastEvent
 import com.meteocompare.app.ui.components.CollapsibleSectionHeader
@@ -1276,13 +1278,30 @@ internal fun DetailedComparisonContent(
                             series.hourly.relativeHumidity2m.any { it != null } ||
                                 series.hourly.dewPoint2m.any { it?.isFinite() == true }
                         }) {
-                        Text(
-                            text = stringResource(R.string.metric_humidity) + " / " +
-                                stringResource(R.string.metric_dew_point),
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 5.dp)
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(
+                                start = 14.dp, end = 14.dp, top = 12.dp, bottom = 5.dp
+                            ),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
+                            Icon(HumidityMetricIcon, contentDescription = null,
+                                tint = MaterialTheme.colorScheme.secondary,
+                                modifier = Modifier.size(17.dp))
+                            Text(stringResource(R.string.metric_humidity),
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Icon(DewPointMetricIcon, contentDescription = null,
+                                tint = MaterialTheme.colorScheme.tertiary,
+                                modifier = Modifier.size(17.dp))
+                            Text(stringResource(R.string.metric_dew_point),
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
                         DetailTableCard {
                             HourlyForecastTable(
                                 forecast = forecast,
@@ -1837,12 +1856,16 @@ internal fun TodaySummaryCard(
                         ) {
                             MoistureTodayValue(
                                 label = stringResource(R.string.metric_humidity),
+                                icon = HumidityMetricIcon,
+                                accent = MaterialTheme.colorScheme.secondary,
                                 value = moistureHour.first?.let { "$it %" } ?: "—",
                                 modelValues = moistureModelValues.first.map { (model, humidity) -> model to "$humidity %" },
                                 modifier = Modifier.weight(1f).testTag("today_summary_humidity")
                             )
                             MoistureTodayValue(
                                 label = stringResource(R.string.metric_dew_point),
+                                icon = DewPointMetricIcon,
+                                accent = MaterialTheme.colorScheme.tertiary,
                                 value = moistureHour.second?.let { units.temp(it) } ?: "—",
                                 modelValues = moistureModelValues.second.map { (model, dewPoint) -> model to units.temp(dewPoint) },
                                 modifier = Modifier.weight(1f).testTag("today_summary_dew_point")
@@ -1888,6 +1911,8 @@ internal fun TodaySummaryCard(
 @Composable
 private fun MoistureTodayValue(
     label: String,
+    icon: ImageVector,
+    accent: Color,
     value: String,
     modelValues: List<Pair<String, String>>,
     modifier: Modifier = Modifier
@@ -1901,15 +1926,23 @@ private fun MoistureTodayValue(
         color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.65f)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(7.dp),
+            modifier = Modifier.padding(horizontal = 9.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(label, style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1,
-                overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-            Text(value, style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold, maxLines = 1)
+            Surface(color = accent.copy(alpha = 0.13f), shape = RoundedCornerShape(9.dp)) {
+                Icon(
+                    imageVector = icon, contentDescription = null, tint = accent,
+                    modifier = Modifier.padding(7.dp).size(19.dp)
+                )
+            }
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(label, style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1,
+                    overflow = TextOverflow.Ellipsis)
+                Text(value, style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold, maxLines = 1)
+            }
         }
     }
     if (detailsOpen) {

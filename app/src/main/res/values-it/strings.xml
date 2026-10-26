@@ -1056,4 +1056,5 @@ dato</string>
     <string name="widget_location_privacy_note">Viene salvata solo un’area approssimativa. Nessun tracciamento in background.</string>
     <string name="metric_humidity">Umidità</string>
     <string name="metric_dew_point">Punto di rugiada</string>
+    <string name="metric_dew_point_short">Rugiada</string>
 </resources>

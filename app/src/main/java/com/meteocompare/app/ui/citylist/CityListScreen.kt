@@ -139,6 +139,7 @@ import com.meteocompare.app.domain.model.WeatherScenarioKind
 import com.meteocompare.app.domain.model.WeatherScenarioTiming
 import com.meteocompare.app.ui.accessibility.A11yFormatter
 import com.meteocompare.app.ui.components.AnimatedWeatherIcon
+import com.meteocompare.app.ui.components.DewPointMetricIcon
 import com.meteocompare.app.ui.components.AppToastEffect
 import com.meteocompare.app.ui.components.AppToastEvent
 import com.meteocompare.app.ui.components.OpenMeteoAttribution
@@ -876,6 +877,7 @@ internal fun CityCard(
                                         today = forecast.today,
                                         currentTemp = forecast.currentTemp,
                                         apparentTemp = forecast.apparentTemp,
+                                        dewPointC = forecast.currentDewPointC,
                                         currentCondition = forecast.currentCondition,
                                         currentCloudCover = forecast.currentCloudCover,
                                         uvIndex = uv,
@@ -1304,6 +1306,7 @@ private fun CityCardLoaded(
     today: DayConfidence,
     currentTemp: Double?,
     apparentTemp: Double?,
+    dewPointC: Double?,
     currentCondition: WeatherCondition?,
     currentCloudCover: Int?,
     uvIndex: Double?,
@@ -1358,7 +1361,7 @@ private fun CityCardLoaded(
             UvIndexGauge(uvIndex, modifier = Modifier.fillMaxWidth())
             Spacer(Modifier.height(7.dp))
         }
-        TodayMetricGrid(today = today, windDirectionDeg = windDirectionDeg)
+        TodayMetricGrid(today = today, windDirectionDeg = windDirectionDeg, dewPointC = dewPointC)
 
         vigilance?.takeIf { it.activeAlerts.isNotEmpty() }?.let { alertForecast ->
             Spacer(Modifier.height(4.dp))
@@ -1598,7 +1601,8 @@ private fun HomeAgreementBadge(percent: Int) {
 private fun TodayMetricGrid(
     today: DayConfidence,
     units: WeatherUnits = LocalWeatherUnits.current,
-    windDirectionDeg: Int? = null
+    windDirectionDeg: Int? = null,
+    dewPointC: Double? = null
 ) {
     val temperature = temperatureMetricPresentation(today.tempMax, units = units)
     val precipitation = precipitationMetricPresentation(today.precipitation)
@@ -1628,6 +1632,8 @@ private fun TodayMetricGrid(
                 icon = Icons.Outlined.Thermostat,
                 value = temperature.value,
                 unit = temperature.unit,
+                supporting = dewPointC?.let { stringResource(R.string.metric_dew_point_short) + " " + units.temp(it) },
+                supportingIcon = if (dewPointC != null) DewPointMetricIcon else null,
                 modifier = Modifier
                     .weight(1f)
                     .padding(horizontal = 5.dp),

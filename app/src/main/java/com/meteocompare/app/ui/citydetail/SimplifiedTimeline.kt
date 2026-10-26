@@ -6,6 +6,8 @@ import com.meteocompare.app.core.locale.LocalClockFormatPreference
 import com.meteocompare.app.core.locale.WeatherTimeFormat
 
 import com.meteocompare.app.ui.components.UvIndexCompact
+import com.meteocompare.app.ui.components.HumidityMetricIcon
+import com.meteocompare.app.ui.components.DewPointMetricIcon
 
 import com.meteocompare.app.core.units.WeatherUnit
 import com.meteocompare.app.core.units.WeatherUnits
@@ -744,20 +746,16 @@ private fun TimelinePointColumn(
         )
 
         TimelineMetric(
-            icon = Icons.Outlined.WaterDrop,
-            value = point.humidityPercent?.let { "$it %" } ?: "—",
-            tint = MaterialTheme.colorScheme.secondary
-        )
-        TimelineSupportingText(
-            text = stringResource(R.string.metric_humidity)
+            icon = HumidityMetricIcon,
+            value = point.humidityPercent?.let { "$it%" } ?: "—",
+            tint = MaterialTheme.colorScheme.secondary,
+            semanticLabel = stringResource(R.string.metric_humidity)
         )
         TimelineMetric(
-            icon = Icons.Outlined.Thermostat,
+            icon = DewPointMetricIcon,
             value = point.dewPointC?.let { units.temp(it) } ?: "—",
-            tint = MaterialTheme.colorScheme.tertiary
-        )
-        TimelineSupportingText(
-            text = stringResource(R.string.metric_dew_point)
+            tint = MaterialTheme.colorScheme.tertiary,
+            semanticLabel = stringResource(R.string.metric_dew_point)
         )
 
         TimelineMetric(
@@ -1104,10 +1102,15 @@ private fun orderedDivergenceReasons(
 private fun TimelineMetric(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     value: String,
-    tint: Color
+    tint: Color,
+    semanticLabel: String? = null
 ) {
     Row(
-        modifier = Modifier.height(20.dp),
+        modifier = Modifier.height(20.dp).then(
+            if (semanticLabel != null) Modifier.semantics(mergeDescendants = true) {
+                contentDescription = "$semanticLabel $value"
+            } else Modifier
+        ),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(

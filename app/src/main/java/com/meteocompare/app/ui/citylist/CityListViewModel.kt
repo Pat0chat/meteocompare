@@ -26,6 +26,7 @@ import com.meteocompare.app.domain.repository.UserPreferencesRepository
 import com.meteocompare.app.domain.repository.VigilanceRepository
 import com.meteocompare.app.domain.repository.UvIndexRepository
 import com.meteocompare.app.domain.usecase.ConfidenceCalculator
+import com.meteocompare.app.domain.usecase.ForecastConsensus
 import com.meteocompare.app.domain.usecase.ForecastEngineContextProvider
 import com.meteocompare.app.domain.util.ForecastAggregates
 import com.meteocompare.app.domain.util.WeatherScenarioBuilder
@@ -1269,6 +1270,15 @@ class CityListViewModel @Inject constructor(
                     today = confidenceCalculator.dayConfidence(result.data, today, engineContext),
                     currentTemp = confidenceCalculator.currentTemperature(result.data, now, engineContext),
                     apparentTemp = confidenceCalculator.currentApparentTemperature(result.data, now, engineContext),
+                    currentDewPointC = ForecastConsensus.continuous(
+                        result.data.seriesByModel.mapNotNull { (model, series) ->
+                            val hour = miniForecast.startInstant
+                            val index = series.hourly.timestamps.indexOf(hour)
+                            series.hourly.dewPoint2m.getOrNull(index)?.takeIf(Double::isFinite)?.let {
+                                ForecastConsensus.Entry(model, it)
+                            }
+                        }, tightStdDev = 0.5, wideStdDev = 3.0
+                    ).central,
                     currentCondition = confidenceCalculator.currentWeatherCondition(result.data, now, engineContext),
                     currentCloudCover = confidenceCalculator.currentCloudCover(result.data, now, engineContext),
                     fetchedAt = result.data.fetchedAt,

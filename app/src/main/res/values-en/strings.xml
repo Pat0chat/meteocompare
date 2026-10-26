@@ -1068,4 +1068,5 @@
     <string name="widget_location_privacy_note">Only an approximate area is saved. No background location tracking.</string>
     <string name="metric_humidity">Humidity</string>
     <string name="metric_dew_point">Dew point</string>
+    <string name="metric_dew_point_short">Dew</string>
 </resources>

@@ -245,7 +245,7 @@ class GraphicForecastChartMathTest {
     }
 
     @Test
-    fun moistureCurvesKeepMissingHoursAndDewPointSharesTheAirScale() {
+    fun moistureCurvesKeepMissingHoursAndShareTheExistingAxes() {
         val points = listOf(
             SimplifiedTimelinePoint(temperatureC = 25.0, humidityPercent = 70, dewPointC = 8.0),
             SimplifiedTimelinePoint(temperatureC = 26.0, humidityPercent = null, dewPointC = null),
@@ -254,9 +254,12 @@ class GraphicForecastChartMathTest {
         val data = buildGraphicRenderData(points, emptyMap(), ZoneId.of("UTC"))
         assertEquals(listOf(70.0, null, 65.0), data.humidities)
         assertEquals(listOf(8.0, null, 10.0), data.dewPoints)
-        val domain = dewPointDomain(points)
+        val domain = temperatureDomain(points)
         assertTrue(domain.min < 8.0)
         assertTrue(domain.max > 27.0)
+        // Humidity uses its own 0–100 % domain superimposed on rain, without
+        // inflating the precipitation axis or creating a separate panel.
+        assertTrue(RainPlotHeight.value in 120f..140f)
     }
 
 }

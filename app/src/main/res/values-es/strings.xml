@@ -1056,4 +1056,5 @@ datos</string>
     <string name="widget_location_privacy_note">Solo se guarda una zona aproximada. No se rastrea la ubicación en segundo plano.</string>
     <string name="metric_humidity">Humedad</string>
     <string name="metric_dew_point">Punto de rocío</string>
+    <string name="metric_dew_point_short">Rocío</string>
 </resources>

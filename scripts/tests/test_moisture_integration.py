@@ -46,8 +46,11 @@ class MoistureIntegrationTests(unittest.TestCase):
         columns = code('ui/citydetail/SimplifiedTimeline.kt')
         for k in ['today_summary_humidity', 'today_summary_dew_point']:
             self.assertIn(k, summary)
-        for k in ['GraphicMoisturePlot', 'TAG_GRAPHIC_HUMIDITY_PLOT', 'TAG_GRAPHIC_DEW_POINT_PLOT']:
+        for k in ['TAG_GRAPHIC_HUMIDITY_PLOT', 'TAG_GRAPHIC_DEW_POINT_PLOT']:
             self.assertIn(k, chart)
+        self.assertNotIn('GraphicMoisturePlot(', chart)
+        self.assertNotIn('HumidityPlotHeight', chart)
+        self.assertNotIn('DewPointPlotHeight', chart)
         self.assertIn('val dewPointC: Double?', model)
         self.assertIn('val humidityPercent: Int?', model)
         self.assertEqual(chrono.count('ChronoMoistureLane(points = points'), 2)

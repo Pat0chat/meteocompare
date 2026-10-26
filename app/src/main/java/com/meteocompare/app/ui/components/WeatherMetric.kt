@@ -47,6 +47,7 @@ fun WeatherMetric(
     modifier: Modifier = Modifier,
     unit: String? = null,
     supporting: String? = null,
+    supportingIcon: ImageVector? = null,
     confidence: Int? = null,
     layout: WeatherMetricLayout = WeatherMetricLayout.Editorial
 ) {
@@ -57,6 +58,7 @@ fun WeatherMetric(
             value = value,
             unit = unit,
             supporting = supporting,
+            supportingIcon = supportingIcon,
             accent = accent,
             modifier = modifier
         )
@@ -81,6 +83,7 @@ private fun CompactWeatherMetric(
     value: String,
     unit: String?,
     supporting: String?,
+    supportingIcon: ImageVector?,
     accent: Color,
     modifier: Modifier
 ) {
@@ -109,16 +112,25 @@ private fun CompactWeatherMetric(
         Spacer(Modifier.height(2.dp))
 
         if (!supporting.isNullOrBlank()) {
-            Text(
-                text = supporting,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.84f),
-                fontWeight = FontWeight.Normal,
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.fillMaxWidth()
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterHorizontally),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (supportingIcon != null) {
+                    Icon(supportingIcon, contentDescription = null,
+                        tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(12.dp))
+                }
+                Text(
+                    text = supporting,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.84f),
+                    fontWeight = FontWeight.Normal,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
     }
 }

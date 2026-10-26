@@ -77,6 +77,30 @@ class CityCardTest {
     }
 
     @Test
+    fun expanded_home_shows_dew_point_directly_below_max_temperature() {
+        render(
+            ForecastState.Loaded(
+                today = DayConfidence(
+                    date = TestFixtures.today,
+                    tempMax = ConfidenceScore(85, 21.0, 24.0, 22.5, 0.8, 5),
+                    tempMin = null,
+                    precipitation = null,
+                    windMax = null
+                ),
+                currentTemp = 22.0,
+                currentDewPointC = 12.0
+            )
+        )
+        // The compact label is localized, and the dew-point value is a
+        // supporting value INSIDE the maximum-temperature cell.
+        composeRule.onNodeWithText(
+            context.getString(R.string.metric_dew_point_short),
+            substring = true, useUnmergedTree = true
+        ).assertIsDisplayed()
+        composeRule.onNodeWithText("21–24", useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test
     fun loaded_card_displays_gusts_with_wind_information() {
         render(
             ForecastState.Loaded(

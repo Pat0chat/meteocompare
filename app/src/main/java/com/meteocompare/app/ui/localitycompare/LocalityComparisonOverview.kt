@@ -49,6 +49,8 @@ import com.meteocompare.app.core.util.windCardinal
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.usecase.LocalityDayMetrics
 import com.meteocompare.app.ui.components.uvIntensityColor
+import com.meteocompare.app.ui.components.HumidityMetricIcon
+import com.meteocompare.app.ui.components.DewPointMetricIcon
 import com.meteocompare.app.ui.theme.confidenceColor
 import java.util.Locale
 
@@ -65,8 +67,8 @@ private val overviewMetrics = listOf(
     OverviewMetric(CompareChartMetric.TEMPERATURE, R.string.compare_temperature, Icons.Default.Thermostat),
     OverviewMetric(CompareChartMetric.APPARENT, R.string.metric_apparent_temperature, Icons.Default.Thermostat),
     OverviewMetric(CompareChartMetric.PRESSURE, R.string.metric_pressure_short, Icons.Default.Speed),
-    OverviewMetric(CompareChartMetric.HUMIDITY, R.string.metric_humidity, Icons.Default.WaterDrop),
-    OverviewMetric(CompareChartMetric.DEW_POINT, R.string.metric_dew_point, Icons.Default.Thermostat),
+    OverviewMetric(CompareChartMetric.HUMIDITY, R.string.metric_humidity, HumidityMetricIcon),
+    OverviewMetric(CompareChartMetric.DEW_POINT, R.string.metric_dew_point, DewPointMetricIcon),
     OverviewMetric(CompareChartMetric.RAIN, R.string.compare_rain, Icons.Default.WaterDrop),
     OverviewMetric(CompareChartMetric.RAIN_RISK, R.string.compare_rain_probability, Icons.Default.Opacity),
     OverviewMetric(CompareChartMetric.CLOUDS, R.string.compare_cloud_cover, Icons.Default.Cloud),

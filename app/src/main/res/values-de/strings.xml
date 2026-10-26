@@ -1051,4 +1051,5 @@ Daten</string>
     <string name="widget_location_privacy_note">Es wird nur ein ungefährer Bereich gespeichert. Keine Standortverfolgung im Hintergrund.</string>
     <string name="metric_humidity">Feuchte</string>
     <string name="metric_dew_point">Taupunkt</string>
+    <string name="metric_dew_point_short">Taupunkt</string>
 </resources>

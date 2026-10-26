@@ -101,6 +101,8 @@ import com.meteocompare.app.ui.citydetail.ForecastMetric
 import com.meteocompare.app.ui.citydetail.SimplifiedTimelinePoint
 import com.meteocompare.app.ui.citydetail.resolveCityZone
 import com.meteocompare.app.ui.components.OpenMeteoAttribution
+import com.meteocompare.app.ui.components.HumidityMetricIcon
+import com.meteocompare.app.ui.components.DewPointMetricIcon
 import com.meteocompare.app.ui.components.StaticWeatherIconStrip
 import com.meteocompare.app.ui.components.windArrowRotation
 import com.meteocompare.app.ui.components.WeatherIconDecorative
@@ -126,12 +128,11 @@ internal val TemperaturePlotHeight = 192.dp
 internal val RainPlotHeight = 124.dp
 internal val WindPlotHeight = 124.dp
 internal val PressurePlotHeight = 124.dp
-internal val HumidityPlotHeight = 124.dp
-internal val DewPointPlotHeight = 124.dp
 private val TimeAxisHeight = 70.dp
 private val VigilanceLaneHeight = 116.dp
 private val PlotTopPadding = 36.dp
 private val PlotBottomPadding = 18.dp
+private val HUMIDITY_DOMAIN = PlotDomain(0.0, 100.0, listOf(0.0, 25.0, 50.0, 75.0, 100.0))
 
 internal const val TAG_GRAPHIC_HOUR_CELL = "graphic_hour_cell"
 internal const val TAG_GRAPHIC_CONDITION_ICON = "graphic_condition_icon"
@@ -333,7 +334,6 @@ internal fun GraphicForecastContent(
     }
 
     val tempDomain = remember(state.points) { temperatureDomain(state.points) }
-    val dewDomain = remember(state.points) { dewPointDomain(state.points) }
     val rainDomain = remember(state.points) { positiveDomain(state.points.mapNotNull(::rainAmount), minimumMax = 1.0) }
     val windDomain = remember(state.points) {
         positiveDomain(
@@ -383,7 +383,6 @@ internal fun GraphicForecastContent(
             rainDomain = rainDomain,
             windDomain = windDomain,
             pressureDomain = pressureDomain,
-            dewDomain = dewDomain,
             horizontalScroll = horizontalScroll
         )
         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -410,7 +409,6 @@ private fun GraphicChartPanel(
     rainDomain: PlotDomain,
     windDomain: PlotDomain,
     pressureDomain: PlotDomain,
-    dewDomain: PlotDomain,
     horizontalScroll: androidx.compose.foundation.ScrollState
 ) {
     val density = LocalDensity.current
@@ -461,8 +459,7 @@ private fun GraphicChartPanel(
                     tempDomain = tempDomain,
                     rainDomain = rainDomain,
                     windDomain = windDomain,
-                    pressureDomain = pressureDomain,
-                    dewDomain = dewDomain
+                    pressureDomain = pressureDomain
                 )
 
                 Column(
@@ -522,24 +519,6 @@ private fun GraphicChartPanel(
                         onSelectIndex = onSelectIndex,
                         modifier = Modifier.width(chartWidth).height(PressurePlotHeight)
                             .testTag(TAG_GRAPHIC_PRESSURE_PLOT)
-                    )
-                    GraphicMoisturePlot(
-                        points = points, renderData = renderData,
-                        visibleRange = viewportRange.indices,
-                        domain = PlotDomain(0.0, 100.0, listOf(0.0, 25.0, 50.0, 75.0, 100.0)),
-                        selectedIndex = selectedIndex, onSelectIndex = onSelectIndex,
-                        humidity = true,
-                        modifier = Modifier.width(chartWidth).height(HumidityPlotHeight)
-                            .testTag(TAG_GRAPHIC_HUMIDITY_PLOT)
-                    )
-                    GraphicMoisturePlot(
-                        points = points, renderData = renderData,
-                        visibleRange = viewportRange.indices,
-                        domain = dewDomain,
-                        selectedIndex = selectedIndex, onSelectIndex = onSelectIndex,
-                        humidity = false,
-                        modifier = Modifier.width(chartWidth).height(DewPointPlotHeight)
-                            .testTag(TAG_GRAPHIC_DEW_POINT_PLOT)
                     )
                     GraphicTimeAxis(
                         points = points,
@@ -759,7 +738,7 @@ private fun GraphicSelectionHeader(
             )
             GraphicMetricSummaryChip(
                 label = stringResource(R.string.metric_humidity),
-                icon = Icons.Outlined.WaterDrop,
+                icon = HumidityMetricIcon,
                 accent = MaterialTheme.colorScheme.secondary,
                 value = point.humidityPercent?.let { "$it %" } ?: "—",
                 detail = "",
@@ -767,7 +746,7 @@ private fun GraphicSelectionHeader(
             )
             GraphicMetricSummaryChip(
                 label = stringResource(R.string.metric_dew_point),
-                icon = Icons.Outlined.Thermostat,
+                icon = DewPointMetricIcon,
                 accent = MaterialTheme.colorScheme.tertiary,
                 value = units.temp(point.dewPointC),
                 detail = "",
@@ -903,17 +882,27 @@ private fun GraphicModelRow(row: GraphicModelValue, units: WeatherUnits = LocalW
                 modifier = Modifier.fillMaxWidth().padding(start = 10.dp, bottom = 3.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text(
-                    stringResource(R.string.metric_humidity) + ": " +
-                        (row.humidityPercent?.let { "$it %" } ?: "—"),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    stringResource(R.string.metric_dew_point) + ": " + units.temp(row.dewPointC),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(HumidityMetricIcon, contentDescription = null,
+                        modifier = Modifier.size(13.dp), tint = MaterialTheme.colorScheme.secondary)
+                    Spacer(Modifier.width(3.dp))
+                    Text(
+                        stringResource(R.string.metric_humidity) + ": " +
+                            (row.humidityPercent?.let { "$it %" } ?: "—"),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(DewPointMetricIcon, contentDescription = null,
+                        modifier = Modifier.size(13.dp), tint = MaterialTheme.colorScheme.tertiary)
+                    Spacer(Modifier.width(3.dp))
+                    Text(
+                        stringResource(R.string.metric_dew_point) + ": " + units.temp(row.dewPointC),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
     }
@@ -948,8 +937,10 @@ private fun GraphicLegend(
         LegendItem(LegendSymbol.DASHED_LINE_POINT, temperature.copy(alpha = 0.60f), stringResource(R.string.apparent_temperature_title))
         LegendItem(LegendSymbol.BAND, temperature.copy(alpha = 0.28f), stringResource(R.string.graphic_view_dispersion))
         LegendItem(LegendSymbol.BAR, rain, stringResource(R.string.graphic_view_rain))
-        LegendItem(LegendSymbol.SOLID_LINE_POINT, MaterialTheme.colorScheme.secondary, stringResource(R.string.metric_humidity))
-        LegendItem(LegendSymbol.SOLID_LINE_POINT, MaterialTheme.colorScheme.tertiary, stringResource(R.string.metric_dew_point))
+        LegendItem(LegendSymbol.SOLID_LINE_POINT, MaterialTheme.colorScheme.secondary,
+            stringResource(R.string.metric_humidity) + " (0–100 %)", icon = HumidityMetricIcon)
+        LegendItem(LegendSymbol.DASHED_LINE_POINT, MaterialTheme.colorScheme.tertiary,
+            stringResource(R.string.metric_dew_point), icon = DewPointMetricIcon)
         LegendItem(LegendSymbol.SOLID_LINE_POINT, wind, stringResource(R.string.graphic_view_wind))
         LegendItem(LegendSymbol.DASHED_LINE_POINT, MaterialTheme.colorScheme.onSurfaceVariant, stringResource(R.string.graphic_view_gusts))
         LegendItem(LegendSymbol.FILL, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f), stringResource(R.string.graphic_view_night))
@@ -961,7 +952,7 @@ private fun GraphicLegend(
 }
 
 @Composable
-private fun LegendItem(symbol: LegendSymbol, color: Color, label: String) {
+private fun LegendItem(symbol: LegendSymbol, color: Color, label: String, icon: ImageVector? = null) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(5.dp)
@@ -1022,6 +1013,9 @@ private fun LegendItem(symbol: LegendSymbol, color: Color, label: String) {
                 }
             }
         }
+        if (icon != null) {
+            Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(13.dp))
+        }
         Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
@@ -1031,8 +1025,7 @@ private fun GraphicAxisColumn(
     tempDomain: PlotDomain,
     rainDomain: PlotDomain,
     windDomain: PlotDomain,
-    pressureDomain: PlotDomain,
-    dewDomain: PlotDomain
+    pressureDomain: PlotDomain
 ) {
     Column(
         modifier = Modifier
@@ -1050,15 +1043,23 @@ private fun GraphicAxisColumn(
             height = TemperaturePlotHeight,
             decimals = 0
         )
-        PlotAxis(
-            label = stringResource(R.string.graphic_view_rain),
-            icon = Icons.Outlined.WaterDrop,
-            iconTint = precipitationMetricAccent(),
-            unit = WeatherUnit.PRECIPITATION_RATE,
-            domain = rainDomain,
-            height = RainPlotHeight,
-            decimals = 1
-        )
+        // Double graduation : pluie en mm/h (gauche), humidité en % (droite).
+        // Les deux courbes partagent la surface mais PAS l'unité ni le domaine.
+        Row(modifier = Modifier.fillMaxWidth().height(RainPlotHeight)) {
+            Box(modifier = Modifier.width(48.dp)) {
+                PlotAxis(
+                    label = stringResource(R.string.graphic_view_rain),
+                    icon = Icons.Outlined.WaterDrop,
+                    iconTint = precipitationMetricAccent(),
+                    unit = WeatherUnit.PRECIPITATION_RATE,
+                    domain = rainDomain,
+                    height = RainPlotHeight,
+                    decimals = 1,
+                    axisWidth = 48.dp
+                )
+            }
+            HumidityPercentAxis()
+        }
         PlotAxis(
             label = stringResource(R.string.graphic_view_wind),
             icon = Icons.Outlined.Air,
@@ -1075,24 +1076,6 @@ private fun GraphicAxisColumn(
             unit = WeatherUnit.PRESSURE,
             domain = pressureDomain,
             height = PressurePlotHeight,
-            decimals = 0
-        )
-        PlotAxis(
-            label = stringResource(R.string.metric_humidity),
-            icon = Icons.Outlined.WaterDrop,
-            iconTint = MaterialTheme.colorScheme.secondary,
-            unit = WeatherUnit.PERCENT,
-            domain = PlotDomain(0.0, 100.0, listOf(0.0, 25.0, 50.0, 75.0, 100.0)),
-            height = HumidityPlotHeight,
-            decimals = 0
-        )
-        PlotAxis(
-            label = stringResource(R.string.metric_dew_point),
-            icon = Icons.Outlined.Thermostat,
-            iconTint = MaterialTheme.colorScheme.tertiary,
-            unit = WeatherUnit.TEMPERATURE,
-            domain = dewDomain,
-            height = DewPointPlotHeight,
             decimals = 0
         )
         AxisLabelSlot(
@@ -1117,6 +1100,7 @@ private fun PlotAxis(
     domain: PlotDomain,
     height: Dp,
     decimals: Int,
+    axisWidth: Dp = GraphicAxisWidth,
     units: WeatherUnits = LocalWeatherUnits.current
 ) {
     Box(
@@ -1166,7 +1150,36 @@ private fun PlotAxis(
                 modifier = Modifier
                     .offset(y = y - 8.dp)
                     .align(Alignment.TopEnd)
-                    .width(GraphicAxisWidth - 10.dp)
+                    .width(axisWidth - 10.dp)
+            )
+        }
+    }
+}
+
+/** Compact secondary scale for the humidity curve drawn over precipitation. */
+@Composable
+private fun HumidityPercentAxis() {
+    val accent = MaterialTheme.colorScheme.secondary
+    Box(
+        modifier = Modifier.width(GraphicAxisWidth - 48.dp).height(RainPlotHeight)
+            .background(accent.copy(alpha = 0.045f))
+    ) {
+        Icon(
+            imageVector = HumidityMetricIcon,
+            contentDescription = stringResource(R.string.metric_humidity),
+            tint = accent,
+            modifier = Modifier.align(Alignment.TopCenter).padding(top = 7.dp).size(17.dp)
+        )
+        listOf(100, 50, 0).forEach { tick ->
+            Text(
+                text = "$tick",
+                style = MaterialTheme.typography.labelSmall,
+                color = accent,
+                maxLines = 1,
+                softWrap = false,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.align(Alignment.TopCenter)
+                    .offset(y = valueToYDp(tick.toDouble(), HUMIDITY_DOMAIN, RainPlotHeight) - 8.dp)
             )
         }
     }
@@ -1241,6 +1254,7 @@ private fun TemperaturePlot(
     units: WeatherUnits = LocalWeatherUnits.current
 ) {
     val temperature = temperatureMetricAccent()
+    val dewPointAccent = MaterialTheme.colorScheme.tertiary
     val surface = MaterialTheme.colorScheme.surfaceContainerLow
     val onSurface = MaterialTheme.colorScheme.onSurface
     val night = onSurface.copy(alpha = 0.055f)
@@ -1263,7 +1277,7 @@ private fun TemperaturePlot(
             }
         }
     ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
+        Canvas(modifier = Modifier.fillMaxSize().testTag(TAG_GRAPHIC_DEW_POINT_PLOT)) {
             drawTimelineBackground(
                 pointCount = points.size,
                 daylight = renderData.daylight,
@@ -1339,7 +1353,24 @@ private fun TemperaturePlot(
                 pointRadius = 0f,
                 visibleRange = visibleRange
             )
+            // Dew point uses exactly the same temperature axis (including °F).
+            drawLineSeries(
+                values = renderData.dewPoints,
+                domain = domain,
+                color = dewPointAccent,
+                strokeWidth = 2.2.dp.toPx(),
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(9.dp.toPx(), 4.dp.toPx())),
+                pointRadius = 1.6.dp.toPx(),
+                visibleRange = visibleRange
+            )
             drawSelectedRuler(points.size, selectedIndex, onSurface)
+            renderData.dewPoints.getOrNull(selectedIndex)?.let { dew ->
+                drawCircle(
+                    color = dewPointAccent,
+                    radius = 4.dp.toPx(),
+                    center = Offset(pointCenterX(selectedIndex, points.size), valueToYPx(dew, domain, size.height))
+                )
+            }
             renderData.temperatures.getOrNull(selectedIndex)?.let { value ->
                 drawCircle(
                     color = temperature,
@@ -1361,6 +1392,7 @@ private fun TemperaturePlot(
                 value = central,
                 range = range.takeUnless { it == "—" },
                 apparent = selected.apparentTemperatureC?.let { units.temp(it) },
+                dewPoint = selected.dewPointC?.let { units.temp(it) },
                 selectedIndex = selectedIndex,
                 pointCount = points.size,
                 yOffset = 40.dp
@@ -1383,6 +1415,8 @@ private fun RainPlot(
     units: WeatherUnits = LocalWeatherUnits.current
 ) {
     val rain = precipitationMetricAccent()
+    val humidityAccent = MaterialTheme.colorScheme.secondary
+    val humidityDomain = HUMIDITY_DOMAIN
     val surface = MaterialTheme.colorScheme.surfaceContainerLow
     val onSurface = MaterialTheme.colorScheme.onSurface
     val night = onSurface.copy(alpha = 0.055f)
@@ -1398,7 +1432,7 @@ private fun RainPlot(
 
     Box(modifier) {
         Canvas(
-            modifier = Modifier.fillMaxSize().pointerInput(points.size) {
+            modifier = Modifier.fillMaxSize().testTag(TAG_GRAPHIC_HUMIDITY_PLOT).pointerInput(points.size) {
                 detectTapGestures { offset ->
                     onSelectIndex(indexForX(offset.x, size.width.toFloat(), points.size))
                 }
@@ -1443,13 +1477,31 @@ private fun RainPlot(
                     )
                 }
             }
+            // Superposition seulement : la pluie garde son axe mm/h, tandis que
+            // l'humidité est positionnée sur son échelle indépendante de 0 à 100 %.
+            drawLineSeries(
+                values = renderData.humidities,
+                domain = humidityDomain,
+                color = humidityAccent,
+                strokeWidth = 2.3.dp.toPx(),
+                pointRadius = 1.6.dp.toPx(),
+                visibleRange = visibleRange
+            )
             drawSelectedRuler(points.size, selectedIndex, onSurface)
+            renderData.humidities.getOrNull(selectedIndex)?.let { humidity ->
+                drawCircle(
+                    color = humidityAccent,
+                    radius = 4.dp.toPx(),
+                    center = Offset(pointCenterX(selectedIndex, points.size), valueToYPx(humidity, humidityDomain, size.height))
+                )
+            }
         }
         points.getOrNull(selectedIndex)?.let { selected ->
             val amount = renderData.rainAmounts.getOrNull(selectedIndex)?.let { units.rain(it) } ?: "—"
             RainSelectionBadge(
                 amount = amount,
                 probability = selected.precipitationPercent?.let { "${it}%" },
+                humidity = selected.humidityPercent?.let { "$it %" },
                 selectedIndex = selectedIndex,
                 pointCount = points.size
             )
@@ -1572,94 +1624,6 @@ private fun WindPlot(
     }
 }
 
-/** Dedicated humidity and dew-point views. Dew point shares the air-temperature
- * domain, so the gap between both curves remains physically interpretable.
- */
-@Composable
-private fun GraphicMoisturePlot(
-    points: List<SimplifiedTimelinePoint>,
-    renderData: GraphicRenderData,
-    visibleRange: IntRange,
-    domain: PlotDomain,
-    selectedIndex: Int,
-    onSelectIndex: (Int) -> Unit,
-    humidity: Boolean,
-    modifier: Modifier = Modifier,
-    units: WeatherUnits = LocalWeatherUnits.current
-) {
-    val accent = if (humidity) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.tertiary
-    val surface = MaterialTheme.colorScheme.surfaceContainerLow
-    val onSurface = MaterialTheme.colorScheme.onSurface
-    val grid = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.52f)
-    val airAccent = temperatureMetricAccent().copy(alpha = 0.50f)
-    val values = if (humidity) renderData.humidities else renderData.dewPoints
-    Box(modifier) {
-        Canvas(
-            modifier = Modifier.fillMaxSize().pointerInput(points.size) {
-                detectTapGestures { offset ->
-                    onSelectIndex(indexForX(offset.x, size.width.toFloat(), points.size))
-                }
-            }
-        ) {
-            drawTimelineBackground(
-                pointCount = points.size,
-                daylight = renderData.daylight,
-                heatColors = emptyList(), agreementColors = emptyList(),
-                showAgreement = false, surface = surface,
-                night = onSurface.copy(alpha = 0.055f), heatAlpha = 0f,
-                visibleRange = visibleRange
-            )
-            drawTimelineGrid(renderData.hours, domain, grid, visibleRange)
-            if (!humidity) {
-                drawLineSeries(
-                    values = renderData.temperatures, domain = domain,
-                    color = airAccent, strokeWidth = 1.5.dp.toPx(),
-                    pointRadius = 0f, visibleRange = visibleRange
-                )
-            }
-            drawLineSeries(
-                values = values, domain = domain, color = accent,
-                strokeWidth = 2.5.dp.toPx(), pointRadius = 2.dp.toPx(),
-                visibleRange = visibleRange
-            )
-            drawSelectedRuler(points.size, selectedIndex, onSurface)
-        }
-        points.getOrNull(selectedIndex)?.let { selected ->
-            StructuredSelectionBadge(
-                icon = if (humidity) Icons.Outlined.WaterDrop else Icons.Outlined.Thermostat,
-                accent = accent,
-                primary = if (humidity) selected.humidityPercent?.let { "$it %" } ?: "—"
-                    else units.temp(selected.dewPointC),
-                primaryTag = if (humidity) "graphic_humidity_tooltip_value"
-                    else "graphic_dew_point_tooltip_value",
-                secondary = if (humidity || selected.temperatureC == null) emptyList()
-                    else listOf(SelectionBadgeSegment(
-                        stringResource(R.string.metric_temperature) + ": " + units.temp(selected.temperatureC),
-                        "graphic_dew_point_tooltip_air"
-                    )),
-                containerTag = if (humidity) TAG_GRAPHIC_HUMIDITY_PLOT + "_tooltip"
-                    else TAG_GRAPHIC_DEW_POINT_PLOT + "_tooltip",
-                selectedIndex = selectedIndex, pointCount = points.size,
-                yOffset = 45.dp
-            )
-        }
-    }
-}
-
-/** The dew-point lane must include both air and dew-point values on one scale. */
-internal fun dewPointDomain(points: List<SimplifiedTimelinePoint>): PlotDomain {
-    val values = points.flatMap { point ->
-        listOfNotNull(point.temperatureC, point.dewPointC).mapNotNull(::metricPlotValue)
-    }
-    if (values.isEmpty()) return PlotDomain(0.0, 30.0, listOf(0.0, 10.0, 20.0, 30.0))
-    val low = values.minOrNull() ?: 0.0
-    val high = values.maxOrNull() ?: 30.0
-    val pad = max(2.0, (high - low) * 0.12)
-    val min = floor(low - pad)
-    val max = ceil(high + pad).coerceAtLeast(min + 1.0)
-    return PlotDomain(min, max, linearTicks(min, max, 5))
-}
-
 /** Independent pressure series: a zero baseline would hide realistic hPa variations. */
 internal fun pressureDomain(points: List<SimplifiedTimelinePoint>): PlotDomain {
     val values = points.mapNotNull { metricPlotValue(it.pressureHpa) }
@@ -1745,6 +1709,7 @@ private fun TemperatureSelectionBadge(
     value: String,
     range: String?,
     apparent: String? = null,
+    dewPoint: String? = null,
     selectedIndex: Int,
     pointCount: Int,
     yOffset: Dp = 6.dp
@@ -1758,6 +1723,9 @@ private fun TemperatureSelectionBadge(
             range?.let { SelectionBadgeSegment(it, TAG_GRAPHIC_TEMPERATURE_TOOLTIP_RANGE) },
             apparent?.let { SelectionBadgeSegment(
                 stringResource(R.string.apparent_temperature_label, it), "graphic_apparent_tooltip"
+            ) },
+            dewPoint?.let { SelectionBadgeSegment(
+                stringResource(R.string.metric_dew_point) + ": " + it, "graphic_dew_point_tooltip_value"
             ) }
         ),
         containerTag = TAG_GRAPHIC_TEMPERATURE_TOOLTIP,
@@ -1771,6 +1739,7 @@ private fun TemperatureSelectionBadge(
 private fun RainSelectionBadge(
     amount: String,
     probability: String?,
+    humidity: String? = null,
     selectedIndex: Int,
     pointCount: Int
 ) {
@@ -1780,7 +1749,10 @@ private fun RainSelectionBadge(
         primary = amount,
         primaryTag = TAG_GRAPHIC_RAIN_TOOLTIP_AMOUNT,
         secondary = listOfNotNull(
-            probability?.let { SelectionBadgeSegment(it, TAG_GRAPHIC_RAIN_TOOLTIP_PROBABILITY) }
+            probability?.let { SelectionBadgeSegment(it, TAG_GRAPHIC_RAIN_TOOLTIP_PROBABILITY) },
+            humidity?.let { SelectionBadgeSegment(
+                stringResource(R.string.metric_humidity) + ": " + it, "graphic_humidity_tooltip_value"
+            ) }
         ),
         containerTag = TAG_GRAPHIC_RAIN_TOOLTIP,
         selectedIndex = selectedIndex,
@@ -2233,7 +2205,7 @@ private data class AgreementPalette(
 
 internal fun temperatureDomain(points: List<SimplifiedTimelinePoint>): PlotDomain {
     val values = points.flatMap { point ->
-        listOfNotNull(point.temperatureMinAcrossModels, point.temperatureC, point.temperatureMaxAcrossModels, point.apparentTemperatureC).mapNotNull(::metricPlotValue)
+        listOfNotNull(point.temperatureMinAcrossModels, point.temperatureC, point.temperatureMaxAcrossModels, point.apparentTemperatureC, point.dewPointC).mapNotNull(::metricPlotValue)
     }
     if (values.isEmpty()) return PlotDomain(0.0, 30.0, listOf(0.0, 10.0, 20.0, 30.0))
     val rawMin = values.minOrNull() ?: 0.0

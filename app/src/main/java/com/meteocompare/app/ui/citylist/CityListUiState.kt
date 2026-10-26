@@ -132,7 +132,9 @@ sealed interface ForecastState {
         val hourlyStartTime: LocalDateTime? = null,
         val sunrise: LocalTime? = null,
         val sunset: LocalTime? = null,
-        val windDirectionDeg: Int? = null
+        val windDirectionDeg: Int? = null,
+        /** Consensus for the presentation hour; absent in legacy caches. */
+        val currentDewPointC: Double? = null
     ) : ForecastState
     data class Error(
         val message: String? = null,
