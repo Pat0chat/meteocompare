@@ -9,7 +9,7 @@ APP = ROOT / 'app/src/main/java/com/meteocompare/app'
 class Release1193Guards(unittest.TestCase):
     def test_release_is_bumped_consistently(self):
         for locale in ('fr-FR', 'en-US', 'de-DE', 'es-ES', 'it-IT'):
-            note = ROOT / f'fastlane/metadata/android/{locale}/changelogs/49.txt'
+            note = ROOT / f'fastlane/metadata/android/{locale}/changelogs/51.txt'
             self.assertTrue(note.exists(), f'Missing changelog: {locale}')
             self.assertTrue(note.read_text(encoding='utf-8').strip())
 

@@ -378,7 +378,7 @@ Fait :
 - ✅ v1.19.0 — Ma position (facultatif) : carte météo et widgets basés sur une position approximative. Actualisation uniquement lorsque l’application est ouverte. Aucune géolocalisation en arrière-plan, aucun historique de déplacements. Les widgets utilisent la dernière zone connue. Corrections et optimisations des prévisions. Température ressentie.
 - ✅ v1.19.1 — Fiabilisation de « Ma position » (GPS manuel, permissions ponctuelles et suppression pendant un relevé).
 - ✅ v1.19.2 — Pression atmosphérique dans les détails, la comparaison et Chart View ; températures ressenties min/max dans les graphiques existants ; Chart View compact ; traductions et unités vérifiées.
-- ✅ v1.19.3 — Humidité relative et point de rosée dans Home, Today Summary, chronologies, Chart View et comparaison ; icône d’humidité clarifiée, échelle pluie/humidité corrigée et revue de non-régression.
+- ✅ v1.19.3->5 — Humidité relative et point de rosée dans Home, Today Summary, chronologies, Chart View et comparaison ; icône d’humidité clarifiée, échelle pluie/humidité corrigée et revue de non-régression.
 
 ## Licence
 
