@@ -278,6 +278,45 @@ class GraphicForecastChartMathTest {
     }
 
     @Test
+    fun viewport_range_is_stable_during_sub_hour_scroll_updates() {
+        // A scroll offset changes on every frame, but memoized domain keys must
+        // remain stable until an actual hour enters or leaves the viewport.
+        val first = graphicViewportRange(121, 360, 40f, 240)
+        assertEquals(first, graphicViewportRange(130, 360, 40f, 240))
+        assertEquals(first, graphicViewportRange(159, 360, 40f, 240))
+        assertTrue(first != graphicViewportRange(160, 360, 40f, 240))
+    }
+
+    @Test
+    fun viewport_domains_ignore_invalid_inputs_without_losing_valid_extrema() {
+        val points = listOf(
+            SimplifiedTimelinePoint(
+                temperatureC = 12.0, apparentTemperatureC = 16.0,
+                dewPointC = 7.0, humidityPercent = 78, windKmh = 12.0,
+                windGustKmh = 20.0, pressureHpa = 1009.5, precipitationMm = 0.08
+            ),
+            SimplifiedTimelinePoint(
+                temperatureC = Double.NaN, apparentTemperatureC = Double.POSITIVE_INFINITY,
+                dewPointC = null, humidityPercent = -1, windKmh = Double.NaN,
+                windGustKmh = -5.0, pressureHpa = Double.POSITIVE_INFINITY,
+                precipitationMm = Double.NaN
+            ),
+            SimplifiedTimelinePoint(
+                temperatureC = 15.0, apparentTemperatureC = 18.0,
+                dewPointC = 8.0, humidityPercent = 82, windKmh = 14.0,
+                windGustKmh = 23.0, pressureHpa = 1011.0, precipitationMm = 0.12
+            )
+        )
+        val domains = graphicViewportDomains(points, 0..2)
+        assertTrue(domains.temperature.min < 7.0)
+        assertTrue(domains.temperature.max > 18.0)
+        assertTrue(domains.humidity.min <= 78.0 && domains.humidity.max >= 82.0)
+        assertTrue(domains.wind.min >= 0.0 && domains.wind.max >= 23.0)
+        assertTrue(domains.pressure.min < 1009.5 && domains.pressure.max > 1011.0)
+        assertTrue(domains.rain.min == 0.0 && domains.rain.max > 0.12)
+    }
+
+    @Test
     fun viewport_scales_ignore_distant_forecast_extremes_and_follow_horizontal_scroll() {
         val points = List(24) { i ->
             if (i < 12) SimplifiedTimelinePoint(

@@ -416,9 +416,9 @@ private fun GraphicChartPanel(
         }
     }
 
-    // Scales follow the visible hours (including the small rendering overscan),
-    // not all 10 days. Scrolling updates each scale; selecting an hour does not.
-    // Only a short subList is analysed when the viewport boundaries change.
+    // Scales follow only the visible hours (+ overscan). A pixel scroll that does
+    // not change viewport indices reuses the existing domains; selecting an hour
+    // also leaves them untouched. The domain functions make no temporary lists.
     val domains = remember(points, viewportRange.first, viewportRange.last) {
         graphicViewportDomains(points, viewportRange.indices)
     }
@@ -1671,7 +1671,8 @@ internal data class GraphicPlotDomains(
 /**
  * Viewport-only vertical auto-fit. The two overscan points are intentionally
  * included so that Bezier curves do not clip as they enter the visible area.
- * Nothing is stored in a forecast/cache: this only changes presentation.
+ * Domain extrema are scanned without temporary lists, reducing GC work during
+ * horizontal scrolling. Nothing is stored in a forecast/cache.
  */
 internal fun graphicViewportDomains(
     points: List<SimplifiedTimelinePoint>,
@@ -1682,7 +1683,7 @@ internal fun graphicViewportDomains(
     val visible = points.subList(first, lastExclusive)
     return GraphicPlotDomains(
         temperature = temperatureDomain(visible),
-        rain = positiveDomain(visible.mapNotNull(::rainAmount), minimumMax = 0.1),
+        rain = rainDomain(visible, minimumMax = 0.1),
         humidity = humidityDomain(visible),
         wind = windDomain(visible),
         pressure = pressureDomain(visible)
@@ -1691,11 +1692,16 @@ internal fun graphicViewportDomains(
 
 /** RH is always bounded to 0–100%, but the displayed range can zoom locally. */
 internal fun humidityDomain(points: List<SimplifiedTimelinePoint>): PlotDomain {
-    val values = points.mapNotNull { it.humidityPercent?.toDouble() }
-        .filter { it in 0.0..100.0 }
-    if (values.isEmpty()) return PlotDomain(0.0, 100.0, listOf(0.0, 50.0, 100.0))
-    val lo = values.minOrNull() ?: 0.0
-    val hi = values.maxOrNull() ?: 100.0
+    var lo = Double.POSITIVE_INFINITY
+    var hi = Double.NEGATIVE_INFINITY
+    for (point in points) {
+        val humidity = point.humidityPercent ?: continue
+        if (humidity !in 0..100) continue
+        val value = humidity.toDouble()
+        if (value < lo) lo = value
+        if (value > hi) hi = value
+    }
+    if (lo == Double.POSITIVE_INFINITY) return PlotDomain(0.0, 100.0, listOf(0.0, 50.0, 100.0))
     val span = max(20.0, (hi - lo) * 1.4)
     val center = (lo + hi) / 2.0
     var min = floor((center - span / 2.0) / 5.0) * 5.0
@@ -1709,11 +1715,19 @@ internal fun humidityDomain(points: List<SimplifiedTimelinePoint>): PlotDomain {
 
 /** Wind is not a bar plot: it need not start at zero when all speeds are high. */
 internal fun windDomain(points: List<SimplifiedTimelinePoint>): PlotDomain {
-    val values = points.flatMap { listOf(it.windKmh, it.windGustKmh) }
-        .mapNotNull(::metricPlotValue).filter { it >= 0.0 }
-    if (values.isEmpty()) return PlotDomain(0.0, 20.0, listOf(0.0, 10.0, 20.0))
-    val lo = values.minOrNull() ?: 0.0
-    val hi = values.maxOrNull() ?: 20.0
+    var lo = Double.POSITIVE_INFINITY
+    var hi = Double.NEGATIVE_INFINITY
+    fun include(candidate: Double?) {
+        val value = metricPlotValue(candidate) ?: return
+        if (value < 0.0) return
+        if (value < lo) lo = value
+        if (value > hi) hi = value
+    }
+    for (point in points) {
+        include(point.windKmh)
+        include(point.windGustKmh)
+    }
+    if (lo == Double.POSITIVE_INFINITY) return PlotDomain(0.0, 20.0, listOf(0.0, 10.0, 20.0))
     val spread = hi - lo
     val padding = max(1.0, spread * 0.12)
     val span = max(4.0, spread + 2.0 * padding)
@@ -1725,10 +1739,14 @@ internal fun windDomain(points: List<SimplifiedTimelinePoint>): PlotDomain {
 
 /** Independent pressure series: a zero baseline would hide realistic hPa variations. */
 internal fun pressureDomain(points: List<SimplifiedTimelinePoint>): PlotDomain {
-    val values = points.mapNotNull { metricPlotValue(it.pressureHpa) }
-    if (values.isEmpty()) return PlotDomain(980.0, 1040.0, listOf(980.0, 1000.0, 1020.0, 1040.0))
-    val lo = values.minOrNull() ?: 980.0
-    val hi = values.maxOrNull() ?: 1040.0
+    var lo = Double.POSITIVE_INFINITY
+    var hi = Double.NEGATIVE_INFINITY
+    for (point in points) {
+        val value = metricPlotValue(point.pressureHpa) ?: continue
+        if (value < lo) lo = value
+        if (value > hi) hi = value
+    }
+    if (lo == Double.POSITIVE_INFINITY) return PlotDomain(980.0, 1040.0, listOf(980.0, 1000.0, 1020.0, 1040.0))
     val pad = max(0.8, (hi - lo) * 0.12)
     val min = floor(lo - pad)
     val max = ceil(hi + pad).coerceAtLeast(min + 2.0)
@@ -2303,21 +2321,33 @@ private data class AgreementPalette(
 }
 
 internal fun temperatureDomain(points: List<SimplifiedTimelinePoint>): PlotDomain {
-    val values = points.flatMap { point ->
-        listOfNotNull(point.temperatureMinAcrossModels, point.temperatureC, point.temperatureMaxAcrossModels, point.apparentTemperatureC, point.dewPointC).mapNotNull(::metricPlotValue)
+    var rawMin = Double.POSITIVE_INFINITY
+    var rawMax = Double.NEGATIVE_INFINITY
+    fun include(candidate: Double?) {
+        val value = metricPlotValue(candidate) ?: return
+        if (value < rawMin) rawMin = value
+        if (value > rawMax) rawMax = value
     }
-    if (values.isEmpty()) return PlotDomain(0.0, 30.0, listOf(0.0, 10.0, 20.0, 30.0))
-    val rawMin = values.minOrNull() ?: 0.0
-    val rawMax = values.maxOrNull() ?: 30.0
+    for (point in points) {
+        include(point.temperatureMinAcrossModels)
+        include(point.temperatureC)
+        include(point.temperatureMaxAcrossModels)
+        include(point.apparentTemperatureC)
+        include(point.dewPointC)
+    }
+    if (rawMin == Double.POSITIVE_INFINITY) return PlotDomain(0.0, 30.0, listOf(0.0, 10.0, 20.0, 30.0))
     val padding = max(0.8, (rawMax - rawMin) * 0.10)
     val min = floor(rawMin - padding)
     val max = ceil(rawMax + padding).coerceAtLeast(min + 2.0)
     return PlotDomain(min, max, linearTicks(min, max, 5))
 }
 
-private fun positiveDomain(values: List<Double>, minimumMax: Double): PlotDomain {
-    val rawMax = max(minimumMax, values.mapNotNull(::metricPlotValue)
-        .filter { it >= 0.0 }.maxOrNull() ?: minimumMax)
+private fun rainDomain(points: List<SimplifiedTimelinePoint>, minimumMax: Double): PlotDomain {
+    var rawMax = minimumMax
+    for (point in points) {
+        val value = metricPlotValue(rainAmount(point)) ?: continue
+        if (value > rawMax) rawMax = value
+    }
     // Precipitation bars must start at 0, but a drizzle must not be scaled
     // against distant heavy-rain hours or an arbitrary 1 mm/h minimum.
     val padded = rawMax * 1.12
