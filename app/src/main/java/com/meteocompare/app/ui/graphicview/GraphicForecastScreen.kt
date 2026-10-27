@@ -121,6 +121,7 @@ import java.util.Locale
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.max
+import kotlin.math.pow
 
 private val GraphicHourWidth = 40.dp
 private val GraphicAxisWidth = 76.dp
@@ -139,7 +140,6 @@ private val PlotTopPadding = 36.dp
 // Keep the rain/humidity plotting area unchanged by increasing its lane height.
 internal val RainPlotTopPadding = 68.dp
 private val PlotBottomPadding = 18.dp
-private val HUMIDITY_DOMAIN = PlotDomain(0.0, 100.0, listOf(0.0, 25.0, 50.0, 75.0, 100.0))
 
 internal const val TAG_GRAPHIC_HOUR_CELL = "graphic_hour_cell"
 internal const val TAG_GRAPHIC_CONDITION_ICON = "graphic_condition_icon"
@@ -343,17 +343,6 @@ internal fun GraphicForecastContent(
         buildGraphicRenderData(state.points, state.solarByDate, zone)
     }
 
-    val tempDomain = remember(state.points) { temperatureDomain(state.points) }
-    val rainDomain = remember(state.points) { positiveDomain(state.points.mapNotNull(::rainAmount), minimumMax = 1.0) }
-    val windDomain = remember(state.points) {
-        positiveDomain(
-            state.points.flatMap { listOfNotNull(it.windKmh, it.windGustKmh) },
-            minimumMax = 20.0
-        )
-    }
-
-    val pressureDomain = remember(state.points) { pressureDomain(state.points) }
-
     val highAgreement = confidenceColor(90)
     val mediumAgreement = confidenceColor(65)
     val lowAgreement = confidenceColor(30)
@@ -389,10 +378,6 @@ internal fun GraphicForecastContent(
             onSelectIndex = { selectedIndex = it },
             showAgreement = showAgreement,
             agreementPalette = agreementPalette,
-            tempDomain = tempDomain,
-            rainDomain = rainDomain,
-            windDomain = windDomain,
-            pressureDomain = pressureDomain,
             horizontalScroll = horizontalScroll
         )
         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -415,10 +400,6 @@ private fun GraphicChartPanel(
     onSelectIndex: (Int) -> Unit,
     showAgreement: Boolean,
     agreementPalette: AgreementPalette,
-    tempDomain: PlotDomain,
-    rainDomain: PlotDomain,
-    windDomain: PlotDomain,
-    pressureDomain: PlotDomain,
     horizontalScroll: androidx.compose.foundation.ScrollState
 ) {
     val density = LocalDensity.current
@@ -433,6 +414,13 @@ private fun GraphicChartPanel(
                 pointCount = points.size
             )
         }
+    }
+
+    // Scales follow the visible hours (including the small rendering overscan),
+    // not all 10 days. Scrolling updates each scale; selecting an hour does not.
+    // Only a short subList is analysed when the viewport boundaries change.
+    val domains = remember(points, viewportRange.first, viewportRange.last) {
+        graphicViewportDomains(points, viewportRange.indices)
     }
 
     Surface(
@@ -466,10 +454,11 @@ private fun GraphicChartPanel(
 
             Row(modifier = Modifier.fillMaxWidth()) {
                 GraphicAxisColumn(
-                    tempDomain = tempDomain,
-                    rainDomain = rainDomain,
-                    windDomain = windDomain,
-                    pressureDomain = pressureDomain
+                    tempDomain = domains.temperature,
+                    rainDomain = domains.rain,
+                    humidityDomain = domains.humidity,
+                    windDomain = domains.wind,
+                    pressureDomain = domains.pressure
                 )
 
                 Column(
@@ -491,7 +480,7 @@ private fun GraphicChartPanel(
                         points = points,
                         renderData = renderData,
                         visibleRange = viewportRange.indices,
-                        domain = tempDomain,
+                        domain = domains.temperature,
                         selectedIndex = selectedIndex,
                         showAgreement = showAgreement,
                         agreementPalette = agreementPalette,
@@ -502,7 +491,8 @@ private fun GraphicChartPanel(
                         points = points,
                         renderData = renderData,
                         visibleRange = viewportRange.indices,
-                        domain = rainDomain,
+                        domain = domains.rain,
+                        humidityDomain = domains.humidity,
                         selectedIndex = selectedIndex,
                         showAgreement = showAgreement,
                         agreementPalette = agreementPalette,
@@ -513,7 +503,7 @@ private fun GraphicChartPanel(
                         points = points,
                         renderData = renderData,
                         visibleRange = viewportRange.indices,
-                        domain = windDomain,
+                        domain = domains.wind,
                         selectedIndex = selectedIndex,
                         showAgreement = showAgreement,
                         agreementPalette = agreementPalette,
@@ -524,7 +514,7 @@ private fun GraphicChartPanel(
                         points = points,
                         renderData = renderData,
                         visibleRange = viewportRange.indices,
-                        domain = pressureDomain,
+                        domain = domains.pressure,
                         selectedIndex = selectedIndex,
                         onSelectIndex = onSelectIndex,
                         modifier = Modifier.width(chartWidth).height(PressurePlotHeight)
@@ -1034,6 +1024,7 @@ private fun LegendItem(symbol: LegendSymbol, color: Color, label: String, icon: 
 private fun GraphicAxisColumn(
     tempDomain: PlotDomain,
     rainDomain: PlotDomain,
+    humidityDomain: PlotDomain,
     windDomain: PlotDomain,
     pressureDomain: PlotDomain
 ) {
@@ -1070,7 +1061,7 @@ private fun GraphicAxisColumn(
                     topPadding = RainPlotTopPadding
                 )
             }
-            HumidityPercentAxis()
+            HumidityPercentAxis(humidityDomain)
         }
         PlotAxis(
             label = stringResource(R.string.graphic_view_wind),
@@ -1201,7 +1192,7 @@ private fun PlotAxis(
 
 /** Compact secondary scale for the humidity curve drawn over precipitation. */
 @Composable
-private fun HumidityPercentAxis() {
+private fun HumidityPercentAxis(domain: PlotDomain) {
     val accent = MaterialTheme.colorScheme.secondary
     Box(
         modifier = Modifier.width(GraphicAxisWidth - RainAxisWidth).height(RainPlotHeight)
@@ -1213,16 +1204,16 @@ private fun HumidityPercentAxis() {
             tint = accent,
             modifier = Modifier.align(Alignment.TopCenter).padding(top = 7.dp).size(17.dp)
         )
-        listOf(100, 50, 0).forEach { tick ->
+        domain.ticks.forEach { tick ->
             Text(
-                text = "$tick",
+                text = "${kotlin.math.round(tick).toInt()}",
                 style = MaterialTheme.typography.labelSmall,
                 color = accent,
                 maxLines = 1,
                 softWrap = false,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.align(Alignment.TopCenter)
-                    .offset(y = valueToYDp(tick.toDouble(), HUMIDITY_DOMAIN, RainPlotHeight, RainPlotTopPadding) - 8.dp)
+                    .offset(y = valueToYDp(tick, domain, RainPlotHeight, RainPlotTopPadding) - 8.dp)
             )
         }
     }
@@ -1450,6 +1441,7 @@ private fun RainPlot(
     renderData: GraphicRenderData,
     visibleRange: IntRange,
     domain: PlotDomain,
+    humidityDomain: PlotDomain,
     selectedIndex: Int,
     showAgreement: Boolean,
     agreementPalette: AgreementPalette,
@@ -1459,7 +1451,6 @@ private fun RainPlot(
 ) {
     val rain = precipitationMetricAccent()
     val humidityAccent = MaterialTheme.colorScheme.secondary
-    val humidityDomain = HUMIDITY_DOMAIN
     val surface = MaterialTheme.colorScheme.surfaceContainerLow
     val onSurface = MaterialTheme.colorScheme.onSurface
     val night = onSurface.copy(alpha = 0.055f)
@@ -1668,15 +1659,79 @@ private fun WindPlot(
     }
 }
 
+/** The same canonical (metric) domains feed the axis labels and Canvas curves. */
+internal data class GraphicPlotDomains(
+    val temperature: PlotDomain,
+    val rain: PlotDomain,
+    val humidity: PlotDomain,
+    val wind: PlotDomain,
+    val pressure: PlotDomain
+)
+
+/**
+ * Viewport-only vertical auto-fit. The two overscan points are intentionally
+ * included so that Bezier curves do not clip as they enter the visible area.
+ * Nothing is stored in a forecast/cache: this only changes presentation.
+ */
+internal fun graphicViewportDomains(
+    points: List<SimplifiedTimelinePoint>,
+    viewport: IntRange
+): GraphicPlotDomains {
+    val first = viewport.first.coerceIn(0, points.size)
+    val lastExclusive = (viewport.last.toLong() + 1L).coerceIn(first.toLong(), points.size.toLong()).toInt()
+    val visible = points.subList(first, lastExclusive)
+    return GraphicPlotDomains(
+        temperature = temperatureDomain(visible),
+        rain = positiveDomain(visible.mapNotNull(::rainAmount), minimumMax = 0.1),
+        humidity = humidityDomain(visible),
+        wind = windDomain(visible),
+        pressure = pressureDomain(visible)
+    )
+}
+
+/** RH is always bounded to 0–100%, but the displayed range can zoom locally. */
+internal fun humidityDomain(points: List<SimplifiedTimelinePoint>): PlotDomain {
+    val values = points.mapNotNull { it.humidityPercent?.toDouble() }
+        .filter { it in 0.0..100.0 }
+    if (values.isEmpty()) return PlotDomain(0.0, 100.0, listOf(0.0, 50.0, 100.0))
+    val lo = values.minOrNull() ?: 0.0
+    val hi = values.maxOrNull() ?: 100.0
+    val span = max(20.0, (hi - lo) * 1.4)
+    val center = (lo + hi) / 2.0
+    var min = floor((center - span / 2.0) / 5.0) * 5.0
+    var max = ceil((center + span / 2.0) / 5.0) * 5.0
+    if (min < 0.0) { max -= min; min = 0.0 }
+    if (max > 100.0) { min -= max - 100.0; max = 100.0 }
+    min = min.coerceAtLeast(0.0)
+    max = max.coerceAtMost(100.0)
+    return PlotDomain(min, max, listOf(min, (min + max) / 2.0, max))
+}
+
+/** Wind is not a bar plot: it need not start at zero when all speeds are high. */
+internal fun windDomain(points: List<SimplifiedTimelinePoint>): PlotDomain {
+    val values = points.flatMap { listOf(it.windKmh, it.windGustKmh) }
+        .mapNotNull(::metricPlotValue).filter { it >= 0.0 }
+    if (values.isEmpty()) return PlotDomain(0.0, 20.0, listOf(0.0, 10.0, 20.0))
+    val lo = values.minOrNull() ?: 0.0
+    val hi = values.maxOrNull() ?: 20.0
+    val spread = hi - lo
+    val padding = max(1.0, spread * 0.12)
+    val span = max(4.0, spread + 2.0 * padding)
+    val center = (lo + hi) / 2.0
+    val min = floor((center - span / 2.0).coerceAtLeast(0.0))
+    val max = ceil((center + span / 2.0).coerceAtLeast(min + 4.0))
+    return PlotDomain(min, max, linearTicks(min, max, 4))
+}
+
 /** Independent pressure series: a zero baseline would hide realistic hPa variations. */
 internal fun pressureDomain(points: List<SimplifiedTimelinePoint>): PlotDomain {
     val values = points.mapNotNull { metricPlotValue(it.pressureHpa) }
     if (values.isEmpty()) return PlotDomain(980.0, 1040.0, listOf(980.0, 1000.0, 1020.0, 1040.0))
     val lo = values.minOrNull() ?: 980.0
     val hi = values.maxOrNull() ?: 1040.0
-    val pad = max(2.0, (hi - lo) * 0.15)
+    val pad = max(0.8, (hi - lo) * 0.12)
     val min = floor(lo - pad)
-    val max = ceil(hi + pad).coerceAtLeast(min + 4.0)
+    val max = ceil(hi + pad).coerceAtLeast(min + 2.0)
     return PlotDomain(min, max, linearTicks(min, max, 5))
 }
 
@@ -2254,25 +2309,21 @@ internal fun temperatureDomain(points: List<SimplifiedTimelinePoint>): PlotDomai
     if (values.isEmpty()) return PlotDomain(0.0, 30.0, listOf(0.0, 10.0, 20.0, 30.0))
     val rawMin = values.minOrNull() ?: 0.0
     val rawMax = values.maxOrNull() ?: 30.0
-    val padding = max(2.0, (rawMax - rawMin) * 0.12)
+    val padding = max(0.8, (rawMax - rawMin) * 0.10)
     val min = floor(rawMin - padding)
-    val max = ceil(rawMax + padding).coerceAtLeast(min + 1.0)
+    val max = ceil(rawMax + padding).coerceAtLeast(min + 2.0)
     return PlotDomain(min, max, linearTicks(min, max, 5))
 }
 
 private fun positiveDomain(values: List<Double>, minimumMax: Double): PlotDomain {
-    val rawMax = max(minimumMax, values.mapNotNull(::metricPlotValue).maxOrNull() ?: minimumMax)
-    val step = when {
-        rawMax <= 4 -> 1.0
-        rawMax <= 10 -> 2.0
-        rawMax <= 25 -> 5.0
-        rawMax <= 60 -> 10.0
-        rawMax <= 120 -> 20.0
-        else -> 50.0
-    }
-    val max = ceil(rawMax / step) * step
-    val ticks = (0..3).map { max * it / 3.0 }
-    return PlotDomain(0.0, max, ticks)
+    val rawMax = max(minimumMax, values.mapNotNull(::metricPlotValue)
+        .filter { it >= 0.0 }.maxOrNull() ?: minimumMax)
+    // Precipitation bars must start at 0, but a drizzle must not be scaled
+    // against distant heavy-rain hours or an arbitrary 1 mm/h minimum.
+    val padded = rawMax * 1.12
+    val roundStep = 10.0.pow(floor(kotlin.math.log10(padded)) - 1.0)
+    val max = ceil(padded / roundStep) * roundStep
+    return PlotDomain(0.0, max, linearTicks(0.0, max, 4))
 }
 
 private fun linearTicks(min: Double, max: Double, count: Int): List<Double> =

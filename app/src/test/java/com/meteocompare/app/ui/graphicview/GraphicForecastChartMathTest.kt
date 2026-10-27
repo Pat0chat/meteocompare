@@ -278,6 +278,81 @@ class GraphicForecastChartMathTest {
     }
 
     @Test
+    fun viewport_scales_ignore_distant_forecast_extremes_and_follow_horizontal_scroll() {
+        val points = List(24) { i ->
+            if (i < 12) SimplifiedTimelinePoint(
+                temperatureC = 17.0 + i * 0.1,
+                windKmh = 24.0 + i * 0.1,
+                windGustKmh = 29.0 + i * 0.1,
+                pressureHpa = 1014.0 + i * 0.1,
+                humidityPercent = 70 + (i % 5),
+                precipitationMm = 0.1
+            ) else SimplifiedTimelinePoint(
+                temperatureC = 37.0, windKmh = 80.0, windGustKmh = 105.0,
+                pressureHpa = 970.0, humidityPercent = 10, precipitationMm = 17.0
+            )
+        }
+        val first = graphicViewportDomains(points, 0..9)
+        val later = graphicViewportDomains(points, 14..23)
+        assertTrue("Local temperature must not be flattened by future heat", first.temperature.max < 24.0)
+        assertTrue("Local wind axis may start above zero", first.wind.min > 0.0)
+        assertTrue("Pressure must fit the local values", first.pressure.min > 1000.0)
+        assertTrue("Rain bars keep a zero baseline", first.rain.min == 0.0)
+        assertTrue("Drizzle must not use the full storm intensity scale", first.rain.max < 0.5)
+        assertTrue("Humidity zoom must reflect locally visible hours", first.humidity.min > 0.0)
+        assertTrue(later.temperature.min > first.temperature.max)
+        assertTrue(later.rain.max > first.rain.max)
+        assertTrue(later.humidity.max < first.humidity.min)
+    }
+
+    @Test
+    fun visible_domains_include_dew_point_apparent_and_model_envelope() {
+        val points = listOf(
+            SimplifiedTimelinePoint(
+                temperatureC = 20.0, apparentTemperatureC = 22.0, dewPointC = 9.0,
+                temperatureMinAcrossModels = 17.0, temperatureMaxAcrossModels = 23.0
+            ),
+            SimplifiedTimelinePoint(temperatureC = 21.0, dewPointC = 10.0)
+        )
+        val domain = graphicViewportDomains(points, 0..1).temperature
+        assertTrue(domain.min < 9.0)
+        assertTrue(domain.max > 23.0)
+        assertEquals(5, domain.ticks.size)
+    }
+
+    @Test
+    fun stable_humidity_and_wind_have_minimum_readable_spans() {
+        val points = List(8) {
+            SimplifiedTimelinePoint(humidityPercent = 76, windKmh = 25.0, windGustKmh = 25.0,
+                pressureHpa = 1008.0, temperatureC = 12.0)
+        }
+        val domains = graphicViewportDomains(points, 0..7)
+        assertTrue(domains.humidity.min <= 76.0 && domains.humidity.max >= 76.0)
+        assertTrue(domains.humidity.max - domains.humidity.min >= 20.0)
+        assertTrue(domains.humidity.min >= 0.0 && domains.humidity.max <= 100.0)
+        assertTrue(domains.wind.max - domains.wind.min >= 4.0)
+        assertTrue(domains.pressure.max - domains.pressure.min >= 2.0)
+        assertTrue(domains.temperature.max - domains.temperature.min >= 2.0)
+    }
+
+    @Test
+    fun all_missing_visible_values_keep_finite_fallback_scales() {
+        val domains = graphicViewportDomains(
+            listOf(SimplifiedTimelinePoint(temperatureC = Double.NaN,
+                humidityPercent = null, precipitationMm = null, windKmh = Double.POSITIVE_INFINITY)),
+            0..0
+        )
+        for (domain in listOf(domains.temperature, domains.rain, domains.humidity,
+                domains.wind, domains.pressure)) {
+            assertTrue(domain.min.isFinite() && domain.max.isFinite())
+            assertTrue(domain.max > domain.min)
+            assertTrue(domain.ticks.all { it in domain.min..domain.max })
+        }
+        assertEquals(0.0, domains.humidity.min, 0.0)
+        assertEquals(100.0, domains.humidity.max, 0.0)
+    }
+
+    @Test
     fun moistureCurvesKeepMissingHoursAndShareTheExistingAxes() {
         val points = listOf(
             SimplifiedTimelinePoint(temperatureC = 25.0, humidityPercent = 70, dewPointC = 8.0),
