@@ -117,6 +117,12 @@ private val WindHeight = 218.dp
 private val TimeHeight = 49.dp
 private val CombinedHeight = 454.dp
 
+// The dedicated cloud/rain/pressure meteogram has two non-overlapping lanes.
+// All three cloud altitude bands share the upper lane; rain and pressure
+// share the lower lane with their independent value domains.
+private const val WeatherCloudFraction = 0.50f
+private const val WeatherLowerFraction = 0.54f
+
 internal const val TAG_METEOGRAM_CONTENT = "meteogram_content"
 internal const val TAG_METEOGRAM_TIME = "meteogram_time"
 internal const val TAG_METEOGRAM_WEATHER = "meteogram_weather"
@@ -725,9 +731,14 @@ private fun MeteogramChartCard(
                         drawChartFrame(hours, zone, first, last, shift, hourStep)
                         when (kind) {
                             MeteogramKind.EVERYDAY -> {
-                                drawCloudLayerBands(hours, first, last, shift, hourStep)
-                                drawRainBars(hours, first, last, shift, hourStep, rainDomain)
-                                drawMetricCurve(hours, first, last, shift, hourStep, pressureDomain, PressureColor) { it.pressureHpa }
+                                drawCloudLayerBands(hours, first, last, shift, hourStep,
+                                    topFraction = WeatherCloudFraction)
+                                drawWeatherLaneDivider()
+                                drawRainBars(hours, first, last, shift, hourStep, rainDomain,
+                                    plotTopFraction = WeatherLowerFraction)
+                                drawMetricCurve(hours, first, last, shift, hourStep,
+                                    pressureDomain, PressureColor,
+                                    plotTopFraction = WeatherLowerFraction) { it.pressureHpa }
                             }
                             MeteogramKind.TEMPERATURE -> {
                                 drawDayOverDayBands(hours, priorTemperatures, first, last, shift, hourStep, domain)
@@ -750,14 +761,15 @@ private fun MeteogramChartCard(
                 }
                 MeteogramValueAxis(kind, height, domain, units,
                     if (kind == MeteogramKind.EVERYDAY) 46.dp
-                    else if (kind == MeteogramKind.TEMPERATURE) 50.dp else AxisWidth)
+                    else if (kind == MeteogramKind.TEMPERATURE) 50.dp else AxisWidth,
+                    plotTopFraction = if (kind == MeteogramKind.EVERYDAY) WeatherLowerFraction else 0f)
                 when (kind) {
                     MeteogramKind.EVERYDAY -> {
-                        // Rain, pressure AND cloud strata each have their own
-                        // right-hand ruler. Clouds use 3 independent 0–100% lanes,
-                        // matching drawCloudLayerBands(topFraction = 0.52f).
+                        // Rain and pressure are both restricted to the lower
+                        // lane; the three cloud 0–100% rulers occupy the upper lane.
                         if (hasPressure) MeteogramValueAxis(
-                            MeteogramKind.PRESSURE, height, pressureDomain, units, 46.dp)
+                            MeteogramKind.PRESSURE, height, pressureDomain, units, 46.dp,
+                            plotTopFraction = WeatherLowerFraction)
                         MeteogramCloudValueAxis(height)
                     }
                     MeteogramKind.TEMPERATURE -> {
@@ -1159,7 +1171,7 @@ private fun MeteogramCloudValueAxis(height: Dp) {
             height = height,
             axisWidth = 46.dp,
             cloudLayers = true,
-            cloudFraction = 0.52f
+            cloudFraction = WeatherCloudFraction
         )
     }
 }
@@ -1170,7 +1182,8 @@ private fun MeteogramValueAxis(
     height: Dp,
     domain: MeteogramDomain,
     units: WeatherUnits,
-    axisWidth: Dp = AxisWidth
+    axisWidth: Dp = AxisWidth,
+    plotTopFraction: Float = 0f
 ) {
     val valueDomain = domain
     val values = listOf(valueDomain.max, (valueDomain.min + valueDomain.max) / 2, valueDomain.min)
@@ -1201,7 +1214,8 @@ private fun MeteogramValueAxis(
         color = meteogramAxisColor(kind),
         labels = labels,
         height = height,
-        axisWidth = axisWidth
+        axisWidth = axisWidth,
+        tickTopFraction = plotTopFraction
     )
 }
 
@@ -1217,7 +1231,8 @@ private fun MeteogramAxisRuler(
     height: Dp,
     axisWidth: Dp,
     cloudLayers: Boolean = false,
-    cloudFraction: Float = 0.38f
+    cloudFraction: Float = 0.38f,
+    tickTopFraction: Float = 0f
 ) {
     // Keep the compact ruler, but restore a translucent metric-colored surface.
     // The neutral opaque gray introduced in the previous patch reduced visual
@@ -1263,13 +1278,21 @@ private fun MeteogramAxisRuler(
             }
             androidx.compose.foundation.layout.Spacer(Modifier.height(height * (1f - cloudFraction)))
         } else {
-            Column(Modifier.height(height).fillMaxWidth().padding(vertical = 3.dp),
-                verticalArrangement = Arrangement.SpaceBetween,
-                horizontalAlignment = Alignment.End) {
-                labels.forEach { label ->
-                    Text(label, style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.SemiBold, maxLines = 1)
+            Column(Modifier.height(height).fillMaxWidth()) {
+                if (tickTopFraction > 0f) {
+                    androidx.compose.foundation.layout.Spacer(Modifier.height(height * tickTopFraction))
+                }
+                Column(
+                    Modifier.height(height * (1f - tickTopFraction)).fillMaxWidth()
+                        .padding(vertical = if (tickTopFraction > 0f) 4.dp else 3.dp),
+                    verticalArrangement = Arrangement.SpaceBetween,
+                    horizontalAlignment = Alignment.End
+                ) {
+                    labels.forEach { label ->
+                        Text(label, style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.SemiBold, maxLines = 1)
+                    }
                 }
             }
         }
@@ -1524,21 +1547,34 @@ private fun DrawScope.drawCloudLayerBands(
 
 }
 
+/** Visual separation between the cloud-only upper zone and lower measurements. */
+private fun DrawScope.drawWeatherLaneDivider() {
+    val middle = size.height * (WeatherCloudFraction + WeatherLowerFraction) / 2f
+    drawLine(CloudColor.copy(alpha = 0.25f), Offset(0f, middle),
+        Offset(size.width, middle), strokeWidth = 1.2.dp.toPx())
+}
+
 private fun DrawScope.drawRainBars(
     hours: List<MeteogramHour>,
     first: Int,
     last: Int,
     offset: Float,
     step: Float,
-    domain: MeteogramDomain
+    domain: MeteogramDomain,
+    plotTopFraction: Float = 0f
 ) {
     val padding = 4.dp.toPx()
+    val splitPlot = plotTopFraction > 0f
+    val plotBottom = size.height - if (splitPlot) 4.dp.toPx() else 0f
+    val plotHeight = if (splitPlot) {
+        (size.height * (1f - plotTopFraction) - 8.dp.toPx()).coerceAtLeast(0f)
+    } else size.height * 0.92f // Preserve the combined-chart geometry.
     for (i in first..last) {
         val rain = hours[i].rainMm?.takeIf { it.isFinite() && it > 0 } ?: continue
-        val height = size.height * 0.92f * domain.fraction(rain)
+        val height = plotHeight * domain.fraction(rain)
         drawRoundRect(
             RainColor.copy(alpha = 0.88f),
-            topLeft = Offset(i * step - offset + padding, size.height - height),
+            topLeft = Offset(i * step - offset + padding, plotBottom - height),
             size = Size((step - padding * 2).coerceAtLeast(2.dp.toPx()), height),
             cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx())
         )
@@ -1553,6 +1589,7 @@ private fun DrawScope.drawMetricCurve(
     step: Float,
     domain: MeteogramDomain,
     color: Color,
+    plotTopFraction: Float = 0f,
     value: (MeteogramHour) -> Double?
 ) {
     var path = Path()
@@ -1579,7 +1616,9 @@ private fun DrawScope.drawMetricCurve(
         }
         val point = Offset(
             (i + 0.5f) * step - offset,
-            (size.height - 8.dp.toPx()) * (1f - domain.fraction(v)) + 4.dp.toPx()
+            size.height * plotTopFraction + 4.dp.toPx() +
+                (size.height * (1f - plotTopFraction) - 8.dp.toPx()).coerceAtLeast(0f) *
+                    (1f - domain.fraction(v))
         )
         val previousPoint = previous
         if (previousPoint == null) {

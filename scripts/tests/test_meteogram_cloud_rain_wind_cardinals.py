@@ -65,7 +65,7 @@ class MeteorogramSeparationTest(unittest.TestCase):
         cloud_axis = self.code.split('private fun MeteogramCloudValueAxis(', 1)[1].split(
             'private fun MeteogramValueAxis(', 1)[0]
         self.assertIn('TAG_METEOGRAM_CLOUD_AXIS', cloud_axis)
-        self.assertIn('cloudFraction = 0.52f', cloud_axis)
+        self.assertIn('cloudFraction = WeatherCloudFraction', cloud_axis)
         self.assertIn('cloudLayers = true', cloud_axis)
         card = self.code.split('private fun MeteogramChartCard(', 1)[1].split(
             'private fun MeteogramGraphFrame(', 1)[0]

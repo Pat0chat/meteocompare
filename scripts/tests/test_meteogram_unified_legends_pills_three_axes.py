@@ -38,7 +38,7 @@ class MeteogramUnifiedDesignTest(unittest.TestCase):
         axis = code.split('private fun MeteogramCloudValueAxis(', 1)[1].split(
             'private fun MeteogramValueAxis(', 1)[0]
         self.assertIn('TAG_METEOGRAM_CLOUD_AXIS', axis)
-        self.assertIn('cloudFraction = 0.52f', axis)
+        self.assertIn('cloudFraction = WeatherCloudFraction', axis)
         self.assertIn('cloudLayers = true', axis)
         self.assertIn('"%"', axis)
         ruler = code.split('private fun MeteogramAxisRuler(', 1)[1].split(
