@@ -1,14 +1,23 @@
 package com.meteocompare.app.ui.meteogram
 
+import androidx.compose.ui.test.assertExists
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.unit.dp
+import com.meteocompare.app.R
+import androidx.test.platform.app.InstrumentationRegistry
+import com.meteocompare.app.core.units.LocalWeatherUnits
+import com.meteocompare.app.core.units.WeatherUnits
 import com.meteocompare.app.domain.model.City
+import com.meteocompare.app.domain.model.UnitSystem
 import com.meteocompare.app.ui.citydetail.SimplifiedTimelinePoint
 import com.meteocompare.app.ui.graphicview.GraphicForecastUiState
 import com.meteocompare.app.ui.theme.MeteoCompareTheme
@@ -87,6 +96,16 @@ class MeteogramContentTest {
         rule.setContent { MeteoCompareTheme { MeteogramContent(state) } }
         rule.onNodeWithTag(TAG_METEOGRAM_LAYOUT_COMBINED).performClick()
         rule.onNodeWithTag(TAG_METEOGRAM_COMBINED, useUnmergedTree = true).assertExists()
+        val strings = InstrumentationRegistry.getInstrumentation().targetContext
+        listOf(
+            "${strings.getString(R.string.meteogram_temperature)} (°C)",
+            "${strings.getString(R.string.apparent_temperature_widget_prefix)} (°C)",
+            "${strings.getString(R.string.metric_dew_point_short)} (°C)",
+            "${strings.getString(R.string.meteogram_humidity)} (%)",
+            "${strings.getString(R.string.meteogram_pressure)} (hPa)"
+        ).forEach { legend ->
+            rule.onNodeWithText(legend, useUnmergedTree = true).assertExists()
+        }
         rule.onNodeWithTag(TAG_METEOGRAM_SELECTED, useUnmergedTree = true).assertExists()
         rule.onAllNodesWithTag(TAG_METEOGRAM_SELECTED_GRID, useUnmergedTree = true).assertCountEquals(1)
         rule.onAllNodesWithTag(TAG_METEOGRAM_SELECTED_TIME_TRACK, useUnmergedTree = true).assertCountEquals(1)
@@ -110,6 +129,35 @@ class MeteogramContentTest {
             .assertHeightIsEqualTo(49.dp)
         rule.onNodeWithTag(TAG_METEOGRAM_TEMPERATURE, useUnmergedTree = true).assertDoesNotExist()
         rule.onNodeWithTag(TAG_METEOGRAM_WEATHER, useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test fun combined_legend_uses_imperial_units_for_temperature_and_pressure() {
+        val start = Instant.parse("2026-10-28T00:00:00Z")
+        val state = GraphicForecastUiState.Loaded(
+            city = City("test", "Paris", country = "France", latitude = 48.8,
+                longitude = 2.3, timezone = "Europe/Paris"),
+            points = List(12) { i -> SimplifiedTimelinePoint(
+                instant = start.plusSeconds(i * 3600L), temperatureC = 12.0,
+                apparentTemperatureC = 10.0, dewPointC = 7.0,
+                humidityPercent = 75, pressureHpa = 1015.0) },
+            solarByDate = emptyMap(), modelValuesByInstant = emptyMap(), calculatedAt = start
+        )
+        rule.setContent {
+            CompositionLocalProvider(LocalWeatherUnits provides WeatherUnits(UnitSystem.IMPERIAL)) {
+                MeteoCompareTheme { MeteogramContent(state) }
+            }
+        }
+        rule.onNodeWithTag(TAG_METEOGRAM_LAYOUT_COMBINED).performClick()
+        val strings = InstrumentationRegistry.getInstrumentation().targetContext
+        listOf(
+            "${strings.getString(R.string.meteogram_temperature)} (°F)",
+            "${strings.getString(R.string.apparent_temperature_widget_prefix)} (°F)",
+            "${strings.getString(R.string.metric_dew_point_short)} (°F)",
+            "${strings.getString(R.string.meteogram_humidity)} (%)",
+            "${strings.getString(R.string.meteogram_pressure)} (inHg)"
+        ).forEach { legend ->
+            rule.onNodeWithText(legend, useUnmergedTree = true).assertExists()
+        }
     }
 
     @Test fun compare_mode_displays_one_everyday_meteogram_per_model() {
