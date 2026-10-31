@@ -1093,4 +1093,9 @@
 
     <string name="meteogram_rain">Rain</string>
     <string name="meteogram_cloud">Clouds</string>
+    <string name="meteogram_layout_separate">Separate meteograms</string>
+    <string name="meteogram_layout_combined">All in one</string>
+    <string name="meteogram_sunrise">Sunrise</string>
+    <string name="meteogram_sunset">Sunset</string>
+    <string name="meteogram_cloud_total">Clouds (total)</string>
 </resources>

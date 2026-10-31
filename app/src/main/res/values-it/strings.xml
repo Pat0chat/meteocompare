@@ -1081,4 +1081,9 @@ dato</string>
 
     <string name="meteogram_rain">Pioggia</string>
     <string name="meteogram_cloud">Nuvole</string>
+    <string name="meteogram_layout_separate">Meteogrammi separati</string>
+    <string name="meteogram_layout_combined">Tutto in uno</string>
+    <string name="meteogram_sunrise">Alba</string>
+    <string name="meteogram_sunset">Tramonto</string>
+    <string name="meteogram_cloud_total">Nuvole (totale)</string>
 </resources>

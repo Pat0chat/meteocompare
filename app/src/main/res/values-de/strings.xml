@@ -1076,4 +1076,9 @@ Daten</string>
 
     <string name="meteogram_rain">Regen</string>
     <string name="meteogram_cloud">Wolken</string>
+    <string name="meteogram_layout_separate">Getrennte Meteogramme</string>
+    <string name="meteogram_layout_combined">Alles in einem</string>
+    <string name="meteogram_sunrise">Sonnenaufgang</string>
+    <string name="meteogram_sunset">Sonnenuntergang</string>
+    <string name="meteogram_cloud_total">Wolken (gesamt)</string>
 </resources>

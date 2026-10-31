@@ -1094,4 +1094,9 @@
 
     <string name="meteogram_rain">Pluie</string>
     <string name="meteogram_cloud">Nuages</string>
+    <string name="meteogram_layout_separate">Météogrammes séparés</string>
+    <string name="meteogram_layout_combined">Tout-en-un</string>
+    <string name="meteogram_sunrise">Lever du soleil</string>
+    <string name="meteogram_sunset">Coucher du soleil</string>
+    <string name="meteogram_cloud_total">Nuages (total)</string>
 </resources>

@@ -1081,4 +1081,9 @@ datos</string>
 
     <string name="meteogram_rain">Lluvia</string>
     <string name="meteogram_cloud">Nubes</string>
+    <string name="meteogram_layout_separate">Meteogramas separados</string>
+    <string name="meteogram_layout_combined">Todo en uno</string>
+    <string name="meteogram_sunrise">Amanecer</string>
+    <string name="meteogram_sunset">Atardecer</string>
+    <string name="meteogram_cloud_total">Nubes (total)</string>
 </resources>
