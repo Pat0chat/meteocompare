@@ -48,24 +48,38 @@ class MeteogramGroupedLayoutTest(unittest.TestCase):
             self.assertIn(field, bars)
         for color in ('CloudLowColor', 'CloudMidColor', 'CloudHighColor'):
             self.assertIn(color, bars)
-        self.assertIn('cloudPercent', bars)
+        self.assertNotIn('cloudPercent', bars)
         self.assertIn('fill.cubicTo(', bars)
         self.assertIn('drawPath(fill,', bars)
         self.assertNotIn('drawRoundRect(', bars)
 
-    def test_clipped_time_axis_and_all_six_scales_in_combined_mode(self):
+    def test_rectangular_time_axis_compact_rulers_and_selectable_axis(self):
         time_axis = self.source.split('private fun MeteogramTimeAxis(', 1)[1].split(
             'private fun MeteogramPlot(', 1)[0]
-        self.assertIn('.clip(RoundedCornerShape(12.dp))', time_axis)
+        self.assertNotIn('.clip(RoundedCornerShape(', time_axis)
+        self.assertIn('.border(1.dp, MaterialTheme.colorScheme.outlineVariant', time_axis)
         self.assertIn('paint.measureText(label)', time_axis)
         self.assertIn('markerPaint.measureText(symbol)', time_axis)
         combined = self.source.split('private fun MeteogramCombinedCard(', 1)[1].split(
             'private fun MeteogramCloudLayersHint(', 1)[0]
-        self.assertLess(combined.index('MeteogramCombinedScaleLegend('), combined.index('MeteogramPlot('))
-        scale_defs = self.source.split('private fun MeteogramCombinedScaleLegend(', 1)[1].split(
-            'private fun MeteogramScaleRuler(', 1)[0]
-        for kind in ('temperature', 'cloud', 'rain', 'wind', 'humidity', 'pressure'):
-            self.assertIn(f'MeteogramScaleTicks("{kind}"', scale_defs)
+        self.assertLess(combined.index('MeteogramScalePicker('), combined.index('MeteogramPlot('))
+        self.assertIn('MeteogramCombinedSelectedAxis(', combined)
+        self.assertNotIn('MeteogramCombinedScaleLegend(', combined)
+        self.assertIn('private val AxisWidth = 54.dp', self.source)
+        selection = self.source.split('private fun MeteogramScalePicker(', 1)[1].split(
+            'private fun cardHeight(', 1)[0]
+        for kind in ('TEMPERATURE', 'CLOUDS', 'RAIN', 'WIND', 'HUMIDITY', 'PRESSURE'):
+            self.assertIn('MeteogramAxisChoice.' + kind, selection)
+        self.assertIn('cloudLayers = choice == MeteogramAxisChoice.CLOUDS', selection)
+        self.assertIn('contentDescription = choice.name.lowercase()', selection)
+        self.assertNotIn('MeteogramScaleTicks(', self.source)
+
+    def test_total_cloud_overlay_and_legend_removed(self):
+        cloud_plot = self.source.split('private fun DrawScope.drawCloudLayerBands(', 1)[1].split(
+            'private fun DrawScope.drawRainBars(', 1)[0]
+        self.assertNotIn('drawPath(contour,', cloud_plot)
+        self.assertNotIn('cloudPercent', cloud_plot)
+        self.assertNotIn('R.string.meteogram_cloud_total', self.source)
 
     def test_removed_daily_panel_and_fixed_domains(self):
         preset = self.source.split('internal val MeteogramPresets = ', 1)[1].split(')', 1)[0]

@@ -1093,15 +1093,14 @@
     <string name="meteogram_rain">Rain</string>
     <string name="meteogram_layout_separate">Separate meteograms</string>
     <string name="meteogram_layout_combined">All in one</string>
-    <string name="meteogram_combined_scales_hint">Each measurement has its own scale, shown above the graph. The right-hand axis is temperature.</string>
 
     <string name="meteogram_sunrise">Sunrise</string>
     <string name="meteogram_sunset">Sunset</string>
         <string name="meteogram_cloud_low">Low clouds</string>
     <string name="meteogram_cloud_mid">Mid clouds</string>
     <string name="meteogram_cloud_high">High clouds</string>
-<string name="meteogram_cloud_total">Clouds (total)</string>
-    <string name="meteogram_all_scales_title">Graph scales · top / middle / bottom</string>
+    <string name="meteogram_choose_scale">Scale</string>
+    <string name="meteogram_cloud_picker">Clouds</string>
     <string name="meteogram_cloud_layers_hint">Continuous cloud layers: high above, mid in the middle, low below (% for each layer).</string>
-    <string name="meteogram_cloud_layers_unavailable">Low, mid and high cloud layers unavailable (model or old cache): only total cloud cover is shown.</string>
+    <string name="meteogram_cloud_layers_unavailable">Low, middle and high cloud layers are unavailable for this model or older cache.</string>
 </resources>

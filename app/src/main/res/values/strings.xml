@@ -1094,15 +1094,14 @@
     <string name="meteogram_rain">Pluie</string>
     <string name="meteogram_layout_separate">Météogrammes séparés</string>
     <string name="meteogram_layout_combined">Tout-en-un</string>
-    <string name="meteogram_combined_scales_hint">Chaque donnée a sa propre échelle, présentée avant le graphique. L’axe à droite correspond aux températures.</string>
 
     <string name="meteogram_sunrise">Lever du soleil</string>
     <string name="meteogram_sunset">Coucher du soleil</string>
         <string name="meteogram_cloud_low">Nuages bas</string>
     <string name="meteogram_cloud_mid">Nuages moyens</string>
     <string name="meteogram_cloud_high">Nuages hauts</string>
-<string name="meteogram_cloud_total">Nuages (total)</string>
-    <string name="meteogram_all_scales_title">Échelles du graphique · haut / milieu / bas</string>
+    <string name="meteogram_choose_scale">Échelle</string>
+    <string name="meteogram_cloud_picker">Nuages</string>
     <string name="meteogram_cloud_layers_hint">Couches nuageuses continues : hautes en haut, moyennes au centre, basses en bas (% de chaque couche).</string>
-    <string name="meteogram_cloud_layers_unavailable">Couches basses, moyennes et hautes indisponibles (modèle ou cache ancien) : seule la couverture totale est affichée.</string>
+    <string name="meteogram_cloud_layers_unavailable">Couches nuageuses basses, moyennes et hautes indisponibles pour ce modèle ou cet ancien cache.</string>
 </resources>

@@ -1,5 +1,6 @@
 package com.meteocompare.app.ui.meteogram
 
+import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.performClick
@@ -65,11 +66,20 @@ class MeteogramContentTest {
         rule.setContent { MeteoCompareTheme { MeteogramContent(state) } }
         rule.onNodeWithTag(TAG_METEOGRAM_LAYOUT_COMBINED).performClick()
         rule.onNodeWithTag(TAG_METEOGRAM_COMBINED, useUnmergedTree = true).assertExists()
-        // All measurement scales must be visible in the single-canvas mode.
-        listOf("temperature", "cloud", "rain", "wind", "humidity", "pressure").forEach { metric ->
-            rule.onNodeWithTag(TAG_METEOGRAM_SCALE_PREFIX + metric, useUnmergedTree = true)
-                .assertExists()
-        }
+        // Exactly one ruler; selecting it does not recreate the shared Canvas.
+        rule.onNodeWithTag(TAG_METEOGRAM_ACTIVE_AXIS, useUnmergedTree = true)
+            .assertContentDescriptionEquals("temperature")
+        rule.onNodeWithTag(TAG_METEOGRAM_SCALE_PICKER).performClick()
+        rule.onNodeWithTag(TAG_METEOGRAM_SCALE_OPTION_PREFIX + "pressure")
+            .performClick()
+        rule.onNodeWithTag(TAG_METEOGRAM_ACTIVE_AXIS, useUnmergedTree = true)
+            .assertContentDescriptionEquals("pressure")
+        rule.onNodeWithTag(TAG_METEOGRAM_COMBINED, useUnmergedTree = true).assertExists()
+        rule.onNodeWithTag(TAG_METEOGRAM_SCALE_PICKER).performClick()
+        rule.onNodeWithTag(TAG_METEOGRAM_SCALE_OPTION_PREFIX + "clouds")
+            .performClick()
+        rule.onNodeWithTag(TAG_METEOGRAM_ACTIVE_AXIS, useUnmergedTree = true)
+            .assertContentDescriptionEquals("clouds")
         rule.onAllNodesWithTag(TAG_METEOGRAM_TIME, useUnmergedTree = true).assertCountEquals(1)
         rule.onNodeWithTag(TAG_METEOGRAM_TEMPERATURE, useUnmergedTree = true).assertDoesNotExist()
         rule.onNodeWithTag(TAG_METEOGRAM_WEATHER, useUnmergedTree = true).assertDoesNotExist()

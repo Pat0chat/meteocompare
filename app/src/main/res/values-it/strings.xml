@@ -1081,15 +1081,14 @@ dato</string>
     <string name="meteogram_rain">Pioggia</string>
     <string name="meteogram_layout_separate">Meteogrammi separati</string>
     <string name="meteogram_layout_combined">Tutto in uno</string>
-    <string name="meteogram_combined_scales_hint">Ogni misura ha una propria scala, sopra il grafico. L’asse destro mostra la temperatura.</string>
 
     <string name="meteogram_sunrise">Alba</string>
     <string name="meteogram_sunset">Tramonto</string>
         <string name="meteogram_cloud_low">Nubi basse</string>
     <string name="meteogram_cloud_mid">Nubi medie</string>
     <string name="meteogram_cloud_high">Nubi alte</string>
-<string name="meteogram_cloud_total">Nuvole (totale)</string>
-    <string name="meteogram_all_scales_title">Scale · alto / centro / basso</string>
+    <string name="meteogram_choose_scale">Scala</string>
+    <string name="meteogram_cloud_picker">Nuvole</string>
     <string name="meteogram_cloud_layers_hint">Strati nuvolosi continui: alti sopra, medi al centro, bassi sotto (% per strato).</string>
-    <string name="meteogram_cloud_layers_unavailable">Strati nuvolosi bassi, medi e alti non disponibili (modello o vecchia cache): solo copertura totale.</string>
+    <string name="meteogram_cloud_layers_unavailable">Strati nuvolosi bassi, medi e alti non disponibili per questo modello o per la vecchia cache.</string>
 </resources>
