@@ -35,15 +35,39 @@ class MeteorogramSeparationTest(unittest.TestCase):
             'MeteogramKind.TEMPERATURE ->',1)[0]
         self.assertNotIn('Triple(WindColor', selected)
 
-    def test_cloud_rain_legend_exposes_all_measurements(self):
+    def test_cloud_rain_legend_exposes_three_consistent_measure_keys(self):
         legend = self.code.split('private fun MeteogramCloudRainLegend(', 1)[1].split(
             'private fun MeteogramCombinedLegend(', 1)[0]
         for name in ('meteogram_cloud_picker', 'meteogram_cloud_low',
                      'meteogram_cloud_mid', 'meteogram_cloud_high',
                      'meteogram_rain', 'meteogram_pressure'):
             self.assertIn('R.string.' + name, legend)
-        self.assertIn('emphasized = true', legend)
+        # All keys, including cloud/rain/pressure, share the exact same renderer.
+        self.assertEqual(1, legend.count('MeteogramLegend(listOf('))
+        self.assertEqual(6, legend.count('LegendEntry('))
+        for tag in ('TAG_METEOGRAM_CLOUD_LEGEND', 'TAG_METEOGRAM_RAIN_LEGEND',
+                    'TAG_METEOGRAM_PRESSURE_LEGEND'):
+            self.assertIn('tag = ' + tag, legend)
+        self.assertIn('meteogram_cloud_picker)} (%)', legend)
+        self.assertIn('units.precipitationUnit', legend)
+        self.assertIn('if (units.imperial) "inHg" else "hPa"', legend)
         self.assertNotIn('meteogram_wind', legend)
+        self.assertNotIn('emphasized', legend)
+
+    def test_all_legends_use_same_key_renderer_and_third_cloud_axis(self):
+        common = self.code.split('private fun MeteogramKey(', 1)[1].split(
+            'private fun meteogramAxisColor(', 1)[0]
+        self.assertIn('MaterialTheme.typography.labelSmall', common)
+        self.assertIn('MeteogramLegendMarker(entry.color, entry.line)', common)
+        self.assertIn('fontWeight = FontWeight.Medium', common)
+        cloud_axis = self.code.split('private fun MeteogramCloudValueAxis(', 1)[1].split(
+            'private fun MeteogramValueAxis(', 1)[0]
+        self.assertIn('TAG_METEOGRAM_CLOUD_AXIS', cloud_axis)
+        self.assertIn('cloudFraction = 0.52f', cloud_axis)
+        self.assertIn('cloudLayers = true', cloud_axis)
+        card = self.code.split('private fun MeteogramChartCard(', 1)[1].split(
+            'private fun MeteogramGraphFrame(', 1)[0]
+        self.assertIn('MeteogramCloudValueAxis(height)', card)
 
     def test_wind_cardinals_present_and_localized(self):
         wind = self.code.split('private fun DrawScope.drawWindDirectionArrows(', 1)[1].split(

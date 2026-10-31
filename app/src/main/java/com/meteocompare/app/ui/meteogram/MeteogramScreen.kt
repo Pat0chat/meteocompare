@@ -120,6 +120,11 @@ internal const val TAG_METEOGRAM_HUMIDITY = "meteogram_humidity"
 internal const val TAG_METEOGRAM_PRESSURE = "meteogram_pressure"
 internal const val TAG_METEOGRAM_WIND = "meteogram_wind"
 internal const val TAG_METEOGRAM_CLOUD_RAIN_LEGEND = "meteogram_cloud_rain_legend"
+internal const val TAG_METEOGRAM_CLOUD_LEGEND = "meteogram_cloud_legend"
+internal const val TAG_METEOGRAM_CLOUD_AXIS = "meteogram_cloud_axis"
+internal const val TAG_METEOGRAM_SELECTED_GRID = "meteogram_selected_grid"
+internal const val TAG_METEOGRAM_RAIN_LEGEND = "meteogram_rain_legend"
+internal const val TAG_METEOGRAM_PRESSURE_LEGEND = "meteogram_pressure_legend"
 internal const val TAG_METEOGRAM_SELECTED = "meteogram_selected"
 internal const val TAG_METEOGRAM_CARD_SELECTED_PREFIX = "meteogram_card_selected_"
 internal const val TAG_METEOGRAM_COMBINED = "meteogram_combined_plot"
@@ -183,8 +188,10 @@ internal enum class MeteogramAxisChoice { TEMPERATURE, CLOUDS, RAIN, WIND, HUMID
 private enum class MeteogramMarkerType { SUNRISE, SUNSET }
 private data class MeteogramMarker(val instant: Instant, val type: MeteogramMarkerType)
 private data class LegendEntry(
-    val color: Color, val label: String, val line: Boolean = false,
-    val emphasized: Boolean = false
+    val color: Color,
+    val label: String,
+    val line: Boolean = false,
+    val tag: String? = null
 )
 
 // Humidity is grouped with temperature, and pressure with Everyday Weather.
@@ -732,11 +739,16 @@ private fun MeteogramChartCard(
                     }
                 }
                 MeteogramValueAxis(kind, height, domain, units,
-                    if (kind == MeteogramKind.EVERYDAY || kind == MeteogramKind.TEMPERATURE) 50.dp else AxisWidth)
+                    if (kind == MeteogramKind.EVERYDAY) 46.dp
+                    else if (kind == MeteogramKind.TEMPERATURE) 50.dp else AxisWidth)
                 when (kind) {
                     MeteogramKind.EVERYDAY -> {
+                        // Rain, pressure AND cloud strata each have their own
+                        // right-hand ruler. Clouds use 3 independent 0–100% lanes,
+                        // matching drawCloudLayerBands(topFraction = 0.52f).
                         if (hasPressure) MeteogramValueAxis(
-                            MeteogramKind.PRESSURE, height, pressureDomain, units, 50.dp)
+                            MeteogramKind.PRESSURE, height, pressureDomain, units, 46.dp)
+                        MeteogramCloudValueAxis(height)
                     }
                     MeteogramKind.TEMPERATURE -> {
                         if (hasHumidity) MeteogramValueAxis(
@@ -1026,29 +1038,22 @@ private fun MeteogramChartLegend(kind: MeteogramKind, units: WeatherUnits) {
     MeteogramLegend(entries)
 }
 
-/** The cloud / rain card highlights the three cloud strata and rain separately.
- *  Unlike the crowded generic legend, these keys never disappear into solar or wind metadata. */
+/** The same compact legend styling is shared by every meteorogram.
+ *  Each cloud altitude is named separately; rain and pressure have their
+ *  own color marker and the same typography as the cloud keys. */
 @Composable
 private fun MeteogramCloudRainLegend(units: WeatherUnits) {
-    Column(Modifier.fillMaxWidth().testTag(TAG_METEOGRAM_CLOUD_RAIN_LEGEND)) {
-        Text(
-            "${stringResource(R.string.meteogram_cloud_picker)} (%)",
-            Modifier.padding(start = 12.dp, end = 12.dp, top = 7.dp),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-            fontWeight = FontWeight.Bold
-        )
+    Box(Modifier.fillMaxWidth().testTag(TAG_METEOGRAM_CLOUD_RAIN_LEGEND)) {
         MeteogramLegend(listOf(
+            LegendEntry(CloudMidColor, "${stringResource(R.string.meteogram_cloud_picker)} (%)",
+                tag = TAG_METEOGRAM_CLOUD_LEGEND),
             LegendEntry(CloudLowColor, stringResource(R.string.meteogram_cloud_low)),
             LegendEntry(CloudMidColor, stringResource(R.string.meteogram_cloud_mid)),
-            LegendEntry(CloudHighColor, stringResource(R.string.meteogram_cloud_high))
-        ))
-        MeteogramLegend(listOf(
-            LegendEntry(RainColor, "${stringResource(R.string.meteogram_rain)} (${units.precipitationUnit}/h)", emphasized = true),
-            LegendEntry(PressureColor, stringResource(R.string.meteogram_pressure), line = true),
-            LegendEntry(DayBackgroundColor, stringResource(R.string.meteogram_sun)),
-            LegendEntry(SunriseColor, stringResource(R.string.meteogram_sunrise), line = true),
-            LegendEntry(SunsetColor, stringResource(R.string.meteogram_sunset), line = true)
+            LegendEntry(CloudHighColor, stringResource(R.string.meteogram_cloud_high)),
+            LegendEntry(RainColor, "${stringResource(R.string.meteogram_rain)} (${units.precipitationUnit}/h)",
+                tag = TAG_METEOGRAM_RAIN_LEGEND),
+            LegendEntry(PressureColor, "${stringResource(R.string.meteogram_pressure)} (${if (units.imperial) "inHg" else "hPa"})",
+                line = true, tag = TAG_METEOGRAM_PRESSURE_LEGEND)
         ))
     }
 }
@@ -1089,21 +1094,33 @@ private fun MeteogramLegend(entries: List<LegendEntry>) {
 }
 
 @Composable
+private fun MeteogramLegendMarker(color: Color, line: Boolean) {
+    if (line) {
+        Box(Modifier.width(14.dp).height(3.dp)
+            .background(color, RoundedCornerShape(50)))
+    } else {
+        Box(Modifier.size(9.dp).background(color, CircleShape))
+    }
+}
+
+@Composable
 private fun MeteogramKey(entry: LegendEntry) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-        if (entry.line) {
-            Box(Modifier.width(14.dp).height(3.dp)
-                .background(entry.color, RoundedCornerShape(50)))
-        } else {
-            Box(Modifier.size(if (entry.emphasized) 12.dp else 9.dp)
-                .background(entry.color, CircleShape))
-        }
+    val modifier = if (entry.tag != null) Modifier.testTag(entry.tag) else Modifier
+    Row(
+        modifier = modifier
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.30f),
+                RoundedCornerShape(8.dp))
+            .padding(horizontal = 8.dp, vertical = 5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        MeteogramLegendMarker(entry.color, entry.line)
         Text(
             entry.label,
-            style = if (entry.emphasized) MaterialTheme.typography.labelMedium else MaterialTheme.typography.labelSmall,
-            color = if (entry.emphasized) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = if (entry.emphasized) FontWeight.Bold else FontWeight.Normal,
-            maxLines = 1
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 2
         )
     }
 }
@@ -1114,6 +1131,24 @@ private fun meteogramAxisColor(kind: MeteogramKind): Color = when (kind) {
     MeteogramKind.TEMPERATURE -> TemperatureColor
     MeteogramKind.HUMIDITY -> HumidityColor
     MeteogramKind.PRESSURE -> PressureColor
+}
+
+/** The cloud ruler is divided into three lanes (high/mid/low), not one
+ *  0–100% domain stretched over the whole rain/pressure plot. */
+@Composable
+private fun MeteogramCloudValueAxis(height: Dp) {
+    Box(Modifier.testTag(TAG_METEOGRAM_CLOUD_AXIS)) {
+        MeteogramAxisRuler(
+            title = meteogramAxisShortLabel(MeteogramAxisChoice.CLOUDS),
+            unit = "%",
+            color = CloudMidColor,
+            labels = listOf("100", "50", "0"),
+            height = height,
+            axisWidth = 46.dp,
+            cloudLayers = true,
+            cloudFraction = 0.52f
+        )
+    }
 }
 
 @Composable
@@ -1168,7 +1203,8 @@ private fun MeteogramAxisRuler(
     labels: List<String>,
     height: Dp,
     axisWidth: Dp,
-    cloudLayers: Boolean = false
+    cloudLayers: Boolean = false,
+    cloudFraction: Float = 0.38f
 ) {
     // Keep the compact ruler, but restore a translucent metric-colored surface.
     // The neutral opaque gray introduced in the previous patch reduced visual
@@ -1197,7 +1233,7 @@ private fun MeteogramAxisRuler(
             }
         }
         if (cloudLayers) {
-            val laneHeight = height * (0.38f / 3f)
+            val laneHeight = height * (cloudFraction / 3f)
             listOf(CloudHighColor, CloudMidColor, CloudLowColor).forEach { layerColor ->
                 Column(Modifier.height(laneHeight).fillMaxWidth(),
                     verticalArrangement = Arrangement.SpaceBetween,
@@ -1212,7 +1248,7 @@ private fun MeteogramAxisRuler(
                         fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
                 }
             }
-            androidx.compose.foundation.layout.Spacer(Modifier.height(height * 0.62f))
+            androidx.compose.foundation.layout.Spacer(Modifier.height(height * (1f - cloudFraction)))
         } else {
             Column(Modifier.height(height).fillMaxWidth().padding(vertical = 3.dp),
                 verticalArrangement = Arrangement.SpaceBetween,
@@ -1732,25 +1768,13 @@ private fun MeteogramCardSelectedValues(
                 hour.pressureHpa?.let { "${units.number(units.pressure(it), if (units.imperial) 2 else 0)} ${if (units.imperial) "inHg" else "hPa"}" } ?: "—")
         )
     }
-    Column(
-        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp)
-            .testTag(TAG_METEOGRAM_CARD_SELECTED_PREFIX + kind.name.lowercase()),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Text(
-            stringResource(R.string.meteogram_selected, hour.instant.atZone(zone).format(clockFormatter)),
-            color = MaterialTheme.colorScheme.primary,
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold
-        )
-        FlowRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(7.dp),
-            verticalArrangement = Arrangement.spacedBy(7.dp)
-        ) {
-            metrics.forEach { (color, label, value) -> MeteogramValuePill(label, value, color) }
-        }
-    }
+    MeteogramSelectedMetricContent(
+        title = stringResource(R.string.meteogram_selected,
+            hour.instant.atZone(zone).format(clockFormatter)),
+        metrics = metrics,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp)
+            .testTag(TAG_METEOGRAM_CARD_SELECTED_PREFIX + kind.name.lowercase())
+    )
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -1780,21 +1804,47 @@ private fun MeteogramSelectedValues(hour: MeteogramHour, cityZone: ZoneId, units
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
     ) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-                stringResource(R.string.meteogram_selected,
-                    "${selectedTime.format(dateFormatter)} · ${selectedTime.format(clockFormatter)}"),
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                values.forEach { (color, label, value) ->
-                    MeteogramValuePill(label = label, value = value, color = color)
+        MeteogramSelectedMetricContent(
+            title = stringResource(R.string.meteogram_selected,
+                "${selectedTime.format(dateFormatter)} · ${selectedTime.format(clockFormatter)}"),
+            metrics = values,
+            modifier = Modifier.padding(12.dp)
+        )
+    }
+}
+
+/** One two-column layout for every panel, independent of metric count.
+ *  The last unpaired value occupies one normal cell rather than full width. */
+@Composable
+private fun MeteogramSelectedMetricContent(
+    title: String,
+    metrics: List<Triple<Color, String, String>>,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            title,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Column(
+            Modifier.fillMaxWidth().testTag(TAG_METEOGRAM_SELECTED_GRID),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            metrics.chunked(2).forEach { pair ->
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    pair.forEach { (color, label, value) ->
+                        Box(Modifier.weight(1f)) {
+                            MeteogramValuePill(label, value, color, Modifier.fillMaxWidth())
+                        }
+                    }
+                    if (pair.size == 1) {
+                        androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                    }
                 }
             }
         }
@@ -1802,23 +1852,38 @@ private fun MeteogramSelectedValues(hour: MeteogramHour, cityZone: ZoneId, units
 }
 
 @Composable
-private fun MeteogramValuePill(label: String, value: String, color: Color) {
+private fun MeteogramValuePill(
+    label: String,
+    value: String,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
     Surface(
+        modifier = modifier.height(76.dp),
         shape = RoundedCornerShape(12.dp),
         color = color.copy(alpha = 0.09f),
         tonalElevation = 0.dp,
         border = androidx.compose.foundation.BorderStroke(1.dp, color.copy(alpha = 0.42f))
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = 9.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(7.dp)
         ) {
-            Box(Modifier.size(width = 4.dp, height = 24.dp).background(color, RoundedCornerShape(999.dp)))
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(value, style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+            Box(Modifier.size(width = 4.dp, height = 24.dp)
+                .background(color, RoundedCornerShape(999.dp)))
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(
+                    label, style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    value, style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis
+                )
             }
         }
     }

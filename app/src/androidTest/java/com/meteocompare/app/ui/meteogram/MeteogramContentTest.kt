@@ -45,6 +45,14 @@ class MeteogramContentTest {
         // Cloud/rain has a prominent dedicated legend; wind remains its own card.
         rule.onNodeWithTag(TAG_METEOGRAM_CLOUD_RAIN_LEGEND,
             useUnmergedTree = true).assertExists()
+        // Three equally styled cloud, rain and pressure keys use the same legend component.
+        listOf(TAG_METEOGRAM_CLOUD_LEGEND, TAG_METEOGRAM_RAIN_LEGEND,
+            TAG_METEOGRAM_PRESSURE_LEGEND).forEach { tag ->
+            rule.onNodeWithTag(tag, useUnmergedTree = true).assertExists()
+        }
+        // Three independent right-hand axes: rain + pressure + 3 cloud strata.
+        rule.onNodeWithTag(TAG_METEOGRAM_CLOUD_AXIS, useUnmergedTree = true).assertExists()
+        rule.onAllNodesWithTag(TAG_METEOGRAM_SELECTED_GRID, useUnmergedTree = true).assertCountEquals(3)
         // Three complementary charts: humidity belongs to temperature,
         // pressure belongs to clouds/rain/wind; daily range was removed.
         rule.onAllNodesWithTag(TAG_METEOGRAM_TIME, useUnmergedTree = true).assertCountEquals(3)
@@ -75,6 +83,7 @@ class MeteogramContentTest {
         rule.onNodeWithTag(TAG_METEOGRAM_LAYOUT_COMBINED).performClick()
         rule.onNodeWithTag(TAG_METEOGRAM_COMBINED, useUnmergedTree = true).assertExists()
         rule.onNodeWithTag(TAG_METEOGRAM_SELECTED, useUnmergedTree = true).assertExists()
+        rule.onAllNodesWithTag(TAG_METEOGRAM_SELECTED_GRID, useUnmergedTree = true).assertCountEquals(1)
         // Exactly one ruler; selecting it does not recreate the shared Canvas.
         rule.onNodeWithTag(TAG_METEOGRAM_ACTIVE_AXIS, useUnmergedTree = true)
             .assertContentDescriptionEquals("temperature")
