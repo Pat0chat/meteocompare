@@ -1063,10 +1063,11 @@ Daten</string>
     <string name="meteogram_title">Meteogramme</string>
     <string name="meteogram_consensus">Konsens</string>
     <string name="meteogram_browse_hint">Horizontal wischen, um Stunden anzuzeigen. Zum Auswählen auf ein Diagramm tippen.</string>
-    <string name="meteogram_weather">Wolken / Regen / Wind</string>
+    <string name="meteogram_weather">Wolken / Regen / Luftdruck</string>
     <string name="meteogram_temperature">Temperaturen</string>
     <string name="meteogram_humidity">Feuchte</string>
     <string name="meteogram_pressure">Luftdruck</string>
+    <string name="meteogram_wind_origin">Wind aus</string>
     <string name="meteogram_wind">Wind / Böen</string>
 
     <string name="meteogram_selected">Ausgewählt: %1$s</string>

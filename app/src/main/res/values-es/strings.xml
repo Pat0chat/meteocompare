@@ -1068,10 +1068,11 @@ datos</string>
     <string name="meteogram_title">Meteogramas</string>
     <string name="meteogram_consensus">Consenso</string>
     <string name="meteogram_browse_hint">Desliza horizontalmente para ver las horas. Toca un gráfico para seleccionar una hora.</string>
-    <string name="meteogram_weather">Nubes / Lluvia / Viento</string>
+    <string name="meteogram_weather">Nubes / Lluvia / Presión</string>
     <string name="meteogram_temperature">Temperaturas</string>
     <string name="meteogram_humidity">Humedad</string>
     <string name="meteogram_pressure">Presión</string>
+    <string name="meteogram_wind_origin">Viento de</string>
     <string name="meteogram_wind">Viento / Ráfagas</string>
 
     <string name="meteogram_selected">Selección: %1$s</string>

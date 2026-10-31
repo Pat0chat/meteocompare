@@ -29,7 +29,7 @@ class MeteogramContentTest {
                 temperatureC = 12.0 + index % 6,
                 cloudCoverPercent = 30 + index % 30,
                 windKmh = 11.0,
-                windGustKmh = 17.0,
+                windGustKmh = 17.0, windDirectionDeg = 270,
                 humidityPercent = 70,
                 dewPointC = 8.0,
                 pressureHpa = 1015.0,
@@ -42,6 +42,9 @@ class MeteogramContentTest {
             TAG_METEOGRAM_TEMPERATURE, TAG_METEOGRAM_WIND).forEach { tag ->
             rule.onNodeWithTag(tag, useUnmergedTree = true).assertExists()
         }
+        // Cloud/rain has a prominent dedicated legend; wind remains its own card.
+        rule.onNodeWithTag(TAG_METEOGRAM_CLOUD_RAIN_LEGEND,
+            useUnmergedTree = true).assertExists()
         // Three complementary charts: humidity belongs to temperature,
         // pressure belongs to clouds/rain/wind; daily range was removed.
         rule.onAllNodesWithTag(TAG_METEOGRAM_TIME, useUnmergedTree = true).assertCountEquals(3)

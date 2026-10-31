@@ -1080,10 +1080,11 @@
     <string name="meteogram_title">Meteograms</string>
     <string name="meteogram_consensus">Consensus</string>
     <string name="meteogram_browse_hint">Swipe horizontally to browse hours. Tap a graph to select an hour.</string>
-    <string name="meteogram_weather">Cloud / Rain / Wind</string>
+    <string name="meteogram_weather">Clouds / Rain / Pressure</string>
     <string name="meteogram_temperature">Temperatures</string>
     <string name="meteogram_humidity">Humidity</string>
     <string name="meteogram_pressure">Pressure</string>
+    <string name="meteogram_wind_origin">Wind from</string>
     <string name="meteogram_wind">Wind / Gusts</string>
 
     <string name="meteogram_selected">Selected: %1$s</string>

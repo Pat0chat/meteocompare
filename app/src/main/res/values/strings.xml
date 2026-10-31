@@ -1081,10 +1081,11 @@
     <string name="meteogram_title">Météogrammes</string>
     <string name="meteogram_consensus">Consensus</string>
     <string name="meteogram_browse_hint">Faire défiler horizontalement pour parcourir les heures. Touchez un graphique pour choisir une heure.</string>
-    <string name="meteogram_weather">Ciel / Pluie / Vent</string>
+    <string name="meteogram_weather">Nuages / Pluie / Pression</string>
     <string name="meteogram_temperature">Températures</string>
     <string name="meteogram_humidity">Humidité</string>
     <string name="meteogram_pressure">Pression</string>
+    <string name="meteogram_wind_origin">Provenance du vent</string>
     <string name="meteogram_wind">Vent / Rafales</string>
 
     <string name="meteogram_selected">Sélection : %1$s</string>

@@ -74,6 +74,31 @@ class MeteogramMathTest {
         assertTrue(filteredHours.all { it >= domain.min && it <= domain.max })
     }
 
+    @Test fun wind_cardinal_uses_meteorological_origin_in_each_language() {
+        // Cardinal labels follow the direction FROM which the wind blows.
+        val french = listOf("N", "NE", "E", "SE", "S", "SO", "O", "NO")
+        val english = listOf("N", "NE", "E", "SE", "S", "SW", "W", "NW")
+        french.indices.forEach { sector ->
+            val degrees = sector * 45
+            assertEquals(french[sector], meteogramWindCardinal(degrees, "fr"))
+            assertEquals(english[sector], meteogramWindCardinal(degrees, "en"))
+        }
+        assertEquals("O", meteogramWindCardinal(270, "es"))
+        assertEquals("O", meteogramWindCardinal(270, "it"))
+        assertEquals("W", meteogramWindCardinal(270, "de"))
+        assertEquals("N", meteogramWindCardinal(360, "en"))
+        assertEquals("N", meteogramWindCardinal(22, "fr"))
+        assertEquals("NE", meteogramWindCardinal(23, "fr"))
+        assertNull(meteogramWindCardinal(null, "fr"))
+        assertNull(meteogramWindCardinal(-1, "fr"))
+        assertNull(meteogramWindCardinal(361, "fr"))
+    }
+
+    @Test fun day_night_shading_is_same_for_all_charts() {
+        assertEquals(0.16f, meteogramDayNightAlpha(true), 0.0001f)
+        assertEquals(0.12f, meteogramDayNightAlpha(false), 0.0001f)
+    }
+
     @Test fun compare_presets_do_not_mix_rain_with_wind_or_humidity() {
         val hours = listOf(MeteogramHour(Instant.parse("2026-10-28T10:00:00Z"),
             daylight = true, rainMm = 0.2, windKmh = 40.0, humidityPercent = 90))
