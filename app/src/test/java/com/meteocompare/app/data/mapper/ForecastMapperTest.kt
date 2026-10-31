@@ -53,6 +53,42 @@ class ForecastMapperTest {
     }
 
     @Test
+    fun `cloud layers keep UTC timestamp alignment and reject invalid percentages`() {
+        val dto = ForecastResponseDto(
+            timezone = "UTC",
+            hourly = HourlyDto(
+                time = listOf("2026-10-29T10:00", "invalid-time", "2026-10-29T12:00"),
+                temperature2m = listOf(16.0, 17.0, 18.0),
+                cloudCoverLow = listOf(15, 20, 150),
+                cloudCoverMid = listOf(65, null, 20),
+                cloudCoverHigh = listOf(90, 5, 40)
+            )
+        )
+        val hourly = mapper.toSeries(WeatherModel.GFS, dto).hourly
+        assertEquals(2, hourly.timestamps.size)
+        assertEquals(listOf(15, null), hourly.cloudCoverLow)
+        assertEquals(listOf(65, 20), hourly.cloudCoverMid)
+        assertEquals(listOf(90, 40), hourly.cloudCoverHigh)
+    }
+
+    @Test
+    fun `missing cloud layer fields remain nullable for old caches`() {
+        val dto = ForecastResponseDto(
+            timezone = "UTC",
+            hourly = HourlyDto(
+                time = listOf("2026-10-29T10:00"),
+                temperature2m = listOf(16.0),
+                cloudCover = listOf(70)
+            )
+        )
+        val hourly = mapper.toSeries(WeatherModel.GFS, dto).hourly
+        assertEquals(listOf(70), hourly.cloudCover)
+        assertEquals(listOf<Int?>(null), hourly.cloudCoverLow)
+        assertEquals(listOf<Int?>(null), hourly.cloudCoverMid)
+        assertEquals(listOf<Int?>(null), hourly.cloudCoverHigh)
+    }
+
+    @Test
     fun `maps hourly temperatures preserving order`() {
         val dto = ForecastResponseDto(
             latitude = 48.85,

@@ -64,6 +64,9 @@ internal data class GraphicModelValue(
     val humidityPercent: Int? = null,
     val dewPointC: Double? = null,
     val cloudPercent: Int? = null,
+    val cloudLowPercent: Int? = null,
+    val cloudMidPercent: Int? = null,
+    val cloudHighPercent: Int? = null,
     val pressureHpa: Double? = null,
     val apparentTemperatureC: Double? = null
 )
@@ -301,6 +304,9 @@ class GraphicForecastViewModel @Inject constructor(
                         val dewPoint = series.hourly.dewPoint2m.getOrNull(index)
                         val apparent = series.hourly.apparentTemperature.getOrNull(index)
                         val cloud = series.hourly.cloudCover.getOrNull(index)
+                        val cloudLow = series.hourly.cloudCoverLow.getOrNull(index)
+                        val cloudMid = series.hourly.cloudCoverMid.getOrNull(index)
+                        val cloudHigh = series.hourly.cloudCoverHigh.getOrNull(index)
                         val pressure = series.hourly.pressureMsl.getOrNull(index)
                         val precipitation = series.hourly.precipitation.getOrNull(index)
                         val probability = series.hourly.precipitationProbability.getOrNull(index)
@@ -309,7 +315,9 @@ class GraphicForecastViewModel @Inject constructor(
                         val direction = series.hourly.windDirection10m.getOrNull(index)
                         if (temperature == null && precipitation == null && probability == null &&
                             wind == null && gust == null && direction == null &&
-                            humidity == null && dewPoint == null && cloud == null && pressure == null && apparent == null
+                            humidity == null && dewPoint == null && cloud == null &&
+                            cloudLow == null && cloudMid == null && cloudHigh == null &&
+                            pressure == null && apparent == null
                         ) return@modelLoop
                         add(
                             GraphicModelValue(
@@ -323,6 +331,9 @@ class GraphicForecastViewModel @Inject constructor(
                                 humidityPercent = humidity,
                                 dewPointC = dewPoint,
                                 cloudPercent = cloud,
+                                cloudLowPercent = cloudLow,
+                                cloudMidPercent = cloudMid,
+                                cloudHighPercent = cloudHigh,
                                 pressureHpa = pressure,
                                 apparentTemperatureC = apparent
                             )

@@ -157,6 +157,9 @@ object BatchedForecastSplitter {
             windDirection10m = get.ints(HourlyVar.WIND_DIRECTION_10M),
             precipitationProbability = get.ints(HourlyVar.PRECIPITATION_PROBABILITY),
             cloudCover = resolveCloudCover(get),
+            cloudCoverLow = get.ints(HourlyVar.CLOUD_COVER_LOW),
+            cloudCoverMid = get.ints(HourlyVar.CLOUD_COVER_MID),
+            cloudCoverHigh = get.ints(HourlyVar.CLOUD_COVER_HIGH),
             windGusts10m = get.doubles(HourlyVar.WIND_GUSTS_10M)
         )
     }

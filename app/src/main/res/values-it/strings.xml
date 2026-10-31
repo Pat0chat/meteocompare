@@ -1058,11 +1058,10 @@ dato</string>
     <string name="metric_dew_point">Punto di rugiada</string>
     <string name="metric_dew_point_short">Rugiada</string>
     <string name="detail_action_meteogram_short">Meteogr.</string>
-    <string name="meteogram_presets_title">4 meteogrammi complementari</string>
+    <string name="meteogram_presets_title">3 meteogrammi complementari</string>
     <string name="meteogram_compare_title">Confronto modelli</string>
     <string name="meteogram_compare_action">Confronta</string>
-    <string name="meteogram_daily_title">Escursione termica giornaliera</string>
-    <string name="meteogram_daily_caption">Massima del giorno e minima della notte successiva</string>
+
     <string name="meteogram_sun">Sole</string>
     <string name="meteogram_warmer">Più caldo di ieri</string>
     <string name="meteogram_colder">Più freddo di ieri</string>
@@ -1083,8 +1082,11 @@ dato</string>
     <string name="meteogram_layout_separate">Meteogrammi separati</string>
     <string name="meteogram_layout_combined">Tutto in uno</string>
     <string name="meteogram_combined_scales_hint">Ogni curva ha una propria scala (intervalli sotto). L’asse destro indica la temperatura.</string>
-    <string name="meteogram_hourly_temperatures">Temperature orarie</string>
+
     <string name="meteogram_sunrise">Alba</string>
     <string name="meteogram_sunset">Tramonto</string>
-    <string name="meteogram_cloud_total">Nuvole (totale)</string>
+        <string name="meteogram_cloud_low">Nubi basse</string>
+    <string name="meteogram_cloud_mid">Nubi medie</string>
+    <string name="meteogram_cloud_high">Nubi alte</string>
+<string name="meteogram_cloud_total">Nuvole (totale)</string>
 </resources>

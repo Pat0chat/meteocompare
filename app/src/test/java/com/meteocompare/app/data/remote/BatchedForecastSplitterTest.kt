@@ -381,6 +381,10 @@ class BatchedForecastSplitterTest {
         ).getValue(WeatherModel.AROME_FRANCE_HD)
 
         assertEquals(listOf(41, 48, 42), arome.hourly?.cloudCover)
+        // Keep each real cloud layer: do not replace them with the total.
+        assertEquals(listOf(10, 20, 30), arome.hourly?.cloudCoverLow)
+        assertEquals(listOf(40, 15, 20), arome.hourly?.cloudCoverMid)
+        assertEquals(listOf(25, 70, 10), arome.hourly?.cloudCoverHigh)
     }
 
     @Test

@@ -37,12 +37,12 @@ class MeteogramContentTest {
         rule.setContent { MeteoCompareTheme { MeteogramContent(state) } }
         listOf(TAG_METEOGRAM_CONTENT, TAG_METEOGRAM_WEATHER,
             TAG_METEOGRAM_TEMPERATURE, TAG_METEOGRAM_WIND,
-            TAG_METEOGRAM_DAILY, TAG_METEOGRAM_SELECTED).forEach { tag ->
+            TAG_METEOGRAM_SELECTED).forEach { tag ->
             rule.onNodeWithTag(tag, useUnmergedTree = true).assertExists()
         }
-        // Four complementary charts: humidity belongs to temperature,
-        // pressure belongs to clouds/rain/wind.
-        rule.onAllNodesWithTag(TAG_METEOGRAM_TIME, useUnmergedTree = true).assertCountEquals(4)
+        // Three complementary charts: humidity belongs to temperature,
+        // pressure belongs to clouds/rain/wind; daily range was removed.
+        rule.onAllNodesWithTag(TAG_METEOGRAM_TIME, useUnmergedTree = true).assertCountEquals(3)
         MeteogramPresets.forEach { kind ->
             rule.onNodeWithTag(TAG_METEOGRAM_CARD_PREFIX + kind.name.lowercase(),
                 useUnmergedTree = true).assertExists()

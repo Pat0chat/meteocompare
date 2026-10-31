@@ -47,6 +47,12 @@ data class HourlyForecast(
      * ou cache antérieur à la feature.
      */
     val cloudCover: List<Int?> = emptyList(),
+    /** Couverture des nuages bas, 0-100%. */
+    val cloudCoverLow: List<Int?> = emptyList(),
+    /** Couverture des nuages moyens, 0-100%. */
+    val cloudCoverMid: List<Int?> = emptyList(),
+    /** Couverture des nuages hauts, 0-100%. */
+    val cloudCoverHigh: List<Int?> = emptyList(),
     /**
      * Rafales à 10 m en km/h : maximum observé/prévu sur l'heure précédente
      * selon la sémantique Open-Meteo. Vide si absent ou cache antérieur.

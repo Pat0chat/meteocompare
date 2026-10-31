@@ -25,8 +25,8 @@ class MeteogramGroupedLayoutTest(unittest.TestCase):
                             'it.windKmh', 'it.gustKmh'):
             self.assertIn(measurement, section)
         self.assertIn('drawRainBars(', section)
-        self.assertIn('drawCloudBars(', section)
-        self.assertIn('drawDailyRangeMarkers(', section)
+        self.assertIn('drawCloudLayerBars(', section)
+        self.assertNotIn('drawDailyRangeMarkers(', section)
 
     def test_separate_presets_group_humidity_and_pressure(self):
         preset = self.source.split('internal val MeteogramPresets = ', 1)[1].split(')', 1)[0]
@@ -41,20 +41,23 @@ class MeteogramGroupedLayoutTest(unittest.TestCase):
         self.assertIn('MeteogramKind.PRESSURE, height, pressureDomain', section)
         self.assertIn('MeteogramKind.HUMIDITY, height, humidityDomain', section)
 
-    def test_cloud_bars_do_not_pretend_to_be_layers(self):
-        bars = self.source.split('private fun DrawScope.drawCloudBars(', 1)[1].split(
+    def test_real_cloud_layers_are_kept_separately(self):
+        bars = self.source.split('private fun DrawScope.drawCloudLayerBars(', 1)[1].split(
             'private fun DrawScope.drawRainBars(', 1)[0]
-        self.assertIn('One bar = total cloud cover', self.source)
-        self.assertNotIn('CloudDetailColor', bars)
-        self.assertNotIn('0.33f', bars)
-        self.assertNotIn('0.66f', bars)
+        for field in ('cloudLowPercent', 'cloudMidPercent', 'cloudHighPercent'):
+            self.assertIn(field, bars)
+        for color in ('CloudLowColor', 'CloudMidColor', 'CloudHighColor'):
+            self.assertIn(color, bars)
+        self.assertIn('cloudPercent', bars)
 
-    def test_daily_plot_draws_visible_hourly_temperature_pillars(self):
-        daily = self.source.split('private fun MeteogramDailyStrip(', 1)[1]
-        self.assertIn('for (i in visible)', daily)
-        self.assertIn('hours[i].temperatureC', daily)
-        self.assertIn('drawLine(TemperatureColor', daily)
-        self.assertIn('meteogramHourlyDailyDomain(hours, ranges)', daily)
+    def test_removed_daily_panel_and_fixed_domains(self):
+        preset = self.source.split('internal val MeteogramPresets = ', 1)[1].split(')', 1)[0]
+        self.assertNotIn('DAILY', preset)
+        self.assertNotIn('private fun MeteogramDailyStrip(', self.source)
+        self.assertNotIn('drawDailyRangeMarkers(', self.source)
+        for metric in ('temperatureDomain', 'rainDomain', 'windDomain', 'humidityDomain', 'pressureDomain'):
+            self.assertIn('val ' + metric + ' = remember(hours)', self.source)
+
 
 
 if __name__ == '__main__':

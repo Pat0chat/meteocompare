@@ -58,6 +58,12 @@ data class HourlyDto(
     val precipitationProbability: List<Int?>? = null,
     @SerialName("cloud_cover")
     val cloudCover: List<Int?>? = null,
+    @SerialName("cloud_cover_low")
+    val cloudCoverLow: List<Int?>? = null,
+    @SerialName("cloud_cover_mid")
+    val cloudCoverMid: List<Int?>? = null,
+    @SerialName("cloud_cover_high")
+    val cloudCoverHigh: List<Int?>? = null,
     /** Maximum des rafales à 10 m sur l’heure précédente, en unité vent demandée. */
     @SerialName("wind_gusts_10m")
     val windGusts10m: List<Double?>? = null

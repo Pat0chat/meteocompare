@@ -1053,11 +1053,10 @@ Daten</string>
     <string name="metric_dew_point">Taupunkt</string>
     <string name="metric_dew_point_short">Taupunkt</string>
     <string name="detail_action_meteogram_short">Meteogr.</string>
-    <string name="meteogram_presets_title">4 ergänzende Meteogramme</string>
+    <string name="meteogram_presets_title">3 ergänzende Meteogramme</string>
     <string name="meteogram_compare_title">Modelle vergleichen</string>
     <string name="meteogram_compare_action">Vergleichen</string>
-    <string name="meteogram_daily_title">Tägliche Temperaturspanne</string>
-    <string name="meteogram_daily_caption">Tagesmaximum und Tiefstwert der folgenden Nacht</string>
+
     <string name="meteogram_sun">Sonne</string>
     <string name="meteogram_warmer">Wärmer als gestern</string>
     <string name="meteogram_colder">Kälter als gestern</string>
@@ -1078,8 +1077,11 @@ Daten</string>
     <string name="meteogram_layout_separate">Getrennte Meteogramme</string>
     <string name="meteogram_layout_combined">Alles in einem</string>
     <string name="meteogram_combined_scales_hint">Jede Kurve hat eine eigene Skala (Bereiche unten). Die rechte Achse zeigt die Temperatur.</string>
-    <string name="meteogram_hourly_temperatures">Stündliche Temperaturen</string>
+
     <string name="meteogram_sunrise">Sonnenaufgang</string>
     <string name="meteogram_sunset">Sonnenuntergang</string>
-    <string name="meteogram_cloud_total">Wolken (gesamt)</string>
+        <string name="meteogram_cloud_low">Tiefe Wolken</string>
+    <string name="meteogram_cloud_mid">Mittlere Wolken</string>
+    <string name="meteogram_cloud_high">Hohe Wolken</string>
+<string name="meteogram_cloud_total">Wolken (gesamt)</string>
 </resources>

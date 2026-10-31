@@ -61,6 +61,12 @@ class ForecastMapper @Inject constructor() {
                 ).map(ForecastPhysicalLimits::percentage),
                 cloudCover = alignNonNullTimesInt(times, h.cloudCover)
                     .map(ForecastPhysicalLimits::percentage),
+                cloudCoverLow = alignNonNullTimesInt(times, h.cloudCoverLow)
+                    .map(ForecastPhysicalLimits::percentage),
+                cloudCoverMid = alignNonNullTimesInt(times, h.cloudCoverMid)
+                    .map(ForecastPhysicalLimits::percentage),
+                cloudCoverHigh = alignNonNullTimesInt(times, h.cloudCoverHigh)
+                    .map(ForecastPhysicalLimits::percentage),
                 windGusts10m = alignNonNullTimes(times, h.windGusts10m)
                     .map(ForecastPhysicalLimits::gust)
             )
@@ -73,6 +79,9 @@ class ForecastMapper @Inject constructor() {
             windDirection10m = emptyList(),
             precipitationProbability = emptyList(),
             cloudCover = emptyList(),
+            cloudCoverLow = emptyList(),
+            cloudCoverMid = emptyList(),
+            cloudCoverHigh = emptyList(),
             windGusts10m = emptyList()
         )
 
