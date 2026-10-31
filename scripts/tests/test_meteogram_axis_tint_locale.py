@@ -59,7 +59,7 @@ class MeteogramAxisTintLocaleTest(unittest.TestCase):
 
     def test_heights_are_gently_increased_without_changing_time_axis(self):
         desired = {'Weather': 196, 'Temperature': 184, 'Humidity': 148,
-                   'Pressure': 148, 'Wind': 172, 'Combined': 372, 'Time': 48}
+                   'Pressure': 148, 'Wind': 172, 'Combined': 372, 'Time': 66}
         for kind, height in desired.items():
             with self.subTest(kind=kind):
                 self.assertRegex(self.source,

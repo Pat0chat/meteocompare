@@ -59,7 +59,7 @@ class MeteogramGroupedLayoutTest(unittest.TestCase):
         self.assertNotIn('.clip(RoundedCornerShape(', time_axis)
         self.assertIn('.border(1.dp, MaterialTheme.colorScheme.outlineVariant', time_axis)
         self.assertIn('paint.measureText(label)', time_axis)
-        self.assertIn('markerPaint.measureText(symbol)', time_axis)
+        self.assertIn('markerPaint.measureText(label)', time_axis)
         combined = self.source.split('private fun MeteogramCombinedCard(', 1)[1].split(
             'private fun MeteogramCloudLayersHint(', 1)[0]
         self.assertLess(combined.index('MeteogramScalePicker('), combined.index('MeteogramPlot('))

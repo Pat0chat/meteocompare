@@ -37,8 +37,7 @@ class MeteogramContentTest {
         )
         rule.setContent { MeteoCompareTheme { MeteogramContent(state) } }
         listOf(TAG_METEOGRAM_CONTENT, TAG_METEOGRAM_WEATHER,
-            TAG_METEOGRAM_TEMPERATURE, TAG_METEOGRAM_WIND,
-            TAG_METEOGRAM_SELECTED).forEach { tag ->
+            TAG_METEOGRAM_TEMPERATURE, TAG_METEOGRAM_WIND).forEach { tag ->
             rule.onNodeWithTag(tag, useUnmergedTree = true).assertExists()
         }
         // Three complementary charts: humidity belongs to temperature,
@@ -47,7 +46,11 @@ class MeteogramContentTest {
         MeteogramPresets.forEach { kind ->
             rule.onNodeWithTag(TAG_METEOGRAM_CARD_PREFIX + kind.name.lowercase(),
                 useUnmergedTree = true).assertExists()
+            rule.onNodeWithTag(TAG_METEOGRAM_CARD_SELECTED_PREFIX + kind.name.lowercase(),
+                useUnmergedTree = true).assertExists()
         }
+        // The per-chart values replace the duplicated global panel in separate mode.
+        rule.onNodeWithTag(TAG_METEOGRAM_SELECTED, useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test fun combined_mode_uses_one_real_plot_not_stacked_sections() {
@@ -66,6 +69,7 @@ class MeteogramContentTest {
         rule.setContent { MeteoCompareTheme { MeteogramContent(state) } }
         rule.onNodeWithTag(TAG_METEOGRAM_LAYOUT_COMBINED).performClick()
         rule.onNodeWithTag(TAG_METEOGRAM_COMBINED, useUnmergedTree = true).assertExists()
+        rule.onNodeWithTag(TAG_METEOGRAM_SELECTED, useUnmergedTree = true).assertExists()
         // Exactly one ruler; selecting it does not recreate the shared Canvas.
         rule.onNodeWithTag(TAG_METEOGRAM_ACTIVE_AXIS, useUnmergedTree = true)
             .assertContentDescriptionEquals("temperature")

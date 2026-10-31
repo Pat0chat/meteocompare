@@ -55,6 +55,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -107,7 +108,7 @@ private val TemperatureHeight = 184.dp
 private val HumidityHeight = 148.dp
 private val PressureHeight = 148.dp
 private val WindHeight = 172.dp
-private val TimeHeight = 48.dp
+private val TimeHeight = 66.dp
 private val CombinedHeight = 372.dp
 
 internal const val TAG_METEOGRAM_CONTENT = "meteogram_content"
@@ -118,6 +119,7 @@ internal const val TAG_METEOGRAM_HUMIDITY = "meteogram_humidity"
 internal const val TAG_METEOGRAM_PRESSURE = "meteogram_pressure"
 internal const val TAG_METEOGRAM_WIND = "meteogram_wind"
 internal const val TAG_METEOGRAM_SELECTED = "meteogram_selected"
+internal const val TAG_METEOGRAM_CARD_SELECTED_PREFIX = "meteogram_card_selected_"
 internal const val TAG_METEOGRAM_COMBINED = "meteogram_combined_plot"
 internal const val TAG_METEOGRAM_ACTIVE_AXIS = "meteogram_active_axis"
 internal const val TAG_METEOGRAM_SCALE_PICKER = "meteogram_scale_picker"
@@ -591,7 +593,11 @@ internal fun MeteogramContent(state: GraphicForecastUiState.Loaded, modifier: Mo
                 )
             }
         }
-        MeteogramSelectedValues(hours[index], zone, units, locale)
+        // Separate/compare cards already show the selected hour next to each graph.
+        // Only the single combined chart needs the full metric overview below it.
+        if (!comparing && layoutMode == MeteogramLayoutMode.COMBINED) {
+            MeteogramSelectedValues(hours[index], zone, units, locale)
+        }
     }
 }
 
@@ -670,16 +676,23 @@ private fun MeteogramChartCard(
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
-            MeteogramChartLegend(kind, units, rainDomain)
+            MeteogramChartLegend(kind, units)
             if (kind == MeteogramKind.EVERYDAY) MeteogramCloudLayersHint(hours)
-            Row(Modifier.padding(start = 8.dp, end = 5.dp, top = 4.dp)) {
+            val timeStrip = MaterialTheme.colorScheme.surfaceContainerHighest
+            val timeOutline = MaterialTheme.colorScheme.outlineVariant
+            Row(Modifier.fillMaxWidth().padding(top = 4.dp).drawBehind {
+                val bottom = TimeHeight.toPx()
+                drawRect(timeStrip.copy(alpha = 0.75f), size = Size(size.width, bottom))
+                drawLine(timeOutline.copy(alpha = 0.65f), Offset(0f, bottom), Offset(size.width, bottom))
+            }) {
                 Column(
                     Modifier.weight(1f).onSizeChanged { onWidthChange(it.width) }
                         .scrollable(scroll, Orientation.Horizontal)
                 ) {
                     MeteogramTimeAxis(hours, zone, locale, timeFormatter, step, offset, selectedIndex, markers, currentInstant)
-                    MeteogramPlot(hours, height, step, offset, range, selectedIndex, meteogramKindTag(kind), onSelect) { first, last, shift, hourStep ->
-                        drawChartFrame(hours, zone, first, last, shift, hourStep, markers, currentInstant, kind == MeteogramKind.EVERYDAY)
+                    MeteogramPlot(hours, height, step, offset, range, selectedIndex, meteogramKindTag(kind),
+                        onSelect, markers, currentInstant) { first, last, shift, hourStep ->
+                        drawChartFrame(hours, zone, first, last, shift, hourStep, kind == MeteogramKind.EVERYDAY)
                         when (kind) {
                             MeteogramKind.EVERYDAY -> {
                                 drawCloudLayerBands(hours, first, last, shift, hourStep)
@@ -719,24 +732,8 @@ private fun MeteogramChartCard(
                     else -> Unit
                 }
             }
-            MeteogramScaleSummary(
-                kind = kind,
-                units = units,
-                domain = domain,
-                rainDomain = rainDomain,
-                windDomain = windDomain,
-                humidityDomain = humidityDomain,
-                pressureDomain = pressureDomain
-            )
             if (selected != null) {
-                Text(
-                    meteogramSelectedCaption(kind, selected, units),
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
+                MeteogramCardSelectedValues(kind, selected, zone, timeFormatter, units)
             }
         }
     }
@@ -781,18 +778,23 @@ private fun MeteogramCombinedCard(
         Column(Modifier.padding(vertical = 12.dp)) {
             Text(title, Modifier.padding(horizontal = 12.dp),
                 style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            MeteogramCombinedLegend(units, rainDomain)
+            MeteogramCombinedLegend(units)
             MeteogramCloudLayersHint(hours)
             MeteogramScalePicker(axisChoice) { axisChoice = it }
-            Row(Modifier.padding(start = 8.dp, end = 5.dp, top = 4.dp)) {
+            val timeStrip = MaterialTheme.colorScheme.surfaceContainerHighest
+            val timeOutline = MaterialTheme.colorScheme.outlineVariant
+            Row(Modifier.fillMaxWidth().padding(top = 4.dp).drawBehind {
+                val bottom = TimeHeight.toPx()
+                drawRect(timeStrip.copy(alpha = 0.75f), size = Size(size.width, bottom))
+                drawLine(timeOutline.copy(alpha = 0.65f), Offset(0f, bottom), Offset(size.width, bottom))
+            }) {
                 Column(Modifier.weight(1f).onSizeChanged { onWidthChange(it.width) }
                     .scrollable(scroll, Orientation.Horizontal)) {
                     MeteogramTimeAxis(hours, zone, locale, timeFormatter, step,
                         offset, selectedIndex, markers, currentInstant)
                     MeteogramPlot(hours, CombinedHeight, step, offset, range, selectedIndex,
-                        TAG_METEOGRAM_COMBINED, onSelect) { first, last, shift, hourStep ->
-                        drawChartFrame(hours, zone, first, last, shift, hourStep,
-                            markers, currentInstant, false)
+                        TAG_METEOGRAM_COMBINED, onSelect, markers, currentInstant) { first, last, shift, hourStep ->
+                        drawChartFrame(hours, zone, first, last, shift, hourStep, false)
                         drawCloudLayerBands(hours, first, last, shift, hourStep, topFraction = 0.38f, alpha = 0.68f)
                         drawRainBars(hours, first, last, shift, hourStep, rainDomain)
                         drawDayOverDayBands(hours, priorTemperatures, first, last,
@@ -976,25 +978,16 @@ private fun meteogramKindTag(kind: MeteogramKind): String = when (kind) {
     MeteogramKind.WIND -> TAG_METEOGRAM_WIND
 }
 
-@Composable
-private fun meteogramSelectedCaption(kind: MeteogramKind, hour: MeteogramHour, units: WeatherUnits): String = when (kind) {
-    MeteogramKind.EVERYDAY -> "${stringResource(R.string.meteogram_cloud_low)}: ${hour.cloudLowPercent?.let { "$it%" } ?: "—"} · ${stringResource(R.string.meteogram_cloud_mid)}: ${hour.cloudMidPercent?.let { "$it%" } ?: "—"} · ${stringResource(R.string.meteogram_cloud_high)}: ${hour.cloudHighPercent?.let { "$it%" } ?: "—"}"
-    MeteogramKind.TEMPERATURE -> "${units.temp(hour.temperatureC)} · ${stringResource(R.string.apparent_temperature_widget_prefix)} ${units.temp(hour.apparentC)} · ${stringResource(R.string.metric_dew_point_short)} ${units.temp(hour.dewC)} · ${stringResource(R.string.meteogram_humidity)}: ${hour.humidityPercent?.let { "$it%" } ?: "—"}"
-    MeteogramKind.HUMIDITY -> "${stringResource(R.string.meteogram_humidity)}: ${hour.humidityPercent?.let { "$it%" } ?: "—"}"
-    MeteogramKind.PRESSURE -> "${stringResource(R.string.meteogram_pressure)}: ${hour.pressureHpa?.let { units.number(units.pressure(it), if (units.imperial) 2 else 0) } ?: "—"} ${if (units.imperial) "inHg" else "hPa"}"
-    MeteogramKind.WIND -> "${stringResource(R.string.meteogram_wind)}: ${units.speed(hour.windKmh)}  ·  ${stringResource(R.string.graphic_view_gust_short)}: ${units.speed(hour.gustKmh)}"
-}
-
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun MeteogramChartLegend(kind: MeteogramKind, units: WeatherUnits, rain: MeteogramDomain) {
+private fun MeteogramChartLegend(kind: MeteogramKind, units: WeatherUnits) {
     val entries = when (kind) {
         MeteogramKind.EVERYDAY -> listOf(
             LegendEntry(DayBackgroundColor, stringResource(R.string.meteogram_sun)),
             LegendEntry(CloudLowColor, stringResource(R.string.meteogram_cloud_low)),
             LegendEntry(CloudMidColor, stringResource(R.string.meteogram_cloud_mid)),
             LegendEntry(CloudHighColor, stringResource(R.string.meteogram_cloud_high)),
-            LegendEntry(RainColor, "${stringResource(R.string.meteogram_rain)} (0–${units.number(units.precipitation(rain.max), units.precipitationDigits)} ${units.precipitationUnit}/h)"),
+            LegendEntry(RainColor, "${stringResource(R.string.meteogram_rain)} (${units.precipitationUnit}/h)"),
             LegendEntry(WindColor, stringResource(R.string.meteogram_wind), line = true),
             LegendEntry(PressureColor, stringResource(R.string.meteogram_pressure), line = true),
             LegendEntry(SunriseColor, stringResource(R.string.meteogram_sunrise), line = true),
@@ -1021,14 +1014,14 @@ private fun MeteogramChartLegend(kind: MeteogramKind, units: WeatherUnits, rain:
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun MeteogramCombinedLegend(units: WeatherUnits, rain: MeteogramDomain) {
+private fun MeteogramCombinedLegend(units: WeatherUnits) {
     MeteogramLegend(
         listOf(
             LegendEntry(DayBackgroundColor, stringResource(R.string.meteogram_sun)),
             LegendEntry(CloudLowColor, stringResource(R.string.meteogram_cloud_low)),
             LegendEntry(CloudMidColor, stringResource(R.string.meteogram_cloud_mid)),
             LegendEntry(CloudHighColor, stringResource(R.string.meteogram_cloud_high)),
-            LegendEntry(RainColor, "${stringResource(R.string.meteogram_rain)} (0–${units.number(units.precipitation(rain.max), units.precipitationDigits)} ${units.precipitationUnit}/h)"),
+            LegendEntry(RainColor, "${stringResource(R.string.meteogram_rain)} (${units.precipitationUnit}/h)"),
             LegendEntry(TemperatureColor, stringResource(R.string.meteogram_temperature), line = true),
             LegendEntry(ApparentColor, stringResource(R.string.apparent_temperature_widget_prefix), line = true),
             LegendEntry(DewColor, stringResource(R.string.metric_dew_point_short), line = true),
@@ -1079,65 +1072,6 @@ private fun meteogramAxisColor(kind: MeteogramKind): Color = when (kind) {
     MeteogramKind.TEMPERATURE -> TemperatureColor
     MeteogramKind.HUMIDITY -> HumidityColor
     MeteogramKind.PRESSURE -> PressureColor
-}
-
-/** Compact, non-scrollable, color-matched scale keys for composite plots. */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun MeteogramScaleSummary(
-    kind: MeteogramKind,
-    units: WeatherUnits,
-    domain: MeteogramDomain,
-    rainDomain: MeteogramDomain,
-    windDomain: MeteogramDomain,
-    humidityDomain: MeteogramDomain,
-    pressureDomain: MeteogramDomain
-) {
-    val precipitationRange = "0–${units.number(units.precipitation(rainDomain.max), units.precipitationDigits)} ${units.precipitationUnit}/h"
-    val windRange = "0–${units.number(units.wind(windDomain.max))} ${units.windUnit}"
-    val temperatureRange = "${units.number(units.temperature(domain.min))}–${units.number(units.temperature(domain.max))} ${units.temperatureUnit}"
-    val humidityRange = "${units.number(humidityDomain.min)}–${units.number(humidityDomain.max)} %"
-    val pressureRange = "${units.number(units.pressure(pressureDomain.min), if (units.imperial) 2 else 0)}–${units.number(units.pressure(pressureDomain.max), if (units.imperial) 2 else 0)} ${if (units.imperial) "inHg" else "hPa"}"
-    val entries = when (kind) {
-        MeteogramKind.EVERYDAY -> listOf(
-            LegendEntry(RainColor, "${stringResource(R.string.meteogram_rain)} $precipitationRange"),
-            LegendEntry(WindColor, "${stringResource(R.string.meteogram_wind)} $windRange"),
-            LegendEntry(PressureColor, "${stringResource(R.string.meteogram_pressure)} $pressureRange")
-        )
-        MeteogramKind.TEMPERATURE -> listOf(
-            LegendEntry(TemperatureColor, "${stringResource(R.string.meteogram_temperature)} $temperatureRange"),
-            LegendEntry(HumidityColor, "${stringResource(R.string.meteogram_humidity)} $humidityRange")
-        )
-        MeteogramKind.WIND -> listOf(LegendEntry(WindColor, "${stringResource(R.string.meteogram_wind)} $windRange"))
-        MeteogramKind.HUMIDITY -> listOf(LegendEntry(HumidityColor, "${stringResource(R.string.meteogram_humidity)} $humidityRange"))
-        MeteogramKind.PRESSURE -> listOf(LegendEntry(PressureColor, "${stringResource(R.string.meteogram_pressure)} $pressureRange"))
-    }
-    FlowRow(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 7.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        entries.forEach { entry -> MeteogramScaleChip(entry) }
-    }
-}
-
-@Composable
-private fun MeteogramScaleChip(entry: LegendEntry) {
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = RoundedCornerShape(8.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, entry.color.copy(alpha = 0.42f))
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(5.dp)
-        ) {
-            Box(Modifier.size(7.dp).background(entry.color, CircleShape))
-            Text(entry.label, style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
-        }
-    }
 }
 
 @Composable
@@ -1265,7 +1199,7 @@ private fun MeteogramTimeAxis(
     val accentInk = MaterialTheme.colorScheme.onSurface.toArgb()
     val dayFormatter = remember(locale) { DateTimeFormatter.ofPattern("EEE d", locale) }
     val fontSize = with(LocalDensity.current) { 11.sp.toPx() }
-    val smallFontSize = with(LocalDensity.current) { 10.sp.toPx() }
+    val smallFontSize = with(LocalDensity.current) { 11.sp.toPx() }
     val paint = remember(ink, fontSize) { android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = ink; textSize = fontSize } }
     val markerPaint = remember(accentInk, smallFontSize) { android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = accentInk; textSize = smallFontSize } }
     Canvas(
@@ -1292,18 +1226,36 @@ private fun MeteogramTimeAxis(
                 val label = dateTime.format(hourFormatter)
                 val halfWidth = paint.measureText(label) / 2f
                 if (x - halfWidth >= 7.dp.toPx() && x + halfWidth <= size.width - 7.dp.toPx()) {
-                    drawContext.canvas.nativeCanvas.drawText(label, x - halfWidth, 38.dp.toPx(), paint)
+                    drawContext.canvas.nativeCanvas.drawText(label, x - halfWidth, 59.dp.toPx(), paint)
                 }
             }
         }
         drawMarkerLines(hours, markers, offset, step)
+        // Named time badges instead of barely visible sunrise/sunset hairlines.
+        // Markers remain tied to their actual instant even across DST changes.
+        var lastBadgeRight = -Float.MAX_VALUE
         markers.forEach { marker ->
             val x = positionForInstant(hours, marker.instant, step, offset) ?: return@forEach
-            if (x >= 10.dp.toPx() && x <= size.width - 10.dp.toPx()) {
-                val symbol = if (marker.type == MeteogramMarkerType.SUNRISE) "↑" else "↓"
-                drawContext.canvas.nativeCanvas.drawText(symbol, x - markerPaint.measureText(symbol) / 2f,
-                    28.dp.toPx(), markerPaint)
-            }
+            if (x < -8.dp.toPx() || x > size.width + 8.dp.toPx()) return@forEach
+            val accent = if (marker.type == MeteogramMarkerType.SUNRISE) SunriseColor else SunsetColor
+            val symbol = if (marker.type == MeteogramMarkerType.SUNRISE) "↑" else "↓"
+            val label = "$symbol ${marker.instant.atZone(zone).format(hourFormatter)}"
+            val padX = 8.dp.toPx()
+            val width = markerPaint.measureText(label) + 2f * padX
+            val margin = 3.dp.toPx()
+            if (width > size.width - 2f * margin) return@forEach
+            val left = (x - width / 2f).coerceIn(margin, size.width - width - margin)
+            if (left < lastBadgeRight + 4.dp.toPx()) return@forEach
+            val top = 22.dp.toPx()
+            val badgeHeight = 21.dp.toPx()
+            drawRoundRect(accent.copy(alpha = 0.22f), Offset(left, top),
+                Size(width, badgeHeight), CornerRadius(5.dp.toPx()))
+            drawRoundRect(accent.copy(alpha = 0.94f), Offset(left, top),
+                Size(width, badgeHeight), CornerRadius(5.dp.toPx()),
+                style = Stroke(1.2.dp.toPx()))
+            drawContext.canvas.nativeCanvas.drawText(label, left + padX,
+                top + 14.5.dp.toPx(), markerPaint)
+            lastBadgeRight = left + width
         }
         drawCurrentTimeLine(hours, currentInstant, offset, step)
         drawSelectionLine(selectedIndex, offset, step)
@@ -1320,6 +1272,8 @@ private fun MeteogramPlot(
     selectedIndex: Int,
     tag: String,
     onSelect: (Int) -> Unit,
+    markers: List<MeteogramMarker>,
+    currentInstant: Instant,
     drawing: DrawScope.(first: Int, last: Int, offset: Float, step: Float) -> Unit
 ) {
     val currentOffset by rememberUpdatedState(offset)
@@ -1332,6 +1286,9 @@ private fun MeteogramPlot(
         if (range.isEmpty()) return@Canvas
         drawLine(CloudColor.copy(alpha = 0.12f), Offset(0f, size.height - 1f), Offset(size.width, size.height - 1f))
         drawing(range.first, range.last, offset, step)
+        // Solar/now lines must stay above rain bars, clouds and metric curves.
+        drawMarkerLines(hours, markers, offset, step)
+        drawCurrentTimeLine(hours, currentInstant, offset, step)
         drawSelectionLine(selectedIndex, offset, step)
     }
 }
@@ -1343,14 +1300,10 @@ private fun DrawScope.drawChartFrame(
     last: Int,
     offset: Float,
     step: Float,
-    markers: List<MeteogramMarker>,
-    currentInstant: Instant,
     everyday: Boolean
 ) {
     drawMeteogramBackground(hours, first, last, offset, step, everyday)
     drawTimeGrid(hours, zone, first, last, offset, step, drawMinor = true)
-    drawMarkerLines(hours, markers, offset, step)
-    drawCurrentTimeLine(hours, currentInstant, offset, step)
 }
 
 private fun DrawScope.drawMeteogramBackground(
@@ -1616,9 +1569,12 @@ private fun DrawScope.drawWindArrow(centerX: Float, centerY: Float, sizePx: Floa
 private fun DrawScope.drawMarkerLines(hours: List<MeteogramHour>, markers: List<MeteogramMarker>, offset: Float, step: Float) {
     markers.forEach { marker ->
         val x = positionForInstant(hours, marker.instant, step, offset) ?: return@forEach
-        if (x in -2.dp.toPx()..size.width + 2.dp.toPx()) {
+        if (x in -5.dp.toPx()..size.width + 5.dp.toPx()) {
             val color = if (marker.type == MeteogramMarkerType.SUNRISE) SunriseColor else SunsetColor
-            drawLine(color.copy(alpha = 0.55f), Offset(x, 0f), Offset(x, size.height), strokeWidth = 1.dp.toPx())
+            // Soft halo plus a sharp, foreground marker visible over dense clouds/rain.
+            drawLine(color.copy(alpha = 0.20f), Offset(x, 0f), Offset(x, size.height), strokeWidth = 9.dp.toPx())
+            drawLine(color.copy(alpha = 0.96f), Offset(x, 0f), Offset(x, size.height), strokeWidth = 2.7.dp.toPx())
+            drawCircle(color, radius = 3.6.dp.toPx(), center = Offset(x, 5.dp.toPx()))
         }
     }
 }
@@ -1641,6 +1597,65 @@ private fun DrawScope.drawSelectionLine(selectedIndex: Int, offset: Float, step:
     val x = (selectedIndex + 0.5f) * step - offset
     if (x in 0f..size.width) {
         drawLine(SelectionColor.copy(alpha = 0.76f), Offset(x, 0f), Offset(x, size.height), strokeWidth = 1.25.dp.toPx())
+    }
+}
+
+/** The selected hour belongs to its chart; no duplicate static min/max range badges. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun MeteogramCardSelectedValues(
+    kind: MeteogramKind,
+    hour: MeteogramHour,
+    zone: ZoneId,
+    clockFormatter: DateTimeFormatter,
+    units: WeatherUnits
+) {
+    val metrics = when (kind) {
+        MeteogramKind.EVERYDAY -> listOf(
+            Triple(CloudHighColor, stringResource(R.string.meteogram_cloud_high), hour.cloudHighPercent?.let { "$it%" } ?: "—"),
+            Triple(CloudMidColor, stringResource(R.string.meteogram_cloud_mid), hour.cloudMidPercent?.let { "$it%" } ?: "—"),
+            Triple(CloudLowColor, stringResource(R.string.meteogram_cloud_low), hour.cloudLowPercent?.let { "$it%" } ?: "—"),
+            Triple(RainColor, stringResource(R.string.meteogram_rain), units.rain(hour.rainMm)),
+            Triple(WindColor, stringResource(R.string.meteogram_wind), units.speed(hour.windKmh)),
+            Triple(PressureColor, stringResource(R.string.meteogram_pressure),
+                hour.pressureHpa?.let { "${units.number(units.pressure(it), if (units.imperial) 2 else 0)} ${if (units.imperial) "inHg" else "hPa"}" } ?: "—")
+        )
+        MeteogramKind.TEMPERATURE -> listOf(
+            Triple(TemperatureColor, stringResource(R.string.meteogram_temperature), units.temp(hour.temperatureC)),
+            Triple(ApparentColor, stringResource(R.string.apparent_temperature_widget_prefix), units.temp(hour.apparentC)),
+            Triple(DewColor, stringResource(R.string.metric_dew_point_short), units.temp(hour.dewC)),
+            Triple(HumidityColor, stringResource(R.string.meteogram_humidity), hour.humidityPercent?.let { "$it%" } ?: "—")
+        )
+        MeteogramKind.WIND -> listOf(
+            Triple(WindColor, stringResource(R.string.meteogram_wind), units.speed(hour.windKmh)),
+            Triple(GustColor, stringResource(R.string.graphic_view_gust_short), units.speed(hour.gustKmh))
+        )
+        MeteogramKind.HUMIDITY -> listOf(
+            Triple(HumidityColor, stringResource(R.string.meteogram_humidity), hour.humidityPercent?.let { "$it%" } ?: "—")
+        )
+        MeteogramKind.PRESSURE -> listOf(
+            Triple(PressureColor, stringResource(R.string.meteogram_pressure),
+                hour.pressureHpa?.let { "${units.number(units.pressure(it), if (units.imperial) 2 else 0)} ${if (units.imperial) "inHg" else "hPa"}" } ?: "—")
+        )
+    }
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp)
+            .testTag(TAG_METEOGRAM_CARD_SELECTED_PREFIX + kind.name.lowercase()),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            stringResource(R.string.meteogram_selected, hour.instant.atZone(zone).format(clockFormatter)),
+            color = MaterialTheme.colorScheme.primary,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Bold
+        )
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
+            metrics.forEach { (color, label, value) -> MeteogramValuePill(label, value, color) }
+        }
     }
 }
 
@@ -1691,9 +1706,9 @@ private fun MeteogramSelectedValues(hour: MeteogramHour, cityZone: ZoneId, units
 private fun MeteogramValuePill(label: String, value: String, color: Color) {
     Surface(
         shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surface,
+        color = color.copy(alpha = 0.09f),
         tonalElevation = 0.dp,
-        border = androidx.compose.foundation.BorderStroke(1.dp, color.copy(alpha = 0.35f))
+        border = androidx.compose.foundation.BorderStroke(1.dp, color.copy(alpha = 0.42f))
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
@@ -1703,7 +1718,8 @@ private fun MeteogramValuePill(label: String, value: String, color: Color) {
             Box(Modifier.size(width = 4.dp, height = 24.dp).background(color, RoundedCornerShape(999.dp)))
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(value, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
+                Text(value, style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
             }
         }
     }
