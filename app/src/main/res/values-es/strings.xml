@@ -1091,4 +1091,10 @@ datos</string>
     <string name="meteogram_cloud_picker">Nubes</string>
     <string name="meteogram_cloud_layers_hint">Capas de nubes continuas: altas arriba, medias al centro, bajas abajo (% por capa).</string>
     <string name="meteogram_cloud_layers_unavailable">Las capas de nubes bajas, medias y altas no están disponibles para este modelo o caché antiguo.</string>
+    <string name="meteogram_axis_short_temperature">T°</string>
+    <string name="meteogram_axis_short_clouds">N</string>
+    <string name="meteogram_axis_short_rain">Ll</string>
+    <string name="meteogram_axis_short_wind">V</string>
+    <string name="meteogram_axis_short_humidity">HR</string>
+    <string name="meteogram_axis_short_pressure">Pr</string>
 </resources>

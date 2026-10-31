@@ -102,13 +102,13 @@ import kotlin.math.max
 
 private val HourWidth = 38.dp
 private val AxisWidth = 54.dp
-private val WeatherHeight = 176.dp
-private val TemperatureHeight = 162.dp
-private val HumidityHeight = 132.dp
-private val PressureHeight = 132.dp
-private val WindHeight = 150.dp
+private val WeatherHeight = 196.dp
+private val TemperatureHeight = 184.dp
+private val HumidityHeight = 148.dp
+private val PressureHeight = 148.dp
+private val WindHeight = 172.dp
 private val TimeHeight = 48.dp
-private val CombinedHeight = 330.dp
+private val CombinedHeight = 372.dp
 
 internal const val TAG_METEOGRAM_CONTENT = "meteogram_content"
 internal const val TAG_METEOGRAM_TIME = "meteogram_time"
@@ -904,6 +904,16 @@ private fun MeteogramScalePicker(
 }
 
 @Composable
+private fun meteogramAxisShortLabel(choice: MeteogramAxisChoice): String = when (choice) {
+    MeteogramAxisChoice.TEMPERATURE -> stringResource(R.string.meteogram_axis_short_temperature)
+    MeteogramAxisChoice.CLOUDS -> stringResource(R.string.meteogram_axis_short_clouds)
+    MeteogramAxisChoice.RAIN -> stringResource(R.string.meteogram_axis_short_rain)
+    MeteogramAxisChoice.WIND -> stringResource(R.string.meteogram_axis_short_wind)
+    MeteogramAxisChoice.HUMIDITY -> stringResource(R.string.meteogram_axis_short_humidity)
+    MeteogramAxisChoice.PRESSURE -> stringResource(R.string.meteogram_axis_short_pressure)
+}
+
+@Composable
 private fun MeteogramCombinedSelectedAxis(
     choice: MeteogramAxisChoice,
     units: WeatherUnits,
@@ -936,14 +946,9 @@ private fun MeteogramCombinedSelectedAxis(
         MeteogramAxisChoice.PRESSURE -> units.number(units.pressure(value), if (units.imperial) 2 else 0)
     }
     val values = listOf(domain.max, (domain.min + domain.max) / 2.0, domain.min).map(::label)
-    val axisShortTitle = when (choice) {
-        MeteogramAxisChoice.TEMPERATURE -> "T°"
-        MeteogramAxisChoice.CLOUDS -> "N"
-        MeteogramAxisChoice.RAIN -> "R"
-        MeteogramAxisChoice.WIND -> "V"
-        MeteogramAxisChoice.HUMIDITY -> "HR"
-        MeteogramAxisChoice.PRESSURE -> "P"
-    }
+    // Abbreviations follow the active app language (Wind = W in English,
+    // Vent = V in French, etc.), independently of the selected weather units.
+    val axisShortTitle = meteogramAxisShortLabel(choice)
     Box(Modifier.testTag(TAG_METEOGRAM_ACTIVE_AXIS)
         .semantics { contentDescription = choice.name.lowercase() }) {
         MeteogramAxisRuler(
@@ -1159,10 +1164,10 @@ private fun MeteogramValueAxis(
         MeteogramKind.PRESSURE -> if (units.imperial) "inHg" else "hPa"
     }
     val shortName = when (kind) {
-        MeteogramKind.EVERYDAY, MeteogramKind.WIND -> "V"
-        MeteogramKind.TEMPERATURE -> "T°"
-        MeteogramKind.HUMIDITY -> "HR"
-        MeteogramKind.PRESSURE -> "P"
+        MeteogramKind.EVERYDAY, MeteogramKind.WIND -> meteogramAxisShortLabel(MeteogramAxisChoice.WIND)
+        MeteogramKind.TEMPERATURE -> meteogramAxisShortLabel(MeteogramAxisChoice.TEMPERATURE)
+        MeteogramKind.HUMIDITY -> meteogramAxisShortLabel(MeteogramAxisChoice.HUMIDITY)
+        MeteogramKind.PRESSURE -> meteogramAxisShortLabel(MeteogramAxisChoice.PRESSURE)
     }
     MeteogramAxisRuler(
         title = shortName,
@@ -1187,10 +1192,14 @@ private fun MeteogramAxisRuler(
     axisWidth: Dp,
     cloudLayers: Boolean = false
 ) {
+    // Keep the compact ruler, but restore a translucent metric-colored surface.
+    // The neutral opaque gray introduced in the previous patch reduced visual
+    // association with the curve, particularly for wind vs. pressure.
+    val rulerShape = RoundedCornerShape(7.dp)
     Column(
         Modifier.width(axisWidth).padding(start = 2.dp)
-            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f))
+            .background(color.copy(alpha = 0.105f), rulerShape)
+            .border(1.dp, color.copy(alpha = 0.38f), rulerShape)
             .padding(horizontal = 3.dp)
     ) {
         Column(
@@ -1199,7 +1208,7 @@ private fun MeteogramAxisRuler(
             verticalArrangement = Arrangement.Center
         ) {
             Text(title, style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Bold, color = color,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
             Row(verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(3.dp)) {

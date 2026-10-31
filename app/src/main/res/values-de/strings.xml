@@ -1086,4 +1086,10 @@ Daten</string>
     <string name="meteogram_cloud_picker">Wolken</string>
     <string name="meteogram_cloud_layers_hint">Durchgehende Wolkenschichten: hohe oben, mittlere in der Mitte, tiefe unten (% pro Schicht).</string>
     <string name="meteogram_cloud_layers_unavailable">Tiefe, mittlere und hohe Wolkenschichten sind für dieses Modell oder den alten Cache nicht verfügbar.</string>
+    <string name="meteogram_axis_short_temperature">T°</string>
+    <string name="meteogram_axis_short_clouds">Wo</string>
+    <string name="meteogram_axis_short_rain">R</string>
+    <string name="meteogram_axis_short_wind">Wi</string>
+    <string name="meteogram_axis_short_humidity">rF</string>
+    <string name="meteogram_axis_short_pressure">D</string>
 </resources>
