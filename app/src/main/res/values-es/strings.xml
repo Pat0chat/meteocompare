@@ -1081,7 +1081,7 @@ datos</string>
     <string name="meteogram_rain">Lluvia</string>
     <string name="meteogram_layout_separate">Meteogramas separados</string>
     <string name="meteogram_layout_combined">Todo en uno</string>
-    <string name="meteogram_combined_scales_hint">Cada curva tiene su propia escala (rangos abajo). El eje derecho indica la temperatura.</string>
+    <string name="meteogram_combined_scales_hint">Cada medida tiene su propia escala, indicada encima del gráfico. El eje derecho es de temperatura.</string>
 
     <string name="meteogram_sunrise">Amanecer</string>
     <string name="meteogram_sunset">Atardecer</string>
@@ -1089,4 +1089,7 @@ datos</string>
     <string name="meteogram_cloud_mid">Nubes medias</string>
     <string name="meteogram_cloud_high">Nubes altas</string>
 <string name="meteogram_cloud_total">Nubes (total)</string>
+    <string name="meteogram_all_scales_title">Escalas · arriba / centro / abajo</string>
+    <string name="meteogram_cloud_layers_hint">Capas de nubes continuas: altas arriba, medias al centro, bajas abajo (% por capa).</string>
+    <string name="meteogram_cloud_layers_unavailable">Capas bajas, medias y altas no disponibles (modelo o caché antiguo): solo se muestra la nubosidad total.</string>
 </resources>

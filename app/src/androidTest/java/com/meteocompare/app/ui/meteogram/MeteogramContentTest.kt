@@ -65,6 +65,11 @@ class MeteogramContentTest {
         rule.setContent { MeteoCompareTheme { MeteogramContent(state) } }
         rule.onNodeWithTag(TAG_METEOGRAM_LAYOUT_COMBINED).performClick()
         rule.onNodeWithTag(TAG_METEOGRAM_COMBINED, useUnmergedTree = true).assertExists()
+        // All measurement scales must be visible in the single-canvas mode.
+        listOf("temperature", "cloud", "rain", "wind", "humidity", "pressure").forEach { metric ->
+            rule.onNodeWithTag(TAG_METEOGRAM_SCALE_PREFIX + metric, useUnmergedTree = true)
+                .assertExists()
+        }
         rule.onAllNodesWithTag(TAG_METEOGRAM_TIME, useUnmergedTree = true).assertCountEquals(1)
         rule.onNodeWithTag(TAG_METEOGRAM_TEMPERATURE, useUnmergedTree = true).assertDoesNotExist()
         rule.onNodeWithTag(TAG_METEOGRAM_WEATHER, useUnmergedTree = true).assertDoesNotExist()
