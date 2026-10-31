@@ -123,6 +123,9 @@ private val CombinedHeight = 454.dp
 private const val WeatherCloudFraction = 0.50f
 private const val WeatherLowerFraction = 0.54f
 
+private const val WeatherCloudAllInOneFraction = 0.25f
+private const val WeatherLowerAllInOneFraction = 0.29f
+
 internal const val TAG_METEOGRAM_CONTENT = "meteogram_content"
 internal const val TAG_METEOGRAM_TIME = "meteogram_time"
 internal const val TAG_METEOGRAM_WEATHER = "meteogram_weather"
@@ -849,24 +852,35 @@ private fun MeteogramCombinedCard(
                     MeteogramPlot(hours, CombinedHeight, step, offset, selectedIndex,
                         TAG_METEOGRAM_COMBINED, onSelect, markers, currentInstant) { first, last, shift, hourStep ->
                         drawChartFrame(hours, zone, first, last, shift, hourStep)
-                        drawCloudLayerBands(hours, first, last, shift, hourStep, topFraction = 0.38f, alpha = 0.68f)
-                        drawRainBars(hours, first, last, shift, hourStep, rainDomain)
+                        drawCloudLayerBands(hours, first, last, shift, hourStep,
+                            topFraction = WeatherCloudAllInOneFraction, alpha = 0.68f)
+                        drawWeatherLaneDivider()
+                        drawRainBars(hours, first, last, shift, hourStep, rainDomain,
+                            plotTopFraction = WeatherLowerAllInOneFraction)
                         drawDayOverDayBands(hours, priorTemperatures, first, last,
-                            shift, hourStep, temperatureDomain)
+                            shift, hourStep, temperatureDomain,
+                            plotTopFraction = WeatherLowerAllInOneFraction)
                         drawMetricCurve(hours, first, last, shift, hourStep,
-                            temperatureDomain, TemperatureColor) { it.temperatureC }
+                            temperatureDomain, TemperatureColor,
+                            plotTopFraction = WeatherLowerAllInOneFraction) { it.temperatureC }
                         drawMetricCurve(hours, first, last, shift, hourStep,
-                            temperatureDomain, ApparentColor) { it.apparentC }
+                            temperatureDomain, ApparentColor,
+                            plotTopFraction = WeatherLowerAllInOneFraction) { it.apparentC }
                         drawMetricCurve(hours, first, last, shift, hourStep,
-                            temperatureDomain, DewColor) { it.dewC }
+                            temperatureDomain, DewColor,
+                            plotTopFraction = WeatherLowerAllInOneFraction) { it.dewC }
                         drawMetricCurve(hours, first, last, shift, hourStep,
-                            humidityDomain, HumidityColor) { it.humidityPercent?.toDouble() }
+                            humidityDomain, HumidityColor,
+                            plotTopFraction = WeatherLowerAllInOneFraction) { it.humidityPercent?.toDouble() }
                         drawMetricCurve(hours, first, last, shift, hourStep,
-                            pressureDomain, PressureColor) { it.pressureHpa }
+                            pressureDomain, PressureColor,
+                            plotTopFraction = WeatherLowerAllInOneFraction) { it.pressureHpa }
                         drawMetricCurve(hours, first, last, shift, hourStep,
-                            windDomain, WindColor) { it.windKmh }
+                            windDomain, WindColor,
+                            plotTopFraction = WeatherLowerAllInOneFraction) { it.windKmh }
                         drawMetricCurve(hours, first, last, shift, hourStep,
-                            windDomain, GustColor) { it.gustKmh }
+                            windDomain, GustColor,
+                            plotTopFraction = WeatherLowerAllInOneFraction) { it.gustKmh }
                         drawWindDirectionArrows(hours, first, last, shift, hourStep,
                             cardinalLanguage = locale.language)
                     }
@@ -874,7 +888,9 @@ private fun MeteogramCombinedCard(
                 }
                 MeteogramCombinedSelectedAxis(
                     axisChoice, units, temperatureDomain, rainDomain,
-                    windDomain, humidityDomain, pressureDomain
+                    windDomain, humidityDomain, pressureDomain,
+                    cloudFraction = WeatherCloudAllInOneFraction,
+                    plotTopFraction = WeatherLowerAllInOneFraction
                 )
             }
         }
@@ -982,7 +998,9 @@ private fun MeteogramCombinedSelectedAxis(
     rain: MeteogramDomain,
     wind: MeteogramDomain,
     humidity: MeteogramDomain,
-    pressure: MeteogramDomain
+    pressure: MeteogramDomain,
+    cloudFraction: Float = 0.38f,
+    plotTopFraction: Float = 0f
 ) {
     val domain = when (choice) {
         MeteogramAxisChoice.TEMPERATURE -> temperature
@@ -1016,7 +1034,9 @@ private fun MeteogramCombinedSelectedAxis(
             title = axisShortTitle, unit = unit,
             color = meteogramChoiceColor(choice), labels = values,
             height = CombinedHeight, axisWidth = AxisWidth,
-            cloudLayers = choice == MeteogramAxisChoice.CLOUDS
+            cloudLayers = choice == MeteogramAxisChoice.CLOUDS,
+            cloudFraction = cloudFraction,
+            tickTopFraction = if (choice == MeteogramAxisChoice.CLOUDS) 0f else plotTopFraction
         )
     }
 }
@@ -1647,9 +1667,13 @@ private fun DrawScope.drawDayOverDayBands(
     last: Int,
     offset: Float,
     step: Float,
-    domain: MeteogramDomain
+    domain: MeteogramDomain,
+    plotTopFraction: Float = 0f
 ) {
-    fun y(value: Double): Float = 4.dp.toPx() + (size.height - 8.dp.toPx()) * (1f - domain.fraction(value))
+    fun y(value: Double): Float =
+        size.height * plotTopFraction + 4.dp.toPx() +
+            (size.height * (1f - plotTopFraction) - 8.dp.toPx()).coerceAtLeast(0f) *
+                (1f - domain.fraction(value))
     for (i in first until last) {
         val a = hours[i].temperatureC?.takeIf(Double::isFinite) ?: continue
         val b = hours[i + 1].temperatureC?.takeIf(Double::isFinite) ?: continue
