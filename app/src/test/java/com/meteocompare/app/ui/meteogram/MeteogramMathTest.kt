@@ -20,6 +20,30 @@ class MeteogramMathTest {
         assertEquals(239, meteogramViewport(9000f, 300f, 38f, 240).last)
     }
 
+    @Test fun viewport_clamps_after_forecast_shrinks() {
+        val range = meteogramViewport(10000f, 300f, 38f, 3)
+        assertEquals(2, range.first)
+        assertEquals(2, range.last)
+        assertTrue(meteogramViewport(0f, 0f, 38f, 0).isEmpty())
+    }
+
+    @Test fun solar_marker_uses_timestamp_positions_when_forecast_has_missing_hours() {
+        val t = Instant.parse("2026-10-25T00:00:00Z")
+        // A real gap from 01:00 to 04:00. Positions must follow the four
+        // plotted data points, not the absolute number of elapsed hours.
+        val hours = listOf(0L, 1L, 4L, 5L).map { index ->
+            MeteogramHour(t.plusSeconds(index * 3600L), daylight = true)
+        }
+        assertEquals(0.5f, meteogramInstantSlot(hours, t)!!, 0.0001f)
+        assertEquals(1.5f, meteogramInstantSlot(hours, t.plusSeconds(3600))!!, 0.0001f)
+        assertEquals(2f, meteogramInstantSlot(hours, t.plusSeconds(9000))!!, 0.0001f)
+        assertEquals(2.5f, meteogramInstantSlot(hours, t.plusSeconds(14400))!!, 0.0001f)
+        assertEquals(4f, meteogramInstantSlot(hours, t.plusSeconds(19800))!!, 0.0001f)
+        assertNull(meteogramInstantSlot(hours, t.minusSeconds(1)))
+        assertNull(meteogramInstantSlot(hours, t.plusSeconds(21601)))
+        assertNull(meteogramInstantSlot(emptyList(), t))
+    }
+
     @Test fun domains_ignore_missing_data_and_keep_precipitation_at_zero() {
         val temperature = meteogramDomain(sequenceOf(null, 14.0, 15.0, Double.NaN), 3.0)
         assertTrue(temperature.min < 14.0)
@@ -78,7 +102,6 @@ class MeteogramMathTest {
         assertEquals(22.0, consensus.temperatureC!!, 0.0)
         val model = buildMeteogramHours(state, "Model A").single()
         assertEquals(18.0, model.temperatureC!!, 0.0)
-        assertNull(model.cloudPercent)
         assertNull(model.pressureHpa)
         assertNull(model.humidityPercent)
         assertEquals(10, model.cloudLowPercent)
@@ -86,7 +109,6 @@ class MeteogramMathTest {
         assertEquals(40, model.cloudHighPercent)
         val unknown = buildMeteogramHours(state, "Model B").single()
         assertNull(unknown.temperatureC)
-        assertNull(unknown.cloudPercent)
         assertNull(unknown.cloudLowPercent)
         assertFalse(unknown.daylight != consensus.daylight)
     }

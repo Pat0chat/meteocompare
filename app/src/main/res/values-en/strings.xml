@@ -1101,7 +1101,6 @@
     <string name="meteogram_cloud_high">High clouds</string>
     <string name="meteogram_choose_scale">Scale</string>
     <string name="meteogram_cloud_picker">Clouds</string>
-    <string name="meteogram_cloud_layers_hint">Continuous cloud layers: high above, mid in the middle, low below (% for each layer).</string>
     <string name="meteogram_cloud_layers_unavailable">Low, middle and high cloud layers are unavailable for this model or older cache.</string>
     <string name="meteogram_axis_short_temperature">T°</string>
     <string name="meteogram_axis_short_clouds">C</string>

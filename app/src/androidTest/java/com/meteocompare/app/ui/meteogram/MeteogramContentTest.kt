@@ -1,11 +1,13 @@
 package com.meteocompare.app.ui.meteogram
 
+import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.unit.dp
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.ui.citydetail.SimplifiedTimelinePoint
 import com.meteocompare.app.ui.graphicview.GraphicForecastUiState
@@ -85,6 +87,8 @@ class MeteogramContentTest {
         rule.onNodeWithTag(TAG_METEOGRAM_ACTIVE_AXIS, useUnmergedTree = true)
             .assertContentDescriptionEquals("clouds")
         rule.onAllNodesWithTag(TAG_METEOGRAM_TIME, useUnmergedTree = true).assertCountEquals(1)
+        rule.onNodeWithTag(TAG_METEOGRAM_TIME, useUnmergedTree = true)
+            .assertHeightIsEqualTo(49.dp)
         rule.onNodeWithTag(TAG_METEOGRAM_TEMPERATURE, useUnmergedTree = true).assertDoesNotExist()
         rule.onNodeWithTag(TAG_METEOGRAM_WEATHER, useUnmergedTree = true).assertDoesNotExist()
     }

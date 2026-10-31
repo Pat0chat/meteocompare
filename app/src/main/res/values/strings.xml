@@ -1102,7 +1102,6 @@
     <string name="meteogram_cloud_high">Nuages hauts</string>
     <string name="meteogram_choose_scale">Échelle</string>
     <string name="meteogram_cloud_picker">Nuages</string>
-    <string name="meteogram_cloud_layers_hint">Couches nuageuses continues : hautes en haut, moyennes au centre, basses en bas (% de chaque couche).</string>
     <string name="meteogram_cloud_layers_unavailable">Couches nuageuses basses, moyennes et hautes indisponibles pour ce modèle ou cet ancien cache.</string>
     <string name="meteogram_axis_short_temperature">T°</string>
     <string name="meteogram_axis_short_clouds">N</string>

@@ -99,6 +99,18 @@ class WeatherTimeFormatTest {
     }
 
     @Test
+    fun `meteogram sunrise and sunset display exact minutes in city timezone`() {
+        val cityZone = ZoneId.of("Europe/Paris")
+        val sunrise = Instant.parse("2026-06-21T03:47:00Z").atZone(cityZone)
+        val sunset = Instant.parse("2026-06-21T19:56:00Z").atZone(cityZone)
+        assertEquals("05:47", sunrise.format(WeatherTimeFormat.clock(Locale.FRANCE)))
+        assertEquals("21:56", sunset.format(WeatherTimeFormat.clock(Locale.FRANCE)))
+        assertEquals("5:47 AM", sunrise.format(WeatherTimeFormat.clock(Locale.US)))
+        assertEquals("9:56 PM", sunset.format(WeatherTimeFormat.clock(Locale.US)))
+        assertEquals("05:47", sunrise.format(WeatherTimeFormat.clock(Locale.US, ClockFormatPreference.HOUR_24)))
+    }
+
+    @Test
     fun `longer axis and date labels use same clock convention`() {
         val instant = Instant.parse("2026-10-13T23:30:00Z").atZone(ZoneId.of("UTC"))
         assertEquals("Tue 13 Oct · 11:30 PM", instant.format(WeatherTimeFormat.dateClock(Locale.US)))

@@ -57,9 +57,9 @@ class MeteogramAxisTintLocaleTest(unittest.TestCase):
                 self.assertEqual(humidity, tags['meteogram_axis_short_humidity'])
                 self.assertEqual('T°', tags['meteogram_axis_short_temperature'])
 
-    def test_heights_are_gently_increased_without_changing_time_axis(self):
-        desired = {'Weather': 196, 'Temperature': 184, 'Humidity': 148,
-                   'Pressure': 148, 'Wind': 172, 'Combined': 372, 'Time': 66}
+    def test_plot_heights_gain_space_while_the_timeline_is_compacted(self):
+        desired = {'Weather': 244, 'Temperature': 228, 'Humidity': 188,
+                   'Pressure': 188, 'Wind': 218, 'Combined': 454, 'Time': 49}
         for kind, height in desired.items():
             with self.subTest(kind=kind):
                 self.assertRegex(self.source,

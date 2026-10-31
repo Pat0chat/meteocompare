@@ -1089,7 +1089,6 @@ dato</string>
     <string name="meteogram_cloud_high">Nubi alte</string>
     <string name="meteogram_choose_scale">Scala</string>
     <string name="meteogram_cloud_picker">Nuvole</string>
-    <string name="meteogram_cloud_layers_hint">Strati nuvolosi continui: alti sopra, medi al centro, bassi sotto (% per strato).</string>
     <string name="meteogram_cloud_layers_unavailable">Strati nuvolosi bassi, medi e alti non disponibili per questo modello o per la vecchia cache.</string>
     <string name="meteogram_axis_short_temperature">T°</string>
     <string name="meteogram_axis_short_clouds">N</string>
