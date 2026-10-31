@@ -16,7 +16,7 @@ class MeteogramUnifiedDesignTest(unittest.TestCase):
         segment = code.split('private fun MeteogramCloudRainLegend(', 1)[1].split(
             'private fun MeteogramCombinedLegend(', 1)[0]
         self.assertEqual(1, segment.count('MeteogramLegend(listOf('))
-        self.assertEqual(6, segment.count('LegendEntry('))
+        self.assertEqual(5, segment.count('LegendEntry('))
         key = code.split('private fun MeteogramKey(', 1)[1].split(
             'private fun meteogramAxisColor(', 1)[0]
         self.assertIn('MaterialTheme.typography.labelSmall', key)
@@ -46,11 +46,11 @@ class MeteogramUnifiedDesignTest(unittest.TestCase):
         self.assertIn('height * (cloudFraction / 3f)', ruler)
         self.assertIn('height * (1f - cloudFraction)', ruler)
 
-    def test_selected_pills_equal_height_and_two_column_layout(self):
+    def test_selected_pills_equal_height_and_three_column_layout(self):
         code = self.code
         layout = code.split('private fun MeteogramSelectedMetricContent(', 1)[1].split(
             'private fun MeteogramValuePill(', 1)[0]
-        self.assertIn('metrics.chunked(2)', layout)
+        self.assertIn('metrics.chunked(3)', layout)
         self.assertIn('Box(Modifier.weight(1f))', layout)
         self.assertIn('Spacer(Modifier.weight(1f))', layout)
         self.assertIn('TAG_METEOGRAM_SELECTED_GRID', layout)

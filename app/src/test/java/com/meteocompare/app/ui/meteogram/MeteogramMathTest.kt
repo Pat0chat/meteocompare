@@ -12,6 +12,18 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MeteogramMathTest {
+    @Test fun selected_time_badge_follows_cursor_and_stays_inside_plot() {
+        assertEquals(140, meteogramSelectedTimeBadgeLeft(180f, 80, 300))
+        assertEquals(0, meteogramSelectedTimeBadgeLeft(15f, 80, 300))
+        assertEquals(220, meteogramSelectedTimeBadgeLeft(285f, 80, 300))
+        assertEquals(0, meteogramSelectedTimeBadgeLeft(15f, 110, 60))
+        assertEquals(0, meteogramSelectedTimeBadgeLeft(0f, 0, 0))
+        // The time label moves one-for-one with the cursor until an edge.
+        val first = meteogramSelectedTimeBadgeLeft(120f, 80, 300)
+        val second = meteogramSelectedTimeBadgeLeft(158f, 80, 300)
+        assertEquals(38, second - first)
+    }
+
     @Test fun viewport_bounds_limit_work_to_visible_hours() {
         assertTrue(meteogramViewport(0f, 400f, 38f, 0).isEmpty())
         assertEquals(0, meteogramViewport(0f, 400f, 38f, 240).first)

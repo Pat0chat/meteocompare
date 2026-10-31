@@ -36,7 +36,7 @@ class MeteogramTimelineSolarTest(unittest.TestCase):
 
     def test_per_card_values_instead_of_min_max_range_legend(self):
         card = self.src.split('private fun MeteogramChartCard(', 1)[1].split('private fun MeteogramCombinedCard(', 1)[0]
-        self.assertIn('MeteogramCardSelectedValues(kind, selected, zone, timeFormatter, units, locale)', card)
+        self.assertIn('MeteogramCardSelectedValues(kind, selected, units, locale)', card)
         self.assertNotIn('MeteogramScaleSummary(', card)
         self.assertNotIn('meteogramSelectedCaption(', card)
         self.assertNotIn('private fun MeteogramScaleSummary(', self.src)
@@ -45,9 +45,9 @@ class MeteogramTimelineSolarTest(unittest.TestCase):
         self.assertIn('TAG_METEOGRAM_CARD_SELECTED_PREFIX', selected)
         self.assertIn('MeteogramSelectedMetricContent(', selected)
         self.assertIn('TAG_METEOGRAM_SELECTED_GRID', self.src)
-        self.assertIn('metrics.chunked(2).forEach', self.src)
+        self.assertIn('metrics.chunked(3).forEach', self.src)
         self.assertIn('MeteogramValuePill(label, value, color, Modifier.fillMaxWidth())', self.src)
-        self.assertIn('hour.instant.atZone(zone).format(clockFormatter)', selected)
+        self.assertIn('MeteogramSelectedTimeTrack(hours, selectedIndex, offset, step, zone, locale)', card)
         self.assertIn('color.copy(alpha = 0.09f)', self.src)
         self.assertIn('private val TimeHeight = 49.dp', self.src)
 

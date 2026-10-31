@@ -1075,7 +1075,6 @@ dato</string>
     <string name="meteogram_wind_origin">Vento da</string>
     <string name="meteogram_wind">Vento / Raffiche</string>
 
-    <string name="meteogram_selected">Selezione: %1$s</string>
     <string name="meteogram_no_data">Nessun dato disponibile</string>
     <string name="meteogram_a11y">Previsioni dei modelli. I valori più bassi sono in basso.</string>
 

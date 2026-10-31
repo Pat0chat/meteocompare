@@ -52,7 +52,11 @@ class MeteogramContentTest {
         }
         // Three independent right-hand axes: rain + pressure + 3 cloud strata.
         rule.onNodeWithTag(TAG_METEOGRAM_CLOUD_AXIS, useUnmergedTree = true).assertExists()
+        rule.onNodeWithTag(TAG_METEOGRAM_CLOUD_MID_LEGEND, useUnmergedTree = true).assertExists()
+        rule.onNodeWithTag(TAG_METEOGRAM_CLOUD_HIGH_LEGEND, useUnmergedTree = true).assertExists()
         rule.onAllNodesWithTag(TAG_METEOGRAM_SELECTED_GRID, useUnmergedTree = true).assertCountEquals(3)
+        rule.onAllNodesWithTag(TAG_METEOGRAM_SELECTED_TIME_TRACK, useUnmergedTree = true).assertCountEquals(3)
+        rule.onAllNodesWithTag(TAG_METEOGRAM_SELECTED_TIME_BADGE, useUnmergedTree = true).assertCountEquals(3)
         // Three complementary charts: humidity belongs to temperature,
         // pressure belongs to clouds/rain/wind; daily range was removed.
         rule.onAllNodesWithTag(TAG_METEOGRAM_TIME, useUnmergedTree = true).assertCountEquals(3)
@@ -74,6 +78,7 @@ class MeteogramContentTest {
             points = List(48) { i -> SimplifiedTimelinePoint(
                 instant = start.plusSeconds(i * 3600L), temperatureC = 12.0 + i % 6,
                 cloudCoverPercent = 40, windKmh = 13.0, windGustKmh = 21.0,
+                windDirectionDeg = 270,
                 humidityPercent = 75, dewPointC = 8.0,
                 pressureHpa = 1016.0, precipitationMm = 0.4
             ) },
@@ -84,6 +89,8 @@ class MeteogramContentTest {
         rule.onNodeWithTag(TAG_METEOGRAM_COMBINED, useUnmergedTree = true).assertExists()
         rule.onNodeWithTag(TAG_METEOGRAM_SELECTED, useUnmergedTree = true).assertExists()
         rule.onAllNodesWithTag(TAG_METEOGRAM_SELECTED_GRID, useUnmergedTree = true).assertCountEquals(1)
+        rule.onAllNodesWithTag(TAG_METEOGRAM_SELECTED_TIME_TRACK, useUnmergedTree = true).assertCountEquals(1)
+        rule.onNodeWithText("270°", substring = true, useUnmergedTree = true).assertExists()
         // Exactly one ruler; selecting it does not recreate the shared Canvas.
         rule.onNodeWithTag(TAG_METEOGRAM_ACTIVE_AXIS, useUnmergedTree = true)
             .assertContentDescriptionEquals("temperature")

@@ -1087,7 +1087,6 @@
     <string name="meteogram_wind_origin">Wind from</string>
     <string name="meteogram_wind">Wind / Gusts</string>
 
-    <string name="meteogram_selected">Selected: %1$s</string>
     <string name="meteogram_no_data">No measurements available</string>
     <string name="meteogram_a11y">Model forecasts. Lower positions indicate lower values.</string>
 

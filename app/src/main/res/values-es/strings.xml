@@ -1075,7 +1075,6 @@ datos</string>
     <string name="meteogram_wind_origin">Viento de</string>
     <string name="meteogram_wind">Viento / Ráfagas</string>
 
-    <string name="meteogram_selected">Selección: %1$s</string>
     <string name="meteogram_no_data">No hay datos disponibles</string>
     <string name="meteogram_a11y">Previsiones de modelos. Los valores bajos se muestran abajo.</string>
 

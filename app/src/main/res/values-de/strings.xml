@@ -1070,7 +1070,6 @@ Daten</string>
     <string name="meteogram_wind_origin">Wind aus</string>
     <string name="meteogram_wind">Wind / Böen</string>
 
-    <string name="meteogram_selected">Ausgewählt: %1$s</string>
     <string name="meteogram_no_data">Keine Messwerte vorhanden</string>
     <string name="meteogram_a11y">Modellvorhersagen. Niedrige Werte stehen unten.</string>
 

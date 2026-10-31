@@ -38,17 +38,19 @@ class MeteorogramSeparationTest(unittest.TestCase):
     def test_cloud_rain_legend_exposes_three_consistent_measure_keys(self):
         legend = self.code.split('private fun MeteogramCloudRainLegend(', 1)[1].split(
             'private fun MeteogramCombinedLegend(', 1)[0]
-        for name in ('meteogram_cloud_picker', 'meteogram_cloud_low',
+        for name in ('meteogram_cloud_low',
                      'meteogram_cloud_mid', 'meteogram_cloud_high',
                      'meteogram_rain', 'meteogram_pressure'):
             self.assertIn('R.string.' + name, legend)
         # All keys, including cloud/rain/pressure, share the exact same renderer.
         self.assertEqual(1, legend.count('MeteogramLegend(listOf('))
-        self.assertEqual(6, legend.count('LegendEntry('))
+        self.assertEqual(5, legend.count('LegendEntry('))
         for tag in ('TAG_METEOGRAM_CLOUD_LEGEND', 'TAG_METEOGRAM_RAIN_LEGEND',
                     'TAG_METEOGRAM_PRESSURE_LEGEND'):
             self.assertIn('tag = ' + tag, legend)
-        self.assertIn('meteogram_cloud_picker)} (%)', legend)
+        self.assertNotIn('R.string.meteogram_cloud_picker', legend)
+        for layer in ('low', 'mid', 'high'):
+            self.assertIn(f'meteogram_cloud_{layer})}} (%)', legend)
         self.assertIn('units.precipitationUnit', legend)
         self.assertIn('if (units.imperial) "inHg" else "hPa"', legend)
         self.assertNotIn('meteogram_wind', legend)
