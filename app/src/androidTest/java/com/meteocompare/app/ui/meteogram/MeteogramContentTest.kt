@@ -1,6 +1,5 @@
 package com.meteocompare.app.ui.meteogram
 
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.performClick
@@ -37,16 +36,38 @@ class MeteogramContentTest {
         )
         rule.setContent { MeteoCompareTheme { MeteogramContent(state) } }
         listOf(TAG_METEOGRAM_CONTENT, TAG_METEOGRAM_WEATHER,
-            TAG_METEOGRAM_TEMPERATURE, TAG_METEOGRAM_HUMIDITY, TAG_METEOGRAM_PRESSURE,
-            TAG_METEOGRAM_WIND, TAG_METEOGRAM_DAILY, TAG_METEOGRAM_SELECTED).forEach { tag ->
+            TAG_METEOGRAM_TEMPERATURE, TAG_METEOGRAM_WIND,
+            TAG_METEOGRAM_DAILY, TAG_METEOGRAM_SELECTED).forEach { tag ->
             rule.onNodeWithTag(tag, useUnmergedTree = true).assertExists()
         }
-        // The six graphs are separate surfaces, each with its own legend and axis.
-        rule.onAllNodesWithTag(TAG_METEOGRAM_TIME, useUnmergedTree = true).assertCountEquals(6)
+        // Four complementary charts: humidity belongs to temperature,
+        // pressure belongs to clouds/rain/wind.
+        rule.onAllNodesWithTag(TAG_METEOGRAM_TIME, useUnmergedTree = true).assertCountEquals(4)
         MeteogramPresets.forEach { kind ->
             rule.onNodeWithTag(TAG_METEOGRAM_CARD_PREFIX + kind.name.lowercase(),
                 useUnmergedTree = true).assertExists()
         }
+    }
+
+    @Test fun combined_mode_uses_one_real_plot_not_stacked_sections() {
+        val start = Instant.parse("2026-10-28T00:00:00Z")
+        val state = GraphicForecastUiState.Loaded(
+            city = City("test", "Paris", country = "France", latitude = 48.8,
+                longitude = 2.3, timezone = "Europe/Paris"),
+            points = List(48) { i -> SimplifiedTimelinePoint(
+                instant = start.plusSeconds(i * 3600L), temperatureC = 12.0 + i % 6,
+                cloudCoverPercent = 40, windKmh = 13.0, windGustKmh = 21.0,
+                humidityPercent = 75, dewPointC = 8.0,
+                pressureHpa = 1016.0, precipitationMm = 0.4
+            ) },
+            solarByDate = emptyMap(), modelValuesByInstant = emptyMap(), calculatedAt = start
+        )
+        rule.setContent { MeteoCompareTheme { MeteogramContent(state) } }
+        rule.onNodeWithTag(TAG_METEOGRAM_LAYOUT_COMBINED).performClick()
+        rule.onNodeWithTag(TAG_METEOGRAM_COMBINED, useUnmergedTree = true).assertExists()
+        rule.onAllNodesWithTag(TAG_METEOGRAM_TIME, useUnmergedTree = true).assertCountEquals(1)
+        rule.onNodeWithTag(TAG_METEOGRAM_TEMPERATURE, useUnmergedTree = true).assertDoesNotExist()
+        rule.onNodeWithTag(TAG_METEOGRAM_WEATHER, useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test fun compare_mode_displays_one_everyday_meteogram_per_model() {

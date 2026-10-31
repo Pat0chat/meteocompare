@@ -1070,7 +1070,7 @@
     <string name="metric_dew_point">Dew point</string>
     <string name="metric_dew_point_short">Dew</string>
     <string name="detail_action_meteogram_short">Meteogr.</string>
-    <string name="meteogram_presets_title">6 separate meteograms</string>
+    <string name="meteogram_presets_title">4 complementary meteograms</string>
     <string name="meteogram_compare_title">Compare models</string>
     <string name="meteogram_compare_action">Compare</string>
     <string name="meteogram_daily_title">Daily temperature range</string>
@@ -1092,9 +1092,10 @@
     <string name="meteogram_a11y">Model forecasts. Lower positions indicate lower values.</string>
 
     <string name="meteogram_rain">Rain</string>
-    <string name="meteogram_cloud">Clouds</string>
     <string name="meteogram_layout_separate">Separate meteograms</string>
     <string name="meteogram_layout_combined">All in one</string>
+    <string name="meteogram_combined_scales_hint">Each curve has its own scale (ranges shown below). The right-hand axis shows temperature.</string>
+    <string name="meteogram_hourly_temperatures">Hourly temperatures</string>
     <string name="meteogram_sunrise">Sunrise</string>
     <string name="meteogram_sunset">Sunset</string>
     <string name="meteogram_cloud_total">Clouds (total)</string>

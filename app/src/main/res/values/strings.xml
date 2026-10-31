@@ -1071,7 +1071,7 @@
     <string name="metric_dew_point">Point de rosée</string>
     <string name="metric_dew_point_short">Rosée</string>
     <string name="detail_action_meteogram_short">Météogr.</string>
-    <string name="meteogram_presets_title">6 météogrammes distincts</string>
+    <string name="meteogram_presets_title">4 météogrammes complémentaires</string>
     <string name="meteogram_compare_title">Comparer les modèles</string>
     <string name="meteogram_compare_action">Comparer</string>
     <string name="meteogram_daily_title">Amplitude journalière</string>
@@ -1093,9 +1093,10 @@
     <string name="meteogram_a11y">Données météo des modèles. Le bas de chaque graphique correspond aux valeurs les plus faibles.</string>
 
     <string name="meteogram_rain">Pluie</string>
-    <string name="meteogram_cloud">Nuages</string>
     <string name="meteogram_layout_separate">Météogrammes séparés</string>
     <string name="meteogram_layout_combined">Tout-en-un</string>
+    <string name="meteogram_combined_scales_hint">Chaque courbe utilise sa propre échelle (plages détaillées sous le graphique). L’axe à droite indique la température.</string>
+    <string name="meteogram_hourly_temperatures">Températures horaires</string>
     <string name="meteogram_sunrise">Lever du soleil</string>
     <string name="meteogram_sunset">Coucher du soleil</string>
     <string name="meteogram_cloud_total">Nuages (total)</string>

@@ -50,8 +50,12 @@ class MeteogramMathTest {
     }
 
     @Test fun separate_presets_have_distinct_scales_and_daily_range_domain() {
-        assertEquals(6, MeteogramPresets.size)
-        assertEquals(MeteogramKind.entries.toList(), MeteogramPresets)
+        assertEquals(4, MeteogramPresets.size)
+        assertEquals(listOf(MeteogramKind.EVERYDAY, MeteogramKind.TEMPERATURE,
+            MeteogramKind.WIND, MeteogramKind.DAILY), MeteogramPresets)
+        // Humidity and pressure have their own domains even when superimposed.
+        assertFalse(MeteogramPresets.contains(MeteogramKind.HUMIDITY))
+        assertFalse(MeteogramPresets.contains(MeteogramKind.PRESSURE))
         assertEquals(0.5, meteogramMinimumSpan(MeteogramKind.EVERYDAY), 0.0)
         assertEquals(15.0, meteogramMinimumSpan(MeteogramKind.HUMIDITY), 0.0)
         val range = meteogramDailyDomain(listOf(
@@ -59,6 +63,18 @@ class MeteogramMathTest {
             MeteogramDailyRange(LocalDate.parse("2026-10-29"), 24, 24, 17.0, 4.0)
         ))
         assertTrue(range.min < 4.0 && range.max > 24.0)
+    }
+
+    @Test fun daily_plot_includes_hourly_temperatures_at_forecast_boundaries() {
+        val start = Instant.parse("2026-10-28T12:00:00Z")
+        val hours = List(6) { i -> MeteogramHour(
+            instant = start.plusSeconds(i * 3600L), daylight = true,
+            temperatureC = 17.0 + i
+        ) }
+        val domain = meteogramHourlyDailyDomain(hours, emptyList())
+        assertTrue(domain.min < 17.0)
+        assertTrue(domain.max > 22.0)
+        assertTrue(meteogramDailyRanges(hours, ZoneId.of("UTC")).all { it.highC == null })
     }
 
     @Test fun compare_presets_do_not_mix_rain_with_wind_or_humidity() {

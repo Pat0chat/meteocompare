@@ -1058,7 +1058,7 @@ datos</string>
     <string name="metric_dew_point">Punto de rocío</string>
     <string name="metric_dew_point_short">Rocío</string>
     <string name="detail_action_meteogram_short">Meteogr.</string>
-    <string name="meteogram_presets_title">6 meteogramas separados</string>
+    <string name="meteogram_presets_title">4 meteogramas complementarios</string>
     <string name="meteogram_compare_title">Comparar modelos</string>
     <string name="meteogram_compare_action">Comparar</string>
     <string name="meteogram_daily_title">Amplitud térmica diaria</string>
@@ -1080,9 +1080,10 @@ datos</string>
     <string name="meteogram_a11y">Previsiones de modelos. Los valores bajos se muestran abajo.</string>
 
     <string name="meteogram_rain">Lluvia</string>
-    <string name="meteogram_cloud">Nubes</string>
     <string name="meteogram_layout_separate">Meteogramas separados</string>
     <string name="meteogram_layout_combined">Todo en uno</string>
+    <string name="meteogram_combined_scales_hint">Cada curva tiene su propia escala (rangos abajo). El eje derecho indica la temperatura.</string>
+    <string name="meteogram_hourly_temperatures">Temperaturas horarias</string>
     <string name="meteogram_sunrise">Amanecer</string>
     <string name="meteogram_sunset">Atardecer</string>
     <string name="meteogram_cloud_total">Nubes (total)</string>
