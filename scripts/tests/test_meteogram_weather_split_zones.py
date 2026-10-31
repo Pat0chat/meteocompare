@@ -29,17 +29,34 @@ class MeteogramWeatherZonesTest(unittest.TestCase):
         weather = card.split('MeteogramKind.EVERYDAY -> {', 1)[1].split(
             'MeteogramKind.TEMPERATURE ->', 1)[0]
         self.assertIn('topFraction = WeatherCloudFraction', weather)
-        self.assertIn('drawWeatherLaneDivider()', weather)
+        self.assertNotIn('drawWeatherLaneDivider()', weather)
+        self.assertIn('dividerPlotHeight = if (kind == MeteogramKind.EVERYDAY) height else null', card)
         self.assertEqual(2, weather.count('plotTopFraction = WeatherLowerFraction'))
         self.assertIn('drawRainBars(', weather)
         self.assertIn('pressureDomain, PressureColor,', weather)
         self.assertLess(weather.index('drawCloudLayerBands('), weather.index('drawRainBars('))
         self.assertLess(weather.index('drawRainBars('), weather.index('drawMetricCurve('))
-        # The combined view remains a single mixed plot with original transforms.
+        # The combined view uses the same two vertical zones as the weather chart.
         combined = self.source.split('private fun MeteogramCombinedCard(', 1)[1].split(
             'private fun MeteogramCloudLayersHint(', 1)[0]
-        self.assertNotIn('WeatherLowerFraction', combined)
+        self.assertIn('WeatherLowerFraction', combined)
+        self.assertIn('MeteogramGraphFrame(dividerPlotHeight = CombinedHeight)', combined)
         self.assertNotIn('drawWeatherLaneDivider()', combined)
+
+    def test_divider_spans_plot_and_right_side_rulers(self):
+        frame = self.source.split('private fun MeteogramGraphFrame(', 1)[1].split(
+            'private fun MeteogramCombinedCard(', 1)[0]
+        divider = self.source.split('private fun DrawScope.drawWeatherLaneDivider(', 1)[1].split(
+            'private fun DrawScope.drawRainBars(', 1)[0]
+        self.assertIn('drawWithContent {', frame)
+        self.assertIn('drawContent()', frame)
+        self.assertIn('dividerPlotHeight?.let { drawWeatherLaneDivider(bottom, it.toPx()) }', frame)
+        self.assertLess(frame.index('drawContent()'), frame.index('drawWeatherLaneDivider(bottom,'))
+        self.assertIn('timeAxisHeightPx + plotHeightPx *', divider)
+        self.assertIn('WeatherCloudFraction + WeatherLowerFraction', divider)
+        self.assertIn('Offset(0f, middle)', divider)
+        self.assertIn('Offset(size.width, middle)', divider)
+        self.assertEqual(1, self.source.count('drawWeatherLaneDivider(bottom, it.toPx())'))
 
     def test_scale_ticks_follow_vertical_lanes(self):
         card = self.source.split('private fun MeteogramChartCard(', 1)[1].split(

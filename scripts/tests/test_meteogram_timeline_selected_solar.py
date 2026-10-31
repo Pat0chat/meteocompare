@@ -15,10 +15,10 @@ class MeteogramTimelineSolarTest(unittest.TestCase):
 
     def test_timeline_backing_spans_both_plot_and_axis_headers(self):
         self.assertEqual(1, self.src.count('val timeStrip = MaterialTheme.colorScheme.surfaceContainerHighest'))
-        self.assertEqual(1, self.src.count('Row(Modifier.fillMaxWidth().padding(top = 4.dp).drawBehind {'))
+        self.assertEqual(1, self.src.count('Row(Modifier.fillMaxWidth().padding(top = 4.dp).drawWithContent {'))
         self.assertEqual(1, self.src.count('drawRect(timeStrip.copy(alpha = 0.75f), size = Size(size.width, bottom))'))
         self.assertEqual(1, self.src.count('drawLine(timeOutline.copy(alpha = 0.65f)'))
-        self.assertEqual(2, self.src.count('MeteogramGraphFrame {'))
+        self.assertEqual(2, self.src.count('dividerPlotHeight = if (kind == MeteogramKind.EVERYDAY) height else null') + self.src.count('MeteogramGraphFrame(dividerPlotHeight = CombinedHeight)'))
         self.assertNotIn('Row(Modifier.padding(start = 8.dp, end = 5.dp, top = 4.dp))', self.src)
 
     def test_solar_markers_label_the_actual_city_local_time_and_overlay_data(self):

@@ -86,7 +86,7 @@ class MeteogramCleanupAudit(unittest.TestCase):
 
     def test_shared_timeline_backing_and_frozen_compare_domains(self):
         self.assertEqual(1, self.screen.count('val timeStrip = MaterialTheme.colorScheme.surfaceContainerHighest'))
-        self.assertEqual(2, self.screen.count('MeteogramGraphFrame {'))
+        self.assertEqual(2, self.screen.count('dividerPlotHeight = if (kind == MeteogramKind.EVERYDAY) height else null') + self.screen.count('MeteogramGraphFrame(dividerPlotHeight = CombinedHeight)'))
         content = self.screen.split('internal fun MeteogramContent(', 1)[1].split(
             'private fun meteogramKindLabel(', 1)[0]
         self.assertIn('modelHoursByName.values.flatten()', content)
