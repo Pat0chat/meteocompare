@@ -62,7 +62,10 @@ internal data class GraphicModelValue(
     val windGustKmh: Double?,
     val windDirectionDeg: Int?,
     val humidityPercent: Int? = null,
-    val dewPointC: Double? = null
+    val dewPointC: Double? = null,
+    val cloudPercent: Int? = null,
+    val pressureHpa: Double? = null,
+    val apparentTemperatureC: Double? = null
 )
 
 internal sealed interface GraphicForecastUiState {
@@ -296,6 +299,9 @@ class GraphicForecastViewModel @Inject constructor(
                         val temperature = series.hourly.temperature2m.getOrNull(index)
                         val humidity = series.hourly.relativeHumidity2m.getOrNull(index)
                         val dewPoint = series.hourly.dewPoint2m.getOrNull(index)
+                        val apparent = series.hourly.apparentTemperature.getOrNull(index)
+                        val cloud = series.hourly.cloudCover.getOrNull(index)
+                        val pressure = series.hourly.pressureMsl.getOrNull(index)
                         val precipitation = series.hourly.precipitation.getOrNull(index)
                         val probability = series.hourly.precipitationProbability.getOrNull(index)
                         val wind = series.hourly.windSpeed10m.getOrNull(index)
@@ -303,7 +309,7 @@ class GraphicForecastViewModel @Inject constructor(
                         val direction = series.hourly.windDirection10m.getOrNull(index)
                         if (temperature == null && precipitation == null && probability == null &&
                             wind == null && gust == null && direction == null &&
-                            humidity == null && dewPoint == null
+                            humidity == null && dewPoint == null && cloud == null && pressure == null && apparent == null
                         ) return@modelLoop
                         add(
                             GraphicModelValue(
@@ -315,7 +321,10 @@ class GraphicForecastViewModel @Inject constructor(
                                 windGustKmh = gust,
                                 windDirectionDeg = direction,
                                 humidityPercent = humidity,
-                                dewPointC = dewPoint
+                                dewPointC = dewPoint,
+                                cloudPercent = cloud,
+                                pressureHpa = pressure,
+                                apparentTemperatureC = apparent
                             )
                         )
                     }

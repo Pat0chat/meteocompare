@@ -56,6 +56,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Radar
 import androidx.compose.material.icons.outlined.Air
+import androidx.compose.material.icons.outlined.StackedLineChart
 import androidx.compose.material.icons.outlined.Thermostat
 import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.material3.AlertDialog
@@ -172,6 +173,7 @@ fun CityDetailScreen(
     onConfidenceClick: (isoDate: String) -> Unit = {},
     onEngineComparisonClick: () -> Unit = {},
     onGraphicViewClick: () -> Unit = {},
+    onMeteogramClick: () -> Unit = {},
     onRadarClick: () -> Unit = {},
     showBackButton: Boolean = true,
     viewModel: CityDetailViewModel = hiltViewModel()
@@ -219,6 +221,7 @@ fun CityDetailScreen(
         onRefresh = viewModel::refresh,
         onEngineComparisonClick = onEngineComparisonClick,
         onGraphicViewClick = onGraphicViewClick,
+        onMeteogramClick = onMeteogramClick,
         onRadarClick = onRadarClick,
         showBackButton = showBackButton
     ) { loaded, padding ->
@@ -312,6 +315,7 @@ internal fun CityDetailContent(
     onConfidenceClick: (isoDate: String) -> Unit = {},
     onEngineComparisonClick: () -> Unit = {},
     onGraphicViewClick: () -> Unit = {},
+    onMeteogramClick: () -> Unit = {},
     onRadarClick: () -> Unit = {},
     onRequestBiasHistory: () -> Unit = {},
     showBackButton: Boolean = true
@@ -324,6 +328,7 @@ internal fun CityDetailContent(
         onRefresh = onRefresh,
         onEngineComparisonClick = onEngineComparisonClick,
         onGraphicViewClick = onGraphicViewClick,
+        onMeteogramClick = onMeteogramClick,
         onRadarClick = onRadarClick,
         showBackButton = showBackButton
     ) { loaded, padding ->
@@ -372,6 +377,7 @@ private fun CityDetailScaffold(
     onRefresh: () -> Unit,
     onEngineComparisonClick: () -> Unit,
     onGraphicViewClick: () -> Unit,
+    onMeteogramClick: () -> Unit,
     onRadarClick: () -> Unit,
     showBackButton: Boolean,
     loadedContent: @Composable (CityDetailUiState.Loaded, PaddingValues) -> Unit
@@ -482,6 +488,13 @@ private fun CityDetailScaffold(
                                     description = stringResource(R.string.graphic_view_open),
                                     tag = TAG_GRAPHIC_VIEW_ACTION,
                                     onClick = onGraphicViewClick
+                                )
+                                DetailHeaderAction(
+                                    icon = Icons.Outlined.StackedLineChart,
+                                    label = stringResource(R.string.detail_action_meteogram_short),
+                                    description = stringResource(R.string.meteogram_title),
+                                    tag = TAG_METEOGRAM_ACTION,
+                                    onClick = onMeteogramClick
                                 )
                             }
                         }
@@ -3554,6 +3567,7 @@ internal const val TAG_DETAIL_LOADED = "detail_loaded"
 internal const val TAG_RADAR_ACTION = "radar_action"
 internal const val TAG_ENGINE_COMPARISON_ACTION = "engine_comparison_action"
 internal const val TAG_GRAPHIC_VIEW_ACTION = "graphic_view_action"
+internal const val TAG_METEOGRAM_ACTION = "meteogram_action"
 internal const val TAG_CONFIDENCE_BADGE = "confidence_badge"
 internal const val TAG_TODAY_SUMMARY_SECTION_DIVIDER = "today_summary_section_divider"
 internal const val TAG_TODAY_SUMMARY_TEMP_PANEL = "today_summary_temp_panel"

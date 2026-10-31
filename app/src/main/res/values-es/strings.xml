@@ -1057,4 +1057,28 @@ datos</string>
     <string name="metric_humidity">Humedad</string>
     <string name="metric_dew_point">Punto de rocío</string>
     <string name="metric_dew_point_short">Rocío</string>
+    <string name="detail_action_meteogram_short">Meteogr.</string>
+    <string name="meteogram_presets_title">6 meteogramas separados</string>
+    <string name="meteogram_compare_title">Comparar modelos</string>
+    <string name="meteogram_compare_action">Comparar</string>
+    <string name="meteogram_daily_title">Amplitud térmica diaria</string>
+    <string name="meteogram_daily_caption">Máxima del día y mínima de la noche siguiente</string>
+    <string name="meteogram_sun">Sol</string>
+    <string name="meteogram_warmer">Más cálido que ayer</string>
+    <string name="meteogram_colder">Más frío que ayer</string>
+    <string name="meteogram_title">Meteogramas</string>
+    <string name="meteogram_consensus">Consenso</string>
+    <string name="meteogram_browse_hint">Desliza horizontalmente para ver las horas. Toca un gráfico para seleccionar una hora.</string>
+    <string name="meteogram_weather">Nubes / Lluvia / Viento</string>
+    <string name="meteogram_temperature">Temperaturas</string>
+    <string name="meteogram_humidity">Humedad</string>
+    <string name="meteogram_pressure">Presión</string>
+    <string name="meteogram_wind">Viento / Ráfagas</string>
+
+    <string name="meteogram_selected">Selección: %1$s</string>
+    <string name="meteogram_no_data">No hay datos disponibles</string>
+    <string name="meteogram_a11y">Previsiones de modelos. Los valores bajos se muestran abajo.</string>
+
+    <string name="meteogram_rain">Lluvia</string>
+    <string name="meteogram_cloud">Nubes</string>
 </resources>

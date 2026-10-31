@@ -1052,4 +1052,28 @@ Daten</string>
     <string name="metric_humidity">Feuchte</string>
     <string name="metric_dew_point">Taupunkt</string>
     <string name="metric_dew_point_short">Taupunkt</string>
+    <string name="detail_action_meteogram_short">Meteogr.</string>
+    <string name="meteogram_presets_title">6 separate Meteogramme</string>
+    <string name="meteogram_compare_title">Modelle vergleichen</string>
+    <string name="meteogram_compare_action">Vergleichen</string>
+    <string name="meteogram_daily_title">Tägliche Temperaturspanne</string>
+    <string name="meteogram_daily_caption">Tagesmaximum und Tiefstwert der folgenden Nacht</string>
+    <string name="meteogram_sun">Sonne</string>
+    <string name="meteogram_warmer">Wärmer als gestern</string>
+    <string name="meteogram_colder">Kälter als gestern</string>
+    <string name="meteogram_title">Meteogramme</string>
+    <string name="meteogram_consensus">Konsens</string>
+    <string name="meteogram_browse_hint">Horizontal wischen, um Stunden anzuzeigen. Zum Auswählen auf ein Diagramm tippen.</string>
+    <string name="meteogram_weather">Wolken / Regen / Wind</string>
+    <string name="meteogram_temperature">Temperaturen</string>
+    <string name="meteogram_humidity">Feuchte</string>
+    <string name="meteogram_pressure">Luftdruck</string>
+    <string name="meteogram_wind">Wind / Böen</string>
+
+    <string name="meteogram_selected">Ausgewählt: %1$s</string>
+    <string name="meteogram_no_data">Keine Messwerte vorhanden</string>
+    <string name="meteogram_a11y">Modellvorhersagen. Niedrige Werte stehen unten.</string>
+
+    <string name="meteogram_rain">Regen</string>
+    <string name="meteogram_cloud">Wolken</string>
 </resources>

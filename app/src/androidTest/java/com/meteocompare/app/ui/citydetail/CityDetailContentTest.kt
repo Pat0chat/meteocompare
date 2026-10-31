@@ -181,6 +181,7 @@ class CityDetailContentTest {
         composeRule.onNodeWithTag(TAG_RADAR_ACTION).assertIsDisplayed()
         composeRule.onNodeWithTag(TAG_ENGINE_COMPARISON_ACTION).assertIsDisplayed()
         composeRule.onNodeWithTag(TAG_GRAPHIC_VIEW_ACTION).assertIsDisplayed()
+        composeRule.onNodeWithTag(TAG_METEOGRAM_ACTION).assertIsDisplayed()
     }
 
     @Test

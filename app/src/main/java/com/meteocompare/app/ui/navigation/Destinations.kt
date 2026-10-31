@@ -34,6 +34,11 @@ object Destinations {
 
     fun graphicView(cityId: String): String = "$GRAPHIC_VIEW_BASE/$cityId"
 
+    private const val METEOGRAM_BASE = "meteogram"
+    const val METEOGRAM = "$METEOGRAM_BASE/{$CITY_DETAIL_ARG}"
+
+    fun meteogram(cityId: String): String = "$METEOGRAM_BASE/$cityId"
+
     // ─── "Pourquoi cette convergence ?" ──────────────────────────────────────
     //
     // Deux arguments : cityId + date (ISO yyyy-MM-dd). On garde la date dans

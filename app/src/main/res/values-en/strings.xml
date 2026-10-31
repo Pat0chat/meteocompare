@@ -1069,4 +1069,28 @@
     <string name="metric_humidity">Humidity</string>
     <string name="metric_dew_point">Dew point</string>
     <string name="metric_dew_point_short">Dew</string>
+    <string name="detail_action_meteogram_short">Meteogr.</string>
+    <string name="meteogram_presets_title">6 separate meteograms</string>
+    <string name="meteogram_compare_title">Compare models</string>
+    <string name="meteogram_compare_action">Compare</string>
+    <string name="meteogram_daily_title">Daily temperature range</string>
+    <string name="meteogram_daily_caption">Daytime high and following overnight low</string>
+    <string name="meteogram_sun">Sunshine</string>
+    <string name="meteogram_warmer">Warmer than yesterday</string>
+    <string name="meteogram_colder">Colder than yesterday</string>
+    <string name="meteogram_title">Meteograms</string>
+    <string name="meteogram_consensus">Consensus</string>
+    <string name="meteogram_browse_hint">Swipe horizontally to browse hours. Tap a graph to select an hour.</string>
+    <string name="meteogram_weather">Cloud / Rain / Wind</string>
+    <string name="meteogram_temperature">Temperatures</string>
+    <string name="meteogram_humidity">Humidity</string>
+    <string name="meteogram_pressure">Pressure</string>
+    <string name="meteogram_wind">Wind / Gusts</string>
+
+    <string name="meteogram_selected">Selected: %1$s</string>
+    <string name="meteogram_no_data">No measurements available</string>
+    <string name="meteogram_a11y">Model forecasts. Lower positions indicate lower values.</string>
+
+    <string name="meteogram_rain">Rain</string>
+    <string name="meteogram_cloud">Clouds</string>
 </resources>

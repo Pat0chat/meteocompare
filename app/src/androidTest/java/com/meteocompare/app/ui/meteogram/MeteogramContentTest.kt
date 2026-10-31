@@ -1,0 +1,76 @@
+package com.meteocompare.app.ui.meteogram
+
+import androidx.compose.ui.test.assertExists
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
+import com.meteocompare.app.domain.model.City
+import com.meteocompare.app.ui.citydetail.SimplifiedTimelinePoint
+import com.meteocompare.app.ui.graphicview.GraphicForecastUiState
+import com.meteocompare.app.ui.theme.MeteoCompareTheme
+import java.time.Instant
+import org.junit.Rule
+import org.junit.Test
+
+class MeteogramContentTest {
+    @get:Rule val rule = createComposeRule()
+
+    @Test fun consensus_shows_all_aligned_graph_panels_without_network_calls() {
+        val start = Instant.parse("2026-10-28T00:00:00Z")
+        val state = GraphicForecastUiState.Loaded(
+            city = City("test", "Paris", country = "France", latitude = 48.8,
+                longitude = 2.3, timezone = "Europe/Paris"),
+            points = List(48) { index -> SimplifiedTimelinePoint(
+                instant = start.plusSeconds(index * 3600L),
+                temperatureC = 12.0 + index % 6,
+                cloudCoverPercent = 30 + index % 30,
+                windKmh = 11.0,
+                windGustKmh = 17.0,
+                humidityPercent = 70,
+                dewPointC = 8.0,
+                pressureHpa = 1015.0,
+                precipitationMm = 0.4
+            ) },
+            solarByDate = emptyMap(), modelValuesByInstant = emptyMap(), calculatedAt = start
+        )
+        rule.setContent { MeteoCompareTheme { MeteogramContent(state) } }
+        listOf(TAG_METEOGRAM_CONTENT, TAG_METEOGRAM_WEATHER,
+            TAG_METEOGRAM_TEMPERATURE, TAG_METEOGRAM_HUMIDITY, TAG_METEOGRAM_PRESSURE,
+            TAG_METEOGRAM_WIND, TAG_METEOGRAM_DAILY, TAG_METEOGRAM_SELECTED).forEach { tag ->
+            rule.onNodeWithTag(tag, useUnmergedTree = true).assertExists()
+        }
+        // The six graphs are separate surfaces, each with its own legend and axis.
+        rule.onAllNodesWithTag(TAG_METEOGRAM_TIME, useUnmergedTree = true).assertCountEquals(6)
+        MeteogramPresets.forEach { kind ->
+            rule.onNodeWithTag(TAG_METEOGRAM_CARD_PREFIX + kind.name.lowercase(),
+                useUnmergedTree = true).assertExists()
+        }
+    }
+
+    @Test fun compare_mode_displays_one_everyday_meteogram_per_model() {
+        val start = Instant.parse("2026-10-28T00:00:00Z")
+        val modelNames = listOf("Alpha", "Bravo")
+        val state = GraphicForecastUiState.Loaded(
+            city = City("test", "Paris", country = "France", latitude = 48.8,
+                longitude = 2.3, timezone = "Europe/Paris"),
+            points = List(24) { i -> SimplifiedTimelinePoint(
+                instant = start.plusSeconds(i * 3600L), temperatureC = 12.0,
+                windKmh = 14.0, precipitationMm = 0.7) },
+            solarByDate = emptyMap(),
+            modelValuesByInstant = mapOf(start to modelNames.map { name ->
+                com.meteocompare.app.ui.graphicview.GraphicModelValue(
+                    modelName = name, temperatureC = 12.0, precipitationMm = 0.7,
+                    precipitationProbabilityPercent = null, windKmh = 14.0,
+                    windGustKmh = 18.0, windDirectionDeg = null,
+                    cloudPercent = 40, pressureHpa = 1012.0)
+            }),
+            calculatedAt = start
+        )
+        rule.setContent { MeteoCompareTheme { MeteogramContent(state) } }
+        rule.onNodeWithTag(TAG_METEOGRAM_COMPARE).performClick()
+        rule.onAllNodesWithTag(TAG_METEOGRAM_CARD_PREFIX + "everyday", useUnmergedTree = true)
+            .assertCountEquals(2)
+    }
+}
