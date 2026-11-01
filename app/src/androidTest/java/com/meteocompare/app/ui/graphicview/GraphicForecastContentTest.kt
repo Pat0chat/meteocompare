@@ -175,6 +175,59 @@ class GraphicForecastContentTest {
     }
 
     @Test
+    fun wind_tooltip_grows_when_the_selected_gust_label_gets_longer() {
+        val start = Instant.parse("2026-09-16T00:00:00Z")
+        val city = City(
+            id = "tooltip-width-test", name = "Test", country = "Testland",
+            latitude = 0.0, longitude = 0.0, timezone = "UTC", countryCode = "GB"
+        )
+        val points = List(12) { index ->
+            SimplifiedTimelinePoint(
+                instant = start.plusSeconds(index * 3_600L),
+                temperatureC = 12.0,
+                windKmh = 4.0,
+                windGustKmh = 5.0,
+                modelCount = 3
+            )
+        }
+        val uiState = mutableStateOf(
+            GraphicForecastUiState.Loaded(
+                city = city, points = points,
+                solarByDate = emptyMap(), modelValuesByInstant = emptyMap(),
+                calculatedAt = start
+            )
+        )
+        composeRule.setContent {
+            MeteoCompareTheme { GraphicForecastContent(uiState.value) }
+        }
+
+        // size is the measured width without parent clipping; boundsInRoot can be
+        // zero for a tooltip that is laid out but outside the vertical viewport.
+        fun tooltipWidth(): Float = composeRule
+            .onNodeWithTag(TAG_GRAPHIC_WIND_TOOLTIP, useUnmergedTree = true)
+            .fetchSemanticsNode().size.width.toFloat()
+
+        val shortLabelWidth = tooltipWidth()
+        composeRule.onNodeWithTag(TAG_GRAPHIC_WIND_TOOLTIP_GUST, useUnmergedTree = true)
+            .assertExists()
+
+        composeRule.runOnIdle {
+            uiState.value = uiState.value.copy(
+                points = uiState.value.points.toMutableList().apply {
+                    this[0] = this[0].copy(windGustKmh = 100_000.0)
+                }
+            )
+        }
+        composeRule.waitForIdle()
+        val longLabelWidth = tooltipWidth()
+        assertTrue(
+            "L'infobulle du vent doit s'élargir quand le libellé de rafale s'allonge " +
+                "(avant=$shortLabelWidth, après=$longLabelWidth)",
+            longLabelWidth > shortLabelWidth + 1f
+        )
+    }
+
+    @Test
     fun ten_day_timeline_virtualizes_hours_and_keeps_weather_layers() {
         val start = Instant.parse("2026-09-16T00:00:00Z")
         val points = List(240) { index ->
@@ -331,16 +384,22 @@ class GraphicForecastContentTest {
         composeRule.onNodeWithTag(TAG_GRAPHIC_WIND_TOOLTIP_GUST, useUnmergedTree = true).assertExists()
         composeRule.onNodeWithTag(TAG_GRAPHIC_WIND_TOOLTIP_DIRECTION, useUnmergedTree = true).assertExists()
 
-        val temperatureTooltipWidth = composeRule
-            .onNodeWithTag(TAG_GRAPHIC_TEMPERATURE_TOOLTIP, useUnmergedTree = true)
-            .fetchSemanticsNode().boundsInRoot.width
-        val windTooltipWidth = composeRule
-            .onNodeWithTag(TAG_GRAPHIC_WIND_TOOLTIP, useUnmergedTree = true)
-            .fetchSemanticsNode().boundsInRoot.width
-        assertTrue(
-            "Les infobulles doivent s'adapter à leur contenu au lieu de partager une largeur fixe",
-            windTooltipWidth > temperatureTooltipWidth
+        // Vérifier la taille mesurée des quatre infobulles, y compris celles qui
+        // sont hors du viewport vertical. boundsInRoot serait réduit à zéro par
+        // le clipping du conteneur défilant ; size n'est pas découpé.
+        val tooltipTags = listOf(
+            TAG_GRAPHIC_TEMPERATURE_TOOLTIP,
+            TAG_GRAPHIC_RAIN_TOOLTIP,
+            TAG_GRAPHIC_WIND_TOOLTIP,
+            TAG_GRAPHIC_PRESSURE_TOOLTIP
         )
+        tooltipTags.forEach { tag ->
+            assertTrue(
+                "L'infobulle $tag doit avoir une largeur mesurable",
+                composeRule.onNodeWithTag(tag, useUnmergedTree = true)
+                    .fetchSemanticsNode().size.width > 0
+            )
+        }
 
         // Même optimisation pour les directions : un seul calque Canvas dessine
         // uniquement les flèches qui intersectent le viewport.
