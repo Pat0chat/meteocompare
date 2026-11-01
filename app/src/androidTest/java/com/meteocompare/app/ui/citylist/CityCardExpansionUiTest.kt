@@ -1,6 +1,9 @@
 package com.meteocompare.app.ui.citylist
 
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
@@ -576,4 +579,51 @@ class CityCardExpansionUiTest {
         assertExpanded(TestFixtures.paris.id, true)
         composeRule.onNodeWithText("Réseau indisponible", useUnmergedTree = true).assertIsDisplayed()
     }
+
+    @Test fun home_location_is_beside_city_name_in_compact_and_expanded_cards() {
+        val city = TestFixtures.paris.copy(
+            name = "Saint-Martin", country = "France", admin1 = "Normandie",
+            departmentName = "Manche", admin3 = "Avranches", postalCode = "50300"
+        )
+        val state = CityCardState(city, ForecastState.Loading)
+        val expanded = mutableStateOf(false)
+        composeRule.setContent {
+            MeteoCompareTheme {
+                Box(Modifier.width(350.dp)) {
+                    CityCard(
+                        state = state, expanded = expanded.value,
+                        onClick = {}, onRemove = {}, onRetry = {}
+                    )
+                }
+            }
+        }
+
+        fun assertLocationRightOfName(isExpanded: Boolean) {
+            val suffix = if (isExpanded) "" else "compact_"
+            val title = composeRule.onNodeWithTag(
+                "home_city_title_${suffix}${city.id}", useUnmergedTree = true
+            ).fetchSemanticsNode().boundsInRoot
+            val locationNode = composeRule.onNodeWithTag(
+                "home_city_location_${suffix}${city.id}", useUnmergedTree = true
+            )
+            val location = locationNode.fetchSemanticsNode().boundsInRoot
+            assertTrue("Location must be to the right of the city name", location.left >= title.right)
+            val firstLine = composeRule.onNodeWithText(
+                "France", useUnmergedTree = true
+            ).fetchSemanticsNode().boundsInRoot
+            val secondLine = composeRule.onNodeWithText(
+                "Normandie · Manche · Avranches · 50300", useUnmergedTree = true
+            ).fetchSemanticsNode().boundsInRoot
+            assertTrue("Country and subdivisions must occupy two separate lines",
+                secondLine.top >= firstLine.bottom - 1f)
+            assertTrue("Both location lines must fit inside the header",
+                firstLine.top >= location.top - 1f && secondLine.bottom <= location.bottom + 1f)
+        }
+
+        assertLocationRightOfName(false)
+        composeRule.runOnIdle { expanded.value = true }
+        composeRule.waitForIdle()
+        assertLocationRightOfName(true)
+    }
+
 }

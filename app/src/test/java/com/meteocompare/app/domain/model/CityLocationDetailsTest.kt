@@ -33,4 +33,40 @@ class CityLocationDetailsTest {
         assertEquals(null, city.admin3)
         assertEquals(null, city.postalCode)
     }
+
+    @Test
+    fun `home keeps country and administrative details on at most two lines`() {
+        val city = City(
+            id = "saint-martin", name = "Saint-Martin", country = "France",
+            admin1 = "Normandie", departmentName = "Manche", admin3 = "Avranches",
+            admin4 = "Saint-Martin", postalCode = "50300",
+            latitude = 48.0, longitude = -1.0
+        )
+        assertEquals(
+            listOf("France", "Normandie · Manche · Avranches · 50300"),
+            city.homeLocationLines
+        )
+        // No information disappears from the full detail view.
+        assertEquals(5, city.locationDetails.size)
+    }
+
+    @Test
+    fun `home supports city with country only or no usable location`() {
+        val city = City(
+            id = "1", name = "Paris", country = "France", latitude = 0.0, longitude = 0.0
+        )
+        assertEquals(listOf("France"), city.homeLocationLines)
+        assertEquals(emptyList<String>(), city.copy(country = " ").homeLocationLines)
+    }
+
+    @Test
+    fun `home does not repeat the city name or duplicate administrative levels`() {
+        val city = City(
+            id = "2", name = "Berlin", country = "Deutschland", admin1 = " berlin ",
+            departmentName = "Deutschland", admin3 = "Mitte", admin4 = "MITTE",
+            latitude = 0.0, longitude = 0.0
+        )
+        assertEquals(listOf("Deutschland", "Mitte"), city.homeLocationLines)
+    }
+
 }

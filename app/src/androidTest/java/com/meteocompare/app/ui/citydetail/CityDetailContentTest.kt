@@ -365,4 +365,38 @@ class CityDetailContentTest {
         assertEquals(CityDetailSection.CONFIDENCE, changedSection)
         assertEquals(false, expandedValue)
     }
+
+    @Test
+    fun detail_header_shows_full_location_below_city_name() {
+        val city = TestFixtures.paris.copy(
+            name = "Saint-Martin", country = "France", admin1 = "Normandie",
+            departmentName = "Manche", admin3 = "Avranches", postalCode = "50300"
+        )
+        val forecast = TestFixtures.forecast(city = city)
+        val state = loadedState(forecast, ConfidenceCalculator(EqualWeighting()))
+        composeRule.setContent {
+            MeteoCompareTheme {
+                CityDetailContent(
+                    state = state,
+                    isRefreshing = false,
+                    biasState = BiasScreenState.EMPTY,
+                    collapsedSections = CityDetailSection.entries.toSet(),
+                    snackbarHostState = snackbar,
+                    onBack = {}, onRefresh = {}
+                )
+            }
+        }
+        val title = composeRule.onNodeWithTag(
+            TAG_DETAIL_CITY_TITLE, useUnmergedTree = true
+        ).fetchSemanticsNode().boundsInRoot
+        val detailsNode = composeRule.onNodeWithTag(
+            TAG_DETAIL_CITY_LOCATION, useUnmergedTree = true
+        )
+        val details = detailsNode.fetchSemanticsNode().boundsInRoot
+        assertTrue("Location should be directly below the city title", details.top >= title.bottom)
+        listOf("France", "Normandie", "Manche", "Avranches", "50300").forEach { part ->
+            composeRule.onNodeWithText(part, useUnmergedTree = true).assertExists()
+        }
+    }
+
 }

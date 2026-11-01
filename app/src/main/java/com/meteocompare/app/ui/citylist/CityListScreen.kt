@@ -140,7 +140,7 @@ import com.meteocompare.app.domain.model.WeatherScenario
 import com.meteocompare.app.domain.model.WeatherScenarioKind
 import com.meteocompare.app.domain.model.WeatherScenarioTiming
 import com.meteocompare.app.ui.accessibility.A11yFormatter
-import com.meteocompare.app.ui.components.CityLocationDetails
+import com.meteocompare.app.ui.components.CityHomeLocationDetails
 import com.meteocompare.app.ui.components.AnimatedWeatherIcon
 import com.meteocompare.app.ui.components.DewPointMetricIcon
 import com.meteocompare.app.ui.components.AppToastEffect
@@ -978,14 +978,28 @@ private fun CompactCityCardContent(
         // Title and convergence share the first line; the temperatures follow
         // the condition label without being pushed to the right edge.
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = state.city.name,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
-            )
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = state.city.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1.2f)
+                        .testTag("home_city_title_compact_${state.city.id}")
+                )
+                if (state.city.homeLocationLines.isNotEmpty()) {
+                    Spacer(Modifier.width(8.dp))
+                    CityHomeLocationDetails(
+                        city = state.city,
+                        modifier = Modifier.weight(1f)
+                            .testTag("home_city_location_compact_${state.city.id}")
+                    )
+                }
+            }
             Spacer(Modifier.width(6.dp))
             vigilanceLevel?.let { level ->
                 VigilanceCompactLevelIndicator(
@@ -1026,10 +1040,6 @@ private fun CompactCityCardContent(
                 modifier = Modifier.padding(start = 4.dp).size(20.dp)
             )
         }
-        CityLocationDetails(
-            city = state.city,
-            modifier = Modifier.testTag("home_city_location_compact_${state.city.id}")
-        )
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
@@ -1221,8 +1231,16 @@ private fun CityCardHeader(
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false)
+                    modifier = Modifier.weight(1.2f)
+                        .testTag("home_city_title_${city.id}")
                 )
+                if (city.homeLocationLines.isNotEmpty()) {
+                    Spacer(Modifier.width(8.dp))
+                    CityHomeLocationDetails(
+                        city = city,
+                        modifier = Modifier.weight(1f).testTag("home_city_location_${city.id}")
+                    )
+                }
                 if (marineEnabled) {
                     Spacer(Modifier.width(10.dp))
                     Icon(
@@ -1236,11 +1254,6 @@ private fun CityCardHeader(
                 }
 
             }
-            CityLocationDetails(
-                city = city,
-                modifier = Modifier.padding(top = 2.dp).testTag("home_city_location_${city.id}")
-            )
-
             if (sunrise != null || sunset != null) {
                 Spacer(Modifier.height(1.dp))
                 SunTimesRow(sunrise = sunrise, sunset = sunset)

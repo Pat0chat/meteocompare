@@ -61,6 +61,18 @@ data class City(
             .filterNot { it.equals(name.trim(), ignoreCase = true) }
             .distinctBy { it.lowercase(java.util.Locale.ROOT) }
 
+    /** Deux lignes maximum pour les cartes Home : pays, puis précisions disponibles.
+     * Le libellé accessible conserve toutes les subdivisions même si la seconde
+     * ligne est visuellement tronquée sur un petit écran.
+     */
+    val homeLocationLines: List<String>
+        get() = locationDetails.let { details ->
+            when (details.size) {
+                0, 1 -> details
+                else -> listOf(details.first(), details.drop(1).joinToString(" · "))
+            }
+        }
+
     /** Libellé court pour l'UI : "Paris, Île-de-France". */
     val shortLabel: String
         get() = if (admin1 != null) "$name, $admin1" else "$name, $country"

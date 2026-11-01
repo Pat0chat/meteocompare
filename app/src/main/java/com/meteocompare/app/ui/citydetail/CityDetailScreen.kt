@@ -137,6 +137,7 @@ import com.meteocompare.app.domain.usecase.DayConditionsRow
 import com.meteocompare.app.domain.usecase.ForecastConsensus
 import com.meteocompare.app.ui.accessibility.A11yFormatter
 import com.meteocompare.app.ui.components.AnimatedWeatherIcon
+import com.meteocompare.app.ui.components.CityLocationDetails
 import com.meteocompare.app.ui.components.HumidityMetricIcon
 import com.meteocompare.app.ui.components.DewPointMetricIcon
 import com.meteocompare.app.ui.components.AppToastEffect
@@ -400,7 +401,7 @@ private fun CityDetailScaffold(
                     Column(modifier = Modifier.statusBarsPadding()) {
                         val loaded = state as? CityDetailUiState.Loaded
                         val city = loaded?.forecast?.city
-                        val subtitle = city?.country.orEmpty()
+                        val hasLocationDetails = city?.locationDetails?.isNotEmpty() == true
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -423,7 +424,7 @@ private fun CityDetailScaffold(
                                 Box(
                                     modifier = Modifier
                                         .width(3.dp)
-                                        .height(if (subtitle.isNotBlank()) 38.dp else 28.dp)
+                                        .height(if (hasLocationDetails) 38.dp else 28.dp)
                                         .clip(RoundedCornerShape(2.dp))
                                         .background(MaterialTheme.colorScheme.primary)
                                 )
@@ -437,13 +438,10 @@ private fun CityDetailScaffold(
                                         maxLines = 2,
                                         overflow = TextOverflow.Ellipsis
                                     )
-                                    if (subtitle.isNotBlank()) {
-                                        Text(
-                                            text = subtitle,
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
+                                    if (hasLocationDetails && city != null) {
+                                        CityLocationDetails(
+                                            city = city,
+                                            modifier = Modifier.testTag(TAG_DETAIL_CITY_LOCATION)
                                         )
                                     }
                                 }
@@ -3826,3 +3824,4 @@ private inline fun <reified T : Enum<T>> enumValueOrNull(name: String): T? =
     runCatching { enumValueOf<T>(name) }.getOrNull()
 
 internal const val TAG_DETAIL_CITY_TITLE = "detail_city_title"
+internal const val TAG_DETAIL_CITY_LOCATION = "detail_city_location"
