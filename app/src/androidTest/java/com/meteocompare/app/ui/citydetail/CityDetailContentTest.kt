@@ -400,7 +400,7 @@ class CityDetailContentTest {
             .assertTextEquals("France · Normandie · Manche · Avranches · 50300")
         val textLayouts = mutableListOf<TextLayoutResult>()
         val action = composeRule.onNodeWithTag(TAG_DETAIL_CITY_LOCATION, useUnmergedTree = true)
-            .fetchSemanticsNode().config.getOrNull(SemanticsActions.GetTextLayoutResult)?.action
+            .fetchSemanticsNode().config[SemanticsActions.GetTextLayoutResult].action
         assertTrue("Location should expose its text layout", action?.invoke(textLayouts) == true)
         assertEquals("Location must use one line even with many subdivisions", 1, textLayouts.single().lineCount)
     }

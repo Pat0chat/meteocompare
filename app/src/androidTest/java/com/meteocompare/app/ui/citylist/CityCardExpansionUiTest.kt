@@ -730,8 +730,8 @@ class CityCardExpansionUiTest {
         for (label in listOf("Norway", "Vestland · Bergen")) {
             val node = composeRule.onNodeWithText(label, useUnmergedTree = true)
             val layouts = mutableListOf<TextLayoutResult>()
-            val action = node.fetchSemanticsNode().config
-                .getOrNull(SemanticsActions.GetTextLayoutResult)?.action
+            val action = node.fetchSemanticsNode()
+                .config[SemanticsActions.GetTextLayoutResult].action
             assertTrue(action?.invoke(layouts) == true)
             assertEquals(1, layouts.single().lineCount)
             assertEquals(10.sp, layouts.single().layoutInput.style.fontSize)

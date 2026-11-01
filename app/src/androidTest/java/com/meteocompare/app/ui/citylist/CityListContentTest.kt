@@ -195,8 +195,8 @@ class CityListContentTest {
         val title = composeRule.onNodeWithTag("home_app_title")
         title.assertIsDisplayed()
         val layouts = mutableListOf<TextLayoutResult>()
-        val action = title.fetchSemanticsNode().config
-            .getOrNull(SemanticsActions.GetTextLayoutResult)?.action
+        val action = title.fetchSemanticsNode()
+            .config[SemanticsActions.GetTextLayoutResult].action
         assertTrue("The title should expose its text layout", action?.invoke(layouts) == true)
         assertEquals(1, layouts.single().lineCount)
     }

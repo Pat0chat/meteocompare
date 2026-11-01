@@ -1,7 +1,6 @@
 package com.meteocompare.app.ui.citylist
 
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.assertCountEquals
@@ -174,8 +173,8 @@ class AddCitySheetTest {
         assertTrue("The country must appear above the subdivisions", second.top >= first.bottom - 1f)
         for (node in listOf(firstLine, secondLine)) {
             val layouts = mutableListOf<TextLayoutResult>()
-            val action = node.fetchSemanticsNode().config
-                .getOrNull(SemanticsActions.GetTextLayoutResult)?.action
+            val action = node.fetchSemanticsNode()
+                .config[SemanticsActions.GetTextLayoutResult].action
             assertTrue("Each location label must expose its text layout", action?.invoke(layouts) == true)
             assertEquals(1, layouts.single().lineCount)
         }
