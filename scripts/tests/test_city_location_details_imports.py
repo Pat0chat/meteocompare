@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 MAIN = ROOT / "app" / "src" / "main" / "java"
 DEBUG = ROOT / "app" / "src" / "debug" / "java"
 COMPONENT_PACKAGE = "com.meteocompare.app.ui.components"
-COMPONENT_NAMES = ("CityLocationDetails", "CityHomeLocationDetails")
+COMPONENT_NAMES = ("CityLocationDetails", "CityHomeLocationDetails", "CitySearchLocationDetails")
 
 
 class CityLocationDetailsImportTest(unittest.TestCase):
@@ -66,11 +66,40 @@ class CityLocationDetailsImportTest(unittest.TestCase):
 
     def test_home_header_keeps_title_and_location_together(self):
         home = (MAIN / "com/meteocompare/app/ui/citylist/CityListScreen.kt").read_text(encoding="utf-8")
-        # Weighted children without fill leave spare room after the location,
-        # not in between a short city name and the locality subtitle.
-        self.assertEqual(2, home.count("Modifier.weight(1.2f, fill = false)"))
-        self.assertIn('Modifier.weight(1f, fill = false).testTag("home_city_location_', home)
-        self.assertIn('Modifier.weight(1f, fill = false)\n                            .testTag("home_city_location_compact_', home)
+        # The title measures at its natural width (capped at 52%), while the
+        # location FILLs the entire remaining width. Former fill=false weights
+        # caused a large empty area on the right on some phone sizes.
+        # Read BoxWithConstraints.maxWidth before entering the nested Row scope:
+        # resolving it directly inside Text's Modifier is a Kotlin compile error.
+        self.assertEqual(2, home.count("val titleMaxWidth = maxWidth * 0.52f"))
+        self.assertEqual(2, home.count("Modifier.widthIn(max = titleMaxWidth)"))
+        self.assertNotIn("Modifier.widthIn(max = maxWidth * 0.52f)", home)
+        self.assertIn('Modifier.weight(1f).testTag("home_city_location_${city.id}")', home)
+        self.assertRegex(home, r'Modifier\.weight\(1f\)\s*\.testTag\("home_city_location_compact_')
+        self.assertIn('"home_city_header_${city.id}"', home)
+        self.assertIn('"home_city_header_compact_${state.city.id}"', home)
+        self.assertNotIn("Modifier.weight(1.2f, fill = false)", home)
+        self.assertNotIn("Modifier.weight(1f, fill = false)", home)
+
+    def test_chart_and_meteogram_headers_only_display_city_name(self):
+        meteogram = (MAIN / "com/meteocompare/app/ui/meteogram/MeteogramScreen.kt").read_text(encoding="utf-8")
+        chart = (MAIN / "com/meteocompare/app/ui/graphicview/GraphicForecastScreen.kt").read_text(encoding="utf-8")
+        self.assertIn("state.city.name", meteogram)
+        self.assertNotIn("CityLocationDetails(", meteogram)
+        self.assertNotIn("meteogram_city_location", meteogram)
+        self.assertIn("cityName = state.city.name", chart)
+        self.assertNotIn("citySubtitle", chart)
+        self.assertNotIn("state.city.locationDetails", chart)
+        self.assertIn("Text(cityName,", chart)
+
+    def test_search_has_two_lines_and_home_uses_smaller_type(self):
+        search = (MAIN / "com/meteocompare/app/ui/citylist/AddCitySheet.kt").read_text(encoding="utf-8")
+        shared = (MAIN / "com/meteocompare/app/ui/components/CityLocationDetails.kt").read_text(encoding="utf-8")
+        self.assertIn('CitySearchLocationDetails(city = city, modifier = Modifier.testTag(', search)
+        self.assertIn('import com.meteocompare.app.ui.components.CitySearchLocationDetails', search)
+        self.assertIn('val lines = city.homeLocationLines', shared)
+        self.assertIn('maxLines = 1', shared)
+        self.assertIn('fontSize = 10.sp, lineHeight = 12.sp', shared)
 
     def test_compose_layout_test_uses_public_semantics_action(self):
         test_source = (ROOT / "app/src/androidTest/java/com/meteocompare/app/ui/citylist/CityListContentTest.kt").read_text(encoding="utf-8")

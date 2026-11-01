@@ -44,6 +44,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -978,26 +979,34 @@ private fun CompactCityCardContent(
         // Title and convergence share the first line; the temperatures follow
         // the condition label without being pushed to the right edge.
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Row(
-                modifier = Modifier.weight(1f),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = state.city.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1.2f, fill = false)
-                        .testTag("home_city_title_compact_${state.city.id}")
-                )
-                if (state.city.homeLocationLines.isNotEmpty()) {
-                    Spacer(Modifier.width(8.dp))
-                    CityHomeLocationDetails(
-                        city = state.city,
-                        modifier = Modifier.weight(1f, fill = false)
-                            .testTag("home_city_location_compact_${state.city.id}")
+            BoxWithConstraints(modifier = Modifier.weight(1f)) {
+                // Capture the BoxWithConstraints scope here: Row's receiver cannot
+                // implicitly resolve maxWidth in nested modifier expressions.
+                val titleMaxWidth = maxWidth * 0.52f
+                Row(
+                    modifier = Modifier.fillMaxWidth()
+                        .testTag("home_city_header_compact_${state.city.id}"),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = state.city.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        // A short name uses only its natural width; a long one
+                        // cannot consume the space needed by the location.
+                        modifier = Modifier.widthIn(max = titleMaxWidth)
+                            .testTag("home_city_title_compact_${state.city.id}")
                     )
+                    if (state.city.homeLocationLines.isNotEmpty()) {
+                        Spacer(Modifier.width(8.dp))
+                        CityHomeLocationDetails(
+                            city = state.city,
+                            modifier = Modifier.weight(1f)
+                                .testTag("home_city_location_compact_${state.city.id}")
+                        )
+                    }
                 }
             }
             Spacer(Modifier.width(6.dp))
@@ -1221,38 +1230,41 @@ private fun CityCardHeader(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = city.name,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1.2f, fill = false)
-                        .testTag("home_city_title_${city.id}")
-                )
-                if (city.homeLocationLines.isNotEmpty()) {
-                    Spacer(Modifier.width(8.dp))
-                    CityHomeLocationDetails(
-                        city = city,
-                        modifier = Modifier.weight(1f, fill = false).testTag("home_city_location_${city.id}")
+            BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                val titleMaxWidth = maxWidth * 0.52f
+                Row(
+                    modifier = Modifier.fillMaxWidth()
+                        .testTag("home_city_header_${city.id}"),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = city.name,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.widthIn(max = titleMaxWidth)
+                            .testTag("home_city_title_${city.id}")
                     )
+                    if (city.homeLocationLines.isNotEmpty()) {
+                        Spacer(Modifier.width(8.dp))
+                        CityHomeLocationDetails(
+                            city = city,
+                            modifier = Modifier.weight(1f).testTag("home_city_location_${city.id}")
+                        )
+                    }
+                    if (marineEnabled) {
+                        Spacer(Modifier.width(10.dp))
+                        Icon(
+                            imageVector = Icons.Outlined.Waves,
+                            contentDescription = stringResource(R.string.marine_enabled),
+                            tint = Color(0xFF1976D2),
+                            modifier = Modifier
+                                .size(17.dp)
+                                .testTag("$TAG_CITY_MARINE_ENABLED${city.id}")
+                        )
+                    }
                 }
-                if (marineEnabled) {
-                    Spacer(Modifier.width(10.dp))
-                    Icon(
-                        imageVector = Icons.Outlined.Waves,
-                        contentDescription = stringResource(R.string.marine_enabled),
-                        tint = Color(0xFF1976D2),
-                        modifier = Modifier
-                            .size(17.dp)
-                            .testTag("$TAG_CITY_MARINE_ENABLED${city.id}")
-                    )
-                }
-
             }
             if (sunrise != null || sunset != null) {
                 Spacer(Modifier.height(1.dp))

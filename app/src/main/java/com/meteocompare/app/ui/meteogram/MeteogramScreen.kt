@@ -94,7 +94,6 @@ import com.meteocompare.app.core.locale.LocalClockFormatPreference
 import com.meteocompare.app.core.locale.WeatherTimeFormat
 import com.meteocompare.app.core.units.LocalWeatherUnits
 import com.meteocompare.app.core.units.WeatherUnits
-import com.meteocompare.app.ui.components.CityLocationDetails
 import com.meteocompare.app.ui.graphicview.GraphicForecastUiState
 import com.meteocompare.app.ui.graphicview.GraphicForecastViewModel
 import com.meteocompare.app.ui.theme.WeatherAccentTheme
@@ -528,10 +527,6 @@ internal fun MeteogramContent(state: GraphicForecastUiState.Loaded, modifier: Mo
             Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp),
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.SemiBold
-        )
-        CityLocationDetails(
-            city = state.city,
-            modifier = Modifier.padding(horizontal = 16.dp).testTag("meteogram_city_location")
         )
         Text(
             stringResource(R.string.meteogram_browse_hint),

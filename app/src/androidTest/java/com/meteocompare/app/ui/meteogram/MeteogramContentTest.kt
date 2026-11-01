@@ -37,6 +37,30 @@ import org.junit.Test
 class MeteogramContentTest {
     @get:Rule val rule = createComposeRule()
 
+    @Test fun meteogram_header_shows_city_name_without_geographic_subtitle() {
+        val start = Instant.parse("2026-10-28T00:00:00Z")
+        val city = City(
+            id = "city-only-meteogram", name = "Exampleford",
+            admin1 = "UniqueRegionMeteogram", country = "UniqueCountryMeteogram",
+            latitude = 0.0, longitude = 0.0, timezone = "UTC",
+            departmentName = "UniqueDepartmentMeteogram"
+        )
+        val state = GraphicForecastUiState.Loaded(
+            city = city,
+            points = List(3) { i -> SimplifiedTimelinePoint(
+                instant = start.plusSeconds(i * 3_600L), temperatureC = 12.0
+            ) },
+            solarByDate = emptyMap(), modelValuesByInstant = emptyMap(),
+            calculatedAt = start
+        )
+        rule.setContent { MeteoCompareTheme { MeteogramContent(state) } }
+        rule.onNodeWithText("Exampleford", useUnmergedTree = true).assertExists()
+        rule.onNodeWithText("UniqueCountryMeteogram", useUnmergedTree = true).assertDoesNotExist()
+        rule.onNodeWithText("UniqueRegionMeteogram", useUnmergedTree = true).assertDoesNotExist()
+        rule.onNodeWithText("UniqueDepartmentMeteogram", useUnmergedTree = true).assertDoesNotExist()
+        rule.onNodeWithTag("meteogram_city_location", useUnmergedTree = true).assertDoesNotExist()
+    }
+
     @Test fun consensus_shows_all_aligned_graph_panels_without_network_calls() {
         val start = Instant.parse("2026-10-28T00:00:00Z")
         val state = GraphicForecastUiState.Loaded(

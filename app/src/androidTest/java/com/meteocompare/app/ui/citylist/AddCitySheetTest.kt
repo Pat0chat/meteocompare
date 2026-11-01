@@ -1,6 +1,17 @@
 package com.meteocompare.app.ui.citylist
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertExists
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.text.TextLayoutResult
+import org.junit.Assert.assertTrue
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -110,7 +121,7 @@ class AddCitySheetTest {
         composeRule.onNodeWithTag(TAG_ADD_CITY_NO_RESULTS).assertIsDisplayed()
     }
     @Test
-    fun same_named_cities_in_same_country_show_separate_administrative_lines() {
+    fun same_named_cities_in_same_country_show_two_distinct_location_lines() {
         val first = TestFixtures.paris.copy(
             id = "city-a", name = "Saint-Martin", country = "France",
             admin1 = "Normandie", departmentName = "Manche", postalCode = "50300"
@@ -127,10 +138,60 @@ class AddCitySheetTest {
             }
         }
         composeRule.onNodeWithTag("add_city_location_city-a", useUnmergedTree = true).assertIsDisplayed()
-        composeRule.onNodeWithText("Normandie", useUnmergedTree = true).assertIsDisplayed()
-        composeRule.onNodeWithText("Manche", useUnmergedTree = true).assertIsDisplayed()
-        composeRule.onNodeWithText("Bretagne", useUnmergedTree = true).assertIsDisplayed()
-        composeRule.onNodeWithText("Finistère", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onAllNodesWithText("France", useUnmergedTree = true).assertCountEquals(2)
+        composeRule.onNodeWithText("Normandie · Manche · 50300", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText("Bretagne · Finistère · 29270", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithContentDescription(
+            "France, Normandie, Manche, 50300", useUnmergedTree = true
+        ).assertExists()
+        composeRule.onNodeWithContentDescription(
+            "France, Bretagne, Finistère, 29270", useUnmergedTree = true
+        ).assertExists()
+    }
+
+    @Test
+    fun search_results_keep_two_single_line_labels_on_narrow_phones() {
+        val city = TestFixtures.paris.copy(
+            id = "narrow-city", name = "Saint-Martin", country = "France",
+            admin1 = "Normandie", departmentName = "Manche", admin3 = "Avranches",
+            postalCode = "50300"
+        )
+        composeRule.setContent {
+            MeteoCompareTheme {
+                Box(Modifier.width(180.dp)) {
+                    CityResultRow(city = city, onClick = {})
+                }
+            }
+        }
+        val firstLine = composeRule.onNodeWithText("France", useUnmergedTree = true)
+        val secondLine = composeRule.onNodeWithText(
+            "Normandie · Manche · Avranches · 50300", useUnmergedTree = true
+        )
+        firstLine.assertIsDisplayed()
+        secondLine.assertExists() // Content may be ellipsized, but not lost.
+        val first = firstLine.fetchSemanticsNode().boundsInRoot
+        val second = secondLine.fetchSemanticsNode().boundsInRoot
+        assertTrue("The country must appear above the subdivisions", second.top >= first.bottom - 1f)
+        for (node in listOf(firstLine, secondLine)) {
+            val layouts = mutableListOf<TextLayoutResult>()
+            val action = node.fetchSemanticsNode().config
+                .getOrNull(SemanticsActions.GetTextLayoutResult)?.action
+            assertTrue("Each location label must expose its text layout", action?.invoke(layouts) == true)
+            assertEquals(1, layouts.single().lineCount)
+        }
+        composeRule.onNodeWithContentDescription(
+            "France, Normandie, Manche, Avranches, 50300", useUnmergedTree = true
+        ).assertExists()
+    }
+
+    @Test
+    fun search_result_with_country_only_does_not_add_an_empty_second_line() {
+        val city = TestFixtures.paris.copy(admin1 = null, country = "France", departmentName = null)
+        composeRule.setContent {
+            MeteoCompareTheme { CityResultRow(city = city, onClick = {}) }
+        }
+        composeRule.onNodeWithText("France", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithContentDescription("France", useUnmergedTree = true).assertExists()
     }
 
 }

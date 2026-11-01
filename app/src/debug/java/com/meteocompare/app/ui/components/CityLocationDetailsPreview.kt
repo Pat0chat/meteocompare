@@ -39,3 +39,18 @@ private fun CityHomeLocationDetailsPreview() {
         )
     }
 }
+
+@MeteoComponentPreview
+@Composable
+private fun CitySearchLocationDetailsPreview() {
+    MeteoPreviewSurface {
+        CitySearchLocationDetails(
+            City(
+                id = "search-saint-martin", name = "Saint-Martin",
+                country = "France", admin1 = "Normandie", departmentName = "Manche",
+                admin3 = "Avranches", postalCode = "50300", latitude = 48.68, longitude = -1.36
+            ),
+            Modifier.padding(16.dp)
+        )
+    }
+}

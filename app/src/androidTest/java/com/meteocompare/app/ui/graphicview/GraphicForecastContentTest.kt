@@ -14,6 +14,7 @@ import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -32,6 +33,30 @@ import org.junit.Test
 
 class GraphicForecastContentTest {
     @get:Rule val composeRule = createComposeRule()
+
+    @Test
+    fun chart_view_header_shows_city_name_without_geographic_subtitle() {
+        val start = Instant.parse("2026-10-28T00:00:00Z")
+        val city = City(
+            id = "city-only-chart", name = "Exampleford",
+            admin1 = "UniqueRegionChart", country = "UniqueCountryChart",
+            latitude = 0.0, longitude = 0.0, timezone = "UTC",
+            departmentName = "UniqueDepartmentChart"
+        )
+        val state = GraphicForecastUiState.Loaded(
+            city = city,
+            points = List(3) { i -> SimplifiedTimelinePoint(
+                instant = start.plusSeconds(i * 3_600L), temperatureC = 12.0
+            ) },
+            solarByDate = emptyMap(), modelValuesByInstant = emptyMap(),
+            calculatedAt = start
+        )
+        composeRule.setContent { MeteoCompareTheme { GraphicForecastContent(state) } }
+        composeRule.onNodeWithText("Exampleford", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText("UniqueCountryChart", useUnmergedTree = true).assertDoesNotExist()
+        composeRule.onNodeWithText("UniqueRegionChart", useUnmergedTree = true).assertDoesNotExist()
+        composeRule.onNodeWithText("UniqueDepartmentChart", useUnmergedTree = true).assertDoesNotExist()
+    }
 
     @Test
     fun unit_switch_updates_temperature_rain_wind_and_gust_tooltips_without_changing_points() {

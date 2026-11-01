@@ -10,6 +10,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.TextStyle
 import com.meteocompare.app.domain.model.City
 
 /** Pays, région, subdivisions et code postal sur des lignes séparées. */
@@ -30,12 +32,15 @@ fun CityLocationDetails(city: City, modifier: Modifier = Modifier) {
     }
 }
 
-/** Variante Home : exactement deux lignes au plus, accolée au nom de ville.
- * Les précisions supplémentaires restent disponibles pour TalkBack et dans
- * la page Détails, même lorsque la seconde ligne est raccourcie à l'écran.
+/** Deux lignes maximum pour distinguer les localités homonymes : pays puis subdivisions.
+ * La description accessible conserve toutes les précisions, y compris celles ellipsées.
  */
 @Composable
-fun CityHomeLocationDetails(city: City, modifier: Modifier = Modifier) {
+private fun CityTwoLineLocationDetails(
+    city: City,
+    modifier: Modifier = Modifier,
+    style: TextStyle
+) {
     val lines = city.homeLocationLines
     if (lines.isEmpty()) return
     Column(
@@ -47,11 +52,31 @@ fun CityHomeLocationDetails(city: City, modifier: Modifier = Modifier) {
         lines.forEach { line ->
             Text(
                 text = line,
-                style = MaterialTheme.typography.labelSmall,
+                style = style,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
         }
     }
+}
+
+/** Accueil : police discrète, deux lignes et largeur allouée par la carte. */
+@Composable
+fun CityHomeLocationDetails(city: City, modifier: Modifier = Modifier) {
+    CityTwoLineLocationDetails(
+        city = city,
+        modifier = modifier,
+        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, lineHeight = 12.sp)
+    )
+}
+
+/** Recherche : pays et subdivisions sur deux lignes, avec détail accessible complet. */
+@Composable
+fun CitySearchLocationDetails(city: City, modifier: Modifier = Modifier) {
+    CityTwoLineLocationDetails(
+        city = city,
+        modifier = modifier,
+        style = MaterialTheme.typography.labelSmall
+    )
 }

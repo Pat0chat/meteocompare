@@ -29,6 +29,9 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import kotlin.math.abs
 import org.junit.Rule
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.unit.sp
 import org.junit.Test
 
 class CityCardExpansionUiTest {
@@ -668,6 +671,71 @@ class CityCardExpansionUiTest {
         composeRule.runOnIdle { expanded.value = true }
         composeRule.waitForIdle()
         assertLocationRightOfName(true)
+    }
+
+    @Test fun home_location_fills_all_remaining_horizontal_space_on_both_card_variants() {
+        val city = TestFixtures.paris.copy(
+            name = "Os", country = "Norway", admin1 = "Vestland", admin3 = "Bjørnafjorden"
+        )
+        val expanded = mutableStateOf(false)
+        composeRule.setContent {
+            MeteoCompareTheme {
+                Box(Modifier.width(350.dp)) {
+                    CityCard(
+                        state = CityCardState(city, ForecastState.Loading),
+                        expanded = expanded.value,
+                        onClick = {}, onRemove = {}, onRetry = {}
+                    )
+                }
+            }
+        }
+
+        fun check(expandedCard: Boolean) {
+            val suffix = if (expandedCard) "" else "compact_"
+            val header = composeRule.onNodeWithTag(
+                "home_city_header_${suffix}${city.id}", useUnmergedTree = true
+            ).fetchSemanticsNode().boundsInRoot
+            val title = composeRule.onNodeWithTag(
+                "home_city_title_${suffix}${city.id}", useUnmergedTree = true
+            ).fetchSemanticsNode().boundsInRoot
+            val location = composeRule.onNodeWithTag(
+                "home_city_location_${suffix}${city.id}", useUnmergedTree = true
+            ).fetchSemanticsNode().boundsInRoot
+            assertTrue("Location must start immediately after the title", location.left - title.right <= 24f)
+            assertTrue("Location must fill the rest of the header", kotlin.math.abs(location.right - header.right) <= 2f)
+            assertTrue("Location and title must remain centered vertically",
+                kotlin.math.abs(location.center.y - title.center.y) <= minOf(location.height, title.height) * .25f)
+        }
+
+        check(false)
+        composeRule.runOnIdle { expanded.value = true }
+        composeRule.waitForIdle()
+        check(true)
+    }
+
+    @Test fun home_location_uses_smaller_font_without_changing_two_line_layout() {
+        val city = TestFixtures.paris.copy(
+            name = "Os", country = "Norway", admin1 = "Vestland", departmentName = "Bergen"
+        )
+        composeRule.setContent {
+            MeteoCompareTheme {
+                Box(Modifier.width(300.dp)) {
+                    CityCard(
+                        state = CityCardState(city, ForecastState.Loading),
+                        expanded = false, onClick = {}, onRemove = {}, onRetry = {}
+                    )
+                }
+            }
+        }
+        for (label in listOf("Norway", "Vestland · Bergen")) {
+            val node = composeRule.onNodeWithText(label, useUnmergedTree = true)
+            val layouts = mutableListOf<TextLayoutResult>()
+            val action = node.fetchSemanticsNode().config
+                .getOrNull(SemanticsActions.GetTextLayoutResult)?.action
+            assertTrue(action?.invoke(layouts) == true)
+            assertEquals(1, layouts.single().lineCount)
+            assertEquals(10.sp, layouts.single().layoutInput.style.fontSize)
+        }
     }
 
 }
