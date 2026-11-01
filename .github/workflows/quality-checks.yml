@@ -80,12 +80,20 @@ jobs:
           script: |
             chmod +x ./gradlew
             ./gradlew --no-daemon :app:connectedDebugAndroidTest
+      - name: Show Android test failures in GitHub job summary
+        if: always()
+        shell: bash
+        run: |
+          python3 scripts/summarize_android_test_results.py \
+            --results app/build/outputs/androidTest-results/connected \
+            --summary "$GITHUB_STEP_SUMMARY"
+
       - name: Preserve failing device test reports
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: androidTest-reports
           path: |
             app/build/reports/androidTests/
             app/build/outputs/androidTest-results/
-          if-no-files-found: ignore
+          if-no-files-found: warn
