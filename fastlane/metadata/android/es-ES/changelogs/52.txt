@@ -1,0 +1,1 @@
+Nuevos meteogramas de tiempo, temperatura, humedad, presión y viento, con comparación de modelos. La minicronología de Inicio muestra ahora 24 horas e iconos más claros. Datos de ubicación más precisos para distinguir ciudades con el mismo nombre. Mejoras visuales en pantallas pequeñas y correcciones de estabilidad.

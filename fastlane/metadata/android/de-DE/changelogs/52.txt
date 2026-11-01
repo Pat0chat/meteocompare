@@ -1,0 +1,1 @@
+Neue Meteogramme für Wetter, Temperatur, Feuchte, Luftdruck und Wind mit Modellvergleich. Die Mini-Zeitleiste auf der Startseite zeigt nun 24 Stunden und besser erkennbare Symbole. Präzisere Ortsangaben unterscheiden gleichnamige Städte. Optimierte Darstellung auf kleinen Bildschirmen und Stabilitätskorrekturen.

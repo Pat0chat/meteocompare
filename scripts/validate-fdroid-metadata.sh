@@ -47,6 +47,8 @@ for loc in sorted(locales):
     if not ch.exists():
         raise SystemExit(f"ERROR: missing changelog for versionCode {code}: {ch}")
     txt = ch.read_text(encoding="utf-8").strip()
+    if not txt:
+        raise SystemExit(f"ERROR: empty changelog for versionCode {code}: {ch}")
     if len(txt) > 500:
         raise SystemExit(f"ERROR: {ch} is {len(txt)} chars (max 500)")
     print(f"OK: {loc.name}/changelogs/{code}.txt: {len(txt)}/500 chars")

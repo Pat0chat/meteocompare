@@ -1,0 +1,1 @@
+New meteograms for weather, temperature, humidity, pressure and wind, with model comparison. Home mini-timeline now covers 24 hours with clearer icons. More precise location labels help distinguish cities with identical names. Improved layouts on smaller screens and stability fixes.

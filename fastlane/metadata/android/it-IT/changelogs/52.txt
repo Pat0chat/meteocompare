@@ -1,0 +1,1 @@
+Nuovi meteogrammi per meteo, temperatura, umidità, pressione e vento, con confronto tra modelli. La mini-cronologia Home ora copre 24 ore, con icone più leggibili. Indicazioni geografiche più precise per distinguere città omonime. Migliorie su schermi piccoli e correzioni di stabilità.

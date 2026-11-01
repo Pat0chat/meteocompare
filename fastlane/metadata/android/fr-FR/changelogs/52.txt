@@ -1,0 +1,1 @@
+Nouveaux météogrammes : météo, température, humidité, pression et vent, avec comparaison des modèles. Mini-frise de l’accueil étendue à 24 h et icônes plus lisibles. Recherche de villes homonymes facilitée par les précisions géographiques. Améliorations d’affichage sur petits écrans et correctifs de stabilité.

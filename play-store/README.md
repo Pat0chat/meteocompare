@@ -24,7 +24,7 @@ play-store/
 
 Les fiches FR et EN sont les fiches de référence. Les fiches ES, DE et IT sont fournies pour la publication locale et commencent par une mention explicite indiquant qu'elles ont été **traduites automatiquement**. Les mêmes textes sont synchronisés dans `fastlane/metadata/android/{fr-FR,en-US,es-ES,de-DE,it-IT}`.
 
-Le changelog correspondant au `versionCode 41` est disponible dans chaque locale sous `changelogs/41.txt`.
+Les notes de version sont stockées dans chaque langue sous `fastlane/metadata/android/<locale>/changelogs/<versionCode>.txt` (v1.20.0 : `52.txt`).
 
 ## Screenshots — à capturer manuellement
 
@@ -74,11 +74,11 @@ Au moment du soumission :
 - [ ] Catégorie : Météo
 - [ ] Contenu : Tous publics
 - [ ] Politique de confidentialité : URL pointant vers `PRIVACY.md` (héberger sur GitHub Pages par exemple)
-- [ ] Permission Android 13+ : `POST_NOTIFICATIONS` uniquement si l’utilisateur active volontairement les notifications ; pas de GPS, contacts ni stockage externe
+- [ ] Permissions : `POST_NOTIFICATIONS` uniquement lors de l’activation volontaire des notifications ; `ACCESS_COARSE_LOCATION` / `ACCESS_FINE_LOCATION` uniquement pour « Ma position » après consentement et au premier plan ; aucune permission de localisation en arrière-plan
 - [ ] Annonces : Non (aucune publicité)
 - [ ] Contenu UGC : Non (pas de contenu utilisateur)
 - [ ] Formulaire **Sécurité des données** revu et soumis — voir `play-store/DATA_SAFETY.md` (obligatoire même si aucune donnée n’est collectée au sens affiché par Play)
-- [ ] Compatibilité pages mémoire **16 Ko** vérifiée sur l'artefact release (`scripts/verify-16kb-page-size.sh`)
+- [ ] Compatibilité pages mémoire **16 Ko** vérifiée sur l'artefact release (`python3 scripts/verify-16kb-page-size.py --apk <fichier.apk> --aab <fichier.aab>`)
 - [ ] Conditions RainViewer + politique de tuiles OSM revérifiées — voir `THIRD_PARTY_SERVICES.md`
 - [ ] Test interne avant production : recommandé (test track avec 1-3 testeurs)
 
