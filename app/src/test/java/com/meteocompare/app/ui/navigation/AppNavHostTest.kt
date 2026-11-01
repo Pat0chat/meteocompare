@@ -56,6 +56,8 @@ class AppNavHostTest {
     fun tablet_direct_home_actions_resolve_graphic_and_radar_routes() {
         assertEquals(Destinations.graphicView("paris"), directDetailRoute(Destinations.GRAPHIC_VIEW, "paris"))
         assertEquals(Destinations.radar("paris"), directDetailRoute(Destinations.RADAR, "paris"))
+        assertEquals("meteogram/paris", Destinations.meteogram("paris"))
+        assertEquals("meteogram/{cityId}", Destinations.METEOGRAM)
         assertNull(directDetailRoute(null, "paris"))
     }
 

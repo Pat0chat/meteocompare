@@ -48,6 +48,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -152,6 +153,9 @@ internal const val TAG_METEOGRAM_SCALE_OPTION_PREFIX = "meteogram_scale_option_"
 internal const val TAG_METEOGRAM_LAYOUT_COMBINED = "meteogram_layout_combined"
 internal const val TAG_METEOGRAM_CARD_PREFIX = "meteogram_card_"
 internal const val TAG_METEOGRAM_COMPARE = "meteogram_compare"
+internal const val TAG_METEOGRAM_COMPARE_KIND_PREFIX = "meteogram_compare_kind_"
+internal const val TAG_METEOGRAM_MODEL_PREFIX = "meteogram_model_"
+internal const val TAG_METEOGRAM_CONSENSUS = "meteogram_consensus"
 internal const val TAG_METEOGRAM_LAYOUT = "meteogram_layout"
 
 private val RainColor = Color(0xFF0A67B3)
@@ -196,7 +200,10 @@ internal data class MeteogramHour(
 
 internal data class MeteogramDomain(val min: Double, val max: Double) {
     val span: Double get() = max - min
-    fun fraction(value: Double): Float = ((value - min) / span).coerceIn(0.0, 1.0).toFloat()
+    fun fraction(value: Double): Float {
+        if (!value.isFinite() || !span.isFinite() || span <= 0.0) return 0.5f
+        return ((value - min) / span).coerceIn(0.0, 1.0).toFloat()
+    }
 }
 
 internal enum class MeteogramKind { EVERYDAY, TEMPERATURE, HUMIDITY, PRESSURE, WIND }
@@ -230,7 +237,9 @@ internal fun meteogramDomain(
     var lo = Double.POSITIVE_INFINITY
     var hi = Double.NEGATIVE_INFINITY
     values.forEach { value ->
-        if (value != null && value.isFinite()) {
+        // A bogus extreme in an old cache must not overflow the chart domain.
+        // Real atmospheric measurements are many orders of magnitude smaller.
+        if (value != null && value.isFinite() && value in -1.0e9..1.0e9) {
             if (value < lo) lo = value
             if (value > hi) hi = value
         }
@@ -272,6 +281,10 @@ internal fun meteogramWindCardinal(degrees: Int?, language: String): String? {
 /** Same day/night backdrop in EVERY chart, independently of the meteorogram preset. */
 internal fun meteogramDayNightAlpha(daylight: Boolean): Float = if (daylight) 0.16f else 0.12f
 
+/** A shared scroll must reach the end of even the narrowest chart. */
+internal fun meteogramSharedViewportWidth(widths: Collection<Int>): Int =
+    widths.filter { it > 0 }.minOrNull() ?: 0
+
 internal fun meteogramViewport(
     startPx: Float,
     widthPx: Float,
@@ -285,8 +298,13 @@ internal fun meteogramViewport(
     return left..right
 }
 
+internal fun meteogramValidPercent(value: Int?): Int? = value?.takeIf { it in 0..100 }
+internal fun meteogramValidMeasurement(value: Double?): Double? = value?.takeIf { it.isFinite() }
+internal fun meteogramValidNonNegative(value: Double?): Double? =
+    meteogramValidMeasurement(value)?.takeIf { it >= 0.0 }
+
 private fun centralPercent(values: List<Int?>): Int? =
-    values.mapNotNull { it?.takeIf { v -> v in 0..100 } }
+    values.mapNotNull(::meteogramValidPercent)
         .sorted()
         .let { sorted ->
             when {
@@ -302,7 +320,9 @@ internal fun buildMeteogramHours(
 ): List<MeteogramHour> {
     val zone =
         runCatching { ZoneId.of(state.city.timezone ?: "UTC") }.getOrDefault(ZoneId.of("UTC"))
-    return state.points.mapNotNull { point ->
+    // Binary-search based solar markers require a strictly increasing timeline.
+    // Protect the chart from malformed/replayed cache entries as well.
+    return state.points.asSequence().mapNotNull { point ->
         val instant = point.instant ?: return@mapNotNull null
         val solar = state.solarByDate[instant.atZone(zone).toLocalDate()]
         val daylight = if (solar?.sunrise != null && solar.sunset != null) {
@@ -315,20 +335,20 @@ internal fun buildMeteogramHours(
         MeteogramHour(
             instant = instant,
             daylight = daylight,
-            temperatureC = if (selectedModel == null) point.temperatureC else model?.temperatureC,
-            apparentC = if (selectedModel == null) point.apparentTemperatureC else model?.apparentTemperatureC,
-            dewC = if (selectedModel == null) point.dewPointC else model?.dewPointC,
-            cloudLowPercent = if (selectedModel == null) centralPercent(rows.map { it.cloudLowPercent }) else model?.cloudLowPercent,
-            cloudMidPercent = if (selectedModel == null) centralPercent(rows.map { it.cloudMidPercent }) else model?.cloudMidPercent,
-            cloudHighPercent = if (selectedModel == null) centralPercent(rows.map { it.cloudHighPercent }) else model?.cloudHighPercent,
-            rainMm = if (selectedModel == null) point.precipitationMm else model?.precipitationMm,
-            windKmh = if (selectedModel == null) point.windKmh else model?.windKmh,
-            gustKmh = if (selectedModel == null) point.windGustKmh else model?.windGustKmh,
-            windDirectionDeg = if (selectedModel == null) point.windDirectionDeg else model?.windDirectionDeg,
-            humidityPercent = if (selectedModel == null) point.humidityPercent else model?.humidityPercent,
-            pressureHpa = if (selectedModel == null) point.pressureHpa else model?.pressureHpa
+            temperatureC = meteogramValidMeasurement(if (selectedModel == null) point.temperatureC else model?.temperatureC),
+            apparentC = meteogramValidMeasurement(if (selectedModel == null) point.apparentTemperatureC else model?.apparentTemperatureC),
+            dewC = meteogramValidMeasurement(if (selectedModel == null) point.dewPointC else model?.dewPointC),
+            cloudLowPercent = if (selectedModel == null) centralPercent(rows.map { it.cloudLowPercent }) else meteogramValidPercent(model?.cloudLowPercent),
+            cloudMidPercent = if (selectedModel == null) centralPercent(rows.map { it.cloudMidPercent }) else meteogramValidPercent(model?.cloudMidPercent),
+            cloudHighPercent = if (selectedModel == null) centralPercent(rows.map { it.cloudHighPercent }) else meteogramValidPercent(model?.cloudHighPercent),
+            rainMm = meteogramValidNonNegative(if (selectedModel == null) point.precipitationMm else model?.precipitationMm),
+            windKmh = meteogramValidNonNegative(if (selectedModel == null) point.windKmh else model?.windKmh),
+            gustKmh = meteogramValidNonNegative(if (selectedModel == null) point.windGustKmh else model?.windGustKmh),
+            windDirectionDeg = (if (selectedModel == null) point.windDirectionDeg else model?.windDirectionDeg)?.takeIf { it in 0..360 },
+            humidityPercent = meteogramValidPercent(if (selectedModel == null) point.humidityPercent else model?.humidityPercent),
+            pressureHpa = meteogramValidMeasurement(if (selectedModel == null) point.pressureHpa else model?.pressureHpa)
         )
-    }
+    }.distinctBy { it.instant }.sortedBy { it.instant }.toList()
 }
 
 private fun buildMeteogramMarkers(
@@ -423,9 +443,15 @@ internal fun MeteogramContent(state: GraphicForecastUiState.Loaded, modifier: Mo
             .sorted().toList()
     }
     var selectedModel by rememberSaveable(state.city.id) { mutableStateOf<String?>(null) }
+    // Enabled models can change while this screen remains on the back stack.
+    // Never display an empty chart from a model that has since disappeared.
+    val activeModel = selectedModel?.takeIf { it in models }
+    LaunchedEffect(selectedModel, models) {
+        if (selectedModel != null && selectedModel !in models) selectedModel = null
+    }
     val hours =
-        remember(state.points, state.modelValuesByInstant, state.solarByDate, selectedModel) {
-            buildMeteogramHours(state, selectedModel)
+        remember(state.points, state.modelValuesByInstant, state.solarByDate, state.city.timezone, activeModel) {
+            buildMeteogramHours(state, activeModel)
         }
     val markers = remember(hours, state.solarByDate, zone) {
         buildMeteogramMarkers(
@@ -437,8 +463,16 @@ internal fun MeteogramContent(state: GraphicForecastUiState.Loaded, modifier: Mo
     val currentInstant = remember(state.calculatedAt) { state.calculatedAt }
     var selectedIndex by rememberSaveable(state.city.id) { mutableIntStateOf(0) }
     var scrollPx by remember(state.city.id) { mutableFloatStateOf(0f) }
-    var widthPx by remember { mutableIntStateOf(0) }
     var layoutMode by rememberSaveable(state.city.id) { mutableStateOf(MeteogramLayoutMode.SEPARATE) }
+    var compareRequested by rememberSaveable(state.city.id) { mutableStateOf(false) }
+    var compareKind by rememberSaveable(state.city.id) { mutableStateOf(MeteogramKind.EVERYDAY) }
+    val comparing = compareRequested && models.isNotEmpty()
+    // Each graph has a different number of rulers. The narrowest viewport
+    // defines the maximum shared scroll, otherwise its last hours are unreachable.
+    val plotWidths = remember(state.city.id, comparing, layoutMode, compareKind, models) {
+        mutableStateMapOf<String, Int>()
+    }
+    val widthPx = meteogramSharedViewportWidth(plotWidths.values)
     val density = LocalDensity.current
     val hourPx = with(density) { HourWidth.toPx() }
     val scroll = rememberScrollableState { delta ->
@@ -481,8 +515,6 @@ internal fun MeteogramContent(state: GraphicForecastUiState.Loaded, modifier: Mo
     val priorTemperatures = remember(hours) { hours.associate { it.instant to it.temperatureC } }
     val onSelect: (Int) -> Unit =
         { selectedIndex = it.coerceIn(0, (hours.size - 1).coerceAtLeast(0)) }
-    var comparing by rememberSaveable(state.city.id) { mutableStateOf(false) }
-    var compareKind by rememberSaveable(state.city.id) { mutableStateOf(MeteogramKind.EVERYDAY) }
 
     Column(
         modifier
@@ -502,25 +534,31 @@ internal fun MeteogramContent(state: GraphicForecastUiState.Loaded, modifier: Mo
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
         )
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            FilterChip(
-                selected = selectedModel == null,
-                onClick = { selectedModel = null },
-                label = { Text(stringResource(R.string.meteogram_consensus)) }
-            )
-            models.forEach { name ->
+        // Comparing always shows every model; a separate single-model filter
+        // would change state without changing any comparison chart.
+        if (!comparing) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 FilterChip(
-                    selected = selectedModel == name,
-                    onClick = { selectedModel = name },
-                    label = { Text(name, maxLines = 1) }
+                    selected = activeModel == null,
+                    onClick = { selectedModel = null },
+                    label = { Text(stringResource(R.string.meteogram_consensus)) },
+                    modifier = Modifier.testTag(TAG_METEOGRAM_CONSENSUS)
                 )
+                models.forEach { name ->
+                    FilterChip(
+                        selected = activeModel == name,
+                        onClick = { selectedModel = name },
+                        label = { Text(name, maxLines = 1) },
+                        modifier = Modifier.testTag(TAG_METEOGRAM_MODEL_PREFIX + name)
+                    )
+                }
             }
         }
         Row(
@@ -540,7 +578,7 @@ internal fun MeteogramContent(state: GraphicForecastUiState.Loaded, modifier: Mo
             if (models.isNotEmpty()) {
                 FilterChip(
                     selected = comparing,
-                    onClick = { comparing = !comparing },
+                    onClick = { compareRequested = !compareRequested },
                     label = { Text(stringResource(R.string.meteogram_compare_action)) },
                     modifier = Modifier.testTag(TAG_METEOGRAM_COMPARE)
                 )
@@ -587,11 +625,13 @@ internal fun MeteogramContent(state: GraphicForecastUiState.Loaded, modifier: Mo
                     FilterChip(
                         selected = compareKind == kind,
                         onClick = { compareKind = kind },
-                        label = { Text(meteogramKindLabel(kind)) })
+                        label = { Text(meteogramKindLabel(kind)) },
+                        modifier = Modifier.testTag(TAG_METEOGRAM_COMPARE_KIND_PREFIX + kind.name.lowercase())
+                    )
                 }
             }
             val modelHoursByName =
-                remember(state.points, state.modelValuesByInstant, state.solarByDate, models) {
+                remember(state.points, state.modelValuesByInstant, state.solarByDate, state.city.timezone, models) {
                     models.associateWith { name -> buildMeteogramHours(state, name) }
                 }
             // Stable shared domains across the entire forecast: scroll never rescales
@@ -646,7 +686,7 @@ internal fun MeteogramContent(state: GraphicForecastUiState.Loaded, modifier: Mo
                     selectedIndex = index,
                     scroll = scroll,
                     onSelect = onSelect,
-                    onWidthChange = { widthPx = it },
+                    onWidthChange = { plotWidths[name] = it },
                     domain = compareDomain,
                     rainDomain = compareRainDomain,
                     humidityDomain = compareHumidityDomain,
@@ -670,7 +710,7 @@ internal fun MeteogramContent(state: GraphicForecastUiState.Loaded, modifier: Mo
                 selectedIndex = index,
                 scroll = scroll,
                 onSelect = onSelect,
-                onWidthChange = { widthPx = it },
+                onWidthChange = { plotWidths["combined"] = it },
                 temperatureDomain = temperatureDomain,
                 humidityDomain = humidityDomain,
                 pressureDomain = pressureDomain,
@@ -703,7 +743,7 @@ internal fun MeteogramContent(state: GraphicForecastUiState.Loaded, modifier: Mo
                     selectedIndex = index,
                     scroll = scroll,
                     onSelect = onSelect,
-                    onWidthChange = { widthPx = it },
+                    onWidthChange = { plotWidths[kind.name] = it },
                     domain = domain,
                     rainDomain = rainDomain,
                     humidityDomain = humidityDomain,
@@ -860,6 +900,7 @@ private fun MeteogramChartCard(
                                 drawDayOverDayBands(
                                     hours,
                                     priorTemperatures,
+                                    zone,
                                     first,
                                     last,
                                     shift,
@@ -1085,7 +1126,7 @@ private fun MeteogramCombinedCard(
                             plotTopFraction = WeatherLowerAllInOneFraction
                         )
                         drawDayOverDayBands(
-                            hours, priorTemperatures, first, last,
+                            hours, priorTemperatures, zone, first, last,
                             shift, hourStep, temperatureDomain,
                             plotTopFraction = WeatherLowerAllInOneFraction
                         )
@@ -1815,13 +1856,18 @@ private fun MeteogramPlot(
     drawing: DrawScope.(first: Int, last: Int, offset: Float, step: Float) -> Unit
 ) {
     val currentOffset by rememberUpdatedState(offset)
+    // The city can change while the point count stays the same: keep the
+    // gesture callback fresh without restarting pointer input on every scroll.
+    val currentOnSelect by rememberUpdatedState(onSelect)
     Canvas(
         Modifier
             .fillMaxWidth()
             .height(height)
             .testTag(tag)
             .pointerInput(hours.size, step) {
-                detectTapGestures { tap -> onSelect(floor((tap.x + currentOffset) / step).toInt()) }
+                detectTapGestures { tap ->
+                    currentOnSelect(floor((tap.x + currentOffset) / step).toInt())
+                }
             }
     ) {
         val range = meteogramViewport(offset, size.width, step, hours.size)
@@ -2108,9 +2154,13 @@ private fun DrawScope.drawMetricCurve(
     flush()
 }
 
+internal fun meteogramPreviousLocalDayInstant(instant: Instant, zone: ZoneId): Instant =
+    instant.atZone(zone).minusDays(1).toInstant()
+
 private fun DrawScope.drawDayOverDayBands(
     hours: List<MeteogramHour>,
     previous: Map<Instant, Double?>,
+    zone: ZoneId,
     first: Int,
     last: Int,
     offset: Float,
@@ -2126,9 +2176,9 @@ private fun DrawScope.drawDayOverDayBands(
         val a = hours[i].temperatureC?.takeIf(Double::isFinite) ?: continue
         val b = hours[i + 1].temperatureC?.takeIf(Double::isFinite) ?: continue
         val oldA =
-            previous[hours[i].instant.minusSeconds(86400)]?.takeIf(Double::isFinite) ?: continue
+            previous[meteogramPreviousLocalDayInstant(hours[i].instant, zone)]?.takeIf(Double::isFinite) ?: continue
         val oldB =
-            previous[hours[i + 1].instant.minusSeconds(86400)]?.takeIf(Double::isFinite) ?: continue
+            previous[meteogramPreviousLocalDayInstant(hours[i + 1].instant, zone)]?.takeIf(Double::isFinite) ?: continue
         val xA = (i + 0.5f) * step - offset
         val xB = (i + 1.5f) * step - offset
         fun fill(
@@ -2181,7 +2231,7 @@ private fun DrawScope.drawWindDirectionArrows(
     // Anchor to absolute forecast-hour indexes so arrows don't jump on scroll.
     val start = first + (3 - first % 3) % 3
     for (i in start..last step 3) {
-        val direction = hours[i].windDirectionDeg ?: continue
+        val direction = hours[i].windDirectionDeg?.takeIf { it in 0..360 } ?: continue
         val x = (i + 0.5f) * step - offset
         if (x !in -step..size.width + step) continue
         // Meteorological arrows point towards the direction of origin.

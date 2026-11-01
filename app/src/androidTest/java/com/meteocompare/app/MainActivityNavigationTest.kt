@@ -21,6 +21,7 @@ import com.meteocompare.app.ui.citydetail.TAG_CONFIDENCE_BADGE
 import com.meteocompare.app.ui.citydetail.TAG_DETAIL_LOADED
 import com.meteocompare.app.ui.citydetail.TAG_ENGINE_COMPARISON_ACTION
 import com.meteocompare.app.ui.citydetail.TAG_GRAPHIC_VIEW_ACTION
+import com.meteocompare.app.ui.citydetail.TAG_METEOGRAM_ACTION
 import com.meteocompare.app.ui.citydetail.TAG_RADAR_ACTION
 import com.meteocompare.app.ui.citydetail.confidence.TAG_CONFIDENCE_EXPLANATION_BACK
 import com.meteocompare.app.ui.citydetail.confidence.TAG_CONFIDENCE_EXPLANATION_ROOT
@@ -37,6 +38,9 @@ import com.meteocompare.app.ui.settings.TAG_SETTINGS_BACK
 import com.meteocompare.app.ui.settings.TAG_SETTINGS_ENGINE
 import com.meteocompare.app.ui.settings.TAG_SETTINGS_ROOT
 import com.meteocompare.app.ui.radar.TAG_RADAR_STAGE
+import com.meteocompare.app.ui.meteogram.TAG_METEOGRAM_CONTENT
+import com.meteocompare.app.ui.meteogram.TAG_METEOGRAM_LAYOUT_COMBINED
+import com.meteocompare.app.ui.meteogram.TAG_METEOGRAM_COMBINED
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import javax.inject.Inject
@@ -163,6 +167,29 @@ class MainActivityNavigationTest {
             composeRule.activity.getString(R.string.radar_title)
         ).assertIsDisplayed()
         composeRule.onNodeWithTag(TAG_RADAR_STAGE).assertIsDisplayed()
+    }
+
+    @Test
+    fun open_meteogram_from_city_detail_toggle_combined_and_return() {
+        cities.setFavorites(listOf(TestFixtures.paris))
+        forecasts.setForecast(TestFixtures.paris)
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodes(
+                hasTestTag("$TAG_CITY_CARD${TestFixtures.paris.id}")
+            ).fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithTag("$TAG_CITY_CARD${TestFixtures.paris.id}").performClick()
+        waitForDetailLoaded()
+        composeRule.onNodeWithTag(TAG_METEOGRAM_ACTION).performClick()
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodes(hasTestTag(TAG_METEOGRAM_CONTENT)).fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithTag(TAG_METEOGRAM_LAYOUT_COMBINED).performClick()
+        composeRule.onNodeWithTag(TAG_METEOGRAM_COMBINED, useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithContentDescription(
+            composeRule.activity.getString(R.string.nav_back)
+        ).performClick()
+        waitForDetailLoaded()
     }
 
     @Test

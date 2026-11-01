@@ -1,15 +1,19 @@
 package com.meteocompare.app.ui.meteogram
 
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.geometry.Offset
 import com.meteocompare.app.R
 import androidx.test.platform.app.InstrumentationRegistry
 import com.meteocompare.app.core.units.LocalWeatherUnits
@@ -18,6 +22,7 @@ import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.UnitSystem
 import com.meteocompare.app.ui.citydetail.SimplifiedTimelinePoint
 import com.meteocompare.app.ui.graphicview.GraphicForecastUiState
+import com.meteocompare.app.ui.graphicview.GraphicModelValue
 import com.meteocompare.app.ui.theme.MeteoCompareTheme
 import java.time.Instant
 import org.junit.Rule
@@ -182,4 +187,137 @@ class MeteogramContentTest {
         rule.onAllNodesWithTag(TAG_METEOGRAM_CARD_PREFIX + "everyday", useUnmergedTree = true)
             .assertCountEquals(2)
     }
+
+
+    private fun fixture(
+        hours: Int = 12,
+        models: Map<Instant, List<GraphicModelValue>> = emptyMap()
+    ): GraphicForecastUiState.Loaded {
+        val start = Instant.parse("2026-10-28T08:00:00Z")
+        return GraphicForecastUiState.Loaded(
+            city = City("test", "Paris", country = "France", latitude = 48.8,
+                longitude = 2.3, timezone = "Europe/Paris"),
+            points = List(hours) { i -> SimplifiedTimelinePoint(
+                instant = start.plusSeconds(i * 3600L),
+                temperatureC = 23.0 + i, humidityPercent = 72,
+                windKmh = 13.0, windGustKmh = 17.0, windDirectionDeg = 90,
+                pressureHpa = 1013.0, precipitationMm = 0.1
+            ) },
+            solarByDate = emptyMap(), modelValuesByInstant = models,
+            calculatedAt = start
+        )
+    }
+
+    @Test fun empty_timeline_shows_clear_empty_state_without_building_a_canvas() {
+        rule.setContent { MeteoCompareTheme { MeteogramContent(fixture(hours = 0)) } }
+        val text = InstrumentationRegistry.getInstrumentation().targetContext
+            .getString(R.string.meteogram_no_data)
+        rule.onNodeWithText(text).assertExists()
+        rule.onNodeWithTag(TAG_METEOGRAM_TIME, useUnmergedTree = true).assertDoesNotExist()
+        rule.onNodeWithTag(TAG_METEOGRAM_COMPARE).assertDoesNotExist()
+    }
+
+    @Test fun switching_layouts_back_and_forth_does_not_duplicate_chart_surfaces() {
+        rule.setContent { MeteoCompareTheme { MeteogramContent(fixture()) } }
+        repeat(2) {
+            rule.onNodeWithTag(TAG_METEOGRAM_LAYOUT_COMBINED).performClick()
+            rule.onAllNodesWithTag(TAG_METEOGRAM_COMBINED, useUnmergedTree = true)
+                .assertCountEquals(1)
+            rule.onAllNodesWithTag(TAG_METEOGRAM_TIME, useUnmergedTree = true)
+                .assertCountEquals(1)
+            rule.onNodeWithTag(TAG_METEOGRAM_LAYOUT).performClick()
+            rule.onAllNodesWithTag(TAG_METEOGRAM_TIME, useUnmergedTree = true)
+                .assertCountEquals(3)
+            rule.onNodeWithTag(TAG_METEOGRAM_COMBINED, useUnmergedTree = true)
+                .assertDoesNotExist()
+        }
+    }
+
+    @Test fun scale_picker_switches_all_six_rulers_without_changing_the_plot() {
+        rule.setContent { MeteoCompareTheme { MeteogramContent(fixture()) } }
+        rule.onNodeWithTag(TAG_METEOGRAM_LAYOUT_COMBINED).performClick()
+        MeteogramAxisChoice.entries.forEach { choice ->
+            rule.onNodeWithTag(TAG_METEOGRAM_SCALE_PICKER).performClick()
+            rule.onNodeWithTag(TAG_METEOGRAM_SCALE_OPTION_PREFIX + choice.name.lowercase())
+                .performClick()
+            rule.onNodeWithTag(TAG_METEOGRAM_ACTIVE_AXIS, useUnmergedTree = true)
+                .assertContentDescriptionEquals(choice.name.lowercase())
+            rule.onAllNodesWithTag(TAG_METEOGRAM_COMBINED, useUnmergedTree = true)
+                .assertCountEquals(1)
+        }
+    }
+
+    @Test fun tapping_an_hour_changes_the_selected_temperature_across_cards() {
+        rule.setContent { MeteoCompareTheme { MeteogramContent(fixture()) } }
+        val hourWidth = with(rule.density) { 38.dp.toPx() }
+        rule.onNodeWithTag(TAG_METEOGRAM_TEMPERATURE, useUnmergedTree = true)
+            .performTouchInput { click(Offset(hourWidth * 2.5f, size.height / 2f)) }
+        rule.onNodeWithText("25°", useUnmergedTree = true).assertExists()
+        rule.onAllNodesWithTag(TAG_METEOGRAM_CARD_SELECTED_PREFIX + "temperature",
+            useUnmergedTree = true).assertCountEquals(1)
+    }
+
+    @Test fun stale_selected_model_is_replaced_by_consensus_after_refresh() {
+        val start = Instant.parse("2026-10-28T08:00:00Z")
+        val model = GraphicModelValue("Model A", temperatureC = 9.0,
+            precipitationMm = 0.0, precipitationProbabilityPercent = null,
+            windKmh = 8.0, windGustKmh = null, windDirectionDeg = 270,
+            cloudPercent = 40, pressureHpa = 1012.0)
+        val state = mutableStateOf(fixture(models = mapOf(start to listOf(model))))
+        rule.setContent { MeteoCompareTheme { MeteogramContent(state.value) } }
+        rule.onNodeWithTag(TAG_METEOGRAM_MODEL_PREFIX + "Model A").performClick()
+        rule.onNodeWithTag(TAG_METEOGRAM_MODEL_PREFIX + "Model A").assertIsSelected()
+        rule.onNodeWithText("9°", useUnmergedTree = true).assertExists()
+        rule.runOnIdle { state.value = fixture() }
+        rule.onNodeWithTag(TAG_METEOGRAM_MODEL_PREFIX + "Model A").assertDoesNotExist()
+        rule.onNodeWithTag(TAG_METEOGRAM_CONSENSUS).assertIsSelected()
+        rule.onNodeWithText("23°", useUnmergedTree = true).assertExists()
+        rule.onNodeWithTag(TAG_METEOGRAM_COMPARE).assertDoesNotExist()
+    }
+
+    @Test fun comparison_kind_switches_between_all_five_metrics_and_hides_single_model_filter() {
+        val start = Instant.parse("2026-10-28T08:00:00Z")
+        val models = listOf("Model A", "Model B").map { name ->
+            GraphicModelValue(name, temperatureC = 11.0,
+                precipitationMm = 0.5, precipitationProbabilityPercent = 70,
+                windKmh = 8.0, windGustKmh = 12.0, windDirectionDeg = 45,
+                humidityPercent = 60, pressureHpa = 1010.0)
+        }
+        rule.setContent { MeteoCompareTheme {
+            MeteogramContent(fixture(models = mapOf(start to models)))
+        } }
+        rule.onNodeWithTag(TAG_METEOGRAM_COMPARE).performClick()
+        rule.onNodeWithTag(TAG_METEOGRAM_CONSENSUS).assertDoesNotExist()
+        rule.onNodeWithTag(TAG_METEOGRAM_MODEL_PREFIX + "Model A").assertDoesNotExist()
+        MeteogramKind.entries.forEach { kind ->
+            rule.onNodeWithTag(TAG_METEOGRAM_COMPARE_KIND_PREFIX + kind.name.lowercase())
+                .performClick()
+            rule.onAllNodesWithTag(TAG_METEOGRAM_CARD_PREFIX + kind.name.lowercase(),
+                useUnmergedTree = true).assertCountEquals(2)
+            rule.onAllNodesWithTag(TAG_METEOGRAM_SELECTED_TIME_TRACK,
+                useUnmergedTree = true).assertCountEquals(2)
+        }
+        rule.onNodeWithTag(TAG_METEOGRAM_COMPARE).performClick()
+        rule.onNodeWithTag(TAG_METEOGRAM_CONSENSUS).assertIsSelected()
+    }
+
+    @Test fun comparison_disappears_gracefully_if_models_are_removed_on_refresh() {
+        val start = Instant.parse("2026-10-28T08:00:00Z")
+        val model = GraphicModelValue("Model A", temperatureC = 9.0,
+            precipitationMm = 0.0, precipitationProbabilityPercent = null,
+            windKmh = 8.0, windGustKmh = null, windDirectionDeg = 270,
+            cloudPercent = 40, pressureHpa = 1012.0)
+        val state = mutableStateOf(fixture(models = mapOf(start to listOf(model))))
+        rule.setContent { MeteoCompareTheme { MeteogramContent(state.value) } }
+        rule.onNodeWithTag(TAG_METEOGRAM_COMPARE).performClick()
+        rule.onAllNodesWithTag(TAG_METEOGRAM_CARD_PREFIX + "everyday", useUnmergedTree = true)
+            .assertCountEquals(1)
+        rule.runOnIdle { state.value = fixture() }
+        rule.onNodeWithTag(TAG_METEOGRAM_COMPARE).assertDoesNotExist()
+        rule.onAllNodesWithTag(TAG_METEOGRAM_CARD_PREFIX + "everyday", useUnmergedTree = true)
+            .assertCountEquals(1)
+        rule.onNodeWithTag(TAG_METEOGRAM_LAYOUT_COMBINED).performClick()
+        rule.onNodeWithTag(TAG_METEOGRAM_COMBINED, useUnmergedTree = true).assertExists()
+    }
+
 }

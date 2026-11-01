@@ -18,6 +18,7 @@ import com.meteocompare.app.domain.repository.UserPreferencesRepository
 import com.meteocompare.app.domain.repository.VigilanceRepository
 import com.meteocompare.app.domain.usecase.ForecastEngineContextProvider
 import com.meteocompare.app.ui.navigation.Destinations
+import com.meteocompare.app.ui.meteogram.buildMeteogramHours
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -109,6 +110,21 @@ class GraphicForecastViewModelTest {
             assertEquals(now.plusSeconds(239 * 3_600L), state.points.last().instant)
             assertEquals(240, state.modelValuesByInstant.size)
             assertTrue(state.points.all { it.condition != null })
+            // Same end-to-end data contract as the meteogram screen: no new
+            // network request and all three cloud layers survive the adapter.
+            val firstModel = state.modelValuesByInstant.getValue(now).single()
+            assertEquals(10, firstModel.cloudLowPercent)
+            assertEquals(40, firstModel.cloudMidPercent)
+            assertEquals(70, firstModel.cloudHighPercent)
+            assertEquals(65, firstModel.humidityPercent)
+            assertEquals(1013.0, firstModel.pressureHpa!!, 0.0)
+            assertEquals(8.0, firstModel.dewPointC!!, 0.0)
+            assertEquals(10.0, firstModel.apparentTemperatureC!!, 0.0)
+            val meteogramHour = buildMeteogramHours(state, firstModel.modelName).first()
+            assertEquals(firstModel.cloudLowPercent, meteogramHour.cloudLowPercent)
+            assertEquals(firstModel.cloudMidPercent, meteogramHour.cloudMidPercent)
+            assertEquals(firstModel.cloudHighPercent, meteogramHour.cloudHighPercent)
+            assertEquals(firstModel.pressureHpa, meteogramHour.pressureHpa)
 
             verify(exactly = 1) {
                 forecastRepository.getCityForecastStream(
@@ -135,6 +151,13 @@ class GraphicForecastViewModelTest {
             windGusts10m = List(240) { 20.0 + it % 10 },
             windDirection10m = List(240) { (it * 15) % 360 },
             cloudCover = List(240) { (it * 5) % 100 },
+            cloudCoverLow = List(240) { 10 },
+            cloudCoverMid = List(240) { 40 },
+            cloudCoverHigh = List(240) { 70 },
+            relativeHumidity2m = List(240) { 65 },
+            pressureMsl = List(240) { 1013.0 },
+            dewPoint2m = List(240) { 8.0 },
+            apparentTemperature = List(240) { 10.0 },
             weatherCode = List(240) { if (it % 12 == 0) 61 else 1 }
         )
         return CityForecast(
