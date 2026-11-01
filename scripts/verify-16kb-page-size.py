@@ -40,7 +40,7 @@ def u64(data: bytes, offset: int, endian: str) -> int:
 
 
 def elf_load_alignments(data: bytes, name: str) -> list[int]:
-    if len(data) < 64 or data[:4] != b"\x7fELF":
+    if len(data) < 16 or data[:4] != b"\x7fELF":
         raise VerificationError(f"{name}: not a valid ELF shared object")
 
     elf_class = data[4]
@@ -53,17 +53,27 @@ def elf_load_alignments(data: bytes, name: str) -> list[int]:
         raise VerificationError(f"{name}: unsupported ELF byte order {byte_order}")
 
     if elf_class == 1:  # ELF32
+        if len(data) < 52:
+            raise VerificationError(f"{name}: truncated ELF32 header")
+        min_phentsize = 32
         phoff = u32(data, 28, endian)
         phentsize = u16(data, 42, endian)
         phnum = u16(data, 44, endian)
         align_offset = 28
     elif elf_class == 2:  # ELF64
+        if len(data) < 64:
+            raise VerificationError(f"{name}: truncated ELF64 header")
+        min_phentsize = 56
         phoff = u64(data, 32, endian)
         phentsize = u16(data, 54, endian)
         phnum = u16(data, 56, endian)
         align_offset = 48
     else:
         raise VerificationError(f"{name}: unsupported ELF class {elf_class}")
+
+    if phnum and (phentsize < min_phentsize or phoff > len(data)
+                  or phnum > (len(data) - phoff) // phentsize):
+        raise VerificationError(f"{name}: malformed or truncated program header table")
 
     alignments: list[int] = []
     for index in range(phnum):

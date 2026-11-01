@@ -25,22 +25,28 @@ class MeteogramCombinedLegendUnitsTest(unittest.TestCase):
             ('DewColor', 'metric_dew_point_short'),
         ):
             with self.subTest(metric=name):
-                line = next(line for line in self.legend.splitlines() if f'LegendEntry({name},' in line)
-                self.assertIn(f'R.string.{key}', line)
-                self.assertIn('(${units.temperatureUnit})', line)
+                entry = next((part for part in self.legend.split('LegendEntry(')
+                              if part.lstrip().startswith(name + ',')), None)
+                self.assertIsNotNone(entry, f'{name} missing from combined legend')
+                self.assertIn(f'R.string.{key}', entry.split('LegendEntry(', 1)[0])
+                self.assertIn('(${units.temperatureUnit})', entry)
 
     def test_humidity_has_its_label_and_percent_unit(self):
-        line = next(line for line in self.legend.splitlines() if 'LegendEntry(HumidityColor,' in line)
-        self.assertIn('R.string.meteogram_humidity', line)
-        self.assertIn(' (%)', line)
-        self.assertNotIn('LegendEntry(HumidityColor, "%"', line)
+        entry = next((part for part in self.legend.split('LegendEntry(')
+                      if part.lstrip().startswith('HumidityColor,')), None)
+        self.assertIsNotNone(entry)
+        self.assertIn('R.string.meteogram_humidity', entry)
+        self.assertIn(' (%)', entry)
+        self.assertNotIn('HumidityColor, "%"', entry)
 
     def test_pressure_has_its_label_and_selects_hpa_or_inhg(self):
-        line = next(line for line in self.legend.splitlines() if 'LegendEntry(PressureColor,' in line)
-        self.assertIn('R.string.meteogram_pressure', line)
-        self.assertIn('units.imperial', line)
-        self.assertIn('"inHg"', line)
-        self.assertIn('"hPa"', line)
+        entry = next((part for part in self.legend.split('LegendEntry(')
+                      if part.lstrip().startswith('PressureColor,')), None)
+        self.assertIsNotNone(entry)
+        self.assertIn('R.string.meteogram_pressure', entry)
+        self.assertIn('units.imperial', entry)
+        self.assertIn('"inHg"', entry)
+        self.assertIn('"hPa"', entry)
 
     def test_all_requested_labels_exist_in_all_five_locales(self):
         for folder in ('values', 'values-en', 'values-de', 'values-es', 'values-it'):

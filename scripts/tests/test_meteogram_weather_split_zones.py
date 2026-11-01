@@ -39,8 +39,8 @@ class MeteogramWeatherZonesTest(unittest.TestCase):
         # The combined view uses the same two vertical zones as the weather chart.
         combined = self.source.split('private fun MeteogramCombinedCard(', 1)[1].split(
             'private fun MeteogramCloudLayersHint(', 1)[0]
-        self.assertIn('WeatherLowerFraction', combined)
-        self.assertIn('MeteogramGraphFrame(dividerPlotHeight = CombinedHeight)', combined)
+        self.assertIn('WeatherLowerAllInOneFraction', combined)
+        self.assertRegex(combined, r'MeteogramGraphFrame\s*\(\s*dividerPlotHeight = CombinedHeight,')
         self.assertNotIn('drawWeatherLaneDivider()', combined)
 
     def test_divider_spans_plot_and_right_side_rulers(self):
@@ -50,19 +50,19 @@ class MeteogramWeatherZonesTest(unittest.TestCase):
             'private fun DrawScope.drawRainBars(', 1)[0]
         self.assertIn('drawWithContent {', frame)
         self.assertIn('drawContent()', frame)
-        self.assertIn('dividerPlotHeight?.let { drawWeatherLaneDivider(bottom, it.toPx()) }', frame)
+        self.assertIn('dividerPlotHeight?.let { drawWeatherLaneDivider(bottom, it.toPx(), topFraction, plotTopFraction) }', frame)
         self.assertLess(frame.index('drawContent()'), frame.index('drawWeatherLaneDivider(bottom,'))
         self.assertIn('timeAxisHeightPx + plotHeightPx *', divider)
-        self.assertIn('WeatherCloudFraction + WeatherLowerFraction', divider)
+        self.assertIn('topFraction + plotTopFraction', divider)
         self.assertIn('Offset(0f, middle)', divider)
         self.assertIn('Offset(size.width, middle)', divider)
-        self.assertEqual(1, self.source.count('drawWeatherLaneDivider(bottom, it.toPx())'))
+        self.assertEqual(1, self.source.count('drawWeatherLaneDivider(bottom, it.toPx(), topFraction, plotTopFraction)'))
 
     def test_scale_ticks_follow_vertical_lanes(self):
         card = self.source.split('private fun MeteogramChartCard(', 1)[1].split(
             'private fun MeteogramGraphFrame(', 1)[0]
         self.assertIn('plotTopFraction = if (kind == MeteogramKind.EVERYDAY)', card)
-        self.assertIn('plotTopFraction = WeatherLowerFraction)', card)
+        self.assertRegex(card, r'plotTopFraction = WeatherLowerFraction\s*\)')
         cloud_axis = self.source.split('private fun MeteogramCloudValueAxis(', 1)[1].split(
             'private fun MeteogramValueAxis(', 1)[0]
         self.assertIn('cloudFraction = WeatherCloudFraction', cloud_axis)

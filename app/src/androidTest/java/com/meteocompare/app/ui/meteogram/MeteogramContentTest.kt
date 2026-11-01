@@ -6,6 +6,7 @@ import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -251,7 +252,7 @@ class MeteogramContentTest {
         rule.setContent { MeteoCompareTheme { MeteogramContent(fixture()) } }
         val hourWidth = with(rule.density) { 38.dp.toPx() }
         rule.onNodeWithTag(TAG_METEOGRAM_TEMPERATURE, useUnmergedTree = true)
-            .performTouchInput { click(Offset(hourWidth * 2.5f, size.height / 2f)) }
+            .performTouchInput { click(Offset(hourWidth * 2.5f, center.y)) }
         rule.onNodeWithText("25°", useUnmergedTree = true).assertExists()
         rule.onAllNodesWithTag(TAG_METEOGRAM_CARD_SELECTED_PREFIX + "temperature",
             useUnmergedTree = true).assertCountEquals(1)
@@ -318,6 +319,60 @@ class MeteogramContentTest {
             .assertCountEquals(1)
         rule.onNodeWithTag(TAG_METEOGRAM_LAYOUT_COMBINED).performClick()
         rule.onNodeWithTag(TAG_METEOGRAM_COMBINED, useUnmergedTree = true).assertExists()
+    }
+
+    @Test fun switching_city_discards_previous_layout_and_selected_hour() {
+        val current = mutableStateOf(fixture(hours = 24))
+        rule.setContent { MeteoCompareTheme { MeteogramContent(current.value) } }
+        rule.onNodeWithTag(TAG_METEOGRAM_LAYOUT_COMBINED).performClick()
+        rule.onAllNodesWithTag(TAG_METEOGRAM_COMBINED, useUnmergedTree = true)
+            .assertCountEquals(1)
+        rule.runOnIdle {
+            current.value = fixture(hours = 3).copy(
+                city = City("lyon", "Lyon", country = "France", latitude = 45.76,
+                    longitude = 4.84, timezone = "Europe/Paris")
+            )
+        }
+        rule.onNodeWithText("Lyon").assertExists()
+        rule.onAllNodesWithTag(TAG_METEOGRAM_COMBINED, useUnmergedTree = true)
+            .assertCountEquals(0)
+        rule.onAllNodesWithTag(TAG_METEOGRAM_TIME, useUnmergedTree = true)
+            .assertCountEquals(3)
+        rule.onNodeWithText("23°", useUnmergedTree = true).assertExists()
+    }
+
+    @Test fun forecast_shrink_and_empty_to_loaded_transitions_remain_usable() {
+        val current = mutableStateOf(fixture(hours = 0))
+        rule.setContent { MeteoCompareTheme { MeteogramContent(current.value) } }
+        rule.onAllNodesWithTag(TAG_METEOGRAM_TIME, useUnmergedTree = true)
+            .assertCountEquals(0)
+        rule.runOnIdle { current.value = fixture(hours = 48) }
+        rule.onAllNodesWithTag(TAG_METEOGRAM_TIME, useUnmergedTree = true)
+            .assertCountEquals(3)
+        rule.runOnIdle { current.value = fixture(hours = 1) }
+        rule.onAllNodesWithTag(TAG_METEOGRAM_TIME, useUnmergedTree = true)
+            .assertCountEquals(3)
+        rule.onNodeWithTag(TAG_METEOGRAM_TEMPERATURE, useUnmergedTree = true)
+            .performTouchInput { click(Offset(12f, center.y)) }
+        rule.onNodeWithText("23°", useUnmergedTree = true).assertExists()
+    }
+
+    @Test fun invalid_timezone_and_unavailable_metrics_keep_all_graphs_accessible() {
+        val bad = fixture(hours = 3).copy(
+            city = City("timezone-invalid", "Offline", country = "France",
+                latitude = 0.0, longitude = 0.0, timezone = "Invalid/Zone"),
+            points = fixture(hours = 3).points.map {
+                it.copy(temperatureC = null, windKmh = null, windGustKmh = null,
+                    precipitationMm = null, humidityPercent = null, pressureHpa = null)
+            }
+        )
+        rule.setContent { MeteoCompareTheme { MeteogramContent(bad) } }
+        rule.onNodeWithText("Offline").assertExists()
+        rule.onAllNodesWithTag(TAG_METEOGRAM_TIME, useUnmergedTree = true)
+            .assertCountEquals(3)
+        rule.onNodeWithTag(TAG_METEOGRAM_LAYOUT_COMBINED).performClick()
+        rule.onAllNodesWithTag(TAG_METEOGRAM_COMBINED, useUnmergedTree = true)
+            .assertCountEquals(1)
     }
 
 }

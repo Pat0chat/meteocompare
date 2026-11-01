@@ -213,4 +213,75 @@ class MeteogramRobustnessTest {
         assertNull(meteogramValidPercent(101))
         assertNull(meteogramValidPercent(null))
     }
+
+    @Test fun valid_zero_measurements_remain_visible_and_invalid_model_entries_do_not_pollute_medians() {
+        val point = SimplifiedTimelinePoint(instant = start, precipitationMm = 0.0,
+            windKmh = 0.0, windGustKmh = 0.0, humidityPercent = 0)
+        val rows = listOf(
+            model("Dry", low = 0, mid = 0, high = 100, humidity = 0, direction = 0),
+            model("Wet", low = 100, mid = 50, high = 0, humidity = 100, direction = 360),
+            model("Invalid", low = 200, mid = -1, high = 101, humidity = -1, direction = 361)
+        )
+        val loaded = state(listOf(point), models = mapOf(start to rows))
+        val consensus = buildMeteogramHours(loaded, null).single()
+        assertEquals(50, consensus.cloudLowPercent)
+        assertEquals(25, consensus.cloudMidPercent)
+        assertEquals(50, consensus.cloudHighPercent)
+        assertEquals(0, consensus.humidityPercent)
+        assertEquals(0.0, consensus.rainMm!!, 0.0)
+        assertEquals(0.0, consensus.windKmh!!, 0.0)
+        val selected = buildMeteogramHours(loaded, "Dry").single()
+        assertEquals(0, selected.windDirectionDeg)
+        assertEquals(0, selected.cloudLowPercent)
+        assertNull(buildMeteogramHours(loaded, "Invalid").single().windDirectionDeg)
+    }
+
+    @Test fun sunlight_uses_the_local_date_of_the_city_near_utc_midnight() {
+        val nearMidnight = Instant.parse("2026-06-01T23:30:00Z")
+        val tokyo = city.copy(timezone = "Asia/Tokyo")
+        val dawn = Instant.parse("2026-06-01T21:00:00Z")
+        val dusk = Instant.parse("2026-06-02T10:00:00Z")
+        val points = listOf(SimplifiedTimelinePoint(instant = nearMidnight, isNight = true))
+        val forecast = state(points, city = tokyo, solar = mapOf(
+            LocalDate.of(2026, 6, 2) to GraphicSolarWindow(dawn, dusk)
+        ))
+        assertTrue(buildMeteogramHours(forecast, null).single().daylight)
+    }
+
+    @Test fun compare_metrics_never_cross_mix_temperature_pressure_rain_humidity_and_wind() {
+        val hour = MeteogramHour(start, true,
+            temperatureC = 12.0, apparentC = 10.0, dewC = 8.0,
+            rainMm = 0.7, humidityPercent = 69, pressureHpa = 1017.0,
+            windKmh = 22.0, gustKmh = 35.0)
+        val hours = listOf(hour)
+        assertEquals(listOf(0.7), meteogramKindValues(MeteogramKind.EVERYDAY, hours).toList())
+        assertEquals(listOf(12.0, 10.0, 8.0),
+            meteogramKindValues(MeteogramKind.TEMPERATURE, hours).toList())
+        assertEquals(listOf(69.0), meteogramKindValues(MeteogramKind.HUMIDITY, hours).toList())
+        assertEquals(listOf(1017.0), meteogramKindValues(MeteogramKind.PRESSURE, hours).toList())
+        assertEquals(listOf(22.0, 35.0), meteogramKindValues(MeteogramKind.WIND, hours).toList())
+        MeteogramKind.entries.forEach { kind ->
+            assertTrue(meteogramMinimumSpan(kind) > 0.0)
+        }
+    }
+
+    @Test fun completely_missing_series_keep_nonzero_finite_graph_domains() {
+        val temp = meteogramDomain(sequenceOf(null, Double.NaN, Double.NEGATIVE_INFINITY), 3.0)
+        assertEquals(0.0, temp.min, 0.0)
+        assertEquals(3.0, temp.max, 0.0)
+        val humidity = meteogramDomain(sequenceOf(null), 15.0, bounds = 0.0..100.0)
+        assertEquals(0.0, humidity.min, 0.0)
+        assertEquals(100.0, humidity.max, 0.0)
+        val rain = meteogramDomain(sequenceOf(0.0), 0.5, includeZero = true)
+        assertEquals(0.0, rain.min, 0.0)
+        assertTrue(rain.max >= 0.5)
+    }
+
+    @Test fun a_single_forecast_hour_never_creates_out_of_bounds_viewport() {
+        assertEquals(0..0, meteogramViewport(0f, 300f, 38f, 1))
+        assertEquals(0..0, meteogramViewport(5000f, 300f, 38f, 1))
+        assertTrue(meteogramViewport(0f, 300f, 0f, 72).isEmpty())
+        assertTrue(meteogramViewport(0f, 300f, 38f, -1).isEmpty())
+        assertEquals(0, meteogramSharedViewportWidth(listOf(0, -50)))
+    }
 }

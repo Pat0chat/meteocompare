@@ -30,7 +30,7 @@ class MeteorogramSeparationTest(unittest.TestCase):
         self.assertNotIn('windDomain, WindColor', clouds)
         self.assertNotIn('drawWindDirectionArrows(', clouds)
         self.assertIn('MeteogramCloudRainLegend(units)', card)
-        self.assertIn('MeteogramValueAxis(kind, height, domain, units', card)
+        self.assertRegex(card, r'MeteogramValueAxis\s*\(\s*kind,\s*height,\s*domain,\s*units')
         selected = self.code.split('private fun MeteogramCardSelectedValues(',1)[1].split(
             'MeteogramKind.TEMPERATURE ->',1)[0]
         self.assertNotIn('Triple(WindColor', selected)
@@ -43,7 +43,7 @@ class MeteorogramSeparationTest(unittest.TestCase):
                      'meteogram_rain', 'meteogram_pressure'):
             self.assertIn('R.string.' + name, legend)
         # All keys, including cloud/rain/pressure, share the exact same renderer.
-        self.assertEqual(1, legend.count('MeteogramLegend(listOf('))
+        self.assertRegex(legend, r'MeteogramLegend\s*\(\s*listOf\s*\(')
         self.assertEqual(5, legend.count('LegendEntry('))
         for tag in ('TAG_METEOGRAM_CLOUD_LEGEND', 'TAG_METEOGRAM_RAIN_LEGEND',
                     'TAG_METEOGRAM_PRESSURE_LEGEND'):

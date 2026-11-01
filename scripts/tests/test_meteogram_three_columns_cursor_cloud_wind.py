@@ -21,7 +21,7 @@ class MeteogramSelectedUXTest(unittest.TestCase):
         track = self.source.split("private fun MeteogramSelectedTimeTrack(", 1)[1].split(
             "private fun MeteogramCardSelectedValues(", 1)[0]
         self.assertIn("(selectedIndex + 0.5f) * step - offset", track)
-        self.assertIn("meteogramSelectedTimeBadgeLeft(cursorX", track)
+        self.assertRegex(track, r"meteogramSelectedTimeBadgeLeft\s*\(\s*cursorX")
         self.assertIn("WeatherTimeFormat.clock(locale, clockPreference)", track)
         self.assertIn("selected.instant.atZone(zone)", track)
         self.assertEqual(2, self.source.count(

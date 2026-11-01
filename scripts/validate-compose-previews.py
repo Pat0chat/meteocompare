@@ -33,6 +33,54 @@ def non_private_composables(path: Path) -> list[str]:
     return list(dict.fromkeys(result))
 
 
+
+# A plain mention of a composable in a debug file (including in comments or
+# fixture helpers) is not a preview. Only calls reachable from a real preview
+# function count, directly or through debug-only helper functions.
+PREVIEW_FUNCTION = re.compile(
+    r"(?m)^[ \t]*@(?:Preview|MeteoScreenPreview|MeteoComponentPreview)\b[^\n]*"
+    r"(?:\([^)]*\))?[ \t]*(?:\n[ \t]*@[A-Za-z_][\w.]*[^\n]*[ \t]*)*"
+    r"\n[ \t]*(?:private|internal|public)?[ \t]*fun[ \t]+(\w+)\s*\("
+)
+FUNCTION_DECLARATION = re.compile(
+    r"(?m)^[ \t]*(?:(?:private|internal|public|override|suspend|inline)\s+)*"
+    r"fun[ \t]+(\w+)\s*\("
+)
+CALL = re.compile(r"\b([A-Za-z_]\w*)\s*\(")
+
+
+def strip_comments(source: str) -> str:
+    """Ignore source references hidden in Kotlin comments during preview checks."""
+    return re.sub(r"(?m)//[^\n]*$", "", re.sub(r"/\*.*?\*/", "", source, flags=re.S))
+
+
+def preview_invocations(debug_sources: list[Path]) -> set[str]:
+    """Names called by annotated previews, following debug helper functions."""
+    functions: dict[str, str] = {}
+    preview_names: set[str] = set()
+    for path in debug_sources:
+        source = strip_comments(path.read_text(encoding="utf-8"))
+        declarations = list(FUNCTION_DECLARATION.finditer(source))
+        for idx, match in enumerate(declarations):
+            end = declarations[idx + 1].start() if idx + 1 < len(declarations) else len(source)
+            functions[match.group(1)] = source[match.end():end]
+        preview_names.update(match.group(1) for match in PREVIEW_FUNCTION.finditer(source))
+
+    seen: set[str] = set()
+    invoked: set[str] = set()
+    pending = list(preview_names)
+    while pending:
+        name = pending.pop()
+        if name in seen:
+            continue
+        seen.add(name)
+        body = functions.get(name, "")
+        calls = set(CALL.findall(body))
+        invoked.update(calls)
+        pending.extend(calls & functions.keys() - seen)
+    return invoked
+
+
 def main() -> int:
     main_previews = list(MAIN_UI.rglob("*.kt"))
     leaked = [p for p in main_previews if "@Preview" in p.read_text(encoding="utf-8")]
@@ -42,9 +90,10 @@ def main() -> int:
             print(" -", path.relative_to(ROOT))
         return 1
 
-    debug_text = "\n".join(
-        path.read_text(encoding="utf-8") for path in DEBUG_UI.rglob("*.kt")
-    )
+    preview_calls = preview_invocations(list(DEBUG_UI.rglob("*.kt")))
+    if not preview_calls:
+        print("ERROR: no real annotated Compose previews found in src/debug/java")
+        return 1
     missing: list[tuple[Path, list[str]]] = []
     covered = 0
 
@@ -55,7 +104,7 @@ def main() -> int:
         rel = source.relative_to(MAIN_UI).as_posix()
         if rel in EXCLUDED:
             continue
-        if any(re.search(rf"\b{re.escape(name)}\s*\(", debug_text) for name in names):
+        if any(name in preview_calls for name in names):
             covered += 1
         else:
             missing.append((source, names))

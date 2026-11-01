@@ -81,12 +81,19 @@ class MeteogramCleanupAudit(unittest.TestCase):
         self.assertIn('MeteogramScreen(', nav)
         self.assertIn('Destinations.meteogram(cityId)', nav)
         self.assertIn('fun meteogram(cityId:', destinations)
-        self.assertIn('versionCode = 49', build)
-        self.assertIn('versionName = "1.19.3"', build)
+        # Release versions change independently of the meteogram feature.
+        version_code = re.search(r'(?m)^\s*versionCode\s*=\s*(\d+)\s*$', build)
+        version_name = re.search(r'(?m)^\s*versionName\s*=\s*"(\d+\.\d+\.\d+)"\s*$', build)
+        self.assertIsNotNone(version_code)
+        self.assertIsNotNone(version_name)
+        self.assertGreater(int(version_code.group(1)), 0)
+        self.assertTrue((ROOT / '.github/release-notes' / f'v{version_name.group(1)}.md').is_file())
 
     def test_shared_timeline_backing_and_frozen_compare_domains(self):
         self.assertEqual(1, self.screen.count('val timeStrip = MaterialTheme.colorScheme.surfaceContainerHighest'))
-        self.assertEqual(2, self.screen.count('dividerPlotHeight = if (kind == MeteogramKind.EVERYDAY) height else null') + self.screen.count('MeteogramGraphFrame(dividerPlotHeight = CombinedHeight)'))
+        self.assertEqual(1, self.screen.count('dividerPlotHeight = if (kind == MeteogramKind.EVERYDAY) height else null'))
+        combined = self.screen.split('private fun MeteogramCombinedCard(', 1)[1].split('private fun MeteogramCloudLayersHint(', 1)[0]
+        self.assertRegex(combined, r'MeteogramGraphFrame\s*\(\s*dividerPlotHeight\s*=\s*CombinedHeight\s*,')
         content = self.screen.split('internal fun MeteogramContent(', 1)[1].split(
             'private fun meteogramKindLabel(', 1)[0]
         self.assertIn('modelHoursByName.values.flatten()', content)

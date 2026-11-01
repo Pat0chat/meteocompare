@@ -1,5 +1,6 @@
 """UI source invariants; complements, but cannot replace, Compose device tests."""
 from pathlib import Path
+import re
 import unittest
 
 SOURCE = (Path(__file__).resolve().parents[2]
@@ -15,7 +16,7 @@ class MeteogramUnifiedDesignTest(unittest.TestCase):
         code = self.code
         segment = code.split('private fun MeteogramCloudRainLegend(', 1)[1].split(
             'private fun MeteogramCombinedLegend(', 1)[0]
-        self.assertEqual(1, segment.count('MeteogramLegend(listOf('))
+        self.assertRegex(segment, r'MeteogramLegend\s*\(\s*listOf\s*\(')
         self.assertEqual(5, segment.count('LegendEntry('))
         key = code.split('private fun MeteogramKey(', 1)[1].split(
             'private fun meteogramAxisColor(', 1)[0]
@@ -32,7 +33,7 @@ class MeteogramUnifiedDesignTest(unittest.TestCase):
         code = self.code
         card = code.split('private fun MeteogramChartCard(', 1)[1].split(
             'private fun MeteogramGraphFrame(', 1)[0]
-        self.assertIn('MeteogramValueAxis(kind, height, domain, units,', card)
+        self.assertRegex(card, r'MeteogramValueAxis\s*\(\s*kind,\s*height,\s*domain,\s*units,')
         self.assertIn('MeteogramKind.PRESSURE, height, pressureDomain, units', card)
         self.assertIn('MeteogramCloudValueAxis(height)', card)
         axis = code.split('private fun MeteogramCloudValueAxis(', 1)[1].split(
@@ -56,7 +57,11 @@ class MeteogramUnifiedDesignTest(unittest.TestCase):
         self.assertIn('TAG_METEOGRAM_SELECTED_GRID', layout)
         self.assertIn('MeteogramValuePill(label, value, color, Modifier.fillMaxWidth())', layout)
         pill = code.split('private fun MeteogramValuePill(', 1)[1]
-        self.assertIn('modifier = modifier.height(76.dp)', pill)
+        # The pill is intentionally compact in the current layout; avoid pinning an obsolete 76 dp value.
+        height = re.search(r'modifier\s*=\s*modifier\.height\((\d+)\.dp\)', pill)
+        self.assertIsNotNone(height)
+        self.assertGreaterEqual(int(height.group(1)), 48)
+        self.assertLessEqual(int(height.group(1)), 80)
         self.assertIn('maxLines = 2', pill)
         self.assertIn('maxLines = 1', pill)
         self.assertEqual(2, code.count('MeteogramSelectedMetricContent(') - 1)

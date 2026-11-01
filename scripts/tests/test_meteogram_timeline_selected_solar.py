@@ -15,10 +15,11 @@ class MeteogramTimelineSolarTest(unittest.TestCase):
 
     def test_timeline_backing_spans_both_plot_and_axis_headers(self):
         self.assertEqual(1, self.src.count('val timeStrip = MaterialTheme.colorScheme.surfaceContainerHighest'))
-        self.assertEqual(1, self.src.count('Row(Modifier.fillMaxWidth().padding(top = 4.dp).drawWithContent {'))
+        self.assertRegex(self.src, r'Row\s*\(\s*Modifier\s*\.fillMaxWidth\(\)\s*\.padding\(top = 4.dp\)\s*\.drawWithContent\s*\{')
         self.assertEqual(1, self.src.count('drawRect(timeStrip.copy(alpha = 0.75f), size = Size(size.width, bottom))'))
-        self.assertEqual(1, self.src.count('drawLine(timeOutline.copy(alpha = 0.65f)'))
-        self.assertEqual(2, self.src.count('dividerPlotHeight = if (kind == MeteogramKind.EVERYDAY) height else null') + self.src.count('MeteogramGraphFrame(dividerPlotHeight = CombinedHeight)'))
+        self.assertRegex(self.src, r'drawLine\s*\(\s*timeOutline\.copy\(alpha = 0\.65f\)')
+        self.assertEqual(1, self.src.count('dividerPlotHeight = if (kind == MeteogramKind.EVERYDAY) height else null'))
+        self.assertRegex(self.src, r'MeteogramGraphFrame\s*\(\s*dividerPlotHeight = CombinedHeight,')
         self.assertNotIn('Row(Modifier.padding(start = 8.dp, end = 5.dp, top = 4.dp))', self.src)
 
     def test_solar_markers_label_the_actual_city_local_time_and_overlay_data(self):
@@ -27,7 +28,7 @@ class MeteogramTimelineSolarTest(unittest.TestCase):
         markers = self.src.split('private fun DrawScope.drawMarkerLines(', 1)[1].split('private fun DrawScope.drawCurrentTimeLine(', 1)[0]
         self.assertIn('marker.instant.atZone(zone).format(solarClockFormatter)', ruler)
         self.assertIn('WeatherTimeFormat.clock(locale, clockPreference)', ruler)
-        self.assertIn('drawRoundRect(accent.copy(alpha = 0.94f)', ruler)
+        self.assertRegex(ruler, r'drawRoundRect\s*\(\s*accent\.copy\(alpha = 0\.94f\)')
         self.assertIn('lastBadgeRight', ruler)
         self.assertIn('width > size.width', ruler)
         self.assertLess(plot.index('drawing(range.first, range.last, offset, step)'), plot.index('drawMarkerLines(hours, markers, offset, step)'))

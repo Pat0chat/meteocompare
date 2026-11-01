@@ -36,8 +36,8 @@ class MeteogramGroupedLayoutTest(unittest.TestCase):
         self.assertNotIn('MeteogramKind.PRESSURE', preset)
         section = self.source.split('private fun MeteogramChartCard(', 1)[1].split(
             'private fun MeteogramCombinedCard(', 1)[0]
-        self.assertIn('pressureDomain, PressureColor', section)
-        self.assertIn('humidityDomain, HumidityColor', section)
+        self.assertRegex(section, r'pressureDomain,\s*PressureColor')
+        self.assertRegex(section, r'humidityDomain,\s*HumidityColor')
         self.assertIn('MeteogramKind.PRESSURE, height, pressureDomain', section)
         self.assertIn('MeteogramKind.HUMIDITY, height, humidityDomain', section)
 
