@@ -32,6 +32,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.City
+import com.meteocompare.app.ui.components.CityLocationDetails
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -137,15 +138,7 @@ internal fun CityResultRow(city: City, onClick: () -> Unit) {
             .padding(vertical = 12.dp)
     ) {
         Text(city.name, style = MaterialTheme.typography.bodyLarge)
-        val subtitle = listOfNotNull(city.admin1, city.country.takeIf { it.isNotBlank() })
-            .joinToString(", ")
-        if (subtitle.isNotBlank()) {
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
+        CityLocationDetails(city = city, modifier = Modifier.testTag("add_city_location_${city.id}"))
     }
 }
 

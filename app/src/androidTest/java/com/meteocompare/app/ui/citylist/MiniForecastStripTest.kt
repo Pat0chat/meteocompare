@@ -121,8 +121,8 @@ class MiniForecastStripTest {
         val capsule = composeRule.onNodeWithTag("${TAG_MINI_FORECAST_TEMPERATURE_PREFIX}0")
             .getUnclippedBoundsInRoot()
 
-        assertEquals(23f, (icon.right - icon.left).value, 0.5f)
-        assertEquals(23f, (icon.bottom - icon.top).value, 0.5f)
+        assertEquals(27f, (icon.right - icon.left).value, 0.5f)
+        assertEquals(27f, (icon.bottom - icon.top).value, 0.5f)
         assertEquals(40f, (capsule.right - capsule.left).value, 0.5f)
         assertEquals(18f, (capsule.bottom - capsule.top).value, 0.5f)
     }
@@ -193,6 +193,30 @@ class MiniForecastStripTest {
         composeRule.waitForIdle()
 
         composeRule.onNodeWithTag("${TAG_MINI_FORECAST_CONDITION_PREFIX}10").assertIsDisplayed()
+    }
+
+    @Test
+    fun full_day_has_twenty_four_distinct_cells_and_last_hour_is_scrollable() {
+        composeRule.setContent {
+            MiniForecastStrip(
+                hourlyTemps = List(24) { 10.0 + it },
+                hourlyPrecipProb = List(24) { 0 },
+                hourlyConditions = List(24) { WeatherCondition.CLEAR },
+                startTime = LocalDateTime.of(2026, 8, 28, 9, 0)
+            )
+        }
+        composeRule.onNodeWithTag("${TAG_MINI_FORECAST_CONDITION_PREFIX}23")
+            .assertIsNotDisplayed()
+        repeat(6) {
+            composeRule.onNodeWithTag(TAG_MINI_FORECAST_SCROLL).performTouchInput { swipeLeft() }
+        }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("${TAG_MINI_FORECAST_CONDITION_PREFIX}23")
+            .assertIsDisplayed()
+        composeRule.onNodeWithTag("${TAG_MINI_FORECAST_TEMPERATURE_PREFIX}23")
+            .assertIsDisplayed()
+        composeRule.onNodeWithTag("${TAG_MINI_FORECAST_TEMPERATURE_PREFIX}24")
+            .assertDoesNotExist()
     }
 
 }

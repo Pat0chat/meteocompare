@@ -46,19 +46,21 @@ import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.ui.components.WeatherIconDecorative
 import com.meteocompare.app.ui.components.blendedHeatmapColor
 import com.meteocompare.app.ui.components.temperatureHeatmapColor
+import java.time.Instant
+import java.time.ZoneId
 import java.time.LocalDateTime
 import kotlin.math.max
 import kotlin.math.sqrt
 
 /**
- * Prévision compacte 12 h de la Home.
+ * Prévision compacte 24 h de la Home.
  *
  * Le composant est désormais une surface neutre, cohérente avec les tuiles
  * `MetricToday`. La heatmap reste volontairement présente uniquement derrière
  * la température : la couleur a ainsi un sens unique et immédiat.
  *
- * Six heures sont visibles simultanément et les six suivantes restent
- * accessibles par scroll horizontal. Chaque colonne réutilise strictement les
+ * Six heures sont visibles simultanément, les 18 suivantes restant
+ * accessibles par défilement horizontal. Chaque colonne réutilise strictement les
  * agrégats du moteur de consensus : condition, température, probabilité et
  * quantité de pluie.
  */
@@ -70,6 +72,8 @@ internal fun MiniForecastStrip(
     hourlyPrecipMm: List<Double?> = emptyList(),
     hourlyConditions: List<WeatherCondition?> = emptyList(),
     startTime: LocalDateTime? = null,
+    startInstant: Instant? = null,
+    timezone: ZoneId? = null,
     nightFlags: List<Boolean?> = emptyList()
 ) {
     val containerColor = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.52f)
@@ -87,7 +91,7 @@ internal fun MiniForecastStrip(
             .fillMaxWidth()
             .height(MINI_TIMELINE_HEIGHT_DP.dp)
             .then(
-                if (startTime != null) Modifier.testTag(TAG_MINI_FORECAST_ANCHORS)
+                if (startTime != null || (startInstant != null && timezone != null)) Modifier.testTag(TAG_MINI_FORECAST_ANCHORS)
                 else Modifier
             )
     ) {
@@ -107,9 +111,13 @@ internal fun MiniForecastStrip(
                     .horizontalScroll(scrollState)
                     .testTag(TAG_MINI_FORECAST_SCROLL)
             ) {
-                repeat(CELL_COUNT) { index ->
-                    val hour = startTime?.plusHours(index.toLong())?.format(hourFormatter)
-                    val isCurrentBucket = startTime != null && index == 0
+                repeat(MINI_TIMELINE_HOUR_COUNT) { index ->
+                    val hour = if (startInstant != null && timezone != null) {
+                        startInstant.plusSeconds(index * 3_600L).atZone(timezone).format(hourFormatter)
+                    } else {
+                        startTime?.plusHours(index.toLong())?.format(hourFormatter)
+                    }
+                    val isCurrentBucket = (startTime != null || startInstant != null) && index == 0
                     val temperature = hourlyTemps.getOrNull(index)
                     val heatBackground = miniTimelineTemperatureBackground(
                         temperature = temperature,
@@ -204,7 +212,7 @@ private fun MiniForecastHour(
 
         Box(
             modifier = Modifier
-                .height(27.dp)
+                .height(30.dp)
                 .fillMaxWidth(),
             contentAlignment = Alignment.Center
         ) {
@@ -371,11 +379,11 @@ private fun buildA11yLabel(
     }
 }
 
-private const val CELL_COUNT = 12
+internal const val MINI_TIMELINE_HOUR_COUNT = 24
 internal const val MINI_TIMELINE_VISIBLE_HOURS = 6
-internal const val MINI_TIMELINE_HEIGHT_DP = 80
+internal const val MINI_TIMELINE_HEIGHT_DP = 84
 internal const val MINI_TIMELINE_CORNER_RADIUS_DP = 10
-internal const val MINI_TIMELINE_CONDITION_ICON_DP = 23
+internal const val MINI_TIMELINE_CONDITION_ICON_DP = 27
 internal const val MINI_TIMELINE_TEMPERATURE_CAPSULE_WIDTH_DP = 40
 internal const val MINI_TIMELINE_TEMPERATURE_CAPSULE_RADIUS_DP = 7
 internal const val MINI_TIMELINE_HEAT_STRENGTH_LIGHT = 0.88f

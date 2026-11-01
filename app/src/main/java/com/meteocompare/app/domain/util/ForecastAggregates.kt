@@ -11,7 +11,7 @@ import com.meteocompare.app.domain.usecase.WeatherConditionConsensus
 import java.time.Instant
 
 /** Résultat agrégé utilisé par la liste des villes et le mini-forecast widget. */
-internal data class Next12hForecast(
+internal data class HourlyForecastAggregate(
     val startInstant: Instant,
     val temperatures: List<Double?>,
     val precipitationProbabilities: List<Int?>,
@@ -20,26 +20,43 @@ internal data class Next12hForecast(
 )
 
 /**
- * Agrégats 12 h construits avec le même moteur consensus robuste que le détail ville.
+ * Agrégats horaires (12 ou 24 h) construits avec le même moteur consensus robuste que le détail ville.
  * Les variantes apparentées partagent une voix ; température = médiane pondérée,
  * pluie = P(pluie) + quantité conditionnelle.
  */
 internal object ForecastAggregates {
-    private const val HOUR_COUNT = 12
+    private const val HOME_HOUR_COUNT = 24
 
+    /** Conserve la fenêtre 12 h pour les appels historiques et les scénarios courts. */
     fun next12h(
         forecast: CityForecast,
         now: Instant = Instant.now(),
         includeConditions: Boolean = false,
         engineContext: ForecastEngineContext = ForecastEngineContext.DEFAULT
-    ): Next12hForecast {
-        val temperatures = ArrayList<Double?>(HOUR_COUNT)
-        val probabilities = ArrayList<Int?>(HOUR_COUNT)
-        val amounts = ArrayList<Double?>(HOUR_COUNT)
-        val conditions = if (includeConditions) ArrayList<WeatherCondition?>(HOUR_COUNT) else null
+    ): HourlyForecastAggregate = nextHours(forecast, now, includeConditions, engineContext, 12)
+
+    /** 24 échéances consécutives, partant de l'heure de référence réelle. */
+    fun next24h(
+        forecast: CityForecast,
+        now: Instant = Instant.now(),
+        includeConditions: Boolean = false,
+        engineContext: ForecastEngineContext = ForecastEngineContext.DEFAULT
+    ): HourlyForecastAggregate = nextHours(forecast, now, includeConditions, engineContext, HOME_HOUR_COUNT)
+
+    private fun nextHours(
+        forecast: CityForecast,
+        now: Instant,
+        includeConditions: Boolean,
+        engineContext: ForecastEngineContext,
+        hourCount: Int
+    ): HourlyForecastAggregate {
+        val temperatures = ArrayList<Double?>(hourCount)
+        val probabilities = ArrayList<Int?>(hourCount)
+        val amounts = ArrayList<Double?>(hourCount)
+        val conditions = if (includeConditions) ArrayList<WeatherCondition?>(hourCount) else null
         val startInstant = HourlySampling.anchor(forecast, now)
 
-        repeat(HOUR_COUNT) { hourOffset ->
+        repeat(hourCount) { hourOffset ->
             val target = startInstant.plusSeconds(hourOffset * 3_600L)
             val tempRows = mutableListOf<ForecastConsensus.Entry<Double>>()
             val precipRows = mutableListOf<ForecastConsensus.PrecipitationRow>()
@@ -122,7 +139,7 @@ internal object ForecastAggregates {
             }
         }
 
-        return Next12hForecast(startInstant, temperatures, probabilities, amounts, conditions.orEmpty())
+        return HourlyForecastAggregate(startInstant, temperatures, probabilities, amounts, conditions.orEmpty())
     }
 
     /**

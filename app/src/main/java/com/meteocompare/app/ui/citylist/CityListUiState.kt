@@ -88,20 +88,20 @@ sealed interface ForecastState {
      * @param calculatedAt instant auquel les champs dépendant de « maintenant »
      *   ont été calculés. Distinct de [fetchedAt] : il avance localement sans
      *   téléchargement afin que la carte change d'heure au bon moment.
-     * @param next12hTemps températures agrégées entre modèles pour les 12
+     * @param next24hTemps températures agrégées entre modèles pour les 24
      *   prochaines échéances horaires (index 0 = heure locale la plus proche,
-     *   index 11 = +11h). Alimente
+     *   index 23 = +23h). Alimente
      *   [MiniForecastStrip]. Peut contenir des null pour les heures manquantes
      *   (fin de fenêtre pour AROME HD par exemple).
-     * @param next12hPrecipProb probabilités de précipitation agrégées (0-100)
-     *   pour les 12 prochaines heures, alignées sur [next12hTemps]. Détermine
+     * @param next24hPrecipProb probabilités de précipitation agrégées (0-100)
+     *   pour les 24 prochaines heures, alignées sur [next24hTemps]. Détermine
      *   l’intensité de bleu des points pluie du [MiniForecastStrip].
-     * @param next12hPrecipMm quantité centrale de précipitation (mm/h), alignée
-     *   sur [next12hTemps]. Détermine la taille des points pluie : plus le point
+     * @param next24hPrecipMm quantité centrale de précipitation (mm/h), alignée
+     *   sur [next24hTemps]. Détermine la taille des points pluie : plus le point
      *   est gros, plus le cumul horaire prévu est important.
-     * @param next12hConditions condition météo de consensus pour chacune des
-     *   12 heures. Alimente les icônes de la mini-timeline sans recalcul UI.
-     * @param hourlyStartTime moment de la première heure de [next12hTemps],
+     * @param next24hConditions condition météo de consensus pour chacune des
+     *   24 heures. Alimente les icônes de la mini-timeline sans recalcul UI.
+     * @param hourlyStartTime moment de la première heure de [next24hTemps],
      *   exprimé dans le fuseau de la ville (pas du device). Sert à afficher
      *   les ancres horaires intégrées à la strip ("15h ... 21h ... 03h"). Null si
      *   la ville n'a pas de fuseau connu ou si le cache est pré-feature.
@@ -123,13 +123,15 @@ sealed interface ForecastState {
         /** Modèles demandés, y compris ceux connus indisponibles/hors zone. */
         val sourceModels: Set<WeatherModel> = emptySet(),
         // ─── Nouveautés pour la home enrichie ────────────────────────────
-        val next12hTemps: List<Double?> = emptyList(),
-        val next12hPrecipProb: List<Int?> = emptyList(),
-        val next12hPrecipMm: List<Double?> = emptyList(),
-        val next12hConditions: List<WeatherCondition?> = emptyList(),
+        val next24hTemps: List<Double?> = emptyList(),
+        val next24hPrecipProb: List<Int?> = emptyList(),
+        val next24hPrecipMm: List<Double?> = emptyList(),
+        val next24hConditions: List<WeatherCondition?> = emptyList(),
         /** Regroupement pédagogique des modèles sur les 12 prochaines heures. */
         val next12hScenarios: List<WeatherScenario> = emptyList(),
         val hourlyStartTime: LocalDateTime? = null,
+        /** Instant réel de la première échéance pour gérer les changements d'heure. */
+        val hourlyStartInstant: Instant? = null,
         val sunrise: LocalTime? = null,
         val sunset: LocalTime? = null,
         val windDirectionDeg: Int? = null,

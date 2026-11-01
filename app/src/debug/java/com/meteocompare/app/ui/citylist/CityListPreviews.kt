@@ -25,10 +25,10 @@ private fun loadedForecast(
     currentCloudCover = 58,
     fetchedAt = PreviewFixtures.now.minusSeconds(8 * 60L),
     sourceModels = PreviewFixtures.models.toSet(),
-    next12hTemps = PreviewFixtures.next12hTemps,
-    next12hPrecipProb = PreviewFixtures.next12hPrecipProb,
-    next12hPrecipMm = PreviewFixtures.next12hPrecipMm,
-    next12hConditions = PreviewFixtures.next12hConditions,
+    next24hTemps = List(24) { PreviewFixtures.next12hTemps[it % PreviewFixtures.next12hTemps.size] },
+    next24hPrecipProb = List(24) { PreviewFixtures.next12hPrecipProb[it % PreviewFixtures.next12hPrecipProb.size] },
+    next24hPrecipMm = List(24) { PreviewFixtures.next12hPrecipMm[it % PreviewFixtures.next12hPrecipMm.size] },
+    next24hConditions = List(24) { PreviewFixtures.next12hConditions[it % PreviewFixtures.next12hConditions.size] },
     next12hScenarios = PreviewFixtures.scenarios,
     hourlyStartTime = PreviewFixtures.hourlyStartTime,
     sunrise = PreviewFixtures.sunrise,
@@ -189,10 +189,10 @@ private fun MiniForecastStripPreview() {
     MeteoPreviewSurface {
         Surface(Modifier.padding(12.dp)) {
             MiniForecastStrip(
-                hourlyTemps = PreviewFixtures.next12hTemps,
-                hourlyPrecipProb = PreviewFixtures.next12hPrecipProb,
-                hourlyPrecipMm = PreviewFixtures.next12hPrecipMm,
-                hourlyConditions = PreviewFixtures.next12hConditions,
+                hourlyTemps = List(24) { PreviewFixtures.next12hTemps[it % PreviewFixtures.next12hTemps.size] },
+                hourlyPrecipProb = List(24) { PreviewFixtures.next12hPrecipProb[it % PreviewFixtures.next12hPrecipProb.size] },
+                hourlyPrecipMm = List(24) { PreviewFixtures.next12hPrecipMm[it % PreviewFixtures.next12hPrecipMm.size] },
+                hourlyConditions = List(24) { PreviewFixtures.next12hConditions[it % PreviewFixtures.next12hConditions.size] },
                 startTime = PreviewFixtures.hourlyStartTime
             )
         }

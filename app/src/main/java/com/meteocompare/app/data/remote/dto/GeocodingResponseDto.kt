@@ -21,6 +21,8 @@ data class GeocodingResultDto(
     @SerialName("country_code") val countryCode: String? = null,
     val admin1: String? = null,
     val admin2: String? = null,
+    val admin3: String? = null,
+    val admin4: String? = null,
     val postcodes: List<String> = emptyList(),
     val timezone: String? = null
 )

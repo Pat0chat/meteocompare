@@ -18,6 +18,8 @@ class GeocodingDepartmentMappingTest {
             countryCode = "FR",
             admin1 = "Île-de-France",
             admin2 = "Essonne",
+            admin3 = "Palaiseau",
+            admin4 = "Gif-sur-Yvette",
             postcodes = listOf("91190"),
             timezone = "Europe/Paris"
         ).toDomain()
@@ -25,6 +27,9 @@ class GeocodingDepartmentMappingTest {
         assertEquals("FR", city.countryCode)
         assertEquals("Essonne", city.departmentName)
         assertEquals("91", city.departmentCode)
+        assertEquals("Palaiseau", city.admin3)
+        assertEquals("Gif-sur-Yvette", city.admin4)
+        assertEquals("91190", city.postalCode)
     }
 
     @Test

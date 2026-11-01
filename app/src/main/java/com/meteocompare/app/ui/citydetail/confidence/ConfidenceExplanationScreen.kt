@@ -1,5 +1,7 @@
 package com.meteocompare.app.ui.citydetail.confidence
 
+import com.meteocompare.app.ui.components.CityLocationDetails
+
 import com.meteocompare.app.core.units.WeatherUnit
 import com.meteocompare.app.core.units.WeatherUnits
 import com.meteocompare.app.core.units.LocalWeatherUnits
@@ -187,11 +189,12 @@ private fun HeaderCard(state: ConfidenceExplanationUiState.Loaded) {
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = state.city.shortLabel,
+                text = state.city.name,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
+            CityLocationDetails(city = state.city)
             Text(
                 text = state.date.format(dateFmt).replaceFirstChar { it.uppercase() },
                 style = MaterialTheme.typography.bodyMedium,

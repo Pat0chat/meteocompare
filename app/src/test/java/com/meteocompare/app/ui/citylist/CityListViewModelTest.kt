@@ -1447,10 +1447,14 @@ class CityListViewModelTest {
                 while (state.items.firstOrNull()?.forecast !is ForecastState.Loaded) state = awaitItem()
                 val loaded = state.items.first().forecast as ForecastState.Loaded
 
-                assertEquals(18.0, loaded.next12hTemps.first() ?: error("temperature absente"), 0.001)
-                assertEquals(80, loaded.next12hPrecipProb.first())
-                assertEquals(1.2, loaded.next12hPrecipMm.first() ?: error("pluie absente"), 0.001)
-                assertEquals(WeatherCondition.RAIN, loaded.next12hConditions.first())
+                assertEquals(24, loaded.next24hTemps.size)
+                assertEquals(24, loaded.next24hPrecipProb.size)
+                assertEquals(24, loaded.next24hPrecipMm.size)
+                assertEquals(24, loaded.next24hConditions.size)
+                assertEquals(18.0, loaded.next24hTemps.first() ?: error("temperature absente"), 0.001)
+                assertEquals(80, loaded.next24hPrecipProb.first())
+                assertEquals(1.2, loaded.next24hPrecipMm.first() ?: error("pluie absente"), 0.001)
+                assertEquals(WeatherCondition.RAIN, loaded.next24hConditions.first())
             }
         }
 

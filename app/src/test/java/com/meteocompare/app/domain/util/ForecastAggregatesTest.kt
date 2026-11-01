@@ -311,6 +311,44 @@ class ForecastAggregatesTest {
         assertEquals(19.0, result.temperatures.first() ?: error("temperature manquante"), 0.001)
     }
 
+    @Test
+    fun `home next24h delivers last hour values and aligned conditions`() {
+        val temps = List(24) { 11.0 + it }
+        val forecast = forecastOf(
+            WeatherModel.GFS to hourly(
+                temperatures = temps,
+                precipitationProbabilities = List(24) { it },
+                precipitationAmounts = List(24) { 0.0 },
+                weatherCodes = List(24) { 0 }
+            )
+        )
+        val result = ForecastAggregates.next24h(forecast, now, includeConditions = true)
+        assertEquals(24, result.temperatures.size)
+        assertEquals(24, result.precipitationProbabilities.size)
+        assertEquals(24, result.precipitationAmountsMm.size)
+        assertEquals(24, result.conditions.size)
+        assertEquals(34.0, result.temperatures[23] ?: error("missing hour 24"), 0.001)
+        assertEquals(WeatherCondition.CLEAR, result.conditions[23])
+        assertEquals(now, result.startInstant)
+    }
+
+    @Test
+    fun `home next24h pads incomplete forecast without duplicating old values`() {
+        val forecast = forecastOf(
+            WeatherModel.GFS to hourly(
+                temperatures = listOf(12.0, 13.0),
+                precipitationProbabilities = listOf(30, 40),
+                precipitationAmounts = listOf(0.0, 0.0)
+            )
+        )
+        val result = ForecastAggregates.next24h(forecast, now, includeConditions = true)
+        assertEquals(24, result.temperatures.size)
+        assertEquals(13.0, result.temperatures[1] ?: error("missing hour 2"), 0.001)
+        assertNull(result.temperatures[23])
+        assertNull(result.conditions[23])
+        assertEquals(12, ForecastAggregates.next12h(forecast, now).temperatures.size)
+    }
+
     private fun hourly(
         temperatures: List<Double?>,
         precipitationProbabilities: List<Int?>,

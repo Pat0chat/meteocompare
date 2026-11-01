@@ -38,6 +38,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.meteocompare.app.R
+import com.meteocompare.app.ui.components.CityLocationDetails
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.NotificationSettings
 import java.time.LocalTime
@@ -204,15 +205,7 @@ private fun NotificationCityRow(
         Spacer(Modifier.width(8.dp))
         Column {
             Text(text = city.name, style = MaterialTheme.typography.bodyMedium)
-            val location = listOfNotNull(city.admin1, city.country.takeIf(String::isNotBlank))
-                .joinToString(", ")
-            if (location.isNotEmpty()) {
-                Text(
-                    text = location,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            CityLocationDetails(city)
         }
     }
 }

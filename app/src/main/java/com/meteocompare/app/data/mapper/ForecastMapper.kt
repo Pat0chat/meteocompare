@@ -217,6 +217,9 @@ fun GeocodingResultDto.toDomain(): City = City(
     timezone = timezone,
     countryCode = countryCode,
     departmentName = admin2,
+    admin3 = admin3,
+    admin4 = admin4,
+    postalCode = postcodes.firstOrNull { it.isNotBlank() },
     departmentCode = if (countryCode.equals("FR", ignoreCase = true) || country.equals("France", ignoreCase = true)) {
         FranceDepartmentResolver.resolve(admin2, postcodes)
     } else {

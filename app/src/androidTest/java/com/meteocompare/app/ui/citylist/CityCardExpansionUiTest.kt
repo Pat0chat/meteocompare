@@ -45,7 +45,7 @@ class CityCardExpansionUiTest {
             currentTemp = 19.0,
             currentCondition = WeatherCondition.CLEAR,
             currentCloudCover = 67,
-            next12hTemps = listOf(19.0, 18.0, 17.0, 16.0)
+            next24hTemps = listOf(19.0, 18.0, 17.0, 16.0)
         )
     )
     private val lyon = CityCardState(TestFixtures.lyon, ForecastState.Loading)

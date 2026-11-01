@@ -358,7 +358,7 @@ internal fun GraphicForecastContent(
     ) {
         GraphicHeaderCard(
             cityName = state.city.name,
-            citySubtitle = listOfNotNull(state.city.admin1, state.city.country).distinct().joinToString(" · "),
+            citySubtitle = state.city.locationDetails,
             points = state.points,
             zone = zone,
             locale = locale,
@@ -542,7 +542,7 @@ private fun GraphicChartPanel(
 @Composable
 private fun GraphicHeaderCard(
     cityName: String,
-    citySubtitle: String,
+    citySubtitle: List<String>,
     points: List<SimplifiedTimelinePoint>,
     zone: ZoneId,
     locale: Locale,
@@ -567,11 +567,13 @@ private fun GraphicHeaderCard(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(cityName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    if (citySubtitle.isNotBlank()) {
+                    citySubtitle.forEach { line ->
                         Text(
-                            citySubtitle,
+                            line,
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                         )
                     }
                 }

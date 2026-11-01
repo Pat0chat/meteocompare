@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import com.meteocompare.app.R
 import com.meteocompare.app.core.units.WeatherUnits
 import com.meteocompare.app.core.util.windCardinal
+import com.meteocompare.app.ui.components.CityLocationDetails
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.usecase.LocalityDayMetrics
 import com.meteocompare.app.ui.components.uvIntensityColor
@@ -117,6 +118,7 @@ internal fun LocalityComparisonOverview(
                         Text(city.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold,
                             color = listOf(colors.primary, colors.tertiary, colors.secondary)[index % 3],
                             maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        CityLocationDetails(city = city)
                         Text(units.temp(day?.maxC, locale = locale), style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold, color = colors.onSurface,
                             modifier = Modifier.testTag("compare_main_temperature_${city.id}"))

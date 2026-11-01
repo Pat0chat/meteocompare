@@ -1,5 +1,7 @@
 package com.meteocompare.app.ui.localitycompare
 
+import com.meteocompare.app.ui.components.CityLocationDetails
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -198,7 +200,12 @@ internal fun LocalityCompareContent(
                             onClick = { onToggleCity(city.id) },
                             enabled = (checked && state.selectedIds.size > 2) ||
                                 (!checked && state.selectedIds.size < 3),
-                            label = { Text(city.name, maxLines = 1) },
+                            label = {
+                                Column {
+                                    Text(city.name, maxLines = 1)
+                                    CityLocationDetails(city)
+                                }
+                            },
                             modifier = Modifier.testTag("compare_city_${city.id}")
                         )
                     }

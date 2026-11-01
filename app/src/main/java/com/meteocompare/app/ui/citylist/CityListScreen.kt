@@ -33,6 +33,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -120,6 +121,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -138,6 +140,7 @@ import com.meteocompare.app.domain.model.WeatherScenario
 import com.meteocompare.app.domain.model.WeatherScenarioKind
 import com.meteocompare.app.domain.model.WeatherScenarioTiming
 import com.meteocompare.app.ui.accessibility.A11yFormatter
+import com.meteocompare.app.ui.components.CityLocationDetails
 import com.meteocompare.app.ui.components.AnimatedWeatherIcon
 import com.meteocompare.app.ui.components.DewPointMetricIcon
 import com.meteocompare.app.ui.components.AppToastEffect
@@ -405,11 +408,8 @@ internal fun CityListContent(
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text(
-                            text = stringResource(R.string.app_name),
-                            fontWeight = FontWeight.Bold
-                        )
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        HomeAppTitle()
                         if (!uiState.isEmpty) {
                             Text(
                                 text = pluralStringResource(
@@ -882,12 +882,13 @@ internal fun CityCard(
                                         currentCloudCover = forecast.currentCloudCover,
                                         uvIndex = uv,
                                         fetchedAt = forecast.fetchedAt,
-                                        next12hTemps = forecast.next12hTemps,
-                                        next12hPrecipProb = forecast.next12hPrecipProb,
-                                        next12hPrecipMm = forecast.next12hPrecipMm,
-                                        next12hConditions = forecast.next12hConditions,
+                                        next24hTemps = forecast.next24hTemps,
+                                        next24hPrecipProb = forecast.next24hPrecipProb,
+                                        next24hPrecipMm = forecast.next24hPrecipMm,
+                                        next24hConditions = forecast.next24hConditions,
                                         next12hScenarios = forecast.next12hScenarios,
                                         hourlyStartTime = forecast.hourlyStartTime,
+                                        hourlyStartInstant = forecast.hourlyStartInstant,
                                         vigilance = state.vigilance,
                                         cityTimezone = state.city.timezone,
                                         latitude = state.city.latitude,
@@ -948,7 +949,7 @@ private fun CompactCityCardContent(
     val agreement = loaded?.today?.overallPercent
     val upcomingTemperature = homeTemperatureTrend(
         currentTemp = loaded?.currentTemp,
-        hourlyTemps = loaded?.next12hTemps.orEmpty()
+        hourlyTemps = loaded?.next24hTemps.orEmpty()
     )
     // Already supplied by CityListViewModel; no additional vigilance fetch.
     val vigilanceLevel = remember(state.city, state.vigilance) {
@@ -1025,6 +1026,10 @@ private fun CompactCityCardContent(
                 modifier = Modifier.padding(start = 4.dp).size(20.dp)
             )
         }
+        CityLocationDetails(
+            city = state.city,
+            modifier = Modifier.testTag("home_city_location_compact_${state.city.id}")
+        )
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
@@ -1134,6 +1139,28 @@ private fun CompactCityCardContent(
     }
 }
 
+/** Adapte le titre à l'espace laissé par les actions sur les petits téléphones. */
+@Composable
+internal fun HomeAppTitle(modifier: Modifier = Modifier) {
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+        val size = when {
+            maxWidth < 155.dp -> 13.sp
+            maxWidth < 185.dp -> 16.sp
+            else -> MaterialTheme.typography.titleLarge.fontSize
+        }
+        Text(
+            text = stringResource(R.string.app_name),
+            style = MaterialTheme.typography.titleLarge,
+            fontSize = size,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.testTag("home_app_title")
+        )
+    }
+}
+
 @Composable
 private fun CompactCityMetric(
     label: String,
@@ -1207,18 +1234,12 @@ private fun CityCardHeader(
                             .testTag("$TAG_CITY_MARINE_ENABLED${city.id}")
                     )
                 }
-                if (city.country.isNotBlank()) {
-                    Spacer(Modifier.width(10.dp))
-                    Text(
-                        text = city.country,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
-                }
+
             }
+            CityLocationDetails(
+                city = city,
+                modifier = Modifier.padding(top = 2.dp).testTag("home_city_location_${city.id}")
+            )
 
             if (sunrise != null || sunset != null) {
                 Spacer(Modifier.height(1.dp))
@@ -1311,12 +1332,13 @@ private fun CityCardLoaded(
     currentCloudCover: Int?,
     uvIndex: Double?,
     fetchedAt: Instant?,
-    next12hTemps: List<Double?>,
-    next12hPrecipProb: List<Int?>,
-    next12hPrecipMm: List<Double?>,
-    next12hConditions: List<WeatherCondition?>,
+    next24hTemps: List<Double?>,
+    next24hPrecipProb: List<Int?>,
+    next24hPrecipMm: List<Double?>,
+    next24hConditions: List<WeatherCondition?>,
     next12hScenarios: List<WeatherScenario>,
     hourlyStartTime: LocalDateTime?,
+    hourlyStartInstant: Instant?,
     vigilance: VigilanceForecast?,
     cityTimezone: String?,
     latitude: Double,
@@ -1334,12 +1356,12 @@ private fun CityCardLoaded(
     val currentIsNight = com.meteocompare.app.domain.util.isNightAtCoordinates(
         latitude, longitude, Instant.now(), zone
     ) == true
-    val miniNightFlags = remember(latitude, longitude, zone, hourlyStartTime) {
-        hourlyStartTime?.let { start ->
-            List(12) { offset ->
+    val miniNightFlags = remember(latitude, longitude, zone, hourlyStartTime, hourlyStartInstant) {
+        val startInstant = hourlyStartInstant ?: hourlyStartTime?.atZone(zone)?.toInstant()
+        startInstant?.let { start ->
+            List(MINI_TIMELINE_HOUR_COUNT) { offset ->
                 com.meteocompare.app.domain.util.isNightAtCoordinates(
-                    latitude, longitude,
-                    start.atZone(zone).toInstant().plusSeconds(offset * 3600L), zone
+                    latitude, longitude, start.plusSeconds(offset * 3600L), zone
                 )
             }
         }.orEmpty()
@@ -1352,7 +1374,7 @@ private fun CityCardLoaded(
             currentCloudCover = currentCloudCover,
             agreementPercent = today.overallPercent,
             accentColor = accentColor,
-            hourlyTemps = next12hTemps,
+            hourlyTemps = next24hTemps,
             isNight = currentIsNight
         )
 
@@ -1372,14 +1394,16 @@ private fun CityCardLoaded(
             Spacer(Modifier.height(3.dp))
         }
 
-        if (next12hTemps.any { it != null }) {
+        if (next24hTemps.any { it != null }) {
             Spacer(Modifier.height(4.dp))
             MiniForecastStrip(
-                hourlyTemps = next12hTemps,
-                hourlyPrecipProb = next12hPrecipProb,
-                hourlyPrecipMm = next12hPrecipMm,
-                hourlyConditions = next12hConditions,
+                hourlyTemps = next24hTemps,
+                hourlyPrecipProb = next24hPrecipProb,
+                hourlyPrecipMm = next24hPrecipMm,
+                hourlyConditions = next24hConditions,
                 startTime = hourlyStartTime,
+                startInstant = hourlyStartInstant,
+                timezone = zone,
                 nightFlags = miniNightFlags
             )
         }

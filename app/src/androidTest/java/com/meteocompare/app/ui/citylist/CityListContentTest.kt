@@ -7,6 +7,9 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.getTextLayoutResult
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -183,4 +186,14 @@ class CityListContentTest {
             )
             .assert(SemanticsMatcher.expectValue(CityCardTargetAlphaKey, 55))
     }
+    @Test
+    fun home_title_never_wraps_on_narrow_phone() {
+        composeRule.setContent {
+            MeteoCompareTheme { HomeAppTitle(modifier = androidx.compose.ui.Modifier.width(145.dp)) }
+        }
+        val title = composeRule.onNodeWithTag("home_app_title")
+        title.assertIsDisplayed()
+        assertEquals(1, title.getTextLayoutResult().lineCount)
+    }
+
 }

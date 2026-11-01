@@ -1259,7 +1259,7 @@ class CityListViewModel @Inject constructor(
                 val sunrise = sunriseFromApi?.atZone(zone)?.toLocalTime() ?: fallbackSun?.sunrise
                 val sunset = sunsetFromApi?.atZone(zone)?.toLocalTime() ?: fallbackSun?.sunset
 
-                val miniForecast = ForecastAggregates.next12h(
+                val miniForecast = ForecastAggregates.next24h(
                     forecast = result.data,
                     now = now,
                     includeConditions = true,
@@ -1284,13 +1284,14 @@ class CityListViewModel @Inject constructor(
                     fetchedAt = result.data.fetchedAt,
                     calculatedAt = now,
                     sourceModels = result.data.seriesByModel.keys + result.data.errors.keys,
-                    next12hTemps = miniForecast.temperatures,
-                    next12hPrecipProb = miniForecast.precipitationProbabilities,
-                    next12hPrecipMm = miniForecast.precipitationAmountsMm,
-                    next12hConditions = miniForecast.conditions,
+                    next24hTemps = miniForecast.temperatures,
+                    next24hPrecipProb = miniForecast.precipitationProbabilities,
+                    next24hPrecipMm = miniForecast.precipitationAmountsMm,
+                    next24hConditions = miniForecast.conditions,
                     next12hScenarios = scenarios,
                     // L'agrégateur expose l'échéance réellement échantillonnée
                     // (ex. 13:00 à 12:56), donc le label ne peut plus dériver.
+                    hourlyStartInstant = miniForecast.startInstant,
                     hourlyStartTime = miniForecast.startInstant
                         .atZone(zone)
                         .toLocalDateTime(),

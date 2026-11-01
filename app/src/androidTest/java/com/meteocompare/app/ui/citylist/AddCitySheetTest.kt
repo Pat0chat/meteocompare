@@ -109,4 +109,28 @@ class AddCitySheetTest {
         }
         composeRule.onNodeWithTag(TAG_ADD_CITY_NO_RESULTS).assertIsDisplayed()
     }
+    @Test
+    fun same_named_cities_in_same_country_show_separate_administrative_lines() {
+        val first = TestFixtures.paris.copy(
+            id = "city-a", name = "Saint-Martin", country = "France",
+            admin1 = "Normandie", departmentName = "Manche", postalCode = "50300"
+        )
+        val second = first.copy(
+            id = "city-b", admin1 = "Bretagne", departmentName = "Finistère", postalCode = "29270"
+        )
+        composeRule.setContent {
+            MeteoCompareTheme {
+                AddCitySheet(
+                    state = AddCityUiState(query = "Saint-Martin", results = listOf(first, second)),
+                    onQueryChanged = {}, onCitySelected = {}, onDismiss = {}
+                )
+            }
+        }
+        composeRule.onNodeWithTag("add_city_location_city-a", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Normandie", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Manche", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Bretagne", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Finistère", useUnmergedTree = true).assertIsDisplayed()
+    }
+
 }
