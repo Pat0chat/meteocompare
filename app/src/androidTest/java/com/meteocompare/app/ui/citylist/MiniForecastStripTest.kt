@@ -12,6 +12,7 @@ import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
 import androidx.test.platform.app.InstrumentationRegistry
@@ -19,6 +20,7 @@ import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.WeatherCondition
 import java.time.LocalDateTime
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -185,14 +187,22 @@ class MiniForecastStripTest {
             )
         }
 
-        composeRule.onNodeWithTag("${TAG_MINI_FORECAST_CONDITION_PREFIX}0").assertIsDisplayed()
+        val firstHour = composeRule.onNodeWithTag("${TAG_MINI_FORECAST_CONDITION_PREFIX}0")
+        firstHour.assertIsDisplayed()
         composeRule.onNodeWithTag("${TAG_MINI_FORECAST_CONDITION_PREFIX}5").assertIsDisplayed()
-        composeRule.onNodeWithTag("${TAG_MINI_FORECAST_CONDITION_PREFIX}10").assertIsNotDisplayed()
+        val laterHour = composeRule.onNodeWithTag("${TAG_MINI_FORECAST_CONDITION_PREFIX}10")
+        laterHour.assertIsNotDisplayed()
 
+        // A swipe does move the actual horizontal strip. Do not assume a
+        // single swipe covers five hours on every screen / emulator density.
+        val initialLeft = firstHour.getUnclippedBoundsInRoot().left
         composeRule.onNodeWithTag(TAG_MINI_FORECAST_SCROLL).performTouchInput { swipeLeft() }
         composeRule.waitForIdle()
+        val scrolledLeft = firstHour.getUnclippedBoundsInRoot().left
+        assertTrue("A horizontal swipe must move the timeline", scrolledLeft < initialLeft)
 
-        composeRule.onNodeWithTag("${TAG_MINI_FORECAST_CONDITION_PREFIX}10").assertIsDisplayed()
+        // Scroll the real content until the requested hour is in the viewport.
+        laterHour.performScrollTo().assertIsDisplayed()
     }
 
     @Test
@@ -205,14 +215,13 @@ class MiniForecastStripTest {
                 startTime = LocalDateTime.of(2026, 8, 28, 9, 0)
             )
         }
-        composeRule.onNodeWithTag("${TAG_MINI_FORECAST_CONDITION_PREFIX}23")
+        val lastHour = composeRule.onNodeWithTag("${TAG_MINI_FORECAST_CONDITION_PREFIX}23")
+        lastHour.assertIsNotDisplayed()
+        // Request the last hour explicitly: a fixed number of swipes is not
+        // portable across screen widths and animation / gesture durations.
+        lastHour.performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("${TAG_MINI_FORECAST_CONDITION_PREFIX}0")
             .assertIsNotDisplayed()
-        repeat(6) {
-            composeRule.onNodeWithTag(TAG_MINI_FORECAST_SCROLL).performTouchInput { swipeLeft() }
-        }
-        composeRule.waitForIdle()
-        composeRule.onNodeWithTag("${TAG_MINI_FORECAST_CONDITION_PREFIX}23")
-            .assertIsDisplayed()
         composeRule.onNodeWithTag("${TAG_MINI_FORECAST_TEMPERATURE_PREFIX}23")
             .assertIsDisplayed()
         composeRule.onNodeWithTag("${TAG_MINI_FORECAST_TEMPERATURE_PREFIX}24")

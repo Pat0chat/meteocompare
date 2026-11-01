@@ -50,7 +50,12 @@ class ConfidenceExplanationContentTest {
         }
 
         composeRule.onNodeWithTag(TAG_CONFIDENCE_EXPLANATION_ROOT).assertIsDisplayed()
-        composeRule.onNodeWithText(TestFixtures.paris.shortLabel).assertIsDisplayed()
+        // The header now renders the city name and each geographical detail
+        // in separate Text nodes, rather than using City.shortLabel.
+        composeRule.onNodeWithText(TestFixtures.paris.name).assertIsDisplayed()
+        TestFixtures.paris.locationDetails.forEach { detail ->
+            composeRule.onNodeWithText(detail).assertIsDisplayed()
+        }
         composeRule.onNodeWithTag(TAG_CONFIDENCE_EXPLANATION_BACK).performClick()
         assertTrue(backed)
     }
