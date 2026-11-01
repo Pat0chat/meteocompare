@@ -988,14 +988,14 @@ private fun CompactCityCardContent(
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1.2f)
+                    modifier = Modifier.weight(1.2f, fill = false)
                         .testTag("home_city_title_compact_${state.city.id}")
                 )
                 if (state.city.homeLocationLines.isNotEmpty()) {
                     Spacer(Modifier.width(8.dp))
                     CityHomeLocationDetails(
                         city = state.city,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f, fill = false)
                             .testTag("home_city_location_compact_${state.city.id}")
                     )
                 }
@@ -1218,7 +1218,7 @@ private fun CityCardHeader(
 ) {
     Row(
         modifier = modifier.padding(start = 24.dp).fillMaxWidth(),
-        verticalAlignment = Alignment.Top
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Row(
@@ -1231,14 +1231,14 @@ private fun CityCardHeader(
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1.2f)
+                    modifier = Modifier.weight(1.2f, fill = false)
                         .testTag("home_city_title_${city.id}")
                 )
                 if (city.homeLocationLines.isNotEmpty()) {
                     Spacer(Modifier.width(8.dp))
                     CityHomeLocationDetails(
                         city = city,
-                        modifier = Modifier.weight(1f).testTag("home_city_location_${city.id}")
+                        modifier = Modifier.weight(1f, fill = false).testTag("home_city_location_${city.id}")
                     )
                 }
                 if (marineEnabled) {

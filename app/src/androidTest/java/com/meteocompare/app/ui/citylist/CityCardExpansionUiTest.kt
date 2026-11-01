@@ -580,6 +580,45 @@ class CityCardExpansionUiTest {
         composeRule.onNodeWithText("Réseau indisponible", useUnmergedTree = true).assertIsDisplayed()
     }
 
+    @Test fun short_city_name_keeps_the_location_immediately_beside_it() {
+        val city = TestFixtures.paris.copy(
+            name = "Os", country = "Norway", admin1 = "Vestland", admin3 = "Bjørnafjorden"
+        )
+        val expanded = mutableStateOf(false)
+        composeRule.setContent {
+            MeteoCompareTheme {
+                Box(Modifier.width(350.dp)) {
+                    CityCard(
+                        state = CityCardState(city, ForecastState.Loading),
+                        expanded = expanded.value,
+                        onClick = {}, onRemove = {}, onRetry = {}
+                    )
+                }
+            }
+        }
+
+        fun assertNear(isExpanded: Boolean) {
+            val suffix = if (isExpanded) "" else "compact_"
+            val name = composeRule.onNodeWithTag(
+                "home_city_title_${suffix}${city.id}", useUnmergedTree = true
+            ).fetchSemanticsNode().boundsInRoot
+            val details = composeRule.onNodeWithTag(
+                "home_city_location_${suffix}${city.id}", useUnmergedTree = true
+            ).fetchSemanticsNode().boundsInRoot
+            assertTrue("Short city title must remain left of details", details.left >= name.right)
+            assertTrue("No large gap is allowed after a short title",
+                details.left - name.right <= name.height * 0.75f)
+            assertTrue("Title and details must remain vertically centered",
+                kotlin.math.abs(details.center.y - name.center.y) <=
+                    minOf(details.height, name.height) * 0.25f)
+        }
+
+        assertNear(false)
+        composeRule.runOnIdle { expanded.value = true }
+        composeRule.waitForIdle()
+        assertNear(true)
+    }
+
     @Test fun home_location_is_beside_city_name_in_compact_and_expanded_cards() {
         val city = TestFixtures.paris.copy(
             name = "Saint-Martin", country = "France", admin1 = "Normandie",
@@ -608,6 +647,11 @@ class CityCardExpansionUiTest {
             )
             val location = locationNode.fetchSemanticsNode().boundsInRoot
             assertTrue("Location must be to the right of the city name", location.left >= title.right)
+            assertTrue("Location should stay close to the city name",
+                location.left - title.right <= title.height * 0.75f)
+            assertTrue("City name and location must be vertically centered",
+                kotlin.math.abs(location.center.y - title.center.y) <=
+                    minOf(title.height, location.height) * 0.25f)
             val firstLine = composeRule.onNodeWithText(
                 "France", useUnmergedTree = true
             ).fetchSemanticsNode().boundsInRoot

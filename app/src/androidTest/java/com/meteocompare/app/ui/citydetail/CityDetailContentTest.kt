@@ -2,6 +2,8 @@ package com.meteocompare.app.ui.citydetail
 
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -367,7 +369,7 @@ class CityDetailContentTest {
     }
 
     @Test
-    fun detail_header_shows_full_location_below_city_name() {
+    fun detail_header_shows_location_on_one_line_below_city_name() {
         val city = TestFixtures.paris.copy(
             name = "Saint-Martin", country = "France", admin1 = "Normandie",
             departmentName = "Manche", admin3 = "Avranches", postalCode = "50300"
@@ -394,9 +396,13 @@ class CityDetailContentTest {
         )
         val details = detailsNode.fetchSemanticsNode().boundsInRoot
         assertTrue("Location should be directly below the city title", details.top >= title.bottom)
-        listOf("France", "Normandie", "Manche", "Avranches", "50300").forEach { part ->
-            composeRule.onNodeWithText(part, useUnmergedTree = true).assertExists()
-        }
+        composeRule.onNodeWithTag(TAG_DETAIL_CITY_LOCATION, useUnmergedTree = true)
+            .assertTextEquals("France · Normandie · Manche · Avranches · 50300")
+        val textLayouts = mutableListOf<TextLayoutResult>()
+        val action = composeRule.onNodeWithTag(TAG_DETAIL_CITY_LOCATION, useUnmergedTree = true)
+            .fetchSemanticsNode().config.getOrNull(SemanticsActions.GetTextLayoutResult)?.action
+        assertTrue("Location should expose its text layout", action?.invoke(textLayouts) == true)
+        assertEquals("Location must use one line even with many subdivisions", 1, textLayouts.single().lineCount)
     }
 
 }

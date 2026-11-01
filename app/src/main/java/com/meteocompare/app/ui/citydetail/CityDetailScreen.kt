@@ -137,7 +137,6 @@ import com.meteocompare.app.domain.usecase.DayConditionsRow
 import com.meteocompare.app.domain.usecase.ForecastConsensus
 import com.meteocompare.app.ui.accessibility.A11yFormatter
 import com.meteocompare.app.ui.components.AnimatedWeatherIcon
-import com.meteocompare.app.ui.components.CityLocationDetails
 import com.meteocompare.app.ui.components.HumidityMetricIcon
 import com.meteocompare.app.ui.components.DewPointMetricIcon
 import com.meteocompare.app.ui.components.AppToastEffect
@@ -438,10 +437,14 @@ private fun CityDetailScaffold(
                                         maxLines = 2,
                                         overflow = TextOverflow.Ellipsis
                                     )
-                                    if (hasLocationDetails && city != null) {
-                                        CityLocationDetails(
-                                            city = city,
-                                            modifier = Modifier.testTag(TAG_DETAIL_CITY_LOCATION)
+                                    city?.locationDetails?.takeIf { it.isNotEmpty() }?.let { details ->
+                                        Text(
+                                            text = details.joinToString(" · "),
+                                            modifier = Modifier.testTag(TAG_DETAIL_CITY_LOCATION),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
                                         )
                                     }
                                 }

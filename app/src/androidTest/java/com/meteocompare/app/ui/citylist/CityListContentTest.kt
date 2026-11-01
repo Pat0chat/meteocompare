@@ -7,7 +7,8 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createComposeRule
-import androidx.compose.ui.test.getTextLayoutResult
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.onNodeWithTag
@@ -193,7 +194,11 @@ class CityListContentTest {
         }
         val title = composeRule.onNodeWithTag("home_app_title")
         title.assertIsDisplayed()
-        assertEquals(1, title.getTextLayoutResult().lineCount)
+        val layouts = mutableListOf<TextLayoutResult>()
+        val action = title.fetchSemanticsNode().config
+            .getOrNull(SemanticsActions.GetTextLayoutResult)?.action
+        assertTrue("The title should expose its text layout", action?.invoke(layouts) == true)
+        assertEquals(1, layouts.single().lineCount)
     }
 
 }

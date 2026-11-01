@@ -54,10 +54,28 @@ class CityLocationDetailsImportTest(unittest.TestCase):
         self.assertIn('"home_city_location_${city.id}"', home)
         self.assertNotIn("CityLocationDetails(", home)
 
-    def test_detail_header_has_full_location_component(self):
+    def test_detail_header_uses_single_line_subtitle(self):
         detail = (MAIN / "com/meteocompare/app/ui/citydetail/CityDetailScreen.kt").read_text(encoding="utf-8")
-        self.assertIn("CityLocationDetails(", detail)
-        self.assertIn("TAG_DETAIL_CITY_LOCATION", detail)
+        self.assertIn('details.joinToString(" · ")', detail)
+        self.assertRegex(
+            detail,
+            r'(?s)details\.joinToString\(" · "\).*?'
+            r'testTag\(TAG_DETAIL_CITY_LOCATION\).*?maxLines = 1',
+        )
+        self.assertNotIn("CityLocationDetails(", detail)
+
+    def test_home_header_keeps_title_and_location_together(self):
+        home = (MAIN / "com/meteocompare/app/ui/citylist/CityListScreen.kt").read_text(encoding="utf-8")
+        # Weighted children without fill leave spare room after the location,
+        # not in between a short city name and the locality subtitle.
+        self.assertEqual(2, home.count("Modifier.weight(1.2f, fill = false)"))
+        self.assertIn('Modifier.weight(1f, fill = false).testTag("home_city_location_', home)
+        self.assertIn('Modifier.weight(1f, fill = false)\n                            .testTag("home_city_location_compact_', home)
+
+    def test_compose_layout_test_uses_public_semantics_action(self):
+        test_source = (ROOT / "app/src/androidTest/java/com/meteocompare/app/ui/citylist/CityListContentTest.kt").read_text(encoding="utf-8")
+        self.assertNotIn("androidx.compose.ui.test.getTextLayoutResult", test_source)
+        self.assertIn("SemanticsActions.GetTextLayoutResult", test_source)
 
 
 if __name__ == "__main__":
