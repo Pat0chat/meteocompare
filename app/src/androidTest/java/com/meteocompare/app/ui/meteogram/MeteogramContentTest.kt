@@ -6,6 +6,11 @@ import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.hasAnyDescendant
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -250,10 +255,22 @@ class MeteogramContentTest {
 
     @Test fun tapping_an_hour_changes_the_selected_temperature_across_cards() {
         rule.setContent { MeteoCompareTheme { MeteogramContent(fixture()) } }
+        val selectedTemperature = rule.onNodeWithTag(
+            TAG_METEOGRAM_CARD_SELECTED_PREFIX + "temperature", useUnmergedTree = true
+        )
+        selectedTemperature.assert(hasAnyDescendant(hasText("23°")))
+
+        // Scroll to the whole first card, not a Canvas nested inside a horizontal
+        // scrollable: the latter does not reliably scroll the vertical screen.
+        // Selecting from the weather graph must update the separate temperature card.
+        rule.onNodeWithTag(TAG_METEOGRAM_CARD_PREFIX + "everyday", useUnmergedTree = true)
+            .performScrollTo()
+        val weatherPlot = rule.onNodeWithTag(TAG_METEOGRAM_WEATHER, useUnmergedTree = true)
+            .assertIsDisplayed()
         val hourWidth = with(rule.density) { 38.dp.toPx() }
-        rule.onNodeWithTag(TAG_METEOGRAM_TEMPERATURE, useUnmergedTree = true)
-            .performTouchInput { click(Offset(hourWidth * 2.5f, center.y)) }
-        rule.onNodeWithText("25°", useUnmergedTree = true).assertExists()
+        weatherPlot.performTouchInput { click(Offset(hourWidth * 2.5f, center.y)) }
+        rule.waitForIdle()
+        selectedTemperature.assert(hasAnyDescendant(hasText("25°")))
         rule.onAllNodesWithTag(TAG_METEOGRAM_CARD_SELECTED_PREFIX + "temperature",
             useUnmergedTree = true).assertCountEquals(1)
     }
@@ -291,8 +308,12 @@ class MeteogramContentTest {
         rule.onNodeWithTag(TAG_METEOGRAM_CONSENSUS).assertDoesNotExist()
         rule.onNodeWithTag(TAG_METEOGRAM_MODEL_PREFIX + "Model A").assertDoesNotExist()
         MeteogramKind.entries.forEach { kind ->
-            rule.onNodeWithTag(TAG_METEOGRAM_COMPARE_KIND_PREFIX + kind.name.lowercase())
-                .performClick()
+            // Five chips cannot all fit a phone screen. Scroll the horizontal
+            // filter row before clicking or the tap may land on a different chip.
+            val choice = rule.onNodeWithTag(
+                TAG_METEOGRAM_COMPARE_KIND_PREFIX + kind.name.lowercase()
+            )
+            choice.performScrollTo().performClick().assertIsSelected()
             rule.onAllNodesWithTag(TAG_METEOGRAM_CARD_PREFIX + kind.name.lowercase(),
                 useUnmergedTree = true).assertCountEquals(2)
             rule.onAllNodesWithTag(TAG_METEOGRAM_SELECTED_TIME_TRACK,
@@ -352,7 +373,12 @@ class MeteogramContentTest {
         rule.runOnIdle { current.value = fixture(hours = 1) }
         rule.onAllNodesWithTag(TAG_METEOGRAM_TIME, useUnmergedTree = true)
             .assertCountEquals(3)
-        rule.onNodeWithTag(TAG_METEOGRAM_TEMPERATURE, useUnmergedTree = true)
+        // Exercise the first visible chart after the horizon has shrunk. Using
+        // the whole card for vertical scroll avoids nested-scroll ambiguity.
+        rule.onNodeWithTag(TAG_METEOGRAM_CARD_PREFIX + "everyday", useUnmergedTree = true)
+            .performScrollTo()
+        rule.onNodeWithTag(TAG_METEOGRAM_WEATHER, useUnmergedTree = true)
+            .assertIsDisplayed()
             .performTouchInput { click(Offset(12f, center.y)) }
         rule.onNodeWithText("23°", useUnmergedTree = true).assertExists()
     }
