@@ -153,7 +153,8 @@ class SettingsContentTest {
         listOf(
             LanguagePreference.SPANISH,
             LanguagePreference.GERMAN,
-            LanguagePreference.ITALIAN
+            LanguagePreference.ITALIAN,
+            LanguagePreference.TURKISH
         ).forEach { preference ->
             val tag = "$TAG_SETTINGS_LANGUAGE${preference.name}"
             scrollTo(tag)
