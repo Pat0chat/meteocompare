@@ -108,12 +108,14 @@
     <string name="language_spanish">Spanisch</string>
     <string name="language_german">Deutsch</string>
     <string name="language_italian">Italienisch</string>
+    <string name="language_turkish">Türkisch</string>
     <string name="language_system_short">SYS</string>
     <string name="language_french_short">FR</string>
     <string name="language_english_short">EN</string>
     <string name="language_spanish_short">ES</string>
     <string name="language_german_short">DE</string>
     <string name="language_italian_short">IT</string>
+    <string name="language_turkish_short">TR</string>
 
     <string name="models_analysed_one">%d Modell analysiert</string>
     <string name="models_analysed_many">%d Modelle analysiert</string>

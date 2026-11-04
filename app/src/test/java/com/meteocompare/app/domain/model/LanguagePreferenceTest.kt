@@ -13,6 +13,7 @@ class LanguagePreferenceTest {
         assertEquals("es", LanguagePreference.SPANISH.bcp47Tag)
         assertEquals("de", LanguagePreference.GERMAN.bcp47Tag)
         assertEquals("it", LanguagePreference.ITALIAN.bcp47Tag)
+        assertEquals("tr", LanguagePreference.TURKISH.bcp47Tag)
     }
 
     @Test
@@ -22,6 +23,7 @@ class LanguagePreferenceTest {
         assertEquals(LanguagePreference.SPANISH, LanguagePreference.fromLanguageTag("es-ES"))
         assertEquals(LanguagePreference.GERMAN, LanguagePreference.fromLanguageTag("de-DE"))
         assertEquals(LanguagePreference.ITALIAN, LanguagePreference.fromLanguageTag("it-IT"))
+        assertEquals(LanguagePreference.TURKISH, LanguagePreference.fromLanguageTag("tr-TR"))
     }
 
     @Test

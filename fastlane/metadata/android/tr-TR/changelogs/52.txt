@@ -1,0 +1,1 @@
+Hava, sıcaklık, nem, basınç ve rüzgâr için model karşılaştırmalı yeni meteogramlar. Ana ekran mini zaman çizelgesi artık daha net simgelerle 24 saati kapsıyor. Aynı adı taşıyan şehirleri ayırt etmeye yardımcı olan daha hassas konum etiketleri. Küçük ekranlarda geliştirilmiş yerleşimler ve kararlılık düzeltmeleri.
