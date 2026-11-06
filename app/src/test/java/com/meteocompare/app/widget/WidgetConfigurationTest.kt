@@ -11,6 +11,36 @@ class WidgetConfigurationTest {
     private val paris = City("paris", "Paris", country = "France", latitude = 48.85, longitude = 2.35)
     private val lyon = paris.copy(id = "lyon", name = "Lyon")
 
+    @Test fun current_conditions_are_on_for_existing_widgets_without_the_new_key() {
+        assertEquals(true, WidgetConfiguration.fromPreferences(emptyPreferences()).showCurrentConditions)
+        assertEquals(true, WidgetConfiguration.fromPreferences(preferencesOf(
+            WidgetPreferences.ForecastModeKey to ForecastMode.DAILY.name
+        )).showCurrentConditions)
+    }
+
+    @Test fun current_conditions_choice_round_trips_without_overwriting_refresh_state() {
+        val prefs = preferencesOf(
+            WidgetPreferences.RefreshTickKey to 42L,
+            WidgetPreferences.LastDispatchAtKey to 66L
+        ).toMutablePreferences()
+        val hidden = WidgetConfiguration(cityId = paris.id,
+            forecastMode = ForecastMode.DAILY, showCurrentConditions = false)
+        hidden.writeTo(prefs)
+        assertEquals(false, prefs[WidgetPreferences.ShowCurrentConditionsKey])
+        assertEquals(hidden, WidgetConfiguration.fromPreferences(prefs))
+        assertEquals(42L, prefs[WidgetPreferences.RefreshTickKey])
+        assertEquals(66L, prefs[WidgetPreferences.LastDispatchAtKey])
+        hidden.copy(showCurrentConditions = true).writeTo(prefs)
+        assertEquals(true, WidgetConfiguration.fromPreferences(prefs).showCurrentConditions)
+    }
+
+    @Test fun each_widget_has_its_own_current_weather_visibility() {
+        val first = preferencesOf(WidgetPreferences.ShowCurrentConditionsKey to false)
+        val second = preferencesOf(WidgetPreferences.ShowCurrentConditionsKey to true)
+        assertEquals(false, WidgetConfiguration.fromPreferences(first).showCurrentConditions)
+        assertEquals(true, WidgetConfiguration.fromPreferences(second).showCurrentConditions)
+    }
+
     @Test fun new_widget_uses_defaults_and_first_favorite() {
         val config = WidgetConfiguration.fromPreferences(emptyPreferences())
         assertEquals(WidgetConfiguration(), config)

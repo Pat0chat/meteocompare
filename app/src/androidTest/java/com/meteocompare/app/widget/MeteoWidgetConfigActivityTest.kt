@@ -11,6 +11,8 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.click
@@ -102,6 +104,46 @@ class MeteoWidgetConfigActivityTest {
     @After fun tearDown() {
         if (::scenario.isInitialized) scenario.close()
         if (::host.isInitialized) host.deleteHost()
+    }
+
+    @Test
+    fun current_conditions_toggle_is_enabled_by_default() {
+        composeRule.onNodeWithTag(TAG_WIDGET_SHOW_CURRENT_CONDITIONS)
+            .performScrollTo().assertIsOn()
+    }
+
+    @Test
+    fun hidden_current_conditions_are_saved_and_restored_for_this_widget() {
+        val toggle = composeRule.onNodeWithTag(TAG_WIDGET_SHOW_CURRENT_CONDITIONS)
+        toggle.performScrollTo().assertIsOn().performClick().assertIsOff()
+        // Editing must not save before pressing Save.
+        assertEquals(true, WidgetConfiguration.fromPreferences(readPreferences(widgetId)).showCurrentConditions)
+        composeRule.onNodeWithTag(TAG_WIDGET_SAVE).performScrollTo().performClick()
+        composeRule.waitUntil(timeoutMillis = 10_000) { scenario.state == Lifecycle.State.DESTROYED }
+        assertEquals(false, WidgetConfiguration.fromPreferences(readPreferences(widgetId)).showCurrentConditions)
+        launchConfiguration(widgetId)
+        composeRule.onNodeWithTag(TAG_WIDGET_SHOW_CURRENT_CONDITIONS)
+            .performScrollTo().assertIsOff()
+    }
+
+    @Test
+    fun cancel_does_not_persist_a_current_conditions_toggle() {
+        composeRule.onNodeWithTag(TAG_WIDGET_SHOW_CURRENT_CONDITIONS)
+            .performScrollTo().performClick().assertIsOff()
+        composeRule.onNodeWithTag(TAG_WIDGET_CANCEL).performScrollTo().performClick()
+        composeRule.waitUntil(timeoutMillis = 5_000) { scenario.state == Lifecycle.State.DESTROYED }
+        assertEquals(true, WidgetConfiguration.fromPreferences(readPreferences(widgetId)).showCurrentConditions)
+    }
+
+    @Test
+    fun rotation_restores_the_unsaved_visibility_choice() {
+        composeRule.onNodeWithTag(TAG_WIDGET_SHOW_CURRENT_CONDITIONS)
+            .performScrollTo().performClick().assertIsOff()
+        scenario.recreate()
+        waitForForm()
+        composeRule.onNodeWithTag(TAG_WIDGET_SHOW_CURRENT_CONDITIONS)
+            .performScrollTo().assertIsOff()
+        assertEquals(true, WidgetConfiguration.fromPreferences(readPreferences(widgetId)).showCurrentConditions)
     }
 
     @Test
@@ -322,6 +364,19 @@ class MeteoWidgetConfigActivityTest {
     }
 
     @Test
+    fun hidden_header_setting_is_independent_for_two_widgets() {
+        scenario.close()
+        writePreferences(widgetId, savedConfiguration.copy(showCurrentConditions = false))
+        val secondId = allocateWidget()
+        writePreferences(secondId, savedConfiguration.copy(showCurrentConditions = true))
+        launchConfiguration(secondId)
+        composeRule.onNodeWithTag(TAG_WIDGET_SHOW_CURRENT_CONDITIONS)
+            .performScrollTo().assertIsOn()
+        assertEquals(false, WidgetConfiguration.fromPreferences(readPreferences(widgetId)).showCurrentConditions)
+        assertEquals(true, WidgetConfiguration.fromPreferences(readPreferences(secondId)).showCurrentConditions)
+    }
+
+    @Test
     fun each_widget_loads_its_own_configuration() {
         reopenSavedWidget()
         assertSavedSelections()
@@ -381,6 +436,7 @@ class MeteoWidgetConfigActivityTest {
                 this[WidgetPreferences.CityIdKey] = checkNotNull(configuration.cityId)
                 this[WidgetPreferences.OpacityPctKey] = configuration.opacityPct
                 this[WidgetPreferences.ForecastModeKey] = configuration.forecastMode.name
+                this[WidgetPreferences.ShowCurrentConditionsKey] = configuration.showCurrentConditions
                 this[WidgetPreferences.BackgroundColorKey] = checkNotNull(configuration.backgroundColorArgb)
                 this[WidgetPreferences.TextColorKey] = checkNotNull(configuration.textColorArgb)
                 this[WidgetPreferences.CornerStyleKey] = configuration.cornerStyle.name

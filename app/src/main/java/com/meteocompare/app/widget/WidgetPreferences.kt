@@ -1,5 +1,6 @@
 package com.meteocompare.app.widget
 
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -32,6 +33,10 @@ internal object WidgetPreferences {
      * aurait été plus compact mais introduit un couplage fragile.
      */
     val ForecastModeKey = stringPreferencesKey("widget_forecast_mode")
+
+    /** The current-weather header is visible by default for existing widget instances. */
+    val ShowCurrentConditionsKey = booleanPreferencesKey("widget_show_current_conditions")
+    const val DEFAULT_SHOW_CURRENT_CONDITIONS = true
 
     /**
      * Refresh tick — timestamp (ms epoch) de la dernière demande de refresh

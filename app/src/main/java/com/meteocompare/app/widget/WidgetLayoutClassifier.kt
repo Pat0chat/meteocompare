@@ -69,3 +69,11 @@ internal fun classifyWidgetLayoutForShape(
         else -> standard
     }
 }
+
+/** Only two-row widgets have a distinct current-weather header to remove.
+ * Compact, single-row widgets keep their information instead of becoming empty. */
+internal fun shouldDisplayCurrentConditions(
+    kind: WidgetLayoutKind,
+    showCurrentConditions: Boolean
+): Boolean = showCurrentConditions ||
+    (kind != WidgetLayoutKind.COMPACT_TALL && kind != WidgetLayoutKind.EXTRA_LARGE)

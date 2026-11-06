@@ -101,4 +101,6 @@
     <string name="widget_color_hex_hint">Saisir 6 chiffres hexadécimaux (RRGGBB).</string>
     <string name="widget_color_hex_invalid">Couleur invalide : utiliser #RRGGBB.</string>
     <string name="widget_opacity_manual_label">Valeur</string>
+    <string name="widget_config_show_current_conditions">Afficher les conditions actuelles</string>
+    <string name="widget_config_show_current_conditions_note">Désactivez pour masquer les conditions actuelles en haut des widgets météo sur deux lignes ou plus. Les petits widgets les conservent.</string>
 </resources>

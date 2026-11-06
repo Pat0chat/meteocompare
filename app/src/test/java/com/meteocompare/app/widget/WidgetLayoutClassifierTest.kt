@@ -6,6 +6,25 @@ import org.junit.Test
 class WidgetLayoutClassifierTest {
 
     @Test
+    fun `current conditions stay visible by default on every widget layout`() {
+        WidgetLayoutKind.entries.forEach { kind ->
+            assertEquals(true, shouldDisplayCurrentConditions(kind, true))
+        }
+    }
+
+    @Test
+    fun `turning off current conditions only removes the separate tall header`() {
+        WidgetLayoutKind.entries.forEach { kind ->
+            val hasSeparateHeader = kind == WidgetLayoutKind.COMPACT_TALL ||
+                kind == WidgetLayoutKind.EXTRA_LARGE
+            assertEquals(!hasSeparateHeader, shouldDisplayCurrentConditions(kind, false))
+        }
+        assertEquals(false, shouldDisplayCurrentConditions(classifyWidgetLayout(160f, 160f), false))
+        assertEquals(false, shouldDisplayCurrentConditions(classifyWidgetLayout(420f, 170f), false))
+        assertEquals(true, shouldDisplayCurrentConditions(classifyWidgetLayout(420f, 90f), false))
+    }
+
+    @Test
     fun `one by one stays tiny`() {
         assertEquals(WidgetLayoutKind.TINY, classifyWidgetLayout(72f, 72f))
     }

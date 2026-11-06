@@ -14,7 +14,8 @@ internal data class WidgetConfiguration(
     val textColorArgb: Int? = null,
     val cornerStyle: WidgetCornerStyle = WidgetCornerStyle.ROUNDED,
     val cornerRadiusDp: Int = WidgetPreferences.DEFAULT_CORNER_RADIUS_DP,
-    val contentSpacing: WidgetContentSpacing = WidgetContentSpacing.NORMAL
+    val contentSpacing: WidgetContentSpacing = WidgetContentSpacing.NORMAL,
+    val showCurrentConditions: Boolean = WidgetPreferences.DEFAULT_SHOW_CURRENT_CONDITIONS
 ) {
     /** N'écrit QUE les options de présentation : les ticks et états de refresh
      * restent exactement tels que WorkManager les a enregistrés. */
@@ -23,6 +24,7 @@ internal data class WidgetConfiguration(
         else prefs.remove(WidgetPreferences.CityIdKey)
         prefs[WidgetPreferences.OpacityPctKey] = opacityPct.coerceIn(0, 100)
         prefs[WidgetPreferences.ForecastModeKey] = forecastMode.name
+        prefs[WidgetPreferences.ShowCurrentConditionsKey] = showCurrentConditions
         prefs[WidgetPreferences.CornerStyleKey] = cornerStyle.name
         prefs[WidgetPreferences.CornerRadiusDpKey] = cornerRadiusDp.coerceIn(0, WidgetPreferences.MAX_CORNER_RADIUS_DP)
         prefs[WidgetPreferences.ContentSpacingKey] = contentSpacing.name
@@ -52,7 +54,9 @@ internal data class WidgetConfiguration(
             cornerStyle = WidgetCornerStyle.fromStored(prefs[WidgetPreferences.CornerStyleKey]),
             cornerRadiusDp = (prefs[WidgetPreferences.CornerRadiusDpKey]
                 ?: WidgetPreferences.DEFAULT_CORNER_RADIUS_DP).coerceIn(0, WidgetPreferences.MAX_CORNER_RADIUS_DP),
-            contentSpacing = WidgetContentSpacing.fromStored(prefs[WidgetPreferences.ContentSpacingKey])
+            contentSpacing = WidgetContentSpacing.fromStored(prefs[WidgetPreferences.ContentSpacingKey]),
+            showCurrentConditions = prefs[WidgetPreferences.ShowCurrentConditionsKey]
+                ?: WidgetPreferences.DEFAULT_SHOW_CURRENT_CONDITIONS
         )
     }
 }

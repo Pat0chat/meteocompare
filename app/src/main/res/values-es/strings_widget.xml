@@ -76,4 +76,6 @@
     <string name="widget_color_hex_hint">Introduce 6 dígitos hexadecimales (RRGGBB).</string>
     <string name="widget_color_hex_invalid">Color no válido: usa #RRGGBB.</string>
     <string name="widget_opacity_manual_label">Valor</string>
+    <string name="widget_config_show_current_conditions">Mostrar las condiciones actuales</string>
+    <string name="widget_config_show_current_conditions_note">Desactiva esta opción para ocultar el tiempo actual en la parte superior de los widgets de dos filas o más. Los widgets pequeños lo seguirán mostrando.</string>
 </resources>

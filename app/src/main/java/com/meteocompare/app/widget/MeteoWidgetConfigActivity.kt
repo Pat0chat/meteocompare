@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
@@ -41,6 +42,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -156,7 +158,7 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
                     widgetId = widgetId,
                     insightMode = isInsightWidgetProvider(providerClassName),
                     onSave = { cityId, opacityPct, forecastMode, bgColorArgb, textColorArgb,
-                               cornerStyle, cornerRadiusDp, contentSpacing ->
+                               cornerStyle, cornerRadiusDp, contentSpacing, showCurrentConditions ->
                         persistAndFinish(
                             widgetId = widgetId,
                             expectedProviderClassName = providerClassName,
@@ -167,7 +169,8 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
                             textColorArgb = textColorArgb,
                             cornerStyle = cornerStyle,
                             cornerRadiusDp = cornerRadiusDp,
-                            contentSpacing = contentSpacing
+                            contentSpacing = contentSpacing,
+                            showCurrentConditions = showCurrentConditions
                         )
                     },
                     onCancel = { finish() }
@@ -241,7 +244,8 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
         textColorArgb: Int?,
         cornerStyle: WidgetCornerStyle,
         cornerRadiusDp: Int,
-        contentSpacing: WidgetContentSpacing
+        contentSpacing: WidgetContentSpacing,
+        showCurrentConditions: Boolean
     ) {
         val appCtx = applicationContext
         lifecycleScope.launch {
@@ -276,7 +280,8 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
                             textColorArgb = textColorArgb,
                             cornerStyle = cornerStyle,
                             cornerRadiusDp = cornerRadiusDp,
-                            contentSpacing = contentSpacing
+                            contentSpacing = contentSpacing,
+                            showCurrentConditions = showCurrentConditions
                         ).writeTo(this)
                     }
                 }
@@ -331,7 +336,8 @@ private fun WidgetConfigScreen(
     insightMode: Boolean,
     onSave: (cityId: String, opacityPct: Int, forecastMode: ForecastMode,
              bgColorArgb: Int?, textColorArgb: Int?, cornerStyle: WidgetCornerStyle,
-             cornerRadiusDp: Int, contentSpacing: WidgetContentSpacing) -> Unit,
+             cornerRadiusDp: Int, contentSpacing: WidgetContentSpacing,
+             showCurrentConditions: Boolean) -> Unit,
     onCancel: () -> Unit
 ) {
     val context = LocalContext.current.applicationContext
@@ -390,7 +396,8 @@ private fun WidgetConfigForm(
     initial: WidgetConfiguration,
     onSave: (cityId: String, opacityPct: Int, forecastMode: ForecastMode,
              bgColorArgb: Int?, textColorArgb: Int?, cornerStyle: WidgetCornerStyle,
-             cornerRadiusDp: Int, contentSpacing: WidgetContentSpacing) -> Unit,
+             cornerRadiusDp: Int, contentSpacing: WidgetContentSpacing,
+             showCurrentConditions: Boolean) -> Unit,
     onCancel: () -> Unit
 ) {
     var selectedCityId by rememberSaveable(widgetId) {
@@ -401,6 +408,7 @@ private fun WidgetConfigForm(
     // Keep draft invalid input visible, but never save it or change the live preview.
     val opacityIsValid = opacityInput.toIntOrNull()?.let { it in 0..100 } == true
     var forecastMode by rememberSaveable(widgetId) { mutableStateOf(initial.forecastMode) }
+    var showCurrentConditions by rememberSaveable(widgetId) { mutableStateOf(initial.showCurrentConditions) }
     // null = couleurs automatiques ; 0 reste une couleur transparente explicite.
     var bgColorArgb by rememberSaveable(widgetId) { mutableStateOf(initial.backgroundColorArgb) }
     var textColorArgb by rememberSaveable(widgetId) { mutableStateOf(initial.textColorArgb) }
@@ -613,6 +621,47 @@ private fun WidgetConfigForm(
                     tag = "$TAG_WIDGET_MODE${ForecastMode.CONFIDENCE_ALL.name}",
                     onClick = { forecastMode = ForecastMode.CONFIDENCE_ALL }
                 )
+            }
+        }
+
+        // The separate current-conditions header exists only on tall weather widgets.
+        // Keep it automatically for single-row widgets so they never become empty.
+        if (!insightMode) {
+            Spacer(Modifier.height(16.dp))
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .toggleable(
+                            value = showCurrentConditions,
+                            role = Role.Switch,
+                            onValueChange = { showCurrentConditions = it }
+                        )
+                        .testTag(TAG_WIDGET_SHOW_CURRENT_CONDITIONS)
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.widget_config_show_current_conditions),
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Spacer(Modifier.height(3.dp))
+                        Text(
+                            text = stringResource(R.string.widget_config_show_current_conditions_note),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Switch(checked = showCurrentConditions, onCheckedChange = null)
+                }
             }
         }
 
@@ -881,7 +930,7 @@ private fun WidgetConfigForm(
                 onClick = {
                     selectedCityId?.let { id ->
                         onSave(id, opacityPct.toInt(), forecastMode, bgColorArgb, textColorArgb,
-                            cornerStyle, cornerRadiusDp.toInt(), contentSpacing)
+                            cornerStyle, cornerRadiusDp.toInt(), contentSpacing, showCurrentConditions)
                     }
                 },
                 enabled = selectedCityId != null && opacityIsValid,
@@ -1204,6 +1253,7 @@ internal const val TAG_WIDGET_CORNER_CUSTOM = "widget_corner_custom"
 internal const val TAG_WIDGET_CORNER_RADIUS = "widget_corner_radius"
 internal const val TAG_WIDGET_SPACING = "widget_spacing_"
 internal const val TAG_WIDGET_CONFIG_ROOT = "widget_config_root"
+internal const val TAG_WIDGET_SHOW_CURRENT_CONDITIONS = "widget_show_current_conditions"
 internal const val TAG_WIDGET_RESIZE_TIP = "widget_resize_tip"
 internal const val TAG_WIDGET_CITY = "widget_city_"
 internal const val TAG_WIDGET_OPACITY = "widget_opacity"

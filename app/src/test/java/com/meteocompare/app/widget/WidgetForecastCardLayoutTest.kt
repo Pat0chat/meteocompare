@@ -107,6 +107,21 @@ class WidgetForecastCardLayoutTest {
         assertEquals(ForecastCardHeightProfile.COMPACT, profile)
     }
     @Test
+    fun `hiding current weather expands the timeline and 12h bitmap budgets`() {
+        val timelineWithCurrent = forecastBottomStripAvailableHeightDp(180f, 62f, 7f)
+        val timelineOnly = forecastBottomStripAvailableHeightDp(180f, 0f, 0f)
+        assertTrue(timelineOnly > timelineWithCurrent)
+
+        val bitmapWithCurrent = miniForecastChartHeightDp(
+            180f, 46f, 7f, MiniForecastSizeProfile.MEDIUM_3X2
+        )
+        val bitmapOnly = miniForecastChartHeightDp(
+            180f, 0f, 0f, MiniForecastSizeProfile.MEDIUM_3X2
+        )
+        assertTrue(bitmapOnly > bitmapWithCurrent)
+    }
+
+    @Test
     fun `modern forecast header is hidden when vertical space is critical`() {
         assertTrue(!shouldShowForecastPanelHeader(150f, TwoRowWidgetSizeProfile.VERY_DENSE))
         assertTrue(!shouldShowForecastPanelHeader(160f, TwoRowWidgetSizeProfile.COMPACT))
