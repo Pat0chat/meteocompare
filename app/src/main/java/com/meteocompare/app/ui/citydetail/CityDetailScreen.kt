@@ -8,6 +8,9 @@ import com.meteocompare.app.core.locale.LocalClockFormatPreference
 import com.meteocompare.app.core.locale.WeatherTimeFormat
 
 import com.meteocompare.app.domain.model.UvForecast
+import com.meteocompare.app.domain.usecase.estimatedSunshineHours
+import com.meteocompare.app.ui.components.formatSunshineDuration
+import com.meteocompare.app.ui.components.localizedSunshineDurationFormats
 import com.meteocompare.app.ui.components.UvIndexGauge
 
 import com.meteocompare.app.core.units.WeatherUnit
@@ -54,6 +57,7 @@ import androidx.compose.material.icons.automirrored.filled.CompareArrows
 import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material.icons.filled.Radar
 import androidx.compose.material.icons.outlined.Air
 import androidx.compose.material.icons.outlined.StackedLineChart
@@ -1689,6 +1693,12 @@ internal fun TodaySummaryCard(
     val solarWindow = remember(forecast, today.date) {
         forecast?.let { detailSolarWindow(it, today.date) }
     }
+    val sunshineHours = remember(forecast, today.date) {
+        forecast?.let { estimatedSunshineHours(it, today.date) }
+    }
+    val sunshineText = formatSunshineDuration(
+        sunshineHours, hourly = false, units, LocalConfiguration.current.locales[0], localizedSunshineDurationFormats()
+    )
     val solarZone = remember(forecast?.city?.timezone) {
         resolveCityZone(forecast?.city?.timezone)
     }
@@ -1747,7 +1757,8 @@ internal fun TodaySummaryCard(
     val a11yDescription = temperatureDescription +
         (validApparent?.let { ". " + resources.getString(R.string.apparent_temperature_summary, units.temp(it)) } ?: "") +
         (uvDescription?.let { ". $it" } ?: "") +
-        (solarDescription?.let { ". $it" } ?: "")
+        (solarDescription?.let { ". $it" } ?: "") +
+        (if (expanded && sunshineHours != null) ". ${resources.getString(R.string.compare_sunshine)}: $sunshineText" else "")
     val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val weatherAccent = WeatherAccent.of(currentCondition, isDark)
     val dateLocale = LocalConfiguration.current.locales[0]
@@ -1885,6 +1896,44 @@ internal fun TodaySummaryCard(
                                 modifier = Modifier.weight(1f).testTag("today_summary_dew_point")
                             )
                         }
+                    }
+
+                    if (sunshineHours != null) {
+                        Spacer(Modifier.height(8.dp))
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.65f),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth().testTag(TAG_TODAY_SUMMARY_SUNSHINE)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.WbSunny,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.tertiary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Text(
+                                    text = stringResource(R.string.compare_sunshine),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Text(
+                                    text = sunshineText,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                        Text(
+                            text = stringResource(R.string.compare_sunshine_disclaimer),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 4.dp, start = 2.dp, end = 2.dp)
+                        )
                     }
 
                     if (solarWindow != null) {
@@ -3573,6 +3622,7 @@ internal const val TAG_CONFIDENCE_BADGE = "confidence_badge"
 internal const val TAG_TODAY_SUMMARY_SECTION_DIVIDER = "today_summary_section_divider"
 internal const val TAG_TODAY_SUMMARY_TEMP_PANEL = "today_summary_temp_panel"
 internal const val TAG_TODAY_SUMMARY_APPARENT = "today_summary_apparent"
+internal const val TAG_TODAY_SUMMARY_SUNSHINE = "today_summary_sunshine"
 internal const val TAG_TODAY_SUMMARY_PRECIP_PANEL = "today_summary_precip_panel"
 internal const val TAG_TODAY_SUMMARY_WIND_PANEL = "today_summary_wind_panel"
 internal const val TAG_TODAY_SUMMARY_TEMP_MIN_CENTRAL = "today_summary_temp_min_central"

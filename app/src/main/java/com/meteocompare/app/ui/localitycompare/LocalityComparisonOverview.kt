@@ -47,6 +47,9 @@ import com.meteocompare.app.R
 import com.meteocompare.app.core.units.WeatherUnits
 import com.meteocompare.app.core.util.windCardinal
 import com.meteocompare.app.ui.components.CityLocationDetails
+import com.meteocompare.app.ui.components.formatSunshineDuration
+import com.meteocompare.app.ui.components.SunshineDurationFormats
+import com.meteocompare.app.ui.components.localizedSunshineDurationFormats
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.usecase.LocalityDayMetrics
 import com.meteocompare.app.ui.components.uvIntensityColor
@@ -94,6 +97,7 @@ internal fun LocalityComparisonOverview(
     val colors = MaterialTheme.colorScheme
     val dark = colors.surface.luminance() < .5f
     val sharedHorizontalScroll = rememberScrollState()
+    val sunshineFormats = localizedSunshineDurationFormats()
     Surface(modifier = modifier.fillMaxWidth().testTag("compare_overview"),
         shape = RoundedCornerShape(20.dp), color = colors.surfaceContainerLow) {
         Column(modifier = Modifier.padding(vertical = 9.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -157,7 +161,7 @@ internal fun LocalityComparisonOverview(
                     }
                     cities.forEach { city ->
                         val day = days[city.id]
-                        val value = day?.let { displayDayMetric(spec.kind, it, units, locale) } ?: "—"
+                        val value = day?.let { displayDayMetric(spec.kind, it, units, locale, sunshineFormats) } ?: "—"
                         val percent = day?.let {
                             when (spec.kind) {
                                 CompareChartMetric.RAIN_RISK -> it.rainProbabilityPercent
@@ -253,7 +257,8 @@ internal fun displayDayMetric(
     metric: CompareChartMetric,
     day: LocalityDayMetrics,
     units: WeatherUnits,
-    locale: Locale
+    locale: Locale,
+    sunshineFormats: SunshineDurationFormats
 ): String = when (metric) {
     CompareChartMetric.TEMPERATURE -> "${units.temp(day.minC, locale = locale)} / ${units.temp(day.maxC, locale = locale)}"
     CompareChartMetric.APPARENT -> "${units.temp(day.apparentMinC, locale = locale)} / ${units.temp(day.apparentMaxC, locale = locale)}"
@@ -267,7 +272,7 @@ internal fun displayDayMetric(
         if (day.maxWindKmh == null) speed else
             windCardinal(day.windDirectionDeg, locale)?.let { "$speed · $it" } ?: speed
     }
-    CompareChartMetric.SUNSHINE -> day.estimatedSunHours?.let { "${units.number(it, 1, locale)} h" } ?: "—"
+    CompareChartMetric.SUNSHINE -> formatSunshineDuration(day.estimatedSunHours, hourly = false, units, locale, sunshineFormats)
     CompareChartMetric.AGREEMENT -> day.agreementPercent?.let { "$it %" } ?: "—"
     CompareChartMetric.UV -> day.uvMax?.takeIf { it.isFinite() && it >= 0.0 }?.let { units.number(it, 1, locale) } ?: "—"
 }
@@ -286,6 +291,7 @@ internal fun LocalityHourDetails(
 ) {
     val colors = MaterialTheme.colorScheme
     val sharedHorizontalScroll = rememberScrollState()
+    val sunshineFormats = localizedSunshineDurationFormats()
     // The disclosure state is exposed on the Surface itself. A tag on the inner
     // Column can be hidden by Compose's merged semantics tree on Android tests.
     // Keep the stable component tag on the inner layout for diagnostics.
@@ -322,7 +328,7 @@ internal fun LocalityHourDetails(
                         Text(stringResource(metric.labelRes), modifier = Modifier.width(LABEL_WIDTH),
                             style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
                         cities.forEach { city ->
-                            Text(metric.displayValue(city.hours.getOrNull(selectedHour), units, locale),
+                            Text(metric.displayValue(city.hours.getOrNull(selectedHour), units, locale, sunshineFormats),
                                 modifier = Modifier.width(VALUE_WIDTH).testTag("compare_detail_${metric.name.lowercase()}_${city.id}"),
                                 style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold,
                                 textAlign = TextAlign.Center)

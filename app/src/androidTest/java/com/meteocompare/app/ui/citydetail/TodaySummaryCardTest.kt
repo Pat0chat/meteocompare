@@ -59,6 +59,45 @@ class TodaySummaryCardTest {
     }
 
     @Test
+    fun todaySummaryShowsDailySunshineWhenFullDayCloudForecastExists() {
+        val zone = ZoneId.of("Europe/Paris")
+        val date = TestFixtures.today
+        val start = date.atStartOfDay(zone).toInstant()
+        val end = date.plusDays(1).atStartOfDay(zone).toInstant()
+        val hourCount = java.time.Duration.between(start, end).toHours().toInt()
+        val sunrise = date.atTime(6, 0).atZone(zone).toInstant()
+        val sunset = date.atTime(18, 0).atZone(zone).toInstant()
+        val original = TestFixtures.forecast()
+        val forecast = original.copy(seriesByModel = original.seriesByModel.mapValues { (_, series) ->
+            series.copy(
+                hourly = series.hourly.copy(
+                    timestamps = List(hourCount) { start.plusSeconds(it * 3600L) },
+                    cloudCover = List(hourCount) { 50 }
+                ),
+                daily = series.daily.copy(sunrise = listOf(sunrise), sunset = listOf(sunset))
+            )
+        })
+        render(DayConfidence(date, null, null, null, null), forecast = forecast)
+        composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_SUNSHINE, useUnmergedTree = true)
+            .assertExists()
+        composeRule.onNodeWithText(
+            "6 h",
+            useUnmergedTree = true
+        ).assertExists()
+    }
+
+    @Test
+    fun todaySummaryDoesNotInventSunshineWithoutCloudCoverData() {
+        val original = TestFixtures.forecast()
+        val forecast = original.copy(seriesByModel = original.seriesByModel.mapValues { (_, series) ->
+            series.copy(hourly = series.hourly.copy(cloudCover = emptyList()))
+        })
+        render(DayConfidence(TestFixtures.today, null, null, null, null), forecast = forecast)
+        composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_SUNSHINE, useUnmergedTree = true)
+            .assertDoesNotExist()
+    }
+
+    @Test
     fun today_summary_shows_estimated_felt_temperature_when_available() {
         render(today = DayConfidence(TestFixtures.today, null, null, null, null), currentTemp = 20.0, apparent = 16.0)
         val feels = composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_APPARENT, useUnmergedTree = true)

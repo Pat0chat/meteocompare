@@ -1,5 +1,9 @@
 package com.meteocompare.app.ui.citydetail
 
+import com.meteocompare.app.domain.usecase.estimateHourlySunshineHours
+import com.meteocompare.app.domain.usecase.estimatedSunshineHours
+import com.meteocompare.app.domain.util.forecastSolarWindow
+import com.meteocompare.app.domain.util.nightAt
 import com.meteocompare.app.domain.util.dailyAtmosphericMetrics
 import com.meteocompare.app.domain.util.dailyMoisture
 
@@ -115,6 +119,8 @@ internal data class SimplifiedTimelinePoint(
     val precipitationProbabilityMax: Int? = null,
     /** Couverture nuageuse médiane entre modèles, 0-100%. */
     val cloudCoverPercent: Int? = null,
+    /** Estimated clear-sky-equivalent hours (0..1 hourly, daily daylight total). */
+    val estimatedSunHours: Double? = null,
     val cloudCoverMinAcrossModels: Int? = null,
     val cloudCoverMaxAcrossModels: Int? = null,
     val cloudCoverModelCount: Int = 0,
@@ -224,17 +230,25 @@ private fun buildHourlyTimeline(
 
     // L'analyse conserve toutes les échéances de la fenêtre. La timeline
     // visuelle applique ensuite une grille régulière indépendante des événements.
-    val isNight = com.meteocompare.app.domain.util.forecastNightFlags(forecast, timestamps)
-    return timestamps.mapIndexedNotNull { index, timestamp ->
+    val solarWindows = timestamps.map { it.atZone(zone).toLocalDate() }
+        .distinct().associateWith { date -> forecastSolarWindow(forecast, date) }
+    return timestamps.mapNotNull { timestamp ->
         val snapshots = indexed.mapNotNull { it[timestamp] }
-        timelinePoint(
+        val point = timelinePoint(
             timestamp = timestamp,
             date = null,
             snapshots = snapshots,
             hourly = true,
             calibrationLeadDay = null,
             engineContext = engineContext
-        )?.copy(isNight = isNight[index])
+        ) ?: return@mapNotNull null
+        val solarWindow = requireNotNull(solarWindows[timestamp.atZone(zone).toLocalDate()])
+        point.copy(
+            isNight = nightAt(solarWindow, timestamp),
+            estimatedSunHours = estimateHourlySunshineHours(
+                timestamp, point.cloudCoverPercent, solarWindow
+            )
+        )
     }
 }
 
@@ -269,7 +283,7 @@ private fun buildDailyTimeline(
                 ?.let { issueDate -> ChronoUnit.DAYS.between(issueDate, date).toInt() }
                 ?.takeIf { it in 1..7 },
             engineContext = engineContext
-        )
+        )?.copy(estimatedSunHours = estimatedSunshineHours(forecast, date))
     }
 }
 

@@ -6,6 +6,8 @@ import com.meteocompare.app.core.locale.LocalClockFormatPreference
 import com.meteocompare.app.core.locale.WeatherTimeFormat
 
 import com.meteocompare.app.ui.components.UvIndexCompact
+import com.meteocompare.app.ui.components.formatSunshineDuration
+import com.meteocompare.app.ui.components.localizedSunshineDurationFormats
 import com.meteocompare.app.ui.components.HumidityMetricIcon
 import com.meteocompare.app.ui.components.DewPointMetricIcon
 
@@ -39,6 +41,7 @@ import androidx.compose.material.icons.outlined.Air
 import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Cloud
+import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material.icons.outlined.Thermostat
 import androidx.compose.material.icons.outlined.WarningAmber
@@ -170,6 +173,7 @@ internal fun ChronoTimelineView(
                         ChronoConditionsLane(points = points)
                         ChronoRainLane(points = points)
                         ChronoCloudLane(points = points)
+                        ChronoSunshineLane(points = points)
                         ChronoPressureLane(points = points)
                         ChronoMoistureLane(points = points, humidity = true)
                         ChronoMoistureLane(points = points, humidity = false)
@@ -282,6 +286,13 @@ private fun ChronoLabelsColumn(
                 support = units.label(WeatherUnit.PERCENT),
                 height = CHRONO_CLOUD_HEIGHT,
                 tint = scheme.secondary
+            )
+            ChronoRowLabel(
+                icon = Icons.Filled.WbSunny,
+                title = stringResource(R.string.compare_sunshine),
+                support = "h",
+                height = CHRONO_SUNSHINE_HEIGHT,
+                tint = scheme.tertiary
             )
             ChronoRowLabel(
                 icon = Icons.Outlined.Speed,
@@ -882,6 +893,28 @@ private fun ChronoCloudLane(points: List<SimplifiedTimelinePoint>) {
 }
 
 @Composable
+private fun ChronoSunshineLane(
+    points: List<SimplifiedTimelinePoint>,
+    units: WeatherUnits = LocalWeatherUnits.current
+) {
+    val locale = LocalConfiguration.current.locales[0]
+    val formats = localizedSunshineDurationFormats()
+    Row(modifier = Modifier.fillMaxWidth().height(CHRONO_SUNSHINE_HEIGHT)) {
+        points.forEach { point ->
+            ChronoCell {
+                Text(
+                    text = formatSunshineDuration(point.estimatedSunHours, hourly = point.instant != null, units, locale, formats),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun ChronoPressureLane(
     points: List<SimplifiedTimelinePoint>,
     units: WeatherUnits = LocalWeatherUnits.current
@@ -1262,6 +1295,7 @@ private fun chronoRowHeights(): List<Dp> = listOf(
     CHRONO_CONDITIONS_HEIGHT,
     CHRONO_RAIN_HEIGHT,
     CHRONO_CLOUD_HEIGHT,
+    CHRONO_SUNSHINE_HEIGHT,
     CHRONO_PRESSURE_HEIGHT,
     CHRONO_MOISTURE_HEIGHT,
     CHRONO_MOISTURE_HEIGHT,
@@ -1288,6 +1322,7 @@ private val CHRONO_TEMP_HEIGHT = 118.dp
 private val CHRONO_CONDITIONS_HEIGHT = 65.dp
 private val CHRONO_RAIN_HEIGHT = 60.dp
 private val CHRONO_CLOUD_HEIGHT = 52.dp
+private val CHRONO_SUNSHINE_HEIGHT = 45.dp
 private val CHRONO_PRESSURE_HEIGHT = 52.dp
 private val CHRONO_MOISTURE_HEIGHT = 49.dp
 private val CHRONO_WIND_HEIGHT = 62.dp

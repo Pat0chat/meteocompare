@@ -12,6 +12,11 @@
     <string name="compare_rain_probability">Rain chance</string>
     <string name="compare_cloud_cover">Average cloud cover</string>
     <string name="compare_wind">Maximum wind</string>
+    <!-- Estimated sunshine durations: values are formatted locally, not in decimal hours. -->
+    <string name="sunshine_duration_minutes">%1$s min</string>
+    <string name="sunshine_duration_hours">%1$s hr</string>
+    <string name="sunshine_duration_hours_minutes">%1$s hr %2$s min</string>
+    <string name="sunshine_duration_minute_unit">min</string>
     <string name="compare_sunshine">Estimated sunshine</string>
     <string name="compare_agreement">Model agreement</string>
     <string name="compare_loading">Loading forecasts…</string>

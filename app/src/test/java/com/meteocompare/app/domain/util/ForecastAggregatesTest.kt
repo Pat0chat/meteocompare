@@ -312,6 +312,24 @@ class ForecastAggregatesTest {
     }
 
     @Test
+    fun `cloud cover consensus is aligned with hourly home forecast`() {
+        val forecast = forecastOf(
+            WeatherModel.GFS to hourly(
+                temperatures = listOf(20.0, 21.0),
+                precipitationProbabilities = listOf(0, 0),
+                precipitationAmounts = listOf(0.0, 0.0),
+                cloudCover = listOf(40, null)
+            )
+        )
+        val result = ForecastAggregates.next24h(forecast, now, includeConditions = true)
+        assertEquals(24, result.cloudCoverPercents.size)
+        assertEquals(40, result.cloudCoverPercents[0])
+        assertNull(result.cloudCoverPercents[1])
+        assertNull(result.cloudCoverPercents[23])
+        assertTrue(ForecastAggregates.next24h(forecast, now).cloudCoverPercents.isEmpty())
+    }
+
+    @Test
     fun `home next24h delivers last hour values and aligned conditions`() {
         val temps = List(24) { 11.0 + it }
         val forecast = forecastOf(

@@ -132,7 +132,7 @@ internal fun localityDailyCloudCoverPercent(forecast: CityForecast, date: LocalD
 }
 
 /** Median of independent model estimates avoids over-weighting a dense hourly grid. */
-private fun estimatedSunshineHours(forecast: CityForecast, date: LocalDate): Double? {
+fun estimatedSunshineHours(forecast: CityForecast, date: LocalDate): Double? {
     val zone = resolveZoneOrUtc(forecast.city.timezone)
     // One NOAA fallback per city/date, not one expensive astronomical calculation
     // per model lacking API sunrise/sunset. Individual API windows retain priority.
@@ -195,6 +195,24 @@ fun estimateCloudAdjustedDaylight(
     return (daylightSeconds / 3600.0 * clearSeconds / coveredSeconds).coerceIn(0.0, 24.0)
 }
 
+
+/**
+ * The forecast at 12:00 describes the interval [12:00, 13:00).
+ * Clear-sky-equivalent hours are a cloud-adjusted estimate, not irradiance
+ * (W/m²), observed sunshine duration or photovoltaic energy (kWh).
+ */
+fun estimateHourlySunshineHours(
+    instant: Instant,
+    cloudCoverPercent: Int?,
+    solarWindow: ForecastSolarWindow
+): Double? {
+    val clouds = cloudCoverPercent?.takeIf { it in 0..100 } ?: return null
+    if (!solarWindow.isValid) return null
+    val start = maxOf(instant, requireNotNull(solarWindow.sunrise))
+    val end = minOf(instant.plusSeconds(3_600), requireNotNull(solarWindow.sunset))
+    val seconds = maxOf(0L, end.epochSecond - start.epochSecond)
+    return (seconds / 3600.0 * (100 - clouds) / 100.0).coerceIn(0.0, 1.0)
+}
 
 /** Values for a single **local wall-clock hour**, not an absolute global instant.
  * All cities show the same clock hour on the selected date. DST gaps have no
@@ -287,14 +305,7 @@ fun buildLocalityHourMetrics(
         else data.windDirection10m.getOrNull(i)
     })
     val window = solarWindow ?: forecastSolarWindow(forecast, date)
-    val sunHours = if (clouds != null && window.isValid) {
-        val sunrise = requireNotNull(window.sunrise)
-        val sunset = requireNotNull(window.sunset)
-        val start = maxOf(instant, sunrise)
-        val end = minOf(instant.plusSeconds(3600), sunset)
-        val seconds = maxOf(0L, end.epochSecond - start.epochSecond)
-        (seconds / 3600.0 * (100 - clouds) / 100.0).coerceIn(0.0, 1.0)
-    } else null
+    val sunHours = estimateHourlySunshineHours(instant, clouds, window)
     return LocalityHourMetrics(
         instant = instant,
         temperatureC = temperature,

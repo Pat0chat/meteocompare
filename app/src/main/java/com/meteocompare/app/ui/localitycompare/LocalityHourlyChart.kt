@@ -54,6 +54,9 @@ import com.meteocompare.app.R
 import com.meteocompare.app.core.units.WeatherUnits
 import com.meteocompare.app.core.util.windCardinal
 import com.meteocompare.app.domain.usecase.LocalityHourMetrics
+import com.meteocompare.app.ui.components.formatSunshineDuration
+import com.meteocompare.app.ui.components.SunshineDurationFormats
+import com.meteocompare.app.ui.components.localizedSunshineDurationFormats
 import com.meteocompare.app.ui.theme.temperatureMetricAccent
 import com.meteocompare.app.ui.theme.precipitationMetricAccent
 import com.meteocompare.app.ui.theme.windMetricAccent
@@ -93,7 +96,7 @@ internal enum class CompareChartMetric(val labelRes: Int) {
         UV -> hour?.uvIndex
     }?.takeIf(Double::isFinite)
 
-    fun displayValue(hour: LocalityHourMetrics?, units: WeatherUnits, locale: Locale): String {
+    fun displayValue(hour: LocalityHourMetrics?, units: WeatherUnits, locale: Locale, sunshineFormats: SunshineDurationFormats): String {
         val value = rawValue(hour) ?: return "—"
         return when (this) {
             TEMPERATURE, APPARENT, DEW_POINT -> units.temp(value, locale = locale)
@@ -103,7 +106,7 @@ internal enum class CompareChartMetric(val labelRes: Int) {
                 windCardinal(hour?.windDirectionDeg, locale)?.let { "$speed · $it" } ?: speed
             }
             RAIN_RISK, CLOUDS, HUMIDITY, AGREEMENT -> "${value.roundToInt()} %"
-            SUNSHINE -> "${units.number(value, 1, locale)} h"
+            SUNSHINE -> formatSunshineDuration(value, hourly = true, units, locale, sunshineFormats)
             UV -> units.number(value, 1, locale)
         }
     }
@@ -115,6 +118,7 @@ internal enum class CompareChartMetric(val labelRes: Int) {
             PRESSURE -> units.pressure(it)
             RAIN -> units.precipitation(it)
             WIND -> units.wind(it)
+            SUNSHINE -> it * 60.0
             else -> it
         }
     }
@@ -145,7 +149,7 @@ internal fun metricChartRange(points: List<List<Double?>>, metric: CompareChartM
         CompareChartMetric.TEMPERATURE, CompareChartMetric.APPARENT, CompareChartMetric.PRESSURE, CompareChartMetric.DEW_POINT -> data
         CompareChartMetric.RAIN_RISK, CompareChartMetric.CLOUDS, CompareChartMetric.HUMIDITY, CompareChartMetric.AGREEMENT ->
             ChartRange(0.0, 100.0, true)
-        CompareChartMetric.SUNSHINE -> ChartRange(0.0, 1.0, true)
+        CompareChartMetric.SUNSHINE -> ChartRange(0.0, 60.0, true)
         else -> {
             val maximum = points.asSequence().flatMap { it.asSequence() }
                 .filterNotNull().filter { it.isFinite() }.maxOrNull() ?: 0.0
@@ -154,13 +158,13 @@ internal fun metricChartRange(points: List<List<Double?>>, metric: CompareChartM
     }
 }
 
-internal fun chartAxisUnit(metric: CompareChartMetric, units: WeatherUnits): String = when (metric) {
+internal fun chartAxisUnit(metric: CompareChartMetric, units: WeatherUnits, sunshineMinuteUnit: String): String = when (metric) {
     CompareChartMetric.TEMPERATURE, CompareChartMetric.APPARENT, CompareChartMetric.DEW_POINT -> units.temperatureUnit
     CompareChartMetric.PRESSURE -> units.label(com.meteocompare.app.core.units.WeatherUnit.PRESSURE)
     CompareChartMetric.RAIN -> units.precipitationUnit
     CompareChartMetric.WIND -> units.windUnit
     CompareChartMetric.RAIN_RISK, CompareChartMetric.CLOUDS, CompareChartMetric.HUMIDITY, CompareChartMetric.AGREEMENT -> "%"
-    CompareChartMetric.SUNSHINE -> "h"
+    CompareChartMetric.SUNSHINE -> sunshineMinuteUnit
     CompareChartMetric.UV -> "UV"
 }
 
@@ -169,7 +173,8 @@ internal fun chartAxisLabel(value: Double, step: Double, metric: CompareChartMet
                             units: WeatherUnits, locale: Locale): String {
     val digits = when (metric) {
         CompareChartMetric.RAIN -> if (units.imperial) 2 else if (step < 1) 1 else 0
-        CompareChartMetric.SUNSHINE, CompareChartMetric.UV -> if (step < 1) 1 else 0
+        CompareChartMetric.SUNSHINE -> 0
+        CompareChartMetric.UV -> if (step < 1) 1 else 0
         CompareChartMetric.TEMPERATURE, CompareChartMetric.APPARENT, CompareChartMetric.DEW_POINT, CompareChartMetric.WIND -> if (step < 1) 1 else 0
         CompareChartMetric.PRESSURE -> if (units.imperial) 2 else if (step < 1) 1 else 0
         else -> 0
@@ -230,7 +235,8 @@ internal fun LocalityHourlyChart(
     )
     val points = remember(cities, units, metric) { chartPoints(cities, metric, units) }
     val range = remember(points, metric) { metricChartRange(points, metric) }
-    val axisUnit = chartAxisUnit(metric, units)
+    val sunshineFormats = localizedSunshineDurationFormats()
+    val axisUnit = chartAxisUnit(metric, units, sunshineFormats.minuteUnit)
     val textMeasurer = rememberTextMeasurer()
     val tickStyle = TextStyle(color = palette.onSurfaceVariant, fontSize = 10.sp)
     val axisValues = remember(range) { (0..4).map { index -> range.upper - (range.upper - range.lower) * index / 4 } }
@@ -457,7 +463,7 @@ internal fun LocalityHourlyChart(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(city.name, style = MaterialTheme.typography.labelSmall,
                             color = lineColors[index % lineColors.size], maxLines = 1)
-                        Text(metric.displayValue(city.hours.getOrNull(selectedHour), units, locale),
+                        Text(metric.displayValue(city.hours.getOrNull(selectedHour), units, locale, sunshineFormats),
                             style = MaterialTheme.typography.titleMedium,
                             maxLines = 1, overflow = TextOverflow.Ellipsis,
                             color = palette.onSurface,

@@ -38,6 +38,64 @@ class SimplifiedTimelineCardTest {
     }
 
     @Test
+    fun sunshineColumnsShowMinutesHourlyAndHoursDaily() {
+        val now = Instant.parse("2026-07-26T12:00:00Z")
+        setContentWith24HourClock {
+            MeteoCompareTheme {
+                SimplifiedTimelineCard(
+                    points = listOf(SimplifiedTimelinePoint(instant = now, estimatedSunHours = 0.3)),
+                    mode = DisplayMode.HOURLY, timezone = "UTC", now = now
+                )
+            }
+        }
+        composeRule.onNodeWithText("18 min", useUnmergedTree = true).assertExists()
+    }
+
+    @Test
+    fun sunshineChronoShowsHourlyMinutes() {
+        val now = Instant.parse("2026-07-26T12:00:00Z")
+        setContentWith24HourClock {
+            MeteoCompareTheme {
+                ChronoTimelineView(
+                    points = listOf(SimplifiedTimelinePoint(instant = now, estimatedSunHours = 0.3)),
+                    mode = DisplayMode.HOURLY, timezone = "UTC", now = now
+                )
+            }
+        }
+        composeRule.onNodeWithText("18 min", useUnmergedTree = true).assertExists()
+    }
+
+    @Test
+    fun sunshineDailyColumnsKeepHours() {
+        val now = Instant.parse("2026-07-26T12:00:00Z")
+        setContentWith24HourClock {
+            MeteoCompareTheme {
+                SimplifiedTimelineCard(
+                    points = listOf(SimplifiedTimelinePoint(date = java.time.LocalDate.of(2026, 7, 26), estimatedSunHours = 1.2)),
+                    mode = DisplayMode.DAILY, timezone = "UTC", now = now
+                )
+            }
+        }
+        val expected = "1 h 12 min"
+        composeRule.onNodeWithText(expected, useUnmergedTree = true).assertExists()
+    }
+
+    @Test
+    fun sunshineDailyChronoKeepsHours() {
+        val now = Instant.parse("2026-07-26T12:00:00Z")
+        setContentWith24HourClock {
+            MeteoCompareTheme {
+                ChronoTimelineView(
+                    points = listOf(SimplifiedTimelinePoint(date = java.time.LocalDate.of(2026, 7, 26), estimatedSunHours = 1.2)),
+                    mode = DisplayMode.DAILY, timezone = "UTC", now = now
+                )
+            }
+        }
+        val expected = "1 h 12 min"
+        composeRule.onNodeWithText(expected, useUnmergedTree = true).assertExists()
+    }
+
+    @Test
     fun columns_show_estimated_felt_temperature_only_for_hourly_available_values() {
         val point = SimplifiedTimelinePoint(
             instant = Instant.parse("2026-07-26T16:00:00Z"),

@@ -6,6 +6,8 @@ import com.meteocompare.app.core.locale.LocalClockFormatPreference
 import com.meteocompare.app.core.locale.WeatherTimeFormat
 
 import com.meteocompare.app.ui.components.UvIndexCompact
+import com.meteocompare.app.ui.components.formatSunshineDuration
+import com.meteocompare.app.ui.components.localizedSunshineDurationFormats
 import com.meteocompare.app.ui.components.HumidityMetricIcon
 import com.meteocompare.app.ui.components.DewPointMetricIcon
 
@@ -42,6 +44,7 @@ import androidx.compose.material.icons.outlined.Air
 import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Cloud
+import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material.icons.outlined.Thermostat
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material.icons.outlined.WaterDrop
@@ -183,6 +186,12 @@ internal fun SimplifiedTimelineCard(
             )
 
             if (expanded) {
+                Text(
+                    text = stringResource(R.string.compare_sunshine_disclaimer),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 Spacer(Modifier.height(8.dp))
 
                 if (
@@ -743,6 +752,14 @@ private fun TimelinePointColumn(
             icon = Icons.Outlined.Cloud,
             value = point.cloudCoverPercent?.let { "$it%" } ?: "—",
             tint = MaterialTheme.colorScheme.secondary
+        )
+        TimelineMetric(
+            icon = Icons.Filled.WbSunny,
+            value = formatSunshineDuration(
+                point.estimatedSunHours, hourly = point.instant != null, units, LocalConfiguration.current.locales[0], localizedSunshineDurationFormats()
+            ),
+            tint = MaterialTheme.colorScheme.tertiary,
+            semanticLabel = stringResource(R.string.compare_sunshine)
         )
 
         TimelineMetric(

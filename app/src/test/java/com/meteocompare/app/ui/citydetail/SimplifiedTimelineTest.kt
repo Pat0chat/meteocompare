@@ -49,6 +49,61 @@ class SimplifiedTimelineTest {
     }
 
     @Test
+    fun `estimated sunshine appears hourly and daily without counting the night`() {
+        val start = Instant.parse("2026-07-23T10:00:00Z")
+        val timestamps = List(5) { start.plusSeconds(it * 3_600L) }
+        val series = ForecastSeries(
+            model = WeatherModel.GFS,
+            hourly = HourlyForecast(
+                timestamps = timestamps,
+                temperature2m = List(5) { 20.0 },
+                precipitation = List(5) { 0.0 },
+                windSpeed10m = List(5) { 12.0 },
+                cloudCover = List(5) { 40 }
+            ),
+            daily = DailyForecast(
+                dates = listOf(today),
+                tempMax = listOf(22.0), tempMin = listOf(12.0),
+                precipitationSum = listOf(0.0), windSpeedMax = listOf(15.0),
+                sunrise = listOf(start.plusSeconds(1_800)),
+                sunset = listOf(start.plusSeconds(9_000))
+            )
+        )
+        val forecast = CityForecast(
+            paris.copy(timezone = "UTC"), mapOf(WeatherModel.GFS to series)
+        )
+        val hourly = buildSimplifiedTimeline(forecast, DisplayMode.HOURLY, start)
+        assertEquals(5, hourly.size)
+        assertEquals(0.3, hourly[0].estimatedSunHours!!, 0.0001)
+        assertEquals(0.6, hourly[1].estimatedSunHours!!, 0.0001)
+        assertEquals(0.3, hourly[2].estimatedSunHours!!, 0.0001)
+        assertEquals(0.0, hourly[3].estimatedSunHours!!, 0.0001)
+        assertEquals(0.0, hourly[4].estimatedSunHours!!, 0.0001)
+        val daily = buildSimplifiedTimeline(forecast, DisplayMode.DAILY, start)
+        assertEquals(1.2, daily.single().estimatedSunHours!!, 0.0001)
+    }
+
+    @Test
+    fun `missing clouds do not fabricate sunshine`() {
+        val series = ForecastSeries(
+            model = WeatherModel.GFS,
+            hourly = HourlyForecast(
+                timestamps = listOf(now),
+                temperature2m = listOf(19.0),
+                precipitation = listOf(0.0), windSpeed10m = listOf(5.0)
+            ),
+            daily = DailyForecast(
+                dates = listOf(today),
+                tempMax = listOf(21.0), tempMin = listOf(10.0),
+                precipitationSum = listOf(0.0), windSpeedMax = listOf(8.0)
+            )
+        )
+        val forecast = CityForecast(paris, mapOf(WeatherModel.GFS to series))
+        assertEquals(null, buildSimplifiedTimeline(forecast, DisplayMode.HOURLY, now).single().estimatedSunHours)
+        assertEquals(null, buildSimplifiedTimeline(forecast, DisplayMode.DAILY, now).single().estimatedSunHours)
+    }
+
+    @Test
     fun `shared overview preserves hourly selection and daily fallback`() {
         for (hourCount in listOf(0, 1, 2, 24)) {
             val series = ForecastSeries(

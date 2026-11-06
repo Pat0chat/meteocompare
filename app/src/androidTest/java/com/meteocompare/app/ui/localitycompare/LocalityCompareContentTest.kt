@@ -98,6 +98,64 @@ class LocalityCompareContentTest {
         }
     }
 
+    @Test fun comparisonShowsDailySunshineHoursAndHourlyMinutes() {
+        val sample = com.meteocompare.app.domain.usecase.LocalityHourMetrics(
+            instant = java.time.Instant.parse("2026-06-20T12:00:00Z"),
+            temperatureC = null, precipitationMm = null,
+            rainProbabilityPercent = null, cloudCoverPercent = null,
+            windKmh = null, estimatedSunHours = 0.3,
+            agreementPercent = null, uvIndex = null, modelCount = 1
+        )
+        val day = com.meteocompare.app.domain.usecase.LocalityDayMetrics(
+            date = LocalDate.of(2026, 6, 20), minC = null, maxC = null,
+            precipitationMm = null, rainProbabilityPercent = null,
+            cloudCoverPercent = null, maxWindKmh = null,
+            estimatedSunHours = 1.2, agreementPercent = null, modelCount = 1
+        )
+        compose.setContent {
+            MaterialTheme {
+                Column {
+                    LocalityComparisonOverview(
+                        cities = listOf(cities[0]), days = mapOf("paris" to day),
+                        forecasts = emptyMap(), units = WeatherUnits(), locale = Locale.FRANCE,
+                        selectedMetric = CompareChartMetric.SUNSHINE, onMetricSelected = {}
+                    )
+                    LocalityHourDetails(
+                        cities = listOf(HourChartCity("paris", "Paris", List(24) { if (it == 12) sample else null })),
+                        selectedHour = 12, hourLabel = "12h", expanded = true, onToggle = {},
+                        units = WeatherUnits(), locale = Locale.FRANCE
+                    )
+                }
+            }
+        }
+        compose.onNodeWithTag("compare_value_sunshine_paris", useUnmergedTree = true)
+            .assertTextEquals("1 h 12 min")
+        compose.onNodeWithTag("compare_detail_sunshine_paris", useUnmergedTree = true)
+            .assertTextEquals("18 min")
+    }
+
+    @Test fun sunshineHourlyChartAxisIsMeasuredInMinutes() {
+        val sample = com.meteocompare.app.domain.usecase.LocalityHourMetrics(
+            instant = java.time.Instant.parse("2026-06-20T12:00:00Z"),
+            temperatureC = null, precipitationMm = null,
+            rainProbabilityPercent = null, cloudCoverPercent = null,
+            windKmh = null, estimatedSunHours = 0.3,
+            agreementPercent = null, uvIndex = null, modelCount = 1
+        )
+        compose.setContent {
+            MaterialTheme {
+                LocalityHourlyChart(
+                    cities = listOf(HourChartCity("paris", "Paris", List(24) { if (it == 12) sample else null })),
+                    units = WeatherUnits(), locale = Locale.FRANCE,
+                    hourFormatter = WeatherTimeFormat.hourPadded(Locale.FRANCE, ClockFormatPreference.HOUR_24),
+                    selectedHour = 12, onHourSelected = {},
+                    metric = CompareChartMetric.SUNSHINE, onMetricSelected = {}
+                )
+            }
+        }
+        compose.onNodeWithTag("compare_chart_axis_unit").assertTextContains("min", substring = true)
+    }
+
     @Test fun chartAxesShowUnitsAndUpdateWithTheMetricAndUkProfile() {
         compose.setContent {
             var metric by remember { mutableStateOf(CompareChartMetric.TEMPERATURE) }

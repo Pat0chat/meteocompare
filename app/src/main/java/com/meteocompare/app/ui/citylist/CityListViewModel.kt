@@ -25,6 +25,9 @@ import com.meteocompare.app.domain.repository.MarineRepository
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
 import com.meteocompare.app.domain.repository.VigilanceRepository
 import com.meteocompare.app.domain.repository.UvIndexRepository
+import com.meteocompare.app.domain.usecase.estimatedSunshineHours
+import com.meteocompare.app.domain.usecase.estimateHourlySunshineHours
+import com.meteocompare.app.domain.util.forecastSolarWindow
 import com.meteocompare.app.domain.usecase.ConfidenceCalculator
 import com.meteocompare.app.domain.usecase.ForecastConsensus
 import com.meteocompare.app.domain.usecase.ForecastEngineContextProvider
@@ -1265,6 +1268,15 @@ class CityListViewModel @Inject constructor(
                     includeConditions = true,
                     engineContext = engineContext
                 )
+                val sunshineWindows = mutableMapOf<java.time.LocalDate, com.meteocompare.app.domain.util.ForecastSolarWindow>()
+                val hourlySunshine = miniForecast.cloudCoverPercents.mapIndexed { offset, clouds ->
+                    val instant = miniForecast.startInstant.plusSeconds(offset * 3_600L)
+                    val date = instant.atZone(zone).toLocalDate()
+                    val window = sunshineWindows.getOrPut(date) {
+                        forecastSolarWindow(result.data, date)
+                    }
+                    estimateHourlySunshineHours(instant, clouds, window)
+                }
                 val scenarios = WeatherScenarioBuilder.next12h(result.data, now)
                 ForecastState.Loaded(
                     today = confidenceCalculator.dayConfidence(result.data, today, engineContext),
@@ -1288,6 +1300,12 @@ class CityListViewModel @Inject constructor(
                     next24hPrecipProb = miniForecast.precipitationProbabilities,
                     next24hPrecipMm = miniForecast.precipitationAmountsMm,
                     next24hConditions = miniForecast.conditions,
+                    next24hSunshineHours = hourlySunshine,
+                    next5dSunshineHours = List(5) { offset ->
+                        today.plusDays(offset.toLong()).let { date ->
+                            date to estimatedSunshineHours(result.data, date)
+                        }
+                    },
                     next12hScenarios = scenarios,
                     // L'agrégateur expose l'échéance réellement échantillonnée
                     // (ex. 13:00 à 12:56), donc le label ne peut plus dériver.

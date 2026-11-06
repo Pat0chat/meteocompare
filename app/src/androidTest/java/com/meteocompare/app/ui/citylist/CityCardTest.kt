@@ -56,6 +56,20 @@ class CityCardTest {
     }
 
     @Test
+    fun expanded_card_shows_hourly_minutes_and_readable_daily_total() {
+        render(ForecastState.Loaded(
+            today = DayConfidence(TestFixtures.today, null, null, null, null),
+            currentTemp = 20.0,
+            hourlyStartInstant = TestFixtures.now,
+            next24hSunshineHours = listOf(0.3, 0.0, null),
+            next5dSunshineHours = listOf(TestFixtures.today to 1.2)
+        ))
+        composeRule.onNodeWithTag("home_sunshine_forecast", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText("18 min", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText("1 h 12 min", useUnmergedTree = true).assertExists()
+    }
+
+    @Test
     fun loaded_card_formats_temperature_and_dry_precipitation() {
         render(
             ForecastState.Loaded(

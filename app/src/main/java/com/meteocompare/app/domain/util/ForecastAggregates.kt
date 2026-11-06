@@ -9,6 +9,7 @@ import com.meteocompare.app.domain.usecase.ForecastConsensus
 import com.meteocompare.app.domain.usecase.ForecastEngineV3
 import com.meteocompare.app.domain.usecase.WeatherConditionConsensus
 import java.time.Instant
+import kotlin.math.roundToInt
 
 /** Résultat agrégé utilisé par la liste des villes et le mini-forecast widget. */
 internal data class HourlyForecastAggregate(
@@ -16,7 +17,9 @@ internal data class HourlyForecastAggregate(
     val temperatures: List<Double?>,
     val precipitationProbabilities: List<Int?>,
     val precipitationAmountsMm: List<Double?>,
-    val conditions: List<WeatherCondition?>
+    val conditions: List<WeatherCondition?>,
+    /** Consensus cloud cover, available when conditions were requested. */
+    val cloudCoverPercents: List<Int?> = emptyList()
 )
 
 /**
@@ -54,6 +57,7 @@ internal object ForecastAggregates {
         val probabilities = ArrayList<Int?>(hourCount)
         val amounts = ArrayList<Double?>(hourCount)
         val conditions = if (includeConditions) ArrayList<WeatherCondition?>(hourCount) else null
+        val clouds = if (includeConditions) ArrayList<Int?>(hourCount) else null
         val startInstant = HourlySampling.anchor(forecast, now)
 
         repeat(hourCount) { hourOffset ->
@@ -122,6 +126,7 @@ internal object ForecastAggregates {
                         max = 100.0
                     )
                 ).central
+                clouds?.add(cloudCentral?.takeIf(Double::isFinite)?.roundToInt()?.coerceIn(0, 100))
                 val supportModels = buildSet {
                     addAll(tempRows.map { it.model })
                     addAll(precipRows.map { it.model })
@@ -139,7 +144,9 @@ internal object ForecastAggregates {
             }
         }
 
-        return HourlyForecastAggregate(startInstant, temperatures, probabilities, amounts, conditions.orEmpty())
+        return HourlyForecastAggregate(
+            startInstant, temperatures, probabilities, amounts, conditions.orEmpty(), clouds.orEmpty()
+        )
     }
 
     /**

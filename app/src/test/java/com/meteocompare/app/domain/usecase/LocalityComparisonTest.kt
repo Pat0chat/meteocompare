@@ -41,6 +41,30 @@ class LocalityComparisonTest {
         assertNull(estimateCloudAdjustedDaylight(set, rise, listOf(rise), listOf(0)))
     }
 
+    @Test fun hourlySunshine_isIntervalFollowingLabelAndClippedToDaylight() {
+        val solar = com.meteocompare.app.domain.util.ForecastSolarWindow(
+            Instant.parse("2026-06-20T12:30:00Z"),
+            Instant.parse("2026-06-20T15:30:00Z")
+        )
+        // 12:00-13:00: 30 minutes of daylight at 40% clouds -> 0.3 h.
+        assertEquals(0.3, requireNotNull(estimateHourlySunshineHours(
+            Instant.parse("2026-06-20T12:00:00Z"), 40, solar
+        )), 0.0001)
+        // 13:00-14:00: whole daylight hour, 40% clouds -> 0.6 h.
+        assertEquals(0.6, requireNotNull(estimateHourlySunshineHours(
+            Instant.parse("2026-06-20T13:00:00Z"), 40, solar
+        )), 0.0001)
+        assertEquals(0.0, requireNotNull(estimateHourlySunshineHours(
+            Instant.parse("2026-06-20T11:00:00Z"), 40, solar
+        )), 0.0001)
+        assertNull(estimateHourlySunshineHours(
+            Instant.parse("2026-06-20T13:00:00Z"), null, solar
+        ))
+        assertNull(estimateHourlySunshineHours(
+            Instant.parse("2026-06-20T13:00:00Z"), 101, solar
+        ))
+    }
+
     @Test fun dailyMetrics_followExplicitDateAndIgnoreMissingDays() {
         val daily = DailyForecast(
             dates = listOf(day),
