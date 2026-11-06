@@ -56,10 +56,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.CompareArrows
 import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material.icons.filled.Radar
 import androidx.compose.material.icons.outlined.Air
 import androidx.compose.material.icons.outlined.StackedLineChart
@@ -1904,67 +1901,6 @@ internal fun TodaySummaryCard(
                         }
                     }
 
-                    if (sunshineHours != null) {
-                        Spacer(Modifier.height(8.dp))
-                        Surface(
-                            onClick = { sunshineExplanationExpanded = !sunshineExplanationExpanded },
-                            color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.65f),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag(TAG_TODAY_SUMMARY_SUNSHINE)
-                                .semantics {
-                                    stateDescription = resources.getString(
-                                        if (sunshineExplanationExpanded) R.string.section_state_expanded
-                                        else R.string.section_state_collapsed
-                                    )
-                                }
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.WbSunny,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.tertiary,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Text(
-                                    text = stringResource(R.string.compare_sunshine),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                Text(
-                                    text = sunshineText,
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                Icon(
-                                    imageVector = if (sunshineExplanationExpanded) {
-                                        Icons.Filled.KeyboardArrowUp
-                                    } else {
-                                        Icons.Filled.KeyboardArrowDown
-                                    },
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                        }
-                        if (sunshineExplanationExpanded) {
-                            Text(
-                                text = stringResource(R.string.compare_sunshine_disclaimer),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier
-                                    .padding(top = 4.dp, start = 2.dp, end = 2.dp)
-                                    .testTag(TAG_TODAY_SUMMARY_SUNSHINE_EXPLANATION)
-                            )
-                        }
-                    }
-
                     if (solarWindow != null) {
                         Spacer(Modifier.height(8.dp))
                         DetailSolarCard(
@@ -1972,7 +1908,10 @@ internal fun TodaySummaryCard(
                             timezone = solarZone,
                             date = today.date,
                             now = now,
-                            uvIndex = uvIndex
+                            uvIndex = uvIndex,
+                            sunshineText = sunshineText.takeIf { sunshineHours != null },
+                            sunshineExplanationExpanded = sunshineExplanationExpanded,
+                            onSunshineExplanationToggle = { sunshineExplanationExpanded = !sunshineExplanationExpanded }
                         )
                         if (today.tempMin != null || today.tempMax != null ||
                             today.precipitation != null || today.windMax != null ||
@@ -1981,11 +1920,22 @@ internal fun TodaySummaryCard(
                             SummarySectionDivider()
                             Spacer(Modifier.height(6.dp))
                         }
-                    } else if (uvIndex != null && uvIndex.isFinite() && uvIndex >= 0.0) {
-                        // Sans données solaires (prévisions absentes), conserver
-                        // l'indice UV accessible au lieu de le masquer.
-                        Spacer(Modifier.height(10.dp))
-                        UvIndexGauge(value = uvIndex, modifier = Modifier.fillMaxWidth())
+                    } else {
+                        // Cas rare sans fenêtre solaire : l'estimation disponible
+                        // doit rester visible même si Daylight ne peut être calculé.
+                        if (sunshineHours != null) {
+                            EstimatedSunshineSolarPill(
+                                text = sunshineText,
+                                expanded = sunshineExplanationExpanded,
+                                onToggle = { sunshineExplanationExpanded = !sunshineExplanationExpanded },
+                                accent = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        if (uvIndex != null && uvIndex.isFinite() && uvIndex >= 0.0) {
+                            // Conserver l'indice UV lorsque les heures solaires manquent.
+                            Spacer(Modifier.height(10.dp))
+                            UvIndexGauge(value = uvIndex, modifier = Modifier.fillMaxWidth())
+                        }
                     }
                     DetailMetricGrid(
                         today = today,
@@ -2443,7 +2393,9 @@ internal fun SummaryMetricGroupHeader(
     title: String,
     icon: ImageVector,
     accent: Color,
-    trailing: String? = null
+    trailing: String? = null,
+    trailingModifier: Modifier = Modifier,
+    trailingContent: (@Composable () -> Unit)? = null
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(bottom = 3.dp),
@@ -2464,18 +2416,57 @@ internal fun SummaryMetricGroupHeader(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
         )
-        trailing?.let { detail ->
+        if (trailingContent != null) {
             Spacer(Modifier.width(6.dp))
-            Surface(color = accent.copy(alpha = 0.10f), shape = CircleShape) {
-                Text(
+            // Réserve de la place au titre même sur les petits écrans / langues longues.
+            Box(modifier = Modifier.weight(2.8f, fill = false), contentAlignment = Alignment.CenterEnd) {
+                trailingContent()
+            }
+        } else {
+            trailing?.let { detail ->
+                Spacer(Modifier.width(6.dp))
+                SummaryMetricTrailingPill(
                     text = detail,
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = accent,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                    accent = accent,
+                    modifier = trailingModifier
                 )
+            }
+        }
+    }
+}
+
+/** Même rendu pour les durées Daylight et Estimated sunshine. */
+@Composable
+internal fun SummaryMetricTrailingPill(
+    text: String,
+    accent: Color,
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+    trailingIcon: ImageVector? = null,
+    maxLines: Int = 1,
+    textAlign: TextAlign = TextAlign.Start
+) {
+    Surface(
+        color = accent.copy(alpha = 0.10f),
+        shape = CircleShape,
+        modifier = modifier.then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = accent,
+                maxLines = maxLines,
+                textAlign = textAlign,
+                overflow = TextOverflow.Ellipsis
+            )
+            trailingIcon?.let { icon ->
+                Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(14.dp))
             }
         }
     }

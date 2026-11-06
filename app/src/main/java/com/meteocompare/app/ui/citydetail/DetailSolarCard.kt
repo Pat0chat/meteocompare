@@ -7,15 +7,20 @@ import com.meteocompare.app.ui.components.UvIndexGauge
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -31,8 +36,11 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.meteocompare.app.R
@@ -71,7 +79,10 @@ internal fun DetailSolarCard(
     date: LocalDate,
     now: Instant,
     modifier: Modifier = Modifier,
-    uvIndex: Double? = null
+    uvIndex: Double? = null,
+    sunshineText: String? = null,
+    sunshineExplanationExpanded: Boolean = false,
+    onSunshineExplanationToggle: () -> Unit = {}
 ) {
     val locale = LocalConfiguration.current.locales[0]
     val formatter = WeatherTimeFormat.clock(locale, LocalClockFormatPreference.current)
@@ -92,14 +103,24 @@ internal fun DetailSolarCard(
     // Même structure que Température / Précipitations / Vent : aucune carte
     // imbriquée, la section est posée directement sur TodaySummaryCard.
     SummaryMetricSection(tag = TAG_DETAIL_SOLAR_CARD, modifier = modifier) {
+        // Le soleil estimé partage la ligne du titre ; la durée du jour
+        // est affichée au milieu des horaires, directement sous la courbe.
         SummaryMetricGroupHeader(
             title = stringResource(R.string.detail_solar_title),
             icon = Icons.Filled.WbSunny,
             accent = sunriseColor,
-            trailing = minutesOfDaylight?.let {
-                stringResource(R.string.detail_solar_daylight, it / 60, it % 60)
-            }
+            trailingContent = if (sunshineText != null) {
+                {
+                    EstimatedSunshineValuePill(
+                        text = sunshineText,
+                        expanded = sunshineExplanationExpanded,
+                        onToggle = onSunshineExplanationToggle,
+                        accent = sunriseColor
+                    )
+                }
+            } else null
         )
+        SunshineExplanation(expanded = sunshineExplanationExpanded && sunshineText != null)
 
         Spacer(Modifier.height(3.dp))
         Canvas(modifier = Modifier.fillMaxWidth().height(40.dp).testTag(TAG_DETAIL_SOLAR_CURVE)) {
@@ -156,23 +177,41 @@ internal fun DetailSolarCard(
         // (x = 12 dp et x = largeur - 12 dp), et non deux colonnes 50/50.
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.Top
         ) {
-            SolarTimeValue(
-                icon = Icons.Filled.WbSunny,
-                label = stringResource(R.string.detail_solar_sunrise),
-                value = sunriseTime?.format(formatter) ?: "—",
-                tint = sunriseColor,
-                iconAtEnd = false
-            )
-            SolarTimeValue(
-                icon = Icons.Filled.Bedtime,
-                label = stringResource(R.string.detail_solar_sunset),
-                value = sunsetTime?.format(formatter) ?: "—",
-                tint = sunsetColor,
-                iconAtEnd = true
-            )
+            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.TopStart) {
+                SolarTimeValue(
+                    icon = Icons.Filled.WbSunny,
+                    label = stringResource(R.string.detail_solar_sunrise),
+                    value = sunriseTime?.format(formatter) ?: "—",
+                    tint = sunriseColor,
+                    iconAtEnd = false
+                )
+            }
+            Box(modifier = Modifier.weight(1.5f), contentAlignment = Alignment.TopCenter) {
+                if (minutesOfDaylight != null) {
+                    SummaryMetricTrailingPill(
+                        text = stringResource(
+                            R.string.detail_solar_daylight,
+                            minutesOfDaylight / 60,
+                            minutesOfDaylight % 60
+                        ),
+                        accent = sunriseColor,
+                        maxLines = 2,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.testTag(TAG_DETAIL_SOLAR_DAYLIGHT_VALUE)
+                    )
+                }
+            }
+            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.TopEnd) {
+                SolarTimeValue(
+                    icon = Icons.Filled.Bedtime,
+                    label = stringResource(R.string.detail_solar_sunset),
+                    value = sunsetTime?.format(formatter) ?: "—",
+                    tint = sunsetColor,
+                    iconAtEnd = true
+                )
+            }
         }
 
         // L'indice UV fait partie de la même section que la trajectoire solaire,
@@ -182,6 +221,54 @@ internal fun DetailSolarCard(
             UvIndexGauge(value = uvIndex, modifier = Modifier.fillMaxWidth())
         }
     }
+}
+
+/** Pastille compacte à droite du titre Sun ; conserve l'explication au toucher. */
+@Composable
+private fun EstimatedSunshineValuePill(
+    text: String,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    accent: androidx.compose.ui.graphics.Color
+) {
+    val expansionState = stringResource(
+        if (expanded) R.string.section_state_expanded else R.string.section_state_collapsed
+    )
+    SummaryMetricTrailingPill(
+        text = "${stringResource(R.string.compare_sunshine)} · $text",
+        accent = accent,
+        onClick = onToggle,
+        trailingIcon = if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+        modifier = Modifier.testTag(TAG_TODAY_SUMMARY_SUNSHINE)
+            .semantics { stateDescription = expansionState }
+    )
+}
+
+@Composable
+private fun SunshineExplanation(expanded: Boolean) {
+    if (expanded) {
+        Text(
+            text = stringResource(R.string.compare_sunshine_disclaimer),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 3.dp)
+                .testTag(TAG_TODAY_SUMMARY_SUNSHINE_EXPLANATION)
+        )
+    }
+}
+
+/** Repli sans données de lever/coucher, pour conserver l'ensoleillement disponible. */
+@Composable
+internal fun EstimatedSunshineSolarPill(
+    text: String,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    accent: androidx.compose.ui.graphics.Color
+) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+        EstimatedSunshineValuePill(text, expanded, onToggle, accent)
+    }
+    SunshineExplanation(expanded)
 }
 
 @Composable
@@ -223,6 +310,7 @@ private fun SolarTimeValue(
 }
 
 internal const val TAG_DETAIL_SOLAR_CARD = "detail_solar_card"
+internal const val TAG_DETAIL_SOLAR_DAYLIGHT_VALUE = "detail_solar_daylight_value"
 internal const val TAG_DETAIL_SOLAR_CURVE = "detail_solar_curve"
 internal const val TAG_DETAIL_SOLAR_SUNRISE_ICON = "detail_solar_sunrise_icon"
 internal const val TAG_DETAIL_SOLAR_SUNSET_ICON = "detail_solar_sunset_icon"

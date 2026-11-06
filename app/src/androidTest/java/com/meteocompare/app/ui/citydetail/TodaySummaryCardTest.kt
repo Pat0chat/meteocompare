@@ -88,9 +88,55 @@ class TodaySummaryCardTest {
         composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_SUNSHINE, useUnmergedTree = true)
             .assertExists()
         composeRule.onNodeWithText(
-            context.getString(R.string.sunshine_duration_hours, "6"),
+            "${context.getString(R.string.compare_sunshine)} · " +
+                context.getString(R.string.sunshine_duration_hours, "6"),
             useUnmergedTree = true
         ).assertExists()
+    }
+
+    @Test
+    fun sunshineSharesTheSunTitleRowAndDaylightIsCenteredBelowTheCurve() {
+        render(
+            DayConfidence(TestFixtures.today, null, null, null, null),
+            forecast = forecastWithSunshine()
+        )
+        val sunshine = composeRule.onNodeWithTag(
+            TAG_TODAY_SUMMARY_SUNSHINE, useUnmergedTree = true
+        ).assertIsDisplayed().getUnclippedBoundsInRoot()
+        val sunTitle = composeRule.onNodeWithText(
+            context.getString(R.string.detail_solar_title), useUnmergedTree = true
+        ).assertIsDisplayed().getUnclippedBoundsInRoot()
+        val daylight = composeRule.onNodeWithTag(
+            TAG_DETAIL_SOLAR_DAYLIGHT_VALUE, useUnmergedTree = true
+        ).assertIsDisplayed().getUnclippedBoundsInRoot()
+        val curve = composeRule.onNodeWithTag(
+            TAG_DETAIL_SOLAR_CURVE, useUnmergedTree = true
+        ).getUnclippedBoundsInRoot()
+        val sunrise = composeRule.onNodeWithTag(
+            TAG_DETAIL_SOLAR_SUNRISE_ICON, useUnmergedTree = true
+        ).getUnclippedBoundsInRoot()
+        val sunset = composeRule.onNodeWithTag(
+            TAG_DETAIL_SOLAR_SUNSET_ICON, useUnmergedTree = true
+        ).getUnclippedBoundsInRoot()
+        val section = composeRule.onNodeWithTag(
+            TAG_DETAIL_SOLAR_CARD, useUnmergedTree = true
+        ).getUnclippedBoundsInRoot()
+        val sunshineMidY = (sunshine.top.value + sunshine.bottom.value) / 2f
+        val sunTitleMidY = (sunTitle.top.value + sunTitle.bottom.value) / 2f
+        val daylightMidX = (daylight.left.value + daylight.right.value) / 2f
+        val sectionMidX = (section.left.value + section.right.value) / 2f
+
+        assertTrue("Sunshine must sit to the right of Sun", sunshine.left >= sunTitle.right)
+        assertTrue("Sunshine and Sun must share a row", kotlin.math.abs(sunshineMidY - sunTitleMidY) < 14f)
+        assertTrue("Daylight belongs below the curve", daylight.top >= curve.bottom)
+        composeRule.onNodeWithText(
+            context.getString(R.string.detail_solar_daylight, 12, 0), useUnmergedTree = true
+        ).assertExists()
+        assertTrue("Daylight must sit between sunrise and sunset", daylight.left >= sunrise.right && daylight.right <= sunset.left)
+        assertEquals("Daylight is horizontally centered", sectionMidX, daylightMidX, 2f)
+        assertTrue("Daylight must remain inside the solar section", daylight.bottom <= section.bottom)
+        composeRule.onAllNodesWithTag(TAG_TODAY_SUMMARY_SUNSHINE, useUnmergedTree = true)
+            .assertCountEquals(1)
     }
 
     @Test
@@ -117,7 +163,11 @@ class TodaySummaryCardTest {
         explanation.assertDoesNotExist()
         // La valeur journalière, elle, n'a pas disparu avec le détail.
         sunshine.assertExists()
-        composeRule.onNodeWithText(context.getString(R.string.sunshine_duration_hours, "6"), useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText(
+            "${context.getString(R.string.compare_sunshine)} · " +
+                context.getString(R.string.sunshine_duration_hours, "6"),
+            useUnmergedTree = true
+        ).assertExists()
     }
 
     @Test
@@ -129,6 +179,9 @@ class TodaySummaryCardTest {
         render(DayConfidence(TestFixtures.today, null, null, null, null), forecast = forecast)
         composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_SUNSHINE, useUnmergedTree = true)
             .assertDoesNotExist()
+        // Daylight remains available even when the clouds are not known.
+        composeRule.onNodeWithTag(TAG_DETAIL_SOLAR_DAYLIGHT_VALUE, useUnmergedTree = true)
+            .assertExists()
     }
 
     @Test
