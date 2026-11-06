@@ -7,11 +7,14 @@ import com.meteocompare.app.core.units.WeatherUnits
 import com.meteocompare.app.core.units.LocalWeatherUnits
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -30,10 +33,17 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AcUnit
+import androidx.compose.material.icons.filled.Air
+import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.Cyclone
+import androidx.compose.material.icons.filled.Thermostat
+import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -53,12 +63,17 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -76,7 +91,6 @@ import com.meteocompare.app.domain.usecase.EngineComparisonMetric
 import com.meteocompare.app.domain.usecase.EngineComparisonValues
 import com.meteocompare.app.domain.usecase.EngineDivergenceLevel
 import com.meteocompare.app.ui.components.AppToastEffect
-import com.meteocompare.app.ui.components.ModernStateChip
 import com.meteocompare.app.ui.components.OpenMeteoAttribution
 import com.meteocompare.app.ui.theme.WeatherAccentTheme
 import java.time.LocalDate
@@ -157,7 +171,7 @@ internal fun EngineComparisonContent(
     var metric by remember { mutableStateOf(EngineComparisonMetric.TEMP_MAX) }
 
     LazyColumn(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize().testTag(TAG_ENGINE_COMPARISON_LIST),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
@@ -184,16 +198,28 @@ internal fun EngineComparisonContent(
                     fontWeight = FontWeight.SemiBold
                 )
                 Spacer(Modifier.height(10.dp))
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                // A single, horizontally scrolling row: variables never wrap onto
+                // a second line on small devices or with large system font sizes.
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .testTag(TAG_ENGINE_METRIC_STRIP),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     EngineComparisonMetric.entries.forEach { candidate ->
-                        ModernStateChip(
+                        FilterChip(
                             selected = metric == candidate,
                             onClick = { metric = candidate },
-                            label = metricLabel(candidate),
-                            accent = MaterialTheme.colorScheme.primary
+                            modifier = Modifier.testTag("$TAG_ENGINE_METRIC_PREFIX${candidate.name}"),
+                            label = { Text(metricLabel(candidate), maxLines = 1) },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = engineMetricIcon(candidate),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(17.dp)
+                                )
+                            }
                         )
                     }
                 }
@@ -334,6 +360,15 @@ private fun EngineSectionCard(
     }
 }
 
+// Stable UI identifiers for accessibility and UI regression tests.
+internal const val TAG_ENGINE_COMPARISON_LIST = "engine_comparison_list"
+internal const val TAG_ENGINE_METRIC_STRIP = "engine_comparison_metric_strip"
+internal const val TAG_ENGINE_METRIC_PREFIX = "engine_comparison_metric_"
+internal const val TAG_ENGINE_CHART_SCROLL = "engine_comparison_chart_scroll"
+internal const val TAG_ENGINE_CHART_DAY_PREFIX = "engine_comparison_chart_day_"
+internal const val TAG_ENGINE_CHART_INSPECTOR = "engine_comparison_chart_inspector"
+internal const val TAG_ENGINE_CHART_SELECTED_DAY = "engine_comparison_chart_selected_day"
+
 @Composable
 private fun EngineLineChart(
     days: List<EngineComparisonDay>,
@@ -341,12 +376,10 @@ private fun EngineLineChart(
     selectedEngine: ForecastEngine,
     units: WeatherUnits = LocalWeatherUnits.current
 ) {
-    val values = days
-        .flatMap { it.byEngine.values }
-        .mapNotNull { it.value(metric) }
-        .mapNotNull(::metricPlotValue)
-
-    if (days.size < 2 || values.size < 2) {
+    if (days.size < 2 || days.sumOf { day ->
+            day.byEngine.values.count { metricPlotValue(it.value(metric)) != null }
+        } < 2
+    ) {
         Text(
             text = stringResource(R.string.engine_comparison_not_enough_data),
             style = MaterialTheme.typography.bodySmall
@@ -355,33 +388,33 @@ private fun EngineLineChart(
     }
 
     val locale = LocalLocale.current.platformLocale
-    val bounds = canonicalChartRange(values, minimumSpan = 1.0, paddingFraction = 0.0)
-    val minValue = bounds.min
-    val maxValue = bounds.max
-    val range = bounds.span
-    val topLabel = maxValue
-    val midLabel = minValue + range / 2.0
-    val bottomLabel = minValue
-    val dayFormatter = remember(locale) {
-        DateTimeFormatter.ofPattern("EEE", locale)
+    val values = days.flatMap { day ->
+        day.byEngine.values.mapNotNull { metricPlotValue(it.value(metric)) }
     }
-    val gridColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
-    val engineColors = mapOf(
+    // One Y axis for the whole timeline, to keep the comparison meaningful
+    // while scrolling (the scale never changes behind the user's back).
+    val bounds = canonicalChartRange(values, minimumSpan = 1.0, paddingFraction = 0.12)
+    val minValue = bounds.min
+    val range = bounds.span
+    val dayFormatter = remember(locale) { DateTimeFormatter.ofPattern("EEE d", locale) }
+    val gridColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val surfaceColor = MaterialTheme.colorScheme.surface
+    val accentColors = mapOf(
         ForecastEngine.MULTI_CONSENSUS to engineColor(ForecastEngine.MULTI_CONSENSUS),
         ForecastEngine.CALIBRATION to engineColor(ForecastEngine.CALIBRATION),
         ForecastEngine.SCENARIOS to engineColor(ForecastEngine.SCENARIOS),
         ForecastEngine.ADAPTIVE to engineColor(ForecastEngine.ADAPTIVE)
     )
-    val lowDivergenceBackground = divergenceLevelColor(EngineDivergenceLevel.LOW).copy(alpha = 0.08f)
-    val mediumDivergenceBackground = divergenceLevelColor(EngineDivergenceLevel.MEDIUM).copy(alpha = 0.10f)
-    val highDivergenceBackground = divergenceLevelColor(EngineDivergenceLevel.HIGH).copy(alpha = 0.09f)
-    val divergenceBackgrounds = days.map { day ->
-        when (day.divergence.level) {
-            EngineDivergenceLevel.LOW -> lowDivergenceBackground
-            EngineDivergenceLevel.MEDIUM -> mediumDivergenceBackground
-            EngineDivergenceLevel.HIGH -> highDivergenceBackground
-        }
+    val backgrounds = days.map { day ->
+        divergenceLevelColor(day.divergence.level).copy(alpha = 0.075f)
     }
+    var selectedDayIndex by remember(days.first().date, days.size) { mutableStateOf(0) }
+    val selectedIndex = selectedDayIndex.coerceIn(0, days.lastIndex)
+    val scrollState = rememberScrollState()
+    val chartHeight = 244.dp
+    val plotTop = 16.dp
+    val plotBottom = 18.dp
 
     Column {
         Row(
@@ -391,130 +424,295 @@ private fun EngineLineChart(
         ) {
             Text(
                 text = metricLabel(metric),
-                style = MaterialTheme.typography.labelLarge,
+                style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold
             )
             Text(
                 text = units.label(metricUnit(metric)),
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.SemiBold
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = stringResource(R.string.engine_comparison_chart_scroll_hint),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         Spacer(Modifier.height(10.dp))
 
         Row(modifier = Modifier.fillMaxWidth()) {
+            // The vertical axis stays visible while the dates and curves scroll.
             Column(
-                modifier = Modifier.height(220.dp).padding(end = 10.dp),
+                modifier = Modifier
+                    .width(53.dp)
+                    .height(chartHeight)
+                    .padding(top = plotTop, bottom = plotBottom, end = 7.dp),
                 verticalArrangement = Arrangement.SpaceBetween,
                 horizontalAlignment = Alignment.End
             ) {
-                Text(chartAxisLabel(topLabel, range / 2.0, metric, locale, units = units), style = MaterialTheme.typography.labelSmall)
-                Text(chartAxisLabel(midLabel, range / 2.0, metric, locale, units = units), style = MaterialTheme.typography.labelSmall)
-                Text(chartAxisLabel(bottomLabel, range / 2.0, metric, locale, units = units), style = MaterialTheme.typography.labelSmall)
+                (3 downTo 0).forEach { tick ->
+                    Text(
+                        text = chartAxisLabel(
+                            minValue + range * tick / 3.0,
+                            range / 3.0,
+                            metric,
+                            locale,
+                            units
+                        ),
+                        style = MaterialTheme.typography.labelSmall,
+                        maxLines = 1
+                    )
+                }
             }
+            BoxWithConstraints(modifier = Modifier.weight(1f)) {
+                val dayWidth = engineChartDayWidth(maxWidth.value).dp
+                val contentWidth = dayWidth * days.size
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(scrollState)
+                        .testTag(TAG_ENGINE_CHART_SCROLL)
+                ) {
+                    Canvas(
+                        modifier = Modifier
+                            .width(contentWidth)
+                            .height(chartHeight)
+                            .pointerInput(days, dayWidth) {
+                                detectTapGestures { tap ->
+                                    engineChartDayIndexAt(
+                                        tap.x,
+                                        dayWidth.toPx(),
+                                        days.size
+                                    )?.let { selectedDayIndex = it }
+                                }
+                            }
+                    ) {
+                        val top = plotTop.toPx()
+                        val bottom = size.height - plotBottom.toPx()
+                        val slot = dayWidth.toPx()
 
-            Canvas(
-                modifier = Modifier.weight(1f).height(220.dp)
-            ) {
-                val left = 6.dp.toPx()
-                val right = size.width - 6.dp.toPx()
-                val top = 12.dp.toPx()
-                val bottom = size.height - 12.dp.toPx()
-
-                // Chaque journée colore discrètement le fond selon la divergence
-                // globale des quatre moteurs. Les courbes restent prioritaires :
-                // l'alpha est volontairement faible pour ne pas réduire leur contraste.
-                val xPositions = days.indices.map { index ->
-                    if (days.size == 1) left
-                    else left + (right - left) * index / (days.size - 1f)
-                }
-                xPositions.forEachIndexed { index, x ->
-                    val startX = if (index == 0) left else (xPositions[index - 1] + x) / 2f
-                    val endX = if (index == xPositions.lastIndex) right else (x + xPositions[index + 1]) / 2f
-                    drawRect(
-                        color = divergenceBackgrounds[index],
-                        topLeft = Offset(startX, top),
-                        size = Size(endX - startX, bottom - top)
-                    )
-                }
-
-                listOf(top, top + (bottom - top) / 2f, bottom).forEach { y ->
-                    drawLine(
-                        color = gridColor,
-                        start = Offset(left, y),
-                        end = Offset(right, y),
-                        strokeWidth = 1.dp.toPx()
-                    )
-                }
-                drawLine(
-                    color = gridColor,
-                    start = Offset(left, top),
-                    end = Offset(left, bottom),
-                    strokeWidth = 1.dp.toPx()
-                )
-                drawLine(
-                    color = gridColor,
-                    start = Offset(left, bottom),
-                    end = Offset(right, bottom),
-                    strokeWidth = 1.dp.toPx()
-                )
-
-                ForecastEngine.entries.forEach { engine ->
-                    val path = Path()
-                    var started = false
-                    days.forEachIndexed { index, day ->
-                        val value = metricPlotValue(day.byEngine[engine]?.value(metric))
-                        if (value == null) {
-                            started = false
-                            return@forEachIndexed
-                        }
-                        val x = if (days.size == 1) {
-                            left
-                        } else {
-                            left + (right - left) * index / (days.size - 1f)
-                        }
-                        val y = bottom - ((value - minValue) / range).toFloat() * (bottom - top)
-
-                        if (!started) {
-                            path.moveTo(x, y)
-                            started = true
-                        } else {
-                            path.lineTo(x, y)
-                        }
-
-                        drawCircle(
-                            color = engineColors.getValue(engine),
-                            radius = if (engine == selectedEngine) 4.dp.toPx() else 3.dp.toPx(),
-                            center = Offset(x, y)
-                        )
-                    }
-
-                    if (!path.isEmpty) {
-                        drawPath(
-                            path = path,
-                            color = engineColors.getValue(engine),
-                            style = Stroke(
-                                width = if (engine == selectedEngine) 3.dp.toPx() else 2.dp.toPx(),
-                                cap = StrokeCap.Round
+                        days.forEachIndexed { index, day ->
+                            val startX = slot * index
+                            drawRect(
+                                color = backgrounds[index],
+                                topLeft = Offset(startX, top),
+                                size = Size(slot, bottom - top)
                             )
+                            if (index == selectedIndex) {
+                                drawRect(
+                                    color = primaryColor.copy(alpha = 0.07f),
+                                    topLeft = Offset(startX, top),
+                                    size = Size(slot, bottom - top)
+                                )
+                            }
+                            drawLine(
+                                color = gridColor.copy(alpha = 0.42f),
+                                start = Offset(startX + slot / 2f, top),
+                                end = Offset(startX + slot / 2f, bottom),
+                                strokeWidth = 0.7.dp.toPx()
+                            )
+                        }
+                        (0..3).forEach { index ->
+                            val y = top + (bottom - top) * index / 3f
+                            drawLine(
+                                color = gridColor,
+                                start = Offset(0f, y),
+                                end = Offset(size.width, y),
+                                strokeWidth = 1.dp.toPx(),
+                                pathEffect = if (index in 1..2) {
+                                    PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 5.dp.toPx()))
+                                } else null
+                            )
+                        }
+                        val selectedX = slot * (selectedIndex + 0.5f)
+                        drawLine(
+                            color = primaryColor.copy(alpha = 0.65f),
+                            start = Offset(selectedX, top),
+                            end = Offset(selectedX, bottom),
+                            strokeWidth = 1.3.dp.toPx(),
+                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(5.dp.toPx(), 5.dp.toPx()))
                         )
+
+                        // The active engine is always painted last, over other
+                        // curves. Never connect through a missing data point.
+                        val drawOrder = ForecastEngine.entries.filter { it != selectedEngine } + selectedEngine
+                        drawOrder.forEach { engine ->
+                            val color = accentColors.getValue(engine)
+                            val isActive = engine == selectedEngine
+                            val segments = mutableListOf<List<Offset>>()
+                            var segment = mutableListOf<Offset>()
+                            days.forEachIndexed { index, day ->
+                                val value = metricPlotValue(day.byEngine[engine]?.value(metric))
+                                if (value == null) {
+                                    if (segment.isNotEmpty()) segments.add(segment)
+                                    segment = mutableListOf()
+                                } else {
+                                    segment.add(
+                                        Offset(
+                                            x = slot * (index + 0.5f),
+                                            y = bottom - ((value - minValue) / range).toFloat() * (bottom - top)
+                                        )
+                                    )
+                                }
+                            }
+                            if (segment.isNotEmpty()) segments.add(segment)
+
+                            segments.forEach { points ->
+                                if (points.size > 1) {
+                                    val line = Path().apply {
+                                        points.forEachIndexed { index, point ->
+                                            if (index == 0) moveTo(point.x, point.y)
+                                            else lineTo(point.x, point.y)
+                                        }
+                                    }
+                                    if (isActive) {
+                                        val area = Path().apply {
+                                            moveTo(points.first().x, bottom)
+                                            lineTo(points.first().x, points.first().y)
+                                            points.drop(1).forEach { lineTo(it.x, it.y) }
+                                            lineTo(points.last().x, bottom)
+                                            close()
+                                        }
+                                        drawPath(
+                                            path = area,
+                                            brush = Brush.verticalGradient(
+                                                colors = listOf(color.copy(alpha = 0.16f), color.copy(alpha = 0.015f)),
+                                                startY = top,
+                                                endY = bottom
+                                            )
+                                        )
+                                        // Contrast halo helps distinguish overlapping curves.
+                                        drawPath(line, color = surfaceColor.copy(alpha = 0.86f),
+                                            style = Stroke(width = 5.dp.toPx(), cap = StrokeCap.Round))
+                                    }
+                                    drawPath(
+                                        line,
+                                        color = color.copy(alpha = if (isActive) 1f else 0.82f),
+                                        style = Stroke(width = if (isActive) 3.dp.toPx() else 2.dp.toPx(),
+                                            cap = StrokeCap.Round)
+                                    )
+                                }
+                                points.forEach { point ->
+                                    drawCircle(surfaceColor, radius = if (isActive) 5.dp.toPx() else 3.6.dp.toPx(), center = point)
+                                    drawCircle(color, radius = if (isActive) 3.4.dp.toPx() else 2.2.dp.toPx(), center = point)
+                                }
+                            }
+                        }
+                    }
+                    Row(modifier = Modifier.width(contentWidth)) {
+                        days.forEachIndexed { index, day ->
+                            Column(
+                                modifier = Modifier
+                                    .width(dayWidth)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable { selectedDayIndex = index }
+                                    .testTag("$TAG_ENGINE_CHART_DAY_PREFIX$index")
+                                    .padding(vertical = 6.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = day.date.format(dayFormatter),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = if (index == selectedIndex) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (index == selectedIndex) primaryColor
+                                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center,
+                                    maxLines = 1
+                                )
+                                if (index == selectedIndex) {
+                                    Box(
+                                        Modifier.padding(top = 2.dp).size(4.dp)
+                                            .clip(CircleShape).background(primaryColor)
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
+        Spacer(Modifier.height(10.dp))
+        EngineChartInspector(days[selectedIndex], metric, selectedEngine, units)
+    }
+}
 
-        Spacer(Modifier.height(8.dp))
+@Composable
+private fun EngineChartInspector(
+    day: EngineComparisonDay,
+    metric: EngineComparisonMetric,
+    selectedEngine: ForecastEngine,
+    units: WeatherUnits
+) {
+    val locale = LocalLocale.current.platformLocale
+    val values = ForecastEngine.entries.mapNotNull { engine ->
+        metricPlotValue(day.byEngine[engine]?.value(metric))
+    }
+    val spread = if (values.size >= 2) values.maxOrNull()!! - values.minOrNull()!! else null
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.46f))
+            .padding(10.dp)
+            .testTag(TAG_ENGINE_CHART_INSPECTOR)
+    ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 42.dp, end = 6.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            days.forEach { day ->
+            Text(
+                text = formatDate(day.date, locale),
+                modifier = Modifier.testTag(TAG_ENGINE_CHART_SELECTED_DAY),
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold
+            )
+            if (spread != null) {
                 Text(
-                    text = day.date.format(dayFormatter),
+                    text = stringResource(
+                        R.string.engine_comparison_chart_spread,
+                        units.format(spread, metricUnit(metric), 1, locale, delta = true)
+                    ),
                     style = MaterialTheme.typography.labelSmall,
-                    textAlign = TextAlign.Center
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        ForecastEngine.entries.chunked(2).forEach { engines ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                engines.forEach { engine ->
+                    val color = engineColor(engine)
+                    Row(
+                        modifier = Modifier.weight(1f).padding(vertical = 3.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(Modifier.size(7.dp).clip(CircleShape).background(color))
+                        Column {
+                            Text(
+                                text = engineLabel(engine),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = if (engine == selectedEngine) FontWeight.Bold else FontWeight.Normal,
+                                maxLines = 2
+                            )
+                            Text(
+                                text = units.format(
+                                    metricPlotValue(day.byEngine[engine]?.value(metric)),
+                                    metricUnit(metric), 1, locale
+                                ),
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = color,
+                                maxLines = 1
+                            )
+                        }
+                    }
+                }
             }
         }
     }
@@ -1003,6 +1201,15 @@ private fun metricLabel(metric: EngineComparisonMetric): String = stringResource
         EngineComparisonMetric.CLOUD -> R.string.engine_metric_cloud
     }
 )
+
+private fun engineMetricIcon(metric: EngineComparisonMetric): ImageVector = when (metric) {
+    EngineComparisonMetric.TEMP_MAX -> Icons.Filled.Thermostat
+    EngineComparisonMetric.TEMP_MIN -> Icons.Filled.AcUnit
+    EngineComparisonMetric.PRECIPITATION -> Icons.Filled.WaterDrop
+    EngineComparisonMetric.WIND -> Icons.Filled.Air
+    EngineComparisonMetric.GUST -> Icons.Filled.Cyclone
+    EngineComparisonMetric.CLOUD -> Icons.Filled.Cloud
+}
 
 private fun metricUnit(metric: EngineComparisonMetric): WeatherUnit = when (metric) {
     EngineComparisonMetric.TEMP_MAX,

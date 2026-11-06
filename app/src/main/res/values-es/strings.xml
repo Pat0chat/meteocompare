@@ -793,6 +793,8 @@ datos</string>
     <string name="engine_divergence_variable_cloud">Nubes</string>
     <string name="engine_comparison_details_title">Detalle diario</string>
     <string name="engine_comparison_science_note">Los intervalos y diferencias son descriptivos, no probabilidades calibradas. La convergencia sigue calculándose con las salidas brutas de los modelos.</string>
+    <string name="engine_comparison_chart_scroll_hint">Desliza horizontalmente para explorar los días</string>
+    <string name="engine_comparison_chart_spread">Diferencia entre motores: %1$s</string>
     <string name="engine_comparison_not_enough_data">No hay suficientes datos para trazar las curvas.</string>
     <string name="engine_comparison_open">Abrir comparación de motores</string>
     <string name="engine_divergence_low">Diferencia baja</string>

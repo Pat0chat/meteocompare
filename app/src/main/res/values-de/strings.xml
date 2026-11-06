@@ -789,6 +789,8 @@ Daten</string>
     <string name="engine_divergence_variable_cloud">Wolken</string>
     <string name="engine_comparison_details_title">Tagesdetails</string>
     <string name="engine_comparison_science_note">Intervalle und Abweichungen sind deskriptiv und keine kalibrierten Wahrscheinlichkeiten. Die Konvergenz wird weiterhin aus den rohen Modellausgaben berechnet.</string>
+    <string name="engine_comparison_chart_scroll_hint">Horizontal wischen, um weitere Tage zu sehen</string>
+    <string name="engine_comparison_chart_spread">Spanne der Engines: %1$s</string>
     <string name="engine_comparison_not_enough_data">Nicht genügend Daten für die Kurven.</string>
     <string name="engine_comparison_open">Engine-Vergleich öffnen</string>
     <string name="engine_divergence_low">Geringe Abweichung</string>

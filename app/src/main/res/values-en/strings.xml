@@ -805,6 +805,8 @@
     <string name="engine_divergence_variable_cloud">Clouds</string>
     <string name="engine_comparison_details_title">Daily detail</string>
     <string name="engine_comparison_science_note">Intervals and spreads are descriptive. They are not calibrated probabilities; convergence elsewhere in MeteoCompare remains computed from raw model outputs.</string>
+    <string name="engine_comparison_chart_scroll_hint">Swipe horizontally to explore the days</string>
+    <string name="engine_comparison_chart_spread">Engine spread: %1$s</string>
     <string name="engine_comparison_not_enough_data">Not enough data to draw the curves.</string>
     <string name="engine_comparison_open">Open engine comparison</string>
     <string name="engine_divergence_low">Low spread</string>

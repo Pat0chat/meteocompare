@@ -793,6 +793,8 @@ dato</string>
     <string name="engine_divergence_variable_cloud">Nuvole</string>
     <string name="engine_comparison_details_title">Dettaglio giornaliero</string>
     <string name="engine_comparison_science_note">Intervalli e scarti sono descrittivi, non probabilità calibrate. La convergenza resta calcolata dalle uscite grezze dei modelli.</string>
+    <string name="engine_comparison_chart_scroll_hint">Scorri orizzontalmente per esplorare i giorni</string>
+    <string name="engine_comparison_chart_spread">Scarto tra motori: %1$s</string>
     <string name="engine_comparison_not_enough_data">Dati insufficienti per tracciare le curve.</string>
     <string name="engine_comparison_open">Apri confronto motori</string>
     <string name="engine_divergence_low">Scarto ridotto</string>
