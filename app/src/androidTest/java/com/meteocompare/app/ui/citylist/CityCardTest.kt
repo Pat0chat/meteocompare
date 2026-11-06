@@ -73,7 +73,10 @@ class CityCardTest {
         composeRule.onNodeWithTag("${TAG_MINI_FORECAST_SUNSHINE_PREFIX}2", useUnmergedTree = true).assertDoesNotExist()
         // No redundant separate forecast or daily sunshine totals on Home.
         composeRule.onNodeWithTag("home_sunshine_forecast", useUnmergedTree = true).assertDoesNotExist()
-        composeRule.onNodeWithText("1 h 12 min", useUnmergedTree = true).assertDoesNotExist()
+        composeRule.onNodeWithText(
+            context.getString(R.string.sunshine_duration_hours_minutes, "1", "12"),
+            useUnmergedTree = true
+        ).assertDoesNotExist()
     }
 
     @Test

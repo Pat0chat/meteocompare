@@ -24,6 +24,8 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.test.platform.app.InstrumentationRegistry
+import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.DailyForecast
@@ -128,10 +130,13 @@ class LocalityCompareContentTest {
                 }
             }
         }
+        // The UI resolves unit templates from Android resources, not from the
+        // Locale.FRANCE used to format numbers. Keep assertions language-neutral.
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
         compose.onNodeWithTag("compare_value_sunshine_paris", useUnmergedTree = true)
-            .assertTextEquals("1 h 12 min")
+            .assertTextEquals(context.getString(R.string.sunshine_duration_hours_minutes, "1", "12"))
         compose.onNodeWithTag("compare_detail_sunshine_paris", useUnmergedTree = true)
-            .assertTextEquals("18 min")
+            .assertTextEquals(context.getString(R.string.sunshine_duration_minutes, "18"))
     }
 
     @Test fun sunshineHourlyChartAxisIsMeasuredInMinutes() {

@@ -27,6 +27,16 @@ import org.junit.Test
 class SimplifiedTimelineCardTest {
     @get:Rule val composeRule = createComposeRule()
 
+    private fun expectedHourlySunshine(minutes: Int): String =
+        InstrumentationRegistry.getInstrumentation().targetContext.getString(
+            R.string.sunshine_duration_minutes, minutes.toString()
+        )
+
+    private fun expectedDailySunshine(hours: Int, minutes: Int): String =
+        InstrumentationRegistry.getInstrumentation().targetContext.getString(
+            R.string.sunshine_duration_hours_minutes, hours.toString(), minutes.toString()
+        )
+
     /** Legacy clock-label assertions intentionally exercise the explicit 24 h setting,
      * independently of the instrumentation device's language and saved preferences. */
     private fun setContentWith24HourClock(content: @Composable () -> Unit) {
@@ -48,7 +58,7 @@ class SimplifiedTimelineCardTest {
                 )
             }
         }
-        composeRule.onNodeWithText("18 min", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText(expectedHourlySunshine(18), useUnmergedTree = true).assertExists()
     }
 
     @Test
@@ -62,7 +72,7 @@ class SimplifiedTimelineCardTest {
                 )
             }
         }
-        composeRule.onNodeWithText("18 min", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText(expectedHourlySunshine(18), useUnmergedTree = true).assertExists()
     }
 
     @Test
@@ -76,7 +86,7 @@ class SimplifiedTimelineCardTest {
                 )
             }
         }
-        val expected = "1 h 12 min"
+        val expected = expectedDailySunshine(1, 12)
         composeRule.onNodeWithText(expected, useUnmergedTree = true).assertExists()
     }
 
@@ -91,7 +101,7 @@ class SimplifiedTimelineCardTest {
                 )
             }
         }
-        val expected = "1 h 12 min"
+        val expected = expectedDailySunshine(1, 12)
         composeRule.onNodeWithText(expected, useUnmergedTree = true).assertExists()
     }
 
