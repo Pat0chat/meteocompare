@@ -1,0 +1,1 @@
+Geschätzte Sonnenscheindauer pro Stunde und Tag, mit lokalisierten Minutenangaben in der 24-Stunden-Leiste, den Details und Vergleichen. Widget-Kopfbereich optional ausblendbar. CHMI ALADIN als wählbares Wettermodell. Motorvergleich mit Symbolen, horizontal scrollbaren Kurven und Tagesdetails. Kompaktere Tagesübersicht und Fehlerbehebungen.

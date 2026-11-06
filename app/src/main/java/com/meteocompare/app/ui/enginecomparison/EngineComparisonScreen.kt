@@ -162,7 +162,6 @@ private fun EngineComparisonUiState.weatherAccentCondition(): WeatherCondition? 
         ?: firstDay.byEngine.values.asSequence().mapNotNull { it.condition }.firstOrNull()
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun EngineComparisonContent(
     state: EngineComparisonUiState.Loaded,
@@ -648,7 +647,11 @@ private fun EngineChartInspector(
     val values = ForecastEngine.entries.mapNotNull { engine ->
         metricPlotValue(day.byEngine[engine]?.value(metric))
     }
-    val spread = if (values.size >= 2) values.maxOrNull()!! - values.minOrNull()!! else null
+    val spread = if (values.size >= 2) {
+        val minimum = values.minOrNull()
+        val maximum = values.maxOrNull()
+        if (minimum != null && maximum != null) maximum - minimum else null
+    } else null
     Column(
         modifier = Modifier
             .fillMaxWidth()

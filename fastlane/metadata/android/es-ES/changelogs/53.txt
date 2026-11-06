@@ -1,0 +1,1 @@
+Horas estimadas de cielo despejado por hora y día, con minutos adaptados al idioma en la franja de 24 horas, detalles y comparaciones. Los widgets pueden ocultar el encabezado. Se añade CHMI ALADIN. Comparación de motores con iconos, gráficos desplazables y detalles diarios. Resumen del día más compacto y correcciones.

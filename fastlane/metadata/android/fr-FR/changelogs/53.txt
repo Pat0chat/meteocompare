@@ -1,0 +1,1 @@
+Ensoleillement estimé par heure et par jour, affiché en minutes et traduit dans la mini-frise de l’accueil, les détails et comparaisons. Les widgets peuvent masquer leur en-tête météo. Ajout du modèle CHMI ALADIN. Comparaison des moteurs : sélecteur avec icônes, courbes défilantes et détails par jour. Résumé du jour plus compact et corrections de stabilité.

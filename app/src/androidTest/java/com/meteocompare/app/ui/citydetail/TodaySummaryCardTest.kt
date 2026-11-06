@@ -88,7 +88,7 @@ class TodaySummaryCardTest {
         composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_SUNSHINE, useUnmergedTree = true)
             .assertExists()
         composeRule.onNodeWithText(
-            "6 h",
+            context.getString(R.string.sunshine_duration_hours, "6"),
             useUnmergedTree = true
         ).assertExists()
     }
@@ -117,7 +117,7 @@ class TodaySummaryCardTest {
         explanation.assertDoesNotExist()
         // La valeur journalière, elle, n'a pas disparu avec le détail.
         sunshine.assertExists()
-        composeRule.onNodeWithText("6 h", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText(context.getString(R.string.sunshine_duration_hours, "6"), useUnmergedTree = true).assertExists()
     }
 
     @Test

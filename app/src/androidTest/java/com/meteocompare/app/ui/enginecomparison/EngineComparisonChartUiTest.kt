@@ -1,10 +1,10 @@
 package com.meteocompare.app.ui.enginecomparison
 
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
@@ -54,11 +54,29 @@ class EngineComparisonChartUiTest {
         }
     )
 
-    private fun render() {
-        val loaded = state()
+    private fun render(loaded: EngineComparisonUiState.Loaded = state()) {
         composeRule.setContent {
             MeteoCompareTheme { EngineComparisonContent(loaded) }
         }
+    }
+
+    @Test fun missingTemperatureDoesNotShowMisleadingCurvesOrValues() {
+        val allMissing = state().let { loaded ->
+            loaded.copy(days = loaded.days.map { day ->
+                day.copy(byEngine = day.byEngine.mapValues { (_, values) ->
+                    values.copy(tempMax = null)
+                })
+            })
+        }
+        render(allMissing)
+        composeRule.onNodeWithTag(TAG_ENGINE_COMPARISON_LIST)
+            .performScrollToNode(hasTestTag(TAG_ENGINE_METRIC_STRIP))
+        composeRule.onNodeWithText(
+            InstrumentationRegistry.getInstrumentation().targetContext.getString(
+                com.meteocompare.app.R.string.engine_comparison_not_enough_data
+            )
+        ).assertExists()
+        composeRule.onNodeWithTag(TAG_ENGINE_CHART_INSPECTOR).assertDoesNotExist()
     }
 
     @Test fun variablesLiveInOneHorizontalSelectorAndCanBeChanged() {

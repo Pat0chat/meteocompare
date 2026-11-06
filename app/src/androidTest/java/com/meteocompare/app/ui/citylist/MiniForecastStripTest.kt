@@ -293,7 +293,8 @@ class MiniForecastStripTest {
         composeRule.onNodeWithTag("${TAG_MINI_FORECAST_SUNSHINE_PREFIX}0", useUnmergedTree = true)
             .assertDoesNotExist()
         val strip = composeRule.onNodeWithTag(TAG_MINI_FORECAST_STRIP)
-        assertEquals(MINI_TIMELINE_HEIGHT_DP.toFloat(), strip.getUnclippedBoundsInRoot().height.value, 0.5f)
+        val bounds = strip.getUnclippedBoundsInRoot()
+        assertEquals(MINI_TIMELINE_HEIGHT_DP.toFloat(), (bounds.bottom - bounds.top).value, 0.5f)
     }
 
     @Test
@@ -306,9 +307,10 @@ class MiniForecastStripTest {
             )
         }
         val strip = composeRule.onNodeWithTag(TAG_MINI_FORECAST_STRIP)
+        val bounds = strip.getUnclippedBoundsInRoot()
         assertEquals(
             (MINI_TIMELINE_HEIGHT_DP + MINI_TIMELINE_SUNSHINE_EXTRA_HEIGHT_DP).toFloat(),
-            strip.getUnclippedBoundsInRoot().height.value, 0.5f
+            (bounds.bottom - bounds.top).value, 0.5f
         )
     }
 

@@ -1,0 +1,1 @@
+Durata stimata di cielo sereno per ora e giorno, con minuti localizzati nella timeline di 24 ore, nei dettagli e nei confronti. I widget possono nascondere l’intestazione. Aggiunto il modello CHMI ALADIN. Confronto motori con icone, grafici a scorrimento e dettagli giornalieri. Riepilogo del giorno più compatto e correzioni.

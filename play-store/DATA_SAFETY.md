@@ -1,6 +1,6 @@
 # Google Play — fiche « Sécurité des données »
 
-*Référence de préparation pour MeteoCompare 1.20.0 — 1er novembre 2026. La déclaration définitive relève de la Play Console.*
+*Référence de préparation pour MeteoCompare 1.21.0 — 6 novembre 2026. La déclaration définitive relève de la Play Console.*
 
 Ce fichier est une **checklist de déclaration**, pas une exportation automatique de
 la Play Console. La déclaration finale doit être revue dans la Console au moment de
@@ -16,7 +16,7 @@ politique de confidentialité est également requise.
 Référence officielle :
 `https://support.google.com/googleplay/android-developer/answer/10787469`
 
-## Inventaire MeteoCompare 1.20.0
+## Inventaire MeteoCompare 1.21.0
 
 MeteoCompare n’intègre aucun SDK publicitaire, analytics ou crash reporting et ne
 crée aucun compte. La fonction **facultative** « Ma position » demande, après
@@ -38,6 +38,10 @@ Les transmissions fonctionnelles à vérifier dans le formulaire sont :
 
 Comme pour toute connexion Internet, les serveurs contactés reçoivent aussi l'adresse
 IP source et des métadonnées HTTP nécessaires au transport.
+
+L'ajout de CHMI ALADIN utilise le fournisseur déjà référencé, Open-Meteo ;
+il ne crée pas, en lui-même, une nouvelle catégorie de données transmises.
+La déclaration doit toutefois être revalidée dans Play Console.
 
 ## Points de décision dans la Play Console
 

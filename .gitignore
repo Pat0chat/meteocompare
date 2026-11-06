@@ -24,3 +24,8 @@ gradle/
 keystore.properties
 *.jks
 *.keystore
+
+# Python local checks and generated caches
+__pycache__/
+*.py[cod]
+.pytest_cache/

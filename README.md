@@ -381,10 +381,11 @@ Fait :
 - ✅ v1.19.1 — Fiabilisation de « Ma position » (GPS manuel, permissions ponctuelles et suppression pendant un relevé).
 - ✅ v1.19.2 — Pression atmosphérique dans les détails, la comparaison et Chart View ; températures ressenties min/max dans les graphiques existants ; Chart View compact ; traductions et unités vérifiées.
 - ✅ v1.19.3->5 — Humidité relative et point de rosée dans Home, Today Summary, chronologies, Chart View et comparaison ; icône d’humidité clarifiée, échelle pluie/humidité corrigée et revue de non-régression.
-- ⏳ v1.20.0 (préparation) — Météogrammes horaires et comparaison des modèles ; mini-frise Home sur 24 h et icônes agrandies ; localisation enrichie pour distinguer les villes homonymes et interfaces adaptées aux petits écrans. Publication après validation CI et tests sur appareil.
+- ✅ v1.20.0 — Météogrammes horaires et comparaison des modèles ; mini-frise Home sur 24 h et icônes agrandies ; localisation enrichie et interfaces adaptées aux petits écrans.
+- ✅ v1.21.0 — Ensoleillement estimé localisé, réglage d'en-tête widget, CHMI ALADIN, refonte des graphiques Engine Comparison et Today Summary compact.
 
 ## Licence
 
 [Apache License 2.0](LICENSE) — vous pouvez utiliser, modifier et redistribuer le code librement, à condition de conserver la notice de copyright.
 
-Les données météo sont fournies par [Open-Meteo](https://open-meteo.com) (également open-source, AGPL-3.0). Les modèles eux-mêmes sont produits par leurs organismes respectifs : Météo-France (AROME, ARPEGE), DWD (ICON, ICON-D2), NOAA (GFS, HRRR, AIGFS), ECMWF (IFS et AIFS), UK Met Office (UKMO), Environnement et Changement climatique Canada (GEM), Japan Meteorological Agency (GSM), MET Norway (MET Nordic), KNMI et DMI (HARMONIE), MeteoSwiss (ICON-CH2), Bureau of Meteorology Australie (ACCESS), China Meteorological Administration (GRAPES).
+Les données météo sont fournies par [Open-Meteo](https://open-meteo.com) (également open-source, AGPL-3.0). Les modèles eux-mêmes sont produits par leurs organismes respectifs : Météo-France (AROME, ARPEGE), DWD (ICON, ICON-D2), NOAA (GFS, HRRR, AIGFS), ECMWF (IFS et AIFS), UK Met Office (UKMO), Environnement et Changement climatique Canada (GEM), Japan Meteorological Agency (GSM), MET Norway (MET Nordic), KNMI et DMI (HARMONIE), MeteoSwiss (ICON-CH2), Bureau of Meteorology Australie (ACCESS), China Meteorological Administration (GRAPES), CHMI (ALADIN).

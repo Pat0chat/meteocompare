@@ -1,0 +1,1 @@
+Estimated sunshine is now available by hour and day, with localized minutes on the 24-hour Home timeline, city details and comparisons. Widgets can hide the current-conditions header. CHMI ALADIN joins the optional weather models. Engine Comparison charts now offer icon selectors, horizontal scrolling and readable day-by-day comparisons. Compact Today Summary and stability fixes.

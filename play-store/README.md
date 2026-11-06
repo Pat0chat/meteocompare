@@ -24,7 +24,7 @@ play-store/
 
 Les fiches FR et EN sont les fiches de référence. Les fiches ES, DE et IT sont fournies pour la publication locale et commencent par une mention explicite indiquant qu'elles ont été **traduites automatiquement**. Les mêmes textes sont synchronisés dans `fastlane/metadata/android/{fr-FR,en-US,es-ES,de-DE,it-IT}`.
 
-Les notes de version sont stockées dans chaque langue sous `fastlane/metadata/android/<locale>/changelogs/<versionCode>.txt` (v1.20.0 : `52.txt`).
+Les notes de version sont stockées dans chaque langue sous `fastlane/metadata/android/<locale>/changelogs/<versionCode>.txt` (v1.21.0 : `53.txt`).
 
 ## Screenshots — à capturer manuellement
 
@@ -49,7 +49,7 @@ Play Store exige minimum 2 screenshots par form factor. Recommandations :
 7. **Notifications** : réglages des notifications locales (résumé quotidien, divergence, Révision des prévisions / « À retenir »).
 8. **Mode tablette / écran large** : capture paysage montrant la liste des villes et le détail côte à côte.
 9. **Mer / côte** : vagues, houle et marées sur une ville côtière.
-10. **Écran Settings** : sélecteur du moteur V3 et liste des **21 modèles**, en montrant si possible les nouveaux **NOAA AIGFS** et **JMA GSM**.
+10. **Écran Settings** : sélecteur du moteur V3 et liste des **21 modèles**, en montrant si possible **CHMI ALADIN**, **NOAA AIGFS** et **JMA GSM**.
 
 ### Mode opératoire
 
