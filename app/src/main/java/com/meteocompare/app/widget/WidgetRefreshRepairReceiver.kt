@@ -85,7 +85,7 @@ class WidgetRefreshRepairReceiver : BroadcastReceiver() {
                         } else {
                             WidgetRefreshScheduler.schedule(appContext)
                         }
-                        WidgetRefreshScheduler.triggerImmediateRefresh(appContext)
+                        WidgetRefreshScheduler.triggerSystemRefresh(appContext)
                     }
                 }.onFailure { error ->
                     Log.w("MeteoCompare/Widget", "Unable to repair widget scheduling", error)

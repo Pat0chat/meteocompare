@@ -1426,8 +1426,12 @@ class ForecastRepositoryImplTest {
             b.await()
         }
 
-        // Une seule requête HTTPS a dû partir.
+        // Un seul lot réseau, mais deux consommateurs : les métriques
+        // doivent refléter la déduplication et pas deux FETCH_STARTED.
         assertEquals(1, fakeApi.callCount.get())
+        val diagnostics = repo.fetchDiagnostics.snapshot()
+        assertEquals(1L, diagnostics.fetchStarted)
+        assertEquals(1L, diagnostics.fetchCoalesced)
     }
 
     @Test
@@ -1452,8 +1456,10 @@ class ForecastRepositoryImplTest {
             b.await()
         }
 
-        // Deux clés distinctes → deux fetches
+        // Deux clés distinctes → deux fetches, sans coalescing.
         assertEquals(2, fakeApi.callCount.get())
+        assertEquals(2L, repo.fetchDiagnostics.snapshot().fetchStarted)
+        assertEquals(0L, repo.fetchDiagnostics.snapshot().fetchCoalesced)
     }
 
     @Test

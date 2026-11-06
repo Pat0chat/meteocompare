@@ -23,16 +23,16 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.IOException
 import java.time.Clock
 import java.time.Duration
-import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 
 private val Context.vigilanceDataStore by preferencesDataStore(name = "vigilance_cache")
@@ -51,8 +51,10 @@ class VigilanceRepositoryImpl @Inject constructor(
     private val safeCache = context.vigilanceDataStore.data.catch { error ->
         if (error is IOException) emit(emptyPreferences()) else throw error
     }
-    /** Une seule validation réseau à la fois par département et mode côtier. */
-    private val requestLocks = ConcurrentHashMap<String, Mutex>()
+    /** Requêtes partagées même si un écran annule son attente. */
+    private val sharedRequests = SharedVigilanceRequests<ApiResult<VigilanceForecast?>>(
+        CoroutineScope(SupervisorJob() + ioDispatcher)
+    )
 
     override suspend fun getVigilance(
         city: City,
@@ -82,9 +84,9 @@ class VigilanceRepositoryImpl @Inject constructor(
             ?: return@withContext ApiResult.Success(null)
 
         val requestKey = "$department|$includeCoast"
-        requestLocks.getOrPut(requestKey) { Mutex() }.withLock {
-            // Relire le cache sous le verrou : une autre ville du même département
-            // peut avoir terminé exactement la même requête pendant notre attente.
+        sharedRequests.getOrStart(requestKey) {
+            // Le Deferred est partagé entre écrans. Relire le cache dans la
+            // tâche indépendante évite toute nouvelle requête après un succès.
             val now = clock.instant()
             val key = cacheKey(department, includeCoast)
             val cachedRecord = readCache(key)
@@ -94,11 +96,11 @@ class VigilanceRepositoryImpl @Inject constructor(
             // La Vigilance Météo-France est limitée à un rafraîchissement réseau par heure
             // pour un même département/mode côte, y compris lors d'un refresh manuel global.
             if (cachedRecord != null && cachedAge != null && VigilanceCachePolicy.isFresh(cachedAge)) {
-                return@withLock ApiResult.Success(cached?.copy(evaluationTime = now))
+                return@getOrStart ApiResult.Success(cached?.copy(evaluationTime = now))
             }
 
             if (!networkMonitor.isOnline()) {
-                return@withLock cached?.takeIf {
+                return@getOrStart cached?.takeIf {
                     cachedAge != null && VigilanceCachePolicy.isUsableFallback(cachedAge)
                 }
                     ?.let { ApiResult.Success(it.copy(isStale = true, evaluationTime = now)) }
@@ -156,6 +158,19 @@ class VigilanceRepositoryImpl @Inject constructor(
             return@withContext
         }
 
+        // Une demande commencée avant la suppression ne doit pas réécrire
+        // le cache après notre purge. Les demandes postérieures restent
+        // possibles (autre écran), mais seront réévaluées normalement.
+        val safeToPurge = withTimeoutOrNull(30_000L) {
+            sharedRequests.awaitInFlight(listOf("$normalized|false", "$normalized|true"))
+            true
+        } ?: false
+        if (!safeToPurge) {
+            // Ne pas effacer puis laisser une requête lente recréer le cache.
+            // Un prochain nettoyage reprendra après le timeout réseau.
+            android.util.Log.w("MeteoCompare/Vigilance", "Cache purge deferred: request still in flight")
+            return@withContext
+        }
         try {
             context.vigilanceDataStore.edit { prefs ->
                 prefs.remove(cacheKey(normalized, includeCoast = false))

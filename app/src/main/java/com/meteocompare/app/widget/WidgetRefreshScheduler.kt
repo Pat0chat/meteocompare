@@ -169,6 +169,7 @@ internal object WidgetRefreshScheduler {
                 30,
                 TimeUnit.MINUTES
             )
+            .setInputData(workDataOf(REFRESH_REASON_KEY to WidgetRefreshReason.PERIODIC.name))
             .addTag(WORK_TAG)
             .build()
 
@@ -231,7 +232,8 @@ internal object WidgetRefreshScheduler {
             workManager = workManager,
             workName = IMMEDIATE_WORK_NAME,
             policy = ExistingWorkPolicy.REPLACE,
-            force = true
+            force = true,
+            reason = WidgetRefreshReason.MANUAL
         )
     }
 
@@ -247,13 +249,40 @@ internal object WidgetRefreshScheduler {
         triggerCatchUpRefresh(WorkManager.getInstance(context.applicationContext))
     }
 
+    /**
+     * Après reboot, changement d'heure ou de fuseau, le rendu doit être
+     * invalidé même au milieu d'un bucket de 15 min. Contrairement au
+     * rattrapage de navigation, ce cas est volontairement forcé.
+     */
+    fun triggerSystemRefresh(context: Context) {
+        enqueueOneTimeRefresh(
+            workManager = WorkManager.getInstance(context.applicationContext),
+            workName = CATCH_UP_WORK_NAME,
+            policy = ExistingWorkPolicy.REPLACE,
+            force = true,
+            reason = WidgetRefreshReason.CATCH_UP
+        )
+    }
+
+    /** Overload testable pour les tests de migration/horloge. */
+    internal fun triggerSystemRefresh(workManager: WorkManager) {
+        enqueueOneTimeRefresh(
+            workManager = workManager,
+            workName = CATCH_UP_WORK_NAME,
+            policy = ExistingWorkPolicy.REPLACE,
+            force = true,
+            reason = WidgetRefreshReason.CATCH_UP
+        )
+    }
+
     /** Overload testable du rattrapage non forcé. */
     internal fun triggerCatchUpRefresh(workManager: WorkManager) {
         enqueueOneTimeRefresh(
             workManager = workManager,
             workName = CATCH_UP_WORK_NAME,
             policy = ExistingWorkPolicy.KEEP,
-            force = false
+            force = false,
+            reason = WidgetRefreshReason.CATCH_UP
         )
     }
 
@@ -261,10 +290,14 @@ internal object WidgetRefreshScheduler {
         workManager: WorkManager,
         workName: String,
         policy: ExistingWorkPolicy,
-        force: Boolean
+        force: Boolean,
+        reason: WidgetRefreshReason
     ) {
         val request = OneTimeWorkRequestBuilder<WidgetRefreshWorker>()
-            .setInputData(workDataOf(FORCE_REFRESH_KEY to force))
+            .setInputData(workDataOf(
+                FORCE_REFRESH_KEY to force,
+                REFRESH_REASON_KEY to reason.name
+            ))
             // Les callbacks explicites et le rattrapage OEM doivent pouvoir
             // être servis sans attendre le prochain quota périodique. Si le
             // quota expedited est épuisé, WorkManager conserve le job en mode
@@ -306,6 +339,7 @@ internal object WidgetRefreshScheduler {
      * (invariant sinon `cancel` ne trouve rien à annuler).
      */
     internal const val FORCE_REFRESH_KEY: String = "force_widget_refresh"
+    internal const val REFRESH_REASON_KEY: String = "widget_refresh_reason"
 
     internal const val TESTABLE_WORK_NAME: String = WORK_NAME
     internal const val TESTABLE_IMMEDIATE_WORK_NAME: String = IMMEDIATE_WORK_NAME
@@ -380,7 +414,8 @@ internal class WidgetRefreshWorker(
                 Result.retry()
             } else {
                 if (BuildConfig.DEBUG) {
-                    android.util.Log.d(WIDGET_LOG_TAG, "No live widgets to refresh")
+                    android.util.Log.d(WIDGET_LOG_TAG, "No live widgets to refresh: reason=" +
+                        widgetRefreshReason(inputData.getString(WidgetRefreshScheduler.REFRESH_REASON_KEY)).name)
                 }
                 Result.success()
             }
@@ -391,6 +426,10 @@ internal class WidgetRefreshWorker(
         val forceRefresh = inputData.getBoolean(
             WidgetRefreshScheduler.FORCE_REFRESH_KEY,
             false
+        )
+        val reason = widgetRefreshReason(
+            inputData.getString(WidgetRefreshScheduler.REFRESH_REASON_KEY),
+            isPeriodic = !forceRefresh
         )
         var updatedCount = 0
         var skippedCount = 0
@@ -514,7 +553,7 @@ internal class WidgetRefreshWorker(
         if (BuildConfig.DEBUG) {
             android.util.Log.d(
                 WIDGET_LOG_TAG,
-                "Widget refresh completed: live=${liveWidgetIds.size}, " +
+                "Widget refresh completed: reason=${reason.name}, live=${liveWidgetIds.size}, " +
                     "updated=$updatedCount, skipped=$skippedCount, failed=$failedCount"
             )
         }

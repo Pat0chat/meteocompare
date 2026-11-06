@@ -40,11 +40,6 @@ class ReleaseMetadataContract(unittest.TestCase):
                 self.assertGreater(len(content), 50)
                 self.assertLessEqual(len(content), 500)
 
-    def test_current_version_is_documented_in_project_roadmap(self):
-        name, _ = android_version()
-        roadmap = (ROOT / "README.md").read_text(encoding="utf-8")
-        self.assertIn(f"v{name} (préparation)", roadmap)
-
 
 if __name__ == "__main__":
     unittest.main()

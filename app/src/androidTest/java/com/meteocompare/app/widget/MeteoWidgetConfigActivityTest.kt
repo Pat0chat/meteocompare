@@ -127,6 +127,20 @@ class MeteoWidgetConfigActivityTest {
     }
 
     @Test
+    fun saving_configuration_marks_one_dispatch_and_preserves_fifteen_minute_guard() {
+        composeRule.onNodeWithTag(TAG_WIDGET_SAVE).performScrollTo().performClick()
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            scenario.state == Lifecycle.State.DESTROYED
+        }
+        val prefs = readPreferences(widgetId)
+        val dispatch = prefs[WidgetPreferences.LastDispatchAtKey] ?: 0L
+        val tick = prefs[WidgetPreferences.RefreshTickKey] ?: 0L
+        assertTrue("La configuration doit enregistrer le rendu", dispatch > 0L)
+        assertTrue("Un tick doit forcer la lecture des nouvelles préférences", tick > 0L)
+        assertEquals(false, isWidgetDispatchDue(dispatch, dispatch, force = false))
+    }
+
+    @Test
     fun cancel_does_not_persist_a_current_conditions_toggle() {
         composeRule.onNodeWithTag(TAG_WIDGET_SHOW_CURRENT_CONDITIONS)
             .performScrollTo().performClick().assertIsOff()

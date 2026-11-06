@@ -118,6 +118,11 @@ class ForecastRepositoryImpl @Inject constructor(
     private val inflightMutex = Mutex()
     private val inflightFetches = mutableMapOf<String, Deferred<ApiResult<CityForecast>>>()
     private val transientBackoff = TransientForecastBackoff()
+    internal val fetchDiagnostics = ForecastFetchDiagnostics()
+
+    private fun logFetchDiagnostics() {
+        if (BuildConfig.DEBUG) android.util.Log.d("MeteoCompare/ForecastCache", fetchDiagnostics.snapshot().toString())
+    }
 
     // Signal applicatif léger : un refresh réussi peut être lancé depuis la
     // page Détails, la Home ou un autre composant. Les écrans déjà vivants
@@ -173,7 +178,10 @@ class ForecastRepositoryImpl @Inject constructor(
         // ainsi jamais rejoindre un simple contrôle de fraîcheur du cache.
         val key = if (maxCacheAgeMs == null) forecastKey else "$forecastKey|automatic:$maxCacheAgeMs"
         val deferred = inflightMutex.withLock {
-            inflightFetches[key]?.takeIf { !it.isCompleted } ?: run {
+            inflightFetches[key]?.takeIf { !it.isCompleted }?.also {
+                fetchDiagnostics.fetchCoalesced()
+                logFetchDiagnostics()
+            } ?: run {
                 // Démarrage lazy : le Deferred est enregistré avant que le
                 // travail puisse finir, même avec un dispatcher immédiat.
                 val created = repoScope.async(start = CoroutineStart.LAZY) {
@@ -184,6 +192,8 @@ class ForecastRepositoryImpl @Inject constructor(
                         // autre charge déjà les données. Revalider dans le travail
                         // partagé évite un second fetch après sa complétion.
                         val latest = readCacheSafely(city, models)
+                        fetchDiagnostics.cacheRead(latest != null)
+                        logFetchDiagnostics()
                         if (latest != null && latest.isComplete &&
                             latest.coversForecastHorizon(effectiveForecastDays(models, forecastDays)) &&
                             (clock.millis() - latest.oldestFetchedAtMs).coerceAtLeast(0L) <= maxCacheAgeMs
@@ -238,6 +248,8 @@ class ForecastRepositoryImpl @Inject constructor(
         // ── Étape 1 : émission immédiate depuis le cache (si non forcé) ──
         if (!forceRefresh) {
             val cached = readCacheSafely(city, models)
+            fetchDiagnostics.cacheRead(cached != null)
+            logFetchDiagnostics()
             if (cached != null) {
                 hasCached = true
                 cachedFetchedAtMs = cached.oldestFetchedAtMs
@@ -745,6 +757,10 @@ class ForecastRepositoryImpl @Inject constructor(
             )
         }
 
+        // Compter uniquement les vraies tentatives HTTP, pas un cache stale
+        // consulté hors ligne ni une tentative écartée par le backoff.
+        fetchDiagnostics.fetchStarted()
+        logFetchDiagnostics()
         val batched = api.getForecastBatched(
             latitude = city.latitude,
             longitude = city.longitude,

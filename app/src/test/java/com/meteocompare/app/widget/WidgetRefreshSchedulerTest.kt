@@ -177,6 +177,19 @@ class WidgetRefreshSchedulerTest {
         )
     }
 
+    @Test
+    fun `periodic work declare la raison PERIODIC`() {
+        val requestSlot = slot<PeriodicWorkRequest>()
+        every {
+            workManager.enqueueUniquePeriodicWork(any(), any(), capture(requestSlot))
+        } returns mockk(relaxed = true)
+        WidgetRefreshScheduler.schedule(workManager)
+        assertEquals(
+            WidgetRefreshReason.PERIODIC.name,
+            requestSlot.captured.workSpec.input.getString(WidgetRefreshScheduler.REFRESH_REASON_KEY)
+        )
+    }
+
     // ─────────────────────── triggerImmediateRefresh() ───────────────────
 
     @Test
@@ -204,6 +217,10 @@ class WidgetRefreshSchedulerTest {
                 WidgetRefreshScheduler.FORCE_REFRESH_KEY,
                 false
             )
+        )
+        assertEquals(
+            WidgetRefreshReason.MANUAL.name,
+            requestSlot.captured.workSpec.input.getString(WidgetRefreshScheduler.REFRESH_REASON_KEY)
         )
         org.junit.Assert.assertTrue(
             "Un refresh explicite doit demander une exécution expedited",
@@ -235,7 +252,35 @@ class WidgetRefreshSchedulerTest {
                 false
             )
         )
+        assertEquals(
+            WidgetRefreshReason.CATCH_UP.name,
+            requestSlot.captured.workSpec.input.getString(WidgetRefreshScheduler.REFRESH_REASON_KEY)
+        )
         org.junit.Assert.assertTrue(requestSlot.captured.workSpec.expedited)
+    }
+
+    @Test
+    fun `system refresh force la reconstruction apres changement de fuseau`() {
+        val requestSlot = slot<OneTimeWorkRequest>()
+        every {
+            workManager.enqueueUniqueWork(any(), any(), capture(requestSlot))
+        } returns mockk(relaxed = true)
+        WidgetRefreshScheduler.triggerSystemRefresh(workManager)
+        verify(exactly = 1) {
+            workManager.enqueueUniqueWork(
+                WidgetRefreshScheduler.TESTABLE_CATCH_UP_WORK_NAME,
+                ExistingWorkPolicy.REPLACE,
+                any<OneTimeWorkRequest>()
+            )
+        }
+        assertEquals(
+            true,
+            requestSlot.captured.workSpec.input.getBoolean(WidgetRefreshScheduler.FORCE_REFRESH_KEY, false)
+        )
+        assertEquals(
+            WidgetRefreshReason.CATCH_UP.name,
+            requestSlot.captured.workSpec.input.getString(WidgetRefreshScheduler.REFRESH_REASON_KEY)
+        )
     }
 
     // ─────────────────────── cancel() ────────────────────────────────────

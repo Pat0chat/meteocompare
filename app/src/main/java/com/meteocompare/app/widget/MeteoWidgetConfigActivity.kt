@@ -209,30 +209,10 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
     }
 
     /**
-     * Persiste la config choisie et signale RESULT_OK au système. Étapes :
-     *
-     *   1. Écriture des prefs Glance pour ce widget spécifique — le rendu
-     *      lira ces prefs au prochain provideGlance.
-     *   2. Update explicite du widget pour qu'il se recompose immédiatement.
-     *   3. **Belt-and-suspenders** : broadcast APPWIDGET_UPDATE au receiver.
-     *      Sur certains appareils/launchers, [MeteoWidget.update] appelée AVANT
-     *      que le système ait fini d'enregistrer le widget (registration se
-     *      finalise sur RESULT_OK) ne se propage pas. Le broadcast, lui, reste
-     *      en file d'attente jusqu'à ce que le receiver soit joignable, et
-     *      re-déclenche `provideGlance` avec les prefs fraîches. Sans ce garde,
-     *      le user voit "Configurer une ville" persister plusieurs secondes
-     *      après validation — et doit parfois relancer l'app pour débloquer.
-     *   4. setResult + finish pour valider auprès du système.
-     *
-     * ─── Broadcast APPWIDGET_UPDATE et receiver dynamique ────────────────
-     * Le broadcast cible le receiver réellement associé à cet AppWidgetId,
-     * Météo ou À retenir. Il est résolu via AppWidgetProviderInfo pour ne
-     * pas déclencher de mise à jour sur l'autre type de widget.
-     *
-     * Contexte utilisé : `applicationContext` plutôt que `this@ConfigActivity`
-     * — les opérations DataStore et le broadcast doivent survivre à finish()
-     * qui annule le CoroutineScope de l'activité. `applicationContext` reste
-     * valide pour toute la durée du process.
+     * Un seul rendu ciblé par sauvegarde. L'ancien chemin combinait
+     * update() ET APPWIDGET_UPDATE, qui lançait ensuite un worker forcé
+     * pour tous les widgets. Les callbacks ordinaires du launcher passent
+     * désormais par un rattrapage non forcé (garde de cadence).
      */
     private fun persistAndFinish(
         widgetId: Int,
@@ -248,6 +228,8 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
         showCurrentConditions: Boolean
     ) {
         val appCtx = applicationContext
+        if (saveInProgress) return
+        saveInProgress = true
         lifecycleScope.launch {
             try {
                 // Revalidation au moment du Save (TOCTOU) : l'id doit toujours
@@ -283,28 +265,28 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
                             contentSpacing = contentSpacing,
                             showCurrentConditions = showCurrentConditions
                         ).writeTo(this)
+                        // Le rendu direct compte comme dispatch : un onUpdate
+                        // launcher arrivé juste après ne doit pas retrigger.
+                        val now = System.currentTimeMillis()
+                        this[WidgetPreferences.RefreshTickKey] = nextWidgetRefreshTick(
+                            this[WidgetPreferences.RefreshTickKey], now
+                        )
+                        this[WidgetPreferences.LastDispatchAtKey] = now
                     }
                 }
 
-                // 2. Force le BON widget à re-render avec les nouvelles prefs.
+                // 2. Rend UNIQUEMENT le widget reconfiguré (pas tous les widgets).
                 glanceWidgetForProviderClassName(currentProviderClassName)
                     .update(appCtx, glanceId)
 
-                // 3. Broadcast APPWIDGET_UPDATE ciblé sur le provider validé.
-                val refreshIntent = Intent().apply {
-                    setClassName(appCtx.packageName, currentProviderClassName)
-                    action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-                    putExtra(
-                        AppWidgetManager.EXTRA_APPWIDGET_IDS,
-                        intArrayOf(widgetId)
-                    )
+                if (BuildConfig.DEBUG) {
+                    Log.d("MeteoCompare/Widget", "Widget refresh completed: reason=${WidgetRefreshReason.CONFIGURATION.name}, appWidgetId=$widgetId")
                 }
-                appCtx.sendBroadcast(refreshIntent)
 
-                // 4. Garantit la présence du worker de rafraîchissement.
+                // 3. Garantit la présence du worker de rafraîchissement.
                 WidgetRefreshScheduler.schedule(appCtx)
 
-                // 5. Résultat final au système + fin d'activité.
+                // 4. Résultat final au système + fin d'activité.
                 val resultIntent = Intent()
                     .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
                 setResult(Activity.RESULT_OK, resultIntent)
@@ -318,6 +300,8 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
             }
         }
     }
+
+    private var saveInProgress = false
 
     companion object {
         private const val TAG = "MeteoCompare/WidgetConfig"

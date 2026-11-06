@@ -27,15 +27,13 @@ open class MeteoWidgetReceiver : GlanceAppWidgetReceiver() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
-        // Callback initial/configuration/resize ET filet de sécurité système
-        // toutes les 30 min. Cette seconde voie est importante sur les OEMs
-        // qui retardent fortement WorkManager (notamment certaines versions
-        // MIUI). Le job one-shot forcé incrémente RefreshTickKey et pousse
-        // explicitement les RemoteViews ; REPLACE déduplique une éventuelle
-        // rafale de callbacks de plusieurs providers.
+        // Glance effectue le rendu normal pour les IDs fournis. Le rattrapage
+        // non forcé assure la cadence si le launcher a retardé WorkManager,
+        // mais respecte LastDispatchAtKey posé lors de la configuration.
         scheduleRefreshSafely(context, immediate = false)
         super.onUpdate(context, appWidgetManager, appWidgetIds)
-        scheduleRefreshSafely(context, immediate = true)
+        runCatching { WidgetRefreshScheduler.triggerCatchUpRefresh(context) }
+            .onFailure { android.util.Log.w("MeteoCompare/Widget", "Unable to enqueue onUpdate catch-up", it) }
     }
 
     override fun onRestored(
@@ -48,7 +46,8 @@ open class MeteoWidgetReceiver : GlanceAppWidgetReceiver() {
         // évite un widget figé jusqu'au prochain lancement de l'application.
         scheduleRefreshSafely(context, immediate = false)
         super.onRestored(context, oldWidgetIds, newWidgetIds)
-        scheduleRefreshSafely(context, immediate = true)
+        runCatching { WidgetRefreshScheduler.triggerCatchUpRefresh(context) }
+            .onFailure { android.util.Log.w("MeteoCompare/Widget", "Unable to enqueue restored catch-up", it) }
     }
 
     override fun onDisabled(context: Context) {
