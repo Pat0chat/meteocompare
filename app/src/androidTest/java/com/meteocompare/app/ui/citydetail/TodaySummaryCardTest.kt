@@ -128,6 +128,10 @@ class TodaySummaryCardTest {
 
         assertTrue("Sunshine must sit to the right of Sun", sunshine.left >= sunTitle.right)
         assertTrue("Sunshine and Sun must share a row", kotlin.math.abs(sunshineMidY - sunTitleMidY) < 14f)
+        // Le composant possède un padding horizontal de 3 dp. La pastille
+        // doit être alignée au bord droit utile, pas simplement après « Sun ».
+        assertEquals("Sunshine must be right-aligned in the Sun section",
+            section.right.value - 3f, sunshine.right.value, 3f)
         assertTrue("Daylight belongs below the curve", daylight.top >= curve.bottom)
         composeRule.onNodeWithText(
             context.getString(R.string.detail_solar_daylight, 12, 0), useUnmergedTree = true

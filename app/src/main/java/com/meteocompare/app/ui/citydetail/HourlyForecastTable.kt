@@ -29,7 +29,6 @@ import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.model.sortedByFamily
 import com.meteocompare.app.ui.theme.color
 import java.time.Instant
-import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle as JavaTextStyle
 
 /** Tableau Modèle × Heure pour une variable horaire. */

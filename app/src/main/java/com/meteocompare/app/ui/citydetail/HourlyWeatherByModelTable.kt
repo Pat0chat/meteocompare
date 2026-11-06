@@ -33,7 +33,6 @@ import com.meteocompare.app.ui.components.WeatherIconDecorative
 import com.meteocompare.app.ui.components.semanticTint
 import com.meteocompare.app.ui.theme.color
 import java.time.Instant
-import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle as JavaTextStyle
 
 /** Matrice Modèle × Heure des conditions météo horaires. */

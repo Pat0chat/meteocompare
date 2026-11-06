@@ -85,8 +85,6 @@ import com.meteocompare.app.domain.radar.radarNowcastDisplayGeometry
 import com.meteocompare.app.domain.radar.rainCellContours
 import java.time.Instant
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.hypot

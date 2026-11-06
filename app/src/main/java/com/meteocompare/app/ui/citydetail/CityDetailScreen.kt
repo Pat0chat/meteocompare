@@ -105,7 +105,6 @@ import com.meteocompare.app.core.units.weatherStringResource as stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -2414,12 +2413,15 @@ internal fun SummaryMetricGroupHeader(
             color = MaterialTheme.colorScheme.onSurface,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f)
+            // Un contenu à droite doit occuper le reste de la ligne ; le titre
+            // garde sa largeur naturelle et ne repousse pas la pastille.
+            modifier = if (trailingContent != null) Modifier else Modifier.weight(1f)
         )
         if (trailingContent != null) {
             Spacer(Modifier.width(6.dp))
-            // Réserve de la place au titre même sur les petits écrans / langues longues.
-            Box(modifier = Modifier.weight(2.8f, fill = false), contentAlignment = Alignment.CenterEnd) {
+            // weight(fill = true) est essentiel : avec fill = false, la boîte
+            // épouse la largeur de la pastille et ne l'aligne pas au bord droit.
+            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
                 trailingContent()
             }
         } else {
