@@ -386,6 +386,25 @@ enum class WeatherModel(
         coverage = Coverage.GLOBAL,
         family = ModelFamily.NOAA,
         nativeStepMinutes = 360,
+    ),
+
+    /**
+     * Czech Hydrometeorological Institute — ALADIN, domaine Europe centrale.
+     *
+     * Utiliser le domaine régional natif plutôt que `chmi_aladin_seamless` :
+     * le seamless substitue ECMWF IFS après 3 jours et hors couverture, ce qui
+     * serait trompeur dans une comparaison entre modèles indépendants.
+     * Ce modèle reste désactivé par défaut : il ne couvre pas toute l'Europe.
+     */
+    CHMI_ALADIN_CENTRAL_EUROPE(
+        apiKey = "chmi_aladin_central_europe_2km",
+        displayName = "CHMI ALADIN",
+        resolutionKm = 2.3,
+        maxForecastDays = 3,
+        coverage = Coverage.EUROPE,
+        family = ModelFamily.CHMI,
+        forecastHorizonHours = 72,
+        updateFrequencyHours = 6
     );
 
     /** Clé courante ou alias de MÊME source accepté en lecture de données/cache. */
@@ -469,5 +488,6 @@ enum class ModelFamily(val displayName: String, val institutionName: String) {
     CMA("CMA", "CMA — China Meteorological Administration"),
     DMI("DMI", "DMI — Danish Meteorological Institute"),
     METEOSWISS("MeteoSwiss", "MeteoSwiss — Federal Office of Meteorology and Climatology"),
-    JMA("JMA", "JMA — Japan Meteorological Agency")
+    JMA("JMA", "JMA — Japan Meteorological Agency"),
+    CHMI("CHMI", "CHMI — Czech Hydrometeorological Institute")
 }

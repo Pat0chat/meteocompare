@@ -2,8 +2,8 @@ Hinweis: Diese Beschreibung wurde automatisch übersetzt.
 
 MeteoCompare ist eine freie, quelloffene und werbefreie Wetter-App, die mehrere Modelle vergleicht, statt Unsicherheit hinter einer einzigen Vorhersage zu verbergen.
 
-21 MODELLE · BIS ZU 10 TAGE
-Vergleiche 21 Referenzmodelle: AROME und ARPEGE (Météo-France), ICON und ICON-D2 (DWD), GFS, HRRR und das neue NOAA AIGFS, ECMWF IFS und AIFS, UKMO, GEM, das neue JMA GSM, MET Nordic, HARMONIE von KNMI/DMI, MeteoSwiss ICON-CH2, ACCESS und GRAPES.
+22 MODELLE · BIS ZU 10 TAGE
+Vergleiche 22 Referenzmodelle: AROME und ARPEGE (Météo-France), ICON und ICON-D2 (DWD), GFS, HRRR und das neue NOAA AIGFS, ECMWF IFS und AIFS, UKMO, GEM, das neue JMA GSM, MET Nordic, HARMONIE von KNMI/DMI, MeteoSwiss ICON-CH2, ACCESS, GRAPES und CHMI ALADIN (Mitteleuropa).
 
 Die Tagesansichten decken jetzt 10 Tage ab. Modelle mit kürzerem Horizont werden nur so lange angezeigt, wie ihre eigenen Daten verfügbar sind: MeteoCompare erfindet oder verlängert keine Modellausgaben.
 

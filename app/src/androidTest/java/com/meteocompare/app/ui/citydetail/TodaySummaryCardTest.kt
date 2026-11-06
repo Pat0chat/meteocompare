@@ -6,6 +6,7 @@ import com.meteocompare.app.core.locale.LocalClockFormatPreference
 import com.meteocompare.app.core.locale.WeatherTimeFormat
 import com.meteocompare.app.domain.model.ClockFormatPreference
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
@@ -58,8 +59,7 @@ class TodaySummaryCardTest {
         }
     }
 
-    @Test
-    fun todaySummaryShowsDailySunshineWhenFullDayCloudForecastExists() {
+    private fun forecastWithSunshine(): CityForecast {
         val zone = ZoneId.of("Europe/Paris")
         val date = TestFixtures.today
         val start = date.atStartOfDay(zone).toInstant()
@@ -77,6 +77,13 @@ class TodaySummaryCardTest {
                 daily = series.daily.copy(sunrise = listOf(sunrise), sunset = listOf(sunset))
             )
         })
+        return forecast
+    }
+
+    @Test
+    fun todaySummaryShowsDailySunshineWhenFullDayCloudForecastExists() {
+        val date = TestFixtures.today
+        val forecast = forecastWithSunshine()
         render(DayConfidence(date, null, null, null, null), forecast = forecast)
         composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_SUNSHINE, useUnmergedTree = true)
             .assertExists()
@@ -84,6 +91,33 @@ class TodaySummaryCardTest {
             "6 h",
             useUnmergedTree = true
         ).assertExists()
+    }
+
+    @Test
+    fun sunshineExplanationIsHiddenUntilTheSunshineCardIsTapped() {
+        render(
+            DayConfidence(TestFixtures.today, null, null, null, null),
+            forecast = forecastWithSunshine()
+        )
+        val sunshine = composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_SUNSHINE, useUnmergedTree = true)
+        val explanation = composeRule.onNodeWithTag(
+            TAG_TODAY_SUMMARY_SUNSHINE_EXPLANATION, useUnmergedTree = true
+        )
+        sunshine.assertExists().assertHasClickAction()
+        explanation.assertDoesNotExist()
+        composeRule.onNodeWithText(context.getString(R.string.compare_sunshine_disclaimer), useUnmergedTree = true)
+            .assertDoesNotExist()
+
+        sunshine.performClick()
+        explanation.assertIsDisplayed()
+        composeRule.onNodeWithText(context.getString(R.string.compare_sunshine_disclaimer), useUnmergedTree = true)
+            .assertExists()
+
+        sunshine.performClick()
+        explanation.assertDoesNotExist()
+        // La valeur journalière, elle, n'a pas disparu avec le détail.
+        sunshine.assertExists()
+        composeRule.onNodeWithText("6 h", useUnmergedTree = true).assertExists()
     }
 
     @Test

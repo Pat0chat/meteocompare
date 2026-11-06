@@ -322,4 +322,12 @@ class ForecastConsensusTest {
         )
     }
 
+    @Test
+    fun `CHMI ALADIN dispose de sa propre lignee de consensus`() {
+        val chmi = ForecastConsensus.groupFor(WeatherModel.CHMI_ALADIN_CENTRAL_EUROPE)
+        assertEquals(ForecastConsensus.Group.CHMI_ALADIN, chmi)
+        assertTrue(chmi != ForecastConsensus.groupFor(WeatherModel.ECMWF))
+        assertTrue(chmi != ForecastConsensus.groupFor(WeatherModel.ICON_EU))
+    }
+
 }

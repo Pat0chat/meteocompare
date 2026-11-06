@@ -22,7 +22,7 @@ object ForecastConsensus {
     enum class Group {
         MF_AROME, MF_ARPEGE, DWD_ICON, ECMWF_GLOBAL,
         NOAA_GFS, NOAA_HRRR, UKMO_GLOBAL, ECCC_GEM,
-        METNO_NORDIC, UWC_HARMONIE, BOM_ACCESS, CMA_GRAPES, JMA_GSM
+        METNO_NORDIC, UWC_HARMONIE, BOM_ACCESS, CMA_GRAPES, JMA_GSM, CHMI_ALADIN
     }
 
     fun groupFor(model: WeatherModel): Group = when (model) {
@@ -40,6 +40,7 @@ object ForecastConsensus {
         WeatherModel.BOM_ACCESS -> Group.BOM_ACCESS
         WeatherModel.CMA_GRAPES -> Group.CMA_GRAPES
         WeatherModel.JMA_GSM -> Group.JMA_GSM
+        WeatherModel.CHMI_ALADIN_CENTRAL_EUROPE -> Group.CHMI_ALADIN
     }
 
     data class Entry<T>(val model: WeatherModel, val value: T)

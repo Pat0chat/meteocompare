@@ -165,6 +165,33 @@ class BatchedForecastSplitterTest {
     }
 
     @Test
+    fun `CHMI ALADIN regional est lu sans melange avec ECMWF`() {
+        val response = json.decodeFromString<BatchedForecastResponseDto>(
+            """{
+              "timezone": "Europe/Prague",
+              "hourly": {
+                "time": ["2026-11-06T10:00", "2026-11-06T11:00"],
+                "temperature_2m_chmi_aladin_central_europe_2km": [9.5, null],
+                "cloud_cover_chmi_aladin_central_europe_2km": [25, null],
+                "temperature_2m_ecmwf_ifs": [10.0, 11.0]
+              }
+            }"""
+        )
+        val split = BatchedForecastSplitter.split(
+            response, listOf(WeatherModel.CHMI_ALADIN_CENTRAL_EUROPE, WeatherModel.ECMWF)
+        )
+        assertEquals(
+            listOf(9.5, null),
+            split.getValue(WeatherModel.CHMI_ALADIN_CENTRAL_EUROPE).hourly?.temperature2m
+        )
+        assertEquals(
+            listOf(25, null),
+            split.getValue(WeatherModel.CHMI_ALADIN_CENTRAL_EUROPE).hourly?.cloudCover
+        )
+        assertEquals(listOf(10.0, 11.0), split.getValue(WeatherModel.ECMWF).hourly?.temperature2m)
+    }
+
+    @Test
     fun `multi-models - time partage entre tous les DTOs reconstruits`() {
         val response = json.decodeFromString<BatchedForecastResponseDto>(
             """{

@@ -56,6 +56,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.CompareArrows
 import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material.icons.filled.Radar
@@ -106,6 +108,7 @@ import com.meteocompare.app.core.units.weatherStringResource as stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -1699,6 +1702,9 @@ internal fun TodaySummaryCard(
     val sunshineText = formatSunshineDuration(
         sunshineHours, hourly = false, units, LocalConfiguration.current.locales[0], localizedSunshineDurationFormats()
     )
+    // La méthode de calcul reste disponible sur demande, sans occuper
+    // d'espace vertical tant que l'utilisateur n'ouvre pas cette sous-carte.
+    var sunshineExplanationExpanded by rememberSaveable(today.date) { mutableStateOf(false) }
     val solarZone = remember(forecast?.city?.timezone) {
         resolveCityZone(forecast?.city?.timezone)
     }
@@ -1901,9 +1907,18 @@ internal fun TodaySummaryCard(
                     if (sunshineHours != null) {
                         Spacer(Modifier.height(8.dp))
                         Surface(
+                            onClick = { sunshineExplanationExpanded = !sunshineExplanationExpanded },
                             color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.65f),
                             shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth().testTag(TAG_TODAY_SUMMARY_SUNSHINE)
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag(TAG_TODAY_SUMMARY_SUNSHINE)
+                                .semantics {
+                                    stateDescription = resources.getString(
+                                        if (sunshineExplanationExpanded) R.string.section_state_expanded
+                                        else R.string.section_state_collapsed
+                                    )
+                                }
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
@@ -1926,14 +1941,28 @@ internal fun TodaySummaryCard(
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.SemiBold
                                 )
+                                Icon(
+                                    imageVector = if (sunshineExplanationExpanded) {
+                                        Icons.Filled.KeyboardArrowUp
+                                    } else {
+                                        Icons.Filled.KeyboardArrowDown
+                                    },
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(16.dp)
+                                )
                             }
                         }
-                        Text(
-                            text = stringResource(R.string.compare_sunshine_disclaimer),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 4.dp, start = 2.dp, end = 2.dp)
-                        )
+                        if (sunshineExplanationExpanded) {
+                            Text(
+                                text = stringResource(R.string.compare_sunshine_disclaimer),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier
+                                    .padding(top = 4.dp, start = 2.dp, end = 2.dp)
+                                    .testTag(TAG_TODAY_SUMMARY_SUNSHINE_EXPLANATION)
+                            )
+                        }
                     }
 
                     if (solarWindow != null) {
@@ -3623,6 +3652,7 @@ internal const val TAG_TODAY_SUMMARY_SECTION_DIVIDER = "today_summary_section_di
 internal const val TAG_TODAY_SUMMARY_TEMP_PANEL = "today_summary_temp_panel"
 internal const val TAG_TODAY_SUMMARY_APPARENT = "today_summary_apparent"
 internal const val TAG_TODAY_SUMMARY_SUNSHINE = "today_summary_sunshine"
+internal const val TAG_TODAY_SUMMARY_SUNSHINE_EXPLANATION = "today_summary_sunshine_explanation"
 internal const val TAG_TODAY_SUMMARY_PRECIP_PANEL = "today_summary_precip_panel"
 internal const val TAG_TODAY_SUMMARY_WIND_PANEL = "today_summary_wind_panel"
 internal const val TAG_TODAY_SUMMARY_TEMP_MIN_CENTRAL = "today_summary_temp_min_central"

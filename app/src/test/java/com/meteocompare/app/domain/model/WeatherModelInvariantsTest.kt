@@ -166,6 +166,25 @@ class WeatherModelInvariantsTest {
     }
 
     @Test
+    fun `CHMI ALADIN est regional opt in et conserve son identite API`() {
+        val model = WeatherModel.CHMI_ALADIN_CENTRAL_EUROPE
+        assertEquals("chmi_aladin_central_europe_2km", model.apiKey)
+        assertEquals("CHMI ALADIN", model.displayName)
+        assertEquals(Coverage.EUROPE, model.coverage)
+        assertEquals(ModelFamily.CHMI, model.family)
+        assertEquals(2.3, model.resolutionKm, 0.0)
+        assertEquals(3, model.maxForecastDays)
+        assertEquals(72, model.forecastHorizonHours)
+        assertEquals(60, model.nativeStepMinutes)
+        assertEquals(6, model.updateFrequencyHours)
+        assertTrue(model !in WeatherModel.MVP_SELECTION)
+        assertEquals(model, WeatherModel.fromApiKey(model.apiKey))
+        // Le domaine seamless bascule vers ECMWF : on ne le considère pas
+        // comme un alias de la prévision régionale ALADIN native.
+        assertEquals(null, WeatherModel.fromApiKey("chmi_aladin_seamless"))
+    }
+
+    @Test
     fun `aliases api restent compatibles sans collision entre modèles`() {
         val owners = mutableMapOf<String, WeatherModel>()
         WeatherModel.entries.forEach { model ->
@@ -218,12 +237,13 @@ class WeatherModelInvariantsTest {
     }
 
     @Test
-    fun `catalogue contient les 21 modeles attendus`() {
-        assertEquals(21, WeatherModel.entries.size)
+    fun `catalogue contient les 22 modeles attendus`() {
+        assertEquals(22, WeatherModel.entries.size)
         assertTrue(WeatherModel.DMI_HARMONIE_EU in WeatherModel.entries)
         assertTrue(WeatherModel.METEOSWISS_ICON_CH2 in WeatherModel.entries)
         assertTrue(WeatherModel.JMA_GSM in WeatherModel.entries)
         assertTrue(WeatherModel.NCEP_AIGFS in WeatherModel.entries)
+        assertTrue(WeatherModel.CHMI_ALADIN_CENTRAL_EUROPE in WeatherModel.entries)
     }
 
 }

@@ -165,6 +165,17 @@ class SettingsContentTest {
     }
 
     @Test
+    fun CHMI_ALADIN_is_selectable_and_disabled_by_default() {
+        var toggled: Pair<WeatherModel, Boolean>? = null
+        content(onToggle = { model, checked -> toggled = model to checked })
+        val tag = "$TAG_SETTINGS_MODEL${WeatherModel.CHMI_ALADIN_CENTRAL_EUROPE.name}"
+        scrollTo(tag)
+        composeRule.onNodeWithTag(tag).assertIsDisplayed().performClick()
+        assertEquals(WeatherModel.CHMI_ALADIN_CENTRAL_EUROPE, toggled?.first)
+        assertTrue(toggled?.second == true)
+    }
+
+    @Test
     fun last_enabled_model_cannot_be_disabled() {
         val only = WeatherModel.GFS
         var called = false
