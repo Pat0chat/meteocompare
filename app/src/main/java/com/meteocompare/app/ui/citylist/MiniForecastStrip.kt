@@ -12,6 +12,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -23,6 +24,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -41,6 +45,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.meteocompare.app.ui.components.formatSunshineDuration
+import com.meteocompare.app.ui.components.localizedSunshineDurationFormats
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.ui.components.WeatherIconDecorative
@@ -62,7 +68,7 @@ import kotlin.math.sqrt
  * Six heures sont visibles simultanément, les 18 suivantes restant
  * accessibles par défilement horizontal. Chaque colonne réutilise strictement les
  * agrégats du moteur de consensus : condition, température, probabilité et
- * quantité de pluie.
+ * quantité de pluie et ensoleillement estimé (en minutes si disponible).
  */
 @Composable
 internal fun MiniForecastStrip(
@@ -74,13 +80,22 @@ internal fun MiniForecastStrip(
     startTime: LocalDateTime? = null,
     startInstant: Instant? = null,
     timezone: ZoneId? = null,
-    nightFlags: List<Boolean?> = emptyList()
+    nightFlags: List<Boolean?> = emptyList(),
+    hourlySunshineHours: List<Double?> = emptyList()
 ) {
     val containerColor = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.52f)
     val themeContentColor = MaterialTheme.colorScheme.onSurface
     val isDarkTheme = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    val a11yLabel = buildA11yLabel(hourlyTemps, hourlyPrecipProb)
+    val a11yLabel = buildA11yLabel(hourlyTemps, hourlyPrecipProb, hourlySunshineHours)
     val scrollState = rememberScrollState()
+    // Keep the original height when forecasts contain no valid sunshine data.
+    val hasSunshine = hourlySunshineHours.take(MINI_TIMELINE_HOUR_COUNT)
+        .any { validMiniTimelineSunshineHours(it) != null }
+    val sunshineFormats = localizedSunshineDurationFormats()
+    val sunshineLabel = stringResource(R.string.compare_sunshine)
+    val stripHeight = MINI_TIMELINE_HEIGHT_DP +
+        (if (hasSunshine) MINI_TIMELINE_SUNSHINE_EXTRA_HEIGHT_DP else 0)
+    val units = LocalWeatherUnits.current
 
     val platformLocale = LocalLocale.current.platformLocale
     val clockPreference = LocalClockFormatPreference.current
@@ -89,7 +104,7 @@ internal fun MiniForecastStrip(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
-            .height(MINI_TIMELINE_HEIGHT_DP.dp)
+            .height(stripHeight.dp)
             .then(
                 if (startTime != null || (startInstant != null && timezone != null)) Modifier.testTag(TAG_MINI_FORECAST_ANCHORS)
                 else Modifier
@@ -146,6 +161,10 @@ internal fun MiniForecastStrip(
                             isDarkTheme = isDarkTheme
                         ),
                         contentColor = MaterialTheme.colorScheme.onSurface,
+                        sunshineText = validMiniTimelineSunshineHours(hourlySunshineHours.getOrNull(index))
+                            ?.let { formatSunshineDuration(it, hourly = true, units, platformLocale, sunshineFormats) },
+                        sunshineLabel = sunshineLabel,
+                        showSunshine = hasSunshine,
                         index = index
                     )
                 }
@@ -166,6 +185,9 @@ private fun MiniForecastHour(
     isNight: Boolean = false,
     rainStyle: MiniTimelineRainDotStyle?,
     contentColor: Color,
+    sunshineText: String?,
+    sunshineLabel: String,
+    showSunshine: Boolean,
     index: Int,
     units: WeatherUnits = LocalWeatherUnits.current
 ) {
@@ -277,8 +299,51 @@ private fun MiniForecastHour(
                 }
             }
         }
+
+        if (showSunshine) {
+            Spacer(Modifier.height(2.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(MINI_TIMELINE_SUNSHINE_ROW_HEIGHT_DP.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                sunshineText?.let { minutes ->
+                    Row(
+                        modifier = Modifier
+                            .testTag("$TAG_MINI_FORECAST_SUNSHINE_PREFIX$index")
+                            .semantics {
+                                contentDescription = listOfNotNull(hour, "$sunshineLabel: $minutes").joinToString(", ")
+                            },
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(1.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.WbSunny,
+                            contentDescription = null,
+                            modifier = Modifier.width(10.dp).height(10.dp),
+                            tint = MaterialTheme.colorScheme.tertiary
+                        )
+                        Text(
+                            text = minutes,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontSize = 9.sp,
+                                lineHeight = 11.sp,
+                                fontWeight = FontWeight.Medium
+                            ),
+                            maxLines = 1
+                        )
+                    }
+                }
+            }
+        }
     }
 }
+
+/** Keep bad/missing values blank instead of misrepresenting them as zero minutes. */
+internal fun validMiniTimelineSunshineHours(value: Double?): Double? =
+    value?.takeIf { it.isFinite() && it in 0.0..1.0 }
 
 /** Couleur thermique confinée à la capsule de température. */
 internal fun miniTimelineTemperatureBackground(
@@ -365,7 +430,8 @@ internal fun contrastRatio(foreground: Color, background: Color): Float {
 @Composable
 private fun buildA11yLabel(
     temps: List<Double?>,
-    precipProbs: List<Int?>
+    precipProbs: List<Int?>,
+    sunshineHours: List<Double?>
 ): String {
     val nonNull = temps.filterNotNull().filter(Double::isFinite)
     val minT = nonNull.minOrNull()
@@ -373,6 +439,8 @@ private fun buildA11yLabel(
     val rainHours = precipProbs.count { it != null && it >= RAIN_DOT_MIN_PROBABILITY }
 
     return when {
+        (minT == null || maxT == null) && sunshineHours.take(MINI_TIMELINE_HOUR_COUNT)
+            .any { validMiniTimelineSunshineHours(it) != null } -> stringResource(R.string.compare_sunshine)
         minT == null || maxT == null -> stringResource(R.string.mini_forecast_a11y_no_data)
         rainHours == 0 -> stringResource(R.string.mini_forecast_a11y_no_rain, minT, maxT)
         else -> stringResource(R.string.mini_forecast_a11y_with_rain, minT, maxT, rainHours)
@@ -382,6 +450,8 @@ private fun buildA11yLabel(
 internal const val MINI_TIMELINE_HOUR_COUNT = 24
 internal const val MINI_TIMELINE_VISIBLE_HOURS = 6
 internal const val MINI_TIMELINE_HEIGHT_DP = 84
+internal const val MINI_TIMELINE_SUNSHINE_ROW_HEIGHT_DP = 15
+internal const val MINI_TIMELINE_SUNSHINE_EXTRA_HEIGHT_DP = 19
 internal const val MINI_TIMELINE_CORNER_RADIUS_DP = 10
 internal const val MINI_TIMELINE_CONDITION_ICON_DP = 27
 internal const val MINI_TIMELINE_TEMPERATURE_CAPSULE_WIDTH_DP = 40
@@ -401,3 +471,4 @@ internal const val TAG_MINI_FORECAST_ANCHORS = "mini_forecast_anchors"
 internal const val TAG_MINI_FORECAST_CURRENT_MARKER = "mini_forecast_current_marker"
 internal const val TAG_MINI_FORECAST_CONDITION_PREFIX = "mini_forecast_condition_"
 internal const val TAG_MINI_FORECAST_TEMPERATURE_PREFIX = "mini_forecast_temperature_"
+internal const val TAG_MINI_FORECAST_SUNSHINE_PREFIX = "mini_forecast_sunshine_"

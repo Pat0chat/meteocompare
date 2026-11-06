@@ -56,17 +56,24 @@ class CityCardTest {
     }
 
     @Test
-    fun expanded_card_shows_hourly_minutes_and_readable_daily_total() {
+    fun expanded_card_integrates_only_hourly_sunshine_into_24h_mini_timeline() {
         render(ForecastState.Loaded(
             today = DayConfidence(TestFixtures.today, null, null, null, null),
             currentTemp = 20.0,
             hourlyStartInstant = TestFixtures.now,
-            next24hSunshineHours = listOf(0.3, 0.0, null),
-            next5dSunshineHours = listOf(TestFixtures.today to 1.2)
+            next24hTemps = List(24) { 20.0 },
+            next24hSunshineHours = listOf(0.3, 0.0, null) + List(21) { 0.5 }
         ))
-        composeRule.onNodeWithTag("home_sunshine_forecast", useUnmergedTree = true).assertExists()
-        composeRule.onNodeWithText("18 min", useUnmergedTree = true).assertExists()
-        composeRule.onNodeWithText("1 h 12 min", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithTag(TAG_MINI_FORECAST_STRIP, useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithTag("${TAG_MINI_FORECAST_SUNSHINE_PREFIX}0", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText(
+            context.getString(R.string.sunshine_duration_minutes, "18"),
+            useUnmergedTree = true
+        ).assertExists()
+        composeRule.onNodeWithTag("${TAG_MINI_FORECAST_SUNSHINE_PREFIX}2", useUnmergedTree = true).assertDoesNotExist()
+        // No redundant separate forecast or daily sunshine totals on Home.
+        composeRule.onNodeWithTag("home_sunshine_forecast", useUnmergedTree = true).assertDoesNotExist()
+        composeRule.onNodeWithText("1 h 12 min", useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test

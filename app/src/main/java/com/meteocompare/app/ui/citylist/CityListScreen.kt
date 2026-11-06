@@ -1,12 +1,8 @@
 package com.meteocompare.app.ui.citylist
 
 import com.meteocompare.app.core.util.windCardinal
-import com.meteocompare.app.core.locale.LocalClockFormatPreference
-import com.meteocompare.app.core.locale.WeatherTimeFormat
 
 import com.meteocompare.app.ui.components.UvIndexGauge
-import com.meteocompare.app.ui.components.formatSunshineDuration
-import com.meteocompare.app.ui.components.localizedSunshineDurationFormats
 import com.meteocompare.app.data.repository.LocationPermissionOffer
 import com.meteocompare.app.data.repository.CurrentLocationSnapshot
 import com.meteocompare.app.data.repository.CurrentLocationStore
@@ -69,7 +65,6 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Air
 import androidx.compose.material.icons.outlined.Cloud
-import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.LocationCity
@@ -169,7 +164,6 @@ import com.meteocompare.app.ui.theme.temperatureMetricAccent
 import com.meteocompare.app.ui.theme.windMetricAccent
 import java.text.NumberFormat
 import java.time.Instant
-import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.ZoneId
@@ -895,7 +889,6 @@ internal fun CityCard(
                                         next24hPrecipProb = forecast.next24hPrecipProb,
                                         next24hPrecipMm = forecast.next24hPrecipMm,
                                         next24hConditions = forecast.next24hConditions,
-                                        next5dSunshineHours = forecast.next5dSunshineHours,
                                         next24hSunshineHours = forecast.next24hSunshineHours,
                                         next12hScenarios = forecast.next12hScenarios,
                                         hourlyStartTime = forecast.hourlyStartTime,
@@ -1371,7 +1364,6 @@ private fun CityCardLoaded(
     next24hPrecipProb: List<Int?>,
     next24hPrecipMm: List<Double?>,
     next24hConditions: List<WeatherCondition?>,
-    next5dSunshineHours: List<Pair<LocalDate, Double?>> = emptyList(),
     next24hSunshineHours: List<Double?> = emptyList(),
     next12hScenarios: List<WeatherScenario>,
     hourlyStartTime: LocalDateTime?,
@@ -1431,7 +1423,9 @@ private fun CityCardLoaded(
             Spacer(Modifier.height(3.dp))
         }
 
-        if (next24hTemps.any { it != null }) {
+        if (next24hTemps.any { it != null } ||
+            next24hConditions.any { it != null } ||
+            next24hSunshineHours.any { validMiniTimelineSunshineHours(it) != null }) {
             Spacer(Modifier.height(4.dp))
             MiniForecastStrip(
                 hourlyTemps = next24hTemps,
@@ -1441,18 +1435,8 @@ private fun CityCardLoaded(
                 startTime = hourlyStartTime,
                 startInstant = hourlyStartInstant,
                 timezone = zone,
-                nightFlags = miniNightFlags
-            )
-        }
-
-        if (next5dSunshineHours.any { it.second != null } ||
-            next24hSunshineHours.any { it != null }) {
-            Spacer(Modifier.height(8.dp))
-            HomeSunshineForecast(
-                days = next5dSunshineHours,
-                hours = next24hSunshineHours,
-                startInstant = hourlyStartInstant,
-                timezone = zone
+                nightFlags = miniNightFlags,
+                hourlySunshineHours = next24hSunshineHours
             )
         }
 
@@ -1475,115 +1459,6 @@ private fun CityCardLoaded(
                 isLocating = isLocating
             )
         }
-    }
-}
-
-/** Estimated sunshine per hour and per day on the expanded Home card. */
-@Composable
-private fun HomeSunshineForecast(
-    days: List<Pair<LocalDate, Double?>>,
-    hours: List<Double?>,
-    startInstant: Instant?,
-    timezone: ZoneId,
-    units: WeatherUnits = LocalWeatherUnits.current
-) {
-    val locale = LocalLocale.current.platformLocale
-    val sunshineFormats = localizedSunshineDurationFormats()
-    val clockPreference = LocalClockFormatPreference.current
-    val dayFormatter = remember(locale) { DateTimeFormatter.ofPattern("EEE d", locale) }
-    val hourFormatter = remember(locale, clockPreference) {
-        WeatherTimeFormat.hour(locale, clockPreference)
-    }
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .testTag("home_sunshine_forecast")
-            .padding(vertical = 3.dp)
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                imageVector = Icons.Filled.WbSunny,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.tertiary,
-                modifier = Modifier.size(16.dp)
-            )
-            Spacer(Modifier.width(6.dp))
-            Text(
-                text = stringResource(R.string.compare_sunshine),
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-        }
-        if (days.any { it.second != null }) {
-            Text(
-                text = stringResource(R.string.display_mode_daily),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                days.forEach { (date, hours) ->
-                    Column(
-                        modifier = Modifier
-                            .background(
-                                MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.52f),
-                                RoundedCornerShape(8.dp)
-                            )
-                            .padding(horizontal = 10.dp, vertical = 6.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(date.format(dayFormatter), style = MaterialTheme.typography.labelSmall)
-                        Text(
-                            text = formatSunshineDuration(hours, hourly = false, units, locale, sunshineFormats),
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                }
-            }
-        }
-        if (hours.any { it != null } && startInstant != null) {
-            Text(
-                text = stringResource(R.string.display_mode_hourly),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                hours.forEachIndexed { index, value ->
-                    Column(
-                        modifier = Modifier
-                            .width(56.dp)
-                            .background(
-                                MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.52f),
-                                RoundedCornerShape(8.dp)
-                            )
-                            .padding(vertical = 5.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = startInstant.plusSeconds(index * 3_600L)
-                                .atZone(timezone).format(hourFormatter),
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                        Text(
-                            text = formatSunshineDuration(value, hourly = true, units, locale, sunshineFormats),
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                }
-            }
-        }
-        Text(
-            text = stringResource(R.string.compare_sunshine_disclaimer),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 }
 

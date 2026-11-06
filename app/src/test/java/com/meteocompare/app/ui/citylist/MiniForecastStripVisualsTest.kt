@@ -110,4 +110,22 @@ class MiniForecastStripVisualsTest {
         assertNotEquals(cool, warm)
         assertEquals(surface, missing)
     }
+
+    @Test
+    fun `sunshine slots accept 0 to 60 minutes but not missing or invalid hours`() {
+        assertEquals(0.0, validMiniTimelineSunshineHours(0.0))
+        assertEquals(0.3, validMiniTimelineSunshineHours(0.3))
+        assertEquals(1.0, validMiniTimelineSunshineHours(1.0))
+        for (invalid in listOf(null, -0.1, 1.01, Double.NaN, Double.POSITIVE_INFINITY)) {
+            assertNull(validMiniTimelineSunshineHours(invalid))
+        }
+    }
+
+    @Test
+    fun `sunshine row adds a small amount of height only when data is present`() {
+        assertEquals(84, MINI_TIMELINE_HEIGHT_DP)
+        assertEquals(15, MINI_TIMELINE_SUNSHINE_ROW_HEIGHT_DP)
+        assertTrue(MINI_TIMELINE_SUNSHINE_EXTRA_HEIGHT_DP <= 20)
+    }
+
 }

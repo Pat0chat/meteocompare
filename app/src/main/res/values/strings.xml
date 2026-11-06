@@ -467,9 +467,9 @@
     <string name="bias_chip_calibrating_progress_a11y">En cours de calibration : %1$d échantillons sur %2$d collectés</string>
 
     <string name="sun_times_a11y">Lever du soleil à %1$s, coucher à %2$s</string>
-    <string name="mini_forecast_a11y_no_data">Prévision 12h non disponible</string>
-    <string name="mini_forecast_a11y_no_rain">Prévision 12h : entre %1$s et %2$s %3$s, pas de pluie prévue</string>
-    <string name="mini_forecast_a11y_with_rain">Prévision 12h : entre %1$s et %2$s %4$s, pluie prévue sur %3$d heures</string>
+    <string name="mini_forecast_a11y_no_data">Prévision 24 h non disponible</string>
+    <string name="mini_forecast_a11y_no_rain">Prévision 24 h : entre %1$s et %2$s %3$s, pas de pluie prévue</string>
+    <string name="mini_forecast_a11y_with_rain">Prévision 24 h : entre %1$s et %2$s %4$s, pluie prévue sur %3$d heures</string>
 
     <string name="widget_config_forecast_mode_mini_12h">Mini prévision 12 heures</string>
     <string name="widget_config_forecast_mode_mini_12h_descr">Affiche les prévisions température et précipitation des 12 prochaines heures</string>

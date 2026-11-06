@@ -25,7 +25,6 @@ import com.meteocompare.app.domain.repository.MarineRepository
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
 import com.meteocompare.app.domain.repository.VigilanceRepository
 import com.meteocompare.app.domain.repository.UvIndexRepository
-import com.meteocompare.app.domain.usecase.estimatedSunshineHours
 import com.meteocompare.app.domain.usecase.estimateHourlySunshineHours
 import com.meteocompare.app.domain.util.forecastSolarWindow
 import com.meteocompare.app.domain.usecase.ConfidenceCalculator
@@ -1301,11 +1300,6 @@ class CityListViewModel @Inject constructor(
                     next24hPrecipMm = miniForecast.precipitationAmountsMm,
                     next24hConditions = miniForecast.conditions,
                     next24hSunshineHours = hourlySunshine,
-                    next5dSunshineHours = List(5) { offset ->
-                        today.plusDays(offset.toLong()).let { date ->
-                            date to estimatedSunshineHours(result.data, date)
-                        }
-                    },
                     next12hScenarios = scenarios,
                     // L'agrégateur expose l'échéance réellement échantillonnée
                     // (ex. 13:00 à 12:56), donc le label ne peut plus dériver.

@@ -461,9 +461,9 @@ Daten</string>
     <string name="bias_chip_calibrating_progress_a11y">Kalibrierung: %1$d von %2$d Stichproben gesammelt</string>
 
     <string name="sun_times_a11y">Sonnenaufgang um %1$s, Sonnenuntergang um %2$s</string>
-    <string name="mini_forecast_a11y_no_data">12-Stunden-Vorhersage nicht verfügbar</string>
-    <string name="mini_forecast_a11y_no_rain">12-Stunden-Vorhersage: zwischen %1$s und %2$s %3$s, kein Regen erwartet</string>
-    <string name="mini_forecast_a11y_with_rain">12-Stunden-Vorhersage: zwischen %1$s und %2$s %4$s, Regen für %3$d Stunden erwartet</string>
+    <string name="mini_forecast_a11y_no_data">24-Stunden-Vorhersage nicht verfügbar</string>
+    <string name="mini_forecast_a11y_no_rain">24-Stunden-Vorhersage: zwischen %1$s und %2$s %3$s, kein Regen erwartet</string>
+    <string name="mini_forecast_a11y_with_rain">24-Stunden-Vorhersage: zwischen %1$s und %2$s %4$s, Regen für %3$d Stunden erwartet</string>
 
     <string name="widget_config_forecast_mode_mini_12h">12-Stunden-Kurzvorhersage</string>
     <string name="widget_config_forecast_mode_mini_12h_descr">Zeigt Temperatur- und Niederschlagsvorhersagen für die nächsten 12 Stunden.</string>

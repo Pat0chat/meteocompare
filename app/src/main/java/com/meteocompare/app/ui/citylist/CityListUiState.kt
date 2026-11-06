@@ -10,7 +10,6 @@ import com.meteocompare.app.domain.model.UvForecast
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.model.WeatherScenario
 import java.time.Instant
-import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 
@@ -130,8 +129,6 @@ sealed interface ForecastState {
         val next24hConditions: List<WeatherCondition?> = emptyList(),
         /** Per-hour estimated clear-sky-equivalent hours (0..1). */
         val next24hSunshineHours: List<Double?> = emptyList(),
-        /** Five locally dated, cloud-adjusted sunshine estimates (hours). */
-        val next5dSunshineHours: List<Pair<LocalDate, Double?>> = emptyList(),
         /** Regroupement pédagogique des modèles sur les 12 prochaines heures. */
         val next12hScenarios: List<WeatherScenario> = emptyList(),
         val hourlyStartTime: LocalDateTime? = null,

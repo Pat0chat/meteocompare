@@ -1,5 +1,10 @@
 package com.meteocompare.app.ui.citylist
 
+import android.content.res.Configuration
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import java.util.Locale
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.mutableStateOf
@@ -226,6 +231,117 @@ class MiniForecastStripTest {
             .assertIsDisplayed()
         composeRule.onNodeWithTag("${TAG_MINI_FORECAST_TEMPERATURE_PREFIX}24")
             .assertDoesNotExist()
+    }
+
+
+    @Test
+    fun sunshine_minutes_are_part_of_each_hour_not_a_separate_carousel() {
+        composeRule.setContent {
+            MiniForecastStrip(
+                hourlyTemps = List(24) { 18.0 },
+                hourlyPrecipProb = List(24) { 0 },
+                hourlyConditions = List(24) { WeatherCondition.CLEAR },
+                hourlySunshineHours = listOf(0.3, 0.0, null, Double.NaN) + List(20) { 0.5 },
+                startTime = LocalDateTime.of(2026, 7, 15, 12, 0)
+            )
+        }
+        val sunshine0 = composeRule.onNodeWithTag("${TAG_MINI_FORECAST_SUNSHINE_PREFIX}0", useUnmergedTree = true)
+        sunshine0.assertIsDisplayed()
+            .assertContentDescriptionContains(context.getString(R.string.compare_sunshine), substring = true)
+            .assertContentDescriptionContains("18", substring = true)
+        composeRule.onNodeWithTag("${TAG_MINI_FORECAST_SUNSHINE_PREFIX}1", useUnmergedTree = true)
+            .assertIsDisplayed()
+            .assertContentDescriptionContains("0", substring = true)
+        composeRule.onNodeWithTag("${TAG_MINI_FORECAST_SUNSHINE_PREFIX}2", useUnmergedTree = true)
+            .assertDoesNotExist()
+        composeRule.onNodeWithTag("${TAG_MINI_FORECAST_SUNSHINE_PREFIX}3", useUnmergedTree = true)
+            .assertDoesNotExist()
+        composeRule.onNodeWithTag("${TAG_MINI_FORECAST_CONDITION_PREFIX}0").assertIsDisplayed()
+        composeRule.onNodeWithTag("${TAG_MINI_FORECAST_TEMPERATURE_PREFIX}0").assertIsDisplayed()
+    }
+
+    @Test
+    fun sunshine_follows_same_scroll_as_24_hour_conditions_and_stops_at_hour_23() {
+        composeRule.setContent {
+            MiniForecastStrip(
+                hourlyTemps = List(24) { 20.0 },
+                hourlyPrecipProb = List(24) { 0 },
+                hourlyConditions = List(24) { WeatherCondition.CLEAR },
+                hourlySunshineHours = List(26) { 0.5 },
+                startTime = LocalDateTime.of(2026, 7, 15, 12, 0)
+            )
+        }
+        composeRule.onNodeWithTag("${TAG_MINI_FORECAST_SUNSHINE_PREFIX}0", useUnmergedTree = true)
+            .assertIsDisplayed()
+        val last = composeRule.onNodeWithTag("${TAG_MINI_FORECAST_SUNSHINE_PREFIX}23", useUnmergedTree = true)
+        last.assertIsNotDisplayed()
+        last.performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("${TAG_MINI_FORECAST_TEMPERATURE_PREFIX}23").assertIsDisplayed()
+        composeRule.onNodeWithTag("${TAG_MINI_FORECAST_SUNSHINE_PREFIX}24", useUnmergedTree = true)
+            .assertDoesNotExist()
+    }
+
+    @Test
+    fun sunshine_is_absent_and_strip_keeps_its_original_height_when_data_missing() {
+        composeRule.setContent {
+            MiniForecastStrip(
+                hourlyTemps = List(24) { 20.0 },
+                hourlyPrecipProb = List(24) { 0 },
+                hourlySunshineHours = List(24) { null } + listOf(0.3)
+            )
+        }
+        composeRule.onNodeWithTag("${TAG_MINI_FORECAST_SUNSHINE_PREFIX}0", useUnmergedTree = true)
+            .assertDoesNotExist()
+        val strip = composeRule.onNodeWithTag(TAG_MINI_FORECAST_STRIP)
+        assertEquals(MINI_TIMELINE_HEIGHT_DP.toFloat(), strip.getUnclippedBoundsInRoot().height.value, 0.5f)
+    }
+
+    @Test
+    fun valid_sunshine_extends_only_the_timeline_not_the_card_with_a_second_panel() {
+        composeRule.setContent {
+            MiniForecastStrip(
+                hourlyTemps = List(24) { 20.0 },
+                hourlyPrecipProb = List(24) { 0 },
+                hourlySunshineHours = List(24) { 0.3 }
+            )
+        }
+        val strip = composeRule.onNodeWithTag(TAG_MINI_FORECAST_STRIP)
+        assertEquals(
+            (MINI_TIMELINE_HEIGHT_DP + MINI_TIMELINE_SUNSHINE_EXTRA_HEIGHT_DP).toFloat(),
+            strip.getUnclippedBoundsInRoot().height.value, 0.5f
+        )
+    }
+
+
+    @Test
+    fun sunshine_minutes_follow_the_app_language_inside_the_mini_timeline() {
+        val language = mutableStateOf("fr")
+        composeRule.setContent {
+            val configuration = Configuration(context.resources.configuration).apply {
+                setLocale(Locale.forLanguageTag(language.value))
+            }
+            val localeContext = context.createConfigurationContext(configuration)
+            CompositionLocalProvider(
+                LocalContext provides localeContext,
+                LocalConfiguration provides configuration
+            ) {
+                MiniForecastStrip(
+                    hourlyTemps = List(24) { 20.0 },
+                    hourlyPrecipProb = List(24) { 0 },
+                    hourlySunshineHours = List(24) { 0.3 }
+                )
+            }
+        }
+        for ((locale, label) in mapOf(
+            "fr" to "18 min", "en" to "18 min", "de" to "18 Min.",
+            "es" to "18 min", "it" to "18 min"
+        )) {
+            composeRule.runOnIdle { language.value = locale }
+            composeRule.waitForIdle()
+            composeRule.onNodeWithTag("${TAG_MINI_FORECAST_SUNSHINE_PREFIX}0", useUnmergedTree = true)
+                .assertIsDisplayed()
+                .assertContentDescriptionContains(label, substring = true)
+        }
     }
 
 }

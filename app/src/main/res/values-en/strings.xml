@@ -467,9 +467,9 @@
     <string name="bias_chip_calibrating_progress_a11y">Calibrating: %1$d of %2$d samples collected</string>
 
     <string name="sun_times_a11y">Sunrise at %1$s, sunset at %2$s</string>
-    <string name="mini_forecast_a11y_no_data">12h forecast unavailable</string>
-    <string name="mini_forecast_a11y_no_rain">12h forecast: between %1$s and %2$s %3$s, no rain expected</string>
-    <string name="mini_forecast_a11y_with_rain">12h forecast: between %1$s and %2$s %4$s, rain expected over %3$d hours</string>
+    <string name="mini_forecast_a11y_no_data">24h forecast unavailable</string>
+    <string name="mini_forecast_a11y_no_rain">24h forecast: between %1$s and %2$s %3$s, no rain expected</string>
+    <string name="mini_forecast_a11y_with_rain">24h forecast: between %1$s and %2$s %4$s, rain expected over %3$d hours</string>
 
     <string name="widget_config_forecast_mode_mini_12h">12-hour mini forecast</string>
     <string name="widget_config_forecast_mode_mini_12h_descr">Displays temperature and precipitation forecasts for the next 12 hours.</string>
