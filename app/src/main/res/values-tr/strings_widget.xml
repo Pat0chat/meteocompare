@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Turkish translation of widget-related strings. Kept in sync with the
+    French default (values/strings_widget.xml). See that file's header for
+    context on file splitting.
+
+    Only two launcher picker labels are used: Weather and Key insight.
+    Their initial sizes are not part of their names because both resize.
+-->
+<resources>
+
+    <!-- Widget variant labels (shown in the picker) -->
+    <string name="widget_label_weather">Hava durumu</string>
+    <string name="widget_resize_tip_title">Tek hava widget\'ı, her boyut</string>
+    <string name="widget_resize_tip_body">Android\'in \"2×1\" etiketi yalnızca başlangıç boyutudur. Widget\'ı ekledikten sonra yeniden boyutlandırmak için ona dokunup basılı tutun (ana ekranınıza bağlıdır). Aşağıdan 5 saatlik, 12 saatlik veya 5 günlük tahminleri seçin.</string>
+
+    <!-- Colors section in the config activity -->
+    <string name="widget_config_colors_section">Renkler</string>
+    <string name="widget_config_colors_bg">Arka plan</string>
+    <string name="widget_config_colors_text">Metin</string>
+    <string name="widget_config_colors_note">Otomatik, sistem ve duvar kağıdının dinamik renklerini kullanır. Opaklık özelleştirilebilir kalır.</string>
+
+    <!-- Color names (used for TalkBack / contentDescription) -->
+    <string name="widget_color_auto">Otomatik</string>
+    <string name="widget_color_white">Beyaz</string>
+    <string name="widget_color_black">Siyah</string>
+    <string name="widget_color_blue">Mavi</string>
+    <string name="widget_color_teal">Camgöbeği</string>
+    <string name="widget_color_green">Yeşil</string>
+    <string name="widget_color_orange">Turuncu</string>
+    <string name="widget_color_red">Kırmızı</string>
+    <string name="widget_color_purple">Mor</string>
+    <string name="widget_color_light_grey">Açık gri</string>
+    <string name="widget_color_dark_grey">Koyu gri</string>
+
+    <!-- Modern forecast panel titles -->
+    <string name="widget_forecast_hours">Önümüzdeki saatler</string>
+    <string name="widget_forecast_days">Önümüzdeki günler</string>
+    <string name="widget_forecast_generic">Tahmin</string>
+    <string name="widget_forecast_confidence">Model uyumu</string>
+    <string name="widget_forecast_confidence_hint">uyum / modeller</string>
+    <string name="widget_forecast_confidence_short">Uyum %1$d%%</string>
+
+    <!-- MeteoCompare editorial widget -->
+    <string name="widget_label_insight">Önemli çıkarım</string>
+    <string name="widget_description_insight">Önümüzdeki 24 saatin hava durumuna dair özelleştirilebilir, yeniden boyutlandırılabilir özet.</string>
+    <string name="widget_config_insight_horizon_note">Önemli çıkarım widget\'ı her zaman önümüzdeki 24 saati analiz eder.</string>
+    <string name="widget_config_insight_horizon">Önümüzdeki 24 saat</string>
+    <string name="widget_config_insight_horizon_descr">Ana sinyal ve belirsizliği otomatik olarak yenilenir.</string>
+    <string name="widget_value_models">%1$d model</string>
+    <string name="widget_value_now">Şimdi</string>
+    <string name="widget_value_next">Sonraki tahmin</string>
+    <string name="widget_value_hour">%1$02d:00</string>
+    <string name="widget_value_temperature_range">%1$s–%2$s%3$s</string>
+    <string name="widget_value_probability_range">%1$d–%2$d%%</string>
+    <string name="widget_value_precip_range">%1$s–%2$s %3$s</string>
+    <string name="widget_value_wind_range">%1$s–%2$s %3$s</string>
+    <string name="widget_value_detail_range_consensus">%1$s · %2$d%% uyum</string>
+    <plurals name="widget_value_detail_range_models">
+        <item quantity="one">%1$s · %2$d model</item>
+        <item quantity="other">%1$s · %2$d model</item>
+    </plurals>
+    <string name="widget_value_detail_consensus">%1$d%% modeller arası uyum</string>
+    <string name="widget_value_metric_temperature">Sıcaklık</string>
+    <string name="widget_value_metric_precipitation">Yağış</string>
+    <string name="widget_value_metric_wind">Rüzgâr</string>
+    <string name="widget_value_agreement_short">%1$d%%</string>
+    <string name="widget_value_no_comparison">Karşılaştırma yok</string>
+    <string name="widget_value_open_app">MeteoCompare uygulamasını aç</string>
+
+    <string name="widget_config_load_error">Bu widget\'ın ayarları yüklenemedi. Yeniden deneyin.</string>
+    <!-- Personnalisation libre des couleurs et de la forme -->
+    <string name="widget_color_picker_hint">Renk çemberini aç</string>
+    <string name="widget_config_appearance">Görünüm</string>
+    <string name="widget_config_appearance_note">Şekli, boşluğu, renkleri ve saydamlığı özelleştirin.</string>
+    <string name="widget_config_preview_title">Widget önizlemesi</string>
+    <string name="widget_config_corner_style">Widget köşeleri</string>
+    <string name="widget_corner_rounded">Yuvarlak</string>
+    <string name="widget_corner_square">Kare</string>
+    <string name="widget_corner_soft">Yumuşak</string>
+    <string name="widget_corner_pill">Kapsül</string>
+    <string name="widget_corner_custom">Özel</string>
+    <string name="widget_corner_radius">Yarıçap: %1$d dp</string>
+    <string name="widget_config_spacing">İç boşluk</string>
+    <string name="widget_spacing_normal">Normal</string>
+    <string name="widget_spacing_compact">Dar</string>
+    <string name="widget_spacing_none">Yok</string>
+    <string name="widget_corner_launcher_note">Arka plan widget\'ı doldurur, dış boşluk yoktur. Android başlatıcınız köşeleri yine de kırpabilir veya yuvarlayabilir.</string>
+    <string name="widget_color_wheel_title">Bir renk seçin</string>
+    <string name="widget_color_wheel_hint">Renk tonu ve doygunluk</string>
+    <string name="widget_color_brightness">Parlaklık</string>
+    <string name="widget_color_apply">Uygula</string>
+    <string name="widget_color_hex_label">Onaltılık renk</string>
+    <string name="widget_color_hex_hint">6 onaltılık basamak girin (RRGGBB).</string>
+    <string name="widget_color_hex_invalid">Geçersiz renk: #RRGGBB kullanın.</string>
+    <string name="widget_opacity_manual_label">Değer</string>
+</resources>

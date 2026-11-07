@@ -1,0 +1,1113 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">MeteoCompare</string>
+    <!-- Favorite locality comparison -->
+    <string name="compare_localities_title">Konumları karşılaştır</string>
+
+    <string name="compare_localities_add_cities">Karşılaştırmak için en az iki favori konum ekleyin.</string>
+
+    <string name="compare_metric_heading">Ölçütler</string>
+    <string name="compare_temperature">Düşük / yüksek sıcaklık</string>
+    <string name="compare_rain">Toplam yağış</string>
+    <string name="compare_rain_probability">Yağış olasılığı</string>
+    <string name="compare_cloud_cover">Ortalama bulutluluk</string>
+    <string name="compare_wind">En yüksek rüzgâr</string>
+    <string name="compare_sunshine">Tahmini güneşlenme</string>
+    <string name="compare_agreement">Model uyumu</string>
+    <string name="compare_loading">Tahminler yükleniyor…</string>
+    <string name="compare_unavailable">Veri yok</string>
+    <string name="compare_no_dates">Kullanılabilir tahmin tarihi yok.</string>
+
+    <string name="compare_rain_cloud_disclaimer">Yağış olasılığı, kalibre edilmiş bir olasılık değil, model uzlaşısından gelen bir tahmindir. Bulutluluk, her modelin yerel gün için saatlik ortalamasının medyanıdır; verisi yetersiz günler hariç tutulur.</string>
+    <string name="compare_sunshine_disclaimer">Bulutluluk ve gündüz süresine dayalı, açık hava eşdeğeri tahmini saatler. Ölçülmüş güneşlenme süresi değildir.</string>
+    <string name="compare_agreement_disclaimer">Uyum, modellerin ne kadar yakınsadığını ölçer; tahminin doğru olma olasılığını değil. Tarihler, her konumun yerel gününü ifade eder.</string>
+
+    <string name="compare_chart_x_axis">Yerel saat</string>
+    <string name="compare_chart_touch_hint">Grafikte dokunun veya sürükleyin</string>
+
+    <string name="compare_hour_local_disclaimer">Saatler her şehrin yerel saatini kullanır. Yaz saati uygulaması başladığında bazı saatler bulunmayabilir.</string>
+    <string name="compare_hour_temperature">Sıcaklık</string>
+    <string name="compare_hour_rain">Yağış (önceki saat)</string>
+    <string name="compare_hour_cloud_cover">Bulutluluk</string>
+    <string name="compare_hour_wind">Ortalama rüzgâr</string>
+    <string name="compare_hour_agreement">Uyum (sıcaklık)</string>
+    <string name="compare_uv_max">En yüksek UV indeksi</string>
+    <string name="compare_uv_hour">UV indeksi</string>
+    <string name="compare_no_data_for_hour">Bu saat için tahmin yok</string>
+    <string name="compare_hour_rain_cloud_disclaimer">Saatlik yağış: mevcut modellerin medyanı. Yağış olasılığı kalibre edilmemiş bir tahmindir; bulutluluk seçili saat içindir.</string>
+    <string name="compare_hour_agreement_disclaimer">Saatlik uyum, modeller arası sıcaklık yakınsamasını ölçer; tahmin doğruluğunu değil. Her saat, kendi şehrinin yerel saatidir.</string>
+    <string name="compare_uv_disclaimer">UV indeksi, karşılaştırılan modeller arası uzlaşıdan değil, bağımsız bir tahminden gelir. Yok olan değerler atlanır.</string>
+
+
+
+
+    <string name="nav_back">Geri</string>
+    <string name="action_refresh">Yenile</string>
+    <string name="action_settings">Ayarlar</string>
+    <string name="action_add_city">Şehir ekle</string>
+    <string name="action_cancel">İptal</string>
+
+    <string name="widget_description">Boyutlandırılabilir tek widget: boyutuna göre 5 saatlik, 12 saatlik veya 5 günlük tahmin.</string>
+    <string name="widget_config_title">Widget\'ı yapılandır</string>
+    <string name="widget_config_subtitle">Gösterilecek şehri ve arka plan opaklığını seçin.</string>
+    <string name="widget_config_pick_city">Gösterilecek şehir</string>
+    <string name="widget_config_no_favorites">Önce MeteoCompare\'de bir şehir ekleyin, sonra widget\'ı yeniden yapılandırın.</string>
+    <string name="widget_config_opacity">Arka plan opaklığı</string>
+    <string name="widget_config_opacity_preview">Arka plan önizlemesi</string>
+    <string name="widget_config_forecast_mode">Genişletilmiş tahmin</string>
+    <string name="widget_config_forecast_mode_note">Widget\'ı yeniden boyutlandırdığınızda yerleşim mevcut alana uyar.</string>
+    <string name="widget_config_forecast_mode_hourly">Önümüzdeki 5 saat</string>
+    <string name="widget_config_forecast_mode_daily">Önümüzdeki 5 gün</string>
+    <string name="widget_config_forecast_mode_hourly_descr">Önümüzdeki 5 saat için tahmini gösterir.</string>
+    <string name="widget_config_forecast_mode_daily_descr">Önümüzdeki 5 gün için tahmini gösterir.</string>
+    <string name="widget_config_save">Ekle</string>
+    <string name="title_detail_fallback">Ayrıntı</string>
+    <string name="tablet_detail_placeholder_title">Ayrıntılı tahmin</string>
+    <string name="tablet_detail_placeholder_subtitle">Sol sütundan bir konum seçin.</string>
+
+    <string name="settings_appearance">Görünüm</string>
+    <string name="settings_clock_format">Saat biçimi</string>
+    <string name="settings_clock_format_desc">Widget\'lar dahil tüm diller için geçerli bir saat biçimi seçin.</string>
+    <string name="settings_clock_auto">Otomatik (dile göre)</string>
+    <string name="settings_clock_12">12 saatlik (ÖÖ/ÖS)</string>
+    <string name="settings_clock_24">24 saatlik</string>
+    <string name="settings_language">Dil</string>
+
+    <string name="settings_refresh_interval_title">Yenileme aralığı</string>
+    <string name="settings_refresh_interval_desc">Widget ve uygulama güncelleme sıklığı. Daha sık = daha yeni veri, ama daha çok pil ve ağ kullanımı. Manuel mod yalnızca kullanıcı müdahalesiyle günceller.</string>
+    <string name="refresh_interval_15_min">15 dk</string>
+    <string name="refresh_interval_30_min">30 dk</string>
+    <string name="refresh_interval_1_hour">1 sa</string>
+    <string name="refresh_interval_3_hours">3 sa</string>
+    <string name="refresh_interval_6_hours">6 sa</string>
+    <string name="refresh_interval_manual">Manuel</string>
+
+    <string name="settings_models_title">Hava durumu modelleri</string>
+    <string name="settings_models_desc">Karşılaştırılacak modelleri seçin. Daha fazla model karşılaştırmayı zenginleştirir ama daha çok veri gerektirir. Değişiklikler, Ayarlar\'dan çıkarken birlikte uygulanır.</string>
+    <string name="settings_models_min_warning">En az bir modelin etkin kalması gerekir.</string>
+    <string name="settings_about_title">Hakkında</string>
+    <string name="settings_about_version">Sürüm %s</string>
+    <string name="settings_about_data_source">Hava durumu verileri: Open-Meteo. MeteoCompare bu veriyi kendi karşılaştırmalarını, senaryolarını ve göstergelerini üretmek için birleştirir ve dönüştürür.</string>
+    <string name="open_meteo_attribution">Veri: Open-Meteo · CC BY 4.0 · MeteoCompare tarafından birleştirilip dönüştürüldü</string>
+    <string name="open_meteo_attribution_open">Open-Meteo lisansını aç</string>
+    <string name="open_meteo_link_label">Open-Meteo lisansı</string>
+    <string name="widget_open_meteo_attribution">Open-Meteo · CC BY 4.0</string>
+    <string name="widget_open_meteo_attribution_short">Open-Meteo</string>
+    <string name="settings_about_models_credit">Modeller: Météo-France (AROME ve ARPEGE), DWD (ICON), NOAA (GFS, HRRR ve AIGFS), Avrupa Merkezi (ECMWF ve AIFS), İngiliz Met Office (UKMO), Environment Canada (GEM), JMA (GSM), MET Norway (MET Nordic), KNMI ve DMI (HARMONIE), MeteoSwiss (ICON-CH), Bureau of Meteorology (ACCESS, Avustralya), CMA (GRAPES, Çin).</string>
+    <string name="settings_bias_refresh_title">Sapma takibi</string>
+    <string name="settings_bias_refresh_desc">Yerel güvenilirliği beslemek için 3 haftaya kadar G+1 geçmişi getirir. Arşivi olmayan modeller kademeli olarak kalibre olur.</string>
+    <string name="settings_bias_refresh_action">Başlat veya güncelle</string>
+    <string name="settings_bias_refresh_queued">Güncelleme başlatıldı. Arşivlenen günler arka planda işlenecek; bazı modeller kademeli toplamaya devam edebilir.</string>
+    <string name="settings_privacy_title">Gizlilik</string>
+    <string name="settings_privacy_body">Bu uygulama analitik, reklam izleme veya reklam kullanmaz. Yer aramaları ve tahminler, konum veya koordinatlarıyla birlikte Open-Meteo\'ya gönderilir. Favoriler ve tercihler yerel olarak saklanır; bu özellik etkinleştirildiğinde Android yedeklemesine veya cihaz aktarımına dahil edilebilir.</string>
+    <string name="theme_system">Sistem</string>
+    <string name="theme_light">Aydınlık</string>
+    <string name="theme_dark">Koyu</string>
+    <string name="language_system">Sistem</string>
+    <string name="language_french">Fransızca</string>
+    <string name="language_english">İngilizce</string>
+    <string name="language_spanish">İspanyolca</string>
+    <string name="language_german">Almanca</string>
+    <string name="language_italian">İtalyanca</string>
+    <string name="language_turkish">Türkçe</string>
+    <string name="language_system_short">SYS</string>
+    <string name="language_french_short">FR</string>
+    <string name="language_english_short">EN</string>
+    <string name="language_spanish_short">ES</string>
+    <string name="language_german_short">DE</string>
+    <string name="language_italian_short">IT</string>
+    <string name="language_turkish_short">TR</string>
+
+    <string name="models_analysed_one">%d model analiz edildi</string>
+    <string name="models_analysed_many">%d model analiz edildi</string>
+    <string name="confidence_badge_percent">%d%% uyum</string>
+    <string name="models_unavailable">Modeller yok</string>
+    <string name="no_daily_data">Günlük veri yok</string>
+    <string name="forecast_error_no_today">Bugün için tahmin verisi yok</string>
+
+    <string name="metric_temperature">Sıcaklık</string>
+    <string name="metric_precipitation">Yağış</string>
+    <string name="metric_wind">Rüzgâr</string>
+
+    <string name="model_sort_zone">Bölge</string>
+    <string name="model_sort_family">Aile</string>
+    <string name="model_sort_finesse">Çözünürlük</string>
+
+    <string name="chart_normals_legend_temp_max">10 yıllık maks. referans</string>
+    <string name="chart_normals_legend_temp_min">10 yıllık min. referans</string>
+    <string name="chart_normals_legend_precip">10 yıllık ortalama yağış</string>
+    <string name="chart_normals_legend_wind">10 yıllık maks. rüzgâr referansı</string>
+
+    <string name="widget_config_forecast_mode_conf_all">Model uyumu</string>
+    <string name="widget_config_forecast_mode_conf_all_note">Aynı günler için sıcaklık ve yağışta modeller arası uyumu gösterir.</string>
+
+    <string name="widget_confidence_now_short">Şimdi</string>
+
+    <string name="widget_metric_temperature">T°</string>
+    <string name="widget_metric_precipitation">Yağış</string>
+    <string name="widget_metric_wind">Rüzgâr</string>
+
+    <string name="widget_error_not_configured">Şehri\nyapılandırın</string>
+    <string name="widget_error_loading">Yükleniyor…</string>
+    <string name="widget_error_city_gone">Şehir\nkaldırıldı</string>
+    <string name="widget_error_fetch">Veri\nyok</string>
+
+    <string name="display_mode_hourly">Saatlik</string>
+    <string name="display_mode_daily">Günlük</string>
+
+    <string name="no_hourly_data">Saatlik veri yok</string>
+
+    <string name="updated_just_now">Az önce</string>
+    <string name="updated_min_ago">%d dk önce</string>
+    <string name="updated_hour_ago">%d sa önce</string>
+    <string name="updated_day_ago">%d g önce</string>
+
+    <string name="chart_zoom_hint">İki parmakla yakınlaştır • Sıfırlamak için çift dokunun</string>
+    <string name="chart_zoom_a11y_zoomed">Grafik yakınlaştırıldı, sıfırlamak için çift dokunun</string>
+
+    <string name="chart_not_enough_data">Bant hesaplamak için yeterli veri yok</string>
+    <string name="chart_confidence_band_desc">Bant genişledikçe modeller daha çok ayrışıyor. Renk, uyum düzeyini gösterir.</string>
+    <string name="chart_confidence_band_precip_desc">Bant, seçili motorun yağış miktarı aralığını gösterir. Renk, model ailelerinin yağış olasılığı üzerindeki uyumunu gösterir.</string>
+    <string name="chart_confidence_now">Şu anki uyum: %d%%</string>
+    <string name="chart_confidence_ahead">G+%1$d için: %2$d%%</string>
+
+    <string name="precip_legend_light">hafif</string>
+    <string name="precip_legend_moderate">orta</string>
+    <string name="precip_legend_strong">şiddetli</string>
+    <string name="precip_legend_very_strong">çok şiddetli</string>
+
+    <string name="wind_legend_light">hafif</string>
+    <string name="wind_legend_moderate">orta</string>
+    <string name="wind_legend_strong">kuvvetli</string>
+    <string name="wind_legend_storm">fırtına</string>
+
+    <string name="temp_legend_above_normal">&gt; 10 yıllık referans + %1$s</string>
+    <string name="temp_legend_below_normal">&lt; 10 yıllık referans − %1$s</string>
+
+    <string name="var_temp_max">Maks. sıcaklık</string>
+    <string name="var_temp_min">Min. sıcaklık</string>
+    <string name="today_summary_temp_min_short">Min</string>
+    <string name="today_summary_temp_max_short">Maks</string>
+    <string name="var_wind_max">Maks. rüzgâr %1$s</string>
+    <string name="var_wind_gust_max">Maks. ani rüzgâr %1$s</string>
+    <string name="var_precipitation">Yağış</string>
+
+    <string name="refresh_success">Tahmin güncellendi</string>
+    <string name="refresh_error">Güncelleme başarısız: %s</string>
+    <string name="toast_dismiss">Kapat</string>
+    <string name="toast_city_added">%1$s favorilere eklendi</string>
+    <string name="toast_city_add_error">%1$s favorilere eklenemedi</string>
+    <string name="toast_city_removed">%1$s favorilerden kaldırıldı</string>
+    <string name="toast_city_removed_generic">Şehir favorilerden kaldırıldı</string>
+    <string name="toast_city_removed_notification_warning">Şehir kaldırıldı, ama bildirim ayarları güncellenemedi.</string>
+    <string name="toast_city_remove_error">Bu şehir kaldırılamadı</string>
+    <string name="toast_city_refresh_success">%1$s tahmini güncellendi</string>
+    <string name="toast_refresh_all_success">Tüm tahminler güncel</string>
+    <string name="toast_refresh_all_partial">Bazı şehirler güncellenemedi</string>
+    <string name="toast_refresh_all_error">Hiçbir şehir güncellenemedi: %1$s</string>
+    <string name="toast_theme_updated">Tema güncellendi</string>
+    <string name="toast_refresh_interval_updated">Yenileme aralığı güncellendi</string>
+    <string name="toast_forecast_engine_updated">Tahmin motoru güncellendi</string>
+    <string name="toast_models_updated">Hava durumu modeli seçimi kaydedildi</string>
+    <string name="toast_notifications_daily_enabled">Günlük hava özeti etkinleştirildi</string>
+    <string name="toast_notifications_daily_disabled">Günlük hava özeti devre dışı bırakıldı</string>
+    <string name="toast_notifications_time_updated">Günlük özet saati güncellendi</string>
+    <string name="toast_notifications_divergence_enabled">Model farklılaşması uyarıları etkinleştirildi</string>
+    <string name="toast_notifications_divergence_disabled">Model farklılaşması uyarıları devre dışı bırakıldı</string>
+    <string name="toast_notifications_change_enabled">Tahmin değişimi uyarıları etkinleştirildi</string>
+    <string name="toast_notifications_change_disabled">Tahmin değişimi uyarıları devre dışı bırakıldı</string>
+    <string name="toast_notifications_city_enabled">%1$s bildirim takibi yapılan şehirlere eklendi</string>
+    <string name="toast_notifications_city_disabled">%1$s bildirim takibi yapılan şehirlerden kaldırıldı</string>
+    <string name="toast_notifications_cities_updated">Bildirim takibi yapılan şehirler güncellendi</string>
+    <string name="toast_notifications_schedule_warning">Ayar kaydedildi, ama bildirim zamanlaması güncellenemedi. Otomatik olarak yeniden denenecek.</string>
+    <string name="toast_notifications_permission_denied">Bildirimler etkinleştirilemedi: izin reddedildi</string>
+    <string name="toast_notification_settings_open_error">Sistem bildirim ayarları açılamadı</string>
+    <string name="toast_widget_refresh_delayed">Ayar kaydedildi. Widget bir sonraki yenilemesinde güncellenecek.</string>
+    <string name="toast_settings_save_error">Bu ayar kaydedilemedi</string>
+    <string name="toast_action_error">İşlem tamamlanamadı</string>
+    <string name="toast_open_link_error">Bu bağlantı açılamadı</string>
+    <string name="refresh_city_not_found">Şehir bulunamadı</string>
+    <string name="error_no_network">İnternet bağlantısı yok</string>
+    <string name="error_timeout">İstek zaman aşımına uğradı</string>
+    <string name="error_server">Sunucu hatası (HTTP %d)</string>
+    <string name="error_unknown">Bilinmeyen hata</string>
+    <string name="error_model_out_of_range">Bu model için veri yok</string>
+    <string name="error_location_not_supported_by_model">Seçilen model bu konumu desteklemiyor</string>
+    <string name="error_location_not_supported_by_models">Seçilen modeller bu konumu desteklemiyor</string>
+    <string name="error_no_model_available">Bu şehir için model verisi yok</string>
+    <string name="city_not_found_in_favorites">Şehir favorilerde bulunamadı</string>
+
+    <string name="empty_favorites_title">Henüz şehir yok</string>
+    <string name="empty_favorites_subtitle">Eklemek için + simgesine dokunun ve birkaç modelin tahminlerini karşılaştırın.</string>
+    <string name="action_retry">Yeniden dene</string>
+    <string name="action_remove_from_favorites">Favorilerden kaldır</string>
+    <string name="action_more_options">Seçenekler</string>
+    <string name="precip_dry">Kuru</string>
+    <string name="metric_home_temperature">Sıcaklık</string>
+    <string name="metric_home_precipitation">Yağış</string>
+    <string name="metric_home_wind">Rüzgâr</string>
+    <string name="metric_home_gusts">Ani rüzgâr</string>
+    <string name="metric_agreement">%1$d%% uyum</string>
+    <string name="metric_precip_if_rain">Yağış varsa %1$s</string>
+    <string name="metric_gust_supporting">Ani rüzgâr %1$s</string>
+    <string name="metric_precip_models_short">%1$d/%2$d model</string>
+    <string name="metric_precip_models_rain">%2$d modelden %1$d tanesi</string>
+    <string name="metric_detail_wind">Rüzgâr</string>
+    <string name="metric_detail_gusts">Ani rüzgâr</string>
+    <string name="metric_summary_average">Merkezi uzlaşı</string>
+    <string name="metric_summary_range">Aralık %1$s</string>
+    <string name="metric_summary_range_short">Aralık</string>
+    <string name="metric_summary_min_label">Min</string>
+    <string name="metric_summary_max_label">Maks</string>
+    <plurals name="metric_summary_models_count">
+        <item quantity="one">%d model</item>
+        <item quantity="other">%d model</item>
+    </plurals>
+    <string name="metric_summary_max_model_precip">En yüksek model tahmini %1$s %2$s</string>
+
+    <string name="search_city_placeholder">Şehir arayın…</string>
+    <string name="search_no_results">Şehir bulunamadı</string>
+
+    <string name="action_support_dev">Geliştirmeyi destekle</string>
+    <string name="donations_dialog_title">Geliştirmeyi destekle</string>
+    <string name="donations_dialog_body">MeteoCompare ücretsizdir; analitik, reklam izleme veya reklam içermez. Geliştirmeyi desteklemek isterseniz:</string>
+    <string name="donations_dialog_disclaimer">Bağışçılara ayrıcalık tanınmaz. Kaynak kod ve uygulama herkes için aynı kalır.</string>
+    <string name="donations_liberapay_desc">Düzenli katkı, dost canlısı özgür yazılım</string>
+    <string name="donations_github_sponsors_desc">GitHub Sponsors üzerinden düzenli destek</string>
+    <string name="donations_kofi_desc">Tek seferlik bağış, \"bir kahve ısmarla\"</string>
+    <string name="donations_dialog_close">Kapat</string>
+
+    <string name="a11y_confidence_high">Yüksek uyum</string>
+    <string name="a11y_confidence_medium">Orta uyum</string>
+    <string name="a11y_confidence_low">Düşük uyum</string>
+    <string name="a11y_open_confidence_explanation">Modeller arası %d%% uyum, ayrıntılı açıklamayı aç</string>
+    <string name="a11y_temp_single">%1$s %2$s</string>
+    <string name="a11y_temp_range">%1$s ile %2$s %3$s arasında</string>
+    <string name="a11y_temp_with_confidence">%1$s, %2$s, yüzde %3$d</string>
+    <string name="a11y_no_rain">Yağış beklenmiyor, uyum yüzde %d</string>
+    <string name="a11y_no_rain_no_convergence">Yağış beklenmiyor</string>
+    <string name="a11y_rain_no_convergence">Yağış bekleniyor, %1$s ile %2$s %3$s arasında</string>
+    <string name="a11y_rain">Yağış bekleniyor, %1$s ile %2$s %4$s arasında, uyum yüzde %3$d</string>
+    <string name="a11y_models_divided">Modeller yağış konusunda bölünmüş durumda, %2$d modelden %1$d tanesi yağış bekliyor, %3$s ile %4$s %5$s arasında</string>
+    <string name="a11y_city_loading">Tahminler yükleniyor.</string>
+    <string name="a11y_city_error">Hata: %1$s.</string>
+    <string name="a11y_now_temp">Şu an %1$s %2$s</string>
+    <string name="a11y_temperature_prefix">Sıcaklık</string>
+    <string name="a11y_overall_confidence">Genel uyum yüzde %d</string>
+    <string name="a11y_hourly_empty">Boş grafik, yetersiz veri</string>
+    <string name="a11y_hourly_template">%1$d günlük saatlik uyum bandı. Merkezi sıcaklık şu an %2$s %7$s, bandın sonunda %3$s %7$s. Modeller arası farklılaşma %4$s. Uyum şu an yüzde %5$d, %1$d gün sonrası için yüzde %6$d.</string>
+    <string name="a11y_divergence_strong">güçlü biçimde artıyor</string>
+    <string name="a11y_divergence_increasing">artıyor</string>
+    <string name="a11y_divergence_stable">genel olarak kararlı</string>
+    <string name="a11y_today_summary_one">Bugünün özeti, %d model analiz edildi</string>
+    <string name="a11y_today_summary_many">Bugünün özeti, %d model analiz edildi</string>
+    <string name="a11y_temp_max_label">Maks. sıcaklık</string>
+    <string name="a11y_temp_min_label">Min. sıcaklık</string>
+    <string name="a11y_wind_max_label">Maksimum rüzgâr %1$s</string>
+    <string name="a11y_kmh_unit">kilometre/saat</string>
+
+    <string name="confidence_explanation_title">Bu uyum neden böyle?</string>
+    <string name="confidence_explanation_invalid_date">Geçersiz tarih</string>
+    <string name="confidence_overall_label">Genel uyum</string>
+    <string name="confidence_verdict_high">Modeller güçlü biçimde uyumlu. Bu, tutarlılıklarını gösterir; gözlenen sonucun garantisi değildir.</string>
+    <string name="confidence_verdict_medium">Model uyumu kısmi. Kesin değerler belirsizliğini koruyor.</string>
+    <string name="confidence_verdict_low">Modeller güçlü biçimde ayrışıyor. Kesin değerleri temkinli yorumlayın.</string>
+
+    <string name="confidence_summary_converged">Tüm modeller %1$s%2$s çevresinde toplanıyor</string>
+
+    <string name="confidence_summary_spread">%1$s ile %2$s%3$s arasında (%4$s%3$s aralık)</string>
+    <string name="confidence_precip_all_dry">Tüm modeller kuru hava öngörüyor</string>
+
+    <string name="confidence_precip_all_rain">Tümü yağış öngörüyor: %1$s ile %2$s %3$s arasında</string>
+
+    <string name="confidence_precip_divided">%2$d modelden %1$d tanesi yağış bekliyor</string>
+
+    <string name="confidence_model_resolution">çözünürlük %s</string>
+
+    <string name="confidence_interp_high">Modeller arası uyum yüksek: senaryolar bu tahmin süresinde birbirine yakın.</string>
+    <string name="confidence_interp_medium">Orta düzeyde uyum: senaryolar farklı; ağırlıklı medyan yalnızca bir merkezi referanstır.</string>
+    <string name="confidence_interp_low">Uyum düşük: mevcut senaryolar bu tahmin süresinde dağınık.</string>
+    <string name="confidence_interp_precip_dry">Bu tahmin süresinde mevcut hiçbir model yağış öngörmüyor.</string>
+    <string name="confidence_interp_precip_rain">Mevcut tüm modeller yağış öngörüyor, şiddetleri birbirinden farklı.</string>
+    <string name="confidence_interp_precip_divided">Geçişli durumlar (cepheler, dağınık sağanaklar) için tipik farklılaşma. Bir sonraki model koşusunu izleyin.</string>
+
+    <string name="confidence_section_why">Modeller neden farklılaşır</string>
+    <string name="confidence_why_resolution_body">Bir modelin çözünürlüğü, her hesaplama ızgara hücresinin boyutudur. Ne kadar inceyse, model konvektif sağanaklar, arazi etkileri veya deniz meltemleri gibi yerel olguları o kadar iyi yakalar. Ama bunun bedeli vardır: çok yüksek çözünürlüklü modeller çalıştırması pahalıdır ve tahmin ufukları kısadır.</string>
+    <string name="confidence_why_resolution_tip">Pratik kural: bölgesel modeller kısa tahmin sürelerinde daha yerel ayrıntı verir, küresel modeller ise daha uzun ufukları kapsar. Daha ince bir ızgara tek başına daha iyi bir tahmin garantisi değildir.</string>
+
+    <string name="weather_clear">Açık hava</string>
+    <string name="weather_mainly_clear">Az bulutlu</string>
+    <string name="weather_partly_cloudy">Parçalı bulutlu</string>
+    <string name="weather_overcast">Kapalı</string>
+    <string name="weather_fog">Sis</string>
+    <string name="weather_drizzle">Hafif yağmur</string>
+    <string name="weather_rain">Yağmur</string>
+    <string name="weather_freezing_rain">Dondurucu yağmur</string>
+    <string name="weather_snow">Kar</string>
+    <string name="weather_rain_showers">Sağanak yağış</string>
+    <string name="weather_snow_showers">Kar sağanağı</string>
+    <string name="weather_thunderstorm">Gök gürültülü fırtına</string>
+    <string name="weather_unknown">Bilinmeyen</string>
+
+    <string name="weather_legend_clear">Güneşli</string>
+    <string name="weather_legend_partly_cloudy">Parçalı bulutlu</string>
+    <string name="weather_legend_overcast">Kapalı</string>
+    <string name="weather_legend_rain">Yağmur</string>
+    <string name="weather_legend_snow">Kar</string>
+    <string name="weather_legend_thunderstorm">Fırtına</string>
+
+    <string name="weather_legend_percent_note" formatted="false">Simge altındaki % = bulutluluk (bulutlu/kapalı) veya yağış olasılığı (yağmur/kar/gök gürültülü fırtına).</string>
+    <string name="weather_legend_inferred_note">Soluk simge = koşulun bu modelin değişkenlerinden türetildiğini gösterir.</string>
+
+    <string name="bias_chip_content_description">Bu model, son %4$d gündür %2$s için ortalama %3$s %1$s. Ayrıntılar için dokunun.</string>
+
+    <string name="bias_verb_overestimates">fazla tahmin ediyor</string>
+    <string name="bias_verb_underestimates">eksik tahmin ediyor</string>
+    <string name="bias_verb_neutral">dengede kalıyor</string>
+
+    <string name="bias_variable_temperature">en yüksek sıcaklık</string>
+    <string name="bias_variable_precipitation">yağış toplamı</string>
+    <string name="bias_variable_wind_speed">en yüksek rüzgâr</string>
+
+    <string name="bias_sheet_eyebrow">%1$s  ·  %2$s  ·  %3$d gün</string>
+    <string name="bias_sheet_variable_temperature">En yüksek sıcaklık sapması</string>
+    <string name="bias_sheet_variable_precipitation">Yağış toplamı sapması</string>
+    <string name="bias_sheet_variable_wind_speed">En yüksek rüzgâr sapması</string>
+
+    <string name="bias_sheet_title_prefix">Ortalama sapma </string>
+    <string name="bias_sheet_title_suffix"> geçmiş referansa göre.</string>
+
+    <string name="bias_history_preparing">Yerel güvenilirlik hazırlanıyor. Her gün, her modelin bir gün önce verdiği tahmin (G+1) bir reanalizle karşılaştırılır. Göstergeleri %1$d karşılaştırılan günün ardından görünür; ilerlemeyi adının altındaki sayaç izler.</string>
+    <string name="bias_history_partial">%2$d modelden %1$d tanesi için güvenilirlik göstergeleri hazır. Diğerleri her gün doluyor; ilerlemeyi adlarının altındaki sayaç izler.</string>
+    <string name="bias_history_best_progress">En ilerideki model: %1$d/%2$d karşılaştırılan gün.</string>
+    <string name="bias_history_fetch_action">Geçmişi şimdi getir</string>
+    <string name="bias_history_fetch_requested">Arka planda getiriliyor…</string>
+    <string name="bias_history_fetch_queued">Getirilmek üzere bekliyor…</string>
+
+    <string name="bias_chip_calibrating_content_description">Bu model için sapma takibi sürüyor: doğruluğunu değerlendirmek için henüz yeterli geçmiş veri yok.</string>
+
+    <string name="bias_sparkline_label_past">%1$d g önce</string>
+    <string name="bias_sparkline_label_today">Bugün</string>
+
+    <string name="bias_sparkline_legend_observation">geçmiş referans</string>
+    <string name="bias_sparkline_legend_forecast">tahmin</string>
+
+    <string name="bias_explainer_opener">%1$s, burada son %4$d gündür %3$s tahminlerinde düzenli olarak %2$s.</string>
+    <string name="bias_explainer_calibrated">%1$s, bu konumda %2$s için geçmiş referansa yakın kalıyor. Son %3$d uygun G+1 gününde ortalama sapma günlük gürültü içinde kalıyor.</string>
+
+    <string name="bias_stability_high">Sapma son 30 gündür tutarlı.</string>
+    <string name="bias_stability_moderate">Sapma görülüyor ama orta düzeyde.</string>
+    <string name="bias_stability_not_significant">Sapma günlük gürültüye yakın.</string>
+
+    <string name="bias_reliability_title">Yerel G+1 güvenilirliği</string>
+    <string name="bias_reliability_local_index">Yerel güvenilirlik endeksi</string>
+    <string name="bias_reliability_score_suffix">/ 100</string>
+    <string name="bias_reliability_rank">Yerel sıra %1$d / %2$d</string>
+    <string name="bias_reliability_score_explanation">Bir önceki gün yakalanan tahminlerin, Open-Meteo geçmiş reanaliz verisiyle karşılaştırılmasına dayalı öğretici özet.</string>
+    <string name="bias_reliability_level_excellent">Mükemmel</string>
+    <string name="bias_reliability_level_good">İyi</string>
+    <string name="bias_reliability_level_fair">Orta</string>
+    <string name="bias_reliability_level_limited">Sınırlı</string>
+
+    <string name="bias_reliability_summary">%1$s, bu şehir için ortalama %2$s mutlak hataya sahip. %3$s</string>
+    <string name="bias_reliability_summary_calibrated">İşaretli sapma küçük kalıyor.</string>
+    <string name="bias_reliability_summary_over">Fazla tahmin eğilimi hâlâ görülüyor.</string>
+    <string name="bias_reliability_summary_under">Eksik tahmin eğilimi hâlâ görülüyor.</string>
+
+    <string name="bias_reliability_section_performance">Yerel performans</string>
+    <string name="bias_reliability_section_history">Tahmin ve referans</string>
+    <string name="bias_reliability_section_rain">Yağış algılama</string>
+    <string name="bias_reliability_section_bias">Sapma nasıl okunur?</string>
+
+    <string name="bias_reliability_mae">Ortalama mutlak hata</string>
+    <string name="bias_reliability_rmse_support">RMSE %1$s · büyük hataları daha çok cezalandırır</string>
+    <string name="bias_reliability_mean_bias">İşaretli sapma</string>
+    <string name="bias_reliability_direction_calibrated">sistematik düzeltme yok</string>
+    <string name="bias_reliability_direction_over">fazla tahmin eğiliminde</string>
+    <string name="bias_reliability_direction_under">eksik tahmin eğiliminde</string>
+    <string name="bias_reliability_close_days">Yakın günler</string>
+    <string name="bias_reliability_close_days_support">hata %1$s veya daha az</string>
+    <string name="bias_reliability_variability">Değişkenlik</string>
+    <string name="bias_reliability_variability_support">günlük hataların yayılımı</string>
+
+    <string name="bias_reliability_recent_trend">Son hata eğilimi</string>
+    <string name="bias_reliability_trend_improving">İyileşiyor</string>
+    <string name="bias_reliability_trend_stable">Kararlı</string>
+    <string name="bias_reliability_trend_declining">Kötüleşiyor</string>
+    <string name="bias_reliability_trend_insufficient">Yeterli geçmiş yok</string>
+    <string name="bias_reliability_trend_values">%1$s → %2$s</string>
+
+    <string name="bias_reliability_baseline_title">Çok model ortalamasıyla karşılaştırma</string>
+    <string name="bias_reliability_baseline_similar">Doğruluk ortalamaya benzer</string>
+    <string name="bias_reliability_baseline_better">Hata %1$d %% daha düşük</string>
+    <string name="bias_reliability_baseline_worse">Hata %1$d %% daha yüksek</string>
+    <string name="bias_reliability_baseline_values">Bu model: %1$s · ortalama: %2$s</string>
+
+    <string name="bias_reliability_rain_detection">Gözlenen yağışlı günlerin algılanması</string>
+    <string name="bias_reliability_rain_false_alarms">Yanlış yağış alarmları</string>
+    <string name="bias_reliability_rain_wet_days">Yağışlı günler</string>
+    <string name="bias_reliability_rain_misses">Kaçırılan yağışlı olaylar</string>
+    <string name="bias_reliability_not_available">Yok</string>
+    <string name="bias_reliability_rain_samples">Referansta %1$d yağışlı gün · %2$d tahmin</string>
+    <string name="bias_reliability_rain_detection_support">Referanstaki %2$d yağışlı günden %1$d tanesi algılandı</string>
+    <string name="bias_reliability_rain_false_alarms_support">Tahmin edilen %2$d yağışlı günden %1$d tanesi yanlış alarm</string>
+    <string name="bias_reliability_rain_misses_support">Referanstaki %2$d yağışlı günden %1$d olay kaçırıldı</string>
+    <string name="bias_reliability_rain_volume_support">Referans %1$d · tahmin %2$d</string>
+
+    <string name="bias_reliability_balance_under_badge">%1$d%% düşük</string>
+    <string name="bias_reliability_balance_close_badge">%1$d%% yakın</string>
+    <string name="bias_reliability_balance_over_badge">%1$d%% yüksek</string>
+    <string name="bias_reliability_direction_balance">%1$d%% yüksek · %2$d%% yakın · %3$d%% düşük</string>
+    <string name="bias_reliability_sample_coverage">Kullanılan geçmiş: %2$d günlük pencere içinde %1$d gün.</string>
+    <string name="bias_reliability_method_note">Kaydedilen G+1 tahminleri ve karşılaştırılabilir tarihler için Open-Meteo reanalizine dayalı yerel endeks. Yağışlı gün: %1$s ve üzeri. Göstergedir, resmi bir puan değildir.</string>
+
+    <string name="bias_chip_calibrating_progress_a11y">Kalibrasyon: %2$d örnekten %1$d tanesi toplandı</string>
+
+    <string name="sun_times_a11y">Gün doğumu %1$s, gün batımı %2$s</string>
+    <string name="mini_forecast_a11y_no_data">12 saatlik tahmin yok</string>
+    <string name="mini_forecast_a11y_no_rain">12 saatlik tahmin: %1$s ile %2$s %3$s arasında, yağış beklenmiyor</string>
+    <string name="mini_forecast_a11y_with_rain">12 saatlik tahmin: %1$s ile %2$s %4$s arasında, %3$d saat boyunca yağış bekleniyor</string>
+
+    <string name="widget_config_forecast_mode_mini_12h">12 saatlik mini tahmin</string>
+    <string name="widget_config_forecast_mode_mini_12h_descr">Önümüzdeki 12 saat için sıcaklık ve yağış tahminlerini gösterir.</string>
+    <string name="widget_config_forecast_mode_heatmap_12h">12 saatlik ısı haritası grafiği</string>
+    <string name="widget_config_forecast_mode_heatmap_12h_descr">Hava durumu simgeleri, sıcaklıklar ve yağış yoğunluğu içeren 12 saatlik bir ısı haritası gösterir.</string>
+    <string name="widget_config_forecast_mode_heatmap_trend_12h">12 saatlik eğilim ısı haritası</string>
+    <string name="widget_config_forecast_mode_heatmap_trend_12h_descr">Hava durumu simgeleri ve daha belirgin bir eğilim çizgisiyle daha modern bir sürüm gösterir.</string>
+
+    <string name="detail_table_model_header">Model</string>
+
+    <string name="local_ranking_view_all">Sıralamayı gör</string>
+    <string name="local_ranking_sheet_title">Yerel sıralama</string>
+    <string name="local_ranking_sheet_explanation">Modeller aynı ortak tarihler üzerinde karşılaştırılır, sonra yerel güvenilirlik puanına ve puanlar eşit olduğunda ortalama mutlak hataya göre sıralanır.</string>
+    <string name="local_ranking_temperature_short">Maks. sıc.</string>
+    <string name="local_ranking_precipitation_short">Yağış topl.</string>
+    <string name="local_ranking_wind_short">Maks. rüzgâr</string>
+    <string name="local_ranking_selected_model">Görüntülenen model</string>
+    <string name="local_ranking_standard_support">MAE %1$s · sapma %2$s</string>
+    <string name="local_ranking_rain_support">MAE %1$s · %2$d yanlış alarm</string>
+    <string name="local_ranking_empty_title">Sıralama yok</string>
+    <string name="local_ranking_empty_body">Bu değişkeni sıralamak için 14 ortak güne sahip en az iki model gerekir.</string>
+    <string name="local_ranking_method_note">Aynı tarihler üzerinde yerel sıralama (en az 14 gün). Göstergedir, resmi bir model değerlendirmesi değildir.</string>
+    <string name="local_ranking_open_content_description">Yerel model sıralamasını aç</string>
+
+    <string name="forecast_tables_section">Ayrıntılı tahminler</string>
+    <string name="forecast_tables_subtitle">Modelleri değişken ve tahmin süresi bazında karşılaştırın.</string>
+    <string name="timeline_title_hourly">Önümüzdeki 24 saat</string>
+    <string name="timeline_title_daily">Önümüzdeki günler</string>
+    <string name="timeline_subtitle_hourly">Saatlik referans noktaları</string>
+    <string name="timeline_subtitle_daily">Önümüzdeki günler için mevcut modellerin uzlaşısı</string>
+    <string name="timeline_layout_aria">Zaman çizelgesi görünümü</string>
+    <string name="timeline_layout_columns">Sütunlar</string>
+    <string name="timeline_layout_chrono">Zaman çizelgesi</string>
+    <string name="timeline_date_label">Tarih</string>
+    <string name="timeline_disagreement_hint">Puan uyumu gösterir; simgeler farklılaşan değişkenleri işaretler.</string>
+    <string name="timeline_now">Şimdi</string>
+    <string name="timeline_today">Bugün</string>
+    <string name="timeline_tomorrow">Yarın</string>
+    <string name="timeline_tomorrow_at">Yarın · %1$s</string>
+    <string name="timeline_precip_amount">%1$s %2$s</string>
+    <string name="timeline_precip_amount_if_rain">Yağış varsa %1$s %2$s</string>
+    <string name="timeline_wind_gust">Ani rüzgâr %1$s %2$s</string>
+    <string name="wind_gust_abbreviation">G</string>
+    <string name="wind_table_legend">%1$s rüzgâr · G = ani rüzgâr · %2$s</string>
+    <string name="timeline_consensus_high">Yüksek uyum</string>
+    <string name="timeline_consensus_medium">Orta uyum</string>
+    <string name="timeline_consensus_low">Düşük uyum</string>
+    <string name="timeline_consensus_limited">Sınırlı karşılaştırma</string>
+    <string name="timeline_consensus_accessibility">%1$s: %2$d%%</string>
+    <string name="timeline_divergence_rain">Yağış</string>
+    <string name="timeline_divergence_wind">Rüzgâr</string>
+    <string name="timeline_divergence_temperature">Sıc.</string>
+    <string name="timeline_divergence_condition">Durumlar</string>
+    <string name="timeline_divergence_variables_accessibility">Farklılaşan değişkenler: %1$s</string>
+
+    <string name="section_state_expanded">Genişletildi</string>
+    <string name="section_state_collapsed">Daraltıldı</string>
+    <string name="offline_data_title">Çevrimdışı mod</string>
+    <string name="offline_data_message">Kayıtlı veri · %1$s</string>
+    <string name="offline_data_age_unknown">Son güncelleme bilinmiyor</string>
+    <string name="offline_list_message">Kayıtlı veri erişilebilir kalır. Her şehir en son ne zaman güncellendiğini gösterir.</string>
+
+    <string name="offline_saved_data_age_inline">Çevrimdışı · %1$s</string>
+
+    <plurals name="forecast_insights_models">
+        <item quantity="one">%d model</item>
+        <item quantity="other">%d model</item>
+    </plurals>
+    <string name="forecast_insights_subtitle_hourly">Önümüzdeki 24 saat için özet · %1$s</string>
+    <string name="forecast_insights_subtitle_daily">Önümüzdeki günler için özet · %1$s</string>
+    <string name="forecast_insights_subtitle_generic">Model eğilimleri ve belirsizliklerin özeti</string>
+    <string name="forecast_insights_timeline_hint">Saatini zaman çizelgesinde görmek için bir mesaja dokunun.</string>
+    <string name="forecast_insights_title">Önemli noktalar</string>
+    <string name="forecast_insight_level_alert">Uyarı</string>
+    <string name="forecast_insight_level_watch">Takip</string>
+    <string name="forecast_insight_level_info">Dikkat çeken değişim</string>
+    <string name="forecast_insight_level_positive">Kararlı tahmin</string>
+    <string name="forecast_insight_title_high_agreement">Modeller yakın vadede tutarlı</string>
+    <string name="forecast_insight_detail_high_agreement">İlk zaman adımlarında yayılım az.</string>
+    <string name="forecast_insight_title_weather_worsening">Hava kötüleşiyor</string>
+    <string name="forecast_insight_title_weather_change">Hava değişiyor</string>
+    <string name="forecast_insight_title_weather_improving">Hava iyileşiyor</string>
+    <string name="forecast_insight_title_weather_fog">Sis bekleniyor</string>
+    <string name="forecast_insight_title_weather_thunderstorm">Gök gürültülü fırtına riski</string>
+    <string name="forecast_insight_title_weather_freezing_rain">Dondurucu yağış riski</string>
+    <string name="forecast_insight_title_weather_snow">Kar mümkün</string>
+    <string name="forecast_insight_detail_weather_transition">%1$s → %2$s</string>
+    <string name="forecast_insight_metric_consensus">%1$d%% uyum</string>
+    <string name="forecast_insight_metric_probability">%1$d%%</string>
+    <string name="forecast_insight_metric_model_ratio">%1$d/%2$d model</string>
+    <string name="forecast_insight_metric_coverage">%1$d/%2$d model</string>
+    <string name="forecast_insight_metric_wind">%1$s %2$s</string>
+    <string name="forecast_insight_metric_temperature_range">%1$s%3$s → %2$s%3$s</string>
+    <string name="forecast_insight_title_disagreement">Belirsiz tahmin</string>
+    <string name="forecast_insight_title_disagreement_multiple">Son derece belirsiz tahmin</string>
+    <string name="forecast_insight_title_disagreement_rain">Yağışta farklılaşma</string>
+    <string name="forecast_insight_title_disagreement_wind">Rüzgârda farklılaşma</string>
+    <string name="forecast_insight_title_disagreement_temperature">Sıcaklıkta farklılaşma</string>
+    <string name="forecast_insight_title_disagreement_condition">Belirsiz hava koşulları</string>
+    <string name="forecast_insight_detail_disagreement">Senaryolar bu saatte belirgin biçimde ayrışıyor.</string>
+    <string name="forecast_insight_detail_disagreement_multiple">Modeller birkaç değişkende farklılaşıyor.</string>
+    <string name="forecast_insight_detail_disagreement_rain">Senaryolar yağışın olup olmayacağı veya şiddeti konusunda farklı.</string>
+    <string name="forecast_insight_detail_disagreement_wind">Modeller arası rüzgâr hızı yayılımı belirginleşiyor.</string>
+    <string name="forecast_insight_detail_disagreement_temperature">Sıcaklık aralığı belirgin biçimde genişliyor.</string>
+    <string name="forecast_insight_detail_disagreement_condition">Modeller baskın hava durumu konusunda uzlaşamıyor.</string>
+    <string name="forecast_insight_title_rain_likely">Yağış muhtemel</string>
+    <string name="forecast_insight_title_rain_strengthening">Yağış ihtimali artıyor</string>
+    <string name="forecast_insight_title_rain_uncertain">Yağış belirsiz</string>
+    <string name="forecast_insight_detail_rain_strengthening">Sinyal önümüzdeki saatlerde güçleniyor.</string>
+    <string name="forecast_insight_detail_rain_persistent">Sinyal %1$s saatine kadar sürüyor.</string>
+    <string name="forecast_insight_detail_rain_likely_short">Güçlü ama izole bir sinyal.</string>
+    <string name="forecast_insight_detail_rain_thunderstorm">Gök gürültülü fırtına senaryosu belirgin biçimde öne çıkıyor.</string>
+    <string name="forecast_insight_detail_rain_freezing">Dondurucu yağış riski belirgin biçimde öne çıkıyor.</string>
+    <string name="forecast_insight_detail_rain_snow">Kar senaryosu belirgin biçimde öne çıkıyor.</string>
+    <string name="forecast_insight_detail_rain_uncertain_persistent">Belirsizlik %1$s saatine kadar sürüyor.</string>
+    <string name="forecast_insight_title_wind_rising">Rüzgâr belirgin biçimde artıyor</string>
+    <string name="forecast_insight_title_wind_strong">Süreğen rüzgâr</string>
+    <string name="forecast_insight_title_wind_very_strong">Çok kuvvetli rüzgâr</string>
+    <string name="forecast_insight_detail_wind_rising_short">Bir zirve hızla gelişiyor.</string>
+    <string name="forecast_insight_detail_wind_strong">Düzeyler birkaç zaman adımı boyunca yüksek kalıyor.</string>
+    <string name="forecast_insight_detail_wind_peak">Belirgin bir zirve bekleniyor.</string>
+
+    <string name="local_reliability_title">Uyum ve geçmişe dayalı güven</string>
+    <string name="local_reliability_subtitle_with_confidence">Şu anki uyum: %1$d%% · %2$d bağımsız aile</string>
+    <string name="local_reliability_subtitle_models">%1$d bağımsız aile karşılaştırıldı</string>
+    <string name="local_reliability_best_model">En iyi yerel model</string>
+
+    <string name="detail_tab_conditions">Durumlar</string>
+    <string name="detail_tab_temperature">Sıcaklık</string>
+    <string name="detail_tab_precipitation">Yağış</string>
+    <string name="detail_tab_wind">Rüzgâr</string>
+    <string name="detail_no_data">Bu görünüm için veri yok.</string>
+
+    <string name="forecast_insight_title_stable_compact">Önümüzdeki 24 saatte dikkat çeken bir şey yok</string>
+    <string name="forecast_insight_detail_stable_compact">Modeller geniş ölçüde tutarlı kalıyor.</string>
+    <string name="forecast_insight_metric_probability_range">%1$d–%2$d%%</string>
+    <string name="forecast_insight_metric_wind_range">%1$s–%2$s %3$s</string>
+    <string name="forecast_insight_metric_temperature_scenarios">%1$s–%2$s%3$s</string>
+    <string name="forecast_insight_detail_rain_fused_uncertainty">Bir olay belirgin biçimde öne çıkıyor, ama şiddeti veya zamanlaması modeller arasında değişiyor.</string>
+    <string name="forecast_insight_detail_rain_thunderstorm_uncertain">Gök gürültülü fırtına riski öne çıkıyor, zamanlaması hâlâ belirsiz.</string>
+    <string name="forecast_insight_title_temperature_frost">Don riski</string>
+    <string name="forecast_insight_title_temperature_heat">Dikkat çeken sıcaklık</string>
+    <string name="forecast_insight_title_temperature_extreme_heat">Çok yüksek sıcaklık</string>
+    <string name="forecast_insight_title_temperature_uncertain">Belirsiz sıcaklık</string>
+    <string name="forecast_insight_title_temperature_unusual_cooling">Olağandışı soğuma</string>
+    <string name="forecast_insight_title_temperature_unusual_warming">Olağandışı ısınma</string>
+    <string name="forecast_insight_detail_temperature_frost">Sıcaklıklar %1$s seviyesine ulaşabilir veya altına düşebilir.</string>
+    <string name="forecast_insight_detail_temperature_heat">Dikkat çeken bir sıcaklık eşiği aşılabilir.</string>
+    <string name="forecast_insight_detail_temperature_uncertain">Model senaryoları geniş bir sıcaklık aralığı gösteriyor.</string>
+    <string name="forecast_insight_detail_temperature_unusual">Günün bu saati için alışılmadık bir değişim.</string>
+    <string name="forecast_insight_metric_precipitation">%1$s %2$s</string>
+    <string name="forecast_insight_metric_precipitation_range">%1$s–%2$s %3$s</string>
+    <string name="timeline_event_marker_precipitation">Yağış olayı</string>
+    <string name="timeline_event_marker_wind">Rüzgâr olayı</string>
+    <string name="timeline_event_marker_temperature">Sıcaklık olayı</string>
+    <string name="timeline_event_marker_weather">Hava değişimi</string>
+    <string name="timeline_event_marker_uncertainty">Belirsiz tahmin</string>
+    <string name="model_coverage_france">Fransa</string>
+    <string name="model_coverage_europe">Avrupa</string>
+    <string name="model_coverage_united_states">ABD</string>
+    <string name="model_coverage_global">Küresel</string>
+    <string name="model_horizon_days">%1$d g</string>
+    <string name="model_horizon_days_decimal">%1$.1f g</string>
+    <string name="model_horizon_hours">%1$d sa</string>
+
+    <plurals name="home_locations_followed">
+        <item quantity="one">%d konum takip ediliyor</item>
+        <item quantity="other">%d konum takip ediliyor</item>
+    </plurals>
+    <string name="home_cloud_cover">Bulutluluk %d%%</string>
+    <string name="home_agreement_label">Uyum</string>
+    <plurals name="home_scenarios_count">
+        <item quantity="one">%d senaryo</item>
+        <item quantity="other">%d senaryo</item>
+    </plurals>
+    <string name="home_scenario_gust_short">ani rüzgâr %1$s</string>
+    <string name="home_scenarios_show">Hava senaryolarını göster</string>
+    <string name="home_scenarios_hide">Hava senaryolarını gizle</string>
+    <string name="home_scenario_clear">Kuru ve çoğunlukla açık</string>
+    <string name="home_scenario_variable_sky">Değişken bulutluluk, kuru</string>
+    <string name="home_scenario_dry_unspecified">Kuru, hava durumu bilgisi yok</string>
+    <string name="home_scenario_overcast">Kuru ve çoğunlukla kapalı</string>
+    <string name="home_scenario_showers_early">Dönemin başında sağanak</string>
+    <string name="home_scenario_showers_middle">Önümüzdeki saatlerde sağanak</string>
+    <string name="home_scenario_showers_late">Daha geç saatlerde sağanak</string>
+    <string name="home_scenario_showers_throughout">Süreğen sağanak yağışlar</string>
+    <string name="home_scenario_rain_early">Ağırlıkla dönem başında yağmur</string>
+    <string name="home_scenario_rain_middle">Önümüzdeki saatlerde yağmur</string>
+    <string name="home_scenario_rain_late">Ağırlıkla daha geç saatlerde yağmur</string>
+    <string name="home_scenario_rain_throughout">Süreğen yağmur</string>
+    <string name="home_scenario_snow">Kar senaryosu</string>
+    <string name="home_scenario_freezing_rain">Dondurucu yağış riski</string>
+    <string name="home_scenario_thunderstorm">Gök gürültülü fırtına senaryosu</string>
+    <string name="home_scenario_other">Diğer varyantlar</string>
+
+    <string name="forecast_evolution_title">Tahmin gelişimi</string>
+    <string name="forecast_evolution_subtitle">Yaklaşık 24 / 48 / 72 saat önce kaydedilen tahminlerle karşılaştırma</string>
+    <string name="forecast_evolution_loading">Yerel tahmin geçmişi okunuyor…</string>
+    <string name="forecast_evolution_loading_detail">Geçmiş, geçerli tahmini engellemeden arka planda okunur.</string>
+    <string name="forecast_evolution_view_models">Modelleri gör</string>
+    <string name="forecast_evolution_model_direction">%2$d modelden %1$d tanesi, H−%3$d itibarıyla trendi takip ediyor</string>
+    <string name="forecast_evolution_method_hint">H−N = yaklaşık 24, 48 veya 72 saat önce kaydedilen tahminler. Aynı model grubu; eksik veri hariç tutulur. Eğilimler göstergedir.</string>
+    <string name="forecast_evolution_now">Şu an</string>
+    <string name="forecast_evolution_day_ago_short">H−%1$d</string>
+    <string name="forecast_evolution_sheet_title">Modele göre gelişim</string>
+    <string name="forecast_evolution_sheet_subtitle">%1$s · şu an ve H−%2$d</string>
+    <string name="forecast_evolution_model">Model</string>
+    <string name="forecast_evolution_previous">Önce</string>
+    <string name="forecast_evolution_temp_up">Daha sıcak senaryo</string>
+    <string name="forecast_evolution_temp_down">Daha serin senaryo</string>
+    <string name="forecast_evolution_precip_up">Daha yağışlı senaryo</string>
+    <string name="forecast_evolution_precip_down">Daha kuru senaryo</string>
+    <string name="forecast_evolution_wind_up">Rüzgâr yukarı revize edildi</string>
+    <string name="forecast_evolution_wind_down">Rüzgâr aşağı revize edildi</string>
+    <string name="forecast_evolution_volatile">Model revizyonları karışık</string>
+    <string name="forecast_evolution_stable">Tahmin genel olarak kararlı</string>
+    <string name="forecast_evolution_insufficient">Karşılaştırılabilir yeterli model yok</string>
+    <string name="forecast_evolution_highlight_temp_up">Tahmini sıcaklık yükseliyor</string>
+    <string name="forecast_evolution_highlight_temp_down">Tahmini sıcaklık düşüyor</string>
+    <string name="forecast_evolution_highlight_precip_up">Yağış senaryosu güçleniyor</string>
+    <string name="forecast_evolution_highlight_precip_down">Yağış senaryosu zayıflıyor</string>
+    <string name="forecast_evolution_highlight_wind_up">Rüzgârlı senaryo güçleniyor</string>
+    <string name="forecast_evolution_highlight_wind_down">Tahmini rüzgâr hafifliyor</string>
+    <string name="forecast_evolution_highlight_volatile">Modeller farklı yönlere revize ediyor</string>
+    <string name="forecast_evolution_highlight_detail">H−%3$d itibarıyla %2$d modelden %1$d tanesi aynı yöne gidiyor</string>
+    <string name="forecast_evolution_highlight_detail_volatile">Karşılaştırılabilir %1$d model var; H−%2$d itibarıyla net bir baskın yön yok</string>
+
+    <string name="forecast_evolution_history_building">Yerel geçmiş oluşturuluyor</string>
+
+    <string name="forecast_evolution_history_building_detail">Tahminler yerel olarak kaydedilir. İlk karşılaştırma yaklaşık 24 saat sonra görünür; ekstra ağ isteği yapılmaz.</string>
+
+    <string name="forecast_evolution_model_direction_volatile">Karşılaştırılabilir %1$d model var; H−%2$d itibarıyla baskın bir yön yok</string>
+
+    <string name="forecast_evolution_metric_temperature_max">Maks. sıc.</string>
+
+    <string name="forecast_evolution_metric_precipitation_sum">Yağış toplamı</string>
+
+    <string name="forecast_evolution_metric_wind_max">Maks. rüzgâr</string>
+
+    <string name="forecast_evolution_metric_a11y">%1$s: %2$s</string>
+
+    <string name="action_activate_marine">Deniz / kıyıyı etkinleştir</string>
+    <string name="action_refresh_marine">Deniz / kıyıyı yenile</string>
+    <string name="marine_enabled">Deniz / kıyı modu etkinleştirildi</string>
+    <string name="marine_refreshed">Deniz / kıyı verisi yenilendi</string>
+    <string name="marine_not_coastal">Bu şehrin %1$s yakınında güvenilir bir deniz ızgara noktası bulunamadı.</string>
+    <string name="marine_error">Deniz verisi yüklenemedi: %1$s</string>
+    <string name="marine_title">Deniz / kıyı</string>
+    <string name="marine_intro">Dalgalar, hindirici dalga, deniz ve gelgitler</string>
+    <string name="marine_current_conditions">Şu anki koşullar</string>
+    <string name="marine_distance">Deniz verisi %1$s %2$s uzaklıkta</string>
+    <string name="marine_wave_height">Dalga yüks.</string>
+    <string name="marine_wave_period">Dalga periyodu</string>
+    <string name="marine_swell_height">Hindirici dalga</string>
+    <string name="marine_sea_temp">Deniz sıc.</string>
+    <string name="marine_wave_evolution">Dalga gelişimi</string>
+    <string name="marine_next_48h">48 sa</string>
+    <string name="marine_daily_outlook">7 gün</string>
+    <string name="marine_tides">Gelgitler</string>
+    <string name="marine_tides_intro">72 saat boyunca tahmini yüksek/düşük gelgitler</string>
+    <string name="marine_unavailable">Yok</string>
+    <string name="marine_trend_rising">Yükseliyor</string>
+    <string name="marine_trend_falling">Düşüyor</string>
+    <string name="marine_trend_steady">Neredeyse sabit</string>
+    <string name="marine_current_level">Şu anki seviye</string>
+    <string name="marine_reference_msl">Ortalama deniz seviyesi (MSL)</string>
+    <string name="marine_next_extremum">Sonraki gelgit</string>
+    <string name="marine_high_water">Yüksek gelgit</string>
+    <string name="marine_low_water">Düşük gelgit</string>
+    <string name="marine_tide_unavailable">Yeterli veri yok</string>
+    <string name="marine_tide_range_short">Gelgit farkı</string>
+    <string name="marine_next_24h">24 sa</string>
+    <string name="marine_tide_datum_note">Seviyeler ortalama deniz seviyesine (MSL) göredir; liman haritası datumu değildir.</string>
+    <string name="marine_disclaimer">Yalnızca gösterge niteliğindedir — seyir için kullanılmamalıdır.</string>
+    <string name="marine_source">Kaynak: Open-Meteo Marine API</string>
+    <string name="marine_chart_unavailable">Grafik yok: yeterli veri yok.</string>
+
+    <string name="settings_about_marine">Deniz / kıyı: Open-Meteo Marine ile dalgalar, hindirici dalga, deniz sıcaklığı ve deniz seviyesi. Gösterge niteliğindedir, seyir için değildir.</string>
+
+    <string name="historical_confidence_title">Yerel geçmişe dayalı güven</string>
+    <string name="historical_confidence_meta">Gözlenen G+1 performansı · %1$d aile</string>
+    <string name="home_scenario_family_support">%1$d%%</string>
+    <string name="metric_precip_probability_only">Yağış riski %1$d%%</string>
+    <plurals name="summary_dispersion_models">
+        <item quantity="one">%d model</item>
+        <item quantity="other">%d model</item>
+    </plurals>
+
+    <string name="settings_forecast_engine_title">Tahmin motoru</string>
+    <string name="settings_forecast_engine_desc">MeteoCompare\'nin model çıktılarını merkezi bir tahmine nasıl dönüştüreceğini seçin. Seçilen motor Ana ekranı, widget\'ları ve Şehir Ayrıntısı\'nı yönetir.</string>
+    <string name="forecast_engine_multi_consensus">Çoklu uzlaşı</string>
+    <string name="forecast_engine_multi_consensus_desc">Tekil değerlerin etkisini sınırlayan güçlü model ailesi birleştirmesi.</string>
+    <string name="forecast_engine_calibration">Kalibrasyon</string>
+    <string name="forecast_engine_calibration_desc">Yerel sapmayı düzeltir ve gözlenen geçmişe göre ağırlıkları ayarlar; geçmiş yetersiz olduğunda otomatik olarak çoklu uzlaşıya döner.</string>
+    <string name="forecast_engine_scenarios">Senaryolar</string>
+    <string name="forecast_engine_scenarios_desc">Ayrı tahmin gruplarını saptar ve birbiriyle bağdaşmayan senaryoları ortalamak yerine baskın senaryoyu yeğler.</string>
+    <string name="forecast_engine_adaptive">Adaptif</string>
+    <string name="forecast_engine_adaptive_desc">Verilere, geçmişe ve dağılımın çok modlu olmasına göre güçlü uzlaşı, kalibrasyon ve senaryolar arasında dinamik seçim yapar.</string>
+    <!-- Vue graphique 7 jours -->
+    <string name="graphic_view_title">Grafik görünümü</string>
+    <string name="graphic_view_open">Grafik görünümünü aç</string>
+    <string name="graphic_view_intro">Önümüzdeki 10 günü saat saat keşfedin</string>
+    <string name="graphic_view_subtitle">10 gün · saat saat</string>
+    <string name="graphic_view_touch_hint">Ayrıntılı değerlerini görmek için grafikte bir saate dokunun.</string>
+    <string name="graphic_view_show_convergence">Uyumu göster</string>
+    <string name="graphic_view_no_data">Saatlik veri yok.</string>
+    <string name="graphic_view_central_forecast">Merkezi tahmin</string>
+    <string name="graphic_view_models_count">%1$d model</string>
+    <string name="graphic_view_temperature">Sıcaklık</string>
+    <string name="graphic_view_rain">Yağış</string>
+    <string name="graphic_view_wind">Rüzgâr</string>
+    <string name="graphic_view_gust_short">ani rüzgâr</string>
+    <string name="graphic_view_gusts">Ani rüzgâr</string>
+    <string name="graphic_view_dispersion">Min–maks aralığı</string>
+    <string name="graphic_view_night">Gece</string>
+    <string name="graphic_view_divergence">Farklılaşma</string>
+    <string name="graphic_view_strong_agreement">Güçlü uyum</string>
+    <string name="graphic_view_time">Saat</string>
+    <string name="graphic_view_hour_day">saat · gün</string>
+    <string name="graphic_view_vigilance">Uyarılar</string>
+    <string name="graphic_view_official">resmi</string>
+    <string name="graphic_view_no_vigilance">Görüntülenen dönemde uyarı yok</string>
+
+    <string name="engine_comparison_title">Motor karşılaştırması</string>
+    <string name="engine_comparison_intro">Dört motorun aynı modelleri nasıl yorumladığını görün ve tahminlerinin ayrıştığı günleri fark edin.</string>
+    <string name="engine_comparison_selected">Etkin motor: %1$s</string>
+    <string name="engine_comparison_metric">Karşılaştırılan değişken</string>
+    <string name="engine_comparison_divergence_title">Farklılaşma zaman çizelgesi</string>
+    <string name="engine_comparison_divergence_desc">Her gün, sıcaklık, yağış, rüzgâr ve bulutluluk için dört motor arasındaki yayılımı özetler.</string>
+    <string name="engine_divergence_variable_temperature">Sıcaklık</string>
+    <string name="engine_divergence_variable_rain">Yağış</string>
+    <string name="engine_divergence_variable_wind">Rüzgâr</string>
+    <string name="engine_divergence_variable_cloud">Bulutlar</string>
+    <string name="engine_comparison_details_title">Günlük ayrıntı</string>
+    <string name="engine_comparison_science_note">Aralıklar ve yayılımlar tanımlayıcıdır; kalibre edilmiş olasılık değildirler. MeteoCompare\'nin diğer bölümlerindeki uyum, ham model çıktılarından hesaplanmaya devam eder.</string>
+    <string name="engine_comparison_not_enough_data">Eğrileri çizmek için yeterli veri yok.</string>
+    <string name="engine_comparison_open">Motor karşılaştırmasını aç</string>
+    <string name="engine_divergence_low">Az farklılaşma</string>
+    <string name="engine_divergence_medium">Orta düzeyde farklılaşma</string>
+    <string name="engine_divergence_high">Yüksek farklılaşma</string>
+    <string name="engine_metric_temp_max">Maks. sıc</string>
+    <string name="engine_metric_temp_min">Min. sıc</string>
+    <string name="engine_metric_precipitation">Yağış</string>
+    <string name="engine_metric_wind">Rüzgâr</string>
+    <string name="engine_metric_gust">Ani rüzgâr</string>
+    <string name="engine_metric_cloud">Bulut</string>
+
+    <string name="engine_table_metric">Ölçüt</string>
+    <string name="engine_table_probability">Yağış riski</string>
+    <string name="engine_table_expected_rain">Beklenen yağış</string>
+    <string name="engine_table_condition">Durumlar</string>
+    <string name="forecast_evolution_stable_axis">Kararlı bölge ± %1$s</string>
+    <string name="forecast_evolution_notable_axis">Dikkat çeken eşik ± %1$s</string>
+
+    <string name="action_how_it_works">MeteoCompare nasıl çalışır?</string>
+    <string name="help_title">MeteoCompare nasıl çalışır?</string>
+    <string name="help_subtitle">Uyumu, farklılaşmayı ve belirsizliği daha iyi anlamak için birkaç hava durumu modelini karşılaştırın.</string>
+    <string name="help_section_1_title">Model kaynakları</string>
+    <string name="help_section_1_body">MeteoCompare, tek bir kaynağa dayanmak yerine sinyallerin karşılaştırılabilmesi için birkaç hava durumu modeli ailesini bir araya getirir.</string>
+    <string name="help_section_2_title">4 hesaplama motoru</string>
+    <string name="help_section_2_body">Sayısal değişkenler için uygulama, bağlama, yerel geçmişe ve modeller arası yayılıma göre dört tamamlayıcı yaklaşım uygular.</string>
+    <string name="help_engine_multi_title">Çoklu uzlaşı</string>
+    <string name="help_engine_multi_body">Merkezi bir değer ve makul bir aralık çıkarmak için modeller arasında güçlü uzlaşı.</string>
+    <string name="help_engine_calibration_title">Kalibrasyon</string>
+    <string name="help_engine_calibration_body">Yeterli arşiv verisi varken bazı yerel geçmiş sapmalarını düzeltir.</string>
+    <string name="help_engine_scenarios_title">Senaryolar</string>
+    <string name="help_engine_scenarios_body">Tek bir ortalanmış değer yerine birkaç makul gelişmeyi öne çıkarır.</string>
+    <string name="help_engine_adaptive_title">Adaptif</string>
+    <string name="help_engine_adaptive_body">Bağlama ve veri kalitesine göre diğer üç motoru dinamik olarak birleştirir.</string>
+    <string name="help_section_3_title">Hava koşulları</string>
+    <string name="help_section_3_body">Gösterilen koşul, yerli WMO hava kodlarına öncelik verir: en az iki bağımsız model ailesi bu kodları sağlıyorsa uzlaşıya yalnızca bu kodlar girer. Aksi halde bir koşul, merkezi yağış, sıcaklık ve bulutluluk değerlerinden türetilir.</string>
+    <string name="help_hierarchical_dry">Yağış yok</string>
+    <string name="help_hierarchical_dry_body">Motor daha sonra mevcut sinyallerden açık, az bulutlu, parçalı bulutlu, kapalı veya sisli koşulları ayırt eder.</string>
+    <string name="help_hierarchical_precip">Yağış</string>
+    <string name="help_hierarchical_precip_body">Yağmurlu veya kışlık durumlar önce gruplanır, sonra yağmur, çisenti, kar, dondurucu yağış, sağanak veya gök gürültülü fırtına arasında ayırt edilir.</string>
+    <string name="help_hierarchical_note">Bu hiyerarşik uzlaşı, basit kategorik oylamanın yanlılığını azaltır ve izole bir kategorinin haksız biçimde baskın olmasını engeller.</string>
+    <string name="help_section_4_title">Model uyumu</string>
+    <string name="help_section_4_body">MeteoCompare, modellerin uzlaştığı zamanları gösterdiği gibi ayrıştıkları zamanları da gösterir; böylece güven ve belirsizlik okunabilir kalır.</string>
+    <string name="help_convergence_strong_title">Güçlü uyum</string>
+    <string name="help_convergence_strong_body">Modeller benzer bir hikâye anlattığında MeteoCompare daha dar aralıklar ve daha yüksek güven gösterir.</string>
+    <string name="help_convergence_uncertain_title">Farklılaşma / belirsizlik</string>
+    <string name="help_convergence_uncertain_body">Modeller ayrıştığında uygulama yayılımı görünür kılar ve belirsizliğe dikkat çeker.</string>
+    <string name="help_footer_note">MeteoCompare bir hava durumu analizi destek aracıdır. Modeller arası uyumu ve farklılaşmayı vurgular, ama insan uzmanlığının yerini tutmaz.</string>
+
+    <string name="help_engines_compute_variables">Bu motorlar daha sonra şu değişkenleri hesaplar</string>
+    <plurals name="home_scenario_hidden_variants">
+        <item quantity="one">+ %1$d başka varyant gösterilmiyor · %2$d/%3$d model</item>
+        <item quantity="other">+ %1$d başka varyant gösterilmiyor · %2$d/%3$d model</item>
+    </plurals>
+    <string name="mini_forecast_current_hour_a11y">Geçerli saat</string>
+
+    <!-- Official Météo-France vigilance -->
+    <string name="vigilance_title">Météo-France vigilance</string>
+    <string name="vigilance_official_source">Resmi bilgi</string>
+    <string name="vigilance_source_cached_short">Météo-France · önbellekten</string>
+    <string name="vigilance_updated_at">Güncelleme: %1$s</string>
+    <string name="vigilance_timing_approximate">Yaklaşık zamanlama</string>
+    <string name="vigilance_cached_warning">Önbellekteki veri: bağlantı yoksa güncelleme zamanını kontrol edin.</string>
+    <string name="vigilance_marine_title">%1$s vigilance · kıyı</string>
+    <string name="vigilance_marine_timing">Kıyı taşkını · %1$s</string>
+    <string name="vigilance_color_green">yeşil</string>
+    <string name="vigilance_color_yellow">sarı</string>
+    <string name="vigilance_color_orange">turuncu</string>
+    <string name="vigilance_color_red">kırmızı</string>
+    <string name="vigilance_phenomenon_wind">Rüzgâr</string>
+    <string name="vigilance_phenomenon_rain_flood">Yağış / sel</string>
+    <string name="vigilance_phenomenon_thunderstorms">Gök gürültülü fırtınalar</string>
+    <string name="vigilance_phenomenon_floods">Taşkınlar</string>
+    <string name="vigilance_phenomenon_snow_ice">Kar / buz</string>
+    <string name="vigilance_phenomenon_heatwave">Sıcak hava dalgası</string>
+    <string name="vigilance_phenomenon_extreme_cold">Aşırı soğuk</string>
+    <string name="vigilance_phenomenon_avalanches">Çığlar</string>
+    <string name="vigilance_phenomenon_coastal_flooding">Kıyı taşkını</string>
+    <string name="vigilance_phenomenon_unknown">Hava tehlikesi</string>
+    <string name="home_temperature_trend_rising">Sıcaklık eğilimi: %1$s%2$s seviyesine doğru yükseliyor</string>
+    <string name="home_temperature_trend_falling">Sıcaklık eğilimi: %1$s%2$s seviyesine doğru düşüyor</string>
+    <string name="home_temperature_trend_stable">Sıcaklık eğilimi: %1$s%2$s civarında kararlı</string>
+
+    <!-- Notifications météo locales -->
+    <string name="settings_notifications_title">Bildirimler</string>
+    <string name="settings_notifications_desc">Modellerinizden ve tahmin motorunuzdan cihaz üzerinde hesaplanır; sunucu veya hesap yoktur. Tahminler, yukarıda seçilen aralıkla yenilenir.</string>
+    <string name="settings_notifications_daily">Günlük özet</string>
+    <string name="settings_notifications_daily_desc">Her gün seçilen saat civarında: geçerli gün. Android, sistem kısıtlarına bağlı olarak teslimi geciktirebilir.</string>
+    <string name="settings_notifications_daily_time">Yaklaşık özet saati: %1$s</string>
+    <string name="settings_notifications_time_confirm">Tamam</string>
+    <string name="settings_notifications_divergence">Model farklılaşması</string>
+    <string name="settings_notifications_divergence_desc" formatted="false">Bugün veya yarın için model uyumu %50\'nin altına düştüğünde.</string>
+    <string name="settings_notifications_change">Tahmin revizyonları</string>
+    <string name="settings_notifications_change_desc">Bir tahmin, yaklaşık 24 saat öncesine göre belirgin biçimde değiştiğinde \"Önemli nokta\" uyarısı. Yerel geçmişin önce oluşması zamana ihtiyaç duyar.</string>
+    <string name="settings_notifications_cities">Takip edilen şehirler</string>
+    <string name="settings_notifications_no_city">Bildirim almak için bir favori şehir ekleyin.</string>
+    <string name="settings_notifications_blocked">MeteoCompare bildirimleri bu cihazda devre dışı.</string>
+    <string name="settings_notifications_open_system">İzin ver</string>
+    <string name="notification_channel_daily">Günlük özet</string>
+    <string name="notification_channel_daily_desc">Takip edilen şehirler için günün özeti, seçilen saat civarında.</string>
+    <string name="notification_channel_divergence">Model farklılaşması</string>
+    <string name="notification_channel_divergence_desc">Modeller bugün veya yarın için belirgin biçimde anlaşmadığında.</string>
+    <string name="notification_channel_change">Önemli noktalar · Revizyonlar</string>
+    <string name="notification_channel_change_desc">Yakın vadeli bir tahmin belirgin biçimde revize edildiğinde.</string>
+    <string name="notification_daily_title_today">%1$s · bugün</string>
+    <string name="notification_daily_title_tomorrow">%1$s · yarın</string>
+    <string name="notification_daily_temperatures">%1$s / %2$s</string>
+    <string name="notification_daily_precipitation">Yağış %1$d%%</string>
+    <string name="notification_daily_precipitation_with_amount">Yağış %1$d%% · %2$s %3$s</string>
+    <string name="notification_daily_precipitation_amount">Yağış %1$s %2$s</string>
+    <string name="notification_divergence_title">%1$s · belirsiz tahmin</string>
+    <string name="notification_change_title">%1$s · Önemli nokta</string>
+
+    <!-- Contenu enrichi des notifications -->
+    <string name="notification_daily_temperature_range">Sıcaklıklar · min %1$s · maks %2$s</string>
+    <string name="notification_daily_agreement">Model uyumu · %1$d%%</string>
+    <string name="notification_daily_wind">Rüzgâr · %1$s %2$s</string>
+    <string name="notification_day_today">Bugün</string>
+    <string name="notification_day_tomorrow">Yarın</string>
+    <string name="notification_divergence_agreement">Model uyumu · %1$d%%</string>
+    <string name="notification_divergence_compact">%1$s · modeller arasında yalnızca %2$d%% uyum</string>
+    <string name="notification_divergence_explanation">Hava senaryoları belirgin biçimde farklı. Tahmin hâlâ değişebilir.</string>
+    <string name="notification_change_variable_temperature">Maks. sıcaklık</string>
+    <string name="notification_change_variable_precipitation">Beklenen yağış</string>
+    <string name="notification_change_variable_wind">Maks. rüzgâr</string>
+    <string name="notification_change_revision_line">%1$s · %2$s</string>
+    <string name="notification_change_compact">%1$s · %2$s %3$s</string>
+    <string name="notification_change_volatile_line">%1$s · modeller farklı yönlere revize ediyor</string>
+    <string name="notification_change_volatile_compact">%1$s · %2$s · belirsiz revizyon</string>
+    <string name="notification_change_consensus">%2$d modelden %1$d tanesi bu değişimi doğruluyor</string>
+    <string name="notification_change_consensus_volatile">%1$d model karşılaştırıldı · baskın eğilim yok</string>
+    <string name="notification_change_reference">Yaklaşık %1$d saat önceki tahmine göre</string>
+    <string name="settings_units">Birimler</string>
+    <string name="settings_units_metric">Metrik (%1$s, %2$s, %3$s)</string>
+    <string name="settings_units_imperial">İngiliz (%1$s, %2$s, %3$s)</string>
+    <string name="settings_units_uk">Birleşik Krallık (%1$s, %2$s, %4$s, %3$s)</string>
+    <string name="toast_units_updated">Birimler güncellendi</string>
+    <string name="unit_degrees_celsius">santigrat derece</string>
+    <string name="unit_degrees_fahrenheit">fahrenhayt derece</string>
+    <string name="unit_miles_per_hour">saatte mil</string>
+    <string name="unit_inches">inç</string>
+    <string name="unit_millimetres">milimetre</string>
+    <string name="a11y_hourly_measure_template">%1$s: başta %2$s, sonda %3$s. Başta uyum yüzde %4$d, sonda yüzde %5$d.</string>
+
+    <string name="radar_open">Yağış radarını aç</string>
+    <string name="radar_title">Yağış radarı</string>
+    <string name="radar_enter_fullscreen">Haritayı tam ekran göster</string>
+    <string name="radar_exit_fullscreen">Tam ekrandan çık</string>
+    <string name="radar_mode">Radar modu</string>
+    <string name="radar_observation">Gözlem</string>
+    <string name="radar_projection">Projeksiyon</string>
+    <string name="radar_range">Radar menzili</string>
+    <string name="radar_range_near">Yakın</string>
+    <string name="radar_range_regional">Bölgesel</string>
+    <string name="radar_range_wide">Geniş</string>
+    <string name="radar_unavailable">Yağış radarı geçici olarak kullanılamıyor.</string>
+    <string name="radar_observed_window">Radar gözlemleri · son 2 saat</string>
+    <string name="radar_projection_ready">Projeksiyon hazır</string>
+    <string name="radar_projection_waiting">Projeksiyon yok · gözlem var</string>
+    <string name="radar_nowcast_analyzing">Yağış hücresi hareketi analiz ediliyor…</string>
+    <string name="radar_nowcast_unavailable">Radar projeksiyonu yok; gözlem animasyonu kullanılabilir.</string>
+    <string name="radar_nowcast_uncertain">Radar hareketi güvenilir bir projeksiyon için çok belirsiz; gözlem animasyonu kullanılabilir.</string>
+    <string name="radar_play">Animasyonu oynat</string>
+    <string name="radar_pause">Animasyonu duraklat</string>
+    <string name="radar_projection_recalculate">Projeksiyonu yeniden hesapla</string>
+    <string name="radar_projection_recalculating">Projeksiyon yeniden hesaplanıyor…</string>
+    <string name="radar_projection_cells">Tek tek izlenen yağış alanları: %1$d</string>
+    <string name="radar_projection_detail">Medyan hız ≈ %1$d km/sa · ortalama güven %2$d %%</string>
+    <string name="radar_impact_none">İzlenen yağış alanlarından hiçbiri önümüzdeki saat içinde bölgeye doğrudan ulaşmış gibi görünmüyor.</string>
+    <string name="radar_impact_current">%1$s bölgeyi zaten kapsıyor ve yaklaşık +%2$d dk boyunca kalabilir.</string>
+    <string name="radar_impact_current_leaving">%1$s şu an bölgeyi kapsıyor ama kademeli olarak uzaklaşmalı.</string>
+    <string name="radar_impact_at">%1$s, +%2$d dk civarında bölgeye ulaşabilir.</string>
+    <string name="radar_impact_window">%1$s, yaklaşık +%2$d ile +%3$d dk arasında bölgeye ulaşabilir.</string>
+    <string name="radar_impact_approaching">%1$s bölgeye yaklaşıyor; bir saat içinde doğrudan bir etki tanımlanmadı.</string>
+    <string name="radar_reading_title">Nasıl okunur?</string>
+    <string name="radar_reading_body">Gözlem modu son 2 saati animasyonla oynatır. Projeksiyon modunda +15, +30, +45 veya +60 dakika seçin: harita, öngörülen konturu, olası zarfı ve son gözlemden itibaren rotayı gösterir.</string>
+    <string name="radar_privacy_note">Radar, yalnızca açıldığında RainViewer ve OpenStreetMap\'e bağlanır. Yerel konum koordinatları radar görüntüsünü ortalamak için kullanılır.</string>
+    <string name="radar_attribution_osm">© OpenStreetMap contributors</string>
+    <string name="radar_attribution_rainviewer">Hava radarı: RainViewer</string>
+    <string name="radar_recalculation_failed">Yeniden hesaplama başarısız; son kullanılabilir projeksiyon korunuyor.</string>
+    <string name="radar_intensity">Yoğunluk</string>
+    <string name="radar_intensity_light">Hafif</string>
+    <string name="radar_intensity_moderate">Orta</string>
+    <string name="radar_intensity_heavy">Şiddetli</string>
+    <string name="radar_probable_zone">Olası zarf</string>
+    <string name="radar_forecast_zone">Öngörülen kontur</string>
+    <string name="radar_observed_trajectory">Gözlemlenen rota</string>
+    <string name="radar_projected_trajectory">Öngörülen rota</string>
+
+    <!-- UV index forecast -->
+    <string name="uv_index_title">UV indeksi</string>
+    <string name="uv_risk_low">Düşük</string>
+    <string name="uv_risk_moderate">Orta</string>
+    <string name="uv_risk_high">Yüksek</string>
+    <string name="uv_risk_very_high">Çok yüksek</string>
+    <string name="uv_risk_extreme">Aşırı</string>
+    <string name="uv_index_value">%1$.1f</string>
+    <string name="uv_accessibility">UV indeksi %1$s, %2$s</string>
+    <string name="uv_compact">UV %1$s</string>
+
+    <string name="detail_action_radar_short">Radar</string>
+    <string name="detail_action_models_short">Motorlar</string>
+    <string name="detail_action_charts_short">Grafikler</string>
+    <string name="detail_solar_title">Güneş</string>
+    <string name="detail_solar_sunrise">Gün doğumu</string>
+    <string name="detail_solar_sunset">Gün batımı</string>
+    <string name="detail_solar_daylight">%1$d sa %2$02d dk gün ışığı</string>
+
+    <string name="compare_overview_title">Bir bakışta · günlük</string>
+    <string name="compare_overview_tap_hint">Bir ölçüte dokunun</string>
+    <string name="compare_timeline_title">Saatlik gelişim</string>
+    <string name="compare_temperature_difference">En yüksek sıcaklık: %1$s, %3$s şehrine göre %2$s daha sıcak</string>
+    <string name="compare_show_details">%1$s için tüm değerler</string>
+    <string name="compare_hide_details">%1$s ayrıntılarını gizle</string>
+    <string name="compare_methodology">Ölçütler nasıl hesaplanır?</string>
+    <string name="compare_rain_difference">%1$s: %3$s şehrine göre %2$s daha az yağış</string>
+    <string name="home_city_card_expand">Bu kartı genişletmek için dokunun</string>
+    <string name="home_city_card_open_details">Şehir ayrıntılarını açmak için dokunun</string>
+    <string name="current_location_title">Konumum</string>
+    <string name="current_location_add">Geçerli konumumu kullan</string>
+    <string name="current_location_privacy_hint">İsteğe bağlı kesin konum, özellikle bir emülatörde konum almayı kolaylaştırır. Yalnızca yaklaşık bir alan kaydedilir; arka planda izleme yoktur.</string>
+    <string name="current_location_updated">Konum güncellendi</string>
+    <string name="current_location_permission_required">Bu kartı eklemek için yaklaşık konum iznini verin</string>
+    <string name="current_location_services_disabled">Konum servisleri kapalı. Android ayarlarından konumu etkinleştirin.</string>
+    <string name="current_location_unavailable">Konum alınamadı. Konum servislerini açıp yeniden deneyin.</string>
+    <string name="current_location_approximate_unavailable">Android yaklaşık konum sağlamadı. Bir emülatörde uygulama ayarlarından Kesin konum iznini verip yeniden deneyin.</string>
+    <string name="current_location_last_updated">Konum: %1$s</string>
+    <string name="current_location_refresh_timestamp_description">Konum en son %1$s güncellendi. Yalnızca konumumu güncellemek için dokunun.</string>
+    <string name="current_location_stale">Konumun güncellenmesi gerekiyor</string>
+    <string name="current_location_widget_note">Widget, son kaydedilen alanı kullanır. Konumunuzu güncellemek için widget\'taki ↻ simgesine dokunun veya MeteoCompare uygulamasını açın (arka planda izleme yoktur).</string>
+    <string name="widget_current_location_refresh">Konumumu güncelle</string>
+    <string name="widget_current_location_refresh_short">↻</string>
+    <string name="widget_current_location_refresh_title">Konumum güncelleniyor</string>
+    <string name="widget_current_location_close">Kapat</string>
+    <string name="widget_current_location_recent">Birkaç saniye içinde yeniden deneyebilirsiniz</string>
+    <string name="widget_current_location_disabled">Önce uygulamada \"Konumum\" özelliğini etkinleştirin.</string>
+    <string name="widget_current_location_retry">Yeniden dene</string>
+    <string name="widget_current_location_interrupted">Güncelleme kesildi; yeniden deneyin.</string>
+    <string name="apparent_temperature_summary">Hissedilen %1$s</string>
+    <string name="apparent_temperature_label">Tahmini hissedilen %1$s</string>
+    <string name="apparent_temperature_title">Hissedilen sıcaklık (tahmini)</string>
+    <string name="apparent_temperature_explanation">Tahmini hissedilen sıcaklık; hava sıcaklığı, nem, rüzgâr ve güneş radyasyonundan hesaplanır. Kişisel hissiyatın doğrudan bir ölçümü değildir.</string>
+    <string name="apparent_temperature_short">Hissedilen %1$s</string>
+    <string name="apparent_temperature_widget_prefix">Hissedilen</string>
+
+    <string name="metric_apparent_temperature">Hissedilen sıcaklık</string>
+    <string name="metric_atmospheric_pressure">Atmosfer basıncı (deniz seviyesi)</string>
+    <string name="metric_pressure_short">Basınç</string>
+    <string name="today_apparent_min_short">Min. hissedilen</string>
+    <string name="today_apparent_max_short">Maks. hissedilen</string>
+    <string name="today_apparent_max_accessibility">En yüksek hissedilen sıcaklık</string>
+    <string name="today_apparent_min_accessibility">En düşük hissedilen sıcaklık</string>
+
+    <!-- Écran de mise à jour de la localisation depuis le widget -->
+    <string name="widget_location_widget_context">Widget konum güncellemesi</string>
+    <string name="widget_location_checking_title">Konum güncellemesi hazırlanıyor</string>
+    <string name="widget_location_checking_description">Konum ayarları ve izinleri kontrol ediliyor…</string>
+    <string name="widget_location_permission_title">İzin gerekli</string>
+    <string name="widget_location_permission_description">Devam etmek için Android konum izni isteğini yanıtlayın.</string>
+    <string name="widget_location_locating_title">Konumunuz bulunuyor…</string>
+    <string name="widget_location_locating_description">Cihazınızın konumu alınıyor. Arama bitene kadar bu ekranı açık tutun.</string>
+    <string name="widget_location_success_title">Konum güncellendi</string>
+    <string name="widget_location_success_description">Kayıtlı alanınız güncel. Widget, bundan sonraki hava verilerinde bunu kullanacak.</string>
+    <string name="widget_location_no_change_title">Yeni konum yok</string>
+    <string name="widget_location_error_title">Konum güncellenemedi</string>
+    <string name="widget_location_privacy_note">Yalnızca yaklaşık bir alan kaydedilir. Arka planda konum izleme yoktur.</string>
+    <string name="metric_humidity">Nem</string>
+    <string name="metric_dew_point">Çiy noktası</string>
+    <string name="metric_dew_point_short">Çiy</string>
+    <string name="detail_action_meteogram_short">Meteogr.</string>
+    <string name="meteogram_presets_title">3 tamamlayıcı meteogram</string>
+    <string name="meteogram_compare_title">Modelleri karşılaştır</string>
+    <string name="meteogram_compare_action">Karşılaştır</string>
+
+    <string name="meteogram_sun">Güneşlenme</string>
+    <string name="meteogram_warmer">Dünden daha sıcak</string>
+    <string name="meteogram_colder">Dünden daha serin</string>
+    <string name="meteogram_title">Meteogramlar</string>
+    <string name="meteogram_consensus">Uzlaşı</string>
+    <string name="meteogram_browse_hint">Saatler arasında gezinmek için yatay kaydırın. Bir saat seçmek için grafiğe dokunun.</string>
+    <string name="meteogram_weather">Bulut / Yağış / Basınç</string>
+    <string name="meteogram_temperature">Sıcaklıklar</string>
+    <string name="meteogram_humidity">Nem</string>
+    <string name="meteogram_pressure">Basınç</string>
+    <string name="meteogram_wind_origin">Rüzgâr yönü</string>
+    <string name="meteogram_wind">Rüzgâr / Ani rüzgâr</string>
+
+    <string name="meteogram_no_data">Ölçüm yok</string>
+    <string name="meteogram_a11y">Model tahminleri. Aşağı konumlar daha düşük değerleri gösterir.</string>
+
+    <string name="meteogram_rain">Yağış</string>
+    <string name="meteogram_layout_separate">Ayrı meteogramlar</string>
+    <string name="meteogram_layout_combined">Tek grafikte</string>
+
+    <string name="meteogram_sunrise">Gün doğumu</string>
+    <string name="meteogram_sunset">Gün batımı</string>
+        <string name="meteogram_cloud_low">Alçak bulutlar</string>
+    <string name="meteogram_cloud_mid">Orta bulutlar</string>
+    <string name="meteogram_cloud_high">Yüksek bulutlar</string>
+    <string name="meteogram_choose_scale">Ölçek</string>
+    <string name="meteogram_cloud_picker">Bulutlar</string>
+    <string name="meteogram_cloud_layers_unavailable">Alçak, orta ve yüksek bulut katmanları bu model veya eski önbellek için yok.</string>
+    <string name="meteogram_axis_short_temperature">T°</string>
+    <string name="meteogram_axis_short_clouds">B</string>
+    <string name="meteogram_axis_short_rain">Y</string>
+    <string name="meteogram_axis_short_wind">R</string>
+    <string name="meteogram_axis_short_humidity">RH</string>
+    <string name="meteogram_axis_short_pressure">P</string>
+</resources>

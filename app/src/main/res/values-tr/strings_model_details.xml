@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="model_metadata_explanation">Izgara: yaklaşık ızgara aralığı. Doğal adım: model çıktıları arasındaki gerçek süre (bazen Open-Meteo tarafından saatlik değere enterpolasyonlu). Güncelleme: modelin frekansı, uygulamanın yenileme aralığından bağımsızdır.</string>
+    <string name="model_metadata_provider_resolution">%1$s · ızgara ≈ %2$s</string>
+    <string name="model_metadata_temporal">Doğal adım: %1$s · tahmin süresi: %2$s · güncelleme: her %3$d sa</string>
+    <string name="model_step_15_minutes">15 dk</string>
+    <string name="model_step_1_hour">1 sa</string>
+    <string name="model_step_3_hours">3 sa</string>
+    <string name="model_step_6_hours">6 sa</string>
+    <string name="model_step_minutes">%1$d dk</string>
+    <string name="model_step_hourly_three">1 sa, sonra %1$d sa sonrasında 3 sa</string>
+    <string name="model_step_hourly_three_six">1 sa, sonra %1$d sa sonrasında 3 sa ve %2$d sa sonrasında 6 sa</string>
+</resources>
