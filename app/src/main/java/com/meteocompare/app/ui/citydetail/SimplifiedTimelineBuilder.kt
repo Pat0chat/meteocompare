@@ -324,8 +324,6 @@ private data class TimelineSnapshot(
     val windDirection: Int?,
     val condition: WeatherCondition?,
     val nativeCondition: WeatherCondition? = null,
-    /** La condition horaire représentative contredit le code daily maximal. */
-    val correctedFromDailyWmo: Boolean = false
 ) {
     val hasAnyValue: Boolean
         get() = temperature != null || apparentTemperature?.isFinite() == true || pressure?.isFinite() == true ||
@@ -396,14 +394,12 @@ private fun indexDailySnapshots(
         val wind = series.daily.windSpeedMax.getOrNull(index)
         val windGust = series.daily.windGustsMax.getOrNull(index)
         val windDirection = series.daily.windDirection10mDominant.getOrNull(index)
-        val rawDailyCondition = WeatherCondition.fromWmoCode(series.daily.weatherCode.getOrNull(index))
-            ?.takeUnless { it == WeatherCondition.UNKNOWN }
         // Un code daily sévère peut ne représenter qu'une heure. Faire voter
         // la condition corrigée, pas le MAX brut qui recréerait le bug #40
         // dans « Next few days » malgré sa correction dans le tableau.
         val resolved = series.resolveDailyCondition(date, zone)
         val nativeCondition = resolved?.takeUnless { it.inferred }?.condition
-        val condition = resolved?.condition ?: rawDailyCondition
+        val condition = resolved?.condition
         val snapshot = TimelineSnapshot(
             model = model,
             temperature = null,
@@ -419,8 +415,7 @@ private fun indexDailySnapshots(
             windGust = windGust,
             windDirection = windDirection,
             condition = condition,
-            nativeCondition = nativeCondition,
-            correctedFromDailyWmo = rawDailyCondition != null && condition != rawDailyCondition
+            nativeCondition = nativeCondition
         )
         if (snapshot.hasAnyValue) put(date, snapshot)
     }
@@ -585,24 +580,25 @@ private fun timelinePoint(
         supportModels = conditionSupportModels,
         localWeights = emptyMap()
     )
-    val conditionConsensus = if (
-        !hourly && meaningful.any { it.correctedFromDailyWmo } &&
-        conditionResolution.source == WeatherConditionConsensus.AggregateSource.AGGREGATED_VARIABLES
-    ) {
-        // Si une seule famille a un WMO horaire exploitable, le fallback
-        // physique sur le cumul daily pouvait encore transformer une journée
-        // majoritairement sèche en pluie. Les autres modèles participent ici
-        // avec leur condition représentative déjà résolue (WMO ou inférée),
-        // sans modifier le chemin de consensus horaire ni le cas de 2+ WMO.
-        WeatherConditionConsensus.resolve(
-            entries = meaningful.mapNotNull { snapshot ->
-                snapshot.condition?.let { ForecastConsensus.Entry(snapshot.model, it) }
-            },
-            cloudCoverPercent = cloud.forecastValue.central.takeIf {
-                meaningful.filter { snap -> snap.cloudCover?.let { c -> c in 0..100 } == true }
-                    .map { ForecastConsensus.groupFor(it.model) }.distinct().size >= 2
-            }
-        )
+    // Un cumul daily de 8 mm peut correspondre à UNE seule heure de pluie.
+    // La condition de la chronologie daily ne doit jamais être inférée du
+    // cumul total : seul le résumé dominant déjà validé de chaque modèle
+    // participe au vote. Le chemin horaire garde son consensus existant.
+    val conditionConsensus = if (!hourly) {
+        val dailyEntries = meaningful.mapNotNull { snapshot ->
+            snapshot.condition?.let { ForecastConsensus.Entry(snapshot.model, it) }
+        }
+        if (dailyEntries.isEmpty()) {
+            conditionResolution.vote.copy(value = null, percent = null, modelCount = 0, familyCount = 0)
+        } else {
+            WeatherConditionConsensus.resolve(
+                entries = dailyEntries,
+                cloudCoverPercent = cloud.forecastValue.central.takeIf {
+                    meaningful.filter { snap -> snap.cloudCover != null }
+                        .map { ForecastConsensus.groupFor(it.model) }.distinct().size >= 2
+                }
+            )
+        }
     } else conditionResolution.vote
 
     fun metricLevel(score: Int): ModelConsensusLevel = when {

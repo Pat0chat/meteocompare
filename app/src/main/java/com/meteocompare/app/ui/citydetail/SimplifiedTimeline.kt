@@ -701,7 +701,7 @@ private fun TimelinePointColumn(
         )
 
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(modifier = Modifier.height(34.dp), contentAlignment = Alignment.Center) {
+            Box(modifier = Modifier.height(if (mode == DisplayMode.DAILY) 48.dp else 34.dp), contentAlignment = Alignment.Center) {
                 if (mode == DisplayMode.DAILY && (point.dayCondition != null || point.nightCondition != null)) {
                     DayNightConditionIcons(point.dayCondition, point.nightCondition)
                 } else point.condition?.let { condition ->

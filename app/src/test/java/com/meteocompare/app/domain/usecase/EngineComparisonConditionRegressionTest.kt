@@ -14,6 +14,37 @@ import org.junit.Test
 
 class EngineComparisonConditionRegressionTest {
     @Test
+    fun `a daily rain total without representative conditions does not become a rainy icon`() {
+        val date = LocalDate.of(2026, 7, 23)
+        val city = City(
+            id = "test", name = "Paris", country = "France",
+            latitude = 48.85, longitude = 2.35, timezone = "Europe/Paris"
+        )
+        fun series(model: WeatherModel) = ForecastSeries(
+            model = model,
+            hourly = HourlyForecast(
+                timestamps = listOf(Instant.parse("2026-07-23T10:00:00Z")),
+                temperature2m = listOf(19.0), precipitation = listOf(null),
+                windSpeed10m = listOf(10.0)
+            ),
+            daily = DailyForecast(
+                dates = listOf(date), tempMax = listOf(23.0), tempMin = listOf(13.0),
+                precipitationSum = listOf(9.0), windSpeedMax = listOf(15.0)
+            )
+        )
+        val forecast = CityForecast(
+            city,
+            mapOf(WeatherModel.GFS to series(WeatherModel.GFS),
+                WeatherModel.ECMWF to series(WeatherModel.ECMWF))
+        )
+        val days = EngineComparisonBuilder(ConfidenceCalculator(EqualWeighting())).build(
+            forecast, ForecastEngineContext.DEFAULT, Instant.parse("2026-07-23T10:00:00Z")
+        )
+        assertTrue(days.size == 1)
+        assertTrue(days.single().byEngine.values.all { it.condition == null })
+    }
+
+    @Test
     fun `each comparison engine uses hourly dominant sky instead of isolated daily rain`() {
         val date = LocalDate.of(2026, 7, 23)
         val hours = (0 until 24).map {

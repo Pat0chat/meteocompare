@@ -84,6 +84,29 @@ class SimplifiedTimelineTest {
     }
 
     @Test
+    fun `next few days does not invent rain from daily rainfall total alone`() {
+        val series = ForecastSeries(
+            model = WeatherModel.GFS,
+            hourly = HourlyForecast(
+                timestamps = listOf(now), temperature2m = listOf(20.0),
+                precipitation = listOf(null), windSpeed10m = listOf(12.0)
+            ),
+            daily = DailyForecast(
+                dates = listOf(today), tempMax = listOf(24.0),
+                tempMin = listOf(14.0), precipitationSum = listOf(8.0),
+                windSpeedMax = listOf(15.0)
+            )
+        )
+        val point = buildSimplifiedTimeline(
+            CityForecast(paris, mapOf(WeatherModel.GFS to series)),
+            DisplayMode.DAILY, now
+        ).single()
+        assertEquals(null, point.condition)
+        assertEquals(null, point.dayCondition)
+        assertEquals(null, point.nightCondition)
+    }
+
+    @Test
     fun `daily timeline keeps dominant sky and exposes evening to following morning rain`() {
         val d = today
         val timestamps = List(30) {

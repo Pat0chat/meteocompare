@@ -29,16 +29,15 @@ class ForecastSeriesConditionResolutionTest {
 
     @Test
     fun `daily fallback uses hourly modal condition not the single most severe hour`() {
-        val hours = (0 until 6).map { Instant.parse("2026-08-23T22:00:00Z").plusSeconds(it * 3600L) }
-        // Europe/Paris : six heures du 24 août. Une seule heure d'orage ne doit
-        // pas transformer toute la journée en orage.
+        val hours = (0 until 24).map { Instant.parse("2026-08-23T22:00:00Z").plusSeconds(it * 3600L) }
+        // Les 24 heures sont représentées : un seul orage ne domine pas.
         val series = series(
             timestamps = hours,
             dailyCode = null,
-            hourlyCodes = listOf(2, 2, 2, 2, 2, 95),
-            hourlyPrecip = List(6) { 0.0 },
-            hourlyTemp = List(6) { 20.0 },
-            hourlyCloud = List(6) { 60 }
+            hourlyCodes = List(24) { if (it == 21) 95 else 2 },
+            hourlyPrecip = List(24) { 0.0 },
+            hourlyTemp = List(24) { 20.0 },
+            hourlyCloud = List(24) { 60 }
         )
 
         val resolved = series.resolveDailyCondition(date, zone)
@@ -49,26 +48,22 @@ class ForecastSeriesConditionResolutionTest {
     }
 
     @Test
-    fun `daily modal tie uses severity only as tie break`() {
-        val hours = (0 until 4).map { Instant.parse("2026-08-23T22:00:00Z").plusSeconds(it * 3600L) }
+    fun `daily with exactly equal dry and wet hours has no dominant condition without daily WMO`() {
+        val hours = (0 until 24).map { Instant.parse("2026-08-23T22:00:00Z").plusSeconds(it * 3600L) }
         val series = series(
             timestamps = hours,
             dailyCode = null,
-            hourlyCodes = listOf(2, 2, 61, 61),
-            hourlyPrecip = List(4) { 0.0 },
-            hourlyTemp = List(4) { 20.0 },
-            hourlyCloud = List(4) { 60 }
+            hourlyCodes = List(12) { 2 } + List(12) { 61 },
+            hourlyPrecip = List(24) { 0.0 },
+            hourlyTemp = List(24) { 20.0 },
+            hourlyCloud = List(24) { 60 }
         )
 
-        val resolved = series.resolveDailyCondition(date, zone)
-
-        assertEquals(WeatherCondition.RAIN, resolved?.condition)
-        assertEquals(DailyConditionProvenance.HOURLY_WMO, resolved?.provenance)
-        assertEquals(false, resolved?.inferred)
+        assertEquals(null, series.resolveDailyCondition(date, zone))
     }
 
     @Test
-    fun `daily fallback can resolve from hourly data even when daily axis is absent`() {
+    fun `single cloudy hour cannot represent a day with no daily axis`() {
         val hours = listOf(Instant.parse("2026-08-24T10:00:00Z"))
         val series = ForecastSeries(
             model = WeatherModel.GFS,
@@ -85,9 +80,7 @@ class ForecastSeriesConditionResolutionTest {
 
         val resolved = series.resolveDailyCondition(date, zone)
 
-        assertEquals(WeatherCondition.OVERCAST, resolved?.condition)
-        assertEquals(DailyConditionProvenance.DERIVED_VARIABLES, resolved?.provenance)
-        assertEquals(true, resolved?.inferred)
+        assertEquals(null, resolved)
     }
 
     @Test
@@ -107,7 +100,7 @@ class ForecastSeriesConditionResolutionTest {
     }
 
     @Test
-    fun `daily sky WMO uses representative hourly WMO without becoming inferred`() {
+    fun `six sky observations do not override a full day WMO`() {
         val hours = (0 until 6).map { Instant.parse("2026-08-23T22:00:00Z").plusSeconds(it * 3600L) }
         val series = series(
             timestamps = hours,
@@ -119,8 +112,8 @@ class ForecastSeriesConditionResolutionTest {
         )
 
         val resolved = series.resolveDailyCondition(date, zone)
-        assertEquals(WeatherCondition.PARTLY_CLOUDY, resolved?.condition)
-        assertEquals(DailyConditionProvenance.HOURLY_WMO, resolved?.provenance)
+        assertEquals(WeatherCondition.OVERCAST, resolved?.condition)
+        assertEquals(DailyConditionProvenance.DAILY_WMO, resolved?.provenance)
         assertEquals(false, resolved?.inferred)
     }
 
@@ -183,7 +176,8 @@ class ForecastSeriesConditionResolutionTest {
             daily = DailyForecast(emptyList(), emptyList(), emptyList(), emptyList(), emptyList())
         )
 
-        assertEquals(50, series.dailyCloudCoverMean(date, zone))
+        // Deux heures ne justifient pas une moyenne affichée comme daily.
+        assertEquals(null, series.dailyCloudCoverMean(date, zone))
     }
 
     @Test
@@ -388,6 +382,194 @@ class ForecastSeriesConditionResolutionTest {
             date, zone, DailyConditionPeriod.DAY, ForecastSolarWindow(null, null)))
         assertEquals(null, series.resolveDailyCondition(
             date, zone, DailyConditionPeriod.NIGHT, ForecastSolarWindow(null, null)))
+    }
+
+    @Test
+    fun `duplicate rainy timestamps cannot outvote a complete dry day`() {
+        val start = Instant.parse("2026-08-23T22:00:00Z")
+        val hours = (0 until 24).map { start.plusSeconds(it * 3600L) }
+        val duplicateHour = start.plusSeconds(21 * 3600L)
+        val extra = List(40) { duplicateHour }
+        val timestamps = hours + extra
+        val forecast = series(
+            timestamps = timestamps, dailyCode = 61,
+            hourlyCodes = List(24) { if (it == 21) 61 else 0 } + List(40) { 61 },
+            hourlyPrecip = List(timestamps.size) { 0.0 },
+            hourlyTemp = List(timestamps.size) { 20.0 },
+            hourlyCloud = List(timestamps.size) { 10 }
+        )
+        assertEquals(WeatherCondition.CLEAR, forecast.resolveDailyCondition(date, zone)?.condition)
+    }
+
+    @Test
+    fun `native hourly code takes precedence when a duplicate is inferred`() {
+        val start = Instant.parse("2026-08-23T22:00:00Z")
+        val hours = (0 until 24).map { start.plusSeconds(it * 3600L) }
+        val duplicate = hours[12]
+        val forecast = series(
+            timestamps = hours + duplicate, dailyCode = 61,
+            hourlyCodes = List(24) { 0 } + listOf(61),
+            hourlyPrecip = List(25) { 0.0 },
+            hourlyTemp = List(25) { 18.0 },
+            hourlyCloud = List(25) { 5 }
+        )
+        // Une seule heure native pluvieuse reste minoritaire et la provenance
+        // mixte indique honnêtement que le reste est constitué de WMO natifs.
+        assertEquals(WeatherCondition.CLEAR, forecast.resolveDailyCondition(date, zone)?.condition)
+    }
+
+    @Test
+    fun `six consecutive hours of rain cannot override a dry daily WMO`() {
+        val hours = (0 until 6).map { Instant.parse("2026-08-23T22:00:00Z").plusSeconds(it * 3600L) }
+        val forecast = series(
+            timestamps = hours, dailyCode = 0,
+            hourlyCodes = List(6) { 61 },
+            hourlyPrecip = List(6) { 1.0 },
+            hourlyTemp = List(6) { 20.0 },
+            hourlyCloud = List(6) { 90 }
+        )
+        assertEquals(WeatherCondition.CLEAR, forecast.resolveDailyCondition(date, zone)?.condition)
+        assertEquals(DailyConditionProvenance.DAILY_WMO, forecast.resolveDailyCondition(date, zone)?.provenance)
+    }
+
+    @Test
+    fun `daily precipitation sum alone never proves predominantly rainy conditions`() {
+        val sparse = series(
+            hourlyCodes = listOf(null), hourlyPrecip = listOf(0.0),
+            hourlyTemp = listOf(20.0), hourlyCloud = listOf(null)
+        )
+        val series = sparse.copy(daily = sparse.daily.copy(precipitationSum = listOf(12.0)))
+        assertEquals(null, series.resolveDailyCondition(date, zone))
+    }
+
+    @Test
+    fun `scattered hourly groups with a long gap are not considered representative`() {
+        val start = Instant.parse("2026-08-23T22:00:00Z")
+        val minutes = (0 until 10).map { it * 60L } + (15 until 24).map { it * 60L }
+        val hours = minutes.map { start.plusSeconds(it * 60) }
+        val series = series(
+            timestamps = hours, dailyCode = 61,
+            hourlyCodes = List(hours.size) { 0 },
+            hourlyPrecip = List(hours.size) { 0.0 },
+            hourlyTemp = List(hours.size) { 18.0 },
+            hourlyCloud = List(hours.size) { 5 }
+        )
+        assertEquals(WeatherCondition.RAIN, series.resolveDailyCondition(date, zone)?.condition)
+    }
+
+    @Test
+    fun `a three hour fragment of a twelve hour night is not a night forecast`() {
+        val utc = ZoneId.of("UTC")
+        val start = Instant.parse("2026-08-24T19:00:00Z")
+        val hours = (0 until 3).map { start.plusSeconds(it * 3600L) }
+        val series = series(
+            timestamps = hours, dailyCode = 61,
+            hourlyCodes = List(3) { 61 },
+            hourlyPrecip = List(3) { 2.0 },
+            hourlyTemp = List(3) { 18.0 },
+            hourlyCloud = List(3) { 95 }
+        )
+        val solar = ForecastSolarWindow(
+            Instant.parse("2026-08-24T06:00:00Z"), Instant.parse("2026-08-24T18:00:00Z")
+        )
+        val following = ForecastSolarWindow(
+            Instant.parse("2026-08-25T06:00:00Z"), Instant.parse("2026-08-25T18:00:00Z")
+        )
+        assertEquals(null, series.resolveDailyCondition(date, utc, DailyConditionPeriod.NIGHT, solar, following))
+    }
+
+    @Test
+    fun `all twenty four positions of isolated hourly rain remain dry overall`() {
+        val start = Instant.parse("2026-08-23T22:00:00Z")
+        val hours = (0 until 24).map { start.plusSeconds(it * 3600L) }
+        (0 until 24).forEach { rainHour ->
+            val forecast = series(
+                timestamps = hours, dailyCode = 61,
+                hourlyCodes = List(24) { if (it == rainHour) 61 else 0 },
+                hourlyPrecip = List(24) { if (it == rainHour) 3.0 else 0.0 },
+                hourlyTemp = List(24) { 15.0 },
+                hourlyCloud = List(24) { 5 }
+            )
+            assertEquals(WeatherCondition.CLEAR, forecast.resolveDailyCondition(date, zone)?.condition)
+        }
+    }
+
+    @Test
+    fun `representative cloud mean requires a full distribution of valid hours`() {
+        val start = Instant.parse("2026-08-23T22:00:00Z")
+        val hours = (0 until 24).map { start.plusSeconds(it * 3600L) }
+        val series = series(
+            timestamps = hours, dailyCode = null,
+            hourlyCodes = List(24) { null },
+            hourlyPrecip = List(24) { 0.0 },
+            hourlyTemp = List(24) { 18.0 },
+            hourlyCloud = List(12) { 10 } + List(12) { 90 }
+        )
+        assertEquals(50, series.dailyCloudCoverMean(date, zone))
+    }
+
+    @Test
+    fun `twenty five hour daylight saving night keeps its extra local hour`() {
+        val utcStart = LocalDate.of(2026, 10, 25).atStartOfDay(zone).toInstant()
+        val autumn = LocalDate.of(2026, 10, 25)
+        val hours = (0 until 25).map { utcStart.plusSeconds(it * 3600L) }
+        val local = series(
+            timestamps = hours, dailyCode = 61,
+            hourlyCodes = List(25) { if (it == 3) 61 else 0 },
+            hourlyPrecip = List(25) { 0.0 },
+            hourlyTemp = List(25) { 10.0 },
+            hourlyCloud = List(25) { 10 }
+        ).let { it.copy(daily = it.daily.copy(dates = listOf(autumn))) }
+        assertEquals(WeatherCondition.CLEAR, local.resolveDailyCondition(autumn, zone)?.condition)
+    }
+
+    @Test
+    fun `current day can be corrected despite missing past hours if majority is irreversible`() {
+        val start = Instant.parse("2026-08-24T08:00:00Z") // 10 h à Paris
+        val times = (0 until 14).map { start.plusSeconds(it * 3600L) }
+        val forecast = series(
+            timestamps = times, dailyCode = 61,
+            hourlyCodes = List(14) { if (it == 13) 61 else 0 },
+            hourlyPrecip = List(14) { if (it == 13) 1.0 else 0.0 },
+            hourlyTemp = List(14) { 19.0 },
+            hourlyCloud = List(14) { 5 }
+        )
+        assertEquals(WeatherCondition.CLEAR, forecast.resolveDailyCondition(date, zone)?.condition)
+    }
+
+    @Test
+    fun `repeated half hourly clear samples cannot claim a majority over one rain event`() {
+        val start = Instant.parse("2026-08-23T22:00:00Z")
+        // Seulement huit heures sèches mais 16 échantillons demi-horaires.
+        val dryHalfHours = (0 until 16).map { start.plusSeconds(it * 1800L) }
+        val rainHour = start.plusSeconds(16 * 3600L)
+        val timestamps = dryHalfHours + rainHour
+        val forecast = series(
+            timestamps = timestamps, dailyCode = 61,
+            hourlyCodes = List(16) { 0 } + listOf(61),
+            hourlyPrecip = List(17) { 0.0 },
+            hourlyTemp = List(17) { 20.0 },
+            hourlyCloud = List(17) { 15 }
+        )
+        // L'intervalle non couvert ne peut pas être inventé en comptant
+        // deux fois les heures sèches.
+        assertEquals(WeatherCondition.RAIN, forecast.resolveDailyCondition(date, zone)?.condition)
+    }
+
+    @Test
+    fun `spring daylight saving day contains twenty three absolute hours`() {
+        val spring = LocalDate.of(2026, 3, 29)
+        val start = spring.atStartOfDay(zone).toInstant()
+        val times = (0 until 23).map { start.plusSeconds(it * 3600L) }
+        val series = series(
+            timestamps = times, dailyCode = 61,
+            hourlyCodes = List(23) { if (it == 21) 61 else 0 },
+            hourlyPrecip = List(23) { 0.0 },
+            hourlyTemp = List(23) { 10.0 },
+            hourlyCloud = List(23) { 10 }
+        ).let { it.copy(daily = it.daily.copy(dates = listOf(spring))) }
+        assertEquals(23, times.count { it.atZone(zone).toLocalDate() == spring })
+        assertEquals(WeatherCondition.CLEAR, series.resolveDailyCondition(spring, zone)?.condition)
     }
 
     private fun series(

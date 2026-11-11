@@ -777,7 +777,7 @@ private fun ChronoConditionsLane(points: List<SimplifiedTimelinePoint>, mode: Di
             ChronoCell {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Box(
-                        modifier = Modifier.height(34.dp),
+                        modifier = Modifier.height(if (mode == DisplayMode.DAILY) 48.dp else 34.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         if (mode == DisplayMode.DAILY && (point.dayCondition != null || point.nightCondition != null)) {

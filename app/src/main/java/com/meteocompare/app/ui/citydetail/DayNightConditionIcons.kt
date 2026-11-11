@@ -12,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -26,7 +27,7 @@ import com.meteocompare.app.ui.components.semanticTint
 internal fun DayNightConditionIcons(
     day: WeatherCondition?,
     night: WeatherCondition?,
-    iconSize: Dp = 22.dp
+    iconSize: Dp = 32.dp
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         listOf(false to day, true to night).forEach { (isNight, condition) ->
@@ -39,7 +40,8 @@ internal fun DayNightConditionIcons(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Box(
-                    modifier = Modifier.width(iconSize).height(iconSize),
+                    modifier = Modifier.width(iconSize).height(iconSize)
+                        .testTag(if (isNight) TAG_DAILY_NIGHT_ICON else TAG_DAILY_DAY_ICON),
                     contentAlignment = Alignment.Center
                 ) {
                     if (condition == null) {
@@ -58,3 +60,7 @@ internal fun DayNightConditionIcons(
         }
     }
 }
+
+/** Repères stables pour vérifier la taille des icônes dans les deux timelines. */
+internal const val TAG_DAILY_DAY_ICON = "daily_day_condition_icon"
+internal const val TAG_DAILY_NIGHT_ICON = "daily_night_condition_icon"

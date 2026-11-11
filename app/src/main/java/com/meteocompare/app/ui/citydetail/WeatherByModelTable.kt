@@ -208,63 +208,72 @@ private fun IconCell(
         modifier = Modifier
             .fillMaxWidth()
             .height(height)
-            .detailTableCell(background, palette),
-        contentAlignment = Alignment.Center
+            .detailTableCell(background, palette)
     ) {
-        if (condition == null) {
-            // Modèle sans donnée pour ce jour (typique : un modèle régional ne couvre
-            // que J+0 à J+2 — colonnes "vides" au-delà). On affiche un tiret
-            // discret pour que la cellule reste reconnaissable comme une
-            // cellule (pas comme un trou de layout).
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                if (label != null) Text(label, style = MaterialTheme.typography.labelSmall,
-                    fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("—", style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        } else {
-            // Marqueur visuel d'inférence : la condition provient de variables
-            // physiques du MÊME modèle (précip/temp ou nébulosité), faute de
-            // weather_code journalier ou horaire exploitable. On garde l'icône
-            // clairement visible tout en la différenciant d'un WMO natif fourni
-            // par l'API.
-            val contentModifier = if (isInferred) Modifier.alpha(0.55f) else Modifier
-            Column(
-                modifier = contentModifier,
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                if (label != null) {
+        // Le titre occupe une bande fixe en HAUT de chaque cellule. Le badge
+        // éventuel (pluie/nuages) ne peut donc plus déplacer Day ou Night.
+        Column(
+            modifier = Modifier.fillMaxWidth().height(height).padding(vertical = 2.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            if (label != null) {
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(14.dp),
+                    contentAlignment = Alignment.TopCenter
+                ) {
                     Text(
                         text = label,
                         style = MaterialTheme.typography.labelSmall,
                         fontSize = 10.sp,
+                        lineHeight = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
                 }
-                WeatherIconDecorative(
-                    condition = condition,
-                    size = if (label != null) 23.dp else 28.dp,
-                    tint = if (isNight && condition == WeatherCondition.CLEAR)
-                        Color.Unspecified else condition.semanticTint(),
-                    isNight = isNight
-                )
-                // Une courte averse possible reste visible sous une icône de
-                // ciel clair sans que la pluie devienne la météo dominante.
-                val badge = weatherBadgeFor(
-                    condition = condition,
-                    precipProbability = extras?.precipProbabilityMax,
-                    cloudCover = extras?.cloudCoverMean,
-                    showTransientRainRisk = label != null
-                )
-                if (badge != null) {
-                    Text(
-                        text = badge,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontWeight = FontWeight.Medium
-                    )
+            }
+            Box(
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                contentAlignment = Alignment.Center
+            ) {
+                if (condition == null) {
+                    Text("—", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    // Atténuation réservée aux conditions dérivées, pas aux
+                    // codes WMO horaires natifs agrégés.
+                    val contentModifier = if (isInferred) Modifier.alpha(0.55f) else Modifier
+                    Column(
+                        modifier = contentModifier,
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        WeatherIconDecorative(
+                            condition = condition,
+                            size = if (label != null) 23.dp else 28.dp,
+                            tint = if (isNight && condition == WeatherCondition.CLEAR)
+                                Color.Unspecified else condition.semanticTint(),
+                            isNight = isNight
+                        )
+                        // Un risque ponctuel reste lisible sous une icône sèche
+                        // sans modifier la condition dominante.
+                        val badge = weatherBadgeFor(
+                            condition = condition,
+                            precipProbability = extras?.precipProbabilityMax,
+                            cloudCover = extras?.cloudCoverMean,
+                            showTransientRainRisk = label != null
+                        )
+                        if (badge != null) {
+                            Text(
+                                text = badge,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontSize = 10.sp,
+                                lineHeight = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
                 }
             }
         }
