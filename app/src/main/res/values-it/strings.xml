@@ -1103,4 +1103,7 @@ dato</string>
     <string name="meteogram_axis_short_wind">V</string>
     <string name="meteogram_axis_short_humidity">UR</string>
     <string name="meteogram_axis_short_pressure">Pr</string>
+    <string name="condition_period_day">Giorno</string>
+    <string name="condition_period_night">Notte</string>
+    <string name="condition_period_full_day">24 h</string>
 </resources>

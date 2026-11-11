@@ -402,6 +402,43 @@ class WeatherConditionTest {
         assertTrue(WeatherModel.GFS !in rows[0].inferredByModel)
     }
 
+    @Test
+    fun `daily model table exposes separate solar day and following night`() {
+        val today = LocalDate.of(2026, 6, 30)
+        val utc = java.time.ZoneOffset.UTC
+        val hours = List(30) { today.atStartOfDay(utc).toInstant().plusSeconds(it * 3600L) }
+        val rise = today.atTime(6, 0).atZone(utc).toInstant()
+        val set = today.atTime(18, 0).atZone(utc).toInstant()
+        val series = ForecastSeries(
+            model = WeatherModel.GFS,
+            hourly = HourlyForecast(
+                timestamps = hours,
+                temperature2m = List(30) { 20.0 },
+                precipitation = List(30) { if (it >= 18) 1.0 else 0.0 },
+                windSpeed10m = List(30) { 10.0 },
+                weatherCode = List(30) { if (it >= 18) 61 else 0 },
+                cloudCover = List(30) { if (it >= 18) 95 else 5 },
+                precipitationProbability = List(30) { if (it >= 18) 80 else 5 }
+            ),
+            daily = DailyForecast(
+                dates = listOf(today, today.plusDays(1)),
+                tempMax = listOf(25.0, 25.0), tempMin = listOf(15.0, 15.0),
+                precipitationSum = listOf(6.0, 6.0), windSpeedMax = listOf(10.0, 10.0),
+                weatherCode = listOf(61, 61),
+                sunrise = listOf(rise, rise.plusSeconds(86_400)),
+                sunset = listOf(set, set.plusSeconds(86_400))
+            )
+        )
+        val row = calculator.dailyConditionsByModel(
+            CityForecast(paris.copy(timezone = "UTC"), mapOf(WeatherModel.GFS to series))
+        ).first()
+        assertEquals(WeatherCondition.CLEAR, row.byModel[WeatherModel.GFS])
+        assertEquals(WeatherCondition.CLEAR, row.daytimeByModel[WeatherModel.GFS])
+        assertEquals(WeatherCondition.RAIN, row.nighttimeByModel[WeatherModel.GFS])
+        assertEquals(5, row.daytimeExtrasByModel[WeatherModel.GFS]?.precipProbabilityMax)
+        assertEquals(80, row.nighttimeExtrasByModel[WeatherModel.GFS]?.precipProbabilityMax)
+    }
+
     // ─── fromCloudCover — fallback local au même modèle ───────────────────
 
     @Test

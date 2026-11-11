@@ -14,6 +14,21 @@ import org.junit.Test
  * passerait entre les mailles.
  */
 class WeatherCellBadgesTest {
+    @Test
+    fun `day night sunny period can signal brief rain chance without becoming rainy`() {
+        assertEquals("☂ 80%", weatherBadgeFor(
+            WeatherCondition.CLEAR, precipProbability = 80, cloudCover = 10,
+            showTransientRainRisk = true
+        ))
+        assertEquals(null, weatherBadgeFor(
+            WeatherCondition.CLEAR, precipProbability = 40, cloudCover = 10,
+            showTransientRainRisk = true
+        ))
+        assertEquals(null, weatherBadgeFor(
+            WeatherCondition.CLEAR, precipProbability = 80, cloudCover = 10
+        ))
+    }
+
 
     // ─── Familles pluie : badge = probabilité de pluie ─────────────────────
 

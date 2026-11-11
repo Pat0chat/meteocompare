@@ -24,6 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
@@ -57,7 +58,8 @@ fun WeatherByModelTable(
     val sortedModels = remember(modelOrder) { modelOrder.sortedByFamily() }
     val palette = detailTablePalette()
     val modelWidth = DetailTableDimensions.modelColumnWidth
-    val dateWidth = DetailTableDimensions.temporalColumnWidth
+    val splitPeriods = rows.any { it.daytimeByModel.isNotEmpty() || it.nighttimeByModel.isNotEmpty() }
+    val dateWidth = if (splitPeriods) 132.dp else DetailTableDimensions.temporalColumnWidth
     val headerHeight = DetailTableDimensions.headerHeight
     val rowHeight = DetailTableDimensions.rowHeight
 
@@ -108,14 +110,43 @@ fun WeatherByModelTable(
                 val isToday = row.date == today
                 Column(modifier = Modifier.width(dateWidth)) {
                     sortedModels.forEachIndexed { modelIndex, model ->
-                        IconCell(
-                            condition = row.byModel[model],
-                            extras = row.extrasByModel[model],
-                            isInferred = model in row.inferredByModel,
-                            background = palette.dataRowBackground(modelIndex, isToday),
-                            height = rowHeight,
-                            palette = palette
-                        )
+                        val day = row.daytimeByModel[model]
+                        val night = row.nighttimeByModel[model]
+                        if (splitPeriods && (day != null || night != null)) {
+                            Row(modifier = Modifier.fillMaxWidth().height(rowHeight)) {
+                                Box(modifier = Modifier.weight(1f)) {
+                                    IconCell(
+                                        condition = day,
+                                        extras = row.daytimeExtrasByModel[model],
+                                        isInferred = model in row.daytimeInferredByModel,
+                                        background = palette.dataRowBackground(modelIndex, isToday),
+                                        height = rowHeight, palette = palette,
+                                        isNight = false,
+                                        label = stringResource(R.string.condition_period_day)
+                                    )
+                                }
+                                Box(modifier = Modifier.weight(1f)) {
+                                    IconCell(
+                                        condition = night,
+                                        extras = row.nighttimeExtrasByModel[model],
+                                        isInferred = model in row.nighttimeInferredByModel,
+                                        background = palette.dataRowBackground(modelIndex, isToday),
+                                        height = rowHeight, palette = palette,
+                                        isNight = true,
+                                        label = stringResource(R.string.condition_period_night)
+                                    )
+                                }
+                            }
+                        } else {
+                            IconCell(
+                                condition = row.byModel[model],
+                                extras = row.extrasByModel[model],
+                                isInferred = model in row.inferredByModel,
+                                background = palette.dataRowBackground(modelIndex, isToday),
+                                height = rowHeight, palette = palette,
+                                label = if (splitPeriods) stringResource(R.string.condition_period_full_day) else null
+                            )
+                        }
                     }
                 }
             }
@@ -169,7 +200,9 @@ private fun IconCell(
     isInferred: Boolean,
     background: Color,
     height: Dp,
-    palette: DetailTablePalette
+    palette: DetailTablePalette,
+    isNight: Boolean = false,
+    label: String? = null
 ) {
     Box(
         modifier = Modifier
@@ -183,8 +216,12 @@ private fun IconCell(
             // que J+0 à J+2 — colonnes "vides" au-delà). On affiche un tiret
             // discret pour que la cellule reste reconnaissable comme une
             // cellule (pas comme un trou de layout).
-            Text("—", style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                if (label != null) Text(label, style = MaterialTheme.typography.labelSmall,
+                    fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("—", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         } else {
             // Marqueur visuel d'inférence : la condition provient de variables
             // physiques du MÊME modèle (précip/temp ou nébulosité), faute de
@@ -197,15 +234,29 @@ private fun IconCell(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
+                if (label != null) {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1
+                    )
+                }
                 WeatherIconDecorative(
                     condition = condition,
-                    size = 28.dp,
-                    tint = condition.semanticTint()
+                    size = if (label != null) 23.dp else 28.dp,
+                    tint = if (isNight && condition == WeatherCondition.CLEAR)
+                        Color.Unspecified else condition.semanticTint(),
+                    isNight = isNight
                 )
+                // Une courte averse possible reste visible sous une icône de
+                // ciel clair sans que la pluie devienne la météo dominante.
                 val badge = weatherBadgeFor(
                     condition = condition,
                     precipProbability = extras?.precipProbabilityMax,
-                    cloudCover = extras?.cloudCoverMean
+                    cloudCover = extras?.cloudCoverMean,
+                    showTransientRainRisk = label != null
                 )
                 if (badge != null) {
                     Text(

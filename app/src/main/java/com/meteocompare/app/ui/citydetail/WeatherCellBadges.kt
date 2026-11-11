@@ -31,8 +31,13 @@ import com.meteocompare.app.domain.model.WeatherCondition
 internal fun weatherBadgeFor(
     condition: WeatherCondition,
     precipProbability: Int?,
-    cloudCover: Int?
-): String? = when (condition) {
+    cloudCover: Int?,
+    showTransientRainRisk: Boolean = false
+): String? = if (showTransientRainRisk && condition.isSky &&
+    precipProbability != null && precipProbability in 50..100
+) {
+    "☂ $precipProbability%"
+} else when (condition) {
     WeatherCondition.RAIN,
     WeatherCondition.DRIZZLE,
     WeatherCondition.RAIN_SHOWERS,

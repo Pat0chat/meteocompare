@@ -2,6 +2,7 @@ package com.meteocompare.app.domain.util
 
 import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.WeatherCondition
+import com.meteocompare.app.domain.usecase.WeatherConditionConsensus
 import java.time.LocalDate
 import java.time.ZoneId
 import kotlin.math.roundToInt
@@ -67,138 +68,143 @@ internal data class DailyConditionResolution(
         get() = provenance == DailyConditionProvenance.DERIVED_VARIABLES
 }
 
+/** La nuit affichée avec un jour commence à SON coucher de soleil et finit au lever suivant. */
+internal enum class DailyConditionPeriod { FULL_DAY, DAY, NIGHT }
+
 /**
- * Résout la condition d'un jour sans jamais emprunter une donnée à un autre modèle.
+ * Condition représentative d'une période, sans confondre maximum de sévérité et
+ * temps majoritaire. Un WMO daily Open-Meteo peut désigner une seule heure de
+ * pluie : les WMO horaires, quand ils couvrent suffisamment le jour, priment.
  *
- * Ordre : un phénomène journalier significatif (pluie, neige, brouillard,
- * orage…) reste prioritaire. Pour les seuls états du ciel (0 à 3), le mode des
- * WMO horaires du jour fournit une représentation plus fidèle de la condition
- * dominante qu'un code daily volontairement « le plus sévère ». Viennent
- * ensuite les fallbacks précip/temp/nuages.
+ * La majorité est calculée hiérarchiquement (sec/humide, puis famille, puis
+ * sous-type) : 10 h de ciel clair + 8 h de ciel variable ne doivent pas perdre
+ * contre 6 h de pluie, même si « pluie » est le code individuel le plus fréquent.
+ * Les phénomènes minoritaires restent consultables heure par heure et dans les
+ * probabilités/cumuls, ils ne sont simplement plus l'icône dominante.
  *
- * La provenance distingue les codes WMO réellement fournis des conditions
- * reconstruites localement. L'UI peut ainsi atténuer uniquement ces dernières,
- * sans présenter comme « inféré » un code journalier clair/nuageux valide.
+ * Pour les sous-périodes, aucune condition daily n'est réutilisée : une seule
+ * valeur WMO quotidienne ne permet pas de localiser le phénomène jour/nuit.
  */
 internal fun ForecastSeries.resolveDailyCondition(
     date: LocalDate,
-    zone: ZoneId
+    zone: ZoneId,
+    period: DailyConditionPeriod = DailyConditionPeriod.FULL_DAY,
+    solarWindow: ForecastSolarWindow? = null,
+    nextSolarWindow: ForecastSolarWindow? = null
 ): DailyConditionResolution? {
     val dailyIndex = daily.dates.indexOf(date)
+    val dailyNative = dailyIndex.takeIf { it >= 0 }
+        ?.let { WeatherCondition.fromWmoCode(daily.weatherCode.getOrNull(it)) }
+        ?.takeUnless { it == WeatherCondition.UNKNOWN }
 
-    val dailyNative = if (dailyIndex >= 0) {
-        WeatherCondition.fromWmoCode(daily.weatherCode.getOrNull(dailyIndex))
+    val window = solarWindow ?: dailyIndex.takeIf { it >= 0 }?.let {
+        ForecastSolarWindow(daily.sunrise.getOrNull(it), daily.sunset.getOrNull(it))
+    }
+    val nextIndex = daily.dates.indexOf(date.plusDays(1))
+    val nextWindow = nextSolarWindow ?: nextIndex.takeIf { it >= 0 }?.let {
+        ForecastSolarWindow(daily.sunrise.getOrNull(it), daily.sunset.getOrNull(it))
+    }
+    val start = when (period) {
+        DailyConditionPeriod.FULL_DAY -> date.atStartOfDay(zone).toInstant()
+        DailyConditionPeriod.DAY -> window?.takeIf { it.isValid }?.sunrise ?: return null
+        DailyConditionPeriod.NIGHT -> window?.takeIf { it.isValid }?.sunset ?: return null
+    }
+    val end = when (period) {
+        DailyConditionPeriod.FULL_DAY -> date.plusDays(1).atStartOfDay(zone).toInstant()
+        DailyConditionPeriod.DAY -> window?.sunset ?: return null
+        DailyConditionPeriod.NIGHT -> nextWindow?.takeIf { it.isValid }?.sunrise ?: return null
+    }
+    if (!end.isAfter(start)) return null
+
+    val indices = hourly.timestamps.indices.filter { index ->
+        val instant = hourly.timestamps[index]
+        !instant.isBefore(start) && instant.isBefore(end)
+    }
+    // Une heure avec WMO natif l'emporte sur ses variables. Quand le WMO
+    // manque, on utilise les variables de CETTE heure, et non le total daily :
+    // 23 h sèches + 1 h pluvieuse restent majoritairement sèches.
+    val hourlyConditions = indices.mapNotNull { index ->
+        val native = WeatherCondition.fromWmoCode(hourly.weatherCode.getOrNull(index))
             ?.takeUnless { it == WeatherCondition.UNKNOWN }
-    } else {
-        null
+        val condition = native ?: resolveHourlyCondition(index)
+        condition?.let { Triple(index, it, native != null) }
     }
-
-    // Les phénomènes significatifs du daily sont intentionnellement
-    // conservateurs et doivent rester visibles même s'ils ne durent qu'une
-    // partie de la journée.
-    if (dailyNative != null && !dailyNative.isSky) {
-        return DailyConditionResolution(
-            condition = dailyNative,
-            provenance = DailyConditionProvenance.DAILY_WMO
-        )
-    }
-
-    val hourlyIndices = hourly.timestamps.indices.filter { index ->
-        hourly.timestamps[index].atZone(zone).toLocalDate() == date
-    }
-
-    val hourlyNative = hourlyIndices.mapNotNull { index ->
-        WeatherCondition.fromWmoCode(hourly.weatherCode.getOrNull(index))
-            ?.takeUnless { it == WeatherCondition.UNKNOWN }
-    }
-
-    // Open-Meteo résume le daily par la condition la plus sévère. Pour une
-    // simple nébulosité, cela pouvait donc afficher « couvert » à cause de
-    // quelques heures tardives alors que la journée était majoritairement
-    // claire. Le mode des états de ciel horaires corrige ce biais sans créer
-    // une condition locale : la provenance reste bien un WMO natif.
-    if (dailyNative?.isSky == true) {
-        hourlyNative.filter { it.isSky }.modalCondition()
-            ?.let {
-                return DailyConditionResolution(
-                    condition = it,
-                    provenance = DailyConditionProvenance.HOURLY_WMO
-                )
-            }
-
-        return DailyConditionResolution(
-            condition = dailyNative,
-            provenance = DailyConditionProvenance.DAILY_WMO
-        )
-    }
-
-    hourlyNative.modalCondition()
-        ?.let {
-            return DailyConditionResolution(
-                condition = it,
-                provenance = DailyConditionProvenance.HOURLY_WMO
-            )
+    val enoughCoverage = hourlyConditions.size >= 12 &&
+        java.time.Duration.between(
+            hourly.timestamps[hourlyConditions.first().first],
+            hourly.timestamps[hourlyConditions.last().first]
+        ).toHours() >= 12
+    val usableHourly = when (period) {
+        DailyConditionPeriod.DAY, DailyConditionPeriod.NIGHT -> {
+            // Ne pas présenter une seule heure disponible comme représentative
+            // d'une nuit complète (cas de fin d'horizon d'un modèle régional).
+            val periodHours = java.time.Duration.between(start, end).toHours().toInt()
+            hourlyConditions.size >= minOf(3, periodHours.coerceAtLeast(1))
         }
-
-    if (hourlyIndices.isNotEmpty()) {
-        val precipitationValues = hourlyIndices.mapNotNull { index ->
-            hourly.precipitation.getOrNull(index)?.takeIf { it.isFinite() && it >= 0.0 }
+        DailyConditionPeriod.FULL_DAY -> when {
+            dailyNative == null -> hourlyConditions.isNotEmpty()
+            dailyNative.isSky -> hourlyConditions.size >= 6
+            else -> enoughCoverage
         }
-        val temperatures = hourlyIndices.mapNotNull { index ->
-            hourly.temperature2m.getOrNull(index)?.takeIf(Double::isFinite)
-        }
-        val cloudValues = hourlyIndices.mapNotNull { index ->
-            hourly.cloudCover.getOrNull(index)?.takeIf { it in 0..100 }
-        }
-        WeatherCondition.inferFromPrecipAndTemp(
-            precipMm = precipitationValues.takeIf { it.isNotEmpty() }?.sum(),
-            tempMinC = temperatures.minOrNull()
-        )?.let {
-            return DailyConditionResolution(
-                condition = it,
-                provenance = DailyConditionProvenance.DERIVED_VARIABLES
-            )
-        }
-        cloudValues.takeIf { it.isNotEmpty() }
-            ?.average()
-            ?.let(WeatherCondition::fromCloudCover)
-            ?.let {
-                return DailyConditionResolution(
-                    condition = it,
-                    provenance = DailyConditionProvenance.DERIVED_VARIABLES
-                )
-            }
     }
+    if (usableHourly) {
+        WeatherConditionConsensus.resolveUnweighted(hourlyConditions.map { it.second })?.let { result ->
+            val provenance = if (hourlyConditions.all { it.third })
+                DailyConditionProvenance.HOURLY_WMO
+            else DailyConditionProvenance.DERIVED_VARIABLES
+            return DailyConditionResolution(result, provenance)
+        }
+    }
+    if (period == DailyConditionPeriod.FULL_DAY && dailyNative != null) {
+        return DailyConditionResolution(dailyNative, DailyConditionProvenance.DAILY_WMO)
+    }
+    if (period != DailyConditionPeriod.FULL_DAY) return null
 
+    // Cas d'une ancienne réponse ne fournissant que des agrégats daily.
     if (dailyIndex >= 0) {
         WeatherCondition.inferFromPrecipAndTemp(
             precipMm = daily.precipitationSum.getOrNull(dailyIndex),
             tempMinC = daily.tempMin.getOrNull(dailyIndex)
-        )?.let {
-            return DailyConditionResolution(
-                condition = it,
-                provenance = DailyConditionProvenance.DERIVED_VARIABLES
-            )
-        }
+        )?.let { return DailyConditionResolution(it, DailyConditionProvenance.DERIVED_VARIABLES) }
     }
-
-    dailyCloudCoverMean(date, zone)?.let { cloudCover ->
+    dailyCloudCoverMean(date, zone)?.let { cloud ->
         return DailyConditionResolution(
-            condition = WeatherCondition.fromCloudCover(cloudCover.toDouble()),
-            provenance = DailyConditionProvenance.DERIVED_VARIABLES
+            WeatherCondition.fromCloudCover(cloud.toDouble()),
+            DailyConditionProvenance.DERIVED_VARIABLES
         )
     }
-
     return null
 }
 
-/** Mode catégoriel stable ; la sévérité n'intervient qu'en tie-break. */
-private fun List<WeatherCondition>.modalCondition(): WeatherCondition? {
-    if (isEmpty()) return null
-    val counts = groupingBy { it }.eachCount()
-    val maxCount = counts.values.maxOrNull() ?: return null
-    return counts.asSequence()
-        .filter { (_, count) -> count == maxCount }
-        .map { (condition, _) -> condition }
-        .maxByOrNull(WeatherCondition::severityRank)
+/** Valeurs horaires propres à la période (ne pas répéter le max daily dans les 2 cases). */
+internal data class DailyPeriodMetrics(
+    val precipitationProbabilityMax: Int?,
+    val cloudCoverMean: Int?
+)
+
+internal fun ForecastSeries.dailyPeriodMetrics(
+    period: DailyConditionPeriod,
+    window: ForecastSolarWindow,
+    nextWindow: ForecastSolarWindow? = null
+): DailyPeriodMetrics? {
+    if (!window.isValid || period == DailyConditionPeriod.FULL_DAY) return null
+    val start = if (period == DailyConditionPeriod.DAY) window.sunrise!! else window.sunset!!
+    val end = if (period == DailyConditionPeriod.DAY) window.sunset!!
+        else nextWindow?.takeIf { it.isValid }?.sunrise ?: return null
+    if (!end.isAfter(start)) return null
+    val indices = hourly.timestamps.indices.filter { index ->
+        val time = hourly.timestamps[index]
+        !time.isBefore(start) && time.isBefore(end)
+    }
+    val probabilities = indices.mapNotNull {
+        hourly.precipitationProbability.getOrNull(it)?.takeIf { p -> p in 0..100 }
+    }
+    val cloudCover = indices.mapNotNull {
+        hourly.cloudCover.getOrNull(it)?.takeIf { p -> p in 0..100 }
+    }
+    if (probabilities.isEmpty() && cloudCover.isEmpty()) return null
+    return DailyPeriodMetrics(
+        precipitationProbabilityMax = probabilities.maxOrNull(),
+        cloudCoverMean = cloudCover.takeIf { it.isNotEmpty() }?.average()?.roundToInt()
+    )
 }

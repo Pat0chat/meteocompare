@@ -25,6 +25,7 @@ import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.usecase.ConfidenceCalculator
 import com.meteocompare.app.domain.usecase.ForecastConsensus
 import com.meteocompare.app.domain.util.ForecastAggregates
+import com.meteocompare.app.domain.util.resolveDailyCondition
 import com.meteocompare.app.ui.citydetail.DisplayMode
 import com.meteocompare.app.ui.citydetail.buildSimplifiedTimeline
 import dagger.hilt.android.EntryPointAccessors
@@ -701,15 +702,14 @@ internal fun buildDailyForecasts(
             .getDisplayName(java.time.format.TextStyle.SHORT, locale)
             .replaceFirstChar { it.uppercase() }
             .replace(".", "")
-        val code = daily.weatherCode.getOrNull(i)
-        val precip = daily.precipitationSum.getOrNull(i)
-        val tempMin = daily.tempMin.getOrNull(i)
         val temp = daily.tempMax.getOrNull(i)
-        val condition = com.meteocompare.app.domain.model.WeatherCondition.fromWmoCode(code)
-            ?: com.meteocompare.app.domain.model.WeatherCondition.inferFromPrecipAndTemp(
-                precipMm = precip,
-                tempMinC = tempMin
-            )
+        // Même résolution que les tableaux, la timeline et la comparaison des
+        // moteurs : le WMO daily le plus sévère n'est pas forcément dominant.
+        val condition = com.meteocompare.app.domain.model.ForecastSeries(
+            model = com.meteocompare.app.domain.model.WeatherModel.GFS,
+            hourly = hourly,
+            daily = daily
+        ).resolveDailyCondition(date, zone)?.condition
         WidgetForecastItem(
             label = label,
             condition = condition,

@@ -10,6 +10,7 @@ import com.meteocompare.app.domain.model.ForecastEngineVariable
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.util.dailyCloudCoverMean
+import com.meteocompare.app.domain.util.resolveDailyCondition
 import java.time.Instant
 import java.time.LocalDate
 import javax.inject.Inject
@@ -120,14 +121,24 @@ class EngineComparisonBuilder @Inject constructor(
             )
         ).central
         val precipitationMeta = day.precipitation?.meta
-        val condition = WeatherConditionConsensus.resolveAggregate(
+        val conditionResolution = WeatherConditionConsensus.resolveAggregate(
             nativeEntries = inputs.nativeConditionEntries,
             temperatureCentralC = day.tempMin?.meanValue ?: day.tempMax?.meanValue,
             precipitationCentralMm = precipitationMeta?.centralAmountMm,
             cloudCoverPercent = cloud,
             cloudCoverFamilyCount = inputs.cloudCoverFamilyCount,
             supportModels = inputs.supportModels
-        ).vote.value
+        )
+        // Idem chronologie daily : ne pas réintroduire le MAX de sévérité
+        // via les seuls cumuls daily si les heures majoritaires le démentent.
+        val condition = if (inputs.hasHourlyCorrection &&
+            conditionResolution.source == WeatherConditionConsensus.AggregateSource.AGGREGATED_VARIABLES
+        ) {
+            WeatherConditionConsensus.resolve(
+                inputs.resolvedConditionEntries,
+                cloudCoverPercent = cloud.takeIf { inputs.cloudCoverFamilyCount >= 2 }
+            ).value
+        } else conditionResolution.vote.value
         return EngineComparisonValues(
             tempMax = day.tempMax?.meanValue,
             tempMin = day.tempMin?.meanValue,
@@ -143,6 +154,8 @@ class EngineComparisonBuilder @Inject constructor(
 
     private data class EngineComparisonDayInputs(
         val nativeConditionEntries: List<ForecastConsensus.Entry<WeatherCondition>>,
+        val resolvedConditionEntries: List<ForecastConsensus.Entry<WeatherCondition>>,
+        val hasHourlyCorrection: Boolean,
         val cloudEntries: List<ForecastConsensus.Entry<Double>>,
         val cloudCoverFamilyCount: Int,
         val supportModels: Set<WeatherModel>
@@ -154,6 +167,8 @@ class EngineComparisonBuilder @Inject constructor(
         zone: java.time.ZoneId
     ): EngineComparisonDayInputs {
         val native = ArrayList<ForecastConsensus.Entry<WeatherCondition>>(forecast.seriesByModel.size)
+        val resolvedConditions = ArrayList<ForecastConsensus.Entry<WeatherCondition>>(forecast.seriesByModel.size)
+        var hasHourlyCorrection = false
         val clouds = ArrayList<ForecastConsensus.Entry<Double>>(forecast.seriesByModel.size)
         val support = LinkedHashSet<WeatherModel>(forecast.seriesByModel.size)
 
@@ -169,12 +184,15 @@ class EngineComparisonBuilder @Inject constructor(
             val index = series.daily.dates.indexOf(date)
             if (index < 0) return@forEach
 
-            WeatherCondition.fromWmoCode(series.daily.weatherCode.getOrNull(index))
+            val raw = WeatherCondition.fromWmoCode(series.daily.weatherCode.getOrNull(index))
                 ?.takeUnless { it == WeatherCondition.UNKNOWN }
-                ?.let { condition ->
-                    native += ForecastConsensus.Entry(model, condition)
-                    support += model
-                }
+            val resolved = series.resolveDailyCondition(date, zone)
+            resolved?.condition?.let { condition ->
+                resolvedConditions += ForecastConsensus.Entry(model, condition)
+                if (!resolved.inferred) native += ForecastConsensus.Entry(model, condition)
+                support += model
+                if (raw != null && raw != condition) hasHourlyCorrection = true
+            }
 
             if (cloud != null) support += model
 
@@ -189,6 +207,8 @@ class EngineComparisonBuilder @Inject constructor(
 
         return EngineComparisonDayInputs(
             nativeConditionEntries = native,
+            resolvedConditionEntries = resolvedConditions,
+            hasHourlyCorrection = hasHourlyCorrection,
             cloudEntries = clouds,
             cloudCoverFamilyCount = clouds.asSequence()
                 .map { ForecastConsensus.groupFor(it.model) }

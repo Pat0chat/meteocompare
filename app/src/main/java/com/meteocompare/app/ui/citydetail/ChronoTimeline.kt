@@ -170,7 +170,7 @@ internal fun ChronoTimelineView(
                             points = points,
                             mode = mode
                         )
-                        ChronoConditionsLane(points = points)
+                        ChronoConditionsLane(points = points, mode = mode)
                         ChronoRainLane(points = points)
                         ChronoCloudLane(points = points)
                         ChronoSunshineLane(points = points)
@@ -766,7 +766,7 @@ internal fun chronoDailyTemperatureSeries(points: List<SimplifiedTimelinePoint>)
     points.map { metricPlotValue(it.tempMinC) } to points.map { metricPlotValue(it.tempMaxC) }
 
 @Composable
-private fun ChronoConditionsLane(points: List<SimplifiedTimelinePoint>) {
+private fun ChronoConditionsLane(points: List<SimplifiedTimelinePoint>, mode: DisplayMode) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -780,7 +780,9 @@ private fun ChronoConditionsLane(points: List<SimplifiedTimelinePoint>) {
                         modifier = Modifier.height(34.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        point.condition?.let { condition ->
+                        if (mode == DisplayMode.DAILY && (point.dayCondition != null || point.nightCondition != null)) {
+                            DayNightConditionIcons(point.dayCondition, point.nightCondition)
+                        } else point.condition?.let { condition ->
                             WeatherIconDecorative(
                                 condition = condition,
                                 size = 28.dp,

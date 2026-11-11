@@ -1103,4 +1103,7 @@ datos</string>
     <string name="meteogram_axis_short_wind">V</string>
     <string name="meteogram_axis_short_humidity">HR</string>
     <string name="meteogram_axis_short_pressure">Pr</string>
+    <string name="condition_period_day">Día</string>
+    <string name="condition_period_night">Noche</string>
+    <string name="condition_period_full_day">24 h</string>
 </resources>

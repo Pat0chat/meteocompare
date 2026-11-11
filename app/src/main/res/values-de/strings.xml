@@ -1098,4 +1098,7 @@ Daten</string>
     <string name="meteogram_axis_short_wind">Wi</string>
     <string name="meteogram_axis_short_humidity">rF</string>
     <string name="meteogram_axis_short_pressure">D</string>
+    <string name="condition_period_day">Tag</string>
+    <string name="condition_period_night">Nacht</string>
+    <string name="condition_period_full_day">24 Std.</string>
 </resources>

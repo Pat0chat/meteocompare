@@ -84,6 +84,54 @@ class SimplifiedTimelineTest {
     }
 
     @Test
+    fun `daily timeline keeps dominant sky and exposes evening to following morning rain`() {
+        val d = today
+        val timestamps = List(30) {
+            Instant.parse("2026-07-23T00:00:00Z").plusSeconds(it * 3_600L)
+        }
+        val sunrise = Instant.parse("2026-07-23T06:00:00Z")
+        val sunset = Instant.parse("2026-07-23T18:00:00Z")
+        fun modelSeries(model: WeatherModel): ForecastSeries = ForecastSeries(
+            model = model,
+            hourly = HourlyForecast(
+                timestamps = timestamps,
+                temperature2m = List(30) { 20.0 },
+                precipitation = List(30) { if (it >= 18) 1.0 else 0.0 },
+                windSpeed10m = List(30) { 10.0 },
+                weatherCode = List(30) { if (it >= 18) 61 else 0 },
+                cloudCover = List(30) { if (it >= 18) 90 else 10 }
+            ),
+            daily = DailyForecast(
+                dates = listOf(d, d.plusDays(1)),
+                tempMax = listOf(24.0, 23.0), tempMin = listOf(14.0, 13.0),
+                precipitationSum = listOf(6.0, 6.0), windSpeedMax = listOf(15.0, 15.0),
+                weatherCode = listOf(61, 61),
+                sunrise = listOf(sunrise, sunrise.plusSeconds(86_400L)),
+                sunset = listOf(sunset, sunset.plusSeconds(86_400L))
+            )
+        )
+        val forecast = CityForecast(
+            paris.copy(timezone = "UTC"),
+            mapOf(
+                WeatherModel.GFS to modelSeries(WeatherModel.GFS),
+                WeatherModel.ICON_EU to modelSeries(WeatherModel.ICON_EU)
+            )
+        )
+        val daily = buildSimplifiedTimeline(
+            forecast, DisplayMode.DAILY, Instant.parse("2026-07-23T06:00:00Z")
+        )
+        val first = daily.first()
+        assertTrue(first.condition?.isSky == true) // Pas de pluie dominante dans « Next few days ».
+        assertEquals(WeatherCondition.CLEAR, first.dayCondition)
+        assertEquals(WeatherCondition.RAIN, first.nightCondition)
+        assertEquals(null, first.isNight) // La date entière n'est pas une heure nocturne.
+        val hourly = buildSimplifiedTimeline(
+            forecast, DisplayMode.HOURLY, Instant.parse("2026-07-23T18:00:00Z")
+        )
+        assertEquals(WeatherCondition.RAIN, hourly.first().condition)
+    }
+
+    @Test
     fun `missing clouds do not fabricate sunshine`() {
         val series = ForecastSeries(
             model = WeatherModel.GFS,
@@ -366,6 +414,39 @@ class SimplifiedTimelineTest {
 
         assertEquals(WeatherCondition.PARTLY_CLOUDY, point.condition)
         assertEquals(5, point.conditionModelCount)
+    }
+
+    @Test
+    fun `daily timeline does not infer rain from daily sum after correcting sparse native votes`() {
+        val hours = (0 until 24).map {
+            Instant.parse("2026-07-22T22:00:00Z").plusSeconds(it * 3600L)
+        }
+        fun seriesFor(model: WeatherModel, withWmo: Boolean) = ForecastSeries(
+            model = model,
+            hourly = HourlyForecast(
+                timestamps = hours,
+                temperature2m = List(24) { 18.0 },
+                precipitation = List(24) { 0.0 },
+                windSpeed10m = List(24) { 10.0 },
+                weatherCode = List(24) { if (withWmo) 0 else null },
+                cloudCover = List(24) { 10 }
+            ),
+            daily = DailyForecast(
+                dates = listOf(today), tempMax = listOf(24.0), tempMin = listOf(14.0),
+                precipitationSum = listOf(8.0), windSpeedMax = listOf(15.0),
+                weatherCode = listOf(61)
+            )
+        )
+        val forecast = CityForecast(
+            paris,
+            mapOf(
+                WeatherModel.GFS to seriesFor(WeatherModel.GFS, true),
+                WeatherModel.ECMWF to seriesFor(WeatherModel.ECMWF, false)
+            )
+        )
+        val point = buildSimplifiedTimeline(forecast, DisplayMode.DAILY, now).single()
+        assertTrue(point.condition?.isSky == true)
+        assertEquals(2, point.conditionModelCount)
     }
 
     @Test

@@ -1115,4 +1115,7 @@
     <string name="meteogram_axis_short_wind">W</string>
     <string name="meteogram_axis_short_humidity">RH</string>
     <string name="meteogram_axis_short_pressure">P</string>
+    <string name="condition_period_day">Day</string>
+    <string name="condition_period_night">Night</string>
+    <string name="condition_period_full_day">24 h</string>
 </resources>
