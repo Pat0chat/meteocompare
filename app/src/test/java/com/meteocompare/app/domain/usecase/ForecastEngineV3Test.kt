@@ -193,6 +193,55 @@ class ForecastEngineV3Test {
     }
 
     @Test
+    fun `five wet models out of eight can still yield a dry central rainfall scenario`() {
+        // Issue #38: the native probabilities and family weights decide occurrence,
+        // not a simple vote on whether each raw daily amount exceeds 0.1 mm.
+        val models = listOf(
+            WeatherModel.GFS, WeatherModel.ECMWF, WeatherModel.ARPEGE_EUROPE,
+            WeatherModel.UKMO_GLOBAL, WeatherModel.GEM_GLOBAL, WeatherModel.ICON_GLOBAL,
+            WeatherModel.JMA_GSM, WeatherModel.AROME_FRANCE
+        )
+        val rows = models.mapIndexed { index, model ->
+            ForecastConsensus.PrecipitationRow(
+                model = model,
+                amountMm = if (index < 5) 0.3 else 0.0,
+                probabilityPercent = if (index < 5) 35 else 25
+            )
+        }
+        val result = ForecastEngineV3.precipitation(rows)
+        assertEquals(8, result.modelCount)
+        assertEquals(5, result.wetModelCount)
+        assertTrue(requireNotNull(result.probabilityPercent) < 50)
+        assertEquals(0.3, requireNotNull(result.conditionalAmountMm), 1e-6)
+        assertEquals(0.0, requireNotNull(result.centralAmountMm), 1e-9)
+        assertTrue(requireNotNull(result.expectedAmountMm) > 0.0)
+    }
+
+    @Test
+    fun `probability rounded to fifty can still select dry scenario`() {
+        // 49.5% is displayed as 50%, while the engine must use the unrounded value.
+        val result = ForecastEngineV3.precipitation(listOf(
+            ForecastConsensus.PrecipitationRow(WeatherModel.GFS, 0.3, 49),
+            ForecastConsensus.PrecipitationRow(WeatherModel.ECMWF, 0.0, 50)
+        ))
+        assertEquals(50, result.probabilityPercent)
+        assertEquals(1, result.wetModelCount)
+        assertEquals(0.0, requireNotNull(result.centralAmountMm), 1e-9)
+        assertTrue(requireNotNull(result.conditionalAmountMm) > 0.0)
+    }
+
+    @Test
+    fun `precipitation above fifty percent retains a representative wet scenario`() {
+        val result = ForecastEngineV3.precipitation(listOf(
+            ForecastConsensus.PrecipitationRow(WeatherModel.GFS, 0.0, 70),
+            ForecastConsensus.PrecipitationRow(WeatherModel.ECMWF, 0.3, 80),
+            ForecastConsensus.PrecipitationRow(WeatherModel.UKMO_GLOBAL, 0.3, 80)
+        ))
+        assertTrue(requireNotNull(result.probabilityPercent) >= 50)
+        assertEquals(0.3, requireNotNull(result.centralAmountMm), 1e-6)
+    }
+
+    @Test
     fun `precipitation probability without amount keeps amount unknown`() {
         val result = ForecastEngineV3.precipitation(
             listOf(

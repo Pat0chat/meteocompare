@@ -21,6 +21,7 @@ import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.ConfidenceScore
 import com.meteocompare.app.domain.model.DayConfidence
 import com.meteocompare.app.domain.model.PrecipitationConfidence
+import com.meteocompare.app.domain.model.PrecipitationConsensusMeta
 import java.time.ZoneId
 import com.meteocompare.app.testutil.TestFixtures
 import com.meteocompare.app.ui.theme.MeteoCompareTheme
@@ -855,6 +856,119 @@ class TodaySummaryCardTest {
             .assertIsDisplayed()
         composeRule.onNodeWithTag("summary_dispersion_dialog_convergence", useUnmergedTree = true)
             .assertTextEquals("91%").assertIsDisplayed()
+    }
+
+    @Test
+    fun rain_rail_opens_details_and_explains_dry_consensus_despite_wet_models() {
+        render(DayConfidence(
+            date = TestFixtures.today,
+            tempMax = null,
+            tempMin = null,
+            precipitation = PrecipitationConfidence.Divided(
+                percent = 70,
+                modelCount = 8,
+                modelsForRain = 5,
+                modelsAgainstRain = 3,
+                rainMinMm = 0.3,
+                rainMaxMm = 0.5,
+                rainMeanMm = 0.3,
+                meta = PrecipitationConsensusMeta(
+                    probabilityPercent = 45,
+                    conditionalAmountMm = 0.3,
+                    centralAmountMm = 0.0,
+                    convergencePercent = 70,
+                    amountConvergencePercent = 80,
+                    familyCount = 6
+                )
+            ),
+            windMax = null
+        ))
+        composeRule.onNodeWithTag("today_summary_precip_rail", useUnmergedTree = true)
+            .assertHasClickAction().performClick()
+        composeRule.onNodeWithTag("summary_dispersion_dialog_preview", useUnmergedTree = true)
+            .assertExists()
+        composeRule.onNodeWithText(context.getString(R.string.metric_calc_how_title), useUnmergedTree = true)
+            .assertExists()
+        composeRule.onNodeWithText(context.getString(R.string.metric_calc_rain_dry_with_rain), useUnmergedTree = true)
+            .assertExists()
+        composeRule.onNodeWithText(context.getString(R.string.metric_calc_rain_rule), useUnmergedTree = true)
+            .assertExists()
+        composeRule.onNodeWithText(context.getString(R.string.metric_calc_rain_step_risk), useUnmergedTree = true)
+            .assertExists()
+        composeRule.onNodeWithText(context.getString(R.string.metric_calc_rain_step_scenario), useUnmergedTree = true)
+            .assertExists()
+        composeRule.onNodeWithText(context.getString(R.string.metric_calc_rain_formula), useUnmergedTree = true)
+            .assertExists()
+        composeRule.onNodeWithText(context.getString(R.string.metric_calc_chart_title), useUnmergedTree = true)
+            .assertExists()
+        composeRule.onNodeWithText("45 %", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText("5 / 8", useUnmergedTree = true).assertExists()
+    }
+
+    @Test
+    fun rain_details_show_each_native_model_probability_without_claiming_it_is_consensus() {
+        render(
+            today = DayConfidence(
+                date = TestFixtures.today,
+                tempMax = null,
+                tempMin = null,
+                precipitation = PrecipitationConfidence.NoRain(
+                    percent = 70,
+                    modelCount = 3,
+                    maxAmountMm = 0.0,
+                    meta = PrecipitationConsensusMeta(
+                        probabilityPercent = 15,
+                        centralAmountMm = 0.0,
+                        familyCount = 3
+                    )
+                ),
+                windMax = null
+            ),
+            forecast = TestFixtures.forecast()
+        )
+        composeRule.onNodeWithTag("today_summary_precip_rail", useUnmergedTree = true).performClick()
+        // Fixture: three daily native probability estimates of 15%.
+        composeRule.onAllNodesWithText(context.getString(R.string.metric_calc_model_probability, 15),
+            useUnmergedTree = true).assertCountEquals(3)
+    }
+
+    @Test
+    fun temperature_and_wind_dialogs_explain_how_consensus_is_built() {
+        render(DayConfidence(
+            date = TestFixtures.today,
+            tempMax = ConfidenceScore(90, 20.0, 26.0, 23.0, 1.0, 5),
+            tempMin = null,
+            precipitation = null,
+            windMax = ConfidenceScore(75, 10.0, 20.0, 15.0, 2.0, 5)
+        ))
+        composeRule.onNodeWithTag("today_summary_temp_max_rail", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithText(context.getString(R.string.metric_calc_temperature), useUnmergedTree = true)
+            .assertExists()
+        composeRule.onNodeWithText(context.getString(R.string.metric_calc_temperature_formula), useUnmergedTree = true)
+            .assertExists()
+        composeRule.onNodeWithText(context.getString(R.string.metric_calc_chart_title), useUnmergedTree = true)
+            .assertExists()
+        composeRule.onNodeWithText(context.getString(R.string.metric_calc_models_title), useUnmergedTree = true)
+            .assertExists()
+        composeRule.onNodeWithTag("summary_dispersion_dialog_scroll", useUnmergedTree = true)
+            .assertExists()
+        composeRule.onNodeWithText(context.getString(R.string.metric_calc_rain_method), useUnmergedTree = true)
+            .assertDoesNotExist()
+        composeRule.onNodeWithText(context.getString(R.string.metric_calc_rain_rule), useUnmergedTree = true)
+            .assertDoesNotExist()
+        composeRule.onNodeWithText(context.getString(R.string.toast_dismiss), useUnmergedTree = true)
+            .performClick()
+        composeRule.onNodeWithTag("today_summary_wind_rail", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithText(context.getString(R.string.metric_calc_wind), useUnmergedTree = true)
+            .assertExists()
+        composeRule.onNodeWithText(context.getString(R.string.metric_calc_wind_formula), useUnmergedTree = true)
+            .assertExists()
+        composeRule.onNodeWithText(context.getString(R.string.metric_calc_models_title), useUnmergedTree = true)
+            .assertExists()
+        composeRule.onNodeWithText(context.getString(R.string.metric_calc_rain_method), useUnmergedTree = true)
+            .assertDoesNotExist()
+        composeRule.onNodeWithText(context.getString(R.string.metric_calc_rain_rule), useUnmergedTree = true)
+            .assertDoesNotExist()
     }
 
     @Test

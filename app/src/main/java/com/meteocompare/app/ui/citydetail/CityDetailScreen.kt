@@ -31,6 +31,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -129,6 +130,7 @@ import com.meteocompare.app.domain.model.DayConfidence
 import com.meteocompare.app.domain.model.DayNormals
 import com.meteocompare.app.domain.model.ForecastDisplayHorizon
 import com.meteocompare.app.domain.model.ForecastEngineContext
+import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.model.HourlyConfidenceBand
 import com.meteocompare.app.domain.model.HourlyForecast
 import com.meteocompare.app.domain.model.ModelBias
@@ -846,6 +848,7 @@ private fun LoadedView(
                     today = today,
                     modelCount = forecast.availableModels.size,
                     forecast = forecast,
+                    engine = engineContext.engine,
                     now = presentationNow,
                     currentTemp = currentTemp,
                     currentApparentTemp = currentApparentForSummary,
@@ -1685,6 +1688,7 @@ internal fun TodaySummaryCard(
     expanded: Boolean = true,
     onExpandedChange: (Boolean) -> Unit = {},
     onConfidenceClick: () -> Unit = {},
+    engine: ForecastEngine = ForecastEngine.DEFAULT,
     forecast: CityForecast? = null,
     units: WeatherUnits = LocalWeatherUnits.current,
     now: Instant = Instant.now()
@@ -1941,7 +1945,8 @@ internal fun TodaySummaryCard(
                         samples = remember(forecast, today.date) {
                             buildTodaySummaryDispersionSamples(forecast, today.date)
                         },
-                        windDirectionLabel = windDirectionLabel
+                        windDirectionLabel = windDirectionLabel,
+                        engine = engine
                     )
                 }
             }
@@ -2089,6 +2094,8 @@ private data class TodaySummaryDispersionSamples(
     val apparentMin: List<DispersionSample> = emptyList(),
     val apparentMax: List<DispersionSample> = emptyList(),
     val precipitation: List<DispersionSample> = emptyList(),
+    /** Probabilités natives des modèles (peuvent exister sans quantité en mm). */
+    val precipitationProbabilities: Map<WeatherModel, Int> = emptyMap(),
     val wind: List<DispersionSample> = emptyList(),
     val windGust: List<DispersionSample> = emptyList()
 )
@@ -2114,6 +2121,7 @@ private fun buildTodaySummaryDispersionSamples(
     val apparentMax = mutableListOf<DispersionSample>()
     val zone = resolveCityZone(forecast.city.timezone)
     val precipitation = mutableListOf<DispersionSample>()
+    val precipitationProbabilities = mutableMapOf<WeatherModel, Int>()
     val wind = mutableListOf<DispersionSample>()
     val windGust = mutableListOf<DispersionSample>()
 
@@ -2129,8 +2137,11 @@ private fun buildTodaySummaryDispersionSamples(
         series.daily.tempMax.getOrNull(index)?.takeIf { it.isFinite() }?.let {
             tempMax += DispersionSample(model, it)
         }
-        series.daily.precipitationSum.getOrNull(index)?.takeIf { it.isFinite() }?.let {
-            precipitation += DispersionSample(model, it.coerceAtLeast(0.0))
+        series.daily.precipitationSum.getOrNull(index)?.takeIf { it.isFinite() && it >= 0.0 }?.let {
+            precipitation += DispersionSample(model, it)
+        }
+        series.daily.precipitationProbabilityMax.getOrNull(index)?.takeIf { it in 0..100 }?.let {
+            precipitationProbabilities[model] = it
         }
         series.daily.windSpeedMax.getOrNull(index)?.takeIf { it.isFinite() }?.let {
             wind += DispersionSample(model, it.coerceAtLeast(0.0))
@@ -2146,6 +2157,7 @@ private fun buildTodaySummaryDispersionSamples(
         apparentMin = apparentMin,
         apparentMax = apparentMax,
         precipitation = precipitation,
+        precipitationProbabilities = precipitationProbabilities,
         wind = wind,
         windGust = windGust
     )
@@ -2177,7 +2189,8 @@ private fun apparentDispersion(samples: List<DispersionSample>): ApparentDispers
 private fun DetailMetricGrid(
     today: DayConfidence,
     samples: TodaySummaryDispersionSamples,
-    windDirectionLabel: String?
+    windDirectionLabel: String?,
+    engine: ForecastEngine
 ) {
     val apparentMin = remember(samples.apparentMin) { apparentDispersion(samples.apparentMin) }
     val apparentMax = remember(samples.apparentMax) { apparentDispersion(samples.apparentMax) }
@@ -2208,6 +2221,7 @@ private fun DetailMetricGrid(
                         digits = 1,
                         accent = temperatureMinMetricAccent(),
                         domain = tempDomain,
+                        engine = engine,
                         centralTestTag = TAG_TODAY_SUMMARY_TEMP_MIN_CENTRAL,
                         convergenceTestTag = TAG_TODAY_SUMMARY_TEMP_MIN_CONVERGENCE,
                         apparent = apparentMin?.let {
@@ -2229,6 +2243,7 @@ private fun DetailMetricGrid(
                         samples = samples.apparentMin,
                         accent = temperatureMinMetricAccent(),
                         domain = tempDomain,
+                        engine = engine,
                         testTag = "today_apparent_min_central"
                     )
                 }
@@ -2244,6 +2259,7 @@ private fun DetailMetricGrid(
                         digits = 1,
                         accent = temperatureMetricAccent(),
                         domain = tempDomain,
+                        engine = engine,
                         centralTestTag = TAG_TODAY_SUMMARY_TEMP_MAX_CENTRAL,
                         convergenceTestTag = TAG_TODAY_SUMMARY_TEMP_MAX_CONVERGENCE,
                         apparent = apparentMax?.let {
@@ -2265,6 +2281,7 @@ private fun DetailMetricGrid(
                         samples = samples.apparentMax,
                         accent = temperatureMetricAccent(),
                         domain = tempDomain,
+                        engine = engine,
                         testTag = "today_apparent_max_central"
                     )
                 }
@@ -2289,7 +2306,7 @@ private fun DetailMetricGrid(
                 )
                 DispersionMetricRow(
                     semanticLabel = stringResource(R.string.var_precipitation),
-                    subLabel = stringResource(R.string.metric_summary_average),
+                    subLabel = stringResource(R.string.metric_precip_central_scenario),
                     accent = precipitationMetricAccent(),
                     central = rain.central,
                     fallbackMin = rain.min,
@@ -2299,7 +2316,10 @@ private fun DetailMetricGrid(
                     digits = 1,
                     // The rain probability and model split already explain uncertainty.
                     nonNegative = true,
-                    centralTestTag = TAG_TODAY_SUMMARY_PRECIP_CENTRAL
+                    engine = engine,
+                    centralTestTag = TAG_TODAY_SUMMARY_PRECIP_CENTRAL,
+                    rainDetails = rain,
+                    modelProbabilities = samples.precipitationProbabilities
                 )
                 RainModelSummary(
                     presentation = rain,
@@ -2332,6 +2352,7 @@ private fun DetailMetricGrid(
                         digits = 0,
                         accent = windMetricAccent(),
                         domain = sharedDomain,
+                        engine = engine,
                         centralTestTag = TAG_TODAY_SUMMARY_WIND_CENTRAL,
                         convergenceTestTag = TAG_TODAY_SUMMARY_WIND_CONVERGENCE
                     )
@@ -2347,6 +2368,7 @@ private fun DetailMetricGrid(
                         digits = 0,
                         accent = windMetricAccent(),
                         domain = sharedDomain,
+                        engine = engine,
                         centralTestTag = if (isGustOnly) TAG_TODAY_SUMMARY_WIND_CENTRAL else TAG_TODAY_SUMMARY_GUST_CENTRAL,
                         convergenceTestTag = if (isGustOnly) TAG_TODAY_SUMMARY_WIND_CONVERGENCE else TAG_TODAY_SUMMARY_GUST_CONVERGENCE
                     )
@@ -2480,8 +2502,12 @@ private data class PrecipitationDispersionPresentation(
     val max: Double,
     val probabilityPercent: Int?,
     val conditionalAmount: Double?,
+    val expectedAmount: Double? = null,
     val wetModelCount: Int,
-    val modelCount: Int
+    val modelCount: Int,
+    val probabilityIsEstimated: Boolean = false,
+    val occurrenceConvergence: Int? = null,
+    val amountConvergence: Int? = null
 )
 
 private fun precipitationDispersionPresentation(
@@ -2493,8 +2519,12 @@ private fun precipitationDispersionPresentation(
         max = precipitation.maxAmountMm.coerceAtLeast(0.0),
         probabilityPercent = precipitation.meta.probabilityPercent ?: 0,
         conditionalAmount = precipitation.meta.conditionalAmountMm,
+        expectedAmount = precipitation.meta.expectedAmountMm,
         wetModelCount = 0,
-        modelCount = precipitation.modelCount
+        modelCount = precipitation.modelCount,
+        probabilityIsEstimated = precipitation.meta.probabilityPercent == null,
+        occurrenceConvergence = precipitation.meta.convergencePercent,
+        amountConvergence = precipitation.meta.amountConvergencePercent
     )
     is PrecipitationConfidence.Rain -> PrecipitationDispersionPresentation(
         central = precipitation.meta.centralAmountMm
@@ -2504,8 +2534,12 @@ private fun precipitationDispersionPresentation(
         max = precipitation.maxMm.coerceAtLeast(0.0),
         probabilityPercent = precipitation.meta.probabilityPercent ?: 100,
         conditionalAmount = precipitation.meta.conditionalAmountMm ?: precipitation.meanMm,
+        expectedAmount = precipitation.meta.expectedAmountMm,
         wetModelCount = precipitation.modelCount,
-        modelCount = precipitation.modelCount
+        modelCount = precipitation.modelCount,
+        probabilityIsEstimated = precipitation.meta.probabilityPercent == null,
+        occurrenceConvergence = precipitation.meta.convergencePercent,
+        amountConvergence = precipitation.meta.amountConvergencePercent
     )
     is PrecipitationConfidence.Divided -> {
         val probability = precipitation.meta.probabilityPercent
@@ -2523,8 +2557,12 @@ private fun precipitationDispersionPresentation(
             max = precipitation.rainMaxMm.coerceAtLeast(0.0),
             probabilityPercent = probability,
             conditionalAmount = conditional,
+            expectedAmount = precipitation.meta.expectedAmountMm,
             wetModelCount = precipitation.modelsForRain,
-            modelCount = precipitation.modelCount
+            modelCount = precipitation.modelCount,
+            probabilityIsEstimated = precipitation.meta.probabilityPercent == null,
+            occurrenceConvergence = precipitation.meta.convergencePercent,
+            amountConvergence = precipitation.meta.amountConvergencePercent
         )
     }
 }
@@ -2719,6 +2757,7 @@ private fun CompactSummaryMetricRow(
     domain: DispersionDomain,
     centralTestTag: String,
     convergenceTestTag: String,
+    engine: ForecastEngine = ForecastEngine.DEFAULT,
     apparent: InlineApparentBar? = null,
     apparentSamples: List<DispersionSample> = emptyList(),
     units: WeatherUnits = LocalWeatherUnits.current
@@ -2846,6 +2885,7 @@ private fun CompactSummaryMetricRow(
                     digits = digits,
                     units = units,
                     convergence = score.convergencePercent,
+                    engine = engine,
                     testTag = centralTestTag.removeSuffix("_central") + "_rail"
                 )
                 if (apparent != null && felt != null) {
@@ -2861,6 +2901,7 @@ private fun CompactSummaryMetricRow(
                         digits = digits,
                         units = units,
                         convergence = felt.convergence,
+                        engine = engine,
                         testTag = apparent.testTag.removeSuffix("_central") + "_inline_bar"
                     )
                 }
@@ -2891,6 +2932,7 @@ private fun CompactApparentOnlyRow(
     accent: Color,
     domain: DispersionDomain,
     testTag: String,
+    engine: ForecastEngine = ForecastEngine.DEFAULT,
     units: WeatherUnits = LocalWeatherUnits.current
 ) {
     val locale = LocalLocale.current.platformLocale
@@ -2937,6 +2979,7 @@ private fun CompactApparentOnlyRow(
                     digits = 1,
                     units = units,
                     convergence = apparent.convergence,
+                    engine = engine,
                     testTag = testTag.removeSuffix("_central") + "_inline_bar"
                 )
             }
@@ -2962,6 +3005,7 @@ private fun CompactDispersionRail(
     digits: Int,
     units: WeatherUnits,
     convergence: Int? = null,
+    engine: ForecastEngine = ForecastEngine.DEFAULT,
     testTag: String? = null
 ) {
     val locale = LocalLocale.current.platformLocale
@@ -3025,6 +3069,7 @@ private fun CompactDispersionRail(
             unit = unit,
             digits = digits,
             units = units,
+            engine = engine,
             onDismiss = { detailsOpen = false }
         )
     }
@@ -3044,8 +3089,12 @@ private fun DispersionMetricRow(
     subLabel: String? = null,
     nonNegative: Boolean = false,
     centralTestTag: String? = null,
+    engine: ForecastEngine = ForecastEngine.DEFAULT,
+    rainDetails: PrecipitationDispersionPresentation? = null,
+    modelProbabilities: Map<WeatherModel, Int> = emptyMap(),
     units: WeatherUnits = LocalWeatherUnits.current
 ) {
+    var detailsOpen by remember { mutableStateOf(false) }
     val locale = LocalLocale.current.platformLocale
     val sampleValues = samples.map(DispersionSample::value).filter(Double::isFinite)
     // The consensus may be outside raw wet-model bounds when dry probability dominates.
@@ -3090,7 +3139,9 @@ private fun DispersionMetricRow(
             domain = domain,
             central = central,
             accent = accent,
-            contentDescription = railDescription
+            contentDescription = railDescription,
+            onClick = { detailsOpen = true },
+            testTag = "today_summary_precip_rail"
         )
         DispersionBoundsLabels(
             minLabel = minLabel,
@@ -3098,6 +3149,27 @@ private fun DispersionMetricRow(
             min = safeMin,
             max = safeMax,
             domain = domain
+        )
+    }
+    if (detailsOpen) {
+        DispersionDetailsDialog(
+            label = semanticLabel,
+            median = formatDispersionValue(central, unit, digits, locale, units),
+            rangeText = "$minLabel – $maxLabel",
+            rawMin = safeMin,
+            rawMax = safeMax,
+            center = central,
+            samples = samples,
+            domain = domain,
+            accent = accent,
+            convergence = null,
+            unit = unit,
+            digits = digits,
+            units = units,
+            rainDetails = rainDetails,
+            modelProbabilities = modelProbabilities,
+            engine = engine,
+            onDismiss = { detailsOpen = false }
         )
     }
 }
@@ -3231,14 +3303,22 @@ private fun DispersionRail(
     domain: DispersionDomain,
     central: Double,
     accent: Color,
-    contentDescription: String
+    contentDescription: String,
+    onClick: (() -> Unit)? = null,
+    testTag: String? = null
 ) {
     val surface = MaterialTheme.colorScheme.surfaceContainer
     val track = MaterialTheme.colorScheme.surfaceContainerHighest
     val centerColor = MaterialTheme.colorScheme.onSurface
+    // Taller touch target than the visual rail: easier to discover and activate on phones.
     Canvas(
-        modifier = Modifier.fillMaxWidth().height(20.dp)
-            .semantics { this.contentDescription = contentDescription }
+        modifier = Modifier.fillMaxWidth().height(40.dp)
+            .then(if (testTag != null) Modifier.testTag(testTag) else Modifier)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .semantics {
+                this.contentDescription = contentDescription
+                if (onClick != null) role = Role.Button
+            }
     ) {
         val startX = size.width * DISPERSION_RAIL_START_FRACTION
         val endX = size.width * DISPERSION_RAIL_END_FRACTION
@@ -3274,6 +3354,7 @@ private fun DispersionRail(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun DispersionDetailsDialog(
     label: String,
@@ -3289,143 +3370,177 @@ private fun DispersionDetailsDialog(
     unit: WeatherUnit,
     digits: Int,
     units: WeatherUnits,
+    rainDetails: PrecipitationDispersionPresentation? = null,
+    modelProbabilities: Map<WeatherModel, Int> = emptyMap(),
+    engine: ForecastEngine = ForecastEngine.DEFAULT,
     onDismiss: () -> Unit
 ) {
     val locale = LocalLocale.current.platformLocale
+    val isRain = rainDetails != null
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    SummaryDialogValueCard(
-                        title = stringResource(R.string.metric_summary_average),
-                        value = median,
-                        accent = accent,
-                        modifier = Modifier.weight(1f)
-                    )
-                    SummaryDialogValueCard(
-                        title = stringResource(R.string.metric_summary_range_short),
-                        value = rangeText,
-                        accent = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    convergence?.let {
-                        ConvergenceTonalChip(convergence = it, testTag = "summary_dispersion_dialog_convergence")
-                    }
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        shape = CircleShape
-                    ) {
-                        Text(
-                            text = pluralStringResource(R.plurals.metric_summary_models_count, samples.size, samples.size),
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
-            }
+            Text(text = label, style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold)
         },
         text = {
+            // All content (including the summary) scrolls together. The dialog title and
+            // dismiss button stay visible on narrow screens and at large font scales.
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 420.dp)
+                modifier = Modifier.fillMaxWidth().heightIn(max = 520.dp)
+                    .testTag("summary_dispersion_dialog_scroll")
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Surface(
                     color = MaterialTheme.colorScheme.surfaceContainerLow,
-                    shape = RoundedCornerShape(18.dp),
-                    tonalElevation = 0.dp,
-                    border = BorderStroke(1.dp, accent.copy(alpha = 0.18f))
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.dp, accent.copy(alpha = 0.12f))
                 ) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
+                    Column(Modifier.fillMaxWidth().padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(3.dp)) {
                         Text(
-                            text = stringResource(R.string.metric_summary_range, rangeText),
-                            style = MaterialTheme.typography.bodyMedium,
+                            text = stringResource(if (isRain) R.string.metric_precip_central_scenario
+                                else R.string.metric_summary_average),
+                            style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        DispersionDetailRailPreview(
-                            samples = samples,
-                            rangeMin = rawMin,
-                            rangeMax = rawMax,
-                            domain = domain,
-                            central = center,
-                            accent = accent
+                        Text(
+                            text = median,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = accent
                         )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            SummaryDialogMiniStat(
-                                title = stringResource(R.string.metric_summary_min_label),
-                                value = formatDispersionValue(rawMin, unit, digits, locale, units),
-                                accent = accent,
-                                modifier = Modifier.weight(1f)
-                            )
-                            SummaryDialogMiniStat(
-                                title = stringResource(R.string.metric_summary_average),
-                                value = median,
-                                accent = accent,
-                                modifier = Modifier.weight(1f)
-                            )
-                            SummaryDialogMiniStat(
-                                title = stringResource(R.string.metric_summary_max_label),
-                                value = formatDispersionValue(rawMax, unit, digits, locale, units),
-                                accent = accent,
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
+                        Text(
+                            text = stringResource(R.string.metric_summary_range, rangeText),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    convergence?.let {
+                        ConvergenceTonalChip(convergence = it, testTag = "summary_dispersion_dialog_convergence")
+                    }
+                    Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        shape = RoundedCornerShape(14.dp)) {
+                        Text(
+                            text = pluralStringResource(R.plurals.metric_summary_models_count,
+                                rainDetails?.modelCount ?: samples.size,
+                                rainDetails?.modelCount ?: samples.size),
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                // Preserve the immediately visible overview in temperature and wind dialogs.
+                if (!isRain) {
+                    SummaryDialogRailCard(samples, rawMin, rawMax, domain, center, accent)
+                }
+                SummaryDialogSection(stringResource(R.string.metric_calc_how_title)) {
+                    if (rainDetails != null) {
+                        RainConsensusExplanation(rainDetails, accent, units)
+                    } else {
+                        SummaryDialogFormula(
+                            formula = stringResource(
+                                if (unit == WeatherUnit.TEMPERATURE_COMPACT)
+                                    R.string.metric_calc_temperature_formula
+                                else R.string.metric_calc_wind_formula
+                            ),
+                            accent = accent
+                        )
+                        Text(
+                            text = stringResource(
+                                if (unit == WeatherUnit.TEMPERATURE_COMPACT)
+                                    R.string.metric_calc_temperature
+                                else R.string.metric_calc_wind
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Text(
+                        text = stringResource(R.string.metric_calc_engine_label,
+                            stringResource(when (engine) {
+                                ForecastEngine.MULTI_CONSENSUS -> R.string.metric_calc_engine_multi
+                                ForecastEngine.CALIBRATION -> R.string.metric_calc_engine_calibration
+                                ForecastEngine.SCENARIOS -> R.string.metric_calc_engine_scenarios
+                                ForecastEngine.ADAPTIVE -> R.string.metric_calc_engine_adaptive
+                            })),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
 
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    samples.forEach { sample ->
-                        Surface(
-                            color = MaterialTheme.colorScheme.surfaceContainerLow,
-                            shape = RoundedCornerShape(14.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier.size(10.dp).background(accent.copy(alpha = 0.9f), CircleShape)
-                                )
-                                Text(
-                                    text = sample.model.displayName,
-                                    modifier = Modifier.weight(1f),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = formatDispersionValue(sample.value, unit, digits, locale, units),
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = accent
-                                )
+                // For rain, explain the dry/wet decision before showing model dots.
+                if (isRain) {
+                    SummaryDialogRailCard(samples, rawMin, rawMax, domain, center, accent)
+                }
+                SummaryDialogSection(stringResource(R.string.metric_calc_chart_title)) {
+                    Text(
+                        text = stringResource(
+                            if (isRain) R.string.metric_calc_rain_points
+                            else R.string.metric_calc_chart_legend
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = stringResource(R.string.metric_calc_models_title),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+
+                    // Each model gets a wrapping name and a separate value/probability line.
+                    // A fixed single Row previously truncated model names and percentages.
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        samples.forEach { sample ->
+                            Surface(color = MaterialTheme.colorScheme.surfaceContainerLow,
+                                shape = RoundedCornerShape(12.dp)) {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                                ) {
+                                    Text(sample.model.displayName, style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurface)
+                                    FlowRow(
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                        verticalArrangement = Arrangement.spacedBy(3.dp)
+                                    ) {
+                                        Text(
+                                            text = formatDispersionValue(sample.value, unit, digits, locale, units),
+                                            style = MaterialTheme.typography.titleSmall,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = accent
+                                        )
+                                        modelProbabilities[sample.model]?.let { probability ->
+                                            Text(
+                                                text = stringResource(R.string.metric_calc_model_probability, probability),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                }
                             }
+                        }
+                        if (isRain) {
+                            modelProbabilities.filterKeys { model -> samples.none { it.model == model } }
+                                .forEach { (model, probability) ->
+                                    Surface(color = MaterialTheme.colorScheme.surfaceContainerLow,
+                                        shape = RoundedCornerShape(12.dp)) {
+                                        Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                                            verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                            Text(model.displayName, style = MaterialTheme.typography.bodyMedium)
+                                            Text(stringResource(R.string.metric_calc_model_probability, probability),
+                                                style = MaterialTheme.typography.labelSmall)
+                                        }
+                                    }
+                                }
                         }
                     }
                 }
@@ -3437,39 +3552,153 @@ private fun DispersionDetailsDialog(
     )
 }
 
+/** Keep the same compact rail and accessibility tag in all three explanations. */
 @Composable
-private fun SummaryDialogValueCard(
-    title: String,
-    value: String,
-    accent: Color,
-    modifier: Modifier = Modifier
+private fun SummaryDialogRailCard(
+    samples: List<DispersionSample>,
+    rawMin: Double,
+    rawMax: Double,
+    domain: DispersionDomain,
+    center: Double,
+    accent: Color
 ) {
     Surface(
-        modifier = modifier,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, accent.copy(alpha = 0.12f))
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(1.dp, accent.copy(alpha = 0.18f))
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = value,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = accent,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+        Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp)) {
+            DispersionDetailRailPreview(
+                samples = samples,
+                rangeMin = rawMin,
+                rangeMax = rawMax,
+                domain = domain,
+                central = center,
+                accent = accent
             )
         }
+    }
+}
+
+/** Visually separate the explanation from the formula and the model comparison. */
+@Composable
+private fun SummaryDialogSection(
+    title: String,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f))
+        Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+        content()
+    }
+}
+
+@Composable
+private fun SummaryDialogFormula(formula: String, accent: Color) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = accent.copy(alpha = 0.08f),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Text(
+            text = formula,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+    }
+}
+
+/** First evaluate occurrence probability, then decide the central rain scenario. */
+@Composable
+private fun RainConsensusExplanation(
+    rain: PrecipitationDispersionPresentation,
+    accent: Color,
+    units: WeatherUnits
+) {
+    val locale = LocalLocale.current.platformLocale
+    Text(
+        text = stringResource(R.string.metric_calc_rain_step_risk),
+        style = MaterialTheme.typography.labelMedium,
+        fontWeight = FontWeight.SemiBold
+    )
+    SummaryDialogFormula(stringResource(R.string.metric_calc_rain_formula), accent)
+    Text(
+        text = stringResource(R.string.metric_calc_rain_method),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        SummaryDialogMiniStat(
+            title = stringResource(R.string.metric_calc_rain_probability),
+            value = rain.probabilityPercent?.let { "$it %" } ?: "—",
+            accent = accent,
+            modifier = Modifier.weight(1f)
+        )
+        SummaryDialogMiniStat(
+            title = stringResource(R.string.metric_calc_rain_wet_models),
+            value = "${rain.wetModelCount} / ${rain.modelCount}",
+            accent = accent,
+            modifier = Modifier.weight(1f)
+        )
+    }
+    Text(
+        text = stringResource(R.string.metric_calc_rain_step_scenario),
+        style = MaterialTheme.typography.labelMedium,
+        fontWeight = FontWeight.SemiBold
+    )
+    SummaryDialogFormula(stringResource(R.string.metric_calc_rain_rule), accent)
+    val explanation = when {
+        rain.probabilityPercent == null -> R.string.metric_calc_rain_probability_unknown
+        rain.central <= 0.0 && rain.probabilityPercent >= 50 &&
+            (rain.conditionalAmount == null || rain.conditionalAmount <= 0.0) ->
+            R.string.metric_calc_rain_no_amount
+        rain.central <= 0.0 && rain.probabilityPercent == 50 && rain.wetModelCount > 0 ->
+            R.string.metric_calc_rain_dry_rounding
+        rain.central <= 0.0 && rain.wetModelCount > 0 -> R.string.metric_calc_rain_dry_with_rain
+        rain.central <= 0.0 -> R.string.metric_calc_rain_dry
+        else -> R.string.metric_calc_rain_wet
+    }
+    Text(
+        text = stringResource(explanation),
+        style = MaterialTheme.typography.bodyMedium,
+        fontWeight = FontWeight.Medium
+    )
+    rain.conditionalAmount?.takeIf { it.isFinite() && it > 0.0 }?.let { amount ->
+        Text(
+            text = stringResource(R.string.metric_calc_rain_conditional,
+                formatDispersionValue(amount, WeatherUnit.PRECIPITATION, 1, locale, units)),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+    rain.expectedAmount?.takeIf { it.isFinite() && it >= 0.0 }?.let { amount ->
+        Text(
+            text = stringResource(R.string.metric_calc_rain_expected,
+                formatDispersionValue(amount, WeatherUnit.PRECIPITATION, 1, locale, units)),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+    if (rain.probabilityIsEstimated) {
+        Text(
+            text = stringResource(R.string.metric_calc_rain_probability_fallback),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+    if (rain.occurrenceConvergence != null || rain.amountConvergence != null) {
+        Text(
+            text = stringResource(R.string.metric_calc_rain_agreement,
+                rain.occurrenceConvergence?.let { "$it %" } ?: "—",
+                rain.amountConvergence?.let { "$it %" } ?: "—"),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
@@ -3494,8 +3723,6 @@ private fun SummaryDialogMiniStat(
                 text = title,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
             )
             Text(
                 text = value,
