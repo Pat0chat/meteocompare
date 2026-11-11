@@ -112,6 +112,30 @@ class MeteogramContentTest {
         rule.onNodeWithTag(TAG_METEOGRAM_SELECTED, useUnmergedTree = true).assertDoesNotExist()
     }
 
+    @Test fun wind_direction_pill_shows_direction_under_a_short_localized_title_in_both_layouts() {
+        val start = Instant.parse("2026-10-28T00:00:00Z")
+        val state = GraphicForecastUiState.Loaded(
+            city = City("wind-pill", "Paris", country = "France", latitude = 48.8,
+                longitude = 2.3, timezone = "Europe/Paris"),
+            points = List(12) { i -> SimplifiedTimelinePoint(
+                instant = start.plusSeconds(i * 3_600L), windKmh = 17.0,
+                windGustKmh = 27.0, windDirectionDeg = 270) },
+            solarByDate = emptyMap(), modelValuesByInstant = emptyMap(),
+            calculatedAt = start
+        )
+        rule.setContent { MeteoCompareTheme { MeteogramContent(state) } }
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val compactTitle = context.getString(R.string.meteogram_wind_direction_short)
+        rule.onNodeWithText(compactTitle, useUnmergedTree = true).assertExists()
+        rule.onNodeWithText("270°", substring = true, useUnmergedTree = true).assertExists()
+        // The full wind-from label stays in the graph legend.
+        rule.onNodeWithText(context.getString(R.string.meteogram_wind_origin),
+            useUnmergedTree = true).assertExists()
+        rule.onNodeWithTag(TAG_METEOGRAM_LAYOUT_COMBINED).performClick()
+        rule.onNodeWithText(compactTitle, useUnmergedTree = true).assertExists()
+        rule.onNodeWithText("270°", substring = true, useUnmergedTree = true).assertExists()
+    }
+
     @Test fun combined_mode_uses_one_real_plot_not_stacked_sections() {
         val start = Instant.parse("2026-10-28T00:00:00Z")
         val state = GraphicForecastUiState.Loaded(

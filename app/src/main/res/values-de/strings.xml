@@ -807,6 +807,7 @@ Daten</string>
     <string name="graphic_view_strong_agreement">Hohe Übereinstimmung</string>
     <string name="graphic_view_time">Zeit</string>
     <string name="graphic_view_hour_day">Stunde · Tag</string>
+    <string name="graphic_view_day_hour">Tag · Stunde</string>
     <string name="graphic_view_vigilance">Warnungen</string>
     <string name="graphic_view_official">offiziell</string>
     <string name="graphic_view_no_vigilance">Keine Warnung im angezeigten Zeitraum</string>
@@ -1109,6 +1110,7 @@ Daten</string>
     <string name="meteogram_humidity">Feuchte</string>
     <string name="meteogram_pressure">Luftdruck</string>
     <string name="meteogram_wind_origin">Wind aus</string>
+    <string name="meteogram_wind_direction_short">Richtung</string>
     <string name="meteogram_wind">Wind / Böen</string>
 
     <string name="meteogram_no_data">Keine Messwerte vorhanden</string>

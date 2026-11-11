@@ -823,6 +823,7 @@
     <string name="graphic_view_strong_agreement">Strong agreement</string>
     <string name="graphic_view_time">Time</string>
     <string name="graphic_view_hour_day">hour · day</string>
+    <string name="graphic_view_day_hour">day · hour</string>
     <string name="graphic_view_vigilance">Warnings</string>
     <string name="graphic_view_official">official</string>
     <string name="graphic_view_no_vigilance">No warning over the displayed period</string>
@@ -1126,6 +1127,7 @@
     <string name="meteogram_humidity">Humidity</string>
     <string name="meteogram_pressure">Pressure</string>
     <string name="meteogram_wind_origin">Wind from</string>
+    <string name="meteogram_wind_direction_short">Direction</string>
     <string name="meteogram_wind">Wind / Gusts</string>
 
     <string name="meteogram_no_data">No measurements available</string>

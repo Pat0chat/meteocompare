@@ -824,6 +824,7 @@
     <string name="graphic_view_strong_agreement">Accord fort</string>
     <string name="graphic_view_time">Temps</string>
     <string name="graphic_view_hour_day">heure · jour</string>
+    <string name="graphic_view_day_hour">jour · heure</string>
     <string name="graphic_view_vigilance">Vigilance</string>
     <string name="graphic_view_official">officielle</string>
     <string name="graphic_view_no_vigilance">Aucune vigilance sur la période affichée</string>
@@ -1127,6 +1128,7 @@
     <string name="meteogram_humidity">Humidité</string>
     <string name="meteogram_pressure">Pression</string>
     <string name="meteogram_wind_origin">Provenance du vent</string>
+    <string name="meteogram_wind_direction_short">Direction</string>
     <string name="meteogram_wind">Vent / Rafales</string>
 
     <string name="meteogram_no_data">Aucune mesure disponible</string>

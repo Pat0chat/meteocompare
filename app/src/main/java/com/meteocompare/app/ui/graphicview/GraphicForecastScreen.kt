@@ -171,6 +171,10 @@ internal const val TAG_GRAPHIC_SELECTION_HEADER = "graphic_selection_header"
 internal const val TAG_GRAPHIC_RAIN_SELECTION_CONVERGENCE = "graphic_rain_selection_convergence"
 internal const val TAG_GRAPHIC_LEGEND_SYMBOL = "graphic_legend_symbol"
 internal const val TAG_GRAPHIC_DAY_HEADER = "graphic_day_header"
+internal const val TAG_GRAPHIC_TIME_AXIS_TOP = "graphic_time_axis_top"
+internal const val TAG_GRAPHIC_TIME_AXIS_BOTTOM = "graphic_time_axis_bottom"
+internal const val TAG_GRAPHIC_DAY_ROW = "graphic_day_row"
+internal const val TAG_GRAPHIC_HOUR_ROW = "graphic_hour_row"
 
 internal const val GRAPHIC_TEMPERATURE_HEAT_ALPHA = 0.20f
 internal const val GRAPHIC_RAIN_HEAT_ALPHA = 0.22f
@@ -421,6 +425,12 @@ private fun GraphicChartPanel(
     val domains = remember(points, viewportRange.first, viewportRange.last) {
         graphicViewportDomains(points, viewportRange.indices)
     }
+    // Share one set of localized hour/day labels between the two rulers.
+    val clockPreference = LocalClockFormatPreference.current
+    val axisLabels = remember(points, zone, locale, clockPreference) {
+        buildGraphicTimeAxisLabels(points, zone, locale, clockPreference)
+    }
+    val compactClockLabels = WeatherTimeFormat.usesTwelveHourClock(locale, clockPreference)
 
     Surface(
         modifier = Modifier
@@ -467,6 +477,16 @@ private fun GraphicChartPanel(
                         .horizontalScroll(horizontalScroll)
                 ) {
                     val chartWidth = GraphicHourWidth * points.size.toFloat()
+                    // Both rulers share the same horizontal scroll as every plot.
+                    GraphicTimeAxis(
+                        labels = axisLabels,
+                        selectedIndex = selectedIndex,
+                        visibleRange = viewportRange.indices,
+                        compactClockLabels = compactClockLabels,
+                        dayFirst = true,
+                        modifier = Modifier.width(chartWidth).height(TimeAxisHeight)
+                            .testTag(TAG_GRAPHIC_TIME_AXIS_TOP)
+                    )
                     // Dedicated weather-condition lane: UV is intentionally outside
                     // the temperature plot, so it never overlaps its curves or scale.
                     GraphicConditionLane(
@@ -520,12 +540,13 @@ private fun GraphicChartPanel(
                             .testTag(TAG_GRAPHIC_PRESSURE_PLOT)
                     )
                     GraphicTimeAxis(
-                        points = points,
-                        zone = zone,
-                        locale = locale,
+                        labels = axisLabels,
                         selectedIndex = selectedIndex,
                         visibleRange = viewportRange.indices,
+                        compactClockLabels = compactClockLabels,
+                        dayFirst = false,
                         modifier = Modifier.width(chartWidth).height(TimeAxisHeight)
+                            .testTag(TAG_GRAPHIC_TIME_AXIS_BOTTOM)
                     )
                     GraphicVigilanceLane(
                         vigilance = vigilance,
@@ -1024,6 +1045,11 @@ private fun GraphicAxisColumn(
             .width(GraphicAxisWidth)
             .background(MaterialTheme.colorScheme.surfaceContainerLow)
     ) {
+        AxisLabelSlot(
+            title = stringResource(R.string.graphic_view_time),
+            subtitle = stringResource(R.string.graphic_view_day_hour),
+            height = TimeAxisHeight
+        )
         // Same leading height as the independently scrolling condition/UV lane.
         Spacer(Modifier.height(WeatherConditionLaneHeight))
         PlotAxis(
@@ -2021,130 +2047,157 @@ internal fun buildGraphicTimeAxisLabels(
     )
 }
 
+/** Top: day / hour. Bottom: hour / day. Both use identical labels and x positions. */
 @Composable
 private fun GraphicTimeAxis(
-    points: List<SimplifiedTimelinePoint>,
-    zone: ZoneId,
-    locale: Locale,
+    labels: GraphicTimeAxisLabels,
     selectedIndex: Int,
     visibleRange: IntRange,
+    compactClockLabels: Boolean,
+    dayFirst: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val clockPreference = LocalClockFormatPreference.current
-    val useCompactClockLabels = WeatherTimeFormat.usesTwelveHourClock(locale, clockPreference)
-    val labels = remember(points, zone, locale, clockPreference) {
-        buildGraphicTimeAxisLabels(points, zone, locale, clockPreference)
-    }
     val selectedDate = labels.dates.getOrNull(selectedIndex)
     val primary = MaterialTheme.colorScheme.primary
     val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
     val separator = primary.copy(alpha = 0.30f)
 
     Column(modifier = modifier.background(MaterialTheme.colorScheme.surfaceContainerLowest)) {
-        Box(Modifier.fillMaxWidth().height(28.dp)) {
-            labels.daySpans.forEach { span ->
-                if (span.last < visibleRange.first || span.first > visibleRange.last) return@forEach
-                val isSelectedDay = span.date != null && span.date == selectedDate
-                val background = when {
-                    isSelectedDay -> primary.copy(alpha = 0.075f)
-                    span.dayIndex % 2 == 0 -> MaterialTheme.colorScheme.surfaceContainerLow
-                    else -> MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.45f)
-                }
-                Box(
-                    modifier = Modifier
-                        .offset(x = GraphicHourWidth * span.first.toFloat())
-                        .width(GraphicHourWidth * (span.last - span.first + 1).toFloat())
-                        .height(28.dp)
-                        .background(background)
-                        .testTag(TAG_GRAPHIC_DAY_HEADER)
-                ) {
-                    if (span.first > 0) {
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.CenterStart)
-                                .width(2.dp)
-                                .fillMaxHeight()
-                                .background(separator)
-                        )
-                    }
-                    Text(
-                        text = span.date?.let(labels.dayLabels::get).orEmpty(),
-                        modifier = Modifier.align(Alignment.CenterStart).padding(start = 9.dp, end = 6.dp),
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = if (isSelectedDay) primary else MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1
+        if (dayFirst) {
+            GraphicDayAxisRow(labels, selectedDate, primary, separator, visibleRange)
+            GraphicHourAxisRow(labels, selectedIndex, primary, onSurfaceVariant, separator,
+                compactClockLabels, visibleRange)
+        } else {
+            GraphicHourAxisRow(labels, selectedIndex, primary, onSurfaceVariant, separator,
+                compactClockLabels, visibleRange)
+            GraphicDayAxisRow(labels, selectedDate, primary, separator, visibleRange)
+        }
+    }
+}
+
+@Composable
+private fun GraphicDayAxisRow(
+    labels: GraphicTimeAxisLabels,
+    selectedDate: LocalDate?,
+    primary: Color,
+    separator: Color,
+    visibleRange: IntRange
+) {
+    Box(Modifier.fillMaxWidth().height(28.dp).testTag(TAG_GRAPHIC_DAY_ROW)) {
+        labels.daySpans.forEach { span ->
+            if (span.last < visibleRange.first || span.first > visibleRange.last) return@forEach
+            val isSelectedDay = span.date != null && span.date == selectedDate
+            val background = when {
+                isSelectedDay -> primary.copy(alpha = 0.075f)
+                span.dayIndex % 2 == 0 -> MaterialTheme.colorScheme.surfaceContainerLow
+                else -> MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.45f)
+            }
+            Box(
+                modifier = Modifier
+                    .offset(x = GraphicHourWidth * span.first.toFloat())
+                    .width(GraphicHourWidth * (span.last - span.first + 1).toFloat())
+                    .height(28.dp)
+                    .background(background)
+                    .testTag(TAG_GRAPHIC_DAY_HEADER)
+            ) {
+                if (span.first > 0) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.CenterStart)
+                            .width(2.dp)
+                            .fillMaxHeight()
+                            .background(separator)
                     )
                 }
+                Text(
+                    text = span.date?.let(labels.dayLabels::get).orEmpty(),
+                    modifier = Modifier.align(Alignment.CenterStart).padding(start = 9.dp, end = 6.dp),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isSelectedDay) primary else MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1
+                )
             }
         }
+    }
+}
 
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(42.dp)
-                .background(MaterialTheme.colorScheme.surfaceContainerLowest)
-        ) {
-            visibleRange.forEach { index ->
-                if (index !in labels.hourLabels.indices) return@forEach
-                val hourLabel = labels.hourLabels[index]
-                val isSelected = index == selectedIndex
-                val isDayStart = index > 0 && labels.dates.getOrNull(index) != labels.dates.getOrNull(index - 1)
-                val isMidnight = labels.hours[index] == 0
-                Box(
-                    modifier = Modifier
-                        .offset(x = GraphicHourWidth * index.toFloat())
-                        .width(GraphicHourWidth)
-                        .fillMaxHeight()
-                        .testTag(TAG_GRAPHIC_HOUR_CELL),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (isDayStart) {
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.CenterStart)
-                                .width(2.dp)
-                                .fillMaxHeight()
-                                .background(separator)
-                        )
-                    }
-                    if (isSelected) {
-                        Surface(
-                            shape = RoundedCornerShape(9.dp),
-                            color = primary.copy(alpha = 0.13f),
-                            contentColor = primary
-                        ) {
-                            Text(
-                                text = hourLabel,
-                                modifier = Modifier.padding(horizontal = if (useCompactClockLabels) 3.dp else 7.dp, vertical = 5.dp),
-                                style = if (useCompactClockLabels) MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp)
-                                    else MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1
-                            )
-                        }
-                    } else {
+@Composable
+private fun GraphicHourAxisRow(
+    labels: GraphicTimeAxisLabels,
+    selectedIndex: Int,
+    primary: Color,
+    onSurfaceVariant: Color,
+    separator: Color,
+    useCompactClockLabels: Boolean,
+    visibleRange: IntRange
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(42.dp)
+            .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+            .testTag(TAG_GRAPHIC_HOUR_ROW)
+    ) {
+        visibleRange.forEach { index ->
+            if (index !in labels.hourLabels.indices) return@forEach
+            val hourLabel = labels.hourLabels[index]
+            val isSelected = index == selectedIndex
+            val isDayStart = index > 0 && labels.dates.getOrNull(index) != labels.dates.getOrNull(index - 1)
+            val isMidnight = labels.hours[index] == 0
+            Box(
+                modifier = Modifier
+                    .offset(x = GraphicHourWidth * index.toFloat())
+                    .width(GraphicHourWidth)
+                    .fillMaxHeight()
+                    .testTag(TAG_GRAPHIC_HOUR_CELL),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isDayStart) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.CenterStart)
+                            .width(2.dp)
+                            .fillMaxHeight()
+                            .background(separator)
+                    )
+                }
+                if (isSelected) {
+                    Surface(
+                        shape = RoundedCornerShape(9.dp),
+                        color = primary.copy(alpha = 0.13f),
+                        contentColor = primary
+                    ) {
                         Text(
                             text = hourLabel,
+                            modifier = Modifier.padding(horizontal = if (useCompactClockLabels) 3.dp else 7.dp, vertical = 5.dp),
                             style = if (useCompactClockLabels) MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp)
                                 else MaterialTheme.typography.labelSmall,
-                            color = if (isMidnight) primary else onSurfaceVariant,
-                            fontWeight = if (isMidnight) FontWeight.SemiBold else FontWeight.Normal,
+                            fontWeight = FontWeight.Bold,
                             maxLines = 1
                         )
                     }
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .padding(bottom = 4.dp)
-                            .width(if (isMidnight) 2.dp else 1.dp)
-                            .height(if (isMidnight) 6.dp else 4.dp)
-                            .background(
-                                if (isMidnight) primary.copy(alpha = 0.55f)
-                                else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
-                            )
+                } else {
+                    Text(
+                        text = hourLabel,
+                        style = if (useCompactClockLabels) MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp)
+                            else MaterialTheme.typography.labelSmall,
+                        color = if (isMidnight) primary else onSurfaceVariant,
+                        fontWeight = if (isMidnight) FontWeight.SemiBold else FontWeight.Normal,
+                        maxLines = 1
                     )
                 }
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 4.dp)
+                        .width(if (isMidnight) 2.dp else 1.dp)
+                        .height(if (isMidnight) 6.dp else 4.dp)
+                        .background(
+                            if (isMidnight) primary.copy(alpha = 0.55f)
+                            else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
+                        )
+                )
             }
         }
     }

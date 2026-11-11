@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -2507,7 +2508,7 @@ private fun MeteogramCardSelectedValues(
                 units.speed(hour.gustKmh)
             ),
             Triple(
-                WindColor, stringResource(R.string.meteogram_wind_origin),
+                WindColor, stringResource(R.string.meteogram_wind_direction_short),
                 meteogramWindCardinal(hour.windDirectionDeg, locale.language)?.let { cardinal ->
                     "$cardinal · ${hour.windDirectionDeg}°"
                 } ?: "—")
@@ -2569,7 +2570,7 @@ private fun MeteogramSelectedValues(hour: MeteogramHour, units: WeatherUnits, lo
             units.speed(hour.gustKmh)
         ),
         Triple(
-            WindColor, stringResource(R.string.meteogram_wind_origin),
+            WindColor, stringResource(R.string.meteogram_wind_direction_short),
             meteogramWindCardinal(hour.windDirectionDeg, locale.language)?.let { cardinal ->
                 "$cardinal · ${hour.windDirectionDeg}°"
             } ?: "—"),
@@ -2615,8 +2616,8 @@ private fun MeteogramSelectedValues(hour: MeteogramHour, units: WeatherUnits, lo
     }
 }
 
-/** Shared three-column value grid. Incomplete rows keep empty flexible cells
- *  so every metric pill has identical dimensions and alignment. */
+/** Shared three-column value grid. Incomplete rows retain empty flexible cells;
+ *  pills may grow vertically so longer translated values stay visible. */
 @Composable
 private fun MeteogramSelectedMetricContent(
     metrics: List<Triple<Color, String, String>>,
@@ -2656,23 +2657,28 @@ private fun MeteogramValuePill(
     modifier: Modifier = Modifier
 ) {
     Surface(
-        modifier = modifier.height(56.dp),
+        // A fixed 56 dp height clipped the value whenever a translated title
+        // wrapped or the user increased Android's font scale.
+        modifier = modifier.heightIn(min = 56.dp),
         shape = RoundedCornerShape(12.dp),
         color = color.copy(alpha = 0.09f),
         tonalElevation = 0.dp,
         border = androidx.compose.foundation.BorderStroke(1.dp, color.copy(alpha = 0.42f))
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 9.dp, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = 7.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(7.dp)
+            horizontalArrangement = Arrangement.spacedBy(5.dp)
         ) {
             Box(
                 Modifier
-                    .size(width = 4.dp, height = 24.dp)
+                    .size(width = 3.dp, height = 24.dp)
                     .background(color, RoundedCornerShape(999.dp))
             )
-            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
                 Text(
                     label, style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -2682,7 +2688,9 @@ private fun MeteogramValuePill(
                     value, style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Bold,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis
+                    // Show the direction even in a narrow 3-column grid: it may
+                    // wrap instead of being elided by the label above it.
+                    maxLines = 2, overflow = TextOverflow.Ellipsis
                 )
             }
         }

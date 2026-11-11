@@ -59,6 +59,53 @@ class GraphicForecastContentTest {
     }
 
     @Test
+    fun chart_time_axes_are_mirrored_and_share_the_same_hour_positions() {
+        val start = Instant.parse("2026-10-28T00:00:00Z")
+        val state = GraphicForecastUiState.Loaded(
+            city = City(id = "axis-test", name = "Paris", country = "France",
+                latitude = 48.8, longitude = 2.3, timezone = "UTC"),
+            points = List(48) { i -> SimplifiedTimelinePoint(
+                instant = start.plusSeconds(i * 3_600L), temperatureC = 12.0) },
+            solarByDate = emptyMap(), modelValuesByInstant = emptyMap(),
+            calculatedAt = start
+        )
+        composeRule.setContent {
+            CompositionLocalProvider(LocalClockFormatPreference provides ClockFormatPreference.HOUR_24) {
+                MeteoCompareTheme { GraphicForecastContent(state) }
+            }
+        }
+        val top = composeRule.onNodeWithTag(TAG_GRAPHIC_TIME_AXIS_TOP, useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot
+        val bottom = composeRule.onNodeWithTag(TAG_GRAPHIC_TIME_AXIS_BOTTOM, useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot
+        assertTrue("Top time axis must precede the weather plot", top.top < bottom.top)
+
+        val dayRows = composeRule.onAllNodesWithTag(TAG_GRAPHIC_DAY_ROW, useUnmergedTree = true)
+            .fetchSemanticsNodes().sortedBy { it.boundsInRoot.top }
+        val hourRows = composeRule.onAllNodesWithTag(TAG_GRAPHIC_HOUR_ROW, useUnmergedTree = true)
+            .fetchSemanticsNodes().sortedBy { it.boundsInRoot.top }
+        assertEquals(2, dayRows.size)
+        assertEquals(2, hourRows.size)
+        assertTrue("The top ruler must show day before hour",
+            dayRows[0].boundsInRoot.top < hourRows[0].boundsInRoot.top)
+        assertTrue("The bottom ruler must show hour before day",
+            hourRows[1].boundsInRoot.top < dayRows[1].boundsInRoot.top)
+
+        val visibleHours = composeRule.onAllNodesWithTag(TAG_GRAPHIC_HOUR_CELL,
+            useUnmergedTree = true).fetchSemanticsNodes()
+        val topHours = visibleHours.filter { it.boundsInRoot.top < bottom.top }
+            .sortedBy { it.boundsInRoot.left }
+        val bottomHours = visibleHours.filter { it.boundsInRoot.top >= bottom.top }
+            .sortedBy { it.boundsInRoot.left }
+        assertTrue(topHours.isNotEmpty())
+        assertEquals(topHours.size, bottomHours.size)
+        topHours.zip(bottomHours).forEach { (first, second) ->
+            // Both time rulers are children of the very same horizontal scroll.
+            assertEquals(first.boundsInRoot.left, second.boundsInRoot.left, 0.1f)
+        }
+    }
+
+    @Test
     fun unit_switch_updates_temperature_rain_wind_and_gust_tooltips_without_changing_points() {
         val selection = mutableStateOf(UnitSystem.METRIC)
         val start = Instant.parse("2026-09-16T00:00:00Z")
@@ -286,11 +333,11 @@ class GraphicForecastContentTest {
             .fetchSemanticsNodes().size
         assertTrue(
             "La Chart View doit virtualiser les 240 heures et ne composer que le viewport + overscan",
-            composedHourCells in 1 until 40
+            composedHourCells in 2 until 80
         )
         assertTrue(
             "Seuls les jours qui intersectent le viewport doivent être composés",
-            composedDayHeaders in 1..3
+            composedDayHeaders in 2..6
         )
         // Les pictogrammes visibles sont dessinés dans un seul Canvas : la timeline
         // conserve 240 heures de contenu sans créer 240 sous-compositions.
@@ -306,8 +353,8 @@ class GraphicForecastContentTest {
 
         // Les libellés temporels suivent eux aussi la virtualisation : on
         // vérifie le début du viewport plutôt que 240 Text simultanés.
-        composeRule.onAllNodesWithText("00h", useUnmergedTree = true).assertCountEquals(1)
-        composeRule.onAllNodesWithText("01h", useUnmergedTree = true).assertCountEquals(1)
+        composeRule.onAllNodesWithText("00h", useUnmergedTree = true).assertCountEquals(2)
+        composeRule.onAllNodesWithText("01h", useUnmergedTree = true).assertCountEquals(2)
 
         composeRule.onNodeWithTag(TAG_GRAPHIC_CHART_PANEL, useUnmergedTree = true).assertExists()
         composeRule.onNodeWithTag(TAG_GRAPHIC_SELECTION_HEADER, useUnmergedTree = true).assertExists()
