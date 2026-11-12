@@ -1,11 +1,9 @@
 package com.meteocompare.app.widget
 
-import androidx.core.net.toUri
 import com.meteocompare.app.core.units.WeatherUnits
 import com.meteocompare.app.core.units.LocalWeatherUnits
 
 import android.content.Context
-import android.content.Intent
 import android.content.res.Configuration
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -26,10 +24,8 @@ import androidx.glance.Image
 import androidx.glance.ImageProvider
 import androidx.glance.LocalContext
 import androidx.glance.LocalSize
-import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.SizeMode
-import androidx.glance.appwidget.action.actionStartActivity as actionStartActivityIntent
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
@@ -52,7 +48,6 @@ import androidx.glance.unit.ColorProvider
 import com.meteocompare.app.R
 import com.meteocompare.app.core.locale.applyPersistedLocale
 import com.meteocompare.app.core.locale.weatherConditionLabelRes
-import com.meteocompare.app.core.network.OPEN_METEO_LICENSE_URL
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.ui.citydetail.ForecastInsightLevel
 
@@ -179,12 +174,10 @@ private fun InsightWidgetContent(
                     else -> ValueWidgetError(data, colors, compact)
                 }
             }
-            if (data.error == null || isCurrentLocation) {
-                InsightOpenMeteoAttribution(
-                    colors.muted, compact,
-                    showAttribution = data.error == null,
-                    showLocationRefresh = isCurrentLocation
-                )
+            // L'attribution de données est accessible dans l'app (Paramètres > À propos).
+            // Conserver l'action de localisation même en cas d'erreur de chargement.
+            if (isCurrentLocation) {
+                WidgetCurrentLocationAction(colors.muted, compact)
             }
         }
     }
@@ -226,37 +219,6 @@ private fun InsightPillSummary(
                 maxLines = 1
             )
         }
-    }
-}
-
-@Composable
-private fun InsightOpenMeteoAttribution(
-    textColor: ColorProvider,
-    compact: Boolean,
-    showAttribution: Boolean = true,
-    showLocationRefresh: Boolean = false
-) {
-    val context = LocalContext.current
-    val licenseIntent = remember {
-        Intent(Intent.ACTION_VIEW, OPEN_METEO_LICENSE_URL.toUri())
-    }
-    Row(modifier = GlanceModifier.fillMaxWidth().padding(top = 2.dp),
-        verticalAlignment = Alignment.CenterVertically) {
-        if (showLocationRefresh) WidgetCurrentLocationAction(textColor, compact)
-        Spacer(GlanceModifier.defaultWeight())
-        if (showAttribution) Text(
-            modifier = GlanceModifier.clickable(actionStartActivityIntent(licenseIntent)),
-            text = context.getString(
-                if (compact) R.string.widget_open_meteo_attribution_short
-                else R.string.widget_open_meteo_attribution
-            ),
-            style = TextStyle(
-                color = textColor,
-                fontSize = if (compact) 5.sp else 6.sp,
-                fontWeight = FontWeight.Medium
-            ),
-            maxLines = 1
-        )
     }
 }
 

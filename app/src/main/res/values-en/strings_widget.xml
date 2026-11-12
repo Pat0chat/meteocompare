@@ -82,6 +82,7 @@
     <string name="widget_corner_custom">Custom</string>
     <string name="widget_corner_radius">Radius: %1$d dp</string>
     <string name="widget_config_spacing">Inner padding</string>
+    <string name="widget_spacing_large">Large</string>
     <string name="widget_spacing_normal">Normal</string>
     <string name="widget_spacing_compact">Compact</string>
     <string name="widget_spacing_none">None</string>
@@ -96,4 +97,7 @@
     <string name="widget_opacity_manual_label">Value</string>
     <string name="widget_config_show_current_conditions">Show current conditions</string>
     <string name="widget_config_show_current_conditions_note">Turn off to hide current weather at the top of forecast widgets with two rows or more. Small widgets keep showing current conditions.</string>
+    <string name="widget_sun_minutes_short">%1$d min</string>
+    <string name="widget_sun_hours_short">%1$s h</string>
+    <string name="widget_forecast_convergence_compact">C %1$d%%</string>
 </resources>

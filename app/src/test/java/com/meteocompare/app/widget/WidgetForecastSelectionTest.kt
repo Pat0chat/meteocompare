@@ -204,6 +204,9 @@ class WidgetForecastSelectionTest {
         assertEquals(listOf(19.0, 19.5, 20.0, 20.5, 21.0), items.map { it.temp })
         assertEquals(listOf(25, 35, 45, 55, 65), items.map { it.cloudCoverPct })
         assertEquals(listOf(5, 10, 15, 20, 25), items.map { it.precipProbabilityPct })
+        // Estimation solaire de la timeline réelle : ciel dégagé équivalent,
+        // disponible seulement quand le soleil et les nuages sont connus.
+        assertTrue(items.all { it.estimatedSunHours != null && it.estimatedSunHours!! in 0.0..1.0 })
     }
 
     @Test

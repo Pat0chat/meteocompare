@@ -199,6 +199,8 @@ internal data class WidgetForecastItem(
     val temp: Double?,
     /** Couverture nuageuse de l'échéance, 0-100%. */
     val cloudCoverPct: Int? = null,
+    /** Estimation d’ensoleillement équivalent ciel dégagé, en heures (pas une mesure). */
+    val estimatedSunHours: Double? = null,
     /** Probabilité de précipitation de l'échéance, 0-100%. */
     val precipProbabilityPct: Int? = null,
     /**
@@ -606,6 +608,7 @@ internal fun buildForecasts(
                         condition = point.condition,
                         temp = point.temperatureC,
                         cloudCoverPct = point.cloudCoverPercent,
+                        estimatedSunHours = point.estimatedSunHours,
                         precipProbabilityPct = point.precipitationPercent,
                         forecastConfidencePct = point.consensusPercent
                             ?: forecastConfidence.hourlyByTimestamp[ts],
@@ -628,6 +631,7 @@ internal fun buildForecasts(
                         condition = point.condition,
                         temp = point.tempMaxC,
                         cloudCoverPct = point.cloudCoverPercent,
+                        estimatedSunHours = point.estimatedSunHours,
                         precipProbabilityPct = point.precipitationPercent,
                         forecastConfidencePct = point.consensusPercent
                             ?: forecastConfidence.dailyByDate[date],

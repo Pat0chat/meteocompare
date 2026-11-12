@@ -369,6 +369,19 @@ class MeteoWidgetConfigActivityTest {
     }
 
     @Test
+    fun large_spacing_is_available_and_persists_after_reopening_configuration() {
+        reopenSavedWidget()
+        composeRule.onNodeWithTag("${TAG_WIDGET_SPACING}LARGE").performScrollTo().performClick()
+        assertEquals(savedConfiguration, WidgetConfiguration.fromPreferences(readPreferences(widgetId)))
+        composeRule.onNodeWithTag(TAG_WIDGET_SAVE).performScrollTo().performClick()
+        composeRule.waitUntil(timeoutMillis = 10_000) { scenario.state == Lifecycle.State.DESTROYED }
+        assertEquals(WidgetContentSpacing.LARGE,
+            WidgetConfiguration.fromPreferences(readPreferences(widgetId)).contentSpacing)
+        launchConfiguration(widgetId)
+        composeRule.onNodeWithTag("${TAG_WIDGET_SPACING}LARGE").performScrollTo().assertIsSelected()
+    }
+
+    @Test
     fun cancel_keeps_previously_saved_configuration() {
         reopenSavedWidget()
         composeRule.onNodeWithTag("$TAG_WIDGET_CITY${TestFixtures.paris.id}").performClick()

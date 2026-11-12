@@ -43,7 +43,8 @@ internal fun miniForecastChartHeightDp(
     headerHeightDp: Float,
     sectionGapDp: Float,
     profile: MiniForecastSizeProfile,
-    rootVerticalPaddingDp: Float = forecastContainerVerticalPaddingDp(widgetHeightDp)
+    rootVerticalPaddingDp: Float = forecastContainerVerticalPaddingDp(widgetHeightDp),
+    footerHeightDp: Float = 0f
 ): Int {
     val widgetPadding = rootVerticalPaddingDp * 2f
     val chartContainerPadding = miniForecastContainerVerticalPaddingDp(profile) * 2f
@@ -54,8 +55,11 @@ internal fun miniForecastChartHeightDp(
         MiniForecastSizeProfile.MEDIUM_3X2 -> 3f
         MiniForecastSizeProfile.EXPANDED_4X2 -> 6f
     }
+    // Aucun crédit n'occupe la zone widget. Seul le raccourci facultatif
+    // « Ma position » est à déduire, si présent.
     val available = widgetHeightDp -
         widgetPadding -
+        footerHeightDp -
         headerHeightDp -
         sectionGapDp -
         chartContainerPadding -

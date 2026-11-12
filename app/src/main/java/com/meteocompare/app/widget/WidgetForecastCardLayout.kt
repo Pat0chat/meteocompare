@@ -17,18 +17,153 @@ internal enum class ForecastCardHeightProfile {
     EXPANDED
 }
 
+/** Ordre des quatre métriques : commun aux cinq heures et aux cinq jours. */
+internal enum class WidgetForecastMetric { CLOUD, RAIN, SUNSHINE, CONVERGENCE }
+
+internal fun forecastVisibleMetrics(
+    cloud: Int?, rain: Int?, sunshineHours: Double?, confidence: Int?
+): List<WidgetForecastMetric> = buildList {
+    if (cloud != null) add(WidgetForecastMetric.CLOUD)
+    if (rain != null) add(WidgetForecastMetric.RAIN)
+    if (sunshineHours?.isFinite() == true && sunshineHours in 0.0..24.0) add(WidgetForecastMetric.SUNSHINE)
+    if (confidence != null) add(WidgetForecastMetric.CONVERGENCE)
+}
+
 /**
- * L'information de convergence ajoute une seconde ligne sous la probabilité de
- * pluie. Elle n'est affichée que lorsque la hauteur utile garantit qu'aucune
- * icône, température ou métrique ne sera comprimée.
+ * Échelle réelle des quatre indicateurs de prévision. Les icônes sont des
+ * glyphes, mais leur taille reste indépendante de la valeur chiffrée.
+ * Le budget tient compte du libellé, de l'icône météo, de la température
+ * et des paddings de la carte avant de répartir le reste sur les métriques.
  */
-internal fun shouldShowForecastCardConfidence(
-    profile: ForecastCardHeightProfile
-): Boolean = when (profile) {
-    ForecastCardHeightProfile.DENSE,
-    ForecastCardHeightProfile.COMPACT -> false
-    ForecastCardHeightProfile.COMFORTABLE,
-    ForecastCardHeightProfile.EXPANDED -> true
+internal data class ForecastMetricLayout(
+    val visible: List<WidgetForecastMetric>,
+    val textSp: Float,
+    val iconSp: Float
+)
+
+private fun forecastCardFixedContentHeightDp(profile: ForecastCardHeightProfile): Float = when (profile) {
+    ForecastCardHeightProfile.DENSE -> 36f
+    ForecastCardHeightProfile.COMPACT -> 50f
+    ForecastCardHeightProfile.COMFORTABLE -> 64f
+    ForecastCardHeightProfile.EXPANDED -> 76f
+}
+
+internal fun forecastMetricLayout(
+    availableCardHeightDp: Float,
+    profile: ForecastCardHeightProfile,
+    metrics: List<WidgetForecastMetric>
+): ForecastMetricLayout {
+    // Réserve prudente : en-tête, grand pictogramme météo et température.
+    val fixedContentDp = forecastCardFixedContentHeightDp(profile)
+    val availableForMetrics = (availableCardHeightDp - fixedContentDp).coerceAtLeast(0f)
+    val rowCapacity = (availableForMetrics / 7f).toInt().coerceIn(0, 4)
+    // Lorsque tout ne rentre pas, éviter les lignes tronquées. La pluie garde
+    // une priorité élevée, sans changer l'ordre canonique des lignes retenues.
+    val priority = listOf(
+        WidgetForecastMetric.RAIN,
+        WidgetForecastMetric.CLOUD,
+        WidgetForecastMetric.CONVERGENCE,
+        WidgetForecastMetric.SUNSHINE
+    )
+    val selected = if (metrics.size <= rowCapacity) metrics else {
+        val kept = priority.filter { it in metrics }.take(rowCapacity).toSet()
+        metrics.filter { it in kept }
+    }
+    val valueSp = if (selected.isEmpty()) 5.5f else
+        (availableForMetrics / selected.size / 1.28f).coerceIn(5.5f, 10f)
+    return ForecastMetricLayout(
+        visible = selected,
+        textSp = valueSp,
+        iconSp = (valueSp + 1.1f).coerceAtMost(11.1f)
+    )
+}
+
+/**
+ * Ne pas changer pour un profil plus haut si ses grandes icônes laisseraient
+ * moins de place aux indicateurs que dans le profil précédent. Le resize
+ * Nova ne doit pas faire DISPARAÎTRE une ligne lorsque le widget grandit.
+ */
+internal fun forecastFittingCardProfile(
+    heightDp: Float,
+    requested: ForecastCardHeightProfile,
+    metricCount: Int
+): ForecastCardHeightProfile {
+    val candidates = ForecastCardHeightProfile.entries.take(requested.ordinal + 1).asReversed()
+    val requiredRows = metricCount.coerceIn(0, 4) * 7f
+    return candidates.firstOrNull { candidate ->
+        heightDp >= forecastCardFixedContentHeightDp(candidate) + requiredRows
+    } ?: ForecastCardHeightProfile.DENSE
+}
+
+/**
+ * Les marges supplémentaires ne doivent pas activer une variante « grande »
+ * qui n'a physiquement plus de place pour son en-tête. Les marges normales
+ * conservent les seuils historiques, afin de ne pas dégrader les widgets
+ * installés ; la marge grande peut retarder une transition.
+ */
+internal fun forecastEffectiveHeightForTransitions(
+    widgetHeightDp: Float,
+    appliedVerticalInsetDp: Float,
+    normalVerticalInsetDp: Float
+): Float = (widgetHeightDp - 2f * (appliedVerticalInsetDp - normalVerticalInsetDp)
+    .coerceAtLeast(0f)).coerceAtLeast(0f)
+
+/** Un petit widget peut rester sur deux niveaux si le bandeau supérieur est simplifié. */
+internal fun compactForecastHeader(widgetHeightDp: Float): Boolean = widgetHeightDp < 152f
+
+
+/** 36 dp de contenu fixe + quatre lignes de 7 dp, au minimum. */
+internal const val MIN_FOUR_METRIC_CARD_HEIGHT_DP = 64f
+
+internal data class CompactTallHeaderLayout(
+    val compact: Boolean,
+    val showPanelHeader: Boolean,
+    val headerBudgetDp: Float,
+    val sectionGapDp: Float
+)
+
+/**
+ * Transition des widgets 2×2 : n'agrandir le bandeau actuel ou l'en-tête
+ * « heures / jours » que si les quatre métriques restent lisibles en bas.
+ * Sans ce garde-fou, la largeur Nova suffisait mais deux transitions à
+ * 152/165 dp RETIRAIENT une ligne alors que la taille totale augmentait.
+ */
+internal fun compactTallHeaderLayout(
+    widgetHeightDp: Float,
+    rootVerticalInsetDp: Float,
+    narrow: Boolean,
+    showCurrentConditions: Boolean,
+    footerHeightDp: Float = 0f
+): CompactTallHeaderLayout {
+    val effective = forecastEffectiveHeightForTransitions(
+        (widgetHeightDp - footerHeightDp).coerceAtLeast(0f),
+        rootVerticalInsetDp,
+        forecastContainerVerticalPaddingDp(widgetHeightDp)
+    )
+    val fullHeaderBudget = if (showCurrentConditions) compactTallHeaderHeightBudgetDp(narrow) else 0f
+    val fullSectionGap = if (showCurrentConditions) 6f else 0f
+    val fullHeight = forecastBottomStripAvailableHeightDp(
+        widgetHeightDp, fullHeaderBudget, fullSectionGap, rootVerticalInsetDp, footerHeightDp
+    )
+    val compact = showCurrentConditions && (
+        compactForecastHeader(effective) || fullHeight < MIN_FOUR_METRIC_CARD_HEIGHT_DP
+    )
+    val headerBudget = if (!showCurrentConditions) 0f else if (compact) 27f else fullHeaderBudget
+    val gap = if (!showCurrentConditions) 0f else if (compact) 2f else fullSectionGap
+    val availableWithPanel = forecastBottomStripAvailableHeightDp(
+        widgetHeightDp,
+        headerBudget + forecastPanelHeaderHeightDp(showHeader = true, compact = true),
+        gap,
+        rootVerticalInsetDp,
+        footerHeightDp
+    )
+    return CompactTallHeaderLayout(
+        compact = compact,
+        showPanelHeader = !narrow && effective >= 165f &&
+            availableWithPanel >= MIN_FOUR_METRIC_CARD_HEIGHT_DP,
+        headerBudgetDp = headerBudget,
+        sectionGapDp = gap
+    )
 }
 
 /**
@@ -140,10 +275,10 @@ internal fun inlineForecastItemCount(widthDp: Float): Int = when {
 /** Padding vertical partagé par les layouts hauts et leurs contenus adaptatifs. */
 internal fun forecastContainerVerticalPaddingDp(heightDp: Float): Float =
     when {
-        heightDp < 145f -> 7f
-        heightDp < 175f -> 9f
-        heightDp < 215f -> 11f
-        else -> 13f
+        heightDp < 145f -> 5f
+        heightDp < 175f -> 7f
+        heightDp < 215f -> 9f
+        else -> 10f
     }
 
 /**
@@ -208,13 +343,20 @@ internal fun shouldShowForecastPanelHeader(
  * les paddings racine. Cela évite que des cartes « expanded » soient dessinées
  * dans une zone basse qui ne dispose en réalité que de 70–90 dp.
  */
+/** Hauteur réservée à l'action de localisation, sans attribution météo. */
+internal fun locationRefreshFooterHeightDp(showLocationRefresh: Boolean): Float =
+    if (showLocationRefresh) 16f else 0f
+
 internal fun forecastBottomStripAvailableHeightDp(
     widgetHeightDp: Float,
     headerHeightDp: Float,
     sectionGapDp: Float,
-    rootVerticalPaddingDp: Float = forecastContainerVerticalPaddingDp(widgetHeightDp)
+    rootVerticalPaddingDp: Float = forecastContainerVerticalPaddingDp(widgetHeightDp),
+    footerHeightDp: Float = 0f
 ): Float {
     val rootPadding = rootVerticalPaddingDp * 2f
+    // L'attribution est dans l'app, hors widget. Seul le raccourci de
+    // rafraîchissement « Ma position » peut encore occuper le pied de widget.
     val hostRoundingSafety = when {
         widgetHeightDp < 150f -> 3f
         widgetHeightDp < 190f -> 4f
@@ -225,6 +367,7 @@ internal fun forecastBottomStripAvailableHeightDp(
             rootPadding -
             headerHeightDp -
             sectionGapDp -
+            footerHeightDp -
             hostRoundingSafety
         ).coerceAtLeast(1f)
 }

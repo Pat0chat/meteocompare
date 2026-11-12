@@ -95,8 +95,6 @@
     <string name="open_meteo_attribution">Daten: Open-Meteo · CC BY 4.0 · von MeteoCompare aggregiert und verarbeitet</string>
     <string name="open_meteo_attribution_open">Open-Meteo-Lizenz öffnen</string>
     <string name="open_meteo_link_label">Open-Meteo-Lizenz</string>
-    <string name="widget_open_meteo_attribution">Open-Meteo · CC BY 4.0</string>
-    <string name="widget_open_meteo_attribution_short">Open-Meteo</string>
     <string name="settings_about_models_credit">Modelle: AROME und ARPEGE von Météo-France, ICON vom DWD, GFS, HRRR und AIGFS von NOAA, ECMWF und AIFS vom Europäischen Zentrum, UKMO vom UK Met Office, GEM von Environment Canada, GSM von JMA, MET Nordic von MET Norway, HARMONIE von KNMI und DMI, ICON-CH von MeteoSwiss, ACCESS vom Bureau of Meteorology (Australien), GRAPES von CMA (China).</string>
     <string name="settings_bias_refresh_title">Bias-Verfolgung</string>
     <string name="settings_bias_refresh_desc">Lädt bis zu 3 Wochen D+1-Verlauf für die lokale Zuverlässigkeit. Modelle ohne Archiv kalibrieren sich schrittweise.</string>
@@ -278,7 +276,7 @@ Daten</string>
     <string name="metric_calc_temperature">Die Modelle werden nach Familien gewichtet, Ausreißer zählen weniger. Die gewählte Methode kann diesen Ausgangswert anpassen.</string>
     <string name="metric_calc_wind">Tägliche Höchstwerte für Wind (oder Böen) werden nach Modellfamilien gewichtet. Die Methode kann diesen Ausgangswert anpassen.</string>
     <string name="metric_calc_rain_method">Jedes Modell zählt entsprechend seinem Gewicht. Ohne eigene Wahrscheinlichkeit ist pᵢ bei über 0,1 mm gleich 1, sonst 0. Die Methode kann das Risiko anschließend kalibrieren.</string>
-    <string name="metric_calc_rain_rule">P &lt; 50 % → 0 mm; P ≥ 50 % → Menge bei Regen. Entscheidung vor dem Runden.</string>
+    <string name="metric_calc_rain_rule" formatted="false">P &lt; 50 % → 0 mm; P ≥ 50 % → Menge bei Regen. Entscheidung vor dem Runden.</string>
     <string name="metric_calc_rain_probability">Regenrisiko</string>
     <string name="metric_calc_rain_wet_models">Nasse Modelle</string>
     <string name="metric_calc_rain_expected">Wahrscheinlichkeitsgewichtete Menge: %1$s (Risiko × Menge bei Regen)</string>

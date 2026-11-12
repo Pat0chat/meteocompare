@@ -347,7 +347,8 @@ class WidgetMiniForecastRendererTest {
         ) * 2f
         val sectionGap = 10f
         val roundingSafety = 6f
-        val available = widgetHeight - rootPadding - header - chartPadding - sectionGap - roundingSafety
+        val available = widgetHeight - rootPadding - header -
+            chartPadding - sectionGap - roundingSafety
 
         val chart = miniForecastChartHeightDp(
             widgetHeightDp = widgetHeight,
@@ -357,6 +358,20 @@ class WidgetMiniForecastRendererTest {
         )
 
         assertTrue("Le bitmap $chart dp dépasse le budget $available dp", chart <= available + 0.5f)
+    }
+
+    @Test
+    fun `mini forecast recovers space without credit but reserves location action`() {
+        val normal = miniForecastChartHeightDp(
+            180f, 46f, 7f, MiniForecastSizeProfile.MEDIUM_3X2
+        )
+        val withRefresh = miniForecastChartHeightDp(
+            180f, 46f, 7f, MiniForecastSizeProfile.MEDIUM_3X2,
+            footerHeightDp = locationRefreshFooterHeightDp(true)
+        )
+        assertEquals(0f, locationRefreshFooterHeightDp(false))
+        assertEquals(16f, locationRefreshFooterHeightDp(true))
+        assertEquals(16, normal - withRefresh)
     }
 
     @Test

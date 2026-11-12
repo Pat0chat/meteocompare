@@ -744,6 +744,7 @@ private fun WidgetConfigForm(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             listOf(
+                WidgetContentSpacing.LARGE to R.string.widget_spacing_large,
                 WidgetContentSpacing.NORMAL to R.string.widget_spacing_normal,
                 WidgetContentSpacing.COMPACT to R.string.widget_spacing_compact,
                 WidgetContentSpacing.NONE to R.string.widget_spacing_none
@@ -1128,6 +1129,7 @@ private fun OpacityPreview(
                     fontWeight = FontWeight.Medium
                 )
                 val spacingLabel = when (contentSpacing) {
+                    WidgetContentSpacing.LARGE -> R.string.widget_spacing_large
                     WidgetContentSpacing.NONE -> R.string.widget_spacing_none
                     WidgetContentSpacing.COMPACT -> R.string.widget_spacing_compact
                     WidgetContentSpacing.NORMAL -> R.string.widget_spacing_normal

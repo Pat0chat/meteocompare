@@ -64,6 +64,7 @@
     <string name="widget_corner_custom">Personalizado</string>
     <string name="widget_corner_radius">Radio: %1$d dp</string>
     <string name="widget_config_spacing">Espacio interior</string>
+    <string name="widget_spacing_large">Amplio</string>
     <string name="widget_spacing_normal">Normal</string>
     <string name="widget_spacing_compact">Compacto</string>
     <string name="widget_spacing_none">Ninguno</string>
@@ -78,4 +79,7 @@
     <string name="widget_opacity_manual_label">Valor</string>
     <string name="widget_config_show_current_conditions">Mostrar las condiciones actuales</string>
     <string name="widget_config_show_current_conditions_note">Desactiva esta opción para ocultar el tiempo actual en la parte superior de los widgets de dos filas o más. Los widgets pequeños lo seguirán mostrando.</string>
+    <string name="widget_sun_minutes_short">%1$d min</string>
+    <string name="widget_sun_hours_short">%1$s h</string>
+    <string name="widget_forecast_convergence_compact">C %1$d%%</string>
 </resources>

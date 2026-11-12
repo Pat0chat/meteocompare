@@ -64,6 +64,7 @@
     <string name="widget_corner_custom">Personalizzato</string>
     <string name="widget_corner_radius">Raggio: %1$d dp</string>
     <string name="widget_config_spacing">Spaziatura interna</string>
+    <string name="widget_spacing_large">Ampia</string>
     <string name="widget_spacing_normal">Normale</string>
     <string name="widget_spacing_compact">Compatta</string>
     <string name="widget_spacing_none">Nessuna</string>
@@ -78,4 +79,7 @@
     <string name="widget_opacity_manual_label">Valore</string>
     <string name="widget_config_show_current_conditions">Mostra le condizioni attuali</string>
     <string name="widget_config_show_current_conditions_note">Disattiva per nascondere il meteo attuale nella parte superiore dei widget con due righe o più. I widget piccoli continueranno a mostrarlo.</string>
+    <string name="widget_sun_minutes_short">%1$d min</string>
+    <string name="widget_sun_hours_short">%1$s h</string>
+    <string name="widget_forecast_convergence_compact">C %1$d%%</string>
 </resources>

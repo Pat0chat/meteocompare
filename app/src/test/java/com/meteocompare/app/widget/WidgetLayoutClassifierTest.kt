@@ -100,4 +100,13 @@ class WidgetLayoutClassifierTest {
             )
         }
     }
+    @Test
+    fun `nova height changes retain the lower forecast as room becomes available`() {
+        assertEquals(WidgetLayoutKind.LARGE, classifyWidgetLayout(340f, 119f))
+        assertEquals(WidgetLayoutKind.EXTRA_LARGE, classifyWidgetLayout(340f, 120f))
+        assertEquals(WidgetLayoutKind.EXTRA_LARGE, classifyWidgetLayout(340f, 160f))
+        assertEquals(WidgetLayoutKind.SMALL, classifyWidgetLayout(175f, 119f))
+        assertEquals(WidgetLayoutKind.COMPACT_TALL, classifyWidgetLayout(175f, 120f))
+    }
+
 }

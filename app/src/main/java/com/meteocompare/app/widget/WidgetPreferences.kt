@@ -119,7 +119,7 @@ internal enum class WidgetCornerStyle {
 }
 
 internal enum class WidgetContentSpacing {
-    NORMAL, COMPACT, NONE;
+    LARGE, NORMAL, COMPACT, NONE;
 
     companion object {
         fun fromStored(value: String?): WidgetContentSpacing =

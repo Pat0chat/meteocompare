@@ -95,8 +95,6 @@
     <string name="open_meteo_attribution">Datos: Open-Meteo · CC BY 4.0 · agregados y transformados por MeteoCompare</string>
     <string name="open_meteo_attribution_open">Abrir la licencia de Open-Meteo</string>
     <string name="open_meteo_link_label">Licencia de Open-Meteo</string>
-    <string name="widget_open_meteo_attribution">Open-Meteo · CC BY 4.0</string>
-    <string name="widget_open_meteo_attribution_short">Open-Meteo</string>
     <string name="settings_about_models_credit">Modelos: AROME y ARPEGE de Météo-France, ICON de DWD, GFS, HRRR y AIGFS de NOAA, ECMWF y AIFS del Centro Europeo, UKMO del UK Met Office, GEM de Environment Canada, GSM de JMA, MET Nordic de MET Norway, HARMONIE de KNMI y DMI, ICON-CH de MeteoSwiss, ACCESS del Bureau of Meteorology (Australia) y GRAPES de CMA (China).</string>
     <string name="settings_bias_refresh_title">Seguimiento del sesgo</string>
     <string name="settings_bias_refresh_desc">Obtiene hasta 3 semanas de historial D+1 para iniciar la fiabilidad local. Los modelos sin archivo se calibran progresivamente.</string>
@@ -278,7 +276,7 @@ datos</string>
     <string name="metric_calc_temperature">Los modelos se ponderan por familias y se reduce el peso de los valores extremos. El motor elegido puede ajustar esta base.</string>
     <string name="metric_calc_wind">Se combinan los máximos diarios de viento (o rachas), equilibrando el peso de las familias. El motor puede ajustar esta base.</string>
     <string name="metric_calc_rain_method">Cada modelo contribuye según su peso. Sin probabilidad nativa, pᵢ vale 1 si el acumulado supera 0,1 mm; si no, 0. El motor puede calibrar el riesgo después.</string>
-    <string name="metric_calc_rain_rule">P &lt; 50 % → 0 mm; P ≥ 50 % → cantidad si llueve. Se decide antes de redondear.</string>
+    <string name="metric_calc_rain_rule" formatted="false">P &lt; 50 % → 0 mm; P ≥ 50 % → cantidad si llueve. Se decide antes de redondear.</string>
     <string name="metric_calc_rain_probability">Riesgo de lluvia</string>
     <string name="metric_calc_rain_wet_models">Modelos lluviosos</string>
     <string name="metric_calc_rain_expected">Cantidad media probabilizada: %1$s (riesgo × cantidad si llueve)</string>

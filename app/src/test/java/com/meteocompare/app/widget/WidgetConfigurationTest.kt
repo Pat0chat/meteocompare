@@ -151,6 +151,22 @@ class WidgetConfigurationTest {
         assertEquals(20L, prefs[WidgetPreferences.LastDispatchAtKey])
     }
 
+    @Test fun large_spacing_round_trips_without_modifying_forecast_or_refresh_state() {
+        val prefs = preferencesOf(
+            WidgetPreferences.RefreshTickKey to 57L,
+            WidgetPreferences.LastDispatchAtKey to 91L
+        ).toMutablePreferences()
+        val configuration = WidgetConfiguration(
+            contentSpacing = WidgetContentSpacing.LARGE,
+            forecastMode = ForecastMode.DAILY,
+            showCurrentConditions = false
+        )
+        configuration.writeTo(prefs)
+        assertEquals(configuration, WidgetConfiguration.fromPreferences(prefs))
+        assertEquals(57L, prefs[WidgetPreferences.RefreshTickKey])
+        assertEquals(91L, prefs[WidgetPreferences.LastDispatchAtKey])
+    }
+
     @Test fun invalid_persisted_shape_settings_use_safe_defaults() {
         val corrupted = WidgetConfiguration.fromPreferences(preferencesOf(
             WidgetPreferences.CornerStyleKey to "UNKNOWN",

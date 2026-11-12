@@ -5,7 +5,7 @@ internal const val TINY_MAX_HEIGHT_DP = 105
 internal const val SMALL_MAX_WIDTH_DP = 210
 internal const val MEDIUM_MAX_WIDTH_DP = 320
 internal const val WIDE_MIN_WIDTH_DP = 380
-internal const val EXTRA_LARGE_MIN_HEIGHT_DP = 130
+internal const val EXTRA_LARGE_MIN_HEIGHT_DP = 120
 internal const val EXTRA_LARGE_MIN_WIDTH_DP = 220
 internal const val COMPACT_TALL_MIN_WIDTH_DP = 100
 

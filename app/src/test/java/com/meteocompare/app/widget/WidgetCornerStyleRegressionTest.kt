@@ -14,6 +14,7 @@ class WidgetCornerStyleRegressionTest {
         assertEquals(WidgetCornerStyle.CUSTOM, WidgetCornerStyle.fromStored("CUSTOM"))
         assertEquals(WidgetContentSpacing.NORMAL, WidgetContentSpacing.fromStored(null))
         assertEquals(WidgetContentSpacing.NONE, WidgetContentSpacing.fromStored("NONE"))
+        assertEquals(WidgetContentSpacing.LARGE, WidgetContentSpacing.fromStored("LARGE"))
     }
 
     @Test fun all_shapes_are_full_bleed_and_use_a_bounded_corner_radius() {
@@ -32,6 +33,7 @@ class WidgetCornerStyleRegressionTest {
     }
 
     @Test fun spacing_changes_only_internal_padding_never_outer_margin() {
+        assertEquals(24.dp to 18.dp, widgetContentPadding(16.dp, 12.dp, WidgetContentSpacing.LARGE))
         assertEquals(16.dp to 12.dp, widgetContentPadding(16.dp, 12.dp, WidgetContentSpacing.NORMAL))
         assertEquals(8.dp to 6.dp, widgetContentPadding(16.dp, 12.dp, WidgetContentSpacing.COMPACT))
         assertEquals(0.dp to 0.dp, widgetContentPadding(16.dp, 12.dp, WidgetContentSpacing.NONE))

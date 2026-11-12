@@ -48,6 +48,7 @@ internal fun widgetContentPadding(
     verticalPadding: Dp,
     spacing: WidgetContentSpacing
 ): Pair<Dp, Dp> = when (spacing) {
+    WidgetContentSpacing.LARGE -> (horizontalPadding.value * 1.5f).dp to (verticalPadding.value * 1.5f).dp
     WidgetContentSpacing.NORMAL -> horizontalPadding to verticalPadding
     WidgetContentSpacing.COMPACT -> (horizontalPadding.value / 2f).dp to (verticalPadding.value / 2f).dp
     WidgetContentSpacing.NONE -> 0.dp to 0.dp
