@@ -29,6 +29,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -122,6 +124,19 @@ internal fun TodayCloudLayersCard(
     }
 
     if (open) {
+        val detailScrollState = rememberScrollState()
+        // Revealing the optional explanation can place its text beyond the
+        // constrained dialog viewport. Scroll after the new content is laid out
+        // so it is readable (and exposed to accessibility/Compose UI tests).
+        LaunchedEffect(showExplanation) {
+            if (showExplanation) {
+                // Wait through the next layout pass before reading the new
+                // scroll extent; an immediate read may use the collapsed size.
+                withFrameNanos { }
+                withFrameNanos { }
+                detailScrollState.scrollTo(detailScrollState.maxValue)
+            }
+        }
         AlertDialog(
             onDismissRequest = { open = false },
             modifier = Modifier.testTag(TAG_TODAY_CLOUD_DIALOG),
@@ -137,7 +152,7 @@ internal fun TodayCloudLayersCard(
             text = {
                 Column(
                     modifier = Modifier.fillMaxWidth().heightIn(max = 520.dp)
-                        .verticalScroll(rememberScrollState()),
+                        .verticalScroll(detailScrollState),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     CloudLayerHourlyChart(hours, names, colors, selectedHour, zone, formatter)

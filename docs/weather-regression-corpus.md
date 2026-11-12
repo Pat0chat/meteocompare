@@ -108,3 +108,7 @@ biais de prévision. En particulier, restent nécessaires :
 Les jeux de cas déterministes protègent des **régressions de contrat** ; ils
 ne remplacent pas les données d'observation nécessaires pour évaluer la
 qualité scientifique des prévisions.
+
+## Résultats dans GitHub Actions
+
+Les comptages de méthodes unitaires, AndroidTests et scénarios du corpus sont publiés automatiquement dans le **rapport consolidé** de chaque workflow. Voir [Rapport CI](ci-test-report.md) pour les détails et la distinction scénarios/méthodes.

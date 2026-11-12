@@ -27,12 +27,19 @@ jobs:
       - name: Validate all Python checks (no pytest required)
         run: |
           set -euo pipefail
-          python3 -m unittest discover -s scripts/tests -p 'test_*.py' -v
+          python3 -m unittest discover -s scripts/tests -p 'test_*.py' -v 2>&1 | tee python-test-output.log
           python3 scripts/validate-compose-previews.py
           python3 scripts/check_android_strings.py
           python3 scripts/test-summary-dialog-copy.py
           python3 scripts/verify_atmospheric_localizations.py
           bash scripts/validate-fdroid-metadata.sh
+      - name: Preserve Python test counts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-python-test-log
+          path: python-test-output.log
+          if-no-files-found: warn
 
   android-jvm:
     name: JVM tests, lint and androidTest compilation
@@ -57,6 +64,17 @@ jobs:
         run: |
           chmod +x ./gradlew
           ./gradlew --no-daemon :app:testDebugUnitTest :app:testReleaseUnitTest :app:assembleDebugAndroidTest :app:lintDebug :app:assembleDebug
+      - name: Show JVM and corpus test counts
+        if: always()
+        run: |
+          python3 scripts/report_test_results.py --summary "$GITHUB_STEP_SUMMARY"
+      - name: Preserve JUnit XML for consolidated report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-unit-test-results
+          path: app/build/test-results/
+          if-no-files-found: warn
 
   android-device:
     name: Run androidTest on API 35 emulator
@@ -103,3 +121,46 @@ jobs:
             app/build/reports/androidTests/
             app/build/outputs/androidTest-results/
           if-no-files-found: warn
+
+  test-report:
+    name: Consolidated test report (unit, Android and corpus)
+    needs: [python, android-jvm, android-device]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download JVM unit-test XML
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: quality-unit-test-results
+          path: ci-artifacts/unit
+      - name: Download device-test XML
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: androidTest-reports
+          path: ci-artifacts/android
+      - name: Download Python test log
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: quality-python-test-log
+          path: ci-artifacts/python
+      - name: Publish consolidated test totals and corpus scenarios
+        run: |
+          python3 scripts/report_test_results.py \
+            --debug ci-artifacts/unit/testDebugUnitTest \
+            --release ci-artifacts/unit/testReleaseUnitTest \
+            --android ci-artifacts/android/outputs/androidTest-results/connected \
+            --python-log ci-artifacts/python/python-test-output.log \
+            --summary "$GITHUB_STEP_SUMMARY" \
+            --markdown ci-test-summary.md \
+            --json ci-test-summary.json
+      - name: Export machine-readable and Markdown reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-consolidated-test-report
+          path: |
+            ci-test-summary.md
+            ci-test-summary.json

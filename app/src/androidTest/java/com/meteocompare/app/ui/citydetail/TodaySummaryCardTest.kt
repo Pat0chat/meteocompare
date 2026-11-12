@@ -123,11 +123,13 @@ class TodaySummaryCardTest {
         composeRule.onNodeWithText(context.getString(R.string.summary_cloud_layers_not_sum),
             useUnmergedTree = true).assertExists()
         composeRule.onNodeWithTag("today_cloud_explanation_toggle", useUnmergedTree = true)
-            .performClick()
-        // The explanation may be translated differently from the test runner's
-        // locale. Verify the expanded content by a stable semantic identifier.
+            .assertExists().performClick()
+        // The expanded content is below the scrolling dialog's initial viewport.
+        // Wait for the post-layout scroll and verify that the text is visible,
+        // rather than matching a language-dependent sentence.
+        composeRule.waitForIdle()
         composeRule.onNodeWithTag("today_cloud_veil_explanation", useUnmergedTree = true)
-            .assertExists()
+            .assertExists().assertIsDisplayed()
         composeRule.onNodeWithTag("today_cloud_hour_1", useUnmergedTree = true)
             .assertExists().performClick()
         composeRule.onNodeWithText(context.getString(R.string.summary_cloud_layers_models),

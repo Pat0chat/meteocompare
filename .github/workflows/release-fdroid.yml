@@ -156,7 +156,15 @@ jobs:
           python3 scripts/check_android_strings.py
           python3 scripts/verify_atmospheric_localizations.py
           scripts/validate-fdroid-metadata.sh
-          python3 -m unittest discover -s scripts/tests -p 'test_*.py' -v
+          python3 -m unittest discover -s scripts/tests -p 'test_*.py' -v 2>&1 | tee python-test-output.log
+
+      - name: Preserve release Python test counts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-python-test-log
+          path: python-test-output.log
+          if-no-files-found: warn
 
       # IMPORTANT :
       # On NE fournit AUCUN secret de signature à Gradle.
@@ -188,6 +196,19 @@ jobs:
             :app:lintDebug \
             :app:assembleRelease \
             :app:bundleRelease
+
+      - name: Show JVM and corpus test counts
+        if: always()
+        run: |
+          python3 scripts/report_test_results.py --python-log python-test-output.log --summary "$GITHUB_STEP_SUMMARY"
+
+      - name: Preserve release unit-test XML
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-unit-test-results
+          path: app/build/test-results/
+          if-no-files-found: warn
 
       - name: Verify Android 16 KiB page-size compatibility
         shell: bash
@@ -475,3 +496,46 @@ jobs:
               "${NOTE_ARGS[@]}" \
               --title "$TAG"
           fi
+
+  test-report:
+    name: Release validation — consolidated test report
+    needs: [android-device-gate, build-apk]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download release unit-test XML
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: release-unit-test-results
+          path: ci-artifacts/unit
+      - name: Download release instrumentation XML
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: release-androidTest-reports
+          path: ci-artifacts/android
+      - name: Download release Python test log
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: release-python-test-log
+          path: ci-artifacts/python
+      - name: Publish release test counts and verified corpus scenarios
+        run: |
+          python3 scripts/report_test_results.py \
+            --debug ci-artifacts/unit/testDebugUnitTest \
+            --release ci-artifacts/unit/testReleaseUnitTest \
+            --android ci-artifacts/android/outputs/androidTest-results/connected \
+            --python-log ci-artifacts/python/python-test-output.log \
+            --summary "$GITHUB_STEP_SUMMARY" \
+            --markdown ci-test-summary.md \
+            --json ci-test-summary.json
+      - name: Preserve release test summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-consolidated-test-report
+          path: |
+            ci-test-summary.md
+            ci-test-summary.json
