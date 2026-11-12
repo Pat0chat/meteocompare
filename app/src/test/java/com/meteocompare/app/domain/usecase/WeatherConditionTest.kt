@@ -206,11 +206,10 @@ class WeatherConditionTest {
     }
 
     @Test
-    fun `currentWeatherCondition breaks ties towards the more severe condition`() {
-        // Pour forcer une vraie égalité de poids, on injecte un calculateur
-        // avec EqualWeighting → chaque modèle pèse 1.0. Au premier niveau de
-        // la hiérarchie, NON_PRECIPITATION et PRECIPITATION sont à égalité ;
-        // le tie-break prudent retient alors la branche précipitation.
+    fun `currentWeatherCondition returns null on a dry wet tie`() {
+        // Avec EqualWeighting, les deux familles météorologiques pèsent autant.
+        // Aucune condition n'est dominante : sélectionner la pluie par sévérité
+        // créerait le biais corrigé pour la v1.22.0. Le risque reste indépendant.
         val equalCalc = ConfidenceCalculator(EqualWeighting())
         val now = Instant.parse("2026-09-03T12:00:00Z")
         val forecast = CityForecast(
@@ -220,7 +219,7 @@ class WeatherConditionTest {
                 WeatherModel.ARPEGE_EUROPE to seriesWithWeatherCode(now, code = 61) // RAIN
             )
         )
-        assertEquals(WeatherCondition.RAIN, equalCalc.currentWeatherCondition(forecast, now))
+        assertNull(equalCalc.currentWeatherCondition(forecast, now))
     }
 
     @Test
