@@ -1,0 +1,1 @@
+Conditions quotidiennes mieux représentatives et vues jour/nuit. Explications pluie, vent et température plus claires dans Today Summary. Widgets mieux adaptés aux tailles, nouvelle marge grande et indicateurs lisibles. Double axe temporel dans Chart View, direction du vent corrigée et correctifs de stabilité.

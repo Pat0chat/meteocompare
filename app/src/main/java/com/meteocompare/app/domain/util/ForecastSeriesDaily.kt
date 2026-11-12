@@ -178,6 +178,14 @@ internal fun ForecastSeries.resolveDailyCondition(
                 return DailyConditionResolution(result, provenance)
             }
     }
+    // Une famille sèche/pluvieuse est mathématiquement majoritaire, mais les
+    // échantillons sont séparés par de grandes lacunes. On refuse de déduire
+    // une feuille WMO précise de ces fragments. Surtout, ne pas revenir au
+    // WMO daily qui pourrait annoncer la famille OPPOSÉE : par exemple,
+    // 19 h sèches malgré une lacune de 5 h et un daily « pluie ».
+    // Les épisodes horaires restent disponibles dans la chronologie.
+    if (hasStableMajority && !noInternalGaps) return null
+
     // Quand les heures couvrent réellement toute la période MAIS ne dégagent
     // aucune majorité stable (égalité sec/humide, par exemple), le code daily
     // peut seulement représenter le phénomène le plus sévère. Le restituer

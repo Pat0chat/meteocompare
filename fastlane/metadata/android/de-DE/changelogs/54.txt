@@ -1,0 +1,1 @@
+Repräsentativere Tagesbedingungen und getrennte Tag-/Nachtprognosen. Verständlichere Erklärungen zu Regen, Wind und Temperatur. Widgets passen sich besser an, mit großem Rand und besser lesbaren Angaben. Zwei synchronisierte Zeitachsen in Chart View, verbesserte Windrichtung und Stabilitätskorrekturen.

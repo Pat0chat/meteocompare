@@ -44,7 +44,7 @@ class WeatherConditionConsensusTest {
     }
 
     @Test
-    fun `egalite ciel sec pluie reste prudente et choisit pluie`() {
+    fun `egalite ciel sec pluie ne cree plus de dominante humide artificielle`() {
         val entries = listOf(
             ForecastConsensus.Entry(WeatherModel.GFS, WeatherCondition.CLEAR),
             ForecastConsensus.Entry(WeatherModel.ECMWF, WeatherCondition.RAIN)
@@ -52,7 +52,28 @@ class WeatherConditionConsensusTest {
 
         val result = WeatherConditionConsensus.resolve(entries, cloudCoverPercent = 5.0)
 
-        assertEquals(WeatherCondition.RAIN, result.value)
+        assertEquals(null, result.value)
+        assertEquals(50, result.percent)
+    }
+
+    @Test
+    fun `aggregate with two independent families split between dry and wet stays unknown`() {
+        val result = WeatherConditionConsensus.resolveAggregate(
+            nativeEntries = listOf(
+                ForecastConsensus.Entry(WeatherModel.GFS, WeatherCondition.CLEAR),
+                ForecastConsensus.Entry(WeatherModel.ECMWF, WeatherCondition.RAIN)
+            ),
+            temperatureCentralC = 16.0,
+            precipitationCentralMm = 2.0,
+            cloudCoverPercent = 15.0,
+            cloudCoverFamilyCount = 2,
+            supportModels = listOf(WeatherModel.GFS, WeatherModel.ECMWF)
+        )
+        // Ni les 2 mm agrégés ni l'arbitrage par sévérité ne peuvent
+        // transformer cette égalité en pluie dominante.
+        assertEquals(WeatherConditionConsensus.AggregateSource.NATIVE_WMO_CONSENSUS, result.source)
+        assertEquals(null, result.vote.value)
+        assertEquals(50, result.vote.percent)
     }
 
     @Test

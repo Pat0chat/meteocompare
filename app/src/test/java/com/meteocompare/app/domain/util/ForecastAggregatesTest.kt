@@ -242,9 +242,9 @@ class ForecastAggregatesTest {
     }
 
     @Test
-    fun `égalité de conditions privilégie le signal météo le plus prudent`() {
+    fun `égalité de conditions sèches et humides reste indéterminée`() {
         assertEquals(
-            WeatherCondition.RAIN,
+            null,
             ForecastAggregates.conditionConsensus(
                 listOf(WeatherCondition.CLEAR, WeatherCondition.RAIN)
             )

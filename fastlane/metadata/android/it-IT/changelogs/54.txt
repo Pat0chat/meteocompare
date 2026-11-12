@@ -1,0 +1,1 @@
+Condizioni giornaliere più rappresentative e previsioni giorno/notte affiancate. Spiegazioni più chiare per pioggia, vento e temperatura. Widget adattivi con margine grande e indicatori leggibili. Doppio asse temporale in Chart View, direzione del vento migliorata e correzioni di stabilità.

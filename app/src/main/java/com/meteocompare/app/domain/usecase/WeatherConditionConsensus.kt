@@ -2,6 +2,7 @@ package com.meteocompare.app.domain.usecase
 
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
+import kotlin.math.abs
 
 /**
  * Moteur de consensus hiérarchique des conditions météorologiques.
@@ -156,6 +157,19 @@ object WeatherConditionConsensus {
 
         if (valid.isEmpty()) return rawVote.copy(value = cloudCondition)
 
+        // Une égalité pondérée entre familles sèche et humide ne définit
+        // aucune condition DOMINANTE. Le tie-break de sévérité du vote générique
+        // privilégierait systématiquement la pluie dans ce cas (biais #40).
+        // La probabilité et les prévisions de chaque modèle restent visibles.
+        val weights = ForecastConsensus.familyBalancedWeights(valid.map { it.model }, localWeights)
+        val dryWeight = valid.filter { it.value in NON_PRECIPITATION_CONDITIONS }
+            .sumOf { weights[it.model] ?: 0.0 }
+        val wetWeight = valid.filter { it.value in PRECIPITATION_CONDITIONS }
+            .sumOf { weights[it.model] ?: 0.0 }
+        if (dryWeight > 0.0 && wetWeight > 0.0 && abs(dryWeight - wetWeight) <= 1e-12) {
+            return rawVote.copy(value = null)
+        }
+
         val display = resolveNode(
             node = HIERARCHY,
             entries = valid,
@@ -179,6 +193,9 @@ object WeatherConditionConsensus {
             ?.takeIf { it.isFinite() && it in 0.0..100.0 }
             ?.let(WeatherCondition::fromCloudCover)
         if (valid.isEmpty()) return cloudCondition
+        val dryCount = valid.count { it in NON_PRECIPITATION_CONDITIONS }
+        val wetCount = valid.count { it in PRECIPITATION_CONDITIONS }
+        if (dryCount == wetCount && dryCount > 0) return null
         return resolveNodeUnweighted(HIERARCHY, valid, cloudCondition)
     }
 

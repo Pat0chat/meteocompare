@@ -574,7 +574,7 @@ class ForecastSeriesConditionResolutionTest {
     }
 
     @Test
-    fun `scattered hourly groups with a long gap are not considered representative`() {
+    fun `scattered hourly groups with a long gap do not fall back to a contradictory daily WMO`() {
         val start = Instant.parse("2026-08-23T22:00:00Z")
         val minutes = (0 until 10).map { it * 60L } + (15 until 24).map { it * 60L }
         val hours = minutes.map { start.plusSeconds(it * 60) }
@@ -585,7 +585,10 @@ class ForecastSeriesConditionResolutionTest {
             hourlyTemp = List(hours.size) { 18.0 },
             hourlyCloud = List(hours.size) { 5 }
         )
-        assertEquals(WeatherCondition.RAIN, series.resolveDailyCondition(date, zone)?.condition)
+        // 19 heures de ciel clair constituent une majorité certaine, mais un
+        // trou de 5 heures interdit de déduire le sous-type précis. Le WMO
+        // quotidien pluvieux ne doit jamais revenir comme dominante.
+        assertEquals(null, series.resolveDailyCondition(date, zone))
     }
 
     @Test
@@ -623,6 +626,65 @@ class ForecastSeriesConditionResolutionTest {
             )
             assertEquals(WeatherCondition.CLEAR, forecast.resolveDailyCondition(date, zone)?.condition)
         }
+    }
+
+    @Test
+    fun `all isolated precipitation families at any hour remain non dominant`() {
+        val start = date.atStartOfDay(zone).toInstant()
+        val timestamps = (0 until 24).map { start.plusSeconds(it * 3600L) }
+        // Bruine, pluie, averses, neige, pluie verglaçante, orage : un
+        // phénomène bref ne gagne jamais face à 23 heures de ciel sec.
+        for (phenomenon in listOf(51, 61, 80, 71, 66, 95)) {
+            for (rainHour in 0 until 24) {
+                val series = series(
+                    timestamps = timestamps,
+                    dailyCode = phenomenon,
+                    hourlyCodes = List(24) { if (it == rainHour) phenomenon else 0 },
+                    hourlyPrecip = List(24) { if (it == rainHour) 4.0 else 0.0 },
+                    hourlyTemp = List(24) { 6.0 },
+                    hourlyCloud = List(24) { if (it == rainHour) 95 else 5 }
+                )
+                assertEquals(WeatherCondition.CLEAR, series.resolveDailyCondition(date, zone)?.condition)
+                assertEquals(
+                    WeatherCondition.fromWmoCode(phenomenon),
+                    series.resolveHourlyCondition(rainHour)
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `hourly majority remains stable with mixed sky and precipitation classes`() {
+        val start = date.atStartOfDay(zone).toInstant()
+        val timestamps = (0 until 24).map { start.plusSeconds(it * 3600L) }
+        val codes = List(7) { 0 } + List(7) { 3 } + List(6) { 61 } + List(4) { 95 }
+        val forecast = series(
+            timestamps = timestamps, dailyCode = 95,
+            hourlyCodes = codes,
+            hourlyPrecip = List(24) { if (it >= 14) 3.0 else 0.0 },
+            hourlyTemp = List(24) { 16.0 },
+            hourlyCloud = List(24) { 50 }
+        )
+        val resolved = forecast.resolveDailyCondition(date, zone)
+        // 14 h sèches contre 10 h humides : ni pluie ni orage ne domine.
+        assertEquals(true, resolved?.condition?.isSky)
+        assertEquals(DailyConditionProvenance.HOURLY_WMO, resolved?.provenance)
+    }
+
+    @Test
+    fun `stable but discontinuous dry hours never yield severe daily rain`() {
+        val start = date.atStartOfDay(zone).toInstant()
+        // 14 heures claires, puis un trou de 7 h, puis 3 heures claires.
+        val offsets = (0 until 14).toList() + (21 until 24).toList()
+        val forecast = series(
+            timestamps = offsets.map { start.plusSeconds(it * 3600L) },
+            dailyCode = 95,
+            hourlyCodes = List(offsets.size) { 0 },
+            hourlyPrecip = List(offsets.size) { 0.0 },
+            hourlyTemp = List(offsets.size) { 17.0 },
+            hourlyCloud = List(offsets.size) { 5 }
+        )
+        assertEquals(null, forecast.resolveDailyCondition(date, zone))
     }
 
     @Test

@@ -383,6 +383,7 @@ Fait :
 - ✅ v1.19.3->5 — Humidité relative et point de rosée dans Home, Today Summary, chronologies, Chart View et comparaison ; icône d’humidité clarifiée, échelle pluie/humidité corrigée et revue de non-régression.
 - ✅ v1.20.0 — Météogrammes horaires et comparaison des modèles ; mini-frise Home sur 24 h et icônes agrandies ; localisation enrichie et interfaces adaptées aux petits écrans.
 - ✅ v1.21.0 — Ensoleillement estimé localisé, réglage d'en-tête widget, CHMI ALADIN, refonte des graphiques Engine Comparison et Today Summary compact.
+- ✅ v1.22.0 — Conditions quotidiennes représentatives et vues jour/nuit (#40) ; explications pluie/température/vent (#38) ; widgets adaptatifs et marges étendues (#39) ; double axe Chart View, lisibilité et tests de non-régression.
 
 ## Licence
 

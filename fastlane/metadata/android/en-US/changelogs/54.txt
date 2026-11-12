@@ -1,0 +1,1 @@
+More representative daily conditions and side-by-side day/night forecasts. Clearer rain, wind and temperature explanations in Today Summary. Widgets resize better, with a new large-margin option and clearer indicators. Mirrored time axes in Chart View, improved wind direction display and stability fixes.
