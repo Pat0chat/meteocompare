@@ -702,7 +702,10 @@ class TodaySummaryCardTest {
             .assertTextEquals("12.0°")
             .assertIsDisplayed()
         composeRule.onNodeWithTag("today_summary_temp_min_rail", useUnmergedTree = true).performClick()
-        composeRule.onNodeWithText("18.0°", useUnmergedTree = true).assertExists()
+        // The bounds are presented together as a localized range in the details
+        // dialog, not as individually tagged or standalone text nodes.
+        composeRule.onNodeWithText("12.0° – 18.0°", substring = true, useUnmergedTree = true)
+            .assertExists()
     }
 
     @Test
@@ -727,7 +730,8 @@ class TodaySummaryCardTest {
 
         // Même garantie lorsque le consensus coïncide avec la borne haute.
         composeRule.onNodeWithTag("today_summary_temp_max_rail", useUnmergedTree = true).performClick()
-        composeRule.onNodeWithText("20.0°", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText("20.0° – 26.0°", substring = true, useUnmergedTree = true)
+            .assertExists()
         composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_TEMP_MAX_CENTRAL, useUnmergedTree = true)
             .assertTextEquals("26.0°")
             .assertIsDisplayed()

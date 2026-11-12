@@ -281,12 +281,12 @@ datos</string>
     <string name="metric_calc_rain_wet_models">Modelos lluviosos</string>
     <string name="metric_calc_rain_expected">Cantidad media probabilizada: %1$s (riesgo × cantidad si llueve)</string>
     <string name="metric_calc_rain_conditional">Cantidad si llueve: %1$s</string>
-    <string name="metric_calc_rain_dry_rounding">El riesgo mostrado se redondea al 50 %, pero el cálculo sin redondear mantiene el escenario seco.</string>
+    <string name="metric_calc_rain_dry_rounding" formatted="false">El riesgo mostrado se redondea al 50 %, pero el cálculo sin redondear mantiene el escenario seco.</string>
     <string name="metric_calc_rain_dry_with_rain">Riesgo &lt; 50 %: escenario seco aunque algunos modelos prevean lluvia.</string>
     <string name="metric_calc_rain_dry">Escenario seco no significa que la lluvia sea imposible.</string>
     <string name="metric_calc_rain_wet">Escenario lluvioso: cantidad representativa de modelos con lluvia, no media de todos.</string>
     <string name="metric_calc_rain_probability_fallback">Riesgo estimado por modelos; no calibrado.</string>
-    <string name="metric_calc_rain_no_amount">Riesgo ≥ 50 %, pero cantidad desconocida: 0 mm no significa riesgo cero.</string>
+    <string name="metric_calc_rain_no_amount" formatted="false">Riesgo ≥ 50 %, pero cantidad desconocida: 0 mm no significa riesgo cero.</string>
     <string name="metric_calc_rain_probability_unknown">Riesgo de lluvia no disponible.</string>
     <string name="metric_calc_rain_agreement">Acuerdo entre familias: lluvia %1$s · cantidad %2$s (no es el riesgo).</string>
     <string name="metric_calc_rain_points">Puntos = acumulados de cada modelo · línea oscura = escenario central. Los porcentajes son probabilidades nativas máximas del día.</string>
@@ -296,6 +296,7 @@ datos</string>
 
     <plurals name="metric_summary_models_count">
         <item quantity="one">%d modelo</item>
+        <item quantity="many">%d modelos</item>
         <item quantity="other">%d modelos</item>
     </plurals>
     <string name="metric_summary_max_model_precip">Modelo más alto %1$s %2$s</string>

@@ -279,12 +279,12 @@
     <string name="metric_calc_rain_wet_models">Modèles pluvieux</string>
     <string name="metric_calc_rain_expected">Moyenne probabilisée : %1$s (risque × quantité si pluie)</string>
     <string name="metric_calc_rain_conditional">Quantité si pluie : %1$s</string>
-    <string name="metric_calc_rain_dry_rounding">Le risque affiché est arrondi à 50 %, mais le calcul non arrondi retient un scénario sec.</string>
+    <string name="metric_calc_rain_dry_rounding" formatted="false">Le risque affiché est arrondi à 50 %, mais le calcul non arrondi retient un scénario sec.</string>
     <string name="metric_calc_rain_dry_with_rain">Risque &lt; 50 % : scénario sec, même si des modèles prévoient de la pluie.</string>
     <string name="metric_calc_rain_dry">Scénario sec ≠ pluie impossible.</string>
     <string name="metric_calc_rain_wet">Scénario humide : quantité représentative des modèles pluvieux, pas moyenne de tous les modèles.</string>
     <string name="metric_calc_rain_probability_fallback">Risque estimé à partir des modèles, non calibré.</string>
-    <string name="metric_calc_rain_no_amount">Risque ≥ 50 %, mais quantité si pluie indisponible : 0 mm ne signifie pas absence de risque.</string>
+    <string name="metric_calc_rain_no_amount" formatted="false">Risque ≥ 50 %, mais quantité si pluie indisponible : 0 mm ne signifie pas absence de risque.</string>
     <string name="metric_calc_rain_probability_unknown">Risque de pluie indisponible.</string>
     <string name="metric_calc_rain_agreement">Accord entre familles : pluie %1$s · quantité %2$s (ce n’est pas le risque).</string>
     <string name="metric_calc_rain_points">Points = cumuls de pluie par modèle · trait foncé = scénario central. Les pourcentages indiquent le risque maximal natif de la journée.</string>

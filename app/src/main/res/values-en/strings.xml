@@ -279,12 +279,12 @@
     <string name="metric_calc_rain_wet_models">Wet models</string>
     <string name="metric_calc_rain_expected">Probability-weighted amount: %1$s (risk × amount if wet)</string>
     <string name="metric_calc_rain_conditional">Amount if wet: %1$s</string>
-    <string name="metric_calc_rain_dry_rounding">Risk rounds to 50%, but the unrounded calculation still selects a dry scenario.</string>
+    <string name="metric_calc_rain_dry_rounding" formatted="false">Risk rounds to 50%, but the unrounded calculation still selects a dry scenario.</string>
     <string name="metric_calc_rain_dry_with_rain">Risk &lt; 50%: dry central scenario even when some models predict rain.</string>
     <string name="metric_calc_rain_dry">Dry central scenario does not mean rain is impossible.</string>
     <string name="metric_calc_rain_wet">Wet scenario: representative wet-model amount, not an average of every model.</string>
     <string name="metric_calc_rain_probability_fallback">Risk estimated from models; not a calibrated probability.</string>
-    <string name="metric_calc_rain_no_amount">Risk ≥ 50%, but wet amount unavailable: 0 mm does not mean no risk.</string>
+    <string name="metric_calc_rain_no_amount" formatted="false">Risk ≥ 50%, but wet amount unavailable: 0 mm does not mean no risk.</string>
     <string name="metric_calc_rain_probability_unknown">Rain risk unavailable.</string>
     <string name="metric_calc_rain_agreement">Agreement across families: occurrence %1$s · amount %2$s (not rain risk).</string>
     <string name="metric_calc_rain_points">Dots = rainfall totals by model · dark line = central scenario. Percentages are native maximum daily rain probabilities.</string>

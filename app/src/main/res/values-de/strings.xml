@@ -281,12 +281,12 @@ Daten</string>
     <string name="metric_calc_rain_wet_models">Nasse Modelle</string>
     <string name="metric_calc_rain_expected">Wahrscheinlichkeitsgewichtete Menge: %1$s (Risiko × Menge bei Regen)</string>
     <string name="metric_calc_rain_conditional">Menge bei Regen: %1$s</string>
-    <string name="metric_calc_rain_dry_rounding">Das angezeigte Risiko ist auf 50 % gerundet; ungerundet ergibt sich ein trockenes Szenario.</string>
+    <string name="metric_calc_rain_dry_rounding" formatted="false">Das angezeigte Risiko ist auf 50 % gerundet; ungerundet ergibt sich ein trockenes Szenario.</string>
     <string name="metric_calc_rain_dry_with_rain">Risiko &lt; 50 %: trockenes Szenario trotz Regenprognosen einzelner Modelle.</string>
     <string name="metric_calc_rain_dry">Trockenes Szenario bedeutet nicht, dass Regen ausgeschlossen ist.</string>
     <string name="metric_calc_rain_wet">Regenszenario: repräsentative Menge der Regenmodelle, kein Mittel aller Modelle.</string>
     <string name="metric_calc_rain_probability_fallback">Risiko aus Modellen geschätzt; nicht kalibriert.</string>
-    <string name="metric_calc_rain_no_amount">Risiko ≥ 50 %, aber Regenmenge unbekannt: 0 mm bedeutet nicht kein Risiko.</string>
+    <string name="metric_calc_rain_no_amount" formatted="false">Risiko ≥ 50 %, aber Regenmenge unbekannt: 0 mm bedeutet nicht kein Risiko.</string>
     <string name="metric_calc_rain_probability_unknown">Regenrisiko nicht verfügbar.</string>
     <string name="metric_calc_rain_agreement">Übereinstimmung der Familien: Ereignis %1$s · Menge %2$s (kein Regenrisiko).</string>
     <string name="metric_calc_rain_points">Punkte = Regenmengen der Modelle · dunkler Strich = zentrales Szenario. Prozentwerte sind die nativen Tageshöchstwahrscheinlichkeiten.</string>

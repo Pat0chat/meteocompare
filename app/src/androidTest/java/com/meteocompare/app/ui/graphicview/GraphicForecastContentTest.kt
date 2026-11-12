@@ -11,6 +11,7 @@ import com.meteocompare.app.domain.model.UnitSystem
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.click
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -74,34 +75,40 @@ class GraphicForecastContentTest {
                 MeteoCompareTheme { GraphicForecastContent(state) }
             }
         }
+        // The entire chart is inside a vertical scroll. boundsInRoot clips
+        // nodes that lie below the current viewport and can collapse both
+        // rulers to the same edge on small devices. Inspect layout bounds
+        // instead of visibility-clipped bounds to test the actual arrangement.
         val top = composeRule.onNodeWithTag(TAG_GRAPHIC_TIME_AXIS_TOP, useUnmergedTree = true)
-            .fetchSemanticsNode().boundsInRoot
+            .getUnclippedBoundsInRoot()
         val bottom = composeRule.onNodeWithTag(TAG_GRAPHIC_TIME_AXIS_BOTTOM, useUnmergedTree = true)
-            .fetchSemanticsNode().boundsInRoot
+            .getUnclippedBoundsInRoot()
         assertTrue("Top time axis must precede the weather plot", top.top < bottom.top)
 
         val dayRows = composeRule.onAllNodesWithTag(TAG_GRAPHIC_DAY_ROW, useUnmergedTree = true)
-            .fetchSemanticsNodes().sortedBy { it.boundsInRoot.top }
+            .assertCountEquals(2)
         val hourRows = composeRule.onAllNodesWithTag(TAG_GRAPHIC_HOUR_ROW, useUnmergedTree = true)
-            .fetchSemanticsNodes().sortedBy { it.boundsInRoot.top }
-        assertEquals(2, dayRows.size)
-        assertEquals(2, hourRows.size)
-        assertTrue("The top ruler must show day before hour",
-            dayRows[0].boundsInRoot.top < hourRows[0].boundsInRoot.top)
-        assertTrue("The bottom ruler must show hour before day",
-            hourRows[1].boundsInRoot.top < dayRows[1].boundsInRoot.top)
+            .assertCountEquals(2)
+        val topDay = dayRows[0].getUnclippedBoundsInRoot()
+        val bottomDay = dayRows[1].getUnclippedBoundsInRoot()
+        val topHour = hourRows[0].getUnclippedBoundsInRoot()
+        val bottomHour = hourRows[1].getUnclippedBoundsInRoot()
+        assertTrue("Top ruler must show day before hour", topDay.bottom <= topHour.top)
+        assertTrue("Bottom ruler must show hour before day", bottomHour.bottom <= bottomDay.top)
 
-        val visibleHours = composeRule.onAllNodesWithTag(TAG_GRAPHIC_HOUR_CELL,
-            useUnmergedTree = true).fetchSemanticsNodes()
-        val topHours = visibleHours.filter { it.boundsInRoot.top < bottom.top }
-            .sortedBy { it.boundsInRoot.left }
-        val bottomHours = visibleHours.filter { it.boundsInRoot.top >= bottom.top }
-            .sortedBy { it.boundsInRoot.left }
-        assertTrue(topHours.isNotEmpty())
-        assertEquals(topHours.size, bottomHours.size)
-        topHours.zip(bottomHours).forEach { (first, second) ->
-            // Both time rulers are children of the very same horizontal scroll.
-            assertEquals(first.boundsInRoot.left, second.boundsInRoot.left, 0.1f)
+        // The two rows use the exact same scroll state, slot width and labels.
+        // Check every composed hour cell with its mirrored counterpart, even
+        // when the lower ruler is below the viewport (as on a narrow screen).
+        val hourCells = composeRule.onAllNodesWithTag(TAG_GRAPHIC_HOUR_CELL,
+            useUnmergedTree = true)
+        val count = hourCells.fetchSemanticsNodes().size
+        assertTrue("The two rulers must have the same nonzero number of cells",
+            count > 0 && count % 2 == 0)
+        val perAxis = count / 2
+        for (i in 0 until perAxis) {
+            val upper = hourCells[i].getUnclippedBoundsInRoot()
+            val lower = hourCells[i + perAxis].getUnclippedBoundsInRoot()
+            assertEquals("Hour cell $i must align horizontally", upper.left.value, lower.left.value, 0.1f)
         }
     }
 
