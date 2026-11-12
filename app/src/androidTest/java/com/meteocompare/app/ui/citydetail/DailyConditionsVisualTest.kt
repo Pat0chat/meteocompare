@@ -25,6 +25,10 @@ import org.junit.Test
 class DailyConditionsVisualTest {
     @get:Rule val composeRule = createComposeRule()
 
+    // getUnclippedBoundsInRoot() returns a DpRect (without a width property).
+    private fun iconWidth(tag: String) = composeRule.onNodeWithTag(tag)
+        .getUnclippedBoundsInRoot().let { bounds -> bounds.right - bounds.left }
+
     private val date = LocalDate.of(2026, 8, 24)
     private val now = Instant.parse("2026-08-24T11:00:00Z")
     private val point = SimplifiedTimelinePoint(
@@ -46,8 +50,8 @@ class DailyConditionsVisualTest {
                 }
             }
         }
-        assertTrue(composeRule.onNodeWithTag(TAG_DAILY_DAY_ICON).getUnclippedBoundsInRoot().width >= 30.dp)
-        assertTrue(composeRule.onNodeWithTag(TAG_DAILY_NIGHT_ICON).getUnclippedBoundsInRoot().width >= 30.dp)
+        assertTrue(iconWidth(TAG_DAILY_DAY_ICON) >= 30.dp)
+        assertTrue(iconWidth(TAG_DAILY_NIGHT_ICON) >= 30.dp)
     }
 
     @Test
@@ -62,8 +66,8 @@ class DailyConditionsVisualTest {
                 }
             }
         }
-        assertEquals(32.dp, composeRule.onNodeWithTag(TAG_DAILY_DAY_ICON).getUnclippedBoundsInRoot().width)
-        assertEquals(32.dp, composeRule.onNodeWithTag(TAG_DAILY_NIGHT_ICON).getUnclippedBoundsInRoot().width)
+        assertEquals(32f, iconWidth(TAG_DAILY_DAY_ICON).value, 1f)
+        assertEquals(32f, iconWidth(TAG_DAILY_NIGHT_ICON).value, 1f)
     }
 
     @Test
