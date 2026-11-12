@@ -6,27 +6,40 @@ import com.meteocompare.app.domain.usecase.WeatherConditionConsensus
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 import kotlin.math.ceil
-import java.time.ZoneId
 import kotlin.math.roundToInt
+
+/**
+ * Série d'échantillons valides, dédoublonnée par heure réelle (Instant).
+ *
+ * Le contrôle de validité doit précéder le dédoublonnage : une valeur manquante
+ * en première position ne doit pas masquer une mesure valide au même instant.
+ * Les heures d'un changement d'heure d'automne restent distinctes en UTC.
+ */
+private inline fun <T : Any> ForecastSeries.validHourlyByHour(
+    start: Instant,
+    end: Instant,
+    valueAt: (Int) -> T?
+): Map<Instant, T> {
+    val result = linkedMapOf<Instant, T>()
+    hourly.timestamps.forEachIndexed { index, instant ->
+        if (!instant.isBefore(start) && instant.isBefore(end)) {
+            val value = valueAt(index) ?: return@forEachIndexed
+            result.putIfAbsent(instant.truncatedTo(ChronoUnit.HOURS), value)
+        }
+    }
+    return result
+}
 
 /** Agrégations journalières dérivées uniquement des données du modèle concerné. */
 internal fun ForecastSeries.dailyCloudCoverMean(date: LocalDate, zone: ZoneId): Int? {
-    if (hourly.cloudCover.isEmpty()) return null
-    // Une moyenne issue d'une seule heure (ou de doublons) n'est pas
-    // représentative de la journée et pourrait fausser le consensus SKY.
-    val valuesByHour = linkedMapOf<Instant, Int>()
-    val size = minOf(hourly.timestamps.size, hourly.cloudCover.size)
-    for (index in 0 until size) {
-        val timestamp = hourly.timestamps[index]
-        if (timestamp.atZone(zone).toLocalDate() != date) continue
-        val value = hourly.cloudCover[index] ?: continue
-        if (value !in 0..100) continue
-        valuesByHour.putIfAbsent(timestamp.truncatedTo(ChronoUnit.HOURS), value)
-    }
     val start = date.atStartOfDay(zone).toInstant()
     val end = date.plusDays(1).atStartOfDay(zone).toInstant()
+    val valuesByHour = validHourlyByHour(start, end) { index ->
+        hourly.cloudCover.getOrNull(index)?.takeIf { it in 0..100 }
+    }
     if (!hasRepresentativeHourlyCoverage(start, end, valuesByHour.keys.toList())) return null
     return valuesByHour.values.average().roundToInt()
 }
@@ -165,6 +178,15 @@ internal fun ForecastSeries.resolveDailyCondition(
                 return DailyConditionResolution(result, provenance)
             }
     }
+    // Quand les heures couvrent réellement toute la période MAIS ne dégagent
+    // aucune majorité stable (égalité sec/humide, par exemple), le code daily
+    // peut seulement représenter le phénomène le plus sévère. Le restituer
+    // comme « dominant » introduirait précisément le biais de l'issue #40.
+    // On préfère alors l'absence de condition à une certitude inventée.
+    if (hasRepresentativeHourlyCoverage(
+            start, end, hourlyConditions.map { hourly.timestamps[it.first] }
+        ) && !hasStableMajority) return null
+
     if (period == DailyConditionPeriod.FULL_DAY && dailyNative != null) {
         // Sans données horaires représentatives, garder le code API plutôt
         // que prétendre avoir calculé une majorité à partir d'un fragment.
@@ -197,6 +219,10 @@ internal fun hasRepresentativeHourlyCoverage(
         .sorted()
         .toList()
     if (valid.size < required) return false
+    // Un bloc de 18 h au début du jour ne suffit pas à représenter le ciel de
+    // toute la journée : les deux bords doivent aussi être échantillonnés.
+    if (Duration.between(start, valid.first()).toMinutes() > 120) return false
+    if (Duration.between(valid.last(), end).toMinutes() > 120) return false
     // Empêche des grappes d'heures séparées par des trous arbitraires d'être
     // interprétées comme une couverture régulière de la période.
     return valid.zipWithNext().all { (a, b) -> Duration.between(a, b).toMinutes() <= 180 }
@@ -218,19 +244,21 @@ internal fun ForecastSeries.dailyPeriodMetrics(
     val end = if (period == DailyConditionPeriod.DAY) window.sunset!!
         else nextWindow?.takeIf { it.isValid }?.sunrise ?: return null
     if (!end.isAfter(start)) return null
-    val indices = hourly.timestamps.indices.filter { index ->
-        val time = hourly.timestamps[index]
-        !time.isBefore(start) && time.isBefore(end)
-    }.distinctBy { hourly.timestamps[it].truncatedTo(ChronoUnit.HOURS) }
-    val probabilities = indices.mapNotNull {
-        hourly.precipitationProbability.getOrNull(it)?.takeIf { p -> p in 0..100 }
+    val probabilities = validHourlyByHour(start, end) { index ->
+        hourly.precipitationProbability.getOrNull(index)?.takeIf { it in 0..100 }
     }
-    val cloudCover = indices.mapNotNull {
-        hourly.cloudCover.getOrNull(it)?.takeIf { p -> p in 0..100 }
+    val cloudCover = validHourlyByHour(start, end) { index ->
+        hourly.cloudCover.getOrNull(index)?.takeIf { it in 0..100 }
     }
     if (probabilities.isEmpty() && cloudCover.isEmpty()) return null
+    // Le maximum de risque est un signal ponctuel : une seule heure valide peut
+    // suffire à le signaler. Une MOYENNE de nébulosité prétend en revanche
+    // décrire toute la période et exige une couverture horaire représentative.
+    val representativeCloud = cloudCover.takeIf {
+        hasRepresentativeHourlyCoverage(start, end, it.keys.toList())
+    }
     return DailyPeriodMetrics(
-        precipitationProbabilityMax = probabilities.maxOrNull(),
-        cloudCoverMean = cloudCover.takeIf { it.isNotEmpty() }?.average()?.roundToInt()
+        precipitationProbabilityMax = probabilities.values.maxOrNull(),
+        cloudCoverMean = representativeCloud?.values?.average()?.roundToInt()
     )
 }

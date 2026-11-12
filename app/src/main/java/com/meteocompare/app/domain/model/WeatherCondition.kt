@@ -34,11 +34,6 @@ enum class WeatherCondition {
     THUNDERSTORM,
     UNKNOWN;
 
-    /**
-     * Rang conservateur utilisé pour départager un vote catégoriel à égalité.
-     * Une condition potentiellement plus gênante gagne sur une condition
-     * bénigne afin de ne pas minimiser un signal météo partagé.
-     */
     /** Vrai pour les quatre états qui décrivent uniquement la nébulosité du ciel. */
     val isSky: Boolean
         get() = when (this) {
@@ -46,6 +41,10 @@ enum class WeatherCondition {
             else -> false
         }
 
+    /**
+     * Rang conservateur utilisé seulement pour départager les votes à égalité.
+     * Un phénomène plus gênant ne doit pas supplanter une majorité sèche.
+     */
     val severityRank: Int
         get() = when (this) {
             CLEAR -> 0

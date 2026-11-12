@@ -263,7 +263,7 @@ Daten</string>
     <string name="metric_calc_engine_calibration">Kalibrierung</string>
     <string name="metric_calc_engine_scenarios">Szenarien</string>
     <string name="metric_calc_engine_adaptive">Adaptiv</string>
-    <string name="metric_calc_engine_fallback">Bei wenigen Daten kann ein Ersatzverfahren genutzt werden.</string>
+
     <string name="metric_calc_temperature_formula">T ≈ Σ(wᵢ × Tᵢ) / Σwᵢ</string>
     <string name="metric_calc_wind_formula">V ≈ Σ(wᵢ × Vᵢ) / Σwᵢ</string>
     <string name="metric_calc_rain_step_risk">1 · Regenrisiko schätzen</string>
@@ -293,9 +293,7 @@ Daten</string>
     <string name="metric_calc_model_probability">Max. P %1$d %%</string>
     <string name="metric_summary_average">Zentraler Konsens</string>
     <string name="metric_summary_range">Spanne %1$s</string>
-    <string name="metric_summary_range_short">Spanne</string>
-    <string name="metric_summary_min_label">Min</string>
-    <string name="metric_summary_max_label">Max</string>
+
     <plurals name="metric_summary_models_count">
         <item quantity="one">%d Modell</item>
         <item quantity="other">%d Modelle</item>

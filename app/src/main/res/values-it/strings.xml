@@ -263,7 +263,7 @@ dato</string>
     <string name="metric_calc_engine_calibration">Calibrazione</string>
     <string name="metric_calc_engine_scenarios">Scenari</string>
     <string name="metric_calc_engine_adaptive">Adattivo</string>
-    <string name="metric_calc_engine_fallback">Con dati limitati il motore può usare un metodo alternativo.</string>
+
     <string name="metric_calc_temperature_formula">T ≈ Σ(wᵢ × Tᵢ) / Σwᵢ</string>
     <string name="metric_calc_wind_formula">V ≈ Σ(wᵢ × Vᵢ) / Σwᵢ</string>
     <string name="metric_calc_rain_step_risk">1 · Stimare il rischio di pioggia</string>
@@ -293,9 +293,7 @@ dato</string>
     <string name="metric_calc_model_probability">P max %1$d %%</string>
     <string name="metric_summary_average">Consenso centrale</string>
     <string name="metric_summary_range">Intervallo %1$s</string>
-    <string name="metric_summary_range_short">Intervallo</string>
-    <string name="metric_summary_min_label">Min</string>
-    <string name="metric_summary_max_label">Max</string>
+
     <plurals name="metric_summary_models_count">
         <item quantity="one">%d modello</item>
         <item quantity="other">%d modelli</item>

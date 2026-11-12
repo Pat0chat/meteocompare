@@ -13,6 +13,7 @@ fi
 python3 -m unittest discover -s scripts/tests -p 'test_*.py' -v
 python3 scripts/validate-compose-previews.py
 python3 scripts/check_android_strings.py
+python3 scripts/test-summary-dialog-copy.py
 python3 scripts/verify_atmospheric_localizations.py
 scripts/validate-fdroid-metadata.sh
 

@@ -57,13 +57,11 @@ class MeteogramUnifiedDesignTest(unittest.TestCase):
         self.assertIn('TAG_METEOGRAM_SELECTED_GRID', layout)
         self.assertIn('MeteogramValuePill(label, value, color, Modifier.fillMaxWidth())', layout)
         pill = code.split('private fun MeteogramValuePill(', 1)[1]
-        # The pill is intentionally compact in the current layout; avoid pinning an obsolete 76 dp value.
-        height = re.search(r'modifier\s*=\s*modifier\.height\((\d+)\.dp\)', pill)
-        self.assertIsNotNone(height)
-        self.assertGreaterEqual(int(height.group(1)), 48)
-        self.assertLessEqual(int(height.group(1)), 80)
-        self.assertIn('maxLines = 2', pill)
-        self.assertIn('maxLines = 1', pill)
+        # Since issue #39, the pill must GROW instead of cutting a wrapped
+        # label or a cardinal direction on narrow launchers/font scales.
+        self.assertIn('modifier.heightIn(min = 56.dp)', pill)
+        self.assertNotRegex(pill, r'modifier\.height\(\d+\.dp\)')
+        self.assertGreaterEqual(pill.count('maxLines = 2'), 2)
         self.assertEqual(2, code.count('MeteogramSelectedMetricContent(') - 1)
 
 

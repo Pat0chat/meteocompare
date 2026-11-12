@@ -42,7 +42,7 @@ class MeteogramSelectedUXTest(unittest.TestCase):
         self.assertIn("cardinalLanguage = locale.language", combined)
         values = self.source.split("private fun MeteogramSelectedValues(", 1)[1].split(
             "private fun MeteogramSelectedMetricContent(", 1)[0]
-        self.assertIn("R.string.meteogram_wind_origin", values)
+        self.assertIn("R.string.meteogram_wind_direction_short", values)
         self.assertIn("meteogramWindCardinal(hour.windDirectionDeg, locale.language)", values)
         self.assertIn('"$cardinal · ${hour.windDirectionDeg}°"', values)
 

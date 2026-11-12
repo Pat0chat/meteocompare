@@ -20,7 +20,7 @@ LOCALES = {
 }
 REQUIRED = (
     'metric_calc_temperature', 'metric_calc_wind', 'metric_calc_rain_method',
-    'metric_calc_rain_rule', 'metric_calc_engine_fallback',
+    'metric_calc_rain_rule',
     'metric_calc_rain_dry_with_rain', 'metric_calc_model_probability',
     'metric_calc_temperature_formula', 'metric_calc_wind_formula',
     'metric_calc_rain_formula', 'metric_calc_chart_title', 'metric_calc_chart_legend',
@@ -32,7 +32,7 @@ for locale, rain_terms in LOCALES.items():
     root = ET.parse(RES / locale / 'strings.xml').getroot()
     lookup = {node.get('name'): ''.join(node.itertext()) for node in root if node.tag == 'string'}
     assert all(k in lookup for k in REQUIRED), (locale, 'missing resource')
-    for key in ('metric_calc_temperature', 'metric_calc_wind', 'metric_calc_engine_fallback'):
+    for key in ('metric_calc_temperature', 'metric_calc_wind'):
         text = lookup[key].lower()
         assert not any(term in text for term in rain_terms), (locale, key, text)
     assert 'Tᵢ' in lookup['metric_calc_temperature_formula'], locale
@@ -45,7 +45,7 @@ for locale, rain_terms in LOCALES.items():
     assert len(lookup['metric_calc_temperature']) < 310, locale
     assert len(lookup['metric_calc_wind']) < 310, locale
 
-source = UI.read_text()
+source = UI.read_text(encoding="utf-8")
 dialog = source.split('private fun DispersionDetailsDialog(')[1].split('/** Visually separate')[0]
 assert '.verticalScroll(rememberScrollState())' in dialog
 assert 'summary_dispersion_dialog_scroll' in dialog

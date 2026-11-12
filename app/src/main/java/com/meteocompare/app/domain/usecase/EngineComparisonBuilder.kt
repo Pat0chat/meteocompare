@@ -8,7 +8,6 @@ import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.model.ForecastEngineContext
 import com.meteocompare.app.domain.model.ForecastEngineVariable
 import com.meteocompare.app.domain.model.WeatherCondition
-import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.util.dailyCloudCoverMean
 import com.meteocompare.app.domain.util.resolveDailyCondition
 import java.time.Instant

@@ -46,7 +46,6 @@
     <string name="widget_forecast_generic">Prévisions</string>
     <string name="widget_forecast_confidence">Convergence des modèles</string>
     <string name="widget_forecast_confidence_hint">convergence / modèles</string>
-    <string name="widget_forecast_confidence_short">Conv. %1$d%%</string>
 
     <!-- Widget éditorial MeteoCompare -->
     <string name="widget_label_insight">À retenir</string>

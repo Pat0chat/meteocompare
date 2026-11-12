@@ -226,7 +226,6 @@ object ForecastConsensus {
         }
 
         val conditional = weightedMedian(weightedWet)
-        val conditionalAmountStats = weightedStats(weightedWet)
 
         /*
          * Convergence de quantité :

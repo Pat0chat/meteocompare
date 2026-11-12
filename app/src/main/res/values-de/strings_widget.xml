@@ -23,7 +23,7 @@
     <string name="widget_forecast_generic">Vorhersage</string>
     <string name="widget_forecast_confidence">Modellkonvergenz</string>
     <string name="widget_forecast_confidence_hint">Konvergenz / Modelle</string>
-    <string name="widget_forecast_confidence_short">Konv. %1$d%%</string>
+
     <string name="widget_label_insight">Wichtig</string>
     <string name="widget_description_insight">Anpassbare, größenveränderbare Wetterübersicht für die nächsten 24 Stunden.</string>
     <string name="widget_config_insight_horizon_note">Das Wichtig-Widget analysiert immer die nächsten 24 Stunden.</string>

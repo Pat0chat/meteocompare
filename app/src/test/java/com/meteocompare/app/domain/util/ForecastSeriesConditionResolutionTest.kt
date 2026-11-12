@@ -63,6 +63,21 @@ class ForecastSeriesConditionResolutionTest {
     }
 
     @Test
+    fun `daily severe WMO does not break a representative dry wet tie`() {
+        val start = date.atStartOfDay(zone).toInstant()
+        val timestamps = (0 until 24).map { start.plusSeconds(it * 3600L) }
+        val forecast = series(
+            timestamps = timestamps,
+            dailyCode = 95,
+            hourlyCodes = List(12) { 0 } + List(12) { 61 },
+            hourlyPrecip = List(12) { 0.0 } + List(12) { 1.0 },
+            hourlyTemp = List(24) { 19.0 },
+            hourlyCloud = List(24) { 50 }
+        )
+        assertEquals(null, forecast.resolveDailyCondition(date, zone))
+    }
+
+    @Test
     fun `single cloudy hour cannot represent a day with no daily axis`() {
         val hours = listOf(Instant.parse("2026-08-24T10:00:00Z"))
         val series = ForecastSeries(
@@ -321,6 +336,122 @@ class ForecastSeriesConditionResolutionTest {
         assertEquals(80, forecast.dailyPeriodMetrics(DailyConditionPeriod.NIGHT, solar, next)?.precipitationProbabilityMax)
         assertEquals(10, forecast.dailyPeriodMetrics(DailyConditionPeriod.DAY, solar)?.cloudCoverMean)
         assertEquals(95, forecast.dailyPeriodMetrics(DailyConditionPeriod.NIGHT, solar, next)?.cloudCoverMean)
+    }
+
+    @Test
+    fun `sparse daytime cloud cannot produce a misleading day mean`() {
+        val timestamps = listOf(6L, 9L, 12L).map { hour ->
+            Instant.parse("2026-08-24T00:00:00Z").plusSeconds(hour * 3600)
+        }
+        val series = ForecastSeries(
+            model = WeatherModel.GFS,
+            hourly = HourlyForecast(
+                timestamps = timestamps,
+                temperature2m = List(3) { 20.0 },
+                precipitation = List(3) { 0.0 },
+                windSpeed10m = List(3) { 8.0 },
+                cloudCover = listOf(95, 95, 95),
+                precipitationProbability = listOf(5, 80, 5)
+            ),
+            daily = DailyForecast(emptyList(), emptyList(), emptyList(), emptyList(), emptyList())
+        )
+        val solar = ForecastSolarWindow(
+            Instant.parse("2026-08-24T06:00:00Z"),
+            Instant.parse("2026-08-24T18:00:00Z")
+        )
+        val metrics = series.dailyPeriodMetrics(DailyConditionPeriod.DAY, solar)
+        assertEquals(null, metrics?.cloudCoverMean)
+        // A single peak remains a valid *hourly maximum*, not a mean.
+        assertEquals(80, metrics?.precipitationProbabilityMax)
+    }
+
+    @Test
+    fun `eighteen consecutive early cloudy hours do not represent whole day`() {
+        val start = date.atStartOfDay(zone).toInstant()
+        val timestamps = (0 until 18).map { start.plusSeconds(it * 3600L) }
+        val forecast = series(
+            timestamps = timestamps, dailyCode = null,
+            hourlyCodes = List(18) { null },
+            hourlyPrecip = List(18) { 0.0 },
+            hourlyTemp = List(18) { 20.0 },
+            hourlyCloud = List(18) { 90 }
+        )
+        assertEquals(null, forecast.dailyCloudCoverMean(date, zone))
+    }
+
+    @Test
+    fun `daytime average requires observations near sunset as well as sunrise`() {
+        val start = Instant.parse("2026-08-24T06:00:00Z")
+        val timestamps = (0 until 9).map { start.plusSeconds(it * 3600L) }
+        val forecast = series(
+            timestamps = timestamps, dailyCode = null,
+            hourlyCodes = List(9) { null },
+            hourlyPrecip = List(9) { 0.0 },
+            hourlyTemp = List(9) { 20.0 },
+            hourlyCloud = List(9) { 90 }
+        )
+        val window = ForecastSolarWindow(start, start.plusSeconds(12 * 3600L))
+        assertEquals(null, forecast.dailyPeriodMetrics(DailyConditionPeriod.DAY, window)?.cloudCoverMean)
+    }
+
+    @Test
+    fun `invalid duplicate never hides valid daytime data`() {
+        val start = Instant.parse("2026-08-24T06:00:00Z")
+        val timestamps = (0 until 12).flatMap { hour ->
+            val instant = start.plusSeconds(hour * 3600L)
+            listOf(instant, instant)
+        }
+        val series = ForecastSeries(
+            model = WeatherModel.GFS,
+            hourly = HourlyForecast(
+                timestamps = timestamps,
+                temperature2m = List(24) { 19.0 },
+                precipitation = List(24) { 0.0 },
+                windSpeed10m = List(24) { 8.0 },
+                cloudCover = List(24) { if (it % 2 == 0) null else 60 },
+                precipitationProbability = List(24) { if (it % 2 == 0) null else 70 }
+            ),
+            daily = DailyForecast(emptyList(), emptyList(), emptyList(), emptyList(), emptyList())
+        )
+        val solar = ForecastSolarWindow(start, start.plusSeconds(12 * 3600L))
+        val metrics = series.dailyPeriodMetrics(DailyConditionPeriod.DAY, solar)
+        assertEquals(60, metrics?.cloudCoverMean)
+        assertEquals(70, metrics?.precipitationProbabilityMax)
+    }
+
+    @Test
+    fun `daily sky average ignores invalid duplicate before a valid hour`() {
+        val start = date.atStartOfDay(zone).toInstant()
+        val timestamps = (0 until 24).flatMap { hour ->
+            val instant = start.plusSeconds(hour * 3600L)
+            listOf(instant, instant)
+        }
+        val forecast = series(
+            timestamps = timestamps, dailyCode = null,
+            hourlyCodes = List(48) { null },
+            hourlyPrecip = List(48) { 0.0 },
+            hourlyTemp = List(48) { 20.0 },
+            hourlyCloud = List(48) { if (it % 2 == 0) null else 60 }
+        )
+        assertEquals(60, forecast.dailyCloudCoverMean(date, zone))
+    }
+
+    @Test
+    fun `isolated rain cannot bias daily condition at any of 24 hourly positions`() {
+        val start = date.atStartOfDay(zone).toInstant()
+        val timestamps = (0 until 24).map { start.plusSeconds(it * 3600L) }
+        for (rainHour in 0 until 24) {
+            val forecast = series(
+                timestamps = timestamps, dailyCode = 61,
+                hourlyCodes = List(24) { if (it == rainHour) 61 else 0 },
+                hourlyPrecip = List(24) { if (it == rainHour) 8.0 else 0.0 },
+                hourlyTemp = List(24) { 20.0 },
+                hourlyCloud = List(24) { if (it == rainHour) 90 else 5 }
+            )
+            assertEquals("rainHour=$rainHour", WeatherCondition.CLEAR,
+                forecast.resolveDailyCondition(date, zone)?.condition)
+            assertEquals(WeatherCondition.RAIN, forecast.resolveHourlyCondition(rainHour))
+        }
     }
 
     @Test
