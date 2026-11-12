@@ -181,6 +181,28 @@ object WeatherConditionConsensus {
     }
 
     /**
+     * Shared, conservative no-WMO fallback for Home, the hourly timeline and
+     * current conditions. Cloud cover alone describes amount, not opacity.
+     * Only a same-model high-cloud + solar refinement supported by the
+     * independent-model sky vote can replace an inferred OVERCAST with VEILED.
+     * Never changes native-WMO consensus or a rain/fog/snow condition.
+     */
+    fun refineVeiledWithoutNativeWmo(
+        original: WeatherCondition?,
+        nativeWmoAvailable: Boolean,
+        cloudCoverPercent: Double?,
+        resolvedPerModel: List<ForecastConsensus.Entry<WeatherCondition>>,
+        localWeights: Map<WeatherModel, Double> = emptyMap()
+    ): WeatherCondition? {
+        if (nativeWmoAvailable || original != WeatherCondition.OVERCAST ||
+            cloudCoverPercent == null || !cloudCoverPercent.isFinite() ||
+            cloudCoverPercent < 90.0 || cloudCoverPercent > 100.0
+        ) return original
+        val refined = resolve(resolvedPerModel, cloudCoverPercent, localWeights).value
+        return if (refined == WeatherCondition.VEILED) refined else original
+    }
+
+    /**
      * Variante destinée aux helpers/tests qui ne disposent pas d'identifiants
      * de modèles. La même hiérarchie est descendue avec une voix par valeur.
      */

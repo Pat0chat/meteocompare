@@ -72,17 +72,61 @@ class LocalityComparisonTest {
         )), 0.001)
     }
 
-    @Test fun `sunshine uses direct normal radiation before cloud approximation`() {
+    @Test fun `DNI mean proxy requires less than near total cloud cover`() {
         val window = com.meteocompare.app.domain.util.ForecastSolarWindow(rise, set)
-        assertEquals(0.72, requireNotNull(estimateHourlySunshineHours(
+        // DNI mean supports VEILED sky identification but does not indicate
+        // how many MINUTES exceeded 120 W/m² under 98% cloud cover.
+        assertNull(estimateHourlySunshineHours(
             rise, 98, window, 5, 8, 96, directNormalWm2 = 300.0
+        ))
+        // DNI proxy remains available for less cloudy hours.
+        assertEquals(0.72, requireNotNull(estimateHourlySunshineHours(
+            rise, 89, window, 5, 8, 80, directNormalWm2 = 300.0
         )), 0.001)
-        // A 98% high-cloud veil without solar data still has a nonzero proxy.
-        val layers = requireNotNull(estimateHourlySunshineHours(rise, 98, window, 5, 8, 96))
-        assertTrue(layers > 0.4)
-        assertTrue(layers < 0.7)
-        // The old fallback remains stable for historical cached data.
-        assertEquals(0.02, requireNotNull(estimateHourlySunshineHours(rise, 98, window)), 0.001)
+        // Without solar evidence, the layer-based brightness proxy cannot be
+        // converted into a precise duration of direct sunshine under overcast.
+        assertNull(estimateHourlySunshineHours(rise, 98, window, 5, 8, 96))
+        assertNull(estimateHourlySunshineHours(rise, 98, window))
+        // Below the overcast threshold, the historical cloud-only fallback stays.
+        assertEquals(0.11, requireNotNull(estimateHourlySunshineHours(rise, 89, window)), 0.001)
+    }
+
+    @Test fun `overcast without direct sunshine duration is unknown at every hour`() {
+        for (hour in 0..23) {
+            val instant = rise.plusSeconds(hour * 3_600L)
+            val window = com.meteocompare.app.domain.util.ForecastSolarWindow(
+                instant, instant.plusSeconds(3600)
+            )
+            assertNull("hour=$hour", estimateHourlySunshineHours(
+                instant, 95, window, 5, 8, 93, directNormalWm2 = 350.0
+            ))
+            assertEquals("hour=$hour", 44.0 / 60, requireNotNull(estimateHourlySunshineHours(
+                instant, 95, window, 5, 8, 93, sunshineSeconds = 2640.0
+            )), 0.001)
+        }
+    }
+
+    @Test fun `mostly covered sky without solar forecast cannot produce inflated sunny day`() {
+        val hours = (0L until 12).map { rise.plusSeconds(it * 3600) }
+        val clouds = List(6) { 0 } + List(6) { 98 }
+        // Previously the six clear samples were extrapolated over all 12 hours
+        // even though six other hours were overcast with unknown transparency.
+        assertNull(estimateCloudAdjustedDaylight(rise, set, hours, clouds))
+        // Once the supplier forecasts sunshine for every overcast hour,
+        // a meaningful result can be computed without changing cloud cover.
+        val measured = List(13) { i -> if (i == 0) null else 1800.0 }
+        assertEquals(6.0, requireNotNull(estimateCloudAdjustedDaylight(
+            rise, set, hours + listOf(set), clouds + listOf(98), sunshineDuration = measured
+        )), 0.001)
+    }
+
+    @Test fun `explicit provider 44 minute sunshine can coexist with covered low-cloud profile`() {
+        val window = com.meteocompare.app.domain.util.ForecastSolarWindow(rise, set)
+        assertEquals(44.0 / 60, requireNotNull(estimateHourlySunshineHours(
+            rise, 95, window, 88, 75, 30, sunshineSeconds = 2640.0
+        )), 0.001)
+        // An explicit provider forecast is retained: the cloud-type assessment
+        // must be handled separately, not by artificially lowering the amount.
     }
 
     @Test fun `provider sunshine belongs to the previous hour not the following one`() {
@@ -103,6 +147,138 @@ class LocalityComparisonTest {
         val window = com.meteocompare.app.domain.util.ForecastSolarWindow(rise, set)
         assertNull(estimateHourlySunshineHours(rise, null, window,
             sunshineSeconds = Double.NaN, directNormalWm2 = -50.0))
+    }
+
+    /** Four forecast families, unlike one model selected alone, need sufficient
+     * sunshine data before displaying a multi-model overcast sunshine estimate. */
+    private fun overcastSunForecast(
+        vararg rows: Triple<WeatherModel, Int, Double?>
+    ): CityForecast {
+        val date = Instant.parse("2026-11-12T14:00:00Z")
+        val hourlyTimes = listOf(date, date.plusSeconds(3600))
+        return CityForecast(
+            City("solar", "Solar", null, "France", 48.7, 2.1, "Europe/Paris"),
+            rows.associate { (model, clouds, seconds) ->
+                model to ForecastSeries(
+                    model,
+                    HourlyForecast(
+                        timestamps = hourlyTimes,
+                        temperature2m = listOf(10.0, 10.0),
+                        precipitation = listOf(0.0, 0.0),
+                        windSpeed10m = listOf(5.0, 5.0),
+                        cloudCover = listOf(clouds, clouds),
+                        sunshineDuration = listOf(null, seconds)
+                    ),
+                    DailyForecast(
+                        dates = emptyList(), tempMax = emptyList(),
+                        tempMin = emptyList(), precipitationSum = emptyList(),
+                        windSpeedMax = emptyList()
+                    )
+                )
+            }
+        )
+    }
+
+    @Test fun `overcast consensus does not borrow sunshine from a clear minority`() {
+        val at = Instant.parse("2026-11-12T14:00:00Z")
+        val window = com.meteocompare.app.domain.util.ForecastSolarWindow(at, at.plusSeconds(3600))
+        val forecast = overcastSunForecast(
+            Triple(WeatherModel.GFS, 95, null),
+            Triple(WeatherModel.ECMWF, 95, null),
+            Triple(WeatherModel.ICON_GLOBAL, 27, null)
+        )
+        assertNull(estimatedHourlySunshineFromModels(forecast, at, window, 95))
+    }
+
+    @Test fun `single sunshine supplying model cannot dominate covered sky consensus`() {
+        val at = Instant.parse("2026-11-12T14:00:00Z")
+        val window = com.meteocompare.app.domain.util.ForecastSolarWindow(at, at.plusSeconds(3600))
+        val forecast = overcastSunForecast(
+            Triple(WeatherModel.GFS, 95, 2640.0),
+            Triple(WeatherModel.ECMWF, 95, null),
+            Triple(WeatherModel.ICON_GLOBAL, 95, null)
+        )
+        assertNull(estimatedHourlySunshineFromModels(forecast, at, window, 95))
+    }
+
+    @Test fun `a majority of independent covered model families can report provider sunshine`() {
+        val at = Instant.parse("2026-11-12T14:00:00Z")
+        val window = com.meteocompare.app.domain.util.ForecastSolarWindow(at, at.plusSeconds(3600))
+        val forecast = overcastSunForecast(
+            Triple(WeatherModel.GFS, 95, 2640.0),
+            Triple(WeatherModel.ECMWF, 95, 1800.0),
+            Triple(WeatherModel.ICON_GLOBAL, 95, null)
+        )
+        assertEquals(37.0 / 60.0,
+            requireNotNull(estimatedHourlySunshineFromModels(forecast, at, window, 95)), 0.001)
+    }
+
+    @Test fun `related model variants are one solar vote and missing is not zero`() {
+        val at = Instant.parse("2026-11-12T14:00:00Z")
+        val window = com.meteocompare.app.domain.util.ForecastSolarWindow(at, at.plusSeconds(3600))
+        val forecast = overcastSunForecast(
+            Triple(WeatherModel.GFS, 95, 2640.0),
+            Triple(WeatherModel.NCEP_AIGFS, 95, 2640.0),
+            Triple(WeatherModel.ECMWF, 95, null),
+            Triple(WeatherModel.ICON_GLOBAL, 95, null)
+        )
+        assertNull(estimatedHourlySunshineFromModels(forecast, at, window, 95))
+    }
+
+    @Test fun `a single selected model retains its aligned explicit solar forecast`() {
+        val at = Instant.parse("2026-11-12T14:00:00Z")
+        val window = com.meteocompare.app.domain.util.ForecastSolarWindow(at, at.plusSeconds(3600))
+        val forecast = overcastSunForecast(Triple(WeatherModel.GFS, 95, 2640.0))
+        assertEquals(44.0 / 60.0,
+            requireNotNull(estimatedHourlySunshineFromModels(forecast, at, window, 95)), 0.001)
+        // Open-Meteo timestamp 15:00 is the END of interval 14:00-15:00.
+        val wrongHour = forecast.copy(seriesByModel = forecast.seriesByModel.mapValues { (_, series) ->
+            series.copy(hourly = series.hourly.copy(sunshineDuration = listOf(2640.0, null)))
+        })
+        assertNull(estimatedHourlySunshineFromModels(wrongHour, at, window, 95))
+    }
+
+    @Test fun `overcast day is not assigned the sunshine of one model only`() {
+        val date = LocalDate.of(2026, 6, 20)
+        val start = Instant.parse("2026-06-20T00:00:00Z")
+        val rise = start.plusSeconds(6 * 3600)
+        val sunset = start.plusSeconds(18 * 3600)
+        val times = (0L..24L).map { start.plusSeconds(it * 3600) }
+        fun series(model: WeatherModel, sunshineSeconds: Double?): ForecastSeries {
+            val solar = List(25) { i -> if (i in 7..18) sunshineSeconds else null }
+            return ForecastSeries(
+                model,
+                HourlyForecast(
+                    timestamps = times,
+                    temperature2m = List(25) { 10.0 },
+                    precipitation = List(25) { 0.0 },
+                    windSpeed10m = List(25) { 5.0 },
+                    cloudCover = List(25) { 95 },
+                    sunshineDuration = solar
+                ),
+                DailyForecast(
+                    dates = listOf(date), tempMax = listOf(10.0),
+                    tempMin = listOf(10.0), precipitationSum = listOf(0.0),
+                    windSpeedMax = listOf(5.0),
+                    sunrise = listOf(rise), sunset = listOf(sunset)
+                )
+            )
+        }
+        fun forecast(gfs: Double?, ecmwf: Double?, icon: Double?) = CityForecast(
+            City("day", "Day", null, "France", 48.7, 2.1, "UTC"),
+            mapOf(
+                WeatherModel.GFS to series(WeatherModel.GFS, gfs),
+                WeatherModel.ECMWF to series(WeatherModel.ECMWF, ecmwf),
+                WeatherModel.ICON_GLOBAL to series(WeatherModel.ICON_GLOBAL, icon)
+            )
+        )
+        // Old missing-value-only median displayed 6 sunny hours even though
+        // the two other forecast families provided no sunshine information.
+        assertNull(estimatedSunshineHours(forecast(1800.0, null, null), date))
+        // When two of three independent families supply aligned solar values,
+        // the median 6 h / 3 h is meaningful as a provider forecast.
+        assertEquals(4.5,
+            requireNotNull(estimatedSunshineHours(forecast(1800.0, 900.0, null), date)), 0.001)
     }
 
     @Test fun dailyMetrics_followExplicitDateAndIgnoreMissingDays() {

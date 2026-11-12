@@ -84,6 +84,33 @@ class SimplifiedTimelineTest {
     }
 
     @Test
+    fun `hourly timeline and home agree on veil inferred without WMO`() {
+        val timestamps = listOf(now, now.plusSeconds(3600))
+        val series = ForecastSeries(
+            WeatherModel.GFS,
+            HourlyForecast(
+                timestamps = timestamps,
+                temperature2m = listOf(20.0, 20.0),
+                precipitation = listOf(0.0, 0.0),
+                windSpeed10m = listOf(10.0, 10.0),
+                cloudCover = listOf(95, 95),
+                cloudCoverLow = listOf(5, 5),
+                cloudCoverMid = listOf(8, 8),
+                cloudCoverHigh = listOf(93, 93),
+                sunshineDuration = listOf(null, 2640.0)
+            ),
+            DailyForecast(emptyList(), emptyList(), emptyList(), emptyList(), emptyList())
+        )
+        val forecast = CityForecast(paris.copy(timezone = "UTC"), mapOf(WeatherModel.GFS to series))
+        val points = buildSimplifiedTimeline(forecast, DisplayMode.HOURLY, now)
+        assertEquals(WeatherCondition.VEILED, points.first().condition)
+        assertEquals(95, points.first().cloudCoverPercent)
+        assertEquals(44.0 / 60, points.first().estimatedSunHours!!, 0.001)
+        assertEquals(WeatherCondition.OVERCAST, points[1].condition)
+        assertEquals(null, points[1].estimatedSunHours)
+    }
+
+    @Test
     fun `next few days does not invent rain from daily rainfall total alone`() {
         val series = ForecastSeries(
             model = WeatherModel.GFS,

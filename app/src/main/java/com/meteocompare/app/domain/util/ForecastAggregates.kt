@@ -138,7 +138,7 @@ internal object ForecastAggregates {
                     addAll(cloudRows.map { it.model })
                     addAll(conditionRows.map { it.model })
                 }
-                conditions += WeatherConditionConsensus.resolveAggregate(
+                val baseCondition = WeatherConditionConsensus.resolveAggregate(
                     nativeEntries = conditionRows,
                     temperatureCentralC = temperatureCentral,
                     precipitationCentralMm = precipitation.centralAmountMm,
@@ -146,6 +146,28 @@ internal object ForecastAggregates {
                     cloudCoverFamilyCount = cloudRows.map { ForecastConsensus.groupFor(it.model) }.distinct().size,
                     supportModels = supportModels
                 ).vote.value
+                // The Home mini strip previously lost VEILED when weather_code
+                // was absent, even though the model's hourly layers + solar
+                // data could identify a veil. Align with Today Summary and the
+                // hourly timeline; never replace an actual native WMO vote.
+                conditions += if (conditionRows.isEmpty() &&
+                    baseCondition == WeatherCondition.OVERCAST &&
+                    cloudCentral?.let { it >= 90.0 } == true
+                ) {
+                    val derived = forecast.seriesByModel.mapNotNull { (model, series) ->
+                        val index = with(HourlySampling) {
+                            series.hourly.timestamps.exactIndex(target)
+                        } ?: return@mapNotNull null
+                        series.resolveHourlyCondition(index)
+                            ?.let { ForecastConsensus.Entry(model, it) }
+                    }
+                    WeatherConditionConsensus.refineVeiledWithoutNativeWmo(
+                        original = baseCondition,
+                        nativeWmoAvailable = false,
+                        cloudCoverPercent = cloudCentral,
+                        resolvedPerModel = derived
+                    )
+                } else baseCondition
             }
         }
 

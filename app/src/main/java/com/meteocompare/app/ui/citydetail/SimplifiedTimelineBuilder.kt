@@ -603,7 +603,20 @@ private fun timelinePoint(
                 }
             )
         }
-    } else conditionResolution.vote
+    } else {
+        val base = conditionResolution.vote
+        if (nativeConditionEntries.isEmpty() && base.value == WeatherCondition.OVERCAST) {
+            val derived = meaningful.mapNotNull { snapshot ->
+                snapshot.condition?.let { ForecastConsensus.Entry(snapshot.model, it) }
+            }
+            base.copy(value = WeatherConditionConsensus.refineVeiledWithoutNativeWmo(
+                original = base.value,
+                nativeWmoAvailable = false,
+                cloudCoverPercent = cloud.forecastValue.central,
+                resolvedPerModel = derived
+            ))
+        } else base
+    }
 
     fun metricLevel(score: Int): ModelConsensusLevel = when {
         score >= 75 -> ModelConsensusLevel.HIGH

@@ -10,6 +10,7 @@ import com.meteocompare.app.domain.model.HourlyConfidenceBand
 import com.meteocompare.app.domain.model.HourlyForecast
 import com.meteocompare.app.domain.model.PrecipitationConfidence
 import com.meteocompare.app.domain.model.WeatherModel
+import com.meteocompare.app.domain.model.WeatherCondition
 import java.time.Instant
 import java.time.LocalDate
 import java.util.Locale
@@ -207,6 +208,44 @@ class WidgetForecastSelectionTest {
         // Estimation solaire de la timeline réelle : ciel dégagé équivalent,
         // disponible seulement quand le soleil et les nuages sont connus.
         assertTrue(items.all { item -> item.estimatedSunHours?.let { it in 0.0..1.0 } == true })
+    }
+
+    @Test
+    fun `near total cloud cover does not invent widget sunshine without solar evidence`() {
+        val start = Instant.parse("2026-07-17T12:00:00Z")
+        val timestamps = listOf(start, start.plusSeconds(3600))
+        fun forecast(nextHourSunshineSeconds: Double?): CityForecast {
+            val hourly = HourlyForecast(
+                timestamps = timestamps,
+                temperature2m = listOf(20.0, 20.0),
+                precipitation = listOf(0.0, 0.0),
+                windSpeed10m = listOf(8.0, 8.0),
+                weatherCode = listOf(3, 3),
+                cloudCover = listOf(95, 95),
+                cloudCoverLow = listOf(5, 5),
+                cloudCoverMid = listOf(8, 8),
+                cloudCoverHigh = listOf(93, 93),
+                sunshineDuration = listOf(null, nextHourSunshineSeconds)
+            )
+            return CityForecast(city, mapOf(
+                WeatherModel.GFS to ForecastSeries(WeatherModel.GFS, hourly, emptyDaily())
+            ))
+        }
+        fun firstItem(sunSeconds: Double?) = buildForecasts(
+            forecast = forecast(sunSeconds), mode = ForecastMode.HOURLY,
+            timezone = city.timezone, now = start.plusSeconds(120)
+        ).first()
+        val unknownSun = firstItem(null)
+        assertEquals(95, unknownSun.cloudCoverPct)
+        assertEquals(WeatherCondition.OVERCAST, unknownSun.condition)
+        assertEquals(null, unknownSun.estimatedSunHours)
+
+        // Only the same model's following-timestamp sunshine observation
+        // supports both the veil and the stated 44-minute duration.
+        val realSun = firstItem(2640.0)
+        assertEquals(95, realSun.cloudCoverPct)
+        assertEquals(WeatherCondition.VEILED, realSun.condition)
+        assertEquals(44.0 / 60, realSun.estimatedSunHours ?: Double.NaN, 0.001)
     }
 
     @Test

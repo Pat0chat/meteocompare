@@ -330,6 +330,30 @@ class ForecastAggregatesTest {
     }
 
     @Test
+    fun `home recognizes a solar high veil without hourly WMO but keeps opaque cloud covered`() {
+        fun forecast(sunshine: Double?, opaque: Boolean = false): CityForecast {
+            val hourly = HourlyForecast(
+                timestamps = listOf(now, now.plusSeconds(3600)),
+                temperature2m = listOf(20.0, 20.0),
+                precipitation = listOf(0.0, 0.0),
+                windSpeed10m = listOf(null, null),
+                cloudCover = listOf(95, 95),
+                cloudCoverLow = List(2) { if (opaque) 88 else 5 },
+                cloudCoverMid = List(2) { if (opaque) 75 else 8 },
+                cloudCoverHigh = List(2) { if (opaque) 20 else 93 },
+                sunshineDuration = listOf(null, sunshine)
+            )
+            return forecastOf(WeatherModel.GFS to hourly)
+        }
+        assertEquals(WeatherCondition.OVERCAST,
+            ForecastAggregates.next24h(forecast(null), now, true).conditions.first())
+        assertEquals(WeatherCondition.OVERCAST,
+            ForecastAggregates.next24h(forecast(2640.0, opaque = true), now, true).conditions.first())
+        assertEquals(WeatherCondition.VEILED,
+            ForecastAggregates.next24h(forecast(2640.0), now, true).conditions.first())
+    }
+
+    @Test
     fun `home next24h delivers last hour values and aligned conditions`() {
         val temps = List(24) { 11.0 + it }
         val forecast = forecastOf(

@@ -3,6 +3,7 @@ package com.meteocompare.app.domain.usecase
 import com.meteocompare.app.core.util.resolveZoneOrUtc
 import com.meteocompare.app.core.util.meanWindDirection
 import com.meteocompare.app.domain.util.dailyAtmosphericMetrics
+import com.meteocompare.app.domain.util.dailyCloudCoverMean
 import com.meteocompare.app.domain.util.dailyMoisture
 import com.meteocompare.app.domain.util.forecastDailyWindDirection
 import com.meteocompare.app.domain.model.UvForecast
@@ -145,7 +146,12 @@ fun estimatedSunshineHours(forecast: CityForecast, date: LocalDate): Double? {
             if (rise != null && set != null && set > rise) rise to set else null
         }
     }
-    val hours = forecast.seriesByModel.values.mapNotNull { series ->
+    data class DailySolarSample(
+        val model: com.meteocompare.app.domain.model.WeatherModel,
+        val cloudMean: Int?,
+        val sunshineHours: Double?
+    )
+    val samples = forecast.seriesByModel.mapNotNull { (model, series) ->
         val day = series.daily.dates.indexOf(date)
         if (day < 0) return@mapNotNull null
         val apiRise = series.daily.sunrise.getOrNull(day)
@@ -153,13 +159,44 @@ fun estimatedSunshineHours(forecast: CityForecast, date: LocalDate): Double? {
         val (rise, set) = if (apiRise != null && apiSet != null && apiSet > apiRise) {
             apiRise to apiSet
         } else fallbackWindow ?: return@mapNotNull null
-        estimateCloudAdjustedDaylight(
-            rise, set, series.hourly.timestamps, series.hourly.cloudCover,
-            series.hourly.cloudCoverLow, series.hourly.cloudCoverMid,
-            series.hourly.cloudCoverHigh, series.hourly.sunshineDuration,
-            series.hourly.directNormalIrradiance
+        DailySolarSample(
+            model = model,
+            cloudMean = series.dailyCloudCoverMean(date, zone),
+            sunshineHours = estimateCloudAdjustedDaylight(
+                rise, set, series.hourly.timestamps, series.hourly.cloudCover,
+                series.hourly.cloudCoverLow, series.hourly.cloudCoverMid,
+                series.hourly.cloudCoverHigh, series.hourly.sunshineDuration,
+                series.hourly.directNormalIrradiance
+            )
         )
-    }.sorted()
+    }
+
+    // Apply the same missing-solar safeguard to DAILY summaries. Otherwise a
+    // single partly-cloudy model could provide the entire sunny-day median
+    // while the rest predict near-total cloud cover without sunshine data.
+    if ((localityDailyCloudCoverPercent(forecast, date) ?: 0) >= 90) {
+        val cloudFamilies = samples.filter { it.cloudMean != null }
+            .map { ForecastConsensus.groupFor(it.model) }.toSet()
+        val overcastWithSun = samples.filter { item ->
+            item.cloudMean != null && item.cloudMean >= 90 && item.sunshineHours != null
+        }
+        val solarFamilies = overcastWithSun.map { ForecastConsensus.groupFor(it.model) }.toSet()
+        if (solarFamilies.isEmpty() ||
+            (cloudFamilies.size > 1 && solarFamilies.size * 2 <= cloudFamilies.size)
+        ) return null
+        val perFamily = overcastWithSun.groupBy { ForecastConsensus.groupFor(it.model) }
+            .values.map { group ->
+                val sorted = group.mapNotNull { it.sunshineHours }.sorted()
+                val middle = sorted.size / 2
+                if (sorted.size % 2 == 1) sorted[middle]
+                else (sorted[middle - 1] + sorted[middle]) / 2.0
+            }.sorted()
+        val middle = perFamily.size / 2
+        return if (perFamily.size % 2 == 1) perFamily[middle]
+        else (perFamily[middle - 1] + perFamily[middle]) / 2.0
+    }
+
+    val hours = samples.mapNotNull { it.sunshineHours }.sorted()
     if (hours.isEmpty()) return null
     val middle = hours.size / 2
     return if (hours.size % 2 == 1) hours[middle]
@@ -171,7 +208,9 @@ fun estimatedSunshineHours(forecast: CityForecast, date: LocalDate): Double? {
  * Evidence order: Open-Meteo's forecast sunshine_duration (DNI above 120 W/m²),
  * direct-normal radiation, cloud-layer transmissivity, total cloud fraction.
  * Each successive fallback is less physically informative. Missing fields are
- * never interpreted as zero; an opaque low cloud suppresses the layer estimate.
+ * never interpreted as zero. With >=90% cloud cover only the provider's
+ * sunshine_duration is used for minute counts; the hour-mean DNI and cloud
+ * optical proxies cannot establish how many minutes of direct sun occurred.
  */
 internal fun estimatedSunFraction(
     totalCloud: Int?, lowCloud: Int? = null, midCloud: Int? = null,
@@ -180,6 +219,12 @@ internal fun estimatedSunFraction(
 ): Double? {
     val seconds = sunshineSeconds?.takeIf { it.isFinite() && it in 0.0..3600.0 }
     if (seconds != null) return seconds / 3600.0
+
+    // Neither high-cloud transmissivity nor hourly MEAN irradiance tells us
+    // how many minutes passed the direct-sunshine threshold when cloud cover
+    // is nearly total. A high DNI can still support the VEILED condition, but
+    // only sunshine_duration is a defensible source for a minute count here.
+    if (totalCloud != null && totalCloud in 90..100) return null
 
     val dni = directNormalWm2?.takeIf { it.isFinite() && it in 0.0..1500.0 }
     if (dni != null) {
@@ -205,7 +250,8 @@ internal fun estimatedSunFraction(
  * Cover the daylight interval using one unique hourly value per physical hour.
  * Cloud at timestamp t describes [t,t+1h), but Open-Meteo sunshine_duration
  * and DNI at t+1 describe the PRECEDING hour, so we explicitly align t+1.
- * Reject <50% daylight coverage rather than extrapolating a short fragment.
+ * Reject <50% daylight coverage and substantial overcast hours without
+ * solar evidence rather than extrapolating sunny samples across unknown sky.
  */
 fun estimateCloudAdjustedDaylight(
     sunrise: Instant,
@@ -224,23 +270,33 @@ fun estimateCloudAdjustedDaylight(
     val indices = timestamps.withIndex().associate { it.value to it.index }
     var coveredSeconds = 0.0
     var sunnySeconds = 0.0
+    var unknownOvercastSeconds = 0.0
     val seen = hashSetOf<Instant>()
     for (i in timestamps.indices) {
         val start = timestamps[i]
+        if (!seen.add(start)) continue
+        val end = start.plusSeconds(3600)
+        val overlap = max(0L, minOf(end.epochSecond, sunset.epochSecond) -
+            maxOf(start.epochSecond, sunrise.epochSecond)).toDouble()
+        if (overlap <= 0.0) continue
         val next = indices[start.plusSeconds(3600)]
         val fraction = estimatedSunFraction(
             cloudCover.getOrNull(i), cloudCoverLow.getOrNull(i),
             cloudCoverMid.getOrNull(i), cloudCoverHigh.getOrNull(i),
             next?.let { sunshineDuration.getOrNull(it) },
             next?.let { directNormalIrradiance.getOrNull(it) }
-        ) ?: continue
-        if (!seen.add(start)) continue
-        val end = start.plusSeconds(3600)
-        val overlap = max(0L, minOf(end.epochSecond, sunset.epochSecond) -
-            maxOf(start.epochSecond, sunrise.epochSecond)).toDouble()
+        )
+        if (fraction == null) {
+            if (cloudCover.getOrNull(i) in 90..100) unknownOvercastSeconds += overlap
+            continue
+        }
         coveredSeconds += overlap
         sunnySeconds += overlap * fraction
     }
+    // Extrapolating sunny samples into hours where nearly all the sky is
+    // covered but opacity is unknown is particularly misleading. Those hours
+    // need actual solar data to justify any reported daily sunshine duration.
+    if (unknownOvercastSeconds >= daylightSeconds * 0.20) return null
     if (coveredSeconds < daylightSeconds * 0.5) return null
     return (daylightSeconds / 3600.0 * sunnySeconds / coveredSeconds).coerceIn(0.0, 24.0)
 }
@@ -267,30 +323,96 @@ fun estimateHourlySunshineHours(
         .coerceIn(0.0, 1.0)
 }
 
-/** Model-wise solar estimates from the actual hourly data; do not treat missing solar as 0. */
+/**
+ * Hourly sunshine in the *same* [instant, instant + 1h) interval as the sky
+ * consensus. Open-Meteo publishes sunshine_duration at the END of that interval.
+ *
+ * In a mostly-overcast consensus, a median of *only available* solar values is
+ * misleading: a single less-cloudy model (or an outlying model with solar data)
+ * can report 44 sunny minutes while most models predict overcast and provide no
+ * solar duration. Missing values are neither sunny nor zero. For an overcast
+ * consensus we therefore require provider sunshine_duration from overcast
+ * models in a strict majority of independent model families, or return unknown.
+ * With a single model, its own explicitly supplied duration remains available.
+ *
+ * Outside the mostly-overcast case the existing estimate is preserved.
+ */
 fun estimatedHourlySunshineFromModels(
     forecast: CityForecast,
     instant: Instant,
     solarWindow: ForecastSolarWindow,
     cloudCoverFallback: Int? = null
 ): Double? {
-    val estimates = forecast.seriesByModel.values.mapNotNull { series ->
-        val i = series.hourly.timestamps.indexOf(instant)
-        if (i < 0) return@mapNotNull null
-        val next = series.hourly.timestamps.indexOf(instant.plusSeconds(3600))
-        estimateHourlySunshineHours(
-            instant, series.hourly.cloudCover.getOrNull(i), solarWindow,
-            series.hourly.cloudCoverLow.getOrNull(i),
-            series.hourly.cloudCoverMid.getOrNull(i),
-            series.hourly.cloudCoverHigh.getOrNull(i),
-            series.hourly.sunshineDuration.getOrNull(next),
-            series.hourly.directNormalIrradiance.getOrNull(next)
+    data class ModelHour(
+        val model: com.meteocompare.app.domain.model.WeatherModel,
+        val cloud: Int?,
+        val estimate: Double?,
+        val explicitSunshine: Double?
+    )
+
+    val hours = forecast.seriesByModel.mapNotNull { (model, series) ->
+        val hourly = series.hourly
+        val index = hourly.timestamps.indexOf(instant)
+        if (index < 0) return@mapNotNull null
+        val nextIndex = hourly.timestamps.indexOf(instant.plusSeconds(3600))
+        val cloud = hourly.cloudCover.getOrNull(index)?.takeIf { it in 0..100 }
+        val explicitSunshine = nextIndex.takeIf { it >= 0 }
+            ?.let { hourly.sunshineDuration.getOrNull(it) }
+            ?.takeIf { it.isFinite() && it in 0.0..3600.0 }
+        val estimate = estimateHourlySunshineHours(
+            instant, cloud, solarWindow,
+            hourly.cloudCoverLow.getOrNull(index),
+            hourly.cloudCoverMid.getOrNull(index),
+            hourly.cloudCoverHigh.getOrNull(index),
+            explicitSunshine,
+            nextIndex.takeIf { it >= 0 }
+                ?.let { hourly.directNormalIrradiance.getOrNull(it) }
         )
-    }.sorted()
+        ModelHour(model, cloud, estimate, explicitSunshine)
+    }
+
+    // Prefer the cloud consensus already used to display the condition; when
+    // unavailable, compute the same family-balanced cloud median here.
+    val centralCloud = cloudCoverFallback?.takeIf { it in 0..100 } ?: run {
+        val entries = hours.mapNotNull { item ->
+            item.cloud?.let { ForecastConsensus.Entry(item.model, it.toDouble()) }
+        }
+        ForecastConsensus.continuous(entries, tightStdDev = 10.0, wideStdDev = 50.0)
+            .central?.roundToInt()
+    }
+
+    if (centralCloud != null && centralCloud >= 90) {
+        val cloudFamilies = hours.mapNotNull { item ->
+            item.cloud?.let { ForecastConsensus.groupFor(item.model) }
+        }.toSet()
+        val explicit = hours.filter { item ->
+            item.cloud != null && item.cloud >= 90 && item.explicitSunshine != null &&
+                item.estimate != null
+        }
+        val solarFamilies = explicit.map { ForecastConsensus.groupFor(it.model) }.toSet()
+        if (solarFamilies.isEmpty() ||
+            (cloudFamilies.size > 1 && solarFamilies.size * 2 <= cloudFamilies.size)
+        ) return null
+
+        // Related regional/global variants of one model family must not gain
+        // extra weight merely because they provide more solar fields.
+        val familyMedians = explicit.groupBy { ForecastConsensus.groupFor(it.model) }
+            .values.map { group ->
+                val values = group.mapNotNull { it.estimate }.sorted()
+                val middle = values.size / 2
+                if (values.size % 2 == 1) values[middle]
+                else (values[middle - 1] + values[middle]) / 2.0
+            }.sorted()
+        val middle = familyMedians.size / 2
+        return if (familyMedians.size % 2 == 1) familyMedians[middle]
+        else (familyMedians[middle - 1] + familyMedians[middle]) / 2.0
+    }
+
+    val estimates = hours.mapNotNull { it.estimate }.sorted()
     if (estimates.isNotEmpty()) {
-        val mid = estimates.size / 2
-        return if (estimates.size % 2 == 1) estimates[mid]
-            else (estimates[mid - 1] + estimates[mid]) / 2.0
+        val middle = estimates.size / 2
+        return if (estimates.size % 2 == 1) estimates[middle]
+            else (estimates[middle - 1] + estimates[middle]) / 2.0
     }
     return estimateHourlySunshineHours(instant, cloudCoverFallback, solarWindow)
 }

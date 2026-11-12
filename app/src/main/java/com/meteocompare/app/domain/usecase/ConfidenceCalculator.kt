@@ -291,12 +291,13 @@ class ConfidenceCalculator @Inject constructor(
                 val idx = exactCurrentIndex(series, target) ?: return@mapNotNull null
                 series.resolveHourlyCondition(idx)?.let { ForecastConsensus.Entry(model, it) }
             }
-            val refined = WeatherConditionConsensus.resolve(
-                entries = derived,
+            return WeatherConditionConsensus.refineVeiledWithoutNativeWmo(
+                original = aggregate,
+                nativeWmoAvailable = false,
                 cloudCoverPercent = cloudCentral,
+                resolvedPerModel = derived,
                 localWeights = localWeights(derived.map { it.model })
-            ).value
-            if (refined == WeatherCondition.VEILED) return refined
+            )
         }
         return aggregate
     }
