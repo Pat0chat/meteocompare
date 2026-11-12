@@ -20,6 +20,21 @@ class CloudExplanationScrollContractTest(unittest.TestCase):
         self.assertIn('"today_cloud_explanation_toggle"', kotlin)
         self.assertIn('"today_cloud_veil_explanation"', kotlin)
         self.assertIn('.assertExists().assertIsDisplayed()', kotlin)
+        # The toggle can be present in the semantics tree but off-screen; it
+        # must be scrolled into view *before* delivering the click.
+        self.assertRegex(kotlin, r'"today_cloud_explanation_toggle", useUnmergedTree = true\)\s*'
+                         r'\.performScrollTo\(\)\.assertExists\(\)'
+                         r'\.assertIsDisplayed\(\)\.performClick\(\)')
+        # Hour selection must happen before expanding the bottom explanation:
+        # its nested horizontal scroller cannot move the outer vertical dialog
+        # back to the selector when performScrollTo() targets an hour chip.
+        self.assertLess(kotlin.index('"today_cloud_hour_1", useUnmergedTree = true'),
+                        kotlin.index('"today_cloud_explanation_toggle", useUnmergedTree = true'))
+        self.assertRegex(kotlin, r'"today_cloud_hour_1", useUnmergedTree = true\)\s*'
+                         r'\.assertExists\(\)\.assertIsDisplayed\(\)\.performClick\(\)')
+        # The expanded explanation must still be brought into view and verified.
+        self.assertRegex(kotlin, r'"today_cloud_veil_explanation", useUnmergedTree = true\)\s*'
+                         r'\.performScrollTo\(\)\.assertExists\(\)\.assertIsDisplayed\(\)')
 
 
 if __name__ == '__main__':

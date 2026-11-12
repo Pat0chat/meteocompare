@@ -16,6 +16,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.platform.app.InstrumentationRegistry
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.CityForecast
@@ -122,18 +123,25 @@ class TodaySummaryCardTest {
             useUnmergedTree = true).assertExists()
         composeRule.onNodeWithText(context.getString(R.string.summary_cloud_layers_not_sum),
             useUnmergedTree = true).assertExists()
-        composeRule.onNodeWithTag("today_cloud_explanation_toggle", useUnmergedTree = true)
-            .assertExists().performClick()
-        // The expanded content is below the scrolling dialog's initial viewport.
-        // Wait for the post-layout scroll and verify that the text is visible,
-        // rather than matching a language-dependent sentence.
-        composeRule.waitForIdle()
-        composeRule.onNodeWithTag("today_cloud_veil_explanation", useUnmergedTree = true)
-            .assertExists().assertIsDisplayed()
+        // Select the next hour while the selector is in its initial viewport.
+        // Once the explanations are expanded, the dialog deliberately scrolls
+        // to the bottom; performScrollTo() on a chip inside the horizontally
+        // scrolling Row only scrolls that Row, not the outer vertical dialog.
         composeRule.onNodeWithTag("today_cloud_hour_1", useUnmergedTree = true)
-            .assertExists().performClick()
+            .assertExists().assertIsDisplayed().performClick()
         composeRule.onNodeWithText(context.getString(R.string.summary_cloud_layers_models),
             useUnmergedTree = true).assertExists()
+
+        // The explanation button follows the per-model rows at the bottom of
+        // the vertical dialog. Bring it on-screen before tapping it, and keep
+        // its content verification as the final step of this interaction test.
+        composeRule.onNodeWithTag("today_cloud_veil_explanation", useUnmergedTree = true)
+            .assertDoesNotExist()
+        composeRule.onNodeWithTag("today_cloud_explanation_toggle", useUnmergedTree = true)
+            .performScrollTo().assertExists().assertIsDisplayed().performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("today_cloud_veil_explanation", useUnmergedTree = true)
+            .performScrollTo().assertExists().assertIsDisplayed()
     }
 
 
