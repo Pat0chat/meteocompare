@@ -19,6 +19,11 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+      - name: Verify weather regression golden corpus (SHA256 and generated expectations)
+        run: |
+          python3 scripts/generate_weather_regression_corpus.py --check
+          python3 -m unittest scripts.tests.test_weather_regression_corpus -v
+
       - name: Validate all Python checks (no pytest required)
         run: |
           set -euo pipefail

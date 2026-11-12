@@ -260,6 +260,7 @@ internal fun TodayCloudLayersCard(
                                 Text(stringResource(R.string.summary_cloud_layers_guide),
                                     style = MaterialTheme.typography.bodySmall)
                                 Text(stringResource(R.string.summary_cloud_layers_veil),
+                                    modifier = Modifier.testTag("today_cloud_veil_explanation"),
                                     style = MaterialTheme.typography.bodySmall)
                                 Text(stringResource(R.string.summary_cloud_layers_sun_method),
                                     style = MaterialTheme.typography.bodySmall)

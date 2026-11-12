@@ -2,6 +2,24 @@
 
 Cette base sépare volontairement les tests rapides JVM des tests Android instrumentés.
 
+## Corpus météo et widgets : 74 537 scénarios déterministes
+
+Une bibliothèque de **74 537 cas versionnés** teste les conditions WMO,
+le voile et les couches nuageuses, la dominante quotidienne (#40), les consensus
+multi-familles, les heures de soleil (#38) et le dimensionnement/refresh des
+widgets (#39). Elle passe par `WeatherRegressionCorpusTest` et
+`WidgetRegressionCorpusTest` ; les résultats attendus ne sont pas dérivés
+du logiciel testé.
+
+```powershell
+python scripts/generate_weather_regression_corpus.py --check
+python -m unittest scripts.tests.test_weather_regression_corpus -v
+.\gradlew.bat :app:testDebugUnitTest :app:testReleaseUnitTest
+```
+
+Voir [documentation complète](docs/weather-regression-corpus.md), notamment
+pour les limites de couverture et l'ajout de nouveaux scénarios.
+
 ## Pyramide de tests
 
 ### Tests JVM (`app/src/test`)

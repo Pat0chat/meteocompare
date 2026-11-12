@@ -143,6 +143,11 @@ jobs:
           ./gradlew --version
           "${ANDROID_SDK_ROOT}/build-tools/34.0.0/apksigner" version
 
+      - name: Verify weather regression golden corpus (SHA256 and generated expectations)
+        run: |
+          python3 scripts/generate_weather_regression_corpus.py --check
+          python3 -m unittest scripts.tests.test_weather_regression_corpus -v
+
       - name: Validate repository release gates
         shell: bash
         run: |

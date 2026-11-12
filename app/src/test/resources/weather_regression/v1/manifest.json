@@ -1,0 +1,43 @@
+{
+  "clock": "fixed UTC timestamps; no network or wall-clock dependency",
+  "files": {
+    "clouds.tsv": {
+      "cases": 40411,
+      "sha256": "5c2cbeae28edc6a5f7fe8133728ec1ef3f3fd0d858ea8155cb2b43c2d8a29204"
+    },
+    "consensus.tsv": {
+      "cases": 609,
+      "sha256": "b715eea7e748725828424a584faff302d03978b2727035a4d650e3ad1193e8df"
+    },
+    "daily.tsv": {
+      "cases": 8461,
+      "sha256": "63a22cbbf71eabe85ce9b72f353600154c5dc442770024d0247bdb97e35decb5"
+    },
+    "sunshine.tsv": {
+      "cases": 2880,
+      "sha256": "d794b7ccc5f15de23ff5570e73a6488095e7c41f64aeaabe92cfc18bc46a8d3f"
+    },
+    "sunshine_consensus.tsv": {
+      "cases": 5120,
+      "sha256": "eb2532313a0619b30072a069dc22b3f87d9e9675cd85c6e1cbe677f7df4e1ed8"
+    },
+    "widget_layout.tsv": {
+      "cases": 12870,
+      "sha256": "54e0560d57063dac5aaab06b7555243f740d41a442ed236240f3ba45a5521574"
+    },
+    "widget_metrics.tsv": {
+      "cases": 1408,
+      "sha256": "732bb10aae1b02c15c2cf9b0a5aea8e7de35d6d583d4c0853982cc2228dc2a76"
+    },
+    "widget_refresh.tsv": {
+      "cases": 2664,
+      "sha256": "d4d8f9edc0a9fb0b5ec9682c427db9fc9fe59b66415c9d887d6f5cc98caa4a1b"
+    },
+    "wmo.tsv": {
+      "cases": 114,
+      "sha256": "04419968791914f6bc22876e75008aa0fe6691009edc95a55ac0a9f2219edfd7"
+    }
+  },
+  "oracle": "independent hand-specified domain contracts; NEVER generated from application outputs",
+  "schema_version": 1
+}

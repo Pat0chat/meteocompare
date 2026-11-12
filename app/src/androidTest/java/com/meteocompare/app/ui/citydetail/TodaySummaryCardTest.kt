@@ -124,8 +124,10 @@ class TodaySummaryCardTest {
             useUnmergedTree = true).assertExists()
         composeRule.onNodeWithTag("today_cloud_explanation_toggle", useUnmergedTree = true)
             .performClick()
-        composeRule.onNodeWithText(context.getString(R.string.summary_cloud_layers_veil),
-            useUnmergedTree = true).assertExists()
+        // The explanation may be translated differently from the test runner's
+        // locale. Verify the expanded content by a stable semantic identifier.
+        composeRule.onNodeWithTag("today_cloud_veil_explanation", useUnmergedTree = true)
+            .assertExists()
         composeRule.onNodeWithTag("today_cloud_hour_1", useUnmergedTree = true)
             .assertExists().performClick()
         composeRule.onNodeWithText(context.getString(R.string.summary_cloud_layers_models),
@@ -485,9 +487,16 @@ class TodaySummaryCardTest {
         assertTrue("Le graphique UV doit rester dans la section solaire", uv.bottom <= solar.bottom)
         composeRule.onAllNodesWithTag("uv_gauge", useUnmergedTree = true)
             .assertCountEquals(1)
-        composeRule.onAllNodesWithTag(
+        // Cloud layers introduce a divider before the solar section. None
+        // must split the sunrise/sunset visual from the UV graph itself.
+        val dividers = composeRule.onAllNodesWithTag(
             TAG_TODAY_SUMMARY_SECTION_DIVIDER, useUnmergedTree = true
-        ).assertCountEquals(0)
+        )
+        dividers.fetchSemanticsNodes().indices.forEach { index ->
+            val bounds = dividers[index].getUnclippedBoundsInRoot()
+            assertTrue("A divider must not separate sunset from UV",
+                bounds.bottom <= sunset.bottom || bounds.top >= uv.top)
+        }
     }
 
     @Test
@@ -580,10 +589,10 @@ class TodaySummaryCardTest {
         composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_TEMP_PANEL, useUnmergedTree = true).assertExists()
         composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_PRECIP_PANEL, useUnmergedTree = true).assertExists()
         composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_WIND_PANEL, useUnmergedTree = true).assertExists()
-        // Solar + trois sections météo : trois séparateurs, centrés et plus courts.
+        // The added cloud section contributes a fourth divider before solar.
         composeRule.onAllNodesWithTag(
             TAG_TODAY_SUMMARY_SECTION_DIVIDER, useUnmergedTree = true
-        ).assertCountEquals(3)
+        ).assertCountEquals(4)
         val sectionBounds = composeRule.onNodeWithTag(
             TAG_DETAIL_SOLAR_CARD, useUnmergedTree = true
         ).getUnclippedBoundsInRoot()
