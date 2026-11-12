@@ -64,6 +64,12 @@ data class HourlyDto(
     val cloudCoverMid: List<Int?>? = null,
     @SerialName("cloud_cover_high")
     val cloudCoverHigh: List<Int?>? = null,
+    /** Forecast sunshine seconds over the preceding hour; null on unsupported models/caches. */
+    @SerialName("sunshine_duration")
+    val sunshineDuration: List<Double?>? = null,
+    /** Forecast direct-normal solar irradiance (W/m²) averaged over the preceding hour. */
+    @SerialName("direct_normal_irradiance")
+    val directNormalIrradiance: List<Double?>? = null,
     /** Maximum des rafales à 10 m sur l’heure précédente, en unité vent demandée. */
     @SerialName("wind_gusts_10m")
     val windGusts10m: List<Double?>? = null

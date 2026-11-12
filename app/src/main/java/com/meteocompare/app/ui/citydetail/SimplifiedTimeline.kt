@@ -186,12 +186,6 @@ internal fun SimplifiedTimelineCard(
             )
 
             if (expanded) {
-                Text(
-                    text = stringResource(R.string.compare_sunshine_disclaimer),
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
                 Spacer(Modifier.height(8.dp))
 
                 if (

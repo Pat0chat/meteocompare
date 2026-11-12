@@ -47,6 +47,7 @@ internal fun weatherBadgeFor(
     WeatherCondition.SNOW_SHOWERS ->
         precipProbability?.let { "$it%" }
     WeatherCondition.PARTLY_CLOUDY,
+    WeatherCondition.VEILED,
     WeatherCondition.OVERCAST ->
         cloudCover?.let { "$it%" }
     else -> null

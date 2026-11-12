@@ -24,7 +24,7 @@
     <string name="compare_no_dates">Aucune date de prévision disponible.</string>
 
     <string name="compare_rain_cloud_disclaimer">Risque de pluie estimé par le consensus des modèles, non calibré comme probabilité réelle. Couverture nuageuse : médiane des moyennes horaires de chaque modèle sur le jour local ; journées trop incomplètes exclues.</string>
-    <string name="compare_sunshine_disclaimer">Ensoleillement estimé en heures de ciel dégagé équivalentes, d’après la couverture nuageuse et la durée du jour. Ce n’est pas une mesure de la durée d’ensoleillement.</string>
+    <string name="compare_sunshine_disclaimer">Durée de soleil prévue : priorité aux données d’ensoleillement des modèles, sinon rayonnement solaire direct, puis estimation à partir des couches nuageuses et de la nébulosité. Ce n’est pas une mesure observée ; les nuages élevés peuvent laisser passer le soleil.</string>
     <string name="compare_agreement_disclaimer">L’accord décrit la convergence des modèles, pas la probabilité que la prévision soit juste. Les dates correspondent au jour local de chaque ville.</string>
 
     <string name="compare_chart_x_axis">Heure locale</string>
@@ -371,7 +371,8 @@
     <string name="weather_clear">Ciel clair</string>
     <string name="weather_mainly_clear">Plutôt clair</string>
     <string name="weather_partly_cloudy">Partiellement nuageux</string>
-    <string name="weather_overcast">Ciel couvert</string>
+        <string name="weather_veiled">Ciel voilé</string>
+<string name="weather_overcast">Ciel couvert</string>
     <string name="weather_fog">Brouillard</string>
     <string name="weather_drizzle">Pluie faible</string>
     <string name="weather_rain">Pluie</string>
@@ -384,7 +385,8 @@
 
     <string name="weather_legend_clear">Soleil</string>
     <string name="weather_legend_partly_cloudy">Partiellement nuageux</string>
-    <string name="weather_legend_overcast">Couvert</string>
+        <string name="weather_legend_veiled">Voilé</string>
+<string name="weather_legend_overcast">Couvert</string>
     <string name="weather_legend_rain">Pluie</string>
     <string name="weather_legend_snow">Neige</string>
     <string name="weather_legend_thunderstorm">Orage</string>
@@ -1151,4 +1153,23 @@
     <string name="condition_period_day">Jour</string>
     <string name="condition_period_night">Nuit</string>
     <string name="condition_period_full_day">24 h</string>
+
+    <!-- Today summary: independent cloud-layer bands and model details -->
+    <string name="summary_cloud_layers_explain">Comprendre les nuages et le soleil</string>
+    <string name="summary_cloud_layers_now_title">Nébulosité · maintenant</string>
+    <string name="summary_cloud_layers_title">Couches nuageuses · 9 h</string>
+    <string name="summary_cloud_layers_timeline">Couverture du ciel, heure par heure</string>
+    <string name="summary_cloud_layers_total">Total</string>
+    <string name="summary_cloud_layers_high">Hauts</string>
+    <string name="summary_cloud_layers_mid">Moyens</string>
+    <string name="summary_cloud_layers_low">Bas</string>
+    <string name="summary_cloud_layers_details_hint">Toucher pour voir les couches et les modèles</string>
+    <string name="summary_cloud_layers_models">Prévisions des modèles à cette heure</string>
+    <string name="summary_cloud_layers_guide">Chaque bande représente la fraction du ciel couverte par une couche. La valeur centrale est une médiane pondérée équilibrant les familles de modèles.</string>
+    <string name="summary_cloud_layers_not_sum">Les couches peuvent se superposer : leurs pourcentages ne doivent pas être additionnés. Une donnée absente est indiquée par un tiret, pas par zéro.</string>
+    <string name="summary_cloud_layers_veil">Un ciel très nuageux peut laisser passer le soleil lorsque les nuages élevés sont fins. « Ciel voilé » nécessite également un signal solaire exploitable du même modèle ; pluie et brouillard restent prioritaires.</string>
+    <string name="summary_cloud_layers_sun_method">Soleil prévu : durée de soleil du modèle en priorité, sinon rayonnement direct, puis estimation par couches nuageuses. Les valeurs solaires horodatées à H correspondent à la période H−1 à H. Ce sont des prévisions, pas une mesure.</string>
+    <string name="summary_cloud_layers_solar_minutes">Soleil prévu : %1$d min</string>
+    <string name="summary_cloud_layers_dni">Rayonnement direct : %1$d W/m²</string>
+    <string name="summary_cloud_layers_unavailable">Pas de données nuageuses disponibles à cette heure.</string>
 </resources>

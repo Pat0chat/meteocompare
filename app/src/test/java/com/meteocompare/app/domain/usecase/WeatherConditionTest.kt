@@ -274,6 +274,39 @@ class WeatherConditionTest {
         assertEquals(WeatherCondition.PARTLY_CLOUDY, calculator.currentWeatherCondition(forecast, now))
     }
 
+    @Test
+    fun `currentWeatherCondition sees same-model veil when WMO code is unavailable`() {
+        val now = Instant.parse("2026-08-17T10:00:00Z")
+        val times = listOf(now, now.plusSeconds(3600L))
+        fun model(model: WeatherModel, low: Int = 5) = ForecastSeries(
+            model = model,
+            hourly = HourlyForecast(
+                timestamps = times,
+                temperature2m = listOf(18.0, 18.0),
+                precipitation = listOf(0.0, 0.0),
+                windSpeed10m = listOf(8.0, 8.0),
+                weatherCode = listOf(null, null),
+                cloudCover = listOf(98, 98),
+                cloudCoverLow = listOf(low, low),
+                cloudCoverMid = listOf(9, 9),
+                cloudCoverHigh = listOf(98, 98),
+                sunshineDuration = listOf(null, 1800.0)
+            ),
+            daily = emptyDaily()
+        )
+        val veiled = CityForecast(paris, linkedMapOf(
+            WeatherModel.GFS to model(WeatherModel.GFS),
+            WeatherModel.ECMWF to model(WeatherModel.ECMWF)
+        ))
+        assertEquals(WeatherCondition.VEILED, calculator.currentWeatherCondition(veiled, now))
+
+        val opaque = CityForecast(paris, linkedMapOf(
+            WeatherModel.GFS to model(WeatherModel.GFS, low = 95),
+            WeatherModel.ECMWF to model(WeatherModel.ECMWF, low = 95)
+        ))
+        assertEquals(WeatherCondition.OVERCAST, calculator.currentWeatherCondition(opaque, now))
+    }
+
     // ─── dailyConditionsByModel ──────────────────────────────────────────────
 
     @Test

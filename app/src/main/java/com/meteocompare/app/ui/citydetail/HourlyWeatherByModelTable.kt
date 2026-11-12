@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.WeatherCondition
+import com.meteocompare.app.domain.util.resolveHourlyCondition
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.model.sortedByFamily
 import com.meteocompare.app.ui.components.WeatherIconDecorative
@@ -71,15 +72,7 @@ fun HourlyWeatherByModelTable(
                         .fromWmoCode(series.hourly.weatherCode.getOrNull(idx))
                         ?.takeUnless { it == WeatherCondition.UNKNOWN }
                     val inferred = direct == null
-                    val condition = direct
-                        ?: WeatherCondition.inferFromPrecipAndTemp(
-                            precipMm = series.hourly.precipitation.getOrNull(idx),
-                            tempMinC = series.hourly.temperature2m.getOrNull(idx)
-                        )
-                        ?: series.hourly.cloudCover.getOrNull(idx)
-                            ?.takeIf { it in 0..100 }
-                            ?.let { WeatherCondition.fromCloudCover(it.toDouble()) }
-                        ?: return@mapNotNull null
+                    val condition = series.resolveHourlyCondition(idx) ?: return@mapNotNull null
 
                     model to HourCellData(
                         condition = condition,

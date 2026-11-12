@@ -31,6 +31,7 @@ data class WeatherScenario(
 enum class WeatherScenarioKind {
     CLEAR,
     VARIABLE_SKY,
+    VEILED,
     OVERCAST,
     DRY_UNSPECIFIED,
     SHOWERS,

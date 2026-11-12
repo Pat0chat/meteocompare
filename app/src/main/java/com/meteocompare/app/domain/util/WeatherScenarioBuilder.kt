@@ -88,9 +88,7 @@ object WeatherScenarioBuilder {
                         offset = offset,
                         temperature = series.hourly.temperature2m.getOrNull(index),
                         precipitation = series.hourly.precipitation.getOrNull(index),
-                        condition = WeatherCondition
-                            .fromWmoCode(series.hourly.weatherCode.getOrNull(index))
-                            ?.takeUnless { it == WeatherCondition.UNKNOWN },
+                        condition = series.resolveHourlyCondition(index),
                         cloudCover = series.hourly.cloudCover.getOrNull(index),
                         gust = series.hourly.windGusts10m.getOrNull(index)
                     )
@@ -159,6 +157,11 @@ object WeatherScenarioBuilder {
     private fun drySkyKind(samples: List<Sample>, clouds: List<Int>): WeatherScenarioKind {
         val cloudMedian = clouds.medianInt()
         if (cloudMedian != null) {
+            val supported = samples.count { it.condition != null }
+            // Do not flatten a genuinely luminous high veil into opaque OVERCAST.
+            if (cloudMedian >= 90 && supported > 0 &&
+                samples.count { it.condition == WeatherCondition.VEILED } > supported / 2
+            ) return WeatherScenarioKind.VEILED
             return when {
                 cloudMedian < 30 -> WeatherScenarioKind.CLEAR
                 cloudMedian < 90 -> WeatherScenarioKind.VARIABLE_SKY
@@ -177,6 +180,7 @@ object WeatherScenarioBuilder {
             when (condition) {
                 WeatherCondition.CLEAR, WeatherCondition.MAINLY_CLEAR -> WeatherScenarioKind.CLEAR
                 WeatherCondition.PARTLY_CLOUDY -> WeatherScenarioKind.VARIABLE_SKY
+                WeatherCondition.VEILED -> WeatherScenarioKind.VEILED
                 WeatherCondition.OVERCAST -> WeatherScenarioKind.OVERCAST
                 else -> null
             }
@@ -276,6 +280,7 @@ object WeatherScenarioBuilder {
             WeatherScenarioKind.RAIN -> 5
             WeatherScenarioKind.SHOWERS -> 4
             WeatherScenarioKind.OVERCAST -> 3
+            WeatherScenarioKind.VEILED -> 2
             WeatherScenarioKind.VARIABLE_SKY -> 2
             WeatherScenarioKind.CLEAR -> 1
             WeatherScenarioKind.DRY_UNSPECIFIED -> 0

@@ -206,6 +206,7 @@ object WeatherConditionConsensus {
         CLEAR,
         MAINLY_CLEAR,
         PARTLY_CLOUDY,
+        VEILED,
         OVERCAST,
         FOG,
         PRECIPITATION,
@@ -236,6 +237,7 @@ object WeatherConditionConsensus {
         WeatherCondition.CLEAR,
         WeatherCondition.MAINLY_CLEAR,
         WeatherCondition.PARTLY_CLOUDY,
+        WeatherCondition.VEILED,
         WeatherCondition.OVERCAST
     )
 
@@ -273,6 +275,7 @@ object WeatherConditionConsensus {
                             leaf(NodeId.CLEAR, WeatherCondition.CLEAR),
                             leaf(NodeId.MAINLY_CLEAR, WeatherCondition.MAINLY_CLEAR),
                             leaf(NodeId.PARTLY_CLOUDY, WeatherCondition.PARTLY_CLOUDY),
+                            leaf(NodeId.VEILED, WeatherCondition.VEILED),
                             leaf(NodeId.OVERCAST, WeatherCondition.OVERCAST)
                         ),
                         resolveSkyFromCloudCover = true
@@ -347,6 +350,16 @@ object WeatherConditionConsensus {
     ): WeatherCondition? {
         if (entries.isEmpty()) return null
         if (node.resolveSkyFromCloudCover && cloudCondition != null && cloudCondition in node.conditions) {
+            // Cloud coverage alone cannot tell opaque clouds from a luminous high veil.
+            // Only override OVERCAST when strictly more than half the models in the
+            // sky branch have same-model cloud-layer + solar evidence.
+            val families = entries.groupBy { ForecastConsensus.groupFor(it.model) }
+            val supportingFamilies = families.values.count { rows ->
+                rows.count { it.value == WeatherCondition.VEILED } > rows.size / 2
+            }
+            if (cloudCondition == WeatherCondition.OVERCAST &&
+                supportingFamilies > families.size / 2
+            ) return WeatherCondition.VEILED
             return cloudCondition
         }
         if (node.children.isEmpty()) return node.conditions.singleOrNull()
@@ -378,6 +391,9 @@ object WeatherConditionConsensus {
     ): WeatherCondition? {
         if (values.isEmpty()) return null
         if (node.resolveSkyFromCloudCover && cloudCondition != null && cloudCondition in node.conditions) {
+            if (cloudCondition == WeatherCondition.OVERCAST &&
+                values.count { it == WeatherCondition.VEILED } > values.size / 2
+            ) return WeatherCondition.VEILED
             return cloudCondition
         }
         if (node.children.isEmpty()) return node.conditions.singleOrNull()

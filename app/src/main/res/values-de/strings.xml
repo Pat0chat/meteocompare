@@ -24,7 +24,7 @@
     <string name="compare_no_dates">Keine Vorhersagedaten verfügbar.</string>
 
     <string name="compare_rain_cloud_disclaimer">Regenwahrscheinlichkeit als Modellkonsens geschätzt, keine kalibrierte Wahrscheinlichkeit. Bewölkung: Median der stündlichen Modellmittelwerte für den lokalen Tag; zu lückenhafte Tage werden ausgeschlossen.</string>
-    <string name="compare_sunshine_disclaimer">Geschätzte sonnenäquivalente Stunden auf Basis der Bewölkung und Tageslänge. Keine gemessene Sonnenscheindauer.</string>
+    <string name="compare_sunshine_disclaimer">Sonnenscheindauer als Vorhersage: zuerst Modelldaten, sonst direkte Strahlung, dann Schätzung aus Wolkenschichten und Bewölkung. Keine Beobachtung; hohe Schleierwolken können Sonne durchlassen.</string>
     <string name="compare_agreement_disclaimer">Die Übereinstimmung beschreibt die Konvergenz der Modelle, nicht die Wahrscheinlichkeit einer korrekten Vorhersage. Der Tag gilt jeweils am Ort.</string>
 
     <string name="compare_chart_x_axis">Ortszeit</string>
@@ -373,7 +373,8 @@ Daten</string>
     <string name="weather_clear">Klarer Himmel</string>
     <string name="weather_mainly_clear">Überwiegend klar</string>
     <string name="weather_partly_cloudy">Teilweise bewölkt</string>
-    <string name="weather_overcast">Bedeckt</string>
+        <string name="weather_veiled">Sonne hinter Schleierwolken</string>
+<string name="weather_overcast">Bedeckt</string>
     <string name="weather_fog">Nebel</string>
     <string name="weather_drizzle">Leichter Regen</string>
     <string name="weather_rain">Regen</string>
@@ -386,7 +387,8 @@ Daten</string>
 
     <string name="weather_legend_clear">Sonnig</string>
     <string name="weather_legend_partly_cloudy">Teilweise bewölkt</string>
-    <string name="weather_legend_overcast">Bedeckt</string>
+        <string name="weather_legend_veiled">Schleierwolken</string>
+<string name="weather_legend_overcast">Bedeckt</string>
     <string name="weather_legend_rain">Regen</string>
     <string name="weather_legend_snow">Schnee</string>
     <string name="weather_legend_thunderstorm">Gewitter</string>
@@ -1133,4 +1135,23 @@ Daten</string>
     <string name="condition_period_day">Tag</string>
     <string name="condition_period_night">Nacht</string>
     <string name="condition_period_full_day">24 Std.</string>
+
+    <!-- Today summary: independent cloud-layer bands and model details -->
+    <string name="summary_cloud_layers_explain">Wolken und Sonne verstehen</string>
+    <string name="summary_cloud_layers_now_title">Bewölkung · jetzt</string>
+    <string name="summary_cloud_layers_title">Wolkenschichten · 9 Std.</string>
+    <string name="summary_cloud_layers_timeline">Himmelsbedeckung im Stundenverlauf</string>
+    <string name="summary_cloud_layers_total">Gesamt</string>
+    <string name="summary_cloud_layers_high">Hoch</string>
+    <string name="summary_cloud_layers_mid">Mittel</string>
+    <string name="summary_cloud_layers_low">Tief</string>
+    <string name="summary_cloud_layers_details_hint">Tippen für Schichten und Modellwerte</string>
+    <string name="summary_cloud_layers_models">Modellprognosen für diese Stunde</string>
+    <string name="summary_cloud_layers_guide">Jedes Band zeigt den bedeckten Himmelsanteil der jeweiligen Schicht. Der Zentralwert ist ein nach Modellfamilien gewichteter Median.</string>
+    <string name="summary_cloud_layers_not_sum">Wolkenschichten überlappen sich: Prozentwerte dürfen nicht addiert werden. Fehlende Werte werden als Strich angezeigt, nicht als null.</string>
+    <string name="summary_cloud_layers_veil">Trotz vieler Wolken kann die Sonne durch dünne hohe Wolken scheinen. „Verschleiert“ setzt auch Solarwerte desselben Modells voraus; Regen und Nebel haben Vorrang.</string>
+    <string name="summary_cloud_layers_sun_method">Sonnenprognose: zuerst Sonnenscheindauer, dann direkte Strahlung, dann Schätzung aus Wolkenschichten. Solarwerte für H gelten für die vorherige Stunde H−1 bis H. Keine Messung.</string>
+    <string name="summary_cloud_layers_solar_minutes">Sonnenprognose: %1$d Min.</string>
+    <string name="summary_cloud_layers_dni">Direkte Strahlung: %1$d W/m²</string>
+    <string name="summary_cloud_layers_unavailable">Für diese Stunde sind keine Wolkenschichtdaten vorhanden.</string>
 </resources>

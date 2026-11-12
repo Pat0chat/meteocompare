@@ -65,6 +65,46 @@ class LocalityComparisonTest {
         ))
     }
 
+    @Test fun `sunshine hours take provider duration over 98 percent cloudiness`() {
+        val window = com.meteocompare.app.domain.util.ForecastSolarWindow(rise, set)
+        assertEquals(0.75, requireNotNull(estimateHourlySunshineHours(
+            rise, 98, window, 3, 5, 98, sunshineSeconds = 2700.0
+        )), 0.001)
+    }
+
+    @Test fun `sunshine uses direct normal radiation before cloud approximation`() {
+        val window = com.meteocompare.app.domain.util.ForecastSolarWindow(rise, set)
+        assertEquals(0.72, requireNotNull(estimateHourlySunshineHours(
+            rise, 98, window, 5, 8, 96, directNormalWm2 = 300.0
+        )), 0.001)
+        // A 98% high-cloud veil without solar data still has a nonzero proxy.
+        val layers = requireNotNull(estimateHourlySunshineHours(rise, 98, window, 5, 8, 96))
+        assertTrue(layers > 0.4)
+        assertTrue(layers < 0.7)
+        // The old fallback remains stable for historical cached data.
+        assertEquals(0.02, requireNotNull(estimateHourlySunshineHours(rise, 98, window)), 0.001)
+    }
+
+    @Test fun `provider sunshine belongs to the previous hour not the following one`() {
+        val times = (0L..12L).map { rise.plusSeconds(it * 3600) }
+        // t=06h -> value returned for API t=07h; sum of 12 daylight hours = 6h.
+        val duration = List(13) { i -> if (i == 0) null else 1800.0 }
+        assertEquals(6.0, requireNotNull(estimateCloudAdjustedDaylight(
+            rise, set, times, List(13) { 98 },
+            sunshineDuration = duration
+        )), 0.001)
+    }
+
+    @Test fun `bad solar values and missing hours never become artificial sunshine`() {
+        val times = (0L until 3).map { rise.plusSeconds(it * 3600) }
+        assertNull(estimateCloudAdjustedDaylight(
+            rise, set, times, List(3) { null }, sunshineDuration = listOf(null, 2500.0, 2500.0)
+        ))
+        val window = com.meteocompare.app.domain.util.ForecastSolarWindow(rise, set)
+        assertNull(estimateHourlySunshineHours(rise, null, window,
+            sunshineSeconds = Double.NaN, directNormalWm2 = -50.0))
+    }
+
     @Test fun dailyMetrics_followExplicitDateAndIgnoreMissingDays() {
         val daily = DailyForecast(
             dates = listOf(day),

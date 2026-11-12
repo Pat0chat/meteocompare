@@ -16,6 +16,7 @@ internal fun weatherConditionLabelRes(condition: WeatherCondition?): Int = when 
     WeatherCondition.CLEAR -> R.string.weather_clear
     WeatherCondition.MAINLY_CLEAR -> R.string.weather_mainly_clear
     WeatherCondition.PARTLY_CLOUDY -> R.string.weather_partly_cloudy
+    WeatherCondition.VEILED -> R.string.weather_veiled
     WeatherCondition.OVERCAST -> R.string.weather_overcast
     WeatherCondition.FOG -> R.string.weather_fog
     WeatherCondition.DRIZZLE -> R.string.weather_drizzle

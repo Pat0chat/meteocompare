@@ -1206,7 +1206,8 @@ private fun weatherTextColorRes(condition: WeatherCondition?): Int = when (condi
 private fun weatherAccentColorRes(condition: WeatherCondition?): Int = when (condition) {
     WeatherCondition.CLEAR,
     WeatherCondition.MAINLY_CLEAR -> R.color.notification_accent_sunny
-    WeatherCondition.PARTLY_CLOUDY -> R.color.notification_accent_partly_cloudy
+    WeatherCondition.PARTLY_CLOUDY,
+    WeatherCondition.VEILED -> R.color.notification_accent_partly_cloudy
     WeatherCondition.OVERCAST -> R.color.notification_accent_overcast
     WeatherCondition.FOG -> R.color.notification_accent_fog
     WeatherCondition.DRIZZLE,

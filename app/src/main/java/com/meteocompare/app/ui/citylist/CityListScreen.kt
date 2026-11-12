@@ -2101,6 +2101,7 @@ private fun HomeWeatherScenarioRow(
 private fun weatherScenarioTitle(scenario: WeatherScenario): String = when (scenario.kind) {
     WeatherScenarioKind.CLEAR -> stringResource(R.string.home_scenario_clear)
     WeatherScenarioKind.VARIABLE_SKY -> stringResource(R.string.home_scenario_variable_sky)
+    WeatherScenarioKind.VEILED -> stringResource(R.string.weather_veiled)
     WeatherScenarioKind.OVERCAST -> stringResource(R.string.home_scenario_overcast)
     WeatherScenarioKind.DRY_UNSPECIFIED -> stringResource(R.string.home_scenario_dry_unspecified)
     WeatherScenarioKind.SHOWERS -> when (scenario.timing) {
@@ -2124,6 +2125,7 @@ private fun weatherScenarioTitle(scenario: WeatherScenario): String = when (scen
 private fun scenarioRepresentativeCondition(kind: WeatherScenarioKind): WeatherCondition? = when (kind) {
     WeatherScenarioKind.CLEAR -> WeatherCondition.CLEAR
     WeatherScenarioKind.VARIABLE_SKY -> WeatherCondition.PARTLY_CLOUDY
+    WeatherScenarioKind.VEILED -> WeatherCondition.VEILED
     WeatherScenarioKind.OVERCAST -> WeatherCondition.OVERCAST
     WeatherScenarioKind.DRY_UNSPECIFIED -> null
     WeatherScenarioKind.SHOWERS -> WeatherCondition.RAIN_SHOWERS

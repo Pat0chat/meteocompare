@@ -160,6 +160,8 @@ object BatchedForecastSplitter {
             cloudCoverLow = get.ints(HourlyVar.CLOUD_COVER_LOW),
             cloudCoverMid = get.ints(HourlyVar.CLOUD_COVER_MID),
             cloudCoverHigh = get.ints(HourlyVar.CLOUD_COVER_HIGH),
+            sunshineDuration = get.doubles(HourlyVar.SUNSHINE_DURATION),
+            directNormalIrradiance = get.doubles(HourlyVar.DIRECT_NORMAL_IRRADIANCE),
             windGusts10m = get.doubles(HourlyVar.WIND_GUSTS_10M)
         )
     }
@@ -341,6 +343,8 @@ object BatchedForecastSplitter {
         const val CLOUD_COVER_LOW = "cloud_cover_low"
         const val CLOUD_COVER_MID = "cloud_cover_mid"
         const val CLOUD_COVER_HIGH = "cloud_cover_high"
+        const val SUNSHINE_DURATION = "sunshine_duration"
+        const val DIRECT_NORMAL_IRRADIANCE = "direct_normal_irradiance"
     }
 
     private object DailyVar {

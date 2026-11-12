@@ -47,7 +47,7 @@ internal fun buildExtrasLine(data: WidgetData, units: WeatherUnits = WeatherUnit
 
     val cond = data.currentCondition
     val showCloud = data.currentCloudCover != null &&
-        (cond == WeatherCondition.PARTLY_CLOUDY || cond == WeatherCondition.OVERCAST)
+        (cond == WeatherCondition.PARTLY_CLOUDY || cond == WeatherCondition.VEILED || cond == WeatherCondition.OVERCAST)
     if (showCloud) {
         parts += "☁︎ ${data.currentCloudCover}%"
     }

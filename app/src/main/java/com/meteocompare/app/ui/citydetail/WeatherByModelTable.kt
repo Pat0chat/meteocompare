@@ -295,6 +295,7 @@ internal fun WeatherLegend() {
     val items = listOf(
         WeatherCondition.CLEAR,
         WeatherCondition.PARTLY_CLOUDY,
+        WeatherCondition.VEILED,
         WeatherCondition.OVERCAST,
         WeatherCondition.RAIN,
         WeatherCondition.SNOW,
@@ -366,6 +367,7 @@ internal fun WeatherLegend() {
 private fun WeatherCondition.legendStringRes(): Int = when (this) {
     WeatherCondition.CLEAR -> R.string.weather_legend_clear
     WeatherCondition.PARTLY_CLOUDY -> R.string.weather_legend_partly_cloudy
+    WeatherCondition.VEILED -> R.string.weather_legend_veiled
     WeatherCondition.OVERCAST -> R.string.weather_legend_overcast
     WeatherCondition.RAIN -> R.string.weather_legend_rain
     WeatherCondition.SNOW -> R.string.weather_legend_snow

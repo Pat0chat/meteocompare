@@ -1,5 +1,7 @@
 package com.meteocompare.app.widget
 
+import com.meteocompare.app.domain.util.resolveHourlyCondition
+
 import com.meteocompare.app.core.locale.WeatherTimeFormat
 import com.meteocompare.app.domain.model.ClockFormatPreference
 
@@ -666,16 +668,8 @@ internal fun buildHourlyForecasts(
     return (startIdx until minOf(startIdx + 5, hourly.timestamps.size)).map { i ->
         val ts = hourly.timestamps[i]
         val label = ts.atZone(zone).format(formatter)
-        // Priorité au weather_code natif. Si absent (réponse partielle ou ancien cache),
-        // fallback sur l'inférence précipitation/température.
-        val code = hourly.weatherCode.getOrNull(i)
-        val precip = hourly.precipitation.getOrNull(i)
         val temp = hourly.temperature2m.getOrNull(i)
-        val condition = com.meteocompare.app.domain.model.WeatherCondition.fromWmoCode(code)
-            ?: com.meteocompare.app.domain.model.WeatherCondition.inferFromPrecipAndTemp(
-                precipMm = precip,
-                tempMinC = temp
-            )
+        val condition = hourly.resolveHourlyCondition(i)
         WidgetForecastItem(
             label = label,
             condition = condition,

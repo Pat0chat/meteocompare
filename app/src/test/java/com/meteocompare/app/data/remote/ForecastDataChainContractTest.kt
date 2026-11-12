@@ -3,6 +3,8 @@ package com.meteocompare.app.data.remote
 import com.meteocompare.app.data.mapper.ForecastMapper
 import com.meteocompare.app.data.remote.dto.BatchedForecastResponseDto
 import com.meteocompare.app.domain.model.WeatherModel
+import com.meteocompare.app.domain.model.WeatherCondition
+import com.meteocompare.app.domain.util.resolveHourlyCondition
 import java.time.Instant
 import java.time.LocalDate
 import kotlinx.serialization.json.Json
@@ -36,7 +38,12 @@ class ForecastDataChainContractTest {
                 "apparent_temperature_${key}": [18.6],
                 "precipitation_${key}": [2.2],
                 "precipitation_probability_${key}": [33],
-                "cloud_cover_${key}": [44],
+                "cloud_cover_${key}": [98],
+                "cloud_cover_low_${key}": [5],
+                "cloud_cover_mid_${key}": [12],
+                "cloud_cover_high_${key}": [95],
+                "sunshine_duration_${key}": [1800.0],
+                "direct_normal_irradiance_${key}": [300.0],
                 "wind_speed_10m_${key}": [55.5],
                 "wind_direction_10m_${key}": [166],
                 "wind_gusts_10m_${key}": [77.7],
@@ -69,7 +76,12 @@ class ForecastDataChainContractTest {
         assertEquals(listOf(18.6), series.hourly.apparentTemperature)
         assertEquals(listOf(2.2), series.hourly.precipitation)
         assertEquals(listOf(33), series.hourly.precipitationProbability)
-        assertEquals(listOf(44), series.hourly.cloudCover)
+        assertEquals(listOf(98), series.hourly.cloudCover)
+        assertEquals(listOf(5), series.hourly.cloudCoverLow)
+        assertEquals(listOf(12), series.hourly.cloudCoverMid)
+        assertEquals(listOf(95), series.hourly.cloudCoverHigh)
+        assertEquals(listOf(1800.0), series.hourly.sunshineDuration)
+        assertEquals(listOf(300.0), series.hourly.directNormalIrradiance)
         assertEquals(listOf(55.5), series.hourly.windSpeed10m)
         assertEquals(listOf(166), series.hourly.windDirection10m)
         assertEquals(listOf(77.7), series.hourly.windGusts10m)
@@ -92,6 +104,33 @@ class ForecastDataChainContractTest {
             Instant.parse("2026-08-16T19:02:00Z"),
             series.daily.sunset.single()
         )
+    }
+
+    @Test
+    fun `batched high-cloud veil remains bright only with aligned model sunshine`() {
+        val key = WeatherModel.GFS.apiKey
+        val response = json.decodeFromString<BatchedForecastResponseDto>(
+            """{
+              "latitude":48.85, "longitude":2.35, "timezone":"UTC",
+              "hourly":{
+                "time":["2026-08-16T12:00","2026-08-16T13:00"],
+                "temperature_2m_${key}":[21.0,21.0],
+                "precipitation_${key}":[0.0,0.0],
+                "weather_code_${key}":[3,3],
+                "cloud_cover_${key}":[98,98],
+                "cloud_cover_low_${key}":[5,5],
+                "cloud_cover_mid_${key}":[12,12],
+                "cloud_cover_high_${key}":[95,95],
+                "sunshine_duration_${key}":[null,1800.0]
+              }
+            }"""
+        )
+        val dto = requireNotNull(BatchedForecastSplitter.split(response, listOf(WeatherModel.GFS))[WeatherModel.GFS])
+        val hourly = mapper.toSeries(WeatherModel.GFS, dto).hourly
+        assertEquals(listOf(98, 98), hourly.cloudCover)
+        assertEquals(WeatherCondition.VEILED, hourly.resolveHourlyCondition(0))
+        // The 13h value describes the preceding hour, not the next one.
+        assertEquals(WeatherCondition.OVERCAST, hourly.resolveHourlyCondition(1))
     }
 
     @Test
@@ -166,6 +205,7 @@ class ForecastDataChainContractTest {
                 "temperature_2m", "apparent_temperature", "relative_humidity_2m", "dew_point_2m",
                 "pressure_msl", "precipitation", "precipitation_probability",
                 "cloud_cover", "cloud_cover_low", "cloud_cover_mid", "cloud_cover_high",
+                "sunshine_duration", "direct_normal_irradiance",
                 "wind_speed_10m", "wind_direction_10m",
                 "wind_gusts_10m", "weather_code"
             ),

@@ -82,7 +82,12 @@ internal object ForecastAggregates {
                 if (conditions != null) {
                     WeatherCondition.fromWmoCode(series.hourly.weatherCode.getOrNull(index))
                         ?.takeUnless { it == WeatherCondition.UNKNOWN }
-                        ?.let { conditionRows += ForecastConsensus.Entry(model, it) }
+                        ?.let { native ->
+                            conditionRows += ForecastConsensus.Entry(
+                                model, if (native == WeatherCondition.OVERCAST)
+                                    series.resolveHourlyCondition(index) ?: native else native
+                            )
+                        }
                     series.hourly.cloudCover.getOrNull(index)
                         ?.takeIf { it in 0..100 }
                         ?.let { cloudRows += ForecastConsensus.Entry(model, it.toDouble()) }

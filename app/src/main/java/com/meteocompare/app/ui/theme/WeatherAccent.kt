@@ -42,7 +42,8 @@ internal object WeatherAccent {
         WeatherCondition.CLEAR,
         WeatherCondition.MAINLY_CLEAR -> if (isDark) SunnyDark else SunnyLight
 
-        WeatherCondition.PARTLY_CLOUDY ->
+        WeatherCondition.PARTLY_CLOUDY,
+        WeatherCondition.VEILED ->
             if (isDark) PartlyCloudyDark else PartlyCloudyLight
 
         WeatherCondition.OVERCAST -> if (isDark) OvercastDark else OvercastLight

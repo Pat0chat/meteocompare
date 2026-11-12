@@ -24,7 +24,7 @@
     <string name="compare_no_dates">No forecast dates available.</string>
 
     <string name="compare_rain_cloud_disclaimer">Rain chance is a model-consensus estimate, not a calibrated probability. Cloud cover is the median of each model’s hourly average for the local day; days with insufficient data are excluded.</string>
-    <string name="compare_sunshine_disclaimer">Estimated clear-sky-equivalent hours, based on cloud cover and daylight duration. This is not measured sunshine duration.</string>
+    <string name="compare_sunshine_disclaimer">Forecast sunshine: model sunshine duration first, then direct solar radiation, then an estimate from cloud layers and total cover. Not an observation; thin high clouds can let sunlight through.</string>
     <string name="compare_agreement_disclaimer">Agreement measures how closely models converge, not the probability that the forecast will be correct. Dates refer to each location’s local day.</string>
 
     <string name="compare_chart_x_axis">Local time</string>
@@ -371,7 +371,8 @@
     <string name="weather_clear">Clear sky</string>
     <string name="weather_mainly_clear">Mainly clear</string>
     <string name="weather_partly_cloudy">Partly cloudy</string>
-    <string name="weather_overcast">Overcast</string>
+        <string name="weather_veiled">Veiled sunshine</string>
+<string name="weather_overcast">Overcast</string>
     <string name="weather_fog">Fog</string>
     <string name="weather_drizzle">Light rain</string>
     <string name="weather_rain">Rain</string>
@@ -384,7 +385,8 @@
 
     <string name="weather_legend_clear">Sunny</string>
     <string name="weather_legend_partly_cloudy">Partly cloudy</string>
-    <string name="weather_legend_overcast">Overcast</string>
+        <string name="weather_legend_veiled">Veiled</string>
+<string name="weather_legend_overcast">Overcast</string>
     <string name="weather_legend_rain">Rain</string>
     <string name="weather_legend_snow">Snow</string>
     <string name="weather_legend_thunderstorm">Thunderstorm</string>
@@ -1150,4 +1152,23 @@
     <string name="condition_period_day">Day</string>
     <string name="condition_period_night">Night</string>
     <string name="condition_period_full_day">24 h</string>
+
+    <!-- Today summary: independent cloud-layer bands and model details -->
+    <string name="summary_cloud_layers_explain">How clouds and sunshine are calculated</string>
+    <string name="summary_cloud_layers_now_title">Cloud cover · now</string>
+    <string name="summary_cloud_layers_title">Cloud layers · 9 h</string>
+    <string name="summary_cloud_layers_timeline">Sky coverage, hour by hour</string>
+    <string name="summary_cloud_layers_total">Total</string>
+    <string name="summary_cloud_layers_high">High</string>
+    <string name="summary_cloud_layers_mid">Mid</string>
+    <string name="summary_cloud_layers_low">Low</string>
+    <string name="summary_cloud_layers_details_hint">Tap for cloud layers and model details</string>
+    <string name="summary_cloud_layers_models">Model forecasts for this hour</string>
+    <string name="summary_cloud_layers_guide">Each band shows the fraction of sky covered by that layer. Central values use family-balanced weighted medians across models.</string>
+    <string name="summary_cloud_layers_not_sum">Cloud layers overlap: their percentages must not be added. Missing data are shown as a dash, not zero.</string>
+    <string name="summary_cloud_layers_veil">A heavily clouded sky can still be bright if high cloud is thin. “Veiled” additionally requires solar evidence from the same model; rain and fog take precedence.</string>
+    <string name="summary_cloud_layers_sun_method">Forecast sunshine: model sunshine duration first, then direct irradiance, then a cloud-layer estimate. Solar data labelled H describe the preceding hour H−1 to H. These are forecasts, not measurements.</string>
+    <string name="summary_cloud_layers_solar_minutes">Forecast sunshine: %1$d min</string>
+    <string name="summary_cloud_layers_dni">Direct irradiance: %1$d W/m²</string>
+    <string name="summary_cloud_layers_unavailable">No cloud-layer data are available for this hour.</string>
 </resources>

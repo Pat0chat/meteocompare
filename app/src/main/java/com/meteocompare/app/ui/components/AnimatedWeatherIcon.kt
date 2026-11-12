@@ -302,6 +302,7 @@ private val WeatherCondition.animationCycleMillis: Int
         WeatherCondition.CLEAR -> 12_000
         WeatherCondition.MAINLY_CLEAR -> 10_000
         WeatherCondition.PARTLY_CLOUDY -> 8_000
+        WeatherCondition.VEILED -> 8_000
         WeatherCondition.OVERCAST -> 9_000
         WeatherCondition.FOG -> 8_000
         WeatherCondition.DRIZZLE -> 3_600
@@ -319,6 +320,7 @@ private val WeatherCondition.staticPreviewProgress: Float
         WeatherCondition.CLEAR -> 0.12f
         WeatherCondition.MAINLY_CLEAR -> 0.22f
         WeatherCondition.PARTLY_CLOUDY -> 0.36f
+        WeatherCondition.VEILED -> 0.28f
         WeatherCondition.OVERCAST -> 0.42f
         WeatherCondition.FOG -> 0.52f
         WeatherCondition.DRIZZLE -> 0.18f
@@ -374,6 +376,14 @@ private fun DrawScope.drawWeatherCondition(
             progress = progress,
             motionScale = motionScale,
             unit = unit
+        )
+
+        WeatherCondition.VEILED -> drawVeiled(
+            palette = palette,
+            progress = progress,
+            motionScale = motionScale,
+            unit = unit,
+            isNight = isNight
         )
 
         WeatherCondition.OVERCAST -> drawOvercast(
@@ -642,6 +652,25 @@ private fun DrawScope.drawSnowShowersNight(
         motionScale = motionScale,
         xOffset = 3f
     )
+}
+
+/** Thin high veil: sun/moon shines through a translucent high cloud. */
+private fun DrawScope.drawVeiled(
+    palette: WeatherIconPalette, progress: Float, motionScale: Float,
+    unit: Float, isNight: Boolean
+) {
+    if (isNight) drawPartlyCloudyNight(palette, progress, motionScale, unit)
+    else {
+        drawSun(
+            center = point(42f, 41f, unit), radius = 14f * unit,
+            rayInner = 21f * unit, rayOuter = 28f * unit,
+            rotation = 360f * progress, palette = palette, unit = unit
+        )
+        drawCloud(
+            center = point(53f, 57f, unit), scale = 0.98f,
+            palette = palette, unit = unit, depth = 0.10f, alpha = 0.53f
+        )
+    }
 }
 
 private fun DrawScope.drawOvercast(

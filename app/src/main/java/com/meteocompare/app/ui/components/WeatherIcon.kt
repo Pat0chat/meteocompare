@@ -51,6 +51,7 @@ fun WeatherCondition.semanticTint(): Color = when (this) {
 
     WeatherCondition.MAINLY_CLEAR,
     WeatherCondition.PARTLY_CLOUDY,
+    WeatherCondition.VEILED,
     WeatherCondition.RAIN_SHOWERS,
     WeatherCondition.FREEZING_RAIN,
     WeatherCondition.SNOW_SHOWERS,

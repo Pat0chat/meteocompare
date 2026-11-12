@@ -24,7 +24,7 @@
     <string name="compare_no_dates">No hay fechas de previsión disponibles.</string>
 
     <string name="compare_rain_cloud_disclaimer">Probabilidad de lluvia estimada mediante consenso de modelos, no calibrada. Nubosidad: mediana de los promedios horarios de cada modelo para el día local; se excluyen los días con datos insuficientes.</string>
-    <string name="compare_sunshine_disclaimer">Horas equivalentes de cielo despejado estimadas a partir de la nubosidad y la duración del día. No es insolación medida.</string>
+    <string name="compare_sunshine_disclaimer">Sol previsto: primero la duración de sol del modelo, luego la radiación directa y, si faltan, una estimación según capas nubosas y cobertura total. No es una observación; las nubes altas pueden dejar pasar el sol.</string>
     <string name="compare_agreement_disclaimer">El acuerdo indica la convergencia entre modelos, no la probabilidad de acierto. Cada fecha corresponde al día local de cada ciudad.</string>
 
     <string name="compare_chart_x_axis">Hora local</string>
@@ -374,7 +374,8 @@ datos</string>
     <string name="weather_clear">Cielo despejado</string>
     <string name="weather_mainly_clear">Mayormente despejado</string>
     <string name="weather_partly_cloudy">Parcialmente nuboso</string>
-    <string name="weather_overcast">Cubierto</string>
+        <string name="weather_veiled">Cielo velado</string>
+<string name="weather_overcast">Cubierto</string>
     <string name="weather_fog">Niebla</string>
     <string name="weather_drizzle">Lluvia débil</string>
     <string name="weather_rain">Lluvia</string>
@@ -387,7 +388,8 @@ datos</string>
 
     <string name="weather_legend_clear">Soleado</string>
     <string name="weather_legend_partly_cloudy">Parcialmente nuboso</string>
-    <string name="weather_legend_overcast">Cubierto</string>
+        <string name="weather_legend_veiled">Velado</string>
+<string name="weather_legend_overcast">Cubierto</string>
     <string name="weather_legend_rain">Lluvia</string>
     <string name="weather_legend_snow">Nieve</string>
     <string name="weather_legend_thunderstorm">Tormenta</string>
@@ -1139,4 +1141,23 @@ datos</string>
     <string name="condition_period_day">Día</string>
     <string name="condition_period_night">Noche</string>
     <string name="condition_period_full_day">24 h</string>
+
+    <!-- Today summary: independent cloud-layer bands and model details -->
+    <string name="summary_cloud_layers_explain">Cómo se calculan nubes y sol</string>
+    <string name="summary_cloud_layers_now_title">Nubosidad · ahora</string>
+    <string name="summary_cloud_layers_title">Capas nubosas · 9 h</string>
+    <string name="summary_cloud_layers_timeline">Cobertura del cielo por horas</string>
+    <string name="summary_cloud_layers_total">Total</string>
+    <string name="summary_cloud_layers_high">Altas</string>
+    <string name="summary_cloud_layers_mid">Medias</string>
+    <string name="summary_cloud_layers_low">Bajas</string>
+    <string name="summary_cloud_layers_details_hint">Toca para ver capas y modelos</string>
+    <string name="summary_cloud_layers_models">Previsiones por modelo para esta hora</string>
+    <string name="summary_cloud_layers_guide">Cada banda indica la fracción del cielo cubierta por esa capa. El valor central es una mediana ponderada que equilibra las familias de modelos.</string>
+    <string name="summary_cloud_layers_not_sum">Las capas se superponen: no se deben sumar sus porcentajes. Los datos ausentes se muestran con una raya, no como cero.</string>
+    <string name="summary_cloud_layers_veil">El sol puede atravesar nubes altas finas aunque haya mucha nubosidad. «Cielo velado» requiere además evidencia solar del mismo modelo; lluvia y niebla tienen prioridad.</string>
+    <string name="summary_cloud_layers_sun_method">Sol previsto: primero duración del sol, luego radiación directa y después estimación por capas. Los datos solares marcados H corresponden a la hora anterior H−1 a H. No son mediciones.</string>
+    <string name="summary_cloud_layers_solar_minutes">Sol previsto: %1$d min</string>
+    <string name="summary_cloud_layers_dni">Radiación directa: %1$d W/m²</string>
+    <string name="summary_cloud_layers_unavailable">No hay datos de capas nubosas para esta hora.</string>
 </resources>

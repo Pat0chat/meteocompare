@@ -1708,6 +1708,11 @@ internal fun TodaySummaryCard(
     val solarZone = remember(forecast?.city?.timezone) {
         resolveCityZone(forecast?.city?.timezone)
     }
+    val cloudLayerHours = remember(forecast, now) {
+        forecast?.let {
+            buildCloudLayersTimeline(it, computeHourlyHorizon(it.city.timezone, now).first)
+        }.orEmpty()
+    }
     // Même décision jour/nuit que les widgets, y compris si la date change.
     val currentIsNight = remember(forecast, now) {
         forecast?.let { com.meteocompare.app.domain.util.forecastIsNightAt(it, now) } == true
@@ -1948,6 +1953,11 @@ internal fun TodaySummaryCard(
                         windDirectionLabel = windDirectionLabel,
                         engine = engine
                     )
+                    if (cloudLayerHours.isNotEmpty()) {
+                        Spacer(Modifier.height(8.dp))
+                        SummarySectionDivider()
+                        TodayCloudLayersCard(cloudLayerHours, solarZone, dateLocale)
+                    }
                 }
             }
         }

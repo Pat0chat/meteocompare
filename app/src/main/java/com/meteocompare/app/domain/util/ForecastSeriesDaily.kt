@@ -1,7 +1,9 @@
 package com.meteocompare.app.domain.util
 
 import com.meteocompare.app.domain.model.ForecastSeries
+import com.meteocompare.app.domain.model.HourlyForecast
 import com.meteocompare.app.domain.model.WeatherCondition
+import com.meteocompare.app.domain.model.SolarSkyInterpretation
 import com.meteocompare.app.domain.usecase.WeatherConditionConsensus
 import java.time.Duration
 import java.time.Instant
@@ -53,17 +55,31 @@ internal fun ForecastSeries.dailyCloudCoverMean(date: LocalDate, zone: ZoneId): 
  * participer correctement à la branche NON_PRECIPITATION du consensus
  * hiérarchique au lieu de disparaître du vote racine.
  */
-internal fun ForecastSeries.resolveHourlyCondition(index: Int): WeatherCondition? {
-    if (index !in hourly.timestamps.indices) return null
-    return WeatherCondition.fromWmoCode(hourly.weatherCode.getOrNull(index))
+internal fun ForecastSeries.resolveHourlyCondition(index: Int): WeatherCondition? =
+    hourly.resolveHourlyCondition(index)
+
+internal fun HourlyForecast.resolveHourlyCondition(index: Int): WeatherCondition? {
+    if (index !in timestamps.indices) return null
+    val solarIndex = timestamps.indexOf(timestamps[index].plusSeconds(3600))
+    val veiled = SolarSkyInterpretation.isVeiledSky(
+        cloudCover.getOrNull(index),
+        cloudCoverLow.getOrNull(index), cloudCoverMid.getOrNull(index),
+        cloudCoverHigh.getOrNull(index),
+        sunshineDuration.getOrNull(solarIndex),
+        directNormalIrradiance.getOrNull(solarIndex)
+    )
+    val basic = WeatherCondition.fromWmoCode(weatherCode.getOrNull(index))
         ?.takeUnless { it == WeatherCondition.UNKNOWN }
         ?: WeatherCondition.inferFromPrecipAndTemp(
-            precipMm = hourly.precipitation.getOrNull(index),
-            tempMinC = hourly.temperature2m.getOrNull(index)
+            precipMm = precipitation.getOrNull(index),
+            tempMinC = temperature2m.getOrNull(index)
         )
-        ?: hourly.cloudCover.getOrNull(index)
+        ?: cloudCover.getOrNull(index)
             ?.takeIf { it in 0..100 }
             ?.let { WeatherCondition.fromCloudCover(it.toDouble()) }
+    // Avoid a false luminous label when another field predicts actual rainfall.
+    val wet = precipitation.getOrNull(index)?.let { it.isFinite() && it > 0.1 } == true
+    return SolarSkyInterpretation.refine(basic, veiled && !wet)
 }
 
 /** Origine de la condition journalière finalement affichée. */
@@ -146,7 +162,7 @@ internal fun ForecastSeries.resolveDailyCondition(
     val hourlyConditions = indices.mapNotNull { index ->
         val native = WeatherCondition.fromWmoCode(hourly.weatherCode.getOrNull(index))
             ?.takeUnless { it == WeatherCondition.UNKNOWN }
-        val condition = native ?: resolveHourlyCondition(index)
+        val condition = resolveHourlyCondition(index)
         condition?.let { Triple(index, it, native != null) }
     }
         // Un cache mal fusionné peut répéter une heure : elle ne doit jamais

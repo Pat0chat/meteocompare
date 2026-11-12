@@ -25,7 +25,7 @@ import com.meteocompare.app.domain.repository.MarineRepository
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
 import com.meteocompare.app.domain.repository.VigilanceRepository
 import com.meteocompare.app.domain.repository.UvIndexRepository
-import com.meteocompare.app.domain.usecase.estimateHourlySunshineHours
+import com.meteocompare.app.domain.usecase.estimatedHourlySunshineFromModels
 import com.meteocompare.app.domain.util.forecastSolarWindow
 import com.meteocompare.app.domain.usecase.ConfidenceCalculator
 import com.meteocompare.app.domain.usecase.ForecastConsensus
@@ -1274,7 +1274,7 @@ class CityListViewModel @Inject constructor(
                     val window = sunshineWindows.getOrPut(date) {
                         forecastSolarWindow(result.data, date)
                     }
-                    estimateHourlySunshineHours(instant, clouds, window)
+                    estimatedHourlySunshineFromModels(result.data, instant, window, clouds)
                 }
                 val scenarios = WeatherScenarioBuilder.next12h(result.data, now)
                 ForecastState.Loaded(

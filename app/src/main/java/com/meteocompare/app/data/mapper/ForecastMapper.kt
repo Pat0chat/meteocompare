@@ -67,6 +67,10 @@ class ForecastMapper @Inject constructor() {
                     .map(ForecastPhysicalLimits::percentage),
                 cloudCoverHigh = alignNonNullTimesInt(times, h.cloudCoverHigh)
                     .map(ForecastPhysicalLimits::percentage),
+                sunshineDuration = alignNonNullTimes(times, h.sunshineDuration)
+                    .map { it?.takeIf { seconds -> seconds.isFinite() && seconds in 0.0..3600.0 } },
+                directNormalIrradiance = alignNonNullTimes(times, h.directNormalIrradiance)
+                    .map { it?.takeIf { watts -> watts.isFinite() && watts in 0.0..1500.0 } },
                 windGusts10m = alignNonNullTimes(times, h.windGusts10m)
                     .map(ForecastPhysicalLimits::gust)
             )

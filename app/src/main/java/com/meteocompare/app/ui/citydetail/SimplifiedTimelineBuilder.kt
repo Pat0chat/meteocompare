@@ -1,6 +1,6 @@
 package com.meteocompare.app.ui.citydetail
 
-import com.meteocompare.app.domain.usecase.estimateHourlySunshineHours
+import com.meteocompare.app.domain.usecase.estimatedHourlySunshineFromModels
 import com.meteocompare.app.domain.usecase.estimatedSunshineHours
 import com.meteocompare.app.domain.util.forecastSolarWindow
 import com.meteocompare.app.domain.util.nightAt
@@ -250,8 +250,8 @@ private fun buildHourlyTimeline(
         val solarWindow = requireNotNull(solarWindows[timestamp.atZone(zone).toLocalDate()])
         point.copy(
             isNight = nightAt(solarWindow, timestamp),
-            estimatedSunHours = estimateHourlySunshineHours(
-                timestamp, point.cloudCoverPercent, solarWindow
+            estimatedSunHours = estimatedHourlySunshineFromModels(
+                forecast, timestamp, solarWindow, point.cloudCoverPercent
             )
         )
     }
@@ -355,7 +355,11 @@ private fun indexHourlySnapshots(
         val windDirection = series.hourly.windDirection10m.getOrNull(index)
         val nativeCondition = WeatherCondition.fromWmoCode(series.hourly.weatherCode.getOrNull(index))
             ?.takeUnless { it == WeatherCondition.UNKNOWN }
-        val condition = nativeCondition ?: series.resolveHourlyCondition(index)
+            ?.let { native ->
+                if (native == WeatherCondition.OVERCAST)
+                    series.resolveHourlyCondition(index) ?: native else native
+            }
+        val condition = series.resolveHourlyCondition(index)
         val snapshot = TimelineSnapshot(
             model = model,
             temperature = temperature,

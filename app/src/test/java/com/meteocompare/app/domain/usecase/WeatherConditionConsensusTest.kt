@@ -28,6 +28,36 @@ class WeatherConditionConsensusTest {
         assertEquals(33, result.percent)
     }
 
+    @Test fun `same-model solar evidence can qualify overcast without changing 98 percent cloud cover`() {
+        val result = WeatherConditionConsensus.resolve(
+            listOf(
+                ForecastConsensus.Entry(WeatherModel.GFS, WeatherCondition.VEILED),
+                ForecastConsensus.Entry(WeatherModel.ECMWF, WeatherCondition.VEILED),
+                ForecastConsensus.Entry(WeatherModel.ICON_GLOBAL, WeatherCondition.OVERCAST)
+            ), cloudCoverPercent = 98.0
+        )
+        assertEquals(WeatherCondition.VEILED, result.value)
+    }
+
+    @Test fun `solar veil minority cannot override opaque overcast or rain majority`() {
+        val result = WeatherConditionConsensus.resolve(
+            listOf(
+                ForecastConsensus.Entry(WeatherModel.GFS, WeatherCondition.VEILED),
+                ForecastConsensus.Entry(WeatherModel.ECMWF, WeatherCondition.OVERCAST),
+                ForecastConsensus.Entry(WeatherModel.ICON_GLOBAL, WeatherCondition.OVERCAST)
+            ), cloudCoverPercent = 98.0
+        )
+        assertEquals(WeatherCondition.OVERCAST, result.value)
+        val wet = WeatherConditionConsensus.resolve(
+            listOf(
+                ForecastConsensus.Entry(WeatherModel.GFS, WeatherCondition.VEILED),
+                ForecastConsensus.Entry(WeatherModel.ECMWF, WeatherCondition.RAIN),
+                ForecastConsensus.Entry(WeatherModel.ICON_GLOBAL, WeatherCondition.RAIN)
+            ), cloudCoverPercent = 98.0
+        )
+        assertEquals(WeatherCondition.RAIN, wet.value)
+    }
+
     @Test
     fun `phenomene significatif majoritaire reste prioritaire sur la nebulosite`() {
         val entries = listOf(

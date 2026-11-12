@@ -53,6 +53,10 @@ data class HourlyForecast(
     val cloudCoverMid: List<Int?> = emptyList(),
     /** Couverture des nuages hauts, 0-100%. */
     val cloudCoverHigh: List<Int?> = emptyList(),
+    /** Seconds of forecast sunshine in the preceding hour (WMO DNI > 120 W/m²). */
+    val sunshineDuration: List<Double?> = emptyList(),
+    /** Direct normal irradiance in W/m² averaged over the preceding hour. */
+    val directNormalIrradiance: List<Double?> = emptyList(),
     /**
      * Rafales à 10 m en km/h : maximum observé/prévu sur l'heure précédente
      * selon la sémantique Open-Meteo. Vide si absent ou cache antérieur.

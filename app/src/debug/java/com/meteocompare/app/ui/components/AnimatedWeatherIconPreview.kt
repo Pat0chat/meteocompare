@@ -26,6 +26,7 @@ private val previewConditions = listOf(
     WeatherCondition.CLEAR,
     WeatherCondition.MAINLY_CLEAR,
     WeatherCondition.PARTLY_CLOUDY,
+    WeatherCondition.VEILED,
     WeatherCondition.OVERCAST,
     WeatherCondition.FOG,
     WeatherCondition.DRIZZLE,
@@ -90,6 +91,7 @@ private fun WeatherCondition.previewLabel(): String = when (this) {
     WeatherCondition.CLEAR -> "Ciel dégagé"
     WeatherCondition.MAINLY_CLEAR -> "Globalement dégagé"
     WeatherCondition.PARTLY_CLOUDY -> "Partiellement nuageux"
+    WeatherCondition.VEILED -> "Ciel voilé"
     WeatherCondition.OVERCAST -> "Couvert"
     WeatherCondition.FOG -> "Brouillard"
     WeatherCondition.DRIZZLE -> "Bruine"

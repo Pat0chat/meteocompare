@@ -12,6 +12,7 @@ import com.meteocompare.app.domain.model.PrecipitationConfidence
 import com.meteocompare.app.domain.model.PrecipitationConsensusMeta
 import com.meteocompare.app.domain.model.PrecipitationThresholds
 import com.meteocompare.app.domain.model.WeatherCondition
+import com.meteocompare.app.domain.util.resolveHourlyCondition
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.util.HourlySampling
 import com.meteocompare.app.domain.util.dailyCloudCoverMean
@@ -217,8 +218,10 @@ class ConfidenceCalculator @Inject constructor(
             val idx = exactCurrentIndex(series, target) ?: return@forEach
             WeatherCondition.fromWmoCode(series.hourly.weatherCode.getOrNull(idx))
                 ?.takeUnless { it == WeatherCondition.UNKNOWN }
-                ?.let {
-                    nativeConditionEntries += ForecastConsensus.Entry(model, it)
+                ?.let { native ->
+                    val adjusted = if (native == WeatherCondition.OVERCAST)
+                        series.resolveHourlyCondition(idx) ?: native else native
+                    nativeConditionEntries += ForecastConsensus.Entry(model, adjusted)
                     supportModels += model
                 }
             series.hourly.temperature2m.getOrNull(idx)?.takeIf(Double::isFinite)?.let {
@@ -267,7 +270,7 @@ class ConfidenceCalculator @Inject constructor(
             min = 0.0,
             max = 100.0
         ).central
-        return WeatherConditionConsensus.resolveAggregate(
+        val aggregate = WeatherConditionConsensus.resolveAggregate(
             nativeEntries = nativeConditionEntries,
             temperatureCentralC = temperatureCentral,
             precipitationCentralMm = precipitationCentral,
@@ -276,6 +279,26 @@ class ConfidenceCalculator @Inject constructor(
             supportModels = supportModels,
             localWeights = localWeights(nativeConditionEntries.map { it.model })
         ).vote.value
+        // When NO model supplies a WMO code, the ordinary cloud-cover fallback
+        // can only infer OVERCAST from 98% total clouds. In that precise case,
+        // preserve the same-model solar/layer refinement already used by hourly
+        // timelines. Never override rain, fog or an actual WMO consensus.
+        if (nativeConditionEntries.isEmpty() &&
+            aggregate == WeatherCondition.OVERCAST &&
+            (cloudCentral ?: 0.0) >= 90.0
+        ) {
+            val derived = forecast.seriesByModel.mapNotNull { (model, series) ->
+                val idx = exactCurrentIndex(series, target) ?: return@mapNotNull null
+                series.resolveHourlyCondition(idx)?.let { ForecastConsensus.Entry(model, it) }
+            }
+            val refined = WeatherConditionConsensus.resolve(
+                entries = derived,
+                cloudCoverPercent = cloudCentral,
+                localWeights = localWeights(derived.map { it.model })
+            ).value
+            if (refined == WeatherCondition.VEILED) return refined
+        }
+        return aggregate
     }
 
     /**

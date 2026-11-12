@@ -24,7 +24,7 @@
     <string name="compare_no_dates">Nessuna data di previsione disponibile.</string>
 
     <string name="compare_rain_cloud_disclaimer">Probabilità di pioggia stimata dal consenso dei modelli, non calibrata. Nuvolosità: mediana delle medie orarie di ogni modello per il giorno locale; i giorni con dati insufficienti sono esclusi.</string>
-    <string name="compare_sunshine_disclaimer">Ore equivalenti di cielo sereno stimate da nuvolosità e durata del giorno. Non è una misura delle ore di sole.</string>
+    <string name="compare_sunshine_disclaimer">Sole previsto: prima la durata del soleggiamento del modello, poi la radiazione diretta e, in mancanza, una stima dai vari strati nuvolosi. Non è una misura osservata; le nubi alte possono lasciar filtrare il sole.</string>
     <string name="compare_agreement_disclaimer">L’accordo rappresenta la convergenza tra modelli, non la probabilità di correttezza della previsione. Ogni data è riferita al giorno locale della città.</string>
 
     <string name="compare_chart_x_axis">Ora locale</string>
@@ -374,7 +374,8 @@ dato</string>
     <string name="weather_clear">Cielo sereno</string>
     <string name="weather_mainly_clear">Prevalentemente sereno</string>
     <string name="weather_partly_cloudy">Parzialmente nuvoloso</string>
-    <string name="weather_overcast">Coperto</string>
+        <string name="weather_veiled">Cielo velato</string>
+<string name="weather_overcast">Coperto</string>
     <string name="weather_fog">Nebbia</string>
     <string name="weather_drizzle">Pioggia debole</string>
     <string name="weather_rain">Pioggia</string>
@@ -387,7 +388,8 @@ dato</string>
 
     <string name="weather_legend_clear">Soleggiato</string>
     <string name="weather_legend_partly_cloudy">Parzialmente nuvoloso</string>
-    <string name="weather_legend_overcast">Coperto</string>
+        <string name="weather_legend_veiled">Velato</string>
+<string name="weather_legend_overcast">Coperto</string>
     <string name="weather_legend_rain">Pioggia</string>
     <string name="weather_legend_snow">Neve</string>
     <string name="weather_legend_thunderstorm">Temporale</string>
@@ -1139,4 +1141,23 @@ dato</string>
     <string name="condition_period_day">Giorno</string>
     <string name="condition_period_night">Notte</string>
     <string name="condition_period_full_day">24 h</string>
+
+    <!-- Today summary: independent cloud-layer bands and model details -->
+    <string name="summary_cloud_layers_explain">Come si calcolano nubi e sole</string>
+    <string name="summary_cloud_layers_now_title">Nuvolosità · ora</string>
+    <string name="summary_cloud_layers_title">Strati nuvolosi · 9 h</string>
+    <string name="summary_cloud_layers_timeline">Copertura del cielo ora per ora</string>
+    <string name="summary_cloud_layers_total">Totale</string>
+    <string name="summary_cloud_layers_high">Alti</string>
+    <string name="summary_cloud_layers_mid">Medi</string>
+    <string name="summary_cloud_layers_low">Bassi</string>
+    <string name="summary_cloud_layers_details_hint">Tocca per i dettagli degli strati e dei modelli</string>
+    <string name="summary_cloud_layers_models">Previsioni dei modelli per questa ora</string>
+    <string name="summary_cloud_layers_guide">Ogni banda rappresenta la parte di cielo coperta dallo strato. Il valore centrale è una mediana ponderata che bilancia le famiglie dei modelli.</string>
+    <string name="summary_cloud_layers_not_sum">Gli strati si sovrappongono: le percentuali non vanno sommate. I dati mancanti sono indicati da un trattino, non da zero.</string>
+    <string name="summary_cloud_layers_veil">Con nubi alte sottili il sole può filtrare anche con un cielo molto nuvoloso. «Cielo velato» richiede dati solari dello stesso modello; pioggia e nebbia hanno priorità.</string>
+    <string name="summary_cloud_layers_sun_method">Sole previsto: prima durata del sole, poi radiazione diretta, poi stima per strati nuvolosi. I dati solari contrassegnati H si riferiscono alla precedente ora H−1–H. Non sono misure.</string>
+    <string name="summary_cloud_layers_solar_minutes">Sole previsto: %1$d min</string>
+    <string name="summary_cloud_layers_dni">Irraggiamento diretto: %1$d W/m²</string>
+    <string name="summary_cloud_layers_unavailable">Nessun dato sugli strati nuvolosi per questa ora.</string>
 </resources>

@@ -83,6 +83,133 @@ class TodaySummaryCardTest {
     }
 
     @Test
+    fun cloudLayersChartOpensDetailsWithIndependentLayersAndModelValues() {
+        val existing = forecastWithSunshine()
+        val forecast = existing.copy(seriesByModel = existing.seriesByModel.mapValues { (_, model) ->
+            model.copy(hourly = model.hourly.copy(
+                cloudCoverLow = List(model.hourly.timestamps.size) { 8 },
+                cloudCoverMid = List(model.hourly.timestamps.size) { 18 },
+                cloudCoverHigh = List(model.hourly.timestamps.size) { 95 }
+            ))
+        })
+        // Use an hour present in the source, even when the test runs near midnight.
+        val timestamp = forecast.seriesByModel.values.first().hourly.timestamps.first()
+        composeRule.setContent {
+            MeteoCompareTheme {
+                TodaySummaryCard(
+                    today = DayConfidence(TestFixtures.today, null, null, null, null),
+                    modelCount = 3, currentTemp = 10.0,
+                    forecast = forecast, now = timestamp
+                )
+            }
+        }
+        composeRule.onNodeWithTag(TAG_TODAY_CLOUD_CURRENT, useUnmergedTree = true)
+            .assertExists()
+        // Only the current forecast hour belongs to the collapsed summary.
+        composeRule.onNodeWithTag(TAG_TODAY_CLOUD_TIMELINE, useUnmergedTree = true)
+            .assertDoesNotExist()
+        composeRule.onNodeWithTag(TAG_TODAY_CLOUD_LAYERS, useUnmergedTree = true)
+            .assertExists().assertHasClickAction().performClick()
+        composeRule.onNodeWithTag(TAG_TODAY_CLOUD_TIMELINE, useUnmergedTree = true)
+            .assertExists()
+        (0..3).forEach { band ->
+            composeRule.onNodeWithTag("today_cloud_band_label_$band", useUnmergedTree = true)
+                .assertExists()
+        }
+        composeRule.onNodeWithTag(TAG_TODAY_CLOUD_DIALOG, useUnmergedTree = true)
+            .assertExists()
+        composeRule.onNodeWithText(context.getString(R.string.summary_cloud_layers_models),
+            useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText(context.getString(R.string.summary_cloud_layers_not_sum),
+            useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithTag("today_cloud_explanation_toggle", useUnmergedTree = true)
+            .performClick()
+        composeRule.onNodeWithText(context.getString(R.string.summary_cloud_layers_veil),
+            useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithTag("today_cloud_hour_1", useUnmergedTree = true)
+            .assertExists().performClick()
+        composeRule.onNodeWithText(context.getString(R.string.summary_cloud_layers_models),
+            useUnmergedTree = true).assertExists()
+    }
+
+
+    @Test
+    fun cloudCurrentSnapshotDoesNotShowFutureValuesUntilHourIsSelectedInDialog() {
+        val start = java.time.Instant.parse("2026-11-12T13:00:00Z")
+        val samples = listOf(
+            CloudLayerHour(start, total = 22, low = 8, mid = 12, high = 17, readings = emptyList()),
+            CloudLayerHour(start.plusSeconds(3600), total = 91, low = 85, mid = 80, high = 70,
+                readings = emptyList())
+        )
+        composeRule.setContent {
+            MeteoCompareTheme {
+                TodayCloudLayersCard(samples, ZoneId.of("Europe/Paris"), java.util.Locale.FRANCE)
+            }
+        }
+        composeRule.onNodeWithText("22 %", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText("91 %", useUnmergedTree = true).assertDoesNotExist()
+        composeRule.onNodeWithTag(TAG_TODAY_CLOUD_LAYERS, useUnmergedTree = true)
+            .performClick()
+        composeRule.onNodeWithTag("today_cloud_hour_1", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithText("91 %", useUnmergedTree = true).assertExists()
+    }
+
+    @Test
+    fun cloudCurrentSnapshotDoesNotBorrowTheNextHourWhenCurrentCloudsAreMissing() {
+        val start = java.time.Instant.parse("2026-11-12T13:00:00Z")
+        val samples = listOf(
+            CloudLayerHour(start, total = null, low = null, mid = null, high = null,
+                readings = emptyList()),
+            CloudLayerHour(start.plusSeconds(3600), total = 98, low = 5, mid = 12, high = 95,
+                readings = emptyList())
+        )
+        composeRule.setContent {
+            MeteoCompareTheme {
+                TodayCloudLayersCard(samples, ZoneId.of("Europe/Paris"), java.util.Locale.FRANCE)
+            }
+        }
+        composeRule.onNodeWithText("98 %", useUnmergedTree = true).assertDoesNotExist()
+        composeRule.onNodeWithTag(TAG_TODAY_CLOUD_LAYERS, useUnmergedTree = true).performClick()
+        composeRule.onNodeWithTag("today_cloud_hour_1", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithText("98 %", useUnmergedTree = true).assertExists()
+    }
+
+    @Test
+    fun cloudCurrentSummaryAppearsBelowWindSummary() {
+        val original = forecastWithSunshine()
+        val forecast = original.copy(seriesByModel = original.seriesByModel.mapValues { (_, model) ->
+            model.copy(hourly = model.hourly.copy(
+                cloudCoverHigh = List(model.hourly.timestamps.size) { 70 },
+                cloudCoverLow = List(model.hourly.timestamps.size) { 10 },
+                cloudCoverMid = List(model.hourly.timestamps.size) { 20 }
+            ))
+        })
+        val start = forecast.seriesByModel.values.first().hourly.timestamps.first()
+        composeRule.setContent {
+            MeteoCompareTheme {
+                TodaySummaryCard(
+                    today = DayConfidence(
+                        date = TestFixtures.today,
+                        tempMax = null,
+                        tempMin = null,
+                        precipitation = null,
+                        windMax = ConfidenceScore(85, 12.0, 20.0, 16.0, 2.0, 3)
+                    ),
+                    modelCount = 3,
+                    currentTemp = 10.0,
+                    forecast = forecast,
+                    now = start
+                )
+            }
+        }
+        val wind = composeRule.onNodeWithTag(TAG_TODAY_SUMMARY_WIND_PANEL, useUnmergedTree = true)
+            .getUnclippedBoundsInRoot()
+        val clouds = composeRule.onNodeWithTag(TAG_TODAY_CLOUD_LAYERS, useUnmergedTree = true)
+            .getUnclippedBoundsInRoot()
+        assertTrue("Cloud cover must follow the wind section", clouds.top >= wind.bottom)
+    }
+
+    @Test
     fun todaySummaryShowsDailySunshineWhenFullDayCloudForecastExists() {
         val date = TestFixtures.today
         val forecast = forecastWithSunshine()

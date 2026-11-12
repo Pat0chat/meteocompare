@@ -39,6 +39,11 @@ internal object WidgetWeatherIconRenderer {
                 else drawSun(canvas, scale, palette, 17f, 17f, 6.6f)
                 drawCloud(canvas, scale, palette, 4f, 5f, 0.98f)
             }
+            WeatherCondition.VEILED -> {
+                if (isNight) drawMoon(canvas, scale, palette, 18f, 18f, 8f)
+                else drawSun(canvas, scale, palette, 20f, 19f, 8f)
+                drawCloud(canvas, scale, palette, 3f, 5f, 0.98f, depth = 0.10f, alpha = 0.56f)
+            }
             WeatherCondition.OVERCAST -> {
                 drawCloud(canvas, scale, palette, -9f, -4f, 0.74f, depth = 0.08f, alpha = 1f)
                 drawCloud(canvas, scale, palette, 6f, 5f, 1.08f, depth = 0.98f, alpha = 1f)
@@ -333,6 +338,7 @@ internal object WidgetWeatherIconRenderer {
         WeatherCondition.CLEAR,
         WeatherCondition.MAINLY_CLEAR,
         WeatherCondition.PARTLY_CLOUDY,
+        WeatherCondition.VEILED,
         WeatherCondition.RAIN_SHOWERS,
         WeatherCondition.SNOW_SHOWERS -> Palette()
 

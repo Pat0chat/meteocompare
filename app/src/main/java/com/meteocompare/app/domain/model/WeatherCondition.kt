@@ -23,6 +23,7 @@ enum class WeatherCondition {
     CLEAR,
     MAINLY_CLEAR,
     PARTLY_CLOUDY,
+    VEILED,
     OVERCAST,
     FOG,
     DRIZZLE,
@@ -37,7 +38,7 @@ enum class WeatherCondition {
     /** Vrai pour les quatre états qui décrivent uniquement la nébulosité du ciel. */
     val isSky: Boolean
         get() = when (this) {
-            CLEAR, MAINLY_CLEAR, PARTLY_CLOUDY, OVERCAST -> true
+            CLEAR, MAINLY_CLEAR, PARTLY_CLOUDY, VEILED, OVERCAST -> true
             else -> false
         }
 
@@ -50,6 +51,7 @@ enum class WeatherCondition {
             CLEAR -> 0
             MAINLY_CLEAR -> 1
             PARTLY_CLOUDY -> 2
+            VEILED -> 3
             OVERCAST -> 3
             FOG -> 4
             DRIZZLE -> 5

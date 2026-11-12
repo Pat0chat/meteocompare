@@ -1026,7 +1026,8 @@ private enum class WeatherConditionFamily {
 private fun WeatherCondition.conditionFamily(): WeatherConditionFamily = when (this) {
     WeatherCondition.CLEAR,
     WeatherCondition.MAINLY_CLEAR,
-    WeatherCondition.PARTLY_CLOUDY -> WeatherConditionFamily.FAIR
+    WeatherCondition.PARTLY_CLOUDY,
+    WeatherCondition.VEILED -> WeatherConditionFamily.FAIR
     WeatherCondition.OVERCAST -> WeatherConditionFamily.CLOUDY
     WeatherCondition.FOG -> WeatherConditionFamily.FOG
     WeatherCondition.DRIZZLE,
