@@ -65,11 +65,12 @@ class LocaleUtilsTest {
     }
 
     @Test
-    fun spanish_german_and_italian_resources_are_resolved() {
+    fun spanish_german_italian_and_turkish_resources_are_resolved() {
         val expected = mapOf(
             "es" to "Previsiones detalladas",
             "de" to "Detaillierte Vorhersagen",
-            "it" to "Previsioni dettagliate"
+            "it" to "Previsioni dettagliate",
+            "tr" to "Ayrıntılı tahminler"
         )
 
         expected.forEach { (tag, title) ->
@@ -79,6 +80,17 @@ class LocaleUtilsTest {
             assertEquals(tag, localized.resources.configuration.locales[0].language)
             assertEquals(title, localized.getString(R.string.forecast_tables_section))
         }
+    }
+
+    @Test
+    fun turkish_unavailable_rain_risk_is_not_presented_as_no_risk() {
+        persistLocalePreference(context, "tr")
+        val turkish = applyPersistedLocale(context)
+
+        assertEquals(
+            "Yağış riski bilgisi mevcut değil.",
+            turkish.getString(R.string.metric_calc_rain_probability_unknown)
+        )
     }
 
     @Test

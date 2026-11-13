@@ -968,7 +968,8 @@ private fun LanguageSelector(
         LanguagePreference.ENGLISH,
         LanguagePreference.SPANISH,
         LanguagePreference.GERMAN,
-        LanguagePreference.ITALIAN
+        LanguagePreference.ITALIAN,
+        LanguagePreference.TURKISH
     )
     ModernSlidingSelector(
         options = options,
@@ -983,6 +984,7 @@ private fun LanguageSelector(
                     LanguagePreference.SPANISH -> R.string.language_spanish_short
                     LanguagePreference.GERMAN -> R.string.language_german_short
                     LanguagePreference.ITALIAN -> R.string.language_italian_short
+                    LanguagePreference.TURKISH -> R.string.language_turkish_short
                 }
             )
         },
@@ -998,6 +1000,7 @@ private fun LanguageSelector(
                     LanguagePreference.SPANISH -> R.string.language_spanish
                     LanguagePreference.GERMAN -> R.string.language_german
                     LanguagePreference.ITALIAN -> R.string.language_italian
+                    LanguagePreference.TURKISH -> R.string.language_turkish
                 }
             )
         }

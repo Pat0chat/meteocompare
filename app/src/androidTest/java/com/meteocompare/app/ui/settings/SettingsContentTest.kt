@@ -146,14 +146,15 @@ class SettingsContentTest {
     }
 
     @Test
-    fun spanish_german_and_italian_language_options_are_reachable() {
+    fun spanish_german_italian_and_turkish_language_options_are_reachable() {
         var language: LanguagePreference? = null
         content(onLanguage = { language = it })
 
         listOf(
             LanguagePreference.SPANISH,
             LanguagePreference.GERMAN,
-            LanguagePreference.ITALIAN
+            LanguagePreference.ITALIAN,
+            LanguagePreference.TURKISH
         ).forEach { preference ->
             val tag = "$TAG_SETTINGS_LANGUAGE${preference.name}"
             scrollTo(tag)

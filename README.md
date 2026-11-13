@@ -54,7 +54,7 @@ Depuis la v1.0, l'app suit aussi **le biais historique de chaque modèle sur cha
 - **Tri des modèles dans les Settings** par zone / famille / finesse
 - **Batching multi-modèles** : les N modèles activés sont récupérés en 1 seule requête HTTPS (au lieu de N requêtes parallèles) — gain sur la latence et la batterie
 - **Modes clair/sombre**, thème dynamique Material You (Android 12+)
-- **Français + Anglais + Espagnol + Allemand + Italien** (widgets inclus — le rendu suit la préférence app, pas la locale système)
+- **Français + Anglais + Espagnol + Allemand + Italien + Turc** (widgets inclus — le rendu suit la préférence app, pas la locale système)
 - **Aucune publicité, aucun tracker** ; les connexions sortantes sont limitées aux services nécessaires aux fonctions météo (Open-Meteo, Worker Vigilance MeteoCompare et, uniquement à l'ouverture du radar, RainViewer + OpenStreetMap)
 
 ## Stack technique
