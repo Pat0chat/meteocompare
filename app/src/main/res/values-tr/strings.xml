@@ -286,7 +286,7 @@
     <string name="metric_calc_rain_wet">Yağışlı senaryo: her modelin ortalaması değil, yağış öngören modelleri temsil eden miktar.</string>
     <string name="metric_calc_rain_probability_fallback">Risk modellerden tahmin edilir; kalibre edilmiş bir olasılık değildir.</string>
     <string name="metric_calc_rain_no_amount" formatted="false">Risk ≥ %50, ancak yağış miktarı yok: 0 mm risk olmadığı anlamına gelmez.</string>
-    <string name="metric_calc_rain_probability_unknown">Yağış riski yok.</string>
+    <string name="metric_calc_rain_probability_unknown">Yağış riski bilgisi mevcut değil.</string>
     <string name="metric_calc_rain_agreement">Aileler arası uyum: oluşum %1$s · miktar %2$s (yağış riski değil).</string>
     <string name="metric_calc_rain_points">Noktalar = modellere göre yağış toplamları · koyu çizgi = merkezi senaryo. Yüzdeler, modellerin kendi günlük maksimum yağış olasılıklarıdır.</string>
     <string name="metric_calc_model_probability">Maks P %1$d%%</string>
@@ -376,7 +376,7 @@
     <string name="weather_fog">Sis</string>
     <string name="weather_drizzle">Hafif yağmur</string>
     <string name="weather_rain">Yağmur</string>
-    <string name="weather_freezing_rain">Dondurucu yağmur</string>
+    <string name="weather_freezing_rain">Donan yağmur</string>
     <string name="weather_snow">Kar</string>
     <string name="weather_rain_showers">Sağanak yağış</string>
     <string name="weather_snow_showers">Kar sağanağı</string>
@@ -586,7 +586,7 @@
     <string name="forecast_insight_title_weather_improving">Hava iyileşiyor</string>
     <string name="forecast_insight_title_weather_fog">Sis bekleniyor</string>
     <string name="forecast_insight_title_weather_thunderstorm">Gök gürültülü fırtına riski</string>
-    <string name="forecast_insight_title_weather_freezing_rain">Dondurucu yağış riski</string>
+    <string name="forecast_insight_title_weather_freezing_rain">Donan yağmur riski</string>
     <string name="forecast_insight_title_weather_snow">Kar mümkün</string>
     <string name="forecast_insight_detail_weather_transition">%1$s → %2$s</string>
     <string name="forecast_insight_metric_consensus">%1$d%% uyum</string>
@@ -614,7 +614,7 @@
     <string name="forecast_insight_detail_rain_persistent">Sinyal %1$s saatine kadar sürüyor.</string>
     <string name="forecast_insight_detail_rain_likely_short">Güçlü ama izole bir sinyal.</string>
     <string name="forecast_insight_detail_rain_thunderstorm">Gök gürültülü fırtına senaryosu belirgin biçimde öne çıkıyor.</string>
-    <string name="forecast_insight_detail_rain_freezing">Dondurucu yağış riski belirgin biçimde öne çıkıyor.</string>
+    <string name="forecast_insight_detail_rain_freezing">Donan yağmur riski belirgin biçimde öne çıkıyor.</string>
     <string name="forecast_insight_detail_rain_snow">Kar senaryosu belirgin biçimde öne çıkıyor.</string>
     <string name="forecast_insight_detail_rain_uncertain_persistent">Belirsizlik %1$s saatine kadar sürüyor.</string>
     <string name="forecast_insight_title_wind_rising">Rüzgâr belirgin biçimde artıyor</string>
@@ -693,7 +693,7 @@
     <string name="home_scenario_rain_late">Ağırlıkla daha geç saatlerde yağmur</string>
     <string name="home_scenario_rain_throughout">Süreğen yağmur</string>
     <string name="home_scenario_snow">Kar senaryosu</string>
-    <string name="home_scenario_freezing_rain">Dondurucu yağış riski</string>
+    <string name="home_scenario_freezing_rain">Donan yağmur riski</string>
     <string name="home_scenario_thunderstorm">Gök gürültülü fırtına senaryosu</string>
     <string name="home_scenario_other">Diğer varyantlar</string>
 
@@ -750,12 +750,12 @@
     <string name="marine_not_coastal">Bu şehrin %1$s yakınında güvenilir bir deniz ızgara noktası bulunamadı.</string>
     <string name="marine_error">Deniz verisi yüklenemedi: %1$s</string>
     <string name="marine_title">Deniz / kıyı</string>
-    <string name="marine_intro">Dalgalar, hindirici dalga, deniz ve gelgitler</string>
+    <string name="marine_intro">Dalgalar, ölü dalga, deniz ve gelgitler</string>
     <string name="marine_current_conditions">Şu anki koşullar</string>
     <string name="marine_distance">Deniz verisi %1$s %2$s uzaklıkta</string>
     <string name="marine_wave_height">Dalga yüks.</string>
     <string name="marine_wave_period">Dalga periyodu</string>
-    <string name="marine_swell_height">Hindirici dalga</string>
+    <string name="marine_swell_height">Ölü dalga</string>
     <string name="marine_sea_temp">Deniz sıc.</string>
     <string name="marine_wave_evolution">Dalga gelişimi</string>
     <string name="marine_next_48h">48 sa</string>
@@ -779,7 +779,7 @@
     <string name="marine_source">Kaynak: Open-Meteo Marine API</string>
     <string name="marine_chart_unavailable">Grafik yok: yeterli veri yok.</string>
 
-    <string name="settings_about_marine">Deniz / kıyı: Open-Meteo Marine ile dalgalar, hindirici dalga, deniz sıcaklığı ve deniz seviyesi. Gösterge niteliğindedir, seyir için değildir.</string>
+    <string name="settings_about_marine">Deniz / kıyı: Open-Meteo Marine ile dalgalar, ölü dalga, deniz sıcaklığı ve deniz seviyesi. Gösterge niteliğindedir, seyir için değildir.</string>
 
     <string name="historical_confidence_title">Yerel geçmişe dayalı güven</string>
     <string name="historical_confidence_meta">Gözlenen G+1 performansı · %1$d aile</string>
@@ -879,7 +879,7 @@
     <string name="help_hierarchical_dry">Yağış yok</string>
     <string name="help_hierarchical_dry_body">Motor daha sonra mevcut sinyallerden açık, az bulutlu, parçalı bulutlu, kapalı veya sisli koşulları ayırt eder.</string>
     <string name="help_hierarchical_precip">Yağış</string>
-    <string name="help_hierarchical_precip_body">Yağmurlu veya kışlık durumlar önce gruplanır, sonra yağmur, çisenti, kar, dondurucu yağış, sağanak veya gök gürültülü fırtına arasında ayırt edilir.</string>
+    <string name="help_hierarchical_precip_body">Yağmurlu veya kışlık durumlar önce gruplanır, sonra yağmur, çisenti, kar, donan yağmur, sağanak veya gök gürültülü fırtına arasında ayırt edilir.</string>
     <string name="help_hierarchical_note">Bu hiyerarşik uzlaşı, basit kategorik oylamanın yanlılığını azaltır ve izole bir kategorinin haksız biçimde baskın olmasını engeller.</string>
     <string name="help_section_4_title">Model uyumu</string>
     <string name="help_section_4_body">MeteoCompare, modellerin uzlaştığı zamanları gösterdiği gibi ayrıştıkları zamanları da gösterir; böylece güven ve belirsizlik okunabilir kalır.</string>
@@ -1008,7 +1008,7 @@
     <string name="radar_projection_recalculating">Projeksiyon yeniden hesaplanıyor…</string>
     <string name="radar_projection_cells">Tek tek izlenen yağış alanları: %1$d</string>
     <string name="radar_projection_detail">Medyan hız ≈ %1$d km/sa · ortalama güven %2$d %%</string>
-    <string name="radar_impact_none">İzlenen yağış alanlarından hiçbiri önümüzdeki saat içinde bölgeye doğrudan ulaşmış gibi görünmüyor.</string>
+    <string name="radar_impact_none">İzlenen yağış alanlarından hiçbirinin önümüzdeki bir saat içinde bölgeye doğrudan ulaşması beklenmiyor.</string>
     <string name="radar_impact_current">%1$s bölgeyi zaten kapsıyor ve yaklaşık +%2$d dk boyunca kalabilir.</string>
     <string name="radar_impact_current_leaving">%1$s şu an bölgeyi kapsıyor ama kademeli olarak uzaklaşmalı.</string>
     <string name="radar_impact_at">%1$s, +%2$d dk civarında bölgeye ulaşabilir.</string>
@@ -1153,6 +1153,8 @@
     <string name="condition_period_night">Gece</string>
     <string name="condition_period_full_day">24 saat</string>
 
+    <string name="summary_cloud_layers_select_hour">Bir zaman seçin</string>
+    <string name="summary_cloud_layers_central">Modellerin merkezi değeri</string>
     <string name="summary_cloud_layers_explain">Bulutlar ve güneşlenme nasıl hesaplanır</string>
     <string name="summary_cloud_layers_now_title">Bulutluluk · şimdi</string>
     <string name="summary_cloud_layers_title">Bulut katmanları · 9 saat</string>

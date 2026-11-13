@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify the five resource sets used by feels-like and pressure UI.
+"""Verify the localized resource sets used by feels-like and pressure UI.
 
 Run from any directory: python3 scripts/verify_atmospheric_localizations.py
 The Android instrumentation tests are still required to verify on-device layout.
@@ -11,7 +11,7 @@ import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
 RES = ROOT / "app" / "src" / "main" / "res"
-LANGUAGES = ("values", "values-en", "values-de", "values-es", "values-it")
+LANGUAGES = ("values", "values-en", "values-de", "values-es", "values-it", "values-tr")
 REQUIRED = (
     "metric_apparent_temperature",
     "metric_atmospheric_pressure",

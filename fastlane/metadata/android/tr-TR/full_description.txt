@@ -6,7 +6,7 @@ MeteoCompare; tek bir tahminin arkasına gizlenen belirsizlik yerine birden fazl
 Günlük görünümler artık 10 günü kapsıyor. Daha kısa erimli modeller yalnızca kendi verileri mevcutken gösterilir: MeteoCompare hiçbir zaman model çıktısı uydurmaz veya uzatmaz.
 
 GRAFİK GÖRÜNÜMÜ VE GÖRSELLER
-Yeni Grafik Görünümü, 240 saatlik zaman çizelgesi üzerinde 10 güne kadar saati saat keşfetmenizi sağlar. Ayrıca:
+Yeni Grafik Görünümü, 240 saatlik zaman çizelgesi üzerinde 10 güne kadar saat saat incelemenizi sağlar. Ayrıca:
 - Bugün özeti ve saatlik zaman çizelgesi;
 - min/maks yayılım bantları ve model uyum düzeyleri;
 - model bazlı tablolar;
@@ -32,7 +32,7 @@ BELİRSİZLİĞİ ANLAMAK
 MeteoCompare, güncel model uyumunu yerel geçmişe dayalı güvenilirlikten ayrı tutar. İlişkili modeller oylama ağırlığını paylaşır; böylece aynı sayısal soydan gelen varyantlar güveni suni biçimde artıramaz. Tahmin gelişimi ayrıca bir tahminin yaklaşık 24, 48 ve 72 saat önce nasıl olduğunu gösterir.
 
 DENİZ / KIYI VE UYARILAR
-Uyumlu kıyı şehirleri için: dalgalar, hindirici dalga, deniz sıcaklığı ve tahmini gelgitler. Fransa'daki şehirler için MeteoCompare ayrıca resmi Météo-France vigilance bilgisini aktarır. Deniz bilgisi gösterge niteliğindedir ve seyir için tasarlanmamıştır.
+Uyumlu kıyı şehirleri için: dalgalar, ölü dalga, deniz sıcaklığı ve tahmini gelgitler. Fransa'daki şehirler için MeteoCompare ayrıca resmi Météo-France vigilance bilgisini aktarır. Deniz bilgisi gösterge niteliğindedir ve seyir için tasarlanmamıştır.
 
 METEOCOMPARE'İ DESTEKLEYİN
 MeteoCompare, reklam, abonelik veya premium özellik olmadan geliştirilir. Uygulama işinize yarıyorsa geliştirmeyi Liberapay, GitHub Sponsors veya Ko-Fi üzerinden destekleyebilirsiniz. Bağışlar isteğe bağlıdır ve hiçbir ayrıcalık açmaz: herkes aynı uygulamayı alır.
