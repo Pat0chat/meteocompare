@@ -1,0 +1,43 @@
+MeteoCompare; tek bir tahminin arkasına gizlenen belirsizlik yerine birden fazla modeli karşılaştıran, ücretsiz, açık kaynak ve reklamsız bir hava durumu uygulamasıdır.
+
+21 MODEL · 10 GÜNE KADAR
+21 referans modeli karşılaştırın: AROME ve ARPEGE (Météo-France), ICON ve ICON-D2 (DWD), GFS, HRRR ve yeni NOAA AIGFS, ECMWF IFS ve AIFS, UKMO, GEM, yeni JMA GSM, MET Nordic, KNMI/DMI HARMONIE, MeteoSwiss ICON-CH2, ACCESS ve GRAPES.
+
+Günlük görünümler artık 10 günü kapsıyor. Daha kısa erimli modeller yalnızca kendi verileri mevcutken gösterilir: MeteoCompare hiçbir zaman model çıktısı uydurmaz veya uzatmaz.
+
+GRAFİK GÖRÜNÜMÜ VE GÖRSELLER
+Yeni Grafik Görünümü, 240 saatlik zaman çizelgesi üzerinde 10 güne kadar saati saat keşfetmenizi sağlar. Ayrıca:
+- Bugün özeti ve saatlik zaman çizelgesi;
+- min/maks yayılım bantları ve model uyum düzeyleri;
+- model bazlı tablolar;
+- yaklaşık 24 / 48 / 72 saat civarında tahmin gelişimi ve "Önemli nokta" bölümü;
+- yerel model sıralaması;
+- yeniden boyutlandırılabilir ana ekran widget'ları.
+
+YEREL HAVA DURUMU BİLDİRİMLERİ
+Bildirimler isteğe bağlıdır ve varsayılan olarak kapalıdır. Seçilen favori şehirler için MeteoCompare gösterebilir:
+- seçtiğiniz saatte günlük özet;
+- modeller güçlü biçimde ayrıştığında uyarı;
+- Önemli nokta sinyali anlamlı bir sıcaklık, yağış veya rüzgâr değişimi saptadığında "Tahmin revizyonu".
+
+Her şey cihaz üzerinde WorkManager ile hesaplanır; push sunucusu yoktur. Gereksiz yinelenen bildirimleri önlemek için olayların tekilleştirilmesi yapılır.
+
+TABLETLER, KATLANABİLİR CİHAZLAR VE GENİŞ EKRANLAR
+Geniş pencerelerde MeteoCompare, ana/ayrıntı düzenine geçer; böylece şehir listesi ve tahmin yan yana görünür kalır. Arayüz, kompakt telefon düzenini korurken tabletlere, büyük katlanabilir cihazlara ve yeniden boyutlandırılabilir Android pencerelerine uyum sağlar.
+
+4 V3 TAHMİN MOTORU
+Merkezi tahminin nasıl hesaplanacağını seçin: Çoklu uzlaşı, Yerel kalibrasyon, Senaryolar veya Adaptif. Özel bir Motor Karşılaştırması sayfası, dört stratejiyi de aynı ham veri üzerinde çalıştırır; böylece farkları görünür kalır.
+
+BELİRSİZLİĞİ ANLAMAK
+MeteoCompare, güncel model uyumunu yerel geçmişe dayalı güvenilirlikten ayrı tutar. İlişkili modeller oylama ağırlığını paylaşır; böylece aynı sayısal soydan gelen varyantlar güveni suni biçimde artıramaz. Tahmin gelişimi ayrıca bir tahminin yaklaşık 24, 48 ve 72 saat önce nasıl olduğunu gösterir.
+
+DENİZ / KIYI VE UYARILAR
+Uyumlu kıyı şehirleri için: dalgalar, hindirici dalga, deniz sıcaklığı ve tahmini gelgitler. Fransa'daki şehirler için MeteoCompare ayrıca resmi Météo-France vigilance bilgisini aktarır. Deniz bilgisi gösterge niteliğindedir ve seyir için tasarlanmamıştır.
+
+METEOCOMPARE'İ DESTEKLEYİN
+MeteoCompare, reklam, abonelik veya premium özellik olmadan geliştirilir. Uygulama işinize yarıyorsa geliştirmeyi Liberapay, GitHub Sponsors veya Ko-Fi üzerinden destekleyebilirsiniz. Bağışlar isteğe bağlıdır ve hiçbir ayrıcalık açmaz: herkes aynı uygulamayı alır.
+
+GİZLİLİK
+Hesap yok, reklam yok, analitik SDK yok. Favoriler, tercihler, önbellekler ve geçmiş cihazda kalır. Hava durumu ve geokodlama verileri başlıca Open-Meteo tarafından sağlanır.
+
+MeteoCompare, Apache-2.0 lisansıyla sunulan ücretsiz ve açık kaynak bir yazılımdır.

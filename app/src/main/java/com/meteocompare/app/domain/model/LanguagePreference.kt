@@ -15,7 +15,8 @@ enum class LanguagePreference(val bcp47Tag: String?) {
     ENGLISH("en"),
     SPANISH("es"),
     GERMAN("de"),
-    ITALIAN("it");
+    ITALIAN("it"),
+    TURKISH("tr");
 
     companion object {
         fun fromLanguageTag(value: String?): LanguagePreference = when (value
@@ -26,6 +27,7 @@ enum class LanguagePreference(val bcp47Tag: String?) {
             "es" -> SPANISH
             "de" -> GERMAN
             "it" -> ITALIAN
+            "tr" -> TURKISH
             else -> SYSTEM
         }
     }
