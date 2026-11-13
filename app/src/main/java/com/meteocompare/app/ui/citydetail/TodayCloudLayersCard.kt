@@ -47,6 +47,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
@@ -94,11 +95,15 @@ internal fun TodayCloudLayersCard(
         stringResource(R.string.summary_cloud_layers_mid),
         stringResource(R.string.summary_cloud_layers_low)
     )
+    // Cloud-layer colors describe altitude, not selection or the app's accent.
+    // Derive light/dark from the effective Material surface: the user can force
+    // an app theme independently of the system-wide appearance.
+    val isDarkSurface = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val colors = listOf(
-        MaterialTheme.colorScheme.onSurfaceVariant,
-        MaterialTheme.colorScheme.tertiary,
-        MaterialTheme.colorScheme.primary,
-        MaterialTheme.colorScheme.secondary
+        MaterialTheme.colorScheme.onSurfaceVariant, // Total: neutral cloud cover
+        if (isDarkSurface) Color(0xFFE4B96D) else Color(0xFF956322), // High: warm gold
+        if (isDarkSurface) Color(0xFF71C9D4) else Color(0xFF187487), // Mid: cool teal
+        if (isDarkSurface) Color(0xFFA5B6E8) else Color(0xFF5167A9)  // Low: blue
     )
     val currentValues = listOf(current.total, current.high, current.mid, current.low)
     val cloudAccent = MaterialTheme.colorScheme.primary
@@ -122,7 +127,10 @@ internal fun TodayCloudLayersCard(
                 verticalArrangement = Arrangement.spacedBy(5.dp)
             ) {
                 names.forEachIndexed { index, label ->
-                    CloudCoverMeter(label, currentValues[index], colors[index])
+                    CloudCoverMeter(
+                        label, currentValues[index], colors[index],
+                        valueTestTag = "today_cloud_current_value_$index"
+                    )
                 }
             }
             Text(
@@ -284,7 +292,12 @@ internal fun TodayCloudLayersCard(
 
 /** All bars share a 0–100% scale, but layers are not additive. */
 @Composable
-private fun CloudCoverMeter(label: String, percent: Int?, color: Color) {
+private fun CloudCoverMeter(
+    label: String,
+    percent: Int?,
+    color: Color,
+    valueTestTag: String? = null
+) {
     val fraction = percent?.coerceIn(0, 100)?.div(100f) ?: 0f
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -308,7 +321,9 @@ private fun CloudCoverMeter(label: String, percent: Int?, color: Color) {
         }
         Text(
             text = percent?.let { "$it %" } ?: "—",
-            modifier = Modifier.width(46.dp),
+            modifier = Modifier.width(46.dp).then(
+                if (valueTestTag != null) Modifier.testTag(valueTestTag) else Modifier
+            ),
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.SemiBold,
             color = if (percent == null) MaterialTheme.colorScheme.onSurfaceVariant else color
@@ -536,7 +551,12 @@ private fun CloudSelectedHourSummary(
             }
             if (sample.hasCloudData) {
                 listOf(sample.total, sample.high, sample.mid, sample.low)
-                    .forEachIndexed { index, value -> CloudCoverMeter(labels[index], value, colors[index]) }
+                    .forEachIndexed { index, value ->
+                        CloudCoverMeter(
+                            labels[index], value, colors[index],
+                            valueTestTag = "today_cloud_selected_value_$index"
+                        )
+                    }
             } else {
                 Text(
                     stringResource(R.string.summary_cloud_layers_unavailable),

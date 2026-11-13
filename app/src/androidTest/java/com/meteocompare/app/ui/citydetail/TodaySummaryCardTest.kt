@@ -180,12 +180,16 @@ class TodaySummaryCardTest {
                 TodayCloudLayersCard(samples, ZoneId.of("Europe/Paris"), java.util.Locale.FRANCE)
             }
         }
-        composeRule.onNodeWithText("22 %", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithTag("today_cloud_current_value_0", useUnmergedTree = true)
+            .assertTextEquals("22 %")
         composeRule.onNodeWithText("91 %", useUnmergedTree = true).assertDoesNotExist()
         composeRule.onNodeWithTag(TAG_TODAY_CLOUD_LAYERS, useUnmergedTree = true)
             .performClick()
         composeRule.onNodeWithTag("today_cloud_hour_1", useUnmergedTree = true).performClick()
-        composeRule.onNodeWithText("91 %", useUnmergedTree = true).assertExists()
+        // The selected total appears both in the chart and in the details;
+        // verify the exact value, not a globally unique text node.
+        composeRule.onNodeWithTag("today_cloud_selected_value_0", useUnmergedTree = true)
+            .assertTextEquals("91 %")
     }
 
     @Test
@@ -202,10 +206,15 @@ class TodaySummaryCardTest {
                 TodayCloudLayersCard(samples, ZoneId.of("Europe/Paris"), java.util.Locale.FRANCE)
             }
         }
+        composeRule.onNodeWithTag("today_cloud_current_value_0", useUnmergedTree = true)
+            .assertTextEquals("—")
         composeRule.onNodeWithText("98 %", useUnmergedTree = true).assertDoesNotExist()
         composeRule.onNodeWithTag(TAG_TODAY_CLOUD_LAYERS, useUnmergedTree = true).performClick()
         composeRule.onNodeWithTag("today_cloud_hour_1", useUnmergedTree = true).performClick()
-        composeRule.onNodeWithText("98 %", useUnmergedTree = true).assertExists()
+        // The hourly chart and selected summary can both show 98%.
+        // This test must assert the selected hour, not assume text uniqueness.
+        composeRule.onNodeWithTag("today_cloud_selected_value_0", useUnmergedTree = true)
+            .assertTextEquals("98 %")
     }
 
     @Test
