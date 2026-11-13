@@ -1,0 +1,1 @@
+Ventana de nubosidad rediseñada en Today Summary: cuatro gráficas de 9 horas, selector horario fijo, colores coherentes y detalles por modelo. Corpus de 74.537 casos de regresión con ejecución verificable, controles de integridad e informes de pruebas unitarias y Android en GitHub Actions. Pruebas Compose reforzadas. El turco está previsto.

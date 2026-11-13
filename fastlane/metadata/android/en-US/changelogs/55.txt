@@ -1,0 +1,1 @@
+Redesigned Today Summary cloud dialog: four labeled 9-hour charts, persistent hour picker, consistent layer colors and per-model details. 74,537 deterministic regression scenarios with verified execution counts, integrity checks and GitHub Actions summaries for unit and Android tests. More robust Compose tests. Turkish localization.

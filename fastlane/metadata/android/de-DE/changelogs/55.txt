@@ -1,0 +1,1 @@
+Überarbeiteter Wolken-Dialog in Today Summary: vier beschriftete 9-Stunden-Diagramme, dauerhafte Stundenauswahl, einheitliche Farben und Modellvergleich. 74.537 deterministische Regressionstests mit Ausführungsnachweis, Integritätsprüfung und Testberichten in GitHub Actions. Robustere Compose-Tests. Türkisch ist geplant.

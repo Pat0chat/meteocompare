@@ -1,0 +1,1 @@
+Popup nuages de Today Summary modernisée : quatre graphiques sur 9 h, sélection d'heure persistante, couleurs des couches harmonisées et détails par modèle. Corpus de 74 537 scénarios de non-régression avec preuve d'exécution, rapport GitHub Actions des tests unitaires et AndroidTests et contrôles d'intégrité. Tests d'interface renforcés. Traduction turque.
