@@ -1154,6 +1154,8 @@
     <string name="condition_period_full_day">24 h</string>
 
     <!-- Today summary: independent cloud-layer bands and model details -->
+    <string name="summary_cloud_layers_select_hour">Select an hour</string>
+    <string name="summary_cloud_layers_central">Central model forecast</string>
     <string name="summary_cloud_layers_explain">How clouds and sunshine are calculated</string>
     <string name="summary_cloud_layers_now_title">Cloud cover · now</string>
     <string name="summary_cloud_layers_title">Cloud layers · 9 h</string>

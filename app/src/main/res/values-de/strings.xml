@@ -1137,6 +1137,8 @@ Daten</string>
     <string name="condition_period_full_day">24 Std.</string>
 
     <!-- Today summary: independent cloud-layer bands and model details -->
+    <string name="summary_cloud_layers_select_hour">Stunde auswählen</string>
+    <string name="summary_cloud_layers_central">Zentrale Modellvorhersage</string>
     <string name="summary_cloud_layers_explain">Wolken und Sonne verstehen</string>
     <string name="summary_cloud_layers_now_title">Bewölkung · jetzt</string>
     <string name="summary_cloud_layers_title">Wolkenschichten · 9 Std.</string>

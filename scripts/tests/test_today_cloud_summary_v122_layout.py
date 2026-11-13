@@ -30,6 +30,29 @@ class TodayCloudSummaryLayoutTest(unittest.TestCase):
         for altitude in ('high', 'mid', 'low'):
             self.assertIn('hours.map { it.' + altitude + ' }', src)
 
+    def test_popup_has_fixed_hour_rail_and_separate_model_cards(self):
+        src = CLOUD.read_text(encoding='utf-8')
+        dialog = src.split('    if (open) {', 1)[1].split('\n/** All bars', 1)[0]
+        self.assertIn('Dialog(', dialog)
+        self.assertIn('DialogProperties(usePlatformDefaultWidth = false)', dialog)
+        self.assertIn('CloudHourSelector(hours, selectedHour, zone, formatter)', dialog)
+        self.assertLess(dialog.index('CloudHourSelector('), dialog.index('.verticalScroll(detailScrollState)'))
+        self.assertIn('CloudSelectedHourSummary(sample, names, colors', dialog)
+        self.assertIn('CloudModelDetailCard(model, names, colors)', dialog)
+        self.assertIn('today_cloud_models_section', dialog)
+        self.assertIn('today_cloud_hour_selector', src)
+        self.assertIn('today_cloud_model_${model.model.name}', src)
+        self.assertIn('LaunchedEffect(selectedHour)', dialog)
+
+    def test_popup_keeps_missing_cloud_layers_unknown_and_distinguishes_dst(self):
+        src = CLOUD.read_text(encoding='utf-8')
+        self.assertIn('popupHourLabel(hours, index, zone, formatter)', src)
+        self.assertIn('instant.atZone(zone).offset.id', src)
+        self.assertIn('percent?.let { "$it %" } ?: "—"', src)
+        self.assertIn('val modelRows = sample.readings', src)
+        self.assertIn('values.joinToString', src)
+        self.assertIn('MaterialTheme.colorScheme', src)
+
     def test_sunshine_disclaimer_is_not_in_daily_timeline(self):
         self.assertNotIn('compare_sunshine_disclaimer', TIMELINE.read_text(encoding='utf-8'))
         self.assertIn('compare_sunshine_disclaimer',

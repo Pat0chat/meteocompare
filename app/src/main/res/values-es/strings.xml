@@ -1143,6 +1143,8 @@ datos</string>
     <string name="condition_period_full_day">24 h</string>
 
     <!-- Today summary: independent cloud-layer bands and model details -->
+    <string name="summary_cloud_layers_select_hour">Seleccionar una hora</string>
+    <string name="summary_cloud_layers_central">Pronóstico central de los modelos</string>
     <string name="summary_cloud_layers_explain">Cómo se calculan nubes y sol</string>
     <string name="summary_cloud_layers_now_title">Nubosidad · ahora</string>
     <string name="summary_cloud_layers_title">Capas nubosas · 9 h</string>

@@ -1155,6 +1155,8 @@
     <string name="condition_period_full_day">24 h</string>
 
     <!-- Today summary: independent cloud-layer bands and model details -->
+    <string name="summary_cloud_layers_select_hour">Choisir une heure</string>
+    <string name="summary_cloud_layers_central">Valeur centrale des modèles</string>
     <string name="summary_cloud_layers_explain">Comprendre les nuages et le soleil</string>
     <string name="summary_cloud_layers_now_title">Nébulosité · maintenant</string>
     <string name="summary_cloud_layers_title">Couches nuageuses · 9 h</string>

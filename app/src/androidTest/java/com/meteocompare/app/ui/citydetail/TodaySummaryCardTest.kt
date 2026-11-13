@@ -113,14 +113,29 @@ class TodaySummaryCardTest {
             .assertExists().assertHasClickAction().performClick()
         composeRule.onNodeWithTag(TAG_TODAY_CLOUD_TIMELINE, useUnmergedTree = true)
             .assertExists()
+        // Time navigation belongs to the fixed dialog header rather than the
+        // scrolling graph/model details, including on smaller screens.
+        composeRule.onNodeWithTag("today_cloud_hour_selector", useUnmergedTree = true)
+            .assertExists().assertIsDisplayed()
+        // The last hour also exists even when the rail scrolls horizontally.
+        composeRule.onNodeWithTag("today_cloud_hour_8", useUnmergedTree = true)
+            .assertExists()
+        composeRule.onNodeWithTag("today_cloud_selected_summary", useUnmergedTree = true)
+            .assertExists()
         (0..3).forEach { band ->
             composeRule.onNodeWithTag("today_cloud_band_label_$band", useUnmergedTree = true)
+                .assertExists()
+            composeRule.onNodeWithTag("today_cloud_band_chart_$band", useUnmergedTree = true)
                 .assertExists()
         }
         composeRule.onNodeWithTag(TAG_TODAY_CLOUD_DIALOG, useUnmergedTree = true)
             .assertExists()
         composeRule.onNodeWithText(context.getString(R.string.summary_cloud_layers_models),
             useUnmergedTree = true).assertExists()
+        // Every model has its own card; a missing layer remains a dash, never 0%.
+        val firstModel = forecast.seriesByModel.keys.first()
+        composeRule.onNodeWithTag("today_cloud_model_${firstModel.name}", useUnmergedTree = true)
+            .assertExists()
         composeRule.onNodeWithText(context.getString(R.string.summary_cloud_layers_not_sum),
             useUnmergedTree = true).assertExists()
         // Select the next hour while the selector is in its initial viewport.
@@ -142,6 +157,13 @@ class TodaySummaryCardTest {
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("today_cloud_veil_explanation", useUnmergedTree = true)
             .performScrollTo().assertExists().assertIsDisplayed()
+        // Changing hours must remain accessible even while the explanation is
+        // expanded and the model details are scrolled to the bottom.
+        composeRule.onNodeWithTag("today_cloud_hour_0", useUnmergedTree = true)
+            .assertIsDisplayed().performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("today_cloud_selected_summary", useUnmergedTree = true)
+            .assertExists()
     }
 
 
