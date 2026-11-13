@@ -56,6 +56,37 @@ class WeatherRegressionCorpusIntegrityTest(unittest.TestCase):
         refresh = (DATA / 'widget_refresh.tsv').read_text(encoding='utf-8')
         self.assertIn('refresh-9223372036854775807', refresh)
 
+    def test_each_fixture_has_a_real_kotlin_consumer_and_exact_execution_proof(self):
+        import importlib.util
+        import re
+        module_path = ROOT / 'scripts/report_test_results.py'
+        spec = importlib.util.spec_from_file_location('corpus_report_wiring', module_path)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        sources = (
+            ROOT / 'app/src/test/java/com/meteocompare/app/regression/WeatherRegressionCorpusTest.kt',
+            ROOT / 'app/src/test/java/com/meteocompare/app/widget/WidgetRegressionCorpusTest.kt',
+        )
+        corpus_tests = '\n'.join(source.read_text(encoding='utf-8') for source in sources)
+        expected = {name: meta['cases'] for name, meta in self.manifest['files'].items()}
+        self.assertEqual(set(expected), set(module.CORPUS_CONSUMERS))
+        self.assertEqual(len(module.CORPUS_CONSUMERS), 9)
+        for name, number in expected.items():
+            with self.subTest(fixture=name):
+                self.assertEqual(len(re.findall(r'records\("' + re.escape(name) + r'"\)', corpus_tests)), 1)
+                self.assertEqual(len(re.findall(r'proof\("' + re.escape(name) +
+                                                r'",\s*(?:count|cases),\s*' + str(number) + r',',
+                                                corpus_tests)), 1)
+                klass, method = module.CORPUS_CONSUMERS[name]
+                self.assertIn(f'fun {method}()', corpus_tests)
+        gradle = (ROOT / 'app/build.gradle.kts').read_text(encoding='utf-8')
+        self.assertIn('outputs.upToDateWhen { false }', gradle)
+        self.assertIn('outputs.doNotCacheIf(', gradle)
+        for workflow in ('quality-checks.yml', 'release-fdroid.yml'):
+            code = (ROOT / '.github/workflows' / workflow).read_text(encoding='utf-8')
+            self.assertIn('--require-corpus both', code)
+
     def test_generator_is_deterministic_and_committed_fixtures_are_current(self):
         subprocess.run([sys.executable, 'scripts/generate_weather_regression_corpus.py', '--check'],
                        cwd=ROOT, check=True, capture_output=True, text=True)

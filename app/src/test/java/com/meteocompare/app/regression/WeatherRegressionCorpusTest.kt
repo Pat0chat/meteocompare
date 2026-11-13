@@ -33,6 +33,9 @@ import org.junit.Test
  * Documentation: docs/weather-regression-corpus.md
  */
 class WeatherRegressionCorpusTest {
+    private fun proof(file: String, count: Int, expected: Int, startedAt: Long) =
+        CorpusExecutionProof.completed(file, count, expected, startedAt)
+
     private fun records(file: String): Sequence<Map<String, String>> = sequence {
         val path = "/weather_regression/v1/$file"
         val resource = assertNotNullResource(path)
@@ -59,6 +62,7 @@ class WeatherRegressionCorpusTest {
         this?.takeUnless { it == "_" }?.let(WeatherCondition::valueOf)
 
     @Test fun allWmoCodesMatchReviewedMapping() {
+        val startedAt = System.nanoTime()
         var count = 0
         records("wmo.tsv").forEach { row ->
             count++
@@ -67,9 +71,11 @@ class WeatherRegressionCorpusTest {
         }
         assertTrue("WMO fixture coverage unexpectedly shrank", count >= 110)
         assertEquals(null, WeatherCondition.fromWmoCode(null))
+        proof("wmo.tsv", count, 114, startedAt)
     }
 
     @Test fun exhaustiveCloudLayerAndSolarBoundaryGrid() {
+        val startedAt = System.nanoTime()
         var count = 0
         records("clouds.tsv").forEach { row ->
             count++
@@ -95,9 +101,11 @@ class WeatherRegressionCorpusTest {
             }
         }
         assertTrue("Cloud corpus coverage unexpectedly shrank", count >= 40000)
+        proof("clouds.tsv", count, 40411, startedAt)
     }
 
     @Test fun dailyDominanceUsesPhysicalHoursAcrossZonesAndDst() {
+        val startedAt = System.nanoTime()
         var count = 0
         records("daily.tsv").forEach { row ->
             count++
@@ -153,9 +161,11 @@ class WeatherRegressionCorpusTest {
                 ?.let(DailyConditionProvenance::valueOf), resolved?.provenance)
         }
         assertTrue("Daily corpus coverage unexpectedly shrank", count >= 8000)
+        proof("daily.tsv", count, 8461, startedAt)
     }
 
     @Test fun independentFamilyConsensusAndDryWetTiesMatchGoldenCases() {
+        val startedAt = System.nanoTime()
         var count = 0
         records("consensus.tsv").forEach { row ->
             count++
@@ -175,11 +185,13 @@ class WeatherRegressionCorpusTest {
             assertTrue("${row.getValue("id")} count invariant", actual.modelCount <= models.size)
         }
         assertTrue("Consensus fixture coverage unexpectedly shrank", count >= 600)
+        proof("consensus.tsv", count, 609, startedAt)
     }
 
     @Test fun hourlySunshineRespectsExplicitDurationMissingDataAndDaylight() {
         val origin = Instant.parse("2026-08-24T00:00:00Z")
         val solarWindow = ForecastSolarWindow(origin.plusSeconds(21600), origin.plusSeconds(64800))
+        val startedAt = System.nanoTime()
         var count = 0
         records("sunshine.tsv").forEach { row ->
             count++
@@ -202,6 +214,7 @@ class WeatherRegressionCorpusTest {
             }
         }
         assertTrue("Solar corpus coverage unexpectedly shrank", count >= 2800)
+        proof("sunshine.tsv", count, 2880, startedAt)
     }
 
     @Test fun sunshineConsensusRequiresIndependentModelEvidenceUnderOvercastSky() {
@@ -214,6 +227,7 @@ class WeatherRegressionCorpusTest {
             id = "corpus", name = "Synthetic", admin1 = null, country = "FR",
             latitude = 48.0, longitude = 2.0, timezone = "UTC"
         )
+        val startedAt = System.nanoTime()
         var count = 0
         records("sunshine_consensus.tsv").forEach { row ->
             count++
@@ -246,6 +260,7 @@ class WeatherRegressionCorpusTest {
             }
         }
         assertTrue("Missing independent-family sunshine scenarios", count >= 5_000)
+        proof("sunshine_consensus.tsv", count, 5120, startedAt)
     }
 
     @Test fun weatherWarningsCannotBeErasedByVeiledSky() {

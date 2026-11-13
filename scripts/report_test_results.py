@@ -37,7 +37,13 @@ class Suite:
     warnings: list[str] = field(default_factory=list)
     failures: list[str] = field(default_factory=list)
     methods: dict[str, str] = field(default_factory=dict)
+    # stdout receipts emitted AFTER the exact number of production assertions has passed.
+    receipts: dict[str, list[dict]] = field(default_factory=dict)
 
+
+CORPUS_RECEIPT = re.compile(
+    r'(?m)^METEOCOMPARE_CORPUS_V1 file=([a-z_]+\.tsv) cases=(\d+) elapsed_ms=(\d+)\s*$'
+)
 
 def scan_junit(path: Path) -> Suite:
     result = Suite()
@@ -55,6 +61,24 @@ def scan_junit(path: Path) -> Suite:
         if not cases:
             continue
         result.files += 1
+        # Test stdout is normally attached to <testsuite><system-out> by Gradle;
+        # some JUnit exporters attach it to individual <testcase> nodes instead.
+        classes_in_xml = {
+            (case.attrib.get('classname', '') or root.attrib.get('name', '')).rsplit('.', 1)[-1]
+            for case in cases
+        }
+        for node in root.iter():
+            if node.tag.rsplit('}', 1)[-1] != 'system-out':
+                continue
+            for match in CORPUS_RECEIPT.finditer(node.text or ''):
+                file = match.group(1)
+                klass = CORPUS_CONSUMERS.get(file, (None, None))[0]
+                if klass not in classes_in_xml:
+                    result.warnings.append(f'{xml}: unexpected corpus receipt for {file}')
+                    continue
+                result.receipts.setdefault(file, []).append({
+                    'cases': int(match.group(2)), 'elapsed_ms': int(match.group(3))
+                })
         for case in cases:
             result.total += 1
             method = case.attrib.get('name', '')
@@ -97,7 +121,8 @@ def corpus_status(suite: Suite, counts: dict[str, int]):
     for file, number in counts.items():
         klass, method = CORPUS_CONSUMERS[file]
         state = suite.methods.get(f'{klass}.{method}')
-        if state == 'passed':
+        receipts = suite.receipts.get(file, [])
+        if state == 'passed' and len(receipts) == 1 and receipts[0]['cases'] == number:
             passed += number
         elif state == 'failed':
             failed += number  # cases affected; not individual failing rows
@@ -141,7 +166,7 @@ def md_cell(text):
     return str(text).replace('|', '\\|').replace('\n', ' ')[:260]
 
 
-def render(suites, corpus, python):
+def render(suites, corpus, python, counts=None):
     lines = [
         '## MeteoCompare — bilan des tests', '',
         '| Suite | Réussis | Échecs | Ignorés | Total | État |',
@@ -173,6 +198,19 @@ def render(suites, corpus, python):
         lines.append(f'| {label} | {entry["validated"]:,} | '
                      f'{entry["affected_by_failing_test"]:,} | {entry["not_verified"]:,} | '
                      f'{entry["total"]:,} |'.replace(',', ' '))
+    lines += ['', '**Preuves d’exécution réelles (extraites des sorties JUnit, après les assertions Kotlin)**', '',
+              '| Fichier | Lignes attendues | Debug (durée) | Release (durée) |',
+              '|---|---:|---:|---:|']
+    for file, (klass, method) in CORPUS_CONSUMERS.items():
+        expected = counts[file] if counts is not None else None
+        def proof_cell(variant):
+            suite = suites[variant]
+            receipt = suite.receipts.get(file, [])
+            if (suite.methods.get(f'{klass}.{method}') == 'passed' and len(receipt) == 1
+                    and (expected is None or receipt[0]['cases'] == expected)):
+                return f'{receipt[0]["cases"]:,} lignes / {receipt[0]["elapsed_ms"]} ms'.replace(',', ' ')
+            return 'Non prouvé'
+        lines.append(f'| `{file}` | {expected if expected is not None else "—"} | {proof_cell("debug")} | {proof_cell("release")} |')
     lines += ['', 'Le corpus est exécuté **à l’intérieur** des tests unitaires ; ne pas additionner '
               'ses scénarios aux méthodes JUnit. Les exécutions Debug et Release '
               'sont comptées séparément, même lorsque leurs méthodes sont identiques.',
@@ -200,13 +238,15 @@ def main(argv=None):
     parser.add_argument('--summary', type=Path)
     parser.add_argument('--markdown', type=Path)
     parser.add_argument('--json', type=Path)
+    parser.add_argument('--require-corpus', choices=('debug', 'release', 'both'),
+                        help='Fail CI unless all fixture rows have verified JVM execution receipts')
     args = parser.parse_args(argv)
     counts = read_corpus_manifest(args.manifest)
     suites = {key: scan_junit(path) for key, path in
               [('debug', args.debug), ('release', args.release), ('android', args.android)]}
     corpus = {key: corpus_status(suites[key], counts) for key in ('debug', 'release')}
     python = python_status(args.python_log)
-    markdown = render(suites, corpus, python)
+    markdown = render(suites, corpus, python, counts)
     print(markdown)
     if args.summary:
         args.summary.parent.mkdir(parents=True, exist_ok=True)
@@ -221,7 +261,14 @@ def main(argv=None):
             'unit_debug': asdict(suites['debug']), 'unit_release': asdict(suites['release']),
             'android': asdict(suites['android']), 'corpus': corpus, 'python': python,
         }, ensure_ascii=False, indent=2), encoding='utf-8')
-    return 0  # Gradle/test tasks, not this report generator, determine CI success.
+    if args.require_corpus:
+        variants = ('debug', 'release') if args.require_corpus == 'both' else (args.require_corpus,)
+        for variant in variants:
+            if corpus[variant]['validated'] != corpus[variant]['total']:
+                print(f'CORPUS EXECUTION NOT PROVEN: {variant}: '
+                      f'{corpus[variant]["validated"]}/{corpus[variant]["total"]} verified')
+                return 1
+    return 0
 
 
 if __name__ == '__main__':

@@ -274,3 +274,11 @@ tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
         jvmArgs("--sun-misc-unsafe-memory-access=allow")
     }
 }
+
+// The golden corpus must be EXECUTED on every quality/release run, not just retrieved
+// from a Gradle UP-TO-DATE or build-cache result. This reruns Test tasks while leaving
+// Kotlin compilation and dependencies eligible for normal incremental caching.
+tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
+    outputs.upToDateWhen { false }
+    outputs.doNotCacheIf("Corpus and unit assertions must execute, not replay old XML") { true }
+}

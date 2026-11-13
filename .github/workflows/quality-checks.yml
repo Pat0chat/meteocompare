@@ -67,7 +67,7 @@ jobs:
       - name: Show JVM and corpus test counts
         if: always()
         run: |
-          python3 scripts/report_test_results.py --summary "$GITHUB_STEP_SUMMARY"
+          python3 scripts/report_test_results.py --require-corpus both --summary "$GITHUB_STEP_SUMMARY"
       - name: Preserve JUnit XML for consolidated report
         if: always()
         uses: actions/upload-artifact@v4

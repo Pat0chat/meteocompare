@@ -8,7 +8,7 @@ les validations sur appareil et les comparaisons avec des observations réelles.
 ## Ce qui est réellement couvert
 
 Les fixtures sont dans `app/src/test/resources/weather_regression/v1/`.
-Leur taille est vérifiée à chaque exécution :
+Leur taille est vérifiée exactement dans chaque méthode Kotlin, et un reçu d’exécution horodaté en temps monotone est imprimé après les assertions :
 
 | Famille | Fichier | Cas | Contrat couvert |
 |---|---|---:|---|
@@ -48,6 +48,8 @@ Sur Linux/macOS : remplacer `gradlew.bat` par `./gradlew`.
 les TSV dans les tâches `testDebugUnitTest` / `testReleaseUnitTest` :
 - `WeatherRegressionCorpusTest` (météo et soleil) ;
 - `WidgetRegressionCorpusTest` (géométrie, métriques, cadence).
+
+Le rapport CI **exige un reçu d’exécution portant le nombre exact de lignes** : une méthode verte seule ne suffit plus. Voir `docs/WEATHER_CORPUS_COVERAGE_AUDIT_1_22_0.md` pour la matrice des portions d’application effectivement couvertes.
 
 La validation Android et les tests instrumentés dépendent d'un SDK, d'un
 émulateur et d'une distribution Gradle installés. **Ne jamais considérer

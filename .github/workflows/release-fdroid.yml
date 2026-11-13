@@ -200,7 +200,7 @@ jobs:
       - name: Show JVM and corpus test counts
         if: always()
         run: |
-          python3 scripts/report_test_results.py --python-log python-test-output.log --summary "$GITHUB_STEP_SUMMARY"
+          python3 scripts/report_test_results.py --require-corpus both --python-log python-test-output.log --summary "$GITHUB_STEP_SUMMARY"
 
       - name: Preserve release unit-test XML
         if: always()

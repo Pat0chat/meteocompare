@@ -15,10 +15,12 @@ Un rapport JSON et une version Markdown sont téléchargeables dans les artefact
   de `:app:connectedDebugAndroidTest`.
 - **Corpus** : 74 537 **lignes/scénarios de test**, contenues dans neuf fichiers TSV.
   Ce ne sont **pas** 74 537 méthodes JUnit. Une famille est « validée » uniquement si
-  la méthode de test Kotlin qui a parcouru son fichier TSV a réussi. Le rapport donne
+  la méthode de test Kotlin qui a parcouru son fichier TSV a réussi **et produit un reçu avec le nombre exact de lignes**. Le rapport donne
   ses totaux **pour Debug et pour Release séparément**. Un échec de méthode signifie
   « scénarios affectés », et non que toutes les lignes de ce fichier sont erronées.
 - **Python** : comptes éventuellement extraits du journal `unittest` de la CI qualité.
+
+**Preuve de lecture :** la sortie JUnit XML doit contenir `METEOCOMPARE_CORPUS_V1 file=... cases=... elapsed_ms=...`, émis après le passage des assertions sur chaque ligne. Sans reçu, avec un nombre différent, un reçu dupliqué ou une méthode absente, la famille est « non vérifiée ». La CI exige `--require-corpus both` dans les jobs JVM. Les tâches JVM de test ne sont pas récupérées du cache.
 
 **Aucune donnée absente n'est convertie en succès** : si Gradle, l'émulateur ou un
 job s'interrompt avant l'émission des XML, la suite est marquée « non exécutée ».
@@ -60,3 +62,5 @@ simultanément à jour ce dictionnaire, son oracle/générateur, les tests Kotli
 manifest `app/src/test/resources/weather_regression/v1/manifest.json`.
 Une incohérence de manifest provoque une erreur de génération du rapport au lieu de
 présenter un total trompeur.
+
+Voir aussi `docs/WEATHER_CORPUS_COVERAGE_AUDIT_1_22_0.md` pour les limites de couverture et les durées mesurées.

@@ -3,9 +3,13 @@ package com.meteocompare.app.widget
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import com.meteocompare.app.regression.CorpusExecutionProof
 
 /** Immutable, deterministic reference cases; maintained by scripts/generate_weather_regression_corpus.py. */
 class WidgetRegressionCorpusTest {
+    private fun proof(file: String, count: Int, expected: Int, startedAt: Long) =
+        CorpusExecutionProof.completed(file, count, expected, startedAt)
+
     private fun records(file: String): Sequence<Map<String, String>> = sequence {
         val input = requireNotNull(javaClass.getResourceAsStream("/weather_regression/v1/$file")) {
             "Missing regression fixture: $file"
@@ -22,6 +26,7 @@ class WidgetRegressionCorpusTest {
     }
 
     @Test fun launcherGeometryAndShapeTransitionsMatchGoldenContracts() {
+        val startedAt = System.nanoTime()
         var cases = 0
         records("widget_layout.tsv").forEach { row ->
             cases++
@@ -36,10 +41,12 @@ class WidgetRegressionCorpusTest {
             assertEquals(row.getValue("id"), expected, actual)
         }
         assertTrue("Widget layout cases unexpectedly missing", cases >= 12_000)
+        proof("widget_layout.tsv", cases, 12870, startedAt)
     }
 
     @Test fun responsiveMetricRowsHaveExpectedDensityAndOrder() {
         val canonical = WidgetForecastMetric.entries.toList()
+        val startedAt = System.nanoTime()
         var cases = 0
         records("widget_metrics.tsv").forEach { row ->
             cases++
@@ -60,9 +67,11 @@ class WidgetRegressionCorpusTest {
                 canonical.filter { it in layout.visible })
         }
         assertTrue("Missing responsive metric scenarios", cases >= 1_400)
+        proof("widget_metrics.tsv", cases, 1408, startedAt)
     }
 
     @Test fun refreshTimingAndClockRollbackCannotFreezeTheWidget() {
+        val startedAt = System.nanoTime()
         var cases = 0
         records("widget_refresh.tsv").forEach { row ->
             cases++
@@ -77,6 +86,7 @@ class WidgetRegressionCorpusTest {
         }
         assertTrue("Missing clock and refresh scenarios", cases >= 2_600)
         assertEquals(15 * 60 * 1000L, widgetDispatchIntervalMs())
+        proof("widget_refresh.tsv", cases, 2664, startedAt)
     }
 
     @Test fun refreshReasonSelectionSurvivesMissingAndInvalidStoredValues() {

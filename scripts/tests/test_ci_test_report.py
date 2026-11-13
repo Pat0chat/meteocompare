@@ -13,13 +13,14 @@ sys.modules[spec.name] = report
 spec.loader.exec_module(report)
 
 
-def junit(directory, name, clazz, state='passed'):
+def junit(directory, name, clazz, state='passed', receipt=None):
     directory.mkdir(parents=True, exist_ok=True)
     node = '' if state == 'passed' else ('<skipped/>' if state == 'skipped'
                                         else '<failure message="test failed">stack trace</failure>')
     path = directory / f'TEST-{clazz}.xml'
+    output = f'<system-out>{receipt}</system-out>' if receipt is not None else ''
     path.write_text(f'<testsuite name="{clazz}"><testcase classname="com.test.{clazz}" '
-                    f'name="{name}">{node}</testcase></testsuite>', encoding='utf-8')
+                    f'name="{name}">{node}</testcase>{output}</testsuite>', encoding='utf-8')
 
 
 class GitHubTestSummaryTest(unittest.TestCase):
@@ -45,7 +46,8 @@ class GitHubTestSummaryTest(unittest.TestCase):
 
     def test_passed_scenario_method_counts_fixture_rows_not_single_junit_test(self):
         clazz, method = report.CORPUS_CONSUMERS['clouds.tsv']
-        junit(self.root, method, clazz)
+        junit(self.root, method, clazz, receipt=(
+            f'METEOCOMPARE_CORPUS_V1 file=clouds.tsv cases={self.counts["clouds.tsv"]} elapsed_ms=123'))
         suite = report.scan_junit(self.root)
         self.assertEqual((suite.total,suite.passed), (1,1))
         corpus = report.corpus_status(suite, self.counts)
@@ -88,13 +90,50 @@ class GitHubTestSummaryTest(unittest.TestCase):
             f'<testcase classname="com.test.{klass}" name="{method}" />'
             for klass, method in report.CORPUS_CONSUMERS.values()
         )
+        receipts = ''.join(
+            f'METEOCOMPARE_CORPUS_V1 file={file} cases={self.counts[file]} elapsed_ms=1\n'
+            for file in report.CORPUS_CONSUMERS
+        )
         (self.root / 'TEST-corpus.xml').write_text(
-            f'<testsuite name="corpus">{rows}</testsuite>', encoding='utf-8')
+            f'<testsuite name="corpus">{rows}<system-out>{receipts}</system-out></testsuite>',
+            encoding='utf-8')
         result = report.scan_junit(self.root)
         self.assertEqual((result.total, result.passed), (9, 9))
         corpus = report.corpus_status(result, self.counts)
         self.assertEqual(corpus['validated'], 74537)
         self.assertEqual(corpus['not_verified'], 0)
+
+    def test_passing_junit_without_execution_receipt_proves_zero_scenarios(self):
+        clazz, method = report.CORPUS_CONSUMERS['clouds.tsv']
+        junit(self.root, method, clazz)
+        suite = report.scan_junit(self.root)
+        self.assertEqual(suite.passed, 1)
+        self.assertEqual(report.corpus_status(suite, self.counts)['validated'], 0)
+
+    def test_mismatched_or_duplicate_receipts_cannot_prove_corpus(self):
+        clazz, method = report.CORPUS_CONSUMERS['clouds.tsv']
+        good = f'METEOCOMPARE_CORPUS_V1 file=clouds.tsv cases={self.counts["clouds.tsv"]} elapsed_ms=7'
+        for receipts in (good.replace('cases=40411', 'cases=40410'), good + '\n' + good):
+            with self.subTest(receipts=receipts):
+                junit(self.root, method, clazz, receipt=receipts)
+                suite = report.scan_junit(self.root)
+                self.assertEqual(report.corpus_status(suite, self.counts)['validated'], 0)
+
+    def test_wrong_class_receipt_is_rejected(self):
+        good = f'METEOCOMPARE_CORPUS_V1 file=clouds.tsv cases={self.counts["clouds.tsv"]} elapsed_ms=7'
+        junit(self.root, 'other', 'OtherTest', receipt=good)
+        suite = report.scan_junit(self.root)
+        self.assertEqual(suite.receipts, {})
+        self.assertTrue(suite.warnings)
+
+    def test_required_proof_cli_fails_if_junit_output_is_missing(self):
+        import subprocess
+        repo = Path(__file__).resolve().parents[2]
+        cmd = [sys.executable, 'scripts/report_test_results.py', '--debug',
+               str(self.root / 'missing'), '--require-corpus', 'debug']
+        result = subprocess.run(cmd, cwd=repo, text=True, capture_output=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('CORPUS EXECUTION NOT PROVEN', result.stdout)
 
     def test_instrumented_test_counts_are_read_from_xml(self):
         rows = ('<testcase classname="x.TodaySummaryCardTest" name="cloudTest" />'
