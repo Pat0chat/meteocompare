@@ -1,8 +1,9 @@
 package com.meteocompare.app.ui.enginecomparison
 
+import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasTestTag
-import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -15,6 +16,7 @@ import com.meteocompare.app.domain.usecase.EngineComparisonValues
 import com.meteocompare.app.domain.usecase.EngineDivergence
 import com.meteocompare.app.domain.usecase.EngineDivergenceLevel
 import com.meteocompare.app.ui.theme.MeteoCompareTheme
+import androidx.lifecycle.Lifecycle
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
@@ -23,7 +25,7 @@ import org.junit.Rule
 import org.junit.Test
 
 class EngineComparisonChartUiTest {
-    @get:Rule val composeRule = createComposeRule()
+    @get:Rule val composeRule = createAndroidComposeRule<ComponentActivity>()
 
     private fun state(): EngineComparisonUiState.Loaded = EngineComparisonUiState.Loaded(
         cityName = "Chart demo",
@@ -55,14 +57,28 @@ class EngineComparisonChartUiTest {
     )
 
     private fun render(loaded: EngineComparisonUiState.Loaded = state()) {
+        // Ensure the Android host is attached before installing the composition.
+        // If an AVD loses its window or services, fail at this precondition
+        // rather than reporting a misleading graph/temperature assertion.
+        composeRule.waitUntil(
+            conditionDescription = "Engine comparison host window is attached and resumed",
+            timeoutMillis = 15_000
+        ) {
+            val activity = composeRule.activity
+            activity.window.decorView.isAttachedToWindow &&
+                activity.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
+        }
         composeRule.setContent {
             MeteoCompareTheme { EngineComparisonContent(loaded) }
         }
     }
 
     @Test fun missingTemperatureDoesNotShowMisleadingCurvesOrValues() {
+        // Two days are sufficient to prove that the chart has no valid
+        // temperature maximum. Avoid constructing a ten-day plot just to
+        // assert its empty state on a resource-constrained emulator.
         val allMissing = state().let { loaded ->
-            loaded.copy(days = loaded.days.map { day ->
+            loaded.copy(days = loaded.days.take(2).map { day ->
                 day.copy(byEngine = day.byEngine.mapValues { (_, values) ->
                     values.copy(tempMax = null)
                 })
@@ -77,6 +93,7 @@ class EngineComparisonChartUiTest {
             )
         ).assertExists()
         composeRule.onNodeWithTag(TAG_ENGINE_CHART_INSPECTOR).assertDoesNotExist()
+        composeRule.onNodeWithTag(TAG_ENGINE_CHART_SCROLL).assertDoesNotExist()
     }
 
     @Test fun variablesLiveInOneHorizontalSelectorAndCanBeChanged() {

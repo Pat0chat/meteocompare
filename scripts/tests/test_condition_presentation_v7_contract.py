@@ -35,11 +35,20 @@ class ConditionPresentationV7Contract(unittest.TestCase):
         self.assertEqual(1, compact.count('Surface('))
         self.assertIn('color = MaterialTheme.colorScheme.surfaceContainer', compact)
 
-    def test_mini_forecast_android_test_imports_compose_text_finder(self):
+    def test_mini_forecast_android_test_awaits_attached_host_and_keeps_unavailable_visible(self):
         code = (ROOT / 'app/src/androidTest/java/com/meteocompare/app/ui/citylist/'
                 'MiniForecastStripTest.kt').read_text(encoding='utf-8')
-        self.assertIn('import androidx.compose.ui.test.onNodeWithText', code)
-        self.assertIn('composeRule.onNodeWithText(', code)
+        self.assertIn('createAndroidComposeRule<ComponentActivity>()', code)
+        self.assertIn('activity.window.decorView.isAttachedToWindow', code)
+        self.assertIn('Lifecycle.State.RESUMED', code)
+        self.assertIn('R.string.condition_status_unavailable', code)
+        self.assertNotIn('runWithoutImplicitWait', code)
+        self.assertNotIn('mainClock.autoAdvance = false', code)
+        # The dialog's localized explanation is tested by the dedicated component
+        # test, not in the heavy 24-hour strip integration fixture.
+        explanation = (ROOT / 'app/src/androidTest/java/com/meteocompare/app/ui/components/'
+                       'ConditionStatusIconTest.kt').read_text(encoding='utf-8')
+        self.assertIn('missing_condition_without_decision_is_explained_as_unavailable', explanation)
 
     def test_timeline_legend_is_below_convergence_explanation(self):
         source = (SRC / 'citydetail/SimplifiedTimeline.kt').read_text(encoding='utf-8')
